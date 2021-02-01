@@ -26,10 +26,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libqasan.h"
 #include <ctype.h>
 
-void* __libqasan_memcpy(void* dest, const void* src, size_t n) {
+void *__libqasan_memcpy(void *dest, const void *src, size_t n) {
 
-  unsigned char*       d = dest;
-  const unsigned char* s = src;
+  unsigned char *      d = dest;
+  const unsigned char *s = src;
 
   if (!n) return dest;
 
@@ -45,10 +45,10 @@ void* __libqasan_memcpy(void* dest, const void* src, size_t n) {
 
 }
 
-void* __libqasan_memmove(void* dest, const void* src, size_t n) {
+void *__libqasan_memmove(void *dest, const void *src, size_t n) {
 
-  unsigned char*       d = dest;
-  const unsigned char* s = src;
+  unsigned char *      d = dest;
+  const unsigned char *s = src;
 
   if (!n) return dest;
 
@@ -65,18 +65,18 @@ void* __libqasan_memmove(void* dest, const void* src, size_t n) {
 
 }
 
-void* __libqasan_memset(void* s, int c, size_t n) {
+void *__libqasan_memset(void *s, int c, size_t n) {
 
-  unsigned char* b = s;
+  unsigned char *b = s;
   while (n--)
     *(b++) = (unsigned char)c;
   return s;
 
 }
 
-void* __libqasan_memchr(const void* s, int c, size_t n) {
+void *__libqasan_memchr(const void *s, int c, size_t n) {
 
-  unsigned char* m = (unsigned char*)s;
+  unsigned char *m = (unsigned char *)s;
   size_t         i;
   for (i = 0; i < n; ++i)
     if (m[i] == (unsigned char)c) return &m[i];
@@ -84,9 +84,9 @@ void* __libqasan_memchr(const void* s, int c, size_t n) {
 
 }
 
-void* __libqasan_memrchr(const void* s, int c, size_t n) {
+void *__libqasan_memrchr(const void *s, int c, size_t n) {
 
-  unsigned char* m = (unsigned char*)s;
+  unsigned char *m = (unsigned char *)s;
   long           i;
   for (i = n; i >= 0; --i)
     if (m[i] == (unsigned char)c) return &m[i];
@@ -94,16 +94,16 @@ void* __libqasan_memrchr(const void* s, int c, size_t n) {
 
 }
 
-size_t __libqasan_strlen(const char* s) {
+size_t __libqasan_strlen(const char *s) {
 
-  const char* i = s;
+  const char *i = s;
   while (*(i++))
     ;
   return i - s - 1;
 
 }
 
-size_t __libqasan_strnlen(const char* s, size_t len) {
+size_t __libqasan_strnlen(const char *s, size_t len) {
 
   size_t r = 0;
   while (len-- && *(s++))
@@ -112,7 +112,7 @@ size_t __libqasan_strnlen(const char* s, size_t len) {
 
 }
 
-int __libqasan_strcmp(const char* str1, const char* str2) {
+int __libqasan_strcmp(const char *str1, const char *str2) {
 
   while (1) {
 
@@ -129,7 +129,7 @@ int __libqasan_strcmp(const char* str1, const char* str2) {
 
 }
 
-int __libqasan_strncmp(const char* str1, const char* str2, size_t len) {
+int __libqasan_strncmp(const char *str1, const char *str2, size_t len) {
 
   while (len--) {
 
@@ -146,7 +146,7 @@ int __libqasan_strncmp(const char* str1, const char* str2, size_t len) {
 
 }
 
-int __libqasan_strcasecmp(const char* str1, const char* str2) {
+int __libqasan_strcasecmp(const char *str1, const char *str2) {
 
   while (1) {
 
@@ -163,7 +163,7 @@ int __libqasan_strcasecmp(const char* str1, const char* str2) {
 
 }
 
-int __libqasan_strncasecmp(const char* str1, const char* str2, size_t len) {
+int __libqasan_strncasecmp(const char *str1, const char *str2, size_t len) {
 
   while (len--) {
 
@@ -180,10 +180,10 @@ int __libqasan_strncasecmp(const char* str1, const char* str2, size_t len) {
 
 }
 
-int __libqasan_memcmp(const void* mem1, const void* mem2, size_t len) {
+int __libqasan_memcmp(const void *mem1, const void *mem2, size_t len) {
 
-  const char* strmem1 = (const char*)mem1;
-  const char* strmem2 = (const char*)mem2;
+  const char *strmem1 = (const char *)mem1;
+  const char *strmem2 = (const char *)mem2;
 
   while (len--) {
 
@@ -198,10 +198,10 @@ int __libqasan_memcmp(const void* mem1, const void* mem2, size_t len) {
 
 }
 
-int __libqasan_bcmp(const void* mem1, const void* mem2, size_t len) {
+int __libqasan_bcmp(const void *mem1, const void *mem2, size_t len) {
 
-  const char* strmem1 = (const char*)mem1;
-  const char* strmem2 = (const char*)mem2;
+  const char *strmem1 = (const char *)mem1;
+  const char *strmem2 = (const char *)mem2;
 
   while (len--) {
 
@@ -216,17 +216,17 @@ int __libqasan_bcmp(const void* mem1, const void* mem2, size_t len) {
 
 }
 
-char* __libqasan_strstr(const char* haystack, const char* needle) {
+char *__libqasan_strstr(const char *haystack, const char *needle) {
 
   do {
 
-    const char* n = needle;
-    const char* h = haystack;
+    const char *n = needle;
+    const char *h = haystack;
 
     while (*n && *h && *n == *h)
       n++, h++;
 
-    if (!*n) return (char*)haystack;
+    if (!*n) return (char *)haystack;
 
   } while (*(haystack++));
 
@@ -234,17 +234,17 @@ char* __libqasan_strstr(const char* haystack, const char* needle) {
 
 }
 
-char* __libqasan_strcasestr(const char* haystack, const char* needle) {
+char *__libqasan_strcasestr(const char *haystack, const char *needle) {
 
   do {
 
-    const char* n = needle;
-    const char* h = haystack;
+    const char *n = needle;
+    const char *h = haystack;
 
     while (*n && *h && tolower(*n) == tolower(*h))
       n++, h++;
 
-    if (!*n) return (char*)haystack;
+    if (!*n) return (char *)haystack;
 
   } while (*(haystack++));
 
@@ -252,22 +252,22 @@ char* __libqasan_strcasestr(const char* haystack, const char* needle) {
 
 }
 
-void* __libqasan_memmem(const void* haystack, size_t haystack_len,
-                        const void* needle, size_t needle_len) {
+void *__libqasan_memmem(const void *haystack, size_t haystack_len,
+                        const void *needle, size_t needle_len) {
 
-  const char* n = (const char*)needle;
-  const char* h = (const char*)haystack;
+  const char *n = (const char *)needle;
+  const char *h = (const char *)haystack;
   if (haystack_len < needle_len) return 0;
-  if (needle_len == 0) return (void*)haystack;
+  if (needle_len == 0) return (void *)haystack;
   if (needle_len == 1) return memchr(haystack, *n, haystack_len);
 
-  const char* end = h + (haystack_len - needle_len);
+  const char *end = h + (haystack_len - needle_len);
 
   do {
 
     if (*h == *n) {
 
-      if (memcmp(h, n, needle_len) == 0) return (void*)h;
+      if (memcmp(h, n, needle_len) == 0) return (void *)h;
 
     }
 
@@ -277,26 +277,26 @@ void* __libqasan_memmem(const void* haystack, size_t haystack_len,
 
 }
 
-char* __libqasan_strchr(const char* s, int c) {
+char *__libqasan_strchr(const char *s, int c) {
 
   while (*s != (char)c)
     if (!*s++) return 0;
-  return (char*)s;
+  return (char *)s;
 
 }
 
-char* __libqasan_strrchr(const char* s, int c) {
+char *__libqasan_strrchr(const char *s, int c) {
 
-  char* r = NULL;
+  char *r = NULL;
   do
-    if (*s == (char)c) r = (char*)s;
+    if (*s == (char)c) r = (char *)s;
   while (*s++);
 
   return r;
 
 }
 
-size_t __libqasan_wcslen(const wchar_t* s) {
+size_t __libqasan_wcslen(const wchar_t *s) {
 
   size_t len = 0;
 
@@ -313,16 +313,16 @@ size_t __libqasan_wcslen(const wchar_t* s) {
 
 }
 
-wchar_t* __libqasan_wcscpy(wchar_t* d, const wchar_t* s) {
+wchar_t *__libqasan_wcscpy(wchar_t *d, const wchar_t *s) {
 
-  wchar_t* a = d;
+  wchar_t *a = d;
   while ((*d++ = *s++))
     ;
   return a;
 
 }
 
-int __libqasan_wcscmp(const wchar_t* s1, const wchar_t* s2) {
+int __libqasan_wcscmp(const wchar_t *s1, const wchar_t *s2) {
 
   wchar_t c1, c2;
   do {
