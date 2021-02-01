@@ -29,11 +29,9 @@
 #include "cmplog.h"
 
 //#define _DEBUG
-#define COMBINE
 //#define CMPLOG_INTROSPECTION
+#define COMBINE
 #define ARITHMETIC_LESSER_GREATER
-//#define TRANSFORM
-//#define TRANSFORM_BASE64
 
 // CMP attribute enum
 enum {
@@ -423,8 +421,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   if (taint) {
 
-    if (len / positions == 1 && positions > 16384 &&
-        afl->active_paths / afl->colorize_success > 20) {
+    if (len / positions == 1 && positions > CMPLOG_POSITIONS_MAX &&
+        afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT) {
 
 #ifdef _DEBUG
       fprintf(stderr, "Colorization unsatisfactory\n");
@@ -498,7 +496,7 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
 }
 
-#ifdef TRANSFORM
+#ifdef CMPLOG_TRANSFORM
 static int strntoll(const char *str, size_t sz, char **end, int base,
                     long long *out) {
 
@@ -579,7 +577,7 @@ static int is_hex(const char *str) {
 
 }
 
-  #ifdef TRANSFORM_BASE64
+  #ifdef CMPLOG_TRANSFORM_BASE64
 // tests 4 bytes at location
 static int is_base64(const char *str) {
 
@@ -719,7 +717,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //         o_pattern, pattern, repl, changed_val, idx, taint_len,
   //         h->shape + 1, attr);
 
-#ifdef TRANSFORM
+#ifdef CMPLOG_TRANSFORM
   // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (lvl & LVL3) {
 
@@ -1783,7 +1781,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 #ifndef COMBINE
   (void)(cbuf);
 #endif
-#ifndef TRANSFORM
+#ifndef CMPLOG_TRANSFORM
   (void)(changed_val);
 #endif
 
@@ -1865,14 +1863,14 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
   }
 
-#ifdef TRANSFORM
+#ifdef CMPLOG_TRANSFORM
 
   if (*status == 1) return 0;
 
   if (lvl & LVL3) {
 
     u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, fromhex = 0;
-  #ifdef TRANSFORM_BASE64
+  #ifdef CMPLOG_TRANSFORM_BASE64
     u32 tob64 = 0, fromb64 = 0;
   #endif
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
@@ -1970,7 +1968,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       }
 
-  #ifdef TRANSFORM_BASE64
+  #ifdef CMPLOG_TRANSFORM_BASE64
       if (i % 3 == 2 && i < 24) {
 
         if (is_base64(repl + ((i / 3) << 2))) tob64 += 3;
@@ -2018,13 +2016,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
               "from_0=%u from_slash=%u from_x=%u\n",
               idx, i, xor, arith, tolower, toupper, tohex, fromhex, to_0,
               to_slash, to_x, from_0, from_slash, from_x);
-    #ifdef TRANSFORM_BASE64
+    #ifdef CMPLOG_TRANSFORM_BASE64
       fprintf(stderr, "RTN idx=%u loop=%u tob64=%u from64=%u\n", tob64,
               fromb64);
     #endif
   #endif
 
-  #ifdef TRANSFORM_BASE64
+  #ifdef CMPLOG_TRANSFORM_BASE64
       // input is base64 and converted to binary? convert repl to base64!
       if ((i % 4) == 3 && i < 24 && fromb64 > i) {
 
@@ -2183,7 +2181,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
       if ((i >= 7 &&
            (i >= xor&&i >= arith &&i >= tolower &&i >= toupper &&i > tohex &&i >
                 (fromhex + from_0 + from_x + from_slash + 1)
-  #ifdef TRANSFORM_BASE64
+  #ifdef CMPLOG_TRANSFORM_BASE64
             && i > tob64 + 3 && i > fromb64 + 4
   #endif
             )) ||
@@ -2518,7 +2516,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     } else if ((lvl & LVL1)
 
-#ifdef TRANSFORM
+#ifdef CMPLOG_TRANSFORM
                || (lvl & LVL3)
 #endif
     ) {
