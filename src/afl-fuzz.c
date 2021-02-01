@@ -1779,6 +1779,7 @@ printf("NEW MAP SIZE2 %u (is %u)\n", new_map_size, map_size);
               break;
             case 1:
               // add MOpt mutator
+              /*
               if (afl->limit_time_sig == 0 && !afl->custom_only &&
                   !afl->python_only) {
 
@@ -1786,12 +1787,11 @@ printf("NEW MAP SIZE2 %u (is %u)\n", new_map_size, map_size);
                 afl->limit_time_puppet = 0;
 
               }
-
+              */
               afl->expand_havoc = 2;
-              if (afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
+              if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
               break;
             case 2:
-              // if (!have_p) afl->schedule = EXPLOIT;
               // increase havoc mutations per fuzz attempt
               afl->havoc_stack_pow2++;
               afl->expand_havoc = 3;
@@ -1803,11 +1803,11 @@ printf("NEW MAP SIZE2 %u (is %u)\n", new_map_size, map_size);
               break;
             case 4:
               afl->expand_havoc = 5;
-              if (afl->cmplog_lvl < 3) afl->cmplog_lvl = 3;
+              if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl = 3;
               break;
             case 5:
               // if not in sync mode, enable deterministic mode?
-              if (!afl->sync_id) afl->skip_deterministic = 0;
+              //if (!afl->sync_id) afl->skip_deterministic = 0;
               afl->expand_havoc = 6;
             case 6:
               // nothing else currently
