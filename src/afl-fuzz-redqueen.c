@@ -379,8 +379,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   }
 
-  *taints = taint;
-
   /* temporary: clean ranges */
   while (ranges) {
 
@@ -422,6 +420,35 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   }
 
 #endif
+
+  if (taint) {
+
+    if (len / positions == 1 && positions > 16384 &&
+        afl->active_paths / afl->colorize_success > 20) {
+
+#ifdef _DEBUG
+      fprintf(stderr, "Colorization unsatisfactory\n");
+#endif
+
+      *taints = NULL;
+
+      struct tainted *t;
+      while (taint) {
+
+        t = taint->next;
+        ck_free(taint);
+        taint = t;
+
+      }
+
+    } else {
+
+      *taints = taint;
+      ++afl->colorize_success;
+
+    }
+
+  }
 
   afl->stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_COLORIZATION] += afl->stage_cur;
