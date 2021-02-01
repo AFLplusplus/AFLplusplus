@@ -51,7 +51,7 @@ enum {
 enum {
 
   LVL1 = 1,  // Integer solving
-  LVL2 = 2,  // FP solving
+  LVL2 = 2,  // unused except for setting the queue entry
   LVL3 = 4   // expensive tranformations
 
 };
@@ -986,11 +986,10 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
 #endif
 
-  // we only allow this for ascii2integer (above)
+  // we only allow this for ascii2integer (above) so leave if this is the case
   if (unlikely(pattern == o_pattern)) { return 0; }
 
-  if ((lvl & LVL1) || ((lvl & LVL2) && (attr >= IS_FP && attr < IS_FP_MOD)) ||
-      attr >= IS_FP_MOD) {
+  if ((lvl & LVL1) || attr >= IS_FP_MOD) {
 
     if (SHAPE_BYTES(h->shape) >= 8 && *status != 1) {
 
@@ -1498,9 +1497,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u32 lvl, struct tainted *taint) {
 
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  // FP handling only from lvl 2 onwards
-  if ((h->attribute & IS_FP) && lvl < LVL2) { return 0; }
-
   struct tainted *t;
   u32             i, j, idx, taint_len, loggeds;
   u32             have_taint = 1, is_n = 0;
@@ -2443,21 +2439,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_max = 0;
   afl->stage_cur = 0;
 
-  u32 lvl;
-  u32 cmplog_done = afl->queue_cur->colorized;
-  u32 cmplog_lvl = afl->cmplog_lvl;
-  if (!cmplog_done) {
-
-    lvl = LVL1;
-
-  } else {
-
-    lvl = 0;
-
-  }
-
-  if (cmplog_lvl >= 2 && cmplog_done < 2) { lvl += LVL2; }
-  if (cmplog_lvl >= 3 && cmplog_done < 3) { lvl += LVL3; }
+  u32 lvl = (afl->queue_cur->colorized ? 0 : LVL1) + (afl->cmplog_lvl == CMPLOG_LVL_MAX ? LVL3 : 0);
 
 #ifdef COMBINE
   u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
@@ -2473,8 +2455,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 
-    if (afl->pass_stats[k].faileds >= 0x69 ||
-        afl->pass_stats[k].total >= 0x69) {
+    if (afl->pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
+        afl->pass_stats[k].total >= CMPLOG_FAIL_MAX) {
 
 #ifdef _DEBUG
       fprintf(stderr, "DISABLED %u\n", k);
@@ -2542,9 +2524,10 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
 exit_its:
 
-  afl->queue_cur->colorized = afl->cmplog_lvl;
   if (afl->cmplog_lvl == CMPLOG_LVL_MAX) {
 
+    afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+  
     ck_free(afl->queue_cur->cmplog_colorinput);
     t = taint;
     while (taint) {
@@ -2558,6 +2541,8 @@ exit_its:
     afl->queue_cur->taint = NULL;
 
   } else {
+
+    afl->queue_cur->colorized = LVL2;
 
     if (!afl->queue_cur->taint) { afl->queue_cur->taint = taint; }
 
