@@ -1069,7 +1069,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   u32 save_be_quiet = be_quiet;
-  be_quiet = debug;
+  be_quiet = !debug;
   fsrv->map_size = 4194304;  // dummy temporary value
   u32 new_map_size = afl_fsrv_get_mapsize(
       fsrv, use_argv, &stop_soon,
