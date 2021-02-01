@@ -28,12 +28,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef __x86_64__
 
-uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
+uint8_t *__libqasan_patch_jump(uint8_t *addr, uint8_t *dest) {
 
   // mov rax, dest
   addr[0] = 0x48;
   addr[1] = 0xb8;
-  *(uint8_t**)&addr[2] = dest;
+  *(uint8_t **)&addr[2] = dest;
 
   // jmp rax
   addr[10] = 0xff;
@@ -45,11 +45,11 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
 
 #elif __i386__
 
-uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
+uint8_t *__libqasan_patch_jump(uint8_t *addr, uint8_t *dest) {
 
   // mov eax, dest
   addr[0] = 0xb8;
-  *(uint8_t**)&addr[1] = dest;
+  *(uint8_t **)&addr[1] = dest;
 
   // jmp eax
   addr[5] = 0xff;
@@ -64,7 +64,7 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
 // in ARM, r12 is a scratch register used by the linker to jump,
 // so let's use it in our stub
 
-uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
+uint8_t *__libqasan_patch_jump(uint8_t *addr, uint8_t *dest) {
 
   // ldr r12, OFF
   addr[0] = 0x0;
@@ -79,7 +79,7 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
   addr[7] = 0xe0;
 
   // OFF: .word dest
-  *(uint32_t*)&addr[8] = (uint32_t)dest;
+  *(uint32_t *)&addr[8] = (uint32_t)dest;
 
   return &addr[12];
 
@@ -90,7 +90,7 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
 // in ARM64, x16 is a scratch register used by the linker to jump,
 // so let's use it in our stub
 
-uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
+uint8_t *__libqasan_patch_jump(uint8_t *addr, uint8_t *dest) {
 
   // ldr x16, OFF
   addr[0] = 0x50;
@@ -105,7 +105,7 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
   addr[7] = 0xd6;
 
   // OFF: .dword dest
-  *(uint64_t*)&addr[8] = (uint64_t)dest;
+  *(uint64_t *)&addr[8] = (uint64_t)dest;
 
   return &addr[16];
 
@@ -113,7 +113,7 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
 
 #else
 
-#define CANNOT_HOTPATCH
+  #define CANNOT_HOTPATCH
 
 #endif
 
@@ -130,8 +130,8 @@ int          libc_perms;
 
 static void find_libc(void) {
 
-  FILE*   fp;
-  char*   line = NULL;
+  FILE *  fp;
+  char *  line = NULL;
   size_t  len = 0;
   ssize_t read;
 
@@ -156,8 +156,8 @@ static void find_libc(void) {
     if (flag_x == 'x' && (__libqasan_strstr(path, "/libc.so") ||
                           __libqasan_strstr(path, "/libc-"))) {
 
-      libc_start = (void*)min;
-      libc_end = (void*)max;
+      libc_start = (void *)min;
+      libc_end = (void *)max;
 
       libc_perms = PROT_EXEC;
       if (flag_w == 'w') libc_perms |= PROT_WRITE;
@@ -190,30 +190,30 @@ void __libqasan_hotpatch(void) {
                PROT_READ | PROT_WRITE | PROT_EXEC) < 0)
     return;
 
-  void* libc = dlopen("libc.so.6", RTLD_LAZY);
+  void *libc = dlopen("libc.so.6", RTLD_LAZY);
 
-#define HOTPATCH(fn)                            \
-  uint8_t* p_##fn = (uint8_t*)dlsym(libc, #fn); \
-  if (p_##fn) __libqasan_patch_jump(p_##fn, (uint8_t*)&(fn));
+  #define HOTPATCH(fn)                             \
+    uint8_t *p_##fn = (uint8_t *)dlsym(libc, #fn); \
+    if (p_##fn) __libqasan_patch_jump(p_##fn, (uint8_t *)&(fn));
 
   HOTPATCH(memcmp)
   HOTPATCH(memmove)
 
-  uint8_t* p_memcpy = (uint8_t*)dlsym(libc, "memcpy");
+  uint8_t *p_memcpy = (uint8_t *)dlsym(libc, "memcpy");
   // fuck you libc
   if (p_memcpy && p_memmove != p_memcpy)
-    __libqasan_patch_jump(p_memcpy, (uint8_t*)&memcpy);
+    __libqasan_patch_jump(p_memcpy, (uint8_t *)&memcpy);
 
   HOTPATCH(memchr)
   HOTPATCH(memrchr)
   HOTPATCH(memmem)
-#ifndef __BIONIC__
+  #ifndef __BIONIC__
   HOTPATCH(bzero)
   HOTPATCH(explicit_bzero)
   HOTPATCH(mempcpy)
   HOTPATCH(bcmp)
-#endif
-  
+  #endif
+
   HOTPATCH(strchr)
   HOTPATCH(strrchr)
   HOTPATCH(strcasecmp)
@@ -233,7 +233,7 @@ void __libqasan_hotpatch(void) {
   HOTPATCH(wcscpy)
   HOTPATCH(wcscmp)
 
-#undef HOTPATCH
+  #undef HOTPATCH
 
   mprotect(libc_start, libc_end - libc_start, libc_perms);
 

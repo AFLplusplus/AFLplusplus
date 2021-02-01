@@ -306,6 +306,7 @@ void bzero(void *s, size_t n) {
   __libqasan_memset(s, 0, n);
 
 }
+
 #endif
 
 void explicit_bzero(void *s, size_t n) {
