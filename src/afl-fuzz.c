@@ -1596,7 +1596,6 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 new_map_size =
         afl_fsrv_get_mapsize(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                              afl->afl_env.afl_debug_child);
-printf("NEW MAP SIZE2 %u (is %u)\n", new_map_size, map_size);
 
     if (new_map_size && new_map_size != 4194304) {
 
