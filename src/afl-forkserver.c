@@ -682,11 +682,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
-        if (ignore_autodict) {
-
-          if (!be_quiet) { WARNF("Ignoring offered AUTODICT feature."); }
-
-        } else {
+        if (!ignore_autodict) {
 
           if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
 
@@ -969,7 +965,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 }
 
-static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
+/* Stop the forkserver and child */
+
+void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
   if (fsrv->fsrv_pid > 0) {
@@ -979,13 +977,28 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   }
 
+  close(fsrv->fsrv_ctl_fd);
+  close(fsrv->fsrv_st_fd);
+  fsrv->fsrv_pid = -1;
+  fsrv->child_pid = -1;
+
+}
+
+/* Get the map size from the target forkserver */
+
+u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
+                         volatile u8 *stop_soon_p, u8 debug_child_output) {
+
+  afl_fsrv_start(fsrv, argv, stop_soon_p, debug_child_output);
+  return fsrv->map_size;
+
 }
 
 /* Delete the current testcase and write the buf to the testcase file */
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (fsrv->shmem_fuzz) {
+  if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
 
@@ -1042,6 +1055,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     }
 
+    // fprintf(stderr, "WRITE %d %u\n", fd, len);
     ck_write(fd, buf, len, fsrv->out_file);
 
     if (fsrv->use_stdin) {

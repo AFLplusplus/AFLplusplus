@@ -766,13 +766,16 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
     }
 
-    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+    /*
+        if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+          u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size,
+       HASH_CONST); afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+          afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
 
-    }
+        }
+
+    */
 
   }
 
@@ -2490,6 +2493,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
   u8 *map = afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  afl->shm_fuzz->shmemfuzz_mode = 1;
 
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 

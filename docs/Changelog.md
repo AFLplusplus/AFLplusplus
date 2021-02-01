@@ -16,6 +16,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     to be placed in the source code.
     Check out instrumentation/README.instrument_list.md
   - afl-fuzz
+    - Making AFL_MAP_SIZE obsolete - afl-fuzz now learns on start the
+      target map size
     - upgraded cmplog/redqueen: solving for floating point, solving
       transformations (e.g. toupper, tolower, to/from hex, xor,
       arithmetics, etc.). this is costly hence new command line option

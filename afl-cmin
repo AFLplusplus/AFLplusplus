@@ -343,7 +343,7 @@ BEGIN {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
   cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -k1n -k2r"
-  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format") | sort -k1n -k2r"
+  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
   while (cmdline | getline) {
     sub(/^[0-9]+ (\.\/)?/,"",$0)
     infilesSmallToBig[i++] = $0
@@ -355,7 +355,7 @@ BEGIN {
   # Make sure that we're not dealing with a directory.
 
   if (0 == system("test -d "in_dir"/"first_file)) {
-    print "[-] Error: The input directory contains subdirectories - please fix." > "/dev/stderr"
+    print "[-] Error: The input directory is empty or contains subdirectories - please fix." > "/dev/stderr"
     exit 1
   }
 

@@ -32,13 +32,16 @@ int main(int argc, char **argv) {
 
   } else {
 
-    if (argc >= 3 && strcmp(argv[1], "-f") == 0)
+    if (argc >= 3 && strcmp(argv[1], "-f") == 0) {
+
       if ((fd = open(argv[2], O_RDONLY)) < 0) {
 
         fprintf(stderr, "Error: unable to open %s\n", argv[2]);
         exit(-1);
 
       }
+
+    }
 
     if (read(fd, buf, sizeof(buf)) < 1) {
 
