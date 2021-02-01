@@ -1169,7 +1169,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (getenv("AFL_DEBUG")) {
 
-    fprintf(stderr, "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges)\n",
+    fprintf(stderr,
+            "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges)\n",
             start, stop, stop - start);
 
   }
@@ -1448,45 +1449,38 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 #endif
 
-#if defined(__APPLE__)
-  #pragma weak __sanitizer_cov_trace_const_cmp1 = __cmplog_ins_hook1
-  #pragma weak __sanitizer_cov_trace_const_cmp2 = __cmplog_ins_hook2
-  #pragma weak __sanitizer_cov_trace_const_cmp4 = __cmplog_ins_hook4
-  #pragma weak __sanitizer_cov_trace_const_cmp8 = __cmplog_ins_hook8
-  #pragma weak __sanitizer_cov_trace_const_cmp16 = __cmplog_ins_hook16
+void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  #pragma weak __sanitizer_cov_trace_cmp1 = __cmplog_ins_hook1
-  #pragma weak __sanitizer_cov_trace_cmp2 = __cmplog_ins_hook2
-  #pragma weak __sanitizer_cov_trace_cmp4 = __cmplog_ins_hook4
-  #pragma weak __sanitizer_cov_trace_cmp8 = __cmplog_ins_hook8
-  #pragma weak __sanitizer_cov_trace_cmp16 = __cmplog_ins_hook16
-#else
-void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2)
-    __attribute__((alias("__cmplog_ins_hook1")));
-void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2)
-    __attribute__((alias("__cmplog_ins_hook2")));
-void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2)
-    __attribute__((alias("__cmplog_ins_hook4")));
-void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2)
-    __attribute__((alias("__cmplog_ins_hook8")));
-  #ifdef WORD_SIZE_64
-void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2)
-    __attribute__((alias("__cmplog_ins_hook16")));
-  #endif
+  __cmplog_ins_hook1(arg1, arg2, 0);
 
-void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2)
-    __attribute__((alias("__cmplog_ins_hook1")));
-void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2)
-    __attribute__((alias("__cmplog_ins_hook2")));
-void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2)
-    __attribute__((alias("__cmplog_ins_hook4")));
-void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2)
-    __attribute__((alias("__cmplog_ins_hook8")));
-  #ifdef WORD_SIZE_64
-void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2)
-    __attribute__((alias("__cmplog_ins_hook16")));
-  #endif
-#endif                                                /* defined(__APPLE__) */
+}
+
+void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
+
+  __cmplog_ins_hook2(arg1, arg2, 0);
+
+}
+
+void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
+
+  __cmplog_ins_hook4(arg1, arg2, 0);
+
+}
+
+void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
+
+  __cmplog_ins_hook8(arg1, arg2, 0);
+
+}
+
+#ifdef WORD_SIZE_64
+void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
+
+  __cmplog_ins_hook16(arg1, arg2, 0);
+
+}
+
+#endif
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 

@@ -277,8 +277,12 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       if (max_size % 8) {
 
-        max_size = (((max_size / 8) + 1) * 8);
-        do_cast = 1;
+        // bitcast from i6 to i8 panics llvm, so ...
+        continue;
+        /*
+                max_size = (((max_size / 8) + 1) * 8);
+                do_cast = 1;
+        */
 
       }
 
