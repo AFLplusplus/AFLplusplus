@@ -313,7 +313,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
-     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0;
+     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
+     have_c = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
@@ -461,7 +462,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     // laf
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
@@ -481,7 +482,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_TRANSFORM_COMPARES") ||
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/compare-transform-pass.so", obj_path);
@@ -501,7 +502,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/split-compares-pass.so", obj_path);
@@ -524,7 +525,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     unsetenv("AFL_LD_CALLER");
     if (cmplog_mode) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
@@ -560,7 +561,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if (lto_mode) {
+    if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
       if (!*ld_path) ld_path = "ld.lld";
@@ -708,6 +709,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "-c")) have_c = 1;
 
     if (!strncmp(cur, "-O", 2)) have_o = 1;
     if (!strncmp(cur, "-funroll-loop", 13)) have_unroll = 1;
@@ -800,7 +802,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #if defined(USEMMAP) && !defined(__HAIKU__)
-  cc_params[cc_par_cnt++] = "-lrt";
+  if (!have_c)
+    cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -967,14 +970,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking)
+    if (!shared_linking && !have_c)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
   #if defined(USEMMAP) && !defined(__HAIKU__)
-    cc_params[cc_par_cnt++] = "-lrt";
+    if (!have_c)
+      cc_params[cc_par_cnt++] = "-lrt";
   #endif
+
+   // prevent unnecessary build errors
+   cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
   }
 
