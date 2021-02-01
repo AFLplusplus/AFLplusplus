@@ -1005,9 +1005,9 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
       if ((callInst = dyn_cast<CallInst>(&IN))) {
 
         Function *Callee = callInst->getCalledFunction();
-        StringRef FuncName = Callee->getName();
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        StringRef FuncName = Callee->getName();
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
         uint32_t id = 1 + instr + (uint32_t)AllBlocks.size() + special++;
