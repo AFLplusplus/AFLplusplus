@@ -1169,8 +1169,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (getenv("AFL_DEBUG")) {
 
-    fprintf(stderr, "Running __sanitizer_cov_trace_pc_guard_init: %p-%p\n",
-            start, stop);
+    fprintf(stderr, "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges)\n",
+            start, stop, stop - start);
 
   }
 
