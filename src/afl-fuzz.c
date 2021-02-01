@@ -123,7 +123,8 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU, just use -c 0.\n"
       "  -l cmplog_level - set the complexity/intensivity of CmpLog.\n"
-      "                  Values: 1 (basic), 2 (larger files) and 3 (transform)\n\n"
+      "                  Values: 1 (basic), 2 (larger files) and 3 "
+      "(transform)\n\n"
 
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
@@ -1556,17 +1557,19 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
         afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
         afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-        afl->top_rated = ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+        afl->top_rated =
+            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
         afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-        afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, new_map_size);
+        afl->clean_trace_custom =
+            ck_realloc(afl->clean_trace_custom, new_map_size);
         afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
         afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
 
         afl_fsrv_kill(&afl->fsrv);
         afl_shm_deinit(&afl->shm);
         afl->fsrv.map_size = new_map_size;
-        afl->fsrv.trace_bits = afl_shm_init(&afl->shm, new_map_size,
-                                            afl->non_instrumented_mode);
+        afl->fsrv.trace_bits =
+            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
         setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
         afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                        afl->afl_env.afl_debug_child);
@@ -1608,9 +1611,11 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
         afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
         afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-        afl->top_rated = ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+        afl->top_rated =
+            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
         afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-        afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, new_map_size);
+        afl->clean_trace_custom =
+            ck_realloc(afl->clean_trace_custom, new_map_size);
         afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
         afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
 
@@ -1619,8 +1624,8 @@ int main(int argc, char **argv_orig, char **envp) {
         afl_shm_deinit(&afl->shm);
         afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
 
-        afl->fsrv.trace_bits = afl_shm_init(&afl->shm, new_map_size,
-                                            afl->non_instrumented_mode);
+        afl->fsrv.trace_bits =
+            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
         setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
         afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                        afl->afl_env.afl_debug_child);
@@ -1786,6 +1791,7 @@ int main(int argc, char **argv_orig, char **envp) {
                 afl->limit_time_puppet = 0;
 
               }
+
               */
               afl->expand_havoc = 2;
               if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
@@ -1806,7 +1812,7 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 5:
               // if not in sync mode, enable deterministic mode?
-              //if (!afl->sync_id) afl->skip_deterministic = 0;
+              // if (!afl->sync_id) afl->skip_deterministic = 0;
               afl->expand_havoc = 6;
             case 6:
               // nothing else currently

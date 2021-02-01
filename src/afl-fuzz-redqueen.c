@@ -1497,10 +1497,10 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u32 lvl, struct tainted *taint) {
 
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  struct tainted *t;
-  u32             i, j, idx, taint_len, loggeds;
-  u32             have_taint = 1, is_n = 0;
-  u8              status = 0, found_one = 0;
+  struct tainted *   t;
+  u32                i, j, idx, taint_len, loggeds;
+  u32                have_taint = 1, is_n = 0;
+  u8                 status = 0, found_one = 0;
 
   /* loop cmps are useless, detect and ignore them */
 #ifdef WORD_SIZE_64
@@ -2439,7 +2439,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_max = 0;
   afl->stage_cur = 0;
 
-  u32 lvl = (afl->queue_cur->colorized ? 0 : LVL1) + (afl->cmplog_lvl == CMPLOG_LVL_MAX ? LVL3 : 0);
+  u32 lvl = (afl->queue_cur->colorized ? 0 : LVL1) +
+            (afl->cmplog_lvl == CMPLOG_LVL_MAX ? LVL3 : 0);
 
 #ifdef COMBINE
   u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
@@ -2527,7 +2528,7 @@ exit_its:
   if (afl->cmplog_lvl == CMPLOG_LVL_MAX) {
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
-  
+
     ck_free(afl->queue_cur->cmplog_colorinput);
     t = taint;
     while (taint) {
