@@ -56,9 +56,9 @@
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <sys/types.h>
-#include <sys/personality.h>
 
 #if defined(__linux__)
+  #include <sys/personality.h>
   #include <sys/ucontext.h>
 #elif defined(__APPLE__) && defined(__LP64__)
   #include <mach-o/dyld_images.h>
@@ -480,6 +480,9 @@ void setup_trap_instrumentation(void) {
     // Index into the coverage bitmap for the current trap instruction.
 #ifdef __aarch64__
   uint64_t bitmap_index = 0;
+#ifdef __APPLE__
+  pthread_jit_write_protect_np(0);
+#endif
 #else
   uint32_t bitmap_index = 0;
 #endif
@@ -508,7 +511,6 @@ void setup_trap_instrumentation(void) {
               lib_size);
 
       lib_addr = (u8 *)lib_base->addr_start;
-
       // Make library code writable.
       if (mprotect((void *)lib_addr, lib_size,
                    PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
@@ -625,8 +627,13 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
   // Must re-execute the instruction, so decrement PC by one instruction.
   ucontext_t *ctx = (ucontext_t *)context;
 #if defined(__APPLE__) && defined(__LP64__)
+#if defined(__x86_64__)
   ctx->uc_mcontext->__ss.__rip -= 1;
   addr = ctx->uc_mcontext->__ss.__rip;
+#else
+  ctx->uc_mcontext->__ss.__pc -= 4;
+  addr = ctx->uc_mcontext->__ss.__pc;
+#endif
 #elif defined(__linux__)
   #if defined(__x86_64__) || defined(__i386__)
   ctx->uc_mcontext.gregs[REG_RIP] -= 1;
@@ -676,7 +683,9 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 /* the MAIN function */
 int main(int argc, char *argv[]) {
 
+#if defined(__linux__)
   (void)personality(ADDR_NO_RANDOMIZE);  // disable ASLR
+#endif
 
   pid = getpid();
   if (getenv("AFL_DEBUG")) debug = 1;
