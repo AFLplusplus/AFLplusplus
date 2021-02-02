@@ -693,6 +693,38 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
+    if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
+        !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
+    if (!strcmp(cur, "-fsanitize=fuzzer")) {
+
+      u8 *afllib = find_object("libAFLDriver.a", argv[0]);
+
+      if (!be_quiet)
+        WARNF(
+            "Found errornous '-fsanitize=fuzzer', trying to replace with "
+            "libAFLDriver.a");
+
+      if (!afllib) {
+
+        WARNF(
+            "Cannot find 'libAFLDriver.a' to replace a wrong "
+            "'-fsanitize=fuzzer' in the flags - this will fail!");
+
+      } else {
+
+        cc_params[cc_par_cnt++] = afllib;
+
+      }
+
+      continue;
+
+    }
 
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
@@ -802,8 +834,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #if defined(USEMMAP) && !defined(__HAIKU__)
-  if (!have_c)
-    cc_params[cc_par_cnt++] = "-lrt";
+  if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -976,12 +1007,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   #endif
 
   #if defined(USEMMAP) && !defined(__HAIKU__)
-    if (!have_c)
-      cc_params[cc_par_cnt++] = "-lrt";
+    if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
   #endif
 
-   // prevent unnecessary build errors
-   cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+    // prevent unnecessary build errors
+    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
   }
 
