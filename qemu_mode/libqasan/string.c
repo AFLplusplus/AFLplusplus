@@ -271,7 +271,7 @@ void *__libqasan_memmem(const void *haystack, size_t haystack_len,
 
     }
 
-  } while (h++ <= end);
+  } while (++h <= end);
 
   return 0;
 
