@@ -707,7 +707,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (!be_quiet)
         WARNF(
-            "Found errornous '-fsanitize=fuzzer', trying to replace with "
+            "Found erroneous '-fsanitize=fuzzer', trying to replace with "
             "libAFLDriver.a");
 
       if (!afllib) {
