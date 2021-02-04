@@ -265,7 +265,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
       unsigned char do_cast = 0;
 
-      if (!SI->getNumCases() || max_size <= 8) {
+      if (!SI->getNumCases() || max_size < 16 || max_size % 8) {
 
         // if (!be_quiet) errs() << "skip trivial switch..\n";
         continue;
@@ -274,17 +274,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       IRBuilder<> IRB(SI->getParent());
       IRB.SetInsertPoint(SI);
-
-      if (max_size % 8) {
-
-        // bitcast from i6 to i8 panics llvm, so ...
-        continue;
-        /*
-                max_size = (((max_size / 8) + 1) * 8);
-                do_cast = 1;
-        */
-
-      }
 
       if (max_size > 128) {
 
@@ -551,15 +540,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       }
 
-      if (!max_size) { continue; }
-
-      // _ExtInt() with non-8th values
-      if (max_size % 8) {
-
-        max_size = (((max_size / 8) + 1) * 8);
-        do_cast = 1;
-
-      }
+      if (!max_size || max_size % 8 || max_size < 16) { continue; }
 
       if (max_size > 128) {
 
