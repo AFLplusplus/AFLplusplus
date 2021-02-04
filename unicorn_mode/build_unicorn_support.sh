@@ -147,6 +147,8 @@ if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
 fi
 
+unset CFLAGS
+
 echo "[+] All checks passed!"
 
 echo "[*] Making sure unicornafl is checked out"
