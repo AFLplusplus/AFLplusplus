@@ -691,7 +691,7 @@ Note that there are also a lot of tools out there that help fuzzing with afl++
 (some might be deprecated or unsupported):
 
 Speeding up fuzzing:
- * [libfiowrapper](https://github.com/marekzmyslowski/libfiowrapper) - if you cannot use stdin or in-memory fuzzing, this emulates file reading, recommended.
+ * [libfiowrapper](https://github.com/marekzmyslowski/libfiowrapper) - if the function you want to fuzz requires loading a file, this allows using the shared memory testcase feature :-) - recommended.
 
 Minimization of test cases:
  * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin that tries to speed up the process of minimization of a single test case by using many CPU cores.
@@ -805,11 +805,11 @@ campaigns as these are much shorter runnings.
 
 1. Always:
   * LTO has a much longer compile time which is diametrical to short fuzzing - 
-    hence use afl-clang-fast instead
-  * `AFL_FAST_CAL` - Enable fast calibration, halfs the time the saturated
-     corpus is loaded
+    hence use afl-clang-fast instead.
+  * `AFL_FAST_CAL` - Enable fast calibration, this halfs the time the saturated
+     corpus needs to be loaded.
   * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new found paths, not the
-    initial corpus as it has been done there already
+    initial corpus as this very likely has been done for them already.
   * Keep the generated corpus, use afl-cmin and reuse it everytime!
 
 2. Additionally randomize the afl++ compilation options, e.g.
@@ -824,7 +824,7 @@ campaigns as these are much shorter runnings.
   * 30% for old queue processing (`-Z`)
   * for CMPLOG targets, 60% for `-l 2`, 40% for `-l 3`
 
-4. Do *not* run any `-M` modes, just running `-S` modes are better for CI fuzzing.
+4. Do *not* run any `-M` modes, just running `-S` modes is better for CI fuzzing.
 
 ## Background: The afl-fuzz approach
 
