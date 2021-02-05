@@ -759,6 +759,7 @@ If you do not have to use Unicorn the following setup is recommended:
   * run 1 afl-fuzz -Q instance with CMPLOG (`-c 0` + `AFL_COMPCOV_LEVEL=2`)
   * run 1 afl-fuzz -Q instance with QASAN  (`AFL_USE_QASAN=1`)
   * run 1 afl-fuzz -Q instance with LAF (``AFL_PRELOAD=libcmpcov.so` + `AFL_COMPCOV_LEVEL=2`)
+
 Then run as many instances as you have cores left with either -Q mode or - better -
 use a binary rewriter like afl-dyninst, retrowrite, zipr, fibre, etc.
 
