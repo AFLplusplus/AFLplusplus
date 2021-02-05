@@ -727,6 +727,16 @@ Crash processing
 When source code is *NOT* available, afl++ offers various support for fast,
 on-the-fly instrumentation of black-box binaries. 
 
+If you do not have to use Unicorn the following setup is recommended:
+  * run 1 afl-fuzz -Q instance with CMPLOG (`-c 0` + `AFL_COMPCOV_LEVEL=2`)
+  * run 1 afl-fuzz -Q instance with QASAN  (`AFL_USE_QASAN=1`)
+  * run 1 afl-fuzz -Q instance with LAF (``AFL_PRELOAD=libcmpcov.so` + `AFL_COMPCOV_LEVEL=2`)
+Then run as many instances as you have cores left with either -Q mode or - better -
+use a binary rewriter like afl-dyninst, retrowrite, zipr, fibre, etc.
+
+For Qemu mode, check out the persistent mode and snapshot features, they give
+a huge speed improvement!  
+
 ### QEMU
 
 For linux programs and its libraries this is accomplished with a version of
@@ -737,7 +747,8 @@ feature by doing:
 cd qemu_mode
 ./build_qemu_support.sh
 ```
-For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
+For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md) -
+check out the snapshot feature! :-)
 If possible you should use the persistent mode, see [qemu_mode/README.persistent.md](qemu_mode/README.persistent.md).
 The mode is approximately 2-5x slower than compile-time instrumentation, and is
 less conducive to parallelization.
@@ -745,6 +756,9 @@ less conducive to parallelization.
 If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
 your binary, then you can use afl-fuzz normally and it will have twice
 the speed compared to qemu_mode (but slower than persistent mode).
+Note that several other binary rewriters exist, all with their advantages and
+caveats. As rewriting a binary is much faster than Qemu this is a highly
+recommended approach!
 
 ### Unicorn
 
