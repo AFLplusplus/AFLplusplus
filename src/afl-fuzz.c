@@ -1682,7 +1682,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
-  if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
+  u32 prev_run_time = 0;  // to not call load_stats_file again after line 1705
+  afl->start_time = get_cur_time();  // without this, time taken for
+                                     // perform_dry_run gets added to run time.
+  if (afl->in_place_resume || afl->afl_env.afl_autoresume)
+    prev_run_time = load_stats_file(afl);
   write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
   save_auto(afl);
@@ -1701,6 +1705,8 @@ int main(int argc, char **argv_orig, char **envp) {
   // (void)nice(-20);  // does not improve the speed
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
+  if (afl->in_place_resume || afl->afl_env.afl_autoresume)
+    afl->start_time -= prev_run_time;
 
   u32 runs_in_current_cycle = (u32)-1;
   u32 prev_queued_paths = 0;

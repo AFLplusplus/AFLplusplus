@@ -90,20 +90,20 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 }
 
 /* load some of the existing stats file when resuming.*/
-void load_stats_file(afl_state_t *afl) {
+u32 load_stats_file(afl_state_t *afl) {
 
   FILE *f;
   u8    buf[MAX_LINE];
   u8 *  lptr;
   u8    fn[PATH_MAX];
   u32   lineno = 0;
-
+  u32   prev_run_time = 0;
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
   f = fopen(fn, "r");
   if (!f) {
 
     WARNF("Unable to load stats file '%s'", fn);
-    return;
+    return prev_run_time;
 
   }
 
@@ -134,6 +134,15 @@ void load_stats_file(afl_state_t *afl) {
       char *nptr;
       switch (lineno) {
 
+        case 3:
+          if (!strcmp(keystring, "run_time          ")) {
+
+            prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
+            afl->start_time -= prev_run_time;
+
+          }
+
+          break;
         case 5:
           if (!strcmp(keystring, "cycles_done       "))
             afl->queue_cycle =
@@ -147,10 +156,6 @@ void load_stats_file(afl_state_t *afl) {
           if (!strcmp(keystring, "paths_total       "))
             afl->queued_paths = strtoul(lptr, &nptr, 10);
           break;
-        case 11:
-          if (!strcmp(keystring, "paths_favored     "))
-            afl->queued_favored = strtoul(lptr, &nptr, 10);
-          break;
         case 12:
           if (!strcmp(keystring, "paths_found       "))
             afl->queued_discovered = strtoul(lptr, &nptr, 10);
@@ -162,14 +167,6 @@ void load_stats_file(afl_state_t *afl) {
         case 14:
           if (!strcmp(keystring, "max_depth         "))
             afl->max_depth = strtoul(lptr, &nptr, 10);
-          break;
-        case 16:
-          if (!strcmp(keystring, "pending_favs      "))
-            afl->pending_favored = strtoul(lptr, &nptr, 10);
-          break;
-        case 17:
-          if (!strcmp(keystring, "pending_total     "))
-            afl->pending_not_fuzzed = strtoul(lptr, &nptr, 10);
           break;
         case 21:
           if (!strcmp(keystring, "unique_crashes    "))
@@ -187,6 +184,8 @@ void load_stats_file(afl_state_t *afl) {
     }
 
   }
+
+  return prev_run_time;
 
 }
 
