@@ -1682,6 +1682,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
+  if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
   write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
   save_auto(afl);

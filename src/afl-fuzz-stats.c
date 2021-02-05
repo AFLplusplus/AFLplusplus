@@ -89,6 +89,107 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
 }
 
+/* load some of the existing stats file when resuming.*/
+void load_stats_file(afl_state_t *afl) {
+
+  FILE *f;
+  u8    buf[MAX_LINE];
+  u8 *  lptr;
+  u8    fn[PATH_MAX];
+  u32   lineno = 0;
+
+  snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
+  f = fopen(fn, "r");
+  if (!f) {
+
+    WARNF("Unable to load stats file '%s'", fn);
+    return;
+
+  }
+
+  while ((lptr = fgets(buf, MAX_LINE, f))) {
+
+    lineno++;
+    u8 *lstartptr = lptr;
+    u8 *rptr = lptr + strlen(lptr) - 1;
+    u8  keystring[MAX_LINE];
+    while (*lptr != ':' && lptr < rptr) {
+
+      lptr++;
+
+    }
+
+    if (*lptr == '\n' || !*lptr) {
+
+      WARNF("Unable to read line %d of stats file", lineno);
+      continue;
+
+    }
+
+    if (*lptr == ':') {
+
+      *lptr = 0;
+      strcpy(keystring, lstartptr);
+      lptr++;
+      char *nptr;
+      switch (lineno) {
+
+        case 5:
+          if (!strcmp(keystring, "cycles_done       "))
+            afl->queue_cycle =
+                strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
+          break;
+        case 7:
+          if (!strcmp(keystring, "execs_done        "))
+            afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
+          break;
+        case 10:
+          if (!strcmp(keystring, "paths_total       "))
+            afl->queued_paths = strtoul(lptr, &nptr, 10);
+          break;
+        case 11:
+          if (!strcmp(keystring, "paths_favored     "))
+            afl->queued_favored = strtoul(lptr, &nptr, 10);
+          break;
+        case 12:
+          if (!strcmp(keystring, "paths_found       "))
+            afl->queued_discovered = strtoul(lptr, &nptr, 10);
+          break;
+        case 13:
+          if (!strcmp(keystring, "paths_imported    "))
+            afl->queued_imported = strtoul(lptr, &nptr, 10);
+          break;
+        case 14:
+          if (!strcmp(keystring, "max_depth         "))
+            afl->max_depth = strtoul(lptr, &nptr, 10);
+          break;
+        case 16:
+          if (!strcmp(keystring, "pending_favs      "))
+            afl->pending_favored = strtoul(lptr, &nptr, 10);
+          break;
+        case 17:
+          if (!strcmp(keystring, "pending_total     "))
+            afl->pending_not_fuzzed = strtoul(lptr, &nptr, 10);
+          break;
+        case 21:
+          if (!strcmp(keystring, "unique_crashes    "))
+            afl->unique_crashes = strtoull(lptr, &nptr, 10);
+          break;
+        case 22:
+          if (!strcmp(keystring, "unique_hangs      "))
+            afl->unique_hangs = strtoull(lptr, &nptr, 10);
+          break;
+        default:
+          break;
+
+      }
+
+    }
+
+  }
+
+}
+
 /* Update stats file for unattended monitoring. */
 
 void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
