@@ -70,7 +70,7 @@
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
 #if MAP_SIZE <= 65536
-  #define MAP_INITIAL_SIZE 256000
+  #define MAP_INITIAL_SIZE 1048576
 #else
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
@@ -1090,7 +1090,7 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
 
-  ptr = (u8 *)malloc(1024000);
+  ptr = (u8 *)malloc(2097152);
 
   if (ptr && (ssize_t)ptr != -1) {
 
