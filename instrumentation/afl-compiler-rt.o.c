@@ -368,8 +368,8 @@ static void __afl_map_shm(void) {
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
-      u8 *map_env = getenv("AFL_MAP_SIZE");
-      if (!map_env || atoi(map_env) < MAP_SIZE) {
+      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
+      if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
 
         send_forkserver_error(FS_ERROR_MAP_SIZE);
         _exit(1);
@@ -378,7 +378,7 @@ static void __afl_map_shm(void) {
 
     }
 
-    __afl_area_ptr = shmat(shm_id, (void *)__afl_map_addr, 0);
+    __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
 
     /* Whooooops. */
 
@@ -405,9 +405,9 @@ static void __afl_map_shm(void) {
 
              __afl_map_addr) {
 
-    __afl_area_ptr =
-        mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
-             MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    __afl_area_ptr = (u8 *)mmap(
+        (void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
+        MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     if (__afl_area_ptr == MAP_FAILED) {
 
@@ -425,7 +425,7 @@ static void __afl_map_shm(void) {
 
     if (__afl_final_loc > MAP_INITIAL_SIZE) {
 
-      __afl_area_ptr = malloc(__afl_final_loc);
+      __afl_area_ptr = (u8 *)malloc(__afl_final_loc);
 
     }
 
@@ -439,7 +439,7 @@ static void __afl_map_shm(void) {
 
     if (__afl_map_size > MAP_INITIAL_SIZE) {
 
-      __afl_area_ptr_dummy = malloc(__afl_map_size);
+      __afl_area_ptr_dummy = (u8 *)malloc(__afl_map_size);
 
       if (__afl_area_ptr_dummy) {
 
@@ -505,7 +505,7 @@ static void __afl_map_shm(void) {
 #else
     u32 shm_id = atoi(id_str);
 
-    __afl_cmp_map = shmat(shm_id, NULL, 0);
+    __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
 #endif
 
     __afl_cmp_map_backup = __afl_cmp_map;
@@ -1528,7 +1528,7 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 // to avoid to call it on .text addresses
 static int area_is_mapped(void *ptr, size_t len) {
 
-  char *p = ptr;
+  char *p = (char *)ptr;
   char *page = (char *)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
 
   int r = msync(page, (p - page) + len, MS_ASYNC);
