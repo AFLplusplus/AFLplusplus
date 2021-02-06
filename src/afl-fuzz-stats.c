@@ -90,20 +90,20 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 }
 
 /* load some of the existing stats file when resuming.*/
-u32 load_stats_file(afl_state_t *afl) {
+void load_stats_file(afl_state_t *afl) {
 
   FILE *f;
   u8    buf[MAX_LINE];
   u8 *  lptr;
   u8    fn[PATH_MAX];
   u32   lineno = 0;
-  u32   prev_run_time = 0;
+  afl->prev_run_time = 0;
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
   f = fopen(fn, "r");
   if (!f) {
 
     WARNF("Unable to load stats file '%s'", fn);
-    return prev_run_time;
+    return;
 
   }
 
@@ -137,8 +137,8 @@ u32 load_stats_file(afl_state_t *afl) {
         case 3:
           if (!strcmp(keystring, "run_time          ")) {
 
-            prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
-            afl->start_time -= prev_run_time;
+            afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
+            afl->start_time -= afl->prev_run_time;
 
           }
 
@@ -185,7 +185,7 @@ u32 load_stats_file(afl_state_t *afl) {
 
   }
 
-  return prev_run_time;
+  return;
 
 }
 
