@@ -97,7 +97,6 @@ void load_stats_file(afl_state_t *afl) {
   u8 *  lptr;
   u8    fn[PATH_MAX];
   u32   lineno = 0;
-  afl->prev_run_time = 0;
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
   f = fopen(fn, "r");
   if (!f) {
@@ -135,13 +134,8 @@ void load_stats_file(afl_state_t *afl) {
       switch (lineno) {
 
         case 3:
-          if (!strcmp(keystring, "run_time          ")) {
-
+          if (!strcmp(keystring, "run_time          "))
             afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
-            afl->start_time -= afl->prev_run_time;
-
-          }
-
           break;
         case 5:
           if (!strcmp(keystring, "cycles_done       "))
@@ -279,12 +273,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
           "\n"
           "target_mode       : %s%s%s%s%s%s%s%s%s\n"
           "command_line      : %s\n",
-          afl->start_time / 1000, cur_time / 1000,
-          (cur_time - afl->start_time) / 1000, (u32)getpid(),
-          afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-          afl->fsrv.total_execs,
+          (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
+          (afl->prev_run_time + cur_time - afl->start_time) / 1000,
+          (u32)getpid(), afl->queue_cycle ? (afl->queue_cycle - 1) : 0,
+          afl->cycles_wo_finds, afl->fsrv.total_execs,
           afl->fsrv.total_execs /
-              ((double)(get_cur_time() - afl->start_time) / 1000),
+              ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
+               1000),
           afl->last_avg_execs_saved, afl->queued_paths, afl->queued_favored,
           afl->queued_discovered, afl->queued_imported, afl->max_depth,
           afl->current_entry, afl->pending_favored, afl->pending_not_fuzzed,
@@ -479,8 +474,8 @@ void show_stats(afl_state_t *afl) {
 
     if (likely(cur_ms != afl->start_time)) {
 
-      afl->stats_avg_exec =
-          ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
+      afl->stats_avg_exec = ((double)afl->fsrv.total_execs) * 1000 /
+                            (afl->prev_run_time + cur_ms - afl->start_time);
 
     }
 
@@ -692,7 +687,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  u_stringify_time_diff(time_tmp, cur_ms, afl->start_time);
+  u_stringify_time_diff(time_tmp, afl->prev_run_time + cur_ms, afl->start_time);
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
                 "  cycles done : %s%-5s " bSTG              bV "\n",
        time_tmp, tmp, u_stringify_int(IB(0), afl->queue_cycle - 1));

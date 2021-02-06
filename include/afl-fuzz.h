@@ -425,7 +425,8 @@ typedef struct afl_state {
     really makes no sense to haul them around as function parameters. */
   u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
       total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
-      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update;
+      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update,
+      prev_run_time;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
@@ -569,7 +570,6 @@ typedef struct afl_state {
       blocks_eff_total,                 /* Blocks subject to effector maps  */
       blocks_eff_select,                /* Blocks selected as fuzzable      */
       start_time,                       /* Unix start time (ms)             */
-      prev_run_time,                    /* Runtime read from prev stats file*/
       last_path_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time;                   /* Time for most recent hang (ms)   */
