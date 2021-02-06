@@ -364,6 +364,10 @@ ORIG_CROSS="$CROSS"
 
 if [ "$ORIG_CROSS" = "" ]; then
   CROSS=$CPU_TARGET-linux-gnu-gcc
+  if ! command -v "$CROSS" > /dev/null
+  then # works on Arch Linux
+    CROSS=$CPU_TARGET-pc-linux-gnu-gcc
+  fi
 fi
 
 if ! command -v "$CROSS" > /dev/null
