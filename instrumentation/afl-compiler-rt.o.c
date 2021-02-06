@@ -1320,7 +1320,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
+  fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
@@ -1455,7 +1455,19 @@ void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
 }
 
+void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
+
+  __cmplog_ins_hook1(arg1, arg2, 0);
+
+}
+
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
+
+  __cmplog_ins_hook2(arg1, arg2, 0);
+
+}
+
+void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2) {
 
   __cmplog_ins_hook2(arg1, arg2, 0);
 
@@ -1467,7 +1479,19 @@ void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
 }
 
+void __sanitizer_cov_trace_cost_cmp4(uint32_t arg1, uint32_t arg2) {
+
+  __cmplog_ins_hook4(arg1, arg2, 0);
+
+}
+
 void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
+
+  __cmplog_ins_hook8(arg1, arg2, 0);
+
+}
+
+void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2) {
 
   __cmplog_ins_hook8(arg1, arg2, 0);
 
