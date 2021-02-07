@@ -3908,6 +3908,7 @@ static void internal_malloc_stats(mstate m) {
                                                                                \
       } else if (RTCHECK(B == smallbin_at(M, I) ||                             \
                                                                                \
+                                                                               \
                          (ok_address(M, B) && B->fd == P))) {                  \
                                                                                \
         F->bk = B;                                                             \
@@ -4119,6 +4120,7 @@ static void internal_malloc_stats(mstate m) {
                                                                    \
       } else                                                       \
                                                                    \
+                                                                   \
         CORRUPTION_ERROR_ACTION(M);                                \
       if (R != 0) {                                                \
                                                                    \
@@ -4135,6 +4137,7 @@ static void internal_malloc_stats(mstate m) {
                                                                    \
             } else                                                 \
                                                                    \
+                                                                   \
               CORRUPTION_ERROR_ACTION(M);                          \
                                                                    \
           }                                                        \
@@ -4147,11 +4150,13 @@ static void internal_malloc_stats(mstate m) {
                                                                    \
             } else                                                 \
                                                                    \
+                                                                   \
               CORRUPTION_ERROR_ACTION(M);                          \
                                                                    \
           }                                                        \
                                                                    \
         } else                                                     \
+                                                                   \
                                                                    \
           CORRUPTION_ERROR_ACTION(M);                              \
                                                                    \
