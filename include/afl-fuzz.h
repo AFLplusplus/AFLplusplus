@@ -425,7 +425,8 @@ typedef struct afl_state {
     really makes no sense to haul them around as function parameters. */
   u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
       total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
-      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update;
+      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update,
+      prev_run_time;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
@@ -1067,6 +1068,7 @@ void destroy_extras(afl_state_t *);
 
 /* Stats */
 
+void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, double, double, double);
 void maybe_update_plot_file(afl_state_t *, double, double);
