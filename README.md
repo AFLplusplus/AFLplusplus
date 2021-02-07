@@ -730,6 +730,9 @@ campaigns as these are much shorter runnings.
 1. Always:
   * LTO has a much longer compile time which is diametrical to short fuzzing - 
     hence use afl-clang-fast instead.
+  * If you compile with CMPLOG then you can save fuzzing time and reuse that
+    compiled target for both the -c option and the main fuzz target.
+    This will impact the speed by ~15% though.
   * `AFL_FAST_CAL` - Enable fast calibration, this halfs the time the saturated
      corpus needs to be loaded.
   * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new found paths, not the
