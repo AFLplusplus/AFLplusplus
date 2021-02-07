@@ -69,7 +69,8 @@ class AFLLTOPass : public ModulePass {
 
     if (getenv("AFL_DEBUG")) debug = 1;
     if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
-      if ((afl_global_id = (uint32_t)atoi(ptr)) < 0 || afl_global_id >= MAP_SIZE)
+      if ((afl_global_id = (uint32_t)atoi(ptr)) < 0 ||
+          afl_global_id >= MAP_SIZE)
         FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %u\n",
               ptr, MAP_SIZE - 1);
 

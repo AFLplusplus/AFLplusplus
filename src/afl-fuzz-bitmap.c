@@ -325,7 +325,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
     }
 
-    sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
+    sprintf(ret + strlen(ret), ",time:%llu",
+            get_cur_time() + afl->prev_run_time - afl->start_time);
 
     if (afl->current_custom_fuzz &&
         afl->current_custom_fuzz->afl_custom_describe) {
