@@ -26,6 +26,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       `-i` or resumes (as these have most likely already been done)
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
+    - on restarts (-i)/autoresume (AFL_AUTORESUME) the stats are now
+      reloaded and used, thanks to Vimal Joseph for this PR! 
     - if determinstic mode is active (-D, or -M without -d) then we sync
       after every queue entry as this can take very long time otherwise
     - better detection if a target needs a large shared map
