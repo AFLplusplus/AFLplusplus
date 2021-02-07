@@ -807,7 +807,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (!getenv("AFL_DONT_OPTIMIZE")) {
+  if (!getenv("AFL_DONT_OPTIMIZE") && !getenv("AFL_LLVM_LTO_CALLGRAPH")) {
 
     cc_params[cc_par_cnt++] = "-g";
     if (!have_o) cc_params[cc_par_cnt++] = "-O3";
@@ -1016,13 +1016,19 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #endif
 
-  if (!have_c && out_idx && getenv("AFL_LLVM_LTO_CALLGRAPH")) {
+  if (getenv("AFL_LLVM_LTO_CALLGRAPH")) {
 
     if (!lto_mode) { FATAL("AFL_LLVM_LTO_CALLGRAPH requires LTO mode"); }
-    ll_file = alloc_printf("%s.ll", cc_params[out_idx]);
-    cc_params[out_idx] = ll_file;
-    cc_params[cc_par_cnt++] = "-S";
-    cc_params[cc_par_cnt++] = "-emit-llvm";
+    cc_params[cc_par_cnt++] = "-O0";
+  
+    if (!have_c) {
+
+      ll_file = alloc_printf("%s.ll", cc_params[out_idx]);
+      cc_params[out_idx] = ll_file;
+      cc_params[cc_par_cnt++] = "-S";
+      cc_params[cc_par_cnt++] = "-emit-llvm";
+
+    }
 
   }
 
@@ -1937,9 +1943,10 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  u8 *opt_params[7];
+  u8 *opt_params[8];
   u32 opt_par_cnt = 0;
   opt_params[opt_par_cnt++] = opt_cmd;
+  opt_params[opt_par_cnt++] = "-O0";
   opt_params[opt_par_cnt++] = "--analyze";
   opt_params[opt_par_cnt++] = "--basiccg";
   opt_params[opt_par_cnt++] = "-o";
