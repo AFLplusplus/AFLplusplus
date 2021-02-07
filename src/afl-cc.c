@@ -1020,6 +1020,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (!lto_mode) { FATAL("AFL_LLVM_LTO_CALLGRAPH requires LTO mode"); }
     cc_params[cc_par_cnt++] = "-O0";
+    cc_params[cc_par_cnt++] = "-w";
   
     if (!have_c) {
 
