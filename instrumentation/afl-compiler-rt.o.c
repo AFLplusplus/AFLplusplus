@@ -1320,7 +1320,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
-  fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
+  // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
