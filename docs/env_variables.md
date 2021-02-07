@@ -156,6 +156,7 @@ Then there are a few specific features that are only available in instrumentatio
      This defaults to 1
    - `AFL_LLVM_LTO_DONTWRITEID` prevents that the highest location ID written
      into the instrumentation is set in a global variable
+   - `AFL_LLVM_LTO_CALLGRAPH` will not generate a binary but a callgraph instead
 
   See [instrumentation/README.lto.md](../instrumentation/README.lto.md) for more information.
 

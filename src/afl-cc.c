@@ -31,6 +31,8 @@
 #include <strings.h>
 #include <limits.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #if (LLVM_MAJOR - 0 == 0)
   #undef LLVM_MAJOR
@@ -57,6 +59,7 @@ static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
+static u8 * ll_file;
 u8          use_stdin;                                             /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
@@ -315,6 +318,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
      have_c = 0;
+  u32 out_idx = 0;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
@@ -741,6 +745,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = cur;
 
+    if (!strcmp(cur, "-o")) { out_idx = cc_par_cnt; }
+
   }
 
   if (getenv("AFL_HARDEN")) {
@@ -1009,6 +1015,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #endif
+
+  if (!have_c && out_idx && getenv("AFL_LLVM_LTO_CALLGRAPH")) {
+
+    if (!lto_mode) { FATAL("AFL_LLVM_LTO_CALLGRAPH requires LTO mode"); }
+    ll_file = alloc_printf("%s.ll", cc_params[out_idx]);
+    cc_params[out_idx] = ll_file;
+    cc_params[cc_par_cnt++] = "-S";
+    cc_params[cc_par_cnt++] = "-emit-llvm";
+
+  }
 
   cc_params[cc_par_cnt] = NULL;
 
@@ -1655,8 +1671,9 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
-            "a "
-            "bb\n"
+            "a bb\n"
+            "  AFL_LLVM_LTO_CALLGRAPH: will not generate a binary but a "
+            "callgraph instead\n"
             "  AFL_REAL_LD: use this lld linker instead of the compiled in "
             "path\n"
             "If anything fails - be sure to read README.lto.md!\n");
@@ -1880,9 +1897,79 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  execvp(cc_params[0], (char **)cc_params);
+  s32 pid = 0;
+  if (ll_file) { pid = fork(); }  // CG run
 
-  FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
+  if (!pid) {
+
+    execvp(cc_params[0], (char **)cc_params);
+    FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
+
+  }
+
+  // only for AFL_LLVM_LTO_CALLGRAPH
+  s32 status;
+  if (waitpid(pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
+
+  u8 *cg_file = (u8 *)ck_strdup(ll_file);
+  cg_file[strlen(cg_file) - 2] = 0;
+  strcat(cg_file, "cg");
+  if (!be_quiet) SAYF("Generating callgraph into %s ...\n", cg_file);
+  u8 *opt_cmd = (u8 *)ck_alloc(strlen(cc_params[0]) + 16);
+  strcpy(opt_cmd, cc_params[0]);
+  if ((ptr = (u8 *)strrchr(opt_cmd, '/'))) {
+
+    ++ptr;
+
+  } else {
+
+    ptr = opt_cmd;
+
+  }
+
+  u8 *dash = (u8 *)strchr(opt_cmd, '-');
+  strcpy((char *)opt_cmd, "opt");
+  if (dash) {
+
+    dash = (u8 *)strrchr(cc_params[0], '/');
+    dash = (u8 *)strchr(dash, '-');
+    strcat((char *)opt_cmd, (char *)dash);
+
+  }
+
+  u8 *opt_params[7];
+  u32 opt_par_cnt = 0;
+  opt_params[opt_par_cnt++] = opt_cmd;
+  opt_params[opt_par_cnt++] = "--analyze";
+  opt_params[opt_par_cnt++] = "--basiccg";
+  opt_params[opt_par_cnt++] = "-o";
+  opt_params[opt_par_cnt++] = cg_file;
+  opt_params[opt_par_cnt++] = ll_file;
+  opt_params[opt_par_cnt] = NULL;
+
+  if (debug) {
+
+    DEBUGF("cd '%s';", getthecwd());
+    for (i = 0; i < (s32)opt_par_cnt; i++)
+      SAYF(" '%s'", opt_params[i]);
+    SAYF("\n");
+    fflush(stdout);
+    fflush(stderr);
+
+  }
+
+  pid = fork();
+
+  if (!pid) {
+
+    execvp(opt_params[0], (char **)opt_params);
+    FATAL("Oops, failed to execute '%s' - check your PATH", opt_params[0]);
+
+  }
+
+  if (waitpid(pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
+  unlink(ll_file);
+  if (!be_quiet) SAYF("Done!\n");
 
   return 0;
 
