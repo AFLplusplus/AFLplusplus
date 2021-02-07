@@ -1242,7 +1242,7 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
 
 void pivot_inputs(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
+  struct queue_entry *q;
   u32                 id = 0, i;
 
   ACTF("Creating hard links for all input files...");

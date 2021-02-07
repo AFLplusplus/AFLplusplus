@@ -1415,7 +1415,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
     } else if (b[k] == 0xff) {
 
-      ++cons_0;
+      ++cons_ff;
 
     } else {
 
@@ -1473,7 +1473,7 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
     } else if (b[k] == 0xff) {
 
-      ++cons_0;
+      ++cons_ff;
 
     } else {
 
@@ -2410,7 +2410,21 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   // manually clear the full cmp_map
   memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
-  if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) { return 1; }
+  if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) {
+
+    afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+    while (taint) {
+
+      t = taint->next;
+      ck_free(taint);
+      taint = t;
+
+    }
+
+    return 1;
+
+  }
+
   if (unlikely(!afl->orig_cmp_map)) {
 
     afl->orig_cmp_map = ck_alloc_nozero(sizeof(struct cmp_map));
@@ -2419,7 +2433,20 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
-  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
+  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) {
+
+    afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+    while (taint) {
+
+      t = taint->next;
+      ck_free(taint);
+      taint = t;
+
+    }
+
+    return 1;
+
+  }
 
 #ifdef _DEBUG
   dump("ORIG", orig_buf, len);
@@ -2530,7 +2557,6 @@ exit_its:
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
 
     ck_free(afl->queue_cur->cmplog_colorinput);
-    t = taint;
     while (taint) {
 
       t = taint->next;

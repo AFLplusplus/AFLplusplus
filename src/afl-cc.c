@@ -315,15 +315,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
      have_c = 0;
-  u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
-
-  name = strrchr(argv[0], '/');
-  if (!name)
-    name = argv[0];
-  else
-    ++name;
 
   if (lto_mode) {
 
