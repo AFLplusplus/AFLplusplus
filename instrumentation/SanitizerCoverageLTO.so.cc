@@ -760,7 +760,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
-                    addedNull = true;
+                    // addedNull = true;
 
                   }
 

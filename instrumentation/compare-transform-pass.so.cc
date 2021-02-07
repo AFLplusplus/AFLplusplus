@@ -391,7 +391,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         if (val && !val->empty()) {
 
           Str2 = StringRef(*val);
-          HasStr2 = true;
+          // HasStr2 = true;
 
         }
 
