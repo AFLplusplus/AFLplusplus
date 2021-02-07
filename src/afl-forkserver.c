@@ -126,7 +126,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->last_run_timed_out = 0;
 
   fsrv_to->init_child_func = from->init_child_func;
-  // Note: do not copy ->add_extra_func
+  // Note: do not copy ->add_extra_func or ->persistent_replay*
 
   list_append(&fsrv_list, fsrv_to);
 

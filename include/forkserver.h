@@ -55,6 +55,9 @@ typedef struct afl_forkserver {
   u32 init_tmout;                       /* Configurable init timeout (ms)   */
   u32 map_size;                         /* map size used by the target      */
   u32 snapshot;                         /* is snapshot feature used         */
+  u32 persistent_replay;                /* persistent replay setting        */
+  u32 persistent_replay_idx;            /* persistent replay cache ptr      */
+  u32 persistent_replay_cnt;            /* persistent replay counter        */
   u64 mem_limit;                        /* Memory cap for child (MB)        */
 
   u64 total_execs;                      /* How often run_target was called  */

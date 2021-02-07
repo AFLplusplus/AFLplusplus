@@ -1239,6 +1239,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_persistent_replay) {
+
+    afl->fsrv.persistent_replay = atoi(afl->afl_env.afl_persistent_replay);
+
+  }
+
   if (afl->afl_env.afl_crash_exitcode) {
 
     long exitcode = strtol(afl->afl_env.afl_crash_exitcode, NULL, 10);
