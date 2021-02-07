@@ -60,7 +60,10 @@ typedef struct afl_forkserver {
   u64 total_execs;                      /* How often run_target was called  */
 
   u8 *out_file,                         /* File to fuzz, if any             */
-      *target_path;                     /* Path of the target               */
+      *target_path,                     /* Path of the target               */
+      *named_pipe_dir,                  /* Dir to write named pipes to      */
+      *st_pipe_path,                    /* Named st pipe path, if used      */
+      *ctl_pipe_path;                   /* Named ctl pipe path, if used     */
 
   FILE *plot_file;                      /* Gnuplot output file              */
 

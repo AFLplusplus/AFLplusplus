@@ -76,6 +76,11 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
   fsrv->dev_urandom_fd = -1;
+  fsrv->fsrv_st_fd = -1;
+  fsrv->fsrv_ctl_fd = -1;
+  fsrv->named_pipe_dir = NULL;
+  fsrv->st_pipe_path = NULL;
+  fsrv->ctl_pipe_path = NULL;
 
   /* Settings */
   fsrv->use_stdin = true;
@@ -103,6 +108,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 /* Initialize a new forkserver instance, duplicating "global" settings */
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
+  // first, do a normal init
+  afl_fsrv_init(fsrv_to);
+
+  // Then, copy the non-forkserver specific config form the other forkserver.
   fsrv_to->use_stdin = from->use_stdin;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
@@ -117,17 +126,11 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
   fsrv_to->kill_signal = from->kill_signal;
-
-  // These are forkserver specific.
-  fsrv_to->out_dir_fd = -1;
-  fsrv_to->child_pid = -1;
-  fsrv_to->use_fauxsrv = 0;
-  fsrv_to->last_run_timed_out = 0;
+  fsrv_to->named_pipe_dir = strdup(from->named_pipe_dir);
+  if (!fsrv_to->named_pipe_dir) { PFATAL("Coupd not copy named_pipe_dir"); }
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func
-
-  list_append(&fsrv_list, fsrv_to);
 
 }
 
@@ -377,7 +380,62 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  if (pipe(st_pipe) || pipe(ctl_pipe)) { PFATAL("pipe() failed"); }
+  if (fsrv->named_pipe_dir && *fsrv->named_pipe_dir) {
+
+    // create pipe dir if it does not exist yet
+    struct stat st = {0};
+    if (stat(fsrv->named_pipe_dir, &st) == -1) {
+
+      mkdir(fsrv->named_pipe_dir, 0700);
+
+    }
+
+    // We add a running counter, in case we need multiple forkservers (think
+    // cmplog, etc.)
+    static uint32_t ctl_ctr = 0;
+    // we'll use namedpipes instead of normal pipes. Some targets may need this.
+    char *st_pipe_path = alloc_printf("%s/afl_pipe_st.%d_%u",
+                                      fsrv->named_pipe_dir, getpid(), ctl_ctr);
+    char *ctl_pipe_path = alloc_printf("%s/afl_pipe_ctl.%d_%u",
+                                       fsrv->named_pipe_dir, getpid(), ctl_ctr);
+    if (!st_pipe_path || !ctl_pipe_path) {
+
+      PFATAL("Could not allocate pipe path");
+
+    }
+
+    if (mkfifo(st_pipe_path, S_IRWXU | S_IRWXG) ||
+        mkfifo(ctl_pipe_path, S_IRWXU | S_IRWXG)) {
+
+      PFATAL("Failed to create named pipes in AFL_PIPE_DIR=%s",
+             fsrv->named_pipe_dir);
+
+    }
+
+    if (setenv("__AFL_ST_PIPE", st_pipe_path, true) ||
+        setenv("__AFL_CTL_PIPE", ctl_pipe_path, true)) {
+
+      PFATAL("Could not set PIPE ENV");
+
+    }
+
+    st_pipe[0] = open(st_pipe_path, O_WRONLY);
+    st_pipe[1] = open(st_pipe_path, O_RDONLY);
+    ctl_pipe[0] = open(st_pipe_path, O_WRONLY);
+    ctl_pipe[1] = open(st_pipe_path, O_RDONLY);
+    if (st_pipe[0] < 0 || st_pipe[1] < 0 || ctl_pipe[0] < 0 || st_pipe[0] < 0) {
+
+      PFATAL("Could not open named pipe");
+
+    }
+
+    ctl_ctr++;
+
+  } else {
+
+    if (pipe(st_pipe) || pipe(ctl_pipe)) { PFATAL("pipe() failed"); }
+
+  }
 
   fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
@@ -1205,6 +1263,22 @@ void afl_fsrv_killall() {
 void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 
   afl_fsrv_kill(fsrv);
+  if (fsrv->fsrv_ctl_fd >= 0) { close(fsrv->fsrv_ctl_fd); }
+  if (fsrv->fsrv_st_fd >= 0) { close(fsrv->fsrv_st_fd); }
+  if (fsrv->ctl_pipe_path) {
+
+    unlink(fsrv->ctl_pipe_path);
+    free(fsrv->ctl_pipe_path);
+
+  }
+
+  if (fsrv->st_pipe_path) {
+
+    unlink(fsrv->st_pipe_path);
+    free(fsrv->st_pipe_path);
+
+  }
+
   list_remove(&fsrv_list, fsrv);
 
 }
