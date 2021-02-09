@@ -84,6 +84,7 @@ class Callgraph : public ModulePass {
 
   std::vector<std::string> all_functions;
   std::vector<std::string> follow;
+  int debug = 0;
 
 };
 
@@ -159,9 +160,12 @@ void Callgraph::add_to_follow_list(Module &M, std::string fname) {
 bool Callgraph::hookInstrs(Module &M) {
 
   /* Grab all functions */
-  for (auto &F : M)
-    if (F.size() && !isIgnoreFunction(&F))
+  for (auto &F : M) {
+    if (F.size() && !isIgnoreFunction(&F)) {
+      if (debug) fprintf(stderr, "F: %s\n", F.getName().str().c_str());
       all_functions.push_back(F.getName().str());
+    }
+  }
 
   /* Add CTORs and DTORs - if they should be followed */
   GlobalVariable *GV = M.getNamedGlobal("llvm.global_ctors");
@@ -371,7 +375,8 @@ bool Callgraph::hookInstrs(Module &M) {
 
 bool Callgraph::runOnModule(Module &M) {
 
-  if (getenv("AFL_QUIET") == NULL)
+  if (getenv("AFL_DEBUG")) debug = 1;
+  if (!getenv("AFL_QUIET") || debug)
     printf("Running afl-llvm-callgraph by mh@mh-sec.de\n");
   else
     be_quiet = 1;
@@ -399,6 +404,6 @@ static RegisterStandardPasses RegisterCallgraphPass0(
 
 #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCallgraphPassLTO(
-    PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerCallgraphPass);
+    PassManagerBuilder::EP_FullLinkTimeOptimizationEarly, registerCallgraphPass);
 #endif
 

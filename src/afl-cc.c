@@ -1020,6 +1020,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!lto_mode) { FATAL("AFL_LLVM_LTO_CALLGRAPH requires LTO mode"); }
     cc_params[cc_par_cnt++] = "-O0";
     cc_params[cc_par_cnt++] = "-w";
+    cc_params[cc_par_cnt++] = "-fno-inline-functions";
+    cc_params[cc_par_cnt++] = "-Wl,--discard-none";
+    cc_params[cc_par_cnt++] = "-Wl,--lto-O0";
+    cc_params[cc_par_cnt++] = "-femit-all-decls";
+    cc_params[cc_par_cnt++] = "-fno-virtual-function-elimination";
+    cc_params[cc_par_cnt++] = "-Wl,--no-gc-sections";
 
   }
 
