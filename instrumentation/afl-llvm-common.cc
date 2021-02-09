@@ -57,6 +57,9 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   static const char *ignoreList[] = {
 
+      ".module_ctor",
+      "__sanitizer_",
+      "__local_stdio_",
       "asan.",
       "llvm.",
       "sancov.",

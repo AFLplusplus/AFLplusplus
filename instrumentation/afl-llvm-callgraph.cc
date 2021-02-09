@@ -76,13 +76,21 @@ class Callgraph : public ModulePass {
   }
 
  private:
-  bool hookInstrs(Module &M);
+  bool      hookInstrs(Module &M);
+  bool      is_in_function_list(std::string);
+  Function *get_next_follow_function(Module &M);
+  void      add_to_follow_list(Module &M, std::string func);
+  void      remove_from_function_list(std::string fname);
+
+  std::vector<std::string> all_functions;
+  std::vector<std::string> follow;
 
 };
 
 }  // namespace
 
 char Callgraph::ID = 0;
+bool isIgnoreFunction(const llvm::Function *F);
 
 template <class Iterator>
 Iterator Unique(Iterator first, Iterator last) {
@@ -99,6 +107,54 @@ Iterator Unique(Iterator first, Iterator last) {
 
 }
 
+bool Callgraph::is_in_function_list(std::string fname) {
+
+  std::vector<std::string>::iterator it =
+      std::find(all_functions.begin(), all_functions.end(), fname);
+  if (it != all_functions.end()) {
+
+    return true;
+
+  } else {
+
+    return false;
+
+  }
+
+}
+
+Function *Callgraph::get_next_follow_function(Module &M) {
+
+  std::string fname = follow.front();
+  follow.erase(follow.begin());
+  return M.getFunction(fname);
+
+}
+
+void Callgraph::remove_from_function_list(std::string fname) {
+
+  std::vector<std::string>::iterator it =
+      std::find(all_functions.begin(), all_functions.end(), fname);
+  if (it != all_functions.end()) { all_functions.erase(it); }
+
+}
+
+void Callgraph::add_to_follow_list(Module &M, std::string fname) {
+
+  Function *F = M.getFunction(fname);
+
+  std::vector<std::string>::iterator it =
+      std::find(all_functions.begin(), all_functions.end(), fname);
+  if (it != all_functions.end()) {
+
+    all_functions.erase(it);
+    if (!F || !F->size()) return;
+    follow.push_back(fname);
+
+  }
+
+}
+
 bool Callgraph::hookInstrs(Module &M) {
 
   std::vector<Instruction *> ins;
@@ -112,12 +168,127 @@ bool Callgraph::hookInstrs(Module &M) {
     IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   */
 
-  /* iterate over all instruction */
-  for (auto &F : M) {
+  /* Grab all functions */
+  for (auto &F : M)
+    if (F.size() && !isIgnoreFunction(&F))
+      all_functions.push_back(F.getName().str());
 
+  /* Add CTORs and DTORs - if they should be followed */
+  GlobalVariable *GV = M.getNamedGlobal("llvm.global_ctors");
+  if (GV && !GV->isDeclaration() && !GV->hasLocalLinkage()) {
+
+    ConstantArray *InitList = dyn_cast<ConstantArray>(GV->getInitializer());
+
+    if (InitList) {
+
+      for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
+
+        if (ConstantStruct *CS =
+                dyn_cast<ConstantStruct>(InitList->getOperand(i))) {
+
+          if (CS->getNumOperands() >= 2) {
+
+            if (CS->getOperand(1)->isNullValue())
+              break;  // Found a null terminator, stop here.
+
+            Constant *FP = CS->getOperand(1);
+
+            if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
+              if (CE->isCast()) FP = CE->getOperand(0);
+            if (Function *F = dyn_cast<Function>(FP)) {
+
+              if (!F->isDeclaration()) {
+
+                fprintf(stderr, "Adding CTOR: %s\n",
+                        F->getName().str().c_str());
+                add_to_follow_list(M, F->getName().str());
+
+              }
+
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  GV = M.getNamedGlobal("llvm.global_dtors");
+  if (GV && !GV->isDeclaration() && !GV->hasLocalLinkage()) {
+
+    ConstantArray *InitList = dyn_cast<ConstantArray>(GV->getInitializer());
+
+    if (InitList) {
+
+      for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
+
+        if (ConstantStruct *CS =
+                dyn_cast<ConstantStruct>(InitList->getOperand(i))) {
+
+          if (CS->getNumOperands() >= 2) {
+
+            if (CS->getOperand(1)->isNullValue())
+              break;  // Found a null terminator, stop here.
+
+            Constant *FP = CS->getOperand(1);
+
+            if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
+              if (CE->isCast()) FP = CE->getOperand(0);
+
+            if (Function *F = dyn_cast<Function>(FP)) {
+
+              if (!F->isDeclaration()) {
+
+                fprintf(stderr, "Adding DTOR: %s\n",
+                        F->getName().str().c_str());
+                add_to_follow_list(M, F->getName().str());
+
+              }
+
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  /* Search and add starter functions */
+  if (is_in_function_list("LLVMFuzzerTestOneInput")) {
+
+    add_to_follow_list(M, "LLVMFuzzerTestOneInput");
+    if (is_in_function_list("LLVMFuzzerInitialize"))
+      add_to_follow_list(M, "LLVMFuzzerInitialize");
+
+  } else if (is_in_function_list("main")) {
+
+    add_to_follow_list(M, "main");
+
+  } else {
+
+    fprintf(stderr, "Error: no main() or LLVMFuzzerTestOneInput() found!\n");
+    return 0;
+
+  }
+
+  /* Here happens the magic -> static analysis of all functions to follow */
+  while (follow.size()) {
+
+    Function *F = get_next_follow_function(M);
+    if (!F || !F->size()) { continue; }
     // if (!isInInstrumentList(&F)) continue;
 
-    for (auto &BB : F) {
+    fprintf(stderr, "Following: %s\n", F->getName().str().c_str());
+
+    for (auto &BB : *F) {
 
       for (auto &IN : BB) {
 
@@ -134,12 +305,19 @@ bool Callgraph::hookInstrs(Module &M) {
               if (isa<FunctionType>(T->getPointerElementType())) {
 
                 fprintf(stderr, "F:%s Store isFunction",
-                        F.getName().str().c_str());
+                        F->getName().str().c_str());
                 Function *f = dyn_cast<Function>(VV);
-                if (f)
+                if (f) {
+
                   fprintf(stderr, " \"%s\"\n", f->getName().str().c_str());
-                else
+                  // this is wrong here, needs static analysis
+                  add_to_follow_list(M, f->getName().str());
+
+                } else {
+
                   fprintf(stderr, " <unknown>\n");
+
+                }
 
               }
 
@@ -152,6 +330,9 @@ bool Callgraph::hookInstrs(Module &M) {
         auto CI = dyn_cast<CallInst>(&IN);
         if (CI) {
 
+          Function *Callee = CI->getCalledFunction();
+          add_to_follow_list(M, Callee->getName().str());
+
           for (int i = 0; i < CI->getNumArgOperands(); i++) {
 
             auto O = CI->getArgOperand(i);
@@ -160,16 +341,21 @@ bool Callgraph::hookInstrs(Module &M) {
 
               if (isa<FunctionType>(T->getPointerElementType())) {
 
-                Function *Callee = CI->getCalledFunction();
-                fprintf(stderr, "F:%s call %s ", F.getName().str().c_str(),
+                fprintf(stderr, "F:%s call %s ", F->getName().str().c_str(),
                         Callee->getName().str().c_str());
                 fprintf(stderr, "isFunctionPtr[%d]", i);
                 Function *f =
                     dyn_cast<Function>(O->stripPointerCastsAndAliases());
-                if (f)
+                if (f) {
+
                   fprintf(stderr, " \"%s\"\n", f->getName().str().c_str());
-                else
+                  add_to_follow_list(M, f->getName().str());
+
+                } else {
+
                   fprintf(stderr, " <unknown>\n");
+
+                }
 
               }
 
@@ -184,6 +370,9 @@ bool Callgraph::hookInstrs(Module &M) {
     }
 
   }
+
+  for (auto func : all_functions)
+    fprintf(stderr, "UNREACHABLE FUNCTION: %s\n", func.c_str());
 
   return true;
 
