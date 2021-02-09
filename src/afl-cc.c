@@ -31,6 +31,8 @@
 #include <strings.h>
 #include <limits.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #if (LLVM_MAJOR - 0 == 0)
   #undef LLVM_MAJOR
@@ -566,12 +568,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
+      if (getenv("AFL_LLVM_LTO_CALLGRAPH"))
+        cc_params[cc_par_cnt++] =
+            alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-callgraph.so", obj_path);
+
       if (instrument_mode == INSTRUMENT_CFG ||
           instrument_mode == INSTRUMENT_PCGUARD)
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       else
-
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
       cc_params[cc_par_cnt++] = lto_flag;
@@ -801,7 +806,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (!getenv("AFL_DONT_OPTIMIZE")) {
+  if (!getenv("AFL_DONT_OPTIMIZE") && !getenv("AFL_LLVM_LTO_CALLGRAPH")) {
 
     cc_params[cc_par_cnt++] = "-g";
     if (!have_o) cc_params[cc_par_cnt++] = "-O3";
@@ -1009,6 +1014,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #endif
+
+  if (getenv("AFL_LLVM_LTO_CALLGRAPH")) {
+
+    if (!lto_mode) { FATAL("AFL_LLVM_LTO_CALLGRAPH requires LTO mode"); }
+    cc_params[cc_par_cnt++] = "-O0";
+    cc_params[cc_par_cnt++] = "-w";
+
+  }
 
   cc_params[cc_par_cnt] = NULL;
 
@@ -1655,8 +1668,9 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
-            "a "
-            "bb\n"
+            "a bb\n"
+            "  AFL_LLVM_LTO_CALLGRAPH: will not generate a binary but a "
+            "callgraph instead\n"
             "  AFL_REAL_LD: use this lld linker instead of the compiled in "
             "path\n"
             "If anything fails - be sure to read README.lto.md!\n");
@@ -1881,9 +1895,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   execvp(cc_params[0], (char **)cc_params);
-
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
-
   return 0;
 
 }
