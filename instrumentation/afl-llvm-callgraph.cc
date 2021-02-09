@@ -149,6 +149,7 @@ void Callgraph::add_to_follow_list(Module &M, std::string fname) {
 
     all_functions.erase(it);
     if (!F || !F->size()) return;
+    if (!isInInstrumentList(F)) return;
     follow.push_back(fname);
 
   }
@@ -156,17 +157,6 @@ void Callgraph::add_to_follow_list(Module &M, std::string fname) {
 }
 
 bool Callgraph::hookInstrs(Module &M) {
-
-  std::vector<Instruction *> ins;
-  // LLVMContext &              C = M.getContext();
-
-  /*
-    Type *       VoidTy = Type::getVoidTy(C);
-    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-    IntegerType *Int16Ty = IntegerType::getInt16Ty(C);
-    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-    IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
-  */
 
   /* Grab all functions */
   for (auto &F : M)
@@ -331,7 +321,8 @@ bool Callgraph::hookInstrs(Module &M) {
         if (CI) {
 
           Function *Callee = CI->getCalledFunction();
-          add_to_follow_list(M, Callee->getName().str());
+          if (Callee)
+            add_to_follow_list(M, Callee->getName().str());
 
           for (int i = 0; i < CI->getNumArgOperands(); i++) {
 
