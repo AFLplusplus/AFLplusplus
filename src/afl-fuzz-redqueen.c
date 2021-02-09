@@ -30,8 +30,7 @@
 
 //#define _DEBUG
 //#define CMPLOG_INTROSPECTION
-#define COMBINE
-#define ARITHMETIC_LESSER_GREATER
+#define CMPLOG_COMBINE
 
 // CMP attribute enum
 enum {
@@ -496,7 +495,7 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
 }
 
-#ifdef CMPLOG_TRANSFORM
+#ifdef CMPLOG_SOLVE_TRANSFORM
 static int strntoll(const char *str, size_t sz, char **end, int base,
                     long long *out) {
 
@@ -577,7 +576,7 @@ static int is_hex(const char *str) {
 
 }
 
-  #ifdef CMPLOG_TRANSFORM_BASE64
+  #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
 // tests 4 bytes at location
 static int is_base64(const char *str) {
 
@@ -717,7 +716,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //         o_pattern, pattern, repl, changed_val, idx, taint_len,
   //         h->shape + 1, attr);
 
-#ifdef CMPLOG_TRANSFORM
+#ifdef CMPLOG_SOLVE_TRANSFORM
   // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (lvl & LVL3) {
 
@@ -1009,7 +1008,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u64 tmp_64 = *buf_64;
         *buf_64 = repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
         if (*status == 1) { memcpy(cbuf + idx, buf_64, 8); }
 #endif
         *buf_64 = tmp_64;
@@ -1050,7 +1049,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u32 tmp_32 = *buf_32;
         *buf_32 = (u32)repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
         if (*status == 1) { memcpy(cbuf + idx, buf_32, 4); }
 #endif
         *buf_32 = tmp_32;
@@ -1084,7 +1083,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u16 tmp_16 = *buf_16;
         *buf_16 = (u16)repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
         if (*status == 1) { memcpy(cbuf + idx, buf_16, 2); }
 #endif
         *buf_16 = tmp_16;
@@ -1122,7 +1121,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u8 tmp_8 = *buf_8;
         *buf_8 = (u8)repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
         if (*status == 1) { cbuf[idx] = *buf_8; }
 #endif
         *buf_8 = tmp_8;
@@ -1139,7 +1138,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //       16 = modified float, 32 = modified integer (modified = wont match
   //                                                   in original buffer)
 
-#ifdef ARITHMETIC_LESSER_GREATER
+#ifdef CMPLOG_SOLVE_ARITHMETIC
   if (lvl < LVL3 || attr == IS_TRANSFORM) { return 0; }
 
   if (!(attr & (IS_GREATER | IS_LESSER)) || SHAPE_BYTES(h->shape) < 4) {
@@ -1304,7 +1303,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-#endif                                         /* ARITHMETIC_LESSER_GREATER */
+#endif                                         /* CMPLOG_SOLVE_ARITHMETIC */
 
   return 0;
 
@@ -1366,7 +1365,7 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
       if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
-  #ifdef COMBINE
+  #ifdef CMPLOG_COMBINE
       if (*status == 1) { memcpy(cbuf + idx, r, shape); }
   #endif
 
@@ -1774,10 +1773,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                               u32 len, u8 lvl, u8 *status) {
 
-#ifndef COMBINE
+#ifndef CMPLOG_COMBINE
   (void)(cbuf);
 #endif
-#ifndef CMPLOG_TRANSFORM
+#ifndef CMPLOG_SOLVE_TRANSFORM
   (void)(changed_val);
 #endif
 
@@ -1847,7 +1846,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
         if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i); }
 #endif
 
@@ -1859,14 +1858,14 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
   }
 
-#ifdef CMPLOG_TRANSFORM
+#ifdef CMPLOG_SOLVE_TRANSFORM
 
   if (*status == 1) return 0;
 
   if (lvl & LVL3) {
 
     u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, fromhex = 0;
-  #ifdef CMPLOG_TRANSFORM_BASE64
+  #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
     u32 tob64 = 0, fromb64 = 0;
   #endif
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
@@ -1964,7 +1963,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       }
 
-  #ifdef CMPLOG_TRANSFORM_BASE64
+  #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
       if (i % 3 == 2 && i < 24) {
 
         if (is_base64(repl + ((i / 3) << 2))) tob64 += 3;
@@ -2012,13 +2011,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
               "from_0=%u from_slash=%u from_x=%u\n",
               idx, i, xor, arith, tolower, toupper, tohex, fromhex, to_0,
               to_slash, to_x, from_0, from_slash, from_x);
-    #ifdef CMPLOG_TRANSFORM_BASE64
+    #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
       fprintf(stderr, "RTN idx=%u loop=%u tob64=%u from64=%u\n", tob64,
               fromb64);
     #endif
   #endif
 
-  #ifdef CMPLOG_TRANSFORM_BASE64
+  #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
       // input is base64 and converted to binary? convert repl to base64!
       if ((i % 4) == 3 && i < 24 && fromb64 > i) {
 
@@ -2170,14 +2169,14 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       }
 
-  #ifdef COMBINE
+  #ifdef CMPLOG_COMBINE
       if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i + 1); }
   #endif
 
       if ((i >= 7 &&
            (i >= xor&&i >= arith &&i >= tolower &&i >= toupper &&i > tohex &&i >
                 (fromhex + from_0 + from_x + from_slash + 1)
-  #ifdef CMPLOG_TRANSFORM_BASE64
+  #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
             && i > tob64 + 3 && i > fromb64 + 4
   #endif
             )) ||
@@ -2469,7 +2468,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u32 lvl = (afl->queue_cur->colorized ? 0 : LVL1) +
             (afl->cmplog_lvl == CMPLOG_LVL_MAX ? LVL3 : 0);
 
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
   u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
   memcpy(cbuf, orig_buf, len);
   u8 *virgin_backup = afl_realloc((void **)&afl->ex_buf, afl->shm.map_size);
@@ -2526,7 +2525,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     } else if ((lvl & LVL1)
 
-#ifdef CMPLOG_TRANSFORM
+#ifdef CMPLOG_SOLVE_TRANSFORM
                || (lvl & LVL3)
 #endif
     ) {
@@ -2583,7 +2582,7 @@ exit_its:
 
   }
 
-#ifdef COMBINE
+#ifdef CMPLOG_COMBINE
   if (afl->queued_paths + afl->unique_crashes > orig_hit_cnt + 1) {
 
     // copy the current virgin bits so we can recover the information
@@ -2622,7 +2621,7 @@ exit_its:
     dump("COMB", cbuf, len);
     if (status == 1) {
 
-      fprintf(stderr, "NEW COMBINED\n");
+      fprintf(stderr, "NEW CMPLOG_COMBINED\n");
 
     } else {
 
@@ -2671,8 +2670,3 @@ exit_its:
   return r;
 
 }
-
-#ifdef COMBINE
-  #undef COMBINE
-#endif
-

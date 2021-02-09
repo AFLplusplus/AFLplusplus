@@ -36,17 +36,23 @@
 
 /* CMPLOG/REDQUEEN TUNING
  *
- * Here you can tuning and solving options for cmplog.
+ * Here you can modify tuning and solving options for CMPLOG.
  * Note that these are run-time options for afl-fuzz, no target
  * recompilation required.
  *
  */
 
+/* Enable arithmetic compare solving for both path */
+#define CMPLOG_SOLVE_ARITHMETIC
+
 /* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
-// #define CMPLOG_TRANSFORM
+#define CMPLOG_SOLVE_TRANSFORM
 
 /* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
-// #define CMPLOG_TRANSFORM_BASE64
+// #define CMPLOG_SOLVE_TRANSFORM_BASE64
+
+/* If a redqueen pass finds more than one solve, try to combine them? */
+#define CMPLOG_COMBINE
 
 /* Minimum % of the corpus to perform cmplog on. Default: 20% */
 #define CMPLOG_CORPUS_PERCENT 20U
