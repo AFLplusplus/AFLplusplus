@@ -165,6 +165,7 @@ static char *afl_environment_variables[] = {
     "AFL_NO_SNAPSHOT",
     "AFL_EXPAND_HAVOC_NOW",
     "AFL_USE_QASAN",
+    "AFL_QEMU_FORCE_DFL",
     NULL
 
 };
