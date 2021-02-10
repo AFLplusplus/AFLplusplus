@@ -509,6 +509,12 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     stack pointer in which QEMU can find the return address when `start addr` is
     hit.
 
+  - With `AFL_USE_QASAN` you can enable QEMU AddressSanitizer for dynamically
+    linked binaries.
+
+  - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered singal
+    handlers of the target.
+
 ## 6) Settings for afl-cmin
 
 The corpus minimization script offers very little customization:
