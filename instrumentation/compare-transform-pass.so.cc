@@ -362,19 +362,22 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
     bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
     uint64_t    constStrLen, unrollLen, constSizedLen = 0;
-    bool        isMemcmp =
-        !callInst->getCalledFunction()->getName().compare(StringRef("memcmp"));
-    bool isSizedcmp = isMemcmp ||
-                      !callInst->getCalledFunction()->getName().compare(
-                          StringRef("strncmp")) ||
-                      !callInst->getCalledFunction()->getName().compare(
-                          StringRef("strncasecmp"));
+    bool        isMemcmp = false;
+    bool        isSizedcmp = false;
+    bool        isCaseInsensitive = false;
+    Function *  Callee = callInst->getCalledFunction();
+    if (Callee) {
+
+      isMemcmp = Callee->getName().compare("memcmp") == 0;
+      isSizedcmp = isMemcmp || Callee->getName().compare("strncmp") == 0 ||
+                   Callee->getName().compare("strncasecmp") == 0;
+      isCaseInsensitive = Callee->getName().compare("strcasecmp") == 0 ||
+                          Callee->getName().compare("strncasecmp") == 0;
+
+    }
+
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
     bool   isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
-    bool isCaseInsensitive = !callInst->getCalledFunction()->getName().compare(
-                                 StringRef("strcasecmp")) ||
-                             !callInst->getCalledFunction()->getName().compare(
-                                 StringRef("strncasecmp"));
 
     if (!(HasStr1 || HasStr2)) {
 
@@ -435,15 +438,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       unrollLen = constSizedLen < constStrLen ? constSizedLen : constStrLen;
     else
       unrollLen = constStrLen;
-
-    /*
-        if (!be_quiet)
-          errs() << callInst->getCalledFunction()->getName() << ": unroll len "
-                 << unrollLen
-                 << ((isSizedcmp && !isConstSized) ? ", variable n" : "") << ":
-       "
-                 << ConstStr << "\n";
-    */
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
