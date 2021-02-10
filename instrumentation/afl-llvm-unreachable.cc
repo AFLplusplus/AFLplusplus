@@ -17,13 +17,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <list>
 #include <string>
 #include <fstream>
-#include <sys/time.h>
-#include "llvm/Config/llvm-config.h"
+#include <regex>
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -55,11 +56,11 @@ using namespace llvm;
 
 namespace {
 
-class Callgraph : public ModulePass {
+class Unreachable : public ModulePass {
 
  public:
   static char ID;
-  Callgraph() : ModulePass(ID) {
+  Unreachable() : ModulePass(ID) {
 
     initInstrumentList();
 
@@ -95,25 +96,11 @@ class Callgraph : public ModulePass {
 
 }  // namespace
 
-char Callgraph::ID = 0;
+char Unreachable::ID = 0;
 bool isIgnoreFunction(const llvm::Function *F);
 
-template <class Iterator>
-Iterator Unique(Iterator first, Iterator last) {
-
-  while (first != last) {
-
-    Iterator next(first);
-    last = std::remove(++next, last, *first);
-    first = next;
-
-  }
-
-  return last;
-
-}
-
-bool Callgraph::is_in_function_list(std::string fname) {
+/* Check if a function is our total function list */
+bool Unreachable::is_in_function_list(std::string fname) {
 
   std::vector<std::string>::iterator it =
       std::find(all_functions.begin(), all_functions.end(), fname);
@@ -129,7 +116,8 @@ bool Callgraph::is_in_function_list(std::string fname) {
 
 }
 
-Function *Callgraph::get_next_follow_function(Module &M) {
+/* Return the next entry in the function list we follow */
+Function *Unreachable::get_next_follow_function(Module &M) {
 
   std::string fname = follow.front();
   follow.erase(follow.begin());
@@ -137,7 +125,8 @@ Function *Callgraph::get_next_follow_function(Module &M) {
 
 }
 
-void Callgraph::remove_from_function_list(std::string fname) {
+/* Remove an entry from the list of all functions */
+void Unreachable::remove_from_function_list(std::string fname) {
 
   std::vector<std::string>::iterator it =
       std::find(all_functions.begin(), all_functions.end(), fname);
@@ -145,7 +134,8 @@ void Callgraph::remove_from_function_list(std::string fname) {
 
 }
 
-void Callgraph::add_to_follow_list(Module &M, std::string fname) {
+/* A function that is called in a function we follow - so follow it too */
+void Unreachable::add_to_follow_list(Module &M, std::string fname) {
 
   Function *F = M.getFunction(fname);
 
@@ -162,8 +152,10 @@ void Callgraph::add_to_follow_list(Module &M, std::string fname) {
 
 }
 
-void Callgraph::extract_all_plain_constants(std::vector<Value *> *all_constants,
-                                            Value *               V) {
+/* GlobalVariables can be structs that contain arrays that contain ...
+   This is all broken up here until we only have raw Constant parameters */
+void Unreachable::extract_all_plain_constants(
+    std::vector<Value *> *all_constants, Value *V) {
 
   auto         CS = dyn_cast<ConstantStruct>(V);
   auto         CA = dyn_cast<ConstantArray>(V);
@@ -206,7 +198,7 @@ void Callgraph::extract_all_plain_constants(std::vector<Value *> *all_constants,
 
 }
 
-bool Callgraph::hookInstrs(Module &M) {
+bool Unreachable::hookInstrs(Module &M) {
 
   /*
     if (debug) {  // needs an llvm debug build!
@@ -263,8 +255,9 @@ bool Callgraph::hookInstrs(Module &M) {
 
               if (!F->isDeclaration()) {
 
-                fprintf(stderr, "Adding CTOR: %s\n",
-                        F->getName().str().c_str());
+                if (debug)
+                  fprintf(stderr, "Adding CTOR: %s\n",
+                          F->getName().str().c_str());
                 add_to_follow_list(M, F->getName().str());
 
               }
@@ -307,8 +300,9 @@ bool Callgraph::hookInstrs(Module &M) {
 
               if (!F->isDeclaration()) {
 
-                fprintf(stderr, "Adding DTOR: %s\n",
-                        F->getName().str().c_str());
+                if (debug)
+                  fprintf(stderr, "Adding DTOR: %s\n",
+                          F->getName().str().c_str());
                 add_to_follow_list(M, F->getName().str());
 
               }
@@ -464,45 +458,55 @@ bool Callgraph::hookInstrs(Module &M) {
 
   }
 
-  for (auto func : all_functions)
-    WARNF("UNREACHABLE FUNCTION: %s", func.c_str());
+  // print all functions not visited, however drop __clang*, __gnu and std::
+  std::regex re1("(^__*[A-Z0-9][A-Z0-9]*_*)([a-z]*)(.*)");
+  for (auto func : all_functions) {
+
+    std::string rest = std::regex_replace(func, re1, "$2");
+    if (rest.empty() || (rest.compare("t") && rest.compare(0, 3, "gnu") &&
+                         rest.compare(0, 7, "__clang")))
+      fprintf(stderr, "UNREACHABLE FUNCTION: %s\n", func.c_str());
+
+  }
 
   return true;
 
 }
 
-bool Callgraph::runOnModule(Module &M) {
+bool Unreachable::runOnModule(Module &M) {
 
   if (getenv("AFL_DEBUG")) debug = 1;
   if (!getenv("AFL_QUIET") || debug)
-    printf("Running afl-llvm-callgraph by mh@mh-sec.de\n");
+    printf("Running afl-llvm-unreachable by Marc Heuse, mh@mh-sec.de\n");
   else
     be_quiet = 1;
 
   hookInstrs(M);
   verifyModule(M);
 
+  if (!be_quiet) printf("Unreachable analysis finished.\n");
+
   return true;
 
 }
 
-static void registerCallgraphPass(const PassManagerBuilder &,
-                                  legacy::PassManagerBase &PM) {
+static void registerUnreachablePass(const PassManagerBuilder &,
+                                    legacy::PassManagerBase &PM) {
 
-  auto p = new Callgraph();
+  auto p = new Unreachable();
   PM.add(p);
 
 }
 
-static RegisterStandardPasses RegisterCallgraphPass(
-    PassManagerBuilder::EP_OptimizerLast, registerCallgraphPass);
+static RegisterStandardPasses RegisterUnreachablePass(
+    PassManagerBuilder::EP_OptimizerLast, registerUnreachablePass);
 
-static RegisterStandardPasses RegisterCallgraphPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerCallgraphPass);
+static RegisterStandardPasses RegisterUnreachablePass0(
+    PassManagerBuilder::EP_EnabledOnOptLevel0, registerUnreachablePass);
 
 #if LLVM_VERSION_MAJOR >= 11
-static RegisterStandardPasses RegisterCallgraphPassLTO(
+static RegisterStandardPasses RegisterUnreachablePassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationEarly,
-    registerCallgraphPass);
+    registerUnreachablePass);
 #endif
 

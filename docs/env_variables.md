@@ -156,6 +156,8 @@ Then there are a few specific features that are only available in instrumentatio
      This defaults to 1
    - `AFL_LLVM_LTO_DONTWRITEID` prevents that the highest location ID written
      into the instrumentation is set in a global variable
+   - `AFL_LLVM_LTO_UNREACHABLE` will *not* instrument the binary for fuzzing but
+     instead perform an analysis on unreachable functions
 
   See [instrumentation/README.lto.md](../instrumentation/README.lto.md) for more information.
 

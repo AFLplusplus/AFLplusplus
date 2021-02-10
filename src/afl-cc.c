@@ -568,12 +568,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
-      if (getenv("AFL_LLVM_LTO_CALLGRAPH"))
-        cc_params[cc_par_cnt++] =
-            alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-callgraph.so", obj_path);
-
-      if (instrument_mode == INSTRUMENT_CFG ||
-          instrument_mode == INSTRUMENT_PCGUARD)
+      if (getenv("AFL_LLVM_LTO_UNREACHABLE"))
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/afl-llvm-unreachable.so", obj_path);
+      else if (instrument_mode == INSTRUMENT_CFG ||
+               instrument_mode == INSTRUMENT_PCGUARD)
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       else
@@ -806,7 +805,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (!getenv("AFL_DONT_OPTIMIZE") && !getenv("AFL_LLVM_LTO_CALLGRAPH")) {
+  if (!getenv("AFL_DONT_OPTIMIZE") && !getenv("AFL_LLVM_LTO_UNREACHABLE")) {
 
     cc_params[cc_par_cnt++] = "-g";
     if (!have_o) cc_params[cc_par_cnt++] = "-O3";
@@ -1015,9 +1014,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #endif
 
-  if (getenv("AFL_LLVM_LTO_CALLGRAPH")) {
+  if (getenv("AFL_LLVM_LTO_UNREACHABLE")) {
 
-    if (!lto_mode) { FATAL("AFL_LLVM_LTO_CALLGRAPH requires LTO mode"); }
+    if (!lto_mode) { FATAL("AFL_LLVM_LTO_UNREACHABLE requires LTO mode"); }
     cc_params[cc_par_cnt++] = "-O0";
     cc_params[cc_par_cnt++] = "-w";
     cc_params[cc_par_cnt++] = "-fno-inline-functions";
@@ -1026,6 +1025,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-femit-all-decls";
     cc_params[cc_par_cnt++] = "-fno-virtual-function-elimination";
     cc_params[cc_par_cnt++] = "-Wl,--no-gc-sections";
+    if (!be_quiet) {
+
+      printf(
+          "Note: UNREACHABLE analysis will not create an instrumented binary "
+          "for fuzzing.\n");
+
+    }
 
   }
 
@@ -1675,8 +1681,8 @@ int main(int argc, char **argv, char **envp) {
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
             "a bb\n"
-            "  AFL_LLVM_LTO_CALLGRAPH: will not generate a binary but a "
-            "callgraph instead\n"
+            "  AFL_LLVM_LTO_UNREACHABLE: will analyze for unreachable "
+            "functions, not instrument for fuzzing"
             "  AFL_REAL_LD: use this lld linker instead of the compiled in "
             "path\n"
             "If anything fails - be sure to read README.lto.md!\n");
