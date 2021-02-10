@@ -46,6 +46,9 @@
 #endif
 
 #include <set>
+#include "config.h"
+#include "debug.h"
+#include "types.h"
 #include "afl-llvm-common.h"
 
 using namespace llvm;
@@ -81,10 +84,12 @@ class Callgraph : public ModulePass {
   Function *get_next_follow_function(Module &M);
   void      add_to_follow_list(Module &M, std::string func);
   void      remove_from_function_list(std::string fname);
+  void      extract_all_plain_constants(std::vector<Value *> *all_constants,
+                                        Value *               V);
 
   std::vector<std::string> all_functions;
   std::vector<std::string> follow;
-  int debug = 0;
+  int                      debug = 0;
 
 };
 
@@ -157,14 +162,79 @@ void Callgraph::add_to_follow_list(Module &M, std::string fname) {
 
 }
 
+void Callgraph::extract_all_plain_constants(std::vector<Value *> *all_constants,
+                                            Value *               V) {
+
+  auto         CS = dyn_cast<ConstantStruct>(V);
+  auto         CA = dyn_cast<ConstantArray>(V);
+  auto         CV = dyn_cast<ConstantVector>(V);
+  unsigned int i = 0;
+  Constant *   C;
+
+  if (CS) {
+
+    while ((C = CS->getAggregateElement(i++))) {
+
+      extract_all_plain_constants(all_constants,
+                                  C->stripPointerCastsAndAliases());
+
+    }
+
+  } else if (CA) {
+
+    while ((C = CA->getAggregateElement(i++))) {
+
+      extract_all_plain_constants(all_constants,
+                                  C->stripPointerCastsAndAliases());
+
+    }
+
+  } else if (CV) {
+
+    while ((C = CV->getAggregateElement(i++))) {
+
+      extract_all_plain_constants(all_constants,
+                                  C->stripPointerCastsAndAliases());
+
+    }
+
+  } else {
+
+    all_constants->push_back(V);
+
+  }
+
+}
+
 bool Callgraph::hookInstrs(Module &M) {
+
+  /*
+    if (debug) {  // needs an llvm debug build!
+      int i = 0;
+      for (auto &F : M)
+        // if (F.getName().compare("foo") == 0)
+        for (auto &BB : F)
+          for (auto &IN : BB) {
+
+            fprintf(stderr, "%d: ", ++i);
+            IN.dump();
+
+          }
+
+    }
+
+  */
 
   /* Grab all functions */
   for (auto &F : M) {
+
     if (F.size() && !isIgnoreFunction(&F)) {
+
       if (debug) fprintf(stderr, "F: %s\n", F.getName().str().c_str());
       all_functions.push_back(F.getName().str());
+
     }
+
   }
 
   /* Add CTORs and DTORs - if they should be followed */
@@ -278,9 +348,8 @@ bool Callgraph::hookInstrs(Module &M) {
 
     Function *F = get_next_follow_function(M);
     if (!F || !F->size()) { continue; }
-    // if (!isInInstrumentList(&F)) continue;
 
-    fprintf(stderr, "Following: %s\n", F->getName().str().c_str());
+    if (debug) fprintf(stderr, "Following: %s\n", F->getName().str().c_str());
 
     for (auto &BB : *F) {
 
@@ -289,27 +358,55 @@ bool Callgraph::hookInstrs(Module &M) {
         auto SI = dyn_cast<StoreInst>(&IN);
         if (SI) {
 
-          auto V = SI->getValueOperand();
-          auto VV = V->stripPointerCastsAndAliases();
-          if (VV) {
+          auto V = SI->getValueOperand()->stripPointerCastsAndAliases();
+          if (V) {
 
-            auto T = VV->getType();
+            auto T = V->getType();
             if (T && T->isPointerTy()) {
+
+              // This is C++ class + virtual function support
+              auto  VV = V->stripInBoundsOffsets();
+              auto *G = dyn_cast<GlobalVariable>(VV);
+              if (G && G->hasInitializer()) {
+
+                Constant *           GV = G->getInitializer();
+                std::vector<Value *> all_constants;
+                Value *              VV = dyn_cast<Value>(GV);
+                extract_all_plain_constants(&all_constants, VV);
+                for (auto C : all_constants) {
+
+                  Function *f = dyn_cast<Function>(C);
+                  if (f) {
+
+                    if (debug)
+                      fprintf(stderr, "F:%s Store isFunction %s",
+                              F->getName().str().c_str(),
+                              f->getName().str().c_str());
+                    // this is wrong here, needs static analysis
+                    add_to_follow_list(M, f->getName().str());
+
+                  }
+
+                }
+
+              }
 
               if (isa<FunctionType>(T->getPointerElementType())) {
 
-                fprintf(stderr, "F:%s Store isFunction",
-                        F->getName().str().c_str());
-                Function *f = dyn_cast<Function>(VV);
+                if (debug)
+                  fprintf(stderr, "F:%s Store isFunction",
+                          F->getName().str().c_str());
+                Function *f = dyn_cast<Function>(V);
                 if (f) {
 
-                  fprintf(stderr, " \"%s\"\n", f->getName().str().c_str());
+                  if (debug)
+                    fprintf(stderr, " \"%s\"\n", f->getName().str().c_str());
                   // this is wrong here, needs static analysis
                   add_to_follow_list(M, f->getName().str());
 
                 } else {
 
-                  fprintf(stderr, " <unknown>\n");
+                  if (debug) fprintf(stderr, " <unknown>\n");
 
                 }
 
@@ -325,8 +422,7 @@ bool Callgraph::hookInstrs(Module &M) {
         if (CI) {
 
           Function *Callee = CI->getCalledFunction();
-          if (Callee)
-            add_to_follow_list(M, Callee->getName().str());
+          if (Callee) add_to_follow_list(M, Callee->getName().str());
 
           for (int i = 0; i < CI->getNumArgOperands(); i++) {
 
@@ -336,19 +432,21 @@ bool Callgraph::hookInstrs(Module &M) {
 
               if (isa<FunctionType>(T->getPointerElementType())) {
 
-                fprintf(stderr, "F:%s call %s ", F->getName().str().c_str(),
-                        Callee->getName().str().c_str());
-                fprintf(stderr, "isFunctionPtr[%d]", i);
+                if (debug)
+                  fprintf(stderr, "F:%s call %s ", F->getName().str().c_str(),
+                          Callee->getName().str().c_str());
+                if (debug) fprintf(stderr, "isFunctionPtr[%d]", i);
                 Function *f =
                     dyn_cast<Function>(O->stripPointerCastsAndAliases());
                 if (f) {
 
-                  fprintf(stderr, " \"%s\"\n", f->getName().str().c_str());
+                  if (debug)
+                    fprintf(stderr, " \"%s\"\n", f->getName().str().c_str());
                   add_to_follow_list(M, f->getName().str());
 
                 } else {
 
-                  fprintf(stderr, " <unknown>\n");
+                  if (debug) fprintf(stderr, " <unknown>\n");
 
                 }
 
@@ -367,7 +465,7 @@ bool Callgraph::hookInstrs(Module &M) {
   }
 
   for (auto func : all_functions)
-    fprintf(stderr, "UNREACHABLE FUNCTION: %s\n", func.c_str());
+    WARNF("UNREACHABLE FUNCTION: %s", func.c_str());
 
   return true;
 
@@ -404,6 +502,7 @@ static RegisterStandardPasses RegisterCallgraphPass0(
 
 #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCallgraphPassLTO(
-    PassManagerBuilder::EP_FullLinkTimeOptimizationEarly, registerCallgraphPass);
+    PassManagerBuilder::EP_FullLinkTimeOptimizationEarly,
+    registerCallgraphPass);
 #endif
 
