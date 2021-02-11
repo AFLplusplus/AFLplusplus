@@ -50,7 +50,7 @@ by you, the `id` parameter is for afl-fuzz and will be overwritten.
 Note that useful parameters for `val` are: 1, 2, 3, 4, 8, 16, 32, 64, 128.
 A value of e.g. 33 will be seen as 32 for coverage purposes.
 
-## 3) Selective instrumenation with AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST
+## 3) Selective instrumentation with AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST
 
 This feature is equivalent to llvm 12 sancov feature and allows to specify
 on a filename and/or function name level to instrument these or skip them.
