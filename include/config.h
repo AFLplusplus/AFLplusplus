@@ -10,7 +10,7 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2021 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@
 /* Minimum % of the corpus to perform cmplog on. Default: 20% */
 #define CMPLOG_CORPUS_PERCENT 20U
 
-/* Number of potential posititions from which we decide the cmplog becomes
+/* Number of potential positions from which we decide if cmplog becomes
    useless, default 16384 */
 #define CMPLOG_POSITIONS_MAX 16384U
 
