@@ -482,10 +482,10 @@ bool Unreachable::runOnModule(Module &M) {
     be_quiet = 1;
 
   hookInstrs(M);
-  verifyModule(M);
-
   if (!be_quiet) printf("Unreachable analysis finished.\n");
+  fflush(stdout);
 
+  verifyModule(M);
   return true;
 
 }
