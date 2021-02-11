@@ -12,7 +12,7 @@ For debugging purposes, we still suggest to run the original QASan as the stackt
 
 ### When I should use QASan?
 
-If your target binary is PIC x86_64, you should before give a try to [retrowrite](https://github.com/HexHive/retrowrite) for static rewriting.
+If your target binary is PIC x86_64, you should also give a try to [retrowrite](https://github.com/HexHive/retrowrite) for static rewriting.
 
 If it fails, or if your binary is for another architecture, or you want to use persistent and snapshot mdoe, AFL++ QASan mode is what you want/have to use.
 
