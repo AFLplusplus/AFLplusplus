@@ -517,7 +517,7 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - With `AFL_USE_QASAN` you can enable QEMU AddressSanitizer for dynamically
     linked binaries.
 
-  - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered singal
+  - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered signal
     handlers of the target.
 
 ## 6) Settings for afl-cmin
