@@ -465,7 +465,7 @@ bool Unreachable::hookInstrs(Module &M) {
     std::string rest = std::regex_replace(func, re1, "$2");
     if (rest.empty() || (rest.compare("t") && rest.compare(0, 3, "gnu") &&
                          rest.compare(0, 7, "__clang")))
-      fprintf(stderr, "UNREACHABLE FUNCTION: %s\n", func.c_str());
+      printf("UNREACHABLE FUNCTION: %s\n", func.c_str());
 
   }
 
