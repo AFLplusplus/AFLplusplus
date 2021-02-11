@@ -16,8 +16,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     to be placed in the source code.
     Check out instrumentation/README.instrument_list.md
   - afl-fuzz
-    - Making AFL_MAP_SIZE obsolete - afl-fuzz now learns on start the
-      target map size
+    - Making AFL_MAP_SIZE (mostly) obsolete - afl-fuzz now learns on start
+      the target map size
     - upgraded cmplog/redqueen: solving for floating point, solving
       transformations (e.g. toupper, tolower, to/from hex, xor,
       arithmetics, etc.). this is costly hence new command line option
@@ -27,7 +27,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
     - on restarts (-i)/autoresume (AFL_AUTORESUME) the stats are now
-      reloaded and used, thanks to Vimal Joseph for this PR! 
+      reloaded and used, thanks to Vimal Joseph for this patch! 
     - if determinstic mode is active (-D, or -M without -d) then we sync
       after every queue entry as this can take very long time otherwise
     - better detection if a target needs a large shared map
@@ -47,8 +47,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
+    - fixed a potential crash in the LAF feature
   - qemuafl
-    - ported QASan to qemuafl! see qemu_mode/libqasan/README.md
+    - QASan (address sanitizer for Qemu) ported to qemuafl!
+      See qemu_mode/libqasan/README.md
     - solved some persistent mode bugs (thanks Dil4rd)
     - solved an issue when dumping the memory maps (thanks wizche)
     - Android support for QASan
@@ -58,8 +60,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Added a new example harness to compare python, c, and rust bindings
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
   - warn on any _AFL and __AFL env vars
-  - LLVM mode is now compiled with -j4, unicorn with all cores. qemu was
-    already building with all cores, the gcc plugin needs only one.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
   - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)
