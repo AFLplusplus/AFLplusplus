@@ -475,7 +475,7 @@ bool Unreachable::hookInstrs(Module &M) {
 
 bool Unreachable::runOnModule(Module &M) {
 
-  if (getenv("AFL_DEBUG")) debug = 1;
+  if (getenv("AFL_DEBUG")) { debug = 1; }
   if (!getenv("AFL_QUIET") || debug)
     printf("Running afl-llvm-unreachable by Marc Heuse, mh@mh-sec.de\n");
   else

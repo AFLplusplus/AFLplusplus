@@ -1019,6 +1019,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!lto_mode) { FATAL("AFL_LLVM_LTO_UNREACHABLE requires LTO mode"); }
     cc_params[cc_par_cnt++] = "-O0";
     cc_params[cc_par_cnt++] = "-w";
+    cc_params[cc_par_cnt++] = "-fno-inline";
     cc_params[cc_par_cnt++] = "-fno-inline-functions";
     cc_params[cc_par_cnt++] = "-Wl,--discard-none";
     cc_params[cc_par_cnt++] = "-Wl,--lto-O0";
@@ -1857,8 +1858,8 @@ int main(int argc, char **argv, char **envp) {
 
     DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < argc; i++)
-      SAYF(" '%s'", argv[i]);
-    SAYF("\n");
+      DEBUGF(" '%s'", argv[i]);
+    DEBUGF("\n");
     fflush(stdout);
     fflush(stderr);
 
@@ -1899,8 +1900,8 @@ int main(int argc, char **argv, char **envp) {
 
     DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < (s32)cc_par_cnt; i++)
-      SAYF(" '%s'", cc_params[i]);
-    SAYF("\n");
+      DEBUGF(" '%s'", cc_params[i]);
+    DEBUGF("\n");
     fflush(stdout);
     fflush(stderr);
 
