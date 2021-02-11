@@ -222,7 +222,7 @@ bool Unreachable::hookInstrs(Module &M) {
 
     if (F.size() && !isIgnoreFunction(&F)) {
 
-      if (debug) fprintf(stderr, "F: %s\n", F.getName().str().c_str());
+      if (debug) fprintf(stderr, "ADD: %s\n", F.getName().str().c_str());
       all_functions.push_back(F.getName().str());
 
     }
@@ -373,7 +373,7 @@ bool Unreachable::hookInstrs(Module &M) {
                   if (f) {
 
                     if (debug)
-                      fprintf(stderr, "F:%s Store isFunction %s",
+                      fprintf(stderr, "F:%s Store isFunction %s\n",
                               F->getName().str().c_str(),
                               f->getName().str().c_str());
                     // this is wrong here, needs static analysis
