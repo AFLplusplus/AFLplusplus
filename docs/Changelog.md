@@ -20,18 +20,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       the target map size
     - upgraded cmplog/redqueen: solving for floating point, solving
       transformations (e.g. toupper, tolower, to/from hex, xor,
-      arithmetics, etc.). this is costly hence new command line option
-      -l that sets the intensity (values 1 to 3). recommended is 1 or 2.
+      arithmetics, etc.). This is costly hence new command line option
+      `-l` that sets the intensity (values 1 to 3). Recommended is 1 or 2.
     - added `AFL_CMPLOG_ONLY_NEW` to not use cmplog on initial testcases from
       `-i` or resumes (as these have most likely already been done)
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
-    - on restarts (-i)/autoresume (AFL_AUTORESUME) the stats are now
+    - on restarts (`-i`)/autoresume (AFL_AUTORESUME) the stats are now
       reloaded and used, thanks to Vimal Joseph for this patch! 
-    - if determinstic mode is active (-D, or -M without -d) then we sync
+    - if deterministic mode is active (`-D`, or `-M` without `-d`) then we sync
       after every queue entry as this can take very long time otherwise
     - better detection if a target needs a large shared map
-    - fix for -Z
+    - fix for `-Z`
     - switched to an even faster RNG
     - added hghwng's patch for faster trace map analysis
   - afl-cc
@@ -55,7 +55,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - solved an issue when dumping the memory maps (thanks wizche)
     - Android support for QASan
   - unicornafl
-    - Substential speed gains in python bindings for certain use cases
+    - Substantial speed gains in python bindings for certain use cases
     - Improved rust bindings
     - Added a new example harness to compare python, c, and rust bindings
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
