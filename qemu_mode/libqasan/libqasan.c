@@ -72,7 +72,7 @@ void __libqasan_print_maps(void) {
 
   QASAN_LOG("QEMU-AddressSanitizer (v%s)\n", QASAN_VERSTR);
   QASAN_LOG(
-      "Copyright (C) 2019-2020 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
+      "Copyright (C) 2019-2021 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
   QASAN_LOG("\n");
 
   if (__qasan_log) __libqasan_print_maps();
