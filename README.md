@@ -2,8 +2,6 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=stable)
-
   Release Version: [3.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
   Github Version: 3.01a
