@@ -59,6 +59,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Substantial speed gains in python bindings for certain use cases
     - Improved rust bindings
     - Added a new example harness to compare python, c, and rust bindings
+  - afl-cmin and afl-showmap now support the -f option
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
   - warn on any _AFL and __AFL env vars
   - added dummy Makefile to instrumentation/
