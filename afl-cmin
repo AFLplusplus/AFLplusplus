@@ -411,8 +411,8 @@ BEGIN {
     retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
-#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null"
-    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null"
+    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   if (retval && !AFL_CMIN_CRASHES_ONLY) {
