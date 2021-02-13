@@ -183,14 +183,12 @@ BEGIN {
     if (_go_c == "Q") {
       if (qemu_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -Q"
-      if ( !mem_limit_given ) mem_limit = "250"
       qemu_mode = 1
       continue
     } else 
     if (_go_c == "U") {
       if (unicorn_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -U"
-      if ( !mem_limit_given ) mem_limit = "250"
       unicorn_mode = 1
       continue
     } else 
@@ -200,7 +198,7 @@ BEGIN {
       usage()
   } # while options
 
-  if (!mem_limit) mem_limit = 200
+  if (!mem_limit) mem_limit = "none"
   if (!timeout) timeout = "none"
 
   # get program args
@@ -345,7 +343,7 @@ BEGIN {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
   cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -k1n -k2r"
-  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format") | sort -k1n -k2r"
+  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
   while (cmdline | getline) {
     sub(/^[0-9]+ (\.\/)?/,"",$0)
     infilesSmallToBig[i++] = $0
@@ -357,7 +355,7 @@ BEGIN {
   # Make sure that we're not dealing with a directory.
 
   if (0 == system("test -d "in_dir"/"first_file)) {
-    print "[-] Error: The input directory contains subdirectories - please fix." > "/dev/stderr"
+    print "[-] Error: The input directory is empty or contains subdirectories - please fix." > "/dev/stderr"
     exit 1
   }
 
@@ -413,8 +411,8 @@ BEGIN {
     retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
-#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null"
-    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null"
+    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   if (retval && !AFL_CMIN_CRASHES_ONLY) {

@@ -5,6 +5,10 @@
   users or for some types of custom fuzzing setups. See [README.md](README.md) for the general
   instruction manual.
 
+  Note that most tools will warn on any unknown AFL environment variables.
+  This is for warning on typos that can happen. If you want to disable this
+  check then set the `AFL_IGNORE_UNKNOWN_ENVS` environment variable.
+
 ## 1) Settings for all compilers
 
 Starting with afl++ 3.0 there is only one compiler: afl-cc
@@ -17,7 +21,6 @@ To select the different instrumentation modes this can be done by
 
 `MODE` can be one of `LTO` (afl-clang-lto*), `LLVM` (afl-clang-fast*), `GCC_PLUGIN`
 (afl-g*-fast) or `GCC` (afl-gcc/afl-g++).
-
 
 Because (with the exception of the --afl-MODE command line option) the
 compile-time tools do not accept afl specific command-line options, they
@@ -287,6 +290,11 @@ checks or alter some of the more exotic semantics of the tool:
     the target. This must be equal or larger than the size the target was
     compiled with.
 
+  - `AFL_CMPLOG_ONLY_NEW` will only perform the expensive cmplog feature for
+    newly found testcases and not for testcases that are loaded on startup
+    (`-i in`). This is an important feature to set when resuming a fuzzing
+    session.
+
   - `AFL_TESTCACHE_SIZE` allows you to override the size of `#define TESTCASE_CACHE`
     in config.h. Recommended values are 50-250MB - or more if your fuzzing
     finds a huge amount of paths for large inputs.
@@ -431,13 +439,18 @@ checks or alter some of the more exotic semantics of the tool:
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
 
-  - Setting `AFL_STATSD` enable StatsD metrics collection.
+  - Setting `AFL_STATSD` enables StatsD metrics collection.
     By default AFL++ will send these metrics over UDP to 127.0.0.1:8125.
-    The host and port are configurable with `AFL_STATSD_HOST` and `AFL_STATSD_PORT`
-    respectively.
-    To get the most out of this, you should provide `AFL_STATSD_TAGS_FLAVOR` that
-    matches your StatsD server.
-    Available flavors are `dogstatsd`, `librato`, `signalfx` and `influxdb`.
+    The host and port are configurable with `AFL_STATSD_HOST` and `AFL_STATSD_PORT` respectively.
+    To enable tags (banner and afl_version) you should provide `AFL_STATSD_TAGS_FLAVOR` that matches
+    your StatsD server (see `AFL_STATSD_TAGS_FLAVOR`)
+
+  - Setting `AFL_STATSD_TAGS_FLAVOR` to one of `dogstatsd`, `librato`, `signalfx` or `influxdb`
+    allows you to add tags to your fuzzing instances. This is especially useful when running
+    multiple instances (`-M/-S` for example). Applied tags are `banner` and `afl_version`.
+    `banner` corresponds to the name of the fuzzer provided through `-M/-S`.
+    `afl_version` corresponds to the currently running afl version (e.g `++3.0c`).
+    Default (empty/non present) will add no tags to the metrics.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
     For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
@@ -504,6 +517,12 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     stack pointer in which QEMU can find the return address when `start addr` is
     hit.
 
+  - With `AFL_USE_QASAN` you can enable QEMU AddressSanitizer for dynamically
+    linked binaries.
+
+  - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered signal
+    handlers of the target.
+
 ## 6) Settings for afl-cmin
 
 The corpus minimization script offers very little customization:
@@ -519,7 +538,7 @@ The corpus minimization script offers very little customization:
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
 
-# #6) Settings for afl-tmin
+## 7) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (`-Q`), `AFL_PATH` will be
 searched for afl-qemu-trace. In addition to this, `TMPDIR` may be used if a

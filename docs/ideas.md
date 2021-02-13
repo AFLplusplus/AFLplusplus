@@ -3,6 +3,40 @@
 In the following, we describe a variety of ideas that could be implemented
 for future AFL++ versions.
 
+# GSoC 2021
+
+All GSoC 2021 projects will be in the Rust development language!
+
+## UI for libaflrs
+
+Write a user interface to libaflrs, the upcoming backend of afl++.
+This might look like the afl-fuzz UI, but you can improve on it - and should!
+
+## Schedulers for libaflrs
+
+Schedulers is a mechanism that selects items from the fuzzing corpus based
+on strategy and randomness. One scheduler might focus on long paths,
+another on rarity of edges disocvered, still another on a combination on
+things. Some of the schedulers in afl++ have to be ported, but you are free
+to come up with your own if you want to - and see how it performs.
+
+## Forkserver support for libaflrs
+
+The current libaflrs implementation fuzzes in-memory, however obviously we
+want to support afl instrumented binaries as well.
+Hence a forkserver support needs to be implemented - forking off the target
+and talking to the target via a socketpair and the communication protocol
+within.
+
+## More Observers for libaflrs
+
+An observer is measuring functionality that looks at the target being fuzzed
+and documents something about it. In traditional fuzzing this is the coverage
+in the target, however we want to add various more observers, e.g. stack depth,
+heap usage, etc. - this is a topic for an experienced Rust developer.
+
+# Generic ideas and wishlist
+
 ## Analysis software
 
 Currently analysis is done by using afl-plot, which is rather outdated.
@@ -15,6 +49,8 @@ each edge was discovered and which other fuzzer share finding that edge),
 test cases executed.
 It should be clickable which value is X and Y axis, zoom factor, log scaling
 on-off, etc.
+
+Mentor: vanhauser-thc
 
 ## WASM Instrumentation
 
@@ -35,19 +71,6 @@ Either improve a single mutator thorugh learning of many different bugs
 (CFG, DFG, VFG, ...?) and improve performance for a single target.
 
 Mentor: domenukk
-
-## Collision-free Binary-Only Maps
-
-AFL++ supports collison-free maps using an LTO (link-time-optimization) pass.
-This should be possible to implement for QEMU and Unicorn instrumentations.
-As the forkserver parent caches just in time translated translation blocks,
-adding a simple counter between jumps should be doable.
-
-Note: this is already in development for qemu by Andrea, so for people who
-want to contribute it might make more sense to port his solution to unicorn.
-
-Mentor: andreafioraldi or domenukk
-Issue/idea tracker: [https://github.com/AFLplusplus/AFLplusplus/issues/237](https://github.com/AFLplusplus/AFLplusplus/issues/237)
 
 ## Your idea!
 

@@ -325,7 +325,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
     }
 
-    sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
+    sprintf(ret + strlen(ret), ",time:%llu",
+            get_cur_time() + afl->prev_run_time - afl->start_time);
 
     if (afl->current_custom_fuzz &&
         afl->current_custom_fuzz->afl_custom_describe) {
@@ -700,12 +701,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (!classified) {
-
-          classify_counts(&afl->fsrv);
-          //          classified = 1;
-
-        }
+        if (!classified) { classify_counts(&afl->fsrv); }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 

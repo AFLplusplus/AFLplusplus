@@ -19,7 +19,7 @@ if [ "$NEW_VERSION" = "-h" ]; then
   exit 1
 fi
 
-git submodule init && git submodule update || exit 1
+git submodule init && git submodule update unicornafl || exit 1
 cd ./unicornafl || exit 1
 git fetch origin dev 1>/dev/null || exit 1
 git stash 1>/dev/null 2>/dev/null

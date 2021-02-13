@@ -360,10 +360,27 @@ else
 
 fi
 
-echo "[+] Building libcompcov ..."
-make -C libcompcov && echo "[+] libcompcov ready"
-echo "[+] Building unsigaction ..."
-make -C unsigaction && echo "[+] unsigaction ready"
+ORIG_CROSS="$CROSS"
+
+if [ "$ORIG_CROSS" = "" ]; then
+  CROSS=$CPU_TARGET-linux-gnu-gcc
+  if ! command -v "$CROSS" > /dev/null
+  then # works on Arch Linux
+    CROSS=$CPU_TARGET-pc-linux-gnu-gcc
+  fi
+fi
+
+if ! command -v "$CROSS" > /dev/null
+then
+    echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
+else
+  echo "[+] Building libcompcov ..."
+  make -C libcompcov CC=$CROSS && echo "[+] libcompcov ready"
+  echo "[+] Building unsigaction ..."
+  make -C unsigaction CC=$CROSS && echo "[+] unsigaction ready"
+  echo "[+] Building libqasan ..."
+  make -C libqasan CC=$CROSS && echo "[+] unsigaction ready"
+fi
 
 echo "[+] All done for qemu_mode, enjoy!"
 

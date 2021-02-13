@@ -3,6 +3,16 @@
 . ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
+test -z "$AFL_CC" && {
+  if type gcc >/dev/null; then
+    export AFL_CC=gcc
+  else
+    if type clang >/dev/null; then
+      export AFL_CC=clang
+    fi
+  fi
+}
+
 test -e ../afl-qemu-trace && {
   cc -pie -fPIE -o test-instr ../test-instr.c
   cc -o test-compcov test-compcov.c

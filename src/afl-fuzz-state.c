@@ -102,6 +102,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
+  afl->cmplog_lvl = 1;
 #ifndef NO_SPLICING
   afl->use_splicing = 1;
 #endif
@@ -233,6 +234,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_custom_mutator_only =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_CMPLOG_ONLY_NEW",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_cmplog_only_new =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_NO_UI", afl_environment_variable_len)) {

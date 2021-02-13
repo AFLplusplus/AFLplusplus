@@ -26,6 +26,7 @@
 #include "afl-fuzz.h"
 #include <string.h>
 #include <limits.h>
+#include "cmplog.h"
 
 /* MOpt */
 
@@ -165,7 +166,7 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
 
   /* See if one-byte adjustments to any byte could produce this result. */
 
-  for (i = 0; i < blen; ++i) {
+  for (i = 0; (u8)i < blen; ++i) {
 
     u8 a = old_val >> (8 * i), b = new_val >> (8 * i);
 
@@ -193,7 +194,7 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
 
   diffs = 0;
 
-  for (i = 0; i < blen / 2; ++i) {
+  for (i = 0; (u8)i < blen / 2; ++i) {
 
     u16 a = old_val >> (16 * i), b = new_val >> (16 * i);
 
@@ -290,7 +291,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
 
   /* See if two-byte insertions over old_val could give us new_val. */
 
-  for (i = 0; (s32)i < blen - 1; ++i) {
+  for (i = 0; (u8)i < blen - 1; ++i) {
 
     for (j = 0; j < sizeof(interesting_16) / 2; ++j) {
 
@@ -530,7 +531,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     len = afl->queue_cur->len;
 
     /* maybe current entry is not ready for splicing anymore */
-    if (unlikely(len <= 4 && old_len > 4)) afl->ready_for_splicing_count--;
+    if (unlikely(len <= 4 && old_len > 4)) --afl->ready_for_splicing_count;
 
   }
 
@@ -543,16 +544,33 @@ u8 fuzz_one_original(afl_state_t *afl) {
   if (likely(!afl->old_seed_selection))
     orig_perf = perf_score = afl->queue_cur->perf_score;
   else
-    orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
+    afl->queue_cur->perf_score = orig_perf = perf_score =
+        calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score == 0)) { goto abandon_entry; }
+  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
 
-  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
+  if (unlikely(afl->shm.cmplog_mode &&
+               afl->queue_cur->colorized < afl->cmplog_lvl &&
+               (u32)len <= afl->cmplog_max_filesize)) {
 
-    if (input_to_state_stage(afl, in_buf, out_buf, len,
-                             afl->queue_cur->exec_cksum)) {
+    if (unlikely(len < 4)) {
 
-      goto abandon_entry;
+      afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+
+    } else {
+
+      if (afl->cmplog_lvl == 3 ||
+          (afl->cmplog_lvl == 2 && afl->queue_cur->tc_ref) ||
+          !(afl->fsrv.total_execs % afl->queued_paths) ||
+          get_cur_time() - afl->last_path_time > 300000) {
+
+        if (input_to_state_stage(afl, in_buf, out_buf, len)) {
+
+          goto abandon_entry;
+
+        }
+
+      }
 
     }
 
@@ -2766,11 +2784,16 @@ abandon_entry:
      cycle and have not seen this entry before. */
 
   if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
-      (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0)) {
+      (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0) &&
+      !afl->queue_cur->disabled) {
 
-    --afl->pending_not_fuzzed;
-    afl->queue_cur->was_fuzzed = 1;
-    if (afl->queue_cur->favored) { --afl->pending_favored; }
+    if (!afl->queue_cur->was_fuzzed) {
+
+      --afl->pending_not_fuzzed;
+      afl->queue_cur->was_fuzzed = 1;
+      if (afl->queue_cur->favored) { --afl->pending_favored; }
+
+    }
 
   }
 
@@ -2796,7 +2819,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   }
 
-  s32 len, temp_len;
+  u32 len, temp_len;
   u32 i;
   u32 j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -2937,7 +2960,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     len = afl->queue_cur->len;
 
     /* maybe current entry is not ready for splicing anymore */
-    if (unlikely(len <= 4 && old_len > 4)) afl->ready_for_splicing_count--;
+    if (unlikely(len <= 4 && old_len > 4)) --afl->ready_for_splicing_count;
 
   }
 
@@ -2952,14 +2975,30 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   else
     orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score == 0)) { goto abandon_entry; }
+  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
 
-  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
+  if (unlikely(afl->shm.cmplog_mode &&
+               afl->queue_cur->colorized < afl->cmplog_lvl &&
+               (u32)len <= afl->cmplog_max_filesize)) {
 
-    if (input_to_state_stage(afl, in_buf, out_buf, len,
-                             afl->queue_cur->exec_cksum)) {
+    if (unlikely(len < 4)) {
 
-      goto abandon_entry;
+      afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+
+    } else {
+
+      if (afl->cmplog_lvl == 3 ||
+          (afl->cmplog_lvl == 2 && afl->queue_cur->tc_ref) ||
+          !(afl->fsrv.total_execs % afl->queued_paths) ||
+          get_cur_time() - afl->last_path_time > 300000) {
+
+        if (input_to_state_stage(afl, in_buf, out_buf, len)) {
+
+          goto abandon_entry;
+
+        }
+
+      }
 
     }
 
@@ -3315,7 +3354,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 1; ++i) {
+  for (i = 0; i < len - 1; ++i) {
 
     /* Let's consult the effector map... */
 
@@ -3357,7 +3396,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 3; ++i) {
+  for (i = 0; i < len - 3; ++i) {
 
     /* Let's consult the effector map... */
     if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
@@ -3489,7 +3528,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 1; ++i) {
+  for (i = 0; i < len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -3615,7 +3654,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 3; ++i) {
+  for (i = 0; i < len - 3; ++i) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -3805,7 +3844,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 1; ++i) {
+  for (i = 0; i < len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -3891,7 +3930,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 3; ++i) {
+  for (i = 0; i < len - 3; ++i) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -4120,7 +4159,7 @@ skip_user_extras:
 
       /* See the comment in the earlier code; extras are sorted by size. */
 
-      if ((s32)(afl->a_extras[j].len) > (s32)(len - i) ||
+      if ((afl->a_extras[j].len) > (len - i) ||
           !memcmp(afl->a_extras[j].data, out_buf + i, afl->a_extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
                   EFF_SPAN_ALEN(i, afl->a_extras[j].len))) {
@@ -4749,8 +4788,7 @@ pacemaker_fuzzing:
 
               }
 
-              afl->stage_cycles_puppet_v2[afl->swarm_now]
-                                         [STAGE_OverWriteExtra]++;
+              MOpt_globals.cycles_v2[STAGE_OverWriteExtra]++;
 
               break;
 
@@ -4805,8 +4843,7 @@ pacemaker_fuzzing:
               memcpy(out_buf + insert_at, ptr, extra_len);
 
               temp_len += extra_len;
-              afl->stage_cycles_puppet_v2[afl->swarm_now][STAGE_InsertExtra] +=
-                  1;
+              MOpt_globals.cycles_v2[STAGE_InsertExtra]++;
               break;
 
             }
@@ -4837,7 +4874,7 @@ pacemaker_fuzzing:
                 u32 copy_from, copy_to, copy_len;
 
                 copy_len = choose_block_len(afl, new_len - 1);
-                if ((s32)copy_len > temp_len) copy_len = temp_len;
+                if (copy_len > temp_len) copy_len = temp_len;
 
                 copy_from = rand_below(afl, new_len - copy_len + 1);
                 copy_to = rand_below(afl, temp_len - copy_len + 1);
@@ -4888,7 +4925,7 @@ pacemaker_fuzzing:
 
               }
 
-              afl->stage_cycles_puppet_v2[afl->swarm_now][STAGE_Splice]++;
+              MOpt_globals.cycles_v2[STAGE_Splice]++;
               break;
 
             }  // end of default:
@@ -5033,8 +5070,7 @@ pacemaker_fuzzing:
            the last differing byte. Bail out if the difference is just a single
            byte or so. */
 
-        locate_diffs(in_buf, new_buf, MIN(len, (s32)target->len), &f_diff,
-                     &l_diff);
+        locate_diffs(in_buf, new_buf, MIN(len, target->len), &f_diff, &l_diff);
 
         if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
 

@@ -16,16 +16,16 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   ../afl-clang-lto -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] llvm_mode LTO compilation succeeded"
-    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
-    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
+    echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] llvm_mode LTO instrumentation should be different on different input but is not"
         CODE=1
       } || {
         $ECHO "$GREEN[+] llvm_mode LTO instrumentation present and working correctly"
-        TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
+        TUPLES=`echo 0|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+        test "$TUPLES" -gt 2 -a "$TUPLES" -lt 7 && {
           $ECHO "$GREEN[+] llvm_mode LTO run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] llvm_mode LTO instrumentation produces weird numbers: $TUPLES"
@@ -59,7 +59,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   rm -f test-compcov test.out instrumentlist.txt
   ../afl-clang-lto -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
-    echo foo | ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
+    echo foo | AFL_QUIET=1 ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode LTO persistent mode feature failed to work"

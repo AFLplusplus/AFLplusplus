@@ -459,7 +459,7 @@ struct InsTrim : public ModulePass {
             BasicBlock *PBB = *PI;
             auto        It = PredMap.insert({PBB, genLabel()});
             unsigned    Label = It.first->second;
-            cur_loc = Label;
+            // cur_loc = Label;
             PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
 
           }
