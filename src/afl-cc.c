@@ -1587,6 +1587,7 @@ int main(int argc, char **argv, char **envp) {
           "libtokencap.so)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
+          "  AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
           "  AFL_INST_RATIO: percentage of branches to instrument\n"
           "  AFL_QUIET: suppress verbose output\n"
           "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
