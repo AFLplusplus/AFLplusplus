@@ -1013,7 +1013,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    if (at_file) { PFATAL("Options -A and -i are mutually exclusive"); }
     detect_file_args(argv + optind, "", &fsrv->use_stdin);
 
   } else {
@@ -1169,7 +1168,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    stdin_file =
+    stdin_file = at_file ? strdup(at_file) :
         alloc_printf("%s/.afl-showmap-temp-%u", use_dir, (u32)getpid());
     unlink(stdin_file);
     atexit(at_exit_handler);
