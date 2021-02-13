@@ -523,7 +523,7 @@ void check_environment_vars(char **envp) {
   if (be_quiet) { return; }
 
   int   index = 0, issue_detected = 0;
-  char *env, *val;
+  char *env, *val, *ignore = getenv("AFL_IGNORE_UNKNOWN_ENVS");
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
@@ -582,7 +582,7 @@ void check_environment_vars(char **envp) {
 
       }
 
-      if (match == 0) {
+      if (match == 0 && !ignore) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
         issue_detected = 1;

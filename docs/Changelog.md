@@ -61,7 +61,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Added a new example harness to compare python, c, and rust bindings
   - afl-cmin and afl-showmap now support the -f option
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
-  - warn on any _AFL and __AFL env vars
+  - warn on any _AFL and __AFL env vars.
+  - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
   - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)
