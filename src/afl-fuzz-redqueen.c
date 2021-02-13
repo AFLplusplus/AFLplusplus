@@ -1303,7 +1303,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-#endif                                         /* CMPLOG_SOLVE_ARITHMETIC */
+#endif                                           /* CMPLOG_SOLVE_ARITHMETIC */
 
   return 0;
 
@@ -2670,3 +2670,4 @@ exit_its:
   return r;
 
 }
+

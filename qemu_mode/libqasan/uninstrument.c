@@ -1,7 +1,7 @@
 /*
 
 This code is DEPRECATED!
-I'm keeping it here cause maybe the unistrumentation of a function is needed
+I'm keeping it here cause maybe the uninstrumentation of a function is needed
 for some strange reason.
 
 */
