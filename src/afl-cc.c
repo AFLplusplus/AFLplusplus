@@ -554,6 +554,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+#if LLVM_MAJOR >= 13
+    // fuck you llvm 13
+    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+#endif
+
     if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
