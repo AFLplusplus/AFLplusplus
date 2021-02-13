@@ -430,7 +430,6 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                 if (literalLength + 1 == optLength) {
 
                   Str2.append("\0", 1);  // add null byte
-                  addedNull = true;
 
                 }
 

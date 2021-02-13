@@ -7,12 +7,12 @@ AFL_GCC=afl-gcc
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "i386" && {
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
-    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
-    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
+    echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
@@ -26,20 +26,20 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     SKIP=
-    TUPLES=`echo 1|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 2 -a "$TUPLES" -lt 12 && {
+    TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
-    test "$TUPLES" -lt 4 && SKIP=1
+    test "$TUPLES" -lt 3 && SKIP=1
     true  # this is needed because of the test above
   } || {
     $ECHO "$RED[!] ${AFL_GCC} failed"
     echo CUT------------------------------------------------------------------CUT
     uname -a
-    ../${AFL_GCC} -o test-instr.plain ../test-instr.c
+    ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c
     echo CUT------------------------------------------------------------------CUT
     CODE=1
   }
@@ -128,12 +128,12 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
  $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
  SKIP=
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
-    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
-    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
+    echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
@@ -146,14 +146,14 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
-    TUPLES=`echo 1|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 2 -a "$TUPLES" -lt 12 && {
+    TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
-    test "$TUPLES" -lt 4 && SKIP=1
+    test "$TUPLES" -lt 3 && SKIP=1
     true  # this is needed because of the test above
   } || {
     $ECHO "$RED[!] ${AFL_GCC} failed"

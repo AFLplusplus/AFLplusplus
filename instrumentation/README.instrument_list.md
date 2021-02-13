@@ -41,9 +41,16 @@ in any function where you want:
   * `__AFL_COVERAGE_ON();` - enable coverage from this point onwards
   * `__AFL_COVERAGE_OFF();` - disable coverage from this point onwards
   * `__AFL_COVERAGE_DISCARD();` - reset all coverage gathered until this point
-  * `__AFL_COVERAGE_ABORT();` - mark this test case as unimportant. Whatever happens, afl-fuzz will ignore it.
+  * `__AFL_COVERAGE_SKIP();` - mark this test case as unimportant. Whatever happens, afl-fuzz will ignore it.
 
-## 3) Selective instrumenation with AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST
+A special function is `__afl_coverage_interesting`.
+To use this, you must define `void __afl_coverage_interesting(u8 val, u32 id);`.
+Then you can use this function globally, where the `val` parameter can be set
+by you, the `id` parameter is for afl-fuzz and will be overwritten.
+Note that useful parameters for `val` are: 1, 2, 3, 4, 8, 16, 32, 64, 128.
+A value of e.g. 33 will be seen as 32 for coverage purposes.
+
+## 3) Selective instrumentation with AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST
 
 This feature is equivalent to llvm 12 sancov feature and allows to specify
 on a filename and/or function name level to instrument these or skip them.

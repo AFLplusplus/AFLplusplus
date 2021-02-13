@@ -424,7 +424,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   if (unlikely(afl->fixed_seed)) {
 
-    diff_us = (afl->fsrv.exec_tmout - 1) * afl->stage_max;
+    diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_max;
 
   } else {
 
@@ -627,9 +627,8 @@ void sync_fuzzers(afl_state_t *afl) {
     }
 
     if (m >= n) { goto close_sync; }  // nothing new
-    o = n - 1;
 
-    while (o >= m) {
+    for (o = m; o < n; o++) {
 
       s32         fd;
       struct stat st;
@@ -637,7 +636,6 @@ void sync_fuzzers(afl_state_t *afl) {
       snprintf(path, sizeof(path), "%s/%s", qd_path, namelist[o]->d_name);
       afl->syncing_case = next_min_accept;
       next_min_accept++;
-      o--;
 
       /* Allow this to fail in case the other fuzzer is resuming or so... */
 

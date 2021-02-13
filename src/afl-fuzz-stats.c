@@ -58,7 +58,13 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
   for (i = 0; i < argc; ++i) {
 
     if (i) fprintf(f, " ");
+#ifdef __ANDROID__
+    if (memchr(argv[i], '\'', sizeof(argv[i]))) {
+
+#else
     if (index(argv[i], '\'')) {
+
+#endif
 
       fprintf(f, "'");
       for (j = 0; j < strlen(argv[i]); j++)
@@ -80,6 +86,100 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
   fclose(f);
   (void)(afl_environment_deprecated);
+
+}
+
+/* load some of the existing stats file when resuming.*/
+void load_stats_file(afl_state_t *afl) {
+
+  FILE *f;
+  u8    buf[MAX_LINE];
+  u8 *  lptr;
+  u8    fn[PATH_MAX];
+  u32   lineno = 0;
+  snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
+  f = fopen(fn, "r");
+  if (!f) {
+
+    WARNF("Unable to load stats file '%s'", fn);
+    return;
+
+  }
+
+  while ((lptr = fgets(buf, MAX_LINE, f))) {
+
+    lineno++;
+    u8 *lstartptr = lptr;
+    u8 *rptr = lptr + strlen(lptr) - 1;
+    u8  keystring[MAX_LINE];
+    while (*lptr != ':' && lptr < rptr) {
+
+      lptr++;
+
+    }
+
+    if (*lptr == '\n' || !*lptr) {
+
+      WARNF("Unable to read line %d of stats file", lineno);
+      continue;
+
+    }
+
+    if (*lptr == ':') {
+
+      *lptr = 0;
+      strcpy(keystring, lstartptr);
+      lptr++;
+      char *nptr;
+      switch (lineno) {
+
+        case 3:
+          if (!strcmp(keystring, "run_time          "))
+            afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
+          break;
+        case 5:
+          if (!strcmp(keystring, "cycles_done       "))
+            afl->queue_cycle =
+                strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
+          break;
+        case 7:
+          if (!strcmp(keystring, "execs_done        "))
+            afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
+          break;
+        case 10:
+          if (!strcmp(keystring, "paths_total       "))
+            afl->queued_paths = strtoul(lptr, &nptr, 10);
+          break;
+        case 12:
+          if (!strcmp(keystring, "paths_found       "))
+            afl->queued_discovered = strtoul(lptr, &nptr, 10);
+          break;
+        case 13:
+          if (!strcmp(keystring, "paths_imported    "))
+            afl->queued_imported = strtoul(lptr, &nptr, 10);
+          break;
+        case 14:
+          if (!strcmp(keystring, "max_depth         "))
+            afl->max_depth = strtoul(lptr, &nptr, 10);
+          break;
+        case 21:
+          if (!strcmp(keystring, "unique_crashes    "))
+            afl->unique_crashes = strtoull(lptr, &nptr, 10);
+          break;
+        case 22:
+          if (!strcmp(keystring, "unique_hangs      "))
+            afl->unique_hangs = strtoull(lptr, &nptr, 10);
+          break;
+        default:
+          break;
+
+      }
+
+    }
+
+  }
+
+  return;
 
 }
 
@@ -173,12 +273,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
           "\n"
           "target_mode       : %s%s%s%s%s%s%s%s%s\n"
           "command_line      : %s\n",
-          afl->start_time / 1000, cur_time / 1000,
-          (cur_time - afl->start_time) / 1000, (u32)getpid(),
-          afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-          afl->fsrv.total_execs,
+          (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
+          (afl->prev_run_time + cur_time - afl->start_time) / 1000,
+          (u32)getpid(), afl->queue_cycle ? (afl->queue_cycle - 1) : 0,
+          afl->cycles_wo_finds, afl->fsrv.total_execs,
           afl->fsrv.total_execs /
-              ((double)(get_cur_time() - afl->start_time) / 1000),
+              ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
+               1000),
           afl->last_avg_execs_saved, afl->queued_paths, afl->queued_favored,
           afl->queued_discovered, afl->queued_imported, afl->max_depth,
           afl->current_entry, afl->pending_favored, afl->pending_not_fuzzed,
@@ -373,8 +474,8 @@ void show_stats(afl_state_t *afl) {
 
     if (likely(cur_ms != afl->start_time)) {
 
-      afl->stats_avg_exec =
-          ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
+      afl->stats_avg_exec = ((double)afl->fsrv.total_execs) * 1000 /
+                            (afl->prev_run_time + cur_ms - afl->start_time);
 
     }
 
@@ -586,7 +687,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  u_stringify_time_diff(time_tmp, cur_ms, afl->start_time);
+  u_stringify_time_diff(time_tmp, afl->prev_run_time + cur_ms, afl->start_time);
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
                 "  cycles done : %s%-5s " bSTG              bV "\n",
        time_tmp, tmp, u_stringify_int(IB(0), afl->queue_cycle - 1));
@@ -1008,8 +1109,8 @@ void show_stats(afl_state_t *afl) {
 
 void show_init_stats(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
-  u32                 min_bits = 0, max_bits = 0, max_len = 0, count = 0;
+  struct queue_entry *q;
+  u32                 min_bits = 0, max_bits = 0, max_len = 0, count = 0, i;
   u64                 min_us = 0, max_us = 0;
   u64                 avg_us = 0;
 
@@ -1022,7 +1123,10 @@ void show_init_stats(afl_state_t *afl) {
 
   }
 
-  while (q) {
+  for (i = 0; i < afl->queued_paths; i++) {
+
+    q = afl->queue_buf[i];
+    if (unlikely(q->disabled)) { continue; }
 
     if (!min_us || q->exec_us < min_us) { min_us = q->exec_us; }
     if (q->exec_us > max_us) { max_us = q->exec_us; }
@@ -1033,7 +1137,6 @@ void show_init_stats(afl_state_t *afl) {
     if (q->len > max_len) { max_len = q->len; }
 
     ++count;
-    q = q->next;
 
   }
 

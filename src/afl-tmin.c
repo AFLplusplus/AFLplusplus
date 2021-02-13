@@ -29,10 +29,6 @@
 
 #define AFL_MAIN
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
-
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -83,7 +79,8 @@ static u8 crash_mode,                  /* Crash-centric mode?               */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
     remove_out_file,                   /* remove out_file on exit?          */
-    remove_shm = 1;                    /* remove shmem on exit?             */
+    remove_shm = 1,                    /* remove shmem on exit?             */
+    debug;                             /* debug mode                        */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -882,6 +879,7 @@ int main(int argc, char **argv_orig, char **envp) {
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t fsrv_var = {0};
+  if (getenv("AFL_DEBUG")) { debug = 1; }
   fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
@@ -1078,10 +1076,35 @@ int main(int argc, char **argv_orig, char **envp) {
   if (optind == argc || !in_file || !output_file) { usage(argv[0]); }
 
   check_environment_vars(envp);
+  setenv("AFL_NO_AUTODICT", "1", 1);
+
+  if (fsrv->qemu_mode && getenv("AFL_USE_QASAN")) {
+
+    u8 *preload = getenv("AFL_PRELOAD");
+    u8 *libqasan = get_libqasan_path(argv_orig[0]);
+
+    if (!preload) {
+
+      setenv("AFL_PRELOAD", libqasan, 0);
+
+    } else {
+
+      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
+      strcpy(result, libqasan);
+      strcat(result, " ");
+      strcat(result, preload);
+
+      setenv("AFL_PRELOAD", result, 1);
+      ck_free(result);
+
+    }
+
+    ck_free(libqasan);
+
+  }
 
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -1089,6 +1112,7 @@ int main(int argc, char **argv_orig, char **envp) {
   set_up_environment(fsrv);
 
   fsrv->target_path = find_binary(argv[optind]);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
 
   if (fsrv->qemu_mode) {
@@ -1160,6 +1184,7 @@ int main(int argc, char **argv_orig, char **envp) {
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  shm_fuzz->shmemfuzz_mode = 1;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
@@ -1174,11 +1199,51 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  afl_fsrv_start(
-      fsrv, use_argv, &stop_soon,
-      (get_afl_env("AFL_DEBUG_CHILD") || get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-          ? 1
-          : 0);
+  if (!fsrv->qemu_mode && !unicorn_mode) {
+
+    fsrv->map_size = 4194304;  // dummy temporary value
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
+
+    if (new_map_size) {
+
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+
+        if (!be_quiet)
+          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+        afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                       (get_afl_env("AFL_DEBUG_CHILD") ||
+                        get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                           ? 1
+                           : 0);
+
+      }
+
+      map_size = new_map_size;
+
+    }
+
+    fsrv->map_size = map_size;
+
+  } else {
+
+    afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
+  }
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);

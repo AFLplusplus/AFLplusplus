@@ -37,10 +37,6 @@
   #define _FILE_OFFSET_BITS 64
 #endif
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
-
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -145,12 +141,23 @@ extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
     interesting_32[INTERESTING_8_LEN + INTERESTING_16_LEN + INTERESTING_32_LEN];
 
+struct tainted {
+
+  u32             pos;
+  u32             len;
+  struct tainted *next;
+  struct tainted *prev;
+
+};
+
 struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
   u32 len;                              /* Input length                     */
+  u32 id;                               /* entry number in queue_buf        */
 
-  u8   cal_failed;                      /* Calibration failed?              */
+  u8 colorized,                         /* Do not run redqueen stage again  */
+      cal_failed;                       /* Calibration failed?              */
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
       passed_det,                       /* Deterministic stages passed?     */
@@ -158,7 +165,6 @@ struct queue_entry {
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
-      fully_colorized,                  /* Do not run redqueen stage again  */
       is_ascii,                         /* Is the input just ascii text?    */
       disabled;                         /* Is disabled from fuzz selection  */
 
@@ -183,7 +189,10 @@ struct queue_entry {
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
-  struct queue_entry *next;             /* Next element, if any             */
+  u8 *            cmplog_colorinput;    /* the result buf of colorization   */
+  struct tainted *taint;                /* Taint information from CmpLog    */
+
+  struct queue_entry *mother;           /* queue entry this based on        */
 
 };
 
@@ -375,7 +384,7 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
-      afl_cycle_schedules, afl_expand_havoc, afl_statsd;
+      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
@@ -395,7 +404,7 @@ struct afl_pass_stat {
 struct foreign_sync {
 
   u8 *   dir;
-  time_t ctime;
+  time_t mtime;
 
 };
 
@@ -416,7 +425,8 @@ typedef struct afl_state {
     really makes no sense to haul them around as function parameters. */
   u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
       total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
-      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update;
+      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update,
+      prev_run_time;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
@@ -636,6 +646,9 @@ typedef struct afl_state {
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
   u32 cmplog_prev_timed_out;
+  u32 cmplog_max_filesize;
+  u32 cmplog_lvl;
+  u32 colorize_success;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map *      orig_cmp_map;
@@ -1055,6 +1068,7 @@ void destroy_extras(afl_state_t *);
 
 /* Stats */
 
+void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, double, double, double);
 void maybe_update_plot_file(afl_state_t *, double, double);
@@ -1121,9 +1135,9 @@ void   read_foreign_testcases(afl_state_t *, int);
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
-u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u64 exec_cksum);
+u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 
+/* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);
 
 /* probability between 0.0 and 1.0 */

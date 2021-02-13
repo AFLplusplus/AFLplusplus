@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include <limits.h>
+#include "cmplog.h"
 
 #ifdef HAVE_AFFINITY
 
@@ -460,6 +461,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
   u32             i, iter;
 
   u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  u8 foreign_name[16];
 
   for (iter = 0; iter < afl->foreign_sync_cnt; iter++) {
 
@@ -467,11 +469,22 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         afl->foreign_syncs[iter].dir[0] != 0) {
 
       if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
-      time_t ctime_max = 0;
+      time_t mtime_max = 0;
+      u8 *   name = strrchr(afl->foreign_syncs[iter].dir, '/');
+      if (!name) { name = afl->foreign_syncs[iter].dir; }
+      if (!strcmp(name, "queue") || !strcmp(name, "out") ||
+          !strcmp(name, "default")) {
 
-      /* We use scandir() + alphasort() rather than readdir() because otherwise,
-         the ordering of test cases would vary somewhat randomly and would be
-         difficult to control. */
+        snprintf(foreign_name, sizeof(foreign_name), "foreign_%u", iter);
+
+      } else {
+
+        snprintf(foreign_name, sizeof(foreign_name), "%s_%u", name, iter);
+
+      }
+
+      /* We do not use sorting yet and do a more expensive mtime check instead.
+         a mtimesort() implementation would be better though. */
 
       nl_cnt = scandir(afl->foreign_syncs[iter].dir, &nl, NULL, NULL);
 
@@ -525,8 +538,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
-        /* we detect new files by their ctime */
-        if (likely(st.st_ctime <= afl->foreign_syncs[iter].ctime)) {
+        /* we detect new files by their mtime */
+        if (likely(st.st_mtime <= afl->foreign_syncs[iter].mtime)) {
 
           ck_free(fn2);
           continue;
@@ -581,18 +594,18 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         write_to_testcase(afl, mem, st.st_size);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-        afl->syncing_party = "foreign";
+        afl->syncing_party = foreign_name;
         afl->queued_imported +=
             save_if_interesting(afl, mem, st.st_size, fault);
         afl->syncing_party = 0;
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_ctime > ctime_max) ctime_max = st.st_ctime;
+        if (st.st_mtime > mtime_max) mtime_max = st.st_mtime;
 
       }
 
-      afl->foreign_syncs[iter].ctime = ctime_max;
+      afl->foreign_syncs[iter].mtime = mtime_max;
       free(nl);                                              /* not tracked */
 
     }
@@ -729,13 +742,40 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
     add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
                  passed_det);
 
-    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+    if (unlikely(afl->shm.cmplog_mode)) {
 
-      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+      if (afl->cmplog_lvl == 1) {
+
+        if (!afl->cmplog_max_filesize ||
+            afl->cmplog_max_filesize < st.st_size) {
+
+          afl->cmplog_max_filesize = st.st_size;
+
+        }
+
+      } else if (afl->cmplog_lvl == 2) {
+
+        if (!afl->cmplog_max_filesize ||
+            afl->cmplog_max_filesize > st.st_size) {
+
+          afl->cmplog_max_filesize = st.st_size;
+
+        }
+
+      }
 
     }
+
+    /*
+        if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
+          u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size,
+       HASH_CONST); afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+          afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+
+        }
+
+    */
 
   }
 
@@ -756,6 +796,20 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   }
 
+  if (unlikely(afl->shm.cmplog_mode)) {
+
+    if (afl->cmplog_max_filesize < 1024) {
+
+      afl->cmplog_max_filesize = 1024;
+
+    } else {
+
+      afl->cmplog_max_filesize = (((afl->cmplog_max_filesize >> 10) + 1) << 10);
+
+    }
+
+  }
+
   afl->last_path_time = 0;
   afl->queued_at_start = afl->queued_paths;
 
@@ -766,13 +820,16 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
 void perform_dry_run(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
-  u32                 cal_failures = 0;
+  struct queue_entry *q;
+  u32                 cal_failures = 0, idx;
   u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
+  u8 *                use_mem;
 
-  while (q) {
+  for (idx = 0; idx < afl->queued_paths; idx++) {
 
-    u8  use_mem[MAX_FILE];
+    q = afl->queue_buf[idx];
+    if (unlikely(q->disabled)) { continue; }
+
     u8  res;
     s32 fd;
 
@@ -783,6 +840,8 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
+    if (afl->afl_env.afl_cmplog_only_new) { q->colorized = CMPLOG_LVL_MAX; }
+
     u8 *fn = strrchr(q->fname, '/') + 1;
 
     ACTF("Attempting dry run with '%s'...", fn);
@@ -791,6 +850,7 @@ void perform_dry_run(afl_state_t *afl) {
     if (fd < 0) { PFATAL("Unable to open '%s'", q->fname); }
 
     u32 read_len = MIN(q->len, (u32)MAX_FILE);
+    use_mem = afl_realloc(AFL_BUF_PARAM(in), read_len);
     if (read(fd, use_mem, read_len) != (ssize_t)read_len) {
 
       FATAL("Short read from '%s'", q->fname);
@@ -987,25 +1047,33 @@ void perform_dry_run(afl_state_t *afl) {
         /* Remove from fuzzing queue but keep for splicing */
 
         struct queue_entry *p = afl->queue;
+
+        if (!p->was_fuzzed) {
+
+          p->was_fuzzed = 1;
+          --afl->pending_not_fuzzed;
+          --afl->active_paths;
+
+        }
+
         p->disabled = 1;
         p->perf_score = 0;
-        while (p && p->next != q)
-          p = p->next;
 
-        if (p)
-          p->next = q->next;
-        else
-          afl->queue = q->next;
+        u32 i = 0;
+        while (unlikely(afl->queue_buf[i]->disabled)) {
 
-        --afl->pending_not_fuzzed;
-        --afl->active_paths;
+          ++i;
+
+        }
+
+        afl->queue = afl->queue_buf[i];
 
         afl->max_depth = 0;
-        p = afl->queue;
-        while (p) {
+        for (i = 0; i < afl->queued_paths; i++) {
 
-          if (p->depth > afl->max_depth) afl->max_depth = p->depth;
-          p = p->next;
+          if (!afl->queue_buf[i]->disabled &&
+              afl->queue_buf[i]->depth > afl->max_depth)
+            afl->max_depth = afl->queue_buf[i]->depth;
 
         }
 
@@ -1038,8 +1106,6 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
-    q = q->next;
-
   }
 
   if (cal_failures) {
@@ -1065,74 +1131,69 @@ void perform_dry_run(afl_state_t *afl) {
 
   /* Now we remove all entries from the queue that have a duplicate trace map */
 
-  q = afl->queue;
-  struct queue_entry *p, *prev = NULL;
-  int                 duplicates = 0;
+  u32 duplicates = 0, i;
 
-restart_outer_cull_loop:
+  for (idx = 0; idx < afl->queued_paths; idx++) {
 
-  while (q) {
+    q = afl->queue_buf[idx];
+    if (q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
 
-    if (q->cal_failed || !q->exec_cksum) { goto next_entry; }
+    u32 done = 0;
+    for (i = idx + 1; i < afl->queued_paths && !done; i++) {
 
-  restart_inner_cull_loop:
+      struct queue_entry *p = afl->queue_buf[i];
+      if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
 
-    p = q->next;
-
-    while (p) {
-
-      if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
+      if (p->exec_cksum == q->exec_cksum) {
 
         duplicates = 1;
-        --afl->pending_not_fuzzed;
-        afl->active_paths--;
-
-        // We do not remove any of the memory allocated because for
-        // splicing the data might still be interesting.
-        // We only decouple them from the linked list.
-        // This will result in some leaks at exit, but who cares.
 
         // we keep the shorter file
         if (p->len >= q->len) {
 
+          if (!p->was_fuzzed) {
+
+            p->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            --afl->active_paths;
+
+          }
+
           p->disabled = 1;
           p->perf_score = 0;
-          q->next = p->next;
-          goto restart_inner_cull_loop;
 
         } else {
 
+          if (!q->was_fuzzed) {
+
+            q->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            --afl->active_paths;
+
+          }
+
           q->disabled = 1;
           q->perf_score = 0;
-          if (prev)
-            prev->next = q = p;
-          else
-            afl->queue = q = p;
-          goto restart_outer_cull_loop;
+
+          done = 1;
 
         }
 
       }
 
-      p = p->next;
-
     }
-
-  next_entry:
-
-    prev = q;
-    q = q->next;
 
   }
 
   if (duplicates) {
 
     afl->max_depth = 0;
-    q = afl->queue;
-    while (q) {
 
-      if (q->depth > afl->max_depth) afl->max_depth = q->depth;
-      q = q->next;
+    for (idx = 0; idx < afl->queued_paths; idx++) {
+
+      if (!afl->queue_buf[idx]->disabled &&
+          afl->queue_buf[idx]->depth > afl->max_depth)
+        afl->max_depth = afl->queue_buf[idx]->depth;
 
     }
 
@@ -1181,12 +1242,16 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
 
 void pivot_inputs(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
-  u32                 id = 0;
+  struct queue_entry *q;
+  u32                 id = 0, i;
 
   ACTF("Creating hard links for all input files...");
 
-  while (q) {
+  for (i = 0; i < afl->queued_paths; i++) {
+
+    q = afl->queue_buf[i];
+
+    if (unlikely(q->disabled)) { continue; }
 
     u8 *nfn, *rsl = strrchr(q->fname, '/');
     u32 orig_id;
@@ -1214,19 +1279,14 @@ void pivot_inputs(afl_state_t *afl) {
       afl->resuming_fuzz = 1;
       nfn = alloc_printf("%s/queue/%s", afl->out_dir, rsl);
 
-      /* Since we're at it, let's also try to find parent and figure out the
+      /* Since we're at it, let's also get the parent and figure out the
          appropriate depth for this entry. */
 
       src_str = strchr(rsl + 3, ':');
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry *s = afl->queue;
-        while (src_id-- && s) {
-
-          s = s->next;
-
-        }
+        struct queue_entry *s = afl->queue_buf[src_id];
 
         if (s) { q->depth = s->depth + 1; }
 
@@ -1274,7 +1334,6 @@ void pivot_inputs(afl_state_t *afl) {
 
     if (q->passed_det) { mark_as_det_done(afl, q); }
 
-    q = q->next;
     ++id;
 
   }
@@ -2434,6 +2493,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
   u8 *map = afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  afl->shm_fuzz->shmemfuzz_mode = 1;
 
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 

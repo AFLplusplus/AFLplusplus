@@ -58,7 +58,7 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->qemu_mode) setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
 
   execv(fsrv->target_path, argv);
 
@@ -91,7 +91,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->map_size = get_map_size();
   fsrv->use_fauxsrv = false;
   fsrv->last_run_timed_out = false;
-
+  fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = false;
 
@@ -117,6 +117,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
   fsrv_to->kill_signal = from->kill_signal;
+  fsrv_to->debug = from->debug;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -396,6 +397,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     struct rlimit r;
 
+    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false) {
+
+      unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
+
+    }
+
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */
     if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {
@@ -478,38 +485,45 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
-    setenv("ASAN_OPTIONS",
-           "abort_on_error=1:"
-           "detect_leaks=0:"
-           "malloc_context_size=0:"
-           "symbolize=0:"
-           "allocator_may_return_null=1:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           0);
+    if (fsrv->debug == true && !getenv("ASAN_OPTIONS"))
+      setenv("ASAN_OPTIONS",
+             "abort_on_error=1:"
+             "detect_leaks=0:"
+             "malloc_context_size=0:"
+             "symbolize=0:"
+             "allocator_may_return_null=1:"
+             "handle_segv=0:"
+             "handle_sigbus=0:"
+             "handle_abort=0:"
+             "handle_sigfpe=0:"
+             "handle_sigill=0",
+             0);
 
     /* Set sane defaults for UBSAN if nothing else specified. */
 
-    setenv("UBSAN_OPTIONS",
-           "halt_on_error=1:"
-           "abort_on_error=1:"
-           "malloc_context_size=0:"
-           "allocator_may_return_null=1:"
-           "symbolize=0:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           0);
+    if (fsrv->debug == true && !getenv("UBSAN_OPTIONS"))
+      setenv("UBSAN_OPTIONS",
+             "halt_on_error=1:"
+             "abort_on_error=1:"
+             "malloc_context_size=0:"
+             "allocator_may_return_null=1:"
+             "symbolize=0:"
+             "handle_segv=0:"
+             "handle_sigbus=0:"
+             "handle_abort=0:"
+             "handle_sigfpe=0:"
+             "handle_sigill=0",
+             0);
+
+    /* Envs for QASan */
+    setenv("QASAN_MAX_CALL_STACK", "0", 0);
+    setenv("QASAN_SYMBOLIZE", "0", 0);
 
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
-    setenv("MSAN_OPTIONS",
+    if (fsrv->debug == true && !getenv("MSAN_OPTIONS"))
+      setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
            "symbolize=0:"
            "abort_on_error=1:"
@@ -668,11 +682,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
-        if (ignore_autodict) {
-
-          if (!be_quiet) { WARNF("Ignoring offered AUTODICT feature."); }
-
-        } else {
+        if (!ignore_autodict) {
 
           if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
 
@@ -955,7 +965,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 }
 
-static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
+/* Stop the forkserver and child */
+
+void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
   if (fsrv->fsrv_pid > 0) {
@@ -965,13 +977,28 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   }
 
+  close(fsrv->fsrv_ctl_fd);
+  close(fsrv->fsrv_st_fd);
+  fsrv->fsrv_pid = -1;
+  fsrv->child_pid = -1;
+
+}
+
+/* Get the map size from the target forkserver */
+
+u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
+                         volatile u8 *stop_soon_p, u8 debug_child_output) {
+
+  afl_fsrv_start(fsrv, argv, stop_soon_p, debug_child_output);
+  return fsrv->map_size;
+
 }
 
 /* Delete the current testcase and write the buf to the testcase file */
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (fsrv->shmem_fuzz) {
+  if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
 
@@ -1028,6 +1055,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     }
 
+    // fprintf(stderr, "WRITE %d %u\n", fd, len);
     ck_write(fd, buf, len, fsrv->out_file);
 
     if (fsrv->use_stdin) {

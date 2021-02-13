@@ -35,9 +35,6 @@
   #define _GNU_SOURCE
 #endif
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
