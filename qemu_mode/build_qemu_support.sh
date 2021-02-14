@@ -233,8 +233,7 @@ QEMU_CONF_FLAGS=" \
   --disable-xen \
   --disable-xen-pci-passthrough \
   --disable-xfsctl \
-  --enable-pie \
-  --python=$PYTHONBIN \
+  --python=${PYTHONBIN} \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
   "
@@ -253,6 +252,11 @@ if [ "$STATIC" = "1" ]; then
     --static \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
+
+else
+
+  QEMU_CONF_FLAGS="{$QEMU_CONF_FLAGS} --enable-pie "
+
 fi
 
 if [ "$DEBUG" = "1" ]; then

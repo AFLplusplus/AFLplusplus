@@ -57,8 +57,6 @@ ifdef MSAN_BUILD
   override LDFLAGS += -fsanitize=memory
 endif
 
-
-
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -366,6 +364,7 @@ help:
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
+	@echo NO_ARCH_OPT - builds afl++ without machine architecutre optimizations
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1
