@@ -88,16 +88,35 @@ apt-get install -y clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
 ### Building llvm yourself (version 12)
 
 Building llvm from github takes quite some long time and is not painless:
-```
+```sh
 sudo apt install binutils-dev  # this is *essential*!
 git clone https://github.com/llvm/llvm-project
 cd llvm-project
 mkdir build
 cd build
-cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
-make -j $(nproc)
-export PATH=`pwd`/bin:$PATH
-export LLVM_CONFIG=`pwd`/bin/llvm-config
+
+# Add -G Ninja if ninja-build installed
+cmake \
+    -DCLANG_INCLUDE_DOCS="OFF" \
+    -DCLANG_PLUGIN_SUPPORT="OFF" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DLLVM_BINUTILS_INCDIR=/usr/include/ \
+    -DLLVM_BUILD_LLVM_DYLIB="ON" \
+    -DLLVM_ENABLE_BINDINGS="OFF" \
+    -DLLVM_ENABLE_PROJECTS='clang;compiler-rt;libcxx;libcxxabi;libunwind;lld' \
+    -DLLVM_ENABLE_WARNINGS="OFF" \
+    -DLLVM_INCLUDE_BENCHMARKS="OFF" \
+    -DLLVM_INCLUDE_DOCS="OFF" \
+    -DLLVM_INCLUDE_EXAMPLES="OFF" \
+    -DLLVM_INCLUDE_TESTS="OFF" \
+    -DLLVM_LINK_LLVM_DYLIB="ON" \
+    -DLLVM_TARGETS_TO_BUILD="host" \
+    ../llvm/
+cmake --build . --parallel
+
+# Ensure that the linker finds your libLLVM.so in /usr/local/lib over a
+# preinstalled one in /usr/lib or /lib
+sudo cmake --install .
 cd /path/to/AFLplusplus/
 make
 sudo make install

@@ -270,15 +270,20 @@ endif
 ifneq "$(LLVM_CONFIG)" ""
   CLANG_CFL += -I$(shell dirname $(LLVM_CONFIG))/../include
 endif
-CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
-CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
+CLANG_CPPFL  =  $(shell $(LLVM_CONFIG) --cxxflags) -fPIC $(CXXFLAGS)
+CLANG_LFL    =  $(shell $(LLVM_CONFIG) --ldflags --libs passes --system-libs) $(LDFLAGS)
 
+ifeq "$(shell $(LLVM_CONFIG) --has-rtti) 2> /dev/null" "YES"
+  CLANG_CPPFL += -frtti
+else
+  CLANG_CPPFL += -fno-rtti
+endif
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 else
-  CLANG_CPPFL += -Wl,-znodelete
+  CLANG_LFL += -Wl,-z,nodelete -Wl,-z,defs -Wl,-z,now -Wl,-z,relro
 endif
 
 ifeq "$(shell uname)" "OpenBSD"
