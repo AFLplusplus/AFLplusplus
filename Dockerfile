@@ -55,9 +55,9 @@ RUN cd /afl-cov && make install && cd ..
 COPY . /AFLplusplus
 WORKDIR /AFLplusplus
 
-RUN export REAL_CXX=g++-10 && export CC=gcc-10 && \
+RUN export export CC=gcc-10 && \
     export CXX=g++-10 && make clean && \
-    make distrib CFLAGS="-O3 -funroll-loops -D_FORTIFY_SOURCE=2" && make install && make clean
+    make distrib && make install && make clean
 
 RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
 RUN echo 'export PS1="[afl++]$PS1"' >> ~/.bashrc

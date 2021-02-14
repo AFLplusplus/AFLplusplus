@@ -77,17 +77,17 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -
 	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-  ifndef SOURCE_DATE_EPOCH
-    HAVE_MARCHNATIVE = 1
-    CFLAGS_OPT += -march=native
-  endif
-endif
+#ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+#  ifndef SOURCE_DATE_EPOCH
+#    HAVE_MARCHNATIVE = 1
+#    CFLAGS_OPT += -march=native
+#  endif
+#endif
 
 ifneq "$(shell uname)" "Darwin"
-  ifeq "$(HAVE_MARCHNATIVE)" "1"
-    SPECIAL_PERFORMANCE += -march=native
-  endif
+  #ifeq "$(HAVE_MARCHNATIVE)" "1"
+  #  SPECIAL_PERFORMANCE += -march=native
+  #endif
  # OS X does not like _FORTIFY_SOURCE=2
   ifndef DEBUG
     CFLAGS_OPT += -D_FORTIFY_SOURCE=2
