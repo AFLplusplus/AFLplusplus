@@ -48,15 +48,15 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
 
 ENV LLVM_CONFIG=llvm-config-12
 ENV AFL_SKIP_CPUFREQ=1
+ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 
-RUN git clone https://github.com/vanhauser-thc/afl-cov /afl-cov
+RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov /afl-cov
 RUN cd /afl-cov && make install && cd ..
 
 COPY . /AFLplusplus
 WORKDIR /AFLplusplus
 
-RUN export export CC=gcc-10 && \
-    export CXX=g++-10 && make clean && \
+RUN export CC=gcc-10 && export CXX=g++-10 && make clean && \
     make distrib && make install && make clean
 
 RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
