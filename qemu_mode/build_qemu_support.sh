@@ -255,7 +255,7 @@ if [ "$STATIC" = "1" ]; then
 
 else
 
-  QEMU_CONF_FLAGS="{$QEMU_CONF_FLAGS} --enable-pie "
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --enable-pie "
 
 fi
 
