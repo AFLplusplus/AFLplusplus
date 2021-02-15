@@ -451,6 +451,7 @@ checks or alter some of the more exotic semantics of the tool:
     `banner` corresponds to the name of the fuzzer provided through `-M/-S`.
     `afl_version` corresponds to the currently running afl version (e.g `++3.0c`).
     Default (empty/non present) will add no tags to the metrics.
+    See [rpc_statsd.md](rpc_statsd.md) for more information.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
     For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting

@@ -751,6 +751,8 @@ campaigns as these are much shorter runnings.
   * for CMPLOG targets, 60% for `-l 2`, 40% for `-l 3`
 
 4. Do *not* run any `-M` modes, just running `-S` modes is better for CI fuzzing.
+   `-M` enables deterministic fuzzing, old queue handling etc. which is good for
+   a fuzzing campaign but not good for short CI runs.
 
 ## Fuzzing binary-only targets
 
@@ -788,8 +790,7 @@ If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
 your binary, then you can use afl-fuzz normally and it will have twice
 the speed compared to qemu_mode (but slower than persistent mode).
 Note that several other binary rewriters exist, all with their advantages and
-caveats. As rewriting a binary is much faster than Qemu this is a highly
-recommended approach!
+caveats.
 
 ### Unicorn
 
