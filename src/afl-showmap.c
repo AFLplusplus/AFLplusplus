@@ -39,6 +39,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -83,7 +84,10 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     binary_mode,                       /* Write output as a binary map      */
     keep_cores,                        /* Allow coredumps?                  */
     remove_shm = 1,                    /* remove shmem?                     */
-    collect_coverage;                  /* collect coverage                  */
+    collect_coverage,                  /* collect coverage                  */
+    have_coverage,                     /* have coverage?                    */
+    no_classify,                       /* do not classify counts            */
+    debug;                             /* debug mode                        */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -314,7 +318,18 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   }
 
-  classify_counts(fsrv);
+  if (fsrv->trace_bits[0] == 1) {
+
+    fsrv->trace_bits[0] = 0;
+    have_coverage = 1;
+
+  } else {
+
+    have_coverage = 0;
+
+  }
+
+  if (!no_classify) { classify_counts(fsrv); }
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
@@ -487,7 +502,18 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  classify_counts(fsrv);
+  if (fsrv->trace_bits[0] == 1) {
+
+    fsrv->trace_bits[0] = 0;
+    have_coverage = 1;
+
+  } else {
+
+    have_coverage = 0;
+
+  }
+
+  if (!no_classify) { classify_counts(fsrv); }
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
@@ -677,6 +703,7 @@ static void usage(u8 *argv0) {
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
       "  -r            - show real tuple values instead of AFL filter values\n"
+      "  -s            - do not classify the map\n"
       "  -c            - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
@@ -717,6 +744,7 @@ int main(int argc, char **argv_orig, char **envp) {
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t fsrv_var = {0};
+  if (getenv("AFL_DEBUG")) { debug = 1; }
   fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
@@ -726,9 +754,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrsh")) > 0) {
 
     switch (opt) {
+
+      case 's':
+        no_classify = 1;
+        break;
 
       case 'C':
         collect_coverage = 1;
@@ -913,6 +945,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
+  if (fsrv->qemu_mode && getenv("AFL_USE_QASAN")) {
+
+    u8 *preload = getenv("AFL_PRELOAD");
+    u8 *libqasan = get_libqasan_path(argv_orig[0]);
+
+    if (!preload) {
+
+      setenv("AFL_PRELOAD", libqasan, 0);
+
+    } else {
+
+      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
+      strcpy(result, libqasan);
+      strcat(result, " ");
+      strcat(result, preload);
+
+      setenv("AFL_PRELOAD", result, 1);
+      ck_free(result);
+
+    }
+
+    ck_free(libqasan);
+
+  }
+
   if (in_dir) {
 
     if (!out_file && !collect_coverage)
@@ -936,14 +993,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   //  if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
+  setenv("AFL_NO_AUTODICT", "1", 1);
+
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
   set_up_environment(fsrv);
 
   fsrv->target_path = find_binary(argv[optind]);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   if (!quiet_mode) {
 
@@ -954,7 +1013,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    if (at_file) { PFATAL("Options -A and -i are mutually exclusive"); }
     detect_file_args(argv + optind, "", &fsrv->use_stdin);
 
   } else {
@@ -996,6 +1054,7 @@ int main(int argc, char **argv_orig, char **envp) {
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  shm_fuzz->shmemfuzz_mode = 1;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
@@ -1007,6 +1066,43 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->support_shmem_fuzz = 1;
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
+
+  if (!fsrv->qemu_mode && !unicorn_mode) {
+
+    u32 save_be_quiet = be_quiet;
+    be_quiet = !debug;
+    fsrv->map_size = 4194304;  // dummy temporary value
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
+    be_quiet = save_be_quiet;
+
+    if (new_map_size) {
+
+      // only reinitialize when it makes sense
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+
+        if (!be_quiet)
+          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+
+      }
+
+      map_size = new_map_size;
+
+    }
+
+    fsrv->map_size = map_size;
+
+  }
 
   if (in_dir) {
 
@@ -1072,8 +1168,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    stdin_file =
-        alloc_printf("%s/.afl-showmap-temp-%u", use_dir, (u32)getpid());
+    stdin_file = at_file ? strdup(at_file)
+                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
+                                                use_dir, (u32)getpid());
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_file = stdin_file;
@@ -1210,12 +1307,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
     showmap_run_target(fsrv, use_argv);
     tcnt = write_results_to_file(fsrv, out_file);
+    if (!quiet_mode) {
+
+      OKF("Hash of coverage map: %llx",
+          hash64(fsrv->trace_bits, fsrv->map_size, HASH_CONST));
+
+    }
 
   }
 
   if (!quiet_mode || collect_coverage) {
 
-    if (!tcnt) { FATAL("No instrumentation detected" cRST); }
+    if (!tcnt && !have_coverage) { FATAL("No instrumentation detected" cRST); }
     OKF("Captured %u tuples (highest value %u, total values %llu) in "
         "'%s'." cRST,
         tcnt, highest, total, out_file);

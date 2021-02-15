@@ -240,7 +240,7 @@ QEMU_CONF_FLAGS=" \
 
 if [ -n "${CROSS_PREFIX}" ]; then
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --cross-prefix=${CROSS_PREFIX}"
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS --cross-prefix=$CROSS_PREFIX"
 
 fi
 
@@ -248,14 +248,14 @@ if [ "$STATIC" = "1" ]; then
 
   echo Building STATIC binary
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --static \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
 
 else
 
-  QEMU_CONF_FLAGS="{$QEMU_CONF_FLAGS} --enable-pie "
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --enable-pie "
 
 fi
 
@@ -266,7 +266,7 @@ if [ "$DEBUG" = "1" ]; then
   # --enable-gcov might go here but incurs a mesonbuild error on meson
   # versions prior to 0.56:
   # https://github.com/qemu/meson/commit/903d5dd8a7dc1d6f8bef79e66d6ebc07c
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --disable-strip \
     --enable-debug \
     --enable-debug-info \
@@ -279,7 +279,7 @@ if [ "$DEBUG" = "1" ]; then
 
 else
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --disable-debug-info \
     --disable-debug-mutex \
     --disable-debug-tcg \
@@ -294,7 +294,7 @@ if [ "$PROFILING" = "1" ]; then
 
   echo Building PROFILED binary
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --enable-gprof \
     --enable-profiler \
     "
@@ -302,7 +302,7 @@ if [ "$PROFILING" = "1" ]; then
 fi
 
 # shellcheck disable=SC2086
-./configure ${QEMU_CONF_FLAGS} || exit 1
+./configure $QEMU_CONF_FLAGS || exit 1
 
 echo "[+] Configuration complete."
 
@@ -364,10 +364,27 @@ else
 
 fi
 
-echo "[+] Building libcompcov ..."
-make -C libcompcov && echo "[+] libcompcov ready"
-echo "[+] Building unsigaction ..."
-make -C unsigaction && echo "[+] unsigaction ready"
+ORIG_CROSS="$CROSS"
+
+if [ "$ORIG_CROSS" = "" ]; then
+  CROSS=$CPU_TARGET-linux-gnu-gcc
+  if ! command -v "$CROSS" > /dev/null
+  then # works on Arch Linux
+    CROSS=$CPU_TARGET-pc-linux-gnu-gcc
+  fi
+fi
+
+if ! command -v "$CROSS" > /dev/null
+then
+    echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
+else
+  echo "[+] Building libcompcov ..."
+  make -C libcompcov CC=$CROSS && echo "[+] libcompcov ready"
+  echo "[+] Building unsigaction ..."
+  make -C unsigaction CC=$CROSS && echo "[+] unsigaction ready"
+  echo "[+] Building libqasan ..."
+  make -C libqasan CC=$CROSS && echo "[+] unsigaction ready"
+fi
 
 echo "[+] All done for qemu_mode, enjoy!"
 

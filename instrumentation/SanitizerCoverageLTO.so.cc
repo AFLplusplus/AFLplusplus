@@ -760,7 +760,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
-                    addedNull = true;
+                    // addedNull = true;
 
                   }
 
@@ -1237,6 +1237,25 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
   for (auto &BB : F) {
 
+    for (auto &IN : BB) {
+
+      CallInst *callInst = nullptr;
+
+      if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+        Function *Callee = callInst->getCalledFunction();
+        if (!Callee) continue;
+        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        StringRef FuncName = Callee->getName();
+        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+
+        Value *val = ConstantInt::get(Int32Ty, ++afl_global_id);
+        callInst->setOperand(1, val);
+
+      }
+
+    }
+
     if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
       BlocksToInstrument.push_back(&BB);
     for (auto &Inst : BB) {
@@ -1338,6 +1357,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
   if (AllBlocks.empty()) return false;
   CreateFunctionLocalArrays(F, AllBlocks);
+
   for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
 
     // afl++ START

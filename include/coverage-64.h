@@ -145,7 +145,7 @@ inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
 
   __m256i zeroes = _mm256_setzero_si256();
 
-  for (; current != current_end; virgin += 4, current += 4) {
+  for (; current < current_end; virgin += 4, current += 4) {
 
     __m256i value = *(__m256i *)current;
     __m256i cmp = _mm256_cmpeq_epi64(value, zeroes);
@@ -172,7 +172,7 @@ inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
   #define PACK_SIZE 32
 inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
 
-  for (; current != current_end; virgin += 4, current += 4) {
+  for (; current < current_end; virgin += 4, current += 4) {
 
     if (current[0] && classify_word(current[0]) & virgin[0]) return 1;
     if (current[1] && classify_word(current[1]) & virgin[1]) return 1;

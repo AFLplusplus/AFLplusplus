@@ -334,6 +334,66 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
 }
 
+/* Get libqasan path. */
+
+u8 *get_libqasan_path(u8 *own_loc) {
+
+  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
+
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+
+  tmp = getenv("AFL_PATH");
+
+  if (tmp) {
+
+    cp = alloc_printf("%s/libqasan.so", tmp);
+
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
+
+    return cp;
+
+  }
+
+  own_copy = ck_strdup(own_loc);
+  rsl = strrchr(own_copy, '/');
+
+  if (rsl) {
+
+    *rsl = 0;
+
+    cp = alloc_printf("%s/libqasan.so", own_copy);
+    ck_free(own_copy);
+
+    if (!access(cp, X_OK)) { return cp; }
+
+  } else {
+
+    ck_free(own_copy);
+
+  }
+
+  if (!access(BIN_PATH "/libqasan.so", X_OK)) {
+
+    if (cp) { ck_free(cp); }
+
+    return ck_strdup(BIN_PATH "/libqasan.so");
+
+  }
+
+  SAYF("\n" cLRD "[-] " cRST
+       "Oops, unable to find the 'libqasan.so' binary. The binary must be "
+       "built\n"
+       "    separately by following the instructions in "
+       "qemu_mode/libqasan/README.md. "
+       "If you\n"
+       "    already have the binary installed, you may need to specify "
+       "AFL_PATH in the\n"
+       "    environment.\n");
+
+  FATAL("Failed to locate 'libqasan.so'.");
+
+}
+
 /* Find binary, used by analyze, showmap, tmin
    @returns the path, allocating the string */
 
@@ -463,7 +523,7 @@ void check_environment_vars(char **envp) {
   if (be_quiet) { return; }
 
   int   index = 0, issue_detected = 0;
-  char *env, *val;
+  char *env, *val, *ignore = getenv("AFL_IGNORE_UNKNOWN_ENVS");
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
@@ -522,7 +582,7 @@ void check_environment_vars(char **envp) {
 
       }
 
-      if (match == 0) {
+      if (match == 0 && !ignore) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
         issue_detected = 1;
@@ -921,7 +981,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
-  uint32_t map_size = MAP_SIZE;
+  uint32_t map_size = (MAP_SIZE << 2);  // needed for target ctors :(
   char *   ptr;
 
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {

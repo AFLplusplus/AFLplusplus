@@ -30,24 +30,25 @@
 
 #include "config.h"
 
+#define CMPLOG_LVL_MAX 3
+
 #define CMP_MAP_W 65536
-#define CMP_MAP_H 256
+#define CMP_MAP_H 32
 #define CMP_MAP_RTN_H (CMP_MAP_H / 4)
 
 #define SHAPE_BYTES(x) (x + 1)
 
-#define CMP_TYPE_INS 0
-#define CMP_TYPE_RTN 1
+#define CMP_TYPE_INS 1
+#define CMP_TYPE_RTN 2
 
 struct cmp_header {
 
-  unsigned hits : 20;
-
-  unsigned cnt : 20;
-  unsigned id : 16;
-
-  unsigned shape : 5;  // from 0 to 31
-  unsigned type : 1;
+  unsigned hits : 24;
+  unsigned id : 24;
+  unsigned shape : 5;
+  unsigned type : 2;
+  unsigned attribute : 4;
+  unsigned reserved : 5;
 
 } __attribute__((packed));
 
@@ -55,6 +56,8 @@ struct cmp_operands {
 
   u64 v0;
   u64 v1;
+  u64 v0_128;
+  u64 v1_128;
 
 };
 

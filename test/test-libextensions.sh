@@ -38,14 +38,4 @@ test -e ../libdislocator.so && {
 }
 rm -f test-compcov
 
-test -z "$AFL_CC" && {
-  if type gcc >/dev/null; then
-    export AFL_CC=gcc
-  else
-    if type clang >/dev/null; then
-      export AFL_CC=clang
-    fi
-  fi
-}
-
 . ./test-post.sh

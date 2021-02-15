@@ -97,7 +97,7 @@ inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
 #define PACK_SIZE 16
 inline u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end) {
 
-  for (; current != current_end; virgin += 4, current += 4) {
+  for (; current < current_end; virgin += 4, current += 4) {
 
     if (current[0] && classify_word(current[0]) & virgin[0]) return 1;
     if (current[1] && classify_word(current[1]) & virgin[1]) return 1;

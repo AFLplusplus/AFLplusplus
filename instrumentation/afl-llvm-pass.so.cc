@@ -538,6 +538,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
+        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       }
 
