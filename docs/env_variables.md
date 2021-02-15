@@ -5,6 +5,10 @@
   users or for some types of custom fuzzing setups. See [README.md](README.md) for the general
   instruction manual.
 
+  Note that most tools will warn on any unknown AFL environment variables.
+  This is for warning on typos that can happen. If you want to disable this
+  check then set the `AFL_IGNORE_UNKNOWN_ENVS` environment variable.
+
 ## 1) Settings for all compilers
 
 Starting with afl++ 3.0 there is only one compiler: afl-cc
@@ -17,7 +21,6 @@ To select the different instrumentation modes this can be done by
 
 `MODE` can be one of `LTO` (afl-clang-lto*), `LLVM` (afl-clang-fast*), `GCC_PLUGIN`
 (afl-g*-fast) or `GCC` (afl-gcc/afl-g++).
-
 
 Because (with the exception of the --afl-MODE command line option) the
 compile-time tools do not accept afl specific command-line options, they
@@ -448,6 +451,7 @@ checks or alter some of the more exotic semantics of the tool:
     `banner` corresponds to the name of the fuzzer provided through `-M/-S`.
     `afl_version` corresponds to the currently running afl version (e.g `++3.0c`).
     Default (empty/non present) will add no tags to the metrics.
+    See [rpc_statsd.md](rpc_statsd.md) for more information.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
     For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting

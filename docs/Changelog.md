@@ -48,6 +48,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
     - fixed a potential crash in the LAF feature
+    - workaround for llvm 13
+    - workaround for llvm internal lto bug that lets not bitcast from _ExtInt()
   - qemuafl
     - QASan (address sanitizer for Qemu) ported to qemuafl!
       See qemu_mode/libqasan/README.md
@@ -58,8 +60,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Substantial speed gains in python bindings for certain use cases
     - Improved rust bindings
     - Added a new example harness to compare python, c, and rust bindings
+  - afl-cmin and afl-showmap now support the -f option
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
-  - warn on any _AFL and __AFL env vars
+  - warn on any _AFL and __AFL env vars.
+  - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
   - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)

@@ -554,6 +554,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+#if LLVM_MAJOR >= 13
+    // fuck you llvm 13
+    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+#endif
+
     if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
@@ -1582,6 +1587,7 @@ int main(int argc, char **argv, char **envp) {
           "libtokencap.so)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
+          "  AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
           "  AFL_INST_RATIO: percentage of branches to instrument\n"
           "  AFL_QUIET: suppress verbose output\n"
           "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
@@ -1868,6 +1874,8 @@ int main(int argc, char **argv, char **envp) {
 #endif
 
   edit_params(argc, argv, envp);
+
+  if (lto_mode) { setenv("_AFL_LTO_COMPILE", "1", 1); }
 
   if (debug) {
 

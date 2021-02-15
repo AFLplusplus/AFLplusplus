@@ -1088,7 +1088,7 @@ void ModuleSanitizerCoverage::InjectTraceForSwitch(
 
       }
 
-      llvm::sort(Initializers.begin() + 2, Initializers.end(),
+      llvm::sort(drop_begin(Initializers, 2),
                  [](const Constant *A, const Constant *B) {
 
                    return cast<ConstantInt>(A)->getLimitedValue() <
@@ -1136,10 +1136,10 @@ void ModuleSanitizerCoverage::InjectTraceForGep(
   for (auto GEP : GepTraceTargets) {
 
     IRBuilder<> IRB(GEP);
-    for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I)
-      if (!isa<ConstantInt>(*I) && (*I)->getType()->isIntegerTy())
+    for (Use &Idx : GEP->indices())
+      if (!isa<ConstantInt>(Idx) && Idx->getType()->isIntegerTy())
         IRB.CreateCall(SanCovTraceGepFunction,
-                       {IRB.CreateIntCast(*I, IntptrTy, true)});
+                       {IRB.CreateIntCast(Idx, IntptrTy, true)});
 
   }
 

@@ -57,8 +57,6 @@ ifdef MSAN_BUILD
   override LDFLAGS += -fsanitize=memory
 endif
 
-
-
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -77,17 +75,17 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -
 	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-  ifndef SOURCE_DATE_EPOCH
-    HAVE_MARCHNATIVE = 1
-    CFLAGS_OPT += -march=native
-  endif
-endif
+#ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+#  ifndef SOURCE_DATE_EPOCH
+#    HAVE_MARCHNATIVE = 1
+#    CFLAGS_OPT += -march=native
+#  endif
+#endif
 
 ifneq "$(shell uname)" "Darwin"
-  ifeq "$(HAVE_MARCHNATIVE)" "1"
-    SPECIAL_PERFORMANCE += -march=native
-  endif
+  #ifeq "$(HAVE_MARCHNATIVE)" "1"
+  #  SPECIAL_PERFORMANCE += -march=native
+  #endif
  # OS X does not like _FORTIFY_SOURCE=2
   ifndef DEBUG
     CFLAGS_OPT += -D_FORTIFY_SOURCE=2
@@ -366,6 +364,7 @@ help:
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
+	@echo NO_ARCH_OPT - builds afl++ without machine architecture optimizations
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1
