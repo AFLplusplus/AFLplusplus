@@ -1498,11 +1498,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
   struct tainted *   t;
   u32                i, j, idx, taint_len, loggeds;
-  u32                have_taint = 1, is_n = 0;
+  u32                have_taint = 1;
   u8                 status = 0, found_one = 0;
 
   /* loop cmps are useless, detect and ignore them */
 #ifdef WORD_SIZE_64
+  u32  is_n = 0;
   u128 s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;
 #endif
   u64 s_v0, s_v1;
@@ -1520,6 +1521,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
+#ifdef WORD_SIZE_64
   switch (SHAPE_BYTES(h->shape)) {
 
     case 1:
@@ -1531,6 +1533,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       is_n = 1;
 
   }
+#endif
 
   for (i = 0; i < loggeds; ++i) {
 
@@ -2606,8 +2609,8 @@ exit_its:
     }
 
   #else
-    u32 *v = (u64 *)afl->virgin_bits;
-    u32 *s = (u64 *)virgin_save;
+    u32 *v = (u32 *)afl->virgin_bits;
+    u32 *s = (u32 *)virgin_save;
     u32 i;
     for (i = 0; i < (afl->shm.map_size >> 2); i++) {
 
