@@ -99,7 +99,6 @@ cd build
 # "Building with ninja significantly improves your build time, especially with
 # incremental builds, and improves your memory usage."
 cmake \
-    -G Ninja \
     -DCLANG_INCLUDE_DOCS="OFF" \
     -DCLANG_PLUGIN_SUPPORT="OFF" \
     -DCMAKE_BUILD_TYPE=Release \
