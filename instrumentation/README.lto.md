@@ -100,7 +100,6 @@ cd build
 # incremental builds, and improves your memory usage."
 cmake \
     -DCLANG_INCLUDE_DOCS="OFF" \
-    -DCLANG_PLUGIN_SUPPORT="OFF" \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_BINUTILS_INCDIR=/usr/include/ \
     -DLLVM_BUILD_LLVM_DYLIB="ON" \
