@@ -3916,11 +3916,8 @@ static void internal_malloc_stats(mstate m) {
           clear_smallmap(M, I);                                 \
                                                                 \
         } else if (RTCHECK(B == smallbin_at(M, I) ||            \
-<<<<<<< HEAD
-=======
                                                                 \
                                                                 \
->>>>>>> e3a5c31307f323452dc4b5288e0d19a02b596a33
                            (ok_address(M, B) && B->fd == P))) { \
                                                                 \
           F->bk = B;                                            \
@@ -4131,11 +4128,8 @@ static void internal_malloc_stats(mstate m) {
             XP->child[1] = R;                                        \
                                                                      \
         } else                                                       \
-<<<<<<< HEAD
-=======
                                                                      \
                                                                      \
->>>>>>> e3a5c31307f323452dc4b5288e0d19a02b596a33
           CORRUPTION_ERROR_ACTION(M);                                \
         if (R != 0) {                                                \
                                                                      \
@@ -4151,11 +4145,8 @@ static void internal_malloc_stats(mstate m) {
                 C0->parent = R;                                      \
                                                                      \
               } else                                                 \
-<<<<<<< HEAD
-=======
                                                                      \
                                                                      \
->>>>>>> e3a5c31307f323452dc4b5288e0d19a02b596a33
                 CORRUPTION_ERROR_ACTION(M);                          \
                                                                      \
             }                                                        \
@@ -4167,21 +4158,15 @@ static void internal_malloc_stats(mstate m) {
                 C1->parent = R;                                      \
                                                                      \
               } else                                                 \
-<<<<<<< HEAD
-=======
                                                                      \
                                                                      \
->>>>>>> e3a5c31307f323452dc4b5288e0d19a02b596a33
                 CORRUPTION_ERROR_ACTION(M);                          \
                                                                      \
             }                                                        \
                                                                      \
           } else                                                     \
-<<<<<<< HEAD
-=======
                                                                      \
                                                                      \
->>>>>>> e3a5c31307f323452dc4b5288e0d19a02b596a33
             CORRUPTION_ERROR_ACTION(M);                              \
                                                                      \
         }                                                            \
