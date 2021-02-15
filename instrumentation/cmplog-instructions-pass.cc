@@ -114,8 +114,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
 
-  char *is_lto = getenv("_AFL_LTO_COMPILE");
-
 #if LLVM_VERSION_MAJOR < 9
   Constant *
 #else
@@ -268,20 +266,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
       unsigned char do_cast = 0;
 
-      if (!SI->getNumCases() || max_size < 16) { continue; }
+      if (!SI->getNumCases() || max_size < 16 || max_size % 8) {
 
-      if (max_size % 8) {
-
-        if (is_lto) {
-
-          continue;  // LTO cannot bitcast from _ExtInt() :(
-
-        } else {
-
-          max_size = (((max_size / 8) + 1) * 8);
-          do_cast = 1;
-
-        }
+        // if (!be_quiet) errs() << "skip trivial switch..\n";
+        continue;
 
       }
 
@@ -298,7 +286,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         }
 
-        if (is_lto) { continue; }  // LTO cannot bitcast _ExtInt() :(
         max_size = 128;
         do_cast = 1;
 
@@ -315,7 +302,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           cast_size = max_size;
           break;
         default:
-          if (is_lto) { continue; }  // LTO cannot bitcast _ExtInt() :(
           cast_size = 128;
           do_cast = 1;
 
@@ -504,22 +490,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       }
 
-      if (!max_size || max_size < 16) { continue; }
-
-      if (max_size % 8) {
-
-        if (is_lto) {
-
-          continue;  // LTO cannot bitcast from _ExtInt() :(
-
-        } else {
-
-          max_size = (((max_size / 8) + 1) * 8);
-          do_cast = 1;
-
-        }
-
-      }
+      if (!max_size || max_size % 8 || max_size < 16) { continue; }
 
       if (max_size > 128) {
 
@@ -531,7 +502,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         }
 
-        if (is_lto) { continue; }  // LTO cannot bitcast from _ExtInt() :(
         max_size = 128;
         do_cast = 1;
 
@@ -548,7 +518,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           cast_size = max_size;
           break;
         default:
-          if (is_lto) { continue; }  // LTO cannot bitcast from _ExtInt() :(
           cast_size = 128;
           do_cast = 1;
 
