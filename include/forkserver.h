@@ -83,6 +83,8 @@ typedef struct afl_forkserver {
 
   bool uses_asan;                       /* Target uses ASAN?                */
 
+  bool debug;                           /* debug mode?                      */
+
   bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
   u8   crash_exitcode;                  /* The crash exitcode specified     */
 
@@ -118,11 +120,14 @@ void afl_fsrv_init(afl_forkserver_t *fsrv);
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
+u32  afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
+                          volatile u8 *stop_soon_p, u8 debug_child_output);
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len);
 fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
                                       volatile u8 *stop_soon_p);
 void              afl_fsrv_killall(void);
 void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
+void              afl_fsrv_kill(afl_forkserver_t *fsrv);
 
 #ifdef __APPLE__
   #define MSG_FORK_ON_APPLE                                                    \

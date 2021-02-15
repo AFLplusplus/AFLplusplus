@@ -1,3 +1,8 @@
+/*
+ * This implements rpc.statsd support, see docs/rpc_statsd.md
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -226,37 +231,39 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
   */
   if (afl->statsd_metric_format_type == STATSD_TAGS_TYPE_SUFFIX) {
 
-    snprintf(buff, bufflen, afl->statsd_metric_format,
-             afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
-             afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
-             afl->fsrv.total_execs /
-                 ((double)(get_cur_time() - afl->start_time) / 1000),
-             tags, afl->queued_paths, tags, afl->queued_favored, tags,
-             afl->queued_discovered, tags, afl->queued_imported, tags,
-             afl->max_depth, tags, afl->current_entry, tags,
-             afl->pending_favored, tags, afl->pending_not_fuzzed, tags,
-             afl->queued_variable, tags, afl->unique_crashes, tags,
-             afl->unique_hangs, tags, afl->total_crashes, tags,
-             afl->slowest_exec_ms, tags,
-             count_non_255_bytes(afl, afl->virgin_bits), tags,
-             afl->var_byte_count, tags, afl->expand_havoc, tags);
+    snprintf(
+        buff, bufflen, afl->statsd_metric_format,
+        afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
+        afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
+        afl->fsrv.total_execs /
+            ((double)(get_cur_time() + afl->prev_run_time - afl->start_time) /
+             1000),
+        tags, afl->queued_paths, tags, afl->queued_favored, tags,
+        afl->queued_discovered, tags, afl->queued_imported, tags,
+        afl->max_depth, tags, afl->current_entry, tags, afl->pending_favored,
+        tags, afl->pending_not_fuzzed, tags, afl->queued_variable, tags,
+        afl->unique_crashes, tags, afl->unique_hangs, tags, afl->total_crashes,
+        tags, afl->slowest_exec_ms, tags,
+        count_non_255_bytes(afl, afl->virgin_bits), tags, afl->var_byte_count,
+        tags, afl->expand_havoc, tags);
 
   } else if (afl->statsd_metric_format_type == STATSD_TAGS_TYPE_MID) {
 
-    snprintf(buff, bufflen, afl->statsd_metric_format, tags,
-             afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
-             afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
-             afl->fsrv.total_execs /
-                 ((double)(get_cur_time() - afl->start_time) / 1000),
-             tags, afl->queued_paths, tags, afl->queued_favored, tags,
-             afl->queued_discovered, tags, afl->queued_imported, tags,
-             afl->max_depth, tags, afl->current_entry, tags,
-             afl->pending_favored, tags, afl->pending_not_fuzzed, tags,
-             afl->queued_variable, tags, afl->unique_crashes, tags,
-             afl->unique_hangs, tags, afl->total_crashes, tags,
-             afl->slowest_exec_ms, tags,
-             count_non_255_bytes(afl, afl->virgin_bits), tags,
-             afl->var_byte_count, tags, afl->expand_havoc);
+    snprintf(
+        buff, bufflen, afl->statsd_metric_format, tags,
+        afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
+        afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
+        afl->fsrv.total_execs /
+            ((double)(get_cur_time() + afl->prev_run_time - afl->start_time) /
+             1000),
+        tags, afl->queued_paths, tags, afl->queued_favored, tags,
+        afl->queued_discovered, tags, afl->queued_imported, tags,
+        afl->max_depth, tags, afl->current_entry, tags, afl->pending_favored,
+        tags, afl->pending_not_fuzzed, tags, afl->queued_variable, tags,
+        afl->unique_crashes, tags, afl->unique_hangs, tags, afl->total_crashes,
+        tags, afl->slowest_exec_ms, tags,
+        count_non_255_bytes(afl, afl->virgin_bits), tags, afl->var_byte_count,
+        tags, afl->expand_havoc);
 
   }
 

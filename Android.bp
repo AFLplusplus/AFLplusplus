@@ -36,6 +36,7 @@ cc_defaults {
 cc_binary {
   name: "afl-fuzz",
   host_supported: true,
+  compile_multilib: "64",
 
   defaults: [
     "afl-defaults",
@@ -64,6 +65,7 @@ cc_binary {
     "src/afl-common.c",
     "src/afl-sharedmem.c",
     "src/afl-forkserver.c",
+    "src/afl-performance.c",
   ],
 }
 
@@ -152,7 +154,7 @@ cc_binary_host {
 
 cc_library_static {
   name: "afl-llvm-rt",
-  compile_multilib: "both",
+  compile_multilib: "64",
   vendor_available: true,
   host_supported: true,
   recovery_available: true,

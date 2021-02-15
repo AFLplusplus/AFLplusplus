@@ -69,7 +69,8 @@ class AFLLTOPass : public ModulePass {
 
     if (getenv("AFL_DEBUG")) debug = 1;
     if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
-      if ((afl_global_id = atoi(ptr)) < 0 || afl_global_id >= MAP_SIZE)
+      if ((afl_global_id = (uint32_t)atoi(ptr)) < 0 ||
+          afl_global_id >= MAP_SIZE)
         FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %u\n",
               ptr, MAP_SIZE - 1);
 
@@ -88,7 +89,7 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, autodictionary = 1;
+  uint32_t afl_global_id = 1, autodictionary = 1;
   uint32_t function_minimum_size = 1;
   uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
@@ -545,7 +546,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
-                    addedNull = true;
+                    // addedNull = true;
 
                   }
 
@@ -800,7 +801,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (documentFile) {
 
-            fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%d\n",
+            fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n",
                     moduleID, F.getName().str().c_str(), afl_global_id);
 
           }
@@ -872,10 +873,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
     while ((map = map >> 1))
       pow2map++;
     WARNF(
-        "We have %d blocks to instrument but the map size is only %u. Either "
+        "We have %u blocks to instrument but the map size is only %u. Either "
         "edit config.h and set MAP_SIZE_POW2 from %d to %u, then recompile "
         "afl-fuzz and llvm_mode and then make this target - or set "
-        "AFL_MAP_SIZE with at least size %d when running afl-fuzz with this "
+        "AFL_MAP_SIZE with at least size %u when running afl-fuzz with this "
         "target.",
         afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map, afl_global_id);
 
@@ -925,7 +926,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       uint32_t write_loc = afl_global_id;
 
-      if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
+      if (afl_global_id % 32) write_loc = (((afl_global_id + 32) >> 4) << 4);
 
       GlobalVariable *AFLFinalLoc = new GlobalVariable(
           M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc");

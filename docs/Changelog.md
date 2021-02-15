@@ -11,31 +11,64 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.01a (dev)
   - Mac OS ARM64 support
-  - New selective instrumentation option with __AFL_COVERAGE_... commands
+  - Android support fixed and updated by Joey Jiaojg - thanks!
+  - New selective instrumentation option with __AFL_COVERAGE_* commands
     to be placed in the source code.
     Check out instrumentation/README.instrument_list.md
   - afl-fuzz
+    - Making AFL_MAP_SIZE (mostly) obsolete - afl-fuzz now learns on start
+      the target map size
+    - upgraded cmplog/redqueen: solving for floating point, solving
+      transformations (e.g. toupper, tolower, to/from hex, xor,
+      arithmetics, etc.). This is costly hence new command line option
+      `-l` that sets the intensity (values 1 to 3). Recommended is 1 or 2.
+    - added `AFL_CMPLOG_ONLY_NEW` to not use cmplog on initial testcases from
+      `-i` or resumes (as these have most likely already been done)
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
-    - if determinstic mode is active (-D, or -M without -d) then we sync
+    - on restarts (`-i`)/autoresume (AFL_AUTORESUME) the stats are now
+      reloaded and used, thanks to Vimal Joseph for this patch! 
+    - if deterministic mode is active (`-D`, or `-M` without `-d`) then we sync
       after every queue entry as this can take very long time otherwise
     - better detection if a target needs a large shared map
-    - switched to a faster RNG
+    - fix for `-Z`
+    - switched to an even faster RNG
     - added hghwng's patch for faster trace map analysis
   - afl-cc
     - allow instrumenting LLVMFuzzerTestOneInput
     - fixed endless loop for allow/blocklist lines starting with a
       comment (thanks to Zherya for reporting)
-    - cmplog/redqueen now also tracks floats/doubles
+    - cmplog/redqueen now also tracks floating point, _ExtInt() + 128bit
+    - cmplog/redqueen can now process basic libc++ and libstdc++
+      std::string comparisons (though no position or length type variants)
+    - added support for __afl_coverage_interesting() for LTO and
+      and our own PCGUARD (llvm 10.0.1+), read more about this function
+      and selective coverage in instrumentation/README.instrument_list.md
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
-  - warn on any _AFL and __AFL env var
-  - LLVM mode is now compiled with -j4, unicorn with all cores. qemu was
-    already building with all cores, the gcc plugin needs only one.
+    - fixed a potential crash in the LAF feature
+    - workaround for llvm 13
+    - workaround for llvm internal lto bug that lets not bitcast from _ExtInt()
+  - qemuafl
+    - QASan (address sanitizer for Qemu) ported to qemuafl!
+      See qemu_mode/libqasan/README.md
+    - solved some persistent mode bugs (thanks Dil4rd)
+    - solved an issue when dumping the memory maps (thanks wizche)
+    - Android support for QASan
+  - unicornafl
+    - Substantial speed gains in python bindings for certain use cases
+    - Improved rust bindings
+    - Added a new example harness to compare python, c, and rust bindings
+  - afl-cmin and afl-showmap now support the -f option
+  - changed default: no memory limit for afl-cmin and afl-cmin.bash
+  - warn on any _AFL and __AFL env vars.
+  - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars.
   - added dummy Makefile to instrumentation/
-  - Updated utils/afl_frida to be 5% faster
-  - Added AFL_KILL_SIGNAL env variable for custom targets (thanks @v-p-b)
+  - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
+  - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)
+  - @Edznux added a nice documentation on how to use rpc.statsd with
+    afl++ in docs/rpc_statsd.md, thanks!
 
 ### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/

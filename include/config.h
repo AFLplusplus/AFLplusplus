@@ -10,7 +10,7 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2021 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#include "types.h"
-
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
@@ -35,6 +33,38 @@
  *  Settings that may be of interest to power users:  *
  *                                                    *
  ******************************************************/
+
+/* CMPLOG/REDQUEEN TUNING
+ *
+ * Here you can modify tuning and solving options for CMPLOG.
+ * Note that these are run-time options for afl-fuzz, no target
+ * recompilation required.
+ *
+ */
+
+/* Enable arithmetic compare solving for both path */
+#define CMPLOG_SOLVE_ARITHMETIC
+
+/* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
+#define CMPLOG_SOLVE_TRANSFORM
+
+/* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
+// #define CMPLOG_SOLVE_TRANSFORM_BASE64
+
+/* If a redqueen pass finds more than one solve, try to combine them? */
+#define CMPLOG_COMBINE
+
+/* Minimum % of the corpus to perform cmplog on. Default: 20% */
+#define CMPLOG_CORPUS_PERCENT 20U
+
+/* Number of potential positions from which we decide if cmplog becomes
+   useless, default 16384 */
+#define CMPLOG_POSITIONS_MAX 16384U
+
+/* Maximum allowed fails per CMP value. Default: 32 * 3 */
+#define CMPLOG_FAIL_MAX 96
+
+/* Now non-cmplog configuration options */
 
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined
@@ -69,7 +99,7 @@
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
-//#define _WANT_ORIGINAL_AFL_ALLOC
+// #define _WANT_ORIGINAL_AFL_ALLOC
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 

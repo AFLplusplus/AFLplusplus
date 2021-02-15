@@ -45,7 +45,7 @@ echo
 
 # Process command-line options...
 
-MEM_LIMIT=200
+MEM_LIMIT=none
 TIMEOUT=none
 
 unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
@@ -85,12 +85,10 @@ while getopts "+i:o:f:m:t:eQUCh" opt; do
          ;;
     "Q")
          EXTRA_PAR="$EXTRA_PAR -Q"
-         test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
          QEMU_MODE=1
          ;;
     "U")
          EXTRA_PAR="$EXTRA_PAR -U"
-         test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
          UNICORN_MODE=1
          ;;    
     "?")

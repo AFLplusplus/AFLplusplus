@@ -1,0 +1,15 @@
+[package]
+name = "unicornafl_harness"
+version = "0.1.0"
+authors = ["Dominik Maier <domenukk@gmail.com>"]
+edition = "2018"
+
+[profile.release]
+lto = true
+opt-level = 3
+panic = "abort"
+
+[dependencies]
+unicornafl = { path = "../../../unicornafl/bindings/rust/", version="1.0.0" }
+capstone="0.6.0"
+libc="0.2.66"

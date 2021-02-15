@@ -66,9 +66,17 @@ static list_t shm_list = {.element_prealloc_count = 0};
 
 void afl_shm_deinit(sharedmem_t *shm) {
 
-  if (shm == NULL) return;
-
+  if (shm == NULL) { return; }
   list_remove(&shm_list, shm);
+  if (shm->shmemfuzz_mode) {
+
+    unsetenv(SHM_FUZZ_ENV_VAR);
+
+  } else {
+
+    unsetenv(SHM_ENV_VAR);
+
+  }
 
 #ifdef USEMMAP
   if (shm->map != NULL) {
@@ -93,6 +101,8 @@ void afl_shm_deinit(sharedmem_t *shm) {
   }
 
   if (shm->cmplog_mode) {
+
+    unsetenv(CMPLOG_SHM_ENV_VAR);
 
     if (shm->cmp_map != NULL) {
 

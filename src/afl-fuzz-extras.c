@@ -413,7 +413,7 @@ void dedup_extras(afl_state_t *afl) {
         if (j + 1 < afl->extras_cnt)  // not at the end of the list?
           memmove((char *)&afl->extras[j], (char *)&afl->extras[j + 1],
                   (afl->extras_cnt - j - 1) * sizeof(struct extra_data));
-        afl->extras_cnt--;
+        --afl->extras_cnt;
         goto restart_dedup;  // restart if several duplicates are in a row
 
       }
