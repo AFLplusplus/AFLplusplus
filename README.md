@@ -2,8 +2,6 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=stable)
-
   Release Version: [3.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
   Github Version: 3.01a
@@ -55,7 +53,7 @@ behaviours and defaults:
     * a caching of testcases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the env variable
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
-    * -M mains does not perform trimming
+    * -M mains do not perform trimming
   * examples/ got renamed to utils/
   * libtokencap/ libdislocator/ and qdbi_mode/ were moved to utils/
   * afl-cmin/afl-cmin.bash now search first in PATH and last in AFL_PATH
@@ -219,6 +217,7 @@ These build options exist:
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
+* NO_ARCH_OPT - builds afl++ without machine architecture optimizations
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
 e.g.: make ASAN_BUILD=1
@@ -752,6 +751,8 @@ campaigns as these are much shorter runnings.
   * for CMPLOG targets, 60% for `-l 2`, 40% for `-l 3`
 
 4. Do *not* run any `-M` modes, just running `-S` modes is better for CI fuzzing.
+   `-M` enables deterministic fuzzing, old queue handling etc. which is good for
+   a fuzzing campaign but not good for short CI runs.
 
 ## Fuzzing binary-only targets
 
@@ -789,8 +790,7 @@ If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
 your binary, then you can use afl-fuzz normally and it will have twice
 the speed compared to qemu_mode (but slower than persistent mode).
 Note that several other binary rewriters exist, all with their advantages and
-caveats. As rewriting a binary is much faster than Qemu this is a highly
-recommended approach!
+caveats.
 
 ### Unicorn
 

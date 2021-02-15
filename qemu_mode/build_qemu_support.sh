@@ -233,7 +233,6 @@ QEMU_CONF_FLAGS=" \
   --disable-xen \
   --disable-xen-pci-passthrough \
   --disable-xfsctl \
-  --enable-pie \
   --python=${PYTHONBIN} \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
@@ -241,7 +240,7 @@ QEMU_CONF_FLAGS=" \
 
 if [ -n "${CROSS_PREFIX}" ]; then
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --cross-prefix=${CROSS_PREFIX}"
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS --cross-prefix=$CROSS_PREFIX"
 
 fi
 
@@ -249,10 +248,15 @@ if [ "$STATIC" = "1" ]; then
 
   echo Building STATIC binary
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --static \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
+
+else
+
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --enable-pie "
+
 fi
 
 if [ "$DEBUG" = "1" ]; then
@@ -262,7 +266,7 @@ if [ "$DEBUG" = "1" ]; then
   # --enable-gcov might go here but incurs a mesonbuild error on meson
   # versions prior to 0.56:
   # https://github.com/qemu/meson/commit/903d5dd8a7dc1d6f8bef79e66d6ebc07c
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --disable-strip \
     --enable-debug \
     --enable-debug-info \
@@ -275,7 +279,7 @@ if [ "$DEBUG" = "1" ]; then
 
 else
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --disable-debug-info \
     --disable-debug-mutex \
     --disable-debug-tcg \
@@ -290,7 +294,7 @@ if [ "$PROFILING" = "1" ]; then
 
   echo Building PROFILED binary
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --enable-gprof \
     --enable-profiler \
     "
@@ -298,7 +302,7 @@ if [ "$PROFILING" = "1" ]; then
 fi
 
 # shellcheck disable=SC2086
-./configure ${QEMU_CONF_FLAGS} || exit 1
+./configure $QEMU_CONF_FLAGS || exit 1
 
 echo "[+] Configuration complete."
 
