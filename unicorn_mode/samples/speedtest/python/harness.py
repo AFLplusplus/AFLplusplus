@@ -256,17 +256,17 @@ def main():
         input_len = len(input)
         # global input_len
         if input_len > INPUT_MAX:
-            #print("Test input is too long (> {} bytes)")
+            # print("Test input is too long (> {} bytes)")
             return False
 
         # print(f"Placing input: {input} in round {persistent_round}")
 
         # Make sure the string is always 0-terminated (as it would be "in the wild")
-        input[-1] = b'\0'
+        input[-1] = b"\0"
 
         # Write the mutated command into the data buffer
         uc.mem_write(INPUT_ADDRESS, input)
-        #uc.reg_write(UC_X86_REG_RIP, main_offset)
+        # uc.reg_write(UC_X86_REG_RIP, main_offset)
 
     print(f"Starting to fuzz. Running from addr {main_offset} to one of {main_ends}")
     # Start the fuzzer.
