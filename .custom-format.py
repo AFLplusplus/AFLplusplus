@@ -33,13 +33,13 @@ if CLANG_FORMAT_BIN is None:
         o, _ = p.communicate()
         o = str(o, "utf-8")
         o = re.sub(r".*ersion ", "", o)
-        #o = o[len("clang-format version "):].strip()
-        o = o[:o.find(".")]
+        # o = o[len("clang-format version "):].strip()
+        o = o[: o.find(".")]
         o = int(o)
     except:
-        print ("clang-format-11 is needed. Aborted.")
+        print("clang-format-11 is needed. Aborted.")
         exit(1)
-    #if o < 7:
+    # if o < 7:
     #    if subprocess.call(['which', 'clang-format-7'], stdout=subprocess.PIPE) == 0:
     #        CLANG_FORMAT_BIN = 'clang-format-7'
     #    elif subprocess.call(['which', 'clang-format-8'], stdout=subprocess.PIPE) == 0:
@@ -52,8 +52,8 @@ if CLANG_FORMAT_BIN is None:
     #        print ("clang-format 7 or above is needed. Aborted.")
     #        exit(1)
     else:
-        CLANG_FORMAT_BIN = 'clang-format-11'
-            
+        CLANG_FORMAT_BIN = "clang-format-11"
+
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):
     line = line.split(":")
@@ -69,26 +69,47 @@ def custom_format(filename):
     in_define = False
     last_line = None
     out = ""
-    
+
     for line in src.split("\n"):
         if line.lstrip().startswith("#"):
-            if line[line.find("#")+1:].lstrip().startswith("define"):
+            if line[line.find("#") + 1 :].lstrip().startswith("define"):
                 in_define = True
-        
-        if "/*" in line and not line.strip().startswith("/*") and line.endswith("*/") and len(line) < (COLUMN_LIMIT-2):
+
+        if (
+            "/*" in line
+            and not line.strip().startswith("/*")
+            and line.endswith("*/")
+            and len(line) < (COLUMN_LIMIT - 2)
+        ):
             cmt_start = line.rfind("/*")
-            line = line[:cmt_start] + " " * (COLUMN_LIMIT-2 - len(line)) + line[cmt_start:]
+            line = (
+                line[:cmt_start]
+                + " " * (COLUMN_LIMIT - 2 - len(line))
+                + line[cmt_start:]
+            )
 
         define_padding = 0
         if last_line is not None and in_define and last_line.endswith("\\"):
             last_line = last_line[:-1]
-            define_padding = max(0, len(last_line[last_line.rfind("\n")+1:]))
+            define_padding = max(0, len(last_line[last_line.rfind("\n") + 1 :]))
 
-        if last_line is not None and last_line.strip().endswith("{") and line.strip() != "":
+        if (
+            last_line is not None
+            and last_line.strip().endswith("{")
+            and line.strip() != ""
+        ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
-        elif last_line is not None and last_line.strip().startswith("}") and line.strip() != "":
+        elif (
+            last_line is not None
+            and last_line.strip().startswith("}")
+            and line.strip() != ""
+        ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
-        elif line.strip().startswith("}") and last_line is not None and last_line.strip() != "":
+        elif (
+            line.strip().startswith("}")
+            and last_line is not None
+            and last_line.strip() != ""
+        ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
 
         if not line.endswith("\\"):
@@ -97,14 +118,15 @@ def custom_format(filename):
         out += line + "\n"
         last_line = line
 
-    return (out)
+    return out
+
 
 args = sys.argv[1:]
 if len(args) == 0:
-    print ("Usage: ./format.py [-i] <filename>")
-    print ()
-    print (" The -i option, if specified, let the script to modify in-place")
-    print (" the source files. By default the results are written to stdout.")
+    print("Usage: ./format.py [-i] <filename>")
+    print()
+    print(" The -i option, if specified, let the script to modify in-place")
+    print(" the source files. By default the results are written to stdout.")
     print()
     exit(1)
 
@@ -120,4 +142,3 @@ for filename in args:
             f.write(code)
     else:
         print(code)
-
