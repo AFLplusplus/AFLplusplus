@@ -19,12 +19,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <iostream>
 #include <list>
 #include <string>
 #include <fstream>
 #include <sys/time.h>
-#include "llvm/Config/llvm-config.h"
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -323,38 +324,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       Value *CompareTo = Val;
 
       if (do_cast) {
-
-        ConstantInt *cint = dyn_cast<ConstantInt>(Val);
-        if (cint) {
-
-          uint64_t val = cint->getZExtValue();
-          // fprintf(stderr, "ConstantInt: %lu\n", val);
-          switch (cast_size) {
-
-            case 8:
-              CompareTo = ConstantInt::get(Int8Ty, val);
-              break;
-            case 16:
-              CompareTo = ConstantInt::get(Int16Ty, val);
-              break;
-            case 32:
-              CompareTo = ConstantInt::get(Int32Ty, val);
-              break;
-            case 64:
-              CompareTo = ConstantInt::get(Int64Ty, val);
-              break;
-            case 128:
-              CompareTo = ConstantInt::get(Int128Ty, val);
-              break;
-
-          }
-
-        } else {
-
-          CompareTo = IRB.CreateBitCast(Val, IntegerType::get(C, cast_size));
-
-        }
-
+        CompareTo =
+            IRB.CreateIntCast(CompareTo, IntegerType::get(C, cast_size), false);
       }
 
       for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
@@ -374,29 +345,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           Value *new_param = cint;
 
           if (do_cast) {
-
-            uint64_t val = cint->getZExtValue();
-            // fprintf(stderr, "ConstantInt: %lu\n", val);
-            switch (cast_size) {
-
-              case 8:
-                new_param = ConstantInt::get(Int8Ty, val);
-                break;
-              case 16:
-                new_param = ConstantInt::get(Int16Ty, val);
-                break;
-              case 32:
-                new_param = ConstantInt::get(Int32Ty, val);
-                break;
-              case 64:
-                new_param = ConstantInt::get(Int64Ty, val);
-                break;
-              case 128:
-                new_param = ConstantInt::get(Int128Ty, val);
-                break;
-
-            }
-
+            new_param =
+                IRB.CreateIntCast(cint, IntegerType::get(C, cast_size), false);
           }
 
           if (new_param) {
@@ -604,88 +554,27 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       }
 
-      if (do_cast) {
+      // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
+      // cmpInst->getFunction()->getName() << ")\n";
 
-        // F*cking LLVM optimized out any kind of bitcasts of ConstantInt values
-        // creating illegal calls. WTF. So we have to work around this.
+      // first bitcast to integer type of the same bitsize as the original
+      // type (this is a nop, if already integer)
+      Value *op0_i = IRB.CreateBitCast(
+          op0, IntegerType::get(C, op0->getType()->getPrimitiveSizeInBits()));
+      // then create a int cast, which does zext, trunc or bitcast. In our case
+      // usually zext to the next larger supported type (this is a nop if
+      // already the right type)
+      Value *V0 =
+          IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size), false);
+      args.push_back(V0);
+      Value *op1_i = IRB.CreateBitCast(
+          op1, IntegerType::get(C, op1->getType()->getPrimitiveSizeInBits()));
+      Value *V1 =
+          IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size), false);
+      args.push_back(V1);
 
-        ConstantInt *cint = dyn_cast<ConstantInt>(op0);
-        if (cint) {
-
-          uint64_t val = cint->getZExtValue();
-          // fprintf(stderr, "ConstantInt: %lu\n", val);
-          ConstantInt *new_param = NULL;
-          switch (cast_size) {
-
-            case 8:
-              new_param = ConstantInt::get(Int8Ty, val);
-              break;
-            case 16:
-              new_param = ConstantInt::get(Int16Ty, val);
-              break;
-            case 32:
-              new_param = ConstantInt::get(Int32Ty, val);
-              break;
-            case 64:
-              new_param = ConstantInt::get(Int64Ty, val);
-              break;
-            case 128:
-              new_param = ConstantInt::get(Int128Ty, val);
-              break;
-
-          }
-
-          if (!new_param) { continue; }
-          args.push_back(new_param);
-
-        } else {
-
-          Value *V0 = IRB.CreateBitCast(op0, IntegerType::get(C, cast_size));
-          args.push_back(V0);
-
-        }
-
-        cint = dyn_cast<ConstantInt>(op1);
-        if (cint) {
-
-          uint64_t     val = cint->getZExtValue();
-          ConstantInt *new_param = NULL;
-          switch (cast_size) {
-
-            case 8:
-              new_param = ConstantInt::get(Int8Ty, val);
-              break;
-            case 16:
-              new_param = ConstantInt::get(Int16Ty, val);
-              break;
-            case 32:
-              new_param = ConstantInt::get(Int32Ty, val);
-              break;
-            case 64:
-              new_param = ConstantInt::get(Int64Ty, val);
-              break;
-            case 128:
-              new_param = ConstantInt::get(Int128Ty, val);
-              break;
-
-          }
-
-          if (!new_param) { continue; }
-          args.push_back(new_param);
-
-        } else {
-
-          Value *V1 = IRB.CreateBitCast(op1, IntegerType::get(C, cast_size));
-          args.push_back(V1);
-
-        }
-
-      } else {
-
-        args.push_back(op0);
-        args.push_back(op1);
-
-      }
+      // errs() << "[CMPLOG] casted parameters:\n0: " << *V0 << "\n1: " << *V1
+      // << "\n";
 
       ConstantInt *attribute = ConstantInt::get(Int8Ty, attr);
       args.push_back(attribute);
