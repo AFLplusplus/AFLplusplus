@@ -382,6 +382,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
     rng = ranges;
     ranges = rng->next;
     ck_free(rng);
+    rng = NULL;
 
   }
 
@@ -455,6 +456,15 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   return 0;
 
 checksum_fail:
+  while (ranges) {
+
+    rng = ranges;
+    ranges = rng->next;
+    ck_free(rng);
+    rng = NULL;
+
+  }
+
   ck_free(backup);
   ck_free(changed);
 
@@ -503,6 +513,8 @@ static int strntoll(const char *str, size_t sz, char **end, int base,
   long long   ret;
   const char *beg = str;
 
+  if (!str || !sz) { return 1; }
+
   for (; beg && sz && *beg == ' '; beg++, sz--) {};
 
   if (!sz) return 1;
@@ -525,6 +537,8 @@ static int strntoull(const char *str, size_t sz, char **end, int base,
   char               buf[64];
   unsigned long long ret;
   const char *       beg = str;
+
+  if (!str || !sz) { return 1; }
 
   for (; beg && sz && *beg == ' '; beg++, sz--)
     ;
@@ -1303,7 +1317,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-#endif                                         /* CMPLOG_SOLVE_ARITHMETIC */
+#endif                                           /* CMPLOG_SOLVE_ARITHMETIC */
 
   return 0;
 
@@ -2670,3 +2684,4 @@ exit_its:
   return r;
 
 }
+

@@ -552,13 +552,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'F':                                         /* foreign sync dir */
 
-        if (!afl->is_main_node)
+        if (!optarg) { FATAL("Missing path for -F"); }
+        if (!afl->is_main_node) {
+
           FATAL(
               "Option -F can only be specified after the -M option for the "
               "main fuzzer of a fuzzing campaign");
-        if (afl->foreign_sync_cnt >= FOREIGN_SYNCS_MAX)
+
+        }
+
+        if (afl->foreign_sync_cnt >= FOREIGN_SYNCS_MAX) {
+
           FATAL("Maximum %u entried of -F option can be specified",
                 FOREIGN_SYNCS_MAX);
+
+        }
+
         afl->foreign_syncs[afl->foreign_sync_cnt].dir = optarg;
         while (afl->foreign_syncs[afl->foreign_sync_cnt]
                    .dir[strlen(afl->foreign_syncs[afl->foreign_sync_cnt].dir) -
@@ -802,7 +811,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'l': {
 
-        afl->cmplog_lvl = atoi(optarg);
+        if (optarg) { afl->cmplog_lvl = atoi(optarg); }
         if (afl->cmplog_lvl < 1 || afl->cmplog_lvl > CMPLOG_LVL_MAX) {
 
           FATAL(
