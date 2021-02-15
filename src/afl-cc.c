@@ -1875,6 +1875,8 @@ int main(int argc, char **argv, char **envp) {
 
   edit_params(argc, argv, envp);
 
+  if (lto_mode) { setenv("_AFL_LTO_COMPILE", "1", 1); }
+
   if (debug) {
 
     DEBUGF("cd '%s';", getthecwd());
