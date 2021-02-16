@@ -26,9 +26,6 @@
 
 #define AFL_MAIN
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -1080,6 +1077,31 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (optind == argc || !in_file) { usage(argv[0]); }
+
+  if (qemu_mode && getenv("AFL_USE_QASAN")) {
+
+    u8 *preload = getenv("AFL_PRELOAD");
+    u8 *libqasan = get_libqasan_path(argv_orig[0]);
+
+    if (!preload) {
+
+      setenv("AFL_PRELOAD", libqasan, 0);
+
+    } else {
+
+      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
+      strcpy(result, libqasan);
+      strcat(result, " ");
+      strcat(result, preload);
+
+      setenv("AFL_PRELOAD", result, 1);
+      ck_free(result);
+
+    }
+
+    ck_free(libqasan);
+
+  }
 
   map_size = get_map_size();
 

@@ -313,16 +313,10 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
-     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0;
-  u8 *name;
+     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
+     have_c = 0;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
-
-  name = strrchr(argv[0], '/');
-  if (!name)
-    name = argv[0];
-  else
-    ++name;
 
   if (lto_mode) {
 
@@ -461,7 +455,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     // laf
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
@@ -481,7 +475,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_TRANSFORM_COMPARES") ||
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/compare-transform-pass.so", obj_path);
@@ -501,7 +495,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/split-compares-pass.so", obj_path);
@@ -524,14 +518,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     unsetenv("AFL_LD_CALLER");
     if (cmplog_mode) {
 
-      if (lto_mode) {
+      if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
         cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
-        cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
 
       } else {
 
@@ -541,6 +535,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/cmplog-routines-pass.so", obj_path);
 
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+
         // reuse split switches from laf
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
@@ -548,19 +548,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/split-switches-pass.so", obj_path);
 
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
-
       }
 
       cc_params[cc_par_cnt++] = "-fno-inline";
 
     }
 
-    if (lto_mode) {
+#if LLVM_MAJOR >= 13
+    // fuck you llvm 13
+    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+#endif
+
+    if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
       if (!*ld_path) ld_path = "ld.lld";
@@ -572,7 +571,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
-      if (instrument_mode == INSTRUMENT_CFG)
+      if (instrument_mode == INSTRUMENT_CFG ||
+          instrument_mode == INSTRUMENT_PCGUARD)
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       else
@@ -586,6 +586,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+  #ifdef __ANDROID__
+        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+  #else
         if (have_instr_list) {
 
           if (!be_quiet)
@@ -605,6 +608,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         }
 
+  #endif
 #else
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
@@ -683,8 +687,42 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
+    if (!strncmp(cur, "-fno-unroll", 11)) continue;
+    if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
+    if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
+        !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
+    if (!strcmp(cur, "-fsanitize=fuzzer")) {
+
+      u8 *afllib = find_object("libAFLDriver.a", argv[0]);
+
+      if (!be_quiet)
+        WARNF(
+            "Found erroneous '-fsanitize=fuzzer', trying to replace with "
+            "libAFLDriver.a");
+
+      if (!afllib) {
+
+        WARNF(
+            "Cannot find 'libAFLDriver.a' to replace a wrong "
+            "'-fsanitize=fuzzer' in the flags - this will fail!");
+
+      } else {
+
+        cc_params[cc_par_cnt++] = afllib;
+
+      }
+
+      continue;
+
+    }
 
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
@@ -701,9 +739,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "-c")) have_c = 1;
 
     if (!strncmp(cur, "-O", 2)) have_o = 1;
-    if (!strncmp(cur, "-f", 2) && strstr(cur, "unroll-loop")) have_unroll = 1;
+    if (!strncmp(cur, "-funroll-loop", 13)) have_unroll = 1;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -792,10 +831,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#if defined(USEMMAP)
-  #if !defined(__HAIKU__)
-  cc_params[cc_par_cnt++] = "-lrt";
-  #endif
+#if defined(USEMMAP) && !defined(__HAIKU__)
+  if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -962,16 +999,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking)
+    if (!shared_linking && !have_c)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-  #if defined(USEMMAP)
-    #if !defined(__HAIKU__)
-    cc_params[cc_par_cnt++] = "-lrt";
-    #endif
+  #if defined(USEMMAP) && !defined(__HAIKU__)
+    if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
   #endif
+
+    // prevent unnecessary build errors
+    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
   }
 
@@ -1032,6 +1070,10 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+#endif
+
+#ifdef __ANDROID__
+  have_llvm = 1;
 #endif
 
   if ((ptr = find_object("afl-gcc-pass.so", argv[0])) != NULL) {
@@ -1278,7 +1320,6 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      // this is a hidden option
       if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
           strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0) {
 
@@ -1349,29 +1390,28 @@ int main(int argc, char **argv, char **envp) {
 
       if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
 
-        ptr2 += strlen("ngram");
-        while (*ptr2 && (*ptr2 < '0' || *ptr2 > '9'))
-          ptr2++;
+        u8 *ptr3 = ptr2 + strlen("ngram");
+        while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
+          ptr3++;
 
-        if (!*ptr2) {
+        if (!*ptr3) {
 
-          if ((ptr2 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
+          if ((ptr3 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
 
         }
 
-        ngram_size = atoi(ptr2);
+        ngram_size = atoi(ptr3);
         if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
           FATAL(
               "NGRAM instrumentation option must be between 2 and "
-              "NGRAM_SIZE_MAX "
-              "(%u)",
+              "NGRAM_SIZE_MAX (%u)",
               NGRAM_SIZE_MAX);
         instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
-        ptr2 = alloc_printf("%u", ngram_size);
-        setenv("AFL_LLVM_NGRAM_SIZE", ptr2, 1);
+        u8 *ptr4 = alloc_printf("%u", ngram_size);
+        setenv("AFL_LLVM_NGRAM_SIZE", ptr4, 1);
 
       }
 
@@ -1435,34 +1475,34 @@ int main(int argc, char **argv, char **envp) {
         "  CC=afl-cc CXX=afl-c++ meson\n\n");
 
     SAYF(
-        "                                     |---------------- FEATURES "
-        "---------------|\n"
-        "MODES:                                NCC PERSIST SNAP DICT   LAF "
+        "                                       |------------- FEATURES "
+        "-------------|\n"
+        "MODES:                                  NCC PERSIST DICT   LAF "
         "CMPLOG SELECT\n"
         "  [LTO] llvm LTO:          %s%s\n"
-        "      PCGUARD              DEFAULT    yes yes     yes  yes    yes yes "
+        "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
         "   yes\n"
-        "      CLASSIC                         yes yes     yes  yes    yes yes "
+        "      CLASSIC                           yes yes     yes    yes yes "
         "   yes\n"
         "  [LLVM] llvm:             %s%s\n"
-        "      PCGUARD              %s    yes yes     yes  module yes yes    "
+        "      PCGUARD              %s      yes yes     module yes yes    "
         "extern\n"
-        "      CLASSIC              %s    no  yes     yes  module yes yes    "
+        "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
-        "      INSTRIM                         no  yes     yes  module yes yes "
+        "      INSTRIM                           no  yes     module yes yes "
         "   yes\n"
         "        - NORMAL\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
-        "      CLASSIC              DEFAULT    no  yes     yes  no     no  no  "
-        "   yes\n"
+        "      CLASSIC              DEFAULT      no  yes     no     no  no     "
+        "yes\n"
         "  [GCC/CLANG] simple gcc/clang: %s%s\n"
-        "      CLASSIC              DEFAULT    no  no      no   no     no  no  "
-        "   no\n\n",
+        "      CLASSIC              DEFAULT      no  no      no     no  no     "
+        "no\n\n",
         have_lto ? "AVAILABLE" : "unavailable!",
         compiler_mode == LTO ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable!",
@@ -1507,6 +1547,7 @@ int main(int argc, char **argv, char **envp) {
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
         "(instrumentation/README.instrim.md)\n\n");
+
 #undef NATIVE_MSG
 
     SAYF(
@@ -1516,9 +1557,6 @@ int main(int argc, char **argv, char **envp) {
         "          (instrumentation/README.lto.md)\n"
         "  PERSIST: persistent mode support [code] (huge speed increase!)\n"
         "          (instrumentation/README.persistent_mode.md)\n"
-        "  SNAP:   linux lkm snapshot module support [automatic] (speed "
-        "increase)\n"
-        "          (https://github.com/AFLplusplus/AFL-Snapshot-LKM/)\n"
         "  DICT:   dictionary in the target [yes=automatic or llvm module "
         "pass]\n"
         "          (instrumentation/README.lto.md + "
@@ -1549,6 +1587,7 @@ int main(int argc, char **argv, char **envp) {
           "libtokencap.so)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
+          "  AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
           "  AFL_INST_RATIO: percentage of branches to instrument\n"
           "  AFL_QUIET: suppress verbose output\n"
           "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
@@ -1641,16 +1680,15 @@ int main(int argc, char **argv, char **envp) {
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
-      SAYF("afl-cc LLVM version %d using binary path \"%s\".\n", LLVM_MAJOR,
+      SAYF("afl-cc LLVM version %d using the binary path \"%s\".\n", LLVM_MAJOR,
            LLVM_BINDIR);
 #endif
 
-#if defined(USEMMAP)
+#ifdef USEMMAP
   #if !defined(__HAIKU__)
-    cc_params[cc_par_cnt++] = "-lrt";
-    SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
-  #else
     SAYF("Compiled with shm_open support.\n");
+  #else
+    SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
   #endif
 #else
     SAYF("Compiled with shmat support.\n");
@@ -1670,15 +1708,16 @@ int main(int argc, char **argv, char **envp) {
   if (compiler_mode == LTO) {
 
     if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO ||
-        instrument_mode == INSTRUMENT_CFG) {
+        instrument_mode == INSTRUMENT_CFG ||
+        instrument_mode == INSTRUMENT_PCGUARD) {
 
       lto_mode = 1;
-      if (!instrument_mode) {
+      // force CFG
+      // if (!instrument_mode) {
 
-        instrument_mode = INSTRUMENT_CFG;
-        // ptr = instrument_mode_string[instrument_mode];
-
-      }
+      instrument_mode = INSTRUMENT_PCGUARD;
+      // ptr = instrument_mode_string[instrument_mode];
+      // }
 
     } else if (instrument_mode == INSTRUMENT_LTO ||
 
@@ -1785,12 +1824,23 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (!be_quiet && (compiler_mode == GCC || compiler_mode == CLANG)) {
+
+    WARNF(
+        "You are using outdated instrumentation, install LLVM and/or "
+        "gcc-plugin and use afl-clang-fast/afl-clang-lto/afl-gcc-fast "
+        "instead!");
+
+  }
+
   if (debug) {
 
     DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < argc; i++)
       SAYF(" '%s'", argv[i]);
     SAYF("\n");
+    fflush(stdout);
+    fflush(stderr);
 
   }
 
@@ -1807,11 +1857,8 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-#ifdef __ANDROID__
-  ptr = find_object("afl-compiler-rt.so", argv[0]);
-#else
+#ifndef __ANDROID__
   ptr = find_object("afl-compiler-rt.o", argv[0]);
-#endif
 
   if (!ptr) {
 
@@ -1824,6 +1871,7 @@ int main(int argc, char **argv, char **envp) {
   if (debug) { DEBUGF("rt=%s obj_path=%s\n", ptr, obj_path); }
 
   ck_free(ptr);
+#endif
 
   edit_params(argc, argv, envp);
 
@@ -1833,6 +1881,8 @@ int main(int argc, char **argv, char **envp) {
     for (i = 0; i < (s32)cc_par_cnt; i++)
       SAYF(" '%s'", cc_params[i]);
     SAYF("\n");
+    fflush(stdout);
+    fflush(stderr);
 
   }
 

@@ -45,6 +45,11 @@
 
 #include <dirent.h>
 
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || \
+    defined(__DragonFly__)
+  #include <limits.h>
+#endif
+
 #ifdef __APPLE__
   #include <sys/syslimits.h>
 #endif
@@ -78,7 +83,7 @@ static void edit_params(int argc, char **argv) {
 
   if (!passthrough) {
 
-    for (i = 1; i < argc; i++) {
+    for (i = 1; i < (u32)argc; i++) {
 
       if (strstr(argv[i], "/afl-llvm-rt-lto.o") != NULL) rt_lto_present = 1;
       if (strstr(argv[i], "/afl-llvm-rt.o") != NULL) rt_present = 1;
@@ -86,7 +91,7 @@ static void edit_params(int argc, char **argv) {
 
     }
 
-    for (i = 1; i < argc && !gold_pos; i++) {
+    for (i = 1; i < (u32)argc && !gold_pos; i++) {
 
       if (strcmp(argv[i], "-plugin") == 0) {
 
@@ -95,7 +100,9 @@ static void edit_params(int argc, char **argv) {
           if (strcasestr(argv[i], "LLVMgold.so") != NULL)
             gold_present = gold_pos = i + 1;
 
-        } else if (i < argc && strcasestr(argv[i + 1], "LLVMgold.so") != NULL) {
+        } else if (i < (u32)argc &&
+
+                   strcasestr(argv[i + 1], "LLVMgold.so") != NULL) {
 
           gold_present = gold_pos = i + 2;
 
@@ -107,7 +114,7 @@ static void edit_params(int argc, char **argv) {
 
     if (!gold_pos) {
 
-      for (i = 1; i + 1 < argc && !gold_pos; i++) {
+      for (i = 1; i + 1 < (u32)argc && !gold_pos; i++) {
 
         if (argv[i][0] != '-') {
 
@@ -193,7 +200,7 @@ static void edit_params(int argc, char **argv) {
         gold_present ? "true" : "false", inst_present ? "true" : "false",
         rt_present ? "true" : "false", rt_lto_present ? "true" : "false");
 
-  for (i = 1; i < argc; i++) {
+  for (i = 1; i < (u32)argc; i++) {
 
     if (ld_param_cnt >= MAX_PARAM_COUNT)
       FATAL(
@@ -252,7 +259,7 @@ static void edit_params(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
-  s32 pid, i, status;
+  s32  pid, i, status;
   char thecwd[PATH_MAX];
 
   if (getenv("AFL_LD_CALLER") != NULL) {
@@ -319,7 +326,7 @@ int main(int argc, char **argv) {
   if (debug) {
 
     DEBUGF("cd \"%s\";", thecwd);
-    for (i = 0; i < ld_param_cnt; i++)
+    for (i = 0; i < (s32)ld_param_cnt; i++)
       SAYF(" \"%s\"", ld_params[i]);
     SAYF("\n");
 

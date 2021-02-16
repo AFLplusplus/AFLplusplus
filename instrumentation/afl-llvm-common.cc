@@ -351,7 +351,7 @@ static std::string getSourceName(llvm::Function *F) {
 
     if (cDILoc) { instFilename = cDILoc->getFilename(); }
 
-    if (instFilename.str().empty()) {
+    if (instFilename.str().empty() && cDILoc) {
 
       /* If the original location is empty, try using the inlined location
        */

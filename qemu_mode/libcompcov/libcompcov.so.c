@@ -29,6 +29,8 @@
 #include <sys/types.h>
 #include <sys/shm.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #include "types.h"
 #include "config.h"
@@ -159,14 +161,15 @@ static void __compcov_load(void) {
 
 }
 
-static void __compcov_trace(u64 cur_loc, const u8 *v0, const u8 *v1, size_t n) {
+static void __compcov_trace(uintptr_t cur_loc, const u8 *v0, const u8 *v1,
+                            size_t n) {
 
   size_t i;
 
   if (debug_fd != 1) {
 
     char debugbuf[4096];
-    snprintf(debugbuf, sizeof(debugbuf), "0x%llx %s %s %zu\n", cur_loc,
+    snprintf(debugbuf, sizeof(debugbuf), "0x%" PRIxPTR " %s %s %zu\n", cur_loc,
              v0 == NULL ? "(null)" : (char *)v0,
              v1 == NULL ? "(null)" : (char *)v1, n);
     write(debug_fd, debugbuf, strlen(debugbuf));
@@ -206,7 +209,7 @@ int strcmp(const char *str1, const char *str2) {
 
     if (n <= MAX_CMP_LENGTH) {
 
-      u64 cur_loc = (u64)retaddr;
+      uintptr_t cur_loc = (uintptr_t)retaddr;
       cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
       cur_loc &= MAP_SIZE - 1;
 
@@ -235,7 +238,7 @@ int strncmp(const char *str1, const char *str2, size_t len) {
 
     if (n <= MAX_CMP_LENGTH) {
 
-      u64 cur_loc = (u64)retaddr;
+      uintptr_t cur_loc = (uintptr_t)retaddr;
       cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
       cur_loc &= MAP_SIZE - 1;
 
@@ -265,7 +268,7 @@ int strcasecmp(const char *str1, const char *str2) {
 
     if (n <= MAX_CMP_LENGTH) {
 
-      u64 cur_loc = (u64)retaddr;
+      uintptr_t cur_loc = (uintptr_t)retaddr;
       cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
       cur_loc &= MAP_SIZE - 1;
 
@@ -296,7 +299,7 @@ int strncasecmp(const char *str1, const char *str2, size_t len) {
 
     if (n <= MAX_CMP_LENGTH) {
 
-      u64 cur_loc = (u64)retaddr;
+      uintptr_t cur_loc = (uintptr_t)retaddr;
       cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
       cur_loc &= MAP_SIZE - 1;
 
@@ -324,7 +327,7 @@ int memcmp(const void *mem1, const void *mem2, size_t len) {
 
     if (n <= MAX_CMP_LENGTH) {
 
-      u64 cur_loc = (u64)retaddr;
+      uintptr_t cur_loc = (uintptr_t)retaddr;
       cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
       cur_loc &= MAP_SIZE - 1;
 

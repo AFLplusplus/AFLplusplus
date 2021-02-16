@@ -28,6 +28,7 @@ static char *afl_environment_variables[] = {
     "AFL_CC",
     "AFL_CMIN_ALLOW_ANY",
     "AFL_CMIN_CRASHES_ONLY",
+    "AFL_CMPLOG_ONLY_NEW",
     "AFL_CODE_END",
     "AFL_CODE_START",
     "AFL_COMPCOV_BINNAME",
@@ -42,11 +43,13 @@ static char *afl_environment_variables[] = {
     "AFL_DEBUG_GDB",
     "AFL_DISABLE_TRIM",
     "AFL_DONT_OPTIMIZE",
+    "AFL_DRIVER_STDERR_DUPLICATE_FILENAME",
     "AFL_DUMB_FORKSRV",
     "AFL_ENTRYPOINT",
     "AFL_EXIT_WHEN_DONE",
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
+    "AFL_FUZZER_ARGS",  // oss-fuzz
     "AFL_GCC_ALLOWLIST",
     "AFL_GCC_DENYLIST",
     "AFL_GCC_BLOCKLIST",
@@ -58,6 +61,7 @@ static char *afl_environment_variables[] = {
     "AFL_FORKSRV_INIT_TMOUT",
     "AFL_HARDEN",
     "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
+    "AFL_IGNORE_UNKNOWN_ENVS",
     "AFL_IMPORT_FIRST",
     "AFL_INST_LIBS",
     "AFL_INST_RATIO",
@@ -162,6 +166,7 @@ static char *afl_environment_variables[] = {
     "AFL_WINE_PATH",
     "AFL_NO_SNAPSHOT",
     "AFL_EXPAND_HAVOC_NOW",
+    "AFL_USE_QASAN",
     NULL
 
 };

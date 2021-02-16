@@ -27,7 +27,7 @@ def log(text):
 
 def init(seed):
     """
-          Called once when AFL starts up. Seed is used to identify the AFL instance in log files
+    Called once when AFL starts up. Seed is used to identify the AFL instance in log files
     """
 
     global __mutator__
@@ -72,7 +72,10 @@ def fuzz(buf, add_buf, max_size):
     if via_buffer:
         try:
             __mutator__.init_from_string(buf_str)
-            log("fuzz(): Mutator successfully initialized with AFL buffer (%d bytes)" % len(buf_str))
+            log(
+                "fuzz(): Mutator successfully initialized with AFL buffer (%d bytes)"
+                % len(buf_str)
+            )
         except Exception:
             via_buffer = False
             log("fuzz(): Can't initialize mutator with AFL buffer")
@@ -104,7 +107,7 @@ def fuzz(buf, add_buf, max_size):
 
 
 # Main (for debug)
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     __log__ = True
     __log_file__ = "/dev/stdout"
@@ -112,7 +115,9 @@ if __name__ == '__main__':
 
     init(__seed__)
 
-    in_1 = bytearray("<foo ddd='eeee'>ffff<a b='c' d='456' eee='ffffff'>zzzzzzzzzzzz</a><b yyy='YYY' zzz='ZZZ'></b></foo>")
+    in_1 = bytearray(
+        "<foo ddd='eeee'>ffff<a b='c' d='456' eee='ffffff'>zzzzzzzzzzzz</a><b yyy='YYY' zzz='ZZZ'></b></foo>"
+    )
     in_2 = bytearray("<abc abc123='456' abcCBA='ppppppppppppppppppppppppppppp'/>")
     out = fuzz(in_1, in_2)
     print(out)

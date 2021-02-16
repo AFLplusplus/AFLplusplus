@@ -12,12 +12,13 @@ import random, re, io
 # The XmlMutatorMin class #
 ###########################
 
+
 class XmlMutatorMin:
 
     """
-        Optionals parameters:
-            seed        Seed used by the PRNG (default: "RANDOM")
-            verbose     Verbosity (default: False)
+    Optionals parameters:
+        seed        Seed used by the PRNG (default: "RANDOM")
+        verbose     Verbosity (default: False)
     """
 
     def __init__(self, seed="RANDOM", verbose=False):
@@ -41,7 +42,12 @@ class XmlMutatorMin:
         self.tree = None
 
         # High-level mutators (no database needed)
-        hl_mutators_delete = ["del_node_and_children", "del_node_but_children", "del_attribute", "del_content"]  # Delete items
+        hl_mutators_delete = [
+            "del_node_and_children",
+            "del_node_but_children",
+            "del_attribute",
+            "del_content",
+        ]  # Delete items
         hl_mutators_fuzz = ["fuzz_attribute"]  # Randomly change attribute values
 
         # Exposed mutators
@@ -74,7 +80,9 @@ class XmlMutatorMin:
 
         """ Serialize a XML document. Basic wrapper around lxml.tostring() """
 
-        return ET.tostring(tree, with_tail=False, xml_declaration=True, encoding=tree.docinfo.encoding)
+        return ET.tostring(
+            tree, with_tail=False, xml_declaration=True, encoding=tree.docinfo.encoding
+        )
 
     def __ver(self, version):
 
@@ -161,7 +169,7 @@ class XmlMutatorMin:
             # Randomly pick one the function calls
             (func, args) = random.choice(l)
             # Split by "," and randomly pick one of the arguments
-            value = random.choice(args.split(','))
+            value = random.choice(args.split(","))
             # Remove superfluous characters
             unclean_value = value
             value = value.strip(" ").strip("'")
@@ -170,49 +178,49 @@ class XmlMutatorMin:
             value = attrib_value
 
         # For each type, define some possible replacement values
-        choices_number =    ( \
-                                "0", \
-                                "11111", \
-                                "-128", \
-                                "2", \
-                                "-1", \
-                                "1/3", \
-                                "42/0", \
-                                "1094861636 idiv 1.0", \
-                                "-1123329771506872 idiv 3.8", \
-                                "17=$numericRTF", \
-                                str(3 + random.randrange(0, 100)), \
-                            )
+        choices_number = (
+            "0",
+            "11111",
+            "-128",
+            "2",
+            "-1",
+            "1/3",
+            "42/0",
+            "1094861636 idiv 1.0",
+            "-1123329771506872 idiv 3.8",
+            "17=$numericRTF",
+            str(3 + random.randrange(0, 100)),
+        )
 
-        choices_letter =    ( \
-                                "P" * (25 * random.randrange(1, 100)), \
-                                "%s%s%s%s%s%s", \
-                                "foobar", \
-                            )
+        choices_letter = (
+            "P" * (25 * random.randrange(1, 100)),
+            "%s%s%s%s%s%s",
+            "foobar",
+        )
 
-        choices_alnum =     ( \
-                                "Abc123", \
-                                "020F0302020204030204", \
-                                "020F0302020204030204" * (random.randrange(5, 20)), \
-                            )
+        choices_alnum = (
+            "Abc123",
+            "020F0302020204030204",
+            "020F0302020204030204" * (random.randrange(5, 20)),
+        )
 
         # Fuzz the value
-        if random.choice((True,False)) and value == "":
+        if random.choice((True, False)) and value == "":
 
             # Empty
             new_value = value
 
-        elif random.choice((True,False)) and value.isdigit():
+        elif random.choice((True, False)) and value.isdigit():
 
             # Numbers
             new_value = random.choice(choices_number)
 
-        elif random.choice((True,False)) and value.isalpha():
+        elif random.choice((True, False)) and value.isalpha():
 
             # Letters
             new_value = random.choice(choices_letter)
 
-        elif random.choice((True,False)) and value.isalnum():
+        elif random.choice((True, False)) and value.isalnum():
 
             # Alphanumeric
             new_value = random.choice(choices_alnum)
@@ -232,22 +240,25 @@ class XmlMutatorMin:
 
         # Log something
         if self.verbose:
-            print("Fuzzing attribute #%i '%s' of tag #%i '%s'" % (rand_attrib_id, rand_attrib, rand_elem_id, rand_elem.tag))
+            print(
+                "Fuzzing attribute #%i '%s' of tag #%i '%s'"
+                % (rand_attrib_id, rand_attrib, rand_elem_id, rand_elem.tag)
+            )
 
         # Modify the attribute
         rand_elem.set(rand_attrib, new_value.decode("utf-8"))
 
     def __del_node_and_children(self):
 
-        """ High-level minimizing mutator
-            Delete a random node and its children (i.e. delete a random tree) """
+        """High-level minimizing mutator
+        Delete a random node and its children (i.e. delete a random tree)"""
 
         self.__del_node(True)
 
     def __del_node_but_children(self):
 
-        """ High-level minimizing mutator
-            Delete a random node but its children (i.e. link them to the parent of the deleted node) """
+        """High-level minimizing mutator
+        Delete a random node but its children (i.e. link them to the parent of the deleted node)"""
 
         self.__del_node(False)
 
@@ -270,7 +281,10 @@ class XmlMutatorMin:
         # Log something
         if self.verbose:
             but_or_and = "and" if delete_children else "but"
-            print("Deleting tag #%i '%s' %s its children" % (rand_elem_id, rand_elem.tag, but_or_and))
+            print(
+                "Deleting tag #%i '%s' %s its children"
+                % (rand_elem_id, rand_elem.tag, but_or_and)
+            )
 
         if delete_children is False:
             # Link children of the random (soon to be deleted) node to its parent
@@ -282,8 +296,8 @@ class XmlMutatorMin:
 
     def __del_content(self):
 
-        """ High-level minimizing mutator
-            Delete the attributes and children of a random node """
+        """High-level minimizing mutator
+        Delete the attributes and children of a random node"""
 
         # Select a node to modify
         (rand_elem_id, rand_elem) = self.__pick_element()
@@ -297,8 +311,8 @@ class XmlMutatorMin:
 
     def __del_attribute(self):
 
-        """ High-level minimizing mutator
-            Delete a random attribute from a random node """
+        """High-level minimizing mutator
+        Delete a random attribute from a random node"""
 
         # Select a node to modify
         (rand_elem_id, rand_elem) = self.__pick_element()
@@ -318,7 +332,10 @@ class XmlMutatorMin:
 
         # Log something
         if self.verbose:
-            print("Deleting attribute #%i '%s' of tag #%i '%s'" % (rand_attrib_id, rand_attrib, rand_elem_id, rand_elem.tag))
+            print(
+                "Deleting attribute #%i '%s' of tag #%i '%s'"
+                % (rand_attrib_id, rand_attrib, rand_elem_id, rand_elem.tag)
+            )
 
         # Delete the attribute
         rand_elem.attrib.pop(rand_attrib)
@@ -329,4 +346,3 @@ class XmlMutatorMin:
 
         # High-level mutation
         self.__exec_among(self, self.hl_mutators_all, min, max)
-
