@@ -14,7 +14,7 @@ test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/samples/shel
       EASY_INSTALL_FOUND=0
       for PYTHON in $PYTHONS ; do
 
-        if $PYTHON -c "help('easy_install');" </dev/null | grep -q module ; then
+        if $PYTHON -c "import setuptools" ; then
 
             EASY_INSTALL_FOUND=1
             PY=$PYTHON
