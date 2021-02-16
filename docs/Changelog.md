@@ -48,6 +48,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
     - fixed a potential crash in the LAF feature
+    - workaround for llvm bitcast lto bug
     - workaround for llvm 13
   - qemuafl
     - QASan (address sanitizer for Qemu) ported to qemuafl!

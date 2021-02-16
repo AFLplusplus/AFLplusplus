@@ -266,10 +266,17 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
       unsigned char do_cast = 0;
 
-      if (!SI->getNumCases() || max_size < 16 || max_size % 8) {
+      if (!SI->getNumCases() || max_size < 16) {
 
         // if (!be_quiet) errs() << "skip trivial switch..\n";
         continue;
+
+      }
+
+      if (max_size % 8) {
+
+        max_size = (((max_size / 8) + 1) * 8);
+        do_cast = 1;
 
       }
 
@@ -310,8 +317,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       Value *CompareTo = Val;
 
       if (do_cast) {
+
         CompareTo =
             IRB.CreateIntCast(CompareTo, IntegerType::get(C, cast_size), false);
+
       }
 
       for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
@@ -331,8 +340,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           Value *new_param = cint;
 
           if (do_cast) {
+
             new_param =
                 IRB.CreateIntCast(cint, IntegerType::get(C, cast_size), false);
+
           }
 
           if (new_param) {
@@ -490,7 +501,14 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       }
 
-      if (!max_size || max_size % 8 || max_size < 16) { continue; }
+      if (!max_size || max_size < 16) { continue; }
+
+      if (max_size % 8) {
+
+        max_size = (((max_size / 8) + 1) * 8);
+        do_cast = 1;
+
+      }
 
       if (max_size > 128) {
 
