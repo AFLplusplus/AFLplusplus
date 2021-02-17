@@ -808,36 +808,81 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     // Try to identify transform magic
     if (pattern != o_pattern && repl == changed_val && attr <= IS_EQUAL) {
 
-      u64 *ptr = (u64 *)&buf[idx];
-      u64 *o_ptr = (u64 *)&orig_buf[idx];
-      u64  b_val, o_b_val, mask;
+      u64 b_val, o_b_val, mask;
+      u8  bytes;
 
       switch (SHAPE_BYTES(h->shape)) {
 
         case 0:
         case 1:
-          b_val = (u64)(*ptr % 0x100);
+          bytes = 1;
+          break;
+        case 2:
+          bytes = 2;
+          break;
+        case 3:
+        case 4:
+          bytes = 4;
+          break;
+        default:
+          bytes = 8;
+
+      }
+
+      // necessary for preventing heap access overflow
+      bytes = MIN(bytes, len - idx);
+
+      switch (bytes) {
+
+        case 0:                        // cannot happen
+          b_val = o_b_val = mask = 0;  // keep the linters happy
+          break;
+        case 1: {
+
+          u8 *ptr = (u8 *)&buf[idx];
+          u8 *o_ptr = (u8 *)&orig_buf[idx];
+          b_val = (u64)(*ptr);
           o_b_val = (u64)(*o_ptr % 0x100);
           mask = 0xff;
           break;
+
+        }
+
         case 2:
-        case 3:
-          b_val = (u64)(*ptr % 0x10000);
-          o_b_val = (u64)(*o_ptr % 0x10000);
+        case 3: {
+
+          u16 *ptr = (u16 *)&buf[idx];
+          u16 *o_ptr = (u16 *)&orig_buf[idx];
+          b_val = (u64)(*ptr);
+          o_b_val = (u64)(*o_ptr);
           mask = 0xffff;
           break;
+
+        }
+
         case 4:
         case 5:
         case 6:
-        case 7:
-          b_val = (u64)(*ptr % 0x100000000);
-          o_b_val = (u64)(*o_ptr % 0x100000000);
+        case 7: {
+
+          u32 *ptr = (u32 *)&buf[idx];
+          u32 *o_ptr = (u32 *)&orig_buf[idx];
+          b_val = (u64)(*ptr);
+          o_b_val = (u64)(*o_ptr);
           mask = 0xffffffff;
           break;
-        default:
-          b_val = *ptr;
-          o_b_val = *o_ptr;
+
+        }
+
+        default: {
+
+          u64 *ptr = (u64 *)&buf[idx];
+          u64 *o_ptr = (u64 *)&orig_buf[idx];
+          b_val = (u64)(*ptr);
+          o_b_val = (u64)(*o_ptr);
           mask = 0xffffffffffffffff;
+
+        }
 
       }
 
