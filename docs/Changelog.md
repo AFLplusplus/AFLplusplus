@@ -48,8 +48,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
     - fixed a potential crash in the LAF feature
+    - workaround for llvm bitcast lto bug
     - workaround for llvm 13
-    - workaround for llvm internal lto bug that lets not bitcast from _ExtInt()
   - qemuafl
     - QASan (address sanitizer for Qemu) ported to qemuafl!
       See qemu_mode/libqasan/README.md

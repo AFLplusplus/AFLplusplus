@@ -117,19 +117,19 @@ done
 
 # some python version should be available now
 PYTHONS="`command -v python3` `command -v python` `command -v python2`"
-EASY_INSTALL_FOUND=0
+SETUPTOOLS_FOUND=0
 for PYTHON in $PYTHONS ; do
 
   if $PYTHON -c "import setuptools" ; then
 
-    EASY_INSTALL_FOUND=1
+    SETUPTOOLS_FOUND=1
     PYTHONBIN=$PYTHON
     break
 
   fi
 
 done
-if [ "0" = $EASY_INSTALL_FOUND ]; then
+if [ "0" = $SETUPTOOLS_FOUND ]; then
 
   echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools', or install python3-setuptools, or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ..."
   PREREQ_NOTFOUND=1
