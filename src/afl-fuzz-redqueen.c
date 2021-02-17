@@ -421,8 +421,9 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   if (taint) {
 
-    if (len / positions == 1 && positions > CMPLOG_POSITIONS_MAX &&
-        afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT) {
+    if (afl->colorize_success &&
+        (len / positions == 1 && positions > CMPLOG_POSITIONS_MAX &&
+         afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT)) {
 
 #ifdef _DEBUG
       fprintf(stderr, "Colorization unsatisfactory\n");

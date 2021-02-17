@@ -19,12 +19,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <iostream>
 #include <list>
 #include <string>
 #include <fstream>
 #include <sys/time.h>
-#include "llvm/Config/llvm-config.h"
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -112,8 +113,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
-
-  char *is_lto = getenv("_AFL_LTO_COMPILE");
 
 #if LLVM_VERSION_MAJOR < 9
   Constant *
@@ -267,20 +266,17 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
       unsigned char do_cast = 0;
 
-      if (!SI->getNumCases() || max_size < 16) { continue; }
+      if (!SI->getNumCases() || max_size < 16) {
+
+        // if (!be_quiet) errs() << "skip trivial switch..\n";
+        continue;
+
+      }
 
       if (max_size % 8) {
 
-        if (is_lto) {
-
-          continue;  // LTO cannot bitcast from _ExtInt() :(
-
-        } else {
-
-          max_size = (((max_size / 8) + 1) * 8);
-          do_cast = 1;
-
-        }
+        max_size = (((max_size / 8) + 1) * 8);
+        do_cast = 1;
 
       }
 
@@ -297,7 +293,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         }
 
-        if (is_lto) { continue; }  // LTO cannot bitcast _ExtInt() :(
         max_size = 128;
         do_cast = 1;
 
@@ -314,7 +309,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           cast_size = max_size;
           break;
         default:
-          if (is_lto) { continue; }  // LTO cannot bitcast _ExtInt() :(
           cast_size = 128;
           do_cast = 1;
 
@@ -324,36 +318,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       if (do_cast) {
 
-        ConstantInt *cint = dyn_cast<ConstantInt>(Val);
-        if (cint) {
-
-          uint64_t val = cint->getZExtValue();
-          // fprintf(stderr, "ConstantInt: %lu\n", val);
-          switch (cast_size) {
-
-            case 8:
-              CompareTo = ConstantInt::get(Int8Ty, val);
-              break;
-            case 16:
-              CompareTo = ConstantInt::get(Int16Ty, val);
-              break;
-            case 32:
-              CompareTo = ConstantInt::get(Int32Ty, val);
-              break;
-            case 64:
-              CompareTo = ConstantInt::get(Int64Ty, val);
-              break;
-            case 128:
-              CompareTo = ConstantInt::get(Int128Ty, val);
-              break;
-
-          }
-
-        } else {
-
-          CompareTo = IRB.CreateBitCast(Val, IntegerType::get(C, cast_size));
-
-        }
+        CompareTo =
+            IRB.CreateIntCast(CompareTo, IntegerType::get(C, cast_size), false);
 
       }
 
@@ -375,27 +341,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           if (do_cast) {
 
-            uint64_t val = cint->getZExtValue();
-            // fprintf(stderr, "ConstantInt: %lu\n", val);
-            switch (cast_size) {
-
-              case 8:
-                new_param = ConstantInt::get(Int8Ty, val);
-                break;
-              case 16:
-                new_param = ConstantInt::get(Int16Ty, val);
-                break;
-              case 32:
-                new_param = ConstantInt::get(Int32Ty, val);
-                break;
-              case 64:
-                new_param = ConstantInt::get(Int64Ty, val);
-                break;
-              case 128:
-                new_param = ConstantInt::get(Int128Ty, val);
-                break;
-
-            }
+            new_param =
+                IRB.CreateIntCast(cint, IntegerType::get(C, cast_size), false);
 
           }
 
@@ -558,16 +505,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       if (max_size % 8) {
 
-        if (is_lto) {
-
-          continue;  // LTO cannot bitcast from _ExtInt() :(
-
-        } else {
-
-          max_size = (((max_size / 8) + 1) * 8);
-          do_cast = 1;
-
-        }
+        max_size = (((max_size / 8) + 1) * 8);
+        do_cast = 1;
 
       }
 
@@ -581,7 +520,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         }
 
-        if (is_lto) { continue; }  // LTO cannot bitcast from _ExtInt() :(
         max_size = 128;
         do_cast = 1;
 
@@ -598,94 +536,32 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           cast_size = max_size;
           break;
         default:
-          if (is_lto) { continue; }  // LTO cannot bitcast from _ExtInt() :(
           cast_size = 128;
           do_cast = 1;
 
       }
 
-      if (do_cast) {
+      // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
+      // cmpInst->getFunction()->getName() << ")\n";
 
-        // F*cking LLVM optimized out any kind of bitcasts of ConstantInt values
-        // creating illegal calls. WTF. So we have to work around this.
+      // first bitcast to integer type of the same bitsize as the original
+      // type (this is a nop, if already integer)
+      Value *op0_i = IRB.CreateBitCast(
+          op0, IntegerType::get(C, op0->getType()->getPrimitiveSizeInBits()));
+      // then create a int cast, which does zext, trunc or bitcast. In our case
+      // usually zext to the next larger supported type (this is a nop if
+      // already the right type)
+      Value *V0 =
+          IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size), false);
+      args.push_back(V0);
+      Value *op1_i = IRB.CreateBitCast(
+          op1, IntegerType::get(C, op1->getType()->getPrimitiveSizeInBits()));
+      Value *V1 =
+          IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size), false);
+      args.push_back(V1);
 
-        ConstantInt *cint = dyn_cast<ConstantInt>(op0);
-        if (cint) {
-
-          uint64_t val = cint->getZExtValue();
-          // fprintf(stderr, "ConstantInt: %lu\n", val);
-          ConstantInt *new_param = NULL;
-          switch (cast_size) {
-
-            case 8:
-              new_param = ConstantInt::get(Int8Ty, val);
-              break;
-            case 16:
-              new_param = ConstantInt::get(Int16Ty, val);
-              break;
-            case 32:
-              new_param = ConstantInt::get(Int32Ty, val);
-              break;
-            case 64:
-              new_param = ConstantInt::get(Int64Ty, val);
-              break;
-            case 128:
-              new_param = ConstantInt::get(Int128Ty, val);
-              break;
-
-          }
-
-          if (!new_param) { continue; }
-          args.push_back(new_param);
-
-        } else {
-
-          Value *V0 = IRB.CreateBitCast(op0, IntegerType::get(C, cast_size));
-          args.push_back(V0);
-
-        }
-
-        cint = dyn_cast<ConstantInt>(op1);
-        if (cint) {
-
-          uint64_t     val = cint->getZExtValue();
-          ConstantInt *new_param = NULL;
-          switch (cast_size) {
-
-            case 8:
-              new_param = ConstantInt::get(Int8Ty, val);
-              break;
-            case 16:
-              new_param = ConstantInt::get(Int16Ty, val);
-              break;
-            case 32:
-              new_param = ConstantInt::get(Int32Ty, val);
-              break;
-            case 64:
-              new_param = ConstantInt::get(Int64Ty, val);
-              break;
-            case 128:
-              new_param = ConstantInt::get(Int128Ty, val);
-              break;
-
-          }
-
-          if (!new_param) { continue; }
-          args.push_back(new_param);
-
-        } else {
-
-          Value *V1 = IRB.CreateBitCast(op1, IntegerType::get(C, cast_size));
-          args.push_back(V1);
-
-        }
-
-      } else {
-
-        args.push_back(op0);
-        args.push_back(op1);
-
-      }
+      // errs() << "[CMPLOG] casted parameters:\n0: " << *V0 << "\n1: " << *V1
+      // << "\n";
 
       ConstantInt *attribute = ConstantInt::get(Int8Ty, attr);
       args.push_back(attribute);

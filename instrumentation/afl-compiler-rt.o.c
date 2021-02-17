@@ -1090,7 +1090,7 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
 
-  ptr = (u8 *)malloc(2097152);
+  ptr = (u8 *)malloc(MAP_INITIAL_SIZE);
 
   if (ptr && (ssize_t)ptr != -1) {
 
