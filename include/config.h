@@ -42,7 +42,7 @@
  *
  */
 
-/* Enable arithmetic compare solving for both path */
+/* Enable arithmetic compare solving for both branches */
 #define CMPLOG_SOLVE_ARITHMETIC
 
 /* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
@@ -51,7 +51,7 @@
 /* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
 // #define CMPLOG_SOLVE_TRANSFORM_BASE64
 
-/* If a redqueen pass finds more than one solve, try to combine them? */
+/* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
 /* Minimum % of the corpus to perform cmplog on. Default: 20% */

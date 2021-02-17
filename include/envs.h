@@ -131,6 +131,7 @@ static char *afl_environment_variables[] = {
     "AFL_QEMU_DEBUG_MAPS",
     "AFL_QEMU_DISABLE_CACHE",
     "AFL_QEMU_DRIVER_NO_HOOK",
+    "AFL_QEMU_FORCE_DFL",
     "AFL_QEMU_PERSISTENT_ADDR",
     "AFL_QEMU_PERSISTENT_CNT",
     "AFL_QEMU_PERSISTENT_GPR",
