@@ -35,9 +35,9 @@
 #include <time.h>
 
 #include "input.h"
-#include "libhfcommon/common.h"
-#include "libhfcommon/log.h"
-#include "libhfcommon/util.h"
+#include "common.h"
+#include "log.h"
+#include "util.h"
 
 static inline size_t mangle_LenLeft(run_t *run, size_t off) {
 
