@@ -4,7 +4,7 @@ use std::{ffi::CStr, os::raw::c_uint};
 #[cfg(feature = "afl_internals")]
 use custom_mutator_sys::afl_state;
 
-use crate::{CustomMutator, FuzzResult};
+use crate::CustomMutator;
 
 #[allow(unused_variables)]
 /// A custom mutator that can fail. This mirrors [`CustomMutator`], but all methods return a [`Result<T, E>`] instead of `T`.
@@ -32,12 +32,12 @@ pub trait FallibleCustomMutator {
         Ok(1)
     }
 
-    fn fuzz(
-        &mut self,
-        buffer: &mut [u8],
+    fn fuzz<'b, 's: 'b>(
+        &'s mut self,
+        buffer: &'b mut [u8],
         add_buff: Option<&[u8]>,
         max_size: usize,
-    ) -> Result<FuzzResult, Self::TErr>;
+    ) -> Result<Option<&'b [u8]>, Self::TErr>;
 
     fn queue_new_entry(
         &mut self,
@@ -103,17 +103,17 @@ where
         }
     }
 
-    fn fuzz<'r>(
-        &'r mut self,
-        buffer: &mut [u8],
+    fn fuzz<'b, 's: 'b>(
+        &'s mut self,
+        buffer: &'b mut [u8],
         add_buff: Option<&[u8]>,
         max_size: usize,
-    ) -> FuzzResult<'r> {
+    ) -> Option<&'b [u8]> {
         match self.fuzz(buffer, add_buff, max_size) {
             Ok(r) => r,
             Err(e) => {
                 Self::handle_err(e);
-                FuzzResult::InPlace
+                None
             }
         }
     }

@@ -17,11 +17,11 @@
 //!
 //! # On `panic`s
 //! This binding is panic-safe in that it will prevent panics from unwinding into AFL++. Any panic will `abort` at the boundary between the custom mutator and AFL++.
-//! 
+//!
 //! # Access to AFL++ internals
 //! This crate has an optional feature "afl_internals", which gives access to AFL++'s internal state.
 //! The state is passed to [`CustomMutator::init`], when the feature is activated.
-//! 
+//!
 //! _This is completely unsafe and uses automatically generated types extracted from the AFL++ source._
 pub mod fallible;
 
@@ -30,17 +30,6 @@ use std::{ffi::CStr, os::raw::c_uint};
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
 pub use custom_mutator_sys::afl_state;
-
-/// The result of a call to [`CustomMutator::fuzz`].
-#[derive(Debug)]
-pub enum FuzzResult<'l> {
-    /// Returned when the given buffer was modified in place. Modifying the buffer in place to be of a different length is not supported currently.
-    InPlace,
-    /// Returned when a buffer that is managed by the custom mutator should be returned.
-    NewBuffer(&'l [u8]),
-    /// Returned when the custom mutator fails. This will make AFL++ fail fast (ie crash) and corresponds to returning a NULL buffer and 0 length.
-    Fail,
-}
 
 #[allow(unused_variables)]
 /// Implement this trait for the mutator and export it using [`export_mutator`] to generate a custom mutator.
@@ -55,7 +44,12 @@ pub trait CustomMutator {
     where
         Self: Sized;
 
-    fn fuzz(&mut self, buffer: &mut [u8], add_buff: Option<&[u8]>, max_size: usize) -> FuzzResult;
+    fn fuzz<'b, 's: 'b>(
+        &'s mut self,
+        buffer: &'b mut [u8],
+        add_buff: Option<&[u8]>,
+        max_size: usize,
+    ) -> Option<&'b [u8]>;
 
     fn fuzz_count(&mut self, buffer: &[u8]) -> u32 {
         1
@@ -102,7 +96,7 @@ pub mod wrappers {
         ptr::null,
     };
 
-    use crate::{CustomMutator, FuzzResult};
+    use crate::CustomMutator;
 
     /// A structure to be used as the data pointer for our custom mutator. This was used as additional storage and is kept for now in case its needed later.
     /// Also has some convenience functions for FFI conversions (from and to ptr) and tries to make misuse hard (see [`FFIContext::from`]).
@@ -202,16 +196,13 @@ pub mod wrappers {
                 .mutator
                 .fuzz(buff_slice, add_buff_slice, max_size.try_into().unwrap())
             {
-                FuzzResult::InPlace => {
-                    *out_buf = buff_slice.as_ptr();
-                    buff_slice.len().try_into().unwrap()
+                Some(buffer) => {
+                    *out_buf = buffer.as_ptr();
+                    buffer.len().try_into().unwrap()
                 }
-                FuzzResult::NewBuffer(b) => {
-                    *out_buf = b.as_ptr();
-                    b.len().try_into().unwrap()
-                }
-                FuzzResult::Fail => {
-                    *out_buf = null();
+                None => {
+                    // return the input buffer with 0-length to let AFL skip this mutation attempt
+                    *out_buf = buf;
                     0
                 }
             }
@@ -339,7 +330,7 @@ pub mod wrappers {
 /// # #[macro_use] extern crate custom_mutator;
 /// # #[cfg(feature = "afl_internals")]
 /// # use custom_mutator::afl_state;
-/// # use custom_mutator::{CustomMutator, FuzzResult};
+/// # use custom_mutator::CustomMutator;
 /// # use std::os::raw::c_uint;
 /// struct MyMutator;
 /// impl CustomMutator for MyMutator {
@@ -348,7 +339,7 @@ pub mod wrappers {
 /// #  fn init(_afl_state: &afl_state, _seed: c_uint) -> Self {unimplemented!()}
 /// #  #[cfg(not(feature = "afl_internals"))]
 /// #  fn init(_seed: c_uint) -> Self {unimplemented!()}
-/// #  fn fuzz(&mut self, _buffer: &mut [u8], _add_buff: Option<&[u8]>, _max_size: usize) -> FuzzResult {unimplemented!()}
+/// #  fn fuzz<'b,'s:'b>(&'s mut self, _buffer: &'b mut [u8], _add_buff: Option<&[u8]>, _max_size: usize) -> Option<&'b [u8]> {unimplemented!()}
 /// }
 /// export_mutator!(MyMutator);
 /// ```
@@ -407,7 +398,6 @@ macro_rules! export_mutator {
             }
         }
 
-        // void afl_custom_queue_new_entry(&self, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
         #[no_mangle]
         pub extern "C" fn afl_custom_queue_new_entry(
             data: *mut ::std::os::raw::c_void,
@@ -456,8 +446,6 @@ macro_rules! export_mutator {
 mod sanity_test {
     use std::os::raw::c_uint;
 
-    use crate::FuzzResult;
-
     #[cfg(feature = "afl_internals")]
     use super::afl_state;
 
@@ -476,12 +464,12 @@ mod sanity_test {
             unimplemented!()
         }
 
-        fn fuzz(
-            &mut self,
-            _buffer: &mut [u8],
-            _add_buff: Option<&[u8]>,
-            _max_size: usize,
-        ) -> FuzzResult {
+        fn fuzz<'b, 's: 'b>(
+            &'s mut self,
+            buffer: &'b mut [u8],
+            add_buff: Option<&[u8]>,
+            max_size: usize,
+        ) -> Option<&'b[u8]> {
             unimplemented!()
         }
     }
