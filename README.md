@@ -1172,7 +1172,7 @@ If you use AFLplusplus in scientific work, consider citing [our paper](https://w
 
 Bibtex:
 
-```
+```bibtex
 @inproceedings {AFLplusplus-Woot20,
 	author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
 	title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},
