@@ -208,6 +208,7 @@ typedef struct {
         const char* crashDir;
         const char* covDirNew;
         bool        saveUnique;
+        bool        saveSmaller;
         size_t      dynfileqMaxSz;
         size_t      dynfileqCnt;
         dynfile_t*  dynfileqCurrent;
@@ -279,9 +280,9 @@ typedef struct {
         cmpfeedback_t*  cmpFeedbackMap;
         int             cmpFeedbackFd;
         bool            cmpFeedback;
-        const char*     blacklistFile;
-        uint64_t*       blacklist;
-        size_t          blacklistCnt;
+        const char*     blocklistFile;
+        uint64_t*       blocklist;
+        size_t          blocklistCnt;
         bool            skipFeedbackOnTimeout;
         uint64_t        maxCov[4];
         dynFileMethod_t dynFileMethod;
