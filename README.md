@@ -21,7 +21,7 @@
   mutations, more and better instrumentation, custom module support, etc.
 
   If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
-  on the website.
+  on the website. To cite our work, look at the [Cite](#cite) section.
 
 ## Major changes in afl++ 3.0
 
@@ -1167,6 +1167,11 @@ Thank you!
 ## Cite
 
 If you use AFLplusplus in scientific work, consider citing [our paper](https://www.usenix.org/conference/woot20/presentation/fioraldi) presented at WOOT'20:
+
++ Andrea Fioraldi, Dominik Maier, Heiko Eißfeldt, and Marc Heuse. “AFL++: Combining incremental steps of fuzzing research”. In 14th USENIX Workshop on Offensive Technologies (WOOT 20). USENIX Association, Aug. 2020.
+
+Bibtex:
+
 ```
 @inproceedings {AFLplusplus-Woot20,
 	author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
