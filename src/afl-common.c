@@ -551,6 +551,8 @@ static int string_distance_levenshtein(char *s1, char *s2) {
 
 #undef HELPER_MIN3
 
+#define ENV_SIMILARITY_TRESHOLD 3
+
 void print_suggested_envs(char *mispelled_env) {
 
   size_t env_name_len =
@@ -559,20 +561,28 @@ void print_suggested_envs(char *mispelled_env) {
   memcpy(env_name, mispelled_env + 4, env_name_len);
 
   char *seen = ck_alloc(sizeof(afl_environment_variables) / sizeof(char *));
+  int found = 0;
 
   int j;
   for (j = 0; afl_environment_variables[j] != NULL; ++j) {
 
     char *afl_env = afl_environment_variables[j] + 4;
-
     int distance = string_distance_levenshtein(afl_env, env_name);
-    if (distance <= 3 && seen[j] == 0) {
+    if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
 
       SAYF("Did you mean %s?\n", afl_environment_variables[j]);
       seen[j] = 1;
+      found = 1;
 
     }
+  
+  }
 
+  if (found) goto cleanup;
+
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char *afl_env = afl_environment_variables[j] + 4;
     size_t afl_env_len = strlen(afl_env);
     char * reduced = ck_alloc(afl_env_len + 1);
 
@@ -586,10 +596,11 @@ void print_suggested_envs(char *mispelled_env) {
       reduced[afl_env_len - end + start] = 0;
 
       int distance = string_distance_levenshtein(reduced, env_name);
-      if (distance <= 3 && seen[j] == 0) {
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
 
         SAYF("Did you mean %s?\n", afl_environment_variables[j]);
         seen[j] = 1;
+        found = 1;
 
       }
 
@@ -598,6 +609,8 @@ void print_suggested_envs(char *mispelled_env) {
     };
 
   }
+
+  if (found) goto cleanup;
 
   char * reduced = ck_alloc(env_name_len + 1);
   size_t start = 0;
@@ -613,7 +626,7 @@ void print_suggested_envs(char *mispelled_env) {
 
       int distance = string_distance_levenshtein(
           afl_environment_variables[j] + 4, reduced);
-      if (distance <= 3 && seen[j] == 0) {
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
 
         SAYF("Did you mean %s?\n", afl_environment_variables[j]);
         seen[j] = 1;
@@ -626,8 +639,10 @@ void print_suggested_envs(char *mispelled_env) {
 
   };
 
-  ck_free(env_name);
   ck_free(reduced);
+
+cleanup:
+  ck_free(env_name);
   ck_free(seen);
 
 }
