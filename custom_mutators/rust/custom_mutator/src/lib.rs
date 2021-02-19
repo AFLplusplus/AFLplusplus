@@ -137,7 +137,7 @@ pub mod wrappers {
             .unwrap_or_else(|| {
                 panic_info
                     .downcast_ref::<&str>()
-                    .map(|s| *s)
+                    .copied()
                     .unwrap_or("<cause unknown>")
             });
         eprintln!("A panic occurred at {}: {}", method, cause);
@@ -466,10 +466,10 @@ mod sanity_test {
 
         fn fuzz<'b, 's: 'b>(
             &'s mut self,
-            buffer: &'b mut [u8],
-            add_buff: Option<&[u8]>,
-            max_size: usize,
-        ) -> Option<&'b[u8]> {
+            _buffer: &'b mut [u8],
+            _add_buff: Option<&[u8]>,
+            _max_size: usize,
+        ) -> Option<&'b [u8]> {
             unimplemented!()
         }
     }

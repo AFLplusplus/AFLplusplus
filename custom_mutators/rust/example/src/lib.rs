@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use custom_mutator::{export_mutator, CustomMutator};
 use std::os::raw::c_uint;
 
