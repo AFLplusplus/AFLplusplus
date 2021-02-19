@@ -1,4 +1,4 @@
-use core::panic;
+use core::fmt::Debug;
 use std::{ffi::CStr, os::raw::c_uint};
 
 #[cfg(feature = "afl_internals")]
@@ -12,23 +12,23 @@ use crate::CustomMutator;
 /// [`FallibleCustomMutator::handle_err`] will be called in case any method returns an [`Result::Err`].
 pub trait FallibleCustomMutator {
     /// The error type. All methods must return the same error type.
-    type TErr;
+    type Error;
 
     /// The method which handles errors. It is convenient to log the error here.
     /// This method can either panic to abort execution or not panic to keep executing on a best-effort basis.
-    fn handle_err(err: Self::TErr);
+    fn handle_err(err: Self::Error);
 
     #[cfg(feature = "afl_internals")]
-    fn init(afl: &'static afl_state, seed: c_uint) -> Result<Self, Self::TErr>
+    fn init(afl: &'static afl_state, seed: c_uint) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
     #[cfg(not(feature = "afl_internals"))]
-    fn init(seed: c_uint) -> Result<Self, Self::TErr>
+    fn init(seed: c_uint) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
-    fn fuzz_count(&mut self, buffer: &[u8]) -> Result<u32, Self::TErr> {
+    fn fuzz_count(&mut self, buffer: &[u8]) -> Result<u32, Self::Error> {
         Ok(1)
     }
 
@@ -37,25 +37,25 @@ pub trait FallibleCustomMutator {
         buffer: &'b mut [u8],
         add_buff: Option<&[u8]>,
         max_size: usize,
-    ) -> Result<Option<&'b [u8]>, Self::TErr>;
+    ) -> Result<Option<&'b [u8]>, Self::Error>;
 
     fn queue_new_entry(
         &mut self,
         filename_new_queue: &CStr,
         filename_orig_queue: Option<&CStr>,
-    ) -> Result<(), Self::TErr> {
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn queue_get(&mut self, filename: &CStr) -> Result<bool, Self::TErr> {
+    fn queue_get(&mut self, filename: &CStr) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
-    fn describe(&mut self, max_description: usize) -> Result<Option<&CStr>, Self::TErr> {
+    fn describe(&mut self, max_description: usize) -> Result<Option<&CStr>, Self::Error> {
         Ok(None)
     }
 
-    fn introspection(&mut self) -> Result<Option<&CStr>, Self::TErr> {
+    fn introspection(&mut self) -> Result<Option<&CStr>, Self::Error> {
         Ok(None)
     }
 }
@@ -63,7 +63,7 @@ pub trait FallibleCustomMutator {
 impl<M> CustomMutator for M
 where
     M: FallibleCustomMutator,
-    M::TErr: core::fmt::Debug,
+    M::Error: Debug,
 {
     #[cfg(feature = "afl_internals")]
     fn init(afl: &'static afl_state, seed: c_uint) -> Self
