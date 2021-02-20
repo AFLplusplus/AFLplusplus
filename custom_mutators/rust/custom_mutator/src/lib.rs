@@ -23,18 +23,15 @@
 //! The state is passed to [`CustomMutator::init`], when the feature is activated.
 //!
 //! _This is completely unsafe and uses automatically generated types extracted from the AFL++ source._
-pub mod fallible;
-
-use std::{ffi::CStr, os::raw::c_uint};
+use std::{ffi::CStr, fmt::Debug, os::raw::c_uint};
 
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
 pub use custom_mutator_sys::afl_state;
 
 #[allow(unused_variables)]
-/// Implement this trait for the mutator and export it using [`export_mutator`] to generate a custom mutator.
-/// For documentation refer to the AFL++ sources.
-pub trait CustomMutator {
+#[doc(hidden)]
+pub trait RawCustomMutator {
     #[cfg(feature = "afl_internals")]
     fn init(afl: &'static afl_state, seed: c_uint) -> Self
     where
@@ -96,15 +93,15 @@ pub mod wrappers {
         ptr::null,
     };
 
-    use crate::CustomMutator;
+    use crate::RawCustomMutator;
 
     /// A structure to be used as the data pointer for our custom mutator. This was used as additional storage and is kept for now in case its needed later.
     /// Also has some convenience functions for FFI conversions (from and to ptr) and tries to make misuse hard (see [`FFIContext::from`]).
-    struct FFIContext<M: CustomMutator> {
+    struct FFIContext<M: RawCustomMutator> {
         mutator: M,
     }
 
-    impl<M: CustomMutator> FFIContext<M> {
+    impl<M: RawCustomMutator> FFIContext<M> {
         fn from(ptr: *mut c_void) -> ManuallyDrop<Box<Self>> {
             assert!(!ptr.is_null());
             ManuallyDrop::new(unsafe { Box::from_raw(ptr as *mut Self) })
@@ -146,7 +143,7 @@ pub mod wrappers {
 
     /// Internal function used in the macro
     #[cfg(not(feature = "afl_internals"))]
-    pub fn afl_custom_init_<M: CustomMutator>(seed: c_uint) -> *const c_void {
+    pub fn afl_custom_init_<M: RawCustomMutator>(seed: c_uint) -> *const c_void {
         match catch_unwind(|| FFIContext::<M>::new(seed).into_ptr()) {
             Ok(ret) => ret,
             Err(err) => panic_handler("afl_custom_init", err),
@@ -155,7 +152,7 @@ pub mod wrappers {
 
     /// Internal function used in the macro
     #[cfg(feature = "afl_internals")]
-    pub fn afl_custom_init_<M: CustomMutator>(
+    pub fn afl_custom_init_<M: RawCustomMutator>(
         afl: Option<&'static afl_state>,
         seed: c_uint,
     ) -> *const c_void {
@@ -169,7 +166,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub unsafe fn afl_custom_fuzz_<M: CustomMutator>(
+    pub unsafe fn afl_custom_fuzz_<M: RawCustomMutator>(
         data: *mut c_void,
         buf: *mut u8,
         buf_size: usize,
@@ -213,7 +210,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub unsafe fn afl_custom_fuzz_count_<M: CustomMutator>(
+    pub unsafe fn afl_custom_fuzz_count_<M: RawCustomMutator>(
         data: *mut c_void,
         buf: *const u8,
         buf_size: usize,
@@ -235,7 +232,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub fn afl_custom_queue_new_entry_<M: CustomMutator>(
+    pub fn afl_custom_queue_new_entry_<M: RawCustomMutator>(
         data: *mut c_void,
         filename_new_queue: *const c_char,
         filename_orig_queue: *const c_char,
@@ -261,7 +258,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub unsafe fn afl_custom_deinit_<M: CustomMutator>(data: *mut c_void) {
+    pub unsafe fn afl_custom_deinit_<M: RawCustomMutator>(data: *mut c_void) {
         match catch_unwind(|| {
             // drop the context
             ManuallyDrop::into_inner(FFIContext::<M>::from(data));
@@ -272,7 +269,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub fn afl_custom_introspection_<M: CustomMutator>(data: *mut c_void) -> *const c_char {
+    pub fn afl_custom_introspection_<M: RawCustomMutator>(data: *mut c_void) -> *const c_char {
         match catch_unwind(|| {
             let mut context = FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.introspection() {
@@ -287,7 +284,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub fn afl_custom_describe_<M: CustomMutator>(
+    pub fn afl_custom_describe_<M: RawCustomMutator>(
         data: *mut c_void,
         max_description_len: usize,
     ) -> *const c_char {
@@ -305,7 +302,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub fn afl_custom_queue_get_<M: CustomMutator>(
+    pub fn afl_custom_queue_get_<M: RawCustomMutator>(
         data: *mut c_void,
         filename: *const c_char,
     ) -> u8 {
@@ -335,11 +332,12 @@ pub mod wrappers {
 /// struct MyMutator;
 /// impl CustomMutator for MyMutator {
 ///     /// ...
+/// #  type Error = ();
 /// #  #[cfg(feature = "afl_internals")]
-/// #  fn init(_afl_state: &afl_state, _seed: c_uint) -> Self {unimplemented!()}
+/// #  fn init(_afl_state: &afl_state, _seed: c_uint) -> Result<Self,()> {unimplemented!()}
 /// #  #[cfg(not(feature = "afl_internals"))]
-/// #  fn init(_seed: c_uint) -> Self {unimplemented!()}
-/// #  fn fuzz<'b,'s:'b>(&'s mut self, _buffer: &'b mut [u8], _add_buff: Option<&[u8]>, _max_size: usize) -> Option<&'b [u8]> {unimplemented!()}
+/// #  fn init(_seed: c_uint) -> Result<Self,()> {unimplemented!()}
+/// #  fn fuzz<'b,'s:'b>(&'s mut self, _buffer: &'b mut [u8], _add_buff: Option<&[u8]>, _max_size: usize) -> Result<Option<&'b [u8]>,()> {unimplemented!()}
 /// }
 /// export_mutator!(MyMutator);
 /// ```
@@ -449,11 +447,11 @@ mod sanity_test {
     #[cfg(feature = "afl_internals")]
     use super::afl_state;
 
-    use super::{export_mutator, CustomMutator};
+    use super::{export_mutator, RawCustomMutator};
 
     struct ExampleMutator;
 
-    impl CustomMutator for ExampleMutator {
+    impl RawCustomMutator for ExampleMutator {
         #[cfg(feature = "afl_internals")]
         fn init(_afl: &afl_state, _seed: c_uint) -> Self {
             unimplemented!()
@@ -475,4 +473,165 @@ mod sanity_test {
     }
 
     export_mutator!(ExampleMutator);
+}
+
+#[allow(unused_variables)]
+/// A custom mutator.
+/// [`CustomMutator::handle_err`] will be called in case any method returns an [`Result::Err`].
+pub trait CustomMutator {
+    /// The error type. All methods must return the same error type.
+    type Error: Debug;
+
+    /// The method which handles errors.
+    /// By default, this method will log the error to stderr if the environment variable "`AFL_CUSTOM_MUTATOR_DEBUG`" is set and non-empty.
+    /// After logging the error, execution will continue on a best-effort basis.
+    ///
+    /// This default behaviour can be customized by implementing this method.
+    fn handle_err(err: Self::Error) {
+        if std::env::var("AFL_CUSTOM_MUTATOR_DEBUG")
+            .map(|v| !v.is_empty())
+            .unwrap_or(false)
+        {
+            eprintln!("Error in custom mutator: {:?}", err)
+        }
+    }
+
+    #[cfg(feature = "afl_internals")]
+    fn init(afl: &'static afl_state, seed: c_uint) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+
+    #[cfg(not(feature = "afl_internals"))]
+    fn init(seed: c_uint) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+
+    fn fuzz_count(&mut self, buffer: &[u8]) -> Result<u32, Self::Error> {
+        Ok(1)
+    }
+
+    fn fuzz<'b, 's: 'b>(
+        &'s mut self,
+        buffer: &'b mut [u8],
+        add_buff: Option<&[u8]>,
+        max_size: usize,
+    ) -> Result<Option<&'b [u8]>, Self::Error>;
+
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &CStr,
+        filename_orig_queue: Option<&CStr>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn queue_get(&mut self, filename: &CStr) -> Result<bool, Self::Error> {
+        Ok(true)
+    }
+
+    fn describe(&mut self, max_description: usize) -> Result<Option<&CStr>, Self::Error> {
+        Ok(None)
+    }
+
+    fn introspection(&mut self) -> Result<Option<&CStr>, Self::Error> {
+        Ok(None)
+    }
+}
+
+impl<M> RawCustomMutator for M
+where
+    M: CustomMutator,
+    M::Error: Debug,
+{
+    #[cfg(feature = "afl_internals")]
+    fn init(afl: &'static afl_state, seed: c_uint) -> Self
+    where
+        Self: Sized,
+    {
+        match Self::init(afl, seed) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                panic!("Error in afl_custom_init")
+            }
+        }
+    }
+
+    #[cfg(not(feature = "afl_internals"))]
+    fn init(seed: c_uint) -> Self
+    where
+        Self: Sized,
+    {
+        match Self::init(seed) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                panic!("Error in afl_custom_init")
+            }
+        }
+    }
+
+    fn fuzz_count(&mut self, buffer: &[u8]) -> u32 {
+        match self.fuzz_count(buffer) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                0
+            }
+        }
+    }
+
+    fn fuzz<'b, 's: 'b>(
+        &'s mut self,
+        buffer: &'b mut [u8],
+        add_buff: Option<&[u8]>,
+        max_size: usize,
+    ) -> Option<&'b [u8]> {
+        match self.fuzz(buffer, add_buff, max_size) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                None
+            }
+        }
+    }
+
+    fn queue_new_entry(&mut self, filename_new_queue: &CStr, filename_orig_queue: Option<&CStr>) {
+        match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+            }
+        }
+    }
+
+    fn queue_get(&mut self, filename: &CStr) -> bool {
+        match self.queue_get(filename) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                false
+            }
+        }
+    }
+
+    fn describe(&mut self, max_description: usize) -> Option<&CStr> {
+        match self.describe(max_description) {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                None
+            }
+        }
+    }
+
+    fn introspection(&mut self) -> Option<&CStr> {
+        match self.introspection() {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_err(e);
+                None
+            }
+        }
+    }
 }
