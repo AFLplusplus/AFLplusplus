@@ -477,7 +477,7 @@ mod sanity_test {
 
 #[allow(unused_variables)]
 /// A custom mutator.
-/// [`CustomMutator::handle_err`] will be called in case any method returns an [`Result::Err`].
+/// [`CustomMutator::handle_error`] will be called in case any method returns an [`Result::Err`].
 pub trait CustomMutator {
     /// The error type. All methods must return the same error type.
     type Error: Debug;
@@ -487,7 +487,7 @@ pub trait CustomMutator {
     /// After logging the error, execution will continue on a best-effort basis.
     ///
     /// This default behaviour can be customized by implementing this method.
-    fn handle_err(err: Self::Error) {
+    fn handle_error(err: Self::Error) {
         if std::env::var("AFL_CUSTOM_MUTATOR_DEBUG")
             .map(|v| !v.is_empty())
             .unwrap_or(false)
@@ -551,7 +551,7 @@ where
         match Self::init(afl, seed) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 panic!("Error in afl_custom_init")
             }
         }
@@ -565,7 +565,7 @@ where
         match Self::init(seed) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 panic!("Error in afl_custom_init")
             }
         }
@@ -575,7 +575,7 @@ where
         match self.fuzz_count(buffer) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 0
             }
         }
@@ -590,7 +590,7 @@ where
         match self.fuzz(buffer, add_buff, max_size) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 None
             }
         }
@@ -600,7 +600,7 @@ where
         match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
             }
         }
     }
@@ -609,7 +609,7 @@ where
         match self.queue_get(filename) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 false
             }
         }
@@ -619,7 +619,7 @@ where
         match self.describe(max_description) {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 None
             }
         }
@@ -629,7 +629,7 @@ where
         match self.introspection() {
             Ok(r) => r,
             Err(e) => {
-                Self::handle_err(e);
+                Self::handle_error(e);
                 None
             }
         }
