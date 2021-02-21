@@ -42,13 +42,8 @@
  *
  */
 
-/* Enable arithmetic compare solving for both branches */
-#define CMPLOG_SOLVE_ARITHMETIC
-
-/* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
-#define CMPLOG_SOLVE_TRANSFORM
-
-/* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
+/* if TRANSFORM is enabled with '-l T', this additionally enables base64
+   encoding/decoding */
 // #define CMPLOG_SOLVE_TRANSFORM_BASE64
 
 /* If a redqueen pass finds more than one solution, try to combine them? */
