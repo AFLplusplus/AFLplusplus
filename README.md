@@ -22,6 +22,8 @@
 
   If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
   on the website. To cite our work, look at the [Cite](#cite) section.
+  For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
+  with `AFL_LLVM_CMPLOG=1`.
 
 ## Major changes in afl++ 3.0
 
@@ -1169,6 +1171,11 @@ Thank you!
 ## Cite
 
 If you use AFLplusplus in scientific work, consider citing [our paper](https://www.usenix.org/conference/woot20/presentation/fioraldi) presented at WOOT'20:
+
+If you use AFLpluplus to compare to your work, please use either `afl-clang-lto`
+or `afl-clang-fast` with `AFL_LLVM_CMPLOG=1` for building targets and
+`afl-fuzz` with the command line option `-l 2` for fuzzing.
+The most effective setup is the `aflplusplus` default fuzzer on Google's fuzzbench.
 
 + Andrea Fioraldi, Dominik Maier, Heiko Eißfeldt, and Marc Heuse. “AFL++: Combining incremental steps of fuzzing research”. In 14th USENIX Workshop on Offensive Technologies (WOOT 20). USENIX Association, Aug. 2020.
 
