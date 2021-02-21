@@ -205,14 +205,31 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
         case '\t':
           c = ' ';
           break;
-          /*
-                case '\r':
-                case '\n':
-                  // nothing ...
-                  break;
-          */
+        case '\r':
+          c = '\n';
+          break;
+        case '\n':
+          c = '\r';
+          break;
+        case 0:
+          c = 1;
+          break;
+        case 1:
+          c = 0;
+          break;
+        case 0xff:
+          c = 0;
+          break;
         default:
-          c = (buf[i] ^ 0xff);
+          if (buf[i] < 32) {
+
+            c = (buf[i] ^ 0x1f);
+
+          } else {
+
+            c = (buf[i] ^ 0x7f);  // we keep the highest bit
+
+          }
 
       }
 
