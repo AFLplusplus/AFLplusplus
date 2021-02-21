@@ -754,6 +754,8 @@ campaigns as these are much shorter runnings.
    `-M` enables deterministic fuzzing, old queue handling etc. which is good for
    a fuzzing campaign but not good for short CI runs.
 
+How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/4bb61df7905c6005000f5766e966e6fe30ab4559/infra/base-images/base-builder/compile_afl#L69).
+
 ## Fuzzing binary-only targets
 
 When source code is *NOT* available, afl++ offers various support for fast,
