@@ -561,13 +561,13 @@ void print_suggested_envs(char *mispelled_env) {
   memcpy(env_name, mispelled_env + 4, env_name_len);
 
   char *seen = ck_alloc(sizeof(afl_environment_variables) / sizeof(char *));
-  int found = 0;
+  int   found = 0;
 
   int j;
   for (j = 0; afl_environment_variables[j] != NULL; ++j) {
 
     char *afl_env = afl_environment_variables[j] + 4;
-    int distance = string_distance_levenshtein(afl_env, env_name);
+    int   distance = string_distance_levenshtein(afl_env, env_name);
     if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
 
       SAYF("Did you mean %s?\n", afl_environment_variables[j]);
@@ -575,14 +575,14 @@ void print_suggested_envs(char *mispelled_env) {
       found = 1;
 
     }
-  
+
   }
 
   if (found) goto cleanup;
 
   for (j = 0; afl_environment_variables[j] != NULL; ++j) {
 
-    char *afl_env = afl_environment_variables[j] + 4;
+    char * afl_env = afl_environment_variables[j] + 4;
     size_t afl_env_len = strlen(afl_env);
     char * reduced = ck_alloc(afl_env_len + 1);
 

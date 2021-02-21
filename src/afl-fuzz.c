@@ -103,7 +103,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  quad -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-... ms, default %u ms)\n"
+      "  -t msec       - timeout for each run (auto-scaled, 50-... ms, default "
+      "%u ms)\n"
       "                  add a '+' to skip over seeds running longer.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
@@ -123,10 +124,10 @@ static void usage(u8 *argv0, int more_help) {
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU, just use -c 0.\n"
-      "  -l cmplog_level - set the complexity/intensivity of CmpLog.\n"
-      "                  Values: 1 (basic), 2 (larger files) and 3 "
-      "(transform)\n\n"
-
+      "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
+      "                  1=small files (default), 2=larger files, 3=all "
+      "files,\n"
+      "                  A=arithmetic solving, T=tranformational solving.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -813,13 +814,36 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'l': {
 
-        if (optarg) { afl->cmplog_lvl = atoi(optarg); }
-        if (afl->cmplog_lvl < 1 || afl->cmplog_lvl > CMPLOG_LVL_MAX) {
+        if (!optarg) { FATAL("missing parameter for 'l'"); }
+        char *c = optarg;
+        while (*c) {
 
-          FATAL(
-              "Bad complog level value, accepted values are 1 (default), 2 and "
-              "%u.",
-              CMPLOG_LVL_MAX);
+          switch (*c) {
+
+            case '0':
+            case '1':
+              afl->cmplog_lvl = 1;
+              break;
+            case '2':
+              afl->cmplog_lvl = 2;
+              break;
+            case '3':
+              afl->cmplog_lvl = 3;
+              break;
+            case 'a':
+            case 'A':
+              afl->cmplog_enable_arith = 1;
+              break;
+            case 't':
+            case 'T':
+              afl->cmplog_enable_transform = 1;
+              break;
+            default:
+              FATAL("Unknown option value '%c' in -l %s", *c, optarg);
+
+          }
+
+          ++c;
 
         }
 
