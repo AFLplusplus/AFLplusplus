@@ -1699,9 +1699,9 @@ int main(int argc, char **argv, char **envp) {
         "Do not be overwhelmed :) afl-cc uses good defaults if no options are "
         "selected.\n"
         "Read the documentation for FEATURES though, all are good but few are "
-        "defaults.\n");
+        "defaults.\n"
         "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast with\n"
-        "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n"
+        "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n");
 
     exit(1);
 
