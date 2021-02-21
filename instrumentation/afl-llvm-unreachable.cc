@@ -458,13 +458,13 @@ bool Unreachable::hookInstrs(Module &M) {
 
   }
 
-  // print all functions not visited, however drop __clang*, __gnu and std::
+  // print all functions not visited, however drop __*, std:: and gnu::
   std::regex re1("(^__*[A-Z0-9][A-Z0-9]*_*)([a-z]*)(.*)");
   for (auto func : all_functions) {
 
     std::string rest = std::regex_replace(func, re1, "$2");
     if (rest.empty() || (rest.compare("t") && rest.compare(0, 3, "gnu") &&
-                         rest.compare(0, 7, "__clang")))
+                         func.compare(0, 2, "__")))
       printf("UNREACHABLE FUNCTION: %s\n", func.c_str());
 
   }
