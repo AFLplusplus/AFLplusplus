@@ -1700,7 +1700,8 @@ int main(int argc, char **argv, char **envp) {
         "selected.\n"
         "Read the documentation for FEATURES though, all are good but few are "
         "defaults.\n"
-        "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast with\n"
+        "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast "
+        "with\n"
         "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n");
 
     exit(1);

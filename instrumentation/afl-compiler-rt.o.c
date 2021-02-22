@@ -1675,6 +1675,7 @@ void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (unlikely(!__afl_cmp_map)) return;
   if (!area_is_mapped(stdstring, 32) || !area_is_mapped(cstring, 32)) return;
+
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
 
 }
@@ -1684,6 +1685,7 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
   if (unlikely(!__afl_cmp_map)) return;
   if (!area_is_mapped(stdstring1, 32) || !area_is_mapped(stdstring2, 32))
     return;
+
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
                     get_llvm_stdstring(stdstring2));
 

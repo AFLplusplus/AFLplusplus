@@ -1707,7 +1707,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   cull_queue(afl);
 
-  if (!afl->pending_not_fuzzed) {
+  // ensure we have at least one seed that is not disabled.
+  u32 entry, valid_seeds = 0;
+  for (entry = 0; entry < afl->queued_paths; ++entry)
+    if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
+
+  if (!afl->pending_not_fuzzed || !valid_seeds) {
 
     FATAL("We need at least one valid input seed that does not crash!");
 
