@@ -35,6 +35,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed a few crashes
     - switched to an even faster RNG
     - added hghwng's patch for faster trace map analysis
+    - added minimum SYNC_TIME to include/config.h (30 minutes default)
   - afl-cc
     - allow instrumenting LLVMFuzzerTestOneInput
     - fixed endless loop for allow/blocklist lines starting with a

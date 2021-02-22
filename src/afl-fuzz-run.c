@@ -707,6 +707,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
   if (afl->foreign_sync_cnt) read_foreign_testcases(afl, 0);
 
+  afl->last_sync_time = get_cur_time();
+
 }
 
 /* Trim all new test cases to save cycles when doing deterministic checks. The

@@ -1986,15 +1986,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (unlikely(afl->is_main_node)) {
 
-          if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
+          if (unlikely(get_cur_time() >
+                       (SYNC_TIME >> 1) + afl->last_sync_time)) {
 
-            sync_fuzzers(afl);
+            if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
+
+              sync_fuzzers(afl);
+
+            }
 
           }
 
         } else {
 
-          if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+          if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
+
+            if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+
+          }
 
         }
 
