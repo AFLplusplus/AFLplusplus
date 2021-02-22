@@ -1060,13 +1060,22 @@ void perform_dry_run(afl_state_t *afl) {
         p->perf_score = 0;
 
         u32 i = 0;
-        while (unlikely(afl->queue_buf[i]->disabled)) {
+        while (unlikely(i < afl->queued_paths && afl->queue_buf[i] &&
+                        afl->queue_buf[i]->disabled)) {
 
           ++i;
 
         }
 
-        afl->queue = afl->queue_buf[i];
+        if (i < afl->queued_paths && afl->queue_buf[i]) {
+
+          afl->queue = afl->queue_buf[i];
+
+        } else {
+
+          afl->queue = afl->queue_buf[0];
+
+        }
 
         afl->max_depth = 0;
         for (i = 0; i < afl->queued_paths; i++) {
