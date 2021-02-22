@@ -1802,8 +1802,8 @@ int main(int argc, char **argv, char **envp) {
   if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
       instrument_mode != INSTRUMENT_CFG)
     FATAL(
-        "CTX and NGRAM instrumentation options can only be used with CFG "
-        "(recommended) and CLASSIC instrumentation modes!");
+        "CTX and NGRAM instrumentation options can only be used with LLVM and "
+        "CFG or CLASSIC instrumentation modes!");
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
     FATAL(
