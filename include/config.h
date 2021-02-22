@@ -280,6 +280,11 @@
 
 #define SYNC_INTERVAL 8
 
+/* Sync time (minimum time between syncing in ms, time is halfed for -M main
+   nodes): */
+
+#define SYNC_TIME 18000000LLU  /* 18000000 = 30 minutes */
+
 /* Output directory reuse grace period (minutes): */
 
 #define OUTPUT_GRACE 25

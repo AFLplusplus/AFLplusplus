@@ -570,6 +570,7 @@ typedef struct afl_state {
       blocks_eff_total,                 /* Blocks subject to effector maps  */
       blocks_eff_select,                /* Blocks selected as fuzzable      */
       start_time,                       /* Unix start time (ms)             */
+      last_sync_time,			/* Time of last sync                */
       last_path_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time;                   /* Time for most recent hang (ms)   */
