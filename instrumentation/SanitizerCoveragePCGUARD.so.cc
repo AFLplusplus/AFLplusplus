@@ -998,6 +998,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   uint32_t special = 0;
   for (auto &BB : F) {
 
+    u32 call_cnt = 0;
+
     for (auto &IN : BB) {
 
       CallInst *callInst = nullptr;
@@ -1008,6 +1010,14 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
         StringRef FuncName = Callee->getName();
+
+        if (isInterestingCallInst(callInst)) {
+
+          call_cnt = 1;
+          continue;
+
+        }
+
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
         uint32_t id = 1 + instr + (uint32_t)AllBlocks.size() + special++;
@@ -1015,6 +1025,32 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         callInst->setOperand(1, val);
 
       }
+
+    }
+
+    if (call_cnt) {
+
+      LLVMContext &        Ctx = F.getParent()->getContext();
+      BasicBlock::iterator IP = BB.getFirstInsertionPt();
+      IRBuilder<>          IRB(&*IP);
+
+      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+
+      // Load counter for 1
+
+      Value *   MapPtrIdx = IRB.CreateGEP(MapPtr, One);
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+
+      // Saturated Add
+
+      auto cf = IRB.CreateICmpULT(
+          Counter, ConstantInt::get(IntegerType::getInt8Ty(Ctx), 255));
+      auto carry = IRB.CreateZExt(cf, IntegerType::getInt8Ty(Ctx));
+      auto Incr = IRB.CreateAdd(Counter, carry);
+
+      // Update bitmap
+
+      IRB.CreateStore(Incr, MapPtrIdx);
 
     }
 

@@ -1166,6 +1166,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   char *x;
 
   _is_sancov = 1;
+  if (!__afl_final_loc) { __afl_final_loc = 1; }  // first edge = 2
 
   if (getenv("AFL_DEBUG")) {
 
@@ -1201,6 +1202,13 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       *start = 0;
 
     start++;
+
+  }
+
+  // enforce map size is != MAP_SIZE (with 32 round-up)
+  if (__afl_final_loc > MAP_SIZE - 32 && __afl_final_loc <= MAP_SIZE) {
+
+    __afl_final_loc = MAP_SIZE + 1;
 
   }
 
