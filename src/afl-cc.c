@@ -1421,6 +1421,14 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_DEFAULT &&
+      (compiler_mode == LLVM || compiler_mode == UNSET)) {
+
+    instrument_mode = INSTRUMENT_CLASSIC;
+    compiler_mode = LLVM;
+
+  }
+
   if (!compiler_mode) {
 
     // lto is not a default because outside of afl-cc RANLIB and AR have to
