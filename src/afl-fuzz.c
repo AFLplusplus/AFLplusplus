@@ -1770,11 +1770,14 @@ int main(int argc, char **argv_orig, char **envp) {
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;
-        while (unlikely(afl->queue_buf[afl->current_entry]->disabled)) {
+        while (unlikely(afl->current_entry < afl->queued_paths &&
+                        afl->queue_buf[afl->current_entry]->disabled)) {
 
           ++afl->current_entry;
 
         }
+
+        if (afl->current_entry >= afl->queued_paths) { afl->current_entry = 0; }
 
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
