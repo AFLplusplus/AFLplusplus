@@ -210,6 +210,7 @@ bool isInterestingCallInst(llvm::CallInst *callInst) {
 
   }
 
+  // fprintf(stderr, "TRUE for %s\n", fname);
   free(fn);
   return true;
 

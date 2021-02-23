@@ -1,7 +1,7 @@
 # Test Branch
 
-Collects total count of interesting functions (1 max per basic block) on the
-path in map[1].
+Collects total count of interesting functions (1 max per basic block) and loops
+on the path in map[1] and map[2].
 Only works for afl-clang-fast default instrumentation with llvm 10.0.1 or newer.
 
 # American Fuzzy Lop plus plus (afl++)

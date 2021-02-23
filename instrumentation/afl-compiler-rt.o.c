@@ -1166,7 +1166,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   char *x;
 
   _is_sancov = 1;
-  if (!__afl_final_loc) { __afl_final_loc = 1; }  // first edge = 2
+  if (!__afl_final_loc) { __afl_final_loc = 2; }  // first edge = 3
 
   if (getenv("AFL_DEBUG")) {
 

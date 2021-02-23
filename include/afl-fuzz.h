@@ -158,6 +158,7 @@ struct queue_entry {
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       interesting_functions,            /* interesting_functions count      */
+      loops,                            /* loop count                       */
       cal_failed;                       /* Calibration failed?              */
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
@@ -522,6 +523,7 @@ typedef struct afl_state {
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
       interesting_functions,            /* dirty save                       */
+      loops,                            /* dirty save                       */
       old_seed_selection;               /* use vanilla afl seed selection   */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */

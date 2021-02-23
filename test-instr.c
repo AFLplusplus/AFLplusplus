@@ -20,7 +20,7 @@
 
 int main(int argc, char **argv) {
 
-  int   fd = 0;
+  int   fd = 0, x = 1, y;
   char  buff[8];
   char *buf = buff;
 
@@ -54,23 +54,40 @@ int main(int argc, char **argv) {
 
   // we support three input cases (plus a 4th if stdin is used but there is no
   // input)
-  if (buf[0] == '0') {
+  while (*buf) {
 
-    char buff[64];
-    strcpy(buff, "Looks like a zero to me: ");
-    strcat(buff, buf);
-    printf("%s\n", buff);
+    if (*buf == '0') {
 
-  } else if (buf[0] == '1') {
+      char buff[64];
+      strcpy(buff, "Looks like a zero to me: ");
+      strcat(buff, buf);
+      printf("%s\n", buff);
 
-    char buff[64];
-    strcpy(buff, "Pretty sure that is a one: ");
-    strcat(buff, buf);
-    printf("%s\n", buff);
+      for (y = 0; y < *buf; y++)
+        x += (*buf + y - 1);
 
-  } else
+    } else if (*buf == '1') {
 
-    printf("Neither one or zero? How quaint!\n");
+      char buff[64];
+      strcpy(buff, "Pretty sure that is a one: ");
+      strcat(buff, buf);
+      printf("%s\n", buff);
+
+      for (y = 0; y < *buf; y++)
+        x += (*buf + y + 1);
+
+    } else
+
+      printf("Neither one or zero? How quaint!\n");
+
+    buf++;
+
+  }
+
+  for (y = 0; buff[y] != 0; y++)
+    x += buff[y] + y + 2;
+
+  printf("Got %d\n", x);
 
   return 0;
 

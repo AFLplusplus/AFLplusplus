@@ -470,6 +470,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (afl->fsrv.map_size != MAP_SIZE) {
 
     afl->interesting_functions = afl->fsrv.trace_bits[1];
+    afl->loops = afl->fsrv.trace_bits[2];
 
   }
 
