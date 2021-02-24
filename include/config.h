@@ -281,9 +281,9 @@
 #define SYNC_INTERVAL 8
 
 /* Sync time (minimum time between syncing in ms, time is halfed for -M main
-   nodes): */
+   nodes) - default is 30 minutes: */
 
-#define SYNC_TIME 18000000LLU                      /* 18000000 = 30 minutes */
+#define SYNC_TIME (30 * 60 * 1000)
 
 /* Output directory reuse grace period (minutes): */
 
