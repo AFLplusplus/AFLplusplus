@@ -2026,7 +2026,7 @@ void setup_dirs_fds(afl_state_t *afl) {
   fprintf(afl->fsrv.plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
-          "unique_hangs, max_depth, execs_per_sec\n");
+          "unique_hangs, max_depth, execs_per_sec, edges_found\n");
   fflush(afl->fsrv.plot_file);
 
   /* ignore errors */
