@@ -529,6 +529,8 @@ static int string_distance_levenshtein(char *s1, char *s2) {
   s1len = strlen(s1);
   s2len = strlen(s2);
   unsigned int column[s1len + 1];
+  column[s1len] = 1;
+
   for (y = 1; y <= s1len; y++)
     column[y] = y;
   for (x = 1; x <= s2len; x++) {
@@ -607,6 +609,8 @@ void print_suggested_envs(char *mispelled_env) {
       start = end;
 
     };
+
+    ck_free(reduced);
 
   }
 
