@@ -49,15 +49,15 @@
 /* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
-/* Minimum % of the corpus to perform cmplog on. Default: 20% */
+/* Minimum % of the corpus to perform cmplog on. Default: 10% */
 #define CMPLOG_CORPUS_PERCENT 10U
 
 /* Number of potential positions from which we decide if cmplog becomes
    useless, default 16384 */
 #define CMPLOG_POSITIONS_MAX 16384U
 
-/* Maximum allowed fails per CMP value. Default: 32 * 3 */
-#define CMPLOG_FAIL_MAX 128
+/* Maximum allowed fails per CMP value. Default: 96 */
+#define CMPLOG_FAIL_MAX 96
 
 /* Now non-cmplog configuration options */
 
