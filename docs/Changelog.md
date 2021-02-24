@@ -36,6 +36,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - switched to an even faster RNG
     - added hghwng's patch for faster trace map analysis
     - added minimum SYNC_TIME to include/config.h (30 minutes default)
+    - printing suggestions for mistyped `AFL_` env variables
   - afl-cc
     - allow instrumenting LLVMFuzzerTestOneInput
     - fixed endless loop for allow/blocklist lines starting with a
@@ -68,7 +69,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
-  - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)
+  - Added `AFL_KILL_SIGNAL` env variable (thanks @v-p-b)
   - @Edznux added a nice documentation on how to use rpc.statsd with
     afl++ in docs/rpc_statsd.md, thanks!
 
