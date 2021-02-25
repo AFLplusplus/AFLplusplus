@@ -16,26 +16,31 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     to be placed in the source code.
     Check out instrumentation/README.instrument_list.md
   - afl-fuzz
-    - Making AFL_MAP_SIZE (mostly) obsolete - afl-fuzz now learns on start
-      the target map size
+    - Making AFL_MAP_SIZE (mostly) obsolete - afl-fuzz now learns on
+      start the target map size
     - upgraded cmplog/redqueen: solving for floating point, solving
       transformations (e.g. toupper, tolower, to/from hex, xor,
       arithmetics, etc.). This is costly hence new command line option
-      `-l` that sets the intensity (values 1 to 3). Recommended is 1 or 2.
-    - added `AFL_CMPLOG_ONLY_NEW` to not use cmplog on initial testcases from
-      `-i` or resumes (as these have most likely already been done)
+      `-l` that sets the intensity (values 1 to 3). Recommended is 2.
+    - added `AFL_CMPLOG_ONLY_NEW` to not use cmplog on initial seeds
+      from `-i` or resumes (these have most likely already been done)
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
     - on restarts (`-i`)/autoresume (AFL_AUTORESUME) the stats are now
       reloaded and used, thanks to Vimal Joseph for this patch! 
-    - if deterministic mode is active (`-D`, or `-M` without `-d`) then we sync
-      after every queue entry as this can take very long time otherwise
+    - changed the meaning of '+' of the '-t' option, it now means to
+      auto-calculate the timeout with the value given being the max
+      timeout. The original meaning of skipping timeouts instead of
+      abort is now inherent to the -t option.
+    - if deterministic mode is active (`-D`, or `-M` without `-d`) then
+      we sync after every queue entry as this can take very long time
+      otherwise
+    - added minimum SYNC_TIME to include/config.h (30 minutes default)
     - better detection if a target needs a large shared map
     - fix for `-Z`
     - fixed a few crashes
     - switched to an even faster RNG
     - added hghwng's patch for faster trace map analysis
-    - added minimum SYNC_TIME to include/config.h (30 minutes default)
     - printing suggestions for mistyped `AFL_` env variables
   - afl-cc
     - allow instrumenting LLVMFuzzerTestOneInput

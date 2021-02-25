@@ -882,32 +882,23 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (afl->timeout_given) {
 
-          /* The -t nn+ syntax in the command line sets afl->timeout_given to
-             '2' and instructs afl-fuzz to tolerate but skip queue entries that
-             time out. */
+          /* if we have a timeout but a timeout value was given then always
+             skip. The '+' meaning has been changed! */
+          WARNF("Test case results in a timeout (skipping)");
+          ++cal_failures;
+          q->cal_failed = CAL_CHANCES;
+          q->disabled = 1;
+          q->perf_score = 0;
 
-          if (afl->timeout_given > 1) {
+          if (!q->was_fuzzed) {
 
-            WARNF("Test case results in a timeout (skipping)");
-            q->cal_failed = CAL_CHANCES;
-            ++cal_failures;
-            break;
+            q->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            --afl->active_paths;
 
           }
 
-          SAYF("\n" cLRD "[-] " cRST
-               "The program took more than %u ms to process one of the initial "
-               "test cases.\n"
-               "    Usually, the right thing to do is to relax the -t option - "
-               "or to delete it\n"
-               "    altogether and allow the fuzzer to auto-calibrate. That "
-               "said, if you know\n"
-               "    what you are doing and want to simply skip the unruly test "
-               "cases, append\n"
-               "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               afl->fsrv.exec_tmout, afl->fsrv.exec_tmout);
-
-          FATAL("Test case '%s' results in a timeout", fn);
+          break;
 
         } else {
 
