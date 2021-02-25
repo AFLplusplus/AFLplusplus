@@ -67,17 +67,16 @@ us.
 
 We have zero experience with technical writers, so this is very hard for us
 to calculate. We expect it to be a lot of work though because of the amount
-of documentation we have that needs to be restructured and rewritten
+of documentation we have that needs to be restructured and partially rewritten
 (44 documents with 13k total lines of content).
 
 Technical Writer                                              10000$
 Volunteer stipends                                                0$ (waved)
 T-Shirts for the top 10 contributors and helpers to this documentation project:
 	10 afl++ logo t-shirts 		20$ each		200$
-	 8 shipping cost of t-shirts    10$ each		 80$
-           (2 won't need to be shipped)
+	10 shipping cost of t-shirts    10$ each		100$
                                                          
-Total: 10.280$
+Total: 10.300$
 
 ## Additional Information
 
