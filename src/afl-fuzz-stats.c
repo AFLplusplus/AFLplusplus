@@ -355,7 +355,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                             double eps) {
 
-  if (unlikely(afl->plot_prev_qp == afl->queued_paths &&
+  if (unlikely(afl->stop_soon) ||
+      unlikely(afl->plot_prev_qp == afl->queued_paths &&
                afl->plot_prev_pf == afl->pending_favored &&
                afl->plot_prev_pnf == afl->pending_not_fuzzed &&
                afl->plot_prev_ce == afl->current_entry &&
