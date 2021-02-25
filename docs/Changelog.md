@@ -64,6 +64,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Improved rust bindings
     - Added a new example harness to compare python, c, and rust bindings
   - afl-cmin and afl-showmap now support the -f option
+  - afl_plot now also generates a graph on the discovered edges
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
   - warn on any _AFL and __AFL env vars.
   - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars.
