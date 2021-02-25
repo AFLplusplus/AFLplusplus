@@ -518,8 +518,12 @@ int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
 
 }
 
-#define HELPER_MIN3(a, b, c) \
-  ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
+static inline unsigned int helper_min3(unsigned int a, unsigned int b,
+                                       unsigned int c) {
+
+  return a < b ? (a < c ? a : c) : (b < c ? b : c);
+
+}
 
 // from
 // https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C
@@ -539,7 +543,7 @@ static int string_distance_levenshtein(char *s1, char *s2) {
     for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
 
       olddiag = column[y];
-      column[y] = HELPER_MIN3(column[y] + 1, column[y - 1] + 1,
+      column[y] = helper_min3(column[y] + 1, column[y - 1] + 1,
                               lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
       lastdiag = olddiag;
 
@@ -550,8 +554,6 @@ static int string_distance_levenshtein(char *s1, char *s2) {
   return column[s1len];
 
 }
-
-#undef HELPER_MIN3
 
 #define ENV_SIMILARITY_TRESHOLD 3
 
