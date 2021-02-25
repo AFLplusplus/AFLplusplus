@@ -39,7 +39,7 @@
 #include "libhfcommon/util.h"
 
 #define PROG_NAME    "honggfuzz"
-#define PROG_VERSION "2.3"
+#define PROG_VERSION "2.4"
 
 /* Name of the template which will be replaced with the proper name of the file */
 #define _HF_FILE_PLACEHOLDER "___FILE___"

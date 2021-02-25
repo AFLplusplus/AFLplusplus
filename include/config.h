@@ -53,11 +53,11 @@
 #define CMPLOG_CORPUS_PERCENT 10U
 
 /* Number of potential positions from which we decide if cmplog becomes
-   useless, default 16384 */
-#define CMPLOG_POSITIONS_MAX 16384U
+   useless, default 8096 */
+#define CMPLOG_POSITIONS_MAX 8096U
 
-/* Maximum allowed fails per CMP value. Default: 96 */
-#define CMPLOG_FAIL_MAX 96
+/* Maximum allowed fails per CMP value. Default: 128 */
+#define CMPLOG_FAIL_MAX 128
 
 /* Now non-cmplog configuration options */
 
