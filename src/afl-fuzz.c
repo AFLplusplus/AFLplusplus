@@ -103,9 +103,10 @@ static void usage(u8 *argv0, int more_help) {
       "                  quad -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-... ms, default "
-      "%u ms)\n"
-      "                  add a '+' to skip over seeds running longer.\n"
+      "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
+      "Add a '+'\n"
+      "                  to auto-calculate the timeout, the value being the "
+      "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -1453,7 +1454,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!afl->timeout_given) { find_timeout(afl); }
+  if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
   if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
@@ -1715,6 +1716,30 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->pending_not_fuzzed || !valid_seeds) {
 
     FATAL("We need at least one valid input seed that does not crash!");
+
+  }
+
+  if (afl->timeout_given == 2) {  // -t ...+ option
+
+    if (valid_seeds == 1) {
+
+      WARNF(
+          "Only one valid seed is present, auto-calculating the timeout is "
+          "disabled!");
+      afl->timeout_given = 1;
+
+    } else {
+
+      u64 max_ms = 0;
+
+      for (entry = 0; entry < afl->queued_paths; ++entry)
+        if (!afl->queue_buf[entry]->disabled)
+          if (afl->queue_buf[entry]->exec_us > max_ms)
+            max_ms = afl->queue_buf[entry]->exec_us;
+
+      afl->fsrv.exec_tmout = max_ms;
+
+    }
 
   }
 

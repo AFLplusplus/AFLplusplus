@@ -25,7 +25,12 @@
   For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
   with `AFL_LLVM_CMPLOG=1`.
 
-## Major changes in afl++ 3.0
+## Major changes in afl++ 3.0 + 3.1
+
+With afl++ 3.1 we introduced the following changes from previous behaviours:
+  * The '+' feature of the '-t' option now means to  auto-calculate the timeout
+    with the value given being the maximum timeout. The original meaning of
+    "skipping timeouts instead of abort" is now inherent to the -t option.
 
 With afl++ 3.0 we introduced changes that break some previous afl and afl++
 behaviours and defaults:

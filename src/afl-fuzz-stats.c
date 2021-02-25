@@ -388,13 +388,13 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
      favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
      execs_per_sec, edges_found */
 
-  fprintf(
-      afl->fsrv.plot_file,
-      "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, %u\n",
-      get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
-      afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
-      bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
-      afl->plot_prev_ed, t_bytes);                                  /* ignore errors */
+  fprintf(afl->fsrv.plot_file,
+          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+          "%u\n",
+          get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
+          afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
+          bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
+          eps, afl->plot_prev_ed, t_bytes);                /* ignore errors */
 
   fflush(afl->fsrv.plot_file);
 
@@ -1219,7 +1219,7 @@ void show_init_stats(afl_state_t *afl) {
       stringify_int(IB(0), min_us), stringify_int(IB(1), max_us),
       stringify_int(IB(2), avg_us));
 
-  if (!afl->timeout_given) {
+  if (afl->timeout_given != 1) {
 
     /* Figure out the appropriate timeout. The basic idea is: 5x average or
        1x max, rounded up to EXEC_TM_ROUND ms and capped at 1 second.
