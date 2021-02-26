@@ -6,16 +6,13 @@
  - CPU affinity for many cores? There seems to be an issue > 96 cores
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
+ - afl_custom_splice()
  - intel-pt tracer
 
 ## Further down the road
 
 afl-fuzz:
  - setting min_len/max_len/start_offset/end_offset limits for mutation output
- - add __sanitizer_cov_trace_cmp* support via shmem
-
-llvm_mode:
- - add __sanitizer_cov_trace_cmp* support
 
 qemu_mode:
  - non colliding instrumentation

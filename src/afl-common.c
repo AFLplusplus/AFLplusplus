@@ -518,6 +518,141 @@ int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
 
 }
 
+static inline unsigned int helper_min3(unsigned int a, unsigned int b,
+                                       unsigned int c) {
+
+  return a < b ? (a < c ? a : c) : (b < c ? b : c);
+
+}
+
+// from
+// https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C
+static int string_distance_levenshtein(char *s1, char *s2) {
+
+  unsigned int s1len, s2len, x, y, lastdiag, olddiag;
+  s1len = strlen(s1);
+  s2len = strlen(s2);
+  unsigned int column[s1len + 1];
+  column[s1len] = 1;
+
+  for (y = 1; y <= s1len; y++)
+    column[y] = y;
+  for (x = 1; x <= s2len; x++) {
+
+    column[0] = x;
+    for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
+
+      olddiag = column[y];
+      column[y] = helper_min3(column[y] + 1, column[y - 1] + 1,
+                              lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
+      lastdiag = olddiag;
+
+    }
+
+  }
+
+  return column[s1len];
+
+}
+
+#define ENV_SIMILARITY_TRESHOLD 3
+
+void print_suggested_envs(char *mispelled_env) {
+
+  size_t env_name_len =
+      strcspn(mispelled_env, "=") - 4;  // remove the AFL_prefix
+  char *env_name = ck_alloc(env_name_len + 1);
+  memcpy(env_name, mispelled_env + 4, env_name_len);
+
+  char *seen = ck_alloc(sizeof(afl_environment_variables) / sizeof(char *));
+  int   found = 0;
+
+  int j;
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char *afl_env = afl_environment_variables[j] + 4;
+    int   distance = string_distance_levenshtein(afl_env, env_name);
+    if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+      SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+      seen[j] = 1;
+      found = 1;
+
+    }
+
+  }
+
+  if (found) goto cleanup;
+
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char * afl_env = afl_environment_variables[j] + 4;
+    size_t afl_env_len = strlen(afl_env);
+    char * reduced = ck_alloc(afl_env_len + 1);
+
+    size_t start = 0;
+    while (start < afl_env_len) {
+
+      size_t end = start + strcspn(afl_env + start, "_") + 1;
+      memcpy(reduced, afl_env, start);
+      if (end < afl_env_len)
+        memcpy(reduced + start, afl_env + end, afl_env_len - end);
+      reduced[afl_env_len - end + start] = 0;
+
+      int distance = string_distance_levenshtein(reduced, env_name);
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+        SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+        seen[j] = 1;
+        found = 1;
+
+      }
+
+      start = end;
+
+    };
+
+    ck_free(reduced);
+
+  }
+
+  if (found) goto cleanup;
+
+  char * reduced = ck_alloc(env_name_len + 1);
+  size_t start = 0;
+  while (start < env_name_len) {
+
+    size_t end = start + strcspn(env_name + start, "_") + 1;
+    memcpy(reduced, env_name, start);
+    if (end < env_name_len)
+      memcpy(reduced + start, env_name + end, env_name_len - end);
+    reduced[env_name_len - end + start] = 0;
+
+    for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+      int distance = string_distance_levenshtein(
+          afl_environment_variables[j] + 4, reduced);
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+        SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+        seen[j] = 1;
+
+      }
+
+    }
+
+    start = end;
+
+  };
+
+  ck_free(reduced);
+
+cleanup:
+  ck_free(env_name);
+  ck_free(seen);
+
+}
+
 void check_environment_vars(char **envp) {
 
   if (be_quiet) { return; }
@@ -586,6 +721,8 @@ void check_environment_vars(char **envp) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
         issue_detected = 1;
+
+        print_suggested_envs(env);
 
       }
 
