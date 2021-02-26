@@ -486,6 +486,8 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
         WARNF("Mistyped AFL environment variable: %s", env);
         issue_detected = 1;
 
+        print_suggested_envs(env);
+
       }
 
     }

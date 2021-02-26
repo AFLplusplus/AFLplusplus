@@ -90,7 +90,7 @@ void dict2file(int fd, u8 *mem, u32 len) {
   j = 1;
   for (i = 0; i < len; i++) {
 
-    if (isprint(mem[i])) {
+    if (isprint(mem[i]) && mem[i] != '\\' && mem[i] != '"') {
 
       line[j++] = mem[i];
 

@@ -42,27 +42,22 @@
  *
  */
 
-/* Enable arithmetic compare solving for both branches */
-#define CMPLOG_SOLVE_ARITHMETIC
-
-/* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
-#define CMPLOG_SOLVE_TRANSFORM
-
-/* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
+/* if TRANSFORM is enabled with '-l T', this additionally enables base64
+   encoding/decoding */
 // #define CMPLOG_SOLVE_TRANSFORM_BASE64
 
 /* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
-/* Minimum % of the corpus to perform cmplog on. Default: 20% */
-#define CMPLOG_CORPUS_PERCENT 20U
+/* Minimum % of the corpus to perform cmplog on. Default: 10% */
+#define CMPLOG_CORPUS_PERCENT 10U
 
 /* Number of potential positions from which we decide if cmplog becomes
-   useless, default 16384 */
-#define CMPLOG_POSITIONS_MAX 16384U
+   useless, default 8096 */
+#define CMPLOG_POSITIONS_MAX 8096U
 
-/* Maximum allowed fails per CMP value. Default: 32 * 3 */
-#define CMPLOG_FAIL_MAX 96
+/* Maximum allowed fails per CMP value. Default: 128 */
+#define CMPLOG_FAIL_MAX 128
 
 /* Now non-cmplog configuration options */
 
@@ -284,6 +279,11 @@
 /* Sync interval (every n havoc cycles): */
 
 #define SYNC_INTERVAL 8
+
+/* Sync time (minimum time between syncing in ms, time is halfed for -M main
+   nodes) - default is 30 minutes: */
+
+#define SYNC_TIME (30 * 60 * 1000)
 
 /* Output directory reuse grace period (minutes): */
 

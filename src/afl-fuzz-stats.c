@@ -185,15 +185,14 @@ void load_stats_file(afl_state_t *afl) {
 
 /* Update stats file for unattended monitoring. */
 
-void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
-                      double eps) {
+void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
+                      double stability, double eps) {
 
 #ifndef __HAIKU__
   struct rusage rus;
 #endif
 
   u64   cur_time = get_cur_time();
-  u32   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   u8    fn[PATH_MAX];
   FILE *f;
 
@@ -353,9 +352,11 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
 /* Update the plot file if there is a reason to. */
 
-void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
+void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
+                            double eps) {
 
-  if (unlikely(afl->plot_prev_qp == afl->queued_paths &&
+  if (unlikely(afl->stop_soon) ||
+      unlikely(afl->plot_prev_qp == afl->queued_paths &&
                afl->plot_prev_pf == afl->pending_favored &&
                afl->plot_prev_pnf == afl->pending_not_fuzzed &&
                afl->plot_prev_ce == afl->current_entry &&
@@ -384,16 +385,16 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
   /* Fields in the file:
 
      unix_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
-     favored_not_fuzzed, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
-     execs_per_sec */
+     favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
+     execs_per_sec, edges_found */
 
-  fprintf(
-      afl->fsrv.plot_file,
-      "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu\n",
-      get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
-      afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
-      bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
-      afl->plot_prev_ed);                                  /* ignore errors */
+  fprintf(afl->fsrv.plot_file,
+          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+          "%u\n",
+          get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
+          afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
+          bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
+          eps, afl->plot_prev_ed, t_bytes);                /* ignore errors */
 
   fflush(afl->fsrv.plot_file);
 
@@ -532,7 +533,8 @@ void show_stats(afl_state_t *afl) {
   if (cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000) {
 
     afl->stats_last_stats_ms = cur_ms;
-    write_stats_file(afl, t_byte_ratio, stab_ratio, afl->stats_avg_exec);
+    write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
+                     afl->stats_avg_exec);
     save_auto(afl);
     write_bitmap(afl);
 
@@ -555,7 +557,7 @@ void show_stats(afl_state_t *afl) {
   if (cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000) {
 
     afl->stats_last_plot_ms = cur_ms;
-    maybe_update_plot_file(afl, t_byte_ratio, afl->stats_avg_exec);
+    maybe_update_plot_file(afl, t_bytes, t_byte_ratio, afl->stats_avg_exec);
 
   }
 
@@ -1217,7 +1219,7 @@ void show_init_stats(afl_state_t *afl) {
       stringify_int(IB(0), min_us), stringify_int(IB(1), max_us),
       stringify_int(IB(2), avg_us));
 
-  if (!afl->timeout_given) {
+  if (afl->timeout_given != 1) {
 
     /* Figure out the appropriate timeout. The basic idea is: 5x average or
        1x max, rounded up to EXEC_TM_ROUND ms and capped at 1 second.

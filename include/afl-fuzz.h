@@ -570,6 +570,7 @@ typedef struct afl_state {
       blocks_eff_total,                 /* Blocks subject to effector maps  */
       blocks_eff_select,                /* Blocks selected as fuzzable      */
       start_time,                       /* Unix start time (ms)             */
+      last_sync_time,                   /* Time of last sync                */
       last_path_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time;                   /* Time for most recent hang (ms)   */
@@ -649,6 +650,7 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
+  u8  cmplog_enable_arith, cmplog_enable_transform;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map *      orig_cmp_map;
@@ -1070,8 +1072,8 @@ void destroy_extras(afl_state_t *);
 
 void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
-void write_stats_file(afl_state_t *, double, double, double);
-void maybe_update_plot_file(afl_state_t *, double, double);
+void write_stats_file(afl_state_t *, u32, double, double, double);
+void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void show_stats(afl_state_t *);
 void show_init_stats(afl_state_t *);
 

@@ -21,9 +21,16 @@
   mutations, more and better instrumentation, custom module support, etc.
 
   If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
-  on the website.
+  on the website. To cite our work, look at the [Cite](#cite) section.
+  For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
+  with `AFL_LLVM_CMPLOG=1`.
 
-## Major changes in afl++ 3.0
+## Major changes in afl++ 3.0 + 3.1
+
+With afl++ 3.1 we introduced the following changes from previous behaviours:
+  * The '+' feature of the '-t' option now means to  auto-calculate the timeout
+    with the value given being the maximum timeout. The original meaning of
+    "skipping timeouts instead of abort" is now inherent to the -t option.
 
 With afl++ 3.0 we introduced changes that break some previous afl and afl++
 behaviours and defaults:
@@ -754,6 +761,8 @@ campaigns as these are much shorter runnings.
    `-M` enables deterministic fuzzing, old queue handling etc. which is good for
    a fuzzing campaign but not good for short CI runs.
 
+How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/4bb61df7905c6005000f5766e966e6fe30ab4559/infra/base-images/base-builder/compile_afl#L69).
+
 ## Fuzzing binary-only targets
 
 When source code is *NOT* available, afl++ offers various support for fast,
@@ -1166,8 +1175,18 @@ Thank you!
 
 ## Cite
 
+If you use AFLpluplus to compare to your work, please use either `afl-clang-lto`
+or `afl-clang-fast` with `AFL_LLVM_CMPLOG=1` for building targets and
+`afl-fuzz` with the command line option `-l 2` for fuzzing.
+The most effective setup is the `aflplusplus` default configuration on Google's [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
+
 If you use AFLplusplus in scientific work, consider citing [our paper](https://www.usenix.org/conference/woot20/presentation/fioraldi) presented at WOOT'20:
-```
+
++ Andrea Fioraldi, Dominik Maier, Heiko Eißfeldt, and Marc Heuse. “AFL++: Combining incremental steps of fuzzing research”. In 14th USENIX Workshop on Offensive Technologies (WOOT 20). USENIX Association, Aug. 2020.
+
+Bibtex:
+
+```bibtex
 @inproceedings {AFLplusplus-Woot20,
 	author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
 	title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},

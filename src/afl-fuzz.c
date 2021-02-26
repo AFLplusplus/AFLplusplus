@@ -103,7 +103,10 @@ static void usage(u8 *argv0, int more_help) {
       "                  quad -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
+      "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
+      "Add a '+'\n"
+      "                  to auto-calculate the timeout, the value being the "
+      "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -122,10 +125,10 @@ static void usage(u8 *argv0, int more_help) {
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU, just use -c 0.\n"
-      "  -l cmplog_level - set the complexity/intensivity of CmpLog.\n"
-      "                  Values: 1 (basic), 2 (larger files) and 3 "
-      "(transform)\n\n"
-
+      "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
+      "                  1=small files (default), 2=larger files, 3=all "
+      "files,\n"
+      "                  A=arithmetic solving, T=transformational solving.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -137,8 +140,8 @@ static void usage(u8 *argv0, int more_help) {
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
-      "  -V seconds    - fuzz for a specific time then terminate\n"
-      "  -E execs      - fuzz for a approx. no of total executions then "
+      "  -V seconds    - fuzz for a specified time then terminate\n"
+      "  -E execs      - fuzz for an approx. no. of total executions then "
       "terminate\n"
       "                  Note: not precise and can have several more "
       "executions.\n\n"
@@ -812,13 +815,36 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'l': {
 
-        if (optarg) { afl->cmplog_lvl = atoi(optarg); }
-        if (afl->cmplog_lvl < 1 || afl->cmplog_lvl > CMPLOG_LVL_MAX) {
+        if (!optarg) { FATAL("missing parameter for 'l'"); }
+        char *c = optarg;
+        while (*c) {
 
-          FATAL(
-              "Bad complog level value, accepted values are 1 (default), 2 and "
-              "%u.",
-              CMPLOG_LVL_MAX);
+          switch (*c) {
+
+            case '0':
+            case '1':
+              afl->cmplog_lvl = 1;
+              break;
+            case '2':
+              afl->cmplog_lvl = 2;
+              break;
+            case '3':
+              afl->cmplog_lvl = 3;
+              break;
+            case 'a':
+            case 'A':
+              afl->cmplog_enable_arith = 1;
+              break;
+            case 't':
+            case 'T':
+              afl->cmplog_enable_transform = 1;
+              break;
+            default:
+              FATAL("Unknown option value '%c' in -l %s", *c, optarg);
+
+          }
+
+          ++c;
 
         }
 
@@ -1428,7 +1454,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!afl->timeout_given) { find_timeout(afl); }
+  if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
   if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
@@ -1682,9 +1708,38 @@ int main(int argc, char **argv_orig, char **envp) {
 
   cull_queue(afl);
 
-  if (!afl->pending_not_fuzzed) {
+  // ensure we have at least one seed that is not disabled.
+  u32 entry, valid_seeds = 0;
+  for (entry = 0; entry < afl->queued_paths; ++entry)
+    if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
+
+  if (!afl->pending_not_fuzzed || !valid_seeds) {
 
     FATAL("We need at least one valid input seed that does not crash!");
+
+  }
+
+  if (afl->timeout_given == 2) {  // -t ...+ option
+
+    if (valid_seeds == 1) {
+
+      WARNF(
+          "Only one valid seed is present, auto-calculating the timeout is "
+          "disabled!");
+      afl->timeout_given = 1;
+
+    } else {
+
+      u64 max_ms = 0;
+
+      for (entry = 0; entry < afl->queued_paths; ++entry)
+        if (!afl->queue_buf[entry]->disabled)
+          if (afl->queue_buf[entry]->exec_us > max_ms)
+            max_ms = afl->queue_buf[entry]->exec_us;
+
+      afl->fsrv.exec_tmout = max_ms;
+
+    }
 
   }
 
@@ -1694,8 +1749,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->start_time = get_cur_time();
   if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
-  write_stats_file(afl, 0, 0, 0);
-  maybe_update_plot_file(afl, 0, 0);
+  write_stats_file(afl, 0, 0, 0, 0);
+  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
   if (afl->stop_soon) { goto stop_fuzzing; }
@@ -1745,11 +1800,14 @@ int main(int argc, char **argv_orig, char **envp) {
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;
-        while (unlikely(afl->queue_buf[afl->current_entry]->disabled)) {
+        while (unlikely(afl->current_entry < afl->queued_paths &&
+                        afl->queue_buf[afl->current_entry]->disabled)) {
 
           ++afl->current_entry;
 
         }
+
+        if (afl->current_entry >= afl->queued_paths) { afl->current_entry = 0; }
 
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
@@ -1953,15 +2011,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (unlikely(afl->is_main_node)) {
 
-          if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
+          if (unlikely(get_cur_time() >
+                       (SYNC_TIME >> 1) + afl->last_sync_time)) {
 
-            sync_fuzzers(afl);
+            if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
+
+              sync_fuzzers(afl);
+
+            }
 
           }
 
         } else {
 
-          if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+          if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
+
+            if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+
+          }
 
         }
 
@@ -1976,12 +2043,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   write_bitmap(afl);
-  maybe_update_plot_file(afl, 0, 0);
+  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
 stop_fuzzing:
 
-  write_stats_file(afl, 0, 0, 0);
+  write_stats_file(afl, 0, 0, 0, 0);
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
 

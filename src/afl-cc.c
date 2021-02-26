@@ -1421,6 +1421,14 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_DEFAULT &&
+      (compiler_mode == LLVM || compiler_mode == UNSET)) {
+
+    instrument_mode = INSTRUMENT_CLASSIC;
+    compiler_mode = LLVM;
+
+  }
+
   if (!compiler_mode) {
 
     // lto is not a default because outside of afl-cc RANLIB and AR have to
@@ -1699,7 +1707,10 @@ int main(int argc, char **argv, char **envp) {
         "Do not be overwhelmed :) afl-cc uses good defaults if no options are "
         "selected.\n"
         "Read the documentation for FEATURES though, all are good but few are "
-        "defaults.\n\n");
+        "defaults.\n"
+        "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast "
+        "with\n"
+        "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n");
 
     exit(1);
 
@@ -1791,8 +1802,8 @@ int main(int argc, char **argv, char **envp) {
   if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
       instrument_mode != INSTRUMENT_CFG)
     FATAL(
-        "CTX and NGRAM instrumentation options can only be used with CFG "
-        "(recommended) and CLASSIC instrumentation modes!");
+        "CTX and NGRAM instrumentation options can only be used with LLVM and "
+        "CFG or CLASSIC instrumentation modes!");
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
     FATAL(

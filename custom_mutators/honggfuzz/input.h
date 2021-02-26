@@ -77,11 +77,11 @@ static inline uint64_t util_rndGet(uint64_t min, uint64_t max) {
 }
 static inline uint64_t util_rnd64() { return rand_below(afl_struct, 1 << 30); }
 
-static inline size_t input_getRandomInputAsBuf(run_t *run, const uint8_t **buf) {
-  *buf = queue_input;
+static inline const uint8_t* input_getRandomInputAsBuf(run_t* run, size_t* len) {
+  *len = queue_input_size;
   run->dynfile->data = queue_input;
   run->dynfile->size = queue_input_size;
-  return queue_input_size;
+  return queue_input;
 }
 static inline void input_setSize(run_t* run, size_t sz) {
   run->dynfile->size = sz;
