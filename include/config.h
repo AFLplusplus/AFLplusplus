@@ -50,7 +50,7 @@
 #define CMPLOG_COMBINE
 
 /* Minimum % of the corpus to perform cmplog on. Default: 10% */
-#define CMPLOG_CORPUS_PERCENT 10U
+#define CMPLOG_CORPUS_PERCENT 5U
 
 /* Number of potential positions from which we decide if cmplog becomes
    useless, default 8096 */
