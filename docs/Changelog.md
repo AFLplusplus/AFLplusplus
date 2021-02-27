@@ -118,6 +118,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       mutation reproduction on crashing inputs
     - new env. var. AFL_NO_COLOR (or AFL_NO_COLOUR) to suppress colored
       console output (when configured with USE_COLOR and not ALWAYS_COLORED)
+    - added Rust bindings for custom mutators (thanks @julihoh)
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you
       very much!!
