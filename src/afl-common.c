@@ -372,11 +372,11 @@ u8 *get_libqasan_path(u8 *own_loc) {
 
   }
 
-  if (!access(BIN_PATH "/libqasan.so", X_OK)) {
+  if (!access(AFL_PATH "/libqasan.so", X_OK)) {
 
     if (cp) { ck_free(cp); }
 
-    return ck_strdup(BIN_PATH "/libqasan.so");
+    return ck_strdup(AFL_PATH "/libqasan.so");
 
   }
 
