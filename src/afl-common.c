@@ -47,6 +47,10 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
+#ifndef AFL_PATH
+  #define AFL_PATH "/usr/local/lib/afl/"
+#endif
+
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
