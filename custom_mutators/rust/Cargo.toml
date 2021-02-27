@@ -3,5 +3,6 @@ members = [
     "custom_mutator-sys",
     "custom_mutator",
     "example",
-    "example_lain",
+    # Lain needs a nightly toolchain
+    # "example_lain",
 ]

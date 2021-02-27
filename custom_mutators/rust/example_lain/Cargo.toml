@@ -10,5 +10,7 @@ edition = "2018"
 custom_mutator = { path = "../custom_mutator" }
 lain="0.5"
 
-[lib]
+[[example]]
+name = "example_lain"
+path = "./src/lain_mutator.rs"
 crate-type = ["cdylib"]

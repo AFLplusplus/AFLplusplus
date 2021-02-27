@@ -1,5 +1,5 @@
 [package]
-name = "example"
+name = "example_mutator"
 version = "0.1.0"
 authors = ["Julius Hohnerlein <julihoh@users.noreply.github.com>"]
 edition = "2018"
@@ -9,5 +9,7 @@ edition = "2018"
 [dependencies]
 custom_mutator = { path = "../custom_mutator" }
 
-[lib]
+[[example]]
+name = "example_mutator"
+path = "./src/example_mutator.rs"
 crate-type = ["cdylib"]
