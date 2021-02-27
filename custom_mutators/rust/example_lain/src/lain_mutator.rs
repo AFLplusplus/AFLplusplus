@@ -4,7 +4,6 @@ use lain::{
     prelude::*,
     rand::{rngs::StdRng, SeedableRng},
 };
-use std::os::raw::c_uint;
 
 #[derive(Debug, Mutatable, NewFuzzed, BinarySerialize)]
 struct MyStruct {
@@ -31,7 +30,7 @@ struct LainMutator {
 impl CustomMutator for LainMutator {
     type Error = ();
 
-    fn init(seed: c_uint) -> Result<Self, ()> {
+    fn init(seed: u32) -> Result<Self, ()> {
         Ok(Self {
             mutator: Mutator::new(StdRng::seed_from_u64(seed as u64)),
             buffer: Vec::new(),

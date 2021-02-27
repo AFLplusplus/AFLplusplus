@@ -1,14 +1,13 @@
 #![allow(unused_variables)]
 
 use custom_mutator::{export_mutator, CustomMutator};
-use std::os::raw::c_uint;
 
 struct ExampleMutator;
 
 impl CustomMutator for ExampleMutator {
     type Error = ();
 
-    fn init(seed: c_uint) -> Result<Self, ()> {
+    fn init(seed: u32) -> Result<Self, Self::Error> {
         Ok(Self)
     }
 
@@ -17,7 +16,7 @@ impl CustomMutator for ExampleMutator {
         buffer: &'b mut [u8],
         add_buff: Option<&[u8]>,
         max_size: usize,
-    ) -> Result<Option<&'b [u8]>, ()> {
+    ) -> Result<Option<&'b [u8]>, Self::Error> {
         buffer.reverse();
         Ok(Some(buffer))
     }
@@ -30,7 +29,7 @@ struct OwnBufferExampleMutator {
 impl CustomMutator for OwnBufferExampleMutator {
     type Error = ();
 
-    fn init(seed: c_uint) -> Result<Self, ()> {
+    fn init(seed: u32) -> Result<Self, Self::Error> {
         Ok(Self {
             own_buffer: Vec::new(),
         })

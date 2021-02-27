@@ -23,7 +23,7 @@
 //! The state is passed to [`CustomMutator::init`], when the feature is activated.
 //!
 //! _This is completely unsafe and uses automatically generated types extracted from the AFL++ source._
-use std::{ffi::CStr, fmt::Debug, os::raw::c_uint};
+use std::{ffi::CStr, fmt::Debug};
 
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
@@ -37,7 +37,7 @@ pub trait RawCustomMutator {
     where
         Self: Sized;
     #[cfg(not(feature = "afl_internals"))]
-    fn init(seed: c_uint) -> Self
+    fn init(seed: u32) -> Self
     where
         Self: Sized;
 
@@ -87,7 +87,7 @@ pub mod wrappers {
         convert::TryInto,
         ffi::{c_void, CStr},
         mem::ManuallyDrop,
-        os::raw::{c_char, c_uint},
+        os::raw::c_char,
         panic::catch_unwind,
         process::abort,
         ptr::null,
@@ -112,13 +112,13 @@ pub mod wrappers {
         }
 
         #[cfg(feature = "afl_internals")]
-        fn new(afl: &'static afl_state, seed: c_uint) -> Box<Self> {
+        fn new(afl: &'static afl_state, seed: u32) -> Box<Self> {
             Box::new(Self {
                 mutator: M::init(afl, seed),
             })
         }
         #[cfg(not(feature = "afl_internals"))]
-        fn new(seed: c_uint) -> Box<Self> {
+        fn new(seed: u32) -> Box<Self> {
             Box::new(Self {
                 mutator: M::init(seed),
             })
@@ -143,7 +143,7 @@ pub mod wrappers {
 
     /// Internal function used in the macro
     #[cfg(not(feature = "afl_internals"))]
-    pub fn afl_custom_init_<M: RawCustomMutator>(seed: c_uint) -> *const c_void {
+    pub fn afl_custom_init_<M: RawCustomMutator>(seed: u32) -> *const c_void {
         match catch_unwind(|| FFIContext::<M>::new(seed).into_ptr()) {
             Ok(ret) => ret,
             Err(err) => panic_handler("afl_custom_init", err),
@@ -154,7 +154,7 @@ pub mod wrappers {
     #[cfg(feature = "afl_internals")]
     pub fn afl_custom_init_<M: RawCustomMutator>(
         afl: Option<&'static afl_state>,
-        seed: c_uint,
+        seed: u32,
     ) -> *const c_void {
         match catch_unwind(|| {
             let afl = afl.expect("mutator func called with NULL afl");
@@ -328,16 +328,15 @@ pub mod wrappers {
 /// # #[cfg(feature = "afl_internals")]
 /// # use custom_mutator::afl_state;
 /// # use custom_mutator::CustomMutator;
-/// # use std::os::raw::c_uint;
 /// struct MyMutator;
 /// impl CustomMutator for MyMutator {
 ///     /// ...
 /// #  type Error = ();
 /// #  #[cfg(feature = "afl_internals")]
-/// #  fn init(_afl_state: &afl_state, _seed: c_uint) -> Result<Self,()> {unimplemented!()}
+/// #  fn init(_afl_state: &afl_state, _seed: u32) -> Result<Self,()> {unimplemented!()}
 /// #  #[cfg(not(feature = "afl_internals"))]
-/// #  fn init(_seed: c_uint) -> Result<Self,()> {unimplemented!()}
-/// #  fn fuzz<'b,'s:'b>(&'s mut self, _buffer: &'b mut [u8], _add_buff: Option<&[u8]>, _max_size: usize) -> Result<Option<&'b [u8]>,()> {unimplemented!()}
+/// #  fn init(_seed: u32) -> Result<Self, Self::Error> {unimplemented!()}
+/// #  fn fuzz<'b,'s:'b>(&'s mut self, _buffer: &'b mut [u8], _add_buff: Option<&[u8]>, _max_size: usize) -> Result<Option<&'b [u8]>, Self::Error> {unimplemented!()}
 /// }
 /// export_mutator!(MyMutator);
 /// ```
@@ -350,7 +349,7 @@ macro_rules! export_mutator {
             afl: ::std::option::Option<&'static $crate::afl_state>,
             seed: ::std::os::raw::c_uint,
         ) -> *const ::std::os::raw::c_void {
-            $crate::wrappers::afl_custom_init_::<$mutator_type>(afl, seed)
+            $crate::wrappers::afl_custom_init_::<$mutator_type>(afl, seed as u32)
         }
 
         #[cfg(not(feature = "afl_internals"))]
@@ -359,7 +358,7 @@ macro_rules! export_mutator {
             _afl: *const ::std::os::raw::c_void,
             seed: ::std::os::raw::c_uint,
         ) -> *const ::std::os::raw::c_void {
-            $crate::wrappers::afl_custom_init_::<$mutator_type>(seed)
+            $crate::wrappers::afl_custom_init_::<$mutator_type>(seed as u32)
         }
 
         #[no_mangle]
@@ -442,8 +441,6 @@ macro_rules! export_mutator {
 #[cfg(test)]
 /// this sanity test is supposed to just find out whether an empty mutator being exported by the macro compiles
 mod sanity_test {
-    use std::os::raw::c_uint;
-
     #[cfg(feature = "afl_internals")]
     use super::afl_state;
 
@@ -453,12 +450,12 @@ mod sanity_test {
 
     impl RawCustomMutator for ExampleMutator {
         #[cfg(feature = "afl_internals")]
-        fn init(_afl: &afl_state, _seed: c_uint) -> Self {
+        fn init(_afl: &afl_state, _seed: u32) -> Self {
             unimplemented!()
         }
 
         #[cfg(not(feature = "afl_internals"))]
-        fn init(_seed: c_uint) -> Self {
+        fn init(_seed: u32) -> Self {
             unimplemented!()
         }
 
@@ -497,12 +494,12 @@ pub trait CustomMutator {
     }
 
     #[cfg(feature = "afl_internals")]
-    fn init(afl: &'static afl_state, seed: c_uint) -> Result<Self, Self::Error>
+    fn init(afl: &'static afl_state, seed: u32) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
     #[cfg(not(feature = "afl_internals"))]
-    fn init(seed: c_uint) -> Result<Self, Self::Error>
+    fn init(seed: u32) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
@@ -544,7 +541,7 @@ where
     M::Error: Debug,
 {
     #[cfg(feature = "afl_internals")]
-    fn init(afl: &'static afl_state, seed: c_uint) -> Self
+    fn init(afl: &'static afl_state, seed: u32) -> Self
     where
         Self: Sized,
     {
@@ -558,7 +555,7 @@ where
     }
 
     #[cfg(not(feature = "afl_internals"))]
-    fn init(seed: c_uint) -> Self
+    fn init(seed: u32) -> Self
     where
         Self: Sized,
     {
