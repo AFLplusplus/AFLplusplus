@@ -60,8 +60,8 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
   DONE=1
 fi
 if [ "$PLATFORM" = "DragonFly" ] ; then
-  echo
-  echo 'System security features cannot be disabled on DragonFly.'
+  /sbin/sysctl kern.corefile=/dev/null
+  echo Settings applied.
   DONE=1
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
