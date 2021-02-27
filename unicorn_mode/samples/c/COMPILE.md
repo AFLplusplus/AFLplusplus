@@ -17,6 +17,6 @@ You shouldn't need to compile simple_target.c since a X86_64 binary version is
 pre-built and shipped in this sample folder. This file documents how the binary
 was built in case you want to rebuild it or recompile it for any reason.
 
-The pre-built binary (simple_target_x86_64.bin) was built using -g -O0 in gcc.
+The pre-built binary (persistent_target_x86_64) was built using -g -O0 in gcc.
 
 We then load the binary and execute the main function directly.
