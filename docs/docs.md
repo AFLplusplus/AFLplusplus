@@ -63,6 +63,31 @@ The project does not require writing new documentation or tutorials beside the
 cheat sheet. The technical information for the cheat sheet will be provided by
 us.
 
+## Metrics
+
+afl++ is a the highest performant fuzzer publicly available - but is also the
+most feature rich and complex. With the publicity of afl++' success and
+deployment in Google projects internally and externally and availability as
+a package on most Linux distributions we see more and more issues being
+created and help requests on our Discord channel that would not be
+necessary if people would have read through all our documentation - which
+is unrealistic.
+
+We expect the the new documenation after this project to be cleaner, easier
+accessible and lighter to digest by our users, resulting in much less
+help requests. On the other hand the amount of users using afl++ should
+increase as well as it will be more accessible which would also increase
+questions again - but overall resulting in a reduction of help requests.
+
+In numbers: we currently have per week on average 5 issues on Github,
+10 questions on discord and 1 on mailing lists that would not be necessary
+with perfect documentation and perfect people.
+
+We would consider this project a success if afterwards we only have
+2 issues on Github and 3 questions on discord anymore that would be answered
+by reading the documentation. The mailing list is usually used by the most
+novice users and we don't expect any less questions there.
+
 ## Project Budget
 
 We have zero experience with technical writers, so this is very hard for us
@@ -70,13 +95,19 @@ to calculate. We expect it to be a lot of work though because of the amount
 of documentation we have that needs to be restructured and partially rewritten
 (44 documents with 13k total lines of content).
 
+We assume the daily rate of a very good and experienced technical writer in
+times of a pandemic to be ~500$ (according to web research), and calculate
+the overall amout of work to be around 20 days for everything incl. the
+graphics (but again - this is basically just guessing).
+
 Technical Writer                                              10000$
 Volunteer stipends                                                0$ (waved)
 T-Shirts for the top 10 contributors and helpers to this documentation project:
 	10 afl++ logo t-shirts 		20$ each		200$
 	10 shipping cost of t-shirts    10$ each		100$
-                                                         
+
 Total: 10.300$
+(in the submission form 10.280$ was entered)
 
 ## Additional Information
 
