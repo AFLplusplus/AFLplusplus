@@ -123,6 +123,10 @@ static u8 is_persistent;
 
 static u8 _is_sancov;
 
+/* Dummy pipe for area_is_valid() */
+
+static int dummy_pipe;
+
 /* ensure we kill the child on termination */
 
 void at_exit(int signal) {
@@ -476,6 +480,11 @@ static void __afl_map_shm(void) {
   }
 
   if (id_str) {
+  
+    if (pipe(dummy_pipe) < 0) {
+      perror("pipe() failed\n");
+      exit(1);
+    }
 
 #ifdef USEMMAP
     const char *    shm_file_path = id_str;
@@ -1567,9 +1576,8 @@ static int area_is_valid(void *ptr, size_t len) {
   char *p = (char *)ptr;
   char *page = (char *)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
 
-  int r = syscall(SYS_msync, page, (p - page) + len, MS_ASYNC);
-  if (r < 0) return errno != ENOMEM;
-  return 1;
+  int r = syscall(dummy_pipe[1], SYS_write, page, (p - page) + len);
+  return errno != EFAULT;
 
 }
 
