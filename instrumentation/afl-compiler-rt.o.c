@@ -34,7 +34,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#include <sys/syscall.h> 
+#include <sys/syscall.h>
 #ifndef __HAIKU__
   #include <sys/shm.h>
 #endif
@@ -125,7 +125,7 @@ static u8 _is_sancov;
 
 /* Dummy pipe for area_is_valid() */
 
-static int dummy_pipe[2];
+static int __afl_dummy_fd[2] = {2, 2};
 
 /* ensure we kill the child on termination */
 
@@ -480,10 +480,11 @@ static void __afl_map_shm(void) {
   }
 
   if (id_str) {
-  
-    if (pipe(dummy_pipe) < 0) {
-      perror("pipe() failed\n");
-      exit(1);
+
+    if ((__afl_dummy_fd[0] = open("/dev/null", O_WRONLY)) < 0) {
+
+      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[0] = 1; }
+
     }
 
 #ifdef USEMMAP
@@ -1562,7 +1563,9 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 }
 
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
+
   return NULL;
+
 }
 
 // POSIX shenanigan to see if an area is mapped.
@@ -1570,14 +1573,47 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
 // to avoid to call it on .text addresses
 static int area_is_valid(void *ptr, size_t len) {
 
-  if (__asan_region_is_poisoned(ptr, len))
+  void *ret_ptr = __asan_region_is_poisoned(ptr, len);
+
+  if (ret_ptr) {  // region is poisoned
+
+    ssize_t ret_diff = ret_ptr - ptr;
+
+    if (ret_diff <= 0) {
+
+      return 0;
+
+    } else {
+
+      return ret_diff;  // only partially poisoned
+
+    }
+
+  }
+
+  int r = syscall(__afl_dummy_fd[0], SYS_write, ptr, len);
+
+  if (r <= 0) {  //  maybe this is going over an asan boundary
+
+    char *p = (char *)ptr;
+    long  page_size = sysconf(_SC_PAGE_SIZE);
+    char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
+    if (page < p + len) { return 0; }
+    len -= (p + len - page);
+    r = syscall(__afl_dummy_fd[0], SYS_write, p, len);
+
+  }
+
+  // partial writes - we return what was written.
+  if (r > 0) {
+
+    return r;
+
+  } else {
+
     return 0;
 
-  char *p = (char *)ptr;
-  char *page = (char *)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
-
-  int r = syscall(dummy_pipe[1], SYS_write, page, (p - page) + len);
-  return errno != EFAULT;
+  }
 
 }
 
@@ -1585,19 +1621,22 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   /*
     u32 i;
-    if (!area_is_valid(ptr1, 32) || !area_is_valid(ptr2, 32)) return;
+    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
     fprintf(stderr, "rtn arg0=");
-    for (i = 0; i < 24; i++)
+    for (i = 0; i < 32; i++)
       fprintf(stderr, "%02x", ptr1[i]);
     fprintf(stderr, " arg1=");
-    for (i = 0; i < 24; i++)
+    for (i = 0; i < 32; i++)
       fprintf(stderr, "%02x", ptr2[i]);
     fprintf(stderr, "\n");
   */
 
   if (unlikely(!__afl_cmp_map)) return;
-
-  if (!area_is_valid(ptr1, 32) || !area_is_valid(ptr2, 32)) return;
+  int l1, l2;
+  if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
+      (l2 = area_is_valid(ptr2, 32)) <= 0)
+    return;
+  int len = MIN(l1, l2);
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1608,17 +1647,17 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    hits = 0;
     __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 31;
+    __afl_cmp_map->headers[k].shape = len - 1;
+    hits = 0;
 
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
 
-    if (__afl_cmp_map->headers[k].shape < 31) {
+    if (__afl_cmp_map->headers[k].shape < len) {
 
-      __afl_cmp_map->headers[k].shape = 31;
+      __afl_cmp_map->headers[k].shape = len;
 
     }
 
@@ -1626,9 +1665,9 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   hits &= CMP_MAP_RTN_H - 1;
   __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0,
-                   ptr1, 32);
+                   ptr1, len);
   __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1,
-                   ptr2, 32);
+                   ptr2, len);
 
 }
 
@@ -1674,7 +1713,8 @@ static u8 *get_llvm_stdstring(u8 *string) {
 void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_valid(stdstring, 32) || !area_is_valid(cstring, 32)) return;
+  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+    return;
 
   __cmplog_rtn_hook(get_gcc_stdstring(stdstring), cstring);
 
@@ -1683,7 +1723,7 @@ void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_valid(stdstring1, 32) || !area_is_valid(stdstring2, 32))
+  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
     return;
 
   __cmplog_rtn_hook(get_gcc_stdstring(stdstring1),
@@ -1694,7 +1734,8 @@ void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_valid(stdstring, 32) || !area_is_valid(cstring, 32)) return;
+  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+    return;
 
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
 
@@ -1703,7 +1744,7 @@ void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_valid(stdstring1, 32) || !area_is_valid(stdstring2, 32))
+  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
     return;
 
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
