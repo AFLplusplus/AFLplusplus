@@ -374,10 +374,20 @@ if [ "$ORIG_CROSS" = "" ]; then
   fi
 fi
 
-if ! command -v "$CROSS" > /dev/null
-then
+if ! command -v "$CROSS" > /dev/null ; then
+  if [ "$CPU_TARGET" = "$(uname -m)" ] ; then
+    echo "[+] Building afl++ qemu support libraries with CC=$CC"
+    echo "[+] Building libcompcov ..."
+    make -C libcompcov && echo "[+] libcompcov ready"
+    echo "[+] Building unsigaction ..."
+    make -C unsigaction && echo "[+] unsigaction ready"
+    echo "[+] Building libqasan ..."
+    make -C libqasan && echo "[+] unsigaction ready"
+  else
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
+  fi
 else
+  echo "[+] Building afl++ qemu support libraries with CC=$CROSS"
   echo "[+] Building libcompcov ..."
   make -C libcompcov CC=$CROSS && echo "[+] libcompcov ready"
   echo "[+] Building unsigaction ..."
