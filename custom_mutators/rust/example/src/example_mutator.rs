@@ -21,6 +21,44 @@ impl CustomMutator for ExampleMutator {
         buffer.reverse();
         Ok(Some(buffer))
     }
+
+    fn handle_error(err: Self::Error) {
+        if std::env::var("AFL_CUSTOM_MUTATOR_DEBUG")
+            .map(|v| !v.is_empty())
+            .unwrap_or(false)
+        {
+            eprintln!("Error in custom mutator: {:?}", err)
+        }
+    }
+
+    fn fuzz_count(&mut self, buffer: &[u8]) -> Result<u32, Self::Error> {
+        Ok(1)
+    }
+
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &std::ffi::OsStr,
+        filename_orig_queue: Option<&std::ffi::OsStr>,
+    ) -> Result<(), Self::Error> {
+        eprintln!(
+            "filename_new_queue {:#?}, filename_orig_queue {:#?}",
+            filename_new_queue, filename_orig_queue
+        );
+        Ok(())
+    }
+
+    fn queue_get(&mut self, filename: &std::ffi::OsStr) -> Result<bool, Self::Error> {
+        eprintln!("filename {:#?}", filename);
+        Ok(true)
+    }
+
+    fn describe(&mut self, max_description: usize) -> Result<Option<&str>, Self::Error> {
+        Ok(Some("MyMutator"))
+    }
+
+    fn introspection(&mut self) -> Result<Option<&str>, Self::Error> {
+        Ok(None)
+    }
 }
 
 struct OwnBufferExampleMutator {
