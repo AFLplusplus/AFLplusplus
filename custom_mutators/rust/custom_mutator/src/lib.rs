@@ -65,7 +65,7 @@ pub trait RawCustomMutator {
     }
 
     fn describe(&mut self, max_description: usize) -> Option<&str> {
-        None
+        Some(default_mutator_describe::<Self>(max_description))
     }
 
     fn introspection(&mut self) -> Option<&str> {
@@ -552,7 +552,7 @@ pub trait CustomMutator {
     }
 
     fn describe(&mut self, max_description: usize) -> Result<Option<&str>, Self::Error> {
-        Ok(None)
+        Ok(Some(default_mutator_describe::<Self>(max_description)))
     }
 
     fn introspection(&mut self) -> Result<Option<&str>, Self::Error> {
@@ -654,6 +654,88 @@ where
                 Self::handle_error(e);
                 None
             }
+        }
+    }
+}
+
+/// the default value to return from [`CustomMutator::describe`].
+fn default_mutator_describe<T: ?Sized>(max_len: usize) -> &'static str {
+    truncate_str_unicode_safe(std::any::type_name::<T>(), max_len)
+}
+
+#[cfg(test)]
+mod default_mutator_describe {
+    struct MyMutator;
+    use super::CustomMutator;
+    impl CustomMutator for MyMutator {
+        type Error = ();
+
+        fn init(_: u32) -> Result<Self, Self::Error> {
+            Ok(Self)
+        }
+
+        fn fuzz<'b, 's: 'b>(
+            &'s mut self,
+            _: &'b mut [u8],
+            _: Option<&[u8]>,
+            _: usize,
+        ) -> Result<Option<&'b [u8]>, Self::Error> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_default_describe() {
+        assert_eq!(
+            MyMutator::init(0).unwrap().describe(64).unwrap().unwrap(),
+            "custom_mutator::default_mutator_describe::MyMutator"
+        );
+    }
+}
+
+/// little helper function to truncate a `str` to a maximum of bytes while retaining unicode safety
+fn truncate_str_unicode_safe(s: &str, max_len: usize) -> &str {
+    if s.len() <= max_len {
+        s
+    } else {
+        if let Some((last_index, _)) = s
+            .char_indices()
+            .take_while(|(index, _)| *index <= max_len)
+            .last()
+        {
+            &s[..last_index]
+        } else {
+            ""
+        }
+    }
+}
+
+#[cfg(test)]
+mod truncate_test {
+    use super::truncate_str_unicode_safe;
+
+    #[test]
+    fn test_truncate() {
+        for (max_len, input, expected_output) in &[
+            (0usize, "a", ""),
+            (1, "a", "a"),
+            (1, "ä", ""),
+            (2, "ä", "ä"),
+            (3, "äa", "äa"),
+            (4, "äa", "äa"),
+            (1, "👎", ""),
+            (2, "👎", ""),
+            (3, "👎", ""),
+            (4, "👎", "👎"),
+            (1, "abc", "a"),
+            (2, "abc", "ab"),
+        ] {
+            let actual_output = truncate_str_unicode_safe(input, *max_len);
+            assert_eq!(
+                &actual_output, expected_output,
+                "{:#?} truncated to {} bytes should be {:#?}, but is {:#?}",
+                input, max_len, expected_output, actual_output
+            );
         }
     }
 }
