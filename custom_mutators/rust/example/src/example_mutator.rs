@@ -1,4 +1,4 @@
-#![cfg(os_family="unix")]
+#![cfg(unix)]
 #![allow(unused_variables)]
 
 use custom_mutator::{export_mutator, CustomMutator};
