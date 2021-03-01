@@ -47,6 +47,10 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
+#ifndef AFL_PATH
+  #define AFL_PATH "/usr/local/lib/afl/"
+#endif
+
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
@@ -372,11 +376,11 @@ u8 *get_libqasan_path(u8 *own_loc) {
 
   }
 
-  if (!access(BIN_PATH "/libqasan.so", X_OK)) {
+  if (!access(AFL_PATH "/libqasan.so", X_OK)) {
 
     if (cp) { ck_free(cp); }
 
-    return ck_strdup(BIN_PATH "/libqasan.so");
+    return ck_strdup(AFL_PATH "/libqasan.so");
 
   }
 
@@ -1131,7 +1135,7 @@ u32 get_map_size(void) {
 
     }
 
-    if (map_size % 32) { map_size = (((map_size >> 5) + 1) << 5); }
+    if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
   }
 

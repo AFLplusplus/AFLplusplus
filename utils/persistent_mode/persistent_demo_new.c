@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 
     len = __AFL_FUZZ_TESTCASE_LEN;  // do not use the macro directly in a call!
 
-    fprintf(stderr, "input: %zd \"%s\"\n", len, buf);
+    // fprintf(stderr, "input: %zd \"%s\"\n", len, buf);
 
     /* do we have enough data? */
     if (len < 8) continue;

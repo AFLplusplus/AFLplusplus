@@ -1,5 +1,6 @@
 PREFIX   ?= /usr/local
 BIN_PATH  = $(PREFIX)/bin
+HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH  = $(PREFIX)/share/doc/afl
 
 PROGRAMS = afl-network-client afl-network-server
@@ -31,7 +32,7 @@ afl-network-client:	afl-network-client.c
 	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c $(LDFLAGS)
 
 afl-network-server:	afl-network-server.c
-	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DBIN_PATH=\"$(BIN_PATH)\" $(LDFLAGS)
+	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" $(LDFLAGS)
 
 clean:
 	rm -f $(PROGRAMS) *~ core
