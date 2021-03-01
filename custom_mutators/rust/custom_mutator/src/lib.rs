@@ -34,7 +34,7 @@ pub use custom_mutator_sys::afl_state;
 #[doc(hidden)]
 pub trait RawCustomMutator {
     #[cfg(feature = "afl_internals")]
-    fn init(afl: &'static afl_state, seed: c_uint) -> Self
+    fn init(afl: &'static afl_state, seed: u32) -> Self
     where
         Self: Sized;
     #[cfg(not(feature = "afl_internals"))]
@@ -125,6 +125,8 @@ pub mod wrappers {
         fn new(afl: &'static afl_state, seed: u32) -> Box<Self> {
             Box::new(Self {
                 mutator: M::init(afl, seed),
+                description_buffer: Vec::new(),
+                introspection_buffer: Vec::new(),
             })
         }
         #[cfg(not(feature = "afl_internals"))]
@@ -663,7 +665,7 @@ fn default_mutator_describe<T: ?Sized>(max_len: usize) -> &'static str {
     truncate_str_unicode_safe(std::any::type_name::<T>(), max_len)
 }
 
-#[cfg(test)]
+#[cfg(all(test,not(feature = "afl_internals")))]
 mod default_mutator_describe {
     struct MyMutator;
     use super::CustomMutator;
