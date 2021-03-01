@@ -125,7 +125,7 @@ static u8 _is_sancov;
 
 /* Dummy pipe for area_is_valid() */
 
-static int dummy_pipe;
+static int dummy_pipe[2];
 
 /* ensure we kill the child on termination */
 
