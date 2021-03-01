@@ -34,6 +34,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
+#include <sys/syscall.h> 
 #ifndef __HAIKU__
   #include <sys/shm.h>
 #endif
@@ -1551,15 +1552,22 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
 }
 
+__attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
+  return NULL;
+}
+
 // POSIX shenanigan to see if an area is mapped.
 // If it is mapped as X-only, we have a problem, so maybe we should add a check
 // to avoid to call it on .text addresses
 static int area_is_mapped(void *ptr, size_t len) {
 
+  if (__asan_region_is_poisoned(ptr, len) == NULL)
+    return 1;
+
   char *p = (char *)ptr;
   char *page = (char *)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
 
-  int r = msync(page, (p - page) + len, MS_ASYNC);
+  int r = syscall(SYS_msync, page, (p - page) + len, MS_ASYNC);
   if (r < 0) return errno != ENOMEM;
   return 1;
 
