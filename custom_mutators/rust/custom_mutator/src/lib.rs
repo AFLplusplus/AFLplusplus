@@ -58,11 +58,11 @@ pub trait RawCustomMutator {
         true
     }
 
-    fn describe(&mut self, max_description: usize) -> Option<&CStr> {
+    fn describe(&mut self, max_description: usize) -> Option<&str> {
         None
     }
 
-    fn introspection(&mut self) -> Option<&CStr> {
+    fn introspection(&mut self) -> Option<&str> {
         None
     }
 
@@ -99,6 +99,10 @@ pub mod wrappers {
     /// Also has some convenience functions for FFI conversions (from and to ptr) and tries to make misuse hard (see [`FFIContext::from`]).
     struct FFIContext<M: RawCustomMutator> {
         mutator: M,
+        /// buffer for storing the description returned by [`RawCustomMutator::describe`] as a CString
+        description_buffer: Vec<u8>,
+        /// buffer for storing the introspection returned by [`RawCustomMutator::introspect`] as a CString
+        introspection_buffer: Vec<u8>,
     }
 
     impl<M: RawCustomMutator> FFIContext<M> {
@@ -121,6 +125,8 @@ pub mod wrappers {
         fn new(seed: u32) -> Box<Self> {
             Box::new(Self {
                 mutator: M::init(seed),
+                description_buffer: Vec::new(),
+                introspection_buffer: Vec::new(),
             })
         }
     }
@@ -271,9 +277,14 @@ pub mod wrappers {
     /// Internal function used in the macro
     pub fn afl_custom_introspection_<M: RawCustomMutator>(data: *mut c_void) -> *const c_char {
         match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
+            let context = &mut *FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.introspection() {
-                res.as_ptr()
+                let buf = context.introspection_buffer;
+                buf.clear();
+                buf.extend_from_slice(res.as_bytes());
+                buf.push(0);
+                // TODO don't unwrap. implement a proper error handling strategy
+                CStr::from_bytes_with_nul(&buf).unwrap().as_ptr()
             } else {
                 null()
             }
@@ -289,9 +300,14 @@ pub mod wrappers {
         max_description_len: usize,
     ) -> *const c_char {
         match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
+            let context = &mut *FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.describe(max_description_len) {
-                res.as_ptr()
+                let buf = context.description_buffer;
+                buf.clear();
+                buf.extend_from_slice(res.as_bytes());
+                buf.push(0);
+                // TODO don't unwrap. implement a proper error handling strategy
+                CStr::from_bytes_with_nul(&buf).unwrap().as_ptr()
             } else {
                 null()
             }
@@ -526,11 +542,11 @@ pub trait CustomMutator {
         Ok(true)
     }
 
-    fn describe(&mut self, max_description: usize) -> Result<Option<&CStr>, Self::Error> {
+    fn describe(&mut self, max_description: usize) -> Result<Option<&str>, Self::Error> {
         Ok(None)
     }
 
-    fn introspection(&mut self) -> Result<Option<&CStr>, Self::Error> {
+    fn introspection(&mut self) -> Result<Option<&str>, Self::Error> {
         Ok(None)
     }
 }
@@ -612,7 +628,7 @@ where
         }
     }
 
-    fn describe(&mut self, max_description: usize) -> Option<&CStr> {
+    fn describe(&mut self, max_description: usize) -> Option<&str> {
         match self.describe(max_description) {
             Ok(r) => r,
             Err(e) => {
@@ -622,7 +638,7 @@ where
         }
     }
 
-    fn introspection(&mut self) -> Option<&CStr> {
+    fn introspection(&mut self) -> Option<&str> {
         match self.introspection() {
             Ok(r) => r,
             Err(e) => {
