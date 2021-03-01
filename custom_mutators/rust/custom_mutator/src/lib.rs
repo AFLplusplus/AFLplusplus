@@ -1,3 +1,4 @@
+#![cfg(os_family = "unix")]
 //! Somewhat safe and somewhat ergonomic bindings for creating [AFL++](https://github.com/AFLplusplus/AFLplusplus) [custom mutators](https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/custom_mutators.md) in Rust.
 //!
 //! # Usage
@@ -23,7 +24,7 @@
 //! The state is passed to [`CustomMutator::init`], when the feature is activated.
 //!
 //! _This is completely unsafe and uses automatically generated types extracted from the AFL++ source._
-use std::{ffi::CStr, fmt::Debug};
+use std::{ffi::OsStr, fmt::Debug};
 
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
@@ -52,9 +53,14 @@ pub trait RawCustomMutator {
         1
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &CStr, _filename_orig_queue: Option<&CStr>) {}
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &OsStr,
+        _filename_orig_queue: Option<&OsStr>,
+    ) {
+    }
 
-    fn queue_get(&mut self, filename: &CStr) -> bool {
+    fn queue_get(&mut self, filename: &OsStr) -> bool {
         true
     }
 
@@ -81,16 +87,16 @@ pub mod wrappers {
     #[cfg(feature = "afl_internals")]
     use custom_mutator_sys::afl_state;
 
-    use core::slice;
     use std::{
         any::Any,
         convert::TryInto,
-        ffi::{c_void, CStr},
+        ffi::{c_void, CStr, OsStr},
         mem::ManuallyDrop,
-        os::raw::c_char,
+        os::{raw::c_char, unix::ffi::OsStrExt},
         panic::catch_unwind,
         process::abort,
         ptr::null,
+        slice,
     };
 
     use crate::RawCustomMutator;
@@ -248,9 +254,12 @@ pub mod wrappers {
             if filename_new_queue.is_null() {
                 panic!("received null filename_new_queue in afl_custom_queue_new_entry");
             }
-            let filename_new_queue = unsafe { CStr::from_ptr(filename_new_queue) };
+            let filename_new_queue =
+                OsStr::from_bytes(unsafe { CStr::from_ptr(filename_new_queue) }.to_bytes());
             let filename_orig_queue = if !filename_orig_queue.is_null() {
-                Some(unsafe { CStr::from_ptr(filename_orig_queue) })
+                Some(OsStr::from_bytes(
+                    unsafe { CStr::from_ptr(filename_orig_queue) }.to_bytes(),
+                ))
             } else {
                 None
             };
@@ -326,9 +335,9 @@ pub mod wrappers {
             let mut context = FFIContext::<M>::from(data);
             assert!(!filename.is_null());
 
-            context
-                .mutator
-                .queue_get(unsafe { CStr::from_ptr(filename) }) as u8
+            context.mutator.queue_get(OsStr::from_bytes(
+                unsafe { CStr::from_ptr(filename) }.to_bytes(),
+            )) as u8
         }) {
             Ok(ret) => ret,
             Err(err) => panic_handler("afl_custom_queue_get", err),
@@ -532,13 +541,13 @@ pub trait CustomMutator {
 
     fn queue_new_entry(
         &mut self,
-        filename_new_queue: &CStr,
-        filename_orig_queue: Option<&CStr>,
+        filename_new_queue: &OsStr,
+        filename_orig_queue: Option<&OsStr>,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn queue_get(&mut self, filename: &CStr) -> Result<bool, Self::Error> {
+    fn queue_get(&mut self, filename: &OsStr) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
@@ -609,7 +618,7 @@ where
         }
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &CStr, filename_orig_queue: Option<&CStr>) {
+    fn queue_new_entry(&mut self, filename_new_queue: &OsStr, filename_orig_queue: Option<&OsStr>) {
         match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
             Ok(r) => r,
             Err(e) => {
@@ -618,7 +627,7 @@ where
         }
     }
 
-    fn queue_get(&mut self, filename: &CStr) -> bool {
+    fn queue_get(&mut self, filename: &OsStr) -> bool {
         match self.queue_get(filename) {
             Ok(r) => r,
             Err(e) => {
