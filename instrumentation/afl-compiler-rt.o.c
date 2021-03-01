@@ -1559,10 +1559,10 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
 // POSIX shenanigan to see if an area is mapped.
 // If it is mapped as X-only, we have a problem, so maybe we should add a check
 // to avoid to call it on .text addresses
-static int area_is_mapped(void *ptr, size_t len) {
+static int area_is_valid(void *ptr, size_t len) {
 
-  if (__asan_region_is_poisoned(ptr, len) == NULL)
-    return 1;
+  if (__asan_region_is_poisoned(ptr, len))
+    return 0;
 
   char *p = (char *)ptr;
   char *page = (char *)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
@@ -1577,7 +1577,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   /*
     u32 i;
-    if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
+    if (!area_is_valid(ptr1, 32) || !area_is_valid(ptr2, 32)) return;
     fprintf(stderr, "rtn arg0=");
     for (i = 0; i < 24; i++)
       fprintf(stderr, "%02x", ptr1[i]);
@@ -1589,7 +1589,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   if (unlikely(!__afl_cmp_map)) return;
 
-  if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
+  if (!area_is_valid(ptr1, 32) || !area_is_valid(ptr2, 32)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1666,7 +1666,7 @@ static u8 *get_llvm_stdstring(u8 *string) {
 void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_mapped(stdstring, 32) || !area_is_mapped(cstring, 32)) return;
+  if (!area_is_valid(stdstring, 32) || !area_is_valid(cstring, 32)) return;
 
   __cmplog_rtn_hook(get_gcc_stdstring(stdstring), cstring);
 
@@ -1675,7 +1675,7 @@ void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_mapped(stdstring1, 32) || !area_is_mapped(stdstring2, 32))
+  if (!area_is_valid(stdstring1, 32) || !area_is_valid(stdstring2, 32))
     return;
 
   __cmplog_rtn_hook(get_gcc_stdstring(stdstring1),
@@ -1686,7 +1686,7 @@ void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_mapped(stdstring, 32) || !area_is_mapped(cstring, 32)) return;
+  if (!area_is_valid(stdstring, 32) || !area_is_valid(cstring, 32)) return;
 
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
 
@@ -1695,7 +1695,7 @@ void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (unlikely(!__afl_cmp_map)) return;
-  if (!area_is_mapped(stdstring1, 32) || !area_is_mapped(stdstring2, 32))
+  if (!area_is_valid(stdstring1, 32) || !area_is_valid(stdstring2, 32))
     return;
 
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
