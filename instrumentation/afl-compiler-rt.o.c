@@ -481,9 +481,9 @@ static void __afl_map_shm(void) {
 
   if (id_str) {
 
-    if ((__afl_dummy_fd[0] = open("/dev/null", O_WRONLY)) < 0) {
+    if ((__afl_dummy_fd[1] = open("/dev/null", O_WRONLY)) < 0) {
 
-      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[0] = 1; }
+      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
 
     }
 
@@ -1591,7 +1591,7 @@ static int area_is_valid(void *ptr, size_t len) {
 
   }
 
-  int r = syscall(__afl_dummy_fd[0], SYS_write, ptr, len);
+  int r = syscall(__afl_dummy_fd[1], SYS_write, ptr, len);
 
   if (r <= 0) {  //  maybe this is going over an asan boundary
 
@@ -1600,7 +1600,7 @@ static int area_is_valid(void *ptr, size_t len) {
     char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
     if (page < p + len) { return 0; }
     len -= (p + len - page);
-    r = syscall(__afl_dummy_fd[0], SYS_write, p, len);
+    r = syscall(__afl_dummy_fd[1], SYS_write, p, len);
 
   }
 
