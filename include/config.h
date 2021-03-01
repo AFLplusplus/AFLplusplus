@@ -25,8 +25,8 @@
 
 /* Version string: */
 
-// c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++3.01a"
+// c = release, a = volatile github dev, e = experimental branch
+#define VERSION "++3.10c"
 
 /******************************************************
  *                                                    *
@@ -50,7 +50,7 @@
 #define CMPLOG_COMBINE
 
 /* Minimum % of the corpus to perform cmplog on. Default: 10% */
-#define CMPLOG_CORPUS_PERCENT 10U
+#define CMPLOG_CORPUS_PERCENT 5U
 
 /* Number of potential positions from which we decide if cmplog becomes
    useless, default 8096 */

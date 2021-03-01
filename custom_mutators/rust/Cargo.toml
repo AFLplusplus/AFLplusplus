@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "custom_mutator-sys",
+    "custom_mutator",
+    "example",
+    # Lain needs a nightly toolchain
+    # "example_lain",
+]
