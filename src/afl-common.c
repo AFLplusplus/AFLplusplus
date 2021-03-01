@@ -1135,7 +1135,7 @@ u32 get_map_size(void) {
 
     }
 
-    if (map_size % 32) { map_size = (((map_size >> 5) + 1) << 5); }
+    if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
   }
 

@@ -656,11 +656,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
 
-        if (unlikely(tmp_map_size % 32)) {
+        if (unlikely(tmp_map_size % 64)) {
 
           // should not happen
           WARNF("Target reported non-aligned map size of %u", tmp_map_size);
-          tmp_map_size = (((tmp_map_size + 31) >> 5) << 5);
+          tmp_map_size = (((tmp_map_size + 63) >> 6) << 6);
 
         }
 
