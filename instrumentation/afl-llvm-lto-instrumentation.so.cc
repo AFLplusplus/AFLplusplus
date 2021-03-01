@@ -924,9 +924,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
 
-      uint32_t write_loc = afl_global_id;
-
-      if (afl_global_id % 32) write_loc = (((afl_global_id + 32) >> 4) << 4);
+      uint32_t write_loc = (((afl_global_id + 63) >> 6) << 6);
 
       GlobalVariable *AFLFinalLoc = new GlobalVariable(
           M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc");

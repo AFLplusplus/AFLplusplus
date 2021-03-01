@@ -49,6 +49,12 @@ if [ "$PLATFORM" = "FreeBSD" ] ; then
   sysctl kern.elf64.aslr.enable=0
 } > /dev/null
   echo Settings applied.
+  cat <<EOF
+In order to suppress core file generation during fuzzing it is recommended to set
+me:\\
+	:coredumpsize=0:
+in the ~/.login_conf file for the user used for fuzzing.
+EOF
   echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
   echo '  sysctl hw.ibrs_disable=1'
   echo 'Setting kern.pmap.pg_ps_enabled=0 into /boot/loader.conf might be helpful too.'
@@ -60,8 +66,14 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
   DONE=1
 fi
 if [ "$PLATFORM" = "DragonFly" ] ; then
-  echo
-  echo 'System security features cannot be disabled on DragonFly.'
+  #/sbin/sysctl kern.corefile=/dev/null
+  #echo Settings applied.
+  cat <<EOF
+In order to suppress core file generation during fuzzing it is recommended to set
+me:\\
+	:coredumpsize=0:
+in the ~/.login_conf file for the user used for fuzzing.
+EOF
   DONE=1
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
@@ -88,7 +100,7 @@ fi
 if [ "$PLATFORM" = "Haiku" ] ; then
   SETTINGS=~/config/settings/system/debug_server/settings
   [ -r ${SETTINGS} ] && grep -qE "default_action\s+kill" ${SETTINGS} && { echo "Nothing to do"; } || { \
-    echo We change the debug_server default_action from user to silenty kill; \
+    echo We change the debug_server default_action from user to silently kill; \
     [ ! -r ${SETTINGS} ] && echo "default_action kill" >${SETTINGS} || { mv ${SETTINGS} s.tmp; sed -e "s/default_action\s\s*user/default_action kill/" s.tmp > ${SETTINGS}; rm s.tmp; }; \
     echo Settings applied.; \
   }
