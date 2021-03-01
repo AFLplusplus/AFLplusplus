@@ -1,4 +1,4 @@
-#![cfg(os_family = "unix")]
+#![cfg(unix)]
 //! Somewhat safe and somewhat ergonomic bindings for creating [AFL++](https://github.com/AFLplusplus/AFLplusplus) [custom mutators](https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/custom_mutators.md) in Rust.
 //!
 //! # Usage
@@ -288,7 +288,7 @@ pub mod wrappers {
         match catch_unwind(|| {
             let context = &mut *FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.introspection() {
-                let buf = context.introspection_buffer;
+                let buf = &mut context.introspection_buffer;
                 buf.clear();
                 buf.extend_from_slice(res.as_bytes());
                 buf.push(0);
@@ -311,7 +311,7 @@ pub mod wrappers {
         match catch_unwind(|| {
             let context = &mut *FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.describe(max_description_len) {
-                let buf = context.description_buffer;
+                let buf = &mut context.description_buffer;
                 buf.clear();
                 buf.extend_from_slice(res.as_bytes());
                 buf.push(0);
