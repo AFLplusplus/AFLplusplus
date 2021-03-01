@@ -2,9 +2,9 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  Release Version: [3.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [3.10c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 3.01a
+  Github Version: 3.11a
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
@@ -25,14 +25,14 @@
   For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
   with `AFL_LLVM_CMPLOG=1`.
 
-## Major changes in afl++ 3.0 + 3.1
+## Major changes in afl++ 3.00 + 3.10
 
-With afl++ 3.1 we introduced the following changes from previous behaviours:
+With afl++ 3.10 we introduced the following changes from previous behaviours:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout
     with the value given being the maximum timeout. The original meaning of
     "skipping timeouts instead of abort" is now inherent to the -t option.
 
-With afl++ 3.0 we introduced changes that break some previous afl and afl++
+With afl++ 3.00 we introduced changes that break some previous afl and afl++
 behaviours and defaults:
 
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is

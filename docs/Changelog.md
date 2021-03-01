@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++3.01a (dev)
+### Version ++3.10c (release)
   - Mac OS ARM64 support
   - Android support fixed and updated by Joey Jiaojg - thanks!
   - New selective instrumentation option with __AFL_COVERAGE_* commands
@@ -49,10 +49,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       comment (thanks to Zherya for reporting)
     - cmplog/redqueen now also tracks floating point, _ExtInt() + 128bit
     - cmplog/redqueen can now process basic libc++ and libstdc++
-      std::string comparisons (though no position or length type variants)
-    - added support for __afl_coverage_interesting() for LTO and
-      and our own PCGUARD (llvm 10.0.1+), read more about this function
-      and selective coverage in instrumentation/README.instrument_list.md
+      std::string comparisons (no position or length type variants)
+    - added support for __afl_coverage_interesting() for LTO and our
+      own PCGUARD (llvm 10.0.1+), read more about this function and
+      selective coverage in instrumentation/README.instrument_list.md
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
@@ -68,12 +68,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - unicornafl
     - Substantial speed gains in python bindings for certain use cases
     - Improved rust bindings
-    - Added a new example harness to compare python, c, and rust bindings
+    - Added a new example harness to compare python, c and rust bindings
   - afl-cmin and afl-showmap now support the -f option
   - afl_plot now also generates a graph on the discovered edges
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
   - warn on any _AFL and __AFL env vars.
-  - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars.
+  - set AFL_IGNORE_UNKNOWN_ENVS to not warn on unknown AFL_... env vars
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
   - Added `AFL_KILL_SIGNAL` env variable (thanks @v-p-b)
