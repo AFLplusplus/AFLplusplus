@@ -357,6 +357,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           StringRef   TmpStr;
           bool        HasStr1;
           getConstantStringInfo(Str1P, TmpStr);
+
           if (TmpStr.empty()) {
 
             HasStr1 = false;
@@ -403,7 +404,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                           dyn_cast<ConstantDataArray>(Var->getInitializer())) {
 
                     HasStr2 = true;
-                    Str2 = Array->getAsString().str();
+                    Str2 = Array->getRawDataValues().str();
 
                   }
 
@@ -479,7 +480,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                           dyn_cast<ConstantDataArray>(Var->getInitializer())) {
 
                     HasStr1 = true;
-                    Str1 = Array->getAsString().str();
+                    Str1 = Array->getRawDataValues().str();
 
                   }
 

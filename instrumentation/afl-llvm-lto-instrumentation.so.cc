@@ -519,7 +519,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                             Var->getInitializer())) {
 
                       HasStr2 = true;
-                      Str2 = Array->getAsString().str();
+                      Str2 = Array->getRawDataValues().str();
 
                     }
 
@@ -595,7 +595,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                             Var->getInitializer())) {
 
                       HasStr1 = true;
-                      Str1 = Array->getAsString().str();
+                      Str1 = Array->getRawDataValues().str();
 
                     }
 
