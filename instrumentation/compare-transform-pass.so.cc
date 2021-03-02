@@ -229,9 +229,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                           dyn_cast<ConstantDataArray>(Var->getInitializer())) {
 
                     HasStr2 = true;
-                    Str2 = Array->getAsString();
+                    Str2 = Array->getRawDataValues();
                     valueMap[Str2P] = new std::string(Str2.str());
-                    fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+                    // fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
 
                   }
 
@@ -254,7 +254,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                             Var->getInitializer())) {
 
                       HasStr1 = true;
-                      Str1 = Array->getAsString();
+                      Str1 = Array->getRawDataValues();
                       valueMap[Str1P] = new std::string(Str1.str());
                       // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
 
