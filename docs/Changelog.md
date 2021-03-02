@@ -10,7 +10,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.11a (dev)
   - afl-cc
-    - fixed for a crash that can occur with ASAN + CMPLOG together
+    - fixed for a crash that can occur with ASAN + CMPLOG together plus
+      better support for unicode (thanks to @stbergmann for reporting!)
 
 ### Version ++3.10c (release)
   - Mac OS ARM64 support
