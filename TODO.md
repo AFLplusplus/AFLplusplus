@@ -2,12 +2,15 @@
 
 ## Roadmap 3.00+
 
- - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - CPU affinity for many cores? There seems to be an issue > 96 cores
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
  - intel-pt tracer
+ - better autodetection of shifting runtime timeout values
+ - cmplog: use colorization input for havoc?
+ - cmplog: too much tainted bytes, directly add to dict and skip?
+
 
 ## Further down the road
 
@@ -23,9 +26,12 @@ qemu_mode:
  - add/implement AFL_QEMU_INST_LIBLIST and AFL_QEMU_NOINST_PROGRAM
  - add/implement AFL_QEMU_INST_REGIONS as a list of _START/_END addresses
 
+
 ## Ideas
 
  - LTO/sancov: write current edge to prev_loc and use that information when
    using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow
    up edge numbers that both following cmp paths have been found and then
    disable working on this edge id -> cmplog_intelligence branch
+ - use cmplog colorization taint result for havoc locations?
+

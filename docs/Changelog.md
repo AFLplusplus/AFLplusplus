@@ -12,7 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz
     - add non-unicode variants from unicode-looking dictionary entries
   - afl-cc
-    - fixed for a crash that can occur with ASAN + CMPLOG together plus
+    - fixed a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
 
 ### Version ++3.10c (release)
