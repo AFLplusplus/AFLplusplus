@@ -402,6 +402,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                   if (auto *Array =
                           dyn_cast<ConstantDataArray>(Var->getInitializer())) {
 
+                    if (!Array->isString())
+                      continue;
                     HasStr2 = true;
                     Str2 = Array->getAsString().str();
 
