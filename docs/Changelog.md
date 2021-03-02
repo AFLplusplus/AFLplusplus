@@ -9,6 +9,8 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.11a (dev)
+  - afl-fuzz
+    - add non-unicode variants from unicode-looking dictionary entries
   - afl-cc
     - fixed for a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
