@@ -421,13 +421,20 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     }
 
     // add null termination character implicit in c strings
-    TmpConstStr.append("\0", 1);
+    if (TmpConstStr[TmpConstStr.length() - 1] != 0) {
+
+      TmpConstStr.append("\0", 1);
+
+    }
 
     // in the unusual case the const str has embedded null
     // characters, the string comparison functions should terminate
     // at the first null
-    if (!isMemcmp)
+    if (!isMemcmp) {
+
       TmpConstStr.assign(TmpConstStr, 0, TmpConstStr.find('\0') + 1);
+
+    }
 
     constStrLen = TmpConstStr.length();
     // prefer use of StringRef (in comparison to std::string a StringRef has

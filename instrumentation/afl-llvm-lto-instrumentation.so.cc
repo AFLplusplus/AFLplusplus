@@ -658,17 +658,21 @@ bool AFLLTOPass::runOnModule(Module &M) {
             // was not already added
             if (!isMemcmp) {
 
-              if (addedNull == false) {
+              if (addedNull == false && thestring[optLen - 1] != '\0') {
 
                 thestring.append("\0", 1);  // add null byte
                 optLen++;
 
               }
 
-              // ensure we do not have garbage
-              size_t offset = thestring.find('\0', 0);
-              if (offset + 1 < optLen) optLen = offset + 1;
-              thestring = thestring.substr(0, optLen);
+              if (!isStdString) {
+
+                // ensure we do not have garbage
+                size_t offset = thestring.find('\0', 0);
+                if (offset + 1 < optLen) optLen = offset + 1;
+                thestring = thestring.substr(0, optLen);
+
+              }
 
             }
 
