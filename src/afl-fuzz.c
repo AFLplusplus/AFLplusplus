@@ -1449,9 +1449,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    dedup_extras(afl);
-    OKF("Loaded a total of %u extras.", afl->extras_cnt);
-
   }
 
   if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
@@ -1680,6 +1677,10 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+
+  deunicode_extras(afl);
+  dedup_extras(afl);
+  if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
 
   // after we have the correct bitmap size we can read the bitmap -B option
   // and set the virgin maps
