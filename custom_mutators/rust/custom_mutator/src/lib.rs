@@ -294,7 +294,7 @@ pub mod wrappers {
                 buf.clear();
                 buf.extend_from_slice(res.as_bytes());
                 buf.push(0);
-                // TODO don't unwrap. implement a proper error handling strategy
+                // unwrapping here, as the error case should be extremely rare
                 CStr::from_bytes_with_nul(&buf).unwrap().as_ptr()
             } else {
                 null()
@@ -317,7 +317,7 @@ pub mod wrappers {
                 buf.clear();
                 buf.extend_from_slice(res.as_bytes());
                 buf.push(0);
-                // TODO don't unwrap. implement a proper error handling strategy
+                // unwrapping here, as the error case should be extremely rare
                 CStr::from_bytes_with_nul(&buf).unwrap().as_ptr()
             } else {
                 null()
