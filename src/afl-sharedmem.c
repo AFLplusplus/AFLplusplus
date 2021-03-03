@@ -186,8 +186,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  shm->collisions_map = shm->map + map_size;
-
   /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
      mode, we don't want them to detect instrumentation, since we won't be
      sending fork server commands. This should be replaced with better
@@ -243,7 +241,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 #else
   u8 *shm_str;
 
-  shm->shm_id = shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | 0600);
+  shm->shm_id = shmget(IPC_PRIVATE, map_size + map_size * sizeof(struct collision_entry), IPC_CREAT | IPC_EXCL | 0600);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {
@@ -318,6 +316,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
 #endif
+
+  shm->collisions_map = (struct collision_entry*)(shm->map + map_size);
 
   shm->map_size = map_size;
   list_append(&shm_list, shm);

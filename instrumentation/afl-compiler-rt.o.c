@@ -139,6 +139,9 @@ void __afl_log_collision(u32 cur) {
     if (collision_map[idx].cur != cur ||
         collision_map[idx].prev != __afl_prev_loc[0] ||
         collision_map[idx].ctx != __afl_prev_ctx) {
+      if (!collision_map[idx].is_colliding) {
+          fprintf(stderr, "collision at %u!\n", idx);
+      }
       collision_map[idx].is_colliding = 1;
     }
   } else {
@@ -426,8 +429,6 @@ static void __afl_map_shm(void) {
 
     }
     
-    collision_map = (struct collision_entry *)(__afl_area_ptr + MAP_SIZE);
-
 #endif
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
@@ -435,10 +436,7 @@ static void __afl_map_shm(void) {
 
     __afl_area_ptr[0] = 1;
 
-    if (!collision_map) {
-      perror("collision_map");
-      _exit(1);
-    }
+    collision_map = (struct collision_entry *)(__afl_area_ptr + MAP_SIZE);
 
   } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
 
