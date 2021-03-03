@@ -214,6 +214,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
     afl->last_eps = eps;
 
   }
+  
+  double collisions_rate = (double)(count_bytes(afl, afl->colliding_bits)) * 100 / afl->shm.map_size;
 
   if ((unlikely(!afl->last_avg_exec_update ||
                 cur_time - afl->last_avg_exec_update >= 60000))) {
@@ -251,6 +253,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           "variable_paths    : %u\n"
           "stability         : %0.02f%%\n"
           "bitmap_cvg        : %0.02f%%\n"
+          "bitmap_collisions : %0.02f%%\n"
           "unique_crashes    : %llu\n"
           "unique_hangs      : %llu\n"
           "last_path         : %llu\n"
@@ -282,7 +285,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           afl->last_avg_execs_saved, afl->queued_paths, afl->queued_favored,
           afl->queued_discovered, afl->queued_imported, afl->max_depth,
           afl->current_entry, afl->pending_favored, afl->pending_not_fuzzed,
-          afl->queued_variable, stability, bitmap_cvg, afl->unique_crashes,
+          afl->queued_variable, stability, bitmap_cvg, collisions_rate, afl->unique_crashes,
           afl->unique_hangs, afl->last_path_time / 1000,
           afl->last_crash_time / 1000, afl->last_hang_time / 1000,
           afl->fsrv.total_execs - afl->last_crash_execs, afl->fsrv.exec_tmout,

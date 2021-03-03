@@ -47,6 +47,7 @@ typedef struct sharedmem {
 #endif
 
   u8 *map;                                          /* shared memory region */
+  struct collision_entry *collisions_map; 
 
   size_t map_size;                                 /* actual allocated size */
 

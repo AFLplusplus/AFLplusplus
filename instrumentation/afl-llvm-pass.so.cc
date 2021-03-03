@@ -130,6 +130,24 @@ bool AFLCoverage::runOnModule(Module &M) {
   struct timezone tz;
   u32             rand_seed;
   unsigned int    cur_loc = 0;
+  
+  Type *       VoidTy = Type::getVoidTy(C);
+#if LLVM_VERSION_MAJOR < 9
+  Constant *
+#else
+  FunctionCallee
+#endif
+      c1 = M.getOrInsertFunction("__afl_log_collision", VoidTy, Int32Ty, Int32Ty
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR < 9
+  Function *aflLogCollision = cast<Function>(c1);
+#else
+  FunctionCallee aflLogCollision = c1;
+#endif
 
   /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
   gettimeofday(&tv, &tz);
@@ -457,6 +475,11 @@ bool AFLCoverage::runOnModule(Module &M) {
       else
 #endif
         PrevLocTrans = PrevLoc;
+
+      std::vector<Value *> coll_args;
+      coll_args.push_back(CurLoc);
+      coll_args.push_back(PrevLocTrans);
+      IRB.CreateCall(aflLogCollision, coll_args);
 
       if (ctx_str)
         PrevLocTrans =

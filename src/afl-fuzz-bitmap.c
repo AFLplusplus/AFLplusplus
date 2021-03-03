@@ -653,6 +653,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         write_to_testcase(afl, mem, len);
         new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
         classify_counts(&afl->fsrv);
+        
+        u32 coll_idx;
+        for (coll_idx = 0; coll_idx < afl->shm.map_size; ++coll_idx) {
+          if (afl->shm.collisions_map[coll_idx].is_colliding)
+            afl->colliding_bits[coll_idx] = 1;
+        }
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if

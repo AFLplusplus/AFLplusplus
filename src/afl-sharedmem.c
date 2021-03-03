@@ -175,7 +175,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   /* map the shared memory segment to the address space of the process */
   shm->map =
-      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
+      mmap(0, map_size + map_size * sizeof(struct collision_entry), PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
   if (shm->map == MAP_FAILED) {
 
     close(shm->g_shm_fd);
@@ -185,6 +185,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     PFATAL("mmap() failed");
 
   }
+
+  shm->collisions_map = shm->map + map_size;
 
   /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
      mode, we don't want them to detect instrumentation, since we won't be

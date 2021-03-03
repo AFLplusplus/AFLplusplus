@@ -127,6 +127,29 @@ static u8 _is_sancov;
 
 static int __afl_dummy_fd[2] = {2, 2};
 
+struct collision_entry *collision_map;
+
+void __afl_log_collision(u32 cur) {
+
+  if (!collision_map) return;
+
+  u32 idx = (cur ^ (__afl_prev_loc[0] << 1) ^ __afl_prev_ctx) & (MAP_SIZE -1);
+  
+  if (collision_map[idx].touched) {
+    if (collision_map[idx].cur != cur ||
+        collision_map[idx].prev != __afl_prev_loc[0] ||
+        collision_map[idx].ctx != __afl_prev_ctx) {
+      collision_map[idx].is_colliding = 1;
+    }
+  } else {
+    collision_map[idx].touched = 1;
+    collision_map[idx].cur = cur;
+    collision_map[idx].prev = __afl_prev_loc[0];
+    collision_map[idx].ctx = __afl_prev_ctx;
+  }
+
+}
+
 /* ensure we kill the child on termination */
 
 void at_exit(int signal) {
@@ -402,6 +425,8 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
+    
+    collision_map = (struct collision_entry *)(__afl_area_ptr + MAP_SIZE);
 
 #endif
 
@@ -409,6 +434,11 @@ static void __afl_map_shm(void) {
        our parent doesn't give up on us. */
 
     __afl_area_ptr[0] = 1;
+
+    if (!collision_map) {
+      perror("collision_map");
+      _exit(1);
+    }
 
   } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
 

@@ -35,6 +35,14 @@ typedef unsigned __int128 uint128_t;
 typedef uint128_t         u128;
 #endif
 
+struct collision_entry {
+    u32 cur;
+    u32 prev;
+    u32 ctx;
+    u8 is_colliding;
+    u8 touched;
+};
+
 /* Extended forkserver option values */
 
 /* Reporting errors */
