@@ -1437,19 +1437,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // read_foreign_testcases(afl, 1); for the moment dont do this
   OKF("Loaded a total of %u seeds.", afl->queued_paths);
 
-  load_auto(afl);
-
   pivot_inputs(afl);
-
-  if (extras_dir_cnt) {
-
-    for (i = 0; i < extras_dir_cnt; i++) {
-
-      load_extras(afl, extras_dir[i]);
-
-    }
-
-  }
 
   if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
@@ -1675,6 +1663,18 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.map_size = map_size;
 
     OKF("Cmplog forkserver successfully started");
+
+  }
+
+  load_auto(afl);
+
+  if (extras_dir_cnt) {
+
+    for (i = 0; i < extras_dir_cnt; i++) {
+
+      load_extras(afl, extras_dir[i]);
+
+    }
 
   }
 
