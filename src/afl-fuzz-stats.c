@@ -188,6 +188,8 @@ void load_stats_file(afl_state_t *afl) {
 void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                       double stability, double eps) {
 
+  if (unlikely(afl->stop_soon)) return;
+
 #ifndef __HAIKU__
   struct rusage rus;
 #endif

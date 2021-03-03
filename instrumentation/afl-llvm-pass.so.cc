@@ -257,16 +257,23 @@ bool AFLCoverage::runOnModule(Module &M) {
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
   GlobalVariable *AFLContext = NULL;
+  GlobalVariable *AFLContext2 = NULL;
 
-  if (ctx_str)
+  if (ctx_str) {
 #if defined(__ANDROID__) || defined(__HAIKU__)
     AFLContext = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
+    AFLContext2 = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx2");
 #else
     AFLContext = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
+    AFLContext2 = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx2", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
+  }
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
@@ -313,6 +320,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
   LoadInst *PrevCtx = NULL;  // CTX sensitive coverage
+  LoadInst *PrevCtx2 = NULL;  // CTX sensitive coverage
 
   /* Instrument all the things! */
 
@@ -342,6 +350,8 @@ bool AFLCoverage::runOnModule(Module &M) {
         // variable on the stack
         PrevCtx = IRB.CreateLoad(AFLContext);
         PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        PrevCtx2 = IRB.CreateLoad(AFLContext2);
+        PrevCtx2->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
         // does the function have calls? and is any of the calls larger than one
         // basic block?
@@ -372,8 +382,13 @@ bool AFLCoverage::runOnModule(Module &M) {
         // if yes we store a context ID for this function in the global var
         if (has_calls) {
 
-          ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
+          Value *NewCtx = IRB.CreateXor(PrevCtx, ConstantInt::get(Int32Ty, AFL_R(map_size)));
           StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+          StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
+          
+          NewCtx = IRB.CreateXor(PrevCtx2, ConstantInt::get(Int32Ty, AFL_R(map_size)));
+          StoreCtx = IRB.CreateStore(NewCtx, AFLContext2);
           StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                 MDNode::get(C, None));
 
@@ -479,6 +494,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       std::vector<Value *> coll_args;
       coll_args.push_back(CurLoc);
       coll_args.push_back(PrevLocTrans);
+      coll_args.push_back(PrevCtx);
+      coll_args.push_back(PrevCtx2);
       IRB.CreateCall(aflLogCollision, coll_args);
 
       if (ctx_str)

@@ -98,10 +98,12 @@ int __afl_selective_coverage_temp = 1;
 #if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 u32        __afl_prev_ctx;
+u32        __afl_prev_ctx2;
 u32        __afl_cmp_counter;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 __thread u32        __afl_prev_ctx;
+__thread u32        __afl_prev_ctx2;
 __thread u32        __afl_cmp_counter;
 #endif
 
@@ -129,26 +131,23 @@ static int __afl_dummy_fd[2] = {2, 2};
 
 struct collision_entry *collision_map;
 
-void __afl_log_collision(u32 cur) {
+void __afl_log_collision(u32 cur, u32 prev, u32 ctx, u32 ctx2) {
 
   if (!collision_map) return;
 
-  u32 idx = (cur ^ (__afl_prev_loc[0] << 1) ^ __afl_prev_ctx) & (MAP_SIZE -1);
+  u32 idx = (cur ^ prev ^ ctx) & (MAP_SIZE -1);
   
   if (collision_map[idx].touched) {
     if (collision_map[idx].cur != cur ||
-        collision_map[idx].prev != __afl_prev_loc[0] ||
-        collision_map[idx].ctx != __afl_prev_ctx) {
-      if (!collision_map[idx].is_colliding) {
-          fprintf(stderr, "collision at %u!\n", idx);
-      }
+        collision_map[idx].prev != prev ||
+        collision_map[idx].ctx != ctx2) {
       collision_map[idx].is_colliding = 1;
     }
   } else {
     collision_map[idx].touched = 1;
     collision_map[idx].cur = cur;
-    collision_map[idx].prev = __afl_prev_loc[0];
-    collision_map[idx].ctx = __afl_prev_ctx;
+    collision_map[idx].prev = prev;
+    collision_map[idx].ctx = ctx2;
   }
 
 }
