@@ -46,8 +46,8 @@ typedef struct sharedmem {
   s32 cmplog_shm_id;
 #endif
 
-  u8 *map;                                          /* shared memory region */
-  struct collision_entry *collisions_map; 
+  u8 *                    map;                      /* shared memory region */
+  struct collision_entry *collisions_map;
 
   size_t map_size;                                 /* actual allocated size */
 

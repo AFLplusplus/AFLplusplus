@@ -216,7 +216,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
     afl->last_eps = eps;
 
   }
-  
+
   if ((unlikely(!afl->last_avg_exec_update ||
                 cur_time - afl->last_avg_exec_update >= 60000))) {
 
@@ -227,7 +227,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
     afl->last_avg_exec_update = cur_time;
 
   }
-  
+
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
@@ -304,10 +304,10 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #else
           -1,
 #endif
-          t_bytes, count_bytes(afl, afl->colliding_bits), afl->var_byte_count, afl->expand_havoc,
-          afl->q_testcase_cache_size, afl->q_testcase_cache_count,
-          afl->q_testcase_evictions, afl->use_banner,
-          afl->unicorn_mode ? "unicorn" : "",
+          t_bytes, count_bytes(afl, afl->colliding_bits), afl->var_byte_count,
+          afl->expand_havoc, afl->q_testcase_cache_size,
+          afl->q_testcase_cache_count, afl->q_testcase_evictions,
+          afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",
           afl->non_instrumented_mode ? " non_instrumented " : "",
           afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",

@@ -58,15 +58,20 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
 #endif
 
-  memset(afl->shm.collisions_map, 0, afl->shm.map_size * sizeof(struct collision_entry));
+  memset(afl->shm.collisions_map, 0,
+         afl->shm.map_size * sizeof(struct collision_entry));
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
-  
+
   u32 coll_idx;
   for (coll_idx = 0; coll_idx < afl->shm.map_size; ++coll_idx) {
+
     if (afl->shm.collisions_map[coll_idx].is_colliding) {
+
       afl->colliding_bits[coll_idx] = 1;
+
     }
+
   }
 
 #ifdef PROFILING

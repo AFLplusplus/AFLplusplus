@@ -135,19 +135,24 @@ void __afl_log_collision(u32 cur, u32 prev, u32 ctx, u32 ctx2) {
 
   if (!collision_map) return;
 
-  u32 idx = (cur ^ prev ^ ctx) & (MAP_SIZE -1);
-  
+  u32 idx = (cur ^ prev ^ ctx) & (MAP_SIZE - 1);
+
   if (collision_map[idx].touched) {
-    if (collision_map[idx].cur != cur ||
-        collision_map[idx].prev != prev ||
+
+    if (collision_map[idx].cur != cur || collision_map[idx].prev != prev ||
         collision_map[idx].ctx != ctx2) {
+
       collision_map[idx].is_colliding = 1;
+
     }
+
   } else {
+
     collision_map[idx].touched = 1;
     collision_map[idx].cur = cur;
     collision_map[idx].prev = prev;
     collision_map[idx].ctx = ctx2;
+
   }
 
 }
@@ -427,7 +432,7 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
-    
+
 #endif
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
