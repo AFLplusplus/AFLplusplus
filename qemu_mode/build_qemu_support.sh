@@ -132,7 +132,7 @@ echo "[+] Got qemuafl."
 
 cd "qemuafl" || exit 1
 echo "[*] Checking out $QEMUAFL_VERSION"
-sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
+# sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
 
 echo "[*] Making sure imported headers matches"
