@@ -50,7 +50,7 @@ static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   clang_mode;                /* Invoked as afl-clang*?            */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
+static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
 static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
@@ -75,6 +75,7 @@ enum {
   INSTRUMENT_OPT_CTX = 8,
   INSTRUMENT_OPT_NGRAM = 16,
   INSTRUMENT_OPT_CALLER = 32,
+  INSTRUMENT_OPT_CTX_K = 64,
 
 };
 
@@ -1282,9 +1283,19 @@ int main(int argc, char **argv, char **envp) {
     ngram_size = atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
     if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
       FATAL(
-          "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
+          "K-CTX instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
           "(%u)",
           NGRAM_SIZE_MAX);
+
+  }
+  
+  if (getenv("AFL_LLVM_CTX_K")) {
+
+    instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
+    ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
+    if (ctx_k < 1 || ctx_k > CTX_MAX_K)
+      FATAL(
+          "NGRAM instrumentation mode must be between 1 and CTX_MAX_K (%u)", CTX_MAX_K);
 
   }
 
@@ -1382,6 +1393,32 @@ int main(int argc, char **argv, char **envp) {
         compiler_mode = CLANG;
 
       }
+            
+      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0) {
+
+        u8 *ptr3 = ptr2 + strlen("ctx-");
+        while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
+          ptr3++;
+
+        if (!*ptr3) {
+
+          if ((ptr3 = getenv("AFL_LLVM_CTX_K")) == NULL)
+            FATAL(
+                "you must set the K-CTX K with (e.g. for value 2) "
+                "AFL_LLVM_INSTRUMENT=ctx-2");
+
+        }
+
+        ctx_k = atoi(ptr3);
+        if (ctx_k < 1 || ctx_k > CTX_MAX_K)
+          FATAL(
+              "K-CTX instrumentation option must be between 1 and CTX_MAX_K (%u)",
+              CTX_MAX_K);
+        instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
+        u8 *ptr4 = alloc_printf("%u", ctx_k);
+        setenv("AFL_LLVM_CTX_K", ptr4, 1);
+
+      }
 
       if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
 
@@ -1434,6 +1471,20 @@ int main(int argc, char **argv, char **envp) {
       (instrument_opt_mode & INSTRUMENT_OPT_CALLER)) {
 
     FATAL("you cannot set CTX and CALLER together");
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
+    FATAL("you cannot set CTX and K-CTX together");
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
+    FATAL("you cannot set CALLER and K-CTX together");
 
   }
 
@@ -1797,13 +1848,18 @@ int main(int argc, char **argv, char **envp) {
   } else {
 
     char *ptr2 = alloc_printf(" + NGRAM-%u", ngram_size);
+    char *ptr3 = alloc_printf(" + K-CTX-%u", ctx_k);
+
     ptr = alloc_printf(
-        "%s%s%s%s", instrument_mode_string[instrument_mode],
+        "%s%s%s%s%s", instrument_mode_string[instrument_mode],
         (instrument_opt_mode & INSTRUMENT_OPT_CTX) ? " + CTX" : "",
         (instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "",
-        (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "");
+        (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_CTX_K) ? ptr3 : ""
+    );
 
     ck_free(ptr2);
+    ck_free(ptr3);
 
   }
 
