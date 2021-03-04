@@ -492,6 +492,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
              "malloc_context_size=0:"
              "symbolize=0:"
              "allocator_may_return_null=1:"
+             "detect_odr_violation=0:"
              "handle_segv=0:"
              "handle_sigbus=0:"
              "handle_abort=0:"
