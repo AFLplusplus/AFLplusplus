@@ -198,34 +198,35 @@ void create_alias_table(afl_state_t *afl) {
   while (nS)
     afl->alias_probability[S[--nS]] = 1;
 
-#ifdef INTROSPECTION
-  u8 fn[PATH_MAX];
-  snprintf(fn, PATH_MAX, "%s/introspection_corpus.txt", afl->out_dir);
-  FILE *f = fopen(fn, "a");
-  if (f) {
+  /*
+  #ifdef INTROSPECTION
+    u8 fn[PATH_MAX];
+    snprintf(fn, PATH_MAX, "%s/introspection_corpus.txt", afl->out_dir);
+    FILE *f = fopen(fn, "a");
+    if (f) {
 
-    for (i = 0; i < n; i++) {
+      for (i = 0; i < n; i++) {
 
-      struct queue_entry *q = afl->queue_buf[i];
-      fprintf(
-          f,
-          "entry=%u name=%s favored=%s variable=%s disabled=%s len=%u "
-          "exec_us=%u "
-          "bitmap_size=%u bitsmap_size=%u tops=%u weight=%f perf_score=%f\n",
-          i, q->fname, q->favored ? "true" : "false",
-          q->var_behavior ? "true" : "false", q->disabled ? "true" : "false",
-          q->len, (u32)q->exec_us, q->bitmap_size, q->bitsmap_size, q->tc_ref,
-          q->weight, q->perf_score);
+        struct queue_entry *q = afl->queue_buf[i];
+        fprintf(
+            f,
+            "entry=%u name=%s favored=%s variable=%s disabled=%s len=%u "
+            "exec_us=%u "
+            "bitmap_size=%u bitsmap_size=%u tops=%u weight=%f perf_score=%f\n",
+            i, q->fname, q->favored ? "true" : "false",
+            q->var_behavior ? "true" : "false", q->disabled ? "true" : "false",
+            q->len, (u32)q->exec_us, q->bitmap_size, q->bitsmap_size, q->tc_ref,
+            q->weight, q->perf_score);
+
+      }
+
+      fprintf(f, "\n");
+      fclose(f);
 
     }
 
-    fprintf(f, "\n");
-    fclose(f);
-
-  }
-
-#endif
-
+  #endif
+  */
   /*
   fprintf(stderr, "  entry  alias  probability  perf_score   weight
   filename\n"); for (u32 i = 0; i < n; ++i) fprintf(stderr, "  %5u  %5u  %11u
