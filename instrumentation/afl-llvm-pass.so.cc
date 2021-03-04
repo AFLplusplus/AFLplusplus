@@ -354,7 +354,8 @@ bool AFLCoverage::runOnModule(Module &M) {
         // if yes we store a context ID for this function in the global var
         if (has_calls) {
 
-          ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
+          Value *NewCtx = IRB.CreateXor(
+              PrevCtx, ConstantInt::get(Int32Ty, AFL_R(map_size)));
           StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
           StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                 MDNode::get(C, None));
