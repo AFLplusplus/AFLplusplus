@@ -89,7 +89,7 @@ char instrument_mode_string[18][18] = {
     "GCC",
     "CLANG",
     "CTX",
-    "",
+    "CALLER",
     "",
     "",
     "",
@@ -1514,12 +1514,13 @@ int main(int argc, char **argv, char **envp) {
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
+        "        - CALLER\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
         "      INSTRIM                           no  yes     module yes yes "
         "   yes\n"
         "        - NORMAL\n"
-        "        - CTX\n"
+        "        - CALLER\n"
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
@@ -1566,7 +1567,10 @@ int main(int argc, char **argv, char **envp) {
         NATIVE_MSG
 
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
-        "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
+        "  CALLER:  CLASSIC + single callee context "
+        "(instrumentation/README.ctx.md)\n"
+        "  CTX:     CLASSIC + full callee context "
+        "(instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
@@ -1660,15 +1664,17 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CTX, NGRAM-2 ... "
-            "NGRAM-16\n"
+            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, "
+            "NGRAM-2 ..-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
             "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
             "(option to INSTRIM)\n"
-            "  AFL_LLVM_CTX: use context sensitive coverage (for CLASSIC and "
-            "INSTRIM)\n"
+            "  AFL_LLVM_CALLER: use single context sensitive coverage (for "
+            "CLASSIC)\n"
+            "  AFL_LLVM_CTX: use full context sensitive coverage (for "
+            "CLASSIC)\n"
             "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
             "CLASSIC & INSTRIM)\n");
 
@@ -1814,11 +1820,14 @@ int main(int argc, char **argv, char **envp) {
         "(requires LLVM 11 or higher)");
 #endif
 
-  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
-      instrument_mode != INSTRUMENT_CFG)
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_CFG &&
+      instrument_opt_mode & INSTRUMENT_OPT_CTX)
+    FATAL("CFG instrumentation mode supports NGRAM and CALLER, but not CTX.");
+  else if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
+    // we will drop CFG/INSTRIM in the future so do not advertise
     FATAL(
-        "CTX and NGRAM instrumentation options can only be used with LLVM and "
-        "CFG or CLASSIC instrumentation modes!");
+        "CALLER, CTX and NGRAM instrumentation options can only be used with "
+        "the LLVM CLASSIC instrumentation mode.");
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
     FATAL(
