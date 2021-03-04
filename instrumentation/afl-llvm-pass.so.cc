@@ -363,15 +363,18 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   Constant *PrevLocShuffleMask = ConstantVector::get(PrevLocShuffle);
   
+  Constant *PrevCallerShuffleMask = NULL;
   SmallVector<Constant *, 32> PrevCallerShuffle = {UndefValue::get(Int32Ty)};
 
-  for (unsigned I = 0; I < PrevCallerSize - 1; ++I)
-    PrevCallerShuffle.push_back(ConstantInt::get(Int32Ty, I));
+  if (ctx_k) {
+    for (unsigned I = 0; I < PrevCallerSize - 1; ++I)
+      PrevCallerShuffle.push_back(ConstantInt::get(Int32Ty, I));
 
-  for (int I = PrevCallerSize; I < PrevCallerVecSize; ++I)
-    PrevCallerShuffle.push_back(ConstantInt::get(Int32Ty, PrevCallerSize));
+    for (int I = PrevCallerSize; I < PrevCallerVecSize; ++I)
+      PrevCallerShuffle.push_back(ConstantInt::get(Int32Ty, PrevCallerSize));
 
-  Constant *PrevCallerShuffleMask = ConstantVector::get(PrevCallerShuffle);
+    PrevCallerShuffleMask = ConstantVector::get(PrevCallerShuffle);
+  }
 #endif
 
   // other constants we need
