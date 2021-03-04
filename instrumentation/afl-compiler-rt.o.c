@@ -1263,8 +1263,10 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   if (__afl_debug) {
 
     fprintf(stderr,
-            "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges)\n",
-            start, stop, (unsigned long)(stop - start));
+            "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
+            "after_fs=%u\n",
+            start, stop, (unsigned long)(stop - start),
+            __afl_already_initialized_forkserver);
 
   }
 
@@ -1277,6 +1279,36 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
     fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
     abort();
+
+  }
+
+  /* instrumented code is loaded *after* our forkserver is up. this is a
+     problem. We cannot prevent collisions then :( */
+  if (__afl_already_initialized_forkserver &&
+      __afl_final_loc + 1 + stop - start > __afl_map_size) {
+
+    if (__afl_debug)
+      fprintf(stderr, "Warning: new instrumneted code after the forkserver!\n");
+    __afl_final_loc = 2;
+
+    if (1 + stop - start > __afl_map_size) {
+
+      *(start++) = ++__afl_final_loc;
+
+      while (start < stop) {
+
+        if (R(100) < inst_ratio)
+          *start = ++__afl_final_loc % __afl_map_size;
+        else
+          *start = 0;
+
+        start++;
+
+      }
+
+      return;
+
+    }
 
   }
 
