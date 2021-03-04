@@ -123,6 +123,17 @@ static u8 is_persistent;
 
 static u8 _is_sancov;
 
+/* Debug? */
+
+static u32 __afl_debug;
+
+/* Already initialized markers */
+
+static u32 __afl_already_initialized_shm;
+static u32 __afl_already_initialized_forkserver;
+static u32 __afl_already_initialized_first;
+static u32 __afl_already_initialized_second;
+
 /* Dummy pipe for area_is_valid() */
 
 static int __afl_dummy_fd[2] = {2, 2};
@@ -176,7 +187,7 @@ static void __afl_map_shm_fuzz() {
 
   char *id_str = getenv(SHM_FUZZ_ENV_VAR);
 
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
 
     fprintf(stderr, "DEBUG: fuzzcase shmem %s\n", id_str ? id_str : "none");
 
@@ -222,7 +233,7 @@ static void __afl_map_shm_fuzz() {
     __afl_fuzz_len = (u32 *)map;
     __afl_fuzz_ptr = map + sizeof(u32);
 
-    if (getenv("AFL_DEBUG")) {
+    if (__afl_debug) {
 
       fprintf(stderr, "DEBUG: successfully got fuzzing shared memory\n");
 
@@ -242,7 +253,6 @@ static void __afl_map_shm_fuzz() {
 
 static void __afl_map_shm(void) {
 
-  static u32 __afl_already_initialized_shm = 0;
   if (__afl_already_initialized_shm) return;
   __afl_already_initialized_shm = 1;
 
@@ -303,7 +313,7 @@ static void __afl_map_shm(void) {
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
 
-  if (getenv("AFL_DEBUG"))
+  if (__afl_debug)
     fprintf(stderr,
             "DEBUG: id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_map_addr 0x%llx, MAP_SIZE %u, __afl_final_loc %u, "
@@ -359,17 +369,18 @@ static void __afl_map_shm(void) {
 
     }
 
+    close(shm_fd);
+
     if (shm_base == MAP_FAILED) {
 
-      close(shm_fd);
       shm_fd = -1;
-
       fprintf(stderr, "mmap() failed\n");
+      perror("mmap for map");
+
       if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_MMAP);
-      perror("mmap for map");
 
       exit(2);
 
@@ -476,7 +487,7 @@ static void __afl_map_shm(void) {
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
 
     fprintf(stderr, "DEBUG: cmplog id_str %s\n",
             id_str == NULL ? "<null>" : id_str);
@@ -541,6 +552,58 @@ static void __afl_map_shm(void) {
 
 }
 
+/* unmap SHM. */
+
+static void __afl_unmap_shm(void) {
+
+  if (!__afl_already_initialized_shm) return;
+
+  char *id_str = getenv(SHM_ENV_VAR);
+
+  if (id_str) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_area_ptr, __afl_map_size);
+
+#else
+
+    shmdt((void *)__afl_area_ptr);
+
+#endif
+
+  } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
+
+             __afl_map_addr) {
+
+    munmap((void *)__afl_map_addr, __afl_map_size);
+
+  }
+
+  __afl_area_ptr = __afl_area_ptr_dummy;
+
+  id_str = getenv(CMPLOG_SHM_ENV_VAR);
+
+  if (id_str) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_cmp_map, __afl_map_size);
+
+#else
+
+    shmdt((void *)__afl_cmp_map);
+
+#endif
+
+    __afl_cmp_map = NULL;
+
+  }
+
+  __afl_already_initialized_shm = 0;
+
+}
+
 #ifdef __linux__
 static void __afl_start_snapshots(void) {
 
@@ -569,7 +632,7 @@ static void __afl_start_snapshots(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) { _exit(1); }
 
-    if (getenv("AFL_DEBUG")) {
+    if (__afl_debug) {
 
       fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
 
@@ -746,7 +809,6 @@ static void __afl_start_snapshots(void) {
 
 static void __afl_start_forkserver(void) {
 
-  static u32 __afl_already_initialized_forkserver = 0;
   if (__afl_already_initialized_forkserver) return;
   __afl_already_initialized_forkserver = 1;
 
@@ -800,7 +862,7 @@ static void __afl_start_forkserver(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if (getenv("AFL_DEBUG")) {
+    if (__afl_debug) {
 
       fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
 
@@ -1035,7 +1097,7 @@ void __afl_manual_init(void) {
     __afl_sharedmem_fuzzing = 0;
     if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_ptr_dummy;
 
-    if (getenv("AFL_DEBUG"))
+    if (__afl_debug)
       fprintf(stderr,
               "DEBUG: disabled instrumentation because of "
               "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
@@ -1079,9 +1141,10 @@ __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
 __attribute__((constructor(1))) void __afl_auto_second(void) {
 
-  static u32 __afl_already_initialized_second = 0;
   if (__afl_already_initialized_second) return;
   __afl_already_initialized_second = 1;
+
+  if (getenv("AFL_DEBUG")) { __afl_debug = 1; }
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
@@ -1114,7 +1177,6 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
 __attribute__((constructor(0))) void __afl_auto_first(void) {
 
-  static u32 __afl_already_initialized_first = 0;
   if (__afl_already_initialized_first) return;
   __afl_already_initialized_first = 1;
 
@@ -1198,7 +1260,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   _is_sancov = 1;
 
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
 
     fprintf(stderr,
             "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges)\n",
@@ -1232,6 +1294,28 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       *start = 0;
 
     start++;
+
+  }
+
+  if (__afl_debug) {
+
+    fprintf(stderr,
+            "Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc = %u\n",
+            __afl_final_loc);
+
+  }
+
+  if (__afl_already_initialized_shm && __afl_final_loc > __afl_map_size) {
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "Reinit shm necessary (+%u)\n",
+              __afl_final_loc - __afl_map_size);
+
+    }
+
+    __afl_unmap_shm();
+    __afl_map_shm();
 
   }
 

@@ -135,7 +135,7 @@ struct InsTrim : public ModulePass {
     unsigned int PrevLocSize = 0;
     char *       ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
     if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
-    char *ctx_str = getenv("AFL_LLVM_CTX");
+    char *caller_str = getenv("AFL_LLVM_CALLER");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
     unsigned int ngram_size = 0;
@@ -197,9 +197,9 @@ struct InsTrim : public ModulePass {
                            GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
     GlobalVariable *AFLPrevLoc;
     GlobalVariable *AFLContext = NULL;
-    LoadInst *      PrevCtx = NULL;  // for CTX sensitive coverage
+    LoadInst *      PrevCaller = NULL;  // for CALLER sensitive coverage
 
-    if (ctx_str)
+    if (caller_str)
 #if defined(__ANDROID__) || defined(__HAIKU__)
       AFLContext = new GlobalVariable(
           M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
@@ -398,11 +398,11 @@ struct InsTrim : public ModulePass {
         unsigned int cur_loc;
 
         // Context sensitive coverage
-        if (ctx_str && &BB == &F.getEntryBlock()) {
+        if (caller_str && &BB == &F.getEntryBlock()) {
 
-          PrevCtx = IRB.CreateLoad(AFLContext);
-          PrevCtx->setMetadata(M.getMDKindID("nosanitize"),
-                               MDNode::get(C, None));
+          PrevCaller = IRB.CreateLoad(AFLContext);
+          PrevCaller->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
 
           // does the function have calls? and is any of the calls larger than
           // one basic block?
@@ -441,7 +441,7 @@ struct InsTrim : public ModulePass {
 
           }
 
-        }  // END of ctx_str
+        }  // END of caller_str
 
         if (MarkSetOpt && MS.find(&BB) == MS.end()) { continue; }
 
@@ -485,9 +485,9 @@ struct InsTrim : public ModulePass {
 #endif
           PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-        if (ctx_str)
+        if (caller_str)
           PrevLocTrans =
-              IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
+              IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCaller), Int32Ty);
 
         /* Load SHM pointer */
         LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
@@ -535,16 +535,17 @@ struct InsTrim : public ModulePass {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        if (ctx_str && has_calls) {
+        if (caller_str && has_calls) {
 
-          // in CTX mode we have to restore the original context for the
+          // in CALLER mode we have to restore the original context for the
           // caller - she might be calling other functions which need the
-          // correct CTX
+          // correct CALLER
           Instruction *Inst = BB.getTerminator();
           if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
 
             IRBuilder<> Post_IRB(Inst);
-            StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+            StoreInst * RestoreCtx =
+                Post_IRB.CreateStore(PrevCaller, AFLContext);
             RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                     MDNode::get(C, None));
 
