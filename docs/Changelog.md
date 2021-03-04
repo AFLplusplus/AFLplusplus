@@ -15,8 +15,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
     - handle erroneous setups in which multiple afl-compiler-rt are
-      compiled into the target. This now also supports dlopen instrumented
-      libs loaded before the forkserver.
+      compiled into the target. This now also supports dlopen
+      instrumented libs loaded before the forkserver and even after the
+      forkserver is started (then with collisions though)
     - Renamed CTX to CALLER, added correct/real CTX implemenation to CLASSIC
   - qemu_mode
     - added AFL_QEMU_EXCLUDE_RANGES env by @realmadsci, thanks!
