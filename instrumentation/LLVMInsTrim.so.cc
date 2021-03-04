@@ -38,7 +38,7 @@ typedef long double max_align_t;
 
 #include "MarkNodes.h"
 #include "afl-llvm-common.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 #include "config.h"
 #include "debug.h"

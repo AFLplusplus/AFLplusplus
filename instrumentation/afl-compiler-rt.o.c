@@ -20,7 +20,7 @@
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,10 +97,12 @@ int __afl_selective_coverage_temp = 1;
 
 #if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
+PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
+__thread PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
 #endif

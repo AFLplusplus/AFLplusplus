@@ -22,7 +22,7 @@
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
 #include <unistd.h>
