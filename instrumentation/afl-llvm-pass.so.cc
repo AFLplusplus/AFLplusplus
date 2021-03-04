@@ -356,9 +356,8 @@ bool AFLCoverage::runOnModule(Module &M) {
         if (has_calls) {
 
           Value *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
-          if (ctx_str)
-              NewCtx = IRB.CreateXor(PrevCtx, NewCtx);
-          StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+          if (ctx_str) NewCtx = IRB.CreateXor(PrevCtx, NewCtx);
+          StoreInst *StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
           StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                 MDNode::get(C, None));
 

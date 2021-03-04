@@ -1275,7 +1275,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (getenv("AFL_LLVM_CTX")) instrument_opt_mode |= INSTRUMENT_OPT_CTX;
   if (getenv("AFL_LLVM_CALLER")) instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
-  
+
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
 
     instrument_opt_mode |= INSTRUMENT_OPT_NGRAM;
@@ -1389,7 +1389,7 @@ int main(int argc, char **argv, char **envp) {
         setenv("AFL_LLVM_CTX", "1", 1);
 
       }
-      
+
       if (strncasecmp(ptr2, "caller", strlen("caller")) == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
@@ -1429,10 +1429,12 @@ int main(int argc, char **argv, char **envp) {
     }
 
   }
-  
+
   if ((instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
       (instrument_opt_mode & INSTRUMENT_OPT_CALLER)) {
+
     FATAL("you cannot set CTX and CALLER together");
+
   }
 
   if (instrument_opt_mode && instrument_mode == INSTRUMENT_DEFAULT &&
@@ -1795,12 +1797,12 @@ int main(int argc, char **argv, char **envp) {
   } else {
 
     char *ptr2 = alloc_printf(" + NGRAM-%u", ngram_size);
-    ptr = alloc_printf("%s%s%s%s", instrument_mode_string[instrument_mode],
+    ptr = alloc_printf(
+        "%s%s%s%s", instrument_mode_string[instrument_mode],
         (instrument_opt_mode & INSTRUMENT_OPT_CTX) ? " + CTX" : "",
         (instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "",
-        (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : ""
-    );
-    
+        (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "");
+
     ck_free(ptr2);
 
   }
