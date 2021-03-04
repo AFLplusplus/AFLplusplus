@@ -242,6 +242,10 @@ static void __afl_map_shm_fuzz() {
 
 static void __afl_map_shm(void) {
 
+  static u32 __afl_already_initialized_shm = 0;
+  if (__afl_already_initialized_shm) return;
+  __afl_already_initialized_shm = 1;
+
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
@@ -742,6 +746,10 @@ static void __afl_start_snapshots(void) {
 
 static void __afl_start_forkserver(void) {
 
+  static u32 __afl_already_initialized_forkserver = 0;
+  if (__afl_already_initialized_forkserver) return;
+  __afl_already_initialized_forkserver = 1;
+
   struct sigaction orig_action;
   sigaction(SIGTERM, NULL, &orig_action);
   old_sigterm_handler = orig_action.sa_handler;
@@ -1071,6 +1079,10 @@ __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
 __attribute__((constructor(1))) void __afl_auto_second(void) {
 
+  static u32 __afl_already_initialized_second = 0;
+  if (__afl_already_initialized_second) return;
+  __afl_already_initialized_second = 1;
+
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
 
@@ -1101,6 +1113,10 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
    not been set */
 
 __attribute__((constructor(0))) void __afl_auto_first(void) {
+
+  static u32 __afl_already_initialized_first = 0;
+  if (__afl_already_initialized_first) return;
+  __afl_already_initialized_first = 1;
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
