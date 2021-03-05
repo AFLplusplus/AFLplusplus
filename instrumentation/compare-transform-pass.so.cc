@@ -316,7 +316,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
               uint64_t len = ilen->getZExtValue();
               // if len is zero this is a pointless call but allow real
               // implementation to worry about that
-              if (!len) continue;
+              if (len < 2) continue;
 
               if (isMemcmp) {
 
@@ -420,8 +420,15 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
+    if (TmpConstStr.length() < 2 ||
+        (TmpConstStr.length() == 2 && !TmpConstStr[1])) {
+
+      continue;
+
+    }
+
     // add null termination character implicit in c strings
-    if (TmpConstStr[TmpConstStr.length() - 1] != 0) {
+    if (!isMemcmp && TmpConstStr[TmpConstStr.length() - 1]) {
 
       TmpConstStr.append("\0", 1);
 

@@ -521,14 +521,18 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           optLen = thestring.length();
 
+          if (optLen < 2 || (optLen == 2 && !thestring[1])) { continue; }
+
           if (isMemcmp || isStrncmp || isStrncasecmp) {
 
             Value *      op2 = callInst->getArgOperand(2);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
+
             if (ilen) {
 
               uint64_t literalLength = optLen;
               optLen = ilen->getZExtValue();
+              if (optLen < 2) { continue; }
               if (literalLength + 1 == optLen) {  // add null byte
                 thestring.append("\0", 1);
                 addedNull = true;

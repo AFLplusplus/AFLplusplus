@@ -14,6 +14,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-cc
     - fixed a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
+    - fixed a crash in LAF transform for empty strings
     - handle erroneous setups in which multiple afl-compiler-rt are
       compiled into the target. This now also supports dlopen
       instrumented libs loaded before the forkserver and even after the
