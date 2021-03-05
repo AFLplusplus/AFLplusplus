@@ -1170,7 +1170,7 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
   }
 
-}
+}  // ptr memleak report is a false positive
 
 /* preset __afl_area_ptr #1 - at constructor level 0 global variables have
    not been set */
@@ -1181,9 +1181,7 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
   __afl_already_initialized_first = 1;
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
-  u8 *ptr;
-
-  ptr = (u8 *)malloc(MAP_INITIAL_SIZE);
+  u8 *ptr = (u8 *)malloc(MAP_INITIAL_SIZE);
 
   if (ptr && (ssize_t)ptr != -1) {
 
@@ -1192,7 +1190,7 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
 
   }
 
-}
+}  // ptr memleak report is a false positive
 
 /* The following stuff deals with supporting -fsanitize-coverage=trace-pc-guard.
    It remains non-operational in the traditional, plugin-backed LLVM mode.
