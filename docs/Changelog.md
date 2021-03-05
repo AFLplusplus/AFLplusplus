@@ -16,10 +16,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       better support for unicode (thanks to @stbergmann for reporting!)
     - fixed a crash in LAF transform for empty strings
     - handle erroneous setups in which multiple afl-compiler-rt are
-      compiled into the target. This now also supports dlopen
+      compiled into the target. This now also supports dlopen()
       instrumented libs loaded before the forkserver and even after the
       forkserver is started (then with collisions though)
-    - Renamed CTX to CALLER, added correct/real CTX implemenation to CLASSIC
+    - Renamed CTX to CALLER, added correct/real CTX implementation to CLASSIC
   - qemu_mode
     - added AFL_QEMU_EXCLUDE_RANGES env by @realmadsci, thanks!
     - if no new/updated checkout is wanted, build with:
