@@ -11,6 +11,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++3.11a (dev)
   - afl-fuzz
     - add non-unicode variants from unicode-looking dictionary entries
+    - Rust custom mutator API improvements
   - afl-cc
     - fixed a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
