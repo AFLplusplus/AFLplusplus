@@ -1,3 +1,4 @@
+#![cfg(unix)]
 //! Somewhat safe and somewhat ergonomic bindings for creating [AFL++](https://github.com/AFLplusplus/AFLplusplus) [custom mutators](https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/custom_mutators.md) in Rust.
 //!
 //! # Usage
@@ -23,7 +24,7 @@
 //! The state is passed to [`CustomMutator::init`], when the feature is activated.
 //!
 //! _This is completely unsafe and uses automatically generated types extracted from the AFL++ source._
-use std::{ffi::CStr, fmt::Debug};
+use std::{fmt::Debug, path::Path};
 
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
@@ -33,7 +34,7 @@ pub use custom_mutator_sys::afl_state;
 #[doc(hidden)]
 pub trait RawCustomMutator {
     #[cfg(feature = "afl_internals")]
-    fn init(afl: &'static afl_state, seed: c_uint) -> Self
+    fn init(afl: &'static afl_state, seed: u32) -> Self
     where
         Self: Sized;
     #[cfg(not(feature = "afl_internals"))]
@@ -52,17 +53,17 @@ pub trait RawCustomMutator {
         1
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &CStr, _filename_orig_queue: Option<&CStr>) {}
+    fn queue_new_entry(&mut self, filename_new_queue: &Path, _filename_orig_queue: Option<&Path>) {}
 
-    fn queue_get(&mut self, filename: &CStr) -> bool {
+    fn queue_get(&mut self, filename: &Path) -> bool {
         true
     }
 
-    fn describe(&mut self, max_description: usize) -> Option<&CStr> {
-        None
+    fn describe(&mut self, max_description: usize) -> Option<&str> {
+        Some(default_mutator_describe::<Self>(max_description))
     }
 
-    fn introspection(&mut self) -> Option<&CStr> {
+    fn introspection(&mut self) -> Option<&str> {
         None
     }
 
@@ -81,16 +82,17 @@ pub mod wrappers {
     #[cfg(feature = "afl_internals")]
     use custom_mutator_sys::afl_state;
 
-    use core::slice;
     use std::{
         any::Any,
         convert::TryInto,
-        ffi::{c_void, CStr},
+        ffi::{c_void, CStr, OsStr},
         mem::ManuallyDrop,
-        os::raw::c_char,
+        os::{raw::c_char, unix::ffi::OsStrExt},
         panic::catch_unwind,
+        path::Path,
         process::abort,
         ptr::null,
+        slice,
     };
 
     use crate::RawCustomMutator;
@@ -99,6 +101,10 @@ pub mod wrappers {
     /// Also has some convenience functions for FFI conversions (from and to ptr) and tries to make misuse hard (see [`FFIContext::from`]).
     struct FFIContext<M: RawCustomMutator> {
         mutator: M,
+        /// buffer for storing the description returned by [`RawCustomMutator::describe`] as a CString
+        description_buffer: Vec<u8>,
+        /// buffer for storing the introspection returned by [`RawCustomMutator::introspect`] as a CString
+        introspection_buffer: Vec<u8>,
     }
 
     impl<M: RawCustomMutator> FFIContext<M> {
@@ -115,12 +121,16 @@ pub mod wrappers {
         fn new(afl: &'static afl_state, seed: u32) -> Box<Self> {
             Box::new(Self {
                 mutator: M::init(afl, seed),
+                description_buffer: Vec::new(),
+                introspection_buffer: Vec::new(),
             })
         }
         #[cfg(not(feature = "afl_internals"))]
         fn new(seed: u32) -> Box<Self> {
             Box::new(Self {
                 mutator: M::init(seed),
+                description_buffer: Vec::new(),
+                introspection_buffer: Vec::new(),
             })
         }
     }
@@ -242,9 +252,13 @@ pub mod wrappers {
             if filename_new_queue.is_null() {
                 panic!("received null filename_new_queue in afl_custom_queue_new_entry");
             }
-            let filename_new_queue = unsafe { CStr::from_ptr(filename_new_queue) };
+            let filename_new_queue = Path::new(OsStr::from_bytes(
+                unsafe { CStr::from_ptr(filename_new_queue) }.to_bytes(),
+            ));
             let filename_orig_queue = if !filename_orig_queue.is_null() {
-                Some(unsafe { CStr::from_ptr(filename_orig_queue) })
+                Some(Path::new(OsStr::from_bytes(
+                    unsafe { CStr::from_ptr(filename_orig_queue) }.to_bytes(),
+                )))
             } else {
                 None
             };
@@ -271,9 +285,14 @@ pub mod wrappers {
     /// Internal function used in the macro
     pub fn afl_custom_introspection_<M: RawCustomMutator>(data: *mut c_void) -> *const c_char {
         match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
+            let context = &mut *FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.introspection() {
-                res.as_ptr()
+                let buf = &mut context.introspection_buffer;
+                buf.clear();
+                buf.extend_from_slice(res.as_bytes());
+                buf.push(0);
+                // unwrapping here, as the error case should be extremely rare
+                CStr::from_bytes_with_nul(&buf).unwrap().as_ptr()
             } else {
                 null()
             }
@@ -289,9 +308,14 @@ pub mod wrappers {
         max_description_len: usize,
     ) -> *const c_char {
         match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
+            let context = &mut *FFIContext::<M>::from(data);
             if let Some(res) = context.mutator.describe(max_description_len) {
-                res.as_ptr()
+                let buf = &mut context.description_buffer;
+                buf.clear();
+                buf.extend_from_slice(res.as_bytes());
+                buf.push(0);
+                // unwrapping here, as the error case should be extremely rare
+                CStr::from_bytes_with_nul(&buf).unwrap().as_ptr()
             } else {
                 null()
             }
@@ -310,9 +334,9 @@ pub mod wrappers {
             let mut context = FFIContext::<M>::from(data);
             assert!(!filename.is_null());
 
-            context
-                .mutator
-                .queue_get(unsafe { CStr::from_ptr(filename) }) as u8
+            context.mutator.queue_get(Path::new(OsStr::from_bytes(
+                unsafe { CStr::from_ptr(filename) }.to_bytes(),
+            ))) as u8
         }) {
             Ok(ret) => ret,
             Err(err) => panic_handler("afl_custom_queue_get", err),
@@ -516,21 +540,21 @@ pub trait CustomMutator {
 
     fn queue_new_entry(
         &mut self,
-        filename_new_queue: &CStr,
-        filename_orig_queue: Option<&CStr>,
+        filename_new_queue: &Path,
+        filename_orig_queue: Option<&Path>,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn queue_get(&mut self, filename: &CStr) -> Result<bool, Self::Error> {
+    fn queue_get(&mut self, filename: &Path) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
-    fn describe(&mut self, max_description: usize) -> Result<Option<&CStr>, Self::Error> {
-        Ok(None)
+    fn describe(&mut self, max_description: usize) -> Result<Option<&str>, Self::Error> {
+        Ok(Some(default_mutator_describe::<Self>(max_description)))
     }
 
-    fn introspection(&mut self) -> Result<Option<&CStr>, Self::Error> {
+    fn introspection(&mut self) -> Result<Option<&str>, Self::Error> {
         Ok(None)
     }
 }
@@ -593,7 +617,7 @@ where
         }
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &CStr, filename_orig_queue: Option<&CStr>) {
+    fn queue_new_entry(&mut self, filename_new_queue: &Path, filename_orig_queue: Option<&Path>) {
         match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
             Ok(r) => r,
             Err(e) => {
@@ -602,7 +626,7 @@ where
         }
     }
 
-    fn queue_get(&mut self, filename: &CStr) -> bool {
+    fn queue_get(&mut self, filename: &Path) -> bool {
         match self.queue_get(filename) {
             Ok(r) => r,
             Err(e) => {
@@ -612,7 +636,7 @@ where
         }
     }
 
-    fn describe(&mut self, max_description: usize) -> Option<&CStr> {
+    fn describe(&mut self, max_description: usize) -> Option<&str> {
         match self.describe(max_description) {
             Ok(r) => r,
             Err(e) => {
@@ -622,13 +646,95 @@ where
         }
     }
 
-    fn introspection(&mut self) -> Option<&CStr> {
+    fn introspection(&mut self) -> Option<&str> {
         match self.introspection() {
             Ok(r) => r,
             Err(e) => {
                 Self::handle_error(e);
                 None
             }
+        }
+    }
+}
+
+/// the default value to return from [`CustomMutator::describe`].
+fn default_mutator_describe<T: ?Sized>(max_len: usize) -> &'static str {
+    truncate_str_unicode_safe(std::any::type_name::<T>(), max_len)
+}
+
+#[cfg(all(test, not(feature = "afl_internals")))]
+mod default_mutator_describe {
+    struct MyMutator;
+    use super::CustomMutator;
+    impl CustomMutator for MyMutator {
+        type Error = ();
+
+        fn init(_: u32) -> Result<Self, Self::Error> {
+            Ok(Self)
+        }
+
+        fn fuzz<'b, 's: 'b>(
+            &'s mut self,
+            _: &'b mut [u8],
+            _: Option<&[u8]>,
+            _: usize,
+        ) -> Result<Option<&'b [u8]>, Self::Error> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_default_describe() {
+        assert_eq!(
+            MyMutator::init(0).unwrap().describe(64).unwrap().unwrap(),
+            "custom_mutator::default_mutator_describe::MyMutator"
+        );
+    }
+}
+
+/// little helper function to truncate a `str` to a maximum of bytes while retaining unicode safety
+fn truncate_str_unicode_safe(s: &str, max_len: usize) -> &str {
+    if s.len() <= max_len {
+        s
+    } else {
+        if let Some((last_index, _)) = s
+            .char_indices()
+            .take_while(|(index, _)| *index <= max_len)
+            .last()
+        {
+            &s[..last_index]
+        } else {
+            ""
+        }
+    }
+}
+
+#[cfg(test)]
+mod truncate_test {
+    use super::truncate_str_unicode_safe;
+
+    #[test]
+    fn test_truncate() {
+        for (max_len, input, expected_output) in &[
+            (0usize, "a", ""),
+            (1, "a", "a"),
+            (1, "ä", ""),
+            (2, "ä", "ä"),
+            (3, "äa", "äa"),
+            (4, "äa", "äa"),
+            (1, "👎", ""),
+            (2, "👎", ""),
+            (3, "👎", ""),
+            (4, "👎", "👎"),
+            (1, "abc", "a"),
+            (2, "abc", "ab"),
+        ] {
+            let actual_output = truncate_str_unicode_safe(input, *max_len);
+            assert_eq!(
+                &actual_output, expected_output,
+                "{:#?} truncated to {} bytes should be {:#?}, but is {:#?}",
+                input, max_len, expected_output, actual_output
+            );
         }
     }
 }
