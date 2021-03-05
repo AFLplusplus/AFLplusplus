@@ -1283,19 +1283,19 @@ int main(int argc, char **argv, char **envp) {
     ngram_size = atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
     if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
       FATAL(
-          "K-CTX instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
+          "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
           "(%u)",
           NGRAM_SIZE_MAX);
 
   }
-  
+
   if (getenv("AFL_LLVM_CTX_K")) {
 
     instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
     ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
     if (ctx_k < 1 || ctx_k > CTX_MAX_K)
-      FATAL(
-          "NGRAM instrumentation mode must be between 1 and CTX_MAX_K (%u)", CTX_MAX_K);
+      FATAL("K-CTX instrumentation mode must be between 1 and CTX_MAX_K (%u)",
+            CTX_MAX_K);
 
   }
 
@@ -1393,7 +1393,7 @@ int main(int argc, char **argv, char **envp) {
         compiler_mode = CLANG;
 
       }
-            
+
       if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0) {
 
         u8 *ptr3 = ptr2 + strlen("ctx-");
@@ -1412,7 +1412,8 @@ int main(int argc, char **argv, char **envp) {
         ctx_k = atoi(ptr3);
         if (ctx_k < 1 || ctx_k > CTX_MAX_K)
           FATAL(
-              "K-CTX instrumentation option must be between 1 and CTX_MAX_K (%u)",
+              "K-CTX instrumentation option must be between 1 and CTX_MAX_K "
+              "(%u)",
               CTX_MAX_K);
         instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
         u8 *ptr4 = alloc_printf("%u", ctx_k);
@@ -1855,8 +1856,7 @@ int main(int argc, char **argv, char **envp) {
         (instrument_opt_mode & INSTRUMENT_OPT_CTX) ? " + CTX" : "",
         (instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "",
         (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "",
-        (instrument_opt_mode & INSTRUMENT_OPT_CTX_K) ? ptr3 : ""
-    );
+        (instrument_opt_mode & INSTRUMENT_OPT_CTX_K) ? ptr3 : "");
 
     ck_free(ptr2);
     ck_free(ptr3);
