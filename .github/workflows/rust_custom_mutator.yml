@@ -22,6 +22,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Check Code Compiles
+        run: cargo check
       - name: Run General Tests
         run: cargo test
       - name: Run Tests for afl_internals feature flag
