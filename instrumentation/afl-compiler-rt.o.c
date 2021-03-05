@@ -370,10 +370,10 @@ static void __afl_map_shm(void) {
     }
 
     close(shm_fd);
+    shm_fd = -1;
 
     if (shm_base == MAP_FAILED) {
 
-      shm_fd = -1;
       fprintf(stderr, "mmap() failed\n");
       perror("mmap for map");
 
