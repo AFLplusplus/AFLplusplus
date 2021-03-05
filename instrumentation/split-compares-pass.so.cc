@@ -149,8 +149,11 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
     auto op1 = FcmpInst->getOperand(1);
 
     /* find out what the new predicate is going to be */
-    auto               pred = dyn_cast<CmpInst>(FcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(FcmpInst);
+    if (!cmp_inst) { continue; }
+    auto               pred = cmp_inst->getPredicate();
     CmpInst::Predicate new_pred;
+
     switch (pred) {
 
       case CmpInst::FCMP_UGE:
@@ -276,8 +279,11 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
     auto op1 = IcmpInst->getOperand(1);
 
     /* find out what the new predicate is going to be */
-    auto               pred = dyn_cast<CmpInst>(IcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+    if (!cmp_inst) { continue; }
+    auto               pred = cmp_inst->getPredicate();
     CmpInst::Predicate new_pred;
+
     switch (pred) {
 
       case CmpInst::ICMP_UGE:
@@ -412,8 +418,11 @@ bool SplitComparesTransform::simplifyIntSignedness(Module &M) {
     IntegerType *IntType = IntegerType::get(C, bitw);
 
     /* get the new predicate */
-    auto               pred = dyn_cast<CmpInst>(IcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+    if (!cmp_inst) { continue; }
+    auto               pred = cmp_inst->getPredicate();
     CmpInst::Predicate new_pred;
+
     if (pred == CmpInst::ICMP_SGT) {
 
       new_pred = CmpInst::ICMP_UGT;
@@ -1113,7 +1122,9 @@ size_t SplitComparesTransform::splitIntCompares(Module &M, unsigned bitw) {
     auto op0 = IcmpInst->getOperand(0);
     auto op1 = IcmpInst->getOperand(1);
 
-    auto pred = dyn_cast<CmpInst>(IcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+    if (!cmp_inst) { continue; }
+    auto pred = cmp_inst->getPredicate();
 
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(IcmpInst));
 
