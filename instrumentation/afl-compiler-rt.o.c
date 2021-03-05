@@ -129,10 +129,10 @@ static u32 __afl_debug;
 
 /* Already initialized markers */
 
-static u32 __afl_already_initialized_shm;
-static u32 __afl_already_initialized_forkserver;
-static u32 __afl_already_initialized_first;
-static u32 __afl_already_initialized_second;
+u32 __afl_already_initialized_shm;
+u32 __afl_already_initialized_forkserver;
+u32 __afl_already_initialized_first;
+u32 __afl_already_initialized_second;
 
 /* Dummy pipe for area_is_valid() */
 
