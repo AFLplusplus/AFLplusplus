@@ -612,6 +612,10 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     if (op_size != op1->getType()->getPrimitiveSizeInBits()) { continue; }
 
     const unsigned int sizeInBits = op0->getType()->getPrimitiveSizeInBits();
+
+    // BUG FIXME TODO: u64 does not work for > 64 bit ... e.g. 80 and 128 bit
+    if (sizeInBits > 64) { continue; }
+
     const unsigned int precision = sizeInBits == 32    ? 24
                                    : sizeInBits == 64  ? 53
                                    : sizeInBits == 128 ? 113
@@ -619,8 +623,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
                                    : sizeInBits == 80  ? 65
                                                        : sizeInBits - 8;
 
-    const unsigned shiftR_exponent = precision - 1;
-    // BUG FIXME TODO: u64 does not work for > 64 bit ... e.g. 80 and 128 bit
+    const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
         (1ULL << (shiftR_exponent - 1)) | ((1ULL << (shiftR_exponent - 1)) - 1);
     const unsigned long long mask_exponent =
