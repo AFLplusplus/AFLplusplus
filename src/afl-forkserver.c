@@ -492,6 +492,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
              "malloc_context_size=0:"
              "symbolize=0:"
              "allocator_may_return_null=1:"
+             "detect_odr_violation=0:"
              "handle_segv=0:"
              "handle_sigbus=0:"
              "handle_abort=0:"
@@ -908,10 +909,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could"
-         " complete a handshake with the injected code.\n"
-         "If the target was compiled with afl-clang-lto and AFL_LLVM_MAP_ADDR"
-         " then recompiling without this parameter.\n"
+         "Hmm, looks like the target binary terminated before we could complete"
+         " a\n"
+         "handshake with the injected code.\n"
+         "Most likely the target has a huge coverage map, retry with setting"
+         " the\n"
+         "environment variable AFL_MAP_SIZE=4194304\n"
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -927,6 +930,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "explanations:\n\n"
 
         "%s"
+
+        "    - Most likely the target has a huge coverage map, retry with setting the\n"
+        "      environment variable AFL_MAP_SIZE=4194304\n\n"
+
         "    - The current memory limit (%s) is too restrictive, causing an "
         "OOM\n"
         "      fault in the dynamic linker. This can be fixed with the -m "

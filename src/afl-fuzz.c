@@ -1437,22 +1437,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // read_foreign_testcases(afl, 1); for the moment dont do this
   OKF("Loaded a total of %u seeds.", afl->queued_paths);
 
-  load_auto(afl);
-
   pivot_inputs(afl);
-
-  if (extras_dir_cnt) {
-
-    for (i = 0; i < extras_dir_cnt; i++) {
-
-      load_extras(afl, extras_dir[i]);
-
-    }
-
-    dedup_extras(afl);
-    OKF("Loaded a total of %u extras.", afl->extras_cnt);
-
-  }
 
   if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
@@ -1680,6 +1665,22 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+
+  load_auto(afl);
+
+  if (extras_dir_cnt) {
+
+    for (i = 0; i < extras_dir_cnt; i++) {
+
+      load_extras(afl, extras_dir[i]);
+
+    }
+
+  }
+
+  deunicode_extras(afl);
+  dedup_extras(afl);
+  if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
 
   // after we have the correct bitmap size we can read the bitmap -B option
   // and set the virgin maps

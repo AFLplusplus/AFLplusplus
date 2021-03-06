@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use custom_mutator::{export_mutator, CustomMutator};
 use lain::{
     mutator::Mutator,

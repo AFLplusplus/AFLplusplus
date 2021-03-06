@@ -84,7 +84,7 @@ class AFLCoverage : public ModulePass {
   uint32_t ngram_size = 0;
   uint32_t map_size = MAP_SIZE;
   uint32_t function_minimum_size = 1;
-  char *   ctx_str = NULL, *skip_nozero = NULL;
+  char *   ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
 
 };
 
@@ -187,6 +187,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
   ctx_str = getenv("AFL_LLVM_CTX");
+  caller_str = getenv("AFL_LLVM_CALLER");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Decide previous location vector size (must be a power of two) */
@@ -240,7 +241,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   GlobalVariable *AFLPrevLoc;
   GlobalVariable *AFLContext = NULL;
 
-  if (ctx_str)
+  if (ctx_str || caller_str)
 #if defined(__ANDROID__) || defined(__HAIKU__)
     AFLContext = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
@@ -318,7 +319,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       IRBuilder<>          IRB(&(*IP));
 
       // Context sensitive coverage
-      if (ctx_str && &BB == &F.getEntryBlock()) {
+      if ((ctx_str || caller_str) && &BB == &F.getEntryBlock()) {
 
         // load the context ID of the previous function and write to to a local
         // variable on the stack
@@ -354,8 +355,9 @@ bool AFLCoverage::runOnModule(Module &M) {
         // if yes we store a context ID for this function in the global var
         if (has_calls) {
 
-          ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
-          StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+          Value *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
+          if (ctx_str) NewCtx = IRB.CreateXor(PrevCtx, NewCtx);
+          StoreInst *StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
           StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                 MDNode::get(C, None));
 
@@ -411,7 +413,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // in CTX mode we have to restore the original context for the caller -
         // she might be calling other functions which need the correct CTX
-        if (ctx_str && has_calls) {
+        if ((ctx_str || caller_str) && has_calls) {
 
           Instruction *Inst = BB.getTerminator();
           if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
@@ -458,7 +460,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
         PrevLocTrans = PrevLoc;
 
-      if (ctx_str)
+      if (ctx_str || caller_str)
         PrevLocTrans =
             IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
       else
@@ -545,7 +547,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       // in CTX mode we have to restore the original context for the caller -
       // she might be calling other functions which need the correct CTX.
       // Currently this is only needed for the Ubuntu clang-6.0 bug
-      if (ctx_str && has_calls) {
+      if ((ctx_str || caller_str) && has_calls) {
 
         Instruction *Inst = BB.getTerminator();
         if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
