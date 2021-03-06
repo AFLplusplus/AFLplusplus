@@ -989,7 +989,6 @@ int main(int argc, char **argv_orig, char **envp) {
   if (unlikely(afl->afl_env.afl_persistent_record)) {
 
     afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
-    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
 
     if (afl->fsrv.persistent_record < 2) {
 
@@ -1532,6 +1531,8 @@ int main(int argc, char **argv_orig, char **envp) {
           "AFL_PERSISTENT_RECORD makes no sense.");
 
     }
+
+    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
 
   }
 
