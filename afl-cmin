@@ -287,6 +287,10 @@ BEGIN {
     exit 1
   }
 
+  if (0 == system( "test -d "in_dir"/default" )) {
+    in_dir = in_dir "/default"
+  }
+
   if (0 == system( "test -d "in_dir"/queue" )) {
     in_dir = in_dir "/queue"
   }

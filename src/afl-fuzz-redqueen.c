@@ -1853,7 +1853,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 }
 
 static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
-                              u8 *o_pattern, u8 *changed_val, u32 idx,
+                              u8 *o_pattern, u8 *changed_val, u8 plen, u32 idx,
                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                               u32 len, u8 lvl, u8 *status) {
 
@@ -1866,7 +1866,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
   u8  save[40];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
-  u32 its_len = MIN((u32)32, len - idx);
+  u32 its_len = MIN((u32)plen, len - idx);
   its_len = MIN(its_len, taint_len);
   u32 saved_its_len = its_len;
 
@@ -2365,9 +2365,9 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       status = 0;
 
-      if (unlikely(rtn_extend_encoding(afl, o->v0, o->v1, orig_o->v0,
-                                       orig_o->v1, idx, taint_len, orig_buf,
-                                       buf, cbuf, len, lvl, &status))) {
+      if (unlikely(rtn_extend_encoding(
+              afl, o->v0, o->v1, orig_o->v0, orig_o->v1, SHAPE_BYTES(h->shape),
+              idx, taint_len, orig_buf, buf, cbuf, len, lvl, &status))) {
 
         return 1;
 
@@ -2382,9 +2382,9 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       status = 0;
 
-      if (unlikely(rtn_extend_encoding(afl, o->v1, o->v0, orig_o->v1,
-                                       orig_o->v0, idx, taint_len, orig_buf,
-                                       buf, cbuf, len, lvl, &status))) {
+      if (unlikely(rtn_extend_encoding(
+              afl, o->v1, o->v0, orig_o->v1, orig_o->v0, SHAPE_BYTES(h->shape),
+              idx, taint_len, orig_buf, buf, cbuf, len, lvl, &status))) {
 
         return 1;
 

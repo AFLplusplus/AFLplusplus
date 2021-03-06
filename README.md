@@ -224,7 +224,6 @@ These build options exist:
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
-* NO_ARCH_OPT - builds afl++ without machine architecture optimizations
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
 e.g.: make ASAN_BUILD=1
@@ -239,6 +238,7 @@ Here are some good writeups to show how to effectively use AFL++:
  * [https://securitylab.github.com/research/fuzzing-software-2](https://securitylab.github.com/research/fuzzing-software-2)
  * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
  * [https://securitylab.github.com/research/fuzzing-sockets-FreeRDP](https://securitylab.github.com/research/fuzzing-sockets-FreeRDP)
+ * [https://securitylab.github.com/research/fuzzing-apache-1](https://securitylab.github.com/research/fuzzing-apache-1)
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:

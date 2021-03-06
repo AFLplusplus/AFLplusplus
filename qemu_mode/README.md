@@ -99,6 +99,13 @@ Just set AFL_QEMU_INST_RANGES=A,B,C...
 The format of the items in the list is either a range of addresses like 0x123-0x321
 or a module name like module.so (that is matched in the mapped object filename).
 
+Alternatively you can tell QEMU to ignore part of an address space for instrumentation.
+
+Just set AFL_QEMU_EXCLUDE_RANGES=A,B,C...
+
+The format of the items on the list is the same as for AFL_QEMU_INST_RANGES, and excluding ranges
+takes priority over any included ranges or AFL_INST_LIBS.
+
 ## 7) CompareCoverage
 
 CompareCoverage is a sub-instrumentation with effects similar to laf-intel.

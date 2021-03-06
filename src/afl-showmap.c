@@ -563,6 +563,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
          "detect_leaks=0:"
          "allocator_may_return_null=1:"
          "symbolize=0:"
+         "detect_odr_violation=0:"
          "handle_segv=0:"
          "handle_sigbus=0:"
          "handle_abort=0:"
