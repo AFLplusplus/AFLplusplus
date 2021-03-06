@@ -100,7 +100,7 @@ typedef struct afl_forkserver {
   u32   persistent_record_cnt;          /* persistent replay counter        */
   u8 *  persistent_record_dir;
   u8 ** persistent_record_data;
-  u32 **persistent_record_len;
+  u32 * persistent_record_len;
   s32   persistent_record_pid;
 
   /* Function to kick off the forkserver child */

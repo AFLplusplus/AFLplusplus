@@ -370,7 +370,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     fsrv->persistent_record_data =
         (u8 **)ck_alloc(fsrv->persistent_record * sizeof(u8 *));
     fsrv->persistent_record_len =
-        (u32 **)ck_alloc(fsrv->persistent_record * sizeof(u32));
+        (u32 *)ck_alloc(fsrv->persistent_record * sizeof(u32));
 
     if (!fsrv->persistent_record_data || !fsrv->persistent_record_len) {
 
@@ -1016,7 +1016,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
   if (unlikely(fsrv->persistent_record)) {
 
-    *fsrv->persistent_record_len[fsrv->persistent_record_idx] = len;
+    fsrv->persistent_record_len[fsrv->persistent_record_idx] = len;
     fsrv->persistent_record_data[fsrv->persistent_record_idx] = afl_realloc(
         (void **)&fsrv->persistent_record_data[fsrv->persistent_record_idx],
         len);
@@ -1159,10 +1159,10 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
       idx = fsrv->persistent_record - 1;
     else
       idx = fsrv->persistent_record_idx - 1;
-    val = *fsrv->persistent_record_len[idx];
+    val = fsrv->persistent_record_len[idx];
     memset((void *)fsrv->persistent_record_len, 0,
            fsrv->persistent_record * sizeof(u32));
-    *fsrv->persistent_record_len[idx] = val;
+    fsrv->persistent_record_len[idx] = val;
 
   }
 
@@ -1272,8 +1272,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
         u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
         u8 *data = fsrv->persistent_record_data[entry];
-        u32 *len = fsrv->persistent_record_len[entry];
-        if (likely(len && *len && data)) {
+        u32 len = fsrv->persistent_record_len[entry];
+        if (likely(len && data)) {
 
           snprintf(fn, sizeof(fn), "%s/RECORD:%06u,cnt:%06u",
                    fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
@@ -1281,7 +1281,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           int fd = open(fn, O_WRONLY, 0644);
           if (fd >= 0) {
 
-            ck_write(fd, data, *len, fn);
+            ck_write(fd, data, len, fn);
             close(fd);
 
           }
