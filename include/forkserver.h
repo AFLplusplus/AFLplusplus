@@ -95,12 +95,13 @@ typedef struct afl_forkserver {
   char *cmplog_binary;                  /* the name of the cmplog binary    */
 
   /* persistent mode replay functionality */
-  u32   persistent_replay;              /* persistent replay setting        */
-  u32   persistent_replay_idx;          /* persistent replay cache ptr      */
-  u32   persistent_replay_cnt;          /* persistent replay counter        */
-  u8 *  persistent_replay_dir;
-  u8 ** persistent_replay_data;
-  u32 **persistent_replay_len;
+  u32   persistent_record;              /* persistent replay setting        */
+  u32   persistent_record_idx;          /* persistent replay cache ptr      */
+  u32   persistent_record_cnt;          /* persistent replay counter        */
+  u8 *  persistent_record_dir;
+  u8 ** persistent_record_data;
+  u32 **persistent_record_len;
+  s32   persistent_record_pid;
 
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);

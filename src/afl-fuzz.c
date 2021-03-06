@@ -1239,10 +1239,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (unlikely(afl->afl_env.afl_persistent_replay)) {
+  if (unlikely(afl->afl_env.afl_persistent_record)) {
 
-    afl->fsrv.persistent_replay = atoi(afl->afl_env.afl_persistent_replay);
-    afl->fsrv.persistent_replay_dir = alloc_printf("%s/crashes", afl->out_dir);
+    afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
+    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
+
+    if (afl->fsrv.persistent_record < 2) {
+
+      FATAL(
+          "AFL_PERSISTENT_RECORD vallue must be be at least 2, recommended is "
+          "100 or 1000.");
+
+    }
+
+    if (!getenv(PERSIST_ENV_VAR)) {
+
+      FATAL(
+          "Target binary is not compiled in persistent mode, "
+          "AFL_PERSISTENT_RECORD makes no sense.");
+
+    }
 
   }
 
