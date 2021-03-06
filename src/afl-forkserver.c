@@ -42,6 +42,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
@@ -367,7 +368,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (unlikely(fsrv->persistent_record)) {
 
     fsrv->persistent_record_data =
-        (u8 **)ck_alloc(fsrv->persistent_record * sizeof(size_t));
+        (u8 **)ck_alloc(fsrv->persistent_record * sizeof(u8 *));
     fsrv->persistent_record_len =
         (u32 **)ck_alloc(fsrv->persistent_record * sizeof(u32));
 
@@ -1265,7 +1266,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
     if (unlikely(fsrv->persistent_record)) {
 
-      char fn[4096];
+      char fn[PATH_MAX];
       u32  i, writecnt = 0;
       for (i = 0; i < fsrv->persistent_record; ++i) {
 
