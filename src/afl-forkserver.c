@@ -126,7 +126,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->last_run_timed_out = 0;
 
   fsrv_to->init_child_func = from->init_child_func;
-  // Note: do not copy ->add_extra_func or ->persistent_replay*
+  // Note: do not copy ->add_extra_func or ->persistent_record*
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -364,14 +364,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
-  if (unlikely(fsrv->persistent_replay)) {
+  if (unlikely(fsrv->persistent_record)) {
 
-    fsrv->persistent_replay_data =
-        (u8 **)ck_alloc(fsrv->persistent_replay * sizeof(size_t));
-    fsrv->persistent_replay_len =
-        (u32 **)ck_alloc(fsrv->persistent_replay * sizeof(u32));
+    fsrv->persistent_record_data =
+        (u8 **)ck_alloc(fsrv->persistent_record * sizeof(size_t));
+    fsrv->persistent_record_len =
+        (u32 **)ck_alloc(fsrv->persistent_record * sizeof(u32));
 
-    if (!fsrv->persistent_replay_data || !fsrv->persistent_replay_len) {
+    if (!fsrv->persistent_record_data || !fsrv->persistent_record_len) {
 
       FATAL("Unable to allocate memory for persistent replay.");
 
@@ -1013,24 +1013,24 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (unlikely(fsrv->persistent_replay)) {
+  if (unlikely(fsrv->persistent_record)) {
 
-    *fsrv->persistent_replay_len[fsrv->persistent_replay_idx] = len;
-    fsrv->persistent_replay_data[fsrv->persistent_replay_idx] = afl_realloc(
-        (void **)&fsrv->persistent_replay_data[fsrv->persistent_replay_idx],
+    *fsrv->persistent_record_len[fsrv->persistent_record_idx] = len;
+    fsrv->persistent_record_data[fsrv->persistent_record_idx] = afl_realloc(
+        (void **)&fsrv->persistent_record_data[fsrv->persistent_record_idx],
         len);
 
-    if (unlikely(!fsrv->persistent_replay_data[fsrv->persistent_replay_idx])) {
+    if (unlikely(!fsrv->persistent_record_data[fsrv->persistent_record_idx])) {
 
       FATAL("allocating replay memory failed.");
 
     }
 
-    memcpy(fsrv->persistent_replay_data[fsrv->persistent_replay_idx], buf, len);
+    memcpy(fsrv->persistent_record_data[fsrv->persistent_record_idx], buf, len);
 
-    if (unlikely(++fsrv->persistent_replay_idx >= fsrv->persistent_replay)) {
+    if (unlikely(++fsrv->persistent_record_idx >= fsrv->persistent_record)) {
 
-      fsrv->persistent_replay_idx = 0;
+      fsrv->persistent_record_idx = 0;
 
     }
 
@@ -1148,6 +1148,23 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
+  // end of persistent loop?
+  if (unlikely(fsrv->persistent_record &&
+               fsrv->persistent_record_pid != fsrv->child_pid)) {
+
+    fsrv->persistent_record_pid = fsrv->child_pid;
+    u32 idx, val;
+    if (unlikely(!fsrv->persistent_record_idx))
+      idx = fsrv->persistent_record - 1;
+    else
+      idx = fsrv->persistent_record_idx - 1;
+    val = *fsrv->persistent_record_len[idx];
+    memset((void *)fsrv->persistent_record_len, 0,
+           fsrv->persistent_record * sizeof(u32));
+    *fsrv->persistent_record_len[idx] = val;
+
+  }
+
   if (fsrv->child_pid <= 0) {
 
     if (*stop_soon_p) { return 0; }
@@ -1246,19 +1263,19 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
-    if (unlikely(fsrv->persistent_replay)) {
+    if (unlikely(fsrv->persistent_record)) {
 
       char fn[4096];
       u32  i, writecnt = 0;
-      for (i = 0; i < fsrv->persistent_replay; ++i) {
+      for (i = 0; i < fsrv->persistent_record; ++i) {
 
-        u32 entry = (i + fsrv->persistent_replay_idx) % fsrv->persistent_replay;
-        u8 *data = fsrv->persistent_replay_data[entry];
-        u32 *len = fsrv->persistent_replay_len[entry];
+        u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
+        u8 *data = fsrv->persistent_record_data[entry];
+        u32 *len = fsrv->persistent_record_len[entry];
         if (likely(len && *len && data)) {
 
-          snprintf(fn, sizeof(fn), "%s/replay_%u_%u.bin",
-                   fsrv->persistent_replay_dir, fsrv->persistent_replay_cnt,
+          snprintf(fn, sizeof(fn), "%s/RECORD:%06u,cnt:%06u",
+                   fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
                    writecnt++);
           int fd = open(fn, O_WRONLY, 0644);
           if (fd >= 0) {
@@ -1272,7 +1289,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
       }
 
-      ++fsrv->persistent_replay_cnt;
+      ++fsrv->persistent_record_cnt;
 
     }
 
