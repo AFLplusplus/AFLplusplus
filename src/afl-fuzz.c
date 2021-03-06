@@ -986,6 +986,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (unlikely(afl->afl_env.afl_persistent_record)) {
+
+    afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
+    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
+
+    if (afl->fsrv.persistent_record < 2) {
+
+      FATAL(
+          "AFL_PERSISTENT_RECORD value must be be at least 2, recommended is "
+          "100 or 1000.");
+
+    }
+
+  }
+
   if (afl->fsrv.qemu_mode && getenv("AFL_USE_QASAN")) {
 
     u8 *preload = getenv("AFL_PRELOAD");
@@ -1236,29 +1251,6 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     afl->fsrv.init_tmout = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
-
-  }
-
-  if (unlikely(afl->afl_env.afl_persistent_record)) {
-
-    afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
-    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
-
-    if (afl->fsrv.persistent_record < 2) {
-
-      FATAL(
-          "AFL_PERSISTENT_RECORD vallue must be be at least 2, recommended is "
-          "100 or 1000.");
-
-    }
-
-    if (!getenv(PERSIST_ENV_VAR)) {
-
-      FATAL(
-          "Target binary is not compiled in persistent mode, "
-          "AFL_PERSISTENT_RECORD makes no sense.");
-
-    }
 
   }
 
@@ -1530,6 +1522,18 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   check_binary(afl, argv[optind]);
+
+  if (unlikely(afl->fsrv.persistent_record)) {
+
+    if (!getenv(PERSIST_ENV_VAR)) {
+
+      FATAL(
+          "Target binary is not compiled in persistent mode, "
+          "AFL_PERSISTENT_RECORD makes no sense.");
+
+    }
+
+  }
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 

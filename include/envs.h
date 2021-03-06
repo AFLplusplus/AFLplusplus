@@ -123,7 +123,7 @@ static char *afl_environment_variables[] = {
     "AFL_MAX_DET_EXTRAS",
     "AFL_PATH",
     "AFL_PERFORMANCE_FILE",
-    "AFL_PERSISTEN_REPLAY",
+    "AFL_PERSISTENT_RECORD",
     "AFL_PRELOAD",
     "AFL_PYTHON_MODULE",
     "AFL_QEMU_COMPCOV",
