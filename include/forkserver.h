@@ -55,9 +55,6 @@ typedef struct afl_forkserver {
   u32 init_tmout;                       /* Configurable init timeout (ms)   */
   u32 map_size;                         /* map size used by the target      */
   u32 snapshot;                         /* is snapshot feature used         */
-  u32 persistent_replay;                /* persistent replay setting        */
-  u32 persistent_replay_idx;            /* persistent replay cache ptr      */
-  u32 persistent_replay_cnt;            /* persistent replay counter        */
   u64 mem_limit;                        /* Memory cap for child (MB)        */
 
   u64 total_execs;                      /* How often run_target was called  */
@@ -96,6 +93,14 @@ typedef struct afl_forkserver {
   u8 *shmem_fuzz;                       /* allocated memory for fuzzing     */
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
+
+  /* persistent mode replay functionality */
+  u32   persistent_replay;              /* persistent replay setting        */
+  u32   persistent_replay_idx;          /* persistent replay cache ptr      */
+  u32   persistent_replay_cnt;          /* persistent replay counter        */
+  u8 *  persistent_replay_dir;
+  u8 ** persistent_replay_data;
+  u32 **persistent_replay_len;
 
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);
