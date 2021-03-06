@@ -1239,9 +1239,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->afl_env.afl_persistent_replay) {
+  if (unlikely(afl->afl_env.afl_persistent_replay)) {
 
     afl->fsrv.persistent_replay = atoi(afl->afl_env.afl_persistent_replay);
+    afl->fsrv.persistent_replay_dir = alloc_printf("%s/crashes", afl->out_dir);
 
   }
 

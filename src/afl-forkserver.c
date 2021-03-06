@@ -364,6 +364,21 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
+  if (unlikely(fsrv->persistent_replay)) {
+
+    fsrv->persistent_replay_data =
+        (u8 **)ck_alloc(fsrv->persistent_replay * sizeof(size_t));
+    fsrv->persistent_replay_len =
+        (u32 **)ck_alloc(fsrv->persistent_replay * sizeof(u32));
+
+    if (!fsrv->persistent_replay_data || !fsrv->persistent_replay_len) {
+
+      FATAL("Unable to allocate memory for persistent replay.");
+
+    }
+
+  }
+
   if (fsrv->use_fauxsrv) {
 
     /* TODO: Come up with some nice way to initialize this all */
@@ -998,6 +1013,29 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
+  if (unlikely(fsrv->persistent_replay)) {
+
+    *fsrv->persistent_replay_len[fsrv->persistent_replay_idx] = len;
+    fsrv->persistent_replay_data[fsrv->persistent_replay_idx] = afl_realloc(
+        (void **)&fsrv->persistent_replay_data[fsrv->persistent_replay_idx],
+        len);
+
+    if (unlikely(!fsrv->persistent_replay_data[fsrv->persistent_replay_idx])) {
+
+      FATAL("allocating replay memory failed.");
+
+    }
+
+    memcpy(fsrv->persistent_replay_data[fsrv->persistent_replay_idx], buf, len);
+
+    if (unlikely(++fsrv->persistent_replay_idx >= fsrv->persistent_replay)) {
+
+      fsrv->persistent_replay_idx = 0;
+
+    }
+
+  }
+
   if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
@@ -1207,6 +1245,36 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+
+    if (unlikely(fsrv->persistent_replay)) {
+
+      char fn[4096];
+      u32  i, writecnt = 0;
+      for (i = 0; i < fsrv->persistent_replay; ++i) {
+
+        u32 entry = (i + fsrv->persistent_replay_idx) % fsrv->persistent_replay;
+        u8 *data = fsrv->persistent_replay_data[entry];
+        u32 *len = fsrv->persistent_replay_len[entry];
+        if (likely(len && *len && data)) {
+
+          snprintf(fn, sizeof(fn), "%s/replay_%u_%u.bin",
+                   fsrv->persistent_replay_dir, fsrv->persistent_replay_cnt,
+                   writecnt++);
+          int fd = open(fn, O_WRONLY, 0644);
+          if (fd >= 0) {
+
+            ck_write(fd, data, *len, fn);
+            close(fd);
+
+          }
+
+        }
+
+      }
+
+      ++fsrv->persistent_replay_cnt;
+
+    }
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
