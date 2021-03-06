@@ -1278,7 +1278,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           snprintf(fn, sizeof(fn), "%s/RECORD:%06u,cnt:%06u",
                    fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
                    writecnt++);
-          int fd = open(fn, O_WRONLY, 0644);
+          int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
           if (fd >= 0) {
 
             ck_write(fd, data, len, fn);
