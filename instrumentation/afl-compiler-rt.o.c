@@ -1703,41 +1703,25 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
 // to avoid to call it on .text addresses
 static int area_is_valid(void *ptr, size_t len) {
 
-  void *ret_ptr = __asan_region_is_poisoned(ptr, len);
+  if (unlikely(__asan_region_is_poisoned(ptr, len))) { return 0; }
 
-  if (ret_ptr) {  // region is poisoned
+  long r = syscall(__afl_dummy_fd[1], SYS_write, ptr, len);
 
-    ssize_t ret_diff = ret_ptr - ptr;
-
-    if (ret_diff <= 0) {
-
-      return 0;
-
-    } else {
-
-      return ret_diff;  // only partially poisoned
-
-    }
-
-  }
-
-  int r = syscall(__afl_dummy_fd[1], SYS_write, ptr, len);
-
-  if (r <= 0) {  //  maybe this is going over an asan boundary
+  if (unlikely(r <= 0 || r > len)) {  // fail - maybe hitting asan boundary?
 
     char *p = (char *)ptr;
     long  page_size = sysconf(_SC_PAGE_SIZE);
     char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
-    if (page < p + len) { return 0; }
+    if (page < p + len) { return 0; }  // no isnt, return fail
     len -= (p + len - page);
     r = syscall(__afl_dummy_fd[1], SYS_write, p, len);
 
   }
 
   // partial writes - we return what was written.
-  if (r > 0) {
+  if (likely(r >= 0 && r <= len)) {
 
-    return r;
+    return (int)r;
 
   } else {
 
