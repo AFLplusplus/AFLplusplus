@@ -218,6 +218,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
+      "AFL_PERSISTENT_RECORD: record the last X inputs to every crash in out/crashes\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
