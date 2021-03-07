@@ -365,6 +365,7 @@ class ModuleSanitizerCoverage {
   const SpecialCaseList *Blocklist;
 
   uint32_t        instr = 0;
+  char *          no_interesting = NULL;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt *   One = NULL;
   ConstantInt *   Zero = NULL;
@@ -454,7 +455,6 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 };
 
 }  // namespace
-
 
 PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
                                                    ModuleAnalysisManager &MAM) {
@@ -569,6 +569,7 @@ bool ModuleSanitizerCoverage::instrumentModule(Module &            M,
     be_quiet = 1;
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  no_interesting = getenv("AFL_NO_INTERESTING");
 
   initInstrumentList();
   scanForDangerousFunctions(&M);
@@ -885,7 +886,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
   const LoopInfo *         LI = LCallback(F);
   bool                     IsLeafFunc = true;
 
-  if (LI) {
+  if (!no_interesting && LI) {
 
     // fprintf(stderr, "%s: Have LoopInfo!\n", F.getName().str().c_str());
     for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
@@ -1100,7 +1101,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
     }
 
-    if (call_cnt) {
+    if (!no_interesting && call_cnt) {
 
       LLVMContext &        Ctx = F.getParent()->getContext();
       BasicBlock::iterator IP = BB.getFirstInsertionPt();

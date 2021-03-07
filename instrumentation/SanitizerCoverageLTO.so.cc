@@ -243,6 +243,7 @@ class ModuleSanitizerCoverage {
   uint32_t                         afl_global_id = 2;
   uint64_t                         map_addr = 0;
   char *                           skip_nozero = NULL;
+  char *                           no_interesting = NULL;
   std::vector<BasicBlock *>        BlockList;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<std::string>         dictionary;
@@ -459,6 +460,7 @@ bool ModuleSanitizerCoverage::instrumentModule(Module &            M,
     be_quiet = 1;
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  no_interesting = getenv("AFL_NO_INTERESTING");
 
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
     if ((afl_global_id = atoi(ptr)) < 0)
@@ -1258,7 +1260,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
   const LoopInfo *         LI = LCallback(F);
   bool                     IsLeafFunc = true;
 
-  if (LI) {
+  if (!no_interesting && LI) {
 
     // fprintf(stderr, "%s: Have LoopInfo!\n", F.getName().str().c_str());
     for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
@@ -1337,6 +1339,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
     if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
       BlocksToInstrument.push_back(&BB);
+
     for (auto &Inst : BB) {
 
       if (Options.IndirectCalls) {
@@ -1348,7 +1351,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
     }
 
-    if (call_cnt) {
+    if (!no_interesting && call_cnt) {
 
       LLVMContext &        Ctx = F.getParent()->getContext();
       BasicBlock::iterator IP = BB.getFirstInsertionPt();

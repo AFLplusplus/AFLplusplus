@@ -114,6 +114,7 @@ static char *afl_environment_variables[] = {
 #endif
     "AFL_NO_CPU_RED",
     "AFL_NO_FORKSRV",
+    "AFL_NO_INTERESTING",
     "AFL_NO_UI",
     "AFL_NO_PYTHON",
     "AFL_UNTRACER_FILE",

@@ -467,7 +467,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   u8 fn[PATH_MAX];
 
-  if (afl->fsrv.map_size != MAP_SIZE) {
+  if (unlikely(afl->fsrv.map_size != MAP_SIZE &&
+               afl->afl_env.afl_no_interesting)) {
 
     afl->interesting_functions = afl->fsrv.trace_bits[1];
     afl->loops = afl->fsrv.trace_bits[2];
