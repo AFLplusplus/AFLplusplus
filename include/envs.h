@@ -81,6 +81,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_CMPLOG",
     "AFL_LLVM_INSTRIM",
     "AFL_LLVM_CTX",
+    "AFL_LLVM_CTX_K",
     "AFL_LLVM_DICT2FILE",
     "AFL_LLVM_DOCUMENT_IDS",
     "AFL_LLVM_INSTRIM_LOOPHEAD",
