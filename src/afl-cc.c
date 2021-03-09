@@ -1298,11 +1298,21 @@ int main(int argc, char **argv, char **envp) {
 
   if (getenv("AFL_LLVM_CTX_K")) {
 
-    instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
     ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
     if (ctx_k < 1 || ctx_k > CTX_MAX_K)
       FATAL("K-CTX instrumentation mode must be between 1 and CTX_MAX_K (%u)",
             CTX_MAX_K);
+    if (ctx_k == 1) {
+
+      setenv("AFL_LLVM_CALLER", "1", 1);
+      unsetenv("AFL_LLVM_CTX_K");
+      instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+
+    } else {
+
+      instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
+
+    }
 
   }
 
@@ -1422,9 +1432,20 @@ int main(int argc, char **argv, char **envp) {
               "K-CTX instrumentation option must be between 1 and CTX_MAX_K "
               "(%u)",
               CTX_MAX_K);
-        instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
-        u8 *ptr4 = alloc_printf("%u", ctx_k);
-        setenv("AFL_LLVM_CTX_K", ptr4, 1);
+
+        if (ctx_k == 1) {
+
+          instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+          setenv("AFL_LLVM_CALLER", "1", 1);
+          unsetenv("AFL_LLVM_CTX_K");
+
+        } else {
+
+          instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
+          u8 *ptr4 = alloc_printf("%u", ctx_k);
+          setenv("AFL_LLVM_CTX_K", ptr4, 1);
+
+        }
 
       }
 
