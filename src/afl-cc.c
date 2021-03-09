@@ -940,7 +940,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (preprocessor_only) {
+  // prevent unnecessary build errors
+  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+  if (preprocessor_only || have_c) {
 
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
@@ -1001,17 +1004,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking && !have_c)
+    if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
   #if defined(USEMMAP) && !defined(__HAIKU__)
-    if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
+    cc_params[cc_par_cnt++] = "-lrt";
   #endif
-
-    // prevent unnecessary build errors
-    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
   }
 
