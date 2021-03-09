@@ -14,6 +14,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add non-unicode variants from unicode-looking dictionary entries
     - Rust custom mutator API improvements
   - afl-cc:
+    - added AFL_NOOPT that will just pass everything to the normal
+      gcc/clang compiler without any changes - to pass weird configure
+      scripts
     - fixed a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
     - fixed a crash in LAF transform for empty strings
@@ -21,7 +24,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       compiled into the target. This now also supports dlopen()
       instrumented libs loaded before the forkserver and even after the
       forkserver is started (then with collisions though)
-    - Renamed CTX to CALLER, added correct/real CTX implementation to CLASSIC
+    - the compiler rt was added also in object building (-c) which
+      should have been fixed years ago but somewhere got lost :(
+    - Renamed CTX to CALLER, added correct/real CTX implementation to
+      CLASSIC
   - qemu_mode:
     - added AFL_QEMU_EXCLUDE_RANGES env by @realmadsci, thanks!
     - if no new/updated checkout is wanted, build with:
