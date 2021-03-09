@@ -376,6 +376,18 @@ if [ "$ORIG_CROSS" = "" ]; then
   then # works on Arch Linux
     CROSS=$CPU_TARGET-pc-linux-gnu-gcc
   fi
+  if ! command -v "$CROSS" > /dev/null && [ "$CPU_TARGET" = "i386" ]
+  then
+    CROSS=i686-linux-gnu-gcc
+    if ! command -v "$CROSS" > /dev/null
+    then # works on Arch Linux
+      CROSS=i686-pc-linux-gnu-gcc
+    fi
+    if ! command -v "$CROSS" > /dev/null && [ "`uname -m`" = "x86_64" ]
+    then # set -m32
+      CROSS="$CC -m32"
+    fi
+  fi
 fi
 
 if ! command -v "$CROSS" > /dev/null ; then
