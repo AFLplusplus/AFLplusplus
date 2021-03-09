@@ -399,10 +399,19 @@ How to do this is described below.
 
 Then build the target. (Usually with `make`)
 
-**NOTE**: sometimes configure and build systems are fickle and do not like
-stderr output (and think this means a test failure) - which is something
-afl++ like to do to show statistics. It is recommended to disable them via
-`export AFL_QUIET=1`.
+**NOTES**
+
+1. sometimes configure and build systems are fickle and do not like
+   stderr output (and think this means a test failure) - which is something
+   afl++ like to do to show statistics. It is recommended to disable them via
+   `export AFL_QUIET=1`.
+
+2. sometimes configure and build systems error on warnings - these should be
+   disabled (e.g. `--disable-werror` for some configure scripts`
+
+3. in case the configure/build system complains about afl++'s compiler and
+   aborts then set `export AFL_NOOPT=1` which will then just behave like the
+   real compiler. This option has to be unset again before building the target!
 
 ##### configure
 
