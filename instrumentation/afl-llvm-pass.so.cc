@@ -217,8 +217,8 @@ bool AFLCoverage::runOnModule(Module &M) {
   VectorType *PrevCallerTy = NULL;
 
   if (ctx_k_str)
-    if (sscanf(ctx_k_str, "%u", &ctx_k) != 1 || ctx_k < 2 || ctx_k > CTX_MAX_K)
-      FATAL("Bad value of AFL_CTX_K (must be between 2 and CTX_MAX_K (%u))",
+    if (sscanf(ctx_k_str, "%u", &ctx_k) != 1 || ctx_k < 1 || ctx_k > CTX_MAX_K)
+      FATAL("Bad value of AFL_CTX_K (must be between 1 and CTX_MAX_K (%u))",
             CTX_MAX_K);
 
   if (ctx_k == 1) {
