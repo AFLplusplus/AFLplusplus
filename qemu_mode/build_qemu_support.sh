@@ -386,7 +386,8 @@ if [ "$ORIG_CROSS" = "" ]; then
     if ! command -v "$CROSS" > /dev/null && [ "`uname -m`" = "x86_64" ]
     then # set -m32
       test "$CC" = "" && CC="gcc"
-      CROSS="$CC -m32"
+      CROSS="$CC"
+      CROSS_FLAGS=-m32
     fi
   fi
 fi
@@ -404,13 +405,13 @@ if ! command -v "$CROSS" > /dev/null ; then
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
   fi
 else
-  echo "[+] Building afl++ qemu support libraries with CC=$CROSS"
+  echo "[+] Building afl++ qemu support libraries with CC=\"$CROSS $CROSS_FLAGS\""
   echo "[+] Building libcompcov ..."
-  make -C libcompcov CC=$CROSS && echo "[+] libcompcov ready"
+  make -C libcompcov CC="$CROSS $CROSS_FLAGS" && echo "[+] libcompcov ready"
   echo "[+] Building unsigaction ..."
-  make -C unsigaction CC=$CROSS && echo "[+] unsigaction ready"
+  make -C unsigaction CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
   echo "[+] Building libqasan ..."
-  make -C libqasan CC=$CROSS && echo "[+] unsigaction ready"
+  make -C libqasan CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
 fi
 
 echo "[+] All done for qemu_mode, enjoy!"
