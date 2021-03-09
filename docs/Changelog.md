@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.11a (dev)
   - afl-fuzz:
+    - fix sanitizer settings (bug since 3.10c)
     - add non-unicode variants from unicode-looking dictionary entries
     - Rust custom mutator API improvements
   - afl-cc:

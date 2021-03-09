@@ -2457,7 +2457,7 @@ void check_asan_opts(afl_state_t *afl) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+    if (!afl->debug && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
 
