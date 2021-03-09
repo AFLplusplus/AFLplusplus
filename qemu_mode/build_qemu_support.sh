@@ -385,6 +385,7 @@ if [ "$ORIG_CROSS" = "" ]; then
     fi
     if ! command -v "$CROSS" > /dev/null && [ "`uname -m`" = "x86_64" ]
     then # set -m32
+      test "$CC" = "" && CC="gcc"
       CROSS="$CC -m32"
     fi
   fi
