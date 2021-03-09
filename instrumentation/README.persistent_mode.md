@@ -16,7 +16,7 @@ Examples can be found in [utils/persistent_mode](../utils/persistent_mode).
 ## 2) TLDR;
 
 Example `fuzz_target.c`:
-```
+```c
 #include "what_you_need_for_your_target.h"
 
 __AFL_FUZZ_INIT();
@@ -60,14 +60,14 @@ The speed increase is usually x10 to x20.
 If you want to be able to compile the target without afl-clang-fast/lto then
 add this just after the includes:
 
-```
+```c
 #ifndef __AFL_FUZZ_TESTCASE_LEN
   ssize_t fuzz_len;
   #define __AFL_FUZZ_TESTCASE_LEN fuzz_len
   unsigned char fuzz_buf[1024000];
   #define __AFL_FUZZ_TESTCASE_BUF fuzz_buf
   #define __AFL_FUZZ_INIT() void sync(void);
-  #define __AFL_LOOP(x) ((fuzz_len = read(0, fuzz_buf, sizeof(fuzz_buf))) > 0 ?
+  #define __AFL_LOOP(x) ((fuzz_len = read(0, fuzz_buf, sizeof(fuzz_buf))) > 0 ? 1 : 0)
   #define __AFL_INIT() sync() 
 #endif
 ```
@@ -75,7 +75,7 @@ add this just after the includes:
 ## 3) Deferred initialization
 
 AFL tries to optimize performance by executing the targeted binary just once,
-stopping it just before main(), and then cloning this "main" process to get
+stopping it just before `main()`, and then cloning this "main" process to get
 a steady supply of targets to fuzz.
 
 Although this approach eliminates much of the OS-, linker- and libc-level
@@ -97,7 +97,7 @@ a location after:
   - The creation of any vital threads or child processes - since the forkserver
     can't clone them easily.
 
-  - The initialization of timers via setitimer() or equivalent calls.
+  - The initialization of timers via `setitimer()` or equivalent calls.
 
   - The creation of temporary files, network sockets, offset-sensitive file
     descriptors, and similar shared-state resources - but only provided that
@@ -150,9 +150,9 @@ the impact of memory leaks and similar glitches; 1000 is a good starting point,
 and going much higher increases the likelihood of hiccups without giving you
 any real performance benefits.
 
-A more detailed template is shown in ../utils/persistent_mode/.
-Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
-guards can be used to suppress it when using other compilers.
+A more detailed template is shown in `../utils/persistent_mode/.`
+Similarly to the previous mode, the feature works only with afl-clang-fast; 
+`#ifdef` guards can be used to suppress it when using other compilers.
 
 Note that as with the previous mode, the feature is easy to misuse; if you
 do not fully reset the critical state, you may end up with false positives or
@@ -161,7 +161,7 @@ wary of memory leaks and of the state of file descriptors.
 
 PS. Because there are task switches still involved, the mode isn't as fast as
 "pure" in-process fuzzing offered, say, by LLVM's LibFuzzer; but it is a lot
-faster than the normal fork() model, and compared to in-process fuzzing,
+faster than the normal `fork()` model, and compared to in-process fuzzing,
 should be a lot more robust.
 
 ## 5) Shared memory fuzzing
@@ -174,17 +174,17 @@ Setting this up is very easy:
 
 After the includes set the following macro:
 
-```
+```c
 __AFL_FUZZ_INIT();
 ```
 Directly at the start of main - or if you are using the deferred forkserver
-with `__AFL_INIT()`  then *after* `__AFL_INIT? :
-```
+with `__AFL_INIT()` then *after* `__AFL_INIT()` :
+```c
   unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
 ```
 
 Then as first line after the `__AFL_LOOP` while loop:
-```
+```c
   int len = __AFL_FUZZ_TESTCASE_LEN;
 ```
 and that is all!
