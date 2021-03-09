@@ -59,51 +59,11 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PREREQ_NOTFOUND=
-for i in git wget sha384sum bison flex iconv patch pkg-config; do
-
-  T=`command -v "$i" 2>/dev/null`
-
-  if [ "$T" = "" ]; then
-
-    echo "[-] Error: '$i' not found, please install first."
-    PREREQ_NOTFOUND=1
-
-  fi
-
-done
-
-PYTHONBIN=`command -v python3 || command -v python || command -v python2`
-
-if [ "$PYTHONBIN" = "" ]; then
-  echo "[-] Error: 'python' not found, please install using 'sudo apt install python3'."
-  PREREQ_NOTFOUND=1
-fi
-
-
-if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; then
-
-  echo "[-] Error: devel version of 'glib2' not found, please install first."
-  PREREQ_NOTFOUND=1
-
-fi
-
-if [ ! -d "/usr/include/pixman-1/" -a ! -d "/usr/local/include/pixman-1/" ]; then
-
-  echo "[-] Error: devel version of 'pixman-1' not found, please install first."
-  PREREQ_NOTFOUND=1
-
-fi
-
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
-  PREREQ_NOTFOUND=1
-
-fi
-
-if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
+
 fi
 
 echo "[+] All checks passed!"
@@ -237,7 +197,6 @@ QEMU_CONF_FLAGS=" \
   --disable-xen \
   --disable-xen-pci-passthrough \
   --disable-xfsctl \
-  --python=${PYTHONBIN} \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
   "
