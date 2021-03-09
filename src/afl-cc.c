@@ -1025,7 +1025,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 int main(int argc, char **argv, char **envp) {
 
-  int   i;
+  int   i, passthrough = 0;
   char *callname = argv[0], *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
@@ -1042,6 +1042,13 @@ int main(int argc, char **argv, char **envp) {
       getenv("AFL_LLVM_BLOCKLIST")) {
 
     have_instr_env = 1;
+
+  }
+
+  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
+
+    passthrough = 1;
+    if (!debug) { be_quiet = 1; }
 
   }
 
@@ -1665,6 +1672,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
+          "  AFL_NOOP: behave lik a normal compiler (to pass configure tests)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
           "  AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
@@ -1977,7 +1985,16 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  execvp(cc_params[0], (char **)cc_params);
+  if (passthrough) {
+
+    argv[0] = cc_params[0];
+    execvp(cc_params[0], (char **)argv);
+
+  } else {
+
+    execvp(cc_params[0], (char **)cc_params);
+
+  }
 
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
 
