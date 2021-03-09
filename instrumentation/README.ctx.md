@@ -29,7 +29,7 @@ many map collisions occur.
 ## Caller Branch Coverage
 
 If the context sensitive coverage introduces too may collisions and becoming
-decremental, the user can choose to augment edge coverage with just the
+detrimental, the user can choose to augment edge coverage with just the
 called function ID, instead of the entire callstack hash.
 
 In math the coverage is collected as follows:
