@@ -16,7 +16,7 @@ at a very little cost (one instruction per edge).
 (The alternative of saturated counters has been tested also and proved to be
 inferior in terms of path discovery.)
 
-This is implemented in afl-gcc, however for llvm_mode this is optional if
+This is implemented in afl-gcc and afl-gcc-fast, however for llvm_mode this is optional if
 the llvm version is below 9 - as there is a perfomance bug that is only fixed
 in version 9 and onwards.
 
