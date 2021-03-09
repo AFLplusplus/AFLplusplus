@@ -1403,6 +1403,14 @@ int main(int argc, char **argv_orig, char **envp) {
   set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
   #endif
 
+  #ifdef __APPLE__
+  if (pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0) != 0) {
+
+    WARNF("general thread priority settings failed");
+
+  }
+  #endif
+
   init_count_class16();
 
   if (afl->is_main_node && check_main_node_exists(afl) == 1) {
