@@ -317,16 +317,18 @@ static void __afl_map_shm(void) {
 
   if (__afl_debug)
     fprintf(stderr,
-            "DEBUG: id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_map_addr 0x%llx, MAP_SIZE %u, __afl_final_loc %u, "
+            "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+            "__afl_area_ptr_dummy 0x%llx, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+            "__afl_final_loc %u, "
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
-            __afl_area_initial, __afl_map_addr, MAP_SIZE, __afl_final_loc,
-            FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
+            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   if (id_str) {
 
-    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
+    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial &&
+        __afl_area_ptr != __afl_area_ptr_dummy) {
 
       if (__afl_map_addr) {
 
@@ -456,6 +458,17 @@ static void __afl_map_shm(void) {
     }
 
     if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+
+    if (__afl_debug)
+      fprintf(stderr,
+              "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+              "__afl_area_ptr_dummy 0x%llx, __afl_map_addr 0x%llx, MAP_SIZE "
+              "%u, __afl_final_loc %u, "
+              "max_size_forkserver %u/0x%x\n",
+              id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
+              __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr,
+              MAP_SIZE, __afl_final_loc, FS_OPT_MAX_MAPSIZE,
+              FS_OPT_MAX_MAPSIZE);
 
   }
 
