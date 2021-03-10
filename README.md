@@ -546,12 +546,10 @@ If you need to stop and re-start the fuzzing, use the same command line options
 mutation mode!) and switch the input directory with a dash (`-`):
 `afl-fuzz -i - -o output -- bin/target -d @@`
 
-Note that afl-fuzz enforces memory limits to prevent the system to run out
-of memory. By default this is 50MB for a process. If this is too little for
-the target (which you can usually see by afl-fuzz bailing with the message
-that it could not connect to the forkserver), then you can increase this
-with the `-m` option, the value is in MB. To disable any memory limits
-(beware!) set `-m none` - which is usually required for ASAN compiled targets.
+Memory limits are not enforced by afl-fuzz by default and the system may run
+out of memory. You can decrease the memory with the `-m` option, the value is
+in MB. If this is too small for the target, you can usually see this by
+afl-fuzz bailing with the message that it could not connect to the forkserver.
 
 Adding a dictionary is helpful. See the directory [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
