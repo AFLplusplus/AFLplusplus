@@ -1773,7 +1773,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
     if (__afl_cmp_map->headers[k].shape < len) {
 
-      __afl_cmp_map->headers[k].shape = len;
+      __afl_cmp_map->headers[k].shape = len - 1;
 
     }
 
