@@ -1409,6 +1409,7 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF("general thread priority settings failed");
 
   }
+
   #endif
 
   init_count_class16();
