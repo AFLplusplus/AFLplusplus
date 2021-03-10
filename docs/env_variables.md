@@ -26,6 +26,17 @@ Because (with the exception of the --afl-MODE command line option) the
 compile-time tools do not accept afl specific command-line options, they
 make fairly broad use of environmental variables instead:
 
+  - Some build/configure scripts break with afl++ compilers. To be able to
+    pass them, do:
+```
+       export CC=afl-cc
+       export CXX=afl-c++
+       export AFL_NOOPT=1
+       ./configure --disable-shared --disabler-werror
+       unset AFL_NOOPT
+       make
+```
+
   - Most afl tools do not print any output if stdout/stderr are redirected.
     If you want to get the output into a file then set the `AFL_DEBUG`
     environment variable.

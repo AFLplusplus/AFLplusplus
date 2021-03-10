@@ -20,7 +20,7 @@
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,10 +97,12 @@ int __afl_selective_coverage_temp = 1;
 
 #if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
+PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
+__thread PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
 #endif
@@ -313,18 +315,23 @@ static void __afl_map_shm(void) {
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
 
-  if (__afl_debug)
+  if (__afl_debug) {
+
     fprintf(stderr,
-            "DEBUG: id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_map_addr 0x%llx, MAP_SIZE %u, __afl_final_loc %u, "
+            "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+            "__afl_area_ptr_dummy 0x%p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+            "__afl_final_loc %u, "
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
-            __afl_area_initial, __afl_map_addr, MAP_SIZE, __afl_final_loc,
-            FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
+            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+
+  }
 
   if (id_str) {
 
-    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
+    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial &&
+        __afl_area_ptr != __afl_area_ptr_dummy) {
 
       if (__afl_map_addr) {
 
@@ -458,6 +465,19 @@ static void __afl_map_shm(void) {
   }
 
   __afl_area_ptr_backup = __afl_area_ptr;
+
+  if (__afl_debug) {
+
+    fprintf(stderr,
+            "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+            "__afl_area_ptr_dummy 0x%p, __afl_map_addr 0x%llx, MAP_SIZE "
+            "%u, __afl_final_loc %u, "
+            "max_size_forkserver %u/0x%x\n",
+            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
+            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
+            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+
+  }
 
   if (__afl_selective_coverage) {
 
@@ -1097,10 +1117,13 @@ void __afl_manual_init(void) {
     __afl_sharedmem_fuzzing = 0;
     if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_ptr_dummy;
 
-    if (__afl_debug)
+    if (__afl_debug) {
+
       fprintf(stderr,
               "DEBUG: disabled instrumentation because of "
               "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
+
+    }
 
   }
 
@@ -1285,8 +1308,12 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   if (__afl_already_initialized_forkserver &&
       __afl_final_loc + 1 + stop - start > __afl_map_size) {
 
-    if (__afl_debug)
-      fprintf(stderr, "Warning: new instrumneted code after the forkserver!\n");
+    if (__afl_debug) {
+
+      fprintf(stderr, "Warning: new instrumented code after the forkserver!\n");
+
+    }
+
     __afl_final_loc = 2;
 
     if (1 + stop - start > __afl_map_size) {
@@ -1771,7 +1798,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
     if (__afl_cmp_map->headers[k].shape < len) {
 
-      __afl_cmp_map->headers[k].shape = len;
+      __afl_cmp_map->headers[k].shape = len - 1;
 
     }
 

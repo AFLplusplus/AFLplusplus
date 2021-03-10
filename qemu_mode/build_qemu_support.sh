@@ -59,51 +59,11 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PREREQ_NOTFOUND=
-for i in git wget sha384sum bison flex iconv patch pkg-config; do
-
-  T=`command -v "$i" 2>/dev/null`
-
-  if [ "$T" = "" ]; then
-
-    echo "[-] Error: '$i' not found, please install first."
-    PREREQ_NOTFOUND=1
-
-  fi
-
-done
-
-PYTHONBIN=`command -v python3 || command -v python || command -v python2`
-
-if [ "$PYTHONBIN" = "" ]; then
-  echo "[-] Error: 'python' not found, please install using 'sudo apt install python3'."
-  PREREQ_NOTFOUND=1
-fi
-
-
-if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; then
-
-  echo "[-] Error: devel version of 'glib2' not found, please install first."
-  PREREQ_NOTFOUND=1
-
-fi
-
-if [ ! -d "/usr/include/pixman-1/" -a ! -d "/usr/local/include/pixman-1/" ]; then
-
-  echo "[-] Error: devel version of 'pixman-1' not found, please install first."
-  PREREQ_NOTFOUND=1
-
-fi
-
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
-  PREREQ_NOTFOUND=1
-
-fi
-
-if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
+
 fi
 
 echo "[+] All checks passed!"
@@ -237,7 +197,6 @@ QEMU_CONF_FLAGS=" \
   --disable-xen \
   --disable-xen-pci-passthrough \
   --disable-xfsctl \
-  --python=${PYTHONBIN} \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
   "
@@ -376,6 +335,20 @@ if [ "$ORIG_CROSS" = "" ]; then
   then # works on Arch Linux
     CROSS=$CPU_TARGET-pc-linux-gnu-gcc
   fi
+  if ! command -v "$CROSS" > /dev/null && [ "$CPU_TARGET" = "i386" ]
+  then
+    CROSS=i686-linux-gnu-gcc
+    if ! command -v "$CROSS" > /dev/null
+    then # works on Arch Linux
+      CROSS=i686-pc-linux-gnu-gcc
+    fi
+    if ! command -v "$CROSS" > /dev/null && [ "`uname -m`" = "x86_64" ]
+    then # set -m32
+      test "$CC" = "" && CC="gcc"
+      CROSS="$CC"
+      CROSS_FLAGS=-m32
+    fi
+  fi
 fi
 
 if ! command -v "$CROSS" > /dev/null ; then
@@ -391,13 +364,13 @@ if ! command -v "$CROSS" > /dev/null ; then
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
   fi
 else
-  echo "[+] Building afl++ qemu support libraries with CC=$CROSS"
+  echo "[+] Building afl++ qemu support libraries with CC=\"$CROSS $CROSS_FLAGS\""
   echo "[+] Building libcompcov ..."
-  make -C libcompcov CC=$CROSS && echo "[+] libcompcov ready"
+  make -C libcompcov CC="$CROSS $CROSS_FLAGS" && echo "[+] libcompcov ready"
   echo "[+] Building unsigaction ..."
-  make -C unsigaction CC=$CROSS && echo "[+] unsigaction ready"
+  make -C unsigaction CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
   echo "[+] Building libqasan ..."
-  make -C libqasan CC=$CROSS && echo "[+] unsigaction ready"
+  make -C libqasan CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
 fi
 
 echo "[+] All done for qemu_mode, enjoy!"

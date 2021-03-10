@@ -1403,6 +1403,15 @@ int main(int argc, char **argv_orig, char **envp) {
   set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
   #endif
 
+  #ifdef __APPLE__
+  if (pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0) != 0) {
+
+    WARNF("general thread priority settings failed");
+
+  }
+
+  #endif
+
   init_count_class16();
 
   if (afl->is_main_node && check_main_node_exists(afl) == 1) {
@@ -1560,13 +1569,21 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode) {
 
-    afl->fsrv.map_size = 4194304;  // dummy temporary value
-    setenv("AFL_MAP_SIZE", "4194304", 1);
+    u32 set_env = 0;
+    if (!getenv("AFL_MAP_SIZE")) {
+
+      afl->fsrv.map_size = 8000000;  // dummy temporary value
+      setenv("AFL_MAP_SIZE", "8000000", 1);
+      set_env = 1;
+
+    }
+
+    u32 prev_map_size = afl->fsrv.map_size;
 
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    if (new_map_size && new_map_size != 4194304) {
+    if (new_map_size && new_map_size != prev_map_size) {
 
       // only reinitialize when it makes sense
       if (map_size < new_map_size ||
@@ -1598,6 +1615,7 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       map_size = new_map_size;
+      if (set_env) { unsetenv("AFL_MAP_SIZE"); }
 
     }
 
@@ -1615,13 +1633,22 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
-    afl->cmplog_fsrv.map_size = 4194304;
+    u32 set_env = 0;
+    if (!getenv("AFL_MAP_SIZE")) {
+
+      afl->fsrv.map_size = 8000000;  // dummy temporary value
+      setenv("AFL_MAP_SIZE", "8000000", 1);
+      set_env = 1;
+
+    }
+
+    u32 prev_map_size = afl->fsrv.map_size;
 
     u32 new_map_size =
         afl_fsrv_get_mapsize(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                              afl->afl_env.afl_debug_child);
 
-    if (new_map_size && new_map_size != 4194304) {
+    if (new_map_size && new_map_size != prev_map_size) {
 
       // only reinitialize when it needs to be larger
       if (map_size < new_map_size) {
@@ -1657,6 +1684,8 @@ int main(int argc, char **argv_orig, char **envp) {
         map_size = new_map_size;
 
       }
+
+      if (set_env) { unsetenv("AFL_MAP_SIZE"); }
 
     }
 

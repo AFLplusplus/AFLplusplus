@@ -346,8 +346,10 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -k1n -k2r"
-  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
+  cmdline = "(cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} + | sort -k1n -k2r)"
+  #cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
+  #cmdline = "(cd "in_dir" && stat "stat_format" *) | sort -k1n -k2r"
+  #cmdline = "(cd "in_dir" && ls | xargs stat "stat_format" ) | sort -k1n -k2r"
   while (cmdline | getline) {
     sub(/^[0-9]+ (\.\/)?/,"",$0)
     infilesSmallToBig[i++] = $0
@@ -358,12 +360,12 @@ BEGIN {
   
   # Make sure that we're not dealing with a directory.
 
-  if (0 == system("test -d "in_dir"/"first_file)) {
+  if (0 == system("test -d ""\""in_dir"/"first_file"\"")) {
     print "[-] Error: The input directory is empty or contains subdirectories - please fix." > "/dev/stderr"
     exit 1
   }
 
-  if (0 == system("ln "in_dir"/"first_file" "trace_dir"/.link_test")) {
+  if (0 == system("ln \""in_dir"/"first_file"\" "trace_dir"/.link_test")) {
     cp_tool = "ln"
   } else {
     cp_tool = "cp"
@@ -378,7 +380,7 @@ BEGIN {
     if (!stdin_file) {
       system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
     } else {
-      system("cp "in_dir"/"first_file" "stdin_file)
+      system("cp \""in_dir"/"first_file"\" "stdin_file)
       system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
     }
 
@@ -500,7 +502,7 @@ BEGIN {
 
     # copy file unless already done
     if (! (fn in file_already_copied)) {
-      system(cp_tool" "in_dir"/"fn" "out_dir"/"fn)
+      system(cp_tool" \""in_dir"/"fn"\" \""out_dir"/"fn"\"")
       file_already_copied[fn] = ""
       ++out_count
       #printf "tuple nr %d (%d cnt=%d) -> %s\n",tcnt,key,key_count[key],fn > trace_dir"/.log"

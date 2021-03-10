@@ -682,6 +682,7 @@ void check_environment_vars(char **envp) {
             env[strlen(afl_environment_variables[i])] == '=') {
 
           match = 1;
+
           if ((val = getenv(afl_environment_variables[i])) && !*val) {
 
             WARNF(
