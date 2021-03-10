@@ -47,6 +47,10 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
+#ifndef AFL_PATH
+  #define AFL_PATH "/usr/local/lib/afl/"
+#endif
+
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
@@ -372,11 +376,11 @@ u8 *get_libqasan_path(u8 *own_loc) {
 
   }
 
-  if (!access(BIN_PATH "/libqasan.so", X_OK)) {
+  if (!access(AFL_PATH "/libqasan.so", X_OK)) {
 
     if (cp) { ck_free(cp); }
 
-    return ck_strdup(BIN_PATH "/libqasan.so");
+    return ck_strdup(AFL_PATH "/libqasan.so");
 
   }
 
@@ -518,8 +522,12 @@ int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
 
 }
 
-#define HELPER_MIN3(a, b, c) \
-  ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
+static inline unsigned int helper_min3(unsigned int a, unsigned int b,
+                                       unsigned int c) {
+
+  return a < b ? (a < c ? a : c) : (b < c ? b : c);
+
+}
 
 // from
 // https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C
@@ -529,6 +537,8 @@ static int string_distance_levenshtein(char *s1, char *s2) {
   s1len = strlen(s1);
   s2len = strlen(s2);
   unsigned int column[s1len + 1];
+  column[s1len] = 1;
+
   for (y = 1; y <= s1len; y++)
     column[y] = y;
   for (x = 1; x <= s2len; x++) {
@@ -537,7 +547,7 @@ static int string_distance_levenshtein(char *s1, char *s2) {
     for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
 
       olddiag = column[y];
-      column[y] = HELPER_MIN3(column[y] + 1, column[y - 1] + 1,
+      column[y] = helper_min3(column[y] + 1, column[y - 1] + 1,
                               lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
       lastdiag = olddiag;
 
@@ -548,8 +558,6 @@ static int string_distance_levenshtein(char *s1, char *s2) {
   return column[s1len];
 
 }
-
-#undef HELPER_MIN3
 
 #define ENV_SIMILARITY_TRESHOLD 3
 
@@ -607,6 +615,8 @@ void print_suggested_envs(char *mispelled_env) {
       start = end;
 
     };
+
+    ck_free(reduced);
 
   }
 
@@ -672,6 +682,7 @@ void check_environment_vars(char **envp) {
             env[strlen(afl_environment_variables[i])] == '=') {
 
           match = 1;
+
           if ((val = getenv(afl_environment_variables[i])) && !*val) {
 
             WARNF(
@@ -1125,7 +1136,7 @@ u32 get_map_size(void) {
 
     }
 
-    if (map_size % 32) { map_size = (((map_size >> 5) + 1) << 5); }
+    if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
   }
 

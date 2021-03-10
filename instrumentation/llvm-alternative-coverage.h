@@ -14,5 +14,8 @@ typedef u64 PREV_LOC_T;
 /* Maximum ngram size */
 #define NGRAM_SIZE_MAX 16U
 
+/* Maximum K for top-K context sensitivity */
+#define CTX_MAX_K 32U
+
 #endif
 

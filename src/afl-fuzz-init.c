@@ -828,7 +828,7 @@ void perform_dry_run(afl_state_t *afl) {
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
-    if (unlikely(q->disabled)) { continue; }
+    if (unlikely(!q || q->disabled)) { continue; }
 
     u8  res;
     s32 fd;
@@ -882,32 +882,23 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (afl->timeout_given) {
 
-          /* The -t nn+ syntax in the command line sets afl->timeout_given to
-             '2' and instructs afl-fuzz to tolerate but skip queue entries that
-             time out. */
+          /* if we have a timeout but a timeout value was given then always
+             skip. The '+' meaning has been changed! */
+          WARNF("Test case results in a timeout (skipping)");
+          ++cal_failures;
+          q->cal_failed = CAL_CHANCES;
+          q->disabled = 1;
+          q->perf_score = 0;
 
-          if (afl->timeout_given > 1) {
+          if (!q->was_fuzzed) {
 
-            WARNF("Test case results in a timeout (skipping)");
-            q->cal_failed = CAL_CHANCES;
-            ++cal_failures;
-            break;
+            q->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            --afl->active_paths;
 
           }
 
-          SAYF("\n" cLRD "[-] " cRST
-               "The program took more than %u ms to process one of the initial "
-               "test cases.\n"
-               "    Usually, the right thing to do is to relax the -t option - "
-               "or to delete it\n"
-               "    altogether and allow the fuzzer to auto-calibrate. That "
-               "said, if you know\n"
-               "    what you are doing and want to simply skip the unruly test "
-               "cases, append\n"
-               "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               afl->fsrv.exec_tmout, afl->fsrv.exec_tmout);
-
-          FATAL("Test case '%s' results in a timeout", fn);
+          break;
 
         } else {
 
@@ -1078,7 +1069,7 @@ void perform_dry_run(afl_state_t *afl) {
         }
 
         afl->max_depth = 0;
-        for (i = 0; i < afl->queued_paths; i++) {
+        for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
 
           if (!afl->queue_buf[i]->disabled &&
               afl->queue_buf[i]->depth > afl->max_depth)
@@ -1145,10 +1136,11 @@ void perform_dry_run(afl_state_t *afl) {
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
-    if (q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
+    if (!q || q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
 
     u32 done = 0;
-    for (i = idx + 1; i < afl->queued_paths && !done; i++) {
+    for (i = idx + 1;
+         i < afl->queued_paths && !done && likely(afl->queue_buf[i]); i++) {
 
       struct queue_entry *p = afl->queue_buf[i];
       if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
@@ -1200,7 +1192,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     for (idx = 0; idx < afl->queued_paths; idx++) {
 
-      if (!afl->queue_buf[idx]->disabled &&
+      if (afl->queue_buf[idx] && !afl->queue_buf[idx]->disabled &&
           afl->queue_buf[idx]->depth > afl->max_depth)
         afl->max_depth = afl->queue_buf[idx]->depth;
 
@@ -1256,7 +1248,7 @@ void pivot_inputs(afl_state_t *afl) {
 
   ACTF("Creating hard links for all input files...");
 
-  for (i = 0; i < afl->queued_paths; i++) {
+  for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
 
     q = afl->queue_buf[i];
 
@@ -2026,7 +2018,7 @@ void setup_dirs_fds(afl_state_t *afl) {
   fprintf(afl->fsrv.plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
-          "unique_hangs, max_depth, execs_per_sec\n");
+          "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
   fflush(afl->fsrv.plot_file);
 
   /* ignore errors */
@@ -2466,7 +2458,7 @@ void check_asan_opts(afl_state_t *afl) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+    if (!afl->debug && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
 

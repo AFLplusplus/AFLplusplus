@@ -22,7 +22,7 @@
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -50,7 +50,7 @@ static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   clang_mode;                /* Invoked as afl-clang*?            */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
+static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
 static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
@@ -73,7 +73,9 @@ enum {
   INSTRUMENT_GCC = 6,
   INSTRUMENT_CLANG = 7,
   INSTRUMENT_OPT_CTX = 8,
-  INSTRUMENT_OPT_NGRAM = 16
+  INSTRUMENT_OPT_NGRAM = 16,
+  INSTRUMENT_OPT_CALLER = 32,
+  INSTRUMENT_OPT_CTX_K = 64,
 
 };
 
@@ -88,7 +90,7 @@ char instrument_mode_string[18][18] = {
     "GCC",
     "CLANG",
     "CTX",
-    "",
+    "CALLER",
     "",
     "",
     "",
@@ -938,7 +940,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (preprocessor_only) {
+  // prevent unnecessary build errors
+  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+  if (preprocessor_only || have_c) {
 
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
@@ -999,17 +1004,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking && !have_c)
+    if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
   #if defined(USEMMAP) && !defined(__HAIKU__)
-    if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
+    cc_params[cc_par_cnt++] = "-lrt";
   #endif
-
-    // prevent unnecessary build errors
-    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
   }
 
@@ -1023,7 +1025,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 int main(int argc, char **argv, char **envp) {
 
-  int   i;
+  int   i, passthrough = 0;
   char *callname = argv[0], *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
@@ -1040,6 +1042,13 @@ int main(int argc, char **argv, char **envp) {
       getenv("AFL_LLVM_BLOCKLIST")) {
 
     have_instr_env = 1;
+
+  }
+
+  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
+
+    passthrough = 1;
+    if (!debug) { be_quiet = 1; }
 
   }
 
@@ -1273,6 +1282,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_LLVM_CTX")) instrument_opt_mode |= INSTRUMENT_OPT_CTX;
+  if (getenv("AFL_LLVM_CALLER")) instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
 
@@ -1283,6 +1293,26 @@ int main(int argc, char **argv, char **envp) {
           "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
           "(%u)",
           NGRAM_SIZE_MAX);
+
+  }
+
+  if (getenv("AFL_LLVM_CTX_K")) {
+
+    ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
+    if (ctx_k < 1 || ctx_k > CTX_MAX_K)
+      FATAL("K-CTX instrumentation mode must be between 1 and CTX_MAX_K (%u)",
+            CTX_MAX_K);
+    if (ctx_k == 1) {
+
+      setenv("AFL_LLVM_CALLER", "1", 1);
+      unsetenv("AFL_LLVM_CTX_K");
+      instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+
+    } else {
+
+      instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
+
+    }
 
   }
 
@@ -1381,10 +1411,55 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
+      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0) {
+
+        u8 *ptr3 = ptr2 + strlen("ctx-");
+        while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
+          ptr3++;
+
+        if (!*ptr3) {
+
+          if ((ptr3 = getenv("AFL_LLVM_CTX_K")) == NULL)
+            FATAL(
+                "you must set the K-CTX K with (e.g. for value 2) "
+                "AFL_LLVM_INSTRUMENT=ctx-2");
+
+        }
+
+        ctx_k = atoi(ptr3);
+        if (ctx_k < 1 || ctx_k > CTX_MAX_K)
+          FATAL(
+              "K-CTX instrumentation option must be between 1 and CTX_MAX_K "
+              "(%u)",
+              CTX_MAX_K);
+
+        if (ctx_k == 1) {
+
+          instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+          setenv("AFL_LLVM_CALLER", "1", 1);
+          unsetenv("AFL_LLVM_CTX_K");
+
+        } else {
+
+          instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
+          u8 *ptr4 = alloc_printf("%u", ctx_k);
+          setenv("AFL_LLVM_CTX_K", ptr4, 1);
+
+        }
+
+      }
+
       if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
         setenv("AFL_LLVM_CTX", "1", 1);
+
+      }
+
+      if (strncasecmp(ptr2, "caller", strlen("caller")) == 0) {
+
+        instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+        setenv("AFL_LLVM_CALLER", "1", 1);
 
       }
 
@@ -1418,6 +1493,35 @@ int main(int argc, char **argv, char **envp) {
       ptr2 = strtok(NULL, ":,;");
 
     }
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CALLER)) {
+
+    FATAL("you cannot set CTX and CALLER together");
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
+    FATAL("you cannot set CTX and K-CTX together");
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
+    FATAL("you cannot set CALLER and K-CTX together");
+
+  }
+
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_DEFAULT &&
+      (compiler_mode == LLVM || compiler_mode == UNSET)) {
+
+    instrument_mode = INSTRUMENT_CLASSIC;
+    compiler_mode = LLVM;
 
   }
 
@@ -1490,12 +1594,13 @@ int main(int argc, char **argv, char **envp) {
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
+        "        - CALLER\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
         "      INSTRIM                           no  yes     module yes yes "
         "   yes\n"
         "        - NORMAL\n"
-        "        - CTX\n"
+        "        - CALLER\n"
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
@@ -1542,7 +1647,10 @@ int main(int argc, char **argv, char **envp) {
         NATIVE_MSG
 
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
-        "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
+        "  CALLER:  CLASSIC + single callee context "
+        "(instrumentation/README.ctx.md)\n"
+        "  CTX:     CLASSIC + full callee context "
+        "(instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
@@ -1585,6 +1693,8 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
+          "  AFL_NOOP: behave like a normal compiler (to pass configure "
+          "tests)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
           "  AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
@@ -1639,15 +1749,17 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CTX, NGRAM-2 ... "
-            "NGRAM-16\n"
+            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, "
+            "NGRAM-2 ..-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
             "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
             "(option to INSTRIM)\n"
-            "  AFL_LLVM_CTX: use context sensitive coverage (for CLASSIC and "
-            "INSTRIM)\n"
+            "  AFL_LLVM_CALLER: use single context sensitive coverage (for "
+            "CLASSIC)\n"
+            "  AFL_LLVM_CTX: use full context sensitive coverage (for "
+            "CLASSIC)\n"
             "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
             "CLASSIC & INSTRIM)\n");
 
@@ -1765,7 +1877,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (instrument_opt_mode && compiler_mode != LLVM)
-    FATAL("CTX and NGRAM can only be used in LLVM mode");
+    FATAL("CTX, CALLER and NGRAM can only be used in LLVM mode");
 
   if (!instrument_opt_mode) {
 
@@ -1775,15 +1887,18 @@ int main(int argc, char **argv, char **envp) {
 
   } else {
 
-    if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
+    char *ptr2 = alloc_printf(" + NGRAM-%u", ngram_size);
+    char *ptr3 = alloc_printf(" + K-CTX-%u", ctx_k);
 
-      ptr = alloc_printf("%s + CTX", instrument_mode_string[instrument_mode]);
-    else if (instrument_opt_mode == INSTRUMENT_OPT_NGRAM)
-      ptr = alloc_printf("%s + NGRAM-%u",
-                         instrument_mode_string[instrument_mode], ngram_size);
-    else
-      ptr = alloc_printf("%s + CTX + NGRAM-%u",
-                         instrument_mode_string[instrument_mode], ngram_size);
+    ptr = alloc_printf(
+        "%s%s%s%s%s", instrument_mode_string[instrument_mode],
+        (instrument_opt_mode & INSTRUMENT_OPT_CTX) ? " + CTX" : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_CTX_K) ? ptr3 : "");
+
+    ck_free(ptr2);
+    ck_free(ptr3);
 
   }
 
@@ -1794,11 +1909,14 @@ int main(int argc, char **argv, char **envp) {
         "(requires LLVM 11 or higher)");
 #endif
 
-  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
-      instrument_mode != INSTRUMENT_CFG)
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_CFG &&
+      instrument_opt_mode & INSTRUMENT_OPT_CTX)
+    FATAL("CFG instrumentation mode supports NGRAM and CALLER, but not CTX.");
+  else if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
+    // we will drop CFG/INSTRIM in the future so do not advertise
     FATAL(
-        "CTX and NGRAM instrumentation options can only be used with CFG "
-        "(recommended) and CLASSIC instrumentation modes!");
+        "CALLER, CTX and NGRAM instrumentation options can only be used with "
+        "the LLVM CLASSIC instrumentation mode.");
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
     FATAL(
@@ -1892,7 +2010,16 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  execvp(cc_params[0], (char **)cc_params);
+  if (passthrough) {
+
+    argv[0] = cc_params[0];
+    execvp(cc_params[0], (char **)argv);
+
+  } else {
+
+    execvp(cc_params[0], (char **)cc_params);
+
+  }
 
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
 

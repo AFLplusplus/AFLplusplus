@@ -25,8 +25,8 @@
 
 /* Version string: */
 
-// c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++3.01a"
+// c = release, a = volatile github dev, e = experimental branch
+#define VERSION "++3.11a"
 
 /******************************************************
  *                                                    *
@@ -49,15 +49,15 @@
 /* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
-/* Minimum % of the corpus to perform cmplog on. Default: 20% */
-#define CMPLOG_CORPUS_PERCENT 20U
+/* Minimum % of the corpus to perform cmplog on. Default: 10% */
+#define CMPLOG_CORPUS_PERCENT 5U
 
 /* Number of potential positions from which we decide if cmplog becomes
-   useless, default 16384 */
-#define CMPLOG_POSITIONS_MAX 16384U
+   useless, default 8096 */
+#define CMPLOG_POSITIONS_MAX 8096U
 
-/* Maximum allowed fails per CMP value. Default: 32 * 3 */
-#define CMPLOG_FAIL_MAX 96
+/* Maximum allowed fails per CMP value. Default: 128 */
+#define CMPLOG_FAIL_MAX 128
 
 /* Now non-cmplog configuration options */
 
@@ -281,9 +281,9 @@
 #define SYNC_INTERVAL 8
 
 /* Sync time (minimum time between syncing in ms, time is halfed for -M main
-   nodes): */
+   nodes) - default is 30 minutes: */
 
-#define SYNC_TIME 18000000LLU                      /* 18000000 = 30 minutes */
+#define SYNC_TIME (30 * 60 * 1000)
 
 /* Output directory reuse grace period (minutes): */
 

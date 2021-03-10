@@ -103,9 +103,10 @@ static void usage(u8 *argv0, int more_help) {
       "                  quad -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-... ms, default "
-      "%u ms)\n"
-      "                  add a '+' to skip over seeds running longer.\n"
+      "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
+      "Add a '+'\n"
+      "                  to auto-calculate the timeout, the value being the "
+      "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -127,7 +128,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
       "                  1=small files (default), 2=larger files, 3=all "
       "files,\n"
-      "                  A=arithmetic solving, T=tranformational solving.\n\n"
+      "                  A=arithmetic solving, T=transformational solving.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -139,8 +140,8 @@ static void usage(u8 *argv0, int more_help) {
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
-      "  -V seconds    - fuzz for a specific time then terminate\n"
-      "  -E execs      - fuzz for a approx. no of total executions then "
+      "  -V seconds    - fuzz for a specified time then terminate\n"
+      "  -E execs      - fuzz for an approx. no. of total executions then "
       "terminate\n"
       "                  Note: not precise and can have several more "
       "executions.\n\n"
@@ -1402,6 +1403,15 @@ int main(int argc, char **argv_orig, char **envp) {
   set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
   #endif
 
+  #ifdef __APPLE__
+  if (pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0) != 0) {
+
+    WARNF("general thread priority settings failed");
+
+  }
+
+  #endif
+
   init_count_class16();
 
   if (afl->is_main_node && check_main_node_exists(afl) == 1) {
@@ -1436,24 +1446,9 @@ int main(int argc, char **argv_orig, char **envp) {
   // read_foreign_testcases(afl, 1); for the moment dont do this
   OKF("Loaded a total of %u seeds.", afl->queued_paths);
 
-  load_auto(afl);
-
   pivot_inputs(afl);
 
-  if (extras_dir_cnt) {
-
-    for (i = 0; i < extras_dir_cnt; i++) {
-
-      load_extras(afl, extras_dir[i]);
-
-    }
-
-    dedup_extras(afl);
-    OKF("Loaded a total of %u extras.", afl->extras_cnt);
-
-  }
-
-  if (!afl->timeout_given) { find_timeout(afl); }
+  if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
   if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
@@ -1574,13 +1569,21 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode) {
 
-    afl->fsrv.map_size = 4194304;  // dummy temporary value
-    setenv("AFL_MAP_SIZE", "4194304", 1);
+    u32 set_env = 0;
+    if (!getenv("AFL_MAP_SIZE")) {
+
+      afl->fsrv.map_size = 8000000;  // dummy temporary value
+      setenv("AFL_MAP_SIZE", "8000000", 1);
+      set_env = 1;
+
+    }
+
+    u32 prev_map_size = afl->fsrv.map_size;
 
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    if (new_map_size && new_map_size != 4194304) {
+    if (new_map_size && new_map_size != prev_map_size) {
 
       // only reinitialize when it makes sense
       if (map_size < new_map_size ||
@@ -1612,6 +1615,7 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       map_size = new_map_size;
+      if (set_env) { unsetenv("AFL_MAP_SIZE"); }
 
     }
 
@@ -1629,13 +1633,22 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
-    afl->cmplog_fsrv.map_size = 4194304;
+    u32 set_env = 0;
+    if (!getenv("AFL_MAP_SIZE")) {
+
+      afl->fsrv.map_size = 8000000;  // dummy temporary value
+      setenv("AFL_MAP_SIZE", "8000000", 1);
+      set_env = 1;
+
+    }
+
+    u32 prev_map_size = afl->fsrv.map_size;
 
     u32 new_map_size =
         afl_fsrv_get_mapsize(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                              afl->afl_env.afl_debug_child);
 
-    if (new_map_size && new_map_size != 4194304) {
+    if (new_map_size && new_map_size != prev_map_size) {
 
       // only reinitialize when it needs to be larger
       if (map_size < new_map_size) {
@@ -1672,6 +1685,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+      if (set_env) { unsetenv("AFL_MAP_SIZE"); }
+
     }
 
     afl->cmplog_fsrv.map_size = map_size;
@@ -1679,6 +1694,22 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+
+  load_auto(afl);
+
+  if (extras_dir_cnt) {
+
+    for (i = 0; i < extras_dir_cnt; i++) {
+
+      load_extras(afl, extras_dir[i]);
+
+    }
+
+  }
+
+  deunicode_extras(afl);
+  dedup_extras(afl);
+  if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
 
   // after we have the correct bitmap size we can read the bitmap -B option
   // and set the virgin maps
@@ -1718,14 +1749,38 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->timeout_given == 2) {  // -t ...+ option
+
+    if (valid_seeds == 1) {
+
+      WARNF(
+          "Only one valid seed is present, auto-calculating the timeout is "
+          "disabled!");
+      afl->timeout_given = 1;
+
+    } else {
+
+      u64 max_ms = 0;
+
+      for (entry = 0; entry < afl->queued_paths; ++entry)
+        if (!afl->queue_buf[entry]->disabled)
+          if (afl->queue_buf[entry]->exec_us > max_ms)
+            max_ms = afl->queue_buf[entry]->exec_us;
+
+      afl->fsrv.exec_tmout = max_ms;
+
+    }
+
+  }
+
   show_init_stats(afl);
 
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();
   if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
-  write_stats_file(afl, 0, 0, 0);
-  maybe_update_plot_file(afl, 0, 0);
+  write_stats_file(afl, 0, 0, 0, 0);
+  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
   if (afl->stop_soon) { goto stop_fuzzing; }
@@ -2018,12 +2073,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   write_bitmap(afl);
-  maybe_update_plot_file(afl, 0, 0);
+  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
 stop_fuzzing:
 
-  write_stats_file(afl, 0, 0, 0);
+  write_stats_file(afl, 0, 0, 0, 0);
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
 
