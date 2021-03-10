@@ -1123,7 +1123,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
-  uint32_t map_size = (MAP_SIZE << 2);  // needed for target ctors :(
+  uint32_t map_size = 8000000;  // a very large default map
   char *   ptr;
 
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
@@ -1131,7 +1131,7 @@ u32 get_map_size(void) {
     map_size = atoi(ptr);
     if (!map_size || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 32U,
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 64U,
             1U << 29);
 
     }
