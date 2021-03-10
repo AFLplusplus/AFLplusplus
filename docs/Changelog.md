@@ -9,10 +9,14 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.11a (dev)
-  - afl-fuzz
+  - afl-fuzz:
+    - fix sanitizer settings (bug since 3.10c)
     - add non-unicode variants from unicode-looking dictionary entries
     - Rust custom mutator API improvements
-  - afl-cc
+  - afl-cc:
+    - added AFL_NOOPT that will just pass everything to the normal
+      gcc/clang compiler without any changes - to pass weird configure
+      scripts
     - fixed a crash that can occur with ASAN + CMPLOG together plus
       better support for unicode (thanks to @stbergmann for reporting!)
     - fixed a crash in LAF transform for empty strings
@@ -20,12 +24,16 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       compiled into the target. This now also supports dlopen()
       instrumented libs loaded before the forkserver and even after the
       forkserver is started (then with collisions though)
-    - Renamed CTX to CALLER, added correct/real CTX implementation to CLASSIC
-  - qemu_mode
+    - the compiler rt was added also in object building (-c) which
+      should have been fixed years ago but somewhere got lost :(
+    - Renamed CTX to CALLER, added correct/real CTX implementation to
+      CLASSIC
+  - qemu_mode:
     - added AFL_QEMU_EXCLUDE_RANGES env by @realmadsci, thanks!
     - if no new/updated checkout is wanted, build with:
       NO_CHECKOUT=1 ./build_qemu_support.sh
     - we no longer perform a "git drop"
+  - afl-cmin: support filenames with spaces
 
 
 ### Version ++3.10c (release)

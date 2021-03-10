@@ -62,7 +62,7 @@ typedef long double max_align_t;
 #endif
 
 #include "afl-llvm-common.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 using namespace llvm;
 
@@ -82,6 +82,7 @@ class AFLCoverage : public ModulePass {
 
  protected:
   uint32_t ngram_size = 0;
+  uint32_t ctx_k = 0;
   uint32_t map_size = MAP_SIZE;
   uint32_t function_minimum_size = 1;
   char *   ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
@@ -183,11 +184,16 @@ bool AFLCoverage::runOnModule(Module &M) {
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
 
   unsigned PrevLocSize = 0;
+  unsigned PrevCallerSize = 0;
 
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
+  char *ctx_k_str = getenv("AFL_LLVM_CTX_K");
+  if (!ctx_k_str) ctx_k_str = getenv("AFL_CTX_K");
   ctx_str = getenv("AFL_LLVM_CTX");
   caller_str = getenv("AFL_LLVM_CALLER");
+
+  bool instrument_ctx = ctx_str || caller_str;
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Decide previous location vector size (must be a power of two) */
@@ -205,6 +211,31 @@ bool AFLCoverage::runOnModule(Module &M) {
   if (ngram_size)
     PrevLocSize = ngram_size - 1;
   else
+    PrevLocSize = 1;
+
+  /* Decide K-ctx vector size (must be a power of two) */
+  VectorType *PrevCallerTy = NULL;
+
+  if (ctx_k_str)
+    if (sscanf(ctx_k_str, "%u", &ctx_k) != 1 || ctx_k < 1 || ctx_k > CTX_MAX_K)
+      FATAL("Bad value of AFL_CTX_K (must be between 1 and CTX_MAX_K (%u))",
+            CTX_MAX_K);
+
+  if (ctx_k == 1) {
+
+    ctx_k = 0;
+    instrument_ctx = true;
+    caller_str = ctx_k_str;  // Enable CALLER instead
+
+  }
+
+  if (ctx_k) {
+
+    PrevCallerSize = ctx_k;
+    instrument_ctx = true;
+
+  }
+
 #else
   if (ngram_size_str)
   #ifndef LLVM_VERSION_PATCH
@@ -218,8 +249,20 @@ bool AFLCoverage::runOnModule(Module &M) {
         "%d.%d.%d!",
         LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH);
   #endif
+  if (ctx_k_str)
+  #ifndef LLVM_VERSION_PATCH
+    FATAL(
+        "Sorry, K-CTX branch coverage is not supported with llvm version "
+        "%d.%d.%d!",
+        LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, 0);
+  #else
+    FATAL(
+        "Sorry, K-CTX branch coverage is not supported with llvm version "
+        "%d.%d.%d!",
+        LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH);
+  #endif
+  PrevLocSize = 1;
 #endif
-    PrevLocSize = 1;
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   int PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
@@ -232,6 +275,17 @@ bool AFLCoverage::runOnModule(Module &M) {
     );
 #endif
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+  int PrevCallerVecSize = PowerOf2Ceil(PrevCallerSize);
+  if (ctx_k)
+    PrevCallerTy = VectorType::get(IntLocTy, PrevCallerVecSize
+  #if LLVM_VERSION_MAJOR >= 12
+                                   ,
+                                   false
+  #endif
+    );
+#endif
+
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
 
@@ -239,6 +293,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
+  GlobalVariable *AFLPrevCaller;
   GlobalVariable *AFLContext = NULL;
 
   if (ctx_str || caller_str)
@@ -276,6 +331,31 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
+  if (ctx_k)
+  #if defined(__ANDROID__) || defined(__HAIKU__)
+    AFLPrevCaller = new GlobalVariable(
+        M, PrevCallerTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
+        /* Initializer */ nullptr, "__afl_prev_caller");
+  #else
+    AFLPrevCaller = new GlobalVariable(
+        M, PrevCallerTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
+        /* Initializer */ nullptr, "__afl_prev_caller",
+        /* InsertBefore */ nullptr, GlobalVariable::GeneralDynamicTLSModel,
+        /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
+  #endif
+  else
+#endif
+#if defined(__ANDROID__) || defined(__HAIKU__)
+    AFLPrevCaller =
+        new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
+                           "__afl_prev_caller");
+#else
+  AFLPrevCaller = new GlobalVariable(
+      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_caller",
+      0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Create the vector shuffle mask for updating the previous block history.
      Note that the first element of the vector will store cur_loc, so just set
      it to undef to allow the optimizer to do its thing. */
@@ -289,13 +369,30 @@ bool AFLCoverage::runOnModule(Module &M) {
     PrevLocShuffle.push_back(ConstantInt::get(Int32Ty, PrevLocSize));
 
   Constant *PrevLocShuffleMask = ConstantVector::get(PrevLocShuffle);
+
+  Constant *                  PrevCallerShuffleMask = NULL;
+  SmallVector<Constant *, 32> PrevCallerShuffle = {UndefValue::get(Int32Ty)};
+
+  if (ctx_k) {
+
+    for (unsigned I = 0; I < PrevCallerSize - 1; ++I)
+      PrevCallerShuffle.push_back(ConstantInt::get(Int32Ty, I));
+
+    for (int I = PrevCallerSize; I < PrevCallerVecSize; ++I)
+      PrevCallerShuffle.push_back(ConstantInt::get(Int32Ty, PrevCallerSize));
+
+    PrevCallerShuffleMask = ConstantVector::get(PrevCallerShuffle);
+
+  }
+
 #endif
 
   // other constants we need
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
-  LoadInst *PrevCtx = NULL;  // CTX sensitive coverage
+  Value *   PrevCtx = NULL;     // CTX sensitive coverage
+  LoadInst *PrevCaller = NULL;  // K-CTX coverage
 
   /* Instrument all the things! */
 
@@ -319,12 +416,30 @@ bool AFLCoverage::runOnModule(Module &M) {
       IRBuilder<>          IRB(&(*IP));
 
       // Context sensitive coverage
-      if ((ctx_str || caller_str) && &BB == &F.getEntryBlock()) {
+      if (instrument_ctx && &BB == &F.getEntryBlock()) {
 
-        // load the context ID of the previous function and write to to a local
-        // variable on the stack
-        PrevCtx = IRB.CreateLoad(AFLContext);
-        PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+        if (ctx_k) {
+
+          PrevCaller = IRB.CreateLoad(AFLPrevCaller);
+          PrevCaller->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+          PrevCtx =
+              IRB.CreateZExt(IRB.CreateXorReduce(PrevCaller), IRB.getInt32Ty());
+
+        } else
+
+#endif
+        {
+
+          // load the context ID of the previous function and write to to a
+          // local variable on the stack
+          LoadInst *PrevCtxLoad = IRB.CreateLoad(AFLContext);
+          PrevCtxLoad->setMetadata(M.getMDKindID("nosanitize"),
+                                   MDNode::get(C, None));
+          PrevCtx = PrevCtxLoad;
+
+        }
 
         // does the function have calls? and is any of the calls larger than one
         // basic block?
@@ -356,10 +471,31 @@ bool AFLCoverage::runOnModule(Module &M) {
         if (has_calls) {
 
           Value *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
-          if (ctx_str) NewCtx = IRB.CreateXor(PrevCtx, NewCtx);
-          StoreInst *StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
-          StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
-                                MDNode::get(C, None));
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+          if (ctx_k) {
+
+            Value *ShuffledPrevCaller = IRB.CreateShuffleVector(
+                PrevCaller, UndefValue::get(PrevCallerTy),
+                PrevCallerShuffleMask);
+            Value *UpdatedPrevCaller = IRB.CreateInsertElement(
+                ShuffledPrevCaller, NewCtx, (uint64_t)0);
+
+            StoreInst *Store =
+                IRB.CreateStore(UpdatedPrevCaller, AFLPrevCaller);
+            Store->setMetadata(M.getMDKindID("nosanitize"),
+                               MDNode::get(C, None));
+
+          } else
+
+#endif
+          {
+
+            if (ctx_str) NewCtx = IRB.CreateXor(PrevCtx, NewCtx);
+            StoreInst *StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+            StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+          }
 
         }
 
@@ -413,13 +549,20 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // in CTX mode we have to restore the original context for the caller -
         // she might be calling other functions which need the correct CTX
-        if ((ctx_str || caller_str) && has_calls) {
+        if (instrument_ctx && has_calls) {
 
           Instruction *Inst = BB.getTerminator();
           if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
 
             IRBuilder<> Post_IRB(Inst);
-            StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+
+            StoreInst *RestoreCtx;
+  #ifdef AFL_HAVE_VECTOR_INTRINSICS
+            if (ctx_k)
+              RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
+            else
+  #endif
+              RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
             RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                     MDNode::get(C, None));
 
@@ -460,7 +603,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
         PrevLocTrans = PrevLoc;
 
-      if (ctx_str || caller_str)
+      if (instrument_ctx)
         PrevLocTrans =
             IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
       else
@@ -547,13 +690,20 @@ bool AFLCoverage::runOnModule(Module &M) {
       // in CTX mode we have to restore the original context for the caller -
       // she might be calling other functions which need the correct CTX.
       // Currently this is only needed for the Ubuntu clang-6.0 bug
-      if ((ctx_str || caller_str) && has_calls) {
+      if (instrument_ctx && has_calls) {
 
         Instruction *Inst = BB.getTerminator();
         if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
 
           IRBuilder<> Post_IRB(Inst);
-          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+
+          StoreInst *RestoreCtx;
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+          if (ctx_k)
+            RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
+          else
+#endif
+            RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
           RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                   MDNode::get(C, None));
 

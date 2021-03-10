@@ -10,8 +10,8 @@ by Jinghan Wang, et. al.
 Note that the original implementation (available
 [here](https://github.com/bitsecurerlab/afl-sensitive))
 is built on top of AFL's QEMU mode.
-This is essentially a port that uses LLVM vectorized instructions to achieve
-the same results when compiling source code.
+This is essentially a port that uses LLVM vectorized instructions (available from
+llvm versions 4.0.1 and higher) to achieve the same results when compiling source code.
 
 In math the branch coverage is performed as follows:
 `map[current_location ^ prev_location[0] >> 1 ^ prev_location[1] >> 1 ^ ... up to n-1`] += 1`
