@@ -35,7 +35,9 @@ and documents something about it. In traditional fuzzing this is the coverage
 in the target, however we want to add various more observers, e.g. stack depth,
 heap usage, etc. - this is a topic for an experienced Rust developer.
 
-# Generic ideas and wishlist
+# Generic ideas and wishlist - NOT PART OF GSoC 2021 !
+
+The below list is not part of GSoC 2021.
 
 ## Analysis software
 
