@@ -821,7 +821,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
            "    - The target binary requires a large map and crashes before "
            "reporting.\n"
-           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
+           "      Set a high value (e.g. AFL_MAP_SIZE=8000000) or use "
            "AFL_DEBUG=1 to see the\n"
            "      message from the target binary\n\n"
 
@@ -848,7 +848,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
            "    - The target binary requires a large map and crashes before "
            "reporting.\n"
-           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
+           "      Set a high value (e.g. AFL_MAP_SIZE=8000000) or use "
            "AFL_DEBUG=1 to see the\n"
            "      message from the target binary\n\n"
 
@@ -914,7 +914,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "handshake with the injected code.\n"
          "Most likely the target has a huge coverage map, retry with setting"
          " the\n"
-         "environment variable AFL_MAP_SIZE=4194304\n"
+         "environment variable AFL_MAP_SIZE=8000000\n"
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -933,7 +933,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         "    - Most likely the target has a huge coverage map, retry with "
         "setting the\n"
-        "      environment variable AFL_MAP_SIZE=4194304\n\n"
+        "      environment variable AFL_MAP_SIZE=8000000\n\n"
 
         "    - The current memory limit (%s) is too restrictive, causing an "
         "OOM\n"
