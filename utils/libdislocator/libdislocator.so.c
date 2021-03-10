@@ -28,6 +28,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include "debug.h"
 
 #ifdef __APPLE__
   #include <mach/vm_statistics.h>
@@ -95,39 +96,6 @@ typedef struct {
 
 #define SUPER_PAGE_SIZE 1 << 21
 
-/* Error / message handling: */
-
-#define DEBUGF(_x...)                 \
-  do {                                \
-                                      \
-    if (alloc_verbose) {              \
-                                      \
-      if (++call_depth == 1) {        \
-                                      \
-        fprintf(stderr, "[AFL] " _x); \
-        fprintf(stderr, "\n");        \
-                                      \
-      }                               \
-      call_depth--;                   \
-                                      \
-    }                                 \
-                                      \
-  } while (0)
-
-#define FATAL(_x...)                    \
-  do {                                  \
-                                        \
-    if (++call_depth == 1) {            \
-                                        \
-      fprintf(stderr, "*** [AFL] " _x); \
-      fprintf(stderr, " ***\n");        \
-      abort();                          \
-                                        \
-    }                                   \
-    call_depth--;                       \
-                                        \
-  } while (0)
-
 /* Macro to count the number of pages needed to store a buffer: */
 
 #define PG_COUNT(_l) (((_l) + (PAGE_SIZE - 1)) / PAGE_SIZE)
@@ -156,7 +124,6 @@ static u8  alloc_verbose,               /* Additional debug messages        */
 #endif
 static __thread size_t total_mem;       /* Currently allocated mem          */
 
-static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static u32          alloc_canary;
 
 /* This is the main alloc function. It allocates one page more than necessary,
@@ -237,7 +204,7 @@ static void *__dislocator_alloc(size_t len) {
 
   if (ret == MAP_FAILED) {
 
-    if (hard_fail) FATAL("mmap() failed on alloc (OOM?)");
+    if (hard_fail) PFATAL("mmap() failed on alloc (OOM?)");
 
     DEBUGF("mmap() failed on alloc (OOM?)");
 
@@ -248,7 +215,7 @@ static void *__dislocator_alloc(size_t len) {
   /* Set PROT_NONE on the last page. */
 
   if (mprotect(ret + PG_COUNT(rlen + 8) * PAGE_SIZE, PAGE_SIZE, PROT_NONE))
-    FATAL("mprotect() failed when allocating memory");
+    PFATAL("mprotect() failed when allocating memory");
 
   /* Offset the return pointer so that it's right-aligned to the page
      boundary. */
@@ -362,7 +329,7 @@ void free(void *ptr) {
   ptr_ -= PAGE_SIZE * PG_COUNT(len + 8) - len - 8;
 
   if (mprotect(ptr_ - 8, PG_COUNT(len + 8) * PAGE_SIZE, PROT_NONE))
-    FATAL("mprotect() failed when freeing memory");
+    PFATAL("mprotect() failed when freeing memory");
 
   ptr = ptr_;
 
