@@ -365,6 +365,7 @@ class ModuleSanitizerCoverage {
   const SpecialCaseList *Blocklist;
 
   uint32_t        instr = 0;
+  uint32_t        do_loop = 1, do_func = 1;
   char *          no_interesting = NULL;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt *   One = NULL;
@@ -570,6 +571,8 @@ bool ModuleSanitizerCoverage::instrumentModule(Module &            M,
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   no_interesting = getenv("AFL_NO_INTERESTING");
+  if (getenv("LOOP_ONLY")) do_func = 0;
+  if (getenv("FUNC_ONLY")) do_loop = 0;
 
   initInstrumentList();
   scanForDangerousFunctions(&M);
@@ -886,7 +889,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
   const LoopInfo *         LI = LCallback(F);
   bool                     IsLeafFunc = true;
 
-  if (!no_interesting && LI) {
+  if (!no_interesting && do_loop && LI) {
 
     // fprintf(stderr, "%s: Have LoopInfo!\n", F.getName().str().c_str());
     for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
@@ -1101,7 +1104,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
     }
 
-    if (!no_interesting && call_cnt) {
+    if (!no_interesting && call_cnt && do_func) {
 
       LLVMContext &        Ctx = F.getParent()->getContext();
       BasicBlock::iterator IP = BB.getFirstInsertionPt();

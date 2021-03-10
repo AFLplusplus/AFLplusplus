@@ -242,6 +242,7 @@ class ModuleSanitizerCoverage {
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 2;
   uint64_t                         map_addr = 0;
+  uint32_t                         do_loop = 1, do_func = 1;
   char *                           skip_nozero = NULL;
   char *                           no_interesting = NULL;
   std::vector<BasicBlock *>        BlockList;
@@ -461,6 +462,8 @@ bool ModuleSanitizerCoverage::instrumentModule(Module &            M,
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   no_interesting = getenv("AFL_NO_INTERESTING");
+  if (getenv("LOOP_ONLY")) do_func = 0;
+  if (getenv("FUNC_ONLY")) do_loop = 0;
 
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
     if ((afl_global_id = atoi(ptr)) < 0)
@@ -1260,7 +1263,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
   const LoopInfo *         LI = LCallback(F);
   bool                     IsLeafFunc = true;
 
-  if (!no_interesting && LI) {
+  if (!no_interesting && LI && do_loop) {
 
     // fprintf(stderr, "%s: Have LoopInfo!\n", F.getName().str().c_str());
     for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
@@ -1351,7 +1354,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
     }
 
-    if (!no_interesting && call_cnt) {
+    if (!no_interesting && call_cnt && do_func) {
 
       LLVMContext &        Ctx = F.getParent()->getContext();
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
