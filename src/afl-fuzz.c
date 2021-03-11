@@ -1596,9 +1596,9 @@ int main(int argc, char **argv_orig, char **envp) {
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
     // only reinitialize when it makes sense
-    if (map_size < new_map_size ||
-        (!afl->cmplog_binary && new_map_size < map_size &&
-         map_size - new_map_size > MAP_SIZE)) {
+    if ((map_size < new_map_size ||
+        (new_map_size != MAP_SIZE && new_map_size < map_size &&
+         map_size - new_map_size > MAP_SIZE))) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
@@ -1644,7 +1644,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (map_size <= 8000000 && !afl->non_instrumented_mode &&
         !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
 
-      afl->fsrv.map_size = 8000000;  // dummy temporary value
+      afl->cmplog_fsrv.map_size = 8000000;  // dummy temporary value
       setenv("AFL_MAP_SIZE", "8000000", 1);
 
     }
@@ -1654,8 +1654,7 @@ int main(int argc, char **argv_orig, char **envp) {
                              afl->afl_env.afl_debug_child);
 
     // only reinitialize when it needs to be larger
-    if (map_size < new_map_size ||
-        (new_map_size < map_size && map_size - new_map_size > MAP_SIZE)) {
+    if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
 
@@ -1674,22 +1673,23 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_fsrv_kill(&afl->fsrv);
       afl_fsrv_kill(&afl->cmplog_fsrv);
       afl_shm_deinit(&afl->shm);
-      afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
 
+      afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
+      map_size = new_map_size;
+
+      setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
-      setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
-
       afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
 
-      map_size = new_map_size;
+    } else {
+
+      afl->cmplog_fsrv.map_size = new_map_size;
 
     }
-
-    afl->cmplog_fsrv.map_size = map_size;
 
     OKF("Cmplog forkserver successfully started");
 
