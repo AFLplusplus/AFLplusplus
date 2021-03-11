@@ -1584,7 +1584,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode) {
 
-    if (map_size <= 8000000&& !afl->non_instrumented_mode &&
+    if (map_size <= 8000000 && !afl->non_instrumented_mode &&
         !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
 
       afl->fsrv.map_size = 8000000;  // dummy temporary value
@@ -1595,44 +1595,39 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    if (new_map_size && new_map_size != map_size) {
+    // only reinitialize when it makes sense
+    if (map_size < new_map_size ||
+        (!afl->cmplog_binary && new_map_size < map_size &&
+         map_size - new_map_size > MAP_SIZE)) {
 
-      // only reinitialize when it makes sense
-      if (map_size < new_map_size ||
-          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+      OKF("Re-initializing maps to %u bytes", new_map_size);
 
-        OKF("Re-initializing maps to %u bytes", new_map_size);
+      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
+      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
+      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
+      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
+      afl->top_rated =
+          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
+      afl->clean_trace_custom =
+          ck_realloc(afl->clean_trace_custom, new_map_size);
+      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
+      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
 
-        afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-        afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-        afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-        afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-        afl->top_rated =
-            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-        afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-        afl->clean_trace_custom =
-            ck_realloc(afl->clean_trace_custom, new_map_size);
-        afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-        afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
-
-        afl_fsrv_kill(&afl->fsrv);
-        afl_shm_deinit(&afl->shm);
-        afl->fsrv.map_size = new_map_size;
-        afl->fsrv.trace_bits =
-            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
-        setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
-        afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
-                       afl->afl_env.afl_debug_child);
-
-      }
+      afl_fsrv_kill(&afl->fsrv);
+      afl_shm_deinit(&afl->shm);
+      afl->fsrv.map_size = new_map_size;
+      afl->fsrv.trace_bits =
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+      afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
 
       map_size = new_map_size;
 
-    } else {
-
-      afl->fsrv.map_size = map_size;
-
     }
+
+    afl->fsrv.map_size = map_size;
 
   }
 
@@ -1658,40 +1653,37 @@ int main(int argc, char **argv_orig, char **envp) {
         afl_fsrv_get_mapsize(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                              afl->afl_env.afl_debug_child);
 
-    if (new_map_size && new_map_size != map_size) {
+    // only reinitialize when it needs to be larger
+    if (map_size < new_map_size ||
+        (new_map_size < map_size && map_size - new_map_size > MAP_SIZE)) {
 
-      // only reinitialize when it needs to be larger
-      if (map_size < new_map_size) {
+      OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
 
-        OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
+      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
+      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
+      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
+      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
+      afl->top_rated =
+          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
+      afl->clean_trace_custom =
+          ck_realloc(afl->clean_trace_custom, new_map_size);
+      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
+      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
 
-        afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-        afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-        afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-        afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-        afl->top_rated =
-            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-        afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-        afl->clean_trace_custom =
-            ck_realloc(afl->clean_trace_custom, new_map_size);
-        afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-        afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+      afl_fsrv_kill(&afl->fsrv);
+      afl_fsrv_kill(&afl->cmplog_fsrv);
+      afl_shm_deinit(&afl->shm);
+      afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
 
-        afl_fsrv_kill(&afl->fsrv);
-        afl_fsrv_kill(&afl->cmplog_fsrv);
-        afl_shm_deinit(&afl->shm);
-        afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
+      afl->fsrv.trace_bits =
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+      afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
 
-        afl->fsrv.trace_bits =
-            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
-        setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
-        afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
-                       afl->afl_env.afl_debug_child);
-
-        afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
-                       afl->afl_env.afl_debug_child);
-
-      }
+      afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
 
       map_size = new_map_size;
 
