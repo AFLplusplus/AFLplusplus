@@ -37,9 +37,9 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       echo "00000" > in/in
 
       # Run afl-fuzz w/ the C mutator
-      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 5 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY=./libexamplemutator.so AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY=./libexamplemutator.so AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
       } >>errors 2>&1
 
       # Check results
@@ -57,9 +57,9 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       rm -rf out errors core.*
 
       # Run afl-fuzz w/ multiple C mutators
-      $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 5 seconds"
+      $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 10 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY="./libexamplemutator.so;./libexamplemutator2.so" AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY="./libexamplemutator.so;./libexamplemutator2.so" AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
       } >>errors 2>&1
 
       test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
@@ -76,11 +76,11 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       rm -rf out errors core.*
 
       # Run afl-fuzz w/ the Python mutator
-      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 5 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 10 seconds"
       {
         export PYTHONPATH=${CUSTOM_MUTATOR_PATH}
         export AFL_PYTHON_MODULE=example
-        AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V5 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
         unset PYTHONPATH
         unset AFL_PYTHON_MODULE
       } >>errors 2>&1
