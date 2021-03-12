@@ -1597,8 +1597,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     // only reinitialize when it makes sense
     if ((map_size < new_map_size ||
-        (new_map_size != MAP_SIZE && new_map_size < map_size &&
-         map_size - new_map_size > MAP_SIZE))) {
+         (new_map_size != MAP_SIZE && new_map_size < map_size &&
+          map_size - new_map_size > MAP_SIZE))) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
