@@ -13,6 +13,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix sanitizer settings (bug since 3.10c)
     - add non-unicode variants from unicode-looking dictionary entries
     - Rust custom mutator API improvements
+    - Imported crash stats painted yellow on resume (only new ones are red)
   - afl-cc:
     - added AFL_NOOPT that will just pass everything to the normal
       gcc/clang compiler without any changes - to pass weird configure
