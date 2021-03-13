@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
       "To fuzz with afl-fuzz execute this:\n"
       "  afl-fuzz [afl-flags] -- %s [-N]\n"
       "afl-fuzz will run N iterations before re-spawning the process (default: "
-      "1000)\n"
+      "INT_MAX)\n"
       "======================================================\n",
       argv[0], argv[0]);
 
