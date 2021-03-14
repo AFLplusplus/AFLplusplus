@@ -20,7 +20,7 @@
 
 """IDA script for loading state that was dumped from a running process using unicorn AFL's GDB
 plugin (unicorn_dumper_gdb.py). The dumper script can be found in the AFL++ repository at:
-https://github.com/AFLplusplus
+https://github.com/AFLplusplus/AFLplusplus/blob/stable/unicorn_mode/helper_scripts/unicorn_dumper_gdb.py
 """
 
 import json
