@@ -8,6 +8,10 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++3.12a (dev)
+  - ...
+
+
 ### Version ++3.11c (release)
   - afl-fuzz:
     - better auto detection of map size
@@ -37,7 +41,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       NO_CHECKOUT=1 ./build_qemu_support.sh
     - we no longer perform a "git drop"
   - afl-cmin: support filenames with spaces
-
 
 ### Version ++3.10c (release)
   - Mac OS ARM64 support
