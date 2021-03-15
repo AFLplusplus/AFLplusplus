@@ -737,7 +737,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // TODO: u64 mem_limit = MEM_LIMIT;                  /* Memory limit (MB) */
 
-  s32    opt;
+  s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char **use_argv;
 
@@ -985,7 +985,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (getenv("AFL_DEBUG")) {
 
     DEBUGF("");
-    for (int i = 0; i < argc; i++)
+    for (i = 0; i < argc; i++)
       SAYF(" %s", argv[i]);
     SAYF("\n");
 
