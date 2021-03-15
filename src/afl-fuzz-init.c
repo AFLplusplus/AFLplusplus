@@ -828,7 +828,7 @@ void perform_dry_run(afl_state_t *afl) {
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
-    if (unlikely(q->disabled)) { continue; }
+    if (unlikely(!q || q->disabled)) { continue; }
 
     u8  res;
     s32 fd;
@@ -1069,7 +1069,7 @@ void perform_dry_run(afl_state_t *afl) {
         }
 
         afl->max_depth = 0;
-        for (i = 0; i < afl->queued_paths; i++) {
+        for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
 
           if (!afl->queue_buf[i]->disabled &&
               afl->queue_buf[i]->depth > afl->max_depth)
@@ -1136,10 +1136,11 @@ void perform_dry_run(afl_state_t *afl) {
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
-    if (q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
+    if (!q || q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
 
     u32 done = 0;
-    for (i = idx + 1; i < afl->queued_paths && !done; i++) {
+    for (i = idx + 1;
+         i < afl->queued_paths && !done && likely(afl->queue_buf[i]); i++) {
 
       struct queue_entry *p = afl->queue_buf[i];
       if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
@@ -1191,7 +1192,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     for (idx = 0; idx < afl->queued_paths; idx++) {
 
-      if (!afl->queue_buf[idx]->disabled &&
+      if (afl->queue_buf[idx] && !afl->queue_buf[idx]->disabled &&
           afl->queue_buf[idx]->depth > afl->max_depth)
         afl->max_depth = afl->queue_buf[idx]->depth;
 
@@ -1247,7 +1248,7 @@ void pivot_inputs(afl_state_t *afl) {
 
   ACTF("Creating hard links for all input files...");
 
-  for (i = 0; i < afl->queued_paths; i++) {
+  for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
 
     q = afl->queue_buf[i];
 
@@ -2457,7 +2458,7 @@ void check_asan_opts(afl_state_t *afl) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+    if (!afl->debug && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
 

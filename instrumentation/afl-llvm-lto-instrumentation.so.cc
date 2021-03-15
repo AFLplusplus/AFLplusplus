@@ -519,7 +519,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                             Var->getInitializer())) {
 
                       HasStr2 = true;
-                      Str2 = Array->getAsString().str();
+                      Str2 = Array->getRawDataValues().str();
 
                     }
 
@@ -595,7 +595,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                             Var->getInitializer())) {
 
                       HasStr1 = true;
-                      Str1 = Array->getAsString().str();
+                      Str1 = Array->getRawDataValues().str();
 
                     }
 
@@ -635,15 +635,18 @@ bool AFLLTOPass::runOnModule(Module &M) {
               thestring = Str2;
 
             optLen = thestring.length();
+            if (optLen < 2 || (optLen == 2 && !thestring[1])) { continue; }
 
             if (isMemcmp || isStrncmp || isStrncasecmp) {
 
               Value *      op2 = callInst->getArgOperand(2);
               ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
+
               if (ilen) {
 
                 uint64_t literalLength = optLen;
                 optLen = ilen->getZExtValue();
+                if (optLen < 2) { continue; }
                 if (literalLength + 1 == optLen) {  // add null byte
                   thestring.append("\0", 1);
                   addedNull = true;
@@ -658,17 +661,21 @@ bool AFLLTOPass::runOnModule(Module &M) {
             // was not already added
             if (!isMemcmp) {
 
-              if (addedNull == false) {
+              if (addedNull == false && thestring[optLen - 1] != '\0') {
 
                 thestring.append("\0", 1);  // add null byte
                 optLen++;
 
               }
 
-              // ensure we do not have garbage
-              size_t offset = thestring.find('\0', 0);
-              if (offset + 1 < optLen) optLen = offset + 1;
-              thestring = thestring.substr(0, optLen);
+              if (!isStdString) {
+
+                // ensure we do not have garbage
+                size_t offset = thestring.find('\0', 0);
+                if (offset + 1 < optLen) optLen = offset + 1;
+                thestring = thestring.substr(0, optLen);
+
+              }
 
             }
 

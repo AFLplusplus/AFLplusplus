@@ -785,6 +785,7 @@ static void set_up_environment(void) {
          "abort_on_error=1:"
          "detect_leaks=0:"
          "allocator_may_return_null=1:"
+         "detect_odr_violation=0:"
          "symbolize=0:"
          "handle_segv=0:"
          "handle_sigbus=0:"

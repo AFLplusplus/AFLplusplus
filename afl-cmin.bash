@@ -223,6 +223,7 @@ if [ ! -d "$IN_DIR" ]; then
   exit 1
 fi
 
+test -d "$IN_DIR/default" && IN_DIR="$IN_DIR/default"
 test -d "$IN_DIR/queue" && IN_DIR="$IN_DIR/queue"
 
 find "$OUT_DIR" -name 'id[:_]*' -maxdepth 1 -exec rm -- {} \; 2>/dev/null

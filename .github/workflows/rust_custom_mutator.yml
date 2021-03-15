@@ -1,0 +1,30 @@
+name: Rust Custom Mutators
+
+on:
+  push:
+    branches: [ stable, dev ]
+  pull_request:
+    branches: [ stable, dev ]
+
+jobs:
+  test:
+    name: Test Rust Custom Mutator Support
+    runs-on: '${{ matrix.os }}'
+    defaults:
+      run:
+        working-directory: custom_mutators/rust
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Check Code Compiles
+        run: cargo check
+      - name: Run General Tests
+        run: cargo test
+      - name: Run Tests for afl_internals feature flag
+        run: cd custom_mutator && cargo test --features=afl_internals

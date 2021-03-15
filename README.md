@@ -2,9 +2,9 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  Release Version: [3.10c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [3.11c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 3.11a
+  Github Version: 3.12a
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
@@ -175,7 +175,7 @@ If you want to build afl++ yourself you have many options.
 The easiest choice is to build and install everything:
 
 ```shell
-sudo apt install build-essential python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools clang llvm llvm-dev libstdc++-dev
+sudo apt install build-essential python3-dev automake flex bison libglib2.0-dev libpixman-1-dev python3-setuptools clang lld llvm llvm-dev libstdc++-dev
 make distrib
 sudo make install
 ```
@@ -224,10 +224,9 @@ These build options exist:
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
-* NO_ARCH_OPT - builds afl++ without machine architecture optimizations
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
-e.g.: make ASAN_BUILD=1
+e.g.: `make ASAN_BUILD=1`
 
 ## Good examples and writeups
 
@@ -239,6 +238,7 @@ Here are some good writeups to show how to effectively use AFL++:
  * [https://securitylab.github.com/research/fuzzing-software-2](https://securitylab.github.com/research/fuzzing-software-2)
  * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
  * [https://securitylab.github.com/research/fuzzing-sockets-FreeRDP](https://securitylab.github.com/research/fuzzing-sockets-FreeRDP)
+ * [https://securitylab.github.com/research/fuzzing-apache-1](https://securitylab.github.com/research/fuzzing-apache-1)
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
@@ -304,7 +304,7 @@ Clickable README links for the chosen compiler:
   * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
   * [LLVM mode - afl-clang-fast](instrumentation/README.llvm.md)
   * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
-  * GCC/CLANG mode (afl-gcc/afl-clang) have no README as they have no own features
+  * GCC/CLANG modes (afl-gcc/afl-clang) have no README as they have no own features
 
 You can select the mode for the afl-cc compiler by:
   1. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
@@ -399,10 +399,19 @@ How to do this is described below.
 
 Then build the target. (Usually with `make`)
 
-**NOTE**: sometimes configure and build systems are fickle and do not like
-stderr output (and think this means a test failure) - which is something
-afl++ like to do to show statistics. It is recommended to disable them via
-`export AFL_QUIET=1`.
+**NOTES**
+
+1. sometimes configure and build systems are fickle and do not like
+   stderr output (and think this means a test failure) - which is something
+   afl++ likes to do to show statistics. It is recommended to disable them via
+   `export AFL_QUIET=1`.
+
+2. sometimes configure and build systems error on warnings - these should be
+   disabled (e.g. `--disable-werror` for some configure scripts).
+
+3. in case the configure/build system complains about afl++'s compiler and
+   aborts then set `export AFL_NOOPT=1` which will then just behave like the
+   real compiler. This option has to be unset again before building the target!
 
 ##### configure
 
@@ -484,8 +493,9 @@ default.
 #### c) Minimizing all corpus files
 
 The shorter the input files that still traverse the same path
-within the target, the better the fuzzing will be. This is done with `afl-tmin`
-however it is a long process as this has to be done for every file:
+within the target, the better the fuzzing will be. This minimization
+is done with `afl-tmin` however it is a long process as this has to
+be done for every file:
 
 ```
 mkdir input
@@ -536,12 +546,10 @@ If you need to stop and re-start the fuzzing, use the same command line options
 mutation mode!) and switch the input directory with a dash (`-`):
 `afl-fuzz -i - -o output -- bin/target -d @@`
 
-Note that afl-fuzz enforces memory limits to prevent the system to run out
-of memory. By default this is 50MB for a process. If this is too little for
-the target (which you can usually see by afl-fuzz bailing with the message
-that it could not connect to the forkserver), then you can increase this
-with the `-m` option, the value is in MB. To disable any memory limits
-(beware!) set `-m none` - which is usually required for ASAN compiled targets.
+Memory limits are not enforced by afl-fuzz by default and the system may run
+out of memory. You can decrease the memory with the `-m` option, the value is
+in MB. If this is too small for the target, you can usually see this by
+afl-fuzz bailing with the message that it could not connect to the forkserver.
 
 Adding a dictionary is helpful. See the directory [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
@@ -554,7 +562,9 @@ afl-fuzz has a variety of options that help to workaround target quirks like
 specific locations for the input file (`-f`), not performing deterministic
 fuzzing (`-d`) and many more. Check out `afl-fuzz -h`.
 
-afl-fuzz never stops fuzzing. To terminate afl++ simply press Control-C.
+By default afl-fuzz never stops fuzzing. To terminate afl++ simply press Control-C
+or send a signal SIGINT. You can limit the number of executions or approximate runtime
+in seconds with options also.
 
 When you start afl-fuzz you will see a user interface that shows what the status
 is:
