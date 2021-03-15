@@ -237,38 +237,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     if (fsrv->qemu_mode) {
 
-      u8 *qemu_preload = getenv("QEMU_SET_ENV");
-      u8 *afl_preload = getenv("AFL_PRELOAD");
-      u8 *buf;
-
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
-
-        if (afl_preload[i] == ',') {
-
-          PFATAL(
-              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
-              "specified!");
-
-        }
-
-      }
-
-      if (qemu_preload) {
-
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           qemu_preload, afl_preload, afl_preload);
-
-      } else {
-
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           afl_preload, afl_preload);
-
-      }
-
-      setenv("QEMU_SET_ENV", buf, 1);
-
-      afl_free(buf);
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
     } else {
 

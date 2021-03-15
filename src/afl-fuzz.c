@@ -1022,32 +1022,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->fsrv.qemu_mode && getenv("AFL_USE_QASAN")) {
-
-    u8 *preload = getenv("AFL_PRELOAD");
-    u8 *libqasan = get_libqasan_path(argv_orig[0]);
-
-    if (!preload) {
-
-      setenv("AFL_PRELOAD", libqasan, 0);
-
-    } else {
-
-      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
-      strcpy(result, libqasan);
-      strcat(result, " ");
-      strcat(result, preload);
-
-      setenv("AFL_PRELOAD", result, 1);
-      ck_free(result);
-
-    }
-
-    afl->afl_env.afl_preload = (u8 *)getenv("AFL_PRELOAD");
-    ck_free(libqasan);
-
-  }
-
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
@@ -1312,38 +1286,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (afl->fsrv.qemu_mode) {
 
-      u8 *qemu_preload = getenv("QEMU_SET_ENV");
-      u8 *afl_preload = getenv("AFL_PRELOAD");
-      u8 *buf;
-
-      s32 j, afl_preload_size = strlen(afl_preload);
-      for (j = 0; j < afl_preload_size; ++j) {
-
-        if (afl_preload[j] == ',') {
-
-          PFATAL(
-              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
-              "specified!");
-
-        }
-
-      }
-
-      if (qemu_preload) {
-
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           qemu_preload, afl_preload, afl_preload);
-
-      } else {
-
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           afl_preload, afl_preload);
-
-      }
-
-      setenv("QEMU_SET_ENV", buf, 1);
-
-      ck_free(buf);
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
     } else {
 
