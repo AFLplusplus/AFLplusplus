@@ -243,7 +243,7 @@ BEGIN {
   if (!stdin_file) {
     found_atat = 0
     for (prog_args_ind in prog_args) {
-      if ("@@" == prog_args[prog_args_ind]) {
+      if (match(prog_args[prog_args_ind], "@@") != 0) {
         found_atat = 1
         break
       }
