@@ -8,9 +8,11 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
-### Version ++3.11a (dev)
+### Version ++3.11c (release)
   - afl-fuzz:
+    - better auto detection of map size
     - fix sanitizer settings (bug since 3.10c)
+    - fix an off-by-one overwrite in cmplog
     - add non-unicode variants from unicode-looking dictionary entries
     - Rust custom mutator API improvements
     - Imported crash stats painted yellow on resume (only new ones are red)
