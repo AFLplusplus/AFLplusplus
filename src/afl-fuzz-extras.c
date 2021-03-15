@@ -387,6 +387,130 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 }
 
+/* add an extra/dict/token - no checks performed, no sorting */
+
+static void add_extra_nocheck(afl_state_t *afl, u8 *mem, u32 len) {
+
+  afl->extras = afl_realloc((void **)&afl->extras,
+                            (afl->extras_cnt + 1) * sizeof(struct extra_data));
+
+  if (unlikely(!afl->extras)) { PFATAL("alloc"); }
+
+  afl->extras[afl->extras_cnt].data = ck_alloc(len);
+  afl->extras[afl->extras_cnt].len = len;
+  memcpy(afl->extras[afl->extras_cnt].data, mem, len);
+  afl->extras_cnt++;
+
+  /* We only want to print this once */
+
+  if (afl->extras_cnt == afl->max_det_extras + 1) {
+
+    WARNF("More than %u tokens - will use them probabilistically.",
+          afl->max_det_extras);
+
+  }
+
+}
+
+/* Sometimes strings in input is transformed to unicode internally, so for
+   fuzzing we should attempt to de-unicode if it looks like simple unicode */
+
+void deunicode_extras(afl_state_t *afl) {
+
+  if (!afl->extras_cnt) return;
+
+  u32 i, j, orig_cnt = afl->extras_cnt;
+  u8  buf[64];
+
+  for (i = 0; i < orig_cnt; ++i) {
+
+    if (afl->extras[i].len < 6 || afl->extras[i].len > 64 ||
+        afl->extras[i].len % 2) {
+
+      continue;
+
+    }
+
+    u32 k = 0, z1 = 0, z2 = 0, z3 = 0, z4 = 0, half = afl->extras[i].len >> 1;
+    u32 quarter = half >> 1;
+
+    for (j = 0; j < afl->extras[i].len; ++j) {
+
+      switch (j % 4) {
+
+        case 2:
+          if (!afl->extras[i].data[j]) { ++z3; }
+          // fall through
+        case 0:
+          if (!afl->extras[i].data[j]) { ++z1; }
+          break;
+        case 3:
+          if (!afl->extras[i].data[j]) { ++z4; }
+          // fall through
+        case 1:
+          if (!afl->extras[i].data[j]) { ++z2; }
+          break;
+
+      }
+
+    }
+
+    if ((z1 < half && z2 < half) || z1 + z2 == afl->extras[i].len) { continue; }
+
+    // also maybe 32 bit unicode?
+    if (afl->extras[i].len % 4 == 0 && afl->extras[i].len >= 12 &&
+        (z3 == quarter || z4 == quarter) && z1 + z2 == quarter * 3) {
+
+      for (j = 0; j < afl->extras[i].len; ++j) {
+
+        if (z4 < quarter) {
+
+          if (j % 4 == 3) { buf[k++] = afl->extras[i].data[j]; }
+
+        } else if (z3 < quarter) {
+
+          if (j % 4 == 2) { buf[k++] = afl->extras[i].data[j]; }
+
+        } else if (z2 < half) {
+
+          if (j % 4 == 1) { buf[k++] = afl->extras[i].data[j]; }
+
+        } else {
+
+          if (j % 4 == 0) { buf[k++] = afl->extras[i].data[j]; }
+
+        }
+
+      }
+
+      add_extra_nocheck(afl, buf, k);
+      k = 0;
+
+    }
+
+    for (j = 0; j < afl->extras[i].len; ++j) {
+
+      if (z1 < half) {
+
+        if (j % 2 == 0) { buf[k++] = afl->extras[i].data[j]; }
+
+      } else {
+
+        if (j % 2 == 1) { buf[k++] = afl->extras[i].data[j]; }
+
+      }
+
+    }
+
+    add_extra_nocheck(afl, buf, k);
+
+  }
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+}
+
 /* Removes duplicates from the loaded extras. This can happen if multiple files
    are loaded */
 
@@ -396,9 +520,9 @@ void dedup_extras(afl_state_t *afl) {
 
   u32 i, j, orig_cnt = afl->extras_cnt;
 
-  for (i = 0; i < afl->extras_cnt - 1; i++) {
+  for (i = 0; i < afl->extras_cnt - 1; ++i) {
 
-    for (j = i + 1; j < afl->extras_cnt; j++) {
+    for (j = i + 1; j < afl->extras_cnt; ++j) {
 
     restart_dedup:
 
@@ -462,29 +586,10 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   }
 
-  afl->extras = afl_realloc((void **)&afl->extras,
-                            (afl->extras_cnt + 1) * sizeof(struct extra_data));
-
-  if (unlikely(!afl->extras)) { PFATAL("alloc"); }
-
-  afl->extras[afl->extras_cnt].data = ck_alloc(len);
-  afl->extras[afl->extras_cnt].len = len;
-
-  memcpy(afl->extras[afl->extras_cnt].data, mem, len);
-
-  afl->extras_cnt++;
+  add_extra_nocheck(afl, mem, len);
 
   qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
         compare_extras_len);
-
-  /* We only want to print this once */
-
-  if (afl->extras_cnt == afl->max_det_extras + 1) {
-
-    WARNF("More than %u tokens - will use them probabilistically.",
-          afl->max_det_extras);
-
-  }
 
 }
 

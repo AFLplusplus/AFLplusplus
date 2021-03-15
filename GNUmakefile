@@ -24,7 +24,7 @@ BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
-MAN_PATH    = $(PREFIX)/man/man8
+MAN_PATH    = $(PREFIX)/share/man/man8
 
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
@@ -364,7 +364,6 @@ help:
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
-	@echo NO_ARCH_OPT - builds afl++ without machine architecture optimizations
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1

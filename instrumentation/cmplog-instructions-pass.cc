@@ -418,7 +418,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       IntegerType *        intTyOp0 = NULL;
       IntegerType *        intTyOp1 = NULL;
       unsigned             max_size = 0, cast_size = 0;
-      unsigned char        attr = 0, do_cast = 0;
+      unsigned char        attr = 0;
       std::vector<Value *> args;
 
       CmpInst *cmpInst = dyn_cast<CmpInst>(selectcmpInst);
@@ -484,7 +484,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           max_size = 128;
 
         attr += 8;
-        do_cast = 1;
 
       } else {
 
@@ -503,12 +502,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       if (!max_size || max_size < 16) { continue; }
 
-      if (max_size % 8) {
-
-        max_size = (((max_size / 8) + 1) * 8);
-        do_cast = 1;
-
-      }
+      if (max_size % 8) { max_size = (((max_size / 8) + 1) * 8); }
 
       if (max_size > 128) {
 
@@ -521,7 +515,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
         }
 
         max_size = 128;
-        do_cast = 1;
 
       }
 
@@ -537,7 +530,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           break;
         default:
           cast_size = 128;
-          do_cast = 1;
 
       }
 
@@ -574,7 +566,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       }
 
       // fprintf(stderr, "_ExtInt(%u) castTo %u with attr %u didcast %u\n",
-      //         max_size, cast_size, attr, do_cast);
+      //         max_size, cast_size, attr);
 
       switch (cast_size) {
 
