@@ -599,38 +599,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     if (fsrv->qemu_mode) {
 
-      u8 *qemu_preload = getenv("QEMU_SET_ENV");
-      u8 *afl_preload = getenv("AFL_PRELOAD");
-      u8 *buf;
-
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
-
-        if (afl_preload[i] == ',') {
-
-          PFATAL(
-              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
-              "specified!");
-
-        }
-
-      }
-
-      if (qemu_preload) {
-
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           qemu_preload, afl_preload, afl_preload);
-
-      } else {
-
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           afl_preload, afl_preload);
-
-      }
-
-      setenv("QEMU_SET_ENV", buf, 1);
-
-      ck_free(buf);
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
     } else {
 
@@ -945,31 +914,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (optind == argc || !out_file) { usage(argv[0]); }
-
-  if (fsrv->qemu_mode && getenv("AFL_USE_QASAN")) {
-
-    u8 *preload = getenv("AFL_PRELOAD");
-    u8 *libqasan = get_libqasan_path(argv_orig[0]);
-
-    if (!preload) {
-
-      setenv("AFL_PRELOAD", libqasan, 0);
-
-    } else {
-
-      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
-      strcpy(result, libqasan);
-      strcat(result, " ");
-      strcat(result, preload);
-
-      setenv("AFL_PRELOAD", result, 1);
-      ck_free(result);
-
-    }
-
-    ck_free(libqasan);
-
-  }
 
   if (in_dir) {
 
