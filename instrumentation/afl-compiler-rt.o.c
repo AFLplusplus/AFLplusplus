@@ -1730,18 +1730,18 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
 // to avoid to call it on .text addresses
 static int area_is_valid(void *ptr, size_t len) {
 
-  if (unlikely(__asan_region_is_poisoned(ptr, len))) { return 0; }
+  if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-  long r = syscall(__afl_dummy_fd[1], SYS_write, ptr, len);
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 
   if (unlikely(r <= 0 || r > len)) {  // fail - maybe hitting asan boundary?
 
     char *p = (char *)ptr;
     long  page_size = sysconf(_SC_PAGE_SIZE);
     char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
-    if (page < p + len) { return 0; }  // no isnt, return fail
-    len -= (p + len - page);
-    r = syscall(__afl_dummy_fd[1], SYS_write, p, len);
+    if (page >= p + len) { return 0; }  // no isnt, return fail
+    len = page - p - len;
+    r = syscall(SYS_write, __afl_dummy_fd[1], p, len);
 
   }
 

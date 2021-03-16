@@ -150,10 +150,12 @@ void argv_cpy_free(char **argv) {
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   if (unlikely(getenv("AFL_QEMU_CUSTOM_BIN"))) {
+
     WARNF(
-      "AFL_QEMU_CUSTOM_BIN is enabled. "
-      "You must run your target under afl-qemu-trace on your own!");
+        "AFL_QEMU_CUSTOM_BIN is enabled. "
+        "You must run your target under afl-qemu-trace on your own!");
     return argv;
+
   }
 
   if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
