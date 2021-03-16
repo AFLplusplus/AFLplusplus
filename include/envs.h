@@ -130,6 +130,7 @@ static char *afl_environment_variables[] = {
     "AFL_PATH",
     "AFL_PERFORMANCE_FILE",
     "AFL_PRELOAD",
+    "AFL_TARGET_ENV",
     "AFL_PYTHON_MODULE",
     "AFL_QEMU_CUSTOM_BIN",
     "AFL_QEMU_COMPCOV",

@@ -1178,6 +1178,7 @@ without feedback, bug reports, or patches from:
   Josephine Calliotte                   Konrad Welc
   Thomas Rooijakkers                    David Carlier
   Ruben ten Hove                        Joey Jiao
+  fuzzah
 ```
 
 Thank you!
