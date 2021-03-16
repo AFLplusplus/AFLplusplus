@@ -1741,7 +1741,7 @@ static int area_is_valid(void *ptr, size_t len) {
     char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
     if (page >= p + len) { return 0; }  // no isnt, return fail
     len = page - p - len;
-    r = syscall(SYS_write, __afl_dummy_fd[1], p, len);
+    r = syscall(SYS_write, __afl_dummy_fd[1], page, len);
 
   }
 
