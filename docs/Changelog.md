@@ -9,7 +9,9 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.12a (dev)
-  - fix cmplog rtn (rare crash and not being able to gather ptr data)
+  - afl-cc:
+    - fix cmplog rtn (rare crash and not being able to gather ptr data)
+    - link runtime not to shared libs
   - qemu_mode (thanks @realmadsci):
     - move AFL_PRELOAD and AFL_USE_QASAN logic inside afl-qemu-trace
     - add AFL_QEMU_CUSTOM_BIN
