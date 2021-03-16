@@ -1734,25 +1734,26 @@ static int area_is_valid(void *ptr, size_t len) {
 
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 
-  if (unlikely(r <= 0 || r > len)) {  // fail - maybe hitting asan boundary?
+  if (r <= 0 || r > len) return 0;
 
-    char *p = (char *)ptr;
-    long  page_size = sysconf(_SC_PAGE_SIZE);
-    char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
-    if (page >= p + len) { return 0; }  // no isnt, return fail
-    len = page - p - len;
-    r = syscall(SYS_write, __afl_dummy_fd[1], page, len);
+  // even if the write succeed this can be a false positive if we cross
+  // a page boundary. who knows why.
 
-  }
+  char *p = (char *)ptr;
+  long  page_size = sysconf(_SC_PAGE_SIZE);
+  char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
 
-  // partial writes - we return what was written.
-  if (likely(r >= 0 && r <= len)) {
+  if (page > p + len) {
 
+    // no, not crossing a page boundary
     return (int)r;
 
   } else {
 
-    return 0;
+    // yes it crosses a boundary, hence we can only return the length of
+    // rest of the first page, we cannot detect if the next page is valid
+    // or not, neither by SYS_write nor msync() :-(
+    return (int)(page - p);
 
   }
 

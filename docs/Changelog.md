@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.12a (dev)
-  - ...
+  - fix cmplog rtn (rare crash and not being able to gather ptr data)
 
 
 ### Version ++3.11c (release)
