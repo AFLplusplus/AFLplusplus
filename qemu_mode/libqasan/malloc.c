@@ -159,6 +159,9 @@ size_t __libqasan_malloc_usable_size(void *ptr) {
   char *p = ptr;
   p -= sizeof(struct chunk_begin);
 
+  // Validate that the chunk marker is readable (a crude check
+  // to verify that ptr is a valid malloc region before we dereference it)
+  QASAN_LOAD(p, sizeof(struct chunk_begin) - REDZONE_SIZE);
   return ((struct chunk_begin *)p)->requested_size;
 
 }
@@ -225,6 +228,9 @@ void __libqasan_free(void *ptr) {
   struct chunk_begin *p = ptr;
   p -= 1;
 
+  // Validate that the chunk marker is readable (a crude check
+  // to verify that ptr is a valid malloc region before we dereference it)
+  QASAN_LOAD(p, sizeof(struct chunk_begin) - REDZONE_SIZE);
   size_t n = p->requested_size;
 
   QASAN_STORE(ptr, n);
