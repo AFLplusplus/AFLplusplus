@@ -706,6 +706,102 @@ char *get_afl_env(char *env) {
 
 }
 
+u8 extract_and_set_env(u8 *env_str) {
+
+  if (!env_str) { return 0; }
+
+  u8 *p = ck_strdup(env_str);
+
+  u8 *end = p + strlen((char *)p);
+
+  u8 ret_val = 0;  // return false by default
+
+  u8 *rest = p;
+  u8 *key = p;
+  u8 *val = p;
+
+  u8 closing_sym = ' ';
+  u8 c;
+
+  size_t num_pairs = 0;
+
+  while (rest < end) {
+
+    while (*rest == ' ') {
+
+      rest++;
+
+    }
+
+    if (rest + 1 >= end) break;
+
+    key = rest;
+    // env variable names may not start with numbers or '='
+    if (*key == '=' || (*key >= '0' && *key <= '9')) { goto free_and_return; }
+
+    while (rest < end && *rest != '=' && *rest != ' ') {
+
+      c = *rest;
+      // lowercase is bad but we may still allow it
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') &&
+          (c < '0' || c > '9') && c != '_') {
+
+        goto free_and_return;
+
+      }
+
+      rest++;
+
+    }
+
+    if (*rest != '=') { goto free_and_return; }
+
+    *rest = '\0';  // done with variable name
+
+    rest += 1;
+    if (rest >= end || *rest == ' ') { goto free_and_return; }
+
+    val = rest;
+    if (*val == '\'' || *val == '"') {
+
+      closing_sym = *val;
+      val += 1;
+      rest += 1;
+      if (rest >= end) { goto free_and_return; }
+
+    } else {
+
+      closing_sym = ' ';
+
+    }
+
+    while (rest < end && *rest != closing_sym) {
+
+      rest++;
+
+    }
+
+    if (closing_sym != ' ' && *rest != closing_sym) { goto free_and_return; }
+
+    *rest = '\0';  // done with variable value
+
+    rest += 1;
+    if (rest < end && *rest != ' ') { goto free_and_return; }
+
+    num_pairs += 1;
+
+    setenv(key, val, 1);
+
+  }
+
+  if (num_pairs > 0) { ret_val = 1; }
+
+free_and_return:
+  ck_free(p);
+  return ret_val;
+
+}
+
 /* Read mask bitmap from file. This is for the -B option. */
 
 void read_bitmap(u8 *fname, u8 *map, size_t len) {

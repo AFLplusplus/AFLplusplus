@@ -9,6 +9,9 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.12a (dev)
+  - afl-fuzz:
+    - added AFL_TARGET_ENV variable to pass extra env vars to the target
+      (for things like LD_LIBRARY_PATH)
   - afl-cc:
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
     - link runtime not to shared libs

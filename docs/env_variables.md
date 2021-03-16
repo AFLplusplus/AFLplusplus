@@ -408,6 +408,12 @@ checks or alter some of the more exotic semantics of the tool:
     without disrupting the afl-fuzz process itself. This is useful, among other
     things, for bootstrapping libdislocator.so.
 
+  - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables
+    for the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz ... `
+    This exists mostly for things like `LD_LIBRARY_PATH` but it would theoretically
+    allow fuzzing of AFL++ itself (with 'target' AFL++ using some AFL_ vars that
+    would disrupt work of 'fuzzer' AFL++).
+
   - Setting `AFL_NO_UI` inhibits the UI altogether, and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
