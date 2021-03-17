@@ -1730,29 +1730,30 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
 // to avoid to call it on .text addresses
 static int area_is_valid(void *ptr, size_t len) {
 
-  if (unlikely(__asan_region_is_poisoned(ptr, len))) { return 0; }
+  if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-  long r = syscall(__afl_dummy_fd[1], SYS_write, ptr, len);
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 
-  if (unlikely(r <= 0 || r > len)) {  // fail - maybe hitting asan boundary?
+  if (r <= 0 || r > len) return 0;
 
-    char *p = (char *)ptr;
-    long  page_size = sysconf(_SC_PAGE_SIZE);
-    char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
-    if (page < p + len) { return 0; }  // no isnt, return fail
-    len -= (p + len - page);
-    r = syscall(__afl_dummy_fd[1], SYS_write, p, len);
+  // even if the write succeed this can be a false positive if we cross
+  // a page boundary. who knows why.
 
-  }
+  char *p = (char *)ptr;
+  long  page_size = sysconf(_SC_PAGE_SIZE);
+  char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
 
-  // partial writes - we return what was written.
-  if (likely(r >= 0 && r <= len)) {
+  if (page > p + len) {
 
+    // no, not crossing a page boundary
     return (int)r;
 
   } else {
 
-    return 0;
+    // yes it crosses a boundary, hence we can only return the length of
+    // rest of the first page, we cannot detect if the next page is valid
+    // or not, neither by SYS_write nor msync() :-(
+    return (int)(page - p);
 
   }
 
@@ -1773,12 +1774,14 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   */
 
   if (unlikely(!__afl_cmp_map)) return;
+  //fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
       (l2 = area_is_valid(ptr2, 32)) <= 0)
     return;
   int len = MIN(l1, l2);
 
+  //fprintf(stderr, "RTN2 %u\n", len);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
@@ -1809,6 +1812,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
                    ptr1, len);
   __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1,
                    ptr2, len);
+  //fprintf(stderr, "RTN3\n");
 
 }
 

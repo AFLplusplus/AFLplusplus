@@ -164,7 +164,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     echo ZZZZ > in/in
     $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 45 seconds"
     {
-      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -Z -s 1 -V45 -m ${MEM_LIMIT} -i in -o out -D -- ./test-floatingpoint >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -Z -s 123 -V50 -m ${MEM_LIMIT} -i in -o out -D -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
