@@ -1633,8 +1633,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->debug) {
   printf("NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size, afl->cmplog_fsrv.map_size);
   fprintf(stderr, "NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size, afl->cmplog_fsrv.map_size);
+  }
 
   load_auto(afl);
 
