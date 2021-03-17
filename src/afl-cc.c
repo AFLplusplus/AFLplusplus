@@ -682,17 +682,42 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
+  u8 skip_next = 0;
   while (--argc) {
 
     u8 *cur = *(++argv);
+
+    if (skip_next) {
+
+      skip_next = 0;
+      continue;
+
+    }
 
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
     if (!strncmp(cur, "-fno-unroll", 11)) continue;
     if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined") ||
+        !strcmp(cur, "--no-undefined")) {
+
       continue;
+
+    }
+
+    if (!strcmp(cur, "-z")) {
+
+      u8 *param = *(argv + 1);
+      if (!strcmp(param, "defs")) {
+
+        skip_next = 1;
+        continue;
+
+      }
+
+    }
+
     if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
         !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
 
@@ -1015,7 +1040,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking)
+    if (shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
