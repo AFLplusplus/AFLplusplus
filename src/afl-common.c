@@ -1072,7 +1072,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
-  uint32_t map_size = 8000000;  // a very large default map
+  uint32_t map_size = DEFAULT_SHMEM_SIZE;
   char *   ptr;
 
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
