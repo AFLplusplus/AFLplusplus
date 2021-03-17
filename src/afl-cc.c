@@ -1018,8 +1018,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-lrt";
   #endif
 
-  }
-
 #endif
 
   cc_params[cc_par_cnt] = NULL;
