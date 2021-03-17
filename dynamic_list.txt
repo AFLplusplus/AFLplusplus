@@ -13,7 +13,7 @@
   "__afl_dictionary_len";
   "__afl_selective_coverage";
   "__afl_selective_coverage_start_off";
-  "__afl_selective_coverage_temp;"
+  "__afl_selective_coverage_temp";
   "__afl_coverage_discard";
   "__afl_coverage_skip";
   "__afl_coverage_on";
