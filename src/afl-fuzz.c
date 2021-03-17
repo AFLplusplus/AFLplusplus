@@ -1527,11 +1527,13 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode) {
 
-    if (map_size <= 8000000 && !afl->non_instrumented_mode &&
+    if (map_size <= DEFAULT_SHMEM_SIZE && !afl->non_instrumented_mode &&
         !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
 
-      afl->fsrv.map_size = 8000000;  // dummy temporary value
-      setenv("AFL_MAP_SIZE", "8000000", 1);
+      afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
+      char vbuf[16];
+      snprintf(vbuf, sizeof(vbuf), "%u", DEFAULT_SHMEM_SIZE);
+      setenv("AFL_MAP_SIZE", vbuf, 1);
 
     }
 
@@ -1582,11 +1584,13 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
-    if (map_size <= 8000000 && !afl->non_instrumented_mode &&
+    if (map_size <= DEFAULT_SHMEM_SIZE && !afl->non_instrumented_mode &&
         !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
 
-      afl->cmplog_fsrv.map_size = 8000000;  // dummy temporary value
-      setenv("AFL_MAP_SIZE", "8000000", 1);
+      afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
+      char vbuf[16];
+      snprintf(vbuf, sizeof(vbuf), "%u", DEFAULT_SHMEM_SIZE);
+      setenv("AFL_MAP_SIZE", vbuf, 1);
 
     }
 
@@ -1634,8 +1638,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (afl->debug) {
-  printf("NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size, afl->cmplog_fsrv.map_size);
-  fprintf(stderr, "NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size, afl->cmplog_fsrv.map_size);
+
+    printf("NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size,
+           afl->cmplog_fsrv.map_size);
+    fprintf(stderr, "NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size,
+            afl->cmplog_fsrv.map_size);
+
   }
 
   load_auto(afl);
