@@ -971,11 +971,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 32:
-        if (!shared_linking)
+        if (!shared_linking) {
+
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m32 is not supported by your compiler");
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m32 is not supported by your compiler");
+
+        }
+
         if (lto_mode) {
 
           cc_params[cc_par_cnt++] =
@@ -988,11 +992,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        if (!shared_linking)
+        if (!shared_linking) {
+
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m64 is not supported by your compiler");
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m64 is not supported by your compiler");
+
+        }
+
         if (lto_mode) {
 
           cc_params[cc_par_cnt++] =
