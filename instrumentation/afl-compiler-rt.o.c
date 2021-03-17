@@ -1774,14 +1774,14 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   */
 
   if (unlikely(!__afl_cmp_map)) return;
-  fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
+  //fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
       (l2 = area_is_valid(ptr2, 32)) <= 0)
     return;
   int len = MIN(l1, l2);
 
-  fprintf(stderr, "RTN2 %u\n", len);
+  //fprintf(stderr, "RTN2 %u\n", len);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
@@ -1812,7 +1812,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
                    ptr1, len);
   __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1,
                    ptr2, len);
-  fprintf(stderr, "RTN3\n");
+  //fprintf(stderr, "RTN3\n");
 
 }
 
