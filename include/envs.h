@@ -50,6 +50,7 @@ static char *afl_environment_variables[] = {
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
     "AFL_FUZZER_ARGS",  // oss-fuzz
+    "AFL_GDB",
     "AFL_GCC_ALLOWLIST",
     "AFL_GCC_DENYLIST",
     "AFL_GCC_BLOCKLIST",
@@ -130,6 +131,7 @@ static char *afl_environment_variables[] = {
     "AFL_PERFORMANCE_FILE",
     "AFL_PRELOAD",
     "AFL_PYTHON_MODULE",
+    "AFL_QEMU_CUSTOM_BIN",
     "AFL_QEMU_COMPCOV",
     "AFL_QEMU_COMPCOV_DEBUG",
     "AFL_QEMU_DEBUG_MAPS",

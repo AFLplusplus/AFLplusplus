@@ -393,6 +393,10 @@ checks or alter some of the more exotic semantics of the tool:
 
   - In QEMU mode (-Q), `AFL_PATH` will be searched for afl-qemu-trace.
 
+  - In QEMU mode (-Q), setting `AFL_QEMU_CUSTOM_BIN` cause afl-fuzz to skip
+    prepending `afl-qemu-trace` to your command line. Use this if you wish to use a
+    custom afl-qemu-trace or if you need to modify the afl-qemu-trace arguments.
+
   - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule everytime
     a cycle is finished.
 
