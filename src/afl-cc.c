@@ -959,11 +959,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (compiler_mode != GCC && compiler_mode != CLANG) {
 
-    if (!shared_linking) {
-
       switch (bit_mode) {
 
         case 0:
+          if (!shared_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
           if (lto_mode)
@@ -972,6 +971,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           break;
 
         case 32:
+          if (!shared_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
           if (access(cc_params[cc_par_cnt - 1], R_OK))
@@ -988,6 +988,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           break;
 
         case 64:
+          if (!shared_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
           if (access(cc_params[cc_par_cnt - 1], R_OK))
@@ -1006,6 +1007,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       }
 
   #if !defined(__APPLE__) && !defined(__sun)
+          if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
