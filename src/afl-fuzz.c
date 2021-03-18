@@ -1540,10 +1540,8 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    // only reinitialize when it makes sense
-    if ((map_size < new_map_size /*||
-         (new_map_size != MAP_SIZE && new_map_size < map_size &&
-          map_size - new_map_size > MAP_SIZE)*/)) {
+    // only reinitialize if the map nees to be larger than what we have.
+    if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
@@ -1636,15 +1634,6 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     OKF("Cmplog forkserver successfully started");
-
-  }
-
-  if (afl->debug) {
-
-    printf("NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size,
-           afl->cmplog_fsrv.map_size);
-    fprintf(stderr, "NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size,
-            afl->cmplog_fsrv.map_size);
 
   }
 
