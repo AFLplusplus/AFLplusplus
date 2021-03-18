@@ -37,9 +37,7 @@ typedef struct afl_forkserver {
 
   /* a program that includes afl-forkserver needs to define these */
 
-  u8  uses_asan;                        /* Target uses ASAN?                */
   u8 *trace_bits;                       /* SHM with instrumentation bitmap  */
-  u8  use_stdin;                        /* use stdin for sending data       */
 
   s32 fsrv_pid,                         /* PID of the fork server           */
       child_pid,                        /* PID of the fuzzed program        */
@@ -53,9 +51,8 @@ typedef struct afl_forkserver {
       fsrv_ctl_fd,                      /* Fork server control pipe (write) */
       fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
-  u8 no_unlink;                         /* do not unlink cur_input          */
-
   u32 exec_tmout;                       /* Configurable exec timeout (ms)   */
+  u32 init_tmout;                       /* Configurable init timeout (ms)   */
   u32 map_size;                         /* map size used by the target      */
   u32 snapshot;                         /* is snapshot feature used         */
   u64 mem_limit;                        /* Memory cap for child (MB)        */
@@ -67,18 +64,29 @@ typedef struct afl_forkserver {
 
   FILE *plot_file;                      /* Gnuplot output file              */
 
-  /* Note: lat_run_timed_out is u32 to send it to the child as 4 byte array */
+  /* Note: last_run_timed_out is u32 to send it to the child as 4 byte array */
   u32 last_run_timed_out;               /* Traced process timed out?        */
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
-  u8 use_shmem_fuzz;                    /* use shared mem for test cases    */
+  bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
-  u8 support_shmem_fuzz;                /* set by afl-fuzz                  */
+  bool support_shmem_fuzz;              /* set by afl-fuzz                  */
 
-  u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
+  bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 
-  u8 qemu_mode;                         /* if running in qemu mode or not   */
+  bool qemu_mode;                       /* if running in qemu mode or not   */
+
+  bool use_stdin;                       /* use stdin for sending data       */
+
+  bool no_unlink;                       /* do not unlink cur_input          */
+
+  bool uses_asan;                       /* Target uses ASAN?                */
+
+  bool debug;                           /* debug mode?                      */
+
+  bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
+  u8   crash_exitcode;                  /* The crash exitcode specified     */
 
   u32 *shmem_fuzz_len;                  /* length of the fuzzing test case  */
 
@@ -89,9 +97,11 @@ typedef struct afl_forkserver {
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);
 
-  u8 *function_opt;                     /* for autodictionary: afl ptr      */
+  u8 *afl_ptr;                          /* for autodictionary: afl ptr      */
 
-  void (*function_ptr)(void *afl_tmp, u8 *mem, u32 len);
+  void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
+
+  u8 kill_signal;
 
 } afl_forkserver_t;
 
@@ -110,11 +120,14 @@ void afl_fsrv_init(afl_forkserver_t *fsrv);
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
+u32  afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
+                          volatile u8 *stop_soon_p, u8 debug_child_output);
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len);
 fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
                                       volatile u8 *stop_soon_p);
 void              afl_fsrv_killall(void);
 void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
+void              afl_fsrv_kill(afl_forkserver_t *fsrv);
 
 #ifdef __APPLE__
   #define MSG_FORK_ON_APPLE                                                    \

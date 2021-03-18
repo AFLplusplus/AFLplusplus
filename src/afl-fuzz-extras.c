@@ -25,23 +25,28 @@
 
 #include "afl-fuzz.h"
 
-/* Helper function for load_extras. */
+/* helper function for auto_extras qsort */
+static int compare_auto_extras_len(const void *ae1, const void *ae2) {
 
-static int compare_extras_len(const void *p1, const void *p2) {
-
-  struct extra_data *e1 = (struct extra_data *)p1,
-                    *e2 = (struct extra_data *)p2;
-
-  return e1->len - e2->len;
+  return ((struct auto_extra_data *)ae1)->len -
+         ((struct auto_extra_data *)ae2)->len;
 
 }
 
-static int compare_extras_use_d(const void *p1, const void *p2) {
+/* descending order */
 
-  struct extra_data *e1 = (struct extra_data *)p1,
-                    *e2 = (struct extra_data *)p2;
+static int compare_auto_extras_use_d(const void *ae1, const void *ae2) {
 
-  return e2->hit_cnt - e1->hit_cnt;
+  return ((struct auto_extra_data *)ae2)->hit_cnt -
+         ((struct auto_extra_data *)ae1)->hit_cnt;
+
+}
+
+/* Helper function for load_extras. */
+
+static int compare_extras_len(const void *e1, const void *e2) {
+
+  return ((struct extra_data *)e1)->len - ((struct extra_data *)e2)->len;
 
 }
 
@@ -96,7 +101,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (rptr < lptr || *rptr != '"') {
 
-      FATAL("Malformed name=\"value\" pair in line %u.", cur_line);
+      WARNF("Malformed name=\"value\" pair in line %u.", cur_line);
+      continue;
 
     }
 
@@ -115,7 +121,7 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
     if (*lptr == '@') {
 
       ++lptr;
-      if (atoi(lptr) > dict_level) { continue; }
+      if (atoi(lptr) > (s32)dict_level) { continue; }
       while (isdigit(*lptr)) {
 
         ++lptr;
@@ -136,19 +142,27 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (*lptr != '"') {
 
-      FATAL("Malformed name=\"keyword\" pair in line %u.", cur_line);
+      WARNF("Malformed name=\"keyword\" pair in line %u.", cur_line);
+      continue;
 
     }
 
     ++lptr;
 
-    if (!*lptr) { FATAL("Empty keyword in line %u.", cur_line); }
+    if (!*lptr) {
+
+      WARNF("Empty keyword in line %u.", cur_line);
+      continue;
+
+    }
 
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
 
-    afl->extras = ck_realloc_block(
-        afl->extras, (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        afl_realloc((void **)&afl->extras,
+                    (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     wptr = afl->extras[afl->extras_cnt].data = ck_alloc(rptr - lptr);
 
@@ -162,7 +176,9 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
         case 1 ... 31:
         case 128 ... 255:
-          FATAL("Non-printable characters in line %u.", cur_line);
+          WARNF("Non-printable characters in line %u.", cur_line);
+          continue;
+          break;
 
         case '\\':
 
@@ -178,7 +194,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
           if (*lptr != 'x' || !isxdigit(lptr[1]) || !isxdigit(lptr[2])) {
 
-            FATAL("Invalid escaping (not \\xNN) in line %u.", cur_line);
+            WARNF("Invalid escaping (not \\xNN) in line %u.", cur_line);
+            continue;
 
           }
 
@@ -202,10 +219,11 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (afl->extras[afl->extras_cnt].len > MAX_DICT_FILE) {
 
-      FATAL(
+      WARNF(
           "Keyword too big in line %u (%s, limit is %s)", cur_line,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), klen),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      continue;
 
     }
 
@@ -217,6 +235,41 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
   }
 
   fclose(f);
+
+}
+
+static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
+                                  u8 *dir) {
+
+  u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+
+  if (!afl->extras_cnt) {
+
+    WARNF("No usable data in '%s'", dir);
+    return;
+
+  }
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+  ACTF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
+       stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
+       stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
+
+  if (max_len > 32) {
+
+    WARNF("Some tokens are relatively large (%s) - consider trimming.",
+          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), max_len));
+
+  }
+
+  if (afl->extras_cnt > afl->max_det_extras) {
+
+    WARNF("More than %u tokens - will use them probabilistically.",
+          afl->max_det_extras);
+
+  }
 
 }
 
@@ -249,7 +302,8 @@ void load_extras(afl_state_t *afl, u8 *dir) {
     if (errno == ENOTDIR) {
 
       load_extras_file(afl, dir, &min_len, &max_len, dict_level);
-      goto check_and_sort;
+      extras_check_and_sort(afl, min_len, max_len, dir);
+      return;
 
     }
 
@@ -281,18 +335,21 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
     if (st.st_size > MAX_DICT_FILE) {
 
-      FATAL(
+      WARNF(
           "Extra '%s' is too big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      continue;
 
     }
 
     if (min_len > st.st_size) { min_len = st.st_size; }
     if (max_len < st.st_size) { max_len = st.st_size; }
 
-    afl->extras = ck_realloc_block(
-        afl->extras, (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        afl_realloc((void **)&afl->extras,
+                    (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     afl->extras[afl->extras_cnt].data = ck_alloc(st.st_size);
     afl->extras[afl->extras_cnt].len = st.st_size;
@@ -312,30 +369,7 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
   closedir(d);
 
-check_and_sort:
-
-  if (!afl->extras_cnt) { FATAL("No usable files in '%s'", dir); }
-
-  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
-        compare_extras_len);
-
-  OKF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
-      stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
-      stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
-
-  if (max_len > 32) {
-
-    WARNF("Some tokens are relatively large (%s) - consider trimming.",
-          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), max_len));
-
-  }
-
-  if (afl->extras_cnt > MAX_DET_EXTRAS) {
-
-    WARNF("More than %d tokens - will use them probabilistically.",
-          MAX_DET_EXTRAS);
-
-  }
+  extras_check_and_sort(afl, min_len, max_len, dir);
 
 }
 
@@ -353,15 +387,217 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 }
 
+/* add an extra/dict/token - no checks performed, no sorting */
+
+static void add_extra_nocheck(afl_state_t *afl, u8 *mem, u32 len) {
+
+  afl->extras = afl_realloc((void **)&afl->extras,
+                            (afl->extras_cnt + 1) * sizeof(struct extra_data));
+
+  if (unlikely(!afl->extras)) { PFATAL("alloc"); }
+
+  afl->extras[afl->extras_cnt].data = ck_alloc(len);
+  afl->extras[afl->extras_cnt].len = len;
+  memcpy(afl->extras[afl->extras_cnt].data, mem, len);
+  afl->extras_cnt++;
+
+  /* We only want to print this once */
+
+  if (afl->extras_cnt == afl->max_det_extras + 1) {
+
+    WARNF("More than %u tokens - will use them probabilistically.",
+          afl->max_det_extras);
+
+  }
+
+}
+
+/* Sometimes strings in input is transformed to unicode internally, so for
+   fuzzing we should attempt to de-unicode if it looks like simple unicode */
+
+void deunicode_extras(afl_state_t *afl) {
+
+  if (!afl->extras_cnt) return;
+
+  u32 i, j, orig_cnt = afl->extras_cnt;
+  u8  buf[64];
+
+  for (i = 0; i < orig_cnt; ++i) {
+
+    if (afl->extras[i].len < 6 || afl->extras[i].len > 64 ||
+        afl->extras[i].len % 2) {
+
+      continue;
+
+    }
+
+    u32 k = 0, z1 = 0, z2 = 0, z3 = 0, z4 = 0, half = afl->extras[i].len >> 1;
+    u32 quarter = half >> 1;
+
+    for (j = 0; j < afl->extras[i].len; ++j) {
+
+      switch (j % 4) {
+
+        case 2:
+          if (!afl->extras[i].data[j]) { ++z3; }
+          // fall through
+        case 0:
+          if (!afl->extras[i].data[j]) { ++z1; }
+          break;
+        case 3:
+          if (!afl->extras[i].data[j]) { ++z4; }
+          // fall through
+        case 1:
+          if (!afl->extras[i].data[j]) { ++z2; }
+          break;
+
+      }
+
+    }
+
+    if ((z1 < half && z2 < half) || z1 + z2 == afl->extras[i].len) { continue; }
+
+    // also maybe 32 bit unicode?
+    if (afl->extras[i].len % 4 == 0 && afl->extras[i].len >= 12 &&
+        (z3 == quarter || z4 == quarter) && z1 + z2 == quarter * 3) {
+
+      for (j = 0; j < afl->extras[i].len; ++j) {
+
+        if (z4 < quarter) {
+
+          if (j % 4 == 3) { buf[k++] = afl->extras[i].data[j]; }
+
+        } else if (z3 < quarter) {
+
+          if (j % 4 == 2) { buf[k++] = afl->extras[i].data[j]; }
+
+        } else if (z2 < half) {
+
+          if (j % 4 == 1) { buf[k++] = afl->extras[i].data[j]; }
+
+        } else {
+
+          if (j % 4 == 0) { buf[k++] = afl->extras[i].data[j]; }
+
+        }
+
+      }
+
+      add_extra_nocheck(afl, buf, k);
+      k = 0;
+
+    }
+
+    for (j = 0; j < afl->extras[i].len; ++j) {
+
+      if (z1 < half) {
+
+        if (j % 2 == 0) { buf[k++] = afl->extras[i].data[j]; }
+
+      } else {
+
+        if (j % 2 == 1) { buf[k++] = afl->extras[i].data[j]; }
+
+      }
+
+    }
+
+    add_extra_nocheck(afl, buf, k);
+
+  }
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+}
+
+/* Removes duplicates from the loaded extras. This can happen if multiple files
+   are loaded */
+
+void dedup_extras(afl_state_t *afl) {
+
+  if (afl->extras_cnt < 2) return;
+
+  u32 i, j, orig_cnt = afl->extras_cnt;
+
+  for (i = 0; i < afl->extras_cnt - 1; ++i) {
+
+    for (j = i + 1; j < afl->extras_cnt; ++j) {
+
+    restart_dedup:
+
+      // if the goto was used we could be at the end of the list
+      if (j >= afl->extras_cnt || afl->extras[i].len != afl->extras[j].len)
+        break;
+
+      if (memcmp(afl->extras[i].data, afl->extras[j].data,
+                 afl->extras[i].len) == 0) {
+
+        ck_free(afl->extras[j].data);
+        if (j + 1 < afl->extras_cnt)  // not at the end of the list?
+          memmove((char *)&afl->extras[j], (char *)&afl->extras[j + 1],
+                  (afl->extras_cnt - j - 1) * sizeof(struct extra_data));
+        --afl->extras_cnt;
+        goto restart_dedup;  // restart if several duplicates are in a row
+
+      }
+
+    }
+
+  }
+
+  if (afl->extras_cnt != orig_cnt)
+    afl->extras = afl_realloc_exact(
+        (void **)&afl->extras, afl->extras_cnt * sizeof(struct extra_data));
+
+}
+
+/* Adds a new extra / dict entry. */
+void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
+
+  u32 i, found = 0;
+
+  for (i = 0; i < afl->extras_cnt; i++) {
+
+    if (afl->extras[i].len == len) {
+
+      if (memcmp(afl->extras[i].data, mem, len) == 0) return;
+      found = 1;
+
+    } else {
+
+      if (found) break;
+
+    }
+
+  }
+
+  if (len > MAX_DICT_FILE) {
+
+    u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+    WARNF("Extra '%.*s' is too big (%s, limit is %s), skipping file!", (int)len,
+          mem, stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
+          stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+    return;
+
+  } else if (len > 32) {
+
+    WARNF("Extra '%.*s' is pretty large, consider trimming.", (int)len, mem);
+
+  }
+
+  add_extra_nocheck(afl, mem, len);
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+}
+
 /* Maybe add automatic extra. */
-/* Ugly hack: afl state is transfered as u8* because we import data via
-   afl-forkserver.c - which is shared with other afl tools that do not
-   have the afl state struct */
 
-void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
+void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
-  afl_state_t *afl = (afl_state_t *)afl_tmp;
-  u32          i;
+  u32 i;
 
   /* Allow users to specify that they don't want auto dictionaries. */
 
@@ -375,7 +611,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
   }
 
-  if (i == len) { return; }
+  if (i == len || unlikely(len > MAX_AUTO_EXTRA)) { return; }
 
   /* Reject builtin interesting values. */
 
@@ -402,7 +638,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
     while (i--) {
 
-      if (*((u32 *)mem) == interesting_32[i] ||
+      if (*((u32 *)mem) == (u32)interesting_32[i] ||
           *((u32 *)mem) == SWAP32(interesting_32[i])) {
 
         return;
@@ -452,10 +688,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
   if (afl->a_extras_cnt < MAX_AUTO_EXTRAS) {
 
-    afl->a_extras = ck_realloc_block(
-        afl->a_extras, (afl->a_extras_cnt + 1) * sizeof(struct extra_data));
-
-    afl->a_extras[afl->a_extras_cnt].data = ck_memdup(mem, len);
+    memcpy(afl->a_extras[afl->a_extras_cnt].data, mem, len);
     afl->a_extras[afl->a_extras_cnt].len = len;
     ++afl->a_extras_cnt;
 
@@ -463,9 +696,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
     i = MAX_AUTO_EXTRAS / 2 + rand_below(afl, (MAX_AUTO_EXTRAS + 1) / 2);
 
-    ck_free(afl->a_extras[i].data);
-
-    afl->a_extras[i].data = ck_memdup(mem, len);
+    memcpy(afl->a_extras[i].data, mem, len);
     afl->a_extras[i].len = len;
     afl->a_extras[i].hit_cnt = 0;
 
@@ -475,13 +706,13 @@ sort_a_extras:
 
   /* First, sort all auto extras by use count, descending order. */
 
-  qsort(afl->a_extras, afl->a_extras_cnt, sizeof(struct extra_data),
-        compare_extras_use_d);
+  qsort(afl->a_extras, afl->a_extras_cnt, sizeof(struct auto_extra_data),
+        compare_auto_extras_use_d);
 
   /* Then, sort the top USE_AUTO_EXTRAS entries by size. */
 
-  qsort(afl->a_extras, MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt),
-        sizeof(struct extra_data), compare_extras_len);
+  qsort(afl->a_extras, MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt),
+        sizeof(struct auto_extra_data), compare_auto_extras_len);
 
 }
 
@@ -494,7 +725,7 @@ void save_auto(afl_state_t *afl) {
   if (!afl->auto_changed) { return; }
   afl->auto_changed = 0;
 
-  for (i = 0; i < MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
+  for (i = 0; i < MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
     u8 *fn =
         alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);
@@ -544,7 +775,7 @@ void load_auto(afl_state_t *afl) {
 
     if (len >= MIN_AUTO_EXTRA && len <= MAX_AUTO_EXTRA) {
 
-      maybe_add_auto((u8 *)afl, tmp, len);
+      maybe_add_auto(afl, tmp, len);
 
     }
 
@@ -559,7 +790,7 @@ void load_auto(afl_state_t *afl) {
 
   } else {
 
-    OKF("No auto-generated dictionary tokens to reuse.");
+    ACTF("No auto-generated dictionary tokens to reuse.");
 
   }
 
@@ -577,15 +808,7 @@ void destroy_extras(afl_state_t *afl) {
 
   }
 
-  ck_free(afl->extras);
-
-  for (i = 0; i < afl->a_extras_cnt; ++i) {
-
-    ck_free(afl->a_extras[i].data);
-
-  }
-
-  ck_free(afl->a_extras);
+  afl_free(afl->extras);
 
 }
 

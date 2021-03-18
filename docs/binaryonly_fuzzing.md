@@ -6,18 +6,18 @@
   However, if there is only the binary program and no source code available,
   then standard `afl-fuzz -n` (non-instrumented mode) is not effective.
 
-  The following is a description of how these binaries can be fuzzed with afl++
+  The following is a description of how these binaries can be fuzzed with afl++.
 
 
 ## TL;DR:
 
   qemu_mode in persistent mode is the fastest - if the stability is
   high enough. Otherwise try retrowrite, afl-dyninst and if these
-  fail too then standard qemu_mode with AFL_ENTRYPOINT to where you need it.
+  fail too then try standard qemu_mode with AFL_ENTRYPOINT to where you need it.
 
-  If your a target is library use examples/afl_frida/.
+  If your target is a library use utils/afl_frida/.
 
-  If your target is non-linux then use unicorn_mode/
+  If your target is non-linux then use unicorn_mode/.
 
 
 ## QEMU
@@ -29,10 +29,10 @@
 
   The speed decrease is at about 50%.
   However various options exist to increase the speed:
-   - using AFL_ENTRYPOINT to move the forkserver to a later basic block in
+   - using AFL_ENTRYPOINT to move the forkserver entry to a later basic block in
      the binary (+5-10% speed)
    - using persistent mode [qemu_mode/README.persistent.md](../qemu_mode/README.persistent.md)
-     this will result in 150-300% overall speed - so 3-8x the original
+     this will result in 150-300% overall speed increase - so 3-8x the original
      qemu_mode speed!
    - using AFL_CODE_START/AFL_CODE_END to only instrument specific parts
 
@@ -65,14 +65,14 @@
 ## AFL FRIDA
 
    If you want to fuzz a binary-only shared library then you can fuzz it with
-   frida-gum via examples/afl_frida/, you will have to write a harness to
+   frida-gum via utils/afl_frida/, you will have to write a harness to
    call the target function in the library, use afl-frida.c as a template.
 
 
 ## AFL UNTRACER
 
    If you want to fuzz a binary-only shared library then you can fuzz it with
-   examples/afl_untracer/, use afl-untracer.c as a template.
+   utils/afl_untracer/, use afl-untracer.c as a template.
    It is slower than AFL FRIDA (see above).
 
 
@@ -104,7 +104,7 @@
 
 ## RETROWRITE
 
-  If you have an x86/x86_64 binary that still has it's symbols, is compiled
+  If you have an x86/x86_64 binary that still has its symbols, is compiled
   with position independant code (PIC/PIE) and does not use most of the C++
   features then the retrowrite solution might be for you.
   It decompiles to ASM files which can then be instrumented with afl-gcc.
@@ -148,7 +148,7 @@
 ## CORESIGHT
 
   Coresight is ARM's answer to Intel's PT.
-  There is no implementation so far which handle coresight and getting
+  There is no implementation so far which handles coresight and getting
   it working on an ARM Linux is very difficult due to custom kernel building
   on embedded systems is difficult. And finding one that has coresight in
   the ARM chip is difficult too.
@@ -174,7 +174,7 @@
 
   Pintool and Dynamorio are dynamic instrumentation engines, and they can be
   used for getting basic block information at runtime.
-  Pintool is only available for Intel x32/x64 on Linux, Mac OS and Windows
+  Pintool is only available for Intel x32/x64 on Linux, Mac OS and Windows,
   whereas Dynamorio is additionally available for ARM and AARCH64.
   Dynamorio is also 10x faster than Pintool.
 
@@ -182,7 +182,7 @@
   Dynamorio has a speed decrease of 98-99%
   Pintool has a speed decrease of 99.5%
 
-  Hence Dynamorio is the option to go for if everything fails, and Pintool
+  Hence Dynamorio is the option to go for if everything else fails, and Pintool
   only if Dynamorio fails too.
 
   Dynamorio solutions:
@@ -205,6 +205,7 @@
   * QSYM: [https://github.com/sslab-gatech/qsym](https://github.com/sslab-gatech/qsym)
   * Manticore: [https://github.com/trailofbits/manticore](https://github.com/trailofbits/manticore)
   * S2E: [https://github.com/S2E](https://github.com/S2E)
+  * Tinyinst [https://github.com/googleprojectzero/TinyInst](https://github.com/googleprojectzero/TinyInst) (Mac/Windows only)
   *  ... please send me any missing that are good
 
 

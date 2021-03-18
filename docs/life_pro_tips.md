@@ -13,7 +13,7 @@ See [parallel_fuzzing.md](parallel_fuzzing.md) for step-by-step tips.
 
 ## Improve the odds of spotting memory corruption bugs with libdislocator.so!
 
-It's easy. Consult [libdislocator/README.md](../libdislocator/README.md) for usage tips.
+It's easy. Consult [utils/libdislocator/README.md](../utils/libdislocator/README.md) for usage tips.
 
 ## Want to understand how your target parses a particular input file?
 
@@ -30,10 +30,10 @@ Check out the `fuzzer_stats` file in the AFL output dir or try `afl-whatsup`.
 It could be important - consult docs/status_screen.md right away!
 
 ## Know your target? Convert it to persistent mode for a huge performance gain!
-Consult section #5 in llvm_mode/README.md for tips.
+Consult section #5 in README.llvm.md for tips.
 
 ## Using clang? 
-Check out llvm_mode/ for a faster alternative to afl-gcc!
+Check out instrumentation/ for a faster alternative to afl-gcc!
 
 ## Did you know that AFL can fuzz closed-source or cross-platform binaries?
 Check out qemu_mode/README.md and unicorn_mode/README.md for more.
@@ -78,13 +78,10 @@ Be sure to check out docs/sister_projects.md before writing your own.
 
 ## Need to fuzz the command-line arguments of a particular program?
 
-You can find a simple solution in examples/argv_fuzzing.
+You can find a simple solution in utils/argv_fuzzing.
 
 ## Attacking a format that uses checksums? 
 
 Remove the checksum-checking code or use a postprocessor!
-See examples/custom_mutators/ for more.
+See utils/custom_mutators/ for more.
 
-## Dealing with a very slow target or hoping for instant results? 
-
-Specify `-d` when calling afl-fuzz!

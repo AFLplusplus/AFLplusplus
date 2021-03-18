@@ -29,8 +29,9 @@ extern void mock_assert(const int result, const char* const expression,
     (compile with `--wrap=exit`) */
 extern void exit(int status);
 extern void __real_exit(int status);
-void __wrap_exit(int status);
+//void __wrap_exit(int status);
 void __wrap_exit(int status) {
+    (void)status;
     assert(0);
 }
 
@@ -40,11 +41,13 @@ extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
+    (void)format;
     return 1;
 }
 
 /* Rand with 0 seed would broke in the past */
 static void test_rand_0(void **state) {
+    (void)state;
 
     afl_state_t afl = {0};
     rand_set_seed(&afl, 0);
@@ -58,6 +61,7 @@ static void test_rand_0(void **state) {
 }
 
 static void test_rand_below(void **state) {
+    (void)state;
 
     afl_state_t afl = {0};
     rand_set_seed(&afl, 1337);
@@ -70,6 +74,8 @@ static void test_rand_below(void **state) {
 }
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_rand_0),

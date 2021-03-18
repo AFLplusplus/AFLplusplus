@@ -22,16 +22,10 @@
 #include <stdint.h>
 #include "afl-fuzz.h"
 #include "types.h"
-#include "xxh3.h"
 
-/* we use xoshiro256** instead of rand/random because it is 10x faster and has
-   better randomness properties. */
-
-static inline uint64_t rotl(const uint64_t x, int k) {
-
-  return (x << k) | (x >> (64 - k));
-
-}
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+#undef XXH_INLINE_ALL
 
 void rand_set_seed(afl_state_t *afl, s64 init_seed) {
 
@@ -39,102 +33,49 @@ void rand_set_seed(afl_state_t *afl, s64 init_seed) {
   afl->rand_seed[0] =
       hash64((u8 *)&afl->init_seed, sizeof(afl->init_seed), HASH_CONST);
   afl->rand_seed[1] = afl->rand_seed[0] ^ 0x1234567890abcdef;
-  afl->rand_seed[2] = afl->rand_seed[0] & 0x0123456789abcdef;
-  afl->rand_seed[3] = afl->rand_seed[0] | 0x01abcde43f567908;
+  afl->rand_seed[2] = (afl->rand_seed[0] & 0x1234567890abcdef) ^
+                      (afl->rand_seed[1] | 0xfedcba9876543210);
 
 }
 
-uint64_t rand_next(afl_state_t *afl) {
+#define ROTL(d, lrot) ((d << (lrot)) | (d >> (8 * sizeof(d) - (lrot))))
 
-  const uint64_t result =
-      rotl(afl->rand_seed[0] + afl->rand_seed[3], 23) + afl->rand_seed[0];
+#ifdef WORD_SIZE_64
+// romuDuoJr
+inline AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
-  const uint64_t t = afl->rand_seed[1] << 17;
-
-  afl->rand_seed[2] ^= afl->rand_seed[0];
-  afl->rand_seed[3] ^= afl->rand_seed[1];
-  afl->rand_seed[1] ^= afl->rand_seed[2];
-  afl->rand_seed[0] ^= afl->rand_seed[3];
-
-  afl->rand_seed[2] ^= t;
-
-  afl->rand_seed[3] = rotl(afl->rand_seed[3], 45);
-
-  return result;
+  AFL_RAND_RETURN xp = afl->rand_seed[0];
+  afl->rand_seed[0] = 15241094284759029579u * afl->rand_seed[1];
+  afl->rand_seed[1] = afl->rand_seed[1] - xp;
+  afl->rand_seed[1] = ROTL(afl->rand_seed[1], 27);
+  return xp;
 
 }
 
-/* This is the jump function for the generator. It is equivalent
-   to 2^128 calls to rand_next(); it can be used to generate 2^128
-   non-overlapping subsequences for parallel computations. */
+#else
+// RomuTrio32
+inline AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
-void jump(afl_state_t *afl) {
-
-  static const uint64_t JUMP[] = {0x180ec6d33cfd0aba, 0xd5a61266f0c9392c,
-                                  0xa9582618e03fc9aa, 0x39abdc4529b1661c};
-  int                   i, b;
-  uint64_t              s0 = 0;
-  uint64_t              s1 = 0;
-  uint64_t              s2 = 0;
-  uint64_t              s3 = 0;
-  for (i = 0; i < sizeof JUMP / sizeof *JUMP; i++)
-    for (b = 0; b < 64; b++) {
-
-      if (JUMP[i] & UINT64_C(1) << b) {
-
-        s0 ^= afl->rand_seed[0];
-        s1 ^= afl->rand_seed[1];
-        s2 ^= afl->rand_seed[2];
-        s3 ^= afl->rand_seed[3];
-
-      }
-
-      rand_next(afl);
-
-    }
-
-  afl->rand_seed[0] = s0;
-  afl->rand_seed[1] = s1;
-  afl->rand_seed[2] = s2;
-  afl->rand_seed[3] = s3;
+  AFL_RAND_RETURN xp = afl->rand_seed[0], yp = afl->rand_seed[1],
+                  zp = afl->rand_seed[2];
+  afl->rand_seed[0] = 3323815723u * zp;
+  afl->rand_seed[1] = yp - xp;
+  afl->rand_seed[1] = ROTL(afl->rand_seed[1], 6);
+  afl->rand_seed[2] = zp - yp;
+  afl->rand_seed[2] = ROTL(afl->rand_seed[2], 22);
+  return xp;
 
 }
 
-/* This is the long-jump function for the generator. It is equivalent to
-   2^192 calls to rand_next(); it can be used to generate 2^64 starting points,
-   from each of which jump() will generate 2^64 non-overlapping
-   subsequences for parallel distributed computations. */
+#endif
 
-void long_jump(afl_state_t *afl) {
+#undef ROTL
 
-  static const uint64_t LONG_JUMP[] = {0x76e15d3efefdcbbf, 0xc5004e441c522fb3,
-                                       0x77710069854ee241, 0x39109bb02acbe635};
+/* returns a double between 0.000000000 and 1.000000000 */
 
-  int      i, b;
-  uint64_t s0 = 0;
-  uint64_t s1 = 0;
-  uint64_t s2 = 0;
-  uint64_t s3 = 0;
-  for (i = 0; i < sizeof LONG_JUMP / sizeof *LONG_JUMP; i++)
-    for (b = 0; b < 64; b++) {
+inline double rand_next_percent(afl_state_t *afl) {
 
-      if (LONG_JUMP[i] & UINT64_C(1) << b) {
-
-        s0 ^= afl->rand_seed[0];
-        s1 ^= afl->rand_seed[1];
-        s2 ^= afl->rand_seed[2];
-        s3 ^= afl->rand_seed[3];
-
-      }
-
-      rand_next(afl);
-
-    }
-
-  afl->rand_seed[0] = s0;
-  afl->rand_seed[1] = s1;
-  afl->rand_seed[2] = s2;
-  afl->rand_seed[3] = s3;
+  return (double)(((double)rand_next(afl)) / (double)0xffffffffffffffff);
 
 }
 
@@ -145,7 +86,7 @@ void long_jump(afl_state_t *afl) {
 u32 hash32(u8 *key, u32 len, u32 seed) {
 
 #else
-u32 inline hash32(u8 *key, u32 len, u32 seed) {
+inline u32 hash32(u8 *key, u32 len, u32 seed) {
 
 #endif
 
@@ -157,7 +98,7 @@ u32 inline hash32(u8 *key, u32 len, u32 seed) {
 u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #else
-u64 inline hash64(u8 *key, u32 len, u64 seed) {
+inline u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #endif
 

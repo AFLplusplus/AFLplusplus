@@ -30,6 +30,9 @@
 
 static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
+  (void)afl;
+  (void)seed;
+
   FATAL("Python Mutator cannot be called twice yet");
   return NULL;
 
@@ -37,9 +40,7 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
   /* sorry for this makro...
   it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
-  #define BUF_PARAMS(name)                              \
-    (void **)&((py_mutator_t *)py_mutator)->name##_buf, \
-        &((py_mutator_t *)py_mutator)->name##_size
+  #define BUF_PARAMS(name) (void **)&((py_mutator_t *)py_mutator)->name##_buf
 
 static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
                       u8 *add_buf, size_t add_buf_size, size_t max_size) {
@@ -94,7 +95,8 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 
     mutated_size = PyByteArray_Size(py_value);
 
-    *out_buf = ck_maybe_grow(BUF_PARAMS(fuzz), mutated_size);
+    *out_buf = afl_realloc(BUF_PARAMS(fuzz), mutated_size);
+    if (unlikely(!*out_buf)) { PFATAL("alloc"); }
 
     memcpy(*out_buf, PyByteArray_AsString(py_value), mutated_size);
     Py_DECREF(py_value);
@@ -109,7 +111,40 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 
 }
 
+static const char *custom_describe_py(void * py_mutator,
+                                      size_t max_description_len) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+
+  PyLong_FromSize_t(max_description_len);
+
+  /* add_buf */
+  py_value = PyLong_FromSize_t(max_description_len);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_DESCRIBE], py_args);
+
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) { return PyBytes_AsString(py_value); }
+
+  return NULL;
+
+}
+
 static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
+
+  (void)afl;
 
   if (!module_name) { return NULL; }
 
@@ -130,6 +165,18 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
   PyObject * py_module = py->py_module;
   PyObject **py_functions = py->py_functions;
 
+  // initialize the post process buffer; ensures it's always valid
+  PyObject *unused_bytes = PyByteArray_FromStringAndSize("OHAI", 4);
+  if (!unused_bytes) { FATAL("allocation failed!"); }
+  if (PyObject_GetBuffer(unused_bytes, &py->post_process_buf, PyBUF_SIMPLE) ==
+      -1) {
+
+    FATAL("buffer initialization failed");
+
+  }
+
+  Py_DECREF(unused_bytes);
+
   if (py_module != NULL) {
 
     u8 py_notrim = 0, py_idx;
@@ -140,6 +187,10 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
+    py_functions[PY_FUNC_DESCRIBE] =
+        PyObject_GetAttrString(py_module, "describe");
+    py_functions[PY_FUNC_FUZZ_COUNT] =
+        PyObject_GetAttrString(py_module, "fuzz_count");
     if (!py_functions[PY_FUNC_FUZZ])
       WARNF("fuzz function not found in python module");
     py_functions[PY_FUNC_POST_PROCESS] =
@@ -157,6 +208,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
+    py_functions[PY_FUNC_INTROSPECTION] =
+        PyObject_GetAttrString(py_module, "introspection");
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
     if (!py_functions[PY_FUNC_DEINIT])
       FATAL("deinit function not found in python module");
@@ -165,27 +218,20 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
       if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
-        if (py_idx == PY_FUNC_POST_PROCESS) {
-
-          // Implenting the post_process API is optional for now
-          if (PyErr_Occurred()) { PyErr_Print(); }
-
-        } else if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
+        if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
 
           // Implementing the trim API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
           py_notrim = 1;
 
-        } else if ((py_idx >= PY_FUNC_HAVOC_MUTATION) &&
+        } else if (py_idx >= PY_OPTIONAL) {
 
-                   (py_idx <= PY_FUNC_QUEUE_NEW_ENTRY)) {
+          // Only _init and _deinit are not optional currently
 
-          // Implenting the havoc and queue API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
 
         } else {
 
-          if (PyErr_Occurred()) { PyErr_Print(); }
           fprintf(stderr,
                   "Cannot find/call function with index %d in external "
                   "Python module.\n",
@@ -213,6 +259,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
     PyErr_Print();
     fprintf(stderr, "Failed to load \"%s\"\n", module_name);
+    free(py);
     return NULL;
 
   }
@@ -246,6 +293,8 @@ void finalize_py_module(void *py_mutator) {
 
 static void init_py(afl_state_t *afl, py_mutator_t *py_mutator,
                     unsigned int seed) {
+
+  (void)afl;
 
   PyObject *py_args, *py_value;
 
@@ -309,8 +358,6 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   struct custom_mutator *mutator;
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
-  mutator->post_process_buf = NULL;
-  mutator->post_process_size = 0;
 
   mutator->name = module_name;
   ACTF("Loading Python mutator library from '%s'...", module_name);
@@ -326,9 +373,13 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   if (py_functions[PY_FUNC_DEINIT]) { mutator->afl_custom_deinit = deinit_py; }
 
-  /* "afl_custom_fuzz" should not be NULL, but the interface of Python mutator
-     is quite different from the custom mutator. */
-  mutator->afl_custom_fuzz = fuzz_py;
+  if (py_functions[PY_FUNC_FUZZ]) { mutator->afl_custom_fuzz = fuzz_py; }
+
+  if (py_functions[PY_FUNC_DESCRIBE]) {
+
+    mutator->afl_custom_describe = custom_describe_py;
+
+  }
 
   if (py_functions[PY_FUNC_POST_PROCESS]) {
 
@@ -339,6 +390,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_INIT_TRIM]) {
 
     mutator->afl_custom_init_trim = init_trim_py;
+
+  }
+
+  if (py_functions[PY_FUNC_FUZZ_COUNT]) {
+
+    mutator->afl_custom_fuzz_count = fuzz_count_py;
 
   }
 
@@ -375,6 +432,15 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   }
 
+  #ifdef INTROSPECTION
+  if (py_functions[PY_FUNC_INTROSPECTION]) {
+
+    mutator->afl_custom_introspection = introspection_py;
+
+  }
+
+  #endif
+
   OKF("Python mutator '%s' installed successfully.", module_name);
 
   /* Initialize the custom mutator */
@@ -387,9 +453,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
                        u8 **out_buf) {
 
-  size_t        py_out_buf_size;
   PyObject *    py_args, *py_value;
   py_mutator_t *py = (py_mutator_t *)py_mutator;
+
+  // buffer returned previously must be released; initialized during init
+  // so we don't need to do comparisons
+  PyBuffer_Release(&py->post_process_buf);
 
   py_args = PyTuple_New(1);
   py_value = PyByteArray_FromStringAndSize(buf, buf_size);
@@ -410,16 +479,20 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
 
   if (py_value != NULL) {
 
-    py_out_buf_size = PyByteArray_Size(py_value);
+    if (PyObject_GetBuffer(py_value, &py->post_process_buf, PyBUF_SIMPLE) ==
+        -1) {
 
-    ck_maybe_grow(BUF_PARAMS(post_process), py_out_buf_size);
+      PyErr_Print();
+      FATAL(
+          "Python custom mutator: post_process call return value not a "
+          "bytes-like object");
 
-    memcpy(py->post_process_buf, PyByteArray_AsString(py_value),
-           py_out_buf_size);
+    }
+
     Py_DECREF(py_value);
 
-    *out_buf = py->post_process_buf;
-    return py_out_buf_size;
+    *out_buf = (u8 *)py->post_process_buf.buf;
+    return py->post_process_buf.len;
 
   } else {
 
@@ -447,6 +520,44 @@ s32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
   py_value = PyObject_CallObject(
       ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INIT_TRIM], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+
+  #if PY_MAJOR_VERSION >= 3
+    u32 retcnt = (u32)PyLong_AsLong(py_value);
+  #else
+    u32 retcnt = PyInt_AsLong(py_value);
+  #endif
+    Py_DECREF(py_value);
+    return retcnt;
+
+  } else {
+
+    PyErr_Print();
+    FATAL("Call failed");
+
+  }
+
+}
+
+u32 fuzz_count_py(void *py_mutator, const u8 *buf, size_t buf_size) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ_COUNT], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -520,7 +631,8 @@ size_t trim_py(void *py_mutator, u8 **out_buf) {
   if (py_value != NULL) {
 
     ret = PyByteArray_Size(py_value);
-    *out_buf = ck_maybe_grow(BUF_PARAMS(trim), ret);
+    *out_buf = afl_realloc(BUF_PARAMS(trim), ret);
+    if (unlikely(!*out_buf)) { PFATAL("alloc"); }
     memcpy(*out_buf, PyByteArray_AsString(py_value), ret);
     Py_DECREF(py_value);
 
@@ -585,7 +697,8 @@ size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
     } else {
 
       /* A new buf is needed... */
-      *out_buf = ck_maybe_grow(BUF_PARAMS(havoc), mutated_size);
+      *out_buf = afl_realloc(BUF_PARAMS(havoc), mutated_size);
+      if (unlikely(!*out_buf)) { PFATAL("alloc"); }
 
     }
 
@@ -624,6 +737,28 @@ u8 havoc_mutation_probability_py(void *py_mutator) {
 
     PyErr_Print();
     FATAL("Call failed");
+
+  }
+
+}
+
+const char *introspection_py(void *py_mutator) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(0);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INTROSPECTION],
+      py_args);
+  Py_DECREF(py_args);
+
+  if (py_value == NULL) {
+
+    return NULL;
+
+  } else {
+
+    return PyByteArray_AsString(py_value);
 
   }
 

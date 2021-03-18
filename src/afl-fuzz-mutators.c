@@ -93,9 +93,9 @@ void setup_custom_mutators(afl_state_t *afl) {
 
     }
 
-    struct custom_mutator *mutator = load_custom_mutator_py(afl, module_name);
+    struct custom_mutator *m = load_custom_mutator_py(afl, module_name);
     afl->custom_mutators_count++;
-    list_append(&afl->custom_mutator_list, mutator);
+    list_append(&afl->custom_mutator_list, m);
 
   }
 
@@ -122,9 +122,8 @@ void destroy_custom_mutators(afl_state_t *afl) {
 
       if (el->post_process_buf) {
 
-        ck_free(el->post_process_buf);
+        afl_free(el->post_process_buf);
         el->post_process_buf = NULL;
-        el->post_process_size = 0;
 
       }
 
@@ -142,6 +141,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
   mutator->name = fn;
+  if (memchr(fn, '/', strlen(fn)))
+    mutator->name_short = strrchr(fn, '/') + 1;
+  else
+    mutator->name_short = strdup(fn);
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
@@ -151,7 +154,11 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* Mutator */
   /* "afl_custom_init", optional for backward compatibility */
   mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!mutator->afl_custom_init) FATAL("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_init) {
+
+    FATAL("Symbol 'afl_custom_init' not found.");
+
+  }
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -161,36 +168,73 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
     WARNF("Symbol 'afl_custom_fuzz' not found. Try 'afl_custom_mutator'.");
 
     mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_mutator");
-    if (!mutator->afl_custom_fuzz)
+    if (!mutator->afl_custom_fuzz) {
+
       WARNF("Symbol 'afl_custom_mutator' not found.");
+
+    }
+
+  }
+
+  /* "afl_custom_introspection", optional */
+#ifdef INTROSPECTION
+  mutator->afl_custom_introspection = dlsym(dh, "afl_custom_introspection");
+  if (!mutator->afl_custom_introspection) {
+
+    ACTF("optional symbol 'afl_custom_introspection' not found.");
+
+  }
+
+#endif
+
+  /* "afl_custom_fuzz_count", optional */
+  mutator->afl_custom_fuzz_count = dlsym(dh, "afl_custom_fuzz_count");
+  if (!mutator->afl_custom_fuzz_count) {
+
+    ACTF("optional symbol 'afl_custom_fuzz_count' not found.");
 
   }
 
   /* "afl_custom_deinit", optional for backward compatibility */
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!mutator->afl_custom_deinit)
+  if (!mutator->afl_custom_deinit) {
+
     FATAL("Symbol 'afl_custom_deinit' not found.");
+
+  }
 
   /* "afl_custom_post_process", optional */
   mutator->afl_custom_post_process = dlsym(dh, "afl_custom_post_process");
-  if (!mutator->afl_custom_post_process)
+  if (!mutator->afl_custom_post_process) {
+
     ACTF("optional symbol 'afl_custom_post_process' not found.");
+
+  }
 
   u8 notrim = 0;
   /* "afl_custom_init_trim", optional */
   mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
-  if (!mutator->afl_custom_init_trim)
+  if (!mutator->afl_custom_init_trim) {
+
     ACTF("optional symbol 'afl_custom_init_trim' not found.");
+
+  }
 
   /* "afl_custom_trim", optional */
   mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!mutator->afl_custom_trim)
+  if (!mutator->afl_custom_trim) {
+
     ACTF("optional symbol 'afl_custom_trim' not found.");
+
+  }
 
   /* "afl_custom_post_trim", optional */
   mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
-  if (!mutator->afl_custom_post_trim)
+  if (!mutator->afl_custom_post_trim) {
+
     ACTF("optional symbol 'afl_custom_post_trim' not found.");
+
+  }
 
   if (notrim) {
 
@@ -205,30 +249,53 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* "afl_custom_havoc_mutation", optional */
   mutator->afl_custom_havoc_mutation = dlsym(dh, "afl_custom_havoc_mutation");
-  if (!mutator->afl_custom_havoc_mutation)
+  if (!mutator->afl_custom_havoc_mutation) {
+
     ACTF("optional symbol 'afl_custom_havoc_mutation' not found.");
+
+  }
 
   /* "afl_custom_havoc_mutation", optional */
   mutator->afl_custom_havoc_mutation_probability =
       dlsym(dh, "afl_custom_havoc_mutation_probability");
-  if (!mutator->afl_custom_havoc_mutation_probability)
+  if (!mutator->afl_custom_havoc_mutation_probability) {
+
     ACTF("optional symbol 'afl_custom_havoc_mutation_probability' not found.");
+
+  }
 
   /* "afl_custom_queue_get", optional */
   mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
-  if (!mutator->afl_custom_queue_get)
+  if (!mutator->afl_custom_queue_get) {
+
     ACTF("optional symbol 'afl_custom_queue_get' not found.");
+
+  }
 
   /* "afl_custom_queue_new_entry", optional */
   mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
-  if (!mutator->afl_custom_queue_new_entry)
+  if (!mutator->afl_custom_queue_new_entry) {
+
     ACTF("optional symbol 'afl_custom_queue_new_entry' not found");
+
+  }
+
+  /* "afl_custom_describe", optional */
+  mutator->afl_custom_describe = dlsym(dh, "afl_custom_describe");
+  if (!mutator->afl_custom_describe) {
+
+    ACTF("Symbol 'afl_custom_describe' not found.");
+
+  }
 
   OKF("Custom mutator '%s' installed successfully.", fn);
 
   /* Initialize the custom mutator */
-  if (mutator->afl_custom_init)
+  if (mutator->afl_custom_init) {
+
     mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+
+  }
 
   mutator->stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
   mutator->stacked_custom_prob =
@@ -252,16 +319,20 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
-  afl->stage_max = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
-  if (unlikely(afl->stage_max) < 0) {
+  s32 retval = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
+  if (unlikely(retval) < 0) {
 
-    FATAL("custom_init_trim error ret: %d", afl->stage_max);
+    FATAL("custom_init_trim error ret: %d", retval);
+
+  } else {
+
+    afl->stage_max = retval;
 
   }
 
   if (afl->not_on_tty && afl->debug) {
 
-    SAYF("[Custom Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
+    SAYF("[Custom Trimming] START: Max %u iterations, %u bytes", afl->stage_max,
          q->len);
 
   }
@@ -279,7 +350,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (unlikely(!retbuf)) {
 
-      FATAL("custom_trim failed (ret %zd)", retlen);
+      FATAL("custom_trim failed (ret %zu)", retlen);
 
     } else if (unlikely(retlen > orig_len)) {
 
@@ -308,20 +379,23 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
          unsuccessful trimming and skip it, instead of aborting the trimming. */
 
       ++afl->trim_execs;
-      goto unsuccessful_trimming;
 
     }
 
-    write_to_testcase(afl, retbuf, retlen);
+    if (likely(retlen)) {
 
-    fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-    ++afl->trim_execs;
+      write_to_testcase(afl, retbuf, retlen);
 
-    if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      ++afl->trim_execs;
 
-    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-    if (cksum == q->exec_cksum) {
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    }
+
+    if (likely(retlen && cksum == q->exec_cksum)) {
 
       q->len = retlen;
       memcpy(in_buf, retbuf, retlen);
@@ -342,26 +416,28 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
       if (afl->not_on_tty && afl->debug) {
 
-        SAYF("[Custom Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
+        SAYF("[Custom Trimming] SUCCESS: %u/%u iterations (now at %u bytes)",
              afl->stage_cur, afl->stage_max, q->len);
 
       }
 
     } else {
 
-    unsuccessful_trimming:
-
       /* Tell the custom mutator that the trimming was unsuccessful */
-      afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 0);
-      if (unlikely(afl->stage_cur < 0)) {
+      s32 retval2 = mutator->afl_custom_post_trim(mutator->data, 0);
+      if (unlikely(retval2 < 0)) {
 
-        FATAL("Error ret in custom_post_trim: %d", afl->stage_cur);
+        FATAL("Error ret in custom_post_trim: %d", retval2);
+
+      } else {
+
+        afl->stage_cur = retval2;
 
       }
 
       if (afl->not_on_tty && afl->debug) {
 
-        SAYF("[Custom Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
+        SAYF("[Custom Trimming] FAILURE: %u/%u iterations", afl->stage_cur,
              afl->stage_max);
 
       }

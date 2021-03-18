@@ -28,6 +28,7 @@ void __wrap_exit(int status);
 extern void exit(int status);
 extern void __real_exit(int status);
 void __wrap_exit(int status) {
+    (void) status;
     assert(0);
 }
 
@@ -35,12 +36,30 @@ int __wrap_printf(const char *format, ...);
 /* ignore all printfs */
 #undef printf
 extern int printf(const char *format, ...);
-extern int __real_printf(const char *format, ...);
+//extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
+    (void)format;
     return 1;
 }
 
-#define BUF_PARAMS (void **)&buf, &size
+#define VOID_BUF (void **)&buf
+
+static void *create_fake_maybe_grow_of(size_t size) {
+
+    size += AFL_ALLOC_SIZE_OFFSET;
+
+    // fake a realloc buf
+    
+    struct afl_alloc_buf *buf = malloc(size);
+    if (!buf) {
+        perror("Could not allocate fake buf");
+        return NULL;
+    }
+    buf->complete_size = size; // The size
+    void *actual_buf = (void *)(buf->buf);
+    return actual_buf;
+
+}
 
 /*
 static int setup(void **state) {
@@ -50,90 +69,132 @@ static int setup(void **state) {
 }
 */
 
+static void test_pow2(void **state) {
+    (void)state;
+
+    assert_int_equal(next_pow2(64), 64);
+    assert_int_equal(next_pow2(63), 64);
+    assert_int_not_equal(next_pow2(65), 65);
+    assert_int_equal(next_pow2(0x100), 0x100);
+    assert_int_equal(next_pow2(0x180), 0x200);
+    assert_int_equal(next_pow2(108), 0x80);
+    assert_int_equal(next_pow2(0), 0);
+    assert_int_equal(next_pow2(1), 1);
+    assert_int_equal(next_pow2(2), 2);
+    assert_int_equal(next_pow2(3), 4);
+    assert_int_equal(next_pow2(0xFFFFFF), 0x1000000);
+    assert_int_equal(next_pow2(0xFFFFFFF), 0x10000000);
+    assert_int_equal(next_pow2(0xFFFFFF0), 0x10000000);
+    assert_int_equal(next_pow2(SIZE_MAX), 0);
+    assert_int_equal(next_pow2(-1), 0);
+    assert_int_equal(next_pow2(-2), 0);
+
+}
+
 static void test_null_allocs(void **state) {
+    (void)state;
 
     void *buf = NULL;
-    size_t size = 0;
-    void *ptr = ck_maybe_grow(BUF_PARAMS, 100);
+    void *ptr = afl_realloc(VOID_BUF, 100);
+    if (unlikely(!buf)) { PFATAL("alloc"); }
+    size_t size = afl_alloc_bufsize(buf);
     assert_true(buf == ptr);
     assert_true(size >= 100);
-    ck_free(ptr);
+    afl_free(ptr);
 
 }
 
 static void test_nonpow2_size(void **state) {
+    (void)state;
 
-    char *buf = ck_alloc(150);
-    size_t size = 150;
+    char *buf = create_fake_maybe_grow_of(150);
+
     buf[140] = '5';
-    char *ptr = ck_maybe_grow(BUF_PARAMS, 160);
+
+    char *ptr = afl_realloc(VOID_BUF, 160);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size_t size = afl_alloc_bufsize(buf);
     assert_ptr_equal(buf, ptr);
     assert_true(size >= 160);
     assert_true(buf[140] == '5');
-    ck_free(ptr);
+    afl_free(ptr);
 
 }
 
 static void test_zero_size(void **state) {
+    (void)state;
 
     char *buf = NULL;
     size_t size = 0;
-    assert_non_null(maybe_grow(BUF_PARAMS, 0));
-    free(buf);
+    char *new_buf = afl_realloc(VOID_BUF, 0);
+    assert_non_null(new_buf);
+    assert_ptr_equal(buf, new_buf);
+    afl_free(buf);
     buf = NULL;
     size = 0;
 
-    char *ptr = ck_maybe_grow(BUF_PARAMS, 100);
+    char *ptr = afl_realloc(VOID_BUF, 100);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = afl_alloc_bufsize(buf);
     assert_non_null(ptr);
     assert_ptr_equal(buf, ptr);
     assert_true(size >= 100);
 
-    expect_assert_failure(ck_maybe_grow(BUF_PARAMS, 0));
-
-    ck_free(ptr);
+    afl_free(ptr);
 
 }
 
-static void test_unchanged_size(void **state) {
 
-    void *buf = ck_alloc(100);
-    size_t size = 100;
-    void *buf_before = buf;
-    void *buf_after = ck_maybe_grow(BUF_PARAMS, 100);
-    assert_ptr_equal(buf, buf_after);
+static void test_unchanged_size(void **state) {
+    (void)state;
+
+    // fake a realloc buf
+    void *actual_buf = create_fake_maybe_grow_of(100);
+
+    void *buf_before = actual_buf;
+    void *buf_after = afl_realloc(&actual_buf, 100);
+    if (unlikely(!buf_after)) { PFATAL("alloc"); }
+    assert_ptr_equal(actual_buf, buf_after);
     assert_ptr_equal(buf_after, buf_before);
-    ck_free(buf);
+    afl_free(buf_after);
 
 }
 
 static void test_grow_multiple(void **state) {
+    (void)state;
 
     char *buf = NULL;
     size_t size = 0;
 
-    char *ptr = ck_maybe_grow(BUF_PARAMS, 100);
+    char *ptr = afl_realloc(VOID_BUF, 100);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = afl_alloc_bufsize(ptr);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 100);
-    assert_int_equal(size, next_pow2(size));
+    assert_int_equal(size, next_pow2(size) - AFL_ALLOC_SIZE_OFFSET);
     buf[50] = '5';
 
-    ptr = (char *)ck_maybe_grow(BUF_PARAMS, 1000);
+    ptr = (char *)afl_realloc(VOID_BUF, 1000);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = afl_alloc_bufsize(ptr);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 100);
-    assert_int_equal(size, next_pow2(size));
+    assert_int_equal(size, next_pow2(size) - AFL_ALLOC_SIZE_OFFSET);
     buf[500] = '5';
 
-    ptr = (char *)ck_maybe_grow(BUF_PARAMS, 10000);
+    ptr = (char *)afl_realloc(VOID_BUF, 10000);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = afl_alloc_bufsize(ptr);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 10000);
-    assert_int_equal(size, next_pow2(size));
+    assert_int_equal(size, next_pow2(size) - AFL_ALLOC_SIZE_OFFSET);
     buf[5000] = '5';
 
     assert_int_equal(buf[50], '5');
     assert_int_equal(buf[500], '5');
     assert_int_equal(buf[5000], '5');
 
-    ck_free(buf);
+    afl_free(buf);
 
 }
 
@@ -146,8 +207,11 @@ static int teardown(void **state) {
 */
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
 	const struct CMUnitTest tests[] = {
+		cmocka_unit_test(test_pow2),
 		cmocka_unit_test(test_null_allocs),
 		cmocka_unit_test(test_nonpow2_size),
 		cmocka_unit_test(test_zero_size),

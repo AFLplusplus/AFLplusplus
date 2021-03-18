@@ -29,13 +29,11 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-typedef struct cmplog_data {
-
-} cmplog_data_t;
-
 void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
+
+  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
 
   if (!fsrv->qemu_mode && argv[0] != fsrv->cmplog_binary) {
 

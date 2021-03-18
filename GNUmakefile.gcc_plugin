@@ -1,0 +1,185 @@
+#
+# american fuzzy lop++ - GCC plugin instrumentation
+# -----------------------------------------------
+#
+# Written by Austin Seipp <aseipp@pobox.com> and
+#            Laszlo Szekeres <lszekeres@google.com> and
+#            Michal Zalewski and
+#            Heiko Eißfeldt  <heiko@hexco.de>
+#
+# GCC integration design is based on the LLVM design, which comes
+# from Laszlo Szekeres.
+#
+# Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at:
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#TEST_MMAP=1
+PREFIX      ?= /usr/local
+HELPER_PATH ?= $(PREFIX)/lib/afl
+BIN_PATH    ?= $(PREFIX)/bin
+DOC_PATH    ?= $(PREFIX)/share/doc/afl
+MAN_PATH    ?= $(PREFIX)/share/man/man8
+
+VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
+
+CFLAGS          ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
+CFLAGS_SAFE     := -Wall -Iinclude -Wno-pointer-sign \
+                   -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+                   -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
+                   -Wno-unused-function
+override CFLAGS += $(CFLAGS_SAFE)
+
+CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
+CXXEFLAGS   := $(CXXFLAGS) -Wall -std=c++11
+
+CC          ?= gcc
+CXX         ?= g++
+
+ifeq "clang" "$(CC)"
+        CC  = gcc
+        CXX = g++
+endif
+
+ifeq "clang++" "$(CXX)"
+        CC  = gcc
+        CXX = g++
+endif
+
+ifeq "$(findstring Foundation,$(shell $(CC) --version))" ""
+        CC  = gcc
+        CXX = g++
+endif
+
+PLUGIN_BASE = "$(shell $(CC) -print-file-name=plugin)"
+PLUGIN_FLAGS = -fPIC -fno-rtti -I$(PLUGIN_BASE)/include -I$(PLUGIN_BASE)
+HASH=\#
+
+GCCVER    = $(shell $(CC) --version 2>/dev/null | awk 'NR == 1 {print $$NF}')
+GCCBINDIR = $(shell dirname `command -v $(CC)` 2>/dev/null )
+
+ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+	SHMAT_OK=1
+else
+	SHMAT_OK=0
+	override CFLAGS_SAFE += -DUSEMMAP=1
+endif
+
+ifeq "$(TEST_MMAP)" "1"
+	SHMAT_OK=0
+	override CFLAGS_SAFE += -DUSEMMAP=1
+endif
+
+ifneq "$(shell uname -s)" "Haiku"
+ifneq "$(shell uname -s)" "OpenBSD"
+  	LDFLAGS += -lrt
+endif
+else
+	CFLAGS_SAFE += -DUSEMMAP=1
+endif
+
+ifeq "$(shell uname -s)" "OpenBSD"
+    CC  = egcc
+    CXX = eg++
+    PLUGIN_FLAGS += -I/usr/local/include
+endif
+
+ifeq "$(shell uname -s)" "DragonFly"
+  	PLUGIN_FLAGS += -I/usr/local/include
+endif
+
+ifeq "$(shell uname -s)" "SunOS"
+  	PLUGIN_FLAGS += -I/usr/include/gmp
+endif
+
+
+PROGS        = ./afl-gcc-pass.so
+
+.PHONY: all
+all: test_shm test_deps $(PROGS) test_build all_done
+
+.PHONY: test_shm
+ifeq "$(SHMAT_OK)" "1"
+test_shm:
+	@echo "[+] shmat seems to be working."
+	@rm -f .test2
+else
+test_shm:
+	@echo "[-] shmat seems not to be working, switching to mmap implementation"
+endif
+
+.PHONY: test_deps
+test_deps:
+	@echo "[*] Checking for working '$(CC)'..."
+	@command -v $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
+#	@echo "[*] Checking for gcc for plugin support..."
+#	@$(CC) -v 2>&1 | grep -q -- --enable-plugin || ( echo "[-] Oops, this gcc has not been configured with plugin support."; exit 1 )
+	@echo "[*] Checking for gcc plugin development header files..."
+	@test -d `$(CC) -print-file-name=plugin`/include || ( echo "[-] Oops, can't find gcc header files. Be sure to install 'gcc-X-plugin-dev'."; exit 1 )
+	@echo "[*] Checking for './afl-showmap'..."
+	@test -f ./afl-showmap || ( echo "[-] Oops, can't find './afl-showmap'. Be sure to compile AFL first."; exit 1 )
+	@echo "[+] All set and ready to build."
+
+afl-common.o: ./src/afl-common.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
+
+./afl-gcc-pass.so: instrumentation/afl-gcc-pass.so.cc | test_deps
+	$(CXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@
+	ln -sf afl-cc afl-gcc-fast
+	ln -sf afl-cc afl-g++-fast
+	ln -sf afl-cc.8 afl-gcc-fast.8
+	ln -sf afl-cc.8 afl-g++-fast.8
+
+.PHONY: test_build
+test_build: $(PROGS)
+	@echo "[*] Testing the CC wrapper and instrumentation output..."
+	unset AFL_USE_ASAN AFL_USE_MSAN; ASAN_OPTIONS=detect_leaks=0 AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ./afl-gcc-fast $(CFLAGS) $(CPPFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
+	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr </dev/null
+	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
+	@rm -f test-instr
+	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
+	@echo "[+] All right, the instrumentation seems to be working!"
+
+.PHONY: all_done
+all_done: test_build
+	@echo "[+] All done! You can now use './afl-gcc-fast' to compile programs."
+
+.NOTPARALLEL: clean
+
+%.8: %
+	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ./$@
+	@echo .SH NAME >> ./$@
+	@echo .B $* >> ./$@
+	@echo >> ./$@
+	@echo .SH SYNOPSIS >> ./$@
+	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ./$@
+	@echo >> ./$@
+	@echo .SH OPTIONS >> ./$@
+	@echo .nf >> ./$@
+	@./$* -h 2>&1 | tail -n +4 >> ./$@
+	@echo >> ./$@
+	@echo .SH AUTHOR >> ./$@
+	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>, Andrea Fioraldi <andreafioraldi@gmail.com> and Dominik Maier <domenukk@gmail.com>" >> ./$@
+	@echo  The homepage of afl++ is: https://github.com/AFLplusplus/AFLplusplus >> ./$@
+	@echo >> ./$@
+	@echo .SH LICENSE >> ./$@
+	@echo Apache License Version 2.0, January 2004 >> ./$@
+	ln -sf afl-cc.8 ./afl-g++-fast.8
+
+.PHONY: install
+install: all
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc-fast
+	ln -sf afl-c++ $${DESTDIR}$(BIN_PATH)/afl-g++-fast
+	ln -sf afl-compiler-rt.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
+	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
+	install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
+
+.PHONY: clean
+clean:
+	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2
+	rm -f $(PROGS) afl-common.o ./afl-g++-fast ./afl-g*-fast.8 instrumentation/*.o

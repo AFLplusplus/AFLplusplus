@@ -44,7 +44,7 @@ echo "[*] Performing basic sanity checks..."
 
 PLT=`uname -s`
 
-if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ]; then
+if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ] && [ ! "$PLT" = "DragonFly" ]; then
 
   echo "[-] Error: Unicorn instrumentation is unsupported on $PLT."
   exit 1
@@ -70,6 +70,11 @@ MAKECMD=make
 TARCMD=tar
 
 if [ "$PLT" = "Linux" ]; then
+  MUSL=`ldd --version 2>&1 | head -n 1 | cut -f 1 -d " "`
+  if [ "musl" = $MUSL ]; then
+  	echo "[-] Error: Unicorn instrumentation is unsupported with the musl's libc."
+  	exit 1
+  fi
   CORES=`nproc`
 fi
 
@@ -82,6 +87,12 @@ if [ "$PLT" = "FreeBSD" ]; then
   MAKECMD=gmake
   CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
+fi
+
+if [ "$PLT" = "DragonFly" ]; then
+  MAKECMD=gmake
+  CORES=`sysctl -n hw.ncpu`
+  TARCMD=tar
 fi
 
 if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
@@ -106,19 +117,19 @@ done
 
 # some python version should be available now
 PYTHONS="`command -v python3` `command -v python` `command -v python2`"
-EASY_INSTALL_FOUND=0
+SETUPTOOLS_FOUND=0
 for PYTHON in $PYTHONS ; do
 
   if $PYTHON -c "import setuptools" ; then
 
-    EASY_INSTALL_FOUND=1
+    SETUPTOOLS_FOUND=1
     PYTHONBIN=$PYTHON
     break
 
   fi
 
 done
-if [ "0" = $EASY_INSTALL_FOUND ]; then
+if [ "0" = $SETUPTOOLS_FOUND ]; then
 
   echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools', or install python3-setuptools, or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ..."
   PREREQ_NOTFOUND=1
@@ -136,6 +147,8 @@ if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
 fi
 
+unset CFLAGS
+
 echo "[+] All checks passed!"
 
 echo "[*] Making sure unicornafl is checked out"
@@ -144,7 +157,8 @@ git status 1>/dev/null 2>/dev/null
 if [ $? -eq 0 ]; then
   echo "[*] initializing unicornafl submodule"
   git submodule init || exit 1
-  git submodule update 2>/dev/null # ignore errors
+  git submodule update ./unicornafl 2>/dev/null # ignore errors
+  git submodule sync ./unicornafl 2>/dev/null # ignore errors
 else
   echo "[*] cloning unicornafl"
   test -d unicornafl || {
@@ -165,8 +179,9 @@ echo "[*] Checking out $UNICORNAFL_VERSION"
 sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$UNICORNAFL_VERSION" || exit 1
 
-echo "[*] making sure config.h matches"
-cp "../../config.h" "." || exit 1
+echo "[*] making sure afl++ header files match"
+cp "../../include/config.h" "." || exit 1
+cp "../../include/types.h" "." || exit 1
 
 echo "[*] Configuring Unicorn build..."
 

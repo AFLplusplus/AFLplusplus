@@ -4,7 +4,7 @@
   issues for a variety of platforms. See README.md for the general instruction
   manual.
 
-## 1) Linux on x86
+## 1. Linux on x86
 ---------------
 
 This platform is expected to work well. Compile the program with:
@@ -24,15 +24,17 @@ There are no special dependencies to speak of; you will need GNU make and a
 working compiler (gcc or clang). Some of the optional scripts bundled with the
 program may depend on bash, gdb, and similar basic tools.
 
-If you are using clang, please review llvm_mode/README.md; the LLVM
+If you are using clang, please review README.llvm.md; the LLVM
 integration mode can offer substantial performance gains compared to the
 traditional approach.
+
+Likewise, if you are using GCC, please review instrumentation/README.gcc_plugin.md.
 
 You may have to change several settings to get optimal results (most notably,
 disable crash reporting utilities and switch to a different CPU governor), but
 afl-fuzz will guide you through that if necessary.
 
-## OpenBSD, FreeBSD, NetBSD on x86
+## 2. OpenBSD, FreeBSD, NetBSD on x86
 
 Similarly to Linux, these platforms are expected to work well and are
 regularly tested. Compile everything with GNU make:
@@ -52,10 +54,10 @@ sudo gmake install
 Keep in mind that if you are using csh as your shell, the syntax of some of the
 shell commands given in the README.md and other docs will be different.
 
-The `llvm_mode` requires a dynamically linked, fully-operational installation of
+The `llvm` requires a dynamically linked, fully-operational installation of
 clang. At least on FreeBSD, the clang binaries are static and do not include
 some of the essential tools, so if you want to make it work, you may need to
-follow the instructions in llvm_mode/README.md.
+follow the instructions in README.llvm.md.
 
 Beyond that, everything should work as advertised.
 
@@ -97,27 +99,24 @@ and definitely don't look POSIX-compliant. This means two things:
 User emulation mode of QEMU does not appear to be supported on MacOS X, so
 black-box instrumentation mode (`-Q`) will not work.
 
-The llvm_mode requires a fully-operational installation of clang. The one that
+The llvm instrumentation requires a fully-operational installation of clang. The one that
 comes with Xcode is missing some of the essential headers and helper tools.
-See llvm_mode/README.md for advice on how to build the compiler from scratch.
+See README.llvm.md for advice on how to build the compiler from scratch.
 
 ## 4. Linux or *BSD on non-x86 systems
 
 Standard build will fail on non-x86 systems, but you should be able to
 leverage two other options:
 
-  - The LLVM mode (see llvm_mode/README.md), which does not rely on
+  - The LLVM mode (see README.llvm.md), which does not rely on
     x86-specific assembly shims. It's fast and robust, but requires a
     complete installation of clang.
   - The QEMU mode (see qemu_mode/README.md), which can be also used for
     fuzzing cross-platform binaries. It's slower and more fragile, but
     can be used even when you don't have the source for the tested app.
 
-If you're not sure what you need, you need the LLVM mode. To get it, try:
-
-```bash
-AFL_NO_X86=1 gmake && gmake -C llvm_mode
-```
+If you're not sure what you need, you need the LLVM mode, which is built by
+default.
 
 ...and compile your target program with afl-clang-fast or afl-clang-fast++
 instead of the traditional afl-gcc or afl-clang wrappers.
@@ -160,7 +159,8 @@ instrumentation mode (`-Q`) will not work.
 ## 6. Everything else
 
 You're on your own. On POSIX-compliant systems, you may be able to compile and
-run the fuzzer; and the LLVM mode may offer a way to instrument non-x86 code.
+run the fuzzer; and the LLVM and GCC plugin modes may offer a way to instrument
+non-x86 code.
 
 The fuzzer will run on Windows in WSL only. It will not work under Cygwin on in the normal Windows world. It
 could be ported to the latter platform fairly easily, but it's a pretty bad

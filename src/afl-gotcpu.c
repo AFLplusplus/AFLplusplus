@@ -35,9 +35,6 @@
   #define _GNU_SOURCE
 #endif
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -65,7 +62,6 @@
     #define cpu_set_t cpuset_t
   #elif defined(__NetBSD__)
     #include <pthread.h>
-    #include <sched.h>
   #elif defined(__APPLE__)
     #include <pthread.h>
     #include <mach/thread_act.h>

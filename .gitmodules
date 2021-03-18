@@ -1,3 +1,9 @@
 [submodule "unicorn_mode/unicornafl"]
 	path = unicorn_mode/unicornafl
-	url = https://github.com/AFLplusplus/unicornafl.git
+	url = https://github.com/aflplusplus/unicornafl
+[submodule "custom_mutators/grammar_mutator"]
+	path = custom_mutators/grammar_mutator/grammar_mutator
+	url = https://github.com/AFLplusplus/Grammar-Mutator
+[submodule "qemu_mode/qemuafl"]
+	path = qemu_mode/qemuafl
+	url = https://github.com/AFLplusplus/qemuafl

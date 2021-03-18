@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+message TEST {
+  required uint32 a = 1;
+  required string b = 2;
+}
+

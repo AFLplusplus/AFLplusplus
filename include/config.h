@@ -10,7 +10,7 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2021 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -23,12 +23,10 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#include "types.h"
-
 /* Version string: */
 
-// c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++2.66d"
+// c = release, a = volatile github dev, e = experimental branch
+#define VERSION "++3.12a"
 
 /******************************************************
  *                                                    *
@@ -36,15 +34,76 @@
  *                                                    *
  ******************************************************/
 
+/* Default shared memory map size. Most targets just need a coverage map
+   between 20-250kb. Plus there is an auto-detection feature in afl-fuzz.
+   However if a target has problematic constructors and init arrays then
+   this can fail. Hence afl-fuzz deploys a larger default map. The largest
+   map seen so far is the xlsx fuzzer for libreoffice which is 5MB.
+   At runtime this value can be overriden via AFL_MAP_SIZE.
+   Default: 8MB (defined in bytes) */
+#define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
+
+/* CMPLOG/REDQUEEN TUNING
+ *
+ * Here you can modify tuning and solving options for CMPLOG.
+ * Note that these are run-time options for afl-fuzz, no target
+ * recompilation required.
+ *
+ */
+
+/* if TRANSFORM is enabled with '-l T', this additionally enables base64
+   encoding/decoding */
+// #define CMPLOG_SOLVE_TRANSFORM_BASE64
+
+/* If a redqueen pass finds more than one solution, try to combine them? */
+#define CMPLOG_COMBINE
+
+/* Minimum % of the corpus to perform cmplog on. Default: 10% */
+#define CMPLOG_CORPUS_PERCENT 5U
+
+/* Number of potential positions from which we decide if cmplog becomes
+   useless, default 8096 */
+#define CMPLOG_POSITIONS_MAX (12 * 1024)
+
+/* Maximum allowed fails per CMP value. Default: 128 */
+#define CMPLOG_FAIL_MAX 96
+
+/* Now non-cmplog configuration options */
+
+/* console output colors: There are three ways to configure its behavior
+ * 1. default: colored outputs fixed on: defined USE_COLOR && defined
+ * ALWAYS_COLORED The env var. AFL_NO_COLOR will have no effect
+ * 2. defined USE_COLOR && !defined ALWAYS_COLORED
+ *    -> depending on env var AFL_NO_COLOR=1 colors can be switched off
+ *    at run-time. Default is to use colors.
+ * 3. colored outputs fixed off: !defined USE_COLOR
+ *    The env var. AFL_NO_COLOR will have no effect
+ */
+
 /* Comment out to disable terminal colors (note that this makes afl-analyze
    a lot less nice): */
 
 #define USE_COLOR
 
+#ifdef USE_COLOR
+  /* Comment in to always enable terminal colors */
+  /* Comment out to enable runtime controlled terminal colors via AFL_NO_COLOR
+   */
+  #define ALWAYS_COLORED 1
+#endif
+
+/* StatsD config
+   Config can be adjusted via AFL_STATSD_HOST and AFL_STATSD_PORT environment
+   variable.
+*/
+#define STATSD_UPDATE_SEC 1
+#define STATSD_DEFAULT_PORT 8125
+#define STATSD_DEFAULT_HOST "127.0.0.1"
+
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
-//#define _WANT_ORIGINAL_AFL_ALLOC
+// #define _WANT_ORIGINAL_AFL_ALLOC
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
@@ -55,69 +114,61 @@
 /* Default timeout for fuzzed code (milliseconds). This is the upper bound,
    also used for detecting hangs; the actual value is auto-scaled: */
 
-#define EXEC_TIMEOUT 1000
+#define EXEC_TIMEOUT 1000U
 
 /* Timeout rounding factor when auto-scaling (milliseconds): */
 
-#define EXEC_TM_ROUND 20
+#define EXEC_TM_ROUND 20U
 
 /* 64bit arch MACRO */
 #if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__))
   #define WORD_SIZE_64 1
 #endif
 
-/* Default memory limit for child process (MB): */
+/* Default memory limit for child process (MB) 0 = disabled : */
 
-#ifndef __NetBSD__
-  #ifndef WORD_SIZE_64
-    #define MEM_LIMIT 25
-  #else
-    #define MEM_LIMIT 50
-  #endif                                                  /* ^!WORD_SIZE_64 */
-#else /* NetBSD's kernel needs more space for stack, see discussion for issue \
-         #165 */
-  #define MEM_LIMIT 200
-#endif
-/* Default memory limit when running in QEMU mode (MB): */
+#define MEM_LIMIT 0U
 
-#define MEM_LIMIT_QEMU 200
+/* Default memory limit when running in QEMU mode (MB) 0 = disabled : */
 
-/* Default memory limit when running in Unicorn mode (MB): */
+#define MEM_LIMIT_QEMU 0U
 
-#define MEM_LIMIT_UNICORN 200
+/* Default memory limit when running in Unicorn mode (MB) 0 = disabled : */
+
+#define MEM_LIMIT_UNICORN 0U
 
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
 
-#define CAL_CYCLES 8
-#define CAL_CYCLES_LONG 40
+#define CAL_CYCLES 8U
+#define CAL_CYCLES_LONG 40U
 
 /* Number of subsequent timeouts before abandoning an input file: */
 
-#define TMOUT_LIMIT 250
+#define TMOUT_LIMIT 250U
 
 /* Maximum number of unique hangs or crashes to record: */
 
-#define KEEP_UNIQUE_HANG 500
-#define KEEP_UNIQUE_CRASH 5000
+#define KEEP_UNIQUE_HANG 500U
+#define KEEP_UNIQUE_CRASH 5000U
 
 /* Baseline number of random tweaks during a single 'havoc' stage: */
 
-#define HAVOC_CYCLES 256
-#define HAVOC_CYCLES_INIT 1024
+#define HAVOC_CYCLES 256U
+#define HAVOC_CYCLES_INIT 1024U
 
 /* Maximum multiplier for the above (should be a power of two, beware
    of 32-bit int overflows): */
 
-#define HAVOC_MAX_MULT 16
-#define HAVOC_MAX_MULT_MOPT 32
+#define HAVOC_MAX_MULT 64U
+#define HAVOC_MAX_MULT_MOPT 64U
 
 /* Absolute minimum number of havoc cycles (after all adjustments): */
 
-#define HAVOC_MIN 16
+#define HAVOC_MIN 12U
 
 /* Power Schedule Divisor */
-#define POWER_BETA 1
+#define POWER_BETA 1U
 #define MAX_FACTOR (POWER_BETA * 32)
 
 /* Maximum stacking for havoc-stage tweaks. The actual value is calculated
@@ -126,22 +177,22 @@
    n = random between 1 and HAVOC_STACK_POW2
    stacking = 2^n
 
-   In other words, the default (n = 7) produces 2, 4, 8, 16, 32, 64, or
-   128 stacked tweaks: */
+   In other words, the default (n = 4) produces 2, 4, 8, 16
+   stacked tweaks: */
 
-#define HAVOC_STACK_POW2 7
+#define HAVOC_STACK_POW2 4U
 
 /* Caps on block sizes for cloning and deletion operations. Each of these
    ranges has a 33% probability of getting picked, except for the first
    two cycles where smaller blocks are favored: */
 
-#define HAVOC_BLK_SMALL 32
-#define HAVOC_BLK_MEDIUM 128
-#define HAVOC_BLK_LARGE 1500
+#define HAVOC_BLK_SMALL 32U
+#define HAVOC_BLK_MEDIUM 128U
+#define HAVOC_BLK_LARGE 1500U
 
 /* Extra-large blocks, selected very rarely (<5% of the time): */
 
-#define HAVOC_BLK_XL 32768
+#define HAVOC_BLK_XL 32768U
 
 /* Probabilities of skipping non-favored entries in the queue, expressed as
    percentages: */
@@ -169,9 +220,11 @@
 #define TRIM_START_STEPS 16
 #define TRIM_END_STEPS 1024
 
-/* Maximum size of input file, in bytes (keep under 100MB): */
+/* Maximum size of input file, in bytes (keep under 100MB, default 1MB):
+   (note that if this value is changed, several areas in afl-cc.c, afl-fuzz.c
+   and afl-fuzz-state.c have to be changed as well! */
 
-#define MAX_FILE (1 * 1024 * 1024)
+#define MAX_FILE (1 * 1024 * 1024U)
 
 /* The same, for the test case minimizer: */
 
@@ -195,7 +248,7 @@
    steps; past this point, the "extras/user" step will be still carried out,
    but with proportionally lower odds: */
 
-#define MAX_DET_EXTRAS 200
+#define MAX_DET_EXTRAS 256
 
 /* Maximum number of auto-extracted dictionary tokens to actually use in fuzzing
    (first value), and to keep in memory as candidates. The latter should be much
@@ -235,6 +288,11 @@
 /* Sync interval (every n havoc cycles): */
 
 #define SYNC_INTERVAL 8
+
+/* Sync time (minimum time between syncing in ms, time is halfed for -M main
+   nodes) - default is 30 minutes: */
+
+#define SYNC_TIME (30 * 60 * 1000)
 
 /* Output directory reuse grace period (minutes): */
 
@@ -294,6 +352,13 @@
 /* Call count interval between reseeding the libc PRNG from /dev/urandom: */
 
 #define RESEED_RNG 100000
+
+/* The default maximum testcase cache size in MB, 0 = disable.
+   A value between 50 and 250 is a good default value. Note that the
+   number of entries will be auto assigned if not specified via the
+   AFL_TESTCACHE_ENTRIES env variable */
+
+#define TESTCASE_CACHE_SIZE 50
 
 /* Maximum line length passed from GCC to 'as' and used for parsing
    configuration files: */
@@ -356,7 +421,7 @@
    after changing this - otherwise, SEGVs may ensue. */
 
 #define MAP_SIZE_POW2 16
-#define MAP_SIZE (1 << MAP_SIZE_POW2)
+#define MAP_SIZE (1U << MAP_SIZE_POW2)
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 

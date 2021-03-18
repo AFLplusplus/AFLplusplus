@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
+#include <math.h>
 
 #include "debug.h"
 #include "alloc-inl.h"
@@ -46,7 +47,11 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
-void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
+#ifndef AFL_PATH
+  #define AFL_PATH "/usr/local/lib/afl/"
+#endif
+
+void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
   u8  cwd[PATH_MAX];
@@ -63,7 +68,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
       if (!prog_in) { FATAL("@@ syntax is not supported by this tool."); }
 
-      *use_stdin = 0;
+      *use_stdin = false;
 
       if (prog_in[0] != 0) {  // not afl-showmap special case
 
@@ -108,6 +113,7 @@ char **argv_cpy_dup(int argc, char **argv) {
   int i = 0;
 
   char **ret = ck_alloc((argc + 1) * sizeof(char *));
+  if (unlikely(!ret)) { FATAL("Amount of arguments specified is too high"); }
 
   for (i = 0; i < argc; i++) {
 
@@ -130,6 +136,7 @@ void argv_cpy_free(char **argv) {
   while (argv[i]) {
 
     ck_free(argv[i]);
+    argv[i] = NULL;
     i++;
 
   }
@@ -142,10 +149,24 @@ void argv_cpy_free(char **argv) {
 
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
-  char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
-  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
+  if (unlikely(getenv("AFL_QEMU_CUSTOM_BIN"))) {
 
-  memcpy(new_argv + 3, argv + 1, (int)(sizeof(char *)) * argc);
+    WARNF(
+        "AFL_QEMU_CUSTOM_BIN is enabled. "
+        "You must run your target under afl-qemu-trace on your own!");
+    return argv;
+
+  }
+
+  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
+
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
+  if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
+
+  memcpy(&new_argv[3], &argv[1], (int)(sizeof(char *)) * (argc - 1));
+  new_argv[argc + 3] = NULL;
 
   new_argv[2] = *target_path_p;
   new_argv[1] = "--";
@@ -223,10 +244,15 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
-  char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
-  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
+  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
 
-  memcpy(new_argv + 2, argv + 1, (int)(sizeof(char *)) * argc);
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
+  if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
+
+  memcpy(&new_argv[2], &argv[1], (int)(sizeof(char *)) * (argc - 1));
+  new_argv[argc + 2] = NULL;
 
   new_argv[1] = *target_path_p;
 
@@ -333,6 +359,8 @@ u8 *find_binary(u8 *fname) {
 
   struct stat st;
 
+  if (unlikely(!fname)) { FATAL("No binary supplied"); }
+
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
     target_path = ck_strdup(fname);
@@ -340,7 +368,7 @@ u8 *find_binary(u8 *fname) {
     if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || st.st_size < 4) {
 
-      free(target_path);
+      ck_free(target_path);
       FATAL("Program '%s' not found or not executable", fname);
 
     }
@@ -354,6 +382,14 @@ u8 *find_binary(u8 *fname) {
       if (delim) {
 
         cur_elem = ck_alloc(delim - env_path + 1);
+        if (unlikely(!cur_elem)) {
+
+          FATAL(
+              "Unexpected overflow when processing ENV. This should never "
+              "happend.");
+
+        }
+
         memcpy(cur_elem, env_path, delim - env_path);
         delim++;
 
@@ -401,15 +437,186 @@ u8 *find_binary(u8 *fname) {
 
 }
 
+/* Parses the kill signal environment variable, FATALs on error.
+  If the env is not set, sets the env to default_signal for the signal handlers
+  and returns the default_signal. */
+int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
+
+  if (afl_kill_signal_env && afl_kill_signal_env[0]) {
+
+    char *endptr;
+    u8    signal_code;
+    signal_code = (u8)strtoul(afl_kill_signal_env, &endptr, 10);
+    /* Did we manage to parse the full string? */
+    if (*endptr != '\0' || endptr == (char *)afl_kill_signal_env) {
+
+      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
+            afl_kill_signal_env);
+
+    }
+
+    return signal_code;
+
+  } else {
+
+    char *sigstr = alloc_printf("%d", default_signal);
+    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
+
+    /* Set the env for signal handler */
+    setenv("AFL_KILL_SIGNAL", sigstr, 1);
+    free(sigstr);
+    return default_signal;
+
+  }
+
+}
+
+static inline unsigned int helper_min3(unsigned int a, unsigned int b,
+                                       unsigned int c) {
+
+  return a < b ? (a < c ? a : c) : (b < c ? b : c);
+
+}
+
+// from
+// https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C
+static int string_distance_levenshtein(char *s1, char *s2) {
+
+  unsigned int s1len, s2len, x, y, lastdiag, olddiag;
+  s1len = strlen(s1);
+  s2len = strlen(s2);
+  unsigned int column[s1len + 1];
+  column[s1len] = 1;
+
+  for (y = 1; y <= s1len; y++)
+    column[y] = y;
+  for (x = 1; x <= s2len; x++) {
+
+    column[0] = x;
+    for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
+
+      olddiag = column[y];
+      column[y] = helper_min3(column[y] + 1, column[y - 1] + 1,
+                              lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
+      lastdiag = olddiag;
+
+    }
+
+  }
+
+  return column[s1len];
+
+}
+
+#define ENV_SIMILARITY_TRESHOLD 3
+
+void print_suggested_envs(char *mispelled_env) {
+
+  size_t env_name_len =
+      strcspn(mispelled_env, "=") - 4;  // remove the AFL_prefix
+  char *env_name = ck_alloc(env_name_len + 1);
+  memcpy(env_name, mispelled_env + 4, env_name_len);
+
+  char *seen = ck_alloc(sizeof(afl_environment_variables) / sizeof(char *));
+  int   found = 0;
+
+  int j;
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char *afl_env = afl_environment_variables[j] + 4;
+    int   distance = string_distance_levenshtein(afl_env, env_name);
+    if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+      SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+      seen[j] = 1;
+      found = 1;
+
+    }
+
+  }
+
+  if (found) goto cleanup;
+
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char * afl_env = afl_environment_variables[j] + 4;
+    size_t afl_env_len = strlen(afl_env);
+    char * reduced = ck_alloc(afl_env_len + 1);
+
+    size_t start = 0;
+    while (start < afl_env_len) {
+
+      size_t end = start + strcspn(afl_env + start, "_") + 1;
+      memcpy(reduced, afl_env, start);
+      if (end < afl_env_len)
+        memcpy(reduced + start, afl_env + end, afl_env_len - end);
+      reduced[afl_env_len - end + start] = 0;
+
+      int distance = string_distance_levenshtein(reduced, env_name);
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+        SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+        seen[j] = 1;
+        found = 1;
+
+      }
+
+      start = end;
+
+    };
+
+    ck_free(reduced);
+
+  }
+
+  if (found) goto cleanup;
+
+  char * reduced = ck_alloc(env_name_len + 1);
+  size_t start = 0;
+  while (start < env_name_len) {
+
+    size_t end = start + strcspn(env_name + start, "_") + 1;
+    memcpy(reduced, env_name, start);
+    if (end < env_name_len)
+      memcpy(reduced + start, env_name + end, env_name_len - end);
+    reduced[env_name_len - end + start] = 0;
+
+    for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+      int distance = string_distance_levenshtein(
+          afl_environment_variables[j] + 4, reduced);
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+        SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+        seen[j] = 1;
+
+      }
+
+    }
+
+    start = end;
+
+  };
+
+  ck_free(reduced);
+
+cleanup:
+  ck_free(env_name);
+  ck_free(seen);
+
+}
+
 void check_environment_vars(char **envp) {
 
   if (be_quiet) { return; }
 
   int   index = 0, issue_detected = 0;
-  char *env, *val;
+  char *env, *val, *ignore = getenv("AFL_IGNORE_UNKNOWN_ENVS");
   while ((env = envp[index++]) != NULL) {
 
-    if (strncmp(env, "ALF_", 4) == 0) {
+    if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
+        strncmp(env, "__ALF", 5) == 0 || strncmp(env, "_AFL", 4) == 0 ||
+        strncmp(env, "__AFL", 5) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
       issue_detected = 1;
@@ -424,6 +631,7 @@ void check_environment_vars(char **envp) {
             env[strlen(afl_environment_variables[i])] == '=') {
 
           match = 1;
+
           if ((val = getenv(afl_environment_variables[i])) && !*val) {
 
             WARNF(
@@ -463,10 +671,12 @@ void check_environment_vars(char **envp) {
 
       }
 
-      if (match == 0) {
+      if (match == 0 && !ignore) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
         issue_detected = 1;
+
+        print_suggested_envs(env);
 
       }
 
@@ -605,6 +815,10 @@ u8 *stringify_float(u8 *buf, size_t len, double val) {
 
     snprintf(buf, len, "%0.01f", val);
 
+  } else if (unlikely(isnan(val) || isinf(val))) {
+
+    strcpy(buf, "inf");
+
   } else {
 
     stringify_int(buf, len, (u64)val);
@@ -667,15 +881,15 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
 
 u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     snprintf(buf, len, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -764,6 +978,10 @@ u8 *u_stringify_float(u8 *buf, double val) {
 
     sprintf(buf, "%0.01f", val);
 
+  } else if (unlikely(isnan(val) || isinf(val))) {
+
+    strcpy(buf, "infinite");
+
   } else {
 
     return u_stringify_int(buf, (u64)val);
@@ -825,15 +1043,15 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val) {
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     sprintf(buf, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -854,24 +1072,57 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
-  uint32_t map_size = MAP_SIZE;
+  uint32_t map_size = DEFAULT_SHMEM_SIZE;
   char *   ptr;
 
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
 
     map_size = atoi(ptr);
-    if (map_size < 8 || map_size > (1 << 29)) {
+    if (!map_size || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8,
-            1 << 29);
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 64U,
+            1U << 29);
 
     }
 
-    if (map_size % 8) { map_size = (((map_size >> 3) + 1) << 3); }
+    if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
   }
 
   return map_size;
+
+}
+
+/* Create a stream file */
+
+FILE *create_ffile(u8 *fn) {
+
+  s32   fd;
+  FILE *f;
+
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+  f = fdopen(fd, "w");
+
+  if (!f) { PFATAL("fdopen() failed"); }
+
+  return f;
+
+}
+
+/* Create a file */
+
+s32 create_file(u8 *fn) {
+
+  s32 fd;
+
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+  return fd;
 
 }
 
