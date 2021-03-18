@@ -2692,7 +2692,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
       !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
@@ -2720,7 +2720,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if ((afl->fsrv.qemu_mode) &&
+  if ((afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2757,7 +2757,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+  if (afl->fsrv.frida_mode ||
+      memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);
