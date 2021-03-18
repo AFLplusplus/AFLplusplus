@@ -31,14 +31,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdbool.h>
 #include "types.h"
-#include "stdbool.h"
 
 /* STRINGIFY_VAL_SIZE_MAX will fit all stringify_ strings. */
 
 #define STRINGIFY_VAL_SIZE_MAX (16)
 
-void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin);
+void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin);
+void print_suggested_envs(char *mispelled_env);
 void check_environment_vars(char **env);
 
 char **argv_cpy_dup(int argc, char **argv);
@@ -55,6 +56,11 @@ extern u8 *doc_path;                    /* path to documentation dir        */
    @returns the path, allocating the string */
 
 u8 *find_binary(u8 *fname);
+
+/* Parses the kill signal environment variable, FATALs on error.
+  If the env is not set, sets the env to default_signal for the signal handlers
+  and returns the default_signal. */
+int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal);
 
 /* Read a bitmap from file fname to memory
    This is for the -B option again. */
@@ -109,6 +115,12 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 
 /* Reads the map size from ENV */
 u32 get_map_size(void);
+
+/* create a stream file */
+FILE *create_ffile(u8 *fn);
+
+/* create a file */
+s32 create_file(u8 *fn);
 
 #endif
 

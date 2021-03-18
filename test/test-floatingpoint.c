@@ -14,9 +14,16 @@ int main(void) {
 
   while (__AFL_LOOP(INT_MAX)) {
 
-    if (__AFL_FUZZ_TESTCASE_LEN != sizeof(float)) return 1;
-    /* 15 + 1/2 + 1/8 + 1/32 + 1/128 */
-    if ((-*magic == 15.0 + 0.5 + 0.125 + 0.03125 + 0.0078125)) abort();
+    int len = __AFL_FUZZ_TESTCASE_LEN;
+    if (len < sizeof(float)) return 1;
+
+    /* 15 + 1/2                      = 15.5  */
+    /* 15 + 1/2 + 1/8                = 15.625  */
+    /* 15 + 1/2 + 1/8 + 1/32         = 15.65625  */
+    /* 15 + 1/2 + 1/8 + 1/32 + 1/128 = 15.6640625  */
+    if ((*magic >= 15.0 + 0.5 + 0.125 + 0.03125) &&
+        (*magic <= 15.0 + 0.5 + 0.125 + 0.03125 + 0.0078125))
+      abort();
 
   }
 

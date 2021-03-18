@@ -28,11 +28,6 @@
 #include "types.h"
 #include "config.h"
 
-/* __FUNCTION__ is non-iso */
-#ifdef __func__
-  #define __FUNCTION__ __func__
-#endif
-
 /*******************
  * Terminal colors *
  *******************/
@@ -173,12 +168,84 @@
  * Debug & error macros *
  ************************/
 
-/* Just print stuff to the appropriate stream. */
+#if defined USE_COLOR && !defined ALWAYS_COLORED
+  #include <unistd.h>
+  #pragma GCC diagnostic ignored "-Wformat-security"
+static inline const char *colorfilter(const char *x) {
 
-#ifdef MESSAGES_TO_STDOUT
-  #define SAYF(x...) printf(x)
+  static int once = 1;
+  static int disabled = 0;
+
+  if (once) {
+
+    /* when there is no tty -> we always want filtering
+     * when AFL_NO_UI is set filtering depends on AFL_NO_COLOR
+     * otherwise we want always colors
+     */
+    disabled =
+        isatty(2) && (!getenv("AFL_NO_UI") ||
+                      (!getenv("AFL_NO_COLOR") && !getenv("AFL_NO_COLOUR")));
+    once = 0;
+
+  }
+
+  if (likely(disabled)) return x;
+
+  static char monochromestring[4096];
+  char *      d = monochromestring;
+  int         in_seq = 0;
+
+  while (*x) {
+
+    if (in_seq && *x == 'm') {
+
+      in_seq = 0;
+
+    } else {
+
+      if (!in_seq && *x == '\x1b') { in_seq = 1; }
+      if (!in_seq) { *d++ = *x; }
+
+    }
+
+    ++x;
+
+  }
+
+  *d = '\0';
+  return monochromestring;
+
+}
+
 #else
-  #define SAYF(x...) fprintf(stderr, x)
+  #define colorfilter(x) x                        /* no filtering necessary */
+#endif
+
+/* macro magic to transform the first parameter to SAYF
+ * through colorfilter which strips coloring */
+#define GET_MACRO(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, \
+                  _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26,  \
+                  _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38,  \
+                  _39, _40, NAME, ...)                                         \
+  NAME
+
+#define SAYF(...)                                                           \
+  GET_MACRO(__VA_ARGS__, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N,    \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_1)                                                 \
+  (__VA_ARGS__)
+
+#define SAYF_1(x) MY_SAYF(colorfilter(x))
+#define SAYF_N(x, ...) MY_SAYF(colorfilter(x), __VA_ARGS__)
+
+/* Just print stuff to the appropriate stream. */
+#ifdef MESSAGES_TO_STDOUT
+  #define MY_SAYF(x...) printf(x)
+#else
+  #define MY_SAYF(x...) fprintf(stderr, x)
 #endif                                               /* ^MESSAGES_TO_STDOUT */
 
 /* Show a prefixed warning. */
@@ -223,43 +290,43 @@
 
 /* Die with a verbose non-OS fatal error message. */
 
-#define FATAL(x...)                                                          \
-  do {                                                                       \
-                                                                             \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
-         "\n[-] PROGRAM ABORT : " cRST   x);                                   \
-    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __FUNCTION__, \
-         __FILE__, __LINE__);                                                \
-    exit(1);                                                                 \
-                                                                             \
+#define FATAL(x...)                                                      \
+  do {                                                                   \
+                                                                         \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
+         "\n[-] PROGRAM ABORT : " cRST   x);                               \
+    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
+         __FILE__, (u32)__LINE__);                                       \
+    exit(1);                                                             \
+                                                                         \
   } while (0)
 
 /* Die by calling abort() to provide a core dump. */
 
-#define ABORT(x...)                                                          \
-  do {                                                                       \
-                                                                             \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
-         "\n[-] PROGRAM ABORT : " cRST   x);                                   \
-    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __FUNCTION__, \
-         __FILE__, __LINE__);                                                \
-    abort();                                                                 \
-                                                                             \
+#define ABORT(x...)                                                      \
+  do {                                                                   \
+                                                                         \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
+         "\n[-] PROGRAM ABORT : " cRST   x);                               \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __func__, \
+         __FILE__, (u32)__LINE__);                                       \
+    abort();                                                             \
+                                                                         \
   } while (0)
 
 /* Die while also including the output of perror(). */
 
-#define PFATAL(x...)                                                       \
-  do {                                                                     \
-                                                                           \
-    fflush(stdout);                                                        \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                              \
-         "\n[-]  SYSTEM ERROR : " cRST   x);                                 \
-    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __FUNCTION__, \
-         __FILE__, __LINE__);                                              \
-    SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));        \
-    exit(1);                                                               \
-                                                                           \
+#define PFATAL(x...)                                                   \
+  do {                                                                 \
+                                                                       \
+    fflush(stdout);                                                    \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                          \
+         "\n[-]  SYSTEM ERROR : " cRST   x);                             \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
+         __FILE__, (u32)__LINE__);                                     \
+    SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \
+    exit(1);                                                           \
+                                                                       \
   } while (0)
 
 /* Die with FATAL() or PFATAL() depending on the value of res (used to
@@ -275,22 +342,34 @@
                            \
   } while (0)
 
+/* Show a prefixed debug output. */
+
+#define DEBUGF(x...)                                    \
+  do {                                                  \
+                                                        \
+    fprintf(stderr, cMGN "[D] " cBRI "DEBUG: " cRST x); \
+    fprintf(stderr, cRST "");                           \
+                                                        \
+  } while (0)
+
 /* Error-checking versions of read() and write() that call RPFATAL() as
    appropriate. */
 
-#define ck_write(fd, buf, len, fn)                            \
-  do {                                                        \
-                                                              \
-    u32 _len = (len);                                         \
-    s32 _res = write(fd, buf, _len);                          \
-    if (_res != _len) RPFATAL(_res, "Short write to %s", fn); \
-                                                              \
+#define ck_write(fd, buf, len, fn)                                        \
+  do {                                                                    \
+                                                                          \
+    int _fd = (fd);                                                       \
+                                                                          \
+    s32 _len = (s32)(len);                                                \
+    s32 _res = write(_fd, (buf), _len);                                   \
+    if (_res != _len) RPFATAL(_res, "Short write to %s, fd %d", fn, _fd); \
+                                                                          \
   } while (0)
 
 #define ck_read(fd, buf, len, fn)                              \
   do {                                                         \
                                                                \
-    u32 _len = (len);                                          \
+    s32 _len = (s32)(len);                                     \
     s32 _res = read(fd, buf, _len);                            \
     if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
                                                                \

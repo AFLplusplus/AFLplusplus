@@ -58,7 +58,11 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
+  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
+
   execv(fsrv->target_path, argv);
+
+  WARNF("Execv failed in forkserver.");
 
 }
 
@@ -74,20 +78,24 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->dev_urandom_fd = -1;
 
   /* Settings */
-  fsrv->use_stdin = 1;
-  fsrv->no_unlink = 0;
+  fsrv->use_stdin = true;
+  fsrv->no_unlink = false;
   fsrv->exec_tmout = EXEC_TIMEOUT;
+  fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
+  fsrv->kill_signal = SIGKILL;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
-  fsrv->use_fauxsrv = 0;
-  fsrv->last_run_timed_out = 0;
+  fsrv->use_fauxsrv = false;
+  fsrv->last_run_timed_out = false;
+  fsrv->debug = false;
+  fsrv->uses_crash_exitcode = false;
+  fsrv->uses_asan = false;
 
   fsrv->init_child_func = fsrv_exec_child;
-
   list_append(&fsrv_list, fsrv);
 
 }
@@ -96,23 +104,29 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->use_stdin = from->use_stdin;
-  fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
+  fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
-
+  fsrv_to->out_file = from->out_file;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
+  fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
+  fsrv_to->no_unlink = from->no_unlink;
+  fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
+  fsrv_to->crash_exitcode = from->crash_exitcode;
+  fsrv_to->kill_signal = from->kill_signal;
+  fsrv_to->debug = from->debug;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
-  fsrv_to->out_file = NULL;
 
-  fsrv_to->init_child_func = fsrv_exec_child;
+  fsrv_to->init_child_func = from->init_child_func;
+  // Note: do not copy ->add_extra_func
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -122,8 +136,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
-                          volatile u8 *stop_soon_p) {
+static u32 __attribute__((hot))
+read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms, volatile u8 *stop_soon_p) {
 
   fd_set readfds;
   FD_ZERO(&readfds);
@@ -135,7 +149,7 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
   timeout.tv_sec = (timeout_ms / 1000);
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
 #if !defined(__linux__)
-  u64 read_start = get_cur_time_us();
+  u32 read_start = get_cur_time_us();
 #endif
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
@@ -145,6 +159,13 @@ restart_select:
   if (likely(sret > 0)) {
 
   restart_read:
+    if (*stop_soon_p) {
+
+      // Early return - the user wants to quit.
+      return 0;
+
+    }
+
     len_read = read(fd, (u8 *)buf, 4);
 
     if (likely(len_read == 4)) {  // for speed we put this first
@@ -154,7 +175,7 @@ restart_select:
           timeout_ms,
           ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
 #else
-      u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+      u32 exec_ms = MIN(timeout_ms, (get_cur_time_us() - read_start) / 1000);
 #endif
 
       // ensure to report 1 ms has passed (0 is an error)
@@ -194,7 +215,7 @@ restart_select:
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
   unsigned char tmp[4] = {0, 0, 0, 0};
-  pid_t         child_pid = -1;
+  pid_t         child_pid;
 
   if (!be_quiet) { ACTF("Using Fauxserver:"); }
 
@@ -228,6 +249,23 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     if (!child_pid) {  // New child
 
+      close(fsrv->out_dir_fd);
+      close(fsrv->dev_null_fd);
+      close(fsrv->dev_urandom_fd);
+
+      if (fsrv->plot_file != NULL) {
+
+        fclose(fsrv->plot_file);
+        fsrv->plot_file = NULL;
+
+      }
+
+      // enable terminating on sigpipe in the childs
+      struct sigaction sa;
+      memset((char *)&sa, 0, sizeof(sa));
+      sa.sa_handler = SIG_DFL;
+      sigaction(SIGPIPE, &sa, NULL);
+
       signal(SIGCHLD, old_sigchld_handler);
       // FORKSRV_FD is for communication with AFL, we don't need it in the
       // child.
@@ -243,7 +281,8 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
 
-      PFATAL("Execv failed in fauxserver.");
+      WARNF("Execv failed in fauxserver.");
+      break;
 
     }
 
@@ -257,13 +296,13 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
     if (waitpid(child_pid, &status, 0) < 0) {
 
       // Zombie Child could not be collected. Scary!
-      PFATAL("Fauxserver could not determin child's exit code. ");
+      WARNF("Fauxserver could not determine child's exit code. ");
 
     }
 
     /* Relay wait status to AFL pipe, then loop back. */
 
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(0); }
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(1); }
 
   }
 
@@ -286,8 +325,8 @@ static void report_error_and_exit(int error) {
       FATAL(
           "the fuzzing target reports that hardcoded map address might be the "
           "reason the mmap of the shared memory failed. Solution: recompile "
-          "the target with either afl-clang-lto and the environment variable "
-          "AFL_LLVM_MAP_DYNAMIC set or recompile with afl-clang-fast.");
+          "the target with either afl-clang-lto and do not set "
+          "AFL_LLVM_MAP_ADDR or recompile with afl-clang-fast.");
       break;
     case FS_ERROR_SHM_OPEN:
       FATAL("the fuzzing target reports that the shm_open() call failed.");
@@ -301,7 +340,7 @@ static void report_error_and_exit(int error) {
           "memory failed.");
       break;
     default:
-      FATAL("unknown error code %u from fuzzing target!", error);
+      FATAL("unknown error code %d from fuzzing target!", error);
 
   }
 
@@ -318,15 +357,16 @@ static void report_error_and_exit(int error) {
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
 
-  int st_pipe[2], ctl_pipe[2];
-  s32 status;
-  s32 rlen;
+  int   st_pipe[2], ctl_pipe[2];
+  s32   status;
+  s32   rlen;
+  char *ignore_autodict = getenv("AFL_NO_AUTODICT");
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
   if (fsrv->use_fauxsrv) {
 
-    /* TODO: Come up with sone nice way to initialize this all */
+    /* TODO: Come up with some nice way to initialize this all */
 
     if (fsrv->init_child_func != fsrv_exec_child) {
 
@@ -349,11 +389,22 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* CHILD PROCESS */
 
+    // enable terminating on sigpipe in the childs
+    struct sigaction sa;
+    memset((char *)&sa, 0, sizeof(sa));
+    sa.sa_handler = SIG_DFL;
+    sigaction(SIGPIPE, &sa, NULL);
+
     struct rlimit r;
+
+    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false) {
+
+      unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
+
+    }
 
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */
-
     if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {
 
       r.rlim_cur = FORKSRV_FD + 2;
@@ -420,47 +471,60 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     close(fsrv->dev_null_fd);
     close(fsrv->dev_urandom_fd);
 
-    if (fsrv->plot_file != NULL) { fclose(fsrv->plot_file); }
+    if (fsrv->plot_file != NULL) {
+
+      fclose(fsrv->plot_file);
+      fsrv->plot_file = NULL;
+
+    }
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
 
-    if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 0); }
+    if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
-    setenv("ASAN_OPTIONS",
-           "abort_on_error=1:"
-           "detect_leaks=0:"
-           "malloc_context_size=0:"
-           "symbolize=0:"
-           "allocator_may_return_null=1:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           0);
+    if (!getenv("ASAN_OPTIONS"))
+      setenv("ASAN_OPTIONS",
+             "abort_on_error=1:"
+             "detect_leaks=0:"
+             "malloc_context_size=0:"
+             "symbolize=0:"
+             "allocator_may_return_null=1:"
+             "detect_odr_violation=0:"
+             "handle_segv=0:"
+             "handle_sigbus=0:"
+             "handle_abort=0:"
+             "handle_sigfpe=0:"
+             "handle_sigill=0",
+             1);
 
     /* Set sane defaults for UBSAN if nothing else specified. */
 
-    setenv("UBSAN_OPTIONS",
-           "halt_on_error=1:"
-           "abort_on_error=1:"
-           "malloc_context_size=0:"
-           "allocator_may_return_null=1:"
-           "symbolize=0:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           0);
+    if (!getenv("UBSAN_OPTIONS"))
+      setenv("UBSAN_OPTIONS",
+             "halt_on_error=1:"
+             "abort_on_error=1:"
+             "malloc_context_size=0:"
+             "allocator_may_return_null=1:"
+             "symbolize=0:"
+             "handle_segv=0:"
+             "handle_sigbus=0:"
+             "handle_abort=0:"
+             "handle_sigfpe=0:"
+             "handle_sigill=0",
+             1);
+
+    /* Envs for QASan */
+    setenv("QASAN_MAX_CALL_STACK", "0", 0);
+    setenv("QASAN_SYMBOLIZE", "0", 0);
 
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
-    setenv("MSAN_OPTIONS",
+    if (!getenv("MSAN_OPTIONS"))
+      setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
            "symbolize=0:"
            "abort_on_error=1:"
@@ -472,7 +536,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "handle_abort=0:"
            "handle_sigfpe=0:"
            "handle_sigill=0",
-           0);
+           1);
 
     fsrv->init_child_func(fsrv, argv);
 
@@ -480,8 +544,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
        falling through. */
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
-    fprintf(stderr, "Error: execv to target failed\n");
-    exit(0);
+    FATAL("Error: execv to target failed\n");
 
   }
 
@@ -507,18 +570,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    u32 time_ms =
-        read_s32_timed(fsrv->fsrv_st_fd, &status,
-                       fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
+    u32 time_ms = read_s32_timed(fsrv->fsrv_st_fd, &status, fsrv->init_tmout,
+                                 stop_soon_p);
 
     if (!time_ms) {
 
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
-    } else if (time_ms > fsrv->exec_tmout * FORK_WAIT_MULT) {
+    } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else {
 
@@ -568,7 +630,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           fsrv->use_shmem_fuzz = 1;
           if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
 
-          if ((status & FS_OPT_AUTODICT) == 0) {
+          if ((status & FS_OPT_AUTODICT) == 0 || ignore_autodict) {
 
             u32 send_status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
             if (write(fsrv->fsrv_ctl_fd, &send_status, 4) != 4) {
@@ -595,11 +657,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
 
-        if (unlikely(tmp_map_size % 8)) {
+        if (unlikely(tmp_map_size % 64)) {
 
           // should not happen
           WARNF("Target reported non-aligned map size of %u", tmp_map_size);
-          tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
+          tmp_map_size = (((tmp_map_size + 63) >> 6) << 6);
 
         }
 
@@ -621,87 +683,104 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
-        if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
+        if (!ignore_autodict) {
 
-          // this is not afl-fuzz - we deny and return
-          if (fsrv->use_shmem_fuzz)
-            status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
-          else
-            status = (FS_OPT_ENABLED);
+          if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
+
+            // this is not afl-fuzz - or it is cmplog - we deny and return
+            if (fsrv->use_shmem_fuzz) {
+
+              status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+
+            } else {
+
+              status = (FS_OPT_ENABLED);
+
+            }
+
+            if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
+
+              FATAL("Writing to forkserver failed.");
+
+            }
+
+            return;
+
+          }
+
+          if (!be_quiet) { ACTF("Using AUTODICT feature."); }
+
+          if (fsrv->use_shmem_fuzz) {
+
+            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
+
+          } else {
+
+            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+
+          }
+
           if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
             FATAL("Writing to forkserver failed.");
 
           }
 
-          return;
+          if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
 
-        }
-
-        if (!be_quiet) { ACTF("Using AUTODICT feature."); }
-
-        if (fsrv->use_shmem_fuzz)
-          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
-        else
-          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
-
-        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
-
-          FATAL("Writing to forkserver failed.");
-
-        }
-
-        if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
-
-          FATAL("Reading from forkserver failed.");
-
-        }
-
-        if (status < 2 || (u32)status > 0xffffff) {
-
-          FATAL("Dictionary has an illegal size: %d", status);
-
-        }
-
-        u32 len = status, offset = 0, count = 0;
-        u8 *dict = ck_alloc(len);
-        if (dict == NULL) {
-
-          FATAL("Could not allocate %u bytes of autodictionary memory", len);
-
-        }
-
-        while (len != 0) {
-
-          rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
-          if (rlen > 0) {
-
-            len -= rlen;
-            offset += rlen;
-
-          } else {
-
-            FATAL(
-                "Reading autodictionary fail at position %u with %u bytes "
-                "left.",
-                offset, len);
+            FATAL("Reading from forkserver failed.");
 
           }
 
+          if (status < 2 || (u32)status > 0xffffff) {
+
+            FATAL("Dictionary has an illegal size: %d", status);
+
+          }
+
+          u32 offset = 0, count = 0;
+          u32 len = status;
+          u8 *dict = ck_alloc(len);
+          if (dict == NULL) {
+
+            FATAL("Could not allocate %u bytes of autodictionary memory", len);
+
+          }
+
+          while (len != 0) {
+
+            rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
+            if (rlen > 0) {
+
+              len -= rlen;
+              offset += rlen;
+
+            } else {
+
+              FATAL(
+                  "Reading autodictionary fail at position %u with %u bytes "
+                  "left.",
+                  offset, len);
+
+            }
+
+          }
+
+          offset = 0;
+          while (offset < (u32)status &&
+                 (u8)dict[offset] + offset < (u32)status) {
+
+            fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                                 (u8)dict[offset]);
+            offset += (1 + dict[offset]);
+            count++;
+
+          }
+
+          if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
+          ck_free(dict);
+
         }
-
-        offset = 0;
-        while (offset < status && (u8)dict[offset] + offset < status) {
-
-          fsrv->function_ptr(fsrv->function_opt, dict + offset + 1,
-                             (u8)dict[offset]);
-          offset += (1 + dict[offset]);
-          count++;
-
-        }
-
-        if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
-        ck_free(dict);
 
       }
 
@@ -740,6 +819,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
 
+           "    - The target binary requires a large map and crashes before "
+           "reporting.\n"
+           "      Set a high value (e.g. AFL_MAP_SIZE=8000000) or use "
+           "AFL_DEBUG=1 to see the\n"
+           "      message from the target binary\n\n"
+
            "    - The binary is just buggy and explodes entirely on its own. "
            "If so, you\n"
            "      need to fix the underlying problem or find a better "
@@ -760,6 +845,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
+
+           "    - The target binary requires a large map and crashes before "
+           "reporting.\n"
+           "      Set a high value (e.g. AFL_MAP_SIZE=8000000) or use "
+           "AFL_DEBUG=1 to see the\n"
+           "      message from the target binary\n\n"
 
            "    - The current memory limit (%s) is too restrictive, causing "
            "the\n"
@@ -818,10 +909,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could"
-         " complete a handshake with the injected code.\n"
-         "If the target was compiled with afl-clang-lto then recompiling with"
-         " AFL_LLVM_MAP_DYNAMIC might solve your problem.\n"
+         "Hmm, looks like the target binary terminated before we could complete"
+         " a\n"
+         "handshake with the injected code.\n"
+         "Most likely the target has a huge coverage map, retry with setting"
+         " the\n"
+         "environment variable AFL_MAP_SIZE=8000000\n"
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -837,6 +930,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "explanations:\n\n"
 
         "%s"
+
+        "    - Most likely the target has a huge coverage map, retry with "
+        "setting the\n"
+        "      environment variable AFL_MAP_SIZE=8000000\n\n"
+
         "    - The current memory limit (%s) is too restrictive, causing an "
         "OOM\n"
         "      fault in the dynamic linker. This can be fixed with the -m "
@@ -850,10 +948,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "      estimate the required amount of virtual memory for the "
         "binary.\n\n"
 
-        "    - the target was compiled with afl-clang-lto and a constructor "
+        "    - The target was compiled with afl-clang-lto and a constructor "
         "was\n"
-        "      instrumented, recompiling with AFL_LLVM_MAP_DYNAMIC might solve "
-        "your\n"
+        "      instrumented, recompiling without AFL_LLVM_MAP_ADDR might solve "
+        "your \n"
         "      problem\n\n"
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
@@ -875,15 +973,32 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 }
 
-static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
+/* Stop the forkserver and child */
 
-  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, SIGKILL); }
+void afl_fsrv_kill(afl_forkserver_t *fsrv) {
+
+  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
   if (fsrv->fsrv_pid > 0) {
 
-    kill(fsrv->fsrv_pid, SIGKILL);
+    kill(fsrv->fsrv_pid, fsrv->kill_signal);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
+
+  close(fsrv->fsrv_ctl_fd);
+  close(fsrv->fsrv_st_fd);
+  fsrv->fsrv_pid = -1;
+  fsrv->child_pid = -1;
+
+}
+
+/* Get the map size from the target forkserver */
+
+u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
+                         volatile u8 *stop_soon_p, u8 debug_child_output) {
+
+  afl_fsrv_start(fsrv, argv, stop_soon_p, debug_child_output);
+  return fsrv->map_size;
 
 }
 
@@ -891,7 +1006,9 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (fsrv->shmem_fuzz) {
+  if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
+
+    if (unlikely(len > MAX_FILE)) len = MAX_FILE;
 
     *fsrv->shmem_fuzz_len = len;
     memcpy(fsrv->shmem_fuzz, buf, len);
@@ -902,10 +1019,10 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
               hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
               *fsrv->shmem_fuzz_len);
       fprintf(stderr, "SHM :");
-      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
       fprintf(stderr, "\nORIG:");
-      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", buf[i]);
       fprintf(stderr, "\n");
 
@@ -917,9 +1034,9 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     s32 fd = fsrv->out_fd;
 
-    if (fsrv->out_file) {
+    if (!fsrv->use_stdin && fsrv->out_file) {
 
-      if (fsrv->no_unlink) {
+      if (unlikely(fsrv->no_unlink)) {
 
         fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
@@ -932,15 +1049,24 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
       if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
+    } else if (unlikely(fd <= 0)) {
+
+      // We should have a (non-stdin) fd at this point, else we got a problem.
+      FATAL(
+          "Nowhere to write output to (neither out_fd nor out_file set (fd is "
+          "%d))",
+          fd);
+
     } else {
 
       lseek(fd, 0, SEEK_SET);
 
     }
 
+    // fprintf(stderr, "WRITE %d %u\n", fd, len);
     ck_write(fd, buf, len, fsrv->out_file);
 
-    if (!fsrv->out_file) {
+    if (fsrv->use_stdin) {
 
       if (ftruncate(fd, len)) { PFATAL("ftruncate() failed"); }
       lseek(fd, 0, SEEK_SET);
@@ -992,7 +1118,19 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
+  if (fsrv->child_pid <= 0) {
+
+    if (*stop_soon_p) { return 0; }
+
+    if ((fsrv->child_pid & FS_OPT_ERROR) &&
+        FS_OPT_GET_ERROR(fsrv->child_pid) == FS_ERROR_SHM_OPEN)
+      FATAL(
+          "Target reported shared memory access failed (perhaps increase "
+          "shared memory available).");
+
+    FATAL("Fork server is misbehaving (OOM?)");
+
+  }
 
   exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
                            stop_soon_p);
@@ -1002,7 +1140,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
-    kill(fsrv->child_pid, SIGKILL);
+    kill(fsrv->child_pid, fsrv->kill_signal);
     fsrv->last_run_timed_out = 1;
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
@@ -1015,7 +1153,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
          "Unable to communicate with fork server. Some possible reasons:\n\n"
          "    - You've run out of memory. Use -m to increase the the memory "
          "limit\n"
-         "      to something higher than %lld.\n"
+         "      to something higher than %llu.\n"
          "    - The binary or one of the libraries it uses manages to "
          "create\n"
          "      threads before the forkserver initializes.\n"
@@ -1048,33 +1186,44 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
+  /* Was the run unsuccessful? */
+  if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
 
-    fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
+    return FSRV_RUN_ERROR;
 
-    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
+  }
 
-      return FSRV_RUN_TMOUT;
+  /* Did we timeout? */
+  if (unlikely(fsrv->last_run_timed_out)) {
 
-    }
+    fsrv->last_kill_signal = fsrv->kill_signal;
+    return FSRV_RUN_TMOUT;
 
+  }
+
+  /* Did we crash?
+  In a normal case, (abort) WIFSIGNALED(child_status) will be set.
+  MSAN in uses_asan mode uses a special exit code as it doesn't support
+  abort_on_error. On top, a user may specify a custom AFL_CRASH_EXITCODE.
+  Handle all three cases here. */
+
+  if (unlikely(
+          /* A normal crash/abort */
+          (WIFSIGNALED(fsrv->child_status)) ||
+          /* special handling for msan */
+          (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+          /* the custom crash_exitcode was returned by the target */
+          (fsrv->uses_crash_exitcode &&
+           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+
+    /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
+    fsrv->last_kill_signal =
+        WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
     return FSRV_RUN_CRASH;
 
   }
 
-  /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
-     must use a special exit code. */
-
-  if (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) {
-
-    fsrv->last_kill_signal = 0;
-    return FSRV_RUN_CRASH;
-
-  }
-
-  // Fauxserver should handle this now.
-  // if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
-
+  /* success :) */
   return FSRV_RUN_OK;
 
 }

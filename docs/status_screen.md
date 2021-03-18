@@ -29,13 +29,18 @@ With that out of the way, let's talk about what's actually on the screen...
 
 ### The status bar
 
+```
+american fuzzy lop ++3.01a (default) [fast] {0}
+```
+
 The top line shows you which mode afl-fuzz is running in
 (normal: "american fuzy lop", crash exploration mode: "peruvian rabbit mode")
 and the version of afl++.
 Next to the version is the banner, which, if not set with -T by hand, will
 either show the binary name being fuzzed, or the -M/-S main/secondary name for
 parallel fuzzing.
-Finally, the last item is the power schedule mode being run (default: explore).
+Second to last is the power schedule mode being run (default: fast).
+Finally, the last item is the CPU id. 
 
 ### Process timing
 
@@ -86,10 +91,7 @@ Every fuzzing session should be allowed to complete at least one cycle; and
 ideally, should run much longer than that.
 
 As noted earlier, the first pass can take a day or longer, so sit back and
-relax. If you want to get broader but more shallow coverage right away, try
-the `-d` option - it gives you a more familiar experience by skipping the
-deterministic fuzzing steps. It is, however, inferior to the standard mode in
-a couple of subtle ways.
+relax. 
 
 To help make the call on when to hit `Ctrl-C`, the cycle counter is color-coded.
 It is shown in magenta during the first pass, progresses to yellow if new finds
@@ -117,9 +119,6 @@ inputs it decided to ditch because they were persistently timing out.
 
 The "*" suffix sometimes shown in the first line means that the currently
 processed path is not "favored" (a property discussed later on).
-
-If you feel that the fuzzer is progressing too slowly, see the note about the
-`-d` option in this doc.
 
 ### Map coverage
 
@@ -324,7 +323,7 @@ there are several things to look at:
   - Multiple threads executing at once in semi-random order. This is harmless
     when the 'stability' metric stays over 90% or so, but can become an issue
     if not. Here's what to try:
-    * Use afl-clang-fast from [llvm_mode](../llvm_mode/) - it uses a thread-local tracking
+    * Use afl-clang-fast from [instrumentation](../instrumentation/) - it uses a thread-local tracking
       model that is less prone to concurrency issues,
     * See if the target can be compiled or run without threads. Common
       `./configure` options include `--without-threads`, `--disable-pthreads`, or
@@ -412,3 +411,27 @@ Most of these map directly to the UI elements discussed earlier on.
 On top of that, you can also find an entry called `plot_data`, containing a
 plottable history for most of these fields. If you have gnuplot installed, you
 can turn this into a nice progress report with the included `afl-plot` tool.
+
+
+### Addendum: Automatically send metrics with StatsD
+
+In a CI environment or when running multiple fuzzers, it can be tedious to
+log into each of them or deploy scripts to read the fuzzer statistics.
+Using `AFL_STATSD` (and the other related environment variables `AFL_STATSD_HOST`,
+`AFL_STATSD_PORT`, `AFL_STATSD_TAGS_FLAVOR`) you can automatically send metrics
+to your favorite StatsD server. Depending on your StatsD server you will be able
+to monitor, trigger alerts or perform actions based on these metrics (e.g: alert on
+slow exec/s for a new build, threshold of crashes, time since last crash > X, etc). 
+
+The selected metrics are a subset of all the metrics found in the status and in
+the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
+`execs_done`,`execs_per_sec`, `paths_total`, `paths_favored`, `paths_found`,
+`paths_imported`, `max_depth`, `cur_path`, `pending_favs`, `pending_total`,
+`variable_paths`, `unique_crashes`, `unique_hangs`, `total_crashes`,
+`slowest_exec_ms`, `edges_found`, `var_byte_count`, `havoc_expansion`.
+Their definitions can be found in the addendum above.
+
+When using multiple fuzzer instances with StatsD it is *strongly* recommended to setup
+the flavor (AFL_STATSD_TAGS_FLAVOR) to match your StatsD server. This will allow you
+to see individual fuzzer performance, detect bad ones, see the progress of each
+strategy...

@@ -113,13 +113,16 @@ function usage() {
 "  -C            - keep crashing inputs, reject everything else\n" \
 "  -e            - solve for edge coverage only, ignore hit counts\n" \
 "\n" \
-"For additional tips, please consult docs/README.md\n" \
+"For additional tips, please consult README.md\n" \
 "\n" \
 "Environment variables used:\n" \
+"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
+"AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n" \
+"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
-"AFL_PATH: path for the afl-showmap binary\n" \
-"AFL_SKIP_BIN_CHECK: skip check for target binary\n" \
-"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n"
+"AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
+"AFL_PATH: path for the afl-showmap binary if not found anywhere else\n" \
+"AFL_SKIP_BIN_CHECK: skip check for target binary\n"
    exit 1
 }
 
@@ -132,6 +135,8 @@ BEGIN {
 
   # defaults
   extra_par = ""
+  AFL_CMIN_CRASHES_ONLY = ""
+
   # process options
   Opterr = 1    # default is to diagnose
   Optind = 1    # skip ARGV[0]
@@ -168,7 +173,7 @@ BEGIN {
       continue
     } else 
     if (_go_c == "C") {
-      ENVIRON["AFL_CMIN_CRASHES_ONLY"] = 1
+      AFL_CMIN_CRASHES_ONLY = "AFL_CMIN_CRASHES_ONLY=1 "
       continue
     } else 
     if (_go_c == "e") {
@@ -178,14 +183,12 @@ BEGIN {
     if (_go_c == "Q") {
       if (qemu_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -Q"
-      if ( !mem_limit_given ) mem_limit = "250"
       qemu_mode = 1
       continue
     } else 
     if (_go_c == "U") {
       if (unicorn_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -U"
-      if ( !mem_limit_given ) mem_limit = "250"
       unicorn_mode = 1
       continue
     } else 
@@ -195,7 +198,7 @@ BEGIN {
       usage()
   } # while options
 
-  if (!mem_limit) mem_limit = 200
+  if (!mem_limit) mem_limit = "none"
   if (!timeout) timeout = "none"
 
   # get program args
@@ -284,6 +287,10 @@ BEGIN {
     exit 1
   }
 
+  if (0 == system( "test -d "in_dir"/default" )) {
+    in_dir = in_dir "/default"
+  }
+
   if (0 == system( "test -d "in_dir"/queue" )) {
     in_dir = in_dir "/queue"
   }
@@ -309,14 +316,18 @@ BEGIN {
     close( stdin_file )
   }
 
-  if (!ENVIRON["AFL_PATH"]) {
-    if (0 == system("test -f afl-cmin")) {
+  # First we look in PATH
+  if (0 == system("command -v afl-showmap >/dev/null 2>&1")) {
+    "command -v afl-showmap 2>/dev/null" | getline showmap
+  } else {
+    # then we look in the current directory
+    if (0 == system("test -x ./afl-showmap")) {
       showmap = "./afl-showmap"
     } else {
-      "command -v afl-showmap 2>/dev/null" | getline showmap
+      if (ENVIRON["AFL_PATH"]) {
+        showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
+      }
     }
-  } else {
-    showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
   }
 
   if (!showmap || 0 != system("test -x "showmap )) {
@@ -335,8 +346,10 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -k1n -k2r"
-  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format") | sort -k1n -k2r"
+  cmdline = "(cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} + | sort -k1n -k2r)"
+  #cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
+  #cmdline = "(cd "in_dir" && stat "stat_format" *) | sort -k1n -k2r"
+  #cmdline = "(cd "in_dir" && ls | xargs stat "stat_format" ) | sort -k1n -k2r"
   while (cmdline | getline) {
     sub(/^[0-9]+ (\.\/)?/,"",$0)
     infilesSmallToBig[i++] = $0
@@ -347,44 +360,46 @@ BEGIN {
   
   # Make sure that we're not dealing with a directory.
 
-  if (0 == system("test -d "in_dir"/"first_file)) {
-    print "[-] Error: The input directory contains subdirectories - please fix." > "/dev/stderr"
+  if (0 == system("test -d ""\""in_dir"/"first_file"\"")) {
+    print "[-] Error: The input directory is empty or contains subdirectories - please fix." > "/dev/stderr"
     exit 1
   }
 
-  if (0 == system("ln "in_dir"/"first_file" "trace_dir"/.link_test")) {
+  if (0 == system("ln \""in_dir"/"first_file"\" "trace_dir"/.link_test")) {
     cp_tool = "ln"
   } else {
     cp_tool = "cp"
   }
 
-  # Make sure that we can actually get anything out of afl-showmap before we
-  # waste too much time.
+  if (!ENVIRON["AFL_SKIP_BIN_CHECK"]) {
+    # Make sure that we can actually get anything out of afl-showmap before we
+    # waste too much time.
 
-  print "[*] Testing the target binary..."
+    print "[*] Testing the target binary..."
 
-  if (!stdin_file) {
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
-  } else {
-    system("cp "in_dir"/"first_file" "stdin_file)
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
-  }
-
-  first_count = 0
-
-  runtest = trace_dir"/.run_test"
-  while ((getline < runtest) > 0) {
-    ++first_count
-  }
-
-  if (first_count) {
-    print "[+] OK, "first_count" tuples recorded."
-  } else {
-    print "[-] Error: no instrumentation output detected (perhaps crash or timeout)." > "/dev/stderr"
-    if (!ENVIRON["AFL_KEEP_TRACES"]) {
-      system("rm -rf "trace_dir" 2>/dev/null")
+    if (!stdin_file) {
+      system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
+    } else {
+      system("cp \""in_dir"/"first_file"\" "stdin_file)
+      system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
     }
-    exit 1
+
+    first_count = 0
+
+    runtest = trace_dir"/.run_test"
+    while ((getline < runtest) > 0) {
+      ++first_count
+    }
+
+    if (first_count) {
+      print "[+] OK, "first_count" tuples recorded."
+    } else {
+      print "[-] Error: no instrumentation output detected (perhaps crash or timeout)." > "/dev/stderr"
+      if (!ENVIRON["AFL_KEEP_TRACES"]) {
+        system("rm -rf "trace_dir" 2>/dev/null")
+      }
+      exit 1
+    }
   }
 
   # Let's roll!
@@ -398,14 +413,16 @@ BEGIN {
   cur = 0;
   if (!stdin_file) {
     print "    Processing "in_count" files (forkserver mode)..."
-    retval = system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string
+    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
-    retval = system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null"
+    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
-  if (retval) {
-    print "[!]Exit code != 0 received from afl-showmap, terminating..."
+  if (retval && !AFL_CMIN_CRASHES_ONLY) {
+    print "[!] Exit code "retval" != 0 received from afl-showmap, terminating..."
 
     if (!ENVIRON["AFL_KEEP_TRACES"]) {
       system("rm -rf "trace_dir" 2>/dev/null")
@@ -485,7 +502,7 @@ BEGIN {
 
     # copy file unless already done
     if (! (fn in file_already_copied)) {
-      system(cp_tool" "in_dir"/"fn" "out_dir"/"fn)
+      system(cp_tool" \""in_dir"/"fn"\" \""out_dir"/"fn"\"")
       file_already_copied[fn] = ""
       ++out_count
       #printf "tuple nr %d (%d cnt=%d) -> %s\n",tcnt,key,key_count[key],fn > trace_dir"/.log"

@@ -99,7 +99,7 @@ if [ ! -d "$outputdir" ]; then
 
 fi
 
-rm -f "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png"
+rm -f "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png" "$outputdir/edges.png"
 mv -f "$outputdir/index.html" "$outputdir/index.html.orig" 2>/dev/null
 
 echo "[*] Generating plots..."
@@ -152,6 +152,12 @@ set ytics auto
 plot '$inputdir/plot_data' using 1:11 with filledcurve x1 title '' linecolor rgb '#0090ff' fillstyle transparent solid 0.2 noborder, \\
      '$inputdir/plot_data' using 1:11 with lines title '    execs/sec' linecolor rgb '#0090ff' linewidth 3 smooth bezier;
 
+set terminal png truecolor enhanced size 1000,300 butt
+set output '$outputdir/edges.png'
+
+set ytics auto
+plot '$inputdir/plot_data' using 1:13 with lines title '        edges' linecolor rgb '#0090ff' linewidth 3
+
 _EOF_
 
 ) | gnuplot 
@@ -172,6 +178,7 @@ cat >"$outputdir/index.html" <<_EOF_
 <tr><td><b>Generated on:</b></td><td>`date`</td></tr>
 </table>
 <p>
+<img src="edges.png" width=1000 height=300>
 <img src="high_freq.png" width=1000 height=300><p>
 <img src="low_freq.png" width=1000 height=200><p>
 <img src="exec_speed.png" width=1000 height=200>
@@ -183,7 +190,7 @@ _EOF_
 # sensitive, this seems like a reasonable trade-off.
 
 chmod 755 "$outputdir"
-chmod 644 "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png" "$outputdir/index.html"
+chmod 644 "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png" "$outputdir/edges.png" "$outputdir/index.html"
 
 echo "[+] All done - enjoy your charts!"
 

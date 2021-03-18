@@ -34,11 +34,12 @@ if [ "$PLATFORM" = "Linux" ] ; then
   test -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
   test -e /sys/devices/system/cpu/intel_pstate/no_turbo && echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo
   test -e /sys/devices/system/cpu/cpufreq/boost && echo 1 > /sys/devices/system/cpu/cpufreq/boost
+  test -e /sys/devices/system/cpu/intel_pstate/max_perf_pct && echo 100 > /sys/devices/system/cpu/intel_pstate/max_perf_pct
 } > /dev/null
   echo Settings applied.
   dmesg | egrep -q 'nospectre_v2|spectre_v2=off' || {
     echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
-    echo '  /etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"'
+    echo '  /etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=0 l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx_async_abort=off arm64.nopauth audit=0 hardened_usercopy=off ssbd=force-off"'
   }
   DONE=1
 fi
@@ -48,6 +49,12 @@ if [ "$PLATFORM" = "FreeBSD" ] ; then
   sysctl kern.elf64.aslr.enable=0
 } > /dev/null
   echo Settings applied.
+  cat <<EOF
+In order to suppress core file generation during fuzzing it is recommended to set
+me:\\
+	:coredumpsize=0:
+in the ~/.login_conf file for the user used for fuzzing.
+EOF
   echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
   echo '  sysctl hw.ibrs_disable=1'
   echo 'Setting kern.pmap.pg_ps_enabled=0 into /boot/loader.conf might be helpful too.'
@@ -56,6 +63,17 @@ fi
 if [ "$PLATFORM" = "OpenBSD" ] ; then
   echo
   echo 'System security features cannot be disabled on OpenBSD.'
+  DONE=1
+fi
+if [ "$PLATFORM" = "DragonFly" ] ; then
+  #/sbin/sysctl kern.corefile=/dev/null
+  #echo Settings applied.
+  cat <<EOF
+In order to suppress core file generation during fuzzing it is recommended to set
+me:\\
+	:coredumpsize=0:
+in the ~/.login_conf file for the user used for fuzzing.
+EOF
   DONE=1
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
@@ -79,5 +97,14 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   fi
   DONE=1
 fi
+if [ "$PLATFORM" = "Haiku" ] ; then
+  SETTINGS=~/config/settings/system/debug_server/settings
+  [ -r ${SETTINGS} ] && grep -qE "default_action\s+kill" ${SETTINGS} && { echo "Nothing to do"; } || { \
+    echo We change the debug_server default_action from user to silently kill; \
+    [ ! -r ${SETTINGS} ] && echo "default_action kill" >${SETTINGS} || { mv ${SETTINGS} s.tmp; sed -e "s/default_action\s\s*user/default_action kill/" s.tmp > ${SETTINGS}; rm s.tmp; }; \
+    echo Settings applied.; \
+  }
+  DONE=1
+fi
 test -z "$DONE" && echo Error: Unknown platform: $PLATFORM
-test -z "$AFL_TMPDIR" && echo Also use AFL_TMPDIR and point it to a tmpfs for the input file caching
+exit 0

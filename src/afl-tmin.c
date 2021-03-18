@@ -29,10 +29,6 @@
 
 #define AFL_MAIN
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
-
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -51,6 +47,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -82,7 +79,8 @@ static u8 crash_mode,                  /* Crash-centric mode?               */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
     remove_out_file,                   /* remove out_file on exit?          */
-    remove_shm = 1;                    /* remove shmem on exit?             */
+    remove_shm = 1,                    /* remove shmem on exit?             */
+    debug;                             /* debug mode                        */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -97,19 +95,30 @@ static sharedmem_t *     shm_fuzz;
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
 
+#define TIMES4(x) x, x, x, x
+#define TIMES8(x) TIMES4(x), TIMES4(x)
+#define TIMES16(x) TIMES8(x), TIMES8(x)
+#define TIMES32(x) TIMES16(x), TIMES16(x)
+#define TIMES64(x) TIMES32(x), TIMES32(x)
 static const u8 count_class_lookup[256] = {
 
     [0] = 0,
     [1] = 1,
     [2] = 2,
     [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
-    [128 ... 255] = 128
+    [4] = TIMES4(8),
+    [8] = TIMES8(16),
+    [16] = TIMES16(32),
+    [32] = TIMES32(64),
+    [128] = TIMES64(128)
 
 };
+
+#undef TIMES64
+#undef TIMES32
+#undef TIMES16
+#undef TIMES8
+#undef TIMES4
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
                                  sharedmem_t *     shm_fuzz) {
@@ -250,7 +259,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
+static u8 tmin_run_target(afl_forkserver_t *fsrv, u8 *mem, u32 len,
                           u8 first_run) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
@@ -342,7 +351,7 @@ static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
 /* Actually minimize! */
 
-static void minimize(afl_forkserver_t *fsrv, char **argv) {
+static void minimize(afl_forkserver_t *fsrv) {
 
   static u32 alpha_map[256];
 
@@ -380,7 +389,7 @@ static void minimize(afl_forkserver_t *fsrv, char **argv) {
       memset(tmp_buf + set_pos, '0', use_len);
 
       u8 res;
-      res = tmin_run_target(fsrv, argv, tmp_buf, in_len, 0);
+      res = tmin_run_target(fsrv, tmp_buf, in_len, 0);
 
       if (res) {
 
@@ -453,7 +462,7 @@ next_del_blksize:
     /* Tail */
     memcpy(tmp_buf + del_pos, in_data + del_pos + del_len, tail_len);
 
-    res = tmin_run_target(fsrv, argv, tmp_buf, del_pos + tail_len, 0);
+    res = tmin_run_target(fsrv, tmp_buf, del_pos + tail_len, 0);
 
     if (res) {
 
@@ -524,7 +533,7 @@ next_del_blksize:
 
     }
 
-    res = tmin_run_target(fsrv, argv, tmp_buf, in_len, 0);
+    res = tmin_run_target(fsrv, tmp_buf, in_len, 0);
 
     if (res) {
 
@@ -560,7 +569,7 @@ next_del_blksize:
     if (orig == '0') { continue; }
     tmp_buf[i] = '0';
 
-    res = tmin_run_target(fsrv, argv, tmp_buf, in_len, 0);
+    res = tmin_run_target(fsrv, tmp_buf, in_len, 0);
 
     if (res) {
 
@@ -623,6 +632,7 @@ finalize_all:
 
 static void handle_stop_sig(int sig) {
 
+  (void)sig;
   stop_soon = 1;
   afl_fsrv_killall();
 
@@ -655,6 +665,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
   unlink(out_file);
 
+  fsrv->out_file = out_file;
   fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
   if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
@@ -671,11 +682,14 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+#ifndef ASAN_BUILD
+    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
+
+#endif
 
   }
 
@@ -703,6 +717,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
          "detect_leaks=0:"
          "allocator_may_return_null=1:"
          "symbolize=0:"
+         "detect_odr_violation=0:"
          "handle_segv=0:"
          "handle_sigbus=0:"
          "handle_abort=0:"
@@ -738,38 +753,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     if (fsrv->qemu_mode) {
 
-      u8 *qemu_preload = getenv("QEMU_SET_ENV");
-      u8 *afl_preload = getenv("AFL_PRELOAD");
-      u8 *buf;
-
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
-
-        if (afl_preload[i] == ',') {
-
-          PFATAL(
-              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
-              "specified!");
-
-        }
-
-      }
-
-      if (qemu_preload) {
-
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           qemu_preload, afl_preload, afl_preload);
-
-      } else {
-
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           afl_preload, afl_preload);
-
-      }
-
-      setenv("QEMU_SET_ENV", buf, 1);
-
-      ck_free(buf);
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
     } else {
 
@@ -818,8 +802,8 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
-      "  -t msec       - timeout for each run (%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -t msec       - timeout for each run (%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -836,16 +820,18 @@ static void usage(u8 *argv0) {
       "For additional tips, please consult %s/README.md.\n\n"
 
       "Environment variables used:\n"
-      "TMPDIR: directory to use for temporary input files\n"
-      "ASAN_OPTIONS: custom settings for ASAN\n"
-      "              (must contain abort_on_error=1 and symbolize=0)\n"
-      "MSAN_OPTIONS: custom settings for MSAN\n"
-      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
-
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "TMPDIR: directory to use for temporary input files\n"
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -863,6 +849,7 @@ int main(int argc, char **argv_orig, char **envp) {
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t fsrv_var = {0};
+  if (getenv("AFL_DEBUG")) { debug = 1; }
   fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
@@ -1059,10 +1046,10 @@ int main(int argc, char **argv_orig, char **envp) {
   if (optind == argc || !in_file || !output_file) { usage(argv[0]); }
 
   check_environment_vars(envp);
+  setenv("AFL_NO_AUTODICT", "1", 1);
 
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -1070,6 +1057,7 @@ int main(int argc, char **argv_orig, char **envp) {
   set_up_environment(fsrv);
 
   fsrv->target_path = find_binary(argv[optind]);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
 
   if (fsrv->qemu_mode) {
@@ -1103,11 +1091,45 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF("\n");
 
+  if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+    s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+    if (forksrv_init_tmout < 1) {
+
+      FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+    fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  fsrv->kill_signal =
+      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+
+  if (getenv("AFL_CRASH_EXITCODE")) {
+
+    long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            getenv("AFL_CRASH_EXITCODE"));
+
+    }
+
+    fsrv->uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    fsrv->crash_exitcode = (u8)exitcode;
+
+  }
+
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  shm_fuzz->shmemfuzz_mode = 1;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
@@ -1122,8 +1144,51 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                 get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+  if (!fsrv->qemu_mode && !unicorn_mode) {
+
+    fsrv->map_size = 4194304;  // dummy temporary value
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
+
+    if (new_map_size) {
+
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+
+        if (!be_quiet)
+          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+        afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                       (get_afl_env("AFL_DEBUG_CHILD") ||
+                        get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                           ? 1
+                           : 0);
+
+      }
+
+      map_size = new_map_size;
+
+    }
+
+    fsrv->map_size = map_size;
+
+  } else {
+
+    afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
+  }
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
@@ -1131,7 +1196,7 @@ int main(int argc, char **argv_orig, char **envp) {
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");
 
-  tmin_run_target(fsrv, use_argv, in_data, in_len, 1);
+  tmin_run_target(fsrv, in_data, in_len, 1);
 
   if (hang_mode && !fsrv->last_run_timed_out) {
 
@@ -1169,7 +1234,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  minimize(fsrv, use_argv);
+  minimize(fsrv);
 
   ACTF("Writing output to '%s'...", output_file);
 

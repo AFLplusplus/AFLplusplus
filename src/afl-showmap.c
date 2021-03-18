@@ -31,9 +31,6 @@
 
 #define AFL_MAIN
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -42,6 +39,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -68,9 +66,11 @@ static char *stdin_file;               /* stdin file                        */
 static u8 *in_dir = NULL,              /* input folder                      */
     *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
 
-static u8 *in_data;                    /* Input data                        */
+static u8 *in_data,                    /* Input data                        */
+    *coverage_map;                     /* Coverage map                      */
 
-static u32 total, highest;             /* tuple content information         */
+static u64 total;                      /* tuple content information         */
+static u32 tcnt, highest;              /* tuple content information         */
 
 static u32 in_len,                     /* Input data length                 */
     arg_offset;                        /* Total number of execs             */
@@ -83,7 +83,11 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
     binary_mode,                       /* Write output as a binary map      */
     keep_cores,                        /* Allow coredumps?                  */
-    remove_shm = 1;                    /* remove shmem?                     */
+    remove_shm = 1,                    /* remove shmem?                     */
+    collect_coverage,                  /* collect coverage                  */
+    have_coverage,                     /* have coverage?                    */
+    no_classify,                       /* do not classify counts            */
+    debug;                             /* debug mode                        */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -95,11 +99,24 @@ static sharedmem_t *     shm_fuzz;
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
 
+#define TIMES4(x) x, x, x, x
+#define TIMES8(x) TIMES4(x), TIMES4(x)
+#define TIMES16(x) TIMES8(x), TIMES8(x)
+#define TIMES32(x) TIMES16(x), TIMES16(x)
+#define TIMES64(x) TIMES32(x), TIMES32(x)
+#define TIMES96(x) TIMES64(x), TIMES32(x)
+#define TIMES128(x) TIMES64(x), TIMES64(x)
 static const u8 count_class_human[256] = {
 
-    [0] = 0,          [1] = 1,        [2] = 2,         [3] = 3,
-    [4 ... 7] = 4,    [8 ... 15] = 5, [16 ... 31] = 6, [32 ... 127] = 7,
-    [128 ... 255] = 8
+    [0] = 0,
+    [1] = 1,
+    [2] = 2,
+    [3] = 3,
+    [4] = TIMES4(4),
+    [8] = TIMES8(5),
+    [16] = TIMES16(6),
+    [32] = TIMES96(7),
+    [128] = TIMES128(8)
 
 };
 
@@ -109,13 +126,21 @@ static const u8 count_class_binary[256] = {
     [1] = 1,
     [2] = 2,
     [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
-    [128 ... 255] = 128
+    [4] = TIMES4(8),
+    [8] = TIMES8(16),
+    [16] = TIMES16(32),
+    [32] = TIMES32(64),
+    [128] = TIMES64(128)
 
 };
+
+#undef TIMES128
+#undef TIMES96
+#undef TIMES64
+#undef TIMES32
+#undef TIMES16
+#undef TIMES8
+#undef TIMES4
 
 static void classify_counts(afl_forkserver_t *fsrv) {
 
@@ -175,6 +200,25 @@ static void at_exit_handler(void) {
 
 }
 
+/* Analyze results. */
+
+static void analyze_results(afl_forkserver_t *fsrv) {
+
+  u32 i;
+  for (i = 0; i < map_size; i++) {
+
+    if (fsrv->trace_bits[i]) {
+
+      total += fsrv->trace_bits[i];
+      if (fsrv->trace_bits[i] > highest) highest = fsrv->trace_bits[i];
+      if (!coverage_map[i]) { coverage_map[i] = 1; }
+
+    }
+
+  }
+
+}
+
 /* Write results. */
 
 static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
@@ -186,6 +230,13 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
   if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
+
+  if (cmin_mode &&
+      (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
+
+    return ret;
+
+  }
 
   if (!strncmp(outfile, "/dev/", 5)) {
 
@@ -233,9 +284,6 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
       if (cmin_mode) {
 
-        if (fsrv->last_run_timed_out) { break; }
-        if (!caa && child_crashed != cco) { break; }
-
         fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
 
       } else {
@@ -256,10 +304,12 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 /* Execute target application. */
 
-static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv,
-                                          u8 *mem, u32 len) {
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
+                                          u32 len) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
+
+  if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
   if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
       FSRV_RUN_ERROR) {
@@ -268,7 +318,50 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  classify_counts(fsrv);
+  if (fsrv->trace_bits[0] == 1) {
+
+    fsrv->trace_bits[0] = 0;
+    have_coverage = 1;
+
+  } else {
+
+    have_coverage = 0;
+
+  }
+
+  if (!no_classify) { classify_counts(fsrv); }
+
+  if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
+
+  if (!fsrv->last_run_timed_out && !stop_soon &&
+      WIFSIGNALED(fsrv->child_status)) {
+
+    child_crashed = 1;
+
+  } else {
+
+    child_crashed = 0;
+
+  }
+
+  if (!quiet_mode) {
+
+    if (fsrv->last_run_timed_out) {
+
+      SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
+
+    } else if (stop_soon) {
+
+      SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
+
+    } else if (child_crashed) {
+
+      SAYF(cLRD "\n+++ Program killed by signal %u +++\n" cRST,
+           WTERMSIG(fsrv->child_status));
+
+    }
+
+  }
 
   if (stop_soon) {
 
@@ -409,7 +502,18 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  classify_counts(fsrv);
+  if (fsrv->trace_bits[0] == 1) {
+
+    fsrv->trace_bits[0] = 0;
+    have_coverage = 1;
+
+  } else {
+
+    have_coverage = 0;
+
+  }
+
+  if (!no_classify) { classify_counts(fsrv); }
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
@@ -444,6 +548,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
 static void handle_stop_sig(int sig) {
 
+  (void)sig;
   stop_soon = 1;
   afl_fsrv_killall();
 
@@ -458,6 +563,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
          "detect_leaks=0:"
          "allocator_may_return_null=1:"
          "symbolize=0:"
+         "detect_odr_violation=0:"
          "handle_segv=0:"
          "handle_sigbus=0:"
          "handle_abort=0:"
@@ -493,38 +599,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     if (fsrv->qemu_mode) {
 
-      u8 *qemu_preload = getenv("QEMU_SET_ENV");
-      u8 *afl_preload = getenv("AFL_PRELOAD");
-      u8 *buf;
-
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
-
-        if (afl_preload[i] == ',') {
-
-          PFATAL(
-              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
-              "specified!");
-
-        }
-
-      }
-
-      if (qemu_preload) {
-
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           qemu_preload, afl_preload, afl_preload);
-
-      } else {
-
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           afl_preload, afl_preload);
-
-      }
-
-      setenv("QEMU_SET_ENV", buf, 1);
-
-      ck_free(buf);
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
     } else {
 
@@ -580,19 +655,25 @@ static void usage(u8 *argv0) {
 
       "Execution control settings:\n"
       "  -t msec       - timeout for each run (none)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
       "Other settings:\n"
-      "  -i dir        - process all files in this directory, -o must be a "
+      "  -i dir        - process all files in this directory, must be combined "
+      "with -o.\n"
+      "                  With -C, -o is a file, without -C it must be a "
       "directory\n"
       "                  and each bitmap will be written there individually.\n"
+      "  -C            - collect coverage, writes all edges to -o and gives a "
+      "summary\n"
+      "                  Must be combined with -i.\n"
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
       "  -r            - show real tuple values instead of AFL filter values\n"
+      "  -s            - do not classify the map\n"
       "  -c            - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
@@ -603,10 +684,15 @@ static void usage(u8 *argv0) {
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as "
+      "crash\n"
       "AFL_DEBUG: enable extra developer output\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
+      "startup (in milliseconds)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
+      "etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
-      "size\n"
-      "              the target was compiled for\n"
+      "size the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
@@ -623,12 +709,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  u32    tcnt = 0;
   char **use_argv;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t fsrv_var = {0};
+  if (getenv("AFL_DEBUG")) { debug = 1; }
   fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
@@ -638,9 +724,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrsh")) > 0) {
 
     switch (opt) {
+
+      case 's':
+        no_classify = 1;
+        break;
+
+      case 'C':
+        collect_coverage = 1;
+        quiet_mode = 1;
+        break;
 
       case 'i':
         if (in_dir) { FATAL("Multiple -i options not supported"); }
@@ -709,8 +804,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'f':  // only in here to avoid a compiler warning for use_stdin
 
-        fsrv->use_stdin = 0;
         FATAL("Option -f is not supported in afl-showmap");
+        // currently not reached:
+        fsrv->use_stdin = 0;
+        fsrv->out_file = strdup(optarg);
 
         break;
 
@@ -744,7 +841,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'q':
 
-        if (quiet_mode) { FATAL("Multiple -q options not supported"); }
         quiet_mode = 1;
         break;
 
@@ -819,6 +915,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
+  if (in_dir) {
+
+    if (!out_file && !collect_coverage)
+      FATAL("for -i you need to specify either -C and/or -o");
+
+  }
+
   if (fsrv->qemu_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
   if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -826,7 +929,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_DEBUG")) {
 
-    SAYF(cMGN "[D]" cRST);
+    DEBUGF("");
     for (i = 0; i < argc; i++)
       SAYF(" %s", argv[i]);
     SAYF("\n");
@@ -835,14 +938,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   //  if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
+  setenv("AFL_NO_AUTODICT", "1", 1);
+
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
   set_up_environment(fsrv);
 
   fsrv->target_path = find_binary(argv[optind]);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   if (!quiet_mode) {
 
@@ -853,7 +958,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    if (at_file) { PFATAL("Options -A and -i are mutually exclusive"); }
     detect_file_args(argv + optind, "", &fsrv->use_stdin);
 
   } else {
@@ -895,6 +999,7 @@ int main(int argc, char **argv_orig, char **envp) {
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  shm_fuzz->shmemfuzz_mode = 1;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
@@ -907,13 +1012,50 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
+  if (!fsrv->qemu_mode && !unicorn_mode) {
+
+    u32 save_be_quiet = be_quiet;
+    be_quiet = !debug;
+    fsrv->map_size = 4194304;  // dummy temporary value
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
+    be_quiet = save_be_quiet;
+
+    if (new_map_size) {
+
+      // only reinitialize when it makes sense
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+
+        if (!be_quiet)
+          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+
+      }
+
+      map_size = new_map_size;
+
+    }
+
+    fsrv->map_size = map_size;
+
+  }
+
   if (in_dir) {
 
-    DIR *          dir_in, *dir_out;
+    DIR *          dir_in, *dir_out = NULL;
     struct dirent *dir_ent;
-    int            done = 0;
-    u8             infile[PATH_MAX], outfile[PATH_MAX];
-    u8             wait_for_gdb = 0;
+    //    int            done = 0;
+    u8 infile[PATH_MAX], outfile[PATH_MAX];
+    u8 wait_for_gdb = 0;
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -923,19 +1065,42 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
     if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
+    // if a queue subdirectory exists switch to that
+    u8 *dn = alloc_printf("%s/queue", in_dir);
+    if ((dir_in = opendir(dn)) != NULL) {
+
+      closedir(dir_in);
+      in_dir = dn;
+
+    } else
+
+      ck_free(dn);
+    if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
+
     if (!(dir_in = opendir(in_dir))) {
 
       PFATAL("cannot open directory %s", in_dir);
 
     }
 
-    if (!(dir_out = opendir(out_file))) {
+    if (!collect_coverage) {
 
-      if (mkdir(out_file, 0700)) {
+      if (!(dir_out = opendir(out_file))) {
 
-        PFATAL("cannot create output directory %s", out_file);
+        if (mkdir(out_file, 0700)) {
+
+          PFATAL("cannot create output directory %s", out_file);
+
+        }
 
       }
+
+    } else {
+
+      if ((coverage_map = (u8 *)malloc(map_size)) == NULL)
+        FATAL("coult not grab memory");
+      edges_only = 0;
+      raw_instr_output = 1;
 
     }
 
@@ -948,10 +1113,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    stdin_file =
-        alloc_printf("%s/.afl-showmap-temp-%u", use_dir, (u32)getpid());
+    stdin_file = at_file ? strdup(at_file)
+                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
+                                                use_dir, (u32)getpid());
     unlink(stdin_file);
     atexit(at_exit_handler);
+    fsrv->out_file = stdin_file;
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
@@ -963,11 +1130,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (get_afl_env("AFL_DEBUG")) {
 
-      int i = optind;
-      SAYF(cMGN "[D]" cRST " %s:", fsrv->target_path);
-      while (argv[i] != NULL) {
+      int j = optind;
+      DEBUGF("%s:", fsrv->target_path);
+      while (argv[j] != NULL) {
 
-        SAYF(" \"%s\"", argv[i++]);
+        SAYF(" \"%s\"", argv[j++]);
 
       }
 
@@ -975,13 +1142,51 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+      s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+      if (forksrv_init_tmout < 1) {
+
+        FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+      }
+
+      fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+    }
+
+    fsrv->kill_signal =
+        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+
+    if (getenv("AFL_CRASH_EXITCODE")) {
+
+      long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+      if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+          exitcode < -127 || exitcode > 128) {
+
+        FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+              getenv("AFL_CRASH_EXITCODE"));
+
+      }
+
+      fsrv->uses_crash_exitcode = true;
+      // WEXITSTATUS is 8 bit unsigned
+      fsrv->crash_exitcode = (u8)exitcode;
+
+    }
+
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
+    map_size = fsrv->map_size;
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    while (done == 0 && (dir_ent = readdir(dir_in))) {
+    while ((dir_ent = readdir(dir_in))) {
 
       if (dir_ent->d_name[0] == '.') {
 
@@ -1004,7 +1209,8 @@ int main(int argc, char **argv_orig, char **envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
+      if (!collect_coverage)
+        snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
 
@@ -1016,9 +1222,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
+        showmap_run_target_forkserver(fsrv, in_data, in_len);
         ck_free(in_data);
-        tcnt = write_results_to_file(fsrv, outfile);
+        if (collect_coverage)
+          analyze_results(fsrv);
+        else
+          tcnt = write_results_to_file(fsrv, outfile);
 
       }
 
@@ -1029,6 +1238,13 @@ int main(int argc, char **argv_orig, char **envp) {
     closedir(dir_in);
     if (dir_out) { closedir(dir_out); }
 
+    if (collect_coverage) {
+
+      memcpy(fsrv->trace_bits, coverage_map, map_size);
+      tcnt = write_results_to_file(fsrv, out_file);
+
+    }
+
   } else {
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
@@ -1036,14 +1252,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
     showmap_run_target(fsrv, use_argv);
     tcnt = write_results_to_file(fsrv, out_file);
+    if (!quiet_mode) {
+
+      OKF("Hash of coverage map: %llx",
+          hash64(fsrv->trace_bits, fsrv->map_size, HASH_CONST));
+
+    }
 
   }
 
-  if (!quiet_mode) {
+  if (!quiet_mode || collect_coverage) {
 
-    if (!tcnt) { FATAL("No instrumentation detected" cRST); }
-    OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
+    if (!tcnt && !have_coverage) { FATAL("No instrumentation detected" cRST); }
+    OKF("Captured %u tuples (highest value %u, total values %llu) in "
+        "'%s'." cRST,
         tcnt, highest, total, out_file);
+    if (collect_coverage)
+      OKF("A coverage of %u edges were achieved out of %u existing (%.02f%%) "
+          "with %llu input files.",
+          tcnt, map_size, ((float)tcnt * 100) / (float)map_size,
+          fsrv->total_execs);
 
   }
 
@@ -1059,13 +1287,24 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_shm_deinit(&shm);
   if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-  u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
+  u32 ret;
+
+  if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
+
+    ret = fsrv->last_run_timed_out;
+
+  } else {
+
+    ret = child_crashed * 2 + fsrv->last_run_timed_out;
+
+  }
 
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
   afl_fsrv_deinit(fsrv);
 
   if (stdin_file) { ck_free(stdin_file); }
+  if (collect_coverage) { free(coverage_map); }
 
   argv_cpy_free(argv);
   if (fsrv->qemu_mode) { free(use_argv[2]); }

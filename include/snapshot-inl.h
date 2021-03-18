@@ -66,7 +66,7 @@ struct afl_snapshot_vmrange_args {
 
 static int afl_snapshot_dev_fd;
 
-static int afl_snapshot_init() {
+static int afl_snapshot_init(void) {
 
   afl_snapshot_dev_fd = open(AFL_SNAPSHOT_FILE_NAME, 0);
   return afl_snapshot_dev_fd;

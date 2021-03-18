@@ -66,9 +66,17 @@ static list_t shm_list = {.element_prealloc_count = 0};
 
 void afl_shm_deinit(sharedmem_t *shm) {
 
-  if (shm == NULL) return;
-
+  if (shm == NULL) { return; }
   list_remove(&shm_list, shm);
+  if (shm->shmemfuzz_mode) {
+
+    unsetenv(SHM_FUZZ_ENV_VAR);
+
+  } else {
+
+    unsetenv(SHM_ENV_VAR);
+
+  }
 
 #ifdef USEMMAP
   if (shm->map != NULL) {
@@ -93,6 +101,8 @@ void afl_shm_deinit(sharedmem_t *shm) {
   }
 
   if (shm->cmplog_mode) {
+
+    unsetenv(CMPLOG_SHM_ENV_VAR);
 
     if (shm->cmp_map != NULL) {
 
@@ -205,7 +215,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     /* map the shared memory segment to the address space of the process */
     shm->cmp_map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
                         shm->cmplog_g_shm_fd, 0);
-    if (shm->map == MAP_FAILED) {
+    if (shm->cmp_map == MAP_FAILED) {
 
       close(shm->cmplog_g_shm_fd);
       shm->cmplog_g_shm_fd = -1;
@@ -248,22 +258,26 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  shm_str = alloc_printf("%d", shm->shm_id);
+  if (!non_instrumented_mode) {
 
-  /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
-     mode, we don't want them to detect instrumentation, since we won't be
-     sending fork server commands. This should be replaced with better
-     auto-detection later on, perhaps? */
+    shm_str = alloc_printf("%d", shm->shm_id);
 
-  if (!non_instrumented_mode) { setenv(SHM_ENV_VAR, shm_str, 1); }
+    /* If somebody is asking us to fuzz instrumented binaries in
+       non-instrumented mode, we don't want them to detect instrumentation,
+       since we won't be sending fork server commands. This should be replaced
+       with better auto-detection later on, perhaps? */
 
-  ck_free(shm_str);
+    setenv(SHM_ENV_VAR, shm_str, 1);
 
-  if (shm->cmplog_mode) {
+    ck_free(shm_str);
+
+  }
+
+  if (shm->cmplog_mode && !non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->cmplog_shm_id);
 
-    if (!non_instrumented_mode) { setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1); }
+    setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1);
 
     ck_free(shm_str);
 
@@ -274,6 +288,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (shm->map == (void *)-1 || !shm->map) {
 
     shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+
     if (shm->cmplog_mode) {
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
@@ -291,11 +306,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     if (shm->cmp_map == (void *)-1 || !shm->cmp_map) {
 
       shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
-      if (shm->cmplog_mode) {
 
-        shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
-
-      }
+      shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
       PFATAL("shmat() failed");
 

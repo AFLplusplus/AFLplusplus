@@ -1,8 +1,8 @@
 """
     unicorn_loader.py
-    
-    Loads a process context dumped created using a 
-    Unicorn Context Dumper script into a Unicorn Engine 
+
+    Loads a process context dumped created using a
+    Unicorn Context Dumper script into a Unicorn Engine
     instance. Once this is performed emulation can be
     started.
 """
@@ -25,6 +25,13 @@ from unicorn.arm_const import *
 from unicorn.arm64_const import *
 from unicorn.x86_const import *
 from unicorn.mips_const import *
+
+# If Capstone libraries are availible (only check once)
+try:
+    from capstone import *
+    CAPSTONE_EXISTS = 1
+except:
+    CAPSTONE_EXISTS = 0
 
 # Name of the index file
 INDEX_FILE_NAME = "_index.json"
@@ -86,7 +93,7 @@ class UnicornSimpleHeap(object):
         total_chunk_size = UNICORN_PAGE_SIZE + ALIGN_PAGE_UP(size) + UNICORN_PAGE_SIZE
         # Gross but efficient way to find space for the chunk:
         chunk = None
-        for addr in xrange(self.HEAP_MIN_ADDR, self.HEAP_MAX_ADDR, UNICORN_PAGE_SIZE):
+        for addr in range(self.HEAP_MIN_ADDR, self.HEAP_MAX_ADDR, UNICORN_PAGE_SIZE):
             try:
                 self._uc.mem_map(addr, total_chunk_size, UC_PROT_READ | UC_PROT_WRITE)
                 chunk = self.HeapChunk(addr, total_chunk_size, size)
@@ -97,7 +104,7 @@ class UnicornSimpleHeap(object):
                 continue
         # Something went very wrong
         if chunk == None:
-            return 0    
+            return 0
         self._chunks.append(chunk)
         return chunk.data_addr
 
@@ -112,8 +119,8 @@ class UnicornSimpleHeap(object):
         old_chunk = None
         for chunk in self._chunks:
             if chunk.data_addr == ptr:
-                old_chunk = chunk 
-        new_chunk_addr = self.malloc(new_size) 
+                old_chunk = chunk
+        new_chunk_addr = self.malloc(new_size)
         if old_chunk != None:
             self._uc.mem_write(new_chunk_addr, str(self._uc.mem_read(old_chunk.data_addr, old_chunk.data_size)))
             self.free(old_chunk.data_addr)
@@ -184,39 +191,27 @@ class AflUnicornEngine(Uc):
         # Load the registers
         regs = context['regs']
         reg_map = self.__get_register_map(self._arch_str)
-        for register, value in regs.iteritems():
-            if debug_print:
-                print("Reg {0} = {1}".format(register, value))
-            if not reg_map.has_key(register.lower()):
-                if debug_print:
-                    print("Skipping Reg: {}".format(register))
-            else:
-                reg_write_retry = True
-                try:
-                    self.reg_write(reg_map[register.lower()], value)
-                    reg_write_retry = False
-                except Exception as e:
-                    if debug_print:
-                        print("ERROR writing register: {}, value: {} -- {}".format(register, value, repr(e)))
+        self.__load_registers(regs, reg_map, debug_print)
+        # If we have extra FLOATING POINT regs, load them in!
+        if 'regs_extended' in context:
+		if context['regs_extended']:
+		    regs_extended = context['regs_extended']
+		    reg_map = self.__get_registers_extended(self._arch_str)
+		    self.__load_registers(regs_extended, reg_map, debug_print)
 
-                if reg_write_retry:
-                    if debug_print:
-                        print("Trying to parse value ({}) as hex string".format(value))
-                    try:
-                        self.reg_write(reg_map[register.lower()], int(value, 16))
-                    except Exception as e:
-                        if debug_print:
-                            print("ERROR writing hex string register: {}, value: {} -- {}".format(register, value, repr(e)))
-                        
+        # For ARM, sometimes the stack pointer is erased ??? (I think I fixed this (issue with ordering of dumper.py, I'll keep the write anyways)
+        if self.__get_arch_and_mode(self.get_arch_str())[0] == UC_ARCH_ARM:
+            self.reg_write(UC_ARM_REG_SP, regs['sp'])
+
         # Setup the memory map and load memory content
         self.__map_segments(context['segments'], context_directory, debug_print)
-        
+
         if enable_trace:
             self.hook_add(UC_HOOK_BLOCK, self.__trace_block)
             self.hook_add(UC_HOOK_CODE, self.__trace_instruction)
             self.hook_add(UC_HOOK_MEM_WRITE | UC_HOOK_MEM_READ, self.__trace_mem_access)
             self.hook_add(UC_HOOK_MEM_WRITE_UNMAPPED | UC_HOOK_MEM_READ_INVALID, self.__trace_mem_invalid_access)
-            
+
         if debug_print:
             print("Done loading context.")
 
@@ -228,7 +223,7 @@ class AflUnicornEngine(Uc):
 
     def get_arch_str(self):
         return self._arch_str
-                    
+
     def force_crash(self, uc_error):
         """ This function should be called to indicate to AFL that a crash occurred during emulation.
             You can pass the exception received from Uc.emu_start
@@ -253,20 +248,75 @@ class AflUnicornEngine(Uc):
         for reg in sorted(self.__get_register_map(self._arch_str).items(), key=lambda reg: reg[0]):
             print(">>> {0:>4}: 0x{1:016x}".format(reg[0], self.reg_read(reg[1])))
 
+    def dump_regs_extended(self):
+        """ Dumps the contents of all the registers to STDOUT """
+        try:
+            for reg in sorted(self.__get_registers_extended(self._arch_str).items(), key=lambda reg: reg[0]):
+                print(">>> {0:>4}: 0x{1:016x}".format(reg[0], self.reg_read(reg[1])))
+        except Exception as e:
+            print("ERROR: Are extended registers loaded?")
+
     # TODO: Make this dynamically get the stack pointer register and pointer width for the current architecture
     """
     def dump_stack(self, window=10):
+        arch = self.get_arch()
+        mode = self.get_mode()
+        # Get stack pointers and bit sizes for given architecture
+        if arch == UC_ARCH_X86 and mode == UC_MODE_64:
+            stack_ptr_addr = self.reg_read(UC_X86_REG_RSP)
+            bit_size = 8
+        elif arch == UC_ARCH_X86 and mode == UC_MODE_32:
+            stack_ptr_addr = self.reg_read(UC_X86_REG_ESP)
+            bit_size = 4
+        elif arch == UC_ARCH_ARM64:
+            stack_ptr_addr = self.reg_read(UC_ARM64_REG_SP)
+            bit_size = 8
+        elif arch == UC_ARCH_ARM:
+            stack_ptr_addr = self.reg_read(UC_ARM_REG_SP)
+            bit_size = 4
+        elif arch == UC_ARCH_ARM and mode == UC_MODE_THUMB:
+            stack_ptr_addr = self.reg_read(UC_ARM_REG_SP)
+            bit_size = 4
+        elif arch == UC_ARCH_MIPS:
+            stack_ptr_addr = self.reg_read(UC_MIPS_REG_SP)
+            bit_size = 4
+        print("")
         print(">>> Stack:")
         stack_ptr_addr = self.reg_read(UC_X86_REG_RSP)
         for i in xrange(-window, window + 1):
             addr = stack_ptr_addr + (i*8)
             print("{0}0x{1:016x}: 0x{2:016x}".format( \
-                'SP->' if i == 0 else '    ', addr, \
+               'SP->' if i == 0 else '    ', addr, \
                 struct.unpack('<Q', self.mem_read(addr, 8))[0]))
     """
 
     #-----------------------------
     #---- Loader Helper Functions
+
+    def __load_registers(self, regs, reg_map, debug_print):
+        for register, value in regs.items():
+            if debug_print:
+                print("Reg {0} = {1}".format(register, value))
+            if register.lower() not in reg_map:
+                if debug_print:
+                    print("Skipping Reg: {}".format(register))
+            else:
+                reg_write_retry = True
+                try:
+                    self.reg_write(reg_map[register.lower()], value)
+                    reg_write_retry = False
+                except Exception as e:
+                    if debug_print:
+                        print("ERROR writing register: {}, value: {} -- {}".format(register, value, repr(e)))
+
+                if reg_write_retry:
+                    if debug_print:
+                        print("Trying to parse value ({}) as hex string".format(value))
+                    try:
+                        self.reg_write(reg_map[register.lower()], int(value, 16))
+                    except Exception as e:
+                        if debug_print:
+                            print("ERROR writing hex string register: {}, value: {} -- {}".format(register, value, repr(e)))
 
     def __map_segment(self, name, address, size, perms, debug_print=False):
         # - size is unsigned and must be != 0
@@ -289,7 +339,7 @@ class AflUnicornEngine(Uc):
 
     def __map_segments(self, segment_list, context_directory, debug_print=False):
         for segment in segment_list:
-            
+
             # Get the segment information from the index
             name = segment['name']
             seg_start = segment['start']
@@ -297,7 +347,7 @@ class AflUnicornEngine(Uc):
             perms = \
                 (UC_PROT_READ  if segment['permissions']['r'] == True else 0) | \
                 (UC_PROT_WRITE if segment['permissions']['w'] == True else 0) | \
-                (UC_PROT_EXEC  if segment['permissions']['x'] == True else 0)        
+                (UC_PROT_EXEC  if segment['permissions']['x'] == True else 0)
 
             if debug_print:
                 print("Handling segment {}".format(name))
@@ -349,12 +399,12 @@ class AflUnicornEngine(Uc):
                 content_file = open(content_file_path, 'rb')
                 compressed_content = content_file.read()
                 content_file.close()
-                self.mem_write(seg_start, zlib.decompress(compressed_content)) 
+                self.mem_write(seg_start, zlib.decompress(compressed_content))
 
             else:
                 if debug_print:
                     print("No content found for segment {0} @ {1:016x}".format(name, seg_start))
-                self.mem_write(seg_start, '\x00' * (seg_end - seg_start))
+                self.mem_write(seg_start, b'\x00' * (seg_end - seg_start))
 
     def __get_arch_and_mode(self, arch_str):
         arch_map = {
@@ -398,7 +448,6 @@ class AflUnicornEngine(Uc):
                 "r14":    UC_X86_REG_R14,
                 "r15":    UC_X86_REG_R15,
                 "rip":    UC_X86_REG_RIP,
-                "rsp":    UC_X86_REG_RSP,
                 "efl":    UC_X86_REG_EFLAGS,
                 "cs":     UC_X86_REG_CS,
                 "ds":     UC_X86_REG_DS,
@@ -415,13 +464,12 @@ class AflUnicornEngine(Uc):
                 "esi":    UC_X86_REG_ESI,
                 "edi":    UC_X86_REG_EDI,
                 "ebp":    UC_X86_REG_EBP,
-                "esp":    UC_X86_REG_ESP,
                 "eip":    UC_X86_REG_EIP,
                 "esp":    UC_X86_REG_ESP,
-                "efl":    UC_X86_REG_EFLAGS,        
+                "efl":    UC_X86_REG_EFLAGS,
                 # Segment registers removed...
                 # They caused segfaults (from unicorn?) when they were here
-            },        
+            },
             "arm" : {
                 "r0":     UC_ARM_REG_R0,
                 "r1":     UC_ARM_REG_R1,
@@ -476,7 +524,7 @@ class AflUnicornEngine(Uc):
                 "fp":     UC_ARM64_REG_FP,
                 "lr":     UC_ARM64_REG_LR,
                 "nzcv":   UC_ARM64_REG_NZCV,
-                "cpsr": UC_ARM_REG_CPSR, 
+                "cpsr": UC_ARM_REG_CPSR,
             },
             "mips" : {
                 "0" :     UC_MIPS_REG_ZERO,
@@ -499,13 +547,13 @@ class AflUnicornEngine(Uc):
                 "t9":     UC_MIPS_REG_T9,
                 "s0":     UC_MIPS_REG_S0,
                 "s1":     UC_MIPS_REG_S1,
-                "s2":     UC_MIPS_REG_S2,    
+                "s2":     UC_MIPS_REG_S2,
                 "s3":     UC_MIPS_REG_S3,
                 "s4":     UC_MIPS_REG_S4,
                 "s5":     UC_MIPS_REG_S5,
-                "s6":     UC_MIPS_REG_S6,              
+                "s6":     UC_MIPS_REG_S6,
                 "s7":     UC_MIPS_REG_S7,
-                "s8":     UC_MIPS_REG_S8,  
+                "s8":     UC_MIPS_REG_S8,
                 "k0":     UC_MIPS_REG_K0,
                 "k1":     UC_MIPS_REG_K1,
                 "gp":     UC_MIPS_REG_GP,
@@ -517,44 +565,127 @@ class AflUnicornEngine(Uc):
                 "lo":     UC_MIPS_REG_LO
             }
         }
-        return registers[arch]   
+        return registers[arch]
 
+    def __get_registers_extended(self, arch):
+        # Similar to __get_register_map, but for ARM floating point registers
+        if arch == "arm64le" or arch == "arm64be":
+            arch = "arm64"
+        elif arch == "armle" or arch == "armbe" or "thumb" in arch:
+            arch = "arm"
+        elif arch == "mipsel":
+            arch = "mips"
+
+        registers = {
+        "arm": {
+            "d0": UC_ARM_REG_D0,
+            "d1": UC_ARM_REG_D1,
+            "d2": UC_ARM_REG_D2,
+            "d3": UC_ARM_REG_D3,
+            "d4": UC_ARM_REG_D4,
+            "d5": UC_ARM_REG_D5,
+            "d6": UC_ARM_REG_D6,
+            "d7": UC_ARM_REG_D7,
+            "d8": UC_ARM_REG_D8,
+            "d9": UC_ARM_REG_D9,
+            "d10": UC_ARM_REG_D10,
+            "d11": UC_ARM_REG_D11,
+            "d12": UC_ARM_REG_D12,
+            "d13": UC_ARM_REG_D13,
+            "d14": UC_ARM_REG_D14,
+            "d15": UC_ARM_REG_D15,
+            "d16": UC_ARM_REG_D16,
+            "d17": UC_ARM_REG_D17,
+            "d18": UC_ARM_REG_D18,
+            "d19": UC_ARM_REG_D19,
+            "d20": UC_ARM_REG_D20,
+            "d21": UC_ARM_REG_D21,
+            "d22": UC_ARM_REG_D22,
+            "d23": UC_ARM_REG_D23,
+            "d24": UC_ARM_REG_D24,
+            "d25": UC_ARM_REG_D25,
+            "d26": UC_ARM_REG_D26,
+            "d27": UC_ARM_REG_D27,
+            "d28": UC_ARM_REG_D28,
+            "d29": UC_ARM_REG_D29,
+            "d30": UC_ARM_REG_D30,
+            "d31": UC_ARM_REG_D31,
+            "fpscr": UC_ARM_REG_FPSCR
+            }
+        }
+
+        return registers[arch];
     #---------------------------
-    # Callbacks for tracing 
+    # Callbacks for tracing
 
-    # TODO: Make integer-printing fixed widths dependent on bitness of architecture 
-    #       (i.e. only show 4 bytes for 32-bit, 8 bytes for 64-bit)
 
-    # TODO: Figure out how best to determine the capstone mode and architecture here
-    """
-    try:
-        # If Capstone is installed then we'll dump disassembly, otherwise just dump the binary.
-        from capstone import *
-        cs = Cs(CS_ARCH_MIPS, CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN)
-        def __trace_instruction(self, uc, address, size, user_data):
-            mem = uc.mem_read(address, size)
-            for (cs_address, cs_size, cs_mnemonic, cs_opstr) in cs.disasm_lite(bytes(mem), size):
-                print("    Instr: {:#016x}:\t{}\t{}".format(address, cs_mnemonic, cs_opstr))
-    except ImportError:
-        def __trace_instruction(self, uc, address, size, user_data):
-            print("    Instr: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))    
-    """
+    # TODO: Extra mode for Capstone (i.e. Cs(cs_arch, cs_mode + cs_extra) not implemented
+
 
     def __trace_instruction(self, uc, address, size, user_data):
-        print("    Instr: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))  
-        
+        if CAPSTONE_EXISTS == 1:
+            # If Capstone is installed then we'll dump disassembly, otherwise just dump the binary.
+            arch = self.get_arch()
+            mode = self.get_mode()
+            bit_size = self.bit_size_arch()
+            # Map current arch to capstone labeling
+            if arch == UC_ARCH_X86 and mode == UC_MODE_64:
+                cs_arch = CS_ARCH_X86
+                cs_mode = CS_MODE_64
+            elif arch == UC_ARCH_X86 and mode == UC_MODE_32:
+                cs_arch = CS_ARCH_X86
+                cs_mode = CS_MODE_32
+            elif arch == UC_ARCH_ARM64:
+                cs_arch = CS_ARCH_ARM64
+                cs_mode = CS_MODE_ARM
+            elif arch == UC_ARCH_ARM and mode == UC_MODE_THUMB:
+                cs_arch = CS_ARCH_ARM
+                cs_mode = CS_MODE_THUMB
+            elif arch == UC_ARCH_ARM:
+                cs_arch = CS_ARCH_ARM
+                cs_mode = CS_MODE_ARM
+            elif arch == UC_ARCH_MIPS:
+                cs_arch = CS_ARCH_MIPS
+                cs_mode = CS_MODE_MIPS32  # No other MIPS supported in program
+
+            cs = Cs(cs_arch, cs_mode)
+            mem = uc.mem_read(address, size)
+            if bit_size == 4:
+                for (cs_address, cs_size, cs_mnemonic, cs_opstr) in cs.disasm_lite(bytes(mem), size):
+                    print("    Instr: {:#08x}:\t{}\t{}".format(address, cs_mnemonic, cs_opstr))
+            else:
+                for (cs_address, cs_size, cs_mnemonic, cs_opstr) in cs.disasm_lite(bytes(mem), size):
+                    print("    Instr: {:#16x}:\t{}\t{}".format(address, cs_mnemonic, cs_opstr))
+        else:
+            print("    Instr: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))
+
     def __trace_block(self, uc, address, size, user_data):
         print("Basic Block: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))
-      
+
     def __trace_mem_access(self, uc, access, address, size, value, user_data):
         if access == UC_MEM_WRITE:
             print("        >>> Write: addr=0x{0:016x} size={1} data=0x{2:016x}".format(address, size, value))
         else:
-            print("        >>> Read: addr=0x{0:016x} size={1}".format(address, size))    
+            print("        >>> Read: addr=0x{0:016x} size={1}".format(address, size))
 
     def __trace_mem_invalid_access(self, uc, access, address, size, value, user_data):
         if access == UC_MEM_WRITE_UNMAPPED:
             print("        >>> INVALID Write: addr=0x{0:016x} size={1} data=0x{2:016x}".format(address, size, value))
         else:
-            print("        >>> INVALID Read: addr=0x{0:016x} size={1}".format(address, size))   
+            print("        >>> INVALID Read: addr=0x{0:016x} size={1}".format(address, size))
 
+    def bit_size_arch(self):
+        arch = self.get_arch()
+        mode = self.get_mode()
+        # Get bit sizes for given architecture
+        if arch == UC_ARCH_X86 and mode == UC_MODE_64:
+            bit_size = 8
+        elif arch == UC_ARCH_X86 and mode == UC_MODE_32:
+            bit_size = 4
+        elif arch == UC_ARCH_ARM64:
+            bit_size = 8
+        elif arch == UC_ARCH_ARM:
+            bit_size = 4
+        elif arch == UC_ARCH_MIPS:
+            bit_size = 4
+        return bit_size

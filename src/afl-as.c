@@ -27,7 +27,7 @@
    utility has right now is to be able to skip them gracefully and allow the
    compilation process to continue.
 
-   That said, see examples/clang_asm_normalize/ for a solution that may
+   That said, see utils/clang_asm_normalize/ for a solution that may
    allow clang users to make things work even with hand-crafted assembly. Just
    note that there is no equivalent for GCC.
 
@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
 #include <ctype.h>
 #include <fcntl.h>
 
@@ -131,12 +132,17 @@ static void edit_params(int argc, char **argv) {
   if (!tmp_dir) { tmp_dir = "/tmp"; }
 
   as_params = ck_alloc((argc + 32) * sizeof(u8 *));
+  if (unlikely((INT_MAX - 32) < argc || !as_params)) {
+
+    FATAL("Too many parameters passed to as");
+
+  }
 
   as_params[0] = afl_as ? afl_as : (u8 *)"as";
 
   as_params[argc] = 0;
 
-  for (i = 1; i < argc - 1; i++) {
+  for (i = 1; (s32)i < argc - 1; i++) {
 
     if (!strcmp(argv[i], "--64")) {
 
@@ -152,7 +158,7 @@ static void edit_params(int argc, char **argv) {
 
     /* The Apple case is a bit different... */
 
-    if (!strcmp(argv[i], "-arch") && i + 1 < argc) {
+    if (!strcmp(argv[i], "-arch") && i + 1 < (u32)argc) {
 
       if (!strcmp(argv[i + 1], "x86_64"))
         use_64bit = 1;
@@ -407,7 +413,7 @@ static void add_instrumentation(void) {
 
     if (line[0] == '\t') {
 
-      if (line[1] == 'j' && line[2] != 'm' && R(100) < inst_ratio) {
+      if (line[1] == 'j' && line[2] != 'm' && R(100) < (long)inst_ratio) {
 
         fprintf(outf, use_64bit ? trampoline_fmt_64 : trampoline_fmt_32,
                 R(MAP_SIZE));
@@ -449,7 +455,7 @@ static void add_instrumentation(void) {
         /* Apple: L<num> / LBB<num> */
 
         if ((isdigit(line[1]) || (clang_mode && !strncmp(line, "LBB", 3))) &&
-            R(100) < inst_ratio) {
+            R(100) < (long)inst_ratio) {
 
 #else
 
@@ -457,7 +463,7 @@ static void add_instrumentation(void) {
 
         if ((isdigit(line[2]) ||
              (clang_mode && !strncmp(line + 1, "LBB", 3))) &&
-            R(100) < inst_ratio) {
+            R(100) < (long)inst_ratio) {
 
 #endif                                                         /* __APPLE__ */
 
@@ -591,7 +597,7 @@ int main(int argc, char **argv) {
 
   rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
   // in fast systems where pids can repeat in the same seconds we need this
-  for (i = 1; i < argc; i++)
+  for (i = 1; (s32)i < argc; i++)
     for (j = 0; j < strlen(argv[i]); j++)
       rand_seed += argv[i][j];
 
