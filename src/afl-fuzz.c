@@ -1540,7 +1540,7 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    // only reinitialize if the map nees to be larger than what we have.
+    // only reinitialize if the map needs to be larger than what we have.
     if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
