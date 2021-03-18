@@ -50,6 +50,13 @@ static char *afl_environment_variables[] = {
     "AFL_EXIT_WHEN_DONE",
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
+    "AFL_FRIDA_DEBUG_MAPS",
+    "AFL_FRIDA_EXCLUDE_RANGES",
+    "AFL_FRIDA_INST_NO_OPTIMIZE",
+    "AFL_FRIDA_INST_NO_PREFETCH",
+    "AFL_FRIDA_INST_RANGES",
+    "AFL_FRIDA_INST_STRICT",
+    "AFL_FRIDA_INST_TRACE",
     "AFL_FUZZER_ARGS",  // oss-fuzz
     "AFL_GDB",
     "AFL_GCC_ALLOWLIST",

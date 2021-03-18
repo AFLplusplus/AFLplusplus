@@ -640,9 +640,11 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(afl_forkserver_t *fsrv) {
+static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
-  u8 *x;
+  u8 *  x;
+  char *afl_preload;
+  char *frida_afl_preload = NULL;
 
   fsrv->dev_null_fd = open("/dev/null", O_RDWR);
   if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
@@ -755,6 +757,26 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
       /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
+    } else if (fsrv->frida_mode) {
+
+      afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      if (afl_preload) {
+
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+      } else {
+
+        frida_afl_preload = alloc_printf("%s", frida_binary);
+
+      }
+
+      ck_free(frida_binary);
+      OKF("Frida Mode setting LD_PRELOAD %s", frida_afl_preload);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+
     } else {
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
@@ -762,7 +784,17 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
+  } else if (fsrv->frida_mode) {
+
+    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    setenv("LD_PRELOAD", frida_binary, 1);
+    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+    OKF("Frida Mode setting LD_PRELOAD %s", frida_binary);
+    ck_free(frida_binary);
+
   }
+
+  if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
 }
 
@@ -804,6 +836,7 @@ static void usage(u8 *argv0) {
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%u ms)\n"
       "  -m megs       - memory limit for child process (%u MB)\n"
+      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -859,7 +892,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeQUWHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeOQUWHh")) > 0) {
 
     switch (opt) {
 
@@ -971,6 +1004,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'O':                                               /* FRIDA mode */
+
+        if (fsrv->frida_mode) { FATAL("Multiple -O options not supported"); }
+
+        fsrv->frida_mode = 1;
+
+        break;
+
       case 'Q':
 
         if (fsrv->qemu_mode) { FATAL("Multiple -Q options not supported"); }
@@ -1054,7 +1095,7 @@ int main(int argc, char **argv_orig, char **envp) {
   atexit(at_exit_handler);
   setup_signal_handlers();
 
-  set_up_environment(fsrv);
+  set_up_environment(fsrv, argv);
 
   fsrv->target_path = find_binary(argv[optind]);
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
