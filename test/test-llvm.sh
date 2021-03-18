@@ -49,7 +49,11 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     ../afl-clang-fast -o test-dlopen.plain test-dlopen.c -ldl > /dev/null 2>&1
     test -e test-dlopen.plain && {
       $ECHO "$GREEN[+] llvm_mode test-dlopen compilation succeeded"
-          
+      echo 0 | TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ./test-dlopen.plain > /dev/null 2>&1
+      if [ $? -ne 0 ]; then
+        $ECHO "$RED[!] llvm_mode test-dlopen exits with an error"
+        CODE=1
+      fi
       echo 0 | TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-dlopen.plain.0 -r -- ./test-dlopen.plain > /dev/null 2>&1
       TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-dlopen.plain.1 -r -- ./test-dlopen.plain < /dev/null > /dev/null 2>&1
       test -e test-dlopen.plain.0 -a -e test-dlopen.plain.1 && {
