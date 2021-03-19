@@ -1676,6 +1676,11 @@ void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
 
 }
 
+void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
+
+  __cmplog_ins_hook16(arg1, arg2, 0);
+
+}
 #endif
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
