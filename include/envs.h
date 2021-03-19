@@ -42,6 +42,7 @@ static char *afl_environment_variables[] = {
     "AFL_DEBUG_CHILD",
     "AFL_DEBUG_GDB",
     "AFL_DISABLE_TRIM",
+    "AFL_DISABLE_LLVM_INSTRUMENTATION",
     "AFL_DONT_OPTIMIZE",
     "AFL_DRIVER_STDERR_DUPLICATE_FILENAME",
     "AFL_DUMB_FORKSRV",
