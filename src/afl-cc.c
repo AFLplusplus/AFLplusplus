@@ -1040,7 +1040,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (shared_linking)
+    if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
