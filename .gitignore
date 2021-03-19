@@ -65,7 +65,6 @@ qemu_mode/qemu-*
 qemu_mode/qemuafl
 unicorn_mode/samples/*/\.test-*
 unicorn_mode/samples/*/output/
-unicorn_mode/unicornafl
 test/unittests/unit_maybe_alloc
 test/unittests/unit_preallocable
 test/unittests/unit_list

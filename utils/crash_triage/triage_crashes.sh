@@ -65,7 +65,7 @@ if [ ! -f "$BIN" -o ! -x "$BIN" ]; then
 fi
 
 if [ ! -d "$DIR/queue" ]; then
-  echo "[-] Error: directory '$DIR/queue' not found or not created by afl-fuzz." 1>&2
+  echo "[-] Error: directory '$DIR' not found or not created by afl-fuzz." 1>&2
   exit 1
 fi
 

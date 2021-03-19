@@ -12,12 +12,16 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - added AFL_TARGET_ENV variable to pass extra env vars to the target
       (for things like LD_LIBRARY_PATH)
+    - better map detection, AFL_MAP_SIZE not needed anymore for most cases
   - afl-cc:
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
     - link runtime not to shared libs
+    - ensure shared libraries are properly built and instrumented
   - qemu_mode (thanks @realmadsci):
     - move AFL_PRELOAD and AFL_USE_QASAN logic inside afl-qemu-trace
     - add AFL_QEMU_CUSTOM_BIN
+  - unicorn_mode
+    - accidently removed the subfolder from github, re-added
 
 ### Version ++3.11c (release)
   - afl-fuzz:
