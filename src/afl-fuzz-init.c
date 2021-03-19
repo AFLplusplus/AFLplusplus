@@ -2012,17 +2012,34 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Gnuplot output file. */
 
   tmp = alloc_printf("%s/plot_data", afl->out_dir);
-  int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
-  if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
-  ck_free(tmp);
 
-  afl->fsrv.plot_file = fdopen(fd, "w");
-  if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
+  if(!afl->in_place_resume) {
 
-  fprintf(afl->fsrv.plot_file,
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    ck_free(tmp);
+
+    afl->fsrv.plot_file = fdopen(fd, "w");
+    if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
+
+    fprintf(afl->fsrv.plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
+
+  } else {
+
+    int fd = open(tmp, O_WRONLY | O_CREAT, 0600);
+    if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    ck_free(tmp);
+
+    afl->fsrv.plot_file = fdopen(fd, "w");
+    if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
+
+    fseek(afl->fsrv.plot_file, 0, SEEK_END);
+
+  } 
+
   fflush(afl->fsrv.plot_file);
 
   /* ignore errors */
