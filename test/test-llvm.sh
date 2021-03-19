@@ -63,7 +63,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
         } || {
           $ECHO "$GREEN[+] llvm_mode test-dlopen instrumentation present and working correctly"
           TUPLES=`echo 0|TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-dlopen.plain 2>&1 | grep Captur | awk '{print$3}'`
-          test "$TUPLES" -gt 2 -a "$TUPLES" -lt 8 && {
+          test "$TUPLES" -gt 3 -a "$TUPLES" -lt 9 && {
             $ECHO "$GREEN[+] llvm_mode test-dlopen run reported $TUPLES instrumented locations which is fine"
           } || {
             $ECHO "$RED[!] llvm_mode test-dlopen instrumentation produces weird numbers: $TUPLES"
