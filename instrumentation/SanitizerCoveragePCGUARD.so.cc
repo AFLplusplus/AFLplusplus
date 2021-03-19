@@ -769,10 +769,18 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
       Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
+#if LLVM_VERSION_MAJOR > 12
+  if (TargetTriple.supportsCOMDAT() &&
+      (TargetTriple.isOSBinFormatELF() || !F.isInterposable()))
+    if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
+      Array->setComdat(Comdat);
+#else
   if (TargetTriple.supportsCOMDAT() && !F.isInterposable())
     if (auto Comdat =
             GetOrCreateFunctionComdat(F, TargetTriple, CurModuleUniqueId))
       Array->setComdat(Comdat);
+#endif
+
   Array->setSection(getSectionName(Section));
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));

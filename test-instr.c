@@ -19,7 +19,7 @@
 #include <fcntl.h>
 
 #ifdef TEST_SHARED_OBJECT
-#define main main_exported
+  #define main main_exported
 #endif
 
 int main(int argc, char **argv) {
