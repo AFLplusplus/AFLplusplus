@@ -168,7 +168,7 @@ static void *__dislocator_alloc(size_t len) {
 
   u8 *   ret, *base;
   size_t tlen;
-  int    flags, fd, sp;
+  int    flags, protflags, fd, sp;
 
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
 
@@ -191,8 +191,14 @@ static void *__dislocator_alloc(size_t len) {
 
   base = NULL;
   tlen = (1 + PG_COUNT(rlen + 8)) * PAGE_SIZE;
+  protflags = PROT_READ | PROT_WRITE;
   flags = MAP_PRIVATE | MAP_ANONYMOUS;
   fd = -1;
+#if defined(PROT_MAX)
+  // apply when sysctl vm.imply_prot_max is set to 1
+  // no-op otherwise
+  protflags |= PROT_MAX(PROT_READ | PROT_WRITE);
+#endif
 #if defined(USEHUGEPAGE)
   sp = (rlen >= SUPER_PAGE_SIZE && !(rlen % SUPER_PAGE_SIZE));
 
@@ -215,7 +221,7 @@ static void *__dislocator_alloc(size_t len) {
   (void)sp;
 #endif
 
-  ret = (u8 *)mmap(base, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+  ret = (u8 *)mmap(base, tlen, protflags, flags, fd, 0);
 #if defined(USEHUGEPAGE)
   /* We try one more time with regular call */
   if (ret == MAP_FAILED) {
@@ -229,7 +235,7 @@ static void *__dislocator_alloc(size_t len) {
   #elif defined(__sun)
     flags &= -MAP_ALIGN;
   #endif
-    ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+    ret = (u8 *)mmap(NULL, tlen, protflags, flags, fd, 0);
 
   }
 
