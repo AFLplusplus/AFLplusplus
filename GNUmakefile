@@ -576,7 +576,11 @@ endif
 deepclean:	clean
 	rm -rf unicorn_mode/unicornafl
 	rm -rf qemu_mode/qemuafl
+ifeq "$(IN_REPO)" "1"
 # NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
+	git checkout unicorn_mode/unicornafl
+	git checkout qemu_mode/qemuafl
+endif
 
 .PHONY: distrib
 distrib: all

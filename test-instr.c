@@ -18,6 +18,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef TEST_SHARED_OBJECT
+  #define main main_exported
+#endif
+
 int main(int argc, char **argv) {
 
   int   fd = 0;
