@@ -682,17 +682,42 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
+  u8 skip_next = 0;
   while (--argc) {
 
     u8 *cur = *(++argv);
+
+    if (skip_next) {
+
+      skip_next = 0;
+      continue;
+
+    }
 
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
     if (!strncmp(cur, "-fno-unroll", 11)) continue;
     if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined") ||
+        !strcmp(cur, "--no-undefined")) {
+
       continue;
+
+    }
+
+    if (!strcmp(cur, "-z")) {
+
+      u8 *param = *(argv + 1);
+      if (!strcmp(param, "defs")) {
+
+        skip_next = 1;
+        continue;
+
+      }
+
+    }
+
     if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
         !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
 
@@ -959,64 +984,72 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (compiler_mode != GCC && compiler_mode != CLANG) {
 
-    if (!shared_linking) {
+    switch (bit_mode) {
 
-      switch (bit_mode) {
-
-        case 0:
+      case 0:
+        if (!shared_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
-          if (lto_mode)
-            cc_params[cc_par_cnt++] =
-                alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
-          break;
+        if (lto_mode)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
+        break;
 
-        case 32:
+      case 32:
+        if (!shared_linking) {
+
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
           if (access(cc_params[cc_par_cnt - 1], R_OK))
             FATAL("-m32 is not supported by your compiler");
-          if (lto_mode) {
 
-            cc_params[cc_par_cnt++] =
-                alloc_printf("%s/afl-llvm-rt-lto-32.o", obj_path);
-            if (access(cc_params[cc_par_cnt - 1], R_OK))
-              FATAL("-m32 is not supported by your compiler");
+        }
 
-          }
+        if (lto_mode) {
 
-          break;
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-lto-32.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m32 is not supported by your compiler");
 
-        case 64:
+        }
+
+        break;
+
+      case 64:
+        if (!shared_linking) {
+
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
           if (access(cc_params[cc_par_cnt - 1], R_OK))
             FATAL("-m64 is not supported by your compiler");
-          if (lto_mode) {
 
-            cc_params[cc_par_cnt++] =
-                alloc_printf("%s/afl-llvm-rt-lto-64.o", obj_path);
-            if (access(cc_params[cc_par_cnt - 1], R_OK))
-              FATAL("-m64 is not supported by your compiler");
+        }
 
-          }
+        if (lto_mode) {
 
-          break;
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-lto-64.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m64 is not supported by your compiler");
 
-      }
+        }
+
+        break;
+
+    }
 
   #if !defined(__APPLE__) && !defined(__sun)
+    if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-    }
+  }
 
   #if defined(USEMMAP) && !defined(__HAIKU__)
-    cc_params[cc_par_cnt++] = "-lrt";
+  cc_params[cc_par_cnt++] = "-lrt";
   #endif
-
-  }
 
 #endif
 

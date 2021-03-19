@@ -43,6 +43,48 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] llvm_mode failed"
     CODE=1
   }
+  ../afl-clang-fast -DTEST_SHARED_OBJECT=1 -z defs -fPIC -shared -o test-instr.so ../test-instr.c > /dev/null 2>&1
+  test -e test-instr.so && {
+    $ECHO "$GREEN[+] llvm_mode shared object with -z defs compilation succeeded"
+    ../afl-clang-fast -o test-dlopen.plain test-dlopen.c -ldl > /dev/null 2>&1
+    test -e test-dlopen.plain && {
+      $ECHO "$GREEN[+] llvm_mode test-dlopen compilation succeeded"
+      echo 0 | TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ./test-dlopen.plain > /dev/null 2>&1
+      if [ $? -ne 0 ]; then
+        $ECHO "$RED[!] llvm_mode test-dlopen exits with an error"
+        CODE=1
+      fi
+      echo 0 | TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-dlopen.plain.0 -r -- ./test-dlopen.plain > /dev/null 2>&1
+      TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-dlopen.plain.1 -r -- ./test-dlopen.plain < /dev/null > /dev/null 2>&1
+      test -e test-dlopen.plain.0 -a -e test-dlopen.plain.1 && {
+        diff test-dlopen.plain.0 test-dlopen.plain.1 > /dev/null 2>&1 && {
+          $ECHO "$RED[!] llvm_mode test-dlopen instrumentation should be different on different input but is not"
+          CODE=1
+        } || {
+          $ECHO "$GREEN[+] llvm_mode test-dlopen instrumentation present and working correctly"
+          TUPLES=`echo 0|TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-dlopen.plain 2>&1 | grep Captur | awk '{print$3}'`
+          test "$TUPLES" -gt 3 -a "$TUPLES" -lt 12 && {
+            $ECHO "$GREEN[+] llvm_mode test-dlopen run reported $TUPLES instrumented locations which is fine"
+          } || {
+            $ECHO "$RED[!] llvm_mode test-dlopen instrumentation produces weird numbers: $TUPLES"
+            CODE=1
+          }
+          test "$TUPLES" -lt 3 && SKIP=1
+          true
+        }
+      } || {
+        $ECHO "$RED[!] llvm_mode test-dlopen instrumentation failed"
+        CODE=1
+      }
+    } || {
+      $ECHO "$RED[!] llvm_mode test-dlopen compilation failed"
+      CODE=1
+    }
+    rm -f test-dlopen.plain test-dlopen.plain.0 test-dlopen.plain.1 test-instr.so
+  } || {
+    $ECHO "$RED[!] llvm_mode shared object with -z defs compilation failed"
+    CODE=1
+  }
   test -e test-compcov.harden && test_compcov_binary_functionality ./test-compcov.harden && {
     grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] llvm_mode hardened mode succeeded and is working"

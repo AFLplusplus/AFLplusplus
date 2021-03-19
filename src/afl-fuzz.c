@@ -1535,21 +1535,21 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode) {
 
-    if (map_size <= 8000000 && !afl->non_instrumented_mode &&
+    if (map_size <= DEFAULT_SHMEM_SIZE && !afl->non_instrumented_mode &&
         !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
 
-      afl->fsrv.map_size = 8000000;  // dummy temporary value
-      setenv("AFL_MAP_SIZE", "8000000", 1);
+      afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
+      char vbuf[16];
+      snprintf(vbuf, sizeof(vbuf), "%u", DEFAULT_SHMEM_SIZE);
+      setenv("AFL_MAP_SIZE", vbuf, 1);
 
     }
 
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    // only reinitialize when it makes sense
-    if ((map_size < new_map_size ||
-         (new_map_size != MAP_SIZE && new_map_size < map_size &&
-          map_size - new_map_size > MAP_SIZE))) {
+    // only reinitialize if the map needs to be larger than what we have.
+    if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
@@ -1578,8 +1578,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl->fsrv.map_size = map_size;
-
   }
 
   if (afl->cmplog_binary) {
@@ -1592,11 +1590,15 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
-    if (map_size <= 8000000 && !afl->non_instrumented_mode &&
-        !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
+    if ((map_size <= DEFAULT_SHMEM_SIZE ||
+         afl->cmplog_fsrv.map_size < map_size) &&
+        !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+        !afl->unicorn_mode) {
 
-      afl->cmplog_fsrv.map_size = 8000000;  // dummy temporary value
-      setenv("AFL_MAP_SIZE", "8000000", 1);
+      afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      char vbuf[16];
+      snprintf(vbuf, sizeof(vbuf), "%u", afl->cmplog_fsrv.map_size);
+      setenv("AFL_MAP_SIZE", vbuf, 1);
 
     }
 
@@ -1636,10 +1638,6 @@ int main(int argc, char **argv_orig, char **envp) {
                      afl->afl_env.afl_debug_child);
       afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
-
-    } else {
-
-      afl->cmplog_fsrv.map_size = new_map_size;
 
     }
 
