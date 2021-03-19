@@ -26,13 +26,22 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++3.11c"
+#define VERSION "++3.12a"
 
 /******************************************************
  *                                                    *
  *  Settings that may be of interest to power users:  *
  *                                                    *
  ******************************************************/
+
+/* Default shared memory map size. Most targets just need a coverage map
+   between 20-250kb. Plus there is an auto-detection feature in afl-fuzz.
+   However if a target has problematic constructors and init arrays then
+   this can fail. Hence afl-fuzz deploys a larger default map. The largest
+   map seen so far is the xlsx fuzzer for libreoffice which is 5MB.
+   At runtime this value can be overriden via AFL_MAP_SIZE.
+   Default: 8MB (defined in bytes) */
+#define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
 /* CMPLOG/REDQUEEN TUNING
  *

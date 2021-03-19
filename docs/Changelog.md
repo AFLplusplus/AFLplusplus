@@ -8,6 +8,19 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++3.12a (dev)
+  - afl-fuzz:
+    - better map detection, AFL_MAP_SIZE not needed anymore for most cases
+  - afl-cc:
+    - fix cmplog rtn (rare crash and not being able to gather ptr data)
+    - link runtime not to shared libs
+    - ensure shared libraries are properly built and instrumented
+  - qemu_mode (thanks @realmadsci):
+    - move AFL_PRELOAD and AFL_USE_QASAN logic inside afl-qemu-trace
+    - add AFL_QEMU_CUSTOM_BIN
+  - unicorn_mode
+    - accidently removed the subfolder from github, re-added
+
 ### Version ++3.11c (release)
   - afl-fuzz:
     - better auto detection of map size
@@ -37,7 +50,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       NO_CHECKOUT=1 ./build_qemu_support.sh
     - we no longer perform a "git drop"
   - afl-cmin: support filenames with spaces
-
 
 ### Version ++3.10c (release)
   - Mac OS ARM64 support

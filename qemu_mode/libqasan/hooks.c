@@ -51,6 +51,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
   void *rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: write(%d, %p, %zu)\n", rtv, fd, buf, count);
+  QASAN_LOAD(buf, count);
   ssize_t r = __lq_libc_write(fd, buf, count);
   QASAN_DEBUG("\t\t = %zd\n", r);
 
@@ -63,6 +64,7 @@ ssize_t read(int fd, void *buf, size_t count) {
   void *rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: read(%d, %p, %zu)\n", rtv, fd, buf, count);
+  QASAN_STORE(buf, count);
   ssize_t r = __lq_libc_read(fd, buf, count);
   QASAN_DEBUG("\t\t = %zd\n", r);
 
