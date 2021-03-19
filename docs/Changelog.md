@@ -10,6 +10,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.12a (dev)
   - afl-fuzz:
+    - added AFL_TARGET_ENV variable to pass extra env vars to the target
+      (for things like LD_LIBRARY_PATH)
     - better map detection, AFL_MAP_SIZE not needed anymore for most cases
   - afl-cc:
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
