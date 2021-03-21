@@ -2013,7 +2013,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   tmp = alloc_printf("%s/plot_data", afl->out_dir);
 
-  if(!afl->in_place_resume) {
+  if (!afl->in_place_resume) {
 
     int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
@@ -2022,10 +2022,11 @@ void setup_dirs_fds(afl_state_t *afl) {
     afl->fsrv.plot_file = fdopen(fd, "w");
     if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
 
-    fprintf(afl->fsrv.plot_file,
-          "# unix_time, cycles_done, cur_path, paths_total, "
-          "pending_total, pending_favs, map_size, unique_crashes, "
-          "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
+    fprintf(
+        afl->fsrv.plot_file,
+        "# unix_time, cycles_done, cur_path, paths_total, "
+        "pending_total, pending_favs, map_size, unique_crashes, "
+        "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
 
   } else {
 
@@ -2038,7 +2039,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
     fseek(afl->fsrv.plot_file, 0, SEEK_END);
 
-  } 
+  }
 
   fflush(afl->fsrv.plot_file);
 
