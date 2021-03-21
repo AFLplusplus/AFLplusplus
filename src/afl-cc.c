@@ -1256,6 +1256,7 @@ int main(int argc, char **argv, char **envp) {
 
       } else if (strcasecmp(ptr, "LLVMNATIVE") == 0 ||
 
+                 strcasecmp(ptr, "NATIVE") == 0 ||
                  strcasecmp(ptr, "LLVM-NATIVE") == 0) {
 
         compiler_mode = LLVM;
@@ -1668,8 +1669,8 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-  #define NATIVE_MSG                                              \
-    "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+  #define NATIVE_MSG                                                   \
+    "  LLVM-NATIVE:  use llvm's native PCGUARD instrumentation (less " \
     "performant)\n"
 #else
   #define NATIVE_MSG ""

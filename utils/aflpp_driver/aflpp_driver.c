@@ -186,6 +186,7 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
       printf("Execution successful.\n");
 
     }
+
     close(fd);
 
   }
