@@ -507,6 +507,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
   Zero = ConstantInt::get(Int8Tyi, 0);
   One = ConstantInt::get(Int8Tyi, 1);
 
+  initInstrumentList();
   scanForDangerousFunctions(&M);
   Mo = &M;
 
@@ -1229,7 +1230,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
   // afl++ START
   if (!F.size()) return;
-  if (isIgnoreFunction(&F)) return;
+  if (!isInInstrumentList(&F)) return;
   // afl++ END
 
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
