@@ -425,7 +425,8 @@ checks or alter some of the more exotic semantics of the tool:
     no valid terminal was detected (for virtual consoles)
 
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
-    Others need not apply.
+    Others need not apply, unless they also want to disable the
+    /proc/sys/kernel/core_pattern check.
 
   - Benchmarking only: `AFL_BENCH_JUST_ONE` causes the fuzzer to exit after
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to
