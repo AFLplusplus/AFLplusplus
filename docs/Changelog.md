@@ -17,8 +17,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
     - link runtime not to shared libs
     - ensure shared libraries are properly built and instrumented
+    - AFL_LLVM_INSTRUMENT_ALLOW/DENY were not implemented for LTO, added
     - show correct LLVM PCGUARD NATIVE mode when auto switching to it
       and keep fsanitize-coverage-*list=...
+      Short mnemnonic NATIVE is now also accepted.
   - qemu_mode (thanks @realmadsci):
     - move AFL_PRELOAD and AFL_USE_QASAN logic inside afl-qemu-trace
     - add AFL_QEMU_CUSTOM_BIN
