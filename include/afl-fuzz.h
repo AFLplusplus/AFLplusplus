@@ -157,6 +157,8 @@ struct queue_entry {
   u32 id;                               /* entry number in queue_buf        */
 
   u8 colorized,                         /* Do not run redqueen stage again  */
+      interesting_functions,            /* interesting_functions count      */
+      loops,                            /* loop count                       */
       cal_failed;                       /* Calibration failed?              */
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
@@ -384,7 +386,8 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
-      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new;
+      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
+      afl_no_interesting;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
@@ -520,6 +523,8 @@ typedef struct afl_state {
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
+      interesting_functions,            /* dirty save                       */
+      loops,                            /* dirty save                       */
       old_seed_selection;               /* use vanilla afl seed selection   */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
