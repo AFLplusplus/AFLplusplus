@@ -15,6 +15,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix map detection, AFL_MAP_SIZE not needed anymore for most cases
   - afl-cc:
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
+    - fix our own PCGUARD implementation to compile with llvm 10.0.1
     - link runtime not to shared libs
     - ensure shared libraries are properly built and instrumented
     - AFL_LLVM_INSTRUMENT_ALLOW/DENY were not implemented for LTO, added
