@@ -9,13 +9,26 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.12a (dev)
+  - afl-fuzz:
+    - added AFL_TARGET_ENV variable to pass extra env vars to the target
+      (for things like LD_LIBRARY_PATH)
+    - fix map detection, AFL_MAP_SIZE not needed anymore for most cases
   - afl-cc:
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
+    - fix our own PCGUARD implementation to compile with llvm 10.0.1
     - link runtime not to shared libs
     - ensure shared libraries are properly built and instrumented
+    - AFL_LLVM_INSTRUMENT_ALLOW/DENY were not implemented for LTO, added
+    - show correct LLVM PCGUARD NATIVE mode when auto switching to it
+      and keep fsanitize-coverage-*list=...
+      Short mnemnonic NATIVE is now also accepted.
   - qemu_mode (thanks @realmadsci):
     - move AFL_PRELOAD and AFL_USE_QASAN logic inside afl-qemu-trace
     - add AFL_QEMU_CUSTOM_BIN
+  - unicorn_mode
+    - accidently removed the subfolder from github, re-added
+  - added DEFAULT_PERMISSION to config.h for all files created, default
+    to 0600
 
 ### Version ++3.11c (release)
   - afl-fuzz:

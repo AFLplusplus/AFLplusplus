@@ -181,7 +181,13 @@ If you want to build afl++ yourself you have many options.
 The easiest choice is to build and install everything:
 
 ```shell
-sudo apt install build-essential python3-dev automake flex bison libglib2.0-dev libpixman-1-dev python3-setuptools clang lld llvm llvm-dev libstdc++-dev
+sudo apt-get update
+sudo apt-get install -y build-essential python3-dev automake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
+# try to install llvm 11 and install the distro default if that fails
+sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang 
+sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
+git clone https://github.com/AFLplusplus/AFLplusplus && cd AFLplusplus
+cd AFLplusplus
 make distrib
 sudo make install
 ```
@@ -1184,6 +1190,7 @@ without feedback, bug reports, or patches from:
   Josephine Calliotte                   Konrad Welc
   Thomas Rooijakkers                    David Carlier
   Ruben ten Hove                        Joey Jiao
+  fuzzah
 ```
 
 Thank you!

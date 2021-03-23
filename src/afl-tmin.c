@@ -244,7 +244,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
   unlink(path);                                            /* Ignore errors */
 
-  ret = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
+  ret = open(path, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
   if (ret < 0) { PFATAL("Unable to create '%s'", path); }
 
@@ -666,7 +666,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
   unlink(out_file);
 
   fsrv->out_file = out_file;
-  fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+  fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
   if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 

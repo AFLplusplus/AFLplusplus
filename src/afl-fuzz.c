@@ -223,6 +223,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
@@ -1303,6 +1304,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_target_env &&
+      !extract_and_set_env(afl->afl_env.afl_target_env)) {
+
+    FATAL("Bad value of AFL_TARGET_ENV");
+
+  }
+
   save_cmdline(afl, argc, argv);
 
   fix_up_banner(afl, argv[optind]);
@@ -1540,10 +1548,8 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
-    // only reinitialize when it makes sense
-    if ((map_size < new_map_size /*||
-         (new_map_size != MAP_SIZE && new_map_size < map_size &&
-          map_size - new_map_size > MAP_SIZE)*/)) {
+    // only reinitialize if the map needs to be larger than what we have.
+    if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
@@ -1636,15 +1642,6 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     OKF("Cmplog forkserver successfully started");
-
-  }
-
-  if (afl->debug) {
-
-    printf("NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size,
-           afl->cmplog_fsrv.map_size);
-    fprintf(stderr, "NORMAL %u, CMPLOG %u\n", afl->fsrv.map_size,
-            afl->cmplog_fsrv.map_size);
 
   }
 

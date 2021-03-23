@@ -158,10 +158,6 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   }
 
-  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
-
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
-
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
@@ -173,80 +169,14 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/afl-qemu-trace", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    *target_path_p = new_argv[0] = cp;
-    return new_argv;
-
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/afl-qemu-trace", own_copy);
-    ck_free(own_copy);
-
-    if (!access(cp, X_OK)) {
-
-      *target_path_p = new_argv[0] = cp;
-      return new_argv;
-
-    }
-
-  } else {
-
-    ck_free(own_copy);
-
-  }
-
-  if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
-
-    if (cp) { ck_free(cp); }
-    *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
-
-    return new_argv;
-
-  }
-
-  SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the 'afl-qemu-trace' binary. The binary must be "
-       "built\n"
-       "    separately by following the instructions in "
-       "qemu_mode/README.md. "
-       "If you\n"
-       "    already have the binary installed, you may need to specify "
-       "AFL_PATH in the\n"
-       "    environment.\n\n"
-
-       "    Of course, even without QEMU, afl-fuzz can still work with "
-       "binaries that are\n"
-       "    instrumented at compile time with afl-gcc. It is also possible to "
-       "use it as a\n"
-       "    traditional non-instrumented fuzzer by specifying '-n' in the "
-       "command "
-       "line.\n");
-
-  FATAL("Failed to locate 'afl-qemu-trace'.");
+  *target_path_p = new_argv[0] = find_afl_binary(own_loc, "afl-qemu-trace");
+  return new_argv;
 
 }
 
 /* Rewrite argv for Wine+QEMU. */
 
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
-
-  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
-
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
@@ -258,92 +188,10 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/afl-qemu-trace", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    ck_free(cp);
-
-    cp = alloc_printf("%s/afl-wine-trace", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    *target_path_p = new_argv[0] = cp;
-    return new_argv;
-
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/afl-qemu-trace", own_copy);
-
-    if (cp && !access(cp, X_OK)) {
-
-      ck_free(cp);
-
-      cp = alloc_printf("%s/afl-wine-trace", own_copy);
-
-      if (!access(cp, X_OK)) {
-
-        *target_path_p = new_argv[0] = cp;
-        return new_argv;
-
-      }
-
-    }
-
-    ck_free(own_copy);
-
-  } else {
-
-    ck_free(own_copy);
-
-  }
-
-  u8 *ncp = BIN_PATH "/afl-qemu-trace";
-
-  if (!access(ncp, X_OK)) {
-
-    ncp = BIN_PATH "/afl-wine-trace";
-
-    if (!access(ncp, X_OK)) {
-
-      *target_path_p = new_argv[0] = ck_strdup(ncp);
-      return new_argv;
-
-    }
-
-  }
-
-  SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the '%s' binary. The binary must be "
-       "built\n"
-       "    separately by following the instructions in "
-       "qemu_mode/README.md. "
-       "If you\n"
-       "    already have the binary installed, you may need to specify "
-       "AFL_PATH in the\n"
-       "    environment.\n\n"
-
-       "    Of course, even without QEMU, afl-fuzz can still work with "
-       "binaries that are\n"
-       "    instrumented at compile time with afl-gcc. It is also possible to "
-       "use it as a\n"
-       "    traditional non-instrumented fuzzer by specifying '-n' in the "
-       "command "
-       "line.\n",
-       ncp);
-
-  FATAL("Failed to locate '%s'.", ncp);
+  u8 *tmp = find_afl_binary(own_loc, "afl-qemu-trace");
+  ck_free(tmp);
+  *target_path_p = new_argv[0] = find_afl_binary(own_loc, "afl-wine-trace");
+  return new_argv;
 
 }
 
@@ -434,6 +282,70 @@ u8 *find_binary(u8 *fname) {
   }
 
   return target_path;
+
+}
+
+u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
+
+  u8 *afl_path = NULL, *target_path, *own_copy;
+
+  if ((afl_path = getenv("AFL_PATH"))) {
+
+    target_path = alloc_printf("%s/%s", afl_path, fname);
+    if (!access(target_path, X_OK)) {
+
+      return target_path;
+
+    } else {
+
+      ck_free(target_path);
+
+    }
+
+  }
+
+  if (own_loc) {
+
+    own_copy = ck_strdup(own_loc);
+    u8 *rsl = strrchr(own_copy, '/');
+
+    if (rsl) {
+
+      *rsl = 0;
+
+      target_path = alloc_printf("%s/%s", own_copy, fname);
+      ck_free(own_copy);
+
+      if (!access(target_path, X_OK)) {
+
+        return target_path;
+
+      } else {
+
+        ck_free(target_path);
+
+      }
+
+    } else {
+
+      ck_free(own_copy);
+
+    }
+
+  }
+
+  target_path = alloc_printf("%s/%s", BIN_PATH, fname);
+  if (!access(target_path, X_OK)) {
+
+    return target_path;
+
+  } else {
+
+    ck_free(target_path);
+
+  }
+
+  return find_binary(fname);
 
 }
 
@@ -703,6 +615,98 @@ char *get_afl_env(char *env) {
   }
 
   return val;
+
+}
+
+bool extract_and_set_env(u8 *env_str) {
+
+  if (!env_str) { return false; }
+
+  bool ret = false;  // return false by default
+
+  u8 *p = ck_strdup(env_str);
+  u8 *end = p + strlen((char *)p);
+  u8 *rest = p;
+
+  u8 closing_sym = ' ';
+  u8 c;
+
+  size_t num_pairs = 0;
+
+  while (rest < end) {
+
+    while (*rest == ' ') {
+
+      rest++;
+
+    }
+
+    if (rest + 1 >= end) break;
+
+    u8 *key = rest;
+    // env variable names may not start with numbers or '='
+    if (*key == '=' || (*key >= '0' && *key <= '9')) { goto free_and_return; }
+
+    while (rest < end && *rest != '=' && *rest != ' ') {
+
+      c = *rest;
+      // lowercase is bad but we may still allow it
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') &&
+          (c < '0' || c > '9') && c != '_') {
+
+        goto free_and_return;
+
+      }
+
+      rest++;
+
+    }
+
+    if (*rest != '=') { goto free_and_return; }
+
+    *rest = '\0';  // done with variable name
+
+    rest += 1;
+    if (rest >= end || *rest == ' ') { goto free_and_return; }
+
+    u8 *val = rest;
+    if (*val == '\'' || *val == '"') {
+
+      closing_sym = *val;
+      val += 1;
+      rest += 1;
+      if (rest >= end) { goto free_and_return; }
+
+    } else {
+
+      closing_sym = ' ';
+
+    }
+
+    while (rest < end && *rest != closing_sym) {
+
+      rest++;
+
+    }
+
+    if (closing_sym != ' ' && *rest != closing_sym) { goto free_and_return; }
+
+    *rest = '\0';  // done with variable value
+
+    rest += 1;
+    if (rest < end && *rest != ' ') { goto free_and_return; }
+
+    num_pairs++;
+
+    setenv(key, val, 1);
+
+  }
+
+  if (num_pairs) { ret = true; }
+
+free_and_return:
+  ck_free(p);
+  return ret;
 
 }
 
@@ -1100,7 +1104,7 @@ FILE *create_ffile(u8 *fn) {
   s32   fd;
   FILE *f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
@@ -1118,7 +1122,7 @@ s32 create_file(u8 *fn) {
 
   s32 fd;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 

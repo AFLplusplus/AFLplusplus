@@ -590,6 +590,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   #ifdef __ANDROID__
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+        instrument_mode != INSTRUMENT_LLVMNATIVE;
   #else
         if (have_instr_list) {
 
@@ -599,6 +600,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
                 "-fsanitize-coverage-allow/denylist, you can use "
                 "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
           cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+          instrument_mode = INSTRUMENT_LLVMNATIVE;
 
         } else {
 
@@ -618,6 +620,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
               "Using unoptimized trace-pc-guard, upgrade to llvm 10.0.1+ for "
               "enhanced version.\n");
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
   #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
   #endif
@@ -718,8 +721,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
-        !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
+    if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
+         !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
+        (strncmp(cur, "sanitize-coverage-allow",
+                 strlen("sanitize-coverage-allow")) &&
+         strncmp(cur, "sanitize-coverage-deny",
+                 strlen("sanitize-coverage-deny")) &&
+         instrument_mode != INSTRUMENT_LLVMNATIVE)) {
 
       if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
       continue;
@@ -1040,7 +1048,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (shared_linking)
+    if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
@@ -1256,6 +1264,7 @@ int main(int argc, char **argv, char **envp) {
 
       } else if (strcasecmp(ptr, "LLVMNATIVE") == 0 ||
 
+                 strcasecmp(ptr, "NATIVE") == 0 ||
                  strcasecmp(ptr, "LLVM-NATIVE") == 0) {
 
         compiler_mode = LLVM;
@@ -1668,8 +1677,8 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-  #define NATIVE_MSG                                              \
-    "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+  #define NATIVE_MSG                                                   \
+    "  LLVM-NATIVE:  use llvm's native PCGUARD instrumentation (less " \
     "performant)\n"
 #else
   #define NATIVE_MSG ""

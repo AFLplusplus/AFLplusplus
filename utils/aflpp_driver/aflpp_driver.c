@@ -187,6 +187,8 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
     }
 
+    close(fd);
+
   }
 
   free(buf);

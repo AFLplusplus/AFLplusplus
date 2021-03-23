@@ -43,6 +43,9 @@
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
+/* Default file permission umode when creating files (default: 0600) */
+#define DEFAULT_PERMISSION 0600
+
 /* CMPLOG/REDQUEEN TUNING
  *
  * Here you can modify tuning and solving options for CMPLOG.

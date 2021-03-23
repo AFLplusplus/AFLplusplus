@@ -507,6 +507,8 @@ install: all
 	@echo .SH LICENSE >> ./$@
 	@echo Apache License Version 2.0, January 2004 >> ./$@
 	@ln -sf afl-cc.8 ./afl-c++.8
+	@ln -sf afl-cc.8 ./afl-clang-fast.8
+	@ln -sf afl-cc.8 ./afl-clang-fast++.8
 ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
 	@ln -sf afl-cc.8 ./afl-clang-lto.8
