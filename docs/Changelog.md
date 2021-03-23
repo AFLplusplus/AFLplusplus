@@ -27,6 +27,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add AFL_QEMU_CUSTOM_BIN
   - unicorn_mode
     - accidently removed the subfolder from github, re-added
+  - added DEFAULT_PERMISSION to config.h for all files created, default
+    to 0600
 
 ### Version ++3.11c (release)
   - afl-fuzz:

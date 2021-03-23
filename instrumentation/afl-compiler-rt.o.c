@@ -204,7 +204,7 @@ static void __afl_map_shm_fuzz() {
     int         shm_fd = -1;
 
     /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
     if (shm_fd == -1) {
 
       fprintf(stderr, "shm_open() failed for fuzz\n");
@@ -353,7 +353,7 @@ static void __afl_map_shm(void) {
     unsigned char *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
     if (shm_fd == -1) {
 
       fprintf(stderr, "shm_open() failed\n");
@@ -528,7 +528,7 @@ static void __afl_map_shm(void) {
     struct cmp_map *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
     if (shm_fd == -1) {
 
       perror("shm_open() failed\n");
@@ -729,7 +729,7 @@ static void __afl_start_snapshots(void) {
       static uint32_t counter = 0;
       char            fn[32];
       sprintf(fn, "%09u:forkserver", counter);
-      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
       if (fd_doc >= 0) {
 
         if (write(fd_doc, __afl_fuzz_ptr, *__afl_fuzz_len) != *__afl_fuzz_len) {
@@ -960,7 +960,7 @@ static void __afl_start_forkserver(void) {
       static uint32_t counter = 0;
       char            fn[32];
       sprintf(fn, "%09u:forkserver", counter);
-      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
       if (fd_doc >= 0) {
 
         if (write(fd_doc, __afl_fuzz_ptr, *__afl_fuzz_len) != *__afl_fuzz_len) {

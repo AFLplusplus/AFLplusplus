@@ -1104,7 +1104,7 @@ FILE *create_ffile(u8 *fn) {
   s32   fd;
   FILE *f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
@@ -1122,7 +1122,7 @@ s32 create_file(u8 *fn) {
 
   s32 fd;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 

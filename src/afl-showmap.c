@@ -252,7 +252,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   } else {
 
     unlink(outfile);                                       /* Ignore errors */
-    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fd < 0) { PFATAL("Unable to create '%s'", outfile); }
 
   }
@@ -1119,7 +1119,7 @@ int main(int argc, char **argv_orig, char **envp) {
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_file = stdin_file;
-    fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+    fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
     if (arg_offset && use_argv[arg_offset] != stdin_file) {
