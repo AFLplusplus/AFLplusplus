@@ -51,7 +51,7 @@ char * get_afl_env(char *env);
 
 /* Extract env vars from input string and set them using setenv()
    For use with AFL_TARGET_ENV, ... */
-u8 extract_and_set_env(u8 *env_str);
+bool extract_and_set_env(u8 *env_str);
 
 extern u8  be_quiet;
 extern u8 *doc_path;                    /* path to documentation dir        */

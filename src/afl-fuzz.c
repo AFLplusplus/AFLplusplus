@@ -1304,8 +1304,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  u8 *extra_env = (u8 *)getenv("AFL_TARGET_ENV");
-  if (extra_env && !extract_and_set_env(extra_env)) {
+  if (afl->afl_env.afl_target_env &&
+      !extract_and_set_env(afl->afl_env.afl_target_env)) {
 
     FATAL("Bad value of AFL_TARGET_ENV");
 
