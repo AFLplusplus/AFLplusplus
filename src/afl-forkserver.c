@@ -1038,12 +1038,12 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
       if (unlikely(fsrv->no_unlink)) {
 
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
       } else {
 
         unlink(fsrv->out_file);                           /* Ignore errors. */
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
       }
 

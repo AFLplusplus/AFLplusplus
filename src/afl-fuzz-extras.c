@@ -731,7 +731,7 @@ void save_auto(afl_state_t *afl) {
         alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);
     s32 fd;
 
-    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
     if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
