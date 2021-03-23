@@ -618,19 +618,15 @@ char *get_afl_env(char *env) {
 
 }
 
-u8 extract_and_set_env(u8 *env_str) {
+bool extract_and_set_env(u8 *env_str) {
 
-  if (!env_str) { return 0; }
+  if (!env_str) { return false; }
+
+  bool ret = false;  // return false by default
 
   u8 *p = ck_strdup(env_str);
-
   u8 *end = p + strlen((char *)p);
-
-  u8 ret_val = 0;  // return false by default
-
   u8 *rest = p;
-  u8 *key = p;
-  u8 *val = p;
 
   u8 closing_sym = ' ';
   u8 c;
@@ -647,7 +643,7 @@ u8 extract_and_set_env(u8 *env_str) {
 
     if (rest + 1 >= end) break;
 
-    key = rest;
+    u8 *key = rest;
     // env variable names may not start with numbers or '='
     if (*key == '=' || (*key >= '0' && *key <= '9')) { goto free_and_return; }
 
@@ -673,7 +669,7 @@ u8 extract_and_set_env(u8 *env_str) {
     rest += 1;
     if (rest >= end || *rest == ' ') { goto free_and_return; }
 
-    val = rest;
+    u8 *val = rest;
     if (*val == '\'' || *val == '"') {
 
       closing_sym = *val;
@@ -700,17 +696,17 @@ u8 extract_and_set_env(u8 *env_str) {
     rest += 1;
     if (rest < end && *rest != ' ') { goto free_and_return; }
 
-    num_pairs += 1;
+    num_pairs++;
 
     setenv(key, val, 1);
 
   }
 
-  if (num_pairs > 0) { ret_val = 1; }
+  if (num_pairs) { ret = true; }
 
 free_and_return:
   ck_free(p);
-  return ret_val;
+  return ret;
 
 }
 
