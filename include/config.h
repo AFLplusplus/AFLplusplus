@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++3.12a"
+#define VERSION "++3.12c"
 
 /******************************************************
  *                                                    *
@@ -42,6 +42,9 @@
    At runtime this value can be overriden via AFL_MAP_SIZE.
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
+
+/* Default file permission umode when creating files (default: 0600) */
+#define DEFAULT_PERMISSION 0600
 
 /* CMPLOG/REDQUEEN TUNING
  *

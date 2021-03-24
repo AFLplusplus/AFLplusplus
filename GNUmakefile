@@ -558,6 +558,7 @@ clean:
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C utils/libdislocator clean
 	$(MAKE) -C utils/libtokencap clean
+	$(MAKE) -C utils/aflpp_driver clean
 	$(MAKE) -C utils/afl_network_proxy clean
 	$(MAKE) -C utils/socket_fuzzing clean
 	$(MAKE) -C utils/argv_fuzzing clean

@@ -2,9 +2,9 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  Release Version: [3.11c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [3.12c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 3.12a
+  Github Version: 3.13a
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
@@ -1184,6 +1184,7 @@ without feedback, bug reports, or patches from:
   Josephine Calliotte                   Konrad Welc
   Thomas Rooijakkers                    David Carlier
   Ruben ten Hove                        Joey Jiao
+  fuzzah
 ```
 
 Thank you!
