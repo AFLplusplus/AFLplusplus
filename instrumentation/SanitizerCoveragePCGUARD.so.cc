@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/EHPersonalities.h"
@@ -34,11 +35,11 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SpecialCaseList.h"
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   #include "llvm/Support/VirtualFileSystem.h"
 #endif
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -46,65 +47,6 @@
 #include "config.h"
 #include "debug.h"
 #include "afl-llvm-common.h"
-
-namespace llvm {
-
-/// This is the ModuleSanitizerCoverage pass used in the new pass manager. The
-/// pass instruments functions for coverage, adds initialization calls to the
-/// module for trace PC guards and 8bit counters if they are requested, and
-/// appends globals to llvm.compiler.used.
-class ModuleSanitizerCoveragePass
-    : public PassInfoMixin<ModuleSanitizerCoveragePass> {
-
- public:
-  explicit ModuleSanitizerCoveragePass(
-      SanitizerCoverageOptions        Options = SanitizerCoverageOptions(),
-      const std::vector<std::string> &AllowlistFiles =
-          std::vector<std::string>(),
-      const std::vector<std::string> &BlocklistFiles =
-          std::vector<std::string>())
-      : Options(Options) {
-
-    if (AllowlistFiles.size() > 0)
-      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               ,
-                                               *vfs::getRealFileSystem()
-#endif
-      );
-    if (BlocklistFiles.size() > 0)
-      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               ,
-                                               *vfs::getRealFileSystem()
-#endif
-      );
-
-  }
-
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-  static bool       isRequired() {
-
-    return true;
-
-  }
-
- private:
-  SanitizerCoverageOptions Options;
-
-  std::unique_ptr<SpecialCaseList> Allowlist;
-  std::unique_ptr<SpecialCaseList> Blocklist;
-
-};
-
-// Insert SanitizerCoverage instrumentation.
-ModulePass *createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options = SanitizerCoverageOptions(),
-    const std::vector<std::string> &AllowlistFiles = std::vector<std::string>(),
-    const std::vector<std::string> &BlocklistFiles =
-        std::vector<std::string>());
-
-}  // namespace llvm
 
 using namespace llvm;
 
@@ -156,95 +98,7 @@ static const char *const SanCovLowestStackName = "__sancov_lowest_stack";
 
 static char *skip_nozero;
 
-/*
-static cl::opt<int> ClCoverageLevel(
-    "sanitizer-coverage-level",
-    cl::desc("Sanitizer Coverage. 0: none, 1: entry block, 2: all blocks, "
-             "3: all blocks and critical edges"),
-    cl::Hidden, cl::init(3));
-
-static cl::opt<bool> ClTracePC("sanitizer-coverage-trace-pc",
-                               cl::desc("Experimental pc tracing"), cl::Hidden,
-                               cl::init(false));
-
-static cl::opt<bool> ClTracePCGuard("sanitizer-coverage-trace-pc-guard",
-                                    cl::desc("pc tracing with a guard"),
-                                    cl::Hidden, cl::init(true));
-
-// If true, we create a global variable that contains PCs of all instrumented
-// BBs, put this global into a named section, and pass this section's bounds
-// to __sanitizer_cov_pcs_init.
-// This way the coverage instrumentation does not need to acquire the PCs
-// at run-time. Works with trace-pc-guard, inline-8bit-counters, and
-// inline-bool-flag.
-static cl::opt<bool> ClCreatePCTable("sanitizer-coverage-pc-table",
-                                     cl::desc("create a static PC table"),
-                                     cl::Hidden, cl::init(false));
-
-static cl::opt<bool> ClInline8bitCounters(
-    "sanitizer-coverage-inline-8bit-counters",
-    cl::desc("increments 8-bit counter for every edge"), cl::Hidden,
-    cl::init(false));
-
-static cl::opt<bool> ClInlineBoolFlag(
-    "sanitizer-coverage-inline-bool-flag",
-    cl::desc("sets a boolean flag for every edge"), cl::Hidden,
-    cl::init(false));
-
-static cl::opt<bool> ClCMPTracing(
-    "sanitizer-coverage-trace-compares",
-    cl::desc("Tracing of CMP and similar instructions"), cl::Hidden,
-    cl::init(false));
-
-static cl::opt<bool> ClDIVTracing("sanitizer-coverage-trace-divs",
-                                  cl::desc("Tracing of DIV instructions"),
-                                  cl::Hidden, cl::init(false));
-
-static cl::opt<bool> ClGEPTracing("sanitizer-coverage-trace-geps",
-                                  cl::desc("Tracing of GEP instructions"),
-                                  cl::Hidden, cl::init(false));
-
-static cl::opt<bool> ClPruneBlocks(
-    "sanitizer-coverage-prune-blocks",
-    cl::desc("Reduce the number of instrumented blocks"), cl::Hidden,
-    cl::init(true));
-
-static cl::opt<bool> ClStackDepth("sanitizer-coverage-stack-depth",
-                                  cl::desc("max stack depth tracing"),
-                                  cl::Hidden, cl::init(false));
-*/
 namespace {
-
-/*
-SanitizerCoverageOptions getOptions(int LegacyCoverageLevel) {
-
-  SanitizerCoverageOptions Res;
-  switch (LegacyCoverageLevel) {
-
-    case 0:
-      Res.CoverageType = SanitizerCoverageOptions::SCK_None;
-      break;
-    case 1:
-      Res.CoverageType = SanitizerCoverageOptions::SCK_Function;
-      break;
-    case 2:
-      Res.CoverageType = SanitizerCoverageOptions::SCK_BB;
-      break;
-    case 3:
-      Res.CoverageType = SanitizerCoverageOptions::SCK_Edge;
-      break;
-    case 4:
-      Res.CoverageType = SanitizerCoverageOptions::SCK_Edge;
-      Res.IndirectCalls = true;
-      break;
-
-  }
-
-  return Res;
-
-}
-
-*/
 
 SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
@@ -281,12 +135,14 @@ class ModuleSanitizerCoverage {
 
  public:
   ModuleSanitizerCoverage(
-      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions(),
-      const SpecialCaseList *         Allowlist = nullptr,
-      const SpecialCaseList *         Blocklist = nullptr)
-      : Options(OverrideFromCL(Options)),
-        Allowlist(Allowlist),
-        Blocklist(Blocklist) {
+      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()
+#if LLVM_MAJOR > 10
+          ,
+      const SpecialCaseList *Allowlist = nullptr,
+      const SpecialCaseList *Blocklist = nullptr
+#endif
+      )
+      : Options(OverrideFromCL(Options)) {
 
   }
 
@@ -356,9 +212,6 @@ class ModuleSanitizerCoverage {
 
   SanitizerCoverageOptions Options;
 
-  const SpecialCaseList *Allowlist;
-  const SpecialCaseList *Blocklist;
-
   uint32_t        instr = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt *   One = NULL;
@@ -370,27 +223,17 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
  public:
   ModuleSanitizerCoverageLegacyPass(
-      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions(),
+      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()
+#if LLVM_VERSION_MAJOR > 10
+          ,
       const std::vector<std::string> &AllowlistFiles =
           std::vector<std::string>(),
       const std::vector<std::string> &BlocklistFiles =
-          std::vector<std::string>())
+          std::vector<std::string>()
+#endif
+          )
       : ModulePass(ID), Options(Options) {
 
-    if (AllowlistFiles.size() > 0)
-      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               ,
-                                               *vfs::getRealFileSystem()
-#endif
-      );
-    if (BlocklistFiles.size() > 0)
-      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               ,
-                                               *vfs::getRealFileSystem()
-#endif
-      );
     initializeModuleSanitizerCoverageLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
@@ -398,8 +241,12 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
   bool runOnModule(Module &M) override {
 
-    ModuleSanitizerCoverage ModuleSancov(Options, Allowlist.get(),
-                                         Blocklist.get());
+    ModuleSanitizerCoverage ModuleSancov(Options
+#if LLVM_MAJOR > 10
+                                         ,
+                                         Allowlist.get(), Blocklist.get()
+#endif
+    );
     auto DTCallback = [this](Function &F) -> const DominatorTree * {
 
       return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -444,8 +291,12 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
                                                    ModuleAnalysisManager &MAM) {
 
-  ModuleSanitizerCoverage ModuleSancov(Options, Allowlist.get(),
-                                       Blocklist.get());
+  ModuleSanitizerCoverage ModuleSancov(Options
+#if LLVM_MAJOR > 10
+                                       ,
+                                       Allowlist.get(), Blocklist.get()
+#endif
+  );
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
@@ -564,12 +415,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
   }
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
-  if (Allowlist &&
-      !Allowlist->inSection("coverage", "src", M.getSourceFileName()))
-    return false;
-  if (Blocklist &&
-      Blocklist->inSection("coverage", "src", M.getSourceFileName()))
-    return false;
   C = &(M.getContext());
   DL = &M.getDataLayout();
   CurModule = &M;
@@ -842,9 +687,6 @@ void ModuleSanitizerCoverage::instrumentFunction(
   if (F.hasPersonalityFn() &&
       isAsynchronousEHPersonality(classifyEHPersonality(F.getPersonalityFn())))
     return;
-  if (Allowlist && !Allowlist->inSection("coverage", "fun", F.getName()))
-    return;
-  if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName())) return;
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
         F, CriticalEdgeSplittingOptions().setIgnoreUnreachableDests());
@@ -915,10 +757,18 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
       Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
+#if LLVM_VERSION_MAJOR > 12
+  if (TargetTriple.supportsCOMDAT() &&
+      (TargetTriple.isOSBinFormatELF() || !F.isInterposable()))
+    if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
+      Array->setComdat(Comdat);
+#else
   if (TargetTriple.supportsCOMDAT() && !F.isInterposable())
     if (auto Comdat =
             GetOrCreateFunctionComdat(F, TargetTriple, CurModuleUniqueId))
       Array->setComdat(Comdat);
+#endif
+
   Array->setSection(getSectionName(Section));
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
@@ -1354,12 +1204,20 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
                     false)
 
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options,
+    const SanitizerCoverageOptions &Options
+#if LLVM_MAJOR > 10
+    ,
     const std::vector<std::string> &AllowlistFiles,
-    const std::vector<std::string> &BlocklistFiles) {
+    const std::vector<std::string> &BlocklistFiles
+#endif
+) {
 
-  return new ModuleSanitizerCoverageLegacyPass(Options, AllowlistFiles,
-                                               BlocklistFiles);
+  return new ModuleSanitizerCoverageLegacyPass(Options
+#if LLVM_MAJOR > 10
+                                               ,
+                                               AllowlistFiles, BlocklistFiles
+#endif
+  );
 
 }
 

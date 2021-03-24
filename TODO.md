@@ -2,6 +2,7 @@
 
 ## Roadmap 3.00+
 
+ - Update afl->pending_not_fuzzed for MOpt
  - CPU affinity for many cores? There seems to be an issue > 96 cores
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()

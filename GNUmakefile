@@ -558,6 +558,7 @@ clean:
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C utils/libdislocator clean
 	$(MAKE) -C utils/libtokencap clean
+	$(MAKE) -C utils/aflpp_driver clean
 	$(MAKE) -C utils/afl_network_proxy clean
 	$(MAKE) -C utils/socket_fuzzing clean
 	$(MAKE) -C utils/argv_fuzzing clean
@@ -576,7 +577,11 @@ endif
 deepclean:	clean
 	rm -rf unicorn_mode/unicornafl
 	rm -rf qemu_mode/qemuafl
+ifeq "$(IN_REPO)" "1"
 # NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
+	git checkout unicorn_mode/unicornafl
+	git checkout qemu_mode/qemuafl
+endif
 
 .PHONY: distrib
 distrib: all
