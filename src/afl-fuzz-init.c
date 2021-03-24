@@ -152,7 +152,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     do {
 
-      if ((lockfd = open(lockfile, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION)) < 0) {
+      if ((lockfd = open(lockfile, O_RDWR | O_CREAT | O_EXCL,
+                         DEFAULT_PERMISSION)) < 0) {
 
         if (first) {
 
@@ -2092,7 +2093,8 @@ void setup_stdio_file(afl_state_t *afl) {
 
   unlink(afl->fsrv.out_file);                              /* Ignore errors */
 
-  afl->fsrv.out_fd = open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  afl->fsrv.out_fd =
+      open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
   if (afl->fsrv.out_fd < 0) {
 

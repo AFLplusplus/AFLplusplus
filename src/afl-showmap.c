@@ -1119,7 +1119,8 @@ int main(int argc, char **argv_orig, char **envp) {
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_file = stdin_file;
-    fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    fsrv->out_fd =
+        open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
     if (arg_offset && use_argv[arg_offset] != stdin_file) {
