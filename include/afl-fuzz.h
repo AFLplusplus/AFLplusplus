@@ -390,7 +390,7 @@ typedef struct afl_env_vars {
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries, *afl_kill_signal;
+      *afl_testcache_entries, *afl_kill_signal, *afl_target_env;
 
 } afl_env_vars_t;
 

@@ -408,6 +408,12 @@ checks or alter some of the more exotic semantics of the tool:
     without disrupting the afl-fuzz process itself. This is useful, among other
     things, for bootstrapping libdislocator.so.
 
+  - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables
+    for the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz ... `
+    This exists mostly for things like `LD_LIBRARY_PATH` but it would theoretically
+    allow fuzzing of AFL++ itself (with 'target' AFL++ using some AFL_ vars that
+    would disrupt work of 'fuzzer' AFL++).
+
   - Setting `AFL_NO_UI` inhibits the UI altogether, and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
@@ -419,7 +425,8 @@ checks or alter some of the more exotic semantics of the tool:
     no valid terminal was detected (for virtual consoles)
 
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
-    Others need not apply.
+    Others need not apply, unless they also want to disable the
+    `/proc/sys/kernel/core_pattern` check.
 
   - Benchmarking only: `AFL_BENCH_JUST_ONE` causes the fuzzer to exit after
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to

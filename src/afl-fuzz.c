@@ -223,6 +223,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
@@ -1300,6 +1301,13 @@ int main(int argc, char **argv_orig, char **envp) {
   if (getenv("AFL_LD_PRELOAD")) {
 
     FATAL("Use AFL_PRELOAD instead of AFL_LD_PRELOAD");
+
+  }
+
+  if (afl->afl_env.afl_target_env &&
+      !extract_and_set_env(afl->afl_env.afl_target_env)) {
+
+    FATAL("Bad value of AFL_TARGET_ENV");
 
   }
 
