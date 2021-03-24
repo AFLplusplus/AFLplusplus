@@ -47,6 +47,10 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
+#ifndef AFL_PATH
+  #define AFL_PATH "/usr/local/lib/afl/"
+#endif
+
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
@@ -66,30 +70,25 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
       *use_stdin = false;
 
-      if (prog_in[0] != 0) {  // not afl-showmap special case
+      /* Be sure that we're always using fully-qualified paths. */
 
-        u8 *n_arg;
+      *aa_loc = 0;
 
-        /* Be sure that we're always using fully-qualified paths. */
+      /* Construct a replacement argv value. */
+      u8 *n_arg;
 
-        *aa_loc = 0;
+      if (prog_in[0] == '/') {
 
-        /* Construct a replacement argv value. */
+        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
 
-        if (prog_in[0] == '/') {
+      } else {
 
-          n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
-
-        } else {
-
-          n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
-
-        }
-
-        ck_free(argv[i]);
-        argv[i] = n_arg;
+        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
 
       }
+
+      ck_free(argv[i]);
+      argv[i] = n_arg;
 
     }
 
@@ -145,9 +144,14 @@ void argv_cpy_free(char **argv) {
 
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
-  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
+  if (unlikely(getenv("AFL_QEMU_CUSTOM_BIN"))) {
 
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+    WARNF(
+        "AFL_QEMU_CUSTOM_BIN is enabled. "
+        "You must run your target under afl-qemu-trace on your own!");
+    return argv;
+
+  }
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
@@ -160,80 +164,14 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/afl-qemu-trace", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    *target_path_p = new_argv[0] = cp;
-    return new_argv;
-
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/afl-qemu-trace", own_copy);
-    ck_free(own_copy);
-
-    if (!access(cp, X_OK)) {
-
-      *target_path_p = new_argv[0] = cp;
-      return new_argv;
-
-    }
-
-  } else {
-
-    ck_free(own_copy);
-
-  }
-
-  if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
-
-    if (cp) { ck_free(cp); }
-    *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
-
-    return new_argv;
-
-  }
-
-  SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the 'afl-qemu-trace' binary. The binary must be "
-       "built\n"
-       "    separately by following the instructions in "
-       "qemu_mode/README.md. "
-       "If you\n"
-       "    already have the binary installed, you may need to specify "
-       "AFL_PATH in the\n"
-       "    environment.\n\n"
-
-       "    Of course, even without QEMU, afl-fuzz can still work with "
-       "binaries that are\n"
-       "    instrumented at compile time with afl-gcc. It is also possible to "
-       "use it as a\n"
-       "    traditional non-instrumented fuzzer by specifying '-n' in the "
-       "command "
-       "line.\n");
-
-  FATAL("Failed to locate 'afl-qemu-trace'.");
+  *target_path_p = new_argv[0] = find_afl_binary(own_loc, "afl-qemu-trace");
+  return new_argv;
 
 }
 
 /* Rewrite argv for Wine+QEMU. */
 
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
-
-  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
-
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
@@ -245,152 +183,10 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/afl-qemu-trace", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    ck_free(cp);
-
-    cp = alloc_printf("%s/afl-wine-trace", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    *target_path_p = new_argv[0] = cp;
-    return new_argv;
-
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/afl-qemu-trace", own_copy);
-
-    if (cp && !access(cp, X_OK)) {
-
-      ck_free(cp);
-
-      cp = alloc_printf("%s/afl-wine-trace", own_copy);
-
-      if (!access(cp, X_OK)) {
-
-        *target_path_p = new_argv[0] = cp;
-        return new_argv;
-
-      }
-
-    }
-
-    ck_free(own_copy);
-
-  } else {
-
-    ck_free(own_copy);
-
-  }
-
-  u8 *ncp = BIN_PATH "/afl-qemu-trace";
-
-  if (!access(ncp, X_OK)) {
-
-    ncp = BIN_PATH "/afl-wine-trace";
-
-    if (!access(ncp, X_OK)) {
-
-      *target_path_p = new_argv[0] = ck_strdup(ncp);
-      return new_argv;
-
-    }
-
-  }
-
-  SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the '%s' binary. The binary must be "
-       "built\n"
-       "    separately by following the instructions in "
-       "qemu_mode/README.md. "
-       "If you\n"
-       "    already have the binary installed, you may need to specify "
-       "AFL_PATH in the\n"
-       "    environment.\n\n"
-
-       "    Of course, even without QEMU, afl-fuzz can still work with "
-       "binaries that are\n"
-       "    instrumented at compile time with afl-gcc. It is also possible to "
-       "use it as a\n"
-       "    traditional non-instrumented fuzzer by specifying '-n' in the "
-       "command "
-       "line.\n",
-       ncp);
-
-  FATAL("Failed to locate '%s'.", ncp);
-
-}
-
-/* Get libqasan path. */
-
-u8 *get_libqasan_path(u8 *own_loc) {
-
-  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
-
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
-
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/libqasan.so", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    return cp;
-
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/libqasan.so", own_copy);
-    ck_free(own_copy);
-
-    if (!access(cp, X_OK)) { return cp; }
-
-  } else {
-
-    ck_free(own_copy);
-
-  }
-
-  if (!access(BIN_PATH "/libqasan.so", X_OK)) {
-
-    if (cp) { ck_free(cp); }
-
-    return ck_strdup(BIN_PATH "/libqasan.so");
-
-  }
-
-  SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the 'libqasan.so' binary. The binary must be "
-       "built\n"
-       "    separately by following the instructions in "
-       "qemu_mode/libqasan/README.md. "
-       "If you\n"
-       "    already have the binary installed, you may need to specify "
-       "AFL_PATH in the\n"
-       "    environment.\n");
-
-  FATAL("Failed to locate 'libqasan.so'.");
+  u8 *tmp = find_afl_binary(own_loc, "afl-qemu-trace");
+  ck_free(tmp);
+  *target_path_p = new_argv[0] = find_afl_binary(own_loc, "afl-wine-trace");
+  return new_argv;
 
 }
 
@@ -484,6 +280,70 @@ u8 *find_binary(u8 *fname) {
 
 }
 
+u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
+
+  u8 *afl_path = NULL, *target_path, *own_copy;
+
+  if ((afl_path = getenv("AFL_PATH"))) {
+
+    target_path = alloc_printf("%s/%s", afl_path, fname);
+    if (!access(target_path, X_OK)) {
+
+      return target_path;
+
+    } else {
+
+      ck_free(target_path);
+
+    }
+
+  }
+
+  if (own_loc) {
+
+    own_copy = ck_strdup(own_loc);
+    u8 *rsl = strrchr(own_copy, '/');
+
+    if (rsl) {
+
+      *rsl = 0;
+
+      target_path = alloc_printf("%s/%s", own_copy, fname);
+      ck_free(own_copy);
+
+      if (!access(target_path, X_OK)) {
+
+        return target_path;
+
+      } else {
+
+        ck_free(target_path);
+
+      }
+
+    } else {
+
+      ck_free(own_copy);
+
+    }
+
+  }
+
+  target_path = alloc_printf("%s/%s", BIN_PATH, fname);
+  if (!access(target_path, X_OK)) {
+
+    return target_path;
+
+  } else {
+
+    ck_free(target_path);
+
+  }
+
+  return find_binary(fname);
+
+}
+
 /* Parses the kill signal environment variable, FATALs on error.
   If the env is not set, sets the env to default_signal for the signal handlers
   and returns the default_signal. */
@@ -518,12 +378,147 @@ int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
 
 }
 
+static inline unsigned int helper_min3(unsigned int a, unsigned int b,
+                                       unsigned int c) {
+
+  return a < b ? (a < c ? a : c) : (b < c ? b : c);
+
+}
+
+// from
+// https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C
+static int string_distance_levenshtein(char *s1, char *s2) {
+
+  unsigned int s1len, s2len, x, y, lastdiag, olddiag;
+  s1len = strlen(s1);
+  s2len = strlen(s2);
+  unsigned int column[s1len + 1];
+  column[s1len] = 1;
+
+  for (y = 1; y <= s1len; y++)
+    column[y] = y;
+  for (x = 1; x <= s2len; x++) {
+
+    column[0] = x;
+    for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
+
+      olddiag = column[y];
+      column[y] = helper_min3(column[y] + 1, column[y - 1] + 1,
+                              lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
+      lastdiag = olddiag;
+
+    }
+
+  }
+
+  return column[s1len];
+
+}
+
+#define ENV_SIMILARITY_TRESHOLD 3
+
+void print_suggested_envs(char *mispelled_env) {
+
+  size_t env_name_len =
+      strcspn(mispelled_env, "=") - 4;  // remove the AFL_prefix
+  char *env_name = ck_alloc(env_name_len + 1);
+  memcpy(env_name, mispelled_env + 4, env_name_len);
+
+  char *seen = ck_alloc(sizeof(afl_environment_variables) / sizeof(char *));
+  int   found = 0;
+
+  int j;
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char *afl_env = afl_environment_variables[j] + 4;
+    int   distance = string_distance_levenshtein(afl_env, env_name);
+    if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+      SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+      seen[j] = 1;
+      found = 1;
+
+    }
+
+  }
+
+  if (found) goto cleanup;
+
+  for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+    char * afl_env = afl_environment_variables[j] + 4;
+    size_t afl_env_len = strlen(afl_env);
+    char * reduced = ck_alloc(afl_env_len + 1);
+
+    size_t start = 0;
+    while (start < afl_env_len) {
+
+      size_t end = start + strcspn(afl_env + start, "_") + 1;
+      memcpy(reduced, afl_env, start);
+      if (end < afl_env_len)
+        memcpy(reduced + start, afl_env + end, afl_env_len - end);
+      reduced[afl_env_len - end + start] = 0;
+
+      int distance = string_distance_levenshtein(reduced, env_name);
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+        SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+        seen[j] = 1;
+        found = 1;
+
+      }
+
+      start = end;
+
+    };
+
+    ck_free(reduced);
+
+  }
+
+  if (found) goto cleanup;
+
+  char * reduced = ck_alloc(env_name_len + 1);
+  size_t start = 0;
+  while (start < env_name_len) {
+
+    size_t end = start + strcspn(env_name + start, "_") + 1;
+    memcpy(reduced, env_name, start);
+    if (end < env_name_len)
+      memcpy(reduced + start, env_name + end, env_name_len - end);
+    reduced[env_name_len - end + start] = 0;
+
+    for (j = 0; afl_environment_variables[j] != NULL; ++j) {
+
+      int distance = string_distance_levenshtein(
+          afl_environment_variables[j] + 4, reduced);
+      if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
+
+        SAYF("Did you mean %s?\n", afl_environment_variables[j]);
+        seen[j] = 1;
+
+      }
+
+    }
+
+    start = end;
+
+  };
+
+  ck_free(reduced);
+
+cleanup:
+  ck_free(env_name);
+  ck_free(seen);
+
+}
+
 void check_environment_vars(char **envp) {
 
   if (be_quiet) { return; }
 
   int   index = 0, issue_detected = 0;
-  char *env, *val;
+  char *env, *val, *ignore = getenv("AFL_IGNORE_UNKNOWN_ENVS");
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
@@ -543,6 +538,7 @@ void check_environment_vars(char **envp) {
             env[strlen(afl_environment_variables[i])] == '=') {
 
           match = 1;
+
           if ((val = getenv(afl_environment_variables[i])) && !*val) {
 
             WARNF(
@@ -582,10 +578,12 @@ void check_environment_vars(char **envp) {
 
       }
 
-      if (match == 0) {
+      if (match == 0 && !ignore) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
         issue_detected = 1;
+
+        print_suggested_envs(env);
 
       }
 
@@ -612,6 +610,98 @@ char *get_afl_env(char *env) {
   }
 
   return val;
+
+}
+
+bool extract_and_set_env(u8 *env_str) {
+
+  if (!env_str) { return false; }
+
+  bool ret = false;  // return false by default
+
+  u8 *p = ck_strdup(env_str);
+  u8 *end = p + strlen((char *)p);
+  u8 *rest = p;
+
+  u8 closing_sym = ' ';
+  u8 c;
+
+  size_t num_pairs = 0;
+
+  while (rest < end) {
+
+    while (*rest == ' ') {
+
+      rest++;
+
+    }
+
+    if (rest + 1 >= end) break;
+
+    u8 *key = rest;
+    // env variable names may not start with numbers or '='
+    if (*key == '=' || (*key >= '0' && *key <= '9')) { goto free_and_return; }
+
+    while (rest < end && *rest != '=' && *rest != ' ') {
+
+      c = *rest;
+      // lowercase is bad but we may still allow it
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') &&
+          (c < '0' || c > '9') && c != '_') {
+
+        goto free_and_return;
+
+      }
+
+      rest++;
+
+    }
+
+    if (*rest != '=') { goto free_and_return; }
+
+    *rest = '\0';  // done with variable name
+
+    rest += 1;
+    if (rest >= end || *rest == ' ') { goto free_and_return; }
+
+    u8 *val = rest;
+    if (*val == '\'' || *val == '"') {
+
+      closing_sym = *val;
+      val += 1;
+      rest += 1;
+      if (rest >= end) { goto free_and_return; }
+
+    } else {
+
+      closing_sym = ' ';
+
+    }
+
+    while (rest < end && *rest != closing_sym) {
+
+      rest++;
+
+    }
+
+    if (closing_sym != ' ' && *rest != closing_sym) { goto free_and_return; }
+
+    *rest = '\0';  // done with variable value
+
+    rest += 1;
+    if (rest < end && *rest != ' ') { goto free_and_return; }
+
+    num_pairs++;
+
+    setenv(key, val, 1);
+
+  }
+
+  if (num_pairs) { ret = true; }
+
+free_and_return:
+  ck_free(p);
+  return ret;
 
 }
 
@@ -981,7 +1071,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
-  uint32_t map_size = (MAP_SIZE << 2);  // needed for target ctors :(
+  uint32_t map_size = DEFAULT_SHMEM_SIZE;
   char *   ptr;
 
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
@@ -989,12 +1079,12 @@ u32 get_map_size(void) {
     map_size = atoi(ptr);
     if (!map_size || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 32U,
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 64U,
             1U << 29);
 
     }
 
-    if (map_size % 32) { map_size = (((map_size >> 5) + 1) << 5); }
+    if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
   }
 
@@ -1009,7 +1099,7 @@ FILE *create_ffile(u8 *fn) {
   s32   fd;
   FILE *f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
@@ -1027,7 +1117,7 @@ s32 create_file(u8 *fn) {
 
   s32 fd;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 

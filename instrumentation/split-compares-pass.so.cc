@@ -149,8 +149,11 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
     auto op1 = FcmpInst->getOperand(1);
 
     /* find out what the new predicate is going to be */
-    auto               pred = dyn_cast<CmpInst>(FcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(FcmpInst);
+    if (!cmp_inst) { continue; }
+    auto               pred = cmp_inst->getPredicate();
     CmpInst::Predicate new_pred;
+
     switch (pred) {
 
       case CmpInst::FCMP_UGE:
@@ -276,8 +279,11 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
     auto op1 = IcmpInst->getOperand(1);
 
     /* find out what the new predicate is going to be */
-    auto               pred = dyn_cast<CmpInst>(IcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+    if (!cmp_inst) { continue; }
+    auto               pred = cmp_inst->getPredicate();
     CmpInst::Predicate new_pred;
+
     switch (pred) {
 
       case CmpInst::ICMP_UGE:
@@ -407,12 +413,16 @@ bool SplitComparesTransform::simplifyIntSignedness(Module &M) {
     auto op1 = IcmpInst->getOperand(1);
 
     IntegerType *intTyOp0 = dyn_cast<IntegerType>(op0->getType());
+    if (!intTyOp0) { continue; }
     unsigned     bitw = intTyOp0->getBitWidth();
     IntegerType *IntType = IntegerType::get(C, bitw);
 
     /* get the new predicate */
-    auto               pred = dyn_cast<CmpInst>(IcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+    if (!cmp_inst) { continue; }
+    auto               pred = cmp_inst->getPredicate();
     CmpInst::Predicate new_pred;
+
     if (pred == CmpInst::ICMP_SGT) {
 
       new_pred = CmpInst::ICMP_UGT;
@@ -602,12 +612,16 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     if (op_size != op1->getType()->getPrimitiveSizeInBits()) { continue; }
 
     const unsigned int sizeInBits = op0->getType()->getPrimitiveSizeInBits();
+
+    // BUG FIXME TODO: u64 does not work for > 64 bit ... e.g. 80 and 128 bit
+    if (sizeInBits > 64) { continue; }
+
     const unsigned int precision = sizeInBits == 32    ? 24
                                    : sizeInBits == 64  ? 53
                                    : sizeInBits == 128 ? 113
                                    : sizeInBits == 16  ? 11
-                                                      /* sizeInBits == 80 */
-                                                      : 65;
+                                   : sizeInBits == 80  ? 65
+                                                       : sizeInBits - 8;
 
     const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
@@ -1111,7 +1125,9 @@ size_t SplitComparesTransform::splitIntCompares(Module &M, unsigned bitw) {
     auto op0 = IcmpInst->getOperand(0);
     auto op1 = IcmpInst->getOperand(1);
 
-    auto pred = dyn_cast<CmpInst>(IcmpInst)->getPredicate();
+    auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+    if (!cmp_inst) { continue; }
+    auto pred = cmp_inst->getPredicate();
 
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(IcmpInst));
 
@@ -1300,12 +1316,9 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
     case 64:
       count += splitIntCompares(M, bitw);
-      /*
-            if (!be_quiet)
-              errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
-         count
-                     << " split\n";
-      */
+      if (debug)
+        errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
+               << " split\n";
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 7)
@@ -1313,12 +1326,9 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 #endif
     case 32:
       count += splitIntCompares(M, bitw);
-      /*
-            if (!be_quiet)
-              errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
-         count
-                     << " split\n";
-      */
+      if (debug)
+        errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
+               << " split\n";
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 7)
@@ -1326,13 +1336,10 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 #endif
     case 16:
       count += splitIntCompares(M, bitw);
-      /*
-            if (!be_quiet)
-              errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
-         count
-                     << " split\n";
-      */
-      bitw >>= 1;
+      if (debug)
+        errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
+               << " split\n";
+      // bitw >>= 1;
       break;
 
     default:

@@ -1,3 +1,7 @@
+#include <features.h>
+
+#ifndef __GLIBC__
+
 /*
   This is a version (aka dlmalloc) of malloc/free/realloc written by
   Doug Lea and released to the public domain, as explained at
@@ -524,202 +528,203 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
   improvement at the expense of carrying around more memory.
 */
 
-#define USE_DL_PREFIX
+  #define USE_DL_PREFIX
 
-/* Version identifier to allow people to support multiple versions */
-#ifndef DLMALLOC_VERSION
-  #define DLMALLOC_VERSION 20806
-#endif                                                  /* DLMALLOC_VERSION */
+  /* Version identifier to allow people to support multiple versions */
+  #ifndef DLMALLOC_VERSION
+    #define DLMALLOC_VERSION 20806
+  #endif                                                /* DLMALLOC_VERSION */
 
-#ifndef DLMALLOC_EXPORT
-  #define DLMALLOC_EXPORT extern
-#endif
+  #ifndef DLMALLOC_EXPORT
+    #define DLMALLOC_EXPORT extern
+  #endif
 
-#ifndef WIN32
-  #ifdef _WIN32
-    #define WIN32 1
-  #endif                                                          /* _WIN32 */
-  #ifdef _WIN32_WCE
-    #define LACKS_FCNTL_H
-    #define WIN32 1
-  #endif                                                      /* _WIN32_WCE */
-#endif                                                             /* WIN32 */
-#ifdef WIN32
-  #define WIN32_LEAN_AND_MEAN
-  #include <windows.h>
-  #include <tchar.h>
-  #define HAVE_MMAP 1
-  #define HAVE_MORECORE 0
-  #define LACKS_UNISTD_H
-  #define LACKS_SYS_PARAM_H
-  #define LACKS_SYS_MMAN_H
-  #define LACKS_STRING_H
-  #define LACKS_STRINGS_H
-  #define LACKS_SYS_TYPES_H
-  #define LACKS_ERRNO_H
-  #define LACKS_SCHED_H
-  #ifndef MALLOC_FAILURE_ACTION
-    #define MALLOC_FAILURE_ACTION
-  #endif                                           /* MALLOC_FAILURE_ACTION */
-  #ifndef MMAP_CLEARS
-    #ifdef _WIN32_WCE                    /* WINCE reportedly does not clear */
-      #define MMAP_CLEARS 0
-    #else
-      #define MMAP_CLEARS 1
+  #ifndef WIN32
+    #ifdef _WIN32
+      #define WIN32 1
+    #endif                                                        /* _WIN32 */
+    #ifdef _WIN32_WCE
+      #define LACKS_FCNTL_H
+      #define WIN32 1
     #endif                                                    /* _WIN32_WCE */
-  #endif                                                      /*MMAP_CLEARS */
-#endif                                                             /* WIN32 */
-
-#if defined(DARWIN) || defined(_DARWIN)
-  /* Mac OSX docs advise not to use sbrk; it seems better to use mmap */
-  #ifndef HAVE_MORECORE
-    #define HAVE_MORECORE 0
+  #endif                                                           /* WIN32 */
+  #ifdef WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    #include <tchar.h>
     #define HAVE_MMAP 1
-    /* OSX allocators provide 16 byte alignment */
-    #ifndef MALLOC_ALIGNMENT
-      #define MALLOC_ALIGNMENT ((size_t)16U)
-    #endif
-  #endif                                                   /* HAVE_MORECORE */
-#endif                                                            /* DARWIN */
-
-#ifndef LACKS_SYS_TYPES_H
-  #include <sys/types.h>                                      /* For size_t */
-#endif                                                 /* LACKS_SYS_TYPES_H */
-
-/* The maximum possible size_t value has all bits set */
-#define MAX_SIZE_T (~(size_t)0)
-
-#ifndef USE_LOCKS             /* ensure true if spin or recursive locks set */
-  #define USE_LOCKS                                      \
-    ((defined(USE_SPIN_LOCKS) && USE_SPIN_LOCKS != 0) || \
-     (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0))
-#endif                                                         /* USE_LOCKS */
-
-#if USE_LOCKS   /* Spin locks for gcc >= 4.1, older gcc on x86, MSC >= 1310 */
-  #if ((defined(__GNUC__) &&                                         \
-        ((__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) || \
-         defined(__i386__) || defined(__x86_64__))) ||               \
-       (defined(_MSC_VER) && _MSC_VER >= 1310))
-    #ifndef USE_SPIN_LOCKS
-      #define USE_SPIN_LOCKS 1
-    #endif                                                /* USE_SPIN_LOCKS */
-  #elif USE_SPIN_LOCKS
-    #error "USE_SPIN_LOCKS defined without implementation"
-  #endif                                          /* ... locks available... */
-#elif !defined(USE_SPIN_LOCKS)
-  #define USE_SPIN_LOCKS 0
-#endif                                                         /* USE_LOCKS */
-
-#ifndef ONLY_MSPACES
-  #define ONLY_MSPACES 0
-#endif                                                      /* ONLY_MSPACES */
-#ifndef MSPACES
-  #if ONLY_MSPACES
-    #define MSPACES 1
-  #else                                                     /* ONLY_MSPACES */
-    #define MSPACES 0
-  #endif                                                    /* ONLY_MSPACES */
-#endif                                                           /* MSPACES */
-#ifndef MALLOC_ALIGNMENT
-  #define MALLOC_ALIGNMENT ((size_t)(2 * sizeof(void *)))
-#endif                                                  /* MALLOC_ALIGNMENT */
-#ifndef FOOTERS
-  #define FOOTERS 0
-#endif                                                           /* FOOTERS */
-#ifndef ABORT
-  #define ABORT abort()
-#endif                                                             /* ABORT */
-#ifndef ABORT_ON_ASSERT_FAILURE
-  #define ABORT_ON_ASSERT_FAILURE 1
-#endif                                           /* ABORT_ON_ASSERT_FAILURE */
-#ifndef PROCEED_ON_ERROR
-  #define PROCEED_ON_ERROR 0
-#endif                                                  /* PROCEED_ON_ERROR */
-
-#ifndef INSECURE
-  #define INSECURE 0
-#endif                                                          /* INSECURE */
-#ifndef MALLOC_INSPECT_ALL
-  #define MALLOC_INSPECT_ALL 0
-#endif                                                /* MALLOC_INSPECT_ALL */
-#ifndef HAVE_MMAP
-  #define HAVE_MMAP 1
-#endif                                                         /* HAVE_MMAP */
-#ifndef MMAP_CLEARS
-  #define MMAP_CLEARS 1
-#endif                                                       /* MMAP_CLEARS */
-#ifndef HAVE_MREMAP
-  #ifdef linux
-    #define HAVE_MREMAP 1
-    #define _GNU_SOURCE                     /* Turns on mremap() definition */
-  #else                                                            /* linux */
-    #define HAVE_MREMAP 0
-  #endif                                                           /* linux */
-#endif                                                       /* HAVE_MREMAP */
-#ifndef MALLOC_FAILURE_ACTION
-  #define MALLOC_FAILURE_ACTION errno = ENOMEM;
-#endif                                             /* MALLOC_FAILURE_ACTION */
-#ifndef HAVE_MORECORE
-  #if ONLY_MSPACES
     #define HAVE_MORECORE 0
-  #else                                                     /* ONLY_MSPACES */
-    #define HAVE_MORECORE 1
+    #define LACKS_UNISTD_H
+    #define LACKS_SYS_PARAM_H
+    #define LACKS_SYS_MMAN_H
+    #define LACKS_STRING_H
+    #define LACKS_STRINGS_H
+    #define LACKS_SYS_TYPES_H
+    #define LACKS_ERRNO_H
+    #define LACKS_SCHED_H
+    #ifndef MALLOC_FAILURE_ACTION
+      #define MALLOC_FAILURE_ACTION
+    #endif                                         /* MALLOC_FAILURE_ACTION */
+    #ifndef MMAP_CLEARS
+      #ifdef _WIN32_WCE                  /* WINCE reportedly does not clear */
+        #define MMAP_CLEARS 0
+      #else
+        #define MMAP_CLEARS 1
+      #endif                                                  /* _WIN32_WCE */
+    #endif                                                    /*MMAP_CLEARS */
+  #endif                                                           /* WIN32 */
+
+  #if defined(DARWIN) || defined(_DARWIN)
+    /* Mac OSX docs advise not to use sbrk; it seems better to use mmap */
+    #ifndef HAVE_MORECORE
+      #define HAVE_MORECORE 0
+      #define HAVE_MMAP 1
+      /* OSX allocators provide 16 byte alignment */
+      #ifndef MALLOC_ALIGNMENT
+        #define MALLOC_ALIGNMENT ((size_t)16U)
+      #endif
+    #endif                                                 /* HAVE_MORECORE */
+  #endif                                                          /* DARWIN */
+
+  #ifndef LACKS_SYS_TYPES_H
+    #include <sys/types.h>                                    /* For size_t */
+  #endif                                               /* LACKS_SYS_TYPES_H */
+
+  /* The maximum possible size_t value has all bits set */
+  #define MAX_SIZE_T (~(size_t)0)
+
+  #ifndef USE_LOCKS           /* ensure true if spin or recursive locks set */
+    #define USE_LOCKS                                      \
+      ((defined(USE_SPIN_LOCKS) && USE_SPIN_LOCKS != 0) || \
+       (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0))
+  #endif                                                       /* USE_LOCKS */
+
+  #if USE_LOCKS /* Spin locks for gcc >= 4.1, older gcc on x86, MSC >= 1310 */
+    #if ((defined(__GNUC__) &&                                         \
+          ((__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) || \
+           defined(__i386__) || defined(__x86_64__))) ||               \
+         (defined(_MSC_VER) && _MSC_VER >= 1310))
+      #ifndef USE_SPIN_LOCKS
+        #define USE_SPIN_LOCKS 1
+      #endif                                              /* USE_SPIN_LOCKS */
+    #elif USE_SPIN_LOCKS
+      #error "USE_SPIN_LOCKS defined without implementation"
+    #endif                                        /* ... locks available... */
+  #elif !defined(USE_SPIN_LOCKS)
+    #define USE_SPIN_LOCKS 0
+  #endif                                                       /* USE_LOCKS */
+
+  #ifndef ONLY_MSPACES
+    #define ONLY_MSPACES 0
   #endif                                                    /* ONLY_MSPACES */
-#endif                                                     /* HAVE_MORECORE */
-#if !HAVE_MORECORE
-  #define MORECORE_CONTIGUOUS 0
-#else                                                     /* !HAVE_MORECORE */
-  #define MORECORE_DEFAULT sbrk
-  #ifndef MORECORE_CONTIGUOUS
-    #define MORECORE_CONTIGUOUS 1
-  #endif                                             /* MORECORE_CONTIGUOUS */
-#endif                                                     /* HAVE_MORECORE */
-#ifndef DEFAULT_GRANULARITY
-  #if (MORECORE_CONTIGUOUS || defined(WIN32))
-    #define DEFAULT_GRANULARITY (0)   /* 0 means to compute in init_mparams */
-  #else                                              /* MORECORE_CONTIGUOUS */
-    #define DEFAULT_GRANULARITY ((size_t)64U * (size_t)1024U)
-  #endif                                             /* MORECORE_CONTIGUOUS */
-#endif                                               /* DEFAULT_GRANULARITY */
-#ifndef DEFAULT_TRIM_THRESHOLD
-  #ifndef MORECORE_CANNOT_TRIM
-    #define DEFAULT_TRIM_THRESHOLD ((size_t)2U * (size_t)1024U * (size_t)1024U)
-  #else                                             /* MORECORE_CANNOT_TRIM */
-    #define DEFAULT_TRIM_THRESHOLD MAX_SIZE_T
-  #endif                                            /* MORECORE_CANNOT_TRIM */
-#endif                                            /* DEFAULT_TRIM_THRESHOLD */
-#ifndef DEFAULT_MMAP_THRESHOLD
-  #if HAVE_MMAP
-    #define DEFAULT_MMAP_THRESHOLD ((size_t)256U * (size_t)1024U)
-  #else                                                        /* HAVE_MMAP */
-    #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
+  #ifndef MSPACES
+    #if ONLY_MSPACES
+      #define MSPACES 1
+    #else                                                   /* ONLY_MSPACES */
+      #define MSPACES 0
+    #endif                                                  /* ONLY_MSPACES */
+  #endif                                                         /* MSPACES */
+  #ifndef MALLOC_ALIGNMENT
+    #define MALLOC_ALIGNMENT ((size_t)(2 * sizeof(void *)))
+  #endif                                                /* MALLOC_ALIGNMENT */
+  #ifndef FOOTERS
+    #define FOOTERS 0
+  #endif                                                         /* FOOTERS */
+  #ifndef ABORT
+    #define ABORT abort()
+  #endif                                                           /* ABORT */
+  #ifndef ABORT_ON_ASSERT_FAILURE
+    #define ABORT_ON_ASSERT_FAILURE 1
+  #endif                                         /* ABORT_ON_ASSERT_FAILURE */
+  #ifndef PROCEED_ON_ERROR
+    #define PROCEED_ON_ERROR 0
+  #endif                                                /* PROCEED_ON_ERROR */
+
+  #ifndef INSECURE
+    #define INSECURE 0
+  #endif                                                        /* INSECURE */
+  #ifndef MALLOC_INSPECT_ALL
+    #define MALLOC_INSPECT_ALL 0
+  #endif                                              /* MALLOC_INSPECT_ALL */
+  #ifndef HAVE_MMAP
+    #define HAVE_MMAP 1
   #endif                                                       /* HAVE_MMAP */
-#endif                                            /* DEFAULT_MMAP_THRESHOLD */
-#ifndef MAX_RELEASE_CHECK_RATE
-  #if HAVE_MMAP
-    #define MAX_RELEASE_CHECK_RATE 4095
-  #else
-    #define MAX_RELEASE_CHECK_RATE MAX_SIZE_T
-  #endif                                                       /* HAVE_MMAP */
-#endif                                            /* MAX_RELEASE_CHECK_RATE */
-#ifndef USE_BUILTIN_FFS
-  #define USE_BUILTIN_FFS 0
-#endif                                                   /* USE_BUILTIN_FFS */
-#ifndef USE_DEV_RANDOM
-  #define USE_DEV_RANDOM 0
-#endif                                                    /* USE_DEV_RANDOM */
-#ifndef NO_MALLINFO
-  #define NO_MALLINFO 0
-#endif                                                       /* NO_MALLINFO */
-#ifndef MALLINFO_FIELD_TYPE
-  #define MALLINFO_FIELD_TYPE size_t
-#endif                                               /* MALLINFO_FIELD_TYPE */
-#ifndef NO_MALLOC_STATS
-  #define NO_MALLOC_STATS 0
-#endif                                                   /* NO_MALLOC_STATS */
-#ifndef NO_SEGMENT_TRAVERSAL
-  #define NO_SEGMENT_TRAVERSAL 0
-#endif                                              /* NO_SEGMENT_TRAVERSAL */
+  #ifndef MMAP_CLEARS
+    #define MMAP_CLEARS 1
+  #endif                                                     /* MMAP_CLEARS */
+  #ifndef HAVE_MREMAP
+    #ifdef linux
+      #define HAVE_MREMAP 1
+      #define _GNU_SOURCE                   /* Turns on mremap() definition */
+    #else                                                          /* linux */
+      #define HAVE_MREMAP 0
+    #endif                                                         /* linux */
+  #endif                                                     /* HAVE_MREMAP */
+  #ifndef MALLOC_FAILURE_ACTION
+    #define MALLOC_FAILURE_ACTION errno = ENOMEM;
+  #endif                                           /* MALLOC_FAILURE_ACTION */
+  #ifndef HAVE_MORECORE
+    #if ONLY_MSPACES
+      #define HAVE_MORECORE 0
+    #else                                                   /* ONLY_MSPACES */
+      #define HAVE_MORECORE 1
+    #endif                                                  /* ONLY_MSPACES */
+  #endif                                                   /* HAVE_MORECORE */
+  #if !HAVE_MORECORE
+    #define MORECORE_CONTIGUOUS 0
+  #else                                                   /* !HAVE_MORECORE */
+    #define MORECORE_DEFAULT sbrk
+    #ifndef MORECORE_CONTIGUOUS
+      #define MORECORE_CONTIGUOUS 1
+    #endif                                           /* MORECORE_CONTIGUOUS */
+  #endif                                                   /* HAVE_MORECORE */
+  #ifndef DEFAULT_GRANULARITY
+    #if (MORECORE_CONTIGUOUS || defined(WIN32))
+      #define DEFAULT_GRANULARITY (0) /* 0 means to compute in init_mparams */
+    #else                                            /* MORECORE_CONTIGUOUS */
+      #define DEFAULT_GRANULARITY ((size_t)64U * (size_t)1024U)
+    #endif                                           /* MORECORE_CONTIGUOUS */
+  #endif                                             /* DEFAULT_GRANULARITY */
+  #ifndef DEFAULT_TRIM_THRESHOLD
+    #ifndef MORECORE_CANNOT_TRIM
+      #define DEFAULT_TRIM_THRESHOLD \
+        ((size_t)2U * (size_t)1024U * (size_t)1024U)
+    #else                                           /* MORECORE_CANNOT_TRIM */
+      #define DEFAULT_TRIM_THRESHOLD MAX_SIZE_T
+    #endif                                          /* MORECORE_CANNOT_TRIM */
+  #endif                                          /* DEFAULT_TRIM_THRESHOLD */
+  #ifndef DEFAULT_MMAP_THRESHOLD
+    #if HAVE_MMAP
+      #define DEFAULT_MMAP_THRESHOLD ((size_t)256U * (size_t)1024U)
+    #else                                                      /* HAVE_MMAP */
+      #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
+    #endif                                                     /* HAVE_MMAP */
+  #endif                                          /* DEFAULT_MMAP_THRESHOLD */
+  #ifndef MAX_RELEASE_CHECK_RATE
+    #if HAVE_MMAP
+      #define MAX_RELEASE_CHECK_RATE 4095
+    #else
+      #define MAX_RELEASE_CHECK_RATE MAX_SIZE_T
+    #endif                                                     /* HAVE_MMAP */
+  #endif                                          /* MAX_RELEASE_CHECK_RATE */
+  #ifndef USE_BUILTIN_FFS
+    #define USE_BUILTIN_FFS 0
+  #endif                                                 /* USE_BUILTIN_FFS */
+  #ifndef USE_DEV_RANDOM
+    #define USE_DEV_RANDOM 0
+  #endif                                                  /* USE_DEV_RANDOM */
+  #ifndef NO_MALLINFO
+    #define NO_MALLINFO 0
+  #endif                                                     /* NO_MALLINFO */
+  #ifndef MALLINFO_FIELD_TYPE
+    #define MALLINFO_FIELD_TYPE size_t
+  #endif                                             /* MALLINFO_FIELD_TYPE */
+  #ifndef NO_MALLOC_STATS
+    #define NO_MALLOC_STATS 0
+  #endif                                                 /* NO_MALLOC_STATS */
+  #ifndef NO_SEGMENT_TRAVERSAL
+    #define NO_SEGMENT_TRAVERSAL 0
+  #endif                                            /* NO_SEGMENT_TRAVERSAL */
 
 /*
   mallopt tuning options.  SVID/XPG defines four standard parameter
@@ -728,48 +733,48 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
   malloc does support the following options.
 */
 
-#undef M_TRIM_THRESHOLD
-#undef M_GRANULARITY
-#undef M_MMAP_THRESHOLD
-#define M_TRIM_THRESHOLD (-1)
-#define M_GRANULARITY (-2)
-#define M_MMAP_THRESHOLD (-3)
+  #undef M_TRIM_THRESHOLD
+  #undef M_GRANULARITY
+  #undef M_MMAP_THRESHOLD
+  #define M_TRIM_THRESHOLD (-1)
+  #define M_GRANULARITY (-2)
+  #define M_MMAP_THRESHOLD (-3)
 
 /* ------------------------ Mallinfo declarations ------------------------ */
 
-#if !NO_MALLINFO
-/*
-  This version of malloc supports the standard SVID/XPG mallinfo
-  routine that returns a struct containing usage properties and
-  statistics. It should work on any system that has a
-  /usr/include/malloc.h defining struct mallinfo.  The main
-  declaration needed is the mallinfo struct that is returned (by-copy)
-  by mallinfo().  The malloinfo struct contains a bunch of fields that
-  are not even meaningful in this version of malloc.  These fields are
-  are instead filled by mallinfo() with other numbers that might be of
-  interest.
+  #if !NO_MALLINFO
+  /*
+    This version of malloc supports the standard SVID/XPG mallinfo
+    routine that returns a struct containing usage properties and
+    statistics. It should work on any system that has a
+    /usr/include/malloc.h defining struct mallinfo.  The main
+    declaration needed is the mallinfo struct that is returned (by-copy)
+    by mallinfo().  The malloinfo struct contains a bunch of fields that
+    are not even meaningful in this version of malloc.  These fields are
+    are instead filled by mallinfo() with other numbers that might be of
+    interest.
 
-  HAVE_USR_INCLUDE_MALLOC_H should be set if you have a
-  /usr/include/malloc.h file that includes a declaration of struct
-  mallinfo.  If so, it is included; else a compliant version is
-  declared below.  These must be precisely the same for mallinfo() to
-  work.  The original SVID version of this struct, defined on most
-  systems with mallinfo, declares all fields as ints. But some others
-  define as unsigned long. If your system defines the fields using a
-  type of different width than listed here, you MUST #include your
-  system version and #define HAVE_USR_INCLUDE_MALLOC_H.
-*/
+    HAVE_USR_INCLUDE_MALLOC_H should be set if you have a
+    /usr/include/malloc.h file that includes a declaration of struct
+    mallinfo.  If so, it is included; else a compliant version is
+    declared below.  These must be precisely the same for mallinfo() to
+    work.  The original SVID version of this struct, defined on most
+    systems with mallinfo, declares all fields as ints. But some others
+    define as unsigned long. If your system defines the fields using a
+    type of different width than listed here, you MUST #include your
+    system version and #define HAVE_USR_INCLUDE_MALLOC_H.
+  */
 
-/* #define HAVE_USR_INCLUDE_MALLOC_H */
+  /* #define HAVE_USR_INCLUDE_MALLOC_H */
 
-  #ifdef HAVE_USR_INCLUDE_MALLOC_H
-    #include "/usr/include/malloc.h"
-  #else                                        /* HAVE_USR_INCLUDE_MALLOC_H */
-    #ifndef STRUCT_MALLINFO_DECLARED
-      /* HP-UX (and others?) redefines mallinfo unless _STRUCT_MALLINFO is
-       * defined */
-      #define _STRUCT_MALLINFO
-      #define STRUCT_MALLINFO_DECLARED 1
+    #ifdef HAVE_USR_INCLUDE_MALLOC_H
+      #include "/usr/include/malloc.h"
+    #else                                      /* HAVE_USR_INCLUDE_MALLOC_H */
+      #ifndef STRUCT_MALLINFO_DECLARED
+        /* HP-UX (and others?) redefines mallinfo unless _STRUCT_MALLINFO is
+         * defined */
+        #define _STRUCT_MALLINFO
+        #define STRUCT_MALLINFO_DECLARED 1
 struct mallinfo {
 
   MALLINFO_FIELD_TYPE arena;     /* non-mmapped space allocated from system */
@@ -785,71 +790,71 @@ struct mallinfo {
 
 };
 
-    #endif                                      /* STRUCT_MALLINFO_DECLARED */
-  #endif                                       /* HAVE_USR_INCLUDE_MALLOC_H */
-#endif                                                       /* NO_MALLINFO */
+      #endif                                    /* STRUCT_MALLINFO_DECLARED */
+    #endif                                     /* HAVE_USR_INCLUDE_MALLOC_H */
+  #endif                                                     /* NO_MALLINFO */
 
 /*
   Try to persuade compilers to inline. The most critical functions for
   inlining are defined as macros, so these aren't used for them.
 */
 
-#ifndef FORCEINLINE
-  #if defined(__GNUC__)
-    #define FORCEINLINE __inline __attribute__((always_inline))
-  #elif defined(_MSC_VER)
-    #define FORCEINLINE __forceinline
+  #ifndef FORCEINLINE
+    #if defined(__GNUC__)
+      #define FORCEINLINE __inline __attribute__((always_inline))
+    #elif defined(_MSC_VER)
+      #define FORCEINLINE __forceinline
+    #endif
   #endif
-#endif
-#ifndef NOINLINE
-  #if defined(__GNUC__)
-    #define NOINLINE __attribute__((noinline))
-  #elif defined(_MSC_VER)
-    #define NOINLINE __declspec(noinline)
-  #else
-    #define NOINLINE
+  #ifndef NOINLINE
+    #if defined(__GNUC__)
+      #define NOINLINE __attribute__((noinline))
+    #elif defined(_MSC_VER)
+      #define NOINLINE __declspec(noinline)
+    #else
+      #define NOINLINE
+    #endif
   #endif
-#endif
 
-#ifdef __cplusplus
+  #ifdef __cplusplus
 extern "C" {
 
+    #ifndef FORCEINLINE
+      #define FORCEINLINE inline
+    #endif
+  #endif                                                     /* __cplusplus */
   #ifndef FORCEINLINE
-    #define FORCEINLINE inline
+    #define FORCEINLINE
   #endif
-#endif                                                       /* __cplusplus */
-#ifndef FORCEINLINE
-  #define FORCEINLINE
-#endif
 
-#if !ONLY_MSPACES
+  #if !ONLY_MSPACES
 
-/* ------------------- Declarations of public routines ------------------- */
+  /* ------------------- Declarations of public routines ------------------- */
 
-  #ifndef USE_DL_PREFIX
-    #define dlcalloc calloc
-    #define dlfree free
-    #define dlmalloc malloc
-    #define dlmemalign memalign
-    #define dlposix_memalign posix_memalign
-    #define dlrealloc realloc
-    #define dlrealloc_in_place realloc_in_place
-    #define dlvalloc valloc
-    #define dlpvalloc pvalloc
-    #define dlmallinfo mallinfo
-    #define dlmallopt mallopt
-    #define dlmalloc_trim malloc_trim
-    #define dlmalloc_stats malloc_stats
-    #define dlmalloc_usable_size malloc_usable_size
-    #define dlmalloc_footprint malloc_footprint
-    #define dlmalloc_max_footprint malloc_max_footprint
-    #define dlmalloc_footprint_limit malloc_footprint_limit
-    #define dlmalloc_set_footprint_limit malloc_set_footprint_limit
-    #define dlmalloc_inspect_all malloc_inspect_all
-    #define dlindependent_calloc independent_calloc
-    #define dlindependent_comalloc independent_comalloc
-    #define dlbulk_free bulk_free
-  #endif                                                   /* USE_DL_PREFIX */
+    #ifndef USE_DL_PREFIX
+      #define dlcalloc calloc
+      #define dlfree free
+      #define dlmalloc malloc
+      #define dlmemalign memalign
+      #define dlposix_memalign posix_memalign
+      #define dlrealloc realloc
+      #define dlrealloc_in_place realloc_in_place
+      #define dlvalloc valloc
+      #define dlpvalloc pvalloc
+      #define dlmallinfo mallinfo
+      #define dlmallopt mallopt
+      #define dlmalloc_trim malloc_trim
+      #define dlmalloc_stats malloc_stats
+      #define dlmalloc_usable_size malloc_usable_size
+      #define dlmalloc_footprint malloc_footprint
+      #define dlmalloc_max_footprint malloc_max_footprint
+      #define dlmalloc_footprint_limit malloc_footprint_limit
+      #define dlmalloc_set_footprint_limit malloc_set_footprint_limit
+      #define dlmalloc_inspect_all malloc_inspect_all
+      #define dlindependent_calloc independent_calloc
+      #define dlindependent_comalloc independent_comalloc
+      #define dlbulk_free bulk_free
+    #endif                                                 /* USE_DL_PREFIX */
 
 /*
   malloc(size_t n)
@@ -1026,7 +1031,7 @@ DLMALLOC_EXPORT size_t dlmalloc_footprint_limit();
 */
 DLMALLOC_EXPORT size_t dlmalloc_set_footprint_limit(size_t bytes);
 
-  #if MALLOC_INSPECT_ALL
+    #if MALLOC_INSPECT_ALL
 /*
   malloc_inspect_all(void(*handler)(void *start,
                                     void *end,
@@ -1062,9 +1067,9 @@ DLMALLOC_EXPORT void dlmalloc_inspect_all(void (*handler)(void *, void *,
                                                           size_t, void *),
                                           void *arg);
 
-  #endif                                              /* MALLOC_INSPECT_ALL */
+    #endif                                            /* MALLOC_INSPECT_ALL */
 
-  #if !NO_MALLINFO
+    #if !NO_MALLINFO
 /*
   mallinfo()
   Returns (by copy) a struct containing various summary statistics:
@@ -1088,7 +1093,7 @@ DLMALLOC_EXPORT void dlmalloc_inspect_all(void (*handler)(void *, void *,
   thus be inaccurate.
 */
 DLMALLOC_EXPORT struct mallinfo dlmallinfo(void);
-  #endif                                                     /* NO_MALLINFO */
+    #endif                                                   /* NO_MALLINFO */
 
 /*
   independent_calloc(size_t n_elements, size_t element_size, void* chunks[]);
@@ -1282,9 +1287,9 @@ DLMALLOC_EXPORT void dlmalloc_stats(void);
 */
 size_t dlmalloc_usable_size(void *);
 
-#endif                                                      /* ONLY_MSPACES */
+  #endif                                                    /* ONLY_MSPACES */
 
-#if MSPACES
+  #if MSPACES
 
 /*
   mspace is an opaque type representing an independent
@@ -1408,13 +1413,13 @@ DLMALLOC_EXPORT size_t mspace_footprint(mspace msp);
 */
 DLMALLOC_EXPORT size_t mspace_max_footprint(mspace msp);
 
-  #if !NO_MALLINFO
+    #if !NO_MALLINFO
 /*
   mspace_mallinfo behaves as mallinfo, but reports properties of
   the given space.
 */
 DLMALLOC_EXPORT struct mallinfo mspace_mallinfo(mspace msp);
-  #endif                                                     /* NO_MALLINFO */
+    #endif                                                   /* NO_MALLINFO */
 
 /*
   malloc_usable_size(void* p) behaves the same as malloc_usable_size;
@@ -1438,13 +1443,13 @@ DLMALLOC_EXPORT int mspace_trim(mspace msp, size_t pad);
 */
 DLMALLOC_EXPORT int mspace_mallopt(int, int);
 
-#endif                                                           /* MSPACES */
+  #endif                                                         /* MSPACES */
 
-#ifdef __cplusplus
+  #ifdef __cplusplus
 
 }                                                      /* end of extern "C" */
 
-#endif                                                       /* __cplusplus */
+  #endif                                                     /* __cplusplus */
 
 /*
   ========================================================================
@@ -1458,169 +1463,170 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
 
 /*------------------------------ internal #includes ---------------------- */
 
-#ifdef _MSC_VER
-  #pragma warning(disable : 4146)                 /* no "unsigned" warnings */
-#endif                                                          /* _MSC_VER */
-#if !NO_MALLOC_STATS
-  #include <stdio.h>                        /* for printing in malloc_stats */
-#endif                                                   /* NO_MALLOC_STATS */
-#ifndef LACKS_ERRNO_H
-  #include <errno.h>                           /* for MALLOC_FAILURE_ACTION */
-#endif                                                     /* LACKS_ERRNO_H */
-#ifdef DEBUG
-  #if ABORT_ON_ASSERT_FAILURE
-    #undef assert
-    #define assert(x) \
-      if (!(x)) ABORT
-  #else                                          /* ABORT_ON_ASSERT_FAILURE */
-    #include <assert.h>
-  #endif                                         /* ABORT_ON_ASSERT_FAILURE */
-#else                                                              /* DEBUG */
-  #ifndef assert
-    #define assert(x)
-  #endif
-  #define DEBUG 0
-#endif                                                             /* DEBUG */
-#if !defined(WIN32) && !defined(LACKS_TIME_H)
-  #include <time.h>                             /* for magic initialization */
-#endif                                                             /* WIN32 */
-#ifndef LACKS_STDLIB_H
-  #include <stdlib.h>                                        /* for abort() */
-#endif                                                    /* LACKS_STDLIB_H */
-#ifndef LACKS_STRING_H
-  #include <string.h>                                     /* for memset etc */
-#endif                                                    /* LACKS_STRING_H */
-#if USE_BUILTIN_FFS
-  #ifndef LACKS_STRINGS_H
-    #include <strings.h>                                         /* for ffs */
-  #endif                                                 /* LACKS_STRINGS_H */
-#endif                                                   /* USE_BUILTIN_FFS */
-#if HAVE_MMAP
-  #ifndef LACKS_SYS_MMAN_H
-    /* On some versions of linux, mremap decl in mman.h needs __USE_GNU set */
-    #if (defined(linux) && !defined(__USE_GNU))
-      #define __USE_GNU 1
-      #include <sys/mman.h>                                     /* for mmap */
-      #undef __USE_GNU
-    #else
-      #include <sys/mman.h>                                     /* for mmap */
-    #endif                                                         /* linux */
-  #endif                                                /* LACKS_SYS_MMAN_H */
-  #ifndef LACKS_FCNTL_H
-    #include <fcntl.h>
-  #endif                                                   /* LACKS_FCNTL_H */
-#endif                                                         /* HAVE_MMAP */
-#ifndef LACKS_UNISTD_H
-  #include <unistd.h>                                  /* for sbrk, sysconf */
-#else                                                     /* LACKS_UNISTD_H */
-  #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
+  #ifdef _MSC_VER
+    #pragma warning(disable : 4146)               /* no "unsigned" warnings */
+  #endif                                                        /* _MSC_VER */
+  #if !NO_MALLOC_STATS
+    #include <stdio.h>                      /* for printing in malloc_stats */
+  #endif                                                 /* NO_MALLOC_STATS */
+  #ifndef LACKS_ERRNO_H
+    #include <errno.h>                         /* for MALLOC_FAILURE_ACTION */
+  #endif                                                   /* LACKS_ERRNO_H */
+  #ifdef DEBUG
+    #if ABORT_ON_ASSERT_FAILURE
+      #undef assert
+      #define assert(x) \
+        if (!(x)) ABORT
+    #else                                        /* ABORT_ON_ASSERT_FAILURE */
+      #include <assert.h>
+    #endif                                       /* ABORT_ON_ASSERT_FAILURE */
+  #else                                                            /* DEBUG */
+    #ifndef assert
+      #define assert(x)
+    #endif
+    #define DEBUG 0
+  #endif                                                           /* DEBUG */
+  #if !defined(WIN32) && !defined(LACKS_TIME_H)
+    #include <time.h>                           /* for magic initialization */
+  #endif                                                           /* WIN32 */
+  #ifndef LACKS_STDLIB_H
+    #include <stdlib.h>                                      /* for abort() */
+  #endif                                                  /* LACKS_STDLIB_H */
+  #ifndef LACKS_STRING_H
+    #include <string.h>                                   /* for memset etc */
+  #endif                                                  /* LACKS_STRING_H */
+  #if USE_BUILTIN_FFS
+    #ifndef LACKS_STRINGS_H
+      #include <strings.h>                                       /* for ffs */
+    #endif                                               /* LACKS_STRINGS_H */
+  #endif                                                 /* USE_BUILTIN_FFS */
+  #if HAVE_MMAP
+    #ifndef LACKS_SYS_MMAN_H
+      /* On some versions of linux, mremap decl in mman.h needs __USE_GNU set */
+      #if (defined(linux) && !defined(__USE_GNU))
+        #define __USE_GNU 1
+        #include <sys/mman.h>                                   /* for mmap */
+        #undef __USE_GNU
+      #else
+        #include <sys/mman.h>                                   /* for mmap */
+      #endif                                                       /* linux */
+    #endif                                              /* LACKS_SYS_MMAN_H */
+    #ifndef LACKS_FCNTL_H
+      #include <fcntl.h>
+    #endif                                                 /* LACKS_FCNTL_H */
+  #endif                                                       /* HAVE_MMAP */
+  #ifndef LACKS_UNISTD_H
+    #include <unistd.h>                                /* for sbrk, sysconf */
+  #else                                                   /* LACKS_UNISTD_H */
+    #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
 extern void *sbrk(ptrdiff_t);
-  #endif                                                     /* FreeBSD etc */
-#endif                                                    /* LACKS_UNISTD_H */
+    #endif                                                   /* FreeBSD etc */
+  #endif                                                  /* LACKS_UNISTD_H */
 
-/* Declarations for locking */
-#if USE_LOCKS
-  #ifndef WIN32
-    #if defined(__SVR4) && defined(__sun)                        /* solaris */
-      #include <thread.h>
-    #elif !defined(LACKS_SCHED_H)
-      #include <sched.h>
-    #endif                                      /* solaris or LACKS_SCHED_H */
-    #if (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0) || \
-        !USE_SPIN_LOCKS
-      #include <pthread.h>
-    #endif                                       /* USE_RECURSIVE_LOCKS ... */
-  #elif defined(_MSC_VER)
-    #ifndef _M_AMD64
-      /* These are already defined on AMD64 builds */
-      #ifdef __cplusplus
+  /* Declarations for locking */
+  #if USE_LOCKS
+    #ifndef WIN32
+      #if defined(__SVR4) && defined(__sun)                      /* solaris */
+        #include <thread.h>
+      #elif !defined(LACKS_SCHED_H)
+        #include <sched.h>
+      #endif                                    /* solaris or LACKS_SCHED_H */
+      #if (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0) || \
+          !USE_SPIN_LOCKS
+        #include <pthread.h>
+      #endif                                     /* USE_RECURSIVE_LOCKS ... */
+    #elif defined(_MSC_VER)
+      #ifndef _M_AMD64
+        /* These are already defined on AMD64 builds */
+        #ifdef __cplusplus
 extern "C" {
 
-      #endif                                                 /* __cplusplus */
+        #endif                                               /* __cplusplus */
 LONG __cdecl _InterlockedCompareExchange(LONG volatile *Dest, LONG Exchange,
                                          LONG Comp);
 LONG __cdecl _InterlockedExchange(LONG volatile *Target, LONG Value);
+        #ifdef __cplusplus
+
+}
+
+        #endif                                               /* __cplusplus */
+      #endif                                                    /* _M_AMD64 */
+      #pragma intrinsic(_InterlockedCompareExchange)
+      #pragma intrinsic(_InterlockedExchange)
+      #define interlockedcompareexchange _InterlockedCompareExchange
+      #define interlockedexchange _InterlockedExchange
+    #elif defined(WIN32) && defined(__GNUC__)
+      #define interlockedcompareexchange(a, b, c) \
+        __sync_val_compare_and_swap(a, c, b)
+      #define interlockedexchange __sync_lock_test_and_set
+    #endif                                                         /* Win32 */
+  #else                                                        /* USE_LOCKS */
+  #endif                                                       /* USE_LOCKS */
+
+  #ifndef LOCK_AT_FORK
+    #define LOCK_AT_FORK 0
+  #endif
+
+  /* Declarations for bit scanning on win32 */
+  #if defined(_MSC_VER) && _MSC_VER >= 1300
+    #ifndef BitScanForward               /* Try to avoid pulling in WinNT.h */
+      #ifdef __cplusplus
+extern "C" {
+
+      #endif                                                 /* __cplusplus */
+unsigned char _BitScanForward(unsigned long *index, unsigned long mask);
+unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
       #ifdef __cplusplus
 
 }
 
       #endif                                                 /* __cplusplus */
-    #endif                                                      /* _M_AMD64 */
-    #pragma intrinsic(_InterlockedCompareExchange)
-    #pragma intrinsic(_InterlockedExchange)
-    #define interlockedcompareexchange _InterlockedCompareExchange
-    #define interlockedexchange _InterlockedExchange
-  #elif defined(WIN32) && defined(__GNUC__)
-    #define interlockedcompareexchange(a, b, c) \
-      __sync_val_compare_and_swap(a, c, b)
-    #define interlockedexchange __sync_lock_test_and_set
-  #endif                                                           /* Win32 */
-#else                                                          /* USE_LOCKS */
-#endif                                                         /* USE_LOCKS */
 
-#ifndef LOCK_AT_FORK
-  #define LOCK_AT_FORK 0
-#endif
+      #define BitScanForward _BitScanForward
+      #define BitScanReverse _BitScanReverse
+      #pragma intrinsic(_BitScanForward)
+      #pragma intrinsic(_BitScanReverse)
+    #endif                                                /* BitScanForward */
+  #endif                             /* defined(_MSC_VER) && _MSC_VER>=1300 */
 
-/* Declarations for bit scanning on win32 */
-#if defined(_MSC_VER) && _MSC_VER >= 1300
-  #ifndef BitScanForward                 /* Try to avoid pulling in WinNT.h */
-    #ifdef __cplusplus
-extern "C" {
-
-    #endif                                                   /* __cplusplus */
-unsigned char _BitScanForward(unsigned long *index, unsigned long mask);
-unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
-    #ifdef __cplusplus
-
-}
-
-    #endif                                                   /* __cplusplus */
-
-    #define BitScanForward _BitScanForward
-    #define BitScanReverse _BitScanReverse
-    #pragma intrinsic(_BitScanForward)
-    #pragma intrinsic(_BitScanReverse)
-  #endif                                                  /* BitScanForward */
-#endif                               /* defined(_MSC_VER) && _MSC_VER>=1300 */
-
-#ifndef WIN32
-  #ifndef malloc_getpagesize
-    #ifdef _SC_PAGESIZE             /* some SVR4 systems omit an underscore */
-      #ifndef _SC_PAGE_SIZE
-        #define _SC_PAGE_SIZE _SC_PAGESIZE
+  #ifndef WIN32
+    #ifndef malloc_getpagesize
+      #ifdef _SC_PAGESIZE           /* some SVR4 systems omit an underscore */
+        #ifndef _SC_PAGE_SIZE
+          #define _SC_PAGE_SIZE _SC_PAGESIZE
+        #endif
       #endif
-    #endif
-    #ifdef _SC_PAGE_SIZE
-      #define malloc_getpagesize sysconf(_SC_PAGE_SIZE)
-    #else
-      #if defined(BSD) || defined(DGUX) || defined(HAVE_GETPAGESIZE)
-extern size_t getpagesize();
-        #define malloc_getpagesize getpagesize()
+      #ifdef _SC_PAGE_SIZE
+        #define malloc_getpagesize sysconf(_SC_PAGE_SIZE)
       #else
-        #ifdef WIN32               /* use supplied emulation of getpagesize */
+        #if defined(BSD) || defined(DGUX) || defined(HAVE_GETPAGESIZE)
+extern size_t getpagesize();
           #define malloc_getpagesize getpagesize()
         #else
-          #ifndef LACKS_SYS_PARAM_H
-            #include <sys/param.h>
-          #endif
-          #ifdef EXEC_PAGESIZE
-            #define malloc_getpagesize EXEC_PAGESIZE
+          #ifdef WIN32             /* use supplied emulation of getpagesize */
+            #define malloc_getpagesize getpagesize()
           #else
-            #ifdef NBPG
-              #ifndef CLSIZE
-                #define malloc_getpagesize NBPG
-              #else
-                #define malloc_getpagesize (NBPG * CLSIZE)
-              #endif
+            #ifndef LACKS_SYS_PARAM_H
+              #include <sys/param.h>
+            #endif
+            #ifdef EXEC_PAGESIZE
+              #define malloc_getpagesize EXEC_PAGESIZE
             #else
-              #ifdef NBPC
-                #define malloc_getpagesize NBPC
+              #ifdef NBPG
+                #ifndef CLSIZE
+                  #define malloc_getpagesize NBPG
+                #else
+                  #define malloc_getpagesize (NBPG * CLSIZE)
+                #endif
               #else
-                #ifdef PAGESIZE
-                  #define malloc_getpagesize PAGESIZE
-                #else                                         /* just guess */
-                  #define malloc_getpagesize ((size_t)4096U)
+                #ifdef NBPC
+                  #define malloc_getpagesize NBPC
+                #else
+                  #ifdef PAGESIZE
+                    #define malloc_getpagesize PAGESIZE
+                  #else                                       /* just guess */
+                    #define malloc_getpagesize ((size_t)4096U)
+                  #endif
                 #endif
               #endif
             #endif
@@ -1629,60 +1635,59 @@ extern size_t getpagesize();
       #endif
     #endif
   #endif
-#endif
 
-/* ------------------- size_t and alignment properties -------------------- */
+  /* ------------------- size_t and alignment properties -------------------- */
 
-/* The byte and bit size of a size_t */
-#define SIZE_T_SIZE (sizeof(size_t))
-#define SIZE_T_BITSIZE (sizeof(size_t) << 3)
+  /* The byte and bit size of a size_t */
+  #define SIZE_T_SIZE (sizeof(size_t))
+  #define SIZE_T_BITSIZE (sizeof(size_t) << 3)
 
-/* Some constants coerced to size_t */
-/* Annoying but necessary to avoid errors on some platforms */
-#define SIZE_T_ZERO ((size_t)0)
-#define SIZE_T_ONE ((size_t)1)
-#define SIZE_T_TWO ((size_t)2)
-#define SIZE_T_FOUR ((size_t)4)
-#define TWO_SIZE_T_SIZES (SIZE_T_SIZE << 1)
-#define FOUR_SIZE_T_SIZES (SIZE_T_SIZE << 2)
-#define SIX_SIZE_T_SIZES (FOUR_SIZE_T_SIZES + TWO_SIZE_T_SIZES)
-#define HALF_MAX_SIZE_T (MAX_SIZE_T / 2U)
+  /* Some constants coerced to size_t */
+  /* Annoying but necessary to avoid errors on some platforms */
+  #define SIZE_T_ZERO ((size_t)0)
+  #define SIZE_T_ONE ((size_t)1)
+  #define SIZE_T_TWO ((size_t)2)
+  #define SIZE_T_FOUR ((size_t)4)
+  #define TWO_SIZE_T_SIZES (SIZE_T_SIZE << 1)
+  #define FOUR_SIZE_T_SIZES (SIZE_T_SIZE << 2)
+  #define SIX_SIZE_T_SIZES (FOUR_SIZE_T_SIZES + TWO_SIZE_T_SIZES)
+  #define HALF_MAX_SIZE_T (MAX_SIZE_T / 2U)
 
-/* The bit mask value corresponding to MALLOC_ALIGNMENT */
-#define CHUNK_ALIGN_MASK (MALLOC_ALIGNMENT - SIZE_T_ONE)
+  /* The bit mask value corresponding to MALLOC_ALIGNMENT */
+  #define CHUNK_ALIGN_MASK (MALLOC_ALIGNMENT - SIZE_T_ONE)
 
-/* True if address a has acceptable alignment */
-#define is_aligned(A) (((size_t)((A)) & (CHUNK_ALIGN_MASK)) == 0)
+  /* True if address a has acceptable alignment */
+  #define is_aligned(A) (((size_t)((A)) & (CHUNK_ALIGN_MASK)) == 0)
 
-/* the number of bytes to offset an address to align it */
-#define align_offset(A)                                         \
-  ((((size_t)(A)&CHUNK_ALIGN_MASK) == 0)                        \
-       ? 0                                                      \
-       : ((MALLOC_ALIGNMENT - ((size_t)(A)&CHUNK_ALIGN_MASK)) & \
-          CHUNK_ALIGN_MASK))
+  /* the number of bytes to offset an address to align it */
+  #define align_offset(A)                                         \
+    ((((size_t)(A)&CHUNK_ALIGN_MASK) == 0)                        \
+         ? 0                                                      \
+         : ((MALLOC_ALIGNMENT - ((size_t)(A)&CHUNK_ALIGN_MASK)) & \
+            CHUNK_ALIGN_MASK))
 
-/* -------------------------- MMAP preliminaries ------------------------- */
+  /* -------------------------- MMAP preliminaries ------------------------- */
 
-/*
-   If HAVE_MORECORE or HAVE_MMAP are false, we just define calls and
-   checks to fail so compiler optimizer can delete code rather than
-   using so many "#if"s.
-*/
+  /*
+     If HAVE_MORECORE or HAVE_MMAP are false, we just define calls and
+     checks to fail so compiler optimizer can delete code rather than
+     using so many "#if"s.
+  */
 
-/* MORECORE and MMAP must return MFAIL on failure */
-#define MFAIL ((void *)(MAX_SIZE_T))
-#define CMFAIL ((char *)(MFAIL))                 /* defined for convenience */
+  /* MORECORE and MMAP must return MFAIL on failure */
+  #define MFAIL ((void *)(MAX_SIZE_T))
+  #define CMFAIL ((char *)(MFAIL))               /* defined for convenience */
 
-#if HAVE_MMAP
+  #if HAVE_MMAP
 
-  #ifndef WIN32
-    #define MMAP_PROT (PROT_READ | PROT_WRITE)
-    #if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
-      #define MAP_ANONYMOUS MAP_ANON
-    #endif                                                      /* MAP_ANON */
-    #ifdef MAP_ANONYMOUS
+    #ifndef WIN32
+      #define MMAP_PROT (PROT_READ | PROT_WRITE)
+      #if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
+        #define MAP_ANONYMOUS MAP_ANON
+      #endif                                                    /* MAP_ANON */
+      #ifdef MAP_ANONYMOUS
 
-      #define MMAP_FLAGS (MAP_PRIVATE | MAP_ANONYMOUS)
+        #define MMAP_FLAGS (MAP_PRIVATE | MAP_ANONYMOUS)
 
 static FORCEINLINE void *unixmmap(size_t size) {
 
@@ -1706,27 +1711,27 @@ static FORCEINLINE int unixmunmap(void *ptr, size_t size) {
 
 }
 
-      #define MMAP_DEFAULT(s) unixmmap(s)
-      #define MUNMAP_DEFAULT(a, s) unixmunmap((a), (s))
+        #define MMAP_DEFAULT(s) unixmmap(s)
+        #define MUNMAP_DEFAULT(a, s) unixmunmap((a), (s))
 
-    #else                                                  /* MAP_ANONYMOUS */
-      /*
-         Nearly all versions of mmap support MAP_ANONYMOUS, so the following
-         is unlikely to be needed, but is supplied just in case.
-      */
-      #define MMAP_FLAGS (MAP_PRIVATE)
+      #else                                                /* MAP_ANONYMOUS */
+        /*
+           Nearly all versions of mmap support MAP_ANONYMOUS, so the following
+           is unlikely to be needed, but is supplied just in case.
+        */
+        #define MMAP_FLAGS (MAP_PRIVATE)
 static int dev_zero_fd = -1;       /* Cached file descriptor for /dev/zero. */
-      #define MMAP_DEFAULT(s)                                        \
-        ((dev_zero_fd < 0)                                           \
-             ? (dev_zero_fd = open("/dev/zero", O_RDWR),             \
-                mmap(0, (s), MMAP_PROT, MMAP_FLAGS, dev_zero_fd, 0)) \
-             : mmap(0, (s), MMAP_PROT, MMAP_FLAGS, dev_zero_fd, 0))
-      #define MUNMAP_DEFAULT(a, s) munmap((a), (s))
-    #endif                                                 /* MAP_ANONYMOUS */
+        #define MMAP_DEFAULT(s)                                        \
+          ((dev_zero_fd < 0)                                           \
+               ? (dev_zero_fd = open("/dev/zero", O_RDWR),             \
+                  mmap(0, (s), MMAP_PROT, MMAP_FLAGS, dev_zero_fd, 0)) \
+               : mmap(0, (s), MMAP_PROT, MMAP_FLAGS, dev_zero_fd, 0))
+        #define MUNMAP_DEFAULT(a, s) munmap((a), (s))
+      #endif                                               /* MAP_ANONYMOUS */
 
-    #define DIRECT_MMAP_DEFAULT(s) MMAP_DEFAULT(s)
+      #define DIRECT_MMAP_DEFAULT(s) MMAP_DEFAULT(s)
 
-  #else                                                            /* WIN32 */
+    #else                                                          /* WIN32 */
 
 /* Win32 MMAP via VirtualAlloc */
 static FORCEINLINE void *win32mmap(size_t size) {
@@ -1775,14 +1780,14 @@ static FORCEINLINE int win32munmap(void *ptr, size_t size) {
 
 }
 
-    #define MMAP_DEFAULT(s) win32mmap(s)
-    #define MUNMAP_DEFAULT(a, s) win32munmap((a), (s))
-    #define DIRECT_MMAP_DEFAULT(s) win32direct_mmap(s)
-  #endif                                                           /* WIN32 */
-#endif                                                         /* HAVE_MMAP */
+      #define MMAP_DEFAULT(s) win32mmap(s)
+      #define MUNMAP_DEFAULT(a, s) win32munmap((a), (s))
+      #define DIRECT_MMAP_DEFAULT(s) win32direct_mmap(s)
+    #endif                                                         /* WIN32 */
+  #endif                                                       /* HAVE_MMAP */
 
-#if HAVE_MREMAP
-  #ifndef WIN32
+  #if HAVE_MREMAP
+    #ifndef WIN32
 
 static FORCEINLINE void *dlmremap(void *old_address, size_t old_size,
                                   size_t new_size, int flags) {
@@ -1796,75 +1801,75 @@ static FORCEINLINE void *dlmremap(void *old_address, size_t old_size,
 
 }
 
-    #define MREMAP_DEFAULT(addr, osz, nsz, mv) \
-      dlmremap((addr), (osz), (nsz), (mv))
-  #endif                                                           /* WIN32 */
-#endif                                                       /* HAVE_MREMAP */
+      #define MREMAP_DEFAULT(addr, osz, nsz, mv) \
+        dlmremap((addr), (osz), (nsz), (mv))
+    #endif                                                         /* WIN32 */
+  #endif                                                     /* HAVE_MREMAP */
 
-/**
- * Define CALL_MORECORE
- */
-#if HAVE_MORECORE
-  #ifdef MORECORE
-    #define CALL_MORECORE(S) MORECORE(S)
-  #else                                                         /* MORECORE */
-    #define CALL_MORECORE(S) MORECORE_DEFAULT(S)
-  #endif                                                        /* MORECORE */
-#else                                                      /* HAVE_MORECORE */
-  #define CALL_MORECORE(S) MFAIL
-#endif                                                     /* HAVE_MORECORE */
+  /**
+   * Define CALL_MORECORE
+   */
+  #if HAVE_MORECORE
+    #ifdef MORECORE
+      #define CALL_MORECORE(S) MORECORE(S)
+    #else                                                       /* MORECORE */
+      #define CALL_MORECORE(S) MORECORE_DEFAULT(S)
+    #endif                                                      /* MORECORE */
+  #else                                                    /* HAVE_MORECORE */
+    #define CALL_MORECORE(S) MFAIL
+  #endif                                                   /* HAVE_MORECORE */
 
-/**
- * Define CALL_MMAP/CALL_MUNMAP/CALL_DIRECT_MMAP
- */
-#if HAVE_MMAP
-  #define USE_MMAP_BIT (SIZE_T_ONE)
+  /**
+   * Define CALL_MMAP/CALL_MUNMAP/CALL_DIRECT_MMAP
+   */
+  #if HAVE_MMAP
+    #define USE_MMAP_BIT (SIZE_T_ONE)
 
-  #ifdef MMAP
-    #define CALL_MMAP(s) MMAP(s)
-  #else                                                             /* MMAP */
-    #define CALL_MMAP(s) MMAP_DEFAULT(s)
-  #endif                                                            /* MMAP */
-  #ifdef MUNMAP
-    #define CALL_MUNMAP(a, s) MUNMAP((a), (s))
-  #else                                                           /* MUNMAP */
-    #define CALL_MUNMAP(a, s) MUNMAP_DEFAULT((a), (s))
-  #endif                                                          /* MUNMAP */
-  #ifdef DIRECT_MMAP
+    #ifdef MMAP
+      #define CALL_MMAP(s) MMAP(s)
+    #else                                                           /* MMAP */
+      #define CALL_MMAP(s) MMAP_DEFAULT(s)
+    #endif                                                          /* MMAP */
+    #ifdef MUNMAP
+      #define CALL_MUNMAP(a, s) MUNMAP((a), (s))
+    #else                                                         /* MUNMAP */
+      #define CALL_MUNMAP(a, s) MUNMAP_DEFAULT((a), (s))
+    #endif                                                        /* MUNMAP */
+    #ifdef DIRECT_MMAP
+      #define CALL_DIRECT_MMAP(s) DIRECT_MMAP(s)
+    #else                                                    /* DIRECT_MMAP */
+      #define CALL_DIRECT_MMAP(s) DIRECT_MMAP_DEFAULT(s)
+    #endif                                                   /* DIRECT_MMAP */
+  #else                                                        /* HAVE_MMAP */
+    #define USE_MMAP_BIT (SIZE_T_ZERO)
+
+    #define MMAP(s) MFAIL
+    #define MUNMAP(a, s) (-1)
+    #define DIRECT_MMAP(s) MFAIL
     #define CALL_DIRECT_MMAP(s) DIRECT_MMAP(s)
-  #else                                                      /* DIRECT_MMAP */
-    #define CALL_DIRECT_MMAP(s) DIRECT_MMAP_DEFAULT(s)
-  #endif                                                     /* DIRECT_MMAP */
-#else                                                          /* HAVE_MMAP */
-  #define USE_MMAP_BIT (SIZE_T_ZERO)
+    #define CALL_MMAP(s) MMAP(s)
+    #define CALL_MUNMAP(a, s) MUNMAP((a), (s))
+  #endif                                                       /* HAVE_MMAP */
 
-  #define MMAP(s) MFAIL
-  #define MUNMAP(a, s) (-1)
-  #define DIRECT_MMAP(s) MFAIL
-  #define CALL_DIRECT_MMAP(s) DIRECT_MMAP(s)
-  #define CALL_MMAP(s) MMAP(s)
-  #define CALL_MUNMAP(a, s) MUNMAP((a), (s))
-#endif                                                         /* HAVE_MMAP */
+  /**
+   * Define CALL_MREMAP
+   */
+  #if HAVE_MMAP && HAVE_MREMAP
+    #ifdef MREMAP
+      #define CALL_MREMAP(addr, osz, nsz, mv) MREMAP((addr), (osz), (nsz), (mv))
+    #else                                                         /* MREMAP */
+      #define CALL_MREMAP(addr, osz, nsz, mv) \
+        MREMAP_DEFAULT((addr), (osz), (nsz), (mv))
+    #endif                                                        /* MREMAP */
+  #else                                         /* HAVE_MMAP && HAVE_MREMAP */
+    #define CALL_MREMAP(addr, osz, nsz, mv) MFAIL
+  #endif                                        /* HAVE_MMAP && HAVE_MREMAP */
 
-/**
- * Define CALL_MREMAP
- */
-#if HAVE_MMAP && HAVE_MREMAP
-  #ifdef MREMAP
-    #define CALL_MREMAP(addr, osz, nsz, mv) MREMAP((addr), (osz), (nsz), (mv))
-  #else                                                           /* MREMAP */
-    #define CALL_MREMAP(addr, osz, nsz, mv) \
-      MREMAP_DEFAULT((addr), (osz), (nsz), (mv))
-  #endif                                                          /* MREMAP */
-#else                                           /* HAVE_MMAP && HAVE_MREMAP */
-  #define CALL_MREMAP(addr, osz, nsz, mv) MFAIL
-#endif                                          /* HAVE_MMAP && HAVE_MREMAP */
+  /* mstate bit set if continguous morecore disabled or failed */
+  #define USE_NONCONTIGUOUS_BIT (4U)
 
-/* mstate bit set if continguous morecore disabled or failed */
-#define USE_NONCONTIGUOUS_BIT (4U)
-
-/* segment bit set in create_mspace_with_base */
-#define EXTERN_BIT (8U)
+  /* segment bit set in create_mspace_with_base */
+  #define EXTERN_BIT (8U)
 
 /* --------------------------- Lock preliminaries ------------------------ */
 
@@ -1896,35 +1901,35 @@ static FORCEINLINE void *dlmremap(void *old_address, size_t old_size,
 
 */
 
-#if !USE_LOCKS
-  #define USE_LOCK_BIT (0U)
-  #define INITIAL_LOCK(l) (0)
-  #define DESTROY_LOCK(l) (0)
-  #define ACQUIRE_MALLOC_GLOBAL_LOCK()
-  #define RELEASE_MALLOC_GLOBAL_LOCK()
+  #if !USE_LOCKS
+    #define USE_LOCK_BIT (0U)
+    #define INITIAL_LOCK(l) (0)
+    #define DESTROY_LOCK(l) (0)
+    #define ACQUIRE_MALLOC_GLOBAL_LOCK()
+    #define RELEASE_MALLOC_GLOBAL_LOCK()
 
-#else
-  #if USE_LOCKS > 1
-  /* -----------------------  User-defined locks ------------------------ */
-  /* Define your own lock implementation here */
-  /* #define INITIAL_LOCK(lk)  ... */
-  /* #define DESTROY_LOCK(lk)  ... */
-  /* #define ACQUIRE_LOCK(lk)  ... */
-  /* #define RELEASE_LOCK(lk)  ... */
-  /* #define TRY_LOCK(lk) ... */
-  /* static MLOCK_T malloc_global_mutex = ... */
+  #else
+    #if USE_LOCKS > 1
+    /* -----------------------  User-defined locks ------------------------ */
+    /* Define your own lock implementation here */
+    /* #define INITIAL_LOCK(lk)  ... */
+    /* #define DESTROY_LOCK(lk)  ... */
+    /* #define ACQUIRE_LOCK(lk)  ... */
+    /* #define RELEASE_LOCK(lk)  ... */
+    /* #define TRY_LOCK(lk) ... */
+    /* static MLOCK_T malloc_global_mutex = ... */
 
-  #elif USE_SPIN_LOCKS
+    #elif USE_SPIN_LOCKS
 
-  /* First, define CAS_LOCK and CLEAR_LOCK on ints */
-  /* Note CAS_LOCK defined to return 0 on success */
+    /* First, define CAS_LOCK and CLEAR_LOCK on ints */
+    /* Note CAS_LOCK defined to return 0 on success */
 
-    #if defined(__GNUC__) && \
-        (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1))
-      #define CAS_LOCK(sl) __sync_lock_test_and_set(sl, 1)
-      #define CLEAR_LOCK(sl) __sync_lock_release(sl)
+      #if defined(__GNUC__) && \
+          (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1))
+        #define CAS_LOCK(sl) __sync_lock_test_and_set(sl, 1)
+        #define CLEAR_LOCK(sl) __sync_lock_release(sl)
 
-    #elif (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
+      #elif (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
 /* Custom spin locks for older gcc on x86 */
 static FORCEINLINE int x86_cas_lock(int *sl) {
 
@@ -1951,29 +1956,29 @@ static FORCEINLINE void x86_clear_lock(int *sl) {
 
 }
 
-      #define CAS_LOCK(sl) x86_cas_lock(sl)
-      #define CLEAR_LOCK(sl) x86_clear_lock(sl)
+        #define CAS_LOCK(sl) x86_cas_lock(sl)
+        #define CLEAR_LOCK(sl) x86_clear_lock(sl)
 
-    #else                                                      /* Win32 MSC */
-      #define CAS_LOCK(sl) interlockedexchange((volatile LONG *)sl, (LONG)1)
-      #define CLEAR_LOCK(sl) interlockedexchange((volatile LONG *)sl, (LONG)0)
+      #else                                                    /* Win32 MSC */
+        #define CAS_LOCK(sl) interlockedexchange((volatile LONG *)sl, (LONG)1)
+        #define CLEAR_LOCK(sl) interlockedexchange((volatile LONG *)sl, (LONG)0)
 
-    #endif                                       /* ... gcc spins locks ... */
+      #endif                                     /* ... gcc spins locks ... */
 
-    /* How to yield for a spin lock */
-    #define SPINS_PER_YIELD 63
-    #if defined(_MSC_VER)
-      #define SLEEP_EX_DURATION 50                 /* delay for yield/sleep */
-      #define SPIN_LOCK_YIELD SleepEx(SLEEP_EX_DURATION, FALSE)
-    #elif defined(__SVR4) && defined(__sun)                      /* solaris */
-      #define SPIN_LOCK_YIELD thr_yield();
-    #elif !defined(LACKS_SCHED_H)
-      #define SPIN_LOCK_YIELD sched_yield();
-    #else
-      #define SPIN_LOCK_YIELD
-    #endif                                                 /* ... yield ... */
+      /* How to yield for a spin lock */
+      #define SPINS_PER_YIELD 63
+      #if defined(_MSC_VER)
+        #define SLEEP_EX_DURATION 50               /* delay for yield/sleep */
+        #define SPIN_LOCK_YIELD SleepEx(SLEEP_EX_DURATION, FALSE)
+      #elif defined(__SVR4) && defined(__sun)                    /* solaris */
+        #define SPIN_LOCK_YIELD thr_yield();
+      #elif !defined(LACKS_SCHED_H)
+        #define SPIN_LOCK_YIELD sched_yield();
+      #else
+        #define SPIN_LOCK_YIELD
+      #endif                                               /* ... yield ... */
 
-    #if !defined(USE_RECURSIVE_LOCKS) || USE_RECURSIVE_LOCKS == 0
+      #if !defined(USE_RECURSIVE_LOCKS) || USE_RECURSIVE_LOCKS == 0
 /* Plain spin locks use single word (embedded in malloc_states) */
 static int spin_acquire_lock(int *sl) {
 
@@ -1988,30 +1993,30 @@ static int spin_acquire_lock(int *sl) {
 
 }
 
-      #define MLOCK_T int
-      #define TRY_LOCK(sl) !CAS_LOCK(sl)
-      #define RELEASE_LOCK(sl) CLEAR_LOCK(sl)
-      #define ACQUIRE_LOCK(sl) (CAS_LOCK(sl) ? spin_acquire_lock(sl) : 0)
-      #define INITIAL_LOCK(sl) (*sl = 0)
-      #define DESTROY_LOCK(sl) (0)
+        #define MLOCK_T int
+        #define TRY_LOCK(sl) !CAS_LOCK(sl)
+        #define RELEASE_LOCK(sl) CLEAR_LOCK(sl)
+        #define ACQUIRE_LOCK(sl) (CAS_LOCK(sl) ? spin_acquire_lock(sl) : 0)
+        #define INITIAL_LOCK(sl) (*sl = 0)
+        #define DESTROY_LOCK(sl) (0)
 static MLOCK_T malloc_global_mutex = 0;
 
-    #else                                            /* USE_RECURSIVE_LOCKS */
-      /* types for lock owners */
-      #ifdef WIN32
-        #define THREAD_ID_T DWORD
-        #define CURRENT_THREAD GetCurrentThreadId()
-        #define EQ_OWNER(X, Y) ((X) == (Y))
-      #else
-        /*
-          Note: the following assume that pthread_t is a type that can be
-          initialized to (casted) zero. If this is not the case, you will need
-          to somehow redefine these or not use spin locks.
-        */
-        #define THREAD_ID_T pthread_t
-        #define CURRENT_THREAD pthread_self()
-        #define EQ_OWNER(X, Y) pthread_equal(X, Y)
-      #endif
+      #else                                          /* USE_RECURSIVE_LOCKS */
+        /* types for lock owners */
+        #ifdef WIN32
+          #define THREAD_ID_T DWORD
+          #define CURRENT_THREAD GetCurrentThreadId()
+          #define EQ_OWNER(X, Y) ((X) == (Y))
+        #else
+          /*
+            Note: the following assume that pthread_t is a type that can be
+            initialized to (casted) zero. If this is not the case, you will need
+            to somehow redefine these or not use spin locks.
+          */
+          #define THREAD_ID_T pthread_t
+          #define CURRENT_THREAD pthread_self()
+          #define EQ_OWNER(X, Y) pthread_equal(X, Y)
+        #endif
 
 struct malloc_recursive_lock {
 
@@ -2021,7 +2026,7 @@ struct malloc_recursive_lock {
 
 };
 
-      #define MLOCK_T struct malloc_recursive_lock
+        #define MLOCK_T struct malloc_recursive_lock
 static MLOCK_T malloc_global_mutex = {0, 0, (THREAD_ID_T)0};
 
 static FORCEINLINE void recursive_release_lock(MLOCK_T *lk) {
@@ -2084,23 +2089,23 @@ static FORCEINLINE int recursive_try_lock(MLOCK_T *lk) {
 
 }
 
-      #define RELEASE_LOCK(lk) recursive_release_lock(lk)
-      #define TRY_LOCK(lk) recursive_try_lock(lk)
-      #define ACQUIRE_LOCK(lk) recursive_acquire_lock(lk)
-      #define INITIAL_LOCK(lk) \
-        ((lk)->threadid = (THREAD_ID_T)0, (lk)->sl = 0, (lk)->c = 0)
-      #define DESTROY_LOCK(lk) (0)
-    #endif                                           /* USE_RECURSIVE_LOCKS */
+        #define RELEASE_LOCK(lk) recursive_release_lock(lk)
+        #define TRY_LOCK(lk) recursive_try_lock(lk)
+        #define ACQUIRE_LOCK(lk) recursive_acquire_lock(lk)
+        #define INITIAL_LOCK(lk) \
+          ((lk)->threadid = (THREAD_ID_T)0, (lk)->sl = 0, (lk)->c = 0)
+        #define DESTROY_LOCK(lk) (0)
+      #endif                                         /* USE_RECURSIVE_LOCKS */
 
-  #elif defined(WIN32)                           /* Win32 critical sections */
-    #define MLOCK_T CRITICAL_SECTION
-    #define ACQUIRE_LOCK(lk) (EnterCriticalSection(lk), 0)
-    #define RELEASE_LOCK(lk) LeaveCriticalSection(lk)
-    #define TRY_LOCK(lk) TryEnterCriticalSection(lk)
-    #define INITIAL_LOCK(lk) \
-      (!InitializeCriticalSectionAndSpinCount((lk), 0x80000000 | 4000))
-    #define DESTROY_LOCK(lk) (DeleteCriticalSection(lk), 0)
-    #define NEED_GLOBAL_LOCK_INIT
+    #elif defined(WIN32)                         /* Win32 critical sections */
+      #define MLOCK_T CRITICAL_SECTION
+      #define ACQUIRE_LOCK(lk) (EnterCriticalSection(lk), 0)
+      #define RELEASE_LOCK(lk) LeaveCriticalSection(lk)
+      #define TRY_LOCK(lk) TryEnterCriticalSection(lk)
+      #define INITIAL_LOCK(lk) \
+        (!InitializeCriticalSectionAndSpinCount((lk), 0x80000000 | 4000))
+      #define DESTROY_LOCK(lk) (DeleteCriticalSection(lk), 0)
+      #define NEED_GLOBAL_LOCK_INIT
 
 static MLOCK_T       malloc_global_mutex;
 static volatile LONG malloc_global_mutex_status;
@@ -2128,23 +2133,24 @@ static void init_malloc_global_mutex() {
 
 }
 
-  #else                                             /* pthreads-based locks */
-    #define MLOCK_T pthread_mutex_t
-    #define ACQUIRE_LOCK(lk) pthread_mutex_lock(lk)
-    #define RELEASE_LOCK(lk) pthread_mutex_unlock(lk)
-    #define TRY_LOCK(lk) (!pthread_mutex_trylock(lk))
-    #define INITIAL_LOCK(lk) pthread_init_lock(lk)
-    #define DESTROY_LOCK(lk) pthread_mutex_destroy(lk)
+    #else                                           /* pthreads-based locks */
+      #define MLOCK_T pthread_mutex_t
+      #define ACQUIRE_LOCK(lk) pthread_mutex_lock(lk)
+      #define RELEASE_LOCK(lk) pthread_mutex_unlock(lk)
+      #define TRY_LOCK(lk) (!pthread_mutex_trylock(lk))
+      #define INITIAL_LOCK(lk) pthread_init_lock(lk)
+      #define DESTROY_LOCK(lk) pthread_mutex_destroy(lk)
 
-    #if defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0 && \
-        defined(linux) && !defined(PTHREAD_MUTEX_RECURSIVE)
+      #if defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0 && \
+          defined(linux) && !defined(PTHREAD_MUTEX_RECURSIVE)
 /* Cope with old-style linux recursive lock initialization by adding */
 /* skipped internal declaration from pthread.h */
 extern int pthread_mutexattr_setkind_np __P((pthread_mutexattr_t * __attr,
                                              int __kind));
-      #define PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE_NP
-      #define pthread_mutexattr_settype(x, y) pthread_mutexattr_setkind_np(x, y)
-    #endif                                       /* USE_RECURSIVE_LOCKS ... */
+        #define PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE_NP
+        #define pthread_mutexattr_settype(x, y) \
+          pthread_mutexattr_setkind_np(x, y)
+      #endif                                     /* USE_RECURSIVE_LOCKS ... */
 
 static MLOCK_T malloc_global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -2152,29 +2158,29 @@ static int pthread_init_lock(MLOCK_T *lk) {
 
   pthread_mutexattr_t attr;
   if (pthread_mutexattr_init(&attr)) return 1;
-    #if defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0
+      #if defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0
   if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) return 1;
-    #endif
+      #endif
   if (pthread_mutex_init(lk, &attr)) return 1;
   if (pthread_mutexattr_destroy(&attr)) return 1;
   return 0;
 
 }
 
-  #endif                                              /* ... lock types ... */
+    #endif                                            /* ... lock types ... */
 
-  /* Common code for all lock types */
-  #define USE_LOCK_BIT (2U)
+    /* Common code for all lock types */
+    #define USE_LOCK_BIT (2U)
 
-  #ifndef ACQUIRE_MALLOC_GLOBAL_LOCK
-    #define ACQUIRE_MALLOC_GLOBAL_LOCK() ACQUIRE_LOCK(&malloc_global_mutex);
-  #endif
+    #ifndef ACQUIRE_MALLOC_GLOBAL_LOCK
+      #define ACQUIRE_MALLOC_GLOBAL_LOCK() ACQUIRE_LOCK(&malloc_global_mutex);
+    #endif
 
-  #ifndef RELEASE_MALLOC_GLOBAL_LOCK
-    #define RELEASE_MALLOC_GLOBAL_LOCK() RELEASE_LOCK(&malloc_global_mutex);
-  #endif
+    #ifndef RELEASE_MALLOC_GLOBAL_LOCK
+      #define RELEASE_MALLOC_GLOBAL_LOCK() RELEASE_LOCK(&malloc_global_mutex);
+    #endif
 
-#endif                                                         /* USE_LOCKS */
+  #endif                                                       /* USE_LOCKS */
 
 /* -----------------------  Chunk representations ------------------------ */
 
@@ -2331,39 +2337,39 @@ typedef unsigned int         flag_t;   /* The type of various bit flag sets */
 
 /* ------------------- Chunks sizes and alignments ----------------------- */
 
-#define MCHUNK_SIZE (sizeof(mchunk))
+  #define MCHUNK_SIZE (sizeof(mchunk))
 
-#if FOOTERS
-  #define CHUNK_OVERHEAD (TWO_SIZE_T_SIZES)
-#else                                                            /* FOOTERS */
-  #define CHUNK_OVERHEAD (SIZE_T_SIZE)
-#endif                                                           /* FOOTERS */
+  #if FOOTERS
+    #define CHUNK_OVERHEAD (TWO_SIZE_T_SIZES)
+  #else                                                          /* FOOTERS */
+    #define CHUNK_OVERHEAD (SIZE_T_SIZE)
+  #endif                                                         /* FOOTERS */
 
-/* MMapped chunks need a second word of overhead ... */
-#define MMAP_CHUNK_OVERHEAD (TWO_SIZE_T_SIZES)
-/* ... and additional padding for fake next-chunk at foot */
-#define MMAP_FOOT_PAD (FOUR_SIZE_T_SIZES)
+  /* MMapped chunks need a second word of overhead ... */
+  #define MMAP_CHUNK_OVERHEAD (TWO_SIZE_T_SIZES)
+  /* ... and additional padding for fake next-chunk at foot */
+  #define MMAP_FOOT_PAD (FOUR_SIZE_T_SIZES)
 
-/* The smallest size we can malloc is an aligned minimal chunk */
-#define MIN_CHUNK_SIZE ((MCHUNK_SIZE + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
+  /* The smallest size we can malloc is an aligned minimal chunk */
+  #define MIN_CHUNK_SIZE ((MCHUNK_SIZE + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
 
-/* conversion from malloc headers to user pointers, and back */
-#define chunk2mem(p) ((void *)((char *)(p) + TWO_SIZE_T_SIZES))
-#define mem2chunk(mem) ((mchunkptr)((char *)(mem)-TWO_SIZE_T_SIZES))
-/* chunk associated with aligned address A */
-#define align_as_chunk(A) (mchunkptr)((A) + align_offset(chunk2mem(A)))
+  /* conversion from malloc headers to user pointers, and back */
+  #define chunk2mem(p) ((void *)((char *)(p) + TWO_SIZE_T_SIZES))
+  #define mem2chunk(mem) ((mchunkptr)((char *)(mem)-TWO_SIZE_T_SIZES))
+  /* chunk associated with aligned address A */
+  #define align_as_chunk(A) (mchunkptr)((A) + align_offset(chunk2mem(A)))
 
-/* Bounds on request (not chunk) sizes. */
-#define MAX_REQUEST ((-MIN_CHUNK_SIZE) << 2)
-#define MIN_REQUEST (MIN_CHUNK_SIZE - CHUNK_OVERHEAD - SIZE_T_ONE)
+  /* Bounds on request (not chunk) sizes. */
+  #define MAX_REQUEST ((-MIN_CHUNK_SIZE) << 2)
+  #define MIN_REQUEST (MIN_CHUNK_SIZE - CHUNK_OVERHEAD - SIZE_T_ONE)
 
-/* pad request bytes into a usable size */
-#define pad_request(req) \
-  (((req) + CHUNK_OVERHEAD + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
+  /* pad request bytes into a usable size */
+  #define pad_request(req) \
+    (((req) + CHUNK_OVERHEAD + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
 
-/* pad request, checking for minimum (but not maximum) */
-#define request2size(req) \
-  (((req) < MIN_REQUEST) ? MIN_CHUNK_SIZE : pad_request(req))
+  /* pad request, checking for minimum (but not maximum) */
+  #define request2size(req) \
+    (((req) < MIN_REQUEST) ? MIN_CHUNK_SIZE : pad_request(req))
 
 /* ------------------ Operations on head and foot fields ----------------- */
 
@@ -2375,60 +2381,60 @@ typedef unsigned int         flag_t;   /* The type of various bit flag sets */
   FLAG4_BIT is not used by this malloc, but might be useful in extensions.
 */
 
-#define PINUSE_BIT (SIZE_T_ONE)
-#define CINUSE_BIT (SIZE_T_TWO)
-#define FLAG4_BIT (SIZE_T_FOUR)
-#define INUSE_BITS (PINUSE_BIT | CINUSE_BIT)
-#define FLAG_BITS (PINUSE_BIT | CINUSE_BIT | FLAG4_BIT)
+  #define PINUSE_BIT (SIZE_T_ONE)
+  #define CINUSE_BIT (SIZE_T_TWO)
+  #define FLAG4_BIT (SIZE_T_FOUR)
+  #define INUSE_BITS (PINUSE_BIT | CINUSE_BIT)
+  #define FLAG_BITS (PINUSE_BIT | CINUSE_BIT | FLAG4_BIT)
 
-/* Head value for fenceposts */
-#define FENCEPOST_HEAD (INUSE_BITS | SIZE_T_SIZE)
+  /* Head value for fenceposts */
+  #define FENCEPOST_HEAD (INUSE_BITS | SIZE_T_SIZE)
 
-/* extraction of fields from head words */
-#define cinuse(p) ((p)->head & CINUSE_BIT)
-#define pinuse(p) ((p)->head & PINUSE_BIT)
-#define flag4inuse(p) ((p)->head & FLAG4_BIT)
-#define is_inuse(p) (((p)->head & INUSE_BITS) != PINUSE_BIT)
-#define is_mmapped(p) (((p)->head & INUSE_BITS) == 0)
+  /* extraction of fields from head words */
+  #define cinuse(p) ((p)->head & CINUSE_BIT)
+  #define pinuse(p) ((p)->head & PINUSE_BIT)
+  #define flag4inuse(p) ((p)->head & FLAG4_BIT)
+  #define is_inuse(p) (((p)->head & INUSE_BITS) != PINUSE_BIT)
+  #define is_mmapped(p) (((p)->head & INUSE_BITS) == 0)
 
-#define chunksize(p) ((p)->head & ~(FLAG_BITS))
+  #define chunksize(p) ((p)->head & ~(FLAG_BITS))
 
-#define clear_pinuse(p) ((p)->head &= ~PINUSE_BIT)
-#define set_flag4(p) ((p)->head |= FLAG4_BIT)
-#define clear_flag4(p) ((p)->head &= ~FLAG4_BIT)
+  #define clear_pinuse(p) ((p)->head &= ~PINUSE_BIT)
+  #define set_flag4(p) ((p)->head |= FLAG4_BIT)
+  #define clear_flag4(p) ((p)->head &= ~FLAG4_BIT)
 
-/* Treat space at ptr +/- offset as a chunk */
-#define chunk_plus_offset(p, s) ((mchunkptr)(((char *)(p)) + (s)))
-#define chunk_minus_offset(p, s) ((mchunkptr)(((char *)(p)) - (s)))
+  /* Treat space at ptr +/- offset as a chunk */
+  #define chunk_plus_offset(p, s) ((mchunkptr)(((char *)(p)) + (s)))
+  #define chunk_minus_offset(p, s) ((mchunkptr)(((char *)(p)) - (s)))
 
-/* Ptr to next or previous physical malloc_chunk. */
-#define next_chunk(p) ((mchunkptr)(((char *)(p)) + ((p)->head & ~FLAG_BITS)))
-#define prev_chunk(p) ((mchunkptr)(((char *)(p)) - ((p)->prev_foot)))
+  /* Ptr to next or previous physical malloc_chunk. */
+  #define next_chunk(p) ((mchunkptr)(((char *)(p)) + ((p)->head & ~FLAG_BITS)))
+  #define prev_chunk(p) ((mchunkptr)(((char *)(p)) - ((p)->prev_foot)))
 
-/* extract next chunk's pinuse bit */
-#define next_pinuse(p) ((next_chunk(p)->head) & PINUSE_BIT)
+  /* extract next chunk's pinuse bit */
+  #define next_pinuse(p) ((next_chunk(p)->head) & PINUSE_BIT)
 
-/* Get/set size at footer */
-#define get_foot(p, s) (((mchunkptr)((char *)(p) + (s)))->prev_foot)
-#define set_foot(p, s) (((mchunkptr)((char *)(p) + (s)))->prev_foot = (s))
+  /* Get/set size at footer */
+  #define get_foot(p, s) (((mchunkptr)((char *)(p) + (s)))->prev_foot)
+  #define set_foot(p, s) (((mchunkptr)((char *)(p) + (s)))->prev_foot = (s))
 
-/* Set size, pinuse bit, and foot */
-#define set_size_and_pinuse_of_free_chunk(p, s) \
-  ((p)->head = (s | PINUSE_BIT), set_foot(p, s))
+  /* Set size, pinuse bit, and foot */
+  #define set_size_and_pinuse_of_free_chunk(p, s) \
+    ((p)->head = (s | PINUSE_BIT), set_foot(p, s))
 
-/* Set size, pinuse bit, foot, and clear next pinuse */
-#define set_free_with_pinuse(p, s, n) \
-  (clear_pinuse(n), set_size_and_pinuse_of_free_chunk(p, s))
+  /* Set size, pinuse bit, foot, and clear next pinuse */
+  #define set_free_with_pinuse(p, s, n) \
+    (clear_pinuse(n), set_size_and_pinuse_of_free_chunk(p, s))
 
-/* Get the internal overhead associated with chunk p */
-#define overhead_for(p) (is_mmapped(p) ? MMAP_CHUNK_OVERHEAD : CHUNK_OVERHEAD)
+  /* Get the internal overhead associated with chunk p */
+  #define overhead_for(p) (is_mmapped(p) ? MMAP_CHUNK_OVERHEAD : CHUNK_OVERHEAD)
 
-/* Return true if malloced space is not necessarily cleared */
-#if MMAP_CLEARS
-  #define calloc_must_clear(p) (!is_mmapped(p))
-#else                                                        /* MMAP_CLEARS */
-  #define calloc_must_clear(p) (1)
-#endif                                                       /* MMAP_CLEARS */
+  /* Return true if malloced space is not necessarily cleared */
+  #if MMAP_CLEARS
+    #define calloc_must_clear(p) (!is_mmapped(p))
+  #else                                                      /* MMAP_CLEARS */
+    #define calloc_must_clear(p) (1)
+  #endif                                                     /* MMAP_CLEARS */
 
 /* ---------------------- Overlaid data structures ----------------------- */
 
@@ -2539,8 +2545,8 @@ typedef struct malloc_tree_chunk  tchunk;
 typedef struct malloc_tree_chunk *tchunkptr;
 typedef struct malloc_tree_chunk *tbinptr;     /* The type of bins of trees */
 
-/* A little helper macro for trees */
-#define leftmost_child(t) ((t)->child[0] != 0 ? (t)->child[0] : (t)->child[1])
+  /* A little helper macro for trees */
+  #define leftmost_child(t) ((t)->child[0] != 0 ? (t)->child[0] : (t)->child[1])
 
 /* ----------------------------- Segments -------------------------------- */
 
@@ -2608,108 +2614,108 @@ struct malloc_segment {
 
 };
 
-#define is_mmapped_segment(S) ((S)->sflags & USE_MMAP_BIT)
-#define is_extern_segment(S) ((S)->sflags & EXTERN_BIT)
+  #define is_mmapped_segment(S) ((S)->sflags & USE_MMAP_BIT)
+  #define is_extern_segment(S) ((S)->sflags & EXTERN_BIT)
 
 typedef struct malloc_segment  msegment;
 typedef struct malloc_segment *msegmentptr;
 
-/* ---------------------------- malloc_state ----------------------------- */
+  /* ---------------------------- malloc_state ----------------------------- */
 
-/*
-   A malloc_state holds all of the bookkeeping for a space.
-   The main fields are:
+  /*
+     A malloc_state holds all of the bookkeeping for a space.
+     The main fields are:
 
-  Top
-    The topmost chunk of the currently active segment. Its size is
-    cached in topsize.  The actual size of topmost space is
-    topsize+TOP_FOOT_SIZE, which includes space reserved for adding
-    fenceposts and segment records if necessary when getting more
-    space from the system.  The size at which to autotrim top is
-    cached from mparams in trim_check, except that it is disabled if
-    an autotrim fails.
+    Top
+      The topmost chunk of the currently active segment. Its size is
+      cached in topsize.  The actual size of topmost space is
+      topsize+TOP_FOOT_SIZE, which includes space reserved for adding
+      fenceposts and segment records if necessary when getting more
+      space from the system.  The size at which to autotrim top is
+      cached from mparams in trim_check, except that it is disabled if
+      an autotrim fails.
 
-  Designated victim (dv)
-    This is the preferred chunk for servicing small requests that
-    don't have exact fits.  It is normally the chunk split off most
-    recently to service another small request.  Its size is cached in
-    dvsize. The link fields of this chunk are not maintained since it
-    is not kept in a bin.
+    Designated victim (dv)
+      This is the preferred chunk for servicing small requests that
+      don't have exact fits.  It is normally the chunk split off most
+      recently to service another small request.  Its size is cached in
+      dvsize. The link fields of this chunk are not maintained since it
+      is not kept in a bin.
 
-  SmallBins
-    An array of bin headers for free chunks.  These bins hold chunks
-    with sizes less than MIN_LARGE_SIZE bytes. Each bin contains
-    chunks of all the same size, spaced 8 bytes apart.  To simplify
-    use in double-linked lists, each bin header acts as a malloc_chunk
-    pointing to the real first node, if it exists (else pointing to
-    itself).  This avoids special-casing for headers.  But to avoid
-    waste, we allocate only the fd/bk pointers of bins, and then use
-    repositioning tricks to treat these as the fields of a chunk.
+    SmallBins
+      An array of bin headers for free chunks.  These bins hold chunks
+      with sizes less than MIN_LARGE_SIZE bytes. Each bin contains
+      chunks of all the same size, spaced 8 bytes apart.  To simplify
+      use in double-linked lists, each bin header acts as a malloc_chunk
+      pointing to the real first node, if it exists (else pointing to
+      itself).  This avoids special-casing for headers.  But to avoid
+      waste, we allocate only the fd/bk pointers of bins, and then use
+      repositioning tricks to treat these as the fields of a chunk.
 
-  TreeBins
-    Treebins are pointers to the roots of trees holding a range of
-    sizes. There are 2 equally spaced treebins for each power of two
-    from TREE_SHIFT to TREE_SHIFT+16. The last bin holds anything
-    larger.
+    TreeBins
+      Treebins are pointers to the roots of trees holding a range of
+      sizes. There are 2 equally spaced treebins for each power of two
+      from TREE_SHIFT to TREE_SHIFT+16. The last bin holds anything
+      larger.
 
-  Bin maps
-    There is one bit map for small bins ("smallmap") and one for
-    treebins ("treemap).  Each bin sets its bit when non-empty, and
-    clears the bit when empty.  Bit operations are then used to avoid
-    bin-by-bin searching -- nearly all "search" is done without ever
-    looking at bins that won't be selected.  The bit maps
-    conservatively use 32 bits per map word, even if on 64bit system.
-    For a good description of some of the bit-based techniques used
-    here, see Henry S. Warren Jr's book "Hacker's Delight" (and
-    supplement at http://hackersdelight.org/). Many of these are
-    intended to reduce the branchiness of paths through malloc etc, as
-    well as to reduce the number of memory locations read or written.
+    Bin maps
+      There is one bit map for small bins ("smallmap") and one for
+      treebins ("treemap).  Each bin sets its bit when non-empty, and
+      clears the bit when empty.  Bit operations are then used to avoid
+      bin-by-bin searching -- nearly all "search" is done without ever
+      looking at bins that won't be selected.  The bit maps
+      conservatively use 32 bits per map word, even if on 64bit system.
+      For a good description of some of the bit-based techniques used
+      here, see Henry S. Warren Jr's book "Hacker's Delight" (and
+      supplement at http://hackersdelight.org/). Many of these are
+      intended to reduce the branchiness of paths through malloc etc, as
+      well as to reduce the number of memory locations read or written.
 
-  Segments
-    A list of segments headed by an embedded malloc_segment record
-    representing the initial space.
+    Segments
+      A list of segments headed by an embedded malloc_segment record
+      representing the initial space.
 
-  Address check support
-    The least_addr field is the least address ever obtained from
-    MORECORE or MMAP. Attempted frees and reallocs of any address less
-    than this are trapped (unless INSECURE is defined).
+    Address check support
+      The least_addr field is the least address ever obtained from
+      MORECORE or MMAP. Attempted frees and reallocs of any address less
+      than this are trapped (unless INSECURE is defined).
 
-  Magic tag
-    A cross-check field that should always hold same value as mparams.magic.
+    Magic tag
+      A cross-check field that should always hold same value as mparams.magic.
 
-  Max allowed footprint
-    The maximum allowed bytes to allocate from system (zero means no limit)
+    Max allowed footprint
+      The maximum allowed bytes to allocate from system (zero means no limit)
 
-  Flags
-    Bits recording whether to use MMAP, locks, or contiguous MORECORE
+    Flags
+      Bits recording whether to use MMAP, locks, or contiguous MORECORE
 
-  Statistics
-    Each space keeps track of current and maximum system memory
-    obtained via MORECORE or MMAP.
+    Statistics
+      Each space keeps track of current and maximum system memory
+      obtained via MORECORE or MMAP.
 
-  Trim support
-    Fields holding the amount of unused topmost memory that should trigger
-    trimming, and a counter to force periodic scanning to release unused
-    non-topmost segments.
+    Trim support
+      Fields holding the amount of unused topmost memory that should trigger
+      trimming, and a counter to force periodic scanning to release unused
+      non-topmost segments.
 
-  Locking
-    If USE_LOCKS is defined, the "mutex" lock is acquired and released
-    around every public call using this mspace.
+    Locking
+      If USE_LOCKS is defined, the "mutex" lock is acquired and released
+      around every public call using this mspace.
 
-  Extension support
-    A void* pointer and a size_t field that can be used to help implement
-    extensions to this malloc.
-*/
+    Extension support
+      A void* pointer and a size_t field that can be used to help implement
+      extensions to this malloc.
+  */
 
-/* Bin types, widths and sizes */
-#define NSMALLBINS (32U)
-#define NTREEBINS (32U)
-#define SMALLBIN_SHIFT (3U)
-#define SMALLBIN_WIDTH (SIZE_T_ONE << SMALLBIN_SHIFT)
-#define TREEBIN_SHIFT (8U)
-#define MIN_LARGE_SIZE (SIZE_T_ONE << TREEBIN_SHIFT)
-#define MAX_SMALL_SIZE (MIN_LARGE_SIZE - SIZE_T_ONE)
-#define MAX_SMALL_REQUEST (MAX_SMALL_SIZE - CHUNK_ALIGN_MASK - CHUNK_OVERHEAD)
+  /* Bin types, widths and sizes */
+  #define NSMALLBINS (32U)
+  #define NTREEBINS (32U)
+  #define SMALLBIN_SHIFT (3U)
+  #define SMALLBIN_WIDTH (SIZE_T_ONE << SMALLBIN_SHIFT)
+  #define TREEBIN_SHIFT (8U)
+  #define MIN_LARGE_SIZE (SIZE_T_ONE << TREEBIN_SHIFT)
+  #define MAX_SMALL_SIZE (MIN_LARGE_SIZE - SIZE_T_ONE)
+  #define MAX_SMALL_REQUEST (MAX_SMALL_SIZE - CHUNK_ALIGN_MASK - CHUNK_OVERHEAD)
 
 struct malloc_state {
 
@@ -2729,9 +2735,9 @@ struct malloc_state {
   size_t    max_footprint;
   size_t    footprint_limit;                         /* zero means no limit */
   flag_t    mflags;
-#if USE_LOCKS
+  #if USE_LOCKS
   MLOCK_T mutex;             /* locate lock among fields that rarely change */
-#endif                                                         /* USE_LOCKS */
+  #endif                                                       /* USE_LOCKS */
   msegment seg;
   void *   extp;                     /* Unused but available for extensions */
   size_t   exts;
@@ -2762,74 +2768,75 @@ struct malloc_params {
 
 static struct malloc_params mparams;
 
-/* Ensure mparams initialized */
-#define ensure_initialization() (void)(mparams.magic != 0 || init_mparams())
+  /* Ensure mparams initialized */
+  #define ensure_initialization() (void)(mparams.magic != 0 || init_mparams())
 
-#if !ONLY_MSPACES
+  #if !ONLY_MSPACES
 
 /* The global malloc_state used for all non-"mspace" calls */
 static struct malloc_state _gm_;
-  #define gm (&_gm_)
-  #define is_global(M) ((M) == &_gm_)
+    #define gm (&_gm_)
+    #define is_global(M) ((M) == &_gm_)
 
-#endif                                                     /* !ONLY_MSPACES */
+  #endif                                                   /* !ONLY_MSPACES */
 
-#define is_initialized(M) ((M)->top != 0)
+  #define is_initialized(M) ((M)->top != 0)
 
 /* -------------------------- system alloc setup ------------------------- */
 
 /* Operations on mflags */
 
-#define use_lock(M) ((M)->mflags & USE_LOCK_BIT)
-#define enable_lock(M) ((M)->mflags |= USE_LOCK_BIT)
-#if USE_LOCKS
-  #define disable_lock(M) ((M)->mflags &= ~USE_LOCK_BIT)
-#else
-  #define disable_lock(M)
-#endif
+  #define use_lock(M) ((M)->mflags & USE_LOCK_BIT)
+  #define enable_lock(M) ((M)->mflags |= USE_LOCK_BIT)
+  #if USE_LOCKS
+    #define disable_lock(M) ((M)->mflags &= ~USE_LOCK_BIT)
+  #else
+    #define disable_lock(M)
+  #endif
 
-#define use_mmap(M) ((M)->mflags & USE_MMAP_BIT)
-#define enable_mmap(M) ((M)->mflags |= USE_MMAP_BIT)
-#if HAVE_MMAP
-  #define disable_mmap(M) ((M)->mflags &= ~USE_MMAP_BIT)
-#else
-  #define disable_mmap(M)
-#endif
+  #define use_mmap(M) ((M)->mflags & USE_MMAP_BIT)
+  #define enable_mmap(M) ((M)->mflags |= USE_MMAP_BIT)
+  #if HAVE_MMAP
+    #define disable_mmap(M) ((M)->mflags &= ~USE_MMAP_BIT)
+  #else
+    #define disable_mmap(M)
+  #endif
 
-#define use_noncontiguous(M) ((M)->mflags & USE_NONCONTIGUOUS_BIT)
-#define disable_contiguous(M) ((M)->mflags |= USE_NONCONTIGUOUS_BIT)
+  #define use_noncontiguous(M) ((M)->mflags & USE_NONCONTIGUOUS_BIT)
+  #define disable_contiguous(M) ((M)->mflags |= USE_NONCONTIGUOUS_BIT)
 
-#define set_lock(M, L) \
-  ((M)->mflags =       \
-       (L) ? ((M)->mflags | USE_LOCK_BIT) : ((M)->mflags & ~USE_LOCK_BIT))
+  #define set_lock(M, L) \
+    ((M)->mflags =       \
+         (L) ? ((M)->mflags | USE_LOCK_BIT) : ((M)->mflags & ~USE_LOCK_BIT))
 
-/* page-align a size */
-#define page_align(S) \
-  (((S) + (mparams.page_size - SIZE_T_ONE)) & ~(mparams.page_size - SIZE_T_ONE))
+  /* page-align a size */
+  #define page_align(S)                         \
+    (((S) + (mparams.page_size - SIZE_T_ONE)) & \
+     ~(mparams.page_size - SIZE_T_ONE))
 
-/* granularity-align a size */
-#define granularity_align(S)                    \
-  (((S) + (mparams.granularity - SIZE_T_ONE)) & \
-   ~(mparams.granularity - SIZE_T_ONE))
+  /* granularity-align a size */
+  #define granularity_align(S)                    \
+    (((S) + (mparams.granularity - SIZE_T_ONE)) & \
+     ~(mparams.granularity - SIZE_T_ONE))
 
-/* For mmap, use granularity alignment on windows, else page-align */
-#ifdef WIN32
-  #define mmap_align(S) granularity_align(S)
-#else
-  #define mmap_align(S) page_align(S)
-#endif
+  /* For mmap, use granularity alignment on windows, else page-align */
+  #ifdef WIN32
+    #define mmap_align(S) granularity_align(S)
+  #else
+    #define mmap_align(S) page_align(S)
+  #endif
 
-/* For sys_alloc, enough padding to ensure can malloc request on success */
-#define SYS_ALLOC_PADDING (TOP_FOOT_SIZE + MALLOC_ALIGNMENT)
+  /* For sys_alloc, enough padding to ensure can malloc request on success */
+  #define SYS_ALLOC_PADDING (TOP_FOOT_SIZE + MALLOC_ALIGNMENT)
 
-#define is_page_aligned(S) \
-  (((size_t)(S) & (mparams.page_size - SIZE_T_ONE)) == 0)
-#define is_granularity_aligned(S) \
-  (((size_t)(S) & (mparams.granularity - SIZE_T_ONE)) == 0)
+  #define is_page_aligned(S) \
+    (((size_t)(S) & (mparams.page_size - SIZE_T_ONE)) == 0)
+  #define is_granularity_aligned(S) \
+    (((size_t)(S) & (mparams.granularity - SIZE_T_ONE)) == 0)
 
-/*  True if segment S holds address A */
-#define segment_holds(S, A) \
-  ((char *)(A) >= S->base && (char *)(A) < S->base + S->size)
+  /*  True if segment S holds address A */
+  #define segment_holds(S, A) \
+    ((char *)(A) >= S->base && (char *)(A) < S->base + S->size)
 
 /* Return segment holding given address */
 static msegmentptr segment_holding(mstate m, char *addr) {
@@ -2857,20 +2864,20 @@ static int has_segment_link(mstate m, msegmentptr ss) {
 
 }
 
-#ifndef MORECORE_CANNOT_TRIM
-  #define should_trim(M, s) ((s) > (M)->trim_check)
-#else                                               /* MORECORE_CANNOT_TRIM */
-  #define should_trim(M, s) (0)
-#endif                                              /* MORECORE_CANNOT_TRIM */
+  #ifndef MORECORE_CANNOT_TRIM
+    #define should_trim(M, s) ((s) > (M)->trim_check)
+  #else                                             /* MORECORE_CANNOT_TRIM */
+    #define should_trim(M, s) (0)
+  #endif                                            /* MORECORE_CANNOT_TRIM */
 
-/*
-  TOP_FOOT_SIZE is padding at the end of a segment, including space
-  that may be needed to place segment records and fenceposts when new
-  noncontiguous segments are added.
-*/
-#define TOP_FOOT_SIZE                                                        \
-  (align_offset(chunk2mem(0)) + pad_request(sizeof(struct malloc_segment)) + \
-   MIN_CHUNK_SIZE)
+  /*
+    TOP_FOOT_SIZE is padding at the end of a segment, including space
+    that may be needed to place segment records and fenceposts when new
+    noncontiguous segments are added.
+  */
+  #define TOP_FOOT_SIZE                                                        \
+    (align_offset(chunk2mem(0)) + pad_request(sizeof(struct malloc_segment)) + \
+     MIN_CHUNK_SIZE)
 
 /* -------------------------------  Hooks -------------------------------- */
 
@@ -2880,25 +2887,25 @@ static int has_segment_link(mstate m, msegmentptr ss) {
   anything you like.
 */
 
-#if USE_LOCKS
-  #define PREACTION(M) ((use_lock(M)) ? ACQUIRE_LOCK(&(M)->mutex) : 0)
-  #define POSTACTION(M)                           \
-    {                                             \
-                                                  \
-      if (use_lock(M)) RELEASE_LOCK(&(M)->mutex); \
-                                                  \
-    }
-#else                                                          /* USE_LOCKS */
+  #if USE_LOCKS
+    #define PREACTION(M) ((use_lock(M)) ? ACQUIRE_LOCK(&(M)->mutex) : 0)
+    #define POSTACTION(M)                           \
+      {                                             \
+                                                    \
+        if (use_lock(M)) RELEASE_LOCK(&(M)->mutex); \
+                                                    \
+      }
+  #else                                                        /* USE_LOCKS */
 
-  #ifndef PREACTION
-    #define PREACTION(M) (0)
-  #endif                                                       /* PREACTION */
+    #ifndef PREACTION
+      #define PREACTION(M) (0)
+    #endif                                                     /* PREACTION */
 
-  #ifndef POSTACTION
-    #define POSTACTION(M)
-  #endif                                                      /* POSTACTION */
+    #ifndef POSTACTION
+      #define POSTACTION(M)
+    #endif                                                    /* POSTACTION */
 
-#endif                                                         /* USE_LOCKS */
+  #endif                                                       /* USE_LOCKS */
 
 /*
   CORRUPTION_ERROR_ACTION is triggered upon detected bad addresses.
@@ -2908,7 +2915,7 @@ static int has_segment_link(mstate m, msegmentptr ss) {
   useful in custom actions that try to help diagnose errors.
 */
 
-#if PROCEED_ON_ERROR
+  #if PROCEED_ON_ERROR
 
 /* A count of the number of corruption errors causing resets */
 int malloc_corruption_error_count;
@@ -2916,39 +2923,39 @@ int malloc_corruption_error_count;
 /* default corruption action */
 static void reset_on_error(mstate m);
 
-  #define CORRUPTION_ERROR_ACTION(m) reset_on_error(m)
-  #define USAGE_ERROR_ACTION(m, p)
+    #define CORRUPTION_ERROR_ACTION(m) reset_on_error(m)
+    #define USAGE_ERROR_ACTION(m, p)
 
-#else                                                   /* PROCEED_ON_ERROR */
+  #else                                                 /* PROCEED_ON_ERROR */
 
-  #ifndef CORRUPTION_ERROR_ACTION
-    #define CORRUPTION_ERROR_ACTION(m) ABORT
-  #endif                                         /* CORRUPTION_ERROR_ACTION */
+    #ifndef CORRUPTION_ERROR_ACTION
+      #define CORRUPTION_ERROR_ACTION(m) ABORT
+    #endif                                       /* CORRUPTION_ERROR_ACTION */
 
-  #ifndef USAGE_ERROR_ACTION
-    #define USAGE_ERROR_ACTION(m, p) ABORT
-  #endif                                              /* USAGE_ERROR_ACTION */
+    #ifndef USAGE_ERROR_ACTION
+      #define USAGE_ERROR_ACTION(m, p) ABORT
+    #endif                                            /* USAGE_ERROR_ACTION */
 
-#endif                                                  /* PROCEED_ON_ERROR */
+  #endif                                                /* PROCEED_ON_ERROR */
 
 /* -------------------------- Debugging setup ---------------------------- */
 
-#if !DEBUG
+  #if !DEBUG
 
-  #define check_free_chunk(M, P)
-  #define check_inuse_chunk(M, P)
-  #define check_malloced_chunk(M, P, N)
-  #define check_mmapped_chunk(M, P)
-  #define check_malloc_state(M)
-  #define check_top_chunk(M, P)
+    #define check_free_chunk(M, P)
+    #define check_inuse_chunk(M, P)
+    #define check_malloced_chunk(M, P, N)
+    #define check_mmapped_chunk(M, P)
+    #define check_malloc_state(M)
+    #define check_top_chunk(M, P)
 
-#else                                                              /* DEBUG */
-  #define check_free_chunk(M, P) do_check_free_chunk(M, P)
-  #define check_inuse_chunk(M, P) do_check_inuse_chunk(M, P)
-  #define check_top_chunk(M, P) do_check_top_chunk(M, P)
-  #define check_malloced_chunk(M, P, N) do_check_malloced_chunk(M, P, N)
-  #define check_mmapped_chunk(M, P) do_check_mmapped_chunk(M, P)
-  #define check_malloc_state(M) do_check_malloc_state(M)
+  #else                                                            /* DEBUG */
+    #define check_free_chunk(M, P) do_check_free_chunk(M, P)
+    #define check_inuse_chunk(M, P) do_check_inuse_chunk(M, P)
+    #define check_top_chunk(M, P) do_check_top_chunk(M, P)
+    #define check_malloced_chunk(M, P, N) do_check_malloced_chunk(M, P, N)
+    #define check_mmapped_chunk(M, P) do_check_mmapped_chunk(M, P)
+    #define check_malloc_state(M) do_check_malloc_state(M)
 
 static void   do_check_any_chunk(mstate m, mchunkptr p);
 static void   do_check_top_chunk(mstate m, mchunkptr p);
@@ -2962,193 +2969,194 @@ static void   do_check_smallbin(mstate m, bindex_t i);
 static void   do_check_malloc_state(mstate m);
 static int    bin_find(mstate m, mchunkptr x);
 static size_t traverse_and_check(mstate m);
-#endif                                                             /* DEBUG */
+  #endif                                                           /* DEBUG */
 
 /* ---------------------------- Indexing Bins ---------------------------- */
 
-#define is_small(s) (((s) >> SMALLBIN_SHIFT) < NSMALLBINS)
-#define small_index(s) (bindex_t)((s) >> SMALLBIN_SHIFT)
-#define small_index2size(i) ((i) << SMALLBIN_SHIFT)
-#define MIN_SMALL_INDEX (small_index(MIN_CHUNK_SIZE))
+  #define is_small(s) (((s) >> SMALLBIN_SHIFT) < NSMALLBINS)
+  #define small_index(s) (bindex_t)((s) >> SMALLBIN_SHIFT)
+  #define small_index2size(i) ((i) << SMALLBIN_SHIFT)
+  #define MIN_SMALL_INDEX (small_index(MIN_CHUNK_SIZE))
 
-/* addressing by index. See above about smallbin repositioning */
-#define smallbin_at(M, i) ((sbinptr)((char *)&((M)->smallbins[(i) << 1])))
-#define treebin_at(M, i) (&((M)->treebins[i]))
+  /* addressing by index. See above about smallbin repositioning */
+  #define smallbin_at(M, i) ((sbinptr)((char *)&((M)->smallbins[(i) << 1])))
+  #define treebin_at(M, i) (&((M)->treebins[i]))
 
-/* assign tree index for size S to variable I. Use x86 asm if possible  */
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-  #define compute_tree_index(S, I)                                         \
-    {                                                                      \
-                                                                           \
-      unsigned int X = S >> TREEBIN_SHIFT;                                 \
-      if (X == 0)                                                          \
-        I = 0;                                                             \
-      else if (X > 0xFFFF)                                                 \
-        I = NTREEBINS - 1;                                                 \
-      else {                                                               \
-                                                                           \
-        unsigned int K = (unsigned)sizeof(X) * __CHAR_BIT__ - 1 -          \
-                         (unsigned)__builtin_clz(X);                       \
-        I = (bindex_t)((K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1))); \
-                                                                           \
-      }                                                                    \
-                                                                           \
-    }
+  /* assign tree index for size S to variable I. Use x86 asm if possible  */
+  #if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+    #define compute_tree_index(S, I)                                         \
+      {                                                                      \
+                                                                             \
+        unsigned int X = S >> TREEBIN_SHIFT;                                 \
+        if (X == 0)                                                          \
+          I = 0;                                                             \
+        else if (X > 0xFFFF)                                                 \
+          I = NTREEBINS - 1;                                                 \
+        else {                                                               \
+                                                                             \
+          unsigned int K = (unsigned)sizeof(X) * __CHAR_BIT__ - 1 -          \
+                           (unsigned)__builtin_clz(X);                       \
+          I = (bindex_t)((K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1))); \
+                                                                             \
+        }                                                                    \
+                                                                             \
+      }
 
-#elif defined(__INTEL_COMPILER)
-  #define compute_tree_index(S, I)                                         \
-    {                                                                      \
-                                                                           \
-      size_t X = S >> TREEBIN_SHIFT;                                       \
-      if (X == 0)                                                          \
-        I = 0;                                                             \
-      else if (X > 0xFFFF)                                                 \
-        I = NTREEBINS - 1;                                                 \
-      else {                                                               \
-                                                                           \
-        unsigned int K = _bit_scan_reverse(X);                             \
-        I = (bindex_t)((K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1))); \
-                                                                           \
-      }                                                                    \
-                                                                           \
-    }
+  #elif defined(__INTEL_COMPILER)
+    #define compute_tree_index(S, I)                                         \
+      {                                                                      \
+                                                                             \
+        size_t X = S >> TREEBIN_SHIFT;                                       \
+        if (X == 0)                                                          \
+          I = 0;                                                             \
+        else if (X > 0xFFFF)                                                 \
+          I = NTREEBINS - 1;                                                 \
+        else {                                                               \
+                                                                             \
+          unsigned int K = _bit_scan_reverse(X);                             \
+          I = (bindex_t)((K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1))); \
+                                                                             \
+        }                                                                    \
+                                                                             \
+      }
 
-#elif defined(_MSC_VER) && _MSC_VER >= 1300
-  #define compute_tree_index(S, I)                                         \
-    {                                                                      \
-                                                                           \
-      size_t X = S >> TREEBIN_SHIFT;                                       \
-      if (X == 0)                                                          \
-        I = 0;                                                             \
-      else if (X > 0xFFFF)                                                 \
-        I = NTREEBINS - 1;                                                 \
-      else {                                                               \
-                                                                           \
-        unsigned int K;                                                    \
-        _BitScanReverse((DWORD *)&K, (DWORD)X);                            \
-        I = (bindex_t)((K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1))); \
-                                                                           \
-      }                                                                    \
-                                                                           \
-    }
+  #elif defined(_MSC_VER) && _MSC_VER >= 1300
+    #define compute_tree_index(S, I)                                         \
+      {                                                                      \
+                                                                             \
+        size_t X = S >> TREEBIN_SHIFT;                                       \
+        if (X == 0)                                                          \
+          I = 0;                                                             \
+        else if (X > 0xFFFF)                                                 \
+          I = NTREEBINS - 1;                                                 \
+        else {                                                               \
+                                                                             \
+          unsigned int K;                                                    \
+          _BitScanReverse((DWORD *)&K, (DWORD)X);                            \
+          I = (bindex_t)((K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1))); \
+                                                                             \
+        }                                                                    \
+                                                                             \
+      }
 
-#else                                                               /* GNUC */
-  #define compute_tree_index(S, I)                             \
-    {                                                          \
-                                                               \
-      size_t X = S >> TREEBIN_SHIFT;                           \
-      if (X == 0)                                              \
-        I = 0;                                                 \
-      else if (X > 0xFFFF)                                     \
-        I = NTREEBINS - 1;                                     \
-      else {                                                   \
-                                                               \
-        unsigned int Y = (unsigned int)X;                      \
-        unsigned int N = ((Y - 0x100) >> 16) & 8;              \
-        unsigned int K = (((Y <<= N) - 0x1000) >> 16) & 4;     \
-        N += K;                                                \
-        N += K = (((Y <<= K) - 0x4000) >> 16) & 2;             \
-        K = 14 - N + ((Y <<= K) >> 15);                        \
-        I = (K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1)); \
-                                                               \
-      }                                                        \
-                                                               \
-    }
-#endif                                                              /* GNUC */
+  #else                                                             /* GNUC */
+    #define compute_tree_index(S, I)                             \
+      {                                                          \
+                                                                 \
+        size_t X = S >> TREEBIN_SHIFT;                           \
+        if (X == 0)                                              \
+          I = 0;                                                 \
+        else if (X > 0xFFFF)                                     \
+          I = NTREEBINS - 1;                                     \
+        else {                                                   \
+                                                                 \
+          unsigned int Y = (unsigned int)X;                      \
+          unsigned int N = ((Y - 0x100) >> 16) & 8;              \
+          unsigned int K = (((Y <<= N) - 0x1000) >> 16) & 4;     \
+          N += K;                                                \
+          N += K = (((Y <<= K) - 0x4000) >> 16) & 2;             \
+          K = 14 - N + ((Y <<= K) >> 15);                        \
+          I = (K << 1) + ((S >> (K + (TREEBIN_SHIFT - 1)) & 1)); \
+                                                                 \
+        }                                                        \
+                                                                 \
+      }
+  #endif                                                            /* GNUC */
 
-/* Bit representing maximum resolved size in a treebin at i */
-#define bit_for_tree_index(i) \
-  (i == NTREEBINS - 1) ? (SIZE_T_BITSIZE - 1) : (((i) >> 1) + TREEBIN_SHIFT - 2)
+  /* Bit representing maximum resolved size in a treebin at i */
+  #define bit_for_tree_index(i)                 \
+    (i == NTREEBINS - 1) ? (SIZE_T_BITSIZE - 1) \
+                         : (((i) >> 1) + TREEBIN_SHIFT - 2)
 
-/* Shift placing maximum resolved bit in a treebin at i as sign bit */
-#define leftshift_for_tree_index(i) \
-  ((i == NTREEBINS - 1)             \
-       ? 0                          \
-       : ((SIZE_T_BITSIZE - SIZE_T_ONE) - (((i) >> 1) + TREEBIN_SHIFT - 2)))
+  /* Shift placing maximum resolved bit in a treebin at i as sign bit */
+  #define leftshift_for_tree_index(i) \
+    ((i == NTREEBINS - 1)             \
+         ? 0                          \
+         : ((SIZE_T_BITSIZE - SIZE_T_ONE) - (((i) >> 1) + TREEBIN_SHIFT - 2)))
 
-/* The size of the smallest chunk held in bin with index i */
-#define minsize_for_tree_index(i)                 \
-  ((SIZE_T_ONE << (((i) >> 1) + TREEBIN_SHIFT)) | \
-   (((size_t)((i)&SIZE_T_ONE)) << (((i) >> 1) + TREEBIN_SHIFT - 1)))
+  /* The size of the smallest chunk held in bin with index i */
+  #define minsize_for_tree_index(i)                 \
+    ((SIZE_T_ONE << (((i) >> 1) + TREEBIN_SHIFT)) | \
+     (((size_t)((i)&SIZE_T_ONE)) << (((i) >> 1) + TREEBIN_SHIFT - 1)))
 
-/* ------------------------ Operations on bin maps ----------------------- */
+  /* ------------------------ Operations on bin maps ----------------------- */
 
-/* bit corresponding to given index */
-#define idx2bit(i) ((binmap_t)(1) << (i))
+  /* bit corresponding to given index */
+  #define idx2bit(i) ((binmap_t)(1) << (i))
 
-/* Mark/Clear bits with given index */
-#define mark_smallmap(M, i) ((M)->smallmap |= idx2bit(i))
-#define clear_smallmap(M, i) ((M)->smallmap &= ~idx2bit(i))
-#define smallmap_is_marked(M, i) ((M)->smallmap & idx2bit(i))
+  /* Mark/Clear bits with given index */
+  #define mark_smallmap(M, i) ((M)->smallmap |= idx2bit(i))
+  #define clear_smallmap(M, i) ((M)->smallmap &= ~idx2bit(i))
+  #define smallmap_is_marked(M, i) ((M)->smallmap & idx2bit(i))
 
-#define mark_treemap(M, i) ((M)->treemap |= idx2bit(i))
-#define clear_treemap(M, i) ((M)->treemap &= ~idx2bit(i))
-#define treemap_is_marked(M, i) ((M)->treemap & idx2bit(i))
+  #define mark_treemap(M, i) ((M)->treemap |= idx2bit(i))
+  #define clear_treemap(M, i) ((M)->treemap &= ~idx2bit(i))
+  #define treemap_is_marked(M, i) ((M)->treemap & idx2bit(i))
 
-/* isolate the least set bit of a bitmap */
-#define least_bit(x) ((x) & -(x))
+  /* isolate the least set bit of a bitmap */
+  #define least_bit(x) ((x) & -(x))
 
-/* mask with all bits to left of least bit of x on */
-#define left_bits(x) ((x << 1) | -(x << 1))
+  /* mask with all bits to left of least bit of x on */
+  #define left_bits(x) ((x << 1) | -(x << 1))
 
-/* mask with all bits to left of or equal to least bit of x on */
-#define same_or_left_bits(x) ((x) | -(x))
+  /* mask with all bits to left of or equal to least bit of x on */
+  #define same_or_left_bits(x) ((x) | -(x))
 
 /* index corresponding to given bit. Use x86 asm if possible */
 
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-  #define compute_bit2idx(X, I) \
-    {                           \
-                                \
-      unsigned int J;           \
-      J = __builtin_ctz(X);     \
-      I = (bindex_t)J;          \
-                                \
-    }
+  #if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+    #define compute_bit2idx(X, I) \
+      {                           \
+                                  \
+        unsigned int J;           \
+        J = __builtin_ctz(X);     \
+        I = (bindex_t)J;          \
+                                  \
+      }
 
-#elif defined(__INTEL_COMPILER)
-  #define compute_bit2idx(X, I) \
-    {                           \
-                                \
-      unsigned int J;           \
-      J = _bit_scan_forward(X); \
-      I = (bindex_t)J;          \
-                                \
-    }
+  #elif defined(__INTEL_COMPILER)
+    #define compute_bit2idx(X, I) \
+      {                           \
+                                  \
+        unsigned int J;           \
+        J = _bit_scan_forward(X); \
+        I = (bindex_t)J;          \
+                                  \
+      }
 
-#elif defined(_MSC_VER) && _MSC_VER >= 1300
-  #define compute_bit2idx(X, I)        \
-    {                                  \
-                                       \
-      unsigned int J;                  \
-      _BitScanForward((DWORD *)&J, X); \
-      I = (bindex_t)J;                 \
-                                       \
-    }
+  #elif defined(_MSC_VER) && _MSC_VER >= 1300
+    #define compute_bit2idx(X, I)        \
+      {                                  \
+                                         \
+        unsigned int J;                  \
+        _BitScanForward((DWORD *)&J, X); \
+        I = (bindex_t)J;                 \
+                                         \
+      }
 
-#elif USE_BUILTIN_FFS
-  #define compute_bit2idx(X, I) I = ffs(X) - 1
+  #elif USE_BUILTIN_FFS
+    #define compute_bit2idx(X, I) I = ffs(X) - 1
 
-#else
-  #define compute_bit2idx(X, I)            \
-    {                                      \
-                                           \
-      unsigned int Y = X - 1;              \
-      unsigned int K = Y >> (16 - 4) & 16; \
-      unsigned int N = K;                  \
-      Y >>= K;                             \
-      N += K = Y >> (8 - 3) & 8;           \
-      Y >>= K;                             \
-      N += K = Y >> (4 - 2) & 4;           \
-      Y >>= K;                             \
-      N += K = Y >> (2 - 1) & 2;           \
-      Y >>= K;                             \
-      N += K = Y >> (1 - 0) & 1;           \
-      Y >>= K;                             \
-      I = (bindex_t)(N + Y);               \
-                                           \
-    }
-#endif                                                              /* GNUC */
+  #else
+    #define compute_bit2idx(X, I)            \
+      {                                      \
+                                             \
+        unsigned int Y = X - 1;              \
+        unsigned int K = Y >> (16 - 4) & 16; \
+        unsigned int N = K;                  \
+        Y >>= K;                             \
+        N += K = Y >> (8 - 3) & 8;           \
+        Y >>= K;                             \
+        N += K = Y >> (4 - 2) & 4;           \
+        Y >>= K;                             \
+        N += K = Y >> (2 - 1) & 2;           \
+        Y >>= K;                             \
+        N += K = Y >> (1 - 0) & 1;           \
+        Y >>= K;                             \
+        I = (bindex_t)(N + Y);               \
+                                             \
+      }
+  #endif                                                            /* GNUC */
 
 /* ----------------------- Runtime Check Support ------------------------- */
 
@@ -3178,92 +3186,92 @@ static size_t traverse_and_check(mstate m);
   next, etc). This turns out to be cheaper than relying on hashes.
 */
 
-#if !INSECURE
-  /* Check if address a is at least as high as any from MORECORE or MMAP */
-  #define ok_address(M, a) ((char *)(a) >= (M)->least_addr)
-  /* Check if address of next chunk n is higher than base chunk p */
-  #define ok_next(p, n) ((char *)(p) < (char *)(n))
-  /* Check if p has inuse status */
-  #define ok_inuse(p) is_inuse(p)
-  /* Check if p has its pinuse bit on */
-  #define ok_pinuse(p) pinuse(p)
+  #if !INSECURE
+    /* Check if address a is at least as high as any from MORECORE or MMAP */
+    #define ok_address(M, a) ((char *)(a) >= (M)->least_addr)
+    /* Check if address of next chunk n is higher than base chunk p */
+    #define ok_next(p, n) ((char *)(p) < (char *)(n))
+    /* Check if p has inuse status */
+    #define ok_inuse(p) is_inuse(p)
+    /* Check if p has its pinuse bit on */
+    #define ok_pinuse(p) pinuse(p)
 
-#else                                                          /* !INSECURE */
-  #define ok_address(M, a) (1)
-  #define ok_next(b, n) (1)
-  #define ok_inuse(p) (1)
-  #define ok_pinuse(p) (1)
-#endif                                                         /* !INSECURE */
+  #else                                                        /* !INSECURE */
+    #define ok_address(M, a) (1)
+    #define ok_next(b, n) (1)
+    #define ok_inuse(p) (1)
+    #define ok_pinuse(p) (1)
+  #endif                                                       /* !INSECURE */
 
-#if (FOOTERS && !INSECURE)
-  /* Check if (alleged) mstate m has expected magic field */
-  #define ok_magic(M) ((M)->magic == mparams.magic)
-#else                                             /* (FOOTERS && !INSECURE) */
-  #define ok_magic(M) (1)
-#endif                                            /* (FOOTERS && !INSECURE) */
+  #if (FOOTERS && !INSECURE)
+    /* Check if (alleged) mstate m has expected magic field */
+    #define ok_magic(M) ((M)->magic == mparams.magic)
+  #else                                           /* (FOOTERS && !INSECURE) */
+    #define ok_magic(M) (1)
+  #endif                                          /* (FOOTERS && !INSECURE) */
 
-/* In gcc, use __builtin_expect to minimize impact of checks */
-#if !INSECURE
-  #if defined(__GNUC__) && __GNUC__ >= 3
-    #define RTCHECK(e) __builtin_expect(e, 1)
-  #else                                                             /* GNUC */
-    #define RTCHECK(e) (e)
-  #endif                                                            /* GNUC */
-#else                                                          /* !INSECURE */
-  #define RTCHECK(e) (1)
-#endif                                                         /* !INSECURE */
+  /* In gcc, use __builtin_expect to minimize impact of checks */
+  #if !INSECURE
+    #if defined(__GNUC__) && __GNUC__ >= 3
+      #define RTCHECK(e) __builtin_expect(e, 1)
+    #else                                                           /* GNUC */
+      #define RTCHECK(e) (e)
+    #endif                                                          /* GNUC */
+  #else                                                        /* !INSECURE */
+    #define RTCHECK(e) (1)
+  #endif                                                       /* !INSECURE */
 
 /* macros to set up inuse chunks with or without footers */
 
-#if !FOOTERS
+  #if !FOOTERS
 
-  #define mark_inuse_foot(M, p, s)
+    #define mark_inuse_foot(M, p, s)
 
-  /* Macros for setting head/foot of non-mmapped chunks */
+    /* Macros for setting head/foot of non-mmapped chunks */
 
-  /* Set cinuse bit and pinuse bit of next chunk */
-  #define set_inuse(M, p, s)                                  \
-    ((p)->head = (((p)->head & PINUSE_BIT) | s | CINUSE_BIT), \
-     ((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT)
+    /* Set cinuse bit and pinuse bit of next chunk */
+    #define set_inuse(M, p, s)                                  \
+      ((p)->head = (((p)->head & PINUSE_BIT) | s | CINUSE_BIT), \
+       ((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT)
 
-  /* Set cinuse and pinuse of this chunk and pinuse of next chunk */
-  #define set_inuse_and_pinuse(M, p, s)         \
-    ((p)->head = (s | PINUSE_BIT | CINUSE_BIT), \
-     ((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT)
+    /* Set cinuse and pinuse of this chunk and pinuse of next chunk */
+    #define set_inuse_and_pinuse(M, p, s)         \
+      ((p)->head = (s | PINUSE_BIT | CINUSE_BIT), \
+       ((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT)
 
-  /* Set size, cinuse and pinuse bit of this chunk */
-  #define set_size_and_pinuse_of_inuse_chunk(M, p, s) \
-    ((p)->head = (s | PINUSE_BIT | CINUSE_BIT))
+    /* Set size, cinuse and pinuse bit of this chunk */
+    #define set_size_and_pinuse_of_inuse_chunk(M, p, s) \
+      ((p)->head = (s | PINUSE_BIT | CINUSE_BIT))
 
-#else                                                            /* FOOTERS */
+  #else                                                          /* FOOTERS */
 
-  /* Set foot of inuse chunk to be xor of mstate and seed */
-  #define mark_inuse_foot(M, p, s)                 \
-    (((mchunkptr)((char *)(p) + (s)))->prev_foot = \
-         ((size_t)(M) ^ mparams.magic))
+    /* Set foot of inuse chunk to be xor of mstate and seed */
+    #define mark_inuse_foot(M, p, s)                 \
+      (((mchunkptr)((char *)(p) + (s)))->prev_foot = \
+           ((size_t)(M) ^ mparams.magic))
 
-  #define get_mstate_for(p)                                            \
-    ((mstate)(((mchunkptr)((char *)(p) + (chunksize(p))))->prev_foot ^ \
-              mparams.magic))
+    #define get_mstate_for(p)                                            \
+      ((mstate)(((mchunkptr)((char *)(p) + (chunksize(p))))->prev_foot ^ \
+                mparams.magic))
 
-  #define set_inuse(M, p, s)                                   \
-    ((p)->head = (((p)->head & PINUSE_BIT) | s | CINUSE_BIT),  \
-     (((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT), \
-     mark_inuse_foot(M, p, s))
+    #define set_inuse(M, p, s)                                   \
+      ((p)->head = (((p)->head & PINUSE_BIT) | s | CINUSE_BIT),  \
+       (((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT), \
+       mark_inuse_foot(M, p, s))
 
-  #define set_inuse_and_pinuse(M, p, s)                        \
-    ((p)->head = (s | PINUSE_BIT | CINUSE_BIT),                \
-     (((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT), \
-     mark_inuse_foot(M, p, s))
+    #define set_inuse_and_pinuse(M, p, s)                        \
+      ((p)->head = (s | PINUSE_BIT | CINUSE_BIT),                \
+       (((mchunkptr)(((char *)(p)) + (s)))->head |= PINUSE_BIT), \
+       mark_inuse_foot(M, p, s))
 
-  #define set_size_and_pinuse_of_inuse_chunk(M, p, s) \
-    ((p)->head = (s | PINUSE_BIT | CINUSE_BIT), mark_inuse_foot(M, p, s))
+    #define set_size_and_pinuse_of_inuse_chunk(M, p, s) \
+      ((p)->head = (s | PINUSE_BIT | CINUSE_BIT), mark_inuse_foot(M, p, s))
 
-#endif                                                          /* !FOOTERS */
+  #endif                                                        /* !FOOTERS */
 
 /* ---------------------------- setting mparams -------------------------- */
 
-#if LOCK_AT_FORK
+  #if LOCK_AT_FORK
 static void pre_fork(void) {
 
   ACQUIRE_LOCK(&(gm)->mutex);
@@ -3282,14 +3290,14 @@ static void post_fork_child(void) {
 
 }
 
-#endif                                                      /* LOCK_AT_FORK */
+  #endif                                                    /* LOCK_AT_FORK */
 
 /* Initialize mparams */
 static int init_mparams(void) {
 
-#ifdef NEED_GLOBAL_LOCK_INIT
+  #ifdef NEED_GLOBAL_LOCK_INIT
   if (malloc_global_mutex_status <= 0) init_malloc_global_mutex();
-#endif
+  #endif
 
   ACQUIRE_MALLOC_GLOBAL_LOCK();
   if (mparams.magic == 0) {
@@ -3298,10 +3306,10 @@ static int init_mparams(void) {
     size_t psize;
     size_t gsize;
 
-#ifndef WIN32
+  #ifndef WIN32
     psize = malloc_getpagesize;
     gsize = ((DEFAULT_GRANULARITY != 0) ? DEFAULT_GRANULARITY : psize);
-#else                                                              /* WIN32 */
+  #else                                                            /* WIN32 */
     {
 
       SYSTEM_INFO system_info;
@@ -3313,7 +3321,7 @@ static int init_mparams(void) {
 
     }
 
-#endif                                                             /* WIN32 */
+  #endif                                                           /* WIN32 */
 
     /* Sanity-check configuration:
        size_t must be unsigned and as wide as pointer type.
@@ -3332,25 +3340,25 @@ static int init_mparams(void) {
     mparams.page_size = psize;
     mparams.mmap_threshold = DEFAULT_MMAP_THRESHOLD;
     mparams.trim_threshold = DEFAULT_TRIM_THRESHOLD;
-#if MORECORE_CONTIGUOUS
+  #if MORECORE_CONTIGUOUS
     mparams.default_mflags = USE_LOCK_BIT | USE_MMAP_BIT;
-#else                                                /* MORECORE_CONTIGUOUS */
+  #else                                              /* MORECORE_CONTIGUOUS */
     mparams.default_mflags =
         USE_LOCK_BIT | USE_MMAP_BIT | USE_NONCONTIGUOUS_BIT;
-#endif                                               /* MORECORE_CONTIGUOUS */
+  #endif                                             /* MORECORE_CONTIGUOUS */
 
-#if !ONLY_MSPACES
+  #if !ONLY_MSPACES
     /* Set up lock for main malloc area */
     gm->mflags = mparams.default_mflags;
     (void)INITIAL_LOCK(&gm->mutex);
-#endif
-#if LOCK_AT_FORK
+  #endif
+  #if LOCK_AT_FORK
     pthread_atfork(&pre_fork, &post_fork_parent, &post_fork_child);
-#endif
+  #endif
 
     {
 
-#if USE_DEV_RANDOM
+  #if USE_DEV_RANDOM
       int           fd;
       unsigned char buf[sizeof(size_t)];
       /* Try to use /dev/urandom, else fall back on using time */
@@ -3362,14 +3370,14 @@ static int init_mparams(void) {
 
       } else
 
-#endif                                                    /* USE_DEV_RANDOM */
-#ifdef WIN32
+  #endif                                                  /* USE_DEV_RANDOM */
+  #ifdef WIN32
         magic = (size_t)(GetTickCount() ^ (size_t)0x55555555U);
-#elif defined(LACKS_TIME_H)
+  #elif defined(LACKS_TIME_H)
       magic = (size_t)&magic ^ (size_t)0x55555555U;
-#else
+  #else
       magic = (size_t)(time(0) ^ (size_t)0x55555555U);
-#endif
+  #endif
       magic |= (size_t)8U;                                /* ensure nonzero */
       magic &= ~(size_t)7U;      /* improve chances of fault for bad values */
       /* Until memory modes commonly available, use volatile-write */
@@ -3414,7 +3422,7 @@ static int change_mparam(int param_number, int value) {
 
 }
 
-#if DEBUG
+  #if DEBUG
 /* ------------------------- Debugging Support --------------------------- */
 
 /* Check properties of any chunk, whether free, inuse, mmapped etc  */
@@ -3751,11 +3759,11 @@ static void do_check_malloc_state(mstate m) {
 
 }
 
-#endif                                                             /* DEBUG */
+  #endif                                                           /* DEBUG */
 
 /* ----------------------------- statistics ------------------------------ */
 
-#if !NO_MALLINFO
+  #if !NO_MALLINFO
 static struct mallinfo internal_mallinfo(mstate m) {
 
   struct mallinfo nm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3810,9 +3818,9 @@ static struct mallinfo internal_mallinfo(mstate m) {
 
 }
 
-#endif                                                      /* !NO_MALLINFO */
+  #endif                                                    /* !NO_MALLINFO */
 
-#if !NO_MALLOC_STATS
+  #if !NO_MALLOC_STATS
 static void internal_malloc_stats(mstate m) {
 
   ensure_initialization();
@@ -3855,191 +3863,194 @@ static void internal_malloc_stats(mstate m) {
 
 }
 
-#endif                                                   /* NO_MALLOC_STATS */
+  #endif                                                 /* NO_MALLOC_STATS */
 
-/* ----------------------- Operations on smallbins ----------------------- */
+  /* ----------------------- Operations on smallbins ----------------------- */
 
-/*
-  Various forms of linking and unlinking are defined as macros.  Even
-  the ones for trees, which are very long but have very short typical
-  paths.  This is ugly but reduces reliance on inlining support of
-  compilers.
-*/
+  /*
+    Various forms of linking and unlinking are defined as macros.  Even
+    the ones for trees, which are very long but have very short typical
+    paths.  This is ugly but reduces reliance on inlining support of
+    compilers.
+  */
 
-/* Link a free chunk into a smallbin  */
-#define insert_small_chunk(M, P, S)         \
-  {                                         \
-                                            \
-    bindex_t  I = small_index(S);           \
-    mchunkptr B = smallbin_at(M, I);        \
-    mchunkptr F = B;                        \
-    assert(S >= MIN_CHUNK_SIZE);            \
-    if (!smallmap_is_marked(M, I))          \
-      mark_smallmap(M, I);                  \
-    else if (RTCHECK(ok_address(M, B->fd))) \
-      F = B->fd;                            \
-    else {                                  \
-                                            \
-      CORRUPTION_ERROR_ACTION(M);           \
-                                            \
-    }                                       \
-    B->fd = P;                              \
-    F->bk = P;                              \
-    P->fd = F;                              \
-    P->bk = B;                              \
-                                            \
-  }
+  /* Link a free chunk into a smallbin  */
+  #define insert_small_chunk(M, P, S)         \
+    {                                         \
+                                              \
+      bindex_t  I = small_index(S);           \
+      mchunkptr B = smallbin_at(M, I);        \
+      mchunkptr F = B;                        \
+      assert(S >= MIN_CHUNK_SIZE);            \
+      if (!smallmap_is_marked(M, I))          \
+        mark_smallmap(M, I);                  \
+      else if (RTCHECK(ok_address(M, B->fd))) \
+        F = B->fd;                            \
+      else {                                  \
+                                              \
+        CORRUPTION_ERROR_ACTION(M);           \
+                                              \
+      }                                       \
+      B->fd = P;                              \
+      F->bk = P;                              \
+      P->fd = F;                              \
+      P->bk = B;                              \
+                                              \
+    }
 
-/* Unlink a chunk from a smallbin  */
-#define unlink_small_chunk(M, P, S)                                            \
-  {                                                                            \
-                                                                               \
-    mchunkptr F = P->fd;                                                       \
-    mchunkptr B = P->bk;                                                       \
-    bindex_t  I = small_index(S);                                              \
-    assert(P != B);                                                            \
-    assert(P != F);                                                            \
-    assert(chunksize(P) == small_index2size(I));                               \
-    if (RTCHECK(F == smallbin_at(M, I) || (ok_address(M, F) && F->bk == P))) { \
-                                                                               \
-      if (B == F) {                                                            \
-                                                                               \
-        clear_smallmap(M, I);                                                  \
-                                                                               \
-      } else if (RTCHECK(B == smallbin_at(M, I) ||                             \
-                         (ok_address(M, B) && B->fd == P))) {                  \
-                                                                               \
-        F->bk = B;                                                             \
-        B->fd = F;                                                             \
-                                                                               \
-      } else {                                                                 \
-                                                                               \
-        CORRUPTION_ERROR_ACTION(M);                                            \
-                                                                               \
-      }                                                                        \
-                                                                               \
-    } else {                                                                   \
-                                                                               \
-      CORRUPTION_ERROR_ACTION(M);                                              \
-                                                                               \
-    }                                                                          \
-                                                                               \
-  }
+  /* Unlink a chunk from a smallbin  */
+  #define unlink_small_chunk(M, P, S)                           \
+    {                                                           \
+                                                                \
+      mchunkptr F = P->fd;                                      \
+      mchunkptr B = P->bk;                                      \
+      bindex_t  I = small_index(S);                             \
+      assert(P != B);                                           \
+      assert(P != F);                                           \
+      assert(chunksize(P) == small_index2size(I));              \
+      if (RTCHECK(F == smallbin_at(M, I) ||                     \
+                  (ok_address(M, F) && F->bk == P))) {          \
+                                                                \
+        if (B == F) {                                           \
+                                                                \
+          clear_smallmap(M, I);                                 \
+                                                                \
+        } else if (RTCHECK(B == smallbin_at(M, I) ||            \
+                                                                \
+                                                                \
+                           (ok_address(M, B) && B->fd == P))) { \
+                                                                \
+          F->bk = B;                                            \
+          B->fd = F;                                            \
+                                                                \
+        } else {                                                \
+                                                                \
+          CORRUPTION_ERROR_ACTION(M);                           \
+                                                                \
+        }                                                       \
+                                                                \
+      } else {                                                  \
+                                                                \
+        CORRUPTION_ERROR_ACTION(M);                             \
+                                                                \
+      }                                                         \
+                                                                \
+    }
 
-/* Unlink the first chunk from a smallbin */
-#define unlink_first_small_chunk(M, B, P, I)              \
-  {                                                       \
-                                                          \
-    mchunkptr F = P->fd;                                  \
-    assert(P != B);                                       \
-    assert(P != F);                                       \
-    assert(chunksize(P) == small_index2size(I));          \
-    if (B == F) {                                         \
-                                                          \
-      clear_smallmap(M, I);                               \
-                                                          \
-    } else if (RTCHECK(ok_address(M, F) && F->bk == P)) { \
-                                                          \
-      F->bk = B;                                          \
-      B->fd = F;                                          \
-                                                          \
-    } else {                                              \
-                                                          \
-      CORRUPTION_ERROR_ACTION(M);                         \
-                                                          \
-    }                                                     \
-                                                          \
-  }
+  /* Unlink the first chunk from a smallbin */
+  #define unlink_first_small_chunk(M, B, P, I)              \
+    {                                                       \
+                                                            \
+      mchunkptr F = P->fd;                                  \
+      assert(P != B);                                       \
+      assert(P != F);                                       \
+      assert(chunksize(P) == small_index2size(I));          \
+      if (B == F) {                                         \
+                                                            \
+        clear_smallmap(M, I);                               \
+                                                            \
+      } else if (RTCHECK(ok_address(M, F) && F->bk == P)) { \
+                                                            \
+        F->bk = B;                                          \
+        B->fd = F;                                          \
+                                                            \
+      } else {                                              \
+                                                            \
+        CORRUPTION_ERROR_ACTION(M);                         \
+                                                            \
+      }                                                     \
+                                                            \
+    }
 
-/* Replace dv node, binning the old one */
-/* Used only when dvsize known to be small */
-#define replace_dv(M, P, S)           \
-  {                                   \
-                                      \
-    size_t DVS = M->dvsize;           \
-    assert(is_small(DVS));            \
-    if (DVS != 0) {                   \
-                                      \
-      mchunkptr DV = M->dv;           \
-      insert_small_chunk(M, DV, DVS); \
-                                      \
-    }                                 \
-    M->dvsize = S;                    \
-    M->dv = P;                        \
-                                      \
-  }
+  /* Replace dv node, binning the old one */
+  /* Used only when dvsize known to be small */
+  #define replace_dv(M, P, S)           \
+    {                                   \
+                                        \
+      size_t DVS = M->dvsize;           \
+      assert(is_small(DVS));            \
+      if (DVS != 0) {                   \
+                                        \
+        mchunkptr DV = M->dv;           \
+        insert_small_chunk(M, DV, DVS); \
+                                        \
+      }                                 \
+      M->dvsize = S;                    \
+      M->dv = P;                        \
+                                        \
+    }
 
-/* ------------------------- Operations on trees ------------------------- */
+  /* ------------------------- Operations on trees ------------------------- */
 
-/* Insert chunk into tree */
-#define insert_large_chunk(M, X, S)                                  \
-  {                                                                  \
-                                                                     \
-    tbinptr *H;                                                      \
-    bindex_t I;                                                      \
-    compute_tree_index(S, I);                                        \
-    H = treebin_at(M, I);                                            \
-    X->index = I;                                                    \
-    X->child[0] = X->child[1] = 0;                                   \
-    if (!treemap_is_marked(M, I)) {                                  \
-                                                                     \
-      mark_treemap(M, I);                                            \
-      *H = X;                                                        \
-      X->parent = (tchunkptr)H;                                      \
-      X->fd = X->bk = X;                                             \
-                                                                     \
-    } else {                                                         \
-                                                                     \
-      tchunkptr T = *H;                                              \
-      size_t    K = S << leftshift_for_tree_index(I);                \
-      for (;;) {                                                     \
-                                                                     \
-        if (chunksize(T) != S) {                                     \
-                                                                     \
-          tchunkptr *C =                                             \
-              &(T->child[(K >> (SIZE_T_BITSIZE - SIZE_T_ONE)) & 1]); \
-          K <<= 1;                                                   \
-          if (*C != 0)                                               \
-            T = *C;                                                  \
-          else if (RTCHECK(ok_address(M, C))) {                      \
-                                                                     \
-            *C = X;                                                  \
-            X->parent = T;                                           \
-            X->fd = X->bk = X;                                       \
-            break;                                                   \
-                                                                     \
-          } else {                                                   \
-                                                                     \
-            CORRUPTION_ERROR_ACTION(M);                              \
-            break;                                                   \
-                                                                     \
-          }                                                          \
-                                                                     \
-        } else {                                                     \
-                                                                     \
-          tchunkptr F = T->fd;                                       \
-          if (RTCHECK(ok_address(M, T) && ok_address(M, F))) {       \
-                                                                     \
-            T->fd = F->bk = X;                                       \
-            X->fd = F;                                               \
-            X->bk = T;                                               \
-            X->parent = 0;                                           \
-            break;                                                   \
-                                                                     \
-          } else {                                                   \
-                                                                     \
-            CORRUPTION_ERROR_ACTION(M);                              \
-            break;                                                   \
-                                                                     \
-          }                                                          \
-                                                                     \
-        }                                                            \
-                                                                     \
-      }                                                              \
-                                                                     \
-    }                                                                \
-                                                                     \
-  }
+  /* Insert chunk into tree */
+  #define insert_large_chunk(M, X, S)                                  \
+    {                                                                  \
+                                                                       \
+      tbinptr *H;                                                      \
+      bindex_t I;                                                      \
+      compute_tree_index(S, I);                                        \
+      H = treebin_at(M, I);                                            \
+      X->index = I;                                                    \
+      X->child[0] = X->child[1] = 0;                                   \
+      if (!treemap_is_marked(M, I)) {                                  \
+                                                                       \
+        mark_treemap(M, I);                                            \
+        *H = X;                                                        \
+        X->parent = (tchunkptr)H;                                      \
+        X->fd = X->bk = X;                                             \
+                                                                       \
+      } else {                                                         \
+                                                                       \
+        tchunkptr T = *H;                                              \
+        size_t    K = S << leftshift_for_tree_index(I);                \
+        for (;;) {                                                     \
+                                                                       \
+          if (chunksize(T) != S) {                                     \
+                                                                       \
+            tchunkptr *C =                                             \
+                &(T->child[(K >> (SIZE_T_BITSIZE - SIZE_T_ONE)) & 1]); \
+            K <<= 1;                                                   \
+            if (*C != 0)                                               \
+              T = *C;                                                  \
+            else if (RTCHECK(ok_address(M, C))) {                      \
+                                                                       \
+              *C = X;                                                  \
+              X->parent = T;                                           \
+              X->fd = X->bk = X;                                       \
+              break;                                                   \
+                                                                       \
+            } else {                                                   \
+                                                                       \
+              CORRUPTION_ERROR_ACTION(M);                              \
+              break;                                                   \
+                                                                       \
+            }                                                          \
+                                                                       \
+          } else {                                                     \
+                                                                       \
+            tchunkptr F = T->fd;                                       \
+            if (RTCHECK(ok_address(M, T) && ok_address(M, F))) {       \
+                                                                       \
+              T->fd = F->bk = X;                                       \
+              X->fd = F;                                               \
+              X->bk = T;                                               \
+              X->parent = 0;                                           \
+              break;                                                   \
+                                                                       \
+            } else {                                                   \
+                                                                       \
+              CORRUPTION_ERROR_ACTION(M);                              \
+              break;                                                   \
+                                                                       \
+            }                                                          \
+                                                                       \
+          }                                                            \
+                                                                       \
+        }                                                              \
+                                                                       \
+      }                                                                \
+                                                                       \
+    }
 
 /*
   Unlink steps:
@@ -4058,141 +4069,149 @@ static void internal_malloc_stats(mstate m) {
      x's parent and children to x's replacement (or null if none).
 */
 
-#define unlink_large_chunk(M, X)                                   \
-  {                                                                \
-                                                                   \
-    tchunkptr XP = X->parent;                                      \
-    tchunkptr R;                                                   \
-    if (X->bk != X) {                                              \
-                                                                   \
-      tchunkptr F = X->fd;                                         \
-      R = X->bk;                                                   \
-      if (RTCHECK(ok_address(M, F) && F->bk == X && R->fd == X)) { \
-                                                                   \
-        F->bk = R;                                                 \
-        R->fd = F;                                                 \
-                                                                   \
-      } else {                                                     \
-                                                                   \
-        CORRUPTION_ERROR_ACTION(M);                                \
-                                                                   \
-      }                                                            \
-                                                                   \
-    } else {                                                       \
-                                                                   \
-      tchunkptr *RP;                                               \
-      if (((R = *(RP = &(X->child[1]))) != 0) ||                   \
-          ((R = *(RP = &(X->child[0]))) != 0)) {                   \
-                                                                   \
-        tchunkptr *CP;                                             \
-        while ((*(CP = &(R->child[1])) != 0) ||                    \
-               (*(CP = &(R->child[0])) != 0)) {                    \
-                                                                   \
-          R = *(RP = CP);                                          \
-                                                                   \
-        }                                                          \
-        if (RTCHECK(ok_address(M, RP)))                            \
-          *RP = 0;                                                 \
-        else {                                                     \
-                                                                   \
-          CORRUPTION_ERROR_ACTION(M);                              \
-                                                                   \
-        }                                                          \
-                                                                   \
-      }                                                            \
-                                                                   \
-    }                                                              \
-    if (XP != 0) {                                                 \
-                                                                   \
-      tbinptr *H = treebin_at(M, X->index);                        \
-      if (X == *H) {                                               \
-                                                                   \
-        if ((*H = R) == 0) clear_treemap(M, X->index);             \
-                                                                   \
-      } else if (RTCHECK(ok_address(M, XP))) {                     \
-                                                                   \
-        if (XP->child[0] == X)                                     \
-          XP->child[0] = R;                                        \
-        else                                                       \
-          XP->child[1] = R;                                        \
-                                                                   \
-      } else                                                       \
-        CORRUPTION_ERROR_ACTION(M);                                \
-      if (R != 0) {                                                \
-                                                                   \
-        if (RTCHECK(ok_address(M, R))) {                           \
-                                                                   \
-          tchunkptr C0, C1;                                        \
-          R->parent = XP;                                          \
-          if ((C0 = X->child[0]) != 0) {                           \
-                                                                   \
-            if (RTCHECK(ok_address(M, C0))) {                      \
-                                                                   \
-              R->child[0] = C0;                                    \
-              C0->parent = R;                                      \
-                                                                   \
-            } else                                                 \
-              CORRUPTION_ERROR_ACTION(M);                          \
-                                                                   \
-          }                                                        \
-          if ((C1 = X->child[1]) != 0) {                           \
-                                                                   \
-            if (RTCHECK(ok_address(M, C1))) {                      \
-                                                                   \
-              R->child[1] = C1;                                    \
-              C1->parent = R;                                      \
-                                                                   \
-            } else                                                 \
-              CORRUPTION_ERROR_ACTION(M);                          \
-                                                                   \
-          }                                                        \
-                                                                   \
-        } else                                                     \
-          CORRUPTION_ERROR_ACTION(M);                              \
-                                                                   \
-      }                                                            \
-                                                                   \
-    }                                                              \
-                                                                   \
-  }
+  #define unlink_large_chunk(M, X)                                   \
+    {                                                                \
+                                                                     \
+      tchunkptr XP = X->parent;                                      \
+      tchunkptr R;                                                   \
+      if (X->bk != X) {                                              \
+                                                                     \
+        tchunkptr F = X->fd;                                         \
+        R = X->bk;                                                   \
+        if (RTCHECK(ok_address(M, F) && F->bk == X && R->fd == X)) { \
+                                                                     \
+          F->bk = R;                                                 \
+          R->fd = F;                                                 \
+                                                                     \
+        } else {                                                     \
+                                                                     \
+          CORRUPTION_ERROR_ACTION(M);                                \
+                                                                     \
+        }                                                            \
+                                                                     \
+      } else {                                                       \
+                                                                     \
+        tchunkptr *RP;                                               \
+        if (((R = *(RP = &(X->child[1]))) != 0) ||                   \
+            ((R = *(RP = &(X->child[0]))) != 0)) {                   \
+                                                                     \
+          tchunkptr *CP;                                             \
+          while ((*(CP = &(R->child[1])) != 0) ||                    \
+                 (*(CP = &(R->child[0])) != 0)) {                    \
+                                                                     \
+            R = *(RP = CP);                                          \
+                                                                     \
+          }                                                          \
+          if (RTCHECK(ok_address(M, RP)))                            \
+            *RP = 0;                                                 \
+          else {                                                     \
+                                                                     \
+            CORRUPTION_ERROR_ACTION(M);                              \
+                                                                     \
+          }                                                          \
+                                                                     \
+        }                                                            \
+                                                                     \
+      }                                                              \
+      if (XP != 0) {                                                 \
+                                                                     \
+        tbinptr *H = treebin_at(M, X->index);                        \
+        if (X == *H) {                                               \
+                                                                     \
+          if ((*H = R) == 0) clear_treemap(M, X->index);             \
+                                                                     \
+        } else if (RTCHECK(ok_address(M, XP))) {                     \
+                                                                     \
+          if (XP->child[0] == X)                                     \
+            XP->child[0] = R;                                        \
+          else                                                       \
+            XP->child[1] = R;                                        \
+                                                                     \
+        } else                                                       \
+                                                                     \
+                                                                     \
+          CORRUPTION_ERROR_ACTION(M);                                \
+        if (R != 0) {                                                \
+                                                                     \
+          if (RTCHECK(ok_address(M, R))) {                           \
+                                                                     \
+            tchunkptr C0, C1;                                        \
+            R->parent = XP;                                          \
+            if ((C0 = X->child[0]) != 0) {                           \
+                                                                     \
+              if (RTCHECK(ok_address(M, C0))) {                      \
+                                                                     \
+                R->child[0] = C0;                                    \
+                C0->parent = R;                                      \
+                                                                     \
+              } else                                                 \
+                                                                     \
+                                                                     \
+                CORRUPTION_ERROR_ACTION(M);                          \
+                                                                     \
+            }                                                        \
+            if ((C1 = X->child[1]) != 0) {                           \
+                                                                     \
+              if (RTCHECK(ok_address(M, C1))) {                      \
+                                                                     \
+                R->child[1] = C1;                                    \
+                C1->parent = R;                                      \
+                                                                     \
+              } else                                                 \
+                                                                     \
+                                                                     \
+                CORRUPTION_ERROR_ACTION(M);                          \
+                                                                     \
+            }                                                        \
+                                                                     \
+          } else                                                     \
+                                                                     \
+                                                                     \
+            CORRUPTION_ERROR_ACTION(M);                              \
+                                                                     \
+        }                                                            \
+                                                                     \
+      }                                                              \
+                                                                     \
+    }
 
 /* Relays to large vs small bin operations */
 
-#define insert_chunk(M, P, S)                         \
-  if (is_small(S)) insert_small_chunk(M, P, S) else { \
-                                                      \
-      tchunkptr TP = (tchunkptr)(P);                  \
-      insert_large_chunk(M, TP, S);                   \
-                                                      \
-    }
+  #define insert_chunk(M, P, S)                         \
+    if (is_small(S)) insert_small_chunk(M, P, S) else { \
+                                                        \
+        tchunkptr TP = (tchunkptr)(P);                  \
+        insert_large_chunk(M, TP, S);                   \
+                                                        \
+      }
 
-#define unlink_chunk(M, P, S)                         \
-  if (is_small(S)) unlink_small_chunk(M, P, S) else { \
-                                                      \
-      tchunkptr TP = (tchunkptr)(P);                  \
-      unlink_large_chunk(M, TP);                      \
-                                                      \
-    }
+  #define unlink_chunk(M, P, S)                         \
+    if (is_small(S)) unlink_small_chunk(M, P, S) else { \
+                                                        \
+        tchunkptr TP = (tchunkptr)(P);                  \
+        unlink_large_chunk(M, TP);                      \
+                                                        \
+      }
 
 /* Relays to internal calls to malloc/free from realloc, memalign etc */
 
-#if ONLY_MSPACES
-  #define internal_malloc(m, b) mspace_malloc(m, b)
-  #define internal_free(m, mem) mspace_free(m, mem);
-#else                                                       /* ONLY_MSPACES */
-  #if MSPACES
-    #define internal_malloc(m, b) \
-      ((m == gm) ? dlmalloc(b) : mspace_malloc(m, b))
-    #define internal_free(m, mem) \
-      if (m == gm)                \
-        dlfree(mem);              \
-      else                        \
-        mspace_free(m, mem);
-  #else                                                          /* MSPACES */
-    #define internal_malloc(m, b) dlmalloc(b)
-    #define internal_free(m, mem) dlfree(mem)
-  #endif                                                         /* MSPACES */
-#endif                                                      /* ONLY_MSPACES */
+  #if ONLY_MSPACES
+    #define internal_malloc(m, b) mspace_malloc(m, b)
+    #define internal_free(m, mem) mspace_free(m, mem);
+  #else                                                     /* ONLY_MSPACES */
+    #if MSPACES
+      #define internal_malloc(m, b) \
+        ((m == gm) ? dlmalloc(b) : mspace_malloc(m, b))
+      #define internal_free(m, mem) \
+        if (m == gm)                \
+          dlfree(mem);              \
+        else                        \
+          mspace_free(m, mem);
+    #else                                                        /* MSPACES */
+      #define internal_malloc(m, b) dlmalloc(b)
+      #define internal_free(m, mem) dlfree(mem)
+    #endif                                                       /* MSPACES */
+  #endif                                                    /* ONLY_MSPACES */
 
 /* -----------------------  Direct-mmapping chunks ----------------------- */
 
@@ -4317,7 +4336,7 @@ static void init_bins(mstate m) {
 
 }
 
-#if PROCEED_ON_ERROR
+  #if PROCEED_ON_ERROR
 
 /* default corruption action */
 static void reset_on_error(mstate m) {
@@ -4337,7 +4356,7 @@ static void reset_on_error(mstate m) {
 
 }
 
-#endif                                                  /* PROCEED_ON_ERROR */
+  #endif                                                /* PROCEED_ON_ERROR */
 
 /* Allocate chunk and prepend remainder with chunk in successor base. */
 static void *prepend_alloc(mstate m, char *newbase, char *oldbase, size_t nb) {
@@ -4629,11 +4648,11 @@ static void *sys_alloc(mstate m, size_t nb) {
       m->magic = mparams.magic;
       m->release_checks = MAX_RELEASE_CHECK_RATE;
       init_bins(m);
-#if !ONLY_MSPACES
+  #if !ONLY_MSPACES
       if (is_global(m))
         init_top(m, (mchunkptr)tbase, tsize - TOP_FOOT_SIZE);
       else
-#endif
+  #endif
       {
 
         /* Offset top by embedded malloc_state */
@@ -5099,36 +5118,36 @@ static void *tmalloc_small(mstate m, size_t nb) {
 
 }
 
-#if !ONLY_MSPACES
+  #if !ONLY_MSPACES
 
 void *dlmalloc(size_t bytes) {
 
-  /*
-     Basic algorithm:
-     If a small request (< 256 bytes minus per-chunk overhead):
-       1. If one exists, use a remainderless chunk in associated smallbin.
-          (Remainderless means that there are too few excess bytes to
-          represent as a chunk.)
-       2. If it is big enough, use the dv chunk, which is normally the
-          chunk adjacent to the one used for the most recent small request.
-       3. If one exists, split the smallest available chunk in a bin,
-          saving remainder in dv.
-       4. If it is big enough, use the top chunk.
-       5. If available, get memory from system and use it
-     Otherwise, for a large request:
-       1. Find the smallest available binned chunk that fits, and use it
-          if it is better fitting than dv chunk, splitting if necessary.
-       2. If better fitting than any binned chunk, use the dv chunk.
-       3. If it is big enough, use the top chunk.
-       4. If request size >= mmap threshold, try to directly mmap this chunk.
-       5. If available, get memory from system and use it
+    /*
+       Basic algorithm:
+       If a small request (< 256 bytes minus per-chunk overhead):
+         1. If one exists, use a remainderless chunk in associated smallbin.
+            (Remainderless means that there are too few excess bytes to
+            represent as a chunk.)
+         2. If it is big enough, use the dv chunk, which is normally the
+            chunk adjacent to the one used for the most recent small request.
+         3. If one exists, split the smallest available chunk in a bin,
+            saving remainder in dv.
+         4. If it is big enough, use the top chunk.
+         5. If available, get memory from system and use it
+       Otherwise, for a large request:
+         1. Find the smallest available binned chunk that fits, and use it
+            if it is better fitting than dv chunk, splitting if necessary.
+         2. If better fitting than any binned chunk, use the dv chunk.
+         3. If it is big enough, use the top chunk.
+         4. If request size >= mmap threshold, try to directly mmap this chunk.
+         5. If available, get memory from system and use it
 
-     The ugly goto's here ensure that postaction occurs along all paths.
-  */
+       The ugly goto's here ensure that postaction occurs along all paths.
+    */
 
-  #if USE_LOCKS
+    #if USE_LOCKS
   ensure_initialization();    /* initialize in sys_alloc if not using locks */
-  #endif
+    #endif
 
   if (!PREACTION(gm)) {
 
@@ -5275,7 +5294,7 @@ void dlfree(void *mem) {
   if (mem != 0) {
 
     mchunkptr p = mem2chunk(mem);
-  #if FOOTERS
+    #if FOOTERS
     mstate fm = get_mstate_for(p);
     if (!ok_magic(fm)) {
 
@@ -5284,9 +5303,9 @@ void dlfree(void *mem) {
 
     }
 
-  #else                                                          /* FOOTERS */
-    #define fm gm
-  #endif                                                         /* FOOTERS */
+    #else                                                        /* FOOTERS */
+      #define fm gm
+    #endif                                                       /* FOOTERS */
     if (!PREACTION(fm)) {
 
       check_inuse_chunk(fm, p);
@@ -5403,9 +5422,9 @@ void dlfree(void *mem) {
 
   }
 
-  #if !FOOTERS
-    #undef fm
-  #endif                                                         /* FOOTERS */
+    #if !FOOTERS
+      #undef fm
+    #endif                                                       /* FOOTERS */
 
 }
 
@@ -5429,7 +5448,7 @@ void *dlcalloc(size_t n_elements, size_t elem_size) {
 
 }
 
-#endif                                                     /* !ONLY_MSPACES */
+  #endif                                                   /* !ONLY_MSPACES */
 
 /* ------------ Internal support for realloc, memalign, etc -------------- */
 
@@ -5747,7 +5766,7 @@ static void **ialloc(mstate m, size_t n_elements, size_t *sizes, int opts,
 
   }
 
-#if DEBUG
+  #if DEBUG
   if (marray != chunks) {
 
     /* final element must have exactly exhausted chunk */
@@ -5768,7 +5787,7 @@ static void **ialloc(mstate m, size_t n_elements, size_t *sizes, int opts,
   for (i = 0; i != n_elements; ++i)
     check_inuse_chunk(m, mem2chunk(marray[i]));
 
-#endif                                                             /* DEBUG */
+  #endif                                                           /* DEBUG */
 
   POSTACTION(m);
   return marray;
@@ -5796,7 +5815,7 @@ static size_t internal_bulk_free(mstate m, void *array[], size_t nelem) {
 
         mchunkptr p = mem2chunk(mem);
         size_t    psize = chunksize(p);
-#if FOOTERS
+  #if FOOTERS
         if (get_mstate_for(p) != m) {
 
           ++unfreed;
@@ -5804,7 +5823,7 @@ static size_t internal_bulk_free(mstate m, void *array[], size_t nelem) {
 
         }
 
-#endif
+  #endif
         check_inuse_chunk(m, p);
         *a = 0;
         if (RTCHECK(ok_address(m, p) && ok_inuse(p))) {
@@ -5841,8 +5860,8 @@ static size_t internal_bulk_free(mstate m, void *array[], size_t nelem) {
 
 }
 
-/* Traversal */
-#if MALLOC_INSPECT_ALL
+  /* Traversal */
+  #if MALLOC_INSPECT_ALL
 static void internal_inspect_all(mstate m,
                                  void (*handler)(void *start, void *end,
                                                  size_t used_bytes,
@@ -5894,11 +5913,11 @@ static void internal_inspect_all(mstate m,
 
 }
 
-#endif                                                /* MALLOC_INSPECT_ALL */
+  #endif                                              /* MALLOC_INSPECT_ALL */
 
 /* ------------------ Exported realloc, memalign, etc -------------------- */
 
-#if !ONLY_MSPACES
+  #if !ONLY_MSPACES
 
 void *dlrealloc(void *oldmem, size_t bytes) {
 
@@ -5913,21 +5932,21 @@ void *dlrealloc(void *oldmem, size_t bytes) {
 
   }
 
-  #ifdef REALLOC_ZERO_BYTES_FREES
+    #ifdef REALLOC_ZERO_BYTES_FREES
   else if (bytes == 0) {
 
     dlfree(oldmem);
 
   }
 
-  #endif                                        /* REALLOC_ZERO_BYTES_FREES */
+    #endif                                      /* REALLOC_ZERO_BYTES_FREES */
   else {
 
     size_t    nb = request2size(bytes);
     mchunkptr oldp = mem2chunk(oldmem);
-  #if !FOOTERS
+    #if !FOOTERS
     mstate m = gm;
-  #else                                                          /* FOOTERS */
+    #else                                                        /* FOOTERS */
     mstate m = get_mstate_for(oldp);
     if (!ok_magic(m)) {
 
@@ -5936,7 +5955,7 @@ void *dlrealloc(void *oldmem, size_t bytes) {
 
     }
 
-  #endif                                                         /* FOOTERS */
+    #endif                                                       /* FOOTERS */
     if (!PREACTION(m)) {
 
       mchunkptr newp = try_realloc_chunk(m, oldp, nb, 1);
@@ -5980,9 +5999,9 @@ void *dlrealloc_in_place(void *oldmem, size_t bytes) {
 
       size_t    nb = request2size(bytes);
       mchunkptr oldp = mem2chunk(oldmem);
-  #if !FOOTERS
+    #if !FOOTERS
       mstate m = gm;
-  #else                                                          /* FOOTERS */
+    #else                                                        /* FOOTERS */
       mstate m = get_mstate_for(oldp);
       if (!ok_magic(m)) {
 
@@ -5991,7 +6010,7 @@ void *dlrealloc_in_place(void *oldmem, size_t bytes) {
 
       }
 
-  #endif                                                         /* FOOTERS */
+    #endif                                                       /* FOOTERS */
       if (!PREACTION(m)) {
 
         mchunkptr newp = try_realloc_chunk(m, oldp, nb, 0);
@@ -6091,7 +6110,7 @@ size_t dlbulk_free(void *array[], size_t nelem) {
 
 }
 
-  #if MALLOC_INSPECT_ALL
+    #if MALLOC_INSPECT_ALL
 void dlmalloc_inspect_all(void (*handler)(void *start, void *end,
                                           size_t used_bytes,
                                           void * callback_arg),
@@ -6107,7 +6126,7 @@ void dlmalloc_inspect_all(void (*handler)(void *start, void *end,
 
 }
 
-  #endif                                              /* MALLOC_INSPECT_ALL */
+    #endif                                            /* MALLOC_INSPECT_ALL */
 
 int dlmalloc_trim(size_t pad) {
 
@@ -6155,23 +6174,23 @@ size_t dlmalloc_set_footprint_limit(size_t bytes) {
 
 }
 
-  #if !NO_MALLINFO
+    #if !NO_MALLINFO
 struct mallinfo dlmallinfo(void) {
 
   return internal_mallinfo(gm);
 
 }
 
-  #endif                                                     /* NO_MALLINFO */
+    #endif                                                   /* NO_MALLINFO */
 
-  #if !NO_MALLOC_STATS
+    #if !NO_MALLOC_STATS
 void dlmalloc_stats() {
 
   internal_malloc_stats(gm);
 
 }
 
-  #endif                                                 /* NO_MALLOC_STATS */
+    #endif                                               /* NO_MALLOC_STATS */
 
 int dlmallopt(int param_number, int value) {
 
@@ -6192,11 +6211,11 @@ size_t dlmalloc_usable_size(void *mem) {
 
 }
 
-#endif                                                     /* !ONLY_MSPACES */
+  #endif                                                   /* !ONLY_MSPACES */
 
 /* ----------------------------- user mspaces ---------------------------- */
 
-#if MSPACES
+  #if MSPACES
 
 static mstate init_user_mstate(char *tbase, size_t tsize) {
 
@@ -6476,12 +6495,12 @@ void mspace_free(mspace msp, void *mem) {
   if (mem != 0) {
 
     mchunkptr p = mem2chunk(mem);
-  #if FOOTERS
+    #if FOOTERS
     mstate fm = get_mstate_for(p);
     (void)msp;                         /* placate people compiling -Wunused */
-  #else                                                          /* FOOTERS */
+    #else                                                        /* FOOTERS */
     mstate fm = (mstate)msp;
-  #endif                                                         /* FOOTERS */
+    #endif                                                       /* FOOTERS */
     if (!ok_magic(fm)) {
 
       USAGE_ERROR_ACTION(fm, p);
@@ -6648,21 +6667,21 @@ void *mspace_realloc(mspace msp, void *oldmem, size_t bytes) {
 
   }
 
-  #ifdef REALLOC_ZERO_BYTES_FREES
+    #ifdef REALLOC_ZERO_BYTES_FREES
   else if (bytes == 0) {
 
     mspace_free(msp, oldmem);
 
   }
 
-  #endif                                        /* REALLOC_ZERO_BYTES_FREES */
+    #endif                                      /* REALLOC_ZERO_BYTES_FREES */
   else {
 
     size_t    nb = request2size(bytes);
     mchunkptr oldp = mem2chunk(oldmem);
-  #if !FOOTERS
+    #if !FOOTERS
     mstate m = (mstate)msp;
-  #else                                                          /* FOOTERS */
+    #else                                                        /* FOOTERS */
     mstate m = get_mstate_for(oldp);
     if (!ok_magic(m)) {
 
@@ -6671,7 +6690,7 @@ void *mspace_realloc(mspace msp, void *oldmem, size_t bytes) {
 
     }
 
-  #endif                                                         /* FOOTERS */
+    #endif                                                       /* FOOTERS */
     if (!PREACTION(m)) {
 
       mchunkptr newp = try_realloc_chunk(m, oldp, nb, 1);
@@ -6715,9 +6734,9 @@ void *mspace_realloc_in_place(mspace msp, void *oldmem, size_t bytes) {
 
       size_t    nb = request2size(bytes);
       mchunkptr oldp = mem2chunk(oldmem);
-  #if !FOOTERS
+    #if !FOOTERS
       mstate m = (mstate)msp;
-  #else                                                          /* FOOTERS */
+    #else                                                        /* FOOTERS */
       mstate m = get_mstate_for(oldp);
       (void)msp;                       /* placate people compiling -Wunused */
       if (!ok_magic(m)) {
@@ -6727,7 +6746,7 @@ void *mspace_realloc_in_place(mspace msp, void *oldmem, size_t bytes) {
 
       }
 
-  #endif                                                         /* FOOTERS */
+    #endif                                                       /* FOOTERS */
       if (!PREACTION(m)) {
 
         mchunkptr newp = try_realloc_chunk(m, oldp, nb, 0);
@@ -6801,7 +6820,7 @@ size_t mspace_bulk_free(mspace msp, void *array[], size_t nelem) {
 
 }
 
-  #if MALLOC_INSPECT_ALL
+    #if MALLOC_INSPECT_ALL
 void mspace_inspect_all(mspace msp,
                         void (*handler)(void *start, void *end,
                                         size_t used_bytes, void *callback_arg),
@@ -6825,7 +6844,7 @@ void mspace_inspect_all(mspace msp,
 
 }
 
-  #endif                                              /* MALLOC_INSPECT_ALL */
+    #endif                                            /* MALLOC_INSPECT_ALL */
 
 int mspace_trim(mspace msp, size_t pad) {
 
@@ -6850,7 +6869,7 @@ int mspace_trim(mspace msp, size_t pad) {
 
 }
 
-  #if !NO_MALLOC_STATS
+    #if !NO_MALLOC_STATS
 void mspace_malloc_stats(mspace msp) {
 
   mstate ms = (mstate)msp;
@@ -6866,7 +6885,7 @@ void mspace_malloc_stats(mspace msp) {
 
 }
 
-  #endif                                                 /* NO_MALLOC_STATS */
+    #endif                                               /* NO_MALLOC_STATS */
 
 size_t mspace_footprint(mspace msp) {
 
@@ -6946,7 +6965,7 @@ size_t mspace_set_footprint_limit(mspace msp, size_t bytes) {
 
 }
 
-  #if !NO_MALLINFO
+    #if !NO_MALLINFO
 struct mallinfo mspace_mallinfo(mspace msp) {
 
   mstate ms = (mstate)msp;
@@ -6955,7 +6974,7 @@ struct mallinfo mspace_mallinfo(mspace msp) {
 
 }
 
-  #endif                                                     /* NO_MALLINFO */
+    #endif                                                   /* NO_MALLINFO */
 
 size_t mspace_usable_size(const void *mem) {
 
@@ -6976,7 +6995,7 @@ int mspace_mallopt(int param_number, int value) {
 
 }
 
-#endif                                                           /* MSPACES */
+  #endif                                                         /* MSPACES */
 
 /* -------------------- Alternative MORECORE functions ------------------- */
 
@@ -7304,4 +7323,6 @@ History:
          structure of old version,  but most details differ.)
 
 */
+
+#endif  // __GLIBC__
 

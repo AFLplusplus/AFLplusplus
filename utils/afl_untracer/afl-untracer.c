@@ -480,9 +480,9 @@ void setup_trap_instrumentation(void) {
     // Index into the coverage bitmap for the current trap instruction.
 #ifdef __aarch64__
   uint64_t bitmap_index = 0;
-#ifdef __APPLE__
+  #ifdef __APPLE__
   pthread_jit_write_protect_np(0);
-#endif
+  #endif
 #else
   uint32_t bitmap_index = 0;
 #endif
@@ -627,13 +627,13 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
   // Must re-execute the instruction, so decrement PC by one instruction.
   ucontext_t *ctx = (ucontext_t *)context;
 #if defined(__APPLE__) && defined(__LP64__)
-#if defined(__x86_64__)
+  #if defined(__x86_64__)
   ctx->uc_mcontext->__ss.__rip -= 1;
   addr = ctx->uc_mcontext->__ss.__rip;
-#else
+  #else
   ctx->uc_mcontext->__ss.__pc -= 4;
   addr = ctx->uc_mcontext->__ss.__pc;
-#endif
+  #endif
 #elif defined(__linux__)
   #if defined(__x86_64__) || defined(__i386__)
   ctx->uc_mcontext.gregs[REG_RIP] -= 1;

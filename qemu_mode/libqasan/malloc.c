@@ -24,6 +24,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
 #include "libqasan.h"
+#include <features.h>
 #include <errno.h>
 #include <stddef.h>
 #include <assert.h>
@@ -65,9 +66,26 @@ struct chunk_struct {
 
 };
 
+#ifdef __GLIBC__
+
+void *(*__lq_libc_malloc)(size_t);
+void (*__lq_libc_free)(void *);
+  #define backend_malloc __lq_libc_malloc
+  #define backend_free __lq_libc_free
+
+  #define TMP_ZONE_SIZE 4096
+static int           __tmp_alloc_zone_idx;
+static unsigned char __tmp_alloc_zone[TMP_ZONE_SIZE];
+
+#else
+
 // From dlmalloc.c
-void *dlmalloc(size_t);
-void  dlfree(void *);
+void *                    dlmalloc(size_t);
+void                      dlfree(void *);
+  #define backend_malloc dlmalloc
+  #define backend_free dlfree
+
+#endif
 
 int __libqasan_malloc_initialized;
 
@@ -102,9 +120,9 @@ static int quanratine_push(struct chunk_begin *ck) {
     quarantine_bytes -= tmp->requested_size;
 
     if (tmp->aligned_orig)
-      dlfree(tmp->aligned_orig);
+      backend_free(tmp->aligned_orig);
     else
-      dlfree(tmp);
+      backend_free(tmp);
 
   }
 
@@ -122,6 +140,11 @@ void __libqasan_init_malloc(void) {
 
   if (__libqasan_malloc_initialized) return;
 
+#ifdef __GLIBC__
+  __lq_libc_malloc = dlsym(RTLD_NEXT, "malloc");
+  __lq_libc_free = dlsym(RTLD_NEXT, "free");
+#endif
+
   LOCK_INIT(&quarantine_lock, PTHREAD_PROCESS_PRIVATE);
 
   __libqasan_malloc_initialized = 1;
@@ -136,19 +159,36 @@ size_t __libqasan_malloc_usable_size(void *ptr) {
   char *p = ptr;
   p -= sizeof(struct chunk_begin);
 
+  // Validate that the chunk marker is readable (a crude check
+  // to verify that ptr is a valid malloc region before we dereference it)
+  QASAN_LOAD(p, sizeof(struct chunk_begin) - REDZONE_SIZE);
   return ((struct chunk_begin *)p)->requested_size;
 
 }
 
 void *__libqasan_malloc(size_t size) {
 
-  if (!__libqasan_malloc_initialized) { __libqasan_init_malloc(); }
+  if (!__libqasan_malloc_initialized) {
 
-  if (!__libqasan_malloc_initialized) __libqasan_init_malloc();
+    __libqasan_init_malloc();
+
+#ifdef __GLIBC__
+    void *r = &__tmp_alloc_zone[__tmp_alloc_zone_idx];
+
+    if (size & (ALLOC_ALIGN_SIZE - 1))
+      __tmp_alloc_zone_idx +=
+          (size & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
+    else
+      __tmp_alloc_zone_idx += size;
+
+    return r;
+#endif
+
+  }
 
   int state = QASAN_SWAP(QASAN_DISABLED);  // disable qasan for this thread
 
-  struct chunk_begin *p = dlmalloc(sizeof(struct chunk_struct) + size);
+  struct chunk_begin *p = backend_malloc(sizeof(struct chunk_struct) + size);
 
   QASAN_SWAP(state);
 
@@ -179,9 +219,18 @@ void __libqasan_free(void *ptr) {
 
   if (!ptr) return;
 
+#ifdef __GLIBC__
+  if (ptr >= (void *)__tmp_alloc_zone &&
+      ptr < ((void *)__tmp_alloc_zone + TMP_ZONE_SIZE))
+    return;
+#endif
+
   struct chunk_begin *p = ptr;
   p -= 1;
 
+  // Validate that the chunk marker is readable (a crude check
+  // to verify that ptr is a valid malloc region before we dereference it)
+  QASAN_LOAD(p, sizeof(struct chunk_begin) - REDZONE_SIZE);
   size_t n = p->requested_size;
 
   QASAN_STORE(ptr, n);
@@ -190,9 +239,9 @@ void __libqasan_free(void *ptr) {
   if (!quanratine_push(p)) {
 
     if (p->aligned_orig)
-      dlfree(p->aligned_orig);
+      backend_free(p->aligned_orig);
     else
-      dlfree(p);
+      backend_free(p);
 
   }
 
@@ -209,6 +258,17 @@ void __libqasan_free(void *ptr) {
 void *__libqasan_calloc(size_t nmemb, size_t size) {
 
   size *= nmemb;
+
+#ifdef __GLIBC__
+  if (!__libqasan_malloc_initialized) {
+
+    void *r = &__tmp_alloc_zone[__tmp_alloc_zone_idx];
+    __tmp_alloc_zone_idx += size;
+    return r;
+
+  }
+
+#endif
 
   char *p = __libqasan_malloc(size);
   if (!p) return NULL;
@@ -252,7 +312,7 @@ int __libqasan_posix_memalign(void **ptr, size_t align, size_t len) {
 
   int state = QASAN_SWAP(QASAN_DISABLED);  // disable qasan for this thread
 
-  char *orig = dlmalloc(sizeof(struct chunk_struct) + size);
+  char *orig = backend_malloc(sizeof(struct chunk_struct) + size);
 
   QASAN_SWAP(state);
 

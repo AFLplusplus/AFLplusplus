@@ -173,7 +173,7 @@ size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
 // Execute any files provided as parameters.
 static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
-  unsigned char *buf = malloc(MAX_FILE);
+  unsigned char *buf = (unsigned char *)malloc(MAX_FILE);
   for (int i = 1; i < argc; i++) {
 
     int fd = open(argv[i], O_RDONLY);
@@ -186,6 +186,8 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
       printf("Execution successful.\n");
 
     }
+
+    close(fd);
 
   }
 
@@ -204,9 +206,19 @@ int main(int argc, char **argv) {
       "To fuzz with afl-fuzz execute this:\n"
       "  afl-fuzz [afl-flags] -- %s [-N]\n"
       "afl-fuzz will run N iterations before re-spawning the process (default: "
-      "1000)\n"
+      "INT_MAX)\n"
       "======================================================\n",
       argv[0], argv[0]);
+
+  if (getenv("AFL_GDB")) {
+
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "cat /proc/%d/maps", getpid());
+    system(cmd);
+    fprintf(stderr, "DEBUG: aflpp_driver pid is %d\n", getpid());
+    sleep(1);
+
+  }
 
   output_file = stderr;
   maybe_duplicate_stderr();

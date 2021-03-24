@@ -60,20 +60,25 @@ bool isIgnoreFunction(const llvm::Function *F) {
       "asan.",
       "llvm.",
       "sancov.",
-      "__ubsan_",
+      "__ubsan",
       "ign.",
-      "__afl_",
+      "__afl",
       "_fini",
-      "__libc_csu",
+      "__libc_",
       "__asan",
       "__msan",
       "__cmplog",
       "__sancov",
+      "__san",
+      "__cxx_",
+      "__decide_deferred",
+      "_GLOBAL",
+      "_ZZN6__asan",
+      "_ZZN6__lsan",
       "msan.",
       "LLVMFuzzerM",
       "LLVMFuzzerC",
       "LLVMFuzzerI",
-      "__decide_deferred",
       "maybe_duplicate_stderr",
       "discard_output",
       "close_stdout",
@@ -86,6 +91,20 @@ bool isIgnoreFunction(const llvm::Function *F) {
   for (auto const &ignoreListFunc : ignoreList) {
 
     if (F->getName().startswith(ignoreListFunc)) { return true; }
+
+  }
+
+  static const char *ignoreSubstringList[] = {
+
+      "__asan",       "__msan",     "__ubsan", "__lsan",
+      "__san",        "__sanitize", "__cxx",   "_GLOBAL__",
+      "DebugCounter", "DwarfDebug", "DebugLoc"
+
+  };
+
+  for (auto const &ignoreListFunc : ignoreSubstringList) {
+
+    if (F->getName().contains(ignoreListFunc)) { return true; }
 
   }
 
@@ -351,7 +370,7 @@ static std::string getSourceName(llvm::Function *F) {
 
     if (cDILoc) { instFilename = cDILoc->getFilename(); }
 
-    if (instFilename.str().empty()) {
+    if (instFilename.str().empty() && cDILoc) {
 
       /* If the original location is empty, try using the inlined location
        */

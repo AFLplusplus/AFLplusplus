@@ -507,6 +507,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
   Zero = ConstantInt::get(Int8Tyi, 0);
   One = ConstantInt::get(Int8Tyi, 1);
 
+  initInstrumentList();
   scanForDangerousFunctions(&M);
   Mo = &M;
 
@@ -733,7 +734,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                             Var->getInitializer())) {
 
                       HasStr2 = true;
-                      Str2 = Array->getAsString().str();
+                      Str2 = Array->getRawDataValues().str();
 
                     }
 
@@ -760,7 +761,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
-                    addedNull = true;
+                    // addedNull = true;
 
                   }
 
@@ -809,7 +810,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                             Var->getInitializer())) {
 
                       HasStr1 = true;
-                      Str1 = Array->getAsString().str();
+                      Str1 = Array->getRawDataValues().str();
 
                     }
 
@@ -849,15 +850,18 @@ bool ModuleSanitizerCoverage::instrumentModule(
               thestring = Str2;
 
             optLen = thestring.length();
+            if (optLen < 2 || (optLen == 2 && !thestring[1])) { continue; }
 
             if (isMemcmp || isStrncmp || isStrncasecmp) {
 
               Value *      op2 = callInst->getArgOperand(2);
               ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
+
               if (ilen) {
 
                 uint64_t literalLength = optLen;
                 optLen = ilen->getZExtValue();
+                if (optLen < 2) { continue; }
                 if (literalLength + 1 == optLen) {  // add null byte
                   thestring.append("\0", 1);
                   addedNull = true;
@@ -872,17 +876,21 @@ bool ModuleSanitizerCoverage::instrumentModule(
             // was not already added
             if (!isMemcmp) {
 
-              if (addedNull == false) {
+              if (addedNull == false && thestring[optLen - 1] != '\0') {
 
                 thestring.append("\0", 1);  // add null byte
                 optLen++;
 
               }
 
-              // ensure we do not have garbage
-              size_t offset = thestring.find('\0', 0);
-              if (offset + 1 < optLen) optLen = offset + 1;
-              thestring = thestring.substr(0, optLen);
+              if (!isStdString) {
+
+                // ensure we do not have garbage
+                size_t offset = thestring.find('\0', 0);
+                if (offset + 1 < optLen) optLen = offset + 1;
+                thestring = thestring.substr(0, optLen);
+
+              }
 
             }
 
@@ -1222,7 +1230,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
   // afl++ START
   if (!F.size()) return;
-  if (isIgnoreFunction(&F)) return;
+  if (!isInInstrumentList(&F)) return;
   // afl++ END
 
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
@@ -1284,10 +1292,17 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
       Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
+#if LLVM_VERSION_MAJOR > 12
+  if (TargetTriple.supportsCOMDAT() &&
+      (TargetTriple.isOSBinFormatELF() || !F.isInterposable()))
+    if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
+      Array->setComdat(Comdat);
+#else
   if (TargetTriple.supportsCOMDAT() && !F.isInterposable())
     if (auto Comdat =
             GetOrCreateFunctionComdat(F, TargetTriple, CurModuleUniqueId))
       Array->setComdat(Comdat);
+#endif
   Array->setSection(getSectionName(Section));
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
   GlobalsToAppendToUsed.push_back(Array);

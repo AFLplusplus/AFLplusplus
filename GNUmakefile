@@ -24,7 +24,7 @@ BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
-MAN_PATH    = $(PREFIX)/man/man8
+MAN_PATH    = $(PREFIX)/share/man/man8
 
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
@@ -57,8 +57,6 @@ ifdef MSAN_BUILD
   override LDFLAGS += -fsanitize=memory
 endif
 
-
-
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -77,17 +75,17 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -
 	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-  ifndef SOURCE_DATE_EPOCH
-    HAVE_MARCHNATIVE = 1
-    CFLAGS_OPT += -march=native
-  endif
-endif
+#ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+#  ifndef SOURCE_DATE_EPOCH
+#    HAVE_MARCHNATIVE = 1
+#    CFLAGS_OPT += -march=native
+#  endif
+#endif
 
 ifneq "$(shell uname)" "Darwin"
-  ifeq "$(HAVE_MARCHNATIVE)" "1"
-    SPECIAL_PERFORMANCE += -march=native
-  endif
+  #ifeq "$(HAVE_MARCHNATIVE)" "1"
+  #  SPECIAL_PERFORMANCE += -march=native
+  #endif
  # OS X does not like _FORTIFY_SOURCE=2
   ifndef DEBUG
     CFLAGS_OPT += -D_FORTIFY_SOURCE=2
@@ -519,7 +517,7 @@ code-format:
 ifndef AFL_NO_X86
 test_build: afl-cc afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper afl-cc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
+	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
@@ -560,6 +558,7 @@ clean:
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C utils/libdislocator clean
 	$(MAKE) -C utils/libtokencap clean
+	$(MAKE) -C utils/aflpp_driver clean
 	$(MAKE) -C utils/afl_network_proxy clean
 	$(MAKE) -C utils/socket_fuzzing clean
 	$(MAKE) -C utils/argv_fuzzing clean
@@ -578,7 +577,11 @@ endif
 deepclean:	clean
 	rm -rf unicorn_mode/unicornafl
 	rm -rf qemu_mode/qemuafl
+ifeq "$(IN_REPO)" "1"
 # NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
+	git checkout unicorn_mode/unicornafl
+	git checkout qemu_mode/qemuafl
+endif
 
 .PHONY: distrib
 distrib: all

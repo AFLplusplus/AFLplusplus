@@ -1,10 +1,11 @@
 # CmpLog instrumentation
 
-The CmpLog instrumentation enables the logging of the comparisons operands in a
+The CmpLog instrumentation enables logging of comparison operands in a
 shared memory.
 
 These values can be used by various mutators built on top of it.
-At the moment we support the RedQueen mutator (input-2-state instructions only).
+At the moment we support the RedQueen mutator (input-2-state instructions only), 
+for details see [the RedQueen paper](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf).
 
 ## Build
 
@@ -13,7 +14,7 @@ program.
 
 The first version is built using the regular AFL++ instrumentation.
 
-The second one, the CmpLog binary, with setting AFL_LLVM_CMPLOG during the compilation.
+The second one, the CmpLog binary, is built with setting AFL_LLVM_CMPLOG during the compilation.
 
 For example:
 
@@ -26,11 +27,12 @@ export AFL_LLVM_CMPLOG=1
 ./configure --cc=~/path/to/afl-clang-fast
 make
 cp ./program ./program.cmplog
+unset AFL_LLVM_CMPLOG
 ```
 
 ## Use
 
-AFL++ has the new -c option that needs to be used to specify the CmpLog binary (the second
+AFL++ has the new `-c` option that needs to be used to specify the CmpLog binary (the second
 build).
 
 For example:

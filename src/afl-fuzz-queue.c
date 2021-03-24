@@ -198,34 +198,35 @@ void create_alias_table(afl_state_t *afl) {
   while (nS)
     afl->alias_probability[S[--nS]] = 1;
 
-#ifdef INTROSPECTION
-  u8 fn[PATH_MAX];
-  snprintf(fn, PATH_MAX, "%s/introspection_corpus.txt", afl->out_dir);
-  FILE *f = fopen(fn, "a");
-  if (f) {
+  /*
+  #ifdef INTROSPECTION
+    u8 fn[PATH_MAX];
+    snprintf(fn, PATH_MAX, "%s/introspection_corpus.txt", afl->out_dir);
+    FILE *f = fopen(fn, "a");
+    if (f) {
 
-    for (i = 0; i < n; i++) {
+      for (i = 0; i < n; i++) {
 
-      struct queue_entry *q = afl->queue_buf[i];
-      fprintf(
-          f,
-          "entry=%u name=%s favored=%s variable=%s disabled=%s len=%u "
-          "exec_us=%u "
-          "bitmap_size=%u bitsmap_size=%u tops=%u weight=%f perf_score=%f\n",
-          i, q->fname, q->favored ? "true" : "false",
-          q->var_behavior ? "true" : "false", q->disabled ? "true" : "false",
-          q->len, (u32)q->exec_us, q->bitmap_size, q->bitsmap_size, q->tc_ref,
-          q->weight, q->perf_score);
+        struct queue_entry *q = afl->queue_buf[i];
+        fprintf(
+            f,
+            "entry=%u name=%s favored=%s variable=%s disabled=%s len=%u "
+            "exec_us=%u "
+            "bitmap_size=%u bitsmap_size=%u tops=%u weight=%f perf_score=%f\n",
+            i, q->fname, q->favored ? "true" : "false",
+            q->var_behavior ? "true" : "false", q->disabled ? "true" : "false",
+            q->len, (u32)q->exec_us, q->bitmap_size, q->bitsmap_size, q->tc_ref,
+            q->weight, q->perf_score);
+
+      }
+
+      fprintf(f, "\n");
+      fclose(f);
 
     }
 
-    fprintf(f, "\n");
-    fclose(f);
-
-  }
-
-#endif
-
+  #endif
+  */
   /*
   fprintf(stderr, "  entry  alias  probability  perf_score   weight
   filename\n"); for (u32 i = 0; i < n; ++i) fprintf(stderr, "  %5u  %5u  %11u
@@ -248,7 +249,7 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
   snprintf(fn, PATH_MAX, "%s/queue/.state/deterministic_done/%s", afl->out_dir,
            strrchr(q->fname, '/') + 1);
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
   close(fd);
 
@@ -271,7 +272,7 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
   if (symlink(ldest, fn)) {
 
-    s32 fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    s32 fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
     close(fd);
 
@@ -299,7 +300,7 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
     s32 fd;
 
-    fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
     close(fd);
 
@@ -324,7 +325,7 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
-  buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
+  buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len + 1);
   comp = read(fd, buf, len);
   close(fd);
   if (comp != (ssize_t)len) return 0;
@@ -679,13 +680,17 @@ void cull_queue(afl_state_t *afl) {
 
       }
 
-      afl->top_rated[i]->favored = 1;
-      ++afl->queued_favored;
+      if (!afl->top_rated[i]->favored) {
 
-      if (afl->top_rated[i]->fuzz_level == 0 ||
-          !afl->top_rated[i]->was_fuzzed) {
+        afl->top_rated[i]->favored = 1;
+        ++afl->queued_favored;
 
-        ++afl->pending_favored;
+        if (afl->top_rated[i]->fuzz_level == 0 ||
+            !afl->top_rated[i]->was_fuzzed) {
+
+          ++afl->pending_favored;
+
+        }
 
       }
 
