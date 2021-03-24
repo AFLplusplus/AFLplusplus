@@ -162,8 +162,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   snprintf(shm->g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
   /* create the shared memory segment as if it was a file */
-  shm->g_shm_fd =
-      shm_open(shm->g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, DEFAULT_PERMISSION);
+  shm->g_shm_fd = shm_open(shm->g_shm_file_path, O_CREAT | O_RDWR | O_EXCL,
+                           DEFAULT_PERMISSION);
   if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */
@@ -202,7 +202,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     /* create the shared memory segment as if it was a file */
     shm->cmplog_g_shm_fd =
-        shm_open(shm->cmplog_g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, DEFAULT_PERMISSION);
+        shm_open(shm->cmplog_g_shm_file_path, O_CREAT | O_RDWR | O_EXCL,
+                 DEFAULT_PERMISSION);
     if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
     /* configure the size of the shared memory segment */
@@ -241,7 +242,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 #else
   u8 *shm_str;
 
-  shm->shm_id = shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+  shm->shm_id =
+      shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {

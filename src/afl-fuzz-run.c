@@ -83,7 +83,8 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
            afl->document_counter++,
            describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
 
-  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >= 0) {
+  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >=
+      0) {
 
     if (write(doc_fd, mem, len) != len)
       PFATAL("write to mutation file failed: %s", fn);
@@ -247,12 +248,14 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC,
+                DEFAULT_PERMISSION);
 
     } else {
 
       unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL,
+                DEFAULT_PERMISSION);
 
     }
 
@@ -564,7 +567,8 @@ void sync_fuzzers(afl_state_t *afl) {
     /* document the attempt to sync to this instance */
 
     sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
-    id_fd = open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+    id_fd =
+        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
     if (id_fd >= 0) close(id_fd);
 
     /* Skip anything that doesn't have a queue/ subdirectory. */
