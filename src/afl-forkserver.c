@@ -365,6 +365,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
+#ifdef AFL_PERSISTENT_RECORD
   if (unlikely(fsrv->persistent_record)) {
 
     fsrv->persistent_record_data =
@@ -379,6 +380,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
   }
+#endif
 
   if (fsrv->use_fauxsrv) {
 
@@ -1014,6 +1016,7 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
+#ifdef AFL_PERSISTENT_RECORD
   if (unlikely(fsrv->persistent_record)) {
 
     fsrv->persistent_record_len[fsrv->persistent_record_idx] = len;
@@ -1036,6 +1039,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
     }
 
   }
+#endif
 
   if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
 
@@ -1149,6 +1153,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
+#ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
   if (unlikely(fsrv->persistent_record &&
                fsrv->persistent_record_pid != fsrv->child_pid)) {
@@ -1165,6 +1170,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     fsrv->persistent_record_len[idx] = val;
 
   }
+#endif
 
   if (fsrv->child_pid <= 0) {
 
@@ -1264,6 +1270,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
+#ifdef AFL_PERSISTENT_RECORD
     if (unlikely(fsrv->persistent_record)) {
 
       char fn[PATH_MAX];
@@ -1293,6 +1300,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
       ++fsrv->persistent_record_cnt;
 
     }
+#endif
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
