@@ -72,8 +72,7 @@ static u8 *in_data,                    /* Input data                        */
 static u64 total;                      /* tuple content information         */
 static u32 tcnt, highest;              /* tuple content information         */
 
-static u32 in_len,                     /* Input data length                 */
-    arg_offset;                        /* Total number of execs             */
+static u32 in_len;                     /* Input data length                 */
 
 static u32 map_size = MAP_SIZE;
 
@@ -956,12 +955,30 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+
   if (in_dir) {
 
-    detect_file_args(argv + optind, "", &fsrv->use_stdin);
+    /* If we don't have a file name chosen yet, use a safe default. */
+    u8 *use_dir = ".";
+
+    if (access(use_dir, R_OK | W_OK | X_OK)) {
+
+      use_dir = get_afl_env("TMPDIR");
+      if (!use_dir) { use_dir = "/tmp"; }
+
+    }
+
+    stdin_file = at_file ? strdup(at_file)
+                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
+                                                use_dir, (u32)getpid());
+    unlink(stdin_file);
+
+    // If @@ are in the target args, replace them and also set use_stdin=false.
+    detect_file_args(argv + optind, stdin_file, &fsrv->use_stdin);
 
   } else {
 
+    // If @@ are in the target args, replace them and also set use_stdin=false.
     detect_file_args(argv + optind, at_file, &fsrv->use_stdin);
 
   }
@@ -983,14 +1000,6 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     use_argv = argv + optind;
-
-  }
-
-  i = 0;
-  while (use_argv[i] != NULL && !arg_offset) {
-
-    if (strcmp(use_argv[i], "@@") == 0) { arg_offset = i; }
-    i++;
 
   }
 
@@ -1104,30 +1113,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    u8 *use_dir = ".";
-
-    if (access(use_dir, R_OK | W_OK | X_OK)) {
-
-      use_dir = get_afl_env("TMPDIR");
-      if (!use_dir) { use_dir = "/tmp"; }
-
-    }
-
-    stdin_file = at_file ? strdup(at_file)
-                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
-                                                use_dir, (u32)getpid());
-    unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_file = stdin_file;
     fsrv->out_fd =
         open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
-
-    if (arg_offset && use_argv[arg_offset] != stdin_file) {
-
-      use_argv[arg_offset] = strdup(stdin_file);
-
-    }
 
     if (get_afl_env("AFL_DEBUG")) {
 
