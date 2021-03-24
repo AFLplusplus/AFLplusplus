@@ -17,7 +17,7 @@ The idea and much of the initial implementation comes from Andrew Griffiths.
 The actual implementation on current QEMU (shipped as qemuafl) is from
 Andrea Fioraldi. Special thanks to abiondo that re-enabled TCG chaining.
 
-## 2) How to use
+## 2) How to use qemu_mode
 
 The feature is implemented with a patched QEMU. The simplest way
 to build it is to run ./build_qemu_support.sh. The script will download,
@@ -99,6 +99,13 @@ Just set AFL_QEMU_INST_RANGES=A,B,C...
 The format of the items in the list is either a range of addresses like 0x123-0x321
 or a module name like module.so (that is matched in the mapped object filename).
 
+Alternatively you can tell QEMU to ignore part of an address space for instrumentation.
+
+Just set AFL_QEMU_EXCLUDE_RANGES=A,B,C...
+
+The format of the items on the list is the same as for AFL_QEMU_INST_RANGES, and excluding ranges
+takes priority over any included ranges or AFL_INST_LIBS.
+
 ## 7) CompareCoverage
 
 CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
@@ -176,7 +183,12 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-## 12) Gotchas, feedback, bugs
+## 12) Other features
+
+With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered signal
+handlers of the target.
+
+## 13) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
 utils/custom_mutators/ for a viable solution.
@@ -197,19 +209,12 @@ with -march=core2, can help.
 Beyond that, this is an early-stage mechanism, so fields reports are welcome.
 You can send them to <afl-users@googlegroups.com>.
 
-## 13) Alternatives: static rewriting
+## 14) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate
 them at run time, can be a faster alternative. That said, static rewriting is
 fraught with peril, because it depends on being able to properly and fully model
 program control flow without actually executing each and every code path.
 
-The best implementation is this one:
-
-  https://github.com/vanhauser-thc/afl-dyninst
-
-The issue however is Dyninst which is not rewriting the binaries so that
-they run stable. A lot of crashes happen, especially in C++ programs that
-use throw/catch. Try it first, and if it works for you be happy as it is
-2-3x as fast as qemu_mode, however usually not as fast as QEMU persistent mode.
-
+Checkout the "Fuzzing binary-only targets" section in our main README.md and
+the docs/binaryonly_fuzzing.md document for more information and hints.

@@ -59,51 +59,11 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PREREQ_NOTFOUND=
-for i in git wget sha384sum bison flex iconv patch pkg-config; do
-
-  T=`command -v "$i" 2>/dev/null`
-
-  if [ "$T" = "" ]; then
-
-    echo "[-] Error: '$i' not found, please install first."
-    PREREQ_NOTFOUND=1
-
-  fi
-
-done
-
-PYTHONBIN=`command -v python3 || command -v python || command -v python2`
-
-if [ "$PYTHONBIN" = "" ]; then
-  echo "[-] Error: 'python' not found, please install using 'sudo apt install python3'."
-  PREREQ_NOTFOUND=1
-fi
-
-
-if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; then
-
-  echo "[-] Error: devel version of 'glib2' not found, please install first."
-  PREREQ_NOTFOUND=1
-
-fi
-
-if [ ! -d "/usr/include/pixman-1/" -a ! -d "/usr/local/include/pixman-1/" ]; then
-
-  echo "[-] Error: devel version of 'pixman-1' not found, please install first."
-  PREREQ_NOTFOUND=1
-
-fi
-
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
-  PREREQ_NOTFOUND=1
-
-fi
-
-if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
+
 fi
 
 echo "[+] All checks passed!"
@@ -131,9 +91,13 @@ test -d qemuafl || { echo "[-] Not checked out, please install git or check your
 echo "[+] Got qemuafl."
 
 cd "qemuafl" || exit 1
-echo "[*] Checking out $QEMUAFL_VERSION"
-sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
-git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
+if [ -n "$NO_CHECKOUT" ]; then
+  echo "[*] Skipping checkout to $QEMUAFL_VERSION"
+else
+  echo "[*] Checking out $QEMUAFL_VERSION"
+  sh -c 'git stash' 1>/dev/null 2>/dev/null
+  git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
+fi
 
 echo "[*] Making sure imported headers matches"
 cp "../../include/config.h" "./qemuafl/imported/" || exit 1
@@ -233,15 +197,13 @@ QEMU_CONF_FLAGS=" \
   --disable-xen \
   --disable-xen-pci-passthrough \
   --disable-xfsctl \
-  --enable-pie \
-  --python=${PYTHONBIN} \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
   "
 
 if [ -n "${CROSS_PREFIX}" ]; then
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --cross-prefix=${CROSS_PREFIX}"
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS --cross-prefix=$CROSS_PREFIX"
 
 fi
 
@@ -249,10 +211,15 @@ if [ "$STATIC" = "1" ]; then
 
   echo Building STATIC binary
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --static \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
+
+else
+
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --enable-pie "
+
 fi
 
 if [ "$DEBUG" = "1" ]; then
@@ -262,7 +229,7 @@ if [ "$DEBUG" = "1" ]; then
   # --enable-gcov might go here but incurs a mesonbuild error on meson
   # versions prior to 0.56:
   # https://github.com/qemu/meson/commit/903d5dd8a7dc1d6f8bef79e66d6ebc07c
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --disable-strip \
     --enable-debug \
     --enable-debug-info \
@@ -275,7 +242,7 @@ if [ "$DEBUG" = "1" ]; then
 
 else
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --disable-debug-info \
     --disable-debug-mutex \
     --disable-debug-tcg \
@@ -290,7 +257,7 @@ if [ "$PROFILING" = "1" ]; then
 
   echo Building PROFILED binary
 
-  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+  QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --enable-gprof \
     --enable-profiler \
     "
@@ -298,7 +265,7 @@ if [ "$PROFILING" = "1" ]; then
 fi
 
 # shellcheck disable=SC2086
-./configure ${QEMU_CONF_FLAGS} || exit 1
+./configure $QEMU_CONF_FLAGS || exit 1
 
 echo "[+] Configuration complete."
 
@@ -364,18 +331,46 @@ ORIG_CROSS="$CROSS"
 
 if [ "$ORIG_CROSS" = "" ]; then
   CROSS=$CPU_TARGET-linux-gnu-gcc
+  if ! command -v "$CROSS" > /dev/null
+  then # works on Arch Linux
+    CROSS=$CPU_TARGET-pc-linux-gnu-gcc
+  fi
+  if ! command -v "$CROSS" > /dev/null && [ "$CPU_TARGET" = "i386" ]
+  then
+    CROSS=i686-linux-gnu-gcc
+    if ! command -v "$CROSS" > /dev/null
+    then # works on Arch Linux
+      CROSS=i686-pc-linux-gnu-gcc
+    fi
+    if ! command -v "$CROSS" > /dev/null && [ "`uname -m`" = "x86_64" ]
+    then # set -m32
+      test "$CC" = "" && CC="gcc"
+      CROSS="$CC"
+      CROSS_FLAGS=-m32
+    fi
+  fi
 fi
 
-if ! command -v "$CROSS" > /dev/null
-then
+if ! command -v "$CROSS" > /dev/null ; then
+  if [ "$CPU_TARGET" = "$(uname -m)" ] ; then
+    echo "[+] Building afl++ qemu support libraries with CC=$CC"
+    echo "[+] Building libcompcov ..."
+    make -C libcompcov && echo "[+] libcompcov ready"
+    echo "[+] Building unsigaction ..."
+    make -C unsigaction && echo "[+] unsigaction ready"
+    echo "[+] Building libqasan ..."
+    make -C libqasan && echo "[+] unsigaction ready"
+  else
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
+  fi
 else
+  echo "[+] Building afl++ qemu support libraries with CC=\"$CROSS $CROSS_FLAGS\""
   echo "[+] Building libcompcov ..."
-  make -C libcompcov CC=$CROSS && echo "[+] libcompcov ready"
+  make -C libcompcov CC="$CROSS $CROSS_FLAGS" && echo "[+] libcompcov ready"
   echo "[+] Building unsigaction ..."
-  make -C unsigaction CC=$CROSS && echo "[+] unsigaction ready"
+  make -C unsigaction CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
   echo "[+] Building libqasan ..."
-  make -C libqasan CC=$CROSS && echo "[+] unsigaction ready"
+  make -C libqasan CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
 fi
 
 echo "[+] All done for qemu_mode, enjoy!"

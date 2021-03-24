@@ -7,7 +7,7 @@ AFL_GCC=afl-gcc
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "i386" && {
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
@@ -39,7 +39,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     $ECHO "$RED[!] ${AFL_GCC} failed"
     echo CUT------------------------------------------------------------------CUT
     uname -a
-    ../${AFL_GCC} -o test-instr.plain ../test-instr.c
+    ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c
     echo CUT------------------------------------------------------------------CUT
     CODE=1
   }
@@ -128,7 +128,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
  $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
  SKIP=
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"

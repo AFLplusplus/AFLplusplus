@@ -3,6 +3,16 @@
 . ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
+test -z "$AFL_CC" && {
+  if type gcc >/dev/null; then
+    export AFL_CC=gcc
+  else
+    if type clang >/dev/null; then
+      export AFL_CC=clang
+    fi
+  fi
+}
+
 test -e ../afl-qemu-trace && {
   cc -pie -fPIE -o test-instr ../test-instr.c
   cc -o test-compcov test-compcov.c
@@ -29,14 +39,7 @@ test -e ../afl-qemu-trace && {
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode AFL_ENTRYPOINT, this will take approx 6 seconds"
       {
         {
-          if file test-instr | grep -q "32-bit"; then
-            # for 32-bit reduce 8 nibbles to the lower 7 nibbles
-	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.//'`
-          else
-            # for 64-bit reduce 16 nibbles to the lower 9 nibbles
-	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//'`
-          fi
-          export AFL_ENTRYPOINT=`expr 0x4${ADDR_LOWER_PART}`
+          export AFL_ENTRYPOINT=`printf 1 | AFL_DEBUG=1 ../afl-qemu-trace ./test-instr 2>&1 >/dev/null | awk '/forkserver/{print $4; exit}'`
           $ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(nm test-instr | grep "T main") - $(file ./test-instr)
           ../afl-fuzz -m ${MEM_LIMIT} -V2 -Q -i in -o out -- ./test-instr
           unset AFL_ENTRYPOINT

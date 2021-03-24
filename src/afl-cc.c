@@ -22,7 +22,7 @@
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
-#include "llvm-ngram-coverage.h"
+#include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -50,7 +50,7 @@ static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   clang_mode;                /* Invoked as afl-clang*?            */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
+static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
 static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
@@ -73,7 +73,9 @@ enum {
   INSTRUMENT_GCC = 6,
   INSTRUMENT_CLANG = 7,
   INSTRUMENT_OPT_CTX = 8,
-  INSTRUMENT_OPT_NGRAM = 16
+  INSTRUMENT_OPT_NGRAM = 16,
+  INSTRUMENT_OPT_CALLER = 32,
+  INSTRUMENT_OPT_CTX_K = 64,
 
 };
 
@@ -88,7 +90,7 @@ char instrument_mode_string[18][18] = {
     "GCC",
     "CLANG",
     "CTX",
-    "",
+    "CALLER",
     "",
     "",
     "",
@@ -315,15 +317,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
      have_c = 0;
-  u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
-
-  name = strrchr(argv[0], '/');
-  if (!name)
-    name = argv[0];
-  else
-    ++name;
 
   if (lto_mode) {
 
@@ -561,6 +556,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+#if LLVM_MAJOR >= 13
+    // fuck you llvm 13
+    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+#endif
+
     if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
@@ -590,6 +590,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   #ifdef __ANDROID__
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+        instrument_mode != INSTRUMENT_LLVMNATIVE;
   #else
         if (have_instr_list) {
 
@@ -599,6 +600,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
                 "-fsanitize-coverage-allow/denylist, you can use "
                 "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
           cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+          instrument_mode = INSTRUMENT_LLVMNATIVE;
 
         } else {
 
@@ -618,6 +620,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
               "Using unoptimized trace-pc-guard, upgrade to llvm 10.0.1+ for "
               "enhanced version.\n");
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
   #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
   #endif
@@ -682,19 +685,49 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
+  u8 skip_next = 0;
   while (--argc) {
 
     u8 *cur = *(++argv);
+
+    if (skip_next) {
+
+      skip_next = 0;
+      continue;
+
+    }
 
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
     if (!strncmp(cur, "-fno-unroll", 11)) continue;
     if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined") ||
+        !strcmp(cur, "--no-undefined")) {
+
       continue;
-    if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
-        !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
+
+    }
+
+    if (!strcmp(cur, "-z")) {
+
+      u8 *param = *(argv + 1);
+      if (!strcmp(param, "defs")) {
+
+        skip_next = 1;
+        continue;
+
+      }
+
+    }
+
+    if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
+         !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
+        (strncmp(cur, "sanitize-coverage-allow",
+                 strlen("sanitize-coverage-allow")) &&
+         strncmp(cur, "sanitize-coverage-deny",
+                 strlen("sanitize-coverage-deny")) &&
+         instrument_mode != INSTRUMENT_LLVMNATIVE)) {
 
       if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
       continue;
@@ -940,7 +973,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (preprocessor_only) {
+  // prevent unnecessary build errors
+  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+  if (preprocessor_only || have_c) {
 
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
@@ -959,18 +995,24 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-compiler-rt.o", obj_path);
+        if (!shared_linking)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-compiler-rt.o", obj_path);
         if (lto_mode)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
         break;
 
       case 32:
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m32 is not supported by your compiler");
+        if (!shared_linking) {
+
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m32 is not supported by your compiler");
+
+        }
+
         if (lto_mode) {
 
           cc_params[cc_par_cnt++] =
@@ -983,10 +1025,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m64 is not supported by your compiler");
+        if (!shared_linking) {
+
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m64 is not supported by your compiler");
+
+        }
+
         if (lto_mode) {
 
           cc_params[cc_par_cnt++] =
@@ -1001,19 +1048,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking && !have_c)
+    if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-  #if defined(USEMMAP) && !defined(__HAIKU__)
-    if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
-  #endif
-
-    // prevent unnecessary build errors
-    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
-
   }
+
+  #if defined(USEMMAP) && !defined(__HAIKU__)
+  cc_params[cc_par_cnt++] = "-lrt";
+  #endif
 
 #endif
 
@@ -1025,7 +1069,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 int main(int argc, char **argv, char **envp) {
 
-  int   i;
+  int   i, passthrough = 0;
   char *callname = argv[0], *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
@@ -1042,6 +1086,13 @@ int main(int argc, char **argv, char **envp) {
       getenv("AFL_LLVM_BLOCKLIST")) {
 
     have_instr_env = 1;
+
+  }
+
+  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
+
+    passthrough = 1;
+    if (!debug) { be_quiet = 1; }
 
   }
 
@@ -1213,6 +1264,7 @@ int main(int argc, char **argv, char **envp) {
 
       } else if (strcasecmp(ptr, "LLVMNATIVE") == 0 ||
 
+                 strcasecmp(ptr, "NATIVE") == 0 ||
                  strcasecmp(ptr, "LLVM-NATIVE") == 0) {
 
         compiler_mode = LLVM;
@@ -1275,6 +1327,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_LLVM_CTX")) instrument_opt_mode |= INSTRUMENT_OPT_CTX;
+  if (getenv("AFL_LLVM_CALLER")) instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
 
@@ -1285,6 +1338,26 @@ int main(int argc, char **argv, char **envp) {
           "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
           "(%u)",
           NGRAM_SIZE_MAX);
+
+  }
+
+  if (getenv("AFL_LLVM_CTX_K")) {
+
+    ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
+    if (ctx_k < 1 || ctx_k > CTX_MAX_K)
+      FATAL("K-CTX instrumentation mode must be between 1 and CTX_MAX_K (%u)",
+            CTX_MAX_K);
+    if (ctx_k == 1) {
+
+      setenv("AFL_LLVM_CALLER", "1", 1);
+      unsetenv("AFL_LLVM_CTX_K");
+      instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+
+    } else {
+
+      instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
+
+    }
 
   }
 
@@ -1383,10 +1456,55 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
+      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0) {
+
+        u8 *ptr3 = ptr2 + strlen("ctx-");
+        while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
+          ptr3++;
+
+        if (!*ptr3) {
+
+          if ((ptr3 = getenv("AFL_LLVM_CTX_K")) == NULL)
+            FATAL(
+                "you must set the K-CTX K with (e.g. for value 2) "
+                "AFL_LLVM_INSTRUMENT=ctx-2");
+
+        }
+
+        ctx_k = atoi(ptr3);
+        if (ctx_k < 1 || ctx_k > CTX_MAX_K)
+          FATAL(
+              "K-CTX instrumentation option must be between 1 and CTX_MAX_K "
+              "(%u)",
+              CTX_MAX_K);
+
+        if (ctx_k == 1) {
+
+          instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+          setenv("AFL_LLVM_CALLER", "1", 1);
+          unsetenv("AFL_LLVM_CTX_K");
+
+        } else {
+
+          instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
+          u8 *ptr4 = alloc_printf("%u", ctx_k);
+          setenv("AFL_LLVM_CTX_K", ptr4, 1);
+
+        }
+
+      }
+
       if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
         setenv("AFL_LLVM_CTX", "1", 1);
+
+      }
+
+      if (strncasecmp(ptr2, "caller", strlen("caller")) == 0) {
+
+        instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
+        setenv("AFL_LLVM_CALLER", "1", 1);
 
       }
 
@@ -1420,6 +1538,35 @@ int main(int argc, char **argv, char **envp) {
       ptr2 = strtok(NULL, ":,;");
 
     }
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CALLER)) {
+
+    FATAL("you cannot set CTX and CALLER together");
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
+    FATAL("you cannot set CTX and K-CTX together");
+
+  }
+
+  if ((instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+      (instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
+    FATAL("you cannot set CALLER and K-CTX together");
+
+  }
+
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_DEFAULT &&
+      (compiler_mode == LLVM || compiler_mode == UNSET)) {
+
+    instrument_mode = INSTRUMENT_CLASSIC;
+    compiler_mode = LLVM;
 
   }
 
@@ -1492,12 +1639,13 @@ int main(int argc, char **argv, char **envp) {
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
+        "        - CALLER\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
         "      INSTRIM                           no  yes     module yes yes "
         "   yes\n"
         "        - NORMAL\n"
-        "        - CTX\n"
+        "        - CALLER\n"
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
@@ -1529,8 +1677,8 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-  #define NATIVE_MSG                                              \
-    "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+  #define NATIVE_MSG                                                   \
+    "  LLVM-NATIVE:  use llvm's native PCGUARD instrumentation (less " \
     "performant)\n"
 #else
   #define NATIVE_MSG ""
@@ -1544,7 +1692,10 @@ int main(int argc, char **argv, char **envp) {
         NATIVE_MSG
 
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
-        "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
+        "  CALLER:  CLASSIC + single callee context "
+        "(instrumentation/README.ctx.md)\n"
+        "  CTX:     CLASSIC + full callee context "
+        "(instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
@@ -1587,8 +1738,11 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
+          "  AFL_NOOP: behave like a normal compiler (to pass configure "
+          "tests)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
+          "  AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
           "  AFL_INST_RATIO: percentage of branches to instrument\n"
           "  AFL_QUIET: suppress verbose output\n"
           "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
@@ -1637,15 +1791,17 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CTX, NGRAM-2 ... "
-            "NGRAM-16\n"
+            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, "
+            "NGRAM-2 ..-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
             "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
             "(option to INSTRIM)\n"
-            "  AFL_LLVM_CTX: use context sensitive coverage (for CLASSIC and "
-            "INSTRIM)\n"
+            "  AFL_LLVM_CALLER: use single context sensitive coverage (for "
+            "CLASSIC)\n"
+            "  AFL_LLVM_CTX: use full context sensitive coverage (for "
+            "CLASSIC)\n"
             "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
             "CLASSIC & INSTRIM)\n");
 
@@ -1700,7 +1856,10 @@ int main(int argc, char **argv, char **envp) {
         "Do not be overwhelmed :) afl-cc uses good defaults if no options are "
         "selected.\n"
         "Read the documentation for FEATURES though, all are good but few are "
-        "defaults.\n\n");
+        "defaults.\n"
+        "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast "
+        "with\n"
+        "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n");
 
     exit(1);
 
@@ -1760,7 +1919,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (instrument_opt_mode && compiler_mode != LLVM)
-    FATAL("CTX and NGRAM can only be used in LLVM mode");
+    FATAL("CTX, CALLER and NGRAM can only be used in LLVM mode");
 
   if (!instrument_opt_mode) {
 
@@ -1770,15 +1929,18 @@ int main(int argc, char **argv, char **envp) {
 
   } else {
 
-    if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
+    char *ptr2 = alloc_printf(" + NGRAM-%u", ngram_size);
+    char *ptr3 = alloc_printf(" + K-CTX-%u", ctx_k);
 
-      ptr = alloc_printf("%s + CTX", instrument_mode_string[instrument_mode]);
-    else if (instrument_opt_mode == INSTRUMENT_OPT_NGRAM)
-      ptr = alloc_printf("%s + NGRAM-%u",
-                         instrument_mode_string[instrument_mode], ngram_size);
-    else
-      ptr = alloc_printf("%s + CTX + NGRAM-%u",
-                         instrument_mode_string[instrument_mode], ngram_size);
+    ptr = alloc_printf(
+        "%s%s%s%s%s", instrument_mode_string[instrument_mode],
+        (instrument_opt_mode & INSTRUMENT_OPT_CTX) ? " + CTX" : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "",
+        (instrument_opt_mode & INSTRUMENT_OPT_CTX_K) ? ptr3 : "");
+
+    ck_free(ptr2);
+    ck_free(ptr3);
 
   }
 
@@ -1789,11 +1951,14 @@ int main(int argc, char **argv, char **envp) {
         "(requires LLVM 11 or higher)");
 #endif
 
-  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
-      instrument_mode != INSTRUMENT_CFG)
+  if (instrument_opt_mode && instrument_mode == INSTRUMENT_CFG &&
+      instrument_opt_mode & INSTRUMENT_OPT_CTX)
+    FATAL("CFG instrumentation mode supports NGRAM and CALLER, but not CTX.");
+  else if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
+    // we will drop CFG/INSTRIM in the future so do not advertise
     FATAL(
-        "CTX and NGRAM instrumentation options can only be used with CFG "
-        "(recommended) and CLASSIC instrumentation modes!");
+        "CALLER, CTX and NGRAM instrumentation options can only be used with "
+        "the LLVM CLASSIC instrumentation mode.");
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
     FATAL(
@@ -1840,6 +2005,8 @@ int main(int argc, char **argv, char **envp) {
     for (i = 0; i < argc; i++)
       SAYF(" '%s'", argv[i]);
     SAYF("\n");
+    fflush(stdout);
+    fflush(stderr);
 
   }
 
@@ -1880,10 +2047,21 @@ int main(int argc, char **argv, char **envp) {
     for (i = 0; i < (s32)cc_par_cnt; i++)
       SAYF(" '%s'", cc_params[i]);
     SAYF("\n");
+    fflush(stdout);
+    fflush(stderr);
 
   }
 
-  execvp(cc_params[0], (char **)cc_params);
+  if (passthrough) {
+
+    argv[0] = cc_params[0];
+    execvp(cc_params[0], (char **)argv);
+
+  } else {
+
+    execvp(cc_params[0], (char **)cc_params);
+
+  }
 
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
 

@@ -499,27 +499,28 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
 
-    if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 0); }
+    if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
-    if (fsrv->debug == true && !getenv("ASAN_OPTIONS"))
+    if (!getenv("ASAN_OPTIONS"))
       setenv("ASAN_OPTIONS",
              "abort_on_error=1:"
              "detect_leaks=0:"
              "malloc_context_size=0:"
              "symbolize=0:"
              "allocator_may_return_null=1:"
+             "detect_odr_violation=0:"
              "handle_segv=0:"
              "handle_sigbus=0:"
              "handle_abort=0:"
              "handle_sigfpe=0:"
              "handle_sigill=0",
-             0);
+             1);
 
     /* Set sane defaults for UBSAN if nothing else specified. */
 
-    if (fsrv->debug == true && !getenv("UBSAN_OPTIONS"))
+    if (!getenv("UBSAN_OPTIONS"))
       setenv("UBSAN_OPTIONS",
              "halt_on_error=1:"
              "abort_on_error=1:"
@@ -531,7 +532,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
              "handle_abort=0:"
              "handle_sigfpe=0:"
              "handle_sigill=0",
-             0);
+             1);
 
     /* Envs for QASan */
     setenv("QASAN_MAX_CALL_STACK", "0", 0);
@@ -540,7 +541,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
-    if (fsrv->debug == true && !getenv("MSAN_OPTIONS"))
+    if (!getenv("MSAN_OPTIONS"))
       setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
            "symbolize=0:"
@@ -553,7 +554,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "handle_abort=0:"
            "handle_sigfpe=0:"
            "handle_sigill=0",
-           0);
+           1);
 
     fsrv->init_child_func(fsrv, argv);
 
@@ -674,11 +675,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
 
-        if (unlikely(tmp_map_size % 32)) {
+        if (unlikely(tmp_map_size % 64)) {
 
           // should not happen
           WARNF("Target reported non-aligned map size of %u", tmp_map_size);
-          tmp_map_size = (((tmp_map_size + 31) >> 5) << 5);
+          tmp_map_size = (((tmp_map_size + 63) >> 6) << 6);
 
         }
 
@@ -826,7 +827,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
            "read\n"
-           "    %s/notes_for_asan.md for help.\n",
+           "    %s/notes_for_asan.md for help and run with '-m 0'.\n",
            doc_path);
 
     } else if (!fsrv->mem_limit) {
@@ -834,18 +835,21 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
-           "    from the fuzzer! There are several probable explanations:\n\n"
+           "    from the fuzzer! You can try the following:\n\n"
 
-           "    - The target binary requires a large map and crashes before "
-           "reporting.\n"
-           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
-           "AFL_DEBUG=1 to see the\n"
-           "      message from the target binary\n\n"
+           "    - The target binary crashes because necessary runtime "
+           "conditions it needs\n"
+           "      are not met. Try to:\n"
+           "      1. Run again with AFL_DEBUG=1 set and check the output of "
+           "the target\n"
+           "         binary for clues.\n"
+           "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+           "analyze the\n"
+           "         generated core dump.\n\n"
 
-           "    - The binary is just buggy and explodes entirely on its own. "
-           "If so, you\n"
-           "      need to fix the underlying problem or find a better "
-           "replacement.\n\n"
+           "    - Possibly the target requires a huge coverage map and has "
+           "CTORS.\n"
+           "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
            MSG_FORK_ON_APPLE
 
@@ -861,13 +865,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
-           "    from the fuzzer! There are several probable explanations:\n\n"
+           "    from the fuzzer! You can try the following:\n\n"
 
-           "    - The target binary requires a large map and crashes before "
-           "reporting.\n"
-           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
-           "AFL_DEBUG=1 to see the\n"
-           "      message from the target binary\n\n"
+           "    - The target binary crashes because necessary runtime "
+           "conditions it needs\n"
+           "      are not met. Try to:\n"
+           "      1. Run again with AFL_DEBUG=1 set and check the output of "
+           "the target\n"
+           "         binary for clues.\n"
+           "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+           "analyze the\n"
+           "         generated core dump.\n\n"
 
            "    - The current memory limit (%s) is too restrictive, causing "
            "the\n"
@@ -885,12 +893,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "      estimate the required amount of virtual memory for the "
            "binary.\n\n"
 
-           "    - The binary is just buggy and explodes entirely on its own. "
-           "If so, you\n"
-           "      need to fix the underlying problem or find a better "
-           "replacement.\n\n"
-
            MSG_FORK_ON_APPLE
+
+           "    - Possibly the target requires a huge coverage map and has "
+           "CTORS.\n"
+           "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
@@ -920,16 +927,30 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    read %s/notes_for_asan.md for help.\n",
+         "    read %s/notes_for_asan.md for help and run with '-m 0'.\n",
          doc_path);
 
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could"
-         " complete a handshake with the injected code.\n"
-         "If the target was compiled with afl-clang-lto and AFL_LLVM_MAP_ADDR"
-         " then recompiling without this parameter.\n"
+         "Hmm, looks like the target binary terminated before we could complete"
+         " a\n"
+         "handshake with the injected code. You can try the following:\n\n"
+
+         "    - The target binary crashes because necessary runtime conditions "
+         "it needs\n"
+         "      are not met. Try to:\n"
+         "      1. Run again with AFL_DEBUG=1 set and check the output of the "
+         "target\n"
+         "         binary for clues.\n"
+         "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+         "analyze the\n"
+         "         generated core dump.\n\n"
+
+         "    - Possibly the target requires a huge coverage map and has "
+         "CTORS.\n"
+         "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
+
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -941,10 +962,24 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "\n" cLRD "[-] " cRST
         "Hmm, looks like the target binary terminated "
         "before we could complete a\n"
-        "    handshake with the injected code. There are %s probable "
-        "explanations:\n\n"
+        "    handshake with the injected code. You can try the following:\n\n"
 
         "%s"
+
+        "    - The target binary crashes because necessary runtime conditions "
+        "it needs\n"
+        "      are not met. Try to:\n"
+        "      1. Run again with AFL_DEBUG=1 set and check the output of the "
+        "target\n"
+        "         binary for clues.\n"
+        "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+        "analyze the\n"
+        "         generated core dump.\n\n"
+
+        "    - Possibly the target requires a huge coverage map and has "
+        "CTORS.\n"
+        "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
+
         "    - The current memory limit (%s) is too restrictive, causing an "
         "OOM\n"
         "      fault in the dynamic linker. This can be fixed with the -m "
@@ -968,7 +1003,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "options\n"
         "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
         "tips.\n",
-        getenv(DEFER_ENV_VAR) ? "three" : "two",
         getenv(DEFER_ENV_VAR)
             ? "    - You are using deferred forkserver, but __AFL_INIT() is "
               "never\n"
@@ -1073,12 +1107,14 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
       if (unlikely(fsrv->no_unlink)) {
 
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC,
+                  DEFAULT_PERMISSION);
 
       } else {
 
         unlink(fsrv->out_file);                           /* Ignore errors. */
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL,
+                  DEFAULT_PERMISSION);
 
       }
 

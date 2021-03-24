@@ -72,8 +72,7 @@ static u8 *in_data,                    /* Input data                        */
 static u64 total;                      /* tuple content information         */
 static u32 tcnt, highest;              /* tuple content information         */
 
-static u32 in_len,                     /* Input data length                 */
-    arg_offset;                        /* Total number of execs             */
+static u32 in_len;                     /* Input data length                 */
 
 static u32 map_size = MAP_SIZE;
 
@@ -252,7 +251,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   } else {
 
     unlink(outfile);                                       /* Ignore errors */
-    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fd < 0) { PFATAL("Unable to create '%s'", outfile); }
 
   }
@@ -563,6 +562,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
          "detect_leaks=0:"
          "allocator_may_return_null=1:"
          "symbolize=0:"
+         "detect_odr_violation=0:"
          "handle_segv=0:"
          "handle_sigbus=0:"
          "handle_abort=0:"
@@ -598,38 +598,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     if (fsrv->qemu_mode) {
 
-      u8 *qemu_preload = getenv("QEMU_SET_ENV");
-      u8 *afl_preload = getenv("AFL_PRELOAD");
-      u8 *buf;
-
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
-
-        if (afl_preload[i] == ',') {
-
-          PFATAL(
-              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
-              "specified!");
-
-        }
-
-      }
-
-      if (qemu_preload) {
-
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           qemu_preload, afl_preload, afl_preload);
-
-      } else {
-
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
-                           afl_preload, afl_preload);
-
-      }
-
-      setenv("QEMU_SET_ENV", buf, 1);
-
-      ck_free(buf);
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
     } else {
 
@@ -945,31 +914,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
-  if (fsrv->qemu_mode && getenv("AFL_USE_QASAN")) {
-
-    u8 *preload = getenv("AFL_PRELOAD");
-    u8 *libqasan = get_libqasan_path(argv_orig[0]);
-
-    if (!preload) {
-
-      setenv("AFL_PRELOAD", libqasan, 0);
-
-    } else {
-
-      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
-      strcpy(result, libqasan);
-      strcat(result, " ");
-      strcat(result, preload);
-
-      setenv("AFL_PRELOAD", result, 1);
-      ck_free(result);
-
-    }
-
-    ck_free(libqasan);
-
-  }
-
   if (in_dir) {
 
     if (!out_file && !collect_coverage)
@@ -1011,13 +955,30 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+
   if (in_dir) {
 
-    if (at_file) { PFATAL("Options -A and -i are mutually exclusive"); }
-    detect_file_args(argv + optind, "", &fsrv->use_stdin);
+    /* If we don't have a file name chosen yet, use a safe default. */
+    u8 *use_dir = ".";
+
+    if (access(use_dir, R_OK | W_OK | X_OK)) {
+
+      use_dir = get_afl_env("TMPDIR");
+      if (!use_dir) { use_dir = "/tmp"; }
+
+    }
+
+    stdin_file = at_file ? strdup(at_file)
+                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
+                                                use_dir, (u32)getpid());
+    unlink(stdin_file);
+
+    // If @@ are in the target args, replace them and also set use_stdin=false.
+    detect_file_args(argv + optind, stdin_file, &fsrv->use_stdin);
 
   } else {
 
+    // If @@ are in the target args, replace them and also set use_stdin=false.
     detect_file_args(argv + optind, at_file, &fsrv->use_stdin);
 
   }
@@ -1039,14 +1000,6 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     use_argv = argv + optind;
-
-  }
-
-  i = 0;
-  while (use_argv[i] != NULL && !arg_offset) {
-
-    if (strcmp(use_argv[i], "@@") == 0) { arg_offset = i; }
-    i++;
 
   }
 
@@ -1160,28 +1113,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    u8 *use_dir = ".";
-
-    if (access(use_dir, R_OK | W_OK | X_OK)) {
-
-      use_dir = get_afl_env("TMPDIR");
-      if (!use_dir) { use_dir = "/tmp"; }
-
-    }
-
-    stdin_file =
-        alloc_printf("%s/.afl-showmap-temp-%u", use_dir, (u32)getpid());
-    unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_file = stdin_file;
-    fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+    fsrv->out_fd =
+        open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
-
-    if (arg_offset && use_argv[arg_offset] != stdin_file) {
-
-      use_argv[arg_offset] = strdup(stdin_file);
-
-    }
 
     if (get_afl_env("AFL_DEBUG")) {
 

@@ -89,17 +89,110 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
 }
 
+/* load some of the existing stats file when resuming.*/
+void load_stats_file(afl_state_t *afl) {
+
+  FILE *f;
+  u8    buf[MAX_LINE];
+  u8 *  lptr;
+  u8    fn[PATH_MAX];
+  u32   lineno = 0;
+  snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
+  f = fopen(fn, "r");
+  if (!f) {
+
+    WARNF("Unable to load stats file '%s'", fn);
+    return;
+
+  }
+
+  while ((lptr = fgets(buf, MAX_LINE, f))) {
+
+    lineno++;
+    u8 *lstartptr = lptr;
+    u8 *rptr = lptr + strlen(lptr) - 1;
+    u8  keystring[MAX_LINE];
+    while (*lptr != ':' && lptr < rptr) {
+
+      lptr++;
+
+    }
+
+    if (*lptr == '\n' || !*lptr) {
+
+      WARNF("Unable to read line %d of stats file", lineno);
+      continue;
+
+    }
+
+    if (*lptr == ':') {
+
+      *lptr = 0;
+      strcpy(keystring, lstartptr);
+      lptr++;
+      char *nptr;
+      switch (lineno) {
+
+        case 3:
+          if (!strcmp(keystring, "run_time          "))
+            afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
+          break;
+        case 5:
+          if (!strcmp(keystring, "cycles_done       "))
+            afl->queue_cycle =
+                strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
+          break;
+        case 7:
+          if (!strcmp(keystring, "execs_done        "))
+            afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
+          break;
+        case 10:
+          if (!strcmp(keystring, "paths_total       "))
+            afl->queued_paths = strtoul(lptr, &nptr, 10);
+          break;
+        case 12:
+          if (!strcmp(keystring, "paths_found       "))
+            afl->queued_discovered = strtoul(lptr, &nptr, 10);
+          break;
+        case 13:
+          if (!strcmp(keystring, "paths_imported    "))
+            afl->queued_imported = strtoul(lptr, &nptr, 10);
+          break;
+        case 14:
+          if (!strcmp(keystring, "max_depth         "))
+            afl->max_depth = strtoul(lptr, &nptr, 10);
+          break;
+        case 21:
+          if (!strcmp(keystring, "unique_crashes    "))
+            afl->unique_crashes = strtoull(lptr, &nptr, 10);
+          break;
+        case 22:
+          if (!strcmp(keystring, "unique_hangs      "))
+            afl->unique_hangs = strtoull(lptr, &nptr, 10);
+          break;
+        default:
+          break;
+
+      }
+
+    }
+
+  }
+
+  return;
+
+}
+
 /* Update stats file for unattended monitoring. */
 
-void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
-                      double eps) {
+void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
+                      double stability, double eps) {
 
 #ifndef __HAIKU__
   struct rusage rus;
 #endif
 
   u64   cur_time = get_cur_time();
-  u32   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   u8    fn[PATH_MAX];
   FILE *f;
 
@@ -179,12 +272,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
           "\n"
           "target_mode       : %s%s%s%s%s%s%s%s%s\n"
           "command_line      : %s\n",
-          afl->start_time / 1000, cur_time / 1000,
-          (cur_time - afl->start_time) / 1000, (u32)getpid(),
-          afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-          afl->fsrv.total_execs,
+          (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
+          (afl->prev_run_time + cur_time - afl->start_time) / 1000,
+          (u32)getpid(), afl->queue_cycle ? (afl->queue_cycle - 1) : 0,
+          afl->cycles_wo_finds, afl->fsrv.total_execs,
           afl->fsrv.total_execs /
-              ((double)(get_cur_time() - afl->start_time) / 1000),
+              ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
+               1000),
           afl->last_avg_execs_saved, afl->queued_paths, afl->queued_favored,
           afl->queued_discovered, afl->queued_imported, afl->max_depth,
           afl->current_entry, afl->pending_favored, afl->pending_not_fuzzed,
@@ -258,9 +352,11 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
 /* Update the plot file if there is a reason to. */
 
-void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
+void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
+                            double eps) {
 
-  if (unlikely(afl->plot_prev_qp == afl->queued_paths &&
+  if (unlikely(afl->stop_soon) ||
+      unlikely(afl->plot_prev_qp == afl->queued_paths &&
                afl->plot_prev_pf == afl->pending_favored &&
                afl->plot_prev_pnf == afl->pending_not_fuzzed &&
                afl->plot_prev_ce == afl->current_entry &&
@@ -289,16 +385,17 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
   /* Fields in the file:
 
      unix_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
-     favored_not_fuzzed, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
-     execs_per_sec */
+     favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
+     execs_per_sec, edges_found */
 
-  fprintf(
-      afl->fsrv.plot_file,
-      "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu\n",
-      get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
-      afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
-      bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
-      afl->plot_prev_ed);                                  /* ignore errors */
+  fprintf(afl->fsrv.plot_file,
+          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+          "%u\n",
+          (afl->prev_run_time + get_cur_time() - afl->start_time),
+          afl->queue_cycle - 1, afl->current_entry, afl->queued_paths,
+          afl->pending_not_fuzzed, afl->pending_favored, bitmap_cvg,
+          afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
+          afl->plot_prev_ed, t_bytes);                     /* ignore errors */
 
   fflush(afl->fsrv.plot_file);
 
@@ -379,8 +476,8 @@ void show_stats(afl_state_t *afl) {
 
     if (likely(cur_ms != afl->start_time)) {
 
-      afl->stats_avg_exec =
-          ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
+      afl->stats_avg_exec = ((double)afl->fsrv.total_execs) * 1000 /
+                            (afl->prev_run_time + cur_ms - afl->start_time);
 
     }
 
@@ -437,7 +534,8 @@ void show_stats(afl_state_t *afl) {
   if (cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000) {
 
     afl->stats_last_stats_ms = cur_ms;
-    write_stats_file(afl, t_byte_ratio, stab_ratio, afl->stats_avg_exec);
+    write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
+                     afl->stats_avg_exec);
     save_auto(afl);
     write_bitmap(afl);
 
@@ -460,7 +558,7 @@ void show_stats(afl_state_t *afl) {
   if (cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000) {
 
     afl->stats_last_plot_ms = cur_ms;
-    maybe_update_plot_file(afl, t_byte_ratio, afl->stats_avg_exec);
+    maybe_update_plot_file(afl, t_bytes, t_byte_ratio, afl->stats_avg_exec);
 
   }
 
@@ -548,6 +646,13 @@ void show_stats(afl_state_t *afl) {
 #define SP10 SP5 SP5
 #define SP20 SP10 SP10
 
+  /* Since `total_crashes` does not get reloaded from disk on restart,
+    it indicates if we found crashes this round already -> paint red.
+    If it's 0, but `unique_crashes` is set from a past run, paint in yellow. */
+  char *crash_color = afl->total_crashes    ? cLRD
+                      : afl->unique_crashes ? cYEL
+                                            : cRST;
+
   /* Lord, forgive me this. */
 
   SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
@@ -592,7 +697,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  u_stringify_time_diff(time_tmp, cur_ms, afl->start_time);
+  u_stringify_time_diff(time_tmp, afl->prev_run_time + cur_ms, afl->start_time);
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
                 "  cycles done : %s%-5s " bSTG              bV "\n",
        time_tmp, tmp, u_stringify_int(IB(0), afl->queue_cycle - 1));
@@ -635,7 +740,7 @@ void show_stats(afl_state_t *afl) {
   u_stringify_time_diff(time_tmp, cur_ms, afl->last_crash_time);
   SAYF(bV bSTOP " last uniq crash : " cRST "%-33s " bSTG bV bSTOP
                 " uniq crashes : %s%-6s" bSTG               bV "\n",
-       time_tmp, afl->unique_crashes ? cLRD : cRST, tmp);
+       time_tmp, crash_color, tmp);
 
   sprintf(tmp, "%s%s", u_stringify_int(IB(0), afl->unique_hangs),
           (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
@@ -718,15 +823,13 @@ void show_stats(afl_state_t *afl) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   "   new crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->fsrv.total_execs),
-         afl->unique_crashes ? cLRD : cRST, tmp);
+         u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   " total crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->fsrv.total_execs),
-         afl->unique_crashes ? cLRD : cRST, tmp);
+         u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
 
   }
 
@@ -1122,7 +1225,7 @@ void show_init_stats(afl_state_t *afl) {
       stringify_int(IB(0), min_us), stringify_int(IB(1), max_us),
       stringify_int(IB(2), avg_us));
 
-  if (!afl->timeout_given) {
+  if (afl->timeout_given != 1) {
 
     /* Figure out the appropriate timeout. The basic idea is: 5x average or
        1x max, rounded up to EXEC_TM_ROUND ms and capped at 1 second.

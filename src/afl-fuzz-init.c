@@ -152,7 +152,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     do {
 
-      if ((lockfd = open(lockfile, O_RDWR | O_CREAT | O_EXCL, 0600)) < 0) {
+      if ((lockfd = open(lockfile, O_RDWR | O_CREAT | O_EXCL,
+                         DEFAULT_PERMISSION)) < 0) {
 
         if (first) {
 
@@ -828,7 +829,7 @@ void perform_dry_run(afl_state_t *afl) {
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
-    if (unlikely(q->disabled)) { continue; }
+    if (unlikely(!q || q->disabled)) { continue; }
 
     u8  res;
     s32 fd;
@@ -882,32 +883,23 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (afl->timeout_given) {
 
-          /* The -t nn+ syntax in the command line sets afl->timeout_given to
-             '2' and instructs afl-fuzz to tolerate but skip queue entries that
-             time out. */
+          /* if we have a timeout but a timeout value was given then always
+             skip. The '+' meaning has been changed! */
+          WARNF("Test case results in a timeout (skipping)");
+          ++cal_failures;
+          q->cal_failed = CAL_CHANCES;
+          q->disabled = 1;
+          q->perf_score = 0;
 
-          if (afl->timeout_given > 1) {
+          if (!q->was_fuzzed) {
 
-            WARNF("Test case results in a timeout (skipping)");
-            q->cal_failed = CAL_CHANCES;
-            ++cal_failures;
-            break;
+            q->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            --afl->active_paths;
 
           }
 
-          SAYF("\n" cLRD "[-] " cRST
-               "The program took more than %u ms to process one of the initial "
-               "test cases.\n"
-               "    Usually, the right thing to do is to relax the -t option - "
-               "or to delete it\n"
-               "    altogether and allow the fuzzer to auto-calibrate. That "
-               "said, if you know\n"
-               "    what you are doing and want to simply skip the unruly test "
-               "cases, append\n"
-               "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               afl->fsrv.exec_tmout, afl->fsrv.exec_tmout);
-
-          FATAL("Test case '%s' results in a timeout", fn);
+          break;
 
         } else {
 
@@ -1060,16 +1052,25 @@ void perform_dry_run(afl_state_t *afl) {
         p->perf_score = 0;
 
         u32 i = 0;
-        while (unlikely(afl->queue_buf[i]->disabled)) {
+        while (unlikely(i < afl->queued_paths && afl->queue_buf[i] &&
+                        afl->queue_buf[i]->disabled)) {
 
           ++i;
 
         }
 
-        afl->queue = afl->queue_buf[i];
+        if (i < afl->queued_paths && afl->queue_buf[i]) {
+
+          afl->queue = afl->queue_buf[i];
+
+        } else {
+
+          afl->queue = afl->queue_buf[0];
+
+        }
 
         afl->max_depth = 0;
-        for (i = 0; i < afl->queued_paths; i++) {
+        for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
 
           if (!afl->queue_buf[i]->disabled &&
               afl->queue_buf[i]->depth > afl->max_depth)
@@ -1136,10 +1137,11 @@ void perform_dry_run(afl_state_t *afl) {
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
-    if (q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
+    if (!q || q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
 
     u32 done = 0;
-    for (i = idx + 1; i < afl->queued_paths && !done; i++) {
+    for (i = idx + 1;
+         i < afl->queued_paths && !done && likely(afl->queue_buf[i]); i++) {
 
       struct queue_entry *p = afl->queue_buf[i];
       if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
@@ -1191,7 +1193,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     for (idx = 0; idx < afl->queued_paths; idx++) {
 
-      if (!afl->queue_buf[idx]->disabled &&
+      if (afl->queue_buf[idx] && !afl->queue_buf[idx]->disabled &&
           afl->queue_buf[idx]->depth > afl->max_depth)
         afl->max_depth = afl->queue_buf[idx]->depth;
 
@@ -1218,7 +1220,7 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
   sfd = open(old_path, O_RDONLY);
   if (sfd < 0) { PFATAL("Unable to open '%s'", old_path); }
 
-  dfd = open(new_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  dfd = open(new_path, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
   if (dfd < 0) { PFATAL("Unable to create '%s'", new_path); }
 
   tmp = ck_alloc(64 * 1024);
@@ -1242,12 +1244,12 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
 
 void pivot_inputs(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
+  struct queue_entry *q;
   u32                 id = 0, i;
 
   ACTF("Creating hard links for all input files...");
 
-  for (i = 0; i < afl->queued_paths; i++) {
+  for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
 
     q = afl->queue_buf[i];
 
@@ -1811,9 +1813,13 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
   }
 
-  fn = alloc_printf("%s/plot_data", afl->out_dir);
-  if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
-  ck_free(fn);
+  if (!afl->in_place_resume) {
+
+    fn = alloc_printf("%s/plot_data", afl->out_dir);
+    if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+    ck_free(fn);
+
+  }
 
   fn = alloc_printf("%s/cmdline", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
@@ -2007,17 +2013,35 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Gnuplot output file. */
 
   tmp = alloc_printf("%s/plot_data", afl->out_dir);
-  int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
-  if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
-  ck_free(tmp);
 
-  afl->fsrv.plot_file = fdopen(fd, "w");
-  if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
+  if (!afl->in_place_resume) {
 
-  fprintf(afl->fsrv.plot_file,
-          "# unix_time, cycles_done, cur_path, paths_total, "
-          "pending_total, pending_favs, map_size, unique_crashes, "
-          "unique_hangs, max_depth, execs_per_sec\n");
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    ck_free(tmp);
+
+    afl->fsrv.plot_file = fdopen(fd, "w");
+    if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
+
+    fprintf(
+        afl->fsrv.plot_file,
+        "# unix_time, cycles_done, cur_path, paths_total, "
+        "pending_total, pending_favs, map_size, unique_crashes, "
+        "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
+
+  } else {
+
+    int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+    if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    ck_free(tmp);
+
+    afl->fsrv.plot_file = fdopen(fd, "w");
+    if (!afl->fsrv.plot_file) { PFATAL("fdopen() failed"); }
+
+    fseek(afl->fsrv.plot_file, 0, SEEK_END);
+
+  }
+
   fflush(afl->fsrv.plot_file);
 
   /* ignore errors */
@@ -2034,7 +2058,7 @@ void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
   /* Store the command line to reproduce our findings */
   tmp = alloc_printf("%s/cmdline", afl->out_dir);
-  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
   if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
@@ -2069,7 +2093,8 @@ void setup_stdio_file(afl_state_t *afl) {
 
   unlink(afl->fsrv.out_file);                              /* Ignore errors */
 
-  afl->fsrv.out_fd = open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->fsrv.out_fd =
+      open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
   if (afl->fsrv.out_fd < 0) {
 
@@ -2457,7 +2482,7 @@ void check_asan_opts(afl_state_t *afl) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+    if (!afl->debug && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
 
@@ -2591,6 +2616,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode ||
+      (afl->fsrv.qemu_mode && getenv("AFL_QEMU_CUSTOM_BIN")) ||
       afl->non_instrumented_mode) {
 
     return;

@@ -5,6 +5,10 @@
   users or for some types of custom fuzzing setups. See [README.md](README.md) for the general
   instruction manual.
 
+  Note that most tools will warn on any unknown AFL environment variables.
+  This is for warning on typos that can happen. If you want to disable this
+  check then set the `AFL_IGNORE_UNKNOWN_ENVS` environment variable.
+
 ## 1) Settings for all compilers
 
 Starting with afl++ 3.0 there is only one compiler: afl-cc
@@ -18,10 +22,20 @@ To select the different instrumentation modes this can be done by
 `MODE` can be one of `LTO` (afl-clang-lto*), `LLVM` (afl-clang-fast*), `GCC_PLUGIN`
 (afl-g*-fast) or `GCC` (afl-gcc/afl-g++).
 
-
 Because (with the exception of the --afl-MODE command line option) the
 compile-time tools do not accept afl specific command-line options, they
 make fairly broad use of environmental variables instead:
+
+  - Some build/configure scripts break with afl++ compilers. To be able to
+    pass them, do:
+```
+       export CC=afl-cc
+       export CXX=afl-c++
+       export AFL_NOOPT=1
+       ./configure --disable-shared --disabler-werror
+       unset AFL_NOOPT
+       make
+```
 
   - Most afl tools do not print any output if stdout/stderr are redirected.
     If you want to get the output into a file then set the `AFL_DEBUG`
@@ -379,6 +393,10 @@ checks or alter some of the more exotic semantics of the tool:
 
   - In QEMU mode (-Q), `AFL_PATH` will be searched for afl-qemu-trace.
 
+  - In QEMU mode (-Q), setting `AFL_QEMU_CUSTOM_BIN` cause afl-fuzz to skip
+    prepending `afl-qemu-trace` to your command line. Use this if you wish to use a
+    custom afl-qemu-trace or if you need to modify the afl-qemu-trace arguments.
+
   - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule everytime
     a cycle is finished.
 
@@ -389,6 +407,12 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_PRELOAD` causes AFL++ to set `LD_PRELOAD` for the target binary
     without disrupting the afl-fuzz process itself. This is useful, among other
     things, for bootstrapping libdislocator.so.
+
+  - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables
+    for the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz ... `
+    This exists mostly for things like `LD_LIBRARY_PATH` but it would theoretically
+    allow fuzzing of AFL++ itself (with 'target' AFL++ using some AFL_ vars that
+    would disrupt work of 'fuzzer' AFL++).
 
   - Setting `AFL_NO_UI` inhibits the UI altogether, and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
@@ -410,7 +434,8 @@ checks or alter some of the more exotic semantics of the tool:
     and RECORD:000000,cnt:000009 being the crash case.
 
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
-    Others need not apply.
+    Others need not apply, unless they also want to disable the
+    `/proc/sys/kernel/core_pattern` check.
 
   - Benchmarking only: `AFL_BENCH_JUST_ONE` causes the fuzzer to exit after
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to
@@ -457,6 +482,7 @@ checks or alter some of the more exotic semantics of the tool:
     `banner` corresponds to the name of the fuzzer provided through `-M/-S`.
     `afl_version` corresponds to the currently running afl version (e.g `++3.0c`).
     Default (empty/non present) will add no tags to the metrics.
+    See [rpc_statsd.md](rpc_statsd.md) for more information.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
     For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
@@ -522,6 +548,12 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - With `AFL_QEMU_PERSISTENT_RETADDR_OFFSET` you can specify the offset from the
     stack pointer in which QEMU can find the return address when `start addr` is
     hit.
+
+  - With `AFL_USE_QASAN` you can enable QEMU AddressSanitizer for dynamically
+    linked binaries.
+
+  - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered signal
+    handlers of the target.
 
 ## 6) Settings for afl-cmin
 

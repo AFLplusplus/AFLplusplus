@@ -10,7 +10,7 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2021 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@
 
 /* Version string: */
 
-// c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++3.01a"
+// c = release, a = volatile github dev, e = experimental branch
+#define VERSION "++3.13a"
 
 /******************************************************
  *                                                    *
@@ -34,28 +34,41 @@
  *                                                    *
  ******************************************************/
 
+/* Default shared memory map size. Most targets just need a coverage map
+   between 20-250kb. Plus there is an auto-detection feature in afl-fuzz.
+   However if a target has problematic constructors and init arrays then
+   this can fail. Hence afl-fuzz deploys a larger default map. The largest
+   map seen so far is the xlsx fuzzer for libreoffice which is 5MB.
+   At runtime this value can be overriden via AFL_MAP_SIZE.
+   Default: 8MB (defined in bytes) */
+#define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
+
+/* Default file permission umode when creating files (default: 0600) */
+#define DEFAULT_PERMISSION 0600
+
 /* CMPLOG/REDQUEEN TUNING
  *
- * Here you can tuning and solving options for cmplog.
+ * Here you can modify tuning and solving options for CMPLOG.
  * Note that these are run-time options for afl-fuzz, no target
  * recompilation required.
  *
  */
 
-/* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
-// #define CMPLOG_TRANSFORM
+/* if TRANSFORM is enabled with '-l T', this additionally enables base64
+   encoding/decoding */
+// #define CMPLOG_SOLVE_TRANSFORM_BASE64
 
-/* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
-// #define CMPLOG_TRANSFORM_BASE64
+/* If a redqueen pass finds more than one solution, try to combine them? */
+#define CMPLOG_COMBINE
 
-/* Minimum % of the corpus to perform cmplog on. Default: 20% */
-#define CMPLOG_CORPUS_PERCENT 20U
+/* Minimum % of the corpus to perform cmplog on. Default: 10% */
+#define CMPLOG_CORPUS_PERCENT 5U
 
-/* Number of potential posititions from which we decide the cmplog becomes
-   useless, default 16384 */
-#define CMPLOG_POSITIONS_MAX 16384U
+/* Number of potential positions from which we decide if cmplog becomes
+   useless, default 8096 */
+#define CMPLOG_POSITIONS_MAX (12 * 1024)
 
-/* Maximum allowed fails per CMP value. Default: 32 * 3 */
+/* Maximum allowed fails per CMP value. Default: 128 */
 #define CMPLOG_FAIL_MAX 96
 
 /* Now non-cmplog configuration options */
@@ -287,6 +300,11 @@
 /* Sync interval (every n havoc cycles): */
 
 #define SYNC_INTERVAL 8
+
+/* Sync time (minimum time between syncing in ms, time is halfed for -M main
+   nodes) - default is 30 minutes: */
+
+#define SYNC_TIME (30 * 60 * 1000)
 
 /* Output directory reuse grace period (minutes): */
 

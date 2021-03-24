@@ -4,6 +4,11 @@ This file describes how you can implement custom mutations to be used in AFL.
 For now, we support C/C++ library and Python module, collectivelly named as the
 custom mutator.
 
+There is also experimental support for Rust in `custom_mutators/rust`.
+Please refer to that directory for documentation.
+Run ```cargo doc -p custom_mutator --open``` in that directory to view the
+documentation in your web browser.
+
 Implemented by
 - C/C++ library (`*.so`): Khaled Yakdan from Code Intelligence (<yakdan@code-intelligence.de>)
 - Python module: Christian Holler from Mozilla (<choller@mozilla.com>)

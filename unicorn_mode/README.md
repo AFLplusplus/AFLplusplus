@@ -8,19 +8,19 @@ The CompareCoverage and NeverZero counters features are by Andrea Fioraldi <andr
 
 ## 1) Introduction
 
-The code in ./unicorn_mode allows you to build a standalone feature that
-leverages the Unicorn Engine and allows callers to obtain instrumentation 
+The code in ./unicorn_mode allows you to build the (Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with afl support.
+This means, you can run anything that can be emulated in unicorn and obtain instrumentation
 output for black-box, closed-source binary code snippets. This mechanism 
 can be then used by afl-fuzz to stress-test targets that couldn't be built 
-with afl-gcc or used in QEMU mode, or with other extensions such as 
-TriforceAFL.
+with afl-cc or used in QEMU mode.
 
 There is a significant performance penalty compared to native AFL,
 but at least we're able to use AFL++ on these binaries, right?
 
 ## 2) How to use
 
-Requirements: you need an installed python environment.
+First, you will need a working harness for your target in unicorn, using Python, C, or Rust.
+For some pointers for more advanced emulation, take a look at [BaseSAFE](https://github.com/fgsect/BaseSAFE) and [Qiling](https://github.com/qilingframework/qiling).
 
 ### Building AFL++'s Unicorn Mode
 
@@ -34,23 +34,23 @@ cd unicorn_mode
 ```
 
 NOTE: This script checks out a Unicorn Engine fork as submodule that has been tested 
-and is stable-ish, based on the unicorn engine master. 
+and is stable-ish, based on the unicorn engine `next` branch. 
 
 Building Unicorn will take a little bit (~5-10 minutes). Once it completes 
 it automatically compiles a sample application and verifies that it works.
 
 ### Fuzzing with Unicorn Mode
 
-To really use unicorn-mode effectively you need to prepare the following:
+To use unicorn-mode effectively you need to prepare the following:
 
 	* Relevant binary code to be fuzzed
 	* Knowledge of the memory map and good starting state
 	* Folder containing sample inputs to start fuzzing with
 		+ Same ideas as any other AFL inputs
-		+ Quality/speed of results will depend greatly on quality of starting 
+		+ Quality/speed of results will depend greatly on the quality of starting 
 		  samples
 		+ See AFL's guidance on how to create a sample corpus
-	* Unicornafl-based test harness which:
+	* Unicornafl-based test harness in Rust, C, or Python, which:
 		+ Adds memory map regions
 		+ Loads binary code into memory		
 		+ Calls uc.afl_fuzz() / uc.afl_start_forkserver
@@ -59,13 +59,13 @@ To really use unicorn-mode effectively you need to prepare the following:
 			  the test harness
 			+ Presumably the data to be fuzzed is at a fixed buffer address
 			+ If input constraints (size, invalid bytes, etc.) are known they 
-			  should be checked after the file is loaded. If a constraint 
-			  fails, just exit the test harness. AFL will treat the input as 
+			  should be checked in the place_input handler. If a constraint 
+			  fails, just return false from the handler. AFL will treat the input as 
 			  'uninteresting' and move on.
 		+ Sets up registers and memory state for beginning of test
-		+ Emulates the interested code from beginning to end
+		+ Emulates the interesting code from beginning to end
 		+ If a crash is detected, the test harness must 'crash' by 
-		  throwing a signal (SIGSEGV, SIGKILL, SIGABORT, etc.)
+		  throwing a signal (SIGSEGV, SIGKILL, SIGABORT, etc.), or indicate a crash in the crash validation callback.
 
 Once you have all those things ready to go you just need to run afl-fuzz in
 'unicorn-mode' by passing in the '-U' flag:
@@ -79,11 +79,12 @@ AFL's main documentation for more info about how to use afl-fuzz effectively.
 
 For a much clearer vision of what all of this looks like, please refer to the
 sample provided in the 'unicorn_mode/samples' directory. There is also a blog
-post that goes over the basics at:
+post that uses slightly older concepts, but describes the general ideas, at:
 
 [https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf)
 
-The 'helper_scripts' directory also contains several helper scripts that allow you 
+
+The ['helper_scripts'](./helper_scripts) directory also contains several helper scripts that allow you 
 to dump context from a running process, load it, and hook heap allocations. For details
 on how to use this check out the follow-up blog post to the one linked above.
 
@@ -92,10 +93,10 @@ A example use of AFL-Unicorn mode is discussed in the paper Unicorefuzz:
 
 ## 3) Options
 
-As for the QEMU-based instrumentation, the afl-unicorn twist of afl++
-comes with a sub-instruction based instrumentation similar in purpose to laf-intel.
+As for the QEMU-based instrumentation, unicornafl comes with a sub-instruction based instrumentation similar in purpose to laf-intel.
 
 The options that enable Unicorn CompareCoverage are the same used for QEMU.
+This will split up each multi-byte compare to give feedback for each correct byte.
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate values.
 
 AFL_COMPCOV_LEVEL=2 instruments all comparison instructions.
@@ -119,6 +120,20 @@ unicornafl.monkeypatch()
 
 This will replace all unicorn imports with unicornafl inputs.
 
-Refer to the [samples/arm_example/arm_tester.c](samples/arm_example/arm_tester.c) for an example
-of how to do this properly! If you don't get this right, AFL will not 
-load any mutated inputs and your fuzzing will be useless!
+5) Examples
+
+Apart from reading the documentation in `afl.c` and the python bindings of unicornafl, the best documentation are the [samples/](./samples).
+The following examples exist at the time of writing:
+
+- c: A simple example how to use the c bindings
+- compcov_x64: A python example that uses compcov to traverse hard-to-reach blocks
+- persistent: A c example using persistent mode for maximum speed, and resetting the target state between each iteration
+- simple: A simple python example
+- speedtest/c: The c harness for an example target, used to compare c, python, and rust bindings and fix speed issues
+- speedtest/python: Fuzzing the same target in python
+- speedtest/rust: Fuzzing the same target using a rust harness
+
+Usually, the place to look at is the `harness` in each folder. The source code in each harness is pretty well documented.
+Most harnesses also have the `afl-fuzz` commandline, or even offer a `make fuzz` Makefile target.
+Targets in these folders, if x86, can usually be made using `make target` in each folder or get shipped pre-built (plus their source).
+Especially take a look at the [speedtest documentation](./samples/speedtest/README.md) to see how the languages compare.

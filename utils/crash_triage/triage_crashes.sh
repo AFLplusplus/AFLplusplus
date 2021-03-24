@@ -60,12 +60,12 @@ if
 fi
 
 if [ ! -f "$BIN" -o ! -x "$BIN" ]; then
-  echo "[-] Error: binary '$2' not found or is not executable." 1>&2
+  echo "[-] Error: binary '$BIN' not found or is not executable." 1>&2
   exit 1
 fi
 
 if [ ! -d "$DIR/queue" ]; then
-  echo "[-] Error: directory '$1' not found or not created by afl-fuzz." 1>&2
+  echo "[-] Error: directory '$DIR' not found or not created by afl-fuzz." 1>&2
   exit 1
 fi
 
@@ -90,8 +90,9 @@ for crash in $DIR/crashes/id:*; do
 
   for a in $@; do
 
-    if [ "$a" = "@@" ] ; then
-      use_args="$use_args $crash"
+    if echo "$a" | grep -qF '@@'; then
+      escaped_fname=`echo $crash | sed 's:/:\\\\/:g'`
+      use_args="$use_args `echo $a | sed "s/@@/$escaped_fname/g"`"
       unset use_stdio
     else
       use_args="$use_args $a"

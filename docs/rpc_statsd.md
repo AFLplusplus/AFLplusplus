@@ -1,6 +1,6 @@
 # Remote monitoring with StatsD
 
-StatsD allows you to receive and aggregate metrics from a wide range of application and retransmit them to the backend of your choice.
+StatsD allows you to receive and aggregate metrics from a wide range of applications and retransmit them to the backend of your choice.
 This enables you to create nice and readable dashboards containing all the information you need on your fuzzer instances.
 No need to write your own statistics parsing system, deploy and maintain it to all your instances, sync with your graph rendering system...
 
@@ -45,7 +45,7 @@ For more information on these env vars, check out `docs/env_variables.md`.
 
 The simplest way of using this feature is to use any metric provider and change the host/port of your StatsD daemon,
 with `AFL_STATSD_HOST` and `AFL_STATSD_PORT`, if required (defaults are `localhost` and port `8125`).
-To get started, here are some instruction with free and open source tools.
+To get started, here are some instructions with free and open source tools.
 The following setup is based on Prometheus, statsd_exporter and Grafana.
 Grafana here is not mandatory, but gives you some nice graphs and features.
 
@@ -131,7 +131,7 @@ mappings:
 
 Run `docker-compose up -d`.
 
-Everything should be now setup, you are now able to run your fuzzers with
+Everything should now be setup, you are now able to run your fuzzers with
 
 ```
 AFL_STATSD_TAGS_FLAVOR=dogstatsd AFL_STATSD=1 afl-fuzz -M test-fuzzer-1 -i i -o o ./bin/my-application @@
@@ -139,5 +139,5 @@ AFL_STATSD_TAGS_FLAVOR=dogstatsd AFL_STATSD=1 afl-fuzz -S test-fuzzer-2 -i i -o 
 ...
 ```
 
-This setup may be modified before use in production environment. Depending on your needs: addind passwords, creating volumes for storage,
+This setup may be modified before use in a production environment. Depending on your needs: adding passwords, creating volumes for storage,
 tweaking the metrics gathering to get host metrics (CPU, RAM ...).

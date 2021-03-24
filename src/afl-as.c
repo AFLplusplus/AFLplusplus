@@ -280,7 +280,7 @@ static void add_instrumentation(void) {
 
   }
 
-  outfd = open(modified_file, O_WRONLY | O_EXCL | O_CREAT, 0600);
+  outfd = open(modified_file, O_WRONLY | O_EXCL | O_CREAT, DEFAULT_PERMISSION);
 
   if (outfd < 0) { PFATAL("Unable to write to '%s'", modified_file); }
 

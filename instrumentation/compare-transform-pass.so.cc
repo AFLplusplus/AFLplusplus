@@ -229,9 +229,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                           dyn_cast<ConstantDataArray>(Var->getInitializer())) {
 
                     HasStr2 = true;
-                    Str2 = Array->getAsString();
+                    Str2 = Array->getRawDataValues();
                     valueMap[Str2P] = new std::string(Str2.str());
-                    fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+                    // fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
 
                   }
 
@@ -254,7 +254,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                             Var->getInitializer())) {
 
                       HasStr1 = true;
-                      Str1 = Array->getAsString();
+                      Str1 = Array->getRawDataValues();
                       valueMap[Str1P] = new std::string(Str1.str());
                       // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
 
@@ -316,7 +316,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
               uint64_t len = ilen->getZExtValue();
               // if len is zero this is a pointless call but allow real
               // implementation to worry about that
-              if (!len) continue;
+              if (len < 2) continue;
 
               if (isMemcmp) {
 
@@ -362,19 +362,22 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
     bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
     uint64_t    constStrLen, unrollLen, constSizedLen = 0;
-    bool        isMemcmp =
-        !callInst->getCalledFunction()->getName().compare(StringRef("memcmp"));
-    bool isSizedcmp = isMemcmp ||
-                      !callInst->getCalledFunction()->getName().compare(
-                          StringRef("strncmp")) ||
-                      !callInst->getCalledFunction()->getName().compare(
-                          StringRef("strncasecmp"));
+    bool        isMemcmp = false;
+    bool        isSizedcmp = false;
+    bool        isCaseInsensitive = false;
+    Function *  Callee = callInst->getCalledFunction();
+    if (Callee) {
+
+      isMemcmp = Callee->getName().compare("memcmp") == 0;
+      isSizedcmp = isMemcmp || Callee->getName().compare("strncmp") == 0 ||
+                   Callee->getName().compare("strncasecmp") == 0;
+      isCaseInsensitive = Callee->getName().compare("strcasecmp") == 0 ||
+                          Callee->getName().compare("strncasecmp") == 0;
+
+    }
+
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
     bool   isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
-    bool isCaseInsensitive = !callInst->getCalledFunction()->getName().compare(
-                                 StringRef("strcasecmp")) ||
-                             !callInst->getCalledFunction()->getName().compare(
-                                 StringRef("strncasecmp"));
 
     if (!(HasStr1 || HasStr2)) {
 
@@ -391,7 +394,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         if (val && !val->empty()) {
 
           Str2 = StringRef(*val);
-          HasStr2 = true;
+          // HasStr2 = true;
 
         }
 
@@ -417,14 +420,28 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
+    if (TmpConstStr.length() < 2 ||
+        (TmpConstStr.length() == 2 && !TmpConstStr[1])) {
+
+      continue;
+
+    }
+
     // add null termination character implicit in c strings
-    TmpConstStr.append("\0", 1);
+    if (!isMemcmp && TmpConstStr[TmpConstStr.length() - 1]) {
+
+      TmpConstStr.append("\0", 1);
+
+    }
 
     // in the unusual case the const str has embedded null
     // characters, the string comparison functions should terminate
     // at the first null
-    if (!isMemcmp)
+    if (!isMemcmp) {
+
       TmpConstStr.assign(TmpConstStr, 0, TmpConstStr.find('\0') + 1);
+
+    }
 
     constStrLen = TmpConstStr.length();
     // prefer use of StringRef (in comparison to std::string a StringRef has
@@ -435,15 +452,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       unrollLen = constSizedLen < constStrLen ? constSizedLen : constStrLen;
     else
       unrollLen = constStrLen;
-
-    /*
-        if (!be_quiet)
-          errs() << callInst->getCalledFunction()->getName() << ": unroll len "
-                 << unrollLen
-                 << ((isSizedcmp && !isConstSized) ? ", variable n" : "") << ":
-       "
-                 << ConstStr << "\n";
-    */
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();

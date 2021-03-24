@@ -390,7 +390,7 @@ typedef struct afl_env_vars {
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries, *afl_kill_signal, *afl_persistent_record;
+      *afl_testcache_entries, *afl_kill_signal, *afl_target_env, *afl_persistent_record;
 
 } afl_env_vars_t;
 
@@ -425,7 +425,8 @@ typedef struct afl_state {
     really makes no sense to haul them around as function parameters. */
   u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
       total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
-      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update;
+      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update,
+      prev_run_time;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
@@ -569,6 +570,7 @@ typedef struct afl_state {
       blocks_eff_total,                 /* Blocks subject to effector maps  */
       blocks_eff_select,                /* Blocks selected as fuzzable      */
       start_time,                       /* Unix start time (ms)             */
+      last_sync_time,                   /* Time of last sync                */
       last_path_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time;                   /* Time for most recent hang (ms)   */
@@ -648,6 +650,7 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
+  u8  cmplog_enable_arith, cmplog_enable_transform;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map *      orig_cmp_map;
@@ -1059,6 +1062,7 @@ u8 has_new_bits_unclassified(afl_state_t *, u8 *);
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
 void dedup_extras(afl_state_t *);
+void deunicode_extras(afl_state_t *);
 void add_extra(afl_state_t *afl, u8 *mem, u32 len);
 void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
@@ -1067,9 +1071,10 @@ void destroy_extras(afl_state_t *);
 
 /* Stats */
 
+void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
-void write_stats_file(afl_state_t *, double, double, double);
-void maybe_update_plot_file(afl_state_t *, double, double);
+void write_stats_file(afl_state_t *, u32, double, double, double);
+void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void show_stats(afl_state_t *);
 void show_init_stats(afl_state_t *);
 
