@@ -432,6 +432,7 @@ checks or alter some of the more exotic semantics of the tool:
     if set to e.g. 10, then the 9 previous inputs are written to
     out/default/crashes as RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008
     and RECORD:000000,cnt:000009 being the crash case.
+    NOTE: This option needs to be enabled in config.h first!
 
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
     Others need not apply, unless they also want to disable the
