@@ -218,7 +218,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
+#ifdef AFL_PERSISTENT_RECORD
       "AFL_PERSISTENT_RECORD: record the last X inputs to every crash in out/crashes\n"
+#endif
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
@@ -249,7 +251,13 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char *)PYTHON_VERSION);
 #else
-  SAYF("Compiled without python module support\n");
+  SAYF("Compiled without python module support.\n");
+#endif
+
+#ifdef AFL_PERSISTENT_RECORD
+  SAYF("Compiled with AFL_PERSISTENT_RECORD support.\n");
+#else
+  SAYF("Compiled without AFL_PERSISTENT_RECORD support.\n");
 #endif
 
 #ifdef USEMMAP
@@ -259,27 +267,27 @@ static void usage(u8 *argv0, int more_help) {
 #endif
 
 #ifdef ASAN_BUILD
-  SAYF("Compiled with ASAN_BUILD\n\n");
+  SAYF("Compiled with ASAN_BUILD.\n");
 #endif
 
 #ifdef NO_SPLICING
-  SAYF("Compiled with NO_SPLICING\n\n");
+  SAYF("Compiled with NO_SPLICING.\n");
 #endif
 
 #ifdef PROFILING
-  SAYF("Compiled with PROFILING\n\n");
+  SAYF("Compiled with PROFILING.\n");
 #endif
 
 #ifdef INTROSPECTION
-  SAYF("Compiled with INTROSPECTION\n\n");
+  SAYF("Compiled with INTROSPECTION.\n");
 #endif
 
 #ifdef _DEBUG
-  SAYF("Compiled with _DEBUG\n\n");
+  SAYF("Compiled with _DEBUG.\n");
 #endif
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
-  SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS\n\n");
+  SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS.\n");
 #endif
 
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
@@ -989,6 +997,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (unlikely(afl->afl_env.afl_persistent_record)) {
 
+#ifdef AFL_PERSISTENT_RECORD
+
     afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
 
     if (afl->fsrv.persistent_record < 2) {
@@ -998,6 +1008,12 @@ int main(int argc, char **argv_orig, char **envp) {
           "100 or 1000.");
 
     }
+
+#else
+
+    FATAL("afl-fuzz was not compiled with AFL_PERSISTENT_RECORD enabled in config.h!");
+
+#endif
 
   }
 
