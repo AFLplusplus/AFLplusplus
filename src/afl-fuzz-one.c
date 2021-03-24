@@ -5119,14 +5119,23 @@ pacemaker_fuzzing:
 
       /* Update afl->pending_not_fuzzed count if we made it through the
          calibration cycle and have not seen this entry before. */
+      /*
+        // TODO FIXME: I think we need this plus need an -L -1 check
+        if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
+            (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0)
+        && !afl->queue_cur->disabled) {
 
-      // if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
-      // !afl->queue_cur->was_fuzzed) {
+          if (!afl->queue_cur->was_fuzzed) {
 
-      //   afl->queue_cur->was_fuzzed = 1;
-      //   --afl->pending_not_fuzzed;
-      //   if (afl->queue_cur->favored) --afl->pending_favored;
-      // }
+            --afl->pending_not_fuzzed;
+            afl->queue_cur->was_fuzzed = 1;
+            if (afl->queue_cur->favored) { --afl->pending_favored; }
+
+          }
+
+        }
+
+      */
 
       orig_in = NULL;
 
