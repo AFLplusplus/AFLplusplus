@@ -8,6 +8,9 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++3.13a (development)
+  - ...
+
 ### Version ++3.12c (release)
   - afl-fuzz:
     - added AFL_TARGET_ENV variable to pass extra env vars to the target
