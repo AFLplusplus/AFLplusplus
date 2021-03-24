@@ -680,13 +680,17 @@ void cull_queue(afl_state_t *afl) {
 
       }
 
-      afl->top_rated[i]->favored = 1;
-      ++afl->queued_favored;
+      if (!afl->top_rated[i]->favored) {
 
-      if (afl->top_rated[i]->fuzz_level == 0 ||
-          !afl->top_rated[i]->was_fuzzed) {
+        afl->top_rated[i]->favored = 1;
+        ++afl->queued_favored;
 
-        ++afl->pending_favored;
+        if (afl->top_rated[i]->fuzz_level == 0 ||
+            !afl->top_rated[i]->was_fuzzed) {
+
+          ++afl->pending_favored;
+
+        }
 
       }
 
