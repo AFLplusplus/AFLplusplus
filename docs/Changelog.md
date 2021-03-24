@@ -9,7 +9,12 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.13a (development)
-  - ...
+  - afl-fuzz:
+    - added patch by @realmadsci to support @@ as part of command line
+      options, e.g. `afl-fuzz ... -- ./target --infile=@@`
+    - add recording of previous fuzz attempts for persistent mode
+      to allow replay of non-reproducable crashes, see
+      AFL_PERSISTENT_RECORD in config.h and docs/envs.h
 
 ### Version ++3.12c (release)
   - afl-fuzz:
