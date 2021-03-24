@@ -282,12 +282,19 @@ u8 *find_binary(u8 *fname) {
 
 u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
-  u8 *afl_path = NULL, *target_path, *own_copy;
+  u8 *afl_path = NULL, *target_path, *own_copy, *tmp;
+  int perm = X_OK;
+
+  if ((tmp = strrchr(fname, '.'))) {
+
+    if (!strcasecmp(tmp, ".so") || !strcasecmp(tmp, ".dylib")) { perm = R_OK; }
+
+  }
 
   if ((afl_path = getenv("AFL_PATH"))) {
 
     target_path = alloc_printf("%s/%s", afl_path, fname);
-    if (!access(target_path, X_OK)) {
+    if (!access(target_path, perm)) {
 
       return target_path;
 
@@ -311,7 +318,7 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
       target_path = alloc_printf("%s/%s", own_copy, fname);
       ck_free(own_copy);
 
-      if (!access(target_path, X_OK)) {
+      if (!access(target_path, perm)) {
 
         return target_path;
 
@@ -330,7 +337,7 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
   }
 
   target_path = alloc_printf("%s/%s", BIN_PATH, fname);
-  if (!access(target_path, X_OK)) {
+  if (!access(target_path, perm)) {
 
     return target_path;
 
@@ -340,7 +347,15 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
   }
 
-  return find_binary(fname);
+  if (perm == X_OK) {
+
+    return find_binary(fname);
+
+  } else {
+
+    FATAL("Library '%s' not found", fname);
+
+  }
 
 }
 
