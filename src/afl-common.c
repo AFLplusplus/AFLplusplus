@@ -70,30 +70,25 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
       *use_stdin = false;
 
-      if (prog_in[0] != 0) {  // not afl-showmap special case
+      /* Be sure that we're always using fully-qualified paths. */
 
-        u8 *n_arg;
+      *aa_loc = 0;
 
-        /* Be sure that we're always using fully-qualified paths. */
+      /* Construct a replacement argv value. */
+      u8 *n_arg;
 
-        *aa_loc = 0;
+      if (prog_in[0] == '/') {
 
-        /* Construct a replacement argv value. */
+        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
 
-        if (prog_in[0] == '/') {
+      } else {
 
-          n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
-
-        } else {
-
-          n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
-
-        }
-
-        ck_free(argv[i]);
-        argv[i] = n_arg;
+        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
 
       }
+
+      ck_free(argv[i]);
+      argv[i] = n_arg;
 
     }
 

@@ -90,8 +90,9 @@ for crash in $DIR/crashes/id:*; do
 
   for a in $@; do
 
-    if [ "$a" = "@@" ] ; then
-      use_args="$use_args $crash"
+    if echo "$a" | grep -qF '@@'; then
+      escaped_fname=`echo $crash | sed 's:/:\\\\/:g'`
+      use_args="$use_args `echo $a | sed "s/@@/$escaped_fname/g"`"
       unset use_stdio
     else
       use_args="$use_args $a"
