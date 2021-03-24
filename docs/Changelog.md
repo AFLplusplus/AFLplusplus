@@ -13,6 +13,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_TARGET_ENV variable to pass extra env vars to the target
       (for things like LD_LIBRARY_PATH)
     - fix map detection, AFL_MAP_SIZE not needed anymore for most cases
+    - fix counting favorites (just a display thing)
   - afl-cc:
     - fix cmplog rtn (rare crash and not being able to gather ptr data)
     - fix our own PCGUARD implementation to compile with llvm 10.0.1
