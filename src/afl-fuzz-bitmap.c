@@ -42,7 +42,7 @@ void write_bitmap(afl_state_t *afl) {
   afl->bitmap_changed = 0;
 
   snprintf(fname, PATH_MAX, "%s/fuzz_bitmap", afl->out_dir);
-  fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
 
   if (fd < 0) { PFATAL("Unable to open '%s'", fname); }
 
@@ -407,7 +407,7 @@ static void write_crash_readme(afl_state_t *afl) {
 
   sprintf(fn, "%s/crashes/README.txt", afl->out_dir);
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
   /* Do not die on errors here - that would be impolite. */
 
@@ -509,7 +509,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_paths);
 
 #endif                                                    /* ^!SIMPLE_FILES */
-    fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", queue_fn); }
     ck_write(fd, mem, len, queue_fn);
     close(fd);
@@ -783,7 +783,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   /* If we're here, we apparently want to save the crash or hang
      test case, too. */
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
   if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn); }
   ck_write(fd, mem, len, fn);
   close(fd);

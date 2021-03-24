@@ -590,6 +590,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   #ifdef __ANDROID__
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+        instrument_mode != INSTRUMENT_LLVMNATIVE;
   #else
         if (have_instr_list) {
 
@@ -599,6 +600,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
                 "-fsanitize-coverage-allow/denylist, you can use "
                 "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
           cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+          instrument_mode = INSTRUMENT_LLVMNATIVE;
 
         } else {
 
@@ -618,6 +620,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
               "Using unoptimized trace-pc-guard, upgrade to llvm 10.0.1+ for "
               "enhanced version.\n");
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
   #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
   #endif
@@ -682,19 +685,49 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
+  u8 skip_next = 0;
   while (--argc) {
 
     u8 *cur = *(++argv);
+
+    if (skip_next) {
+
+      skip_next = 0;
+      continue;
+
+    }
 
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
     if (!strncmp(cur, "-fno-unroll", 11)) continue;
     if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined") ||
+        !strcmp(cur, "--no-undefined")) {
+
       continue;
-    if (!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
-        !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) {
+
+    }
+
+    if (!strcmp(cur, "-z")) {
+
+      u8 *param = *(argv + 1);
+      if (!strcmp(param, "defs")) {
+
+        skip_next = 1;
+        continue;
+
+      }
+
+    }
+
+    if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
+         !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
+        (strncmp(cur, "sanitize-coverage-allow",
+                 strlen("sanitize-coverage-allow")) &&
+         strncmp(cur, "sanitize-coverage-deny",
+                 strlen("sanitize-coverage-deny")) &&
+         instrument_mode != INSTRUMENT_LLVMNATIVE)) {
 
       if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
       continue;
@@ -962,18 +995,24 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-compiler-rt.o", obj_path);
+        if (!shared_linking)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-compiler-rt.o", obj_path);
         if (lto_mode)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
         break;
 
       case 32:
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m32 is not supported by your compiler");
+        if (!shared_linking) {
+
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m32 is not supported by your compiler");
+
+        }
+
         if (lto_mode) {
 
           cc_params[cc_par_cnt++] =
@@ -986,10 +1025,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m64 is not supported by your compiler");
+        if (!shared_linking) {
+
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m64 is not supported by your compiler");
+
+        }
+
         if (lto_mode) {
 
           cc_params[cc_par_cnt++] =
@@ -1009,11 +1053,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-  #if defined(USEMMAP) && !defined(__HAIKU__)
-    cc_params[cc_par_cnt++] = "-lrt";
-  #endif
-
   }
+
+  #if defined(USEMMAP) && !defined(__HAIKU__)
+  cc_params[cc_par_cnt++] = "-lrt";
+  #endif
 
 #endif
 
@@ -1220,6 +1264,7 @@ int main(int argc, char **argv, char **envp) {
 
       } else if (strcasecmp(ptr, "LLVMNATIVE") == 0 ||
 
+                 strcasecmp(ptr, "NATIVE") == 0 ||
                  strcasecmp(ptr, "LLVM-NATIVE") == 0) {
 
         compiler_mode = LLVM;
@@ -1632,8 +1677,8 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-  #define NATIVE_MSG                                              \
-    "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+  #define NATIVE_MSG                                                   \
+    "  LLVM-NATIVE:  use llvm's native PCGUARD instrumentation (less " \
     "performant)\n"
 #else
   #define NATIVE_MSG ""

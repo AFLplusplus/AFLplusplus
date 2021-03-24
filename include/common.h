@@ -48,7 +48,10 @@ void   argv_cpy_free(char **argv);
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv);
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv);
 char * get_afl_env(char *env);
-u8 *   get_libqasan_path(u8 *own_loc);
+
+/* Extract env vars from input string and set them using setenv()
+   For use with AFL_TARGET_ENV, ... */
+bool extract_and_set_env(u8 *env_str);
 
 extern u8  be_quiet;
 extern u8 *doc_path;                    /* path to documentation dir        */
@@ -57,6 +60,10 @@ extern u8 *doc_path;                    /* path to documentation dir        */
    @returns the path, allocating the string */
 
 u8 *find_binary(u8 *fname);
+
+/* find an afl binary */
+
+u8 *find_afl_binary(u8 *own_loc, u8 *fname);
 
 /* Parses the kill signal environment variable, FATALs on error.
   If the env is not set, sets the env to default_signal for the signal handlers

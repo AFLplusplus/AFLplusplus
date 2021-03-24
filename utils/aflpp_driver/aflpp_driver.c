@@ -187,6 +187,8 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
     }
 
+    close(fd);
+
   }
 
   free(buf);
@@ -207,6 +209,16 @@ int main(int argc, char **argv) {
       "INT_MAX)\n"
       "======================================================\n",
       argv[0], argv[0]);
+
+  if (getenv("AFL_GDB")) {
+
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "cat /proc/%d/maps", getpid());
+    system(cmd);
+    fprintf(stderr, "DEBUG: aflpp_driver pid is %d\n", getpid());
+    sleep(1);
+
+  }
 
   output_file = stderr;
   maybe_duplicate_stderr();

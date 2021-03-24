@@ -465,7 +465,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     unlink(q->fname);                                      /* ignore errors */
 
-    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
     if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
