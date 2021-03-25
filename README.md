@@ -180,7 +180,7 @@ sudo apt-get install -y build-essential python3-dev automake git flex bison libg
 # try to install llvm 11 and install the distro default if that fails
 sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang 
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
-git clone https://github.com/AFLplusplus/AFLplusplus && cd AFLplusplus
+git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
 make distrib
 sudo make install
