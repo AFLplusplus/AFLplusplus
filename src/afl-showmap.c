@@ -617,7 +617,6 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
       }
 
       ck_free(frida_binary);
-      OKF("Frida Mode setting LD_PRELOAD %s", frida_afl_preload);
 
       setenv("LD_PRELOAD", frida_afl_preload, 1);
       setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
@@ -634,7 +633,6 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
     u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
     setenv("LD_PRELOAD", frida_binary, 1);
     setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-    OKF("Frida Mode setting LD_PRELOAD %s", frida_binary);
     ck_free(frida_binary);
 
   }
@@ -995,7 +993,6 @@ int main(int argc, char **argv_orig, char **envp) {
     ACTF("Executing '%s'...", fsrv->target_path);
 
   }
-
 
   if (in_dir) {
 
