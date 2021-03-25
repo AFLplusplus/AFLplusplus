@@ -77,8 +77,9 @@
 
 /* If a persistent target keeps state and found crashes are not reproducable
    then enable this option and set the AFL_PERSISTENT_RECORD env variable
-   to a number. These number of testcases prior the crash will be kept and
-   also written to the crash/ directory */
+   to a number. These number of testcases prior and including the crash case
+   will be kept and written to the crash/ directory as RECORD:... files.
+   Note that every crash will be written, not only unique ones! */
 
 //#define AFL_PERSISTENT_RECORD
 
