@@ -15,6 +15,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add recording of previous fuzz attempts for persistent mode
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
+    - default cmplog level (-l) is now 2, better efficiency.
 
 ### Version ++3.12c (release)
   - afl-fuzz:
