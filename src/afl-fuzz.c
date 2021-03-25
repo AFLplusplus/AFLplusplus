@@ -1034,7 +1034,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (unlikely(afl->afl_env.afl_persistent_record)) {
 
-#ifdef AFL_PERSISTENT_RECORD
+  #ifdef AFL_PERSISTENT_RECORD
 
     afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
 
@@ -1046,11 +1046,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-#else
+  #else
 
-    FATAL("afl-fuzz was not compiled with AFL_PERSISTENT_RECORD enabled in config.h!");
+    FATAL(
+        "afl-fuzz was not compiled with AFL_PERSISTENT_RECORD enabled in "
+        "config.h!");
 
-#endif
+  #endif
 
   }
 
@@ -1520,6 +1522,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_binary(afl, argv[optind]);
 
+  #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
 
     if (!getenv(PERSIST_ENV_VAR)) {
@@ -1533,6 +1536,8 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
 
   }
+
+  #endif
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 

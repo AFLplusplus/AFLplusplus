@@ -380,6 +380,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
   }
+
 #endif
 
   if (fsrv->use_fauxsrv) {
@@ -1073,6 +1074,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
     }
 
   }
+
 #endif
 
   if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
@@ -1206,6 +1208,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     fsrv->persistent_record_len[idx] = val;
 
   }
+
 #endif
 
   if (fsrv->child_pid <= 0) {
@@ -1336,6 +1339,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
       ++fsrv->persistent_record_cnt;
 
     }
+
 #endif
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
