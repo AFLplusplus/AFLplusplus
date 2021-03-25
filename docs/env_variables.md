@@ -130,16 +130,15 @@ Then there are a few specific features that are only available in instrumentatio
         PCGUARD - our own pcgard based instrumentation (default)
         NATIVE - clang's original pcguard based instrumentation
         CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
-        CFG - InsTrim instrumentation (see below)
         LTO - LTO instrumentation (see below)
         CTX - context sensitive instrumentation (see below)
         NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
         GCC - outdated gcc instrumentation
         CLANG - outdated clang instrumentation
-      In CLASSIC (default) and CFG/INSTRIM you can also specify CTX and/or
-      NGRAM, seperate the options with a comma "," then, e.g.:
-        `AFL_LLVM_INSTRUMENT=CFG,CTX,NGRAM-4`
-      Not that this is a good idea to use both CTX and NGRAM :)
+      In CLASSIC you can also specify CTX and/or NGRAM, seperate the options
+      with a comma "," then, e.g.:
+        `AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4`
+      Note that this is actually not a good idea to use both CTX and NGRAM :)
 
 ### LTO
 
@@ -172,24 +171,6 @@ Then there are a few specific features that are only available in instrumentatio
      into the instrumentation is set in a global variable
 
   See [instrumentation/README.lto.md](../instrumentation/README.lto.md) for more information.
-
-### INSTRIM
-
-  This feature increases the speed by ~15% without any disadvantages to the
-    classic instrumentation.
-
-  Note that there is also an LTO version (if you have llvm 11 or higher) -
-    that is the best instrumentation we have. Use `afl-clang-lto` to activate.
-    The InsTrim LTO version additionally has all the options and features of
-    LTO (see above).
-
-   - Setting `AFL_LLVM_INSTRIM` or `AFL_LLVM_INSTRUMENT=CFG` activates this mode
-
-   - Setting `AFL_LLVM_INSTRIM_LOOPHEAD=1` expands on INSTRIM to optimize loops.
-      afl-fuzz will only be able to see the path the loop took, but not how
-      many times it was called (unless it is a complex loop).
-
-  See [instrumentation/README.instrim.md](../instrumentation/README.instrim.md)
 
 ### NGRAM
 

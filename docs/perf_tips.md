@@ -69,9 +69,6 @@ If you are only interested in specific parts of the code being fuzzed, you can
 instrument_files the files that are actually relevant. This improves the speed and
 accuracy of afl. See instrumentation/README.instrument_list.md
 
-Also use the InsTrim mode on larger binaries, this improves performance and
-coverage a lot.
-
 ## 4. Profile and optimize the binary
 
 Check for any parameters or settings that obviously improve performance. For

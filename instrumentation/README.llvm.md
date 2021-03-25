@@ -101,8 +101,7 @@ instrumentation by either setting `AFL_CC_COMPILER=LLVM` or pass the parameter
 The tool honors roughly the same environmental variables as afl-gcc (see
 [docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
 AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
-as it does not serve a good purpose with the more effective PCGUARD, LTO and
- instrim CFG analysis.
+as it does not serve a good purpose with the more effective PCGUARD analysis.
 
 ## 3) Options
 
@@ -116,26 +115,20 @@ For splitting memcmp, strncmp, etc. please see [README.laf-intel.md](README.laf-
 
 Then there are different ways of instrumenting the target:
 
-1. There is an optimized instrumentation strategy that uses CFGs and
-markers to just instrument what is needed. This increases speed by 10-15%
-without any disadvantages
-If you want to use this, set AFL_LLVM_INSTRUMENT=CFG or AFL_LLVM_INSTRIM=1
-See [README.instrim.md](README.instrim.md)
-
-2. An even better instrumentation strategy uses LTO and link time
+1. An better instrumentation strategy uses LTO and link time
 instrumentation. Note that not all targets can compile in this mode, however
 if it works it is the best option you can use.
 Simply use afl-clang-lto/afl-clang-lto++ to use this option.
 See [README.lto.md](README.lto.md)
 
-3. Alternativly you can choose a completely different coverage method:
+2. Alternativly you can choose a completely different coverage method:
 
-3a. N-GRAM coverage - which combines the previous visited edges with the
+2a. N-GRAM coverage - which combines the previous visited edges with the
 current one. This explodes the map but on the other hand has proven to be
 effective for fuzzing.
 See [README.ngram.md](README.ngram.md)
 
-3b. Context sensitive coverage - which combines the visited edges with an
+2b. Context sensitive coverage - which combines the visited edges with an
 individual caller ID (the function that called the current one)
 [README.ctx.md](README.ctx.md)
 

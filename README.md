@@ -370,7 +370,6 @@ There are many more options and modes available however these are most of the
 time less effective. See:
  * [instrumentation/README.ctx.md](instrumentation/README.ctx.md)
  * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
- * [instrumentation/README.instrim.md](instrumentation/README.instrim.md)
 
 afl++ performs "never zero" counting in its bitmap. You can read more about this
 here:
