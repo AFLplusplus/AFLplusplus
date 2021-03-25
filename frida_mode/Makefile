@@ -308,3 +308,43 @@ analyze_frida: $(TEST_BIN)
 			-i $(TEST_DATA_DIR)basn0g01.png \
 			-- \
 				$(TEST_BIN) @@
+
+cmin_qemu: $(TEST_BIN)
+	make -C ..
+	cd .. && \
+		./afl-cmin \
+			-Q \
+			-i $(TEST_DATA_DIR) \
+			-o $(QEMU_OUT) \
+			-- \
+				$(TEST_BIN) @@
+
+cmin_frida: $(TEST_BIN)
+	make -C ..
+	cd .. && \
+		./afl-cmin \
+			-O \
+			-i $(TEST_DATA_DIR) \
+			-o $(FRIDA_OUT) \
+			-- \
+				$(TEST_BIN) @@
+
+cmin_bash_qemu: $(TEST_BIN)
+	make -C ..
+	cd .. && \
+		./afl-cmin.bash \
+			-Q \
+			-i $(TEST_DATA_DIR) \
+			-o $(QEMU_OUT) \
+			-- \
+				$(TEST_BIN) @@
+
+cmin_bash_frida: $(TEST_BIN)
+	make -C ..
+	cd .. && \
+		./afl-cmin.bash \
+			-O \
+			-i $(TEST_DATA_DIR) \
+			-o $(FRIDA_OUT) \
+			-- \
+				$(TEST_BIN) @@
