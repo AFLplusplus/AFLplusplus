@@ -25,7 +25,11 @@
   For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
   with `AFL_LLVM_CMPLOG=1`.
 
-## Major changes in afl++ 3.00 + 3.10
+## Major changes in afl++ 3.00 onwards:
+
+With afl++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
+binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
+iOS etc.
 
 With afl++ 3.10 we introduced the following changes from previous behaviours:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout
@@ -81,21 +85,21 @@ behaviours and defaults:
 ## Important features of afl++
 
   afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 5.1
-  with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
-  Android support and much, much, much more.
+  with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
+  Mac OS, Solaris and Android support and much, much, much more.
 
-  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | qemu_mode        | unicorn_mode |
-  | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |       x      |
-  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
-  | LAF-Intel / CompCov      |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
-  | Selective Instrumentation|         |     x     |     x      |         x        |              |
-  | Non-Colliding Coverage   |         |     x(4)  |            |        (x)(5)    |              |
-  | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
-  | Context Coverage         |         |     x(6)  |            |                  |              |
-  | Auto Dictionary          |         |     x(7)  |            |                  |              |
-  | Snapshot LKM Support     |         |     x(8)  |     x(8)   |        (x)(5)    |              |
+  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode | qemu_mode        |unicorn_mode |
+  | -------------------------|:-------:|:---------:|:----------:|:----------:|:----------------:|:------------:|
+  | NeverZero                | x86[_64]|     x(1)  |     x      |            |         x        |       x      |
+  | Persistent Mode          |         |     x     |     x      |            | x86[_64]/arm[64] |       x      |
+  | LAF-Intel / CompCov      |         |     x     |            |            | x86[_64]/arm[64] | x86[_64]/arm |
+  | CmpLog                   |         |     x     |            |            | x86[_64]/arm[64] |              |
+  | Selective Instrumentation|         |     x     |     x      |     x      |         x        |              |
+  | Non-Colliding Coverage   |         |     x(4)  |            |            |        (x)(5)    |              |
+  | Ngram prev_loc Coverage  |         |     x(6)  |            |            |                  |              |
+  | Context Coverage         |         |     x(6)  |            |            |                  |              |
+  | Auto Dictionary          |         |     x(7)  |            |            |                  |              |
+  | Snapshot LKM Support     |         |     x(8)  |     x(8)   |            |        (x)(5)    |              |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
@@ -140,6 +144,7 @@ behaviours and defaults:
     time when we are satisfied with its stability
   * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
     checkout which does not compile or has a bug. *We only accept PRs in dev!!*
+  * [release](https://github.com/AFLplusplus/AFLplusplus/tree/release) : the latest release
   * (any other) : experimental branches to work on specific features or testing
     new functionality or changes.
 
