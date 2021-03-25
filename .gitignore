@@ -82,3 +82,4 @@ libAFLDriver.a
 libAFLQemuDriver.a
 test/.afl_performance
 gmon.out
+afl-frida-trace.so

@@ -109,6 +109,7 @@ static void usage(u8 *argv0, int more_help) {
       "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
+      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -329,6 +330,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
+  char * afl_preload;
+  char * frida_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -372,7 +375,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
+              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
 
     switch (opt) {
 
@@ -764,6 +767,18 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->use_banner = optarg;
         break;
 
+      case 'O':                                               /* FRIDA mode */
+
+        if (afl->fsrv.frida_mode) {
+
+          FATAL("Multiple -O options not supported");
+
+        }
+
+        afl->fsrv.frida_mode = 1;
+
+        break;
+
       case 'Q':                                                /* QEMU mode */
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
@@ -1118,6 +1133,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->non_instrumented_mode) {
 
     if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
+    if (afl->fsrv.frida_mode) { FATAL("-O and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
     if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
 
@@ -1322,12 +1338,38 @@ int main(int argc, char **argv_orig, char **envp) {
 
       /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
+    } else if (afl->fsrv.frida_mode) {
+
+      afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      if (afl_preload) {
+
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+      } else {
+
+        frida_afl_preload = alloc_printf("%s", frida_binary);
+
+      }
+
+      ck_free(frida_binary);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+
     } else {
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
 
     }
+
+  } else if (afl->fsrv.frida_mode) {
+
+    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    setenv("LD_PRELOAD", frida_binary, 1);
+    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+    ck_free(frida_binary);
 
   }
 
@@ -1512,7 +1554,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) {
+    if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode &&
+        !afl->non_instrumented_mode) {
 
       check_binary(afl, afl->cmplog_binary);
 
@@ -1563,7 +1606,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->non_instrumented_mode || afl->fsrv.qemu_mode || afl->unicorn_mode) {
+  if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
+      afl->fsrv.frida_mode || afl->unicorn_mode) {
 
     map_size = afl->fsrv.map_size = MAP_SIZE;
     afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
@@ -2123,6 +2167,8 @@ stop_fuzzing:
     unlink(path);
 
   }
+
+  if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);

@@ -106,6 +106,7 @@ function usage() {
 "  -f file       - location read by the fuzzed program (stdin)\n" \
 "  -m megs       - memory limit for child process ("mem_limit" MB)\n" \
 "  -t msec       - run time limit for child process (none)\n" \
+"  -O            - use binary-only instrumentation (FRIDA mode)\n" \
 "  -Q            - use binary-only instrumentation (QEMU mode)\n" \
 "  -U            - use unicorn-based instrumentation (unicorn mode)\n" \
 "\n" \
@@ -140,7 +141,7 @@ BEGIN {
   # process options
   Opterr = 1    # default is to diagnose
   Optind = 1    # skip ARGV[0]
-  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eCQU?")) != -1) {
+  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eCOQU?")) != -1) {
     if (_go_c == "i") {
       if (!Optarg) usage()
       if (in_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
@@ -178,6 +179,12 @@ BEGIN {
     } else 
     if (_go_c == "e") {
       extra_par = extra_par " -e"
+      continue
+    } else 
+    if (_go_c == "O") {
+      if (frida_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      extra_par = extra_par " -O"
+      frida_mode = 1
       continue
     } else 
     if (_go_c == "Q") {
@@ -275,7 +282,7 @@ BEGIN {
     target_bin = tnew
   }
 
-  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !unicorn_mode) {
+  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !frida_mode && !unicorn_mode) {
     if (0 != system( "grep -q __AFL_SHM_ID "target_bin )) {
       print "[-] Error: binary '"target_bin"' doesn't appear to be instrumented." > "/dev/stderr"
       exit 1
