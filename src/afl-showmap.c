@@ -955,7 +955,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-
   if (in_dir) {
 
     /* If we don't have a file name chosen yet, use a safe default. */
