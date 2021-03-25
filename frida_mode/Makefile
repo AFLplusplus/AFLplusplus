@@ -1,41 +1,39 @@
 PWD:=$(shell pwd)/
-INC_DIR:=$(PWD)inc/
+INC_DIR:=$(PWD)include/
 SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
 SOURCES:=$(wildcard $(SRC_DIR)*.c)
 BUILD_DIR:=$(PWD)build/
-CFLAGS:= $(CFLAGS) \
-		-fPIC \
-		-D_GNU_SOURCE
+CFLAGS+=-fPIC -D_GNU_SOURCE
 
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(FRIDA_BUILD_DIR)afl-frida-trace.so
 
 ARCH=$(shell uname -m)
 ifeq "$(ARCH)" "aarch64"
-ARCH:=arm64
-TESTINSTR_BASE:=0x0000aaaaaaaaa000
+ ARCH:=arm64
+ TESTINSTR_BASE:=0x0000aaaaaaaaa000
 endif
 
 ifeq "$(ARCH)" "x86_64"
-TESTINSTR_BASE:=0x0000555555554000
+ TESTINSTR_BASE:=0x0000555555554000
 endif
 
 ifeq "$(shell uname)" "Darwin"
-OS:=macos
-AFL_FRIDA_INST_RANGES=0x0000000000001000-0xFFFFFFFFFFFFFFFF
-CFLAGS:=$(CFLAGS) -Wno-deprecated-declarations
-TEST_LDFLAGS:=-undefined dynamic_lookup
+ OS:=macos
+ AFL_FRIDA_INST_RANGES=0x0000000000001000-0xFFFFFFFFFFFFFFFF
+ CFLAGS:=$(CFLAGS) -Wno-deprecated-declarations
+ TEST_LDFLAGS:=-undefined dynamic_lookup
 endif
 ifeq "$(shell uname)" "Linux"
-OS:=linux
-AFL_FRIDA_INST_RANGES=$(shell $(PWD)test/testinstr.py -f $(BUILD_DIR)testinstr -s .testinstr -b $(TESTINSTR_BASE))
-CFLAGS:=$(CFLAGS) -Wno-prio-ctor-dtor
-TEST_LDFLAGS:=
+ OS:=linux
+ AFL_FRIDA_INST_RANGES=$(shell $(PWD)test/testinstr.py -f $(BUILD_DIR)testinstr -s .testinstr -b $(TESTINSTR_BASE))
+ CFLAGS:=$(CFLAGS) -Wno-prio-ctor-dtor
+ TEST_LDFLAGS:=
 endif
 
 ifndef OS
-$(error "Operating system unsupported")
+ $(error "Operating system unsupported")
 endif
 
 VERSION=14.2.13

@@ -336,7 +336,16 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
   }
 
-  target_path = alloc_printf("%s/%s", BIN_PATH, fname);
+  if (perm == X_OK) {
+
+    target_path = alloc_printf("%s/%s", BIN_PATH, fname);
+
+  } else {
+
+    target_path = alloc_printf("%s/%s", AFL_PATH, fname);
+
+  }
+
   if (!access(target_path, perm)) {
 
     return target_path;

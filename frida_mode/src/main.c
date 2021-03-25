@@ -22,10 +22,10 @@
 extern mach_port_t mach_task_self();
 extern GumAddress  gum_darwin_find_entrypoint(mach_port_t task);
 #else
-extern int __libc_start_main(int *(main)(int, char **, char **), int argc,
-                             char **ubp_av, void (*init)(void),
-                             void (*fini)(void), void (*rtld_fini)(void),
-                             void(*stack_end));
+extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
+                              char **ubp_av, void (*init)(void),
+                              void (*fini)(void), void (*rtld_fini)(void),
+                              void(*stack_end));
 #endif
 
 typedef int *(*main_fn_t)(int argc, char **argv, char **envp);

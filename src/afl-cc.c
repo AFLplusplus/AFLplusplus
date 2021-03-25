@@ -638,8 +638,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
-          cc_params[cc_par_cnt++] =
-              alloc_printf("%s/afl-llvm-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 
       }
 
@@ -1247,7 +1246,9 @@ int main(int argc, char **argv, char **envp) {
 
                  strcasecmp(ptr, "CFG") == 0) {
 
-        FATAL("InsTrim instrumentation was removed. Use a modern LLVM and PCGUARD (default in afl-cc).\n");
+        FATAL(
+            "InsTrim instrumentation was removed. Use a modern LLVM and "
+            "PCGUARD (default in afl-cc).\n");
 
       } else if (strcasecmp(ptr, "AFL") == 0 ||
 
@@ -1313,7 +1314,9 @@ int main(int argc, char **argv, char **envp) {
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
 
-        FATAL("InsTrim instrumentation was removed. Use a modern LLVM and PCGUARD (default in afl-cc).\n");
+    FATAL(
+        "InsTrim instrumentation was removed. Use a modern LLVM and PCGUARD "
+        "(default in afl-cc).\n");
 
   }
 
@@ -1400,7 +1403,9 @@ int main(int argc, char **argv, char **envp) {
       if (strncasecmp(ptr2, "cfg", strlen("cfg")) == 0 ||
           strncasecmp(ptr2, "instrim", strlen("instrim")) == 0) {
 
-        FATAL("InsTrim instrumentation was removed. Use a modern LLVM and PCGUARD (default in afl-cc).\n");
+        FATAL(
+            "InsTrim instrumentation was removed. Use a modern LLVM and "
+            "PCGUARD (default in afl-cc).\n");
 
       }
 
@@ -1765,7 +1770,8 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, NGRAM-2 ..-16\n"
+            "    CLASSIC, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, NGRAM-2 "
+            "..-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_CALLER: use single context sensitive coverage (for "

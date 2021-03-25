@@ -372,7 +372,8 @@ checks or alter some of the more exotic semantics of the tool:
     may complain of high load prematurely, especially on systems with low core
     counts. To avoid the alarming red color, you can set `AFL_NO_CPU_RED`.
 
-  - In QEMU mode (-Q), `AFL_PATH` will be searched for afl-qemu-trace.
+  - In QEMU mode (-Q), Unicorn mode (-U) and Frida mode (-O), `AFL_PATH` will
+    be searched for afl-qemu-trace.
 
   - In QEMU mode (-Q), setting `AFL_QEMU_CUSTOM_BIN` cause afl-fuzz to skip
     prepending `afl-qemu-trace` to your command line. Use this if you wish to use a
@@ -605,7 +606,7 @@ optimal values if not already present in the environment:
     override this by setting `LD_BIND_LAZY` beforehand, but it is almost
     certainly pointless.
 
-  - By default, `ASAN_OPTIONS` are set to:
+  - By default, `ASAN_OPTIONS` are set to (among others):
 ```
     abort_on_error=1
     detect_leaks=0
