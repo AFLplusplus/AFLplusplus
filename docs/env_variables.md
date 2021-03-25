@@ -424,6 +424,16 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_FORCE_UI` will force painting the UI on the screen even if
     no valid terminal was detected (for virtual consoles)
 
+  - If you are using persistent mode (you should, see [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md))
+    some targets keep inherent state due which a detected crash testcase does
+    not crash the target again when the testcase is given. To be able to still
+    re-trigger these crashes you can use the `AFL_PERSISTENT_RECORD` variable
+    with a value of how many previous fuzz cases to keep prio a crash.
+    if set to e.g. 10, then the 9 previous inputs are written to
+    out/default/crashes as RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008
+    and RECORD:000000,cnt:000009 being the crash case.
+    NOTE: This option needs to be enabled in config.h first!
+
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
     Others need not apply, unless they also want to disable the
     `/proc/sys/kernel/core_pattern` check.
