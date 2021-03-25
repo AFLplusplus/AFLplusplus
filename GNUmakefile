@@ -593,6 +593,7 @@ distrib: all
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
+	-$(MAKE) -C frida_mode
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
@@ -603,6 +604,7 @@ binary-only: test_shm test_python ready $(PROGS)
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
+	-$(MAKE) -C frida_mode
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
@@ -648,6 +650,7 @@ install: all $(MANPAGES)
 	@if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C utils/socket_fuzzing install; fi
 	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C utils/argv_fuzzing install; fi
+	@if [ -f afl-frida-trace.so ]; then install -m 755 afl-frida-trace.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
 	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi

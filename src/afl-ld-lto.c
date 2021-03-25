@@ -73,7 +73,8 @@ static u32 ld_param_cnt = 1;        /* Number of params to 'ld'             */
    so we exploit this property to keep the code "simple". */
 static void edit_params(int argc, char **argv) {
 
-  u32 i, gold_pos = 0, gold_present = 0, rt_present = 0, rt_lto_present = 0, inst_present = 0;
+  u32 i, gold_pos = 0, gold_present = 0, rt_present = 0, rt_lto_present = 0,
+         inst_present = 0;
   char *ptr;
 
   ld_params = ck_alloc(4096 * sizeof(u8 *));
@@ -185,10 +186,12 @@ static void edit_params(int argc, char **argv) {
 
   }
 
-  if (getenv("AFL_LLVM_INSTRIM") || 
+  if (getenv("AFL_LLVM_INSTRIM") ||
       ((ptr = getenv("AFL_LLVM_INSTRUMENT")) &&
-           (strcasestr(ptr, "CFG") == 0 || strcasestr(ptr, "INSTRIM") == 0)))
-    FATAL("InsTrim was removed because it is not effective. Use a modern LLVM and PCGUARD (which is the default in afl-cc).\n");
+       (strcasestr(ptr, "CFG") == 0 || strcasestr(ptr, "INSTRIM") == 0)))
+    FATAL(
+        "InsTrim was removed because it is not effective. Use a modern LLVM "
+        "and PCGUARD (which is the default in afl-cc).\n");
 
   if (debug)
     DEBUGF(
@@ -228,8 +231,8 @@ static void edit_params(int argc, char **argv) {
 
       if (!inst_present) {
 
-          ld_params[ld_param_cnt++] = alloc_printf(
-              "-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", afl_path);
+        ld_params[ld_param_cnt++] = alloc_printf(
+            "-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", afl_path);
 
       }
 
