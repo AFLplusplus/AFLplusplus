@@ -1,4 +1,5 @@
 name: Publish Docker Images
+
 on:
   push:
     branches: [ stable ]
@@ -8,6 +9,7 @@ on:
     branches: [ stable ]
     paths:
     - Dockerfile
+
 jobs:
   push_to_registry:
     name: Push Docker images to Dockerhub
