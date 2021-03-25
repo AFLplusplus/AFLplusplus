@@ -1,5 +1,7 @@
 # AFL++ snapshot feature
 
+**NOTE:** the snapshot lkm is currently not supported and needs a maintainer :-)
+
 Snapshotting is a feature that makes a snapshot from a process and then
 restores its state, which is faster then forking it again.
 
