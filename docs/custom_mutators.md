@@ -89,10 +89,10 @@ def queue_get(filename):
 
 def queue_new_entry(filename_new_queue, filename_orig_queue):
     pass
-```
 
 def introspection():
     return string
+```
 
 ### Custom Mutation
 
