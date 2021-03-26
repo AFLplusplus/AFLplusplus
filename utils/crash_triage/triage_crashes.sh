@@ -90,13 +90,15 @@ for crash in $DIR/crashes/id:*; do
 
   for a in $@; do
 
-    if echo "$a" | grep -qF '@@'; then
-      escaped_fname=`echo $crash | sed 's:/:\\\\/:g'`
-      use_args="$use_args `echo $a | sed "s/@@/$escaped_fname/g"`"
+    case "$a" in
+      *@@*)
       unset use_stdio
-    else
+      use_args="$use_args `printf %s "$a" | sed -e 's<@@<'$crash'<g'`"
+      ;;
+      *)
       use_args="$use_args $a"
-    fi
+      ;;
+    esac
 
   done
 
