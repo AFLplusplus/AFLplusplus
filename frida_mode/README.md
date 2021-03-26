@@ -44,11 +44,11 @@ To run the benchmark sample with qemu run `make png_qemu`.
 To run the benchmark sample with frida run `make png_frida`.
 
 ## Usage
-FRIDA mode requires some small modifications to the afl-fuzz and similar tools
+FRIDA mode requires some small modifications to `afl-fuzz` and similar tools
 in AFLplusplus. The intention is that it behaves identically to QEMU, but uses
 the 'O' switch rather than 'Q'. Whilst the options 'f', 'F', 's' or 'S' may have
 made more sense for a mode powered by FRIDA Stalker, they were all taken, so
-instead we use 'O' in homage to the [author](https://github.com/oleavr) of
+instead we use 'O' in hommage to the [author](https://github.com/oleavr) of
 FRIDA.
 
 Similarly, the intention is to mimic the use of environment variables used by
@@ -73,7 +73,7 @@ as our corpus.
 Whilst not much performance tuning has been completed to date, performance is
 around 30-50% of that of QEMU mode, however, this gap may reduce with the 
 introduction of persistent mode. Performance can be tested by running 
-`make compare`, albeit a longer time measurement may be required for move 
+`make compare`, albeit a longer time measurement may be required for more 
 accurate results. 
 
 Whilst [afl_frida](https://github.com/AFLplusplus/AFLplusplus/tree/stable/utils/afl_frida)
@@ -92,13 +92,13 @@ library is built using the [frida-gum](https://github.com/frida/frida-gum)
 devkit from the [FRIDA](https://github.com/frida/frida) project. One of the
 components of frida-gum is [Stalker](https://medium.com/@oleavr/anatomy-of-a-code-tracer-b081aadb0df8),
 this allows the dynamic instrumentation of running code for AARCH32, AARCH64,
-x86 and x64 architectutes. Implementation details can be found
+x86 and x64 architectures. Implementation details can be found
 [here](https://frida.re/docs/stalker/).
 
 Dynamic instrumentation is used to augment the target application with similar
 coverage information to that inserted by `afl-gcc` or `afl-clang`. The shared
 library is also linked to the `compiler-rt` component of AFLplusplus to feedback
-this coverage information to AFL and also provide a fork server. It also makes
+this coverage information to AFL++ and also provide a fork server. It also makes
 use of the FRIDA [prefetch](https://github.com/frida/frida-gum/blob/56dd9ba3ee9a5511b4b0c629394bf122775f1ab7/gum/gumstalker.h#L115)
 support to feedback instrumented blocks from the child to the parent using a
 shared memory region to avoid the need to regenerate instrumented blocks on each
