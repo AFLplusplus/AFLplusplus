@@ -37,7 +37,7 @@ RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main
 
 RUN apt-get update && apt-get full-upgrade -y && \
     apt-get -y install --no-install-suggests --no-install-recommends \
-    gcc-10 g++-10 gcc-10-plugin-dev gcc-10-multilib gdb lcov \
+    gcc-10 g++-10 gcc-10-plugin-dev gcc-10-multilib gcc-multilib gdb lcov \
     clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
     libc++abi1-12 libc++abi-12-dev libclang1-12 libclang-12-dev \
     libclang-common-12-dev libclang-cpp12 libclang-cpp12-dev liblld-12 \
