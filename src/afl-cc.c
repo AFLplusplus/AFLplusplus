@@ -587,9 +587,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-  #ifdef __ANDROID__
+  #if defined __ANDROID__ || ANDROID
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-        instrument_mode != INSTRUMENT_LLVMNATIVE;
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
   #else
         if (have_instr_list) {
 
@@ -1995,7 +1995,7 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);
 
   if (!ptr) {
