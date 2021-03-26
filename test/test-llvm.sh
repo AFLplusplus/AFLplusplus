@@ -46,7 +46,8 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   ../afl-clang-fast -DTEST_SHARED_OBJECT=1 -z defs -fPIC -shared -o test-instr.so ../test-instr.c > /dev/null 2>&1
   test -e test-instr.so && {
     $ECHO "$GREEN[+] llvm_mode shared object with -z defs compilation succeeded"
-    ../afl-clang-fast -o test-dlopen.plain test-dlopen.c -ldl > /dev/null 2>&1
+    test `uname -s` = 'Linux' && LIBS=-ldl :
+    ../afl-clang-fast -o test-dlopen.plain test-dlopen.c ${LIBS} > /dev/null 2>&1
     test -e test-dlopen.plain && {
       $ECHO "$GREEN[+] llvm_mode test-dlopen compilation succeeded"
       echo 0 | TEST_DLOPEN_TARGET=./test-instr.so AFL_QUIET=1 ./test-dlopen.plain > /dev/null 2>&1
@@ -81,6 +82,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       CODE=1
     }
     rm -f test-dlopen.plain test-dlopen.plain.0 test-dlopen.plain.1 test-instr.so
+    unset LIBS
   } || {
     $ECHO "$RED[!] llvm_mode shared object with -z defs compilation failed"
     CODE=1
