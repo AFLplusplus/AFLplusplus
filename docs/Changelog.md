@@ -18,6 +18,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
     - default cmplog level (-l) is now 2, better efficiency.
+    - ensure one fuzzer sync per cycle
   - afl-cc:
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
 
