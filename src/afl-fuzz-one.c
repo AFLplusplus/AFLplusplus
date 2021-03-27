@@ -2376,8 +2376,7 @@ havoc_stage:
 
 #ifdef INTROSPECTION
             snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s-%u-%u-%u",
-                     actually_clone ? "clone" : "insert", clone_from, clone_to,
-                     clone_len);
+                     "clone", clone_from, clone_to, clone_len);
             strcat(afl->mutation, afl->m_tmp);
 #endif
             u8 *new_buf =
@@ -2416,9 +2415,8 @@ havoc_stage:
             u32 clone_to = rand_below(afl, temp_len);
 
 #ifdef INTROSPECTION
-            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s-%u-%u-%u",
-                     actually_clone ? "clone" : "insert", clone_from, clone_to,
-                     clone_len);
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s-%u-%u",
+                     "insert", clone_to, clone_len);
             strcat(afl->mutation, afl->m_tmp);
 #endif
             u8 *new_buf =
@@ -2485,8 +2483,8 @@ havoc_stage:
           u32 copy_to = rand_below(afl, temp_len - copy_len + 1);
 
 #ifdef INTROSPECTION
-          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " OVERWRITE_FIXED-%u-%u-%u",
-                   copy_from, copy_to, copy_len);
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " OVERWRITE_FIXED-%u-%u",
+                   copy_to, copy_len);
           strcat(afl->mutation, afl->m_tmp);
 #endif
           memset(out_buf + copy_to,
@@ -2600,8 +2598,8 @@ havoc_stage:
 
               u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " AUTO_EXTRA_OVERWRITE-%u-%u",
-                       insert_at, extra_len);
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " AUTO_EXTRA_OVERWRITE-%u-%u", insert_at, extra_len);
               strcat(afl->mutation, afl->m_tmp);
 #endif
               memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
@@ -2618,8 +2616,8 @@ havoc_stage:
               u8 *ptr = afl->a_extras[use_extra].data;
               u32 insert_at = rand_below(afl, temp_len + 1);
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " AUTO_EXTRA_INSERT-%u-%u",
-                       insert_at, extra_len);
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " AUTO_EXTRA_INSERT-%u-%u", insert_at, extra_len);
               strcat(afl->mutation, afl->m_tmp);
 #endif
 
