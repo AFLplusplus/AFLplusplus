@@ -1867,6 +1867,14 @@ int main(int argc, char **argv_orig, char **envp) {
                   runs_in_current_cycle > afl->queued_paths) ||
                  (afl->old_seed_selection && !afl->queue_cur))) {
 
+      if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
+                    (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
+                   afl->sync_id)) {
+
+        sync_fuzzers(afl);
+
+      }
+
       ++afl->queue_cycle;
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_paths = 0;
@@ -1980,6 +1988,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+  #ifdef INTROSPECTION
+      fprintf(afl->introspection_file,
+              "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
+              afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
+              afl->queued_paths);
+  #endif
+
       if (afl->cycle_schedules) {
 
         /* we cannot mix non-AFLfast schedules with others */
@@ -2030,13 +2045,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       prev_queued = afl->queued_paths;
-
-      if (afl->sync_id && afl->queue_cycle == 1 &&
-          afl->afl_env.afl_import_first) {
-
-        sync_fuzzers(afl);
-
-      }
 
     }
 
