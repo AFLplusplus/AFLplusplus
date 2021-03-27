@@ -1980,6 +1980,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+  #ifdef INTROSPECTION
+      fprintf(afl->introspection_file,
+              "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
+              afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
+              afl->queued_paths);
+  #endif
+
       if (afl->cycle_schedules) {
 
         /* we cannot mix non-AFLfast schedules with others */
