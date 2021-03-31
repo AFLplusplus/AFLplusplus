@@ -111,7 +111,7 @@ inline static void afl_maybe_log(guint64 current_pc) {
 
 }
 
-#if GUM_NATIVE_CPU == GUM_CPU_AMD64
+#ifdef __x86_64__
 
 static const guint8 afl_maybe_log_code[] = {
 
@@ -177,7 +177,7 @@ void instr_basic_block(GumStalkerIterator *iterator, GumStalkerOutput *output,
       if (instr->address >= range->code_start &&
           instr->address <= range->code_end) {
 
-#if GUM_NATIVE_CPU == GUM_CPU_AMD64
+#ifdef __x86_64__
         GumX86Writer *cw = output->writer.x86;
         if (range->current_log_impl == 0 ||
             !gum_x86_writer_can_branch_directly_between(
