@@ -32,7 +32,6 @@ cc_defaults {
   target: {
     android_arm64: {
       cflags: [
-        "-D__aarch64__",
         "-D__ANDROID__",
       ],
     },
