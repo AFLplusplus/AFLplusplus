@@ -483,7 +483,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
-    /* Set sane defaults for ASAN if nothing else specified. */
+    /* Set sane defaults for ASAN if nothing else is specified. */
 
     if (!getenv("ASAN_OPTIONS"))
       setenv("ASAN_OPTIONS",
@@ -500,7 +500,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
              "handle_sigill=0",
              1);
 
-    /* Set sane defaults for UBSAN if nothing else specified. */
+    /* Set sane defaults for UBSAN if nothing else is specified. */
 
     if (!getenv("UBSAN_OPTIONS"))
       setenv("UBSAN_OPTIONS",
@@ -537,6 +537,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "handle_sigfpe=0:"
            "handle_sigill=0",
            1);
+
+    /* LSAN, too, does not support abort_on_error=1. */
+
+    if (!getenv("LSAN_OPTIONS"))
+     setenv("LSAN_OPTIONS",
+            "exitcode=" STRINGIFY(LSAN_ERROR) ":"
+            "fast_unwind_on_malloc=0",
+            1);
 
     fsrv->init_child_func(fsrv, argv);
 
@@ -1210,8 +1218,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   if (unlikely(
           /* A normal crash/abort */
           (WIFSIGNALED(fsrv->child_status)) ||
-          /* special handling for msan */
-          (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+          /* special handling for msan and lsan */
+          (fsrv->uses_asan && (WEXITSTATUS(fsrv->child_status) == MSAN_ERROR ||
+          WEXITSTATUS(fsrv->child_status) == LSAN_ERROR)) ||
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
