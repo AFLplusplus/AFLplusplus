@@ -34,10 +34,11 @@ The usage of Autodict-QL is pretty easy. But let's describe it as :
 
 1. First of all, you need to have CodeQL installed on the system. we make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system, so :
 
-` # chmod +x codeql-build.sh`
-
-` # codeql `
-
+```shell
+# chmod +x codeql-build.sh`
+# sudo ./codeql-build.sh
+# codeql `
+```
 Then you should get :
 
 ```shell
@@ -93,5 +94,3 @@ There are 2 important points to remember :
 
 - If you combine `Autodict-QL` with AFL++ cmplog, you will get much better code coverage and hence better chance to discover new bugs.
 - Do not remember to set the `AFL_MAX_DET_EXTRAS` to the number of generated dictionaries, if you forget to set this environment variable, then AFL++ use just 200 tokens and use the rest of them probablistically. So this will guarantees that your tokens will be used by AFL++.
-
- 
