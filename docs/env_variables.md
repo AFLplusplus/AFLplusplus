@@ -55,7 +55,7 @@ make fairly broad use of environmental variables instead:
     overridden.
 
   - Setting `AFL_USE_ASAN` automatically enables ASAN, provided that your
-    compiler supports itt. Note that fuzzing with ASAN is mildly challenging
+    compiler supports it. Note that fuzzing with ASAN is mildly challenging
     - see [notes_for_asan.md](notes_for_asan.md).
 
     (You can also enable MSAN via `AFL_USE_MSAN`; ASAN and MSAN come with the
@@ -66,8 +66,8 @@ make fairly broad use of environmental variables instead:
 
   - Setting `AFL_USE_LSAN` automatically enables Leak-Sanitizer, provided
     that your compiler supports it. To perform a leak check within your
-    program at a certain point (such as at the end of an __AFL_LOOP,
-    you can run the macro __AFL_CHECK_LEAK(); which will cause
+    program at a certain point (such as at the end of an __AFL_LOOP),
+    you can run the macro __AFL_LEAK_CHECK(); which will cause
     an abort if any memory is leaked (you can combine this with the
     LSAN_OPTIONS=suppressions option to supress some known leaks).
 
@@ -637,7 +637,7 @@ optimal values if not already present in the environment:
 ```
   - Similarly, the default `LSAN_OPTIONS` are set to:
 ```
-    exit_code=86
+    exit_code=23
     fast_unwind_on_malloc=0
 ````
   Be sure to include the first ones for LSAN and MSAN when customizing
