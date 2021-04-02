@@ -40,7 +40,8 @@ The usage of Autodict-QL is pretty easy. But let's describe it as :
 
 Then you should get :
 
-' Usage: codeql <command> <argument>...
+" 
+Usage: codeql <command> <argument>...
 Create and query CodeQL databases, or work with the QL language.
 
 GitHub makes this program freely available for the analysis of open-source software and certain other uses, but it is
@@ -63,7 +64,7 @@ Commands:
   version   Show the version of the CodeQL toolchain.
   generate  Generate formatted QL documentation.
   github    Commands useful for interacting with the GitHub API through CodeQL.
-'
+"
 
 2. Compiler your project with CodeQL: For using the Autodict-QL plugin, you need to compile the source of the target you want to fuzz with CodeQL. This is not something hard .
 	- First you need to create a CodeQL database of the project codebase, suppose we want to compile the libxml with codeql. go to libxml and issue the following commands:
@@ -74,7 +75,7 @@ Commands:
 	- `mkdir automate` 
 4. The final step is to update the CodeQL database you created in the step 2 inside the automate dir you created at step 3 :
 	- `codeql database upgrade ../libxml-db`
-5. Everything is set! :-), now you should issue the following to get the tokens :
+5. Everything is set! Now you should issue the following to get the tokens :
 		- `python3 autodict-ql.py [CURRECT_DIR] [CODEQL_DATABASE_PATH] [TOKEN_PATH]`
 			- example : `python3 autodict-ql.py /home/user/libxml/automate /home/user/libxml/libxml-db tokens`
 				- This will create the final `tokens` dir for you and you are done, then pass the tokens path to afl `-x` flag.
