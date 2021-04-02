@@ -70,8 +70,8 @@ Commands:
 		- `./configure --disable-shared`
 		- `codeql create database libxml-db --language=cpp --command=make`
 			- Now you have the CodeQL database of the project :-)
-3. To run the Autodict-QL, the final step is to just create a folder named `automate` in the project you want to fuzz.
-	- `mkdir automate` (inside the libxml directory)
+3. To run the Autodict-QL, the final step is to just create a folder named `automate` in the project you want to fuzz. (inside the libxml directory)
+	- `mkdir automate` 
 4. The final step is to update the CodeQL database you created in the step 2 inside the automate dir you created at step 3 :
 	- `codeql database upgrade ../libxml-db`
 5. Everything is set! :-), now you should issue the following to get the tokens :
