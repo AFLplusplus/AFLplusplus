@@ -68,7 +68,7 @@ Commands:
 2. Compiler your project with CodeQL: For using the Autodict-QL plugin, you need to compile the source of the target you want to fuzz with CodeQL. This is not something hard .
 	- First you need to create a CodeQL database of the project codebase, suppose we want to compile the libxml with codeql. go to libxml and issue the following commands:
 		- `./configure --disable-shared`
-		- `codeql create database libxml-db --language=cpp --command=make
+		- `codeql create database libxml-db --language=cpp --command=make`
 			- Now you have the CodeQL database of the project :-)
 3. To run the Autodict-QL, the final step is to just create a folder named `automate` in the project you want to fuzz.
 	- `mkdir automate` (inside the libxml directory)
