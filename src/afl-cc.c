@@ -1442,9 +1442,11 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0) {
+      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0 ||
+          strncasecmp(ptr2, "kctx-", strlen("c-ctx-")) == 0 ||
+          strncasecmp(ptr2, "k-ctx-", strlen("k-ctx-")) == 0) {
 
-        u8 *ptr3 = ptr2 + strlen("ctx-");
+        u8 *ptr3 = ptr2;
         while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
           ptr3++;
 
@@ -1480,7 +1482,7 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
+      if (strcasecmp(ptr2, "ctx") == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
         setenv("AFL_LLVM_CTX", "1", 1);
