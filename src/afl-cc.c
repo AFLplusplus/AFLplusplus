@@ -758,7 +758,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list="))
       have_instr_list = 1;
 
-    if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
+    if (!(strcmp(cur, "-fsanitize=address") && strcmp(cur, "-fsanitize=memory")))
       asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
@@ -815,6 +815,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
     cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
 
+  }
+
+  if (getenv("AFL_USE_LSAN")) {
+    cc_params[cc_par_cnt++] = "-fsanitize=leak";
   }
 
   if (getenv("AFL_USE_CFISAN")) {
@@ -913,6 +917,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         "void __afl_coverage_off();";
 
   }
+
+  if (getenv("AFL_USE_LSAN")) {
+    cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
+  }
+
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_CHECK_LEAK()=__lsan_do_leak_check()";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_START_OFF()=int __afl_selective_coverage_start_off = "
@@ -1740,7 +1751,8 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_ASAN: activate address sanitizer\n"
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
-          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n");
+          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+          "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
 
       if (have_gcc_plugin)
         SAYF(

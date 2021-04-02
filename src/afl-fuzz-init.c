@@ -2466,6 +2466,20 @@ void check_asan_opts(afl_state_t *afl) {
 
   }
 
+  x = get_afl_env("LSAN_OPTIONS");
+
+  if (x) {
+
+    if (!strstr(x, "exit_code=" STRINGIFY(LSAN_ERROR))) {
+
+      FATAL("Custom LSAN_OPTIONS set without exit_code=" STRINGIFY(
+          LSAN_ERROR) " - please fix!");
+
+    }
+
+  }
+
+
 }
 
 /* Handle stop signal (Ctrl-C, etc). */
@@ -2711,7 +2725,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (memmem(f_data, f_len, "__asan_init", 11) ||
-      memmem(f_data, f_len, "__msan_init", 11)) {
+      memmem(f_data, f_len, "__msan_init", 11) ||
+      memmem(f_data, f_len, "__lsan_init", 11)) {
 
     afl->fsrv.uses_asan = 1;
 

@@ -781,6 +781,19 @@ static void set_up_environment(void) {
 
   }
 
+  x = get_afl_env("LSAN_OPTIONS");
+
+  if (x) {
+
+    if (!strstr(x, "exit_code=" STRINGIFY(LSAN_ERROR))) {
+
+      FATAL("Custom LSAN_OPTIONS set without exit_code=" STRINGIFY(
+          LSAN_ERROR) " - please fix!");
+
+    }
+
+  }
+
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
          "detect_leaks=0:"
@@ -817,6 +830,12 @@ static void set_up_environment(void) {
                          "handle_abort=0:"
                          "handle_sigfpe=0:"
                          "handle_sigill=0", 0);
+
+   setenv("LSAN_OPTIONS",
+         "exitcode=" STRINGIFY(MSAN_ERROR) ":"
+         "fast_unwind_on_malloc=0",
+         0);
+
 
   if (get_afl_env("AFL_PRELOAD")) {
 

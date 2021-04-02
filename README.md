@@ -601,7 +601,7 @@ Every -M/-S entry needs a unique name (that can be whatever), however the same
 For every secondary fuzzer there should be a variation, e.g.:
  * one should fuzz the target that was compiled differently: with sanitizers
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
-   export AFL_USE_CFISAN=1 ; `
+   export AFL_USE_CFISAN=1 ; export AFL_USE_LSAN`)
  * one should fuzz the target with CMPLOG/redqueen (see above)
  * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
    (see above). Important note: If you run more than one laf-intel/COMPCOV

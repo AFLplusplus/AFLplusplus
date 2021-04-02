@@ -570,6 +570,10 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
          "handle_sigfpe=0:"
          "handle_sigill=0",
          0);
+  setenv("LSAN_OPTIONS",
+         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
+         "fast_unwind_on_malloc=0",
+          0);
 
   setenv("UBSAN_OPTIONS",
          "halt_on_error=1:"
