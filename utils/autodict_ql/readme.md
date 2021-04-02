@@ -2,7 +2,7 @@
 
 ## What is this?
 
-Autodict-QL is a plugin system that enables fast generation of Tokens/Dictionaries in a handy way that can be manipulated by the user (Unlike The LLVM Passes that are hard to modify). This means that autodict-ql is a scriptable feature which basically uses the CodeQL (A powerful semantic code analysis engine) to fetch information from a code base.
+`Autodict-QL` is a plugin system that enables fast generation of Tokens/Dictionaries in a handy way that can be manipulated by the user (Unlike The LLVM Passes that are hard to modify). This means that autodict-ql is a scriptable feature which basically uses the CodeQL (A powerful semantic code analysis engine) to fetch information from a code base.
 
 Tokens are useful when you perform fuzzing on different parsers. AFL++ `-x` switch enables the usage of dictionaries through your fuzzing campagin. if you are not familiar with Dictionaries in fuzzing, take a look [here](https://github.com/AFLplusplus/AFLplusplus/tree/stable/dictionaries) .
 
