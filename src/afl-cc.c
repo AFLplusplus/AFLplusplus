@@ -923,7 +923,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   cc_params[cc_par_cnt++] =
-      "-D__AFL_CHECK_LEAK()=__lsan_do_leak_check()";
+      "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_START_OFF()=int __afl_selective_coverage_start_off = "

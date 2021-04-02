@@ -832,7 +832,7 @@ static void set_up_environment(void) {
                          "handle_sigill=0", 0);
 
    setenv("LSAN_OPTIONS",
-         "exitcode=" STRINGIFY(MSAN_ERROR) ":"
+         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
          "fast_unwind_on_malloc=0",
          0);
 
