@@ -3,8 +3,8 @@ import semmle.code.cpp.dataflow.DataFlow
 class StringLiteralNode extends DataFlow::Node {
   StringLiteralNode() { this.asExpr() instanceof StringLiteral }
 }
-class MemcmpArgNode extends DataFlow::Node {
-   MemcmpArgNode() {
+class CmpArgNode extends DataFlow::Node {
+   CmpArgNode() {
     exists(FunctionCall fc |
       fc.getTarget().getName().regexpMatch(".*(str|mem|strn|b)*(cmp|str)*") and
       fc.getArgument(0) = this.asExpr() 
@@ -17,7 +17,7 @@ class MemcmpArgNode extends DataFlow::Node {
   }
 }
 
-from StringLiteralNode src, MemcmpArgNode arg
+from StringLiteralNode src, CmpArgNode arg
 where
   DataFlow::localFlow(src, arg)
 
