@@ -785,10 +785,9 @@ static void set_up_environment(void) {
 
   if (x) {
 
-    if (!strstr(x, "exit_code=" STRINGIFY(LSAN_ERROR))) {
+    if (!strstr(x, "symbolize=0")) {
 
-      FATAL("Custom LSAN_OPTIONS set without exit_code=" STRINGIFY(
-          LSAN_ERROR) " - please fix!");
+      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
 
@@ -833,7 +832,8 @@ static void set_up_environment(void) {
 
    setenv("LSAN_OPTIONS",
          "exitcode=" STRINGIFY(LSAN_ERROR) ":"
-         "fast_unwind_on_malloc=0",
+         "fast_unwind_on_malloc=0:"
+         "symbolize=0",
          0);
 
 

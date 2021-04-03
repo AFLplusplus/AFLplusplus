@@ -2470,10 +2470,9 @@ void check_asan_opts(afl_state_t *afl) {
 
   if (x) {
 
-    if (!strstr(x, "exit_code=" STRINGIFY(LSAN_ERROR))) {
+    if (!strstr(x, "symbolize=0")) {
 
-      FATAL("Custom LSAN_OPTIONS set without exit_code=" STRINGIFY(
-          LSAN_ERROR) " - please fix!");
+      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
 
