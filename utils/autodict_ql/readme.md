@@ -67,7 +67,7 @@ Commands:
   github    Commands useful for interacting with the GitHub API through CodeQL.
 ```
 
-2. Compiler your project with CodeQL: For using the Autodict-QL plugin, you need to compile the source of the target you want to fuzz with CodeQL. This is not something hard .
+2. Compile your project with CodeQL: For using the Autodict-QL plugin, you need to compile the source of the target you want to fuzz with CodeQL. This is not something hard .
 	- First you need to create a CodeQL database of the project codebase, suppose we want to compile the libxml with codeql. go to libxml and issue the following commands:
 		- `./configure --disable-shared`
 		- `codeql create database libxml-db --language=cpp --command=make`
@@ -87,10 +87,12 @@ Commands:
 Core developer of the AFL++ project Marc Heuse also developed a similar tool named `dict2file` which is a LLVM pass which can automatically extracts useful tokens, in addition with LTO instrumentation mode, this dict2file is automtically generates token extraction. `Autodict-QL` plugin gives you scripting capability and you can do whatever you want to extract from the Codebase and it's up to you. in addition it's independent from LLVM system.
 On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file format and speicifications. for example, for testing binutils and ELF file format or AVI in FFMPEG, there are no prebuilt dictionary, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generating dictionaries based on the target.
 
-I've personally prefer to use `Autodict-QL` or `dict2file` rather than Google dictionaries or any other manully generated dictionaries as `Autodict-QL` is working based on the target.
+I've personally prefer to use `Autodict-QL` or `dict2file` rather than Google dictionaries or any other manully generated dictionaries as `Autodict-QL` and `dict2file` is working based on the target.
 In overall, fuzzing with dictionaries and well-generated tokens will give better results.
 
 There are 2 important points to remember :
 
 - If you combine `Autodict-QL` with AFL++ cmplog, you will get much better code coverage and hence better chance to discover new bugs.
 - Do not remember to set the `AFL_MAX_DET_EXTRAS` to the number of generated dictionaries, if you forget to set this environment variable, then AFL++ use just 200 tokens and use the rest of them probablistically. So this will guarantees that your tokens will be used by AFL++.
+
+Thanks are going to Marc Heuse, the AFL++ main developer, Antonio Morales and Stefan Nagy
