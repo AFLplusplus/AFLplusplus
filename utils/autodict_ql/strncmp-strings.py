@@ -53,7 +53,7 @@ def do_string_analysis(corpdir, infile1):
                 else :
                     with open(corpdir+'/strncmp-str{0}'.format(n), 'w') as file:                    
                             file.write(str11)
-                            print("Hahaha : %s" % str11)
+                            print("AFL++ Autodict-QL by Microsvuln : Writing Token : %s" % str11)
                             n=n+1
 
 def main():
