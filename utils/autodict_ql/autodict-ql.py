@@ -52,11 +52,11 @@ def static_analysis(file,file2,cur,db) :
         f.close()
 
 def copy_tokens(cur, tokenpath) :
-    subprocess.call(["cp " + cur  + "/" + "strcmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
-    subprocess.call(["cp " + cur  + "/" + "strncmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
-    subprocess.call(["cp " + cur  + "/" + "memcmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
-    subprocess.call(["cp " + cur  + "/" + "lits/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
-    subprocess.call(["cp " + cur  + "/" + "strtool-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
+    subprocess.call(["mv " + cur  + "/" + "strcmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
+    subprocess.call(["mv " + cur  + "/" + "strncmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
+    subprocess.call(["mv " + cur  + "/" + "memcmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
+    subprocess.call(["mv " + cur  + "/" + "lits/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
+    subprocess.call(["mv " + cur  + "/" + "strtool-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
     subprocess.call(["find "+tokenpath+" -size 0 -delete"],shell=True)
 
 

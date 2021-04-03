@@ -40,7 +40,7 @@ def do_string_analysis(corpdir, infile1):
         for i, num1 in enumerate(lines):
             if i != 0:
                 new_lst1.append(num1)
-                print("num : %s" % num1)
+                #print("num : %s" % num1)
                 str11 = str(num1)
                 str11 = str11.replace("|","")
                 str11 = str11.replace("\n","")
