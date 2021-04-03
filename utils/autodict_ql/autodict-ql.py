@@ -57,6 +57,8 @@ def copy_tokens(cur, tokenpath) :
     subprocess.call(["mv " + cur  + "/" + "memcmp-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
     subprocess.call(["mv " + cur  + "/" + "lits/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
     subprocess.call(["mv " + cur  + "/" + "strtool-strs/*" + " " + cur + "/" + tokenpath + "/."] ,shell=True)
+    subprocess.call(["rm -rf strcmp-strs memcmp-strs strncmp-strs lits strtool-strs"],shell=True)
+    subprocess.call(["rm *.out"],shell=True)
     subprocess.call(["find "+tokenpath+" -size 0 -delete"],shell=True)
 
 
