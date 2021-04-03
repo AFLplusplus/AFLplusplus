@@ -31,13 +31,18 @@ You can write other CodeQL scripts to extract possible effective tokens if you t
 
 ## Usage
 
+Before proceed to installation make sure that you have the following packages by installing them :
+```shell
+sudo apt install build-essential libtool-bin python3-dev python3 automake git vim wget -y
+```
 The usage of Autodict-QL is pretty easy. But let's describe it as :
 
-1. First of all, you need to have CodeQL installed on the system. we make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system, so :
-
+1. First of all, you need to have CodeQL installed on the system. we make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system.
+Do the following :
 ```shell
 # chmod +x codeql-build.sh
-# sudo ./codeql-build.sh
+# ./codeql-build.sh
+# source ~/.bashrc
 # codeql 
 ```
 Then you should get :

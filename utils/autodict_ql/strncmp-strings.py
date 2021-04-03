@@ -46,9 +46,8 @@ def do_string_analysis(corpdir, infile1):
                 str11 = str11.replace("\n","")
                 str11 = str11.lstrip()
                 str11 = str11.rstrip()
-                print("all strings : %s" % str11)
                 str11 = str(str11)
-                if ((" " in str11 ) or (")" in str11) or ("(" in str11)):                    
+                if ((" " in str11 ) or (")" in str11) or ("(" in str11) or ("<" in str11) or (">" in str11)) :
                     print("Space / Paranthesis String : %s" % str11)
                 else :
                     with open(corpdir+'/strncmp-str{0}'.format(n), 'w') as file:                    
