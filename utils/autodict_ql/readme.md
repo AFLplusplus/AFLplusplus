@@ -30,6 +30,7 @@ You can write other CodeQL scripts to extract possible effective tokens if you t
 
 
 ## Usage
+
 The usage of Autodict-QL is pretty easy. But let's describe it as :
 
 1. First of all, you need to have CodeQL installed on the system. we make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system, so :
