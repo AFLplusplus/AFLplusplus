@@ -78,7 +78,7 @@ Commands:
 		- `./configure --disable-shared`
 		- `codeql create database libxml-db --language=cpp --command=make`
 			- Now you have the CodeQL database of the project :-)
-3. The final step is to update the CodeQL database you created in the step 2 :
+3. The final step is to update the CodeQL database you created in the step 2 (Suppose we are in `aflplusplus/utils/autodict_ql/` directory) :
 	- `codeql database upgrade /home/user/libxml/libxml-db`
 4. Everything is set! Now you should issue the following to get the tokens :
 	- `python3 autodict-ql.py [CURRECT_DIR] [CODEQL_DATABASE_PATH] [TOKEN_PATH]`
