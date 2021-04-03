@@ -82,7 +82,7 @@ Commands:
 	- `codeql database upgrade /home/user/libxml/libxml-db`
 4. Everything is set! Now you should issue the following to get the tokens :
 	- `python3 autodict-ql.py [CURRECT_DIR] [CODEQL_DATABASE_PATH] [TOKEN_PATH]`
-		- example : `python3 /home/user/AFLplusplus/utils/autodict_ql/autodict-ql.py `pwd` /home/user/libxml/libxml-db tokens`
+		- example : `python3 /home/user/AFLplusplus/utils/autodict_ql/autodict-ql.py ``pwd`` /home/user/libxml/libxml-db tokens`
 			- This will create the final `tokens` dir for you and you are done, then pass the tokens path to afl `-x` flag.
 5. Done! 
 
