@@ -78,15 +78,13 @@ Commands:
 		- `./configure --disable-shared`
 		- `codeql create database libxml-db --language=cpp --command=make`
 			- Now you have the CodeQL database of the project :-)
-3. To run the Autodict-QL, the final step is to just create a folder named `automate` in the project you want to fuzz. (inside the libxml directory)
-	- `mkdir automate` 
-4. The final step is to update the CodeQL database you created in the step 2 inside the automate dir you created at step 3 :
-	- `codeql database upgrade ../libxml-db`
-5. Everything is set! Now you should issue the following to get the tokens :
+3. The final step is to update the CodeQL database you created in the step 2 :
+	- `codeql database upgrade /home/user/libxml/libxml-db`
+4. Everything is set! Now you should issue the following to get the tokens :
 	- `python3 autodict-ql.py [CURRECT_DIR] [CODEQL_DATABASE_PATH] [TOKEN_PATH]`
-		- example : `python3 autodict-ql.py /home/user/libxml/automate /home/user/libxml/libxml-db tokens`
+		- example : `python3 /home/user/AFLplusplus/utils/autodict_ql/autodict-ql.py `pwd` /home/user/libxml/libxml-db tokens`
 			- This will create the final `tokens` dir for you and you are done, then pass the tokens path to afl `-x` flag.
-6. Done! 
+5. Done! 
 
 
 ## More on dictionaries and tokens
