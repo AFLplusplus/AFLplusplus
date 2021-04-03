@@ -758,7 +758,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list="))
       have_instr_list = 1;
 
-    if (!(strcmp(cur, "-fsanitize=address") && strcmp(cur, "-fsanitize=memory")))
+    if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
