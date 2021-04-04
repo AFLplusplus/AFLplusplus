@@ -2502,7 +2502,6 @@ void check_asan_opts(afl_state_t *afl) {
 
   }
 
-
 }
 
 /* Handle stop signal (Ctrl-C, etc). */

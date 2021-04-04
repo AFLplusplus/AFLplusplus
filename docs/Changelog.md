@@ -11,6 +11,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++3.13a (development)
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
     thanks to @WorksButNotTested!
+  - create a fuzzing dictionary with the help of CodeQL thanks to
+    @microsvuln! see utils/autodict_ql
   - afl-fuzz:
     - added patch by @realmadsci to support @@ as part of command line
       options, e.g. `afl-fuzz ... -- ./target --infile=@@`
@@ -20,6 +22,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - default cmplog level (-l) is now 2, better efficiency.
     - ensure one fuzzer sync per cycle
   - afl-cc:
+    - Leak Sanitizer support (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
 
 ### Version ++3.12c (release)

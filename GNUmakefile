@@ -36,6 +36,11 @@ SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
+SYS = $(shell uname -s)
+ARCH = $(shell uname -m)
+
+$(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
+
 ifdef NO_SPLICING
   override CFLAGS += -DNO_SPLICING
 endif
@@ -82,7 +87,7 @@ endif
 #  endif
 #endif
 
-ifneq "$(shell uname)" "Darwin"
+ifneq "$(SYS)" "Darwin"
   #ifeq "$(HAVE_MARCHNATIVE)" "1"
   #  SPECIAL_PERFORMANCE += -march=native
   #endif
@@ -92,7 +97,7 @@ ifneq "$(shell uname)" "Darwin"
   endif
 endif
 
-ifeq "$(shell uname)" "SunOS"
+ifeq "$(SYS)" "SunOS"
   CFLAGS_OPT += -Wno-format-truncation
   LDFLAGS = -lkstat -lrt
 endif
@@ -119,11 +124,10 @@ ifdef INTROSPECTION
   CFLAGS_OPT += -DINTROSPECTION=1
 endif
 
-
-ifneq "$(shell uname -m)" "x86_64"
- ifneq "$(patsubst i%86,i386,$(shell uname -m))" "i386"
-  ifneq "$(shell uname -m)" "amd64"
-   ifneq "$(shell uname -m)" "i86pc"
+ifneq "$(ARCH)" "x86_64"
+ ifneq "$(patsubst i%86,i386,$(ARCH))" "i386"
+  ifneq "$(ARCH)" "amd64"
+   ifneq "$(ARCH)" "i86pc"
 	AFL_NO_X86=1
    endif
   endif
@@ -141,27 +145,27 @@ override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpoi
 			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
-ifeq "$(shell uname -s)" "FreeBSD"
+ifeq "$(SYS)" "FreeBSD"
   override CFLAGS  += -I /usr/local/include/
   LDFLAGS += -L /usr/local/lib/
 endif
 
-ifeq "$(shell uname -s)" "DragonFly"
+ifeq "$(SYS)" "DragonFly"
   override CFLAGS  += -I /usr/local/include/
   LDFLAGS += -L /usr/local/lib/
 endif
 
-ifeq "$(shell uname -s)" "OpenBSD"
+ifeq "$(SYS)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/ -mno-retpoline
   LDFLAGS += -Wl,-z,notext -L /usr/local/lib/
 endif
 
-ifeq "$(shell uname -s)" "NetBSD"
+ifeq "$(SYS)" "NetBSD"
   override CFLAGS  += -I /usr/pkg/include/
   LDFLAGS += -L /usr/pkg/lib/
 endif
 
-ifeq "$(shell uname -s)" "Haiku"
+ifeq "$(SYS)" "Haiku"
   SHMAT_OK=0
   override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
   LDFLAGS += -Wno-deprecated-declarations -lgnu
@@ -236,24 +240,24 @@ else
     BUILD_DATE ?= $(shell date "+%Y-%m-%d")
 endif
 
-ifneq "$(filter Linux GNU%,$(shell uname))" ""
+ifneq "$(filter Linux GNU%,$(SYS))" ""
  ifndef DEBUG
   override CFLAGS += -D_FORTIFY_SOURCE=2
  endif
   LDFLAGS += -ldl -lrt -lm
 endif
 
-ifneq "$(findstring FreeBSD, $(shell uname))" ""
+ifneq "$(findstring FreeBSD, $(ARCH))" ""
   override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
-ifneq "$(findstring NetBSD, $(shell uname))" ""
+ifneq "$(findstring NetBSD, $(ARCH))" ""
   override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
-ifneq "$(findstring OpenBSD, $(shell uname))" ""
+ifneq "$(findstring OpenBSD, $(ARCH))" ""
   override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
@@ -485,7 +489,7 @@ unit_clean:
 	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
 
 .PHONY: unit
-ifneq "$(shell uname)" "Darwin"
+ifneq "$(ARCH)" "Darwin"
 unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
 else
 unit:

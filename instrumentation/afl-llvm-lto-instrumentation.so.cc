@@ -176,7 +176,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (debug) { fprintf(stderr, "map address is 0x%lx\n", map_addr); }
+  if (debug) { fprintf(stderr, "map address is 0x%llx\n", map_addr); }
 
   /* Get/set the globals for the SHM region. */
 
