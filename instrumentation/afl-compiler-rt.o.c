@@ -34,8 +34,10 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#include <sys/syscall.h>
 #ifndef __HAIKU__
+  #include <sys/syscall.h>
+#endif
+#ifndef USEMMAP
   #include <sys/shm.h>
 #endif
 #include <sys/wait.h>
