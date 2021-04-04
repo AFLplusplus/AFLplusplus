@@ -164,7 +164,7 @@ endif
 ifeq "$(shell uname -s)" "Haiku"
   SHMAT_OK=0
   override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
-  LDFLAGS += -Wno-deprecated-declarations -lgnu
+  LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
