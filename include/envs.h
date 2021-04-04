@@ -181,6 +181,7 @@ static char *afl_environment_variables[] = {
     "AFL_USE_TRACE_PC",
     "AFL_USE_UBSAN",
     "AFL_USE_CFISAN",
+    "AFL_USE_LSAN",
     "AFL_WINE_PATH",
     "AFL_NO_SNAPSHOT",
     "AFL_EXPAND_HAVOC_NOW",
