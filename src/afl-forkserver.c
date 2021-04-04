@@ -560,7 +560,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* LSAN, too, does not support abort_on_error=1. */
 
     if (!getenv("LSAN_OPTIONS"))
-     setenv("LSAN_OPTIONS",
+      setenv("LSAN_OPTIONS",
             "exitcode=" STRINGIFY(LSAN_ERROR) ":"
             "fast_unwind_on_malloc=0:"
             "symbolize=0:"
@@ -1314,8 +1314,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           /* A normal crash/abort */
           (WIFSIGNALED(fsrv->child_status)) ||
           /* special handling for msan and lsan */
-          (fsrv->uses_asan && (WEXITSTATUS(fsrv->child_status) == MSAN_ERROR ||
-          WEXITSTATUS(fsrv->child_status) == LSAN_ERROR)) ||
+          (fsrv->uses_asan &&
+           (WEXITSTATUS(fsrv->child_status) == MSAN_ERROR ||
+            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR)) ||
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
