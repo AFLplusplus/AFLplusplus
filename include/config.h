@@ -406,6 +406,10 @@
 
 #define MSAN_ERROR 86
 
+/* Distinctive exit code used to indicate LSAN trip condition: */
+
+#define LSAN_ERROR 23
+
 /* Designated file descriptors for forkserver commands (the application will
    use FORKSRV_FD and FORKSRV_FD + 1): */
 

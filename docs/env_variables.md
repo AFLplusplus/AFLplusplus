@@ -55,7 +55,7 @@ make fairly broad use of environmental variables instead:
     overridden.
 
   - Setting `AFL_USE_ASAN` automatically enables ASAN, provided that your
-    compiler supports that. Note that fuzzing with ASAN is mildly challenging
+    compiler supports it. Note that fuzzing with ASAN is mildly challenging
     - see [notes_for_asan.md](notes_for_asan.md).
 
     (You can also enable MSAN via `AFL_USE_MSAN`; ASAN and MSAN come with the
@@ -63,6 +63,13 @@ make fairly broad use of environmental variables instead:
     similarly by setting the environment variable `AFL_USE_UBSAN=1`. Finally
     there is the Control Flow Integrity sanitizer that can be activated by
     `AFL_USE_CFISAN=1`)
+
+  - Setting `AFL_USE_LSAN` automatically enables Leak-Sanitizer, provided
+    that your compiler supports it. To perform a leak check within your
+    program at a certain point (such as at the end of an __AFL_LOOP),
+    you can run the macro __AFL_LEAK_CHECK(); which will cause
+    an abort if any memory is leaked (you can combine this with the
+    LSAN_OPTIONS=suppressions option to supress some known leaks).
 
   - Setting `AFL_CC`, `AFL_CXX`, and `AFL_AS` lets you use alternate downstream
     compilation tools, rather than the default 'clang', 'gcc', or 'as' binaries
@@ -627,7 +634,14 @@ optimal values if not already present in the environment:
     msan_track_origins=0
     allocator_may_return_null=1
 ```
-  Be sure to include the first one when customizing anything, since some
-    MSAN versions don't call `abort()` on error, and we need a way to detect
-    faults.
+  - Similarly, the default `LSAN_OPTIONS` are set to:
+```
+    exit_code=23
+    fast_unwind_on_malloc=0
+    symbolize=0
+    print_suppressions=0
+```
+  Be sure to include the first ones for LSAN and MSAN when customizing
+     anything, since some MSAN and LSAN versions don't call `abort()` on
+     error, and we need a way to detect faults.
 

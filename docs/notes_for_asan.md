@@ -28,6 +28,13 @@ Note that ASAN is incompatible with -static, so be mindful of that.
 
 (You can also use AFL_USE_MSAN=1 to enable MSAN instead.)
 
+When compiling with AFL_USE_LSAN, the leak sanitizer will normally run
+when the program exits. In order to utilize this check at different times,
+such as at the end of a loop, you may use the macro __AFL_LEAK_CHECK();.
+This macro will report a crash in afl-fuzz if any memory is left leaking
+at this stage. You can also use LSAN_OPTIONS and a supressions file
+for more fine-tuned checking, however make sure you keep exitcode=23.
+
 NOTE: if you run several secondary instances, only one should run the target
 compiled with ASAN (and UBSAN, CFISAN), the others should run the target with
 no sanitizers compiled in.

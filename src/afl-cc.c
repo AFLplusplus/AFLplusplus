@@ -819,6 +819,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  if (getenv("AFL_USE_LSAN")) {
+    cc_params[cc_par_cnt++] = "-fsanitize=leak";
+    cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
+  }
+
   if (getenv("AFL_USE_CFISAN")) {
 
     if (!lto_mode) {
@@ -1730,7 +1737,8 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_ASAN: activate address sanitizer\n"
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
-          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n");
+          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+          "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
 
       if (have_gcc_plugin)
         SAYF(
