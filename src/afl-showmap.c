@@ -574,7 +574,8 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
   setenv("LSAN_OPTIONS",
          "exitcode=" STRINGIFY(LSAN_ERROR) ":"
          "fast_unwind_on_malloc=0:"
-         "symbolize=0",
+         "symbolize=0:"
+         "print_suppressions=0",
           0);
 
   setenv("UBSAN_OPTIONS",

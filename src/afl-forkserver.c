@@ -544,7 +544,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
      setenv("LSAN_OPTIONS",
             "exitcode=" STRINGIFY(LSAN_ERROR) ":"
             "fast_unwind_on_malloc=0:"
-            "symbolize=0",
+            "symbolize=0:"
+            "print_suppressions=0",
             1);
 
     fsrv->init_child_func(fsrv, argv);
