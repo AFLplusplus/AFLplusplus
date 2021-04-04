@@ -640,6 +640,7 @@ optimal values if not already present in the environment:
     exit_code=23
     fast_unwind_on_malloc=0
     symbolize=0
+    print_suppressions=0
 ```
   Be sure to include the first ones for LSAN and MSAN when customizing
      anything, since some MSAN and LSAN versions don't call `abort()` on

@@ -819,6 +819,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (getenv("AFL_USE_LSAN")) {
     cc_params[cc_par_cnt++] = "-fsanitize=leak";
+    cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
   }
 
   if (getenv("AFL_USE_CFISAN")) {
@@ -917,13 +920,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         "void __afl_coverage_off();";
 
   }
-
-  if (getenv("AFL_USE_LSAN")) {
-    cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
-  }
-
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_START_OFF()=int __afl_selective_coverage_start_off = "
