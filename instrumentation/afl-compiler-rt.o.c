@@ -1740,7 +1740,11 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  #ifndef __HAIKU__
+    long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  #else
+    long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
+  #endif // HAIKU
 
   if (r <= 0 || r > len) return 0;
 
