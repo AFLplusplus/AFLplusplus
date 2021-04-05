@@ -34,8 +34,10 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#include <sys/syscall.h>
 #ifndef __HAIKU__
+  #include <sys/syscall.h>
+#endif
+#ifndef USEMMAP
   #include <sys/shm.h>
 #endif
 #include <sys/wait.h>
@@ -75,6 +77,10 @@
 #else
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
+
+#if defined(__HAIKU__)
+  extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,	size_t bufferSize);
+#endif // HAIKU
 
 u8   __afl_area_initial[MAP_INITIAL_SIZE];
 u8 * __afl_area_ptr_dummy = __afl_area_initial;
@@ -1736,7 +1742,11 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  #ifndef __HAIKU__
+    long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  #else
+    long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
+  #endif // HAIKU
 
   if (r <= 0 || r > len) return 0;
 
