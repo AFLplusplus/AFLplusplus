@@ -78,6 +78,10 @@
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
+#if defined(__HAIKU__)
+  extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,	size_t bufferSize);
+#endif // HAIKU
+
 u8   __afl_area_initial[MAP_INITIAL_SIZE];
 u8 * __afl_area_ptr_dummy = __afl_area_initial;
 u8 * __afl_area_ptr = __afl_area_initial;
