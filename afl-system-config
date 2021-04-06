@@ -99,7 +99,7 @@ if [ "$PLATFORM" = "Darwin" ] ; then
 fi
 if [ "$PLATFORM" = "Haiku" ] ; then
   DEBUG_SERVER_DIR=~/config/settings/system/debug_server
-  [ ! -r ${DEBUG_SERVER_DIR} ] && mkdir ${DEBUG_SERVER_DIR}
+  [ ! -d ${DEBUG_SERVER_DIR} ] && mkdir -p ${DEBUG_SERVER_DIR}
   SETTINGS=${DEBUG_SERVER_DIR}/settings
   [ -r ${SETTINGS} ] && grep -qE "default_action\s+kill" ${SETTINGS} && { echo "Nothing to do"; } || { \
     echo We change the debug_server default_action from user to silently kill; \
