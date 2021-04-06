@@ -26,6 +26,7 @@ static char *afl_environment_variables[] = {
     "AFL_BENCH_UNTIL_CRASH",
     "AFL_CAL_FAST",
     "AFL_CC",
+    "AFL_CC_COMPILER",
     "AFL_CMIN_ALLOW_ANY",
     "AFL_CMIN_CRASHES_ONLY",
     "AFL_CMPLOG_ONLY_NEW",
