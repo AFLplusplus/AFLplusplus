@@ -821,7 +821,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (fsrv->last_run_timed_out) {
 
-    FATAL("Timeout while initializing fork server (adjusting -t may help)");
+    FATAL(
+        "Timeout while initializing fork server (setting "
+        "AFL_FORKSRV_INIT_TMOUT may help)");
 
   }
 
