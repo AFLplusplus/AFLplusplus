@@ -1,5 +1,5 @@
 cc_defaults {
-  name: "afl-defaults",
+  name: "aflpp-defaults",
 
   local_include_dirs: [
     "include",
@@ -54,7 +54,7 @@ cc_defaults {
 }
 
 cc_binary {
-  name: "afl-fuzz",
+  name: "aflpp-fuzz",
   sanitize: {
     never: true,
   },
@@ -62,7 +62,7 @@ cc_binary {
   compile_multilib: "64",
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -75,12 +75,12 @@ cc_binary {
 }
 
 cc_binary {
-  name: "afl-showmap",
+  name: "aflpp-showmap",
   static_executable: true,
   host_supported: true,
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -93,12 +93,12 @@ cc_binary {
 }
 
 cc_binary {
-  name: "afl-tmin",
+  name: "aflpp-tmin",
   static_executable: true,
   host_supported: true,
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -111,12 +111,12 @@ cc_binary {
 }
 
 cc_binary {
-  name: "afl-analyze",
+  name: "aflpp-analyze",
   static_executable: true,
   host_supported: true,
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -128,12 +128,12 @@ cc_binary {
 }
 
 cc_binary {
-  name: "afl-gotcpu",
+  name: "aflpp-gotcpu",
   static_executable: true,
   host_supported: true,
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -143,11 +143,11 @@ cc_binary {
 }
 
 cc_binary_host {
-  name: "afl-cc",
+  name: "aflpp-cc",
   static_executable: true,
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   cflags: [
@@ -161,6 +161,7 @@ cc_binary_host {
     "-DLLVM_LTO=1",
     "-DLLVM_MAJOR=11",
     "-DLLVM_MINOR=2",
+    "-D__ANDROID__",
   ],
 
   srcs: [
@@ -169,13 +170,13 @@ cc_binary_host {
   ],
 
   symlinks: [
-    "afl-clang-fast",
-    "afl-clang-fast++",
+    "aflpp-clang-fast",
+    "aflpp-clang-fast++",
   ],
 }
 
 cc_library_static {
-  name: "afl-llvm-rt",
+  name: "aflpp-llvm-rt",
   compile_multilib: "64",
   vendor_available: true,
   host_supported: true,
@@ -206,7 +207,7 @@ cc_library_static {
   ],
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -215,7 +216,7 @@ cc_library_static {
 }
 
 cc_library_headers {
-  name: "libafl_headers",
+  name: "libaflpp_headers",
   vendor_available: true,
   host_supported: true,
 
@@ -255,11 +256,11 @@ cc_library_shared {
 }
 
 cc_binary {
-  name: "afl-frida",
+  name: "aflpp-frida",
   compile_multilib: "64",
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   cflags: [
@@ -272,7 +273,7 @@ cc_binary {
   ],
 
   static_libs: [
-    "afl-llvm-rt",
+    "aflpp-llvm-rt",
     "libfrida-gum",
   ],
 
@@ -292,7 +293,7 @@ cc_binary {
 }
 
 cc_binary {
-  name: "afl-fuzz-32",
+  name: "aflpp-fuzz-32",
   sanitize: {
     never: true,
   },
@@ -300,7 +301,7 @@ cc_binary {
   compile_multilib: "32",
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [
@@ -313,12 +314,12 @@ cc_binary {
 }
 
 cc_binary_host {
-  name: "afl-cc-32",
+  name: "aflpp-cc-32",
   compile_multilib: "32",
   static_executable: true,
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   cflags: [
@@ -340,13 +341,13 @@ cc_binary_host {
   ],
 
   symlinks: [
-    "afl-clang-fast-32",
-    "afl-clang-fast++-32",
+    "aflpp-clang-fast-32",
+    "aflpp-clang-fast++-32",
   ],
 }
 
 cc_library_static {
-  name: "afl-llvm-rt-32",
+  name: "aflpp-llvm-rt-32",
   compile_multilib: "32",
   vendor_available: true,
   host_supported: true,
@@ -377,7 +378,7 @@ cc_library_static {
   ],
 
   defaults: [
-    "afl-defaults",
+    "aflpp-defaults",
   ],
 
   srcs: [

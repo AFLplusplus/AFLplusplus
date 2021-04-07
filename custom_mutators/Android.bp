@@ -41,7 +41,7 @@ cc_library_shared {
   ],
 
   header_libs: [
-    "libafl_headers",
+    "libaflpp_headers",
   ],
 }
 
@@ -65,7 +65,7 @@ cc_library_shared {
   ],
 
   header_libs: [
-    "libafl_headers",
+    "libaflpp_headers",
   ],
 }*/
 
@@ -89,7 +89,7 @@ cc_library_shared {
   ],
 
   header_libs: [
-    "libafl_headers",
+    "libaflpp_headers",
   ],
 }
 
@@ -112,7 +112,7 @@ cc_library_shared {
   ],
 
   header_libs: [
-    "libafl_headers",
+    "libaflpp_headers",
   ],
 }
 
