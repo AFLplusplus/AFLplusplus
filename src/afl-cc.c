@@ -430,9 +430,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
-    if (lto_mode && plusplus_mode)
-      cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
-
     if (lto_mode && have_instr_env) {
 
       cc_params[cc_par_cnt++] = "-Xclang";
