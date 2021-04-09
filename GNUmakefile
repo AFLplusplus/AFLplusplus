@@ -170,6 +170,9 @@ ifeq "$(SYS)" "Haiku"
   override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
   LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
+    ifeq "$(shell uname -m)" "x86_64"
+      AFL_NO_X86=1
+    endif
 endif
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
