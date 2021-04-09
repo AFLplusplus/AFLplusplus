@@ -861,9 +861,9 @@ void show_stats(afl_state_t *afl) {
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 
-  if (afl->skip_deterministic) {
+  if (likely(afl->skip_deterministic)) {
 
-    strcpy(tmp, "n/a, n/a, n/a");
+    strcpy(tmp, "disabled (default, enable with -D)");
 
   } else {
 
@@ -881,7 +881,7 @@ void show_stats(afl_state_t *afl) {
                 "    levels : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->max_depth));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP8]),
@@ -897,7 +897,7 @@ void show_stats(afl_state_t *afl) {
                 "   pending : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_ARITH8]),
@@ -913,7 +913,7 @@ void show_stats(afl_state_t *afl) {
                 "  pend fav : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_favored));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_INTEREST8]),
@@ -929,7 +929,7 @@ void show_stats(afl_state_t *afl) {
                 " own finds : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->queued_discovered));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_EXTRAS_UO]),
@@ -974,35 +974,52 @@ void show_stats(afl_state_t *afl) {
                   : cRST),
        tmp);
 
-  if (afl->shm.cmplog_mode) {
+  if (unlikely(afl->afl_env.afl_python_module)) {
 
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s",
+    sprintf(tmp, "%s/%s, ",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
-            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
-            u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]));
+
+  } else {
+
+    strcpy(tmp, "unused, ");
+
+  }
+
+  if (unlikely(afl->afl_env.afl_custom_mutator_library)) {
+
+    sprintf(tmp, "%s%s/%s, ", tmp,
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_PYTHON]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_PYTHON]));
+
+  } else {
+
+    strcat(tmp, "unused, ");
+
+  }
+
+  if (unlikely(afl->shm.cmplog_mode)) {
+
+    sprintf(tmp, "%s%s/%s, %s/%s", tmp,
             u_stringify_int(IB(4), afl->stage_finds[STAGE_COLORIZATION]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_COLORIZATION]),
             u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]),
             u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
 
-    SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-         tmp);
-
   } else {
 
-    sprintf(tmp, "%s/%s, %s/%s",
-            u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
-            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
-            u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
-
-    SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-         tmp);
+    strcat(tmp, "unused, unused ");
 
   }
 
-  if (!afl->bytes_trim_out) {
+  SAYF(bV bSTOP "py/custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+       tmp);
+
+  if (likely(afl->disable_trim)) {
+
+    sprintf(tmp, "disabled, ");
+
+  } else if (unlikely(!afl->bytes_trim_out)) {
 
     sprintf(tmp, "n/a, ");
 
@@ -1015,12 +1032,13 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (!afl->blocks_eff_total) {
+  if (likely(afl->skip_deterministic)) {
 
-    u8 tmp2[128];
+    strcat(tmp, "disabled");
 
-    sprintf(tmp2, "n/a");
-    strcat(tmp, tmp2);
+  } else if (unlikely(!afl->blocks_eff_total)) {
+
+    strcat(tmp, "n/a");
 
   } else {
 

@@ -2,6 +2,7 @@
 
 ## Roadmap 3.00+
 
+ - align map to 64 bytes but keep real IDs
  - Update afl->pending_not_fuzzed for MOpt
  - CPU affinity for many cores? There seems to be an issue > 96 cores
  - afl-plot to support multiple plot_data
