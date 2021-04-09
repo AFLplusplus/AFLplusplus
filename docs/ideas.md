@@ -16,7 +16,7 @@ This might look like the afl-fuzz UI, but you can improve on it - and should!
 
 Schedulers is a mechanism that selects items from the fuzzing corpus based
 on strategy and randomness. One scheduler might focus on long paths,
-another on rarity of edges disocvered, still another on a combination on
+another on rarity of edges discovered, still another on a combination on
 things. Some of the schedulers in afl++ have to be ported, but you are free
 to come up with your own if you want to - and see how it performs.
 
