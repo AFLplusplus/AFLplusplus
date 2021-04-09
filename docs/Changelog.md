@@ -20,6 +20,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
     - default cmplog level (-l) is now 2, better efficiency.
+    - better fuzzing strategy yields for enabled options
     - ensure one fuzzer sync per cycle
     - fix afl_custom_queue_new_entry original file name when syncing
       from fuzzers
