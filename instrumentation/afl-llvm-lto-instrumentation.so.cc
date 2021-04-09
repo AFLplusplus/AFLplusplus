@@ -92,7 +92,7 @@ class AFLLTOPass : public ModulePass {
   uint32_t afl_global_id = 1, autodictionary = 1;
   uint32_t function_minimum_size = 1;
   uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
-  uint64_t map_addr = 0x10000;
+  unsigned long long int map_addr = 0x10000;
   char *   skip_nozero = NULL;
 
 };
