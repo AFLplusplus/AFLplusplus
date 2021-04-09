@@ -21,9 +21,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
     - default cmplog level (-l) is now 2, better efficiency.
     - ensure one fuzzer sync per cycle
+    - fix afl_custom_queue_new_entry original file name when syncing
+      from fuzzers
   - afl-cc:
     - Leak Sanitizer support (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
+    - Removed automatic linking with -lc++ for LTO mode
 
 ### Version ++3.12c (release)
   - afl-fuzz:
