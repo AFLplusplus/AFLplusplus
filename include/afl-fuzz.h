@@ -483,7 +483,6 @@ typedef struct afl_state {
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
-      python_only,                      /* Python-only mode                 */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node;                /* if this is a secondary instance  */
 
