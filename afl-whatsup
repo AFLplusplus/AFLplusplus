@@ -265,11 +265,6 @@ fmt_duration $TOTAL_LAST_PATH && TOTAL_LAST_PATH=$DUR_STRING
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
-echo "Summary stats"
-echo "============="
-echo
-echo "       Fuzzers alive : $ALIVE_CNT"
-
 if [ "$PROCESS_DEAD" = "" ]; then
 
   TXT="excluded from stats"
@@ -277,8 +272,14 @@ if [ "$PROCESS_DEAD" = "" ]; then
 else
 
   TXT="included in stats"
+  ALIVE_CNT=$(($ALIVE_CNT - $DEAD_CNT))
 
 fi
+
+echo "Summary stats"
+echo "============="
+echo
+echo "       Fuzzers alive : $ALIVE_CNT"
 
 if [ ! "$DEAD_CNT" = "0" ]; then
   echo "      Dead or remote : $DEAD_CNT ($TXT)"
