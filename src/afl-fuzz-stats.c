@@ -861,7 +861,11 @@ void show_stats(afl_state_t *afl) {
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 
-  if (likely(afl->skip_deterministic)) {
+  if (unlikely(afl->custom_only)) {
+
+    strcpy(tmp, "disabled (custom mutator only mode)");
+
+  } else if (likely(afl->skip_deterministic)) {
 
     strcpy(tmp, "disabled (default, enable with -D)");
 
@@ -939,7 +943,7 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(4), afl->stage_finds[STAGE_EXTRAS_AO]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_EXTRAS_AO]));
 
-  } else if (unlikely(!afl->extras_cnt)) {
+  } else if (unlikely(!afl->extras_cnt || afl->custom_only)) {
 
     strcpy(tmp, "n/a");
 
