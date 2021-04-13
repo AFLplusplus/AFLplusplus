@@ -881,7 +881,7 @@ void perform_dry_run(afl_state_t *afl) {
 
       case FSRV_RUN_TMOUT:
 
-        if (afl->timeout_given) {
+        if (afl->timeout_given && !afl->afl_env.afl_exit_on_seed_issues) {
 
           /* if we have a timeout but a timeout value was given then always
              skip. The '+' meaning has been changed! */
@@ -1033,6 +1033,12 @@ void perform_dry_run(afl_state_t *afl) {
         } else {
 
           WARNF("Test case '%s' results in a crash, skipping", fn);
+
+        }
+
+        if (afl->afl_env.afl_exit_on_seed_issues) {
+
+          FATAL("As AFL_EXIT_ON_SEED_ISSUES is set, afl-fuzz exits.");
 
         }
 
