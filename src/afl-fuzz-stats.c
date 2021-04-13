@@ -939,6 +939,14 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(4), afl->stage_finds[STAGE_EXTRAS_AO]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_EXTRAS_AO]));
 
+  } else if (unlikely(!afl->extras_cnt)) {
+
+    strcpy(tmp, "n/a");
+
+  } else {
+
+    strcpy(tmp, "havoc mode");
+
   }
 
   SAYF(bV bSTOP "  dictionary : " cRST "%-36s " bSTG bV bSTOP
