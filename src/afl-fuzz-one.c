@@ -2002,7 +2002,7 @@ havoc_stage:
   u32 r_max, r;
 
   r_max = (MAX_HAVOC_ENTRY + 1) + (afl->extras_cnt ? 4 : 0) +
-          (afl->a_extras_cnt ? 2 : 0);
+          (afl->a_extras_cnt ? 4 : 0);
 
   if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
@@ -2587,7 +2587,7 @@ havoc_stage:
 
           if (afl->a_extras_cnt) {
 
-            if (r == 0) {
+            if (r < 2) {
 
               /* Use the dictionary. */
 
@@ -2607,7 +2607,7 @@ havoc_stage:
 
               break;
 
-            } else if (r == 1) {
+            } else if (r < 4) {
 
               u32 use_extra = rand_below(afl, afl->a_extras_cnt);
               u32 extra_len = afl->a_extras[use_extra].len;
@@ -2636,7 +2636,7 @@ havoc_stage:
 
             } else {
 
-              r -= 2;
+              r -= 4;
 
             }
 
