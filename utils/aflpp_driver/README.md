@@ -22,4 +22,9 @@ are to be fuzzed in qemu_mode. So we compile them with clang/clang++, without
 
 `clang++ -o fuzz fuzzer_harness.cc libAFLQemuDriver.a [plus required linking]`.
 
-Then just do `AFL_PRELOAD=/path/to/aflpp_qemu_driver_hook.so afl-fuzz -Q ... -- ./fuzz`
+
+Then just do (where the name of the binary is `fuzz`):
+```
+AFL_QEMU_PERSISTENT_ADDR=0x$(nm fuzz | grep "T LLVMFuzzerTestOneInput" | awk '{print $1}')
+AFL_QEMU_PERSISTENT_HOOK=/path/to/aflpp_qemu_driver_hook.so afl-fuzz -Q ... -- ./fuzz`
+```
