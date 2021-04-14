@@ -355,18 +355,18 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                             double eps) {
 
-  if (unlikely(afl->stop_soon) ||
-      unlikely(afl->plot_prev_qp == afl->queued_paths &&
-               afl->plot_prev_pf == afl->pending_favored &&
-               afl->plot_prev_pnf == afl->pending_not_fuzzed &&
-               afl->plot_prev_ce == afl->current_entry &&
-               afl->plot_prev_qc == afl->queue_cycle &&
-               afl->plot_prev_uc == afl->unique_crashes &&
-               afl->plot_prev_uh == afl->unique_hangs &&
-               afl->plot_prev_md == afl->max_depth &&
-               afl->plot_prev_ed == afl->fsrv.total_execs) ||
-      unlikely(!afl->queue_cycle) ||
-      unlikely(get_cur_time() - afl->start_time <= 60)) {
+  if (unlikely(!afl->force_ui_update &&
+               (afl->stop_soon ||
+                (afl->plot_prev_qp == afl->queued_paths &&
+                 afl->plot_prev_pf == afl->pending_favored &&
+                 afl->plot_prev_pnf == afl->pending_not_fuzzed &&
+                 afl->plot_prev_ce == afl->current_entry &&
+                 afl->plot_prev_qc == afl->queue_cycle &&
+                 afl->plot_prev_uc == afl->unique_crashes &&
+                 afl->plot_prev_uh == afl->unique_hangs &&
+                 afl->plot_prev_md == afl->max_depth &&
+                 afl->plot_prev_ed == afl->fsrv.total_execs) ||
+                !afl->queue_cycle || get_cur_time() - afl->start_time <= 60))) {
 
     return;
 
@@ -531,7 +531,8 @@ void show_stats(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000) {
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
 
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
@@ -543,7 +544,8 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_statsd)) {
 
-    if (cur_ms - afl->statsd_last_send_ms > STATSD_UPDATE_SEC * 1000) {
+    if (unlikely(afl->force_ui_update && cur_ms - afl->statsd_last_send_ms >
+                                             STATSD_UPDATE_SEC * 1000)) {
 
       /* reset counter, even if send failed. */
       afl->statsd_last_send_ms = cur_ms;
@@ -555,7 +557,8 @@ void show_stats(afl_state_t *afl) {
 
   /* Every now and then, write plot data. */
 
-  if (cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000) {
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000)) {
 
     afl->stats_last_plot_ms = cur_ms;
     maybe_update_plot_file(afl, t_bytes, t_byte_ratio, afl->stats_avg_exec);
@@ -564,14 +567,14 @@ void show_stats(afl_state_t *afl) {
 
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
-  if (!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
-      !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done) {
+  if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
+               !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)) {
 
     afl->stop_soon = 2;
 
   }
 
-  if (afl->total_crashes && afl->afl_env.afl_bench_until_crash) {
+  if (unlikely(afl->total_crashes && afl->afl_env.afl_bench_until_crash)) {
 
     afl->stop_soon = 2;
 
@@ -583,7 +586,7 @@ void show_stats(afl_state_t *afl) {
 
   /* If we haven't started doing things, bail out. */
 
-  if (!afl->queue_cur) { return; }
+  if (unlikely(!afl->queue_cur)) { return; }
 
   /* Compute some mildly useful bitmap stats. */
 
@@ -602,7 +605,7 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(TERM_HOME);
 
-  if (afl->term_too_small) {
+  if (unlikely(afl->term_too_small)) {
 
     SAYF(cBRI
          "Your terminal is too small to display the UI.\n"
