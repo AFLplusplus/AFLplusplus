@@ -1074,7 +1074,7 @@ void show_stats(afl_state_t *afl) {
   //
   //} else {
 
-  SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  SAYF(bV bSTOP "    trim/eff : " cRST "%-36s " bSTG bV RESET_G1, tmp);
 
   //}
 
