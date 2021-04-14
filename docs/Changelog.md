@@ -31,6 +31,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Leak Sanitizer support (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
+  - utils/aflpp_driver/aflpp_qemu_driver_hook fixed to work with qemu mode
   - add -d (dead fuzzer stats) to afl-whatsup
 
 ### Version ++3.12c (release)
