@@ -3,8 +3,8 @@
 
 #define g2h(x) ((void *)((unsigned long)(x) + guest_base))
 
-#define REGS_RDI 7
-#define REGS_RSI 6
+#define REGS_RDI 4
+#define REGS_RSI 5
 
 void afl_persistent_hook(uint64_t *regs, uint64_t guest_base,
                          uint8_t *input_buf, uint32_t input_len) {
