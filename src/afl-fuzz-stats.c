@@ -427,7 +427,7 @@ void show_stats(afl_state_t *afl) {
   u32 t_bytes, t_bits;
 
   u32 banner_len, banner_pad;
-  u8  tmp[256];
+  u8  tmp[256], tmp2[256];
   u8  time_tmp[64];
 
   u8 val_buf[8][STRINGIFY_VAL_SIZE_MAX];
@@ -991,31 +991,31 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_python_module)) {
 
-    sprintf(tmp, "%s/%s, ",
+    sprintf(tmp, "%s/%s,",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
             u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]));
 
   } else {
 
-    strcpy(tmp, "unused, ");
+    strcpy(tmp, "unused,");
 
   }
 
   if (unlikely(afl->afl_env.afl_custom_mutator_library)) {
 
-    sprintf(tmp, "%s%s/%s, ", tmp,
+    sprintf(tmp2, " %s%s/%s,", tmp,
             u_stringify_int(IB(2), afl->stage_finds[STAGE_PYTHON]),
             u_stringify_int(IB(3), afl->stage_cycles[STAGE_PYTHON]));
 
   } else {
 
-    strcat(tmp, "unused, ");
+    strcat(tmp2, " unused,");
 
   }
 
   if (unlikely(afl->shm.cmplog_mode)) {
 
-    sprintf(tmp, "%s%s/%s, %s/%s", tmp,
+    sprintf(tmp, "%s %s/%s, %s/%s", tmp2,
             u_stringify_int(IB(4), afl->stage_finds[STAGE_COLORIZATION]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_COLORIZATION]),
             u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]),
@@ -1023,7 +1023,7 @@ void show_stats(afl_state_t *afl) {
 
   } else {
 
-    strcat(tmp, "unused, unused ");
+    sprintf(tmp, "%s unused, unused", tmp2);
 
   }
 
