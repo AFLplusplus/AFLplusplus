@@ -360,6 +360,8 @@ if ! command -v "$CROSS" > /dev/null ; then
     make -C unsigaction && echo "[+] unsigaction ready"
     echo "[+] Building libqasan ..."
     make -C libqasan && echo "[+] unsigaction ready"
+    echo "[+] Building qemu libfuzzer helpers ..."
+    make -C ../utils/aflpp_driver
   else
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
   fi
