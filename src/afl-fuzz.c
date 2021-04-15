@@ -2125,7 +2125,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   write_bitmap(afl);
-  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
 stop_fuzzing:
