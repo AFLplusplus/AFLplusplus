@@ -855,6 +855,14 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case '3':
               afl->cmplog_lvl = 3;
+
+              if (!afl->disable_trim) {
+
+                ACTF("Deactivating trimming due CMPLOG level 3");
+                afl->disable_trim = 1;
+
+              }
+
               break;
             case 'a':
             case 'A':
