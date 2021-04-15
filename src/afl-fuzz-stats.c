@@ -866,7 +866,7 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->custom_only)) {
 
-    strcpy(tmp, "disabled (custom mutator only mode)");
+    strcpy(tmp, "disabled (custom-mutator-only mode)");
 
   } else if (likely(afl->skip_deterministic)) {
 

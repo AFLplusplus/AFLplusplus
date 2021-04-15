@@ -382,8 +382,8 @@ checks or alter some of the more exotic semantics of the tool:
     may complain of high load prematurely, especially on systems with low core
     counts. To avoid the alarming red color, you can set `AFL_NO_CPU_RED`.
 
-  - In QEMU mode (-Q), Unicorn mode (-U) and Frida mode (-O), `AFL_PATH` will
-    be searched for afl-qemu-trace.
+  - In QEMU mode (-Q) and Frida mode (-O), `AFL_PATH` will
+    be searched for afl-qemu-trace and afl-frida-trace.so.
 
   - In QEMU mode (-Q), setting `AFL_QEMU_CUSTOM_BIN` cause afl-fuzz to skip
     prepending `afl-qemu-trace` to your command line. Use this if you wish to use a
