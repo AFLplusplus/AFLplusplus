@@ -606,7 +606,8 @@ For every secondary fuzzer there should be a variation, e.g.:
  * one should fuzz the target that was compiled differently: with sanitizers
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
    export AFL_USE_CFISAN=1 ; export AFL_USE_LSAN=1`)
- * one should fuzz the target with CMPLOG/redqueen (see above)
+ * one or two should fuzz the target with CMPLOG/redqueen (see above), at
+   least one cmplog instance should follow transformations (`-l AT`)
  * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
    (see above). Important note: If you run more than one laf-intel/COMPCOV
    fuzzer and you want them to share their intermediate results, the main
