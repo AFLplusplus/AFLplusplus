@@ -29,7 +29,7 @@
 
 int main(int argc, char**argv) {
 
-  static char buffer[MAX_FILE] = {/* zero padding */};
+  char buffer[44] = {/* zero padding */};
   
   FILE* file = stdin;
   if (argc > 1)
