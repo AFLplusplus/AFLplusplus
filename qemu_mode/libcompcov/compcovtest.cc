@@ -20,15 +20,22 @@
 // solution: echo -ne 'The quick brown fox jumps over the lazy
 // dog\xbe\xba\xfe\xca\xbe\xba\xfe\xca\xde\xc0\xad\xde\xef\xbe' | ./compcovtest
 
+#include "../../include/config.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-int main() {
+int main(int argc, char**argv) {
 
-  char buffer[44] = {/* zero padding */};
-  fread(buffer, 1, sizeof(buffer) - 1, stdin);
+  static char buffer[MAX_FILE] = {/* zero padding */};
+  
+  FILE* file = stdin;
+  if (argc > 1)
+      file = fopen(argv[1], "r");
+
+  fread(buffer, 1, sizeof(buffer) - 1, file);
 
   if (memcmp(&buffer[0], "The quick brown fox ", 20) != 0 ||
       strncmp(&buffer[20], "jumps over ", 11) != 0 ||
