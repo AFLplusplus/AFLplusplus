@@ -46,15 +46,15 @@ int main(int argc, char**argv) {
   }
 
   uint64_t x = 0;
-  fread(&x, sizeof(x), 1, stdin);
+  fread(&x, sizeof(x), 1, file);
   if (x != 0xCAFEBABECAFEBABE) { return 2; }
 
   uint32_t y = 0;
-  fread(&y, sizeof(y), 1, stdin);
+  fread(&y, sizeof(y), 1, file);
   if (y != 0xDEADC0DE) { return 3; }
 
   uint16_t z = 0;
-  fread(&z, sizeof(z), 1, stdin);
+  fread(&z, sizeof(z), 1, file);
 
   switch (z) {
 
