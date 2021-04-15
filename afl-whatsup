@@ -141,7 +141,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
   . "$TMP"
 
-  RUN_UNIX=$((CUR_TIME - start_time))
+  RUN_UNIX=$run_time
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
   RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
 
@@ -168,6 +168,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     fi
 
     DEAD_CNT=$((DEAD_CNT + 1))
+    last_path=0
 
     if [ "$PROCESS_DEAD" = "" ]; then
 
