@@ -1003,13 +1003,13 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_custom_mutator_library)) {
 
-    sprintf(tmp2, " %s%s/%s,", tmp,
+    sprintf(tmp2, "%s %s/%s,", tmp,
             u_stringify_int(IB(2), afl->stage_finds[STAGE_PYTHON]),
             u_stringify_int(IB(3), afl->stage_cycles[STAGE_PYTHON]));
 
   } else {
 
-    strcat(tmp2, " unused,");
+    sprintf(tmp2, "%s unused,", tmp);
 
   }
 
