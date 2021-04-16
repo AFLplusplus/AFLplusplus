@@ -176,6 +176,14 @@ static void usage(u8 *argv0, int more_help) {
   #define DYN_COLOR
 #endif
 
+#ifdef AFL_PERSISTENT_RECORD
+  #define PERSISTENT_MSG                                                 \
+    "AFL_PERSISTENT_RECORD: record the last X inputs to every crash in " \
+    "out/crashes\n"
+#else
+  #define PERSISTENT_MSG
+#endif
+
     SAYF(
       "Environment variables used:\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
@@ -223,9 +231,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
-#ifdef AFL_PERSISTENT_RECORD
-      "AFL_PERSISTENT_RECORD: record the last X inputs to every crash in out/crashes\n"
-#endif
+
+      PERSISTENT_MSG
+
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
