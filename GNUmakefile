@@ -513,6 +513,9 @@ code-format:
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
 	./.custom-format.py -i qemu_mode/libqasan/*.c
 	./.custom-format.py -i qemu_mode/libqasan/*.h
+	./.custom-format.py -i frida_mode/src/*.c
+	./.custom-format.py -i frida_mode/include/*.h
+	-./.custom-format.py -i frida_mode/src/*/*.c
 	./.custom-format.py -i *.h
 	./.custom-format.py -i *.c
 
