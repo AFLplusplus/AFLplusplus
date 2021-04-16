@@ -174,7 +174,13 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 static void on_basic_block(GumCpuContext *context, gpointer user_data) {
 
-  /* Avoid stack operations in potentially performance critical code */
+  /*
+   * This function is performance critical as it is called to instrument every
+   * basic block. By moving our print buffer to a global, we avoid it affecting
+   * the critical path with additional stack adjustments if tracing is not
+   * enabled. If tracing is enabled, then we're printing a load of diagnostic
+   * information so this overhead is unlikely to be noticeable.
+   */
   static char buffer[200];
   int         len;
   guint64     current_pc = (guint64)user_data;

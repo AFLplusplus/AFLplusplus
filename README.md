@@ -99,15 +99,15 @@ behaviours and defaults:
   | Ngram prev_loc Coverage  |         |     x(6)  |            |            |                  |              |
   | Context Coverage         |         |     x(6)  |            |            |                  |              |
   | Auto Dictionary          |         |     x(7)  |            |            |                  |              |
-  | Snapshot LKM Support     |         |     x(8)  |     x(8)   |            |        (x)(5)    |              |
+  | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |            |        (x)(5)    |              |
 
-  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
+  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in previous llvm versions
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
   3. (currently unassigned)
-  4. with pcguard mode and LTO mode for LLVM >= 11
+  4. with pcguard mode and LTO mode for LLVM 11 and newer
   5. upcoming, development in the branch
-  6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
-  7. automatic in LTO mode with LLVM >= 11, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
+  6. not compatible with LTO instrumentation and needs at least LLVM v4.1
+  7. automatic in LTO mode with LLVM 11 and newer, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
   8. the snapshot LKM is currently unmaintained due to too many kernel changes coming too fast :-(
 
   Among others, the following features and patches have been integrated:
@@ -605,8 +605,9 @@ Every -M/-S entry needs a unique name (that can be whatever), however the same
 For every secondary fuzzer there should be a variation, e.g.:
  * one should fuzz the target that was compiled differently: with sanitizers
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
-   export AFL_USE_CFISAN=1 ; `
- * one should fuzz the target with CMPLOG/redqueen (see above)
+   export AFL_USE_CFISAN=1 ; export AFL_USE_LSAN=1`)
+ * one or two should fuzz the target with CMPLOG/redqueen (see above), at
+   least one cmplog instance should follow transformations (`-l AT`)
  * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
    (see above). Important note: If you run more than one laf-intel/COMPCOV
    fuzzer and you want them to share their intermediate results, the main

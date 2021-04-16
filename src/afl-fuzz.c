@@ -855,6 +855,14 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case '3':
               afl->cmplog_lvl = 3;
+
+              if (!afl->disable_trim) {
+
+                ACTF("Deactivating trimming due CMPLOG level 3");
+                afl->disable_trim = 1;
+
+              }
+
               break;
             case 'a':
             case 'A':
@@ -2125,12 +2133,10 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   write_bitmap(afl);
-  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
 stop_fuzzing:
 
-  write_stats_file(afl, 0, 0, 0, 0);
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
 

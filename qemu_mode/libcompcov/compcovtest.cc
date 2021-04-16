@@ -20,15 +20,31 @@
 // solution: echo -ne 'The quick brown fox jumps over the lazy
 // dog\xbe\xba\xfe\xca\xbe\xba\xfe\xca\xde\xc0\xad\xde\xef\xbe' | ./compcovtest
 
+#include "../../include/config.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-int main() {
+int main(int argc, char **argv) {
 
   char buffer[44] = {/* zero padding */};
-  fread(buffer, 1, sizeof(buffer) - 1, stdin);
+
+  FILE *file = stdin;
+
+  if (argc > 1) {
+
+    if ((file = fopen(argv[1], "r")) == NULL) {
+
+      perror(argv[1]);
+      exit(-1);
+
+    }
+
+  }
+
+  fread(buffer, 1, sizeof(buffer) - 1, file);
 
   if (memcmp(&buffer[0], "The quick brown fox ", 20) != 0 ||
       strncmp(&buffer[20], "jumps over ", 11) != 0 ||
@@ -39,15 +55,15 @@ int main() {
   }
 
   uint64_t x = 0;
-  fread(&x, sizeof(x), 1, stdin);
+  fread(&x, sizeof(x), 1, file);
   if (x != 0xCAFEBABECAFEBABE) { return 2; }
 
   uint32_t y = 0;
-  fread(&y, sizeof(y), 1, stdin);
+  fread(&y, sizeof(y), 1, file);
   if (y != 0xDEADC0DE) { return 3; }
 
   uint16_t z = 0;
-  fread(&z, sizeof(z), 1, stdin);
+  fread(&z, sizeof(z), 1, file);
 
   switch (z) {
 

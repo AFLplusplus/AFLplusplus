@@ -13,12 +13,14 @@
     #include <stdio.h>
     #define ASHMEM_DEVICE "/dev/ashmem"
 
-int shmdt(const void* address) {
-#if defined(SYS_shmdt)
+int shmdt(const void *address) {
+
+    #if defined(SYS_shmdt)
   return syscall(SYS_shmdt, address);
-#else
+    #else
   return syscall(SYS_ipc, SHMDT, 0, 0, 0, address, 0);
-#endif
+    #endif
+
 }
 
 int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf) {
@@ -26,7 +28,7 @@ int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf) {
   int ret = 0;
   if (__cmd == IPC_RMID) {
 
-    int length = ioctl(__shmid, ASHMEM_GET_SIZE, NULL);
+    int               length = ioctl(__shmid, ASHMEM_GET_SIZE, NULL);
     struct ashmem_pin pin = {0, length};
     ret = ioctl(__shmid, ASHMEM_UNPIN, &pin);
     close(__shmid);
@@ -77,6 +79,6 @@ void *shmat(int __shmid, const void *__shmaddr, int __shmflg) {
 
 }
 
-  #endif /* !_ANDROID_ASHMEM_H */
-#endif /* !__ANDROID__ */
+  #endif                                              /* !_ANDROID_ASHMEM_H */
+#endif                                                      /* !__ANDROID__ */
 
