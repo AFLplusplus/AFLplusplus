@@ -89,7 +89,7 @@ Commands:
 
 ## More on dictionaries and tokens
 Core developer of the AFL++ project Marc Heuse also developed a similar tool named `dict2file` which is a LLVM pass which can automatically extract useful tokens, in addition with LTO instrumentation mode, this dict2file is automatically generates token extraction. `Autodict-QL` plugin gives you scripting capability and you can do whatever you want to extract from the Codebase and it's up to you. In addition it's independent from LLVM system.
-On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file format and speicifications. For example, for testing binutils and ELF file format or AVI in FFMPEG, there are no prebuilt dictionaries, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generate dictionaries based on the target.
+On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file formats and specifications. For example, for testing binutils and ELF file format or AVI in FFMPEG, there are no prebuilt dictionaries, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generate dictionaries based on the target.
 
 I've personally prefered to use `Autodict-QL` or `dict2file` rather than Google dictionaries or any other manually generated dictionaries as `Autodict-QL` and `dict2file` are working based on the target.
 In overall, fuzzing with dictionaries and well-generated tokens will give better results.
@@ -98,4 +98,3 @@ There are 2 important points to remember :
 
 - If you combine `Autodict-QL` with AFL++ cmplog, you will get much better code coverage and hence better chances to discover new bugs.
 - Do not forget to set `AFL_MAX_DET_EXTRAS` at least to the number of generated dictionaries. If you forget to set this environment variable, then AFL++ uses just 200 tokens and use the rest of them only probabilistically. So this will guarantee that your tokens will be used by AFL++.
-
