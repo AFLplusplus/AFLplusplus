@@ -36,4 +36,5 @@ qemu_mode:
    up edge numbers that both following cmp paths have been found and then
    disable working on this edge id -> cmplog_intelligence branch
  - use cmplog colorization taint result for havoc locations?
-
+ - new instrumentation option for a thread-safe variant of feedback to shared mem.
+   The user decides, if this is needed (eg the target is multithreaded).
