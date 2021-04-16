@@ -88,7 +88,7 @@ Commands:
 
 
 ## More on dictionaries and tokens
-Core developer of the AFL++ project Marc Heuse also developed a similar tool named `dict2file` which is a LLVM pass which can automatically extracts useful tokens, in addition with LTO instrumentation mode, this dict2file is automtically generates token extraction. `Autodict-QL` plugin gives you scripting capability and you can do whatever you want to extract from the Codebase and it's up to you. in addition it's independent from LLVM system.
+Core developer of the AFL++ project Marc Heuse also developed a similar tool named `dict2file` which is a LLVM pass which can automatically extracts useful tokens, in addition with LTO instrumentation mode, this dict2file is automatically generating tokens. `Autodict-QL` plugin gives you scripting capability and you can do whatever you want to extract from the Codebase and it's up to you. in addition it's independent from LLVM system.
 On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file format and speicifications. for example, for testing binutils and ELF file format or AVI in FFMPEG, there are no prebuilt dictionary, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generating dictionaries based on the target.
 
 I've personally prefer to use `Autodict-QL` or `dict2file` rather than Google dictionaries or any other manully generated dictionaries as `Autodict-QL` and `dict2file` are working based on the target.
