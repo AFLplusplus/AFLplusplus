@@ -10,13 +10,16 @@
 #endif
 
 #include "frida-gum.h"
+
 #include "config.h"
 #include "debug.h"
 
-#include "interceptor.h"
 #include "instrument.h"
+#include "interceptor.h"
+#include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "stalker.h"
 
 #ifdef __APPLE__
 extern mach_port_t mach_task_self();
@@ -30,16 +33,15 @@ extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
 
 typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
 
-static main_fn_t      main_fn = NULL;
-static GumStalker *   stalker = NULL;
+static main_fn_t main_fn = NULL;
+
 static GumMemoryRange code_range = {0};
 
-extern void              __afl_manual_init();
-extern __thread uint64_t previous_pc;
+extern void __afl_manual_init();
 
 static int on_fork() {
 
-  prefetch_read(stalker);
+  prefetch_read();
   return fork();
 
 }
@@ -70,36 +72,44 @@ static void on_main_os(int argc, char **argv, char **envp) {
 
 static int *on_main(int argc, char **argv, char **envp) {
 
+  void *fork_addr;
   on_main_os(argc, argv, envp);
 
-  stalker = gum_stalker_new();
-  if (stalker == NULL) { FATAL("Failed to initialize stalker"); }
+  unintercept_self();
 
-  gum_stalker_set_trust_threshold(stalker, 0);
-
-  GumStalkerTransformer *transformer =
-      gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
+  stalker_init();
 
   instrument_init();
+  persistent_init();
   prefetch_init();
-  ranges_init(stalker);
+  ranges_init();
 
-  intercept(fork, on_fork, stalker);
+  fork_addr = GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
+  intercept(fork_addr, on_fork, NULL);
 
-  gum_stalker_follow_me(stalker, transformer, NULL);
-  gum_stalker_deactivate(stalker);
+  stalker_start();
+  stalker_pause();
 
   __afl_manual_init();
 
   /* Child here */
   previous_pc = 0;
-  prefetch_start(stalker);
+  stalker_resume();
   main_fn(argc, argv, envp);
-  _exit(0);
 
 }
 
-#ifdef __APPLE__
+#if defined(EMBEDDED)
+extern int *main(int argc, char **argv, char **envp);
+
+static void intercept_main() {
+
+  main_fn = main;
+  intercept(main, on_main, NULL);
+
+}
+
+#elif defined(__APPLE__)
 static void intercept_main() {
 
   mach_port_t task = mach_task_self();
@@ -119,6 +129,7 @@ static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
                               void(*stack_end)) {
 
   main_fn = main;
+  unintercept_self();
   intercept(main, on_main, NULL);
   return __libc_start_main(main, argc, ubp_av, init, fini, rtld_fini,
                            stack_end);

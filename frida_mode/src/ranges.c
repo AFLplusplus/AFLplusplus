@@ -1,8 +1,7 @@
-// 0x123-0x321
-// module.so
+#include "debug.h"
 
 #include "ranges.h"
-#include "debug.h"
+#include "stalker.h"
 
 #define MAX_RANGES 20
 
@@ -273,7 +272,7 @@ static gboolean print_ranges(const GumRangeDetails *details,
 
 }
 
-void ranges_init(GumStalker *stalker) {
+void ranges_init() {
 
   char *         showmaps;
   char *         include;
@@ -282,8 +281,8 @@ void ranges_init(GumStalker *stalker) {
   gchar **       tokens;
   int            token_count;
   GumMemoryRange range;
-
-  int i;
+  int            i;
+  GumStalker *   stalker = stalker_get();
 
   showmaps = getenv("AFL_FRIDA_DEBUG_MAPS");
   include = getenv("AFL_FRIDA_INST_RANGES");

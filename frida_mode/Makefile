@@ -1,13 +1,17 @@
 PWD:=$(shell pwd)/
+PARENT:=$(shell realpath $(PWD)..)/
 INC_DIR:=$(PWD)include/
 SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
-SOURCES:=$(wildcard $(SRC_DIR)*.c)
+SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
 BUILD_DIR:=$(PWD)build/
 CFLAGS+=-fPIC -D_GNU_SOURCE
+QEMU_INC_DIR:=$(PARENT)qemu_mode/qemuafl/qemuafl/
+QEMU_INC_API:=$(QEMU_INC_DIR)api.h
 
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(FRIDA_BUILD_DIR)afl-frida-trace.so
+FRIDA_TRACE_EMBEDDED:=$(FRIDA_BUILD_DIR)embedded
 
 ARCH=$(shell uname -m)
 ifeq "$(ARCH)" "aarch64"
@@ -19,6 +23,8 @@ ifeq "$(ARCH)" "x86_64"
  TESTINSTR_BASE:=0x0000555555554000
 endif
 
+TESTINSTR_BASE_QEMU:=0x4000000000
+
 ifeq "$(shell uname)" "Darwin"
  OS:=macos
  AFL_FRIDA_INST_RANGES=0x0000000000001000-0xFFFFFFFFFFFFFFFF
@@ -27,7 +33,22 @@ ifeq "$(shell uname)" "Darwin"
 endif
 ifeq "$(shell uname)" "Linux"
  OS:=linux
- AFL_FRIDA_INST_RANGES=$(shell $(PWD)test/testinstr.py -f $(BUILD_DIR)testinstr -s .testinstr -b $(TESTINSTR_BASE))
+ AFL_FRIDA_INST_RANGES=$(shell $(PWD)test/get_section_addrs.py -f $(BUILD_DIR)testinstr -s .testinstr -b $(TESTINSTR_BASE))
+
+ AFL_FRIDA_INST_RANGES_PNG=$(shell $(PWD)test/get_section_addrs.py -f $(TEST_BIN) -s .text -b $(TESTINSTR_BASE))
+ AFL_QEMU_INST_RANGES_PNG=$(shell $(PWD)test/get_section_addrs.py -f $(TEST_BIN) -s .text -b $(TESTINSTR_BASE_QEMU))
+
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)test/get_symbol_addr.py -f $(TEST_BIN) -s main -b $(TESTINSTR_BASE))
+ AFL_QEMU_PERSISTENT_ADDR=$(shell $(PWD)test/get_symbol_addr.py -f $(TEST_BIN) -s main -b $(TESTINSTR_BASE_QEMU))
+
+ AFL_FRIDA_PERSISTENT_ADDR_HOOK=$(shell $(PWD)test/get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b $(TESTINSTR_BASE))
+ AFL_QEMU_PERSISTENT_ADDR_HOOK=$(shell $(PWD)test/get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b $(TESTINSTR_BASE_QEMU))
+
+ AFL_FRIDA_PERSISTENT_ADDR_CMPLOG=$(shell $(PWD)test/get_symbol_addr.py -f $(TEST_CMPLOG_OBJ) -s main -b $(TESTINSTR_BASE))
+ AFL_QEMU_PERSISTENT_ADDR_CMPLOG=$(shell $(PWD)test/get_symbol_addr.py -f $(TEST_CMPLOG_OBJ) -s main -b $(TESTINSTR_BASE_QEMU))
+
+ AFL_FRIDA_INST_RANGES_CMPLOG=$(shell $(PWD)test/get_section_addrs.py -f $(TEST_CMPLOG_OBJ) -s .text -b $(TESTINSTR_BASE))
+ AFL_QEMU_INST_RANGES_CMPLOG=$(shell $(PWD)test/get_section_addrs.py -f $(TEST_CMPLOG_OBJ) -s .text -b $(TESTINSTR_BASE_QEMU))
  CFLAGS:=$(CFLAGS) -Wno-prio-ctor-dtor
  TEST_LDFLAGS:=
 endif
@@ -71,7 +92,16 @@ TESTINSTR_DATA_FILE:=$(TESTINSTR_DATA_DIR)test.dat
 FRIDA_OUT:=$(PWD)frida_out
 QEMU_OUT:=$(PWD)qemu_out
 
-.PHONY: all frida test clean format test_frida test_qemu compare testinstr test_testinstr standalone
+AFLPP_DRIVER_HOOK_DIR=$(PARENT)utils/aflpp_driver/
+AFLPP_DRIVER_HOOK_OBJ=$(AFLPP_DRIVER_HOOK_DIR)aflpp_qemu_driver_hook.so
+AFLPP_DRIVER_DUMMY_INPUT:=$(BUILD_DIR)dummy.dat
+
+TEST_CMPLOG_DIR:=$(PARENT)qemu_mode/libcompcov/
+TEST_CMPLOG_OBJ=$(TEST_CMPLOG_DIR)compcovtest
+CMP_LOG_INPUT_DIR:=$(BUILD_DIR)cmplog/
+CMP_LOG_INPUT:=$(CMP_LOG_INPUT_DIR)input.dat
+
+.PHONY: all frida test clean format test_frida test_qemu compare testinstr test_testinstr standalone embedded driver_hook test_cmplog
 
 all: $(FRIDA_TRACE)
 
@@ -93,19 +123,39 @@ $(GUM_DEVIT_LIBRARY): | $(GUM_DEVKIT_TARBALL)
 $(GUM_DEVIT_HEADER): | $(GUM_DEVKIT_TARBALL)
 	tar Jxvf $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
-$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(SOURCES) Makefile | $(FRIDA_BUILD_DIR)
+$(QEMU_INC_API):
+	echo "Ensure you have checked out the qemuafl submodule"
+	false
+
+$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(SOURCES) $(QEMU_INC_API) Makefile | $(FRIDA_BUILD_DIR)
 	$(CC) -shared \
 		$(CFLAGS) \
 		-o $@ $(SOURCES) \
 		$(GUM_DEVIT_LIBRARY) \
 		-I $(FRIDA_BUILD_DIR) \
-		-I .. \
-		-I ../include \
+		-I $(PARENT) \
+		-I $(PARENT)include \
 		-I $(INC_DIR) \
-		../instrumentation/afl-compiler-rt.o.c \
+		-I $(QEMU_INC_DIR) \
+		$(PARENT)instrumentation/afl-compiler-rt.o.c \
 		-lpthread -ldl -lresolv
 
-	cp -v $(FRIDA_TRACE) ../
+	cp -v $(FRIDA_TRACE) $(PARENT)
+
+$(FRIDA_TRACE_EMBEDDED): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(SOURCES) $(QEMU_INC_API) Makefile | $(FRIDA_BUILD_DIR)
+	$(CC) \
+		$(CFLAGS) \
+		-DEMBEDDED \
+		-g \
+		-o $@ $(SOURCES) $(TESTINSTSRC) \
+		$(GUM_DEVIT_LIBRARY) \
+		-I $(FRIDA_BUILD_DIR) \
+		-I $(PARENT) \
+		-I $(PARENT)include \
+		-I $(INC_DIR) \
+		-I $(QEMU_INC_DIR) \
+		$(PARENT)instrumentation/afl-compiler-rt.o.c \
+		-lpthread -ldl -lresolv
 
 ############################# TEST #############################################
 
@@ -157,24 +207,51 @@ $(TESTINSTBIN): $(TESTINSTSRC) | $(BUILD_DIR)
 
 testinstr: $(TESTINSTBIN)
 
+############################ DRIVER HOOK #######################################
+$(AFLPP_DRIVER_DUMMY_INPUT):
+	truncate -s 1M $@
+
+$(AFLPP_DRIVER_HOOK_OBJ): | $(AFLPP_DRIVER_HOOK_DIR)
+	make -C $(AFLPP_DRIVER_HOOK_DIR)
+
+driver_hook: $(AFLPP_DRIVER_HOOK_OBJ)
+
+############################### CMPLOG #########################################
+
+$(CMP_LOG_INPUT_DIR): | $(BUILD_DIR)
+	mkdir -p $@
+
+$(CMP_LOG_INPUT): | $(CMP_LOG_INPUT_DIR)
+	truncate -s 64 $@
+
+
+$(TEST_CMPLOG_OBJ): $(TEST_CMPLOG_DIR)compcovtest.cc
+	make -C $(TEST_CMPLOG_DIR) compcovtest
+
+test_cmplog: $(TEST_CMPLOG_OBJ)
+
 ############################# CLEAN ############################################
 clean:
 	rm -rf $(BUILD_DIR)
 
 ############################# FORMAT ###########################################
 format:
-	cd .. && echo $(SOURCES) | xargs -L1 ./.custom-format.py -i
-	cd .. && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
-	cd .. && ./.custom-format.py -i $(TESTINSTSRC)
+	cd $(PARENT) && echo $(SOURCES) | xargs -L1 ./.custom-format.py -i
+	cd $(PARENT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
+	cd $(PARENT) && ./.custom-format.py -i $(TESTINSTSRC)
 
 ############################# RUN #############################################
 
 # Add the environment variable AFL_DEBUG_CHILD=1 to show printf's from the target
+embedded: $(FRIDA_TRACE_EMBEDDED)
 
 png_frida: $(FRIDA_TRACE) $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_FRIDA_INST_STRICT=1 \
+		AFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES_PNG) \
 		./afl-fuzz \
+			-V 30 \
 			-O \
 			-i $(TEST_DATA_DIR) \
 			-o $(FRIDA_OUT) \
@@ -182,17 +259,107 @@ png_frida: $(FRIDA_TRACE) $(TEST_BIN)
 				$(TEST_BIN) @@
 
 png_qemu: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_QEMU_INST_RANGES=$(AFL_QEMU_INST_RANGES_PNG) \
 		./afl-fuzz \
+			-V 30 \
 			-Q \
 			-i $(TEST_DATA_DIR) \
 			-o $(QEMU_OUT) \
 			-- \
 				$(TEST_BIN) @@
 
+png_frida_persistent: $(FRIDA_TRACE) $(TEST_BIN)
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_FRIDA_INST_STRICT=1 \
+		AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
+		AFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES_PNG) \
+		./afl-fuzz \
+			-V 30 \
+			-O \
+			-i $(TEST_DATA_DIR) \
+			-o $(FRIDA_OUT) \
+			-- \
+				$(TEST_BIN) @@
+
+png_qemu_persistent: $(TEST_BIN)
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR) \
+		AFL_QEMU_INST_RANGES=$(AFL_QEMU_INST_RANGES_PNG) \
+		AFL_QEMU_PERSISTENT_GPR=1 \
+		./afl-fuzz \
+			-V 30 \
+			-Q \
+			-i $(TEST_DATA_DIR) \
+			-o $(QEMU_OUT) \
+			-- \
+				$(TEST_BIN) @@
+
+png_frida_persistent_hook: $(FRIDA_TRACE) $(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ)
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_FRIDA_INST_STRICT=1 \
+		AFL_FRIDA_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ) \
+		AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR_HOOK) \
+		AFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES_PNG) \
+		./afl-fuzz \
+			-V 30 \
+			-O \
+			-i $(TEST_DATA_DIR) \
+			-o $(FRIDA_OUT) \
+			-- \
+				$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
+
+png_qemu_persistent_hook: $(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ)
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_QEMU_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ) \
+		AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR_HOOK) \
+		AFL_QEMU_INST_RANGES=$(AFL_QEMU_INST_RANGES_PNG) \
+		AFL_QEMU_PERSISTENT_GPR=1 \
+		./afl-fuzz \
+			-V 30 \
+			-Q \
+			-i $(TEST_DATA_DIR) \
+			-o $(QEMU_OUT) \
+			-- \
+				$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
+
+cmplog_qemu: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR_CMPLOG) \
+		AFL_QEMU_INST_RANGES=$(AFL_QEMU_INST_RANGES_CMPLOG) \
+		AFL_QEMU_PERSISTENT_GPR=1 \
+		./afl-fuzz \
+			-Q \
+			-i $(CMP_LOG_INPUT_DIR) \
+			-o $(QEMU_OUT) \
+			-c 0 \
+			-l 3AT \
+			-- \
+				$(TEST_CMPLOG_OBJ) @@
+
+cmplog_frida: $(FRIDA_TRACE) $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
+	make -C $(PARENT)
+	cd $(PARENT) && \
+		AFL_FRIDA_INST_STRICT=1 \
+		AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR_CMPLOG) \
+		AFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES_CMPLOG) \
+		./afl-fuzz \
+			-O \
+			-i $(CMP_LOG_INPUT_DIR) \
+			-o $(FRIDA_OUT) \
+			-c 0 \
+			-l 3AT \
+			-- \
+				$(TEST_CMPLOG_OBJ) @@
+
 compare: $(FRIDA_TRACE) $(TEST_BIN)
-	cd .. && \
+	cd $(PARENT) && \
 		./afl-fuzz \
 			-V30 \
 			-O \
@@ -200,7 +367,7 @@ compare: $(FRIDA_TRACE) $(TEST_BIN)
 			-o $(FRIDA_OUT) \
 			-- \
 				$(TEST_BIN) @@
-	cd .. && \
+	cd $(PARENT) && \
 		./afl-fuzz \
 			-V30 \
 			-Q \
@@ -212,8 +379,8 @@ compare: $(FRIDA_TRACE) $(TEST_BIN)
 	cat qemu_out/default/fuzzer_stats
 
 testinstr_qemu: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 			AFL_QEMU_INST_RANGES=$(AFL_FRIDA_INST_RANGES) \
 			./afl-fuzz \
 				-Q \
@@ -223,8 +390,8 @@ testinstr_qemu: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 					$(TESTINSTBIN) @@
 
 testinstr_frida: $(FRIDA_TRACE) $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 			AFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES) \
 			AFL_FRIDA_INST_NO_OPTIMIZE=1 \
 			AFL_FRIDA_INST_NO_PREFETCH=1 \
@@ -237,7 +404,7 @@ testinstr_frida: $(FRIDA_TRACE) $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 					$(TESTINSTBIN) @@
 
 standalone: $(FRIDA_TRACE) $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
-	cd .. && \
+	cd $(PARENT) && \
 			AFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES) \
 			AFL_DEBUG_CHILD=1 \
 			AFL_FRIDA_DEBUG_MAPS=1 \
@@ -250,8 +417,8 @@ standalone: $(FRIDA_TRACE) $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 			$(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 
 tmin_qemu: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-tmin \
 			-Q \
 			-i $(TEST_DATA_DIR)basn0g01.png \
@@ -260,8 +427,8 @@ tmin_qemu: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 tmin_frida: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-tmin \
 			-O \
 			-i $(TEST_DATA_DIR)basn0g01.png \
@@ -270,8 +437,8 @@ tmin_frida: $(TEST_BIN)
 				$(TEST_BIN)
 
 showmap_qemu: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-showmap \
 			-Q \
 			-i $(TEST_DATA_DIR) \
@@ -280,8 +447,8 @@ showmap_qemu: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 showmap_frida: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-showmap \
 			-O \
 			-i $(TEST_DATA_DIR) \
@@ -290,8 +457,8 @@ showmap_frida: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 analyze_qemu: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-analyze \
 			-Q \
 			-i $(TEST_DATA_DIR)basn0g01.png \
@@ -299,8 +466,8 @@ analyze_qemu: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 analyze_frida: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-analyze \
 			-O \
 			-i $(TEST_DATA_DIR)basn0g01.png \
@@ -308,8 +475,8 @@ analyze_frida: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 cmin_qemu: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-cmin \
 			-Q \
 			-i $(TEST_DATA_DIR) \
@@ -318,8 +485,8 @@ cmin_qemu: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 cmin_frida: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-cmin \
 			-O \
 			-i $(TEST_DATA_DIR) \
@@ -328,8 +495,8 @@ cmin_frida: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 cmin_bash_qemu: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-cmin.bash \
 			-Q \
 			-i $(TEST_DATA_DIR) \
@@ -338,8 +505,8 @@ cmin_bash_qemu: $(TEST_BIN)
 				$(TEST_BIN) @@
 
 cmin_bash_frida: $(TEST_BIN)
-	make -C ..
-	cd .. && \
+	make -C $(PARENT)
+	cd $(PARENT) && \
 		./afl-cmin.bash \
 			-O \
 			-i $(TEST_DATA_DIR) \
