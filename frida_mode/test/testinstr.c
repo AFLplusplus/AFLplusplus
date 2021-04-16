@@ -78,6 +78,13 @@ int main(int argc, char **argv) {
     }
 
     buf = malloc(len);
+    if (buf == NULL) {
+
+      perror("malloc");
+      break;
+
+    }
+
     n_read = read(fd, buf, len);
     if (n_read != len) {
 
