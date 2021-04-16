@@ -30,7 +30,9 @@ BUILD_DATE  ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/nul
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
 
-ifeq "$(shell uname)" "OpenBSD"
+SYS = $(shell uname -s)
+
+ifeq "$(SYS)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
   ifeq "$(HAS_OPT)" "1"
@@ -275,13 +277,13 @@ CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 
 # User teor2345 reports that this is required to make things work on MacOS X.
-ifeq "$(shell uname)" "Darwin"
+ifeq "$(SYS)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 else
   CLANG_CPPFL += -Wl,-znodelete
 endif
 
-ifeq "$(shell uname)" "OpenBSD"
+ifeq "$(SYS)" "OpenBSD"
   CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
   CLANG_CPPFL += -mno-retpoline
   CFLAGS += -mno-retpoline

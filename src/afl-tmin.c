@@ -714,6 +714,18 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
+  x = get_afl_env("LSAN_OPTIONS");
+
+  if (x) {
+
+    if (!strstr(x, "symbolize=0")) {
+
+      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
+
+    }
+
+  }
+
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
          "detect_leaks=0:"
@@ -750,6 +762,13 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
                          "handle_abort=0:"
                          "handle_sigfpe=0:"
                          "handle_sigill=0", 0);
+
+  setenv("LSAN_OPTIONS",
+         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
+         "fast_unwind_on_malloc=0:"
+         "symbolize=0:"
+         "print_suppressions=0",
+         0);
 
   if (get_afl_env("AFL_PRELOAD")) {
 

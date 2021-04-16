@@ -29,8 +29,7 @@ static void convert_address_token(gchar *token, GumMemoryRange *range) {
   gchar **tokens;
   int     token_count;
   tokens = g_strsplit(token, "-", 2);
-  for (token_count = 0; tokens[token_count] != NULL; token_count++)
-    ;
+  for (token_count = 0; tokens[token_count] != NULL; token_count++) {}
 
   if (token_count != 2) {
 

@@ -2,6 +2,7 @@
 
 ## Roadmap 3.00+
 
+ - align map to 64 bytes but keep real IDs
  - Update afl->pending_not_fuzzed for MOpt
  - CPU affinity for many cores? There seems to be an issue > 96 cores
  - afl-plot to support multiple plot_data
@@ -10,8 +11,8 @@
  - intel-pt tracer
  - better autodetection of shifting runtime timeout values
  - cmplog: use colorization input for havoc?
- - cmplog: too much tainted bytes, directly add to dict and skip?
  - parallel builds for source-only targets
+
 
 ## Further down the road
 
