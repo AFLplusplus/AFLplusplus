@@ -77,6 +77,9 @@ int main(int argc, char **argv) {
 
   printf("Puzzle solved, congrats!\n");
   abort();
+
+  if (argc > 1) { fclose(file); }
+
   return 0;
 
 }
