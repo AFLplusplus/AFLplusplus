@@ -27,13 +27,22 @@
 #include <cstdlib>
 #include <cstring>
 
-int main(int argc, char**argv) {
+int main(int argc, char **argv) {
 
   char buffer[44] = {/* zero padding */};
-  
-  FILE* file = stdin;
-  if (argc > 1)
-      file = fopen(argv[1], "r");
+
+  FILE *file = stdin;
+
+  if (argc > 1) {
+
+    if ((file = fopen(argv[1], "r")) == NULL) {
+
+      perror(argv[1]);
+      exit(-1);
+
+    }
+
+  }
 
   fread(buffer, 1, sizeof(buffer) - 1, file);
 
