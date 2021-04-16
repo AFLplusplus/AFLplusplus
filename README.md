@@ -99,15 +99,15 @@ behaviours and defaults:
   | Ngram prev_loc Coverage  |         |     x(6)  |            |            |                  |              |
   | Context Coverage         |         |     x(6)  |            |            |                  |              |
   | Auto Dictionary          |         |     x(7)  |            |            |                  |              |
-  | Snapshot LKM Support     |         |     x(8)  |     x(8)   |            |        (x)(5)    |              |
+  | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |            |        (x)(5)    |              |
 
-  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
+  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in previous llvm versions
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
   3. (currently unassigned)
-  4. with pcguard mode and LTO mode for LLVM >= 11
+  4. with pcguard mode and LTO mode for LLVM 11 and newer
   5. upcoming, development in the branch
-  6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
-  7. automatic in LTO mode with LLVM >= 11, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
+  6. not compatible with LTO instrumentation and needs at least LLVM v4.1
+  7. automatic in LTO mode with LLVM 11 and newer, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
   8. the snapshot LKM is currently unmaintained due to too many kernel changes coming too fast :-(
 
   Among others, the following features and patches have been integrated:

@@ -11,7 +11,6 @@
  - intel-pt tracer
  - better autodetection of shifting runtime timeout values
  - cmplog: use colorization input for havoc?
- - cmplog: too much tainted bytes, directly add to dict and skip?
  - parallel builds for source-only targets
 
 ## Further down the road
