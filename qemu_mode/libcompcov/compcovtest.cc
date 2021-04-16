@@ -50,17 +50,28 @@ int main(int argc, char **argv) {
       strncmp(&buffer[20], "jumps over ", 11) != 0 ||
       strcmp(&buffer[31], "the lazy dog") != 0) {
 
+    if (argc > 1) { fclose(file); }
     return 1;
 
   }
 
   uint64_t x = 0;
   fread(&x, sizeof(x), 1, file);
-  if (x != 0xCAFEBABECAFEBABE) { return 2; }
+  if (x != 0xCAFEBABECAFEBABE) {
+
+    if (argc > 1) { fclose(file); }
+    return 2;
+
+  }
 
   uint32_t y = 0;
   fread(&y, sizeof(y), 1, file);
-  if (y != 0xDEADC0DE) { return 3; }
+  if (y != 0xDEADC0DE) {
+
+    if (argc > 1) { fclose(file); }
+    return 3;
+
+  }
 
   uint16_t z = 0;
   fread(&z, sizeof(z), 1, file);
@@ -71,6 +82,7 @@ int main(int argc, char **argv) {
       break;
 
     default:
+      if (argc > 1) { fclose(file); }
       return 4;
 
   }
