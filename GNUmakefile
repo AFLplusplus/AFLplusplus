@@ -247,17 +247,17 @@ ifneq "$(filter Linux GNU%,$(SYS))" ""
   LDFLAGS += -ldl -lrt -lm
 endif
 
-ifneq "$(findstring FreeBSD, $(ARCH))" ""
+ifneq "$(findstring FreeBSD, $(SYS))" ""
   override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
-ifneq "$(findstring NetBSD, $(ARCH))" ""
+ifneq "$(findstring NetBSD, $(SYS))" ""
   override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
-ifneq "$(findstring OpenBSD, $(ARCH))" ""
+ifneq "$(findstring OpenBSD, $(SYS))" ""
   override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
@@ -489,7 +489,7 @@ unit_clean:
 	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
 
 .PHONY: unit
-ifneq "$(ARCH)" "Darwin"
+ifneq "$(SYS)" "Darwin"
 unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
 else
 unit:
@@ -550,7 +550,7 @@ all_done: test_build
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode for 'afl-cc' successfully built!" || echo "[-] LLVM LTO mode for 'afl-cc'  failed to build, this would need LLVM 11+, see instrumentation/README.lto.md how to build it"
 	@test -e afl-gcc-pass.so && echo "[+] gcc_plugin for 'afl-cc' successfully built!" || echo "[-] gcc_plugin for 'afl-cc'  failed to build, unless you really need it that is fine - or read instrumentation/README.gcc_plugin.md how to build it"
 	@echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
-	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD for fuzzing software not\nspecifically for MacOS.\n\n"; fi
+	@if [ "$(SYS)" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD for fuzzing software not\nspecifically for MacOS.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.md for advice.\033[0m\n" 2>/dev/null
 
 .NOTPARALLEL: clean all
