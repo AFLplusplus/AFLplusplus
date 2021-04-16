@@ -13,6 +13,7 @@
  - cmplog: use colorization input for havoc?
  - parallel builds for source-only targets
 
+
 ## Further down the road
 
 afl-fuzz:
