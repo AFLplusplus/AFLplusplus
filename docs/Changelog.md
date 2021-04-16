@@ -20,6 +20,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
     - default cmplog level (-l) is now 2, better efficiency.
+    - cmplog level 3 (-l 3) now performs redqueen on everything.
+      use with care.
     - better fuzzing strategy yields for enabled options
     - ensure one fuzzer sync per cycle
     - fix afl_custom_queue_new_entry original file name when syncing
@@ -28,11 +30,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       -i dir crashes the target or results in a timeout. By default
       afl++ ignores these and uses them for splicing instead.
   - afl-cc:
-    - Leak Sanitizer support (AFL_USE_LSAN) added by Joshua Rogers, thanks!
+    - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
   - utils/aflpp_driver/aflpp_qemu_driver_hook fixed to work with qemu mode
-  - add -d (dead fuzzer stats) to afl-whatsup
+  - add -d (add dead fuzzer stats) to afl-whatsup
 
 ### Version ++3.12c (release)
   - afl-fuzz:
