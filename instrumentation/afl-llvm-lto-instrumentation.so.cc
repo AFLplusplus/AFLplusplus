@@ -839,6 +839,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           /* Update bitmap */
 
+#if 1 /* Atomic */
+          IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+              llvm::AtomicOrdering::Monotonic);
+
+#else
           LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
           Counter->setMetadata(M.getMDKindID("nosanitize"),
                                MDNode::get(C, None));
@@ -855,6 +860,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+#endif
 
           // done :)
 
