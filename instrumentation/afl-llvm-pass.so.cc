@@ -388,7 +388,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
 
   // other constants we need
-  ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
   Value *   PrevCtx = NULL;     // CTX sensitive coverage
@@ -628,6 +627,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       /* Update bitmap */
 
+#if 1 /* Atomic */
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One, llvm::AtomicOrdering::Monotonic);
+
+#else
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
@@ -651,6 +654,7 @@ bool AFLCoverage::runOnModule(Module &M) {
          * Counter + OverflowFlag -> Counter
          */
 
+        ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
         auto cf = IRB.CreateICmpEQ(Incr, Zero);
         auto carry = IRB.CreateZExt(cf, Int8Ty);
         Incr = IRB.CreateAdd(Incr, carry);
@@ -659,6 +663,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       IRB.CreateStore(Incr, MapPtrIdx)
           ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+#endif /* non atomic case */
 
       /* Update prev_loc history vector (by placing cur_loc at the head of the
          vector and shuffle the other elements back by one) */
