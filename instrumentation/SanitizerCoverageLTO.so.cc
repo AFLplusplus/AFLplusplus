@@ -1496,7 +1496,11 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     }
 
     /* Update bitmap */
+#if 1 /* Atomic */
+    IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One, 
+        llvm::AtomicOrdering::Monotonic);
 
+#else
     LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
     Counter->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
 
@@ -1512,7 +1516,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
     IRB.CreateStore(Incr, MapPtrIdx)
         ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
-
+#endif
     // done :)
 
     inst++;

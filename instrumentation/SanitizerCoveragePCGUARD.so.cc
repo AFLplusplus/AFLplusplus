@@ -1080,6 +1080,12 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     /* Load counter for CurLoc */
 
     Value *   MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+
+#if 1 /* Atomic */
+    IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+        llvm::AtomicOrdering::Monotonic);
+
+#else
     LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
 
     /* Update bitmap */
@@ -1095,7 +1101,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     }
 
     IRB.CreateStore(Incr, MapPtrIdx);
-
+#endif
     // done :)
 
     //    IRB.CreateCall(SanCovTracePCGuard, Offset)->setCannotMerge();
