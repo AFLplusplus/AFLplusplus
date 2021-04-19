@@ -84,7 +84,7 @@ behaviours and defaults:
 
 ## Important features of afl++
 
-  afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 5.1
+  afl++ supports llvm from 6.0 up to version 12, very fast binary fuzzing with QEMU 5.1
   with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
   Mac OS, Solaris and Android support and much, much, much more.
 
@@ -293,7 +293,7 @@ anything below 9 is not recommended.
     |
     v
 +---------------------------------+
-| clang/clang++ 3.3+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
+| clang/clang++ 6.0+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
 +---------------------------------+     see [instrumentation/README.llvm.md](instrumentation/README.llvm.md)
     |
     | if not, or if the target fails with LLVM afl-clang-fast/++
