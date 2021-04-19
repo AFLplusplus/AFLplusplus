@@ -30,6 +30,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       -i dir crashes the target or results in a timeout. By default
       afl++ ignores these and uses them for splicing instead.
   - afl-cc:
+    - We do not support llvm versions prior 6.0 anymore
     - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
