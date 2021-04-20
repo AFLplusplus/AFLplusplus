@@ -8,6 +8,7 @@ cc_library_shared {
     "-O0",
     "-fPIC",
     "-Wall",
+    "-Wno-unused-parameter",
   ],
 
   srcs: [
@@ -28,5 +29,10 @@ cc_binary {
 
   srcs: [
     "vuln.c",
+  ],
+
+  cflags: [
+    "-Wno-unused-result",
+    "-Wno-unused-parameter",
   ],
 }

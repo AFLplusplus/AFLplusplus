@@ -397,8 +397,14 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (likely(retlen && cksum == q->exec_cksum)) {
 
-      q->len = retlen;
+      if (afl_realloc((void **)&in_buf, retlen) == NULL) {
+
+        FATAL("can not allocate memory for trim");
+
+      }
+
       memcpy(in_buf, retbuf, retlen);
+      q->len = retlen;
 
       /* Let's save a clean trace, which will be needed by
          update_bitmap_score once we're done with the trimming stuff. */

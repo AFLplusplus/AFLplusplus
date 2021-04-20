@@ -102,7 +102,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
-  afl->cmplog_lvl = 1;
+  afl->cmplog_lvl = 2;
 #ifndef NO_SPLICING
   afl->use_splicing = 1;
 #endif
@@ -292,11 +292,25 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_autoresume =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_PERSISTENT_RECORD",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_persistent_record =
+                get_afl_env(afl_environment_variables[i]);
+
           } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES",
 
                               afl_environment_variable_len)) {
 
             afl->cycle_schedules = afl->afl_env.afl_cycle_schedules =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_EXIT_ON_SEED_ISSUES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_exit_on_seed_issues =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_EXPAND_HAVOC_NOW",

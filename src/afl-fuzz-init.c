@@ -881,7 +881,7 @@ void perform_dry_run(afl_state_t *afl) {
 
       case FSRV_RUN_TMOUT:
 
-        if (afl->timeout_given) {
+        if (afl->timeout_given && !afl->afl_env.afl_exit_on_seed_issues) {
 
           /* if we have a timeout but a timeout value was given then always
              skip. The '+' meaning has been changed! */
@@ -1033,6 +1033,12 @@ void perform_dry_run(afl_state_t *afl) {
         } else {
 
           WARNF("Test case '%s' results in a crash, skipping", fn);
+
+        }
+
+        if (afl->afl_env.afl_exit_on_seed_issues) {
+
+          FATAL("As AFL_EXIT_ON_SEED_ISSUES is set, afl-fuzz exits.");
 
         }
 
@@ -2490,6 +2496,18 @@ void check_asan_opts(afl_state_t *afl) {
 
   }
 
+  x = get_afl_env("LSAN_OPTIONS");
+
+  if (x) {
+
+    if (!strstr(x, "symbolize=0")) {
+
+      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
+
+    }
+
+  }
+
 }
 
 /* Handle stop signal (Ctrl-C, etc). */
@@ -2692,7 +2710,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
       !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
@@ -2720,7 +2738,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if ((afl->fsrv.qemu_mode) &&
+  if ((afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2735,7 +2753,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (memmem(f_data, f_len, "__asan_init", 11) ||
-      memmem(f_data, f_len, "__msan_init", 11)) {
+      memmem(f_data, f_len, "__msan_init", 11) ||
+      memmem(f_data, f_len, "__lsan_init", 11)) {
 
     afl->fsrv.uses_asan = 1;
 
@@ -2757,7 +2776,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+  if (afl->fsrv.frida_mode ||
+      memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);

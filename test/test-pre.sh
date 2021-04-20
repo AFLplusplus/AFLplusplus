@@ -71,6 +71,7 @@ unset AFL_HARDEN
 unset AFL_USE_ASAN
 unset AFL_USE_MSAN
 unset AFL_USE_UBSAN
+unset AFL_USE_LSAN
 unset AFL_TMPDIR
 unset AFL_CC
 unset AFL_PRELOAD

@@ -72,8 +72,7 @@ static u8 *in_data,                    /* Input data                        */
 static u64 total;                      /* tuple content information         */
 static u32 tcnt, highest;              /* tuple content information         */
 
-static u32 in_len,                     /* Input data length                 */
-    arg_offset;                        /* Total number of execs             */
+static u32 in_len;                     /* Input data length                 */
 
 static u32 map_size = MAP_SIZE;
 
@@ -556,8 +555,10 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(afl_forkserver_t *fsrv) {
+static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
+  char *afl_preload;
+  char *frida_afl_preload = NULL;
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
          "detect_leaks=0:"
@@ -570,6 +571,13 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
          "handle_sigfpe=0:"
          "handle_sigill=0",
          0);
+
+  setenv("LSAN_OPTIONS",
+         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
+         "fast_unwind_on_malloc=0:"
+         "symbolize=0:"
+         "print_suppressions=0",
+          0);
 
   setenv("UBSAN_OPTIONS",
          "halt_on_error=1:"
@@ -601,6 +609,25 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
       /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
+    } else if (fsrv->frida_mode) {
+
+      afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      if (afl_preload) {
+
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+      } else {
+
+        frida_afl_preload = alloc_printf("%s", frida_binary);
+
+      }
+
+      ck_free(frida_binary);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+
     } else {
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
@@ -608,7 +635,16 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
+  } else if (fsrv->frida_mode) {
+
+    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    setenv("LD_PRELOAD", frida_binary, 1);
+    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+    ck_free(frida_binary);
+
   }
+
+  if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
 }
 
@@ -656,6 +692,7 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
       "  -t msec       - timeout for each run (none)\n"
       "  -m megs       - memory limit for child process (%u MB)\n"
+      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
@@ -724,7 +761,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOQUWbcrsh")) > 0) {
 
     switch (opt) {
 
@@ -858,6 +895,14 @@ int main(int argc, char **argv_orig, char **envp) {
         at_file = optarg;
         break;
 
+      case 'O':                                               /* FRIDA mode */
+
+        if (fsrv->frida_mode) { FATAL("Multiple -O options not supported"); }
+
+        fsrv->frida_mode = 1;
+
+        break;
+
       case 'Q':
 
         if (fsrv->qemu_mode) { FATAL("Multiple -Q options not supported"); }
@@ -944,7 +989,7 @@ int main(int argc, char **argv_orig, char **envp) {
   shm.cmplog_mode = 0;
   setup_signal_handlers();
 
-  set_up_environment(fsrv);
+  set_up_environment(fsrv, argv);
 
   fsrv->target_path = find_binary(argv[optind]);
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
@@ -958,10 +1003,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    detect_file_args(argv + optind, "", &fsrv->use_stdin);
+    /* If we don't have a file name chosen yet, use a safe default. */
+    u8 *use_dir = ".";
+
+    if (access(use_dir, R_OK | W_OK | X_OK)) {
+
+      use_dir = get_afl_env("TMPDIR");
+      if (!use_dir) { use_dir = "/tmp"; }
+
+    }
+
+    stdin_file = at_file ? strdup(at_file)
+                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
+                                                use_dir, (u32)getpid());
+    unlink(stdin_file);
+
+    // If @@ are in the target args, replace them and also set use_stdin=false.
+    detect_file_args(argv + optind, stdin_file, &fsrv->use_stdin);
 
   } else {
 
+    // If @@ are in the target args, replace them and also set use_stdin=false.
     detect_file_args(argv + optind, at_file, &fsrv->use_stdin);
 
   }
@@ -983,14 +1045,6 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     use_argv = argv + optind;
-
-  }
-
-  i = 0;
-  while (use_argv[i] != NULL && !arg_offset) {
-
-    if (strcmp(use_argv[i], "@@") == 0) { arg_offset = i; }
-    i++;
 
   }
 
@@ -1104,30 +1158,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    u8 *use_dir = ".";
-
-    if (access(use_dir, R_OK | W_OK | X_OK)) {
-
-      use_dir = get_afl_env("TMPDIR");
-      if (!use_dir) { use_dir = "/tmp"; }
-
-    }
-
-    stdin_file = at_file ? strdup(at_file)
-                         : (char *)alloc_printf("%s/.afl-showmap-temp-%u",
-                                                use_dir, (u32)getpid());
-    unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_file = stdin_file;
     fsrv->out_fd =
         open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
-
-    if (arg_offset && use_argv[arg_offset] != stdin_file) {
-
-      use_argv[arg_offset] = strdup(stdin_file);
-
-    }
 
     if (get_afl_env("AFL_DEBUG")) {
 
