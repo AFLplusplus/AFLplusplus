@@ -26,17 +26,17 @@ debug:
 	ar ru libAFLDriver.a afl-performance.o aflpp_driver.o
 
 aflpp_qemu_driver.o:	aflpp_qemu_driver.c
-	$(LLVM_BINDIR)clang $(CFLAGS) -O0 -funroll-loops -c aflpp_qemu_driver.c
+	-$(LLVM_BINDIR)clang $(CFLAGS) -O0 -funroll-loops -c aflpp_qemu_driver.c
 
 libAFLQemuDriver.a:	aflpp_qemu_driver.o
-	ar ru libAFLQemuDriver.a aflpp_qemu_driver.o
-	cp -vf libAFLQemuDriver.a ../../
+	-ar ru libAFLQemuDriver.a aflpp_qemu_driver.o
+	-cp -vf libAFLQemuDriver.a ../../
 
 aflpp_qemu_driver_hook.so:	aflpp_qemu_driver_hook.o
-	$(LLVM_BINDIR)clang -shared aflpp_qemu_driver_hook.o -o aflpp_qemu_driver_hook.so
+	-$(LLVM_BINDIR)clang -shared aflpp_qemu_driver_hook.o -o aflpp_qemu_driver_hook.so
 
 aflpp_qemu_driver_hook.o:	aflpp_qemu_driver_hook.c
-	$(LLVM_BINDIR)clang -fPIC $(CFLAGS) -funroll-loops -c aflpp_qemu_driver_hook.c
+	-$(LLVM_BINDIR)clang -fPIC $(CFLAGS) -funroll-loops -c aflpp_qemu_driver_hook.c
 
 test:	debug
 	#clang -S -emit-llvm -D_DEBUG=\"1\" -I../../include -Wl,--allow-multiple-definition -funroll-loops -o aflpp_driver_test.ll aflpp_driver_test.c

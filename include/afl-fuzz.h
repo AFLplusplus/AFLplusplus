@@ -384,13 +384,15 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
-      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new;
+      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
+      afl_exit_on_seed_issues;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries, *afl_kill_signal, *afl_target_env;
+      *afl_testcache_entries, *afl_kill_signal, *afl_target_env,
+      *afl_persistent_record;
 
 } afl_env_vars_t;
 
@@ -482,7 +484,6 @@ typedef struct afl_state {
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
-      python_only,                      /* Python-only mode                 */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node;                /* if this is a secondary instance  */
 
@@ -571,6 +572,7 @@ typedef struct afl_state {
       blocks_eff_select,                /* Blocks selected as fuzzable      */
       start_time,                       /* Unix start time (ms)             */
       last_sync_time,                   /* Time of last sync                */
+      last_sync_cycle,                  /* Cycle no. of the last sync       */
       last_path_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time;                   /* Time for most recent hang (ms)   */

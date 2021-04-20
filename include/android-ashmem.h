@@ -2,25 +2,26 @@
   #ifndef _ANDROID_ASHMEM_H
     #define _ANDROID_ASHMEM_H
 
+    #define _GNU_SOURCE
+    #include <sys/syscall.h>
+    #include <unistd.h>
     #include <fcntl.h>
     #include <linux/ashmem.h>
     #include <sys/ioctl.h>
     #include <sys/mman.h>
-
-    #if __ANDROID_API__ >= 26
-      #define shmat bionic_shmat
-      #define shmctl bionic_shmctl
-      #define shmdt bionic_shmdt
-      #define shmget bionic_shmget
-    #endif
     #include <sys/shm.h>
-    #undef shmat
-    #undef shmctl
-    #undef shmdt
-    #undef shmget
     #include <stdio.h>
-
     #define ASHMEM_DEVICE "/dev/ashmem"
+
+int shmdt(const void *address) {
+
+    #if defined(SYS_shmdt)
+  return syscall(SYS_shmdt, address);
+    #else
+  return syscall(SYS_ipc, SHMDT, 0, 0, 0, address, 0);
+    #endif
+
+}
 
 int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf) {
 

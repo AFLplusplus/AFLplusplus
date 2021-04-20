@@ -104,7 +104,8 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   for (auto const &ignoreListFunc : ignoreSubstringList) {
 
-    if (F->getName().contains(ignoreListFunc)) { return true; }
+    // hexcoder: F->getName().contains() not avaiilable in llvm 3.8.0
+    if (StringRef::npos != F->getName().find(ignoreListFunc)) { return true; }
 
   }
 

@@ -141,7 +141,7 @@ To enable it you must pass on the command line of afl-fuzz:
 
 ## 9) Wine mode
 
-AFL++ QEMU can use Wine to fuzz WIn32 PE binaries. Use the -W flag of afl-fuzz.
+AFL++ QEMU can use Wine to fuzz Win32 PE binaries. Use the -W flag of afl-fuzz.
 
 Note that some binaries require user interaction with the GUI and must be patched.
 

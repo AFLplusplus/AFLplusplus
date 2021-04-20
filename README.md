@@ -25,7 +25,11 @@
   For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
   with `AFL_LLVM_CMPLOG=1`.
 
-## Major changes in afl++ 3.00 + 3.10
+## Major changes in afl++ 3.00 onwards:
+
+With afl++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
+binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
+iOS etc.
 
 With afl++ 3.10 we introduced the following changes from previous behaviours:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout
@@ -80,30 +84,30 @@ behaviours and defaults:
 
 ## Important features of afl++
 
-  afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 5.1
-  with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
-  Android support and much, much, much more.
+  afl++ supports llvm from 6.0 up to version 12, very fast binary fuzzing with QEMU 5.1
+  with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
+  Mac OS, Solaris and Android support and much, much, much more.
 
-  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | qemu_mode        | unicorn_mode |
-  | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |       x      |
-  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
-  | LAF-Intel / CompCov      |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
-  | Selective Instrumentation|         |     x     |     x      |         x        |              |
-  | Non-Colliding Coverage   |         |     x(4)  |            |        (x)(5)    |              |
-  | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
-  | Context Coverage         |         |     x(6)  |            |                  |              |
-  | Auto Dictionary          |         |     x(7)  |            |                  |              |
-  | Snapshot LKM Support     |         |     x(8)  |     x(8)   |        (x)(5)    |              |
+  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode | qemu_mode        |unicorn_mode |
+  | -------------------------|:-------:|:---------:|:----------:|:----------:|:----------------:|:------------:|
+  | NeverZero                | x86[_64]|     x(1)  |     x      |            |         x        |       x      |
+  | Persistent Mode          |         |     x     |     x      |            | x86[_64]/arm[64] |       x      |
+  | LAF-Intel / CompCov      |         |     x     |            |            | x86[_64]/arm[64] | x86[_64]/arm |
+  | CmpLog                   |         |     x     |            |            | x86[_64]/arm[64] |              |
+  | Selective Instrumentation|         |     x     |     x      |     x      |         x        |              |
+  | Non-Colliding Coverage   |         |     x(4)  |            |            |        (x)(5)    |              |
+  | Ngram prev_loc Coverage  |         |     x(6)  |            |            |                  |              |
+  | Context Coverage         |         |     x(6)  |            |            |                  |              |
+  | Auto Dictionary          |         |     x(7)  |            |            |                  |              |
+  | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |            |        (x)(5)    |              |
 
-  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
+  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in previous llvm versions
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
   3. (currently unassigned)
-  4. with pcguard mode and LTO mode for LLVM >= 11
+  4. with pcguard mode and LTO mode for LLVM 11 and newer
   5. upcoming, development in the branch
-  6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
-  7. automatic in LTO mode with LLVM >= 11, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
+  6. not compatible with LTO instrumentation and needs at least LLVM v4.1
+  7. automatic in LTO mode with LLVM 11 and newer, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
   8. the snapshot LKM is currently unmaintained due to too many kernel changes coming too fast :-(
 
   Among others, the following features and patches have been integrated:
@@ -140,6 +144,7 @@ behaviours and defaults:
     time when we are satisfied with its stability
   * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
     checkout which does not compile or has a bug. *We only accept PRs in dev!!*
+  * [release](https://github.com/AFLplusplus/AFLplusplus/tree/release) : the latest release
   * (any other) : experimental branches to work on specific features or testing
     new functionality or changes.
 
@@ -180,7 +185,7 @@ sudo apt-get install -y build-essential python3-dev automake git flex bison libg
 # try to install llvm 11 and install the distro default if that fails
 sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang 
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
-git clone https://github.com/AFLplusplus/AFLplusplus && cd AFLplusplus
+git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
 make distrib
 sudo make install
@@ -288,7 +293,7 @@ anything below 9 is not recommended.
     |
     v
 +---------------------------------+
-| clang/clang++ 3.3+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
+| clang/clang++ 6.0+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
 +---------------------------------+     see [instrumentation/README.llvm.md](instrumentation/README.llvm.md)
     |
     | if not, or if the target fails with LLVM afl-clang-fast/++
@@ -370,7 +375,6 @@ There are many more options and modes available however these are most of the
 time less effective. See:
  * [instrumentation/README.ctx.md](instrumentation/README.ctx.md)
  * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
- * [instrumentation/README.instrim.md](instrumentation/README.instrim.md)
 
 afl++ performs "never zero" counting in its bitmap. You can read more about this
 here:
@@ -601,8 +605,9 @@ Every -M/-S entry needs a unique name (that can be whatever), however the same
 For every secondary fuzzer there should be a variation, e.g.:
  * one should fuzz the target that was compiled differently: with sanitizers
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
-   export AFL_USE_CFISAN=1 ; `
- * one should fuzz the target with CMPLOG/redqueen (see above)
+   export AFL_USE_CFISAN=1 ; export AFL_USE_LSAN=1`)
+ * one or two should fuzz the target with CMPLOG/redqueen (see above), at
+   least one cmplog instance should follow transformations (`-l AT`)
  * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
    (see above). Important note: If you run more than one laf-intel/COMPCOV
    fuzzer and you want them to share their intermediate results, the main

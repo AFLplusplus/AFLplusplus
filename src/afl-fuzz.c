@@ -109,6 +109,7 @@ static void usage(u8 *argv0, int more_help) {
       "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
+      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -126,7 +127,7 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU, just use -c 0.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
-      "                  1=small files (default), 2=larger files, 3=all "
+      "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
       "                  A=arithmetic solving, T=transformational solving.\n\n"
       "Fuzzing behavior settings:\n"
@@ -173,6 +174,14 @@ static void usage(u8 *argv0, int more_help) {
     "AFL_NO_COLOR or AFL_NO_COLOUR: switch colored console output off\n"
 #else
   #define DYN_COLOR
+#endif
+
+#ifdef AFL_PERSISTENT_RECORD
+  #define PERSISTENT_MSG                                                 \
+    "AFL_PERSISTENT_RECORD: record the last X inputs to every crash in " \
+    "out/crashes\n"
+#else
+  #define PERSISTENT_MSG
 #endif
 
     SAYF(
@@ -222,6 +231,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
+
+      PERSISTENT_MSG
+
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
@@ -253,7 +265,13 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char *)PYTHON_VERSION);
 #else
-  SAYF("Compiled without python module support\n");
+  SAYF("Compiled without python module support.\n");
+#endif
+
+#ifdef AFL_PERSISTENT_RECORD
+  SAYF("Compiled with AFL_PERSISTENT_RECORD support.\n");
+#else
+  SAYF("Compiled without AFL_PERSISTENT_RECORD support.\n");
 #endif
 
 #ifdef USEMMAP
@@ -263,27 +281,27 @@ static void usage(u8 *argv0, int more_help) {
 #endif
 
 #ifdef ASAN_BUILD
-  SAYF("Compiled with ASAN_BUILD\n\n");
+  SAYF("Compiled with ASAN_BUILD.\n");
 #endif
 
 #ifdef NO_SPLICING
-  SAYF("Compiled with NO_SPLICING\n\n");
+  SAYF("Compiled with NO_SPLICING.\n");
 #endif
 
 #ifdef PROFILING
-  SAYF("Compiled with PROFILING\n\n");
+  SAYF("Compiled with PROFILING.\n");
 #endif
 
 #ifdef INTROSPECTION
-  SAYF("Compiled with INTROSPECTION\n\n");
+  SAYF("Compiled with INTROSPECTION.\n");
 #endif
 
 #ifdef _DEBUG
-  SAYF("Compiled with _DEBUG\n\n");
+  SAYF("Compiled with _DEBUG.\n");
 #endif
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
-  SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS\n\n");
+  SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS.\n");
 #endif
 
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
@@ -320,6 +338,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
+  char * afl_preload;
+  char * frida_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -363,7 +383,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
+              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
 
     switch (opt) {
 
@@ -755,6 +775,18 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->use_banner = optarg;
         break;
 
+      case 'O':                                               /* FRIDA mode */
+
+        if (afl->fsrv.frida_mode) {
+
+          FATAL("Multiple -O options not supported");
+
+        }
+
+        afl->fsrv.frida_mode = 1;
+
+        break;
+
       case 'Q':                                                /* QEMU mode */
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
@@ -831,6 +863,14 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case '3':
               afl->cmplog_lvl = 3;
+
+              if (!afl->disable_trim) {
+
+                ACTF("Deactivating trimming due CMPLOG level 3");
+                afl->disable_trim = 1;
+
+              }
+
               break;
             case 'a':
             case 'A':
@@ -1023,6 +1063,30 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (unlikely(afl->afl_env.afl_persistent_record)) {
+
+  #ifdef AFL_PERSISTENT_RECORD
+
+    afl->fsrv.persistent_record = atoi(afl->afl_env.afl_persistent_record);
+
+    if (afl->fsrv.persistent_record < 2) {
+
+      FATAL(
+          "AFL_PERSISTENT_RECORD value must be be at least 2, recommended is "
+          "100 or 1000.");
+
+    }
+
+  #else
+
+    FATAL(
+        "afl-fuzz was not compiled with AFL_PERSISTENT_RECORD enabled in "
+        "config.h!");
+
+  #endif
+
+  }
+
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
@@ -1085,6 +1149,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->non_instrumented_mode) {
 
     if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
+    if (afl->fsrv.frida_mode) { FATAL("-O and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
     if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
 
@@ -1289,12 +1354,38 @@ int main(int argc, char **argv_orig, char **envp) {
 
       /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
 
+    } else if (afl->fsrv.frida_mode) {
+
+      afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      if (afl_preload) {
+
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+      } else {
+
+        frida_afl_preload = alloc_printf("%s", frida_binary);
+
+      }
+
+      ck_free(frida_binary);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+
     } else {
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
 
     }
+
+  } else if (afl->fsrv.frida_mode) {
+
+    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    setenv("LD_PRELOAD", frida_binary, 1);
+    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+    ck_free(frida_binary);
 
   }
 
@@ -1479,7 +1570,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) {
+    if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode &&
+        !afl->non_instrumented_mode) {
 
       check_binary(afl, afl->cmplog_binary);
 
@@ -1488,6 +1580,23 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   check_binary(afl, argv[optind]);
+
+  #ifdef AFL_PERSISTENT_RECORD
+  if (unlikely(afl->fsrv.persistent_record)) {
+
+    if (!getenv(PERSIST_ENV_VAR)) {
+
+      FATAL(
+          "Target binary is not compiled in persistent mode, "
+          "AFL_PERSISTENT_RECORD makes no sense.");
+
+    }
+
+    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
+
+  }
+
+  #endif
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
@@ -1513,7 +1622,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->non_instrumented_mode || afl->fsrv.qemu_mode || afl->unicorn_mode) {
+  if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
+      afl->fsrv.frida_mode || afl->unicorn_mode) {
 
     map_size = afl->fsrv.map_size = MAP_SIZE;
     afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
@@ -1773,6 +1883,14 @@ int main(int argc, char **argv_orig, char **envp) {
                   runs_in_current_cycle > afl->queued_paths) ||
                  (afl->old_seed_selection && !afl->queue_cur))) {
 
+      if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
+                    (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
+                   afl->sync_id)) {
+
+        sync_fuzzers(afl);
+
+      }
+
       ++afl->queue_cycle;
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_paths = 0;
@@ -1886,6 +2004,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+  #ifdef INTROSPECTION
+      fprintf(afl->introspection_file,
+              "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
+              afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
+              afl->queued_paths);
+  #endif
+
       if (afl->cycle_schedules) {
 
         /* we cannot mix non-AFLfast schedules with others */
@@ -1936,13 +2061,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       prev_queued = afl->queued_paths;
-
-      if (afl->sync_id && afl->queue_cycle == 1 &&
-          afl->afl_env.afl_import_first) {
-
-        sync_fuzzers(afl);
-
-      }
 
     }
 
@@ -2023,12 +2141,10 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   write_bitmap(afl);
-  maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
 stop_fuzzing:
 
-  write_stats_file(afl, 0, 0, 0, 0);
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
 
@@ -2073,6 +2189,8 @@ stop_fuzzing:
     unlink(path);
 
   }
+
+  if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);
