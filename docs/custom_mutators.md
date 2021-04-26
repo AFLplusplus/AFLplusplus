@@ -285,8 +285,8 @@ afl-fuzz /path/to/program
 
 ## 4) Example
 
-Please see [example.c](../utils/custom_mutators/example.c) and
-[example.py](../utils/custom_mutators/example.py)
+Please see [example.c](../custom_mutators/examples/example.c) and
+[example.py](../custom_mutators/examples/example.py)
 
 ## 5) Other Resources
 
