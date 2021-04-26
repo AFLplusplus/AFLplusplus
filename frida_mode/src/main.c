@@ -16,6 +16,7 @@
 
 #include "instrument.h"
 #include "interceptor.h"
+#include "lib.h"
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
@@ -79,6 +80,7 @@ static int *on_main(int argc, char **argv, char **envp) {
 
   stalker_init();
 
+  lib_init();
   instrument_init();
   persistent_init();
   prefetch_init();

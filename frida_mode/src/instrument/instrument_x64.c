@@ -17,15 +17,15 @@ static const guint8 afl_log_code[] = {
     0x51,                                                       /* push rcx */
     0x52,                                                       /* push rdx */
 
-    0x48, 0x8b, 0x0d, 0x28, 0x00,
-    0x00, 0x00,                                /* mov rcx, sym.&previous_pc */
+    0x48, 0x8b, 0x0d, 0x28,
+    0x00, 0x00, 0x00,                          /* mov rcx, sym.&previous_pc */
     0x48, 0x8b, 0x11,                               /* mov rdx, qword [rcx] */
     0x48, 0x31, 0xfa,                                       /* xor rdx, rdi */
 
-    0x48, 0x03, 0x15, 0x13, 0x00,
-    0x00, 0x00,                           /* add rdx, sym._afl_area_ptr_ptr */
+    0x48, 0x03, 0x15, 0x13,
+    0x00, 0x00, 0x00,                     /* add rdx, sym._afl_area_ptr_ptr */
 
-    0xfe, 0x02,                                           /* inc byte [rdx] */
+    0x80, 0x02, 0x01,                              /* add byte ptr [rdx], 1 */
     0x80, 0x12, 0x00,                              /* adc byte ptr [rdx], 0 */
     0x48, 0xd1, 0xef,                                         /* shr rdi, 1 */
     0x48, 0x89, 0x39,                               /* mov qword [rcx], rdi */
@@ -35,7 +35,7 @@ static const guint8 afl_log_code[] = {
     0x9d,                                                          /* popfq */
 
     0xc3,                                                            /* ret */
-    0x90, 0x90, 0x90, 0x90                                       /* nop pad */
+    0x90, 0x90, 0x90                                             /* nop pad */
 
     /* Read-only data goes here: */
     /* uint8_t* __afl_area_ptr */

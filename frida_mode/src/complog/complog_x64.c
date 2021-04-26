@@ -33,6 +33,60 @@ static guint64 complog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
 
   switch (reg) {
 
+    case X86_REG_AH:
+      return (ctx->rax & GUM_INT16_MASK) >> 8;
+
+    case X86_REG_AL:
+      return ctx->rax & GUM_INT8_MASK;
+
+    case X86_REG_AX:
+      return ctx->rax & GUM_INT16_MASK;
+
+    case X86_REG_BH:
+      return (ctx->rbx & GUM_INT16_MASK) >> 8;
+
+    case X86_REG_BL:
+      return ctx->rbx & GUM_INT8_MASK;
+
+    case X86_REG_BP:
+      return ctx->rbp & GUM_INT16_MASK;
+
+    case X86_REG_BPL:
+      return ctx->rbp & GUM_INT8_MASK;
+
+    case X86_REG_BX:
+      return ctx->rbx & GUM_INT16_MASK;
+
+    case X86_REG_CH:
+      return (ctx->rcx & GUM_INT16_MASK) >> 8;
+
+    case X86_REG_CL:
+      return ctx->rcx & GUM_INT8_MASK;
+
+    case X86_REG_CX:
+      return ctx->rcx & GUM_INT16_MASK;
+
+    case X86_REG_DH:
+      return (ctx->rdx & GUM_INT16_MASK) >> 8;
+
+    case X86_REG_DI:
+      return ctx->rdi & GUM_INT16_MASK;
+
+    case X86_REG_DIL:
+      return ctx->rdi & GUM_INT8_MASK;
+
+    case X86_REG_DL:
+      return ctx->rdx & GUM_INT8_MASK;
+
+    case X86_REG_DX:
+      return ctx->rdx & GUM_INT16_MASK;
+
+    case X86_REG_SI:
+      return ctx->rsi & GUM_INT16_MASK;
+
+    case X86_REG_SIL:
+      return ctx->rsi & GUM_INT8_MASK;
+
     case X86_REG_EAX:
       return ctx->rax & GUM_INT32_MASK;
 
@@ -243,6 +297,8 @@ static void complog_instrument_call_put_callout(GumStalkerIterator *iterator,
                                                 cs_x86_op *         operand) {
 
   complog_ctx_t *ctx = g_malloc(sizeof(complog_ctx_t));
+  if (ctx == NULL) return;
+
   complog_instrument_put_operand(ctx, operand);
 
   gum_stalker_iterator_put_callout(iterator, complog_call_callout, ctx, g_free);
@@ -311,6 +367,8 @@ static void complog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
                                                    cs_x86_op *operand2) {
 
   complog_pair_ctx_t *ctx = g_malloc(sizeof(complog_pair_ctx_t));
+  if (ctx == NULL) return;
+
   complog_instrument_put_operand(&ctx->operand1, operand1);
   complog_instrument_put_operand(&ctx->operand2, operand2);
 
@@ -344,10 +402,12 @@ static void complog_instrument_cmp_sub(const cs_insn *     instr,
   if (operand1->type == X86_OP_INVALID) return;
   if (operand2->type == X86_OP_INVALID) return;
 
-  if (operand1->type == X86_OP_MEM && operand1->mem.segment != X86_REG_INVALID)
+  if ((operand1->type == X86_OP_MEM) &&
+      (operand1->mem.segment != X86_REG_INVALID))
     return;
 
-  if (operand2->type == X86_OP_MEM && operand2->mem.segment != X86_REG_INVALID)
+  if ((operand2->type == X86_OP_MEM) &&
+      (operand2->mem.segment != X86_REG_INVALID))
     return;
 
   complog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);

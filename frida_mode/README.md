@@ -71,10 +71,10 @@ modifications to suit FRIDA or QEMU. We use the test data provided with libpng
 as our corpus.
 
 Whilst not much performance tuning has been completed to date, performance is
-around 30-50% of that of QEMU mode, however, this gap may reduce with the 
-introduction of persistent mode. Performance can be tested by running 
-`make compare`, albeit a longer time measurement may be required for more 
-accurate results. 
+around 30-50% of that of QEMU mode, however, this gap may reduce with the
+introduction of persistent mode. Performance can be tested by running
+`make compare`, albeit a longer time measurement may be required for more
+accurate results.
 
 Whilst [afl_frida](https://github.com/AFLplusplus/AFLplusplus/tree/stable/utils/afl_frida)
 claims a 5-10x performance increase over QEMU, it has not been possible to
@@ -102,7 +102,7 @@ this coverage information to AFL++ and also provide a fork server. It also makes
 use of the FRIDA [prefetch](https://github.com/frida/frida-gum/blob/56dd9ba3ee9a5511b4b0c629394bf122775f1ab7/gum/gumstalker.h#L115)
 support to feedback instrumented blocks from the child to the parent using a
 shared memory region to avoid the need to regenerate instrumented blocks on each
-fork. 
+fork.
 
 Whilst FRIDA allows for a normal C function to be used to augment instrumented
 code, to minimize the costs of storing and restoring all of the registers, FRIDA
@@ -116,14 +116,6 @@ instrumentation (the default where available). Required to use
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork.
-* `AFL_FRIDA_INST_STRICT` - Under certain conditions, Stalker may encroach into
-excluded regions and generate both instrumented blocks and coverage data (e.g.
-indirect calls on x86). The excluded block is generally honoured as soon as
-another function is called within the excluded region and so such encroachment
-is usually of little consequence. This detail may however, hinder you when
-checking that the correct number of paths are found for testing purposes or
-similar. There is a performance penatly for this option during block compilation
-where we check the block isn't in a list of excluded ranges.
 * `AFL_FRIDA_INST_TRACE` - Generate some logging when running instrumented code.
 Requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 

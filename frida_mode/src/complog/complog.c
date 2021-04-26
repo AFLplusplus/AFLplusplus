@@ -40,12 +40,11 @@ void complog_init() {
 
 }
 
-static gboolean complog_overlaps(GumAddress base1, GumAddress limit1,
-                                 GumAddress base2, GumAddress limit2) {
+static gboolean complog_contains(GumAddress inner_base, GumAddress inner_limit,
+                                 GumAddress outer_base,
+                                 GumAddress outer_limit) {
 
-  if (base1 < base2) return false;
-  if (limit1 > limit2) return false;
-  return true;
+  return (inner_base >= outer_base && inner_limit <= outer_limit);
 
 }
 
@@ -53,16 +52,17 @@ gboolean complog_is_readable(void *addr, size_t size) {
 
   if (complog_ranges == NULL) FATAL("CompLog not initialized");
 
-  GumAddress cmp_base = GUM_ADDRESS(addr);
-  GumAddress cmp_limit = cmp_base + size;
+  GumAddress inner_base = GUM_ADDRESS(addr);
+  GumAddress inner_limit = inner_base + size;
 
   for (guint i = 0; i < complog_ranges->len; i++) {
 
     GumMemoryRange *range = &g_array_index(complog_ranges, GumMemoryRange, i);
-    GumAddress      base = range->base_address;
-    GumAddress      limit = base + range->size;
+    GumAddress      outer_base = range->base_address;
+    GumAddress      outer_limit = outer_base + range->size;
 
-    if (complog_overlaps(cmp_base, cmp_limit, base, limit)) return true;
+    if (complog_contains(inner_base, inner_limit, outer_base, outer_limit))
+      return true;
 
   }
 
