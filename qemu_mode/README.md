@@ -190,8 +190,8 @@ handlers of the target.
 
 ## 13) Gotchas, feedback, bugs
 
-If you need to fix up checksums or do other cleanup on mutated test cases, see
-utils/custom_mutators/ for a viable solution.
+If you need to fix up checksums or do other cleanups on mutated test cases, see
+`afl_custom_post_process` in custom_mutators/examples/example.c for a viable solution.
 
 Do not mix QEMU mode with ASAN, MSAN, or the likes; QEMU doesn't appreciate
 the "shadow VM" trick employed by the sanitizers and will probably just
