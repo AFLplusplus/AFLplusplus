@@ -10,10 +10,7 @@ OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
 		-D_FORTIFY_SOURCE=2 \
-		-Werror \
-		-Wall \
-		-Wextra \
-		-Wpointer-arith \
+		-Wno-pointer-arith \
 		-g \
 		-O3 \
 		-funroll-loops \
