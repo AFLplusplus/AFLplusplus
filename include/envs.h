@@ -59,6 +59,9 @@ static char *afl_environment_variables[] = {
     "AFL_FRIDA_INST_RANGES",
     "AFL_FRIDA_INST_STRICT",
     "AFL_FRIDA_INST_TRACE",
+    "AFL_FRIDA_PERSISTENT_ADDR",
+    "AFL_FRIDA_PERSISTENT_CNT",
+    "AFL_FRIDA_PERSISTENT_HOOK",
     "AFL_FUZZER_ARGS",  // oss-fuzz
     "AFL_GDB",
     "AFL_GCC_ALLOWLIST",

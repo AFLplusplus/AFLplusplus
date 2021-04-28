@@ -35,7 +35,7 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
 
-  if (!fsrv->qemu_mode && argv[0] != fsrv->cmplog_binary) {
+  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->cmplog_binary) {
 
     argv[0] = fsrv->cmplog_binary;
 

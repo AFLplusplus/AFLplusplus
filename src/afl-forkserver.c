@@ -416,7 +416,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     struct rlimit r;
 
-    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false) {
+    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false &&
+        fsrv->frida_mode == false) {
 
       unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
 
