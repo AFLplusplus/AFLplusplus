@@ -1,5 +1,9 @@
-#include "frida-gum.h"
 
+#ifndef _PERSISTENT_H
+
+#define _PERSISTENT_H
+
+#include "frida-gum.h"
 #include "config.h"
 
 typedef struct arch_api_regs api_regs;
@@ -24,3 +28,4 @@ gboolean persistent_is_supported(void);
 
 void persistent_prologue(GumStalkerOutput *output);
 
+#endif

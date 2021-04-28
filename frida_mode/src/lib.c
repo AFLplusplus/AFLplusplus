@@ -1,6 +1,6 @@
 #include <elf.h>
 #include <fcntl.h>
-#include <linux/limits.h>
+#include <limits.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>
