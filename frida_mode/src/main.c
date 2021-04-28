@@ -10,13 +10,17 @@
 #endif
 
 #include "frida-gum.h"
+
 #include "config.h"
 #include "debug.h"
 
-#include "interceptor.h"
 #include "instrument.h"
+#include "interceptor.h"
+#include "lib.h"
+#include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "stalker.h"
 
 #ifdef __APPLE__
 extern mach_port_t mach_task_self();
@@ -30,16 +34,15 @@ extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
 
 typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
 
-static main_fn_t      main_fn = NULL;
-static GumStalker *   stalker = NULL;
+static main_fn_t main_fn = NULL;
+
 static GumMemoryRange code_range = {0};
 
-extern void              __afl_manual_init();
-extern __thread uint64_t previous_pc;
+extern void __afl_manual_init();
 
-static int on_fork() {
+static int on_fork(void) {
 
-  prefetch_read(stalker);
+  prefetch_read();
   return fork();
 
 }
@@ -70,37 +73,46 @@ static void on_main_os(int argc, char **argv, char **envp) {
 
 static int *on_main(int argc, char **argv, char **envp) {
 
+  void *fork_addr;
   on_main_os(argc, argv, envp);
 
-  stalker = gum_stalker_new();
-  if (stalker == NULL) { FATAL("Failed to initialize stalker"); }
+  unintercept_self();
 
-  gum_stalker_set_trust_threshold(stalker, 0);
+  stalker_init();
 
-  GumStalkerTransformer *transformer =
-      gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
-
+  lib_init();
   instrument_init();
+  persistent_init();
   prefetch_init();
-  ranges_init(stalker);
+  ranges_init();
 
-  intercept(fork, on_fork, stalker);
+  fork_addr = GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
+  intercept(fork_addr, on_fork, NULL);
 
-  gum_stalker_follow_me(stalker, transformer, NULL);
-  gum_stalker_deactivate(stalker);
+  stalker_start();
+  stalker_pause();
 
   __afl_manual_init();
 
   /* Child here */
   previous_pc = 0;
-  prefetch_start(stalker);
+  stalker_resume();
   main_fn(argc, argv, envp);
-  _exit(0);
 
 }
 
-#ifdef __APPLE__
-static void intercept_main() {
+#if defined(EMBEDDED)
+extern int *main(int argc, char **argv, char **envp);
+
+static void intercept_main(void) {
+
+  main_fn = main;
+  intercept(main, on_main, NULL);
+
+}
+
+#elif defined(__APPLE__)
+static void intercept_main(void) {
 
   mach_port_t task = mach_task_self();
   OKF("Task Id: %u", task);
@@ -119,13 +131,14 @@ static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
                               void(*stack_end)) {
 
   main_fn = main;
+  unintercept_self();
   intercept(main, on_main, NULL);
   return __libc_start_main(main, argc, ubp_av, init, fini, rtld_fini,
                            stack_end);
 
 }
 
-static void intercept_main() {
+static void intercept_main(void) {
 
   intercept(__libc_start_main, on_libc_start_main, NULL);
 
@@ -133,7 +146,7 @@ static void intercept_main() {
 
 #endif
 
-__attribute__((constructor)) static void init() {
+__attribute__((constructor)) static void init(void) {
 
   gum_init_embedded();
   if (!gum_stalker_is_supported()) {

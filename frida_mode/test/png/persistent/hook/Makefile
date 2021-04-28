@@ -5,5 +5,8 @@ all:
 clean:
 	@gmake clean
 
-format:
-	@gmake format
+qemu:
+	@gmake qemu
+
+frida:
+	@gmake frida

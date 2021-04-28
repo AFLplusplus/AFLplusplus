@@ -22,7 +22,7 @@
   #define TESTINSTR_SECTION __attribute__((section(".testinstr")))
 #endif
 
-TESTINSTR_SECTION void testinstr(char *buf, int len) {
+void testinstr(char *buf, int len) {
 
   if (len < 1) return;
   buf[len] = 0;
@@ -37,7 +37,7 @@ TESTINSTR_SECTION void testinstr(char *buf, int len) {
 
 }
 
-int main(int argc, char **argv) {
+TESTINSTR_SECTION int main(int argc, char **argv) {
 
   char * file;
   int    fd = -1;
