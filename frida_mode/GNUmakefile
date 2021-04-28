@@ -5,7 +5,7 @@ SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
 SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
 BUILD_DIR:=$(PWD)build/
-CFLAGS+=-fPIC -D_GNU_SOURCE -Wno-prio-ctor-dtor
+CFLAGS+=-fPIC -D_GNU_SOURCE -Wno-prio-ctor-dtor -fcommon -Wl,--allow-multiple-definition
 
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
@@ -71,8 +71,8 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(SOURCES) $(QEMU_INC_A
 		-I $(ROOT) \
 		-I $(ROOT)include \
 		-I $(INC_DIR) \
-		$(ROOT)instrumentation/afl-compiler-rt.o.c \
-		-lpthread -ldl -lresolv -lelf
+		$(ROOT)instrumentation/afl-compiler-rt.o.c
+#		-lpthread -ldl -lresolv -lelf
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
 

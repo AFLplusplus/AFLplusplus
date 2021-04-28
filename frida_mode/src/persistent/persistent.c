@@ -9,9 +9,6 @@
 #include "util.h"
 
 int                    __afl_sharedmem_fuzzing = 0;
-afl_persistent_hook_fn hook = NULL;
-guint64                persistent_start = 0;
-guint64                persistent_count = 0;
 
 void persistent_init(void) {
 
