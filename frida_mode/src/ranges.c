@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "util.h"
 
 #define MAX_RANGES 20
 
@@ -167,6 +168,7 @@ gint range_sort(gconstpointer a, gconstpointer b) {
 static gboolean print_ranges_callback(const GumRangeDetails *details,
                                       gpointer               user_data) {
 
+  UNUSED_PARAMETER(user_data);
   if (details->file == NULL) {
 
     OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER "X",
@@ -190,7 +192,7 @@ static gboolean print_ranges_callback(const GumRangeDetails *details,
 static void print_ranges(char *key, GArray *ranges) {
 
   OKF("Range: %s Length: %d", key, ranges->len);
-  for (int i = 0; i < ranges->len; i++) {
+  for (guint i = 0; i < ranges->len; i++) {
 
     GumMemoryRange *curr = &g_array_index(ranges, GumMemoryRange, i);
     GumAddress      curr_limit = curr->base_address + curr->size;
@@ -345,10 +347,10 @@ static GArray *intersect_ranges(GArray *a, GArray *b) {
 
   result = g_array_new(false, false, sizeof(GumMemoryRange));
 
-  for (int i = 0; i < a->len; i++) {
+  for (guint i = 0; i < a->len; i++) {
 
     ra = &g_array_index(a, GumMemoryRange, i);
-    for (int j = 0; j < b->len; j++) {
+    for (guint j = 0; j < b->len; j++) {
 
       rb = &g_array_index(b, GumMemoryRange, j);
 
@@ -377,11 +379,11 @@ static GArray *subtract_ranges(GArray *a, GArray *b) {
 
   result = g_array_new(false, false, sizeof(GumMemoryRange));
 
-  for (int i = 0; i < a->len; i++) {
+  for (guint i = 0; i < a->len; i++) {
 
     ra = &g_array_index(a, GumMemoryRange, i);
     ral = ra->base_address + ra->size;
-    for (int j = 0; j < b->len; j++) {
+    for (guint j = 0; j < b->len; j++) {
 
       rb = &g_array_index(b, GumMemoryRange, j);
 
@@ -453,7 +455,7 @@ static GArray *merge_ranges(GArray *a) {
 
   rp = g_array_index(a, GumMemoryRange, 0);
 
-  for (int i = 1; i < a->len; i++) {
+  for (guint i = 1; i < a->len; i++) {
 
     r = &g_array_index(a, GumMemoryRange, i);
 
@@ -535,7 +537,7 @@ void ranges_init(void) {
 
   stalker = stalker_get();
 
-  for (int i = 0; i < ranges->len; i++) {
+  for (guint i = 0; i < ranges->len; i++) {
 
     r = &g_array_index(ranges, GumMemoryRange, i);
     gum_stalker_exclude(stalker, r);
@@ -551,12 +553,11 @@ void ranges_init(void) {
 
 gboolean range_is_excluded(gpointer address) {
 
-  int        i;
   GumAddress test = GUM_ADDRESS(address);
 
   if (ranges == NULL) { return false; }
 
-  for (i = 0; i < ranges->len; i++) {
+  for (guint i = 0; i < ranges->len; i++) {
 
     GumMemoryRange *curr = &g_array_index(ranges, GumMemoryRange, i);
     GumAddress      curr_limit = curr->base_address + curr->size;

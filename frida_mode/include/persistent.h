@@ -1,6 +1,5 @@
 
 #ifndef _PERSISTENT_H
-
 #define _PERSISTENT_H
 
 #include "frida-gum.h"
@@ -17,9 +16,9 @@ extern int __afl_persistent_loop(unsigned int max_cnt);
 extern unsigned int * __afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
-guint64                persistent_start;
-guint64                persistent_count;
-afl_persistent_hook_fn hook;
+extern guint64                persistent_start;
+extern guint64                persistent_count;
+extern afl_persistent_hook_fn hook;
 
 void persistent_init(void);
 
@@ -29,3 +28,4 @@ gboolean persistent_is_supported(void);
 void persistent_prologue(GumStalkerOutput *output);
 
 #endif
+

@@ -21,6 +21,7 @@
 #include "prefetch.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "util.h"
 
 #ifdef __APPLE__
 extern mach_port_t mach_task_self();
@@ -35,8 +36,6 @@ extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
 typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
-
-static GumMemoryRange code_range = {0};
 
 extern void __afl_manual_init();
 
@@ -54,6 +53,8 @@ static void on_main_os(int argc, char **argv, char **envp) {
 
 #else
 static void on_main_os(int argc, char **argv, char **envp) {
+
+  UNUSED_PARAMETER(argc);
 
   /* Personality doesn't affect the current process, it only takes effect on
    * evec */
@@ -97,7 +98,7 @@ static int *on_main(int argc, char **argv, char **envp) {
   /* Child here */
   previous_pc = 0;
   stalker_resume();
-  main_fn(argc, argv, envp);
+  return main_fn(argc, argv, envp);
 
 }
 

@@ -2,6 +2,7 @@
 
 #include "debug.h"
 #include "cmplog.h"
+#include "util.h"
 
 extern struct cmp_map *__afl_cmp_map;
 
@@ -10,8 +11,10 @@ static GArray *complog_ranges = NULL;
 static gboolean complog_range(const GumRangeDetails *details,
                               gpointer               user_data) {
 
+  UNUSED_PARAMETER(user_data);
   GumMemoryRange range = *details->range;
   g_array_append_val(complog_ranges, range);
+  return TRUE;
 
 }
 

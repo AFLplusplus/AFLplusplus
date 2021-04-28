@@ -80,7 +80,6 @@ $(TEST_BIN): $(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB)
 		-o $@ \
 		$(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB) \
 		-lz \
-		$(TEST_LDFLAGS)
 
 clean:
 	rm -rf $(BUILD_DIR)
