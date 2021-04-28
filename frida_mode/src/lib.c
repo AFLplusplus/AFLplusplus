@@ -64,6 +64,7 @@ static void lib_validate_hdr(Elf_Ehdr *hdr) {
   if (hdr->e_ident[2] != ELFMAG2) FATAL("Invalid e_ident[2]");
   if (hdr->e_ident[3] != ELFMAG3) FATAL("Invalid e_ident[3]");
   if (hdr->e_ident[4] != ELFCLASS) FATAL("Invalid class");
+/*
   if (hdr->e_ident[5] != (lib_is_little_endian() ? ELFDATA2LSB : ELFDATA2MSB))
     FATAL("Invalid endian");
   if (hdr->e_ident[6] != EV_CURRENT) FATAL("Invalid version");
@@ -73,6 +74,7 @@ static void lib_validate_hdr(Elf_Ehdr *hdr) {
   if (hdr->e_ehsize != sizeof(Elf_Ehdr)) FATAL("Invalid e_ehsize");
   if (hdr->e_phentsize != sizeof(Elf_Phdr)) FATAL("Invalid e_phentsize");
   if (hdr->e_shentsize != sizeof(Elf_Shdr)) FATAL("Invalid e_shentsize");
+*/
 
 }
 
