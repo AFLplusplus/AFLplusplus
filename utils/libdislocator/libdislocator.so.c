@@ -154,7 +154,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
   #define __thread
   #warning no thread support available
 #endif
-static __thread size_t total_mem;       /* Currently allocated mem          */
+static _Atomic size_t total_mem;        /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static u32          alloc_canary;
