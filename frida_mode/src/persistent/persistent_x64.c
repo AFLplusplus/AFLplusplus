@@ -231,7 +231,7 @@ static int instrument_afl_persistent_loop_func(void) {
 
 }
 
-static int instrument_afl_persistent_loop(GumX86Writer *cw) {
+static void instrument_afl_persistent_loop(GumX86Writer *cw) {
 
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
                                         -(GUM_RED_ZONE_SIZE));

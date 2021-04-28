@@ -10,7 +10,7 @@ void intercept(void *address, gpointer replacement, gpointer user_data) {
   gum_interceptor_begin_transaction(interceptor);
   GumReplaceReturn ret =
       gum_interceptor_replace(interceptor, address, replacement, user_data);
-  if (ret != GUM_ATTACH_OK) { FATAL("gum_interceptor_attach: %d", ret); }
+  if (ret != GUM_REPLACE_OK) { FATAL("gum_interceptor_attach: %d", ret); }
   gum_interceptor_end_transaction(interceptor);
 
 }
