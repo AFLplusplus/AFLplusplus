@@ -89,7 +89,6 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 		-Wno-unused-parameter \
 		-Wno-sign-compare \
 		-Wno-unused-function \
-		-Wno-prio-ctor-dtor \
 		-Wno-unused-result \
 		-o $@ \
 		-c $<
