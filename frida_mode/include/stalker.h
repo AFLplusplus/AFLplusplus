@@ -1,8 +1,8 @@
 #include "frida-gum.h"
 
-void        stalker_init();
-GumStalker *stalker_get();
-void        stalker_start();
-void        stalker_pause();
-void        stalker_resume();
+void        stalker_init(void);
+GumStalker *stalker_get(void);
+void        stalker_start(void);
+void        stalker_pause(void);
+void        stalker_resume(void);
 

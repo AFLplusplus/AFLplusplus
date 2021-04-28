@@ -26,7 +26,7 @@ void unintercept(void *address) {
 
 }
 
-void unintercept_self() {
+void unintercept_self(void) {
 
   GumInvocationContext *ctx = gum_interceptor_get_current_invocation();
   unintercept(ctx->function);

@@ -52,7 +52,7 @@ void prefetch_write(void *addr) {
 /*
  * Read the IPC region one block at the time and prefetch it
  */
-void prefetch_read() {
+void prefetch_read(void) {
 
   GumStalker *stalker = stalker_get();
   if (prefetch_data == NULL) return;
@@ -72,7 +72,7 @@ void prefetch_read() {
 
 }
 
-void prefetch_init() {
+void prefetch_init(void) {
 
   g_assert_cmpint(sizeof(prefetch_data_t), ==, PREFETCH_SIZE);
   gboolean prefetch = (getenv("AFL_FRIDA_INST_NO_PREFETCH") == NULL);

@@ -15,14 +15,14 @@ static gboolean complog_range(const GumRangeDetails *details,
 
 }
 
-gint complog_sort(gconstpointer a, gconstpointer b) {
+static gint complog_sort(gconstpointer a, gconstpointer b) {
 
   return ((GumMemoryRange *)b)->base_address -
          ((GumMemoryRange *)a)->base_address;
 
 }
 
-void complog_init() {
+void complog_init(void) {
 
   if (__afl_cmp_map != NULL) { OKF("CompLog mode enabled"); }
 

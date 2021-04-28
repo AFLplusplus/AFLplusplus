@@ -7,6 +7,41 @@
 
 #if defined(__x86_64__)
 
+  #define X86_REG_8L(LABEL, REG)  \
+    case LABEL: {                 \
+                                  \
+      return REG & GUM_INT8_MASK; \
+                                  \
+    }
+
+  #define X86_REG_8H(LABEL, REG)          \
+    case LABEL: {                         \
+                                          \
+      return (REG & GUM_INT16_MASK) >> 8; \
+                                          \
+    }
+
+  #define X86_REG_16(LABEL, REG)     \
+    case LABEL: {                    \
+                                     \
+      return (REG & GUM_INT16_MASK); \
+                                     \
+    }
+
+  #define X86_REG_32(LABEL, REG)     \
+    case LABEL: {                    \
+                                     \
+      return (REG & GUM_INT32_MASK); \
+                                     \
+    }
+
+  #define X86_REG_64(LABEL, REG) \
+    case LABEL: {                \
+                                 \
+      return (REG);              \
+                                 \
+    }
+
 typedef struct {
 
   x86_op_type type;
@@ -33,161 +68,62 @@ static guint64 complog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
 
   switch (reg) {
 
-    case X86_REG_AH:
-      return (ctx->rax & GUM_INT16_MASK) >> 8;
+    X86_REG_8L(X86_REG_AL, ctx->rax)
+    X86_REG_8L(X86_REG_BL, ctx->rbx)
+    X86_REG_8L(X86_REG_CL, ctx->rcx)
+    X86_REG_8L(X86_REG_DL, ctx->rdx)
+    X86_REG_8L(X86_REG_BPL, ctx->rbp)
+    X86_REG_8L(X86_REG_SIL, ctx->rsi)
+    X86_REG_8L(X86_REG_DIL, ctx->rdi)
 
-    case X86_REG_AL:
-      return ctx->rax & GUM_INT8_MASK;
+    X86_REG_8H(X86_REG_AH, ctx->rax)
+    X86_REG_8H(X86_REG_BH, ctx->rbx)
+    X86_REG_8H(X86_REG_CH, ctx->rcx)
+    X86_REG_8H(X86_REG_DH, ctx->rdx)
 
-    case X86_REG_AX:
-      return ctx->rax & GUM_INT16_MASK;
+    X86_REG_16(X86_REG_AX, ctx->rax)
+    X86_REG_16(X86_REG_BX, ctx->rbx)
+    X86_REG_16(X86_REG_CX, ctx->rcx)
+    X86_REG_16(X86_REG_DX, ctx->rdx)
+    X86_REG_16(X86_REG_DI, ctx->rdi)
+    X86_REG_16(X86_REG_SI, ctx->rsi)
+    X86_REG_16(X86_REG_BP, ctx->rbp)
 
-    case X86_REG_BH:
-      return (ctx->rbx & GUM_INT16_MASK) >> 8;
+    X86_REG_32(X86_REG_EAX, ctx->rax)
+    X86_REG_32(X86_REG_ECX, ctx->rcx)
+    X86_REG_32(X86_REG_EDX, ctx->rdx)
+    X86_REG_32(X86_REG_EBX, ctx->rbx)
+    X86_REG_32(X86_REG_ESP, ctx->rsp)
+    X86_REG_32(X86_REG_EBP, ctx->rbp)
+    X86_REG_32(X86_REG_ESI, ctx->rsi)
+    X86_REG_32(X86_REG_EDI, ctx->rdi)
+    X86_REG_32(X86_REG_R8D, ctx->r8)
+    X86_REG_32(X86_REG_R9D, ctx->r9)
+    X86_REG_32(X86_REG_R10D, ctx->r10)
+    X86_REG_32(X86_REG_R11D, ctx->r11)
+    X86_REG_32(X86_REG_R12D, ctx->r12)
+    X86_REG_32(X86_REG_R13D, ctx->r13)
+    X86_REG_32(X86_REG_R14D, ctx->r14)
+    X86_REG_32(X86_REG_R15D, ctx->r15)
+    X86_REG_32(X86_REG_EIP, ctx->rip)
 
-    case X86_REG_BL:
-      return ctx->rbx & GUM_INT8_MASK;
-
-    case X86_REG_BP:
-      return ctx->rbp & GUM_INT16_MASK;
-
-    case X86_REG_BPL:
-      return ctx->rbp & GUM_INT8_MASK;
-
-    case X86_REG_BX:
-      return ctx->rbx & GUM_INT16_MASK;
-
-    case X86_REG_CH:
-      return (ctx->rcx & GUM_INT16_MASK) >> 8;
-
-    case X86_REG_CL:
-      return ctx->rcx & GUM_INT8_MASK;
-
-    case X86_REG_CX:
-      return ctx->rcx & GUM_INT16_MASK;
-
-    case X86_REG_DH:
-      return (ctx->rdx & GUM_INT16_MASK) >> 8;
-
-    case X86_REG_DI:
-      return ctx->rdi & GUM_INT16_MASK;
-
-    case X86_REG_DIL:
-      return ctx->rdi & GUM_INT8_MASK;
-
-    case X86_REG_DL:
-      return ctx->rdx & GUM_INT8_MASK;
-
-    case X86_REG_DX:
-      return ctx->rdx & GUM_INT16_MASK;
-
-    case X86_REG_SI:
-      return ctx->rsi & GUM_INT16_MASK;
-
-    case X86_REG_SIL:
-      return ctx->rsi & GUM_INT8_MASK;
-
-    case X86_REG_EAX:
-      return ctx->rax & GUM_INT32_MASK;
-
-    case X86_REG_ECX:
-      return ctx->rcx & GUM_INT32_MASK;
-
-    case X86_REG_EDX:
-      return ctx->rdx & GUM_INT32_MASK;
-
-    case X86_REG_EBX:
-      return ctx->rbx & GUM_INT32_MASK;
-
-    case X86_REG_ESP:
-      return ctx->rsp & GUM_INT32_MASK;
-
-    case X86_REG_EBP:
-      return ctx->rbp & GUM_INT32_MASK;
-
-    case X86_REG_ESI:
-      return ctx->rsi & GUM_INT32_MASK;
-
-    case X86_REG_EDI:
-      return ctx->rdi & GUM_INT32_MASK;
-
-    case X86_REG_R8D:
-      return ctx->r8 & GUM_INT32_MASK;
-
-    case X86_REG_R9D:
-      return ctx->r9 & GUM_INT32_MASK;
-
-    case X86_REG_R10D:
-      return ctx->r10 & GUM_INT32_MASK;
-
-    case X86_REG_R11D:
-      return ctx->r11 & GUM_INT32_MASK;
-
-    case X86_REG_R12D:
-      return ctx->r12 & GUM_INT32_MASK;
-
-    case X86_REG_R13D:
-      return ctx->r13 & GUM_INT32_MASK;
-
-    case X86_REG_R14D:
-      return ctx->r14 & GUM_INT32_MASK;
-
-    case X86_REG_R15D:
-      return ctx->r15 & GUM_INT32_MASK;
-
-    case X86_REG_EIP:
-      return ctx->rip & GUM_INT32_MASK;
-
-    case X86_REG_RAX:
-      return ctx->rax;
-
-    case X86_REG_RCX:
-      return ctx->rcx;
-
-    case X86_REG_RDX:
-      return ctx->rdx;
-
-    case X86_REG_RBX:
-      return ctx->rbx;
-
-    case X86_REG_RSP:
-      return ctx->rsp;
-
-    case X86_REG_RBP:
-      return ctx->rbp;
-
-    case X86_REG_RSI:
-      return ctx->rsi;
-
-    case X86_REG_RDI:
-      return ctx->rdi;
-
-    case X86_REG_R8:
-      return ctx->r8;
-
-    case X86_REG_R9:
-      return ctx->r9;
-
-    case X86_REG_R10:
-      return ctx->r10;
-
-    case X86_REG_R11:
-      return ctx->r11;
-
-    case X86_REG_R12:
-      return ctx->r12;
-
-    case X86_REG_R13:
-      return ctx->r13;
-
-    case X86_REG_R14:
-      return ctx->r14;
-
-    case X86_REG_R15:
-      return ctx->r15;
-
-    case X86_REG_RIP:
-      return ctx->rip;
+    X86_REG_64(X86_REG_RAX, ctx->rax)
+    X86_REG_64(X86_REG_RCX, ctx->rcx)
+    X86_REG_64(X86_REG_RDX, ctx->rdx)
+    X86_REG_64(X86_REG_RBX, ctx->rbx)
+    X86_REG_64(X86_REG_RSP, ctx->rsp)
+    X86_REG_64(X86_REG_RBP, ctx->rbp)
+    X86_REG_64(X86_REG_RSI, ctx->rsi)
+    X86_REG_64(X86_REG_RDI, ctx->rdi)
+    X86_REG_64(X86_REG_R8, ctx->r8)
+    X86_REG_64(X86_REG_R9, ctx->r9)
+    X86_REG_64(X86_REG_R10, ctx->r10)
+    X86_REG_64(X86_REG_R11, ctx->r11)
+    X86_REG_64(X86_REG_R12, ctx->r12)
+    X86_REG_64(X86_REG_R13, ctx->r13)
+    X86_REG_64(X86_REG_R14, ctx->r14)
+    X86_REG_64(X86_REG_R15, ctx->r15)
+    X86_REG_64(X86_REG_RIP, ctx->rip)
 
     default:
       FATAL("Failed to read register: %d", reg);

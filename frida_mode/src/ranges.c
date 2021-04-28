@@ -212,7 +212,7 @@ static gboolean collect_module_ranges_callback(const GumRangeDetails *details,
 
 }
 
-static GArray *collect_module_ranges() {
+static GArray *collect_module_ranges(void) {
 
   GArray *result;
   result = g_array_new(false, false, sizeof(GumMemoryRange));
@@ -277,7 +277,7 @@ static GArray *collect_ranges(char *env_key) {
 
 }
 
-static GArray *collect_libs_ranges() {
+static GArray *collect_libs_ranges(void) {
 
   GArray *       result;
   GumMemoryRange range;
@@ -478,7 +478,7 @@ static GArray *merge_ranges(GArray *a) {
 
 }
 
-void ranges_init() {
+void ranges_init(void) {
 
   GumMemoryRange  ri;
   GArray *        step1;

@@ -1,6 +1,5 @@
 #include "frida-gum.h"
 
-#include "api.h"
 #include "config.h"
 
 #include "instrument.h"
@@ -8,12 +7,42 @@
 
 #if defined(__x86_64__)
 
+struct x86_64_regs {
+
+  uint64_t rax, rbx, rcx, rdx, rdi, rsi, rbp, r8, r9, r10, r11, r12, r13, r14,
+      r15;
+
+  union {
+
+    uint64_t rip;
+    uint64_t pc;
+
+  };
+
+  union {
+
+    uint64_t rsp;
+    uint64_t sp;
+
+  };
+
+  union {
+
+    uint64_t rflags;
+    uint64_t flags;
+
+  };
+
+  uint8_t zmm_regs[32][64];
+
+};
+
 typedef struct x86_64_regs arch_api_regs;
 
 static arch_api_regs saved_regs = {0};
 static void *        saved_return = NULL;
 
-gboolean persistent_is_supported() {
+gboolean persistent_is_supported(void) {
 
   return true;
 
@@ -194,7 +223,7 @@ static void instrument_jump_ret(GumX86Writer *cw, void **saved_return_ptr) {
 
 }
 
-static int instrument_afl_persistent_loop_func() {
+static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
   previous_pc = 0;

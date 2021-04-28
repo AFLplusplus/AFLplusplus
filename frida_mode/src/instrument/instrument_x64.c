@@ -1,6 +1,5 @@
 #include "frida-gum.h"
 
-#include "api.h"
 #include "config.h"
 
 #include "instrument.h"
@@ -43,7 +42,7 @@ static const guint8 afl_log_code[] = {
 
 };
 
-gboolean instrument_is_coverage_optimize_supported() {
+gboolean instrument_is_coverage_optimize_supported(void) {
 
   return true;
 

@@ -1,6 +1,6 @@
 extern struct cmp_map *__afl_cmp_map;
 
-void complog_init();
+void complog_init(void);
 
 /* Functions to be implemented by the different architectures */
 void complog_instrument(const cs_insn *instr, GumStalkerIterator *iterator);

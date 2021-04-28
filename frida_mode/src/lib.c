@@ -50,7 +50,7 @@ static gboolean lib_find_exe(const GumModuleDetails *details,
 
 }
 
-static gboolean lib_is_little_endian() {
+static gboolean lib_is_little_endian(void) {
 
   int probe = 1;
   return *(char *)&probe;
@@ -142,7 +142,7 @@ static void lib_get_text_section(lib_details_t *details) {
 
 }
 
-void lib_init() {
+void lib_init(void) {
 
   lib_details_t lib_details;
   gum_process_enumerate_modules(lib_find_exe, &lib_details);
@@ -151,14 +151,14 @@ void lib_init() {
 
 }
 
-guint64 lib_get_text_base() {
+guint64 lib_get_text_base(void) {
 
   if (text_base == 0) FATAL("Lib not initialized");
   return text_base;
 
 }
 
-guint64 lib_get_text_limit() {
+guint64 lib_get_text_limit(void) {
 
   if (text_limit == 0) FATAL("Lib not initialized");
   return text_limit;

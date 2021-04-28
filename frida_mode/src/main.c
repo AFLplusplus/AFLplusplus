@@ -40,7 +40,7 @@ static GumMemoryRange code_range = {0};
 
 extern void __afl_manual_init();
 
-static int on_fork() {
+static int on_fork(void) {
 
   prefetch_read();
   return fork();
@@ -104,7 +104,7 @@ static int *on_main(int argc, char **argv, char **envp) {
 #if defined(EMBEDDED)
 extern int *main(int argc, char **argv, char **envp);
 
-static void intercept_main() {
+static void intercept_main(void) {
 
   main_fn = main;
   intercept(main, on_main, NULL);
@@ -112,7 +112,7 @@ static void intercept_main() {
 }
 
 #elif defined(__APPLE__)
-static void intercept_main() {
+static void intercept_main(void) {
 
   mach_port_t task = mach_task_self();
   OKF("Task Id: %u", task);
@@ -138,7 +138,7 @@ static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
 
 }
 
-static void intercept_main() {
+static void intercept_main(void) {
 
   intercept(__libc_start_main, on_libc_start_main, NULL);
 
@@ -146,7 +146,7 @@ static void intercept_main() {
 
 #endif
 
-__attribute__((constructor)) static void init() {
+__attribute__((constructor)) static void init(void) {
 
   gum_init_embedded();
   if (!gum_stalker_is_supported()) {

@@ -2,7 +2,6 @@
 
 #include "frida-gum.h"
 
-#include "api.h"
 #include "config.h"
 #include "debug.h"
 
@@ -20,7 +19,8 @@ static GumStalkerTransformer *transformer = NULL;
 
 uint64_t __thread previous_pc = 0;
 
-static void on_basic_block(GumCpuContext *context, gpointer user_data) {
+__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
+                                                gpointer       user_data) {
 
   /*
    * This function is performance critical as it is called to instrument every
@@ -34,7 +34,7 @@ static void on_basic_block(GumCpuContext *context, gpointer user_data) {
   guint64     current_pc = (guint64)user_data;
   uint8_t *   cursor;
   uint64_t    value;
-  if (tracing) {
+  if (unlikely(tracing)) {
 
     /* Avoid any functions which may cause an allocation since the target app
      * may already be running inside malloc and it isn't designed to be
@@ -54,10 +54,15 @@ static void on_basic_block(GumCpuContext *context, gpointer user_data) {
   cursor = &__afl_area_ptr[current_pc ^ previous_pc];
   value = *cursor;
 
-  if (value == 0xffffffffffffffff)
+  if (value == 0xff) {
+
     value = 1;
-  else
+
+  } else {
+
     value++;
+
+  }
 
   *cursor = value;
   previous_pc = current_pc >> 1;
@@ -107,7 +112,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
 }
 
-void instrument_init() {
+void instrument_init(void) {
 
   optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
   tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
@@ -136,7 +141,7 @@ void instrument_init() {
 
 }
 
-GumStalkerTransformer *instrument_get_transformer() {
+GumStalkerTransformer *instrument_get_transformer(void) {
 
   if (transformer == NULL) { FATAL("Instrumentation not initialized"); }
   return transformer;

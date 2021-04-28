@@ -6,7 +6,7 @@
 
 #if defined(__arm__)
 
-gboolean instrument_is_coverage_optimize_supported() {
+gboolean instrument_is_coverage_optimize_supported(void) {
 
   return false;
 

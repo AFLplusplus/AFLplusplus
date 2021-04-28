@@ -17,10 +17,10 @@ guint64                persistent_start;
 guint64                persistent_count;
 afl_persistent_hook_fn hook;
 
-void persistent_init();
+void persistent_init(void);
 
 /* Functions to be implemented by the different architectures */
-gboolean persistent_is_supported();
+gboolean persistent_is_supported(void);
 
 void persistent_prologue(GumStalkerOutput *output);
 

@@ -2776,7 +2776,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
 
-    OKF(cPIN "FRIDA Persistent mode configuration options detected.");
+    OKF("FRIDA Persistent mode configuration options detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
     afl->persistent_mode = 1;
 

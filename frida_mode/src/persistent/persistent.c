@@ -2,7 +2,6 @@
 
 #include "frida-gum.h"
 
-#include "api.h"
 #include "config.h"
 #include "debug.h"
 
@@ -14,7 +13,7 @@ afl_persistent_hook_fn hook = NULL;
 guint64                persistent_start = 0;
 guint64                persistent_count = 0;
 
-void persistent_init() {
+void persistent_init(void) {
 
   char *hook_name = getenv("AFL_FRIDA_PERSISTENT_HOOK");
 
