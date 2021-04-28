@@ -30,9 +30,6 @@ void persistent_init(void) {
   if (persistent_count != 0 && persistent_count < 100)
     WARNF("Persistent count out of recommended range (<100)");
 
-  if (persistent_count > 10000)
-    WARNF("Persistent count out of recommended range (<10000)");
-
   if (persistent_start != 0 && !persistent_is_supported())
     FATAL("Persistent mode not supported on this architecture");
 
