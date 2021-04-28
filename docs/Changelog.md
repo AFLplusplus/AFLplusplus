@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.13a (development)
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
+    it currently supports persistent mode and cmplog.
     thanks to @WorksButNotTested!
   - create a fuzzing dictionary with the help of CodeQL thanks to
     @microsvuln! see utils/autodict_ql
