@@ -129,7 +129,7 @@ static void lib_get_text_section(lib_details_t *details) {
 
   if (len == (off_t)-1) { FATAL("Failed to lseek %s", details->path); }
 
-  OKF("len: %ld\n", len);
+  OKF("len: %ld", len);
 
   hdr = (Elf_Ehdr *)mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
   if (hdr == MAP_FAILED) { FATAL("Failed to map %s", details->path); }
