@@ -11,17 +11,18 @@
 #include "prefetch.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "util.h"
 
 static gboolean               tracing = false;
 static gboolean               optimize = false;
-static gboolean               strict = false;
 static GumStalkerTransformer *transformer = NULL;
 
-uint64_t __thread previous_pc = 0;
+__thread uint64_t previous_pc = 0;
 
 __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                                                 gpointer       user_data) {
 
+  UNUSED_PARAMETER(context);
   /*
    * This function is performance critical as it is called to instrument every
    * basic block. By moving our print buffer to a global, we avoid it affecting
@@ -44,7 +45,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                    "x, previous_pc: 0x%016" G_GINT64_MODIFIER "x\n",
                    current_pc, previous_pc);
 
-    write(STDOUT_FILENO, buffer, len + 1);
+    IGNORED_RERURN(write(STDOUT_FILENO, buffer, len + 1));
 
   }
 
@@ -71,6 +72,8 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
 static void instr_basic_block(GumStalkerIterator *iterator,
                               GumStalkerOutput *output, gpointer user_data) {
+
+  UNUSED_PARAMETER(user_data);
 
   const cs_insn *instr;
   gboolean       begin = TRUE;

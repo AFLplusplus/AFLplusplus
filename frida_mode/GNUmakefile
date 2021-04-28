@@ -3,9 +3,25 @@ ROOT:=$(shell realpath $(PWD)..)/
 INC_DIR:=$(PWD)include/
 SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
-SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
 BUILD_DIR:=$(PWD)build/
-CFLAGS+=-fPIC -D_GNU_SOURCE -Wno-prio-ctor-dtor -fcommon -Wl,--allow-multiple-definition
+OBJ_DIR:=$(BUILD_DIR)obj/
+SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
+OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
+CFLAGS+=-fPIC \
+		-D_GNU_SOURCE \
+		-D_FORTIFY_SOURCE=2 \
+		-Werror \
+		-Wall \
+		-Wextra \
+		-Wpointer-arith \
+		-g \
+		-O3 \
+		-funroll-loops \
+
+LDFLAGS+=-shared \
+		 -lpthread \
+		 -lresolv \
+		 -ldl \
 
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
@@ -36,7 +52,8 @@ GUM_DEVKIT_TARBALL:=$(FRIDA_BUILD_DIR)$(GUM_DEVKIT_FILENAME)
 GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gum.a
 GUM_DEVIT_HEADER=$(FRIDA_BUILD_DIR)frida-gum.h
 
-TEST_BUILD_DIR:=$(BUILD_DIR)test/
+AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
+AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
 
 .PHONY: all clean format
@@ -48,6 +65,9 @@ all: $(FRIDA_TRACE)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
+
+$(OBJ_DIR): | $(BUILD_DIR)
+	mkdir -p $@
 
 $(FRIDA_BUILD_DIR): | $(BUILD_DIR)
 	mkdir -p $@
@@ -61,18 +81,40 @@ $(GUM_DEVIT_LIBRARY): | $(GUM_DEVKIT_TARBALL)
 $(GUM_DEVIT_HEADER): | $(GUM_DEVKIT_TARBALL)
 	tar Jxvf $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
-$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(SOURCES) $(QEMU_INC_API) Makefile | $(BUILD_DIR)
-	$(CC) -shared \
+$(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
+	$(CC) \
 		$(CFLAGS) \
-		-o $@ \
-		$(SOURCES) \
-		$(GUM_DEVIT_LIBRARY) \
-		-I $(FRIDA_BUILD_DIR) \
 		-I $(ROOT) \
 		-I $(ROOT)include \
+		-Wno-unused-parameter \
+		-Wno-sign-compare \
+		-Wno-unused-function \
+		-Wno-prio-ctor-dtor \
+		-Wno-unused-result \
+		-o $@ \
+		-c $<
+
+
+define BUILD_SOURCE =
+$(2): $(1) GNUmakefile | $(OBJ_DIR)
+	$(CC) \
+		$(CFLAGS) \
+		-I $(ROOT)include \
+		-I $(FRIDA_BUILD_DIR) \
 		-I $(INC_DIR) \
-		$(ROOT)instrumentation/afl-compiler-rt.o.c
-#		-lpthread -ldl -lresolv -lelf
+		-c $1 \
+		-o $2
+endef
+
+$(foreach src,$(SOURCES),$(eval $(call BUILD_SOURCE,$(src),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))))
+
+$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(AFL_COMPILER_RT_OBJ) GNUmakefile | $(BUILD_DIR)
+	$(CC) \
+		-o $@ \
+		$(OBJS) \
+		$(GUM_DEVIT_LIBRARY) \
+		$(AFL_COMPILER_RT_OBJ) \
+		$(LDFLAGS) \
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
 

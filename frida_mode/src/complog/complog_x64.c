@@ -4,6 +4,7 @@
 #include "cmplog.h"
 
 #include "complog.h"
+#include "util.h"
 
 #if defined(__x86_64__)
 
@@ -148,7 +149,27 @@ static guint64 complog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
 
 }
 
-static void complog_handle_call(GumCpuContext *context, guint64 target) {
+static guint64 cmplog_get_operand_value(GumCpuContext *context,
+                                        complog_ctx_t *ctx) {
+
+  switch (ctx->type) {
+
+    case X86_OP_REG:
+      return complog_read_reg(context, ctx->reg);
+    case X86_OP_IMM:
+      return ctx->imm;
+    case X86_OP_MEM:
+      return complog_read_mem(context, &ctx->mem);
+    default:
+      FATAL("Invalid operand type: %d\n", ctx->type);
+
+  }
+
+}
+
+static void complog_call_callout(GumCpuContext *context, gpointer user_data) {
+
+  UNUSED_PARAMETER(user_data);
 
   guint64 address = complog_read_reg(context, X86_REG_RIP);
   guint64 rdi = complog_read_reg(context, X86_REG_RDI);
@@ -176,33 +197,6 @@ static void complog_handle_call(GumCpuContext *context, guint64 target) {
              32);
   gum_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1, ptr2,
              32);
-
-}
-
-static guint64 cmplog_get_operand_value(GumCpuContext *context,
-                                        complog_ctx_t *ctx) {
-
-  switch (ctx->type) {
-
-    case X86_OP_REG:
-      return complog_read_reg(context, ctx->reg);
-    case X86_OP_IMM:
-      return ctx->imm;
-    case X86_OP_MEM:
-      return complog_read_mem(context, &ctx->mem);
-    default:
-      FATAL("Invalid operand type: %d\n", ctx->type);
-
-  }
-
-}
-
-static void complog_call_callout(GumCpuContext *context, gpointer user_data) {
-
-  complog_ctx_t *ctx = (complog_ctx_t *)user_data;
-
-  guint64 target = cmplog_get_operand_value(context, ctx);
-  complog_handle_call(context, target);
 
 }
 
