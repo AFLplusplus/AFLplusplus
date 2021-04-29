@@ -36,8 +36,9 @@ void complog_init(void) {
   for (guint i = 0; i < complog_ranges->len; i++) {
 
     GumMemoryRange *range = &g_array_index(complog_ranges, GumMemoryRange, i);
-    OKF("CompLog Range - 0x%016lX - 0x%016lX", range->base_address,
-        range->base_address + range->size);
+    OKF("CompLog Range - 0x%016" G_GINT64_MODIFIER
+        "X - 0x%016" G_GINT64_MODIFIER "X",
+        range->base_address, range->base_address + range->size);
 
   }
 

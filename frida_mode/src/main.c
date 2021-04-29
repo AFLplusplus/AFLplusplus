@@ -49,6 +49,10 @@ static int on_fork(void) {
 #ifdef __APPLE__
 static void on_main_os(int argc, char **argv, char **envp) {
 
+  UNUSED_PARAMETER(argc);
+  UNUSED_PARAMETER(argv);
+  UNUSED_PARAMETER(envp);
+
 }
 
 #else

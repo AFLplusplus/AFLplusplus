@@ -1,29 +1,32 @@
-#include <elf.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#ifndef __APPLE__
+  #include <elf.h>
+  #include <fcntl.h>
+  #include <limits.h>
+  #include <stdio.h>
+  #include <sys/mman.h>
+  #include <unistd.h>
 
-#include "frida-gum.h"
+  #include "frida-gum.h"
 
-#include "debug.h"
+  #include "debug.h"
 
-#include "lib.h"
+  #include "lib.h"
 
-#if defined(__arm__) || defined(__i386__)
-  #define ELFCLASS ELFCLASS32
+  #if defined(__arm__) || defined(__i386__)
+    #define ELFCLASS ELFCLASS32
 typedef Elf32_Ehdr Elf_Ehdr;
 typedef Elf32_Phdr Elf_Phdr;
 typedef Elf32_Shdr Elf_Shdr;
-#elif defined(__aarch64__) || defined(__x86_64__)
-  #define ELFCLASS ELFCLASS64
+typedef Elf32_Addr Elf_Addr;
+  #elif defined(__aarch64__) || defined(__x86_64__)
+    #define ELFCLASS ELFCLASS64
 typedef Elf64_Ehdr Elf_Ehdr;
 typedef Elf64_Phdr Elf_Phdr;
 typedef Elf64_Shdr Elf_Shdr;
-#else
-  #error "Unsupported platform"
-#endif
+typedef Elf64_Addr Elf_Addr;
+  #else
+    #error "Unsupported platform"
+  #endif
 
 typedef struct {
 
@@ -50,13 +53,6 @@ static gboolean lib_find_exe(const GumModuleDetails *details,
 
 }
 
-static gboolean lib_is_little_endian(void) {
-
-  int probe = 1;
-  return *(char *)&probe;
-
-}
-
 static void lib_validate_hdr(Elf_Ehdr *hdr) {
 
   if (hdr->e_ident[0] != ELFMAG0) FATAL("Invalid e_ident[0]");
@@ -64,28 +60,37 @@ static void lib_validate_hdr(Elf_Ehdr *hdr) {
   if (hdr->e_ident[2] != ELFMAG2) FATAL("Invalid e_ident[2]");
   if (hdr->e_ident[3] != ELFMAG3) FATAL("Invalid e_ident[3]");
   if (hdr->e_ident[4] != ELFCLASS) FATAL("Invalid class");
-/*
-  if (hdr->e_ident[5] != (lib_is_little_endian() ? ELFDATA2LSB : ELFDATA2MSB))
-    FATAL("Invalid endian");
-  if (hdr->e_ident[6] != EV_CURRENT) FATAL("Invalid version");
-  if (hdr->e_type != ET_DYN) FATAL("Invalid type");
-  if (hdr->e_version != EV_CURRENT) FATAL("Invalid e_version");
-  if (hdr->e_phoff != sizeof(Elf_Ehdr)) FATAL("Invalid e_phoff");
-  if (hdr->e_ehsize != sizeof(Elf_Ehdr)) FATAL("Invalid e_ehsize");
-  if (hdr->e_phentsize != sizeof(Elf_Phdr)) FATAL("Invalid e_phentsize");
-  if (hdr->e_shentsize != sizeof(Elf_Shdr)) FATAL("Invalid e_shentsize");
-*/
 
 }
 
 static void lib_read_text_section(lib_details_t *lib_details, Elf_Ehdr *hdr) {
 
+  Elf_Phdr *phdr;
+  gboolean  found_preferred_base = FALSE;
+  Elf_Addr  preferred_base;
   Elf_Shdr *shdr;
   Elf_Shdr *shstrtab;
   char *    shstr;
   char *    section_name;
   Elf_Shdr *curr;
   char      text_name[] = ".text";
+
+  phdr = (Elf_Phdr *)((char *)hdr + hdr->e_phoff);
+  for (size_t i = 0; i < hdr->e_phnum; i++) {
+
+    if (phdr[i].p_type == PT_LOAD) {
+
+      preferred_base = phdr[i].p_vaddr;
+      found_preferred_base = TRUE;
+      break;
+
+    }
+
+  }
+
+  if (!found_preferred_base) { FATAL("Failed to find preferred load address"); }
+
+  OKF("Image preferred load address 0x%016lx", preferred_base);
 
   shdr = (Elf_Shdr *)((char *)hdr + hdr->e_shoff);
   shstrtab = &shdr[hdr->e_shstrndx];
@@ -107,8 +112,8 @@ static void lib_read_text_section(lib_details_t *lib_details, Elf_Ehdr *hdr) {
     if (memcmp(section_name, text_name, sizeof(text_name)) == 0 &&
         text_base == 0) {
 
-      text_base = lib_details->base_address + curr->sh_addr;
-      text_limit = lib_details->base_address + curr->sh_addr + curr->sh_size;
+      text_base = lib_details->base_address + curr->sh_addr - preferred_base;
+      text_limit = text_base + curr->sh_size;
       OKF("> text_addr: 0x%016lX", text_base);
       OKF("> text_limit: 0x%016lX", text_limit);
 
@@ -166,4 +171,6 @@ guint64 lib_get_text_limit(void) {
   return text_limit;
 
 }
+
+#endif
 

@@ -21,6 +21,9 @@ PNGTEST_OBJ:=$(PNGTEST_BUILD_DIR)target.o
 PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/master/benchmarks/libpng-1.2.56/target.cc"
 
 TEST_BIN:=$(BUILD_DIR)test
+ifeq "$(shell uname)" "Darwin"
+TEST_BIN_LDFLAGS:=-undefined dynamic_lookup
+endif
 
 TEST_DATA_DIR:=$(LIBPNG_DIR)contrib/pngsuite/
 
@@ -80,6 +83,7 @@ $(TEST_BIN): $(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB)
 		-o $@ \
 		$(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB) \
 		-lz \
+		$(TEST_BIN_LDFLAGS) \
 
 clean:
 	rm -rf $(BUILD_DIR)

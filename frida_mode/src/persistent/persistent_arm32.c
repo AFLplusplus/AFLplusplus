@@ -3,6 +3,7 @@
 #include "debug.h"
 
 #include "persistent.h"
+#include "util.h"
 
 #if defined(__arm__)
 
@@ -62,6 +63,7 @@ gboolean persistent_is_supported(void) {
 
 void persistent_prologue(GumStalkerOutput *output) {
 
+  UNUSED_PARAMETER(output);
   FATAL("Persistent mode not supported on this architecture");
 
 }
