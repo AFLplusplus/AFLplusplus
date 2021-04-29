@@ -1358,6 +1358,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl_preload = getenv("AFL_PRELOAD");
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
       if (afl_preload) {
 
         frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
@@ -1383,6 +1384,7 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (afl->fsrv.frida_mode) {
 
     u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    OKF("Injecting %s ...", frida_binary);
     setenv("LD_PRELOAD", frida_binary, 1);
     setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
     ck_free(frida_binary);
