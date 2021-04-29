@@ -4,6 +4,7 @@
 #include "debug.h"
 
 #include "instrument.h"
+#include "util.h"
 
 #if defined(__aarch64__)
 
@@ -105,6 +106,7 @@ gboolean persistent_is_supported(void) {
 
 void persistent_prologue(GumStalkerOutput *output) {
 
+  UNUSED_PARAMETER(output);
   FATAL("Persistent mode not supported on this architecture");
 
 }

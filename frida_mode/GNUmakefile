@@ -10,15 +10,28 @@ OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
 		-D_FORTIFY_SOURCE=2 \
-		-Wno-pointer-arith \
 		-g \
 		-O3 \
 		-funroll-loops \
+
+RT_CFLAGS:=-Wno-unused-parameter \
+		   -Wno-sign-compare \
+		   -Wno-unused-function \
+		   -Wno-unused-result \
 
 LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv \
 		 -ldl \
+
+ifdef DEBUG
+CFLAGS+=-Werror \
+		-Wall \
+		-Wextra \
+		-Wpointer-arith
+else
+CFLAGS+=-Wno-pointer-arith
+endif
 
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
@@ -31,7 +44,11 @@ endif
 
 ifeq "$(shell uname)" "Darwin"
  OS:=macos
- CFLAGS:=$(CFLAGS) -Wno-deprecated-declarations
+ RT_CFLAGS:=$(RT_CFLAGS) -Wno-deprecated-declarations
+else
+ifdef DEBUG
+ RT_CFLAGS:=$(RT_CFLAGS) -Wno-prio-ctor-dtor
+endif
 endif
 
 ifeq "$(shell uname)" "Linux"
@@ -81,17 +98,14 @@ $(GUM_DEVIT_HEADER): | $(GUM_DEVKIT_TARBALL)
 $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 	$(CC) \
 		$(CFLAGS) \
+		$(RT_CFLAGS) \
 		-I $(ROOT) \
 		-I $(ROOT)include \
-		-Wno-unused-parameter \
-		-Wno-sign-compare \
-		-Wno-unused-function \
-		-Wno-unused-result \
 		-o $@ \
 		-c $<
 
 
-define BUILD_SOURCE =
+define BUILD_SOURCE
 $(2): $(1) GNUmakefile | $(OBJ_DIR)
 	$(CC) \
 		$(CFLAGS) \

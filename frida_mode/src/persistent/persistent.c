@@ -33,9 +33,9 @@ void persistent_init(void) {
   if (persistent_start != 0 && !persistent_is_supported())
     FATAL("Persistent mode not supported on this architecture");
 
-  OKF("Instrumentation - persistent mode [%c] (0x%016lX)",
+  OKF("Instrumentation - persistent mode [%c] (0x%016" G_GINT64_MODIFIER "X)",
       persistent_start == 0 ? ' ' : 'X', persistent_start);
-  OKF("Instrumentation - persistent count [%c] (%ld)",
+  OKF("Instrumentation - persistent count [%c] (%" G_GINT64_MODIFIER "d)",
       persistent_start == 0 ? ' ' : 'X', persistent_count);
   OKF("Instrumentation - hook [%s]", hook_name);
 
