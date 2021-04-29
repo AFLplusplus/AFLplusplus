@@ -14,22 +14,22 @@ guint64 util_read_address(char *key) {
 
   }
 
-  value_str = &value_str[2];
+  char *value_str2 = &value_str[2];
 
-  for (char *c = value_str; *c != '\0'; c++) {
+  for (char *c = value_str2; *c != '\0'; c++) {
 
     if (!g_ascii_isxdigit(*c)) {
 
-      FATAL("Invalid address not formed of hex digits: %s\n", value_str);
+      FATAL("Invalid address not formed of hex digits: %s ('%c')\n", value_str, *c);
 
     }
 
   }
 
-  guint64 value = g_ascii_strtoull(value_str, NULL, 16);
+  guint64 value = g_ascii_strtoull(value_str2, NULL, 16);
   if (value == 0) {
 
-    FATAL("Invalid address failed hex conversion: %s\n", value_str);
+    FATAL("Invalid address failed hex conversion: %s\n", value_str2);
 
   }
 
