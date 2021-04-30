@@ -5,7 +5,7 @@
 #include "config.h"
 #include "debug.h"
 
-#include "complog.h"
+#include "frida_cmplog.h"
 #include "instrument.h"
 #include "persistent.h"
 #include "prefetch.h"
@@ -105,7 +105,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     if (!range_is_excluded((void *)instr->address)) {
 
-      complog_instrument(instr, iterator);
+      cmplog_instrument(instr, iterator);
 
     }
 
@@ -140,7 +140,7 @@ void instrument_init(void) {
   transformer =
       gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
 
-  complog_init();
+  cmplog_init();
 
 }
 

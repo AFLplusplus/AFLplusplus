@@ -3,7 +3,7 @@
 #include "debug.h"
 #include "cmplog.h"
 
-#include "complog.h"
+#include "frida_cmplog.h"
 #include "util.h"
 
 #if defined(__x86_64__)
@@ -56,16 +56,16 @@ typedef struct {
 
   };
 
-} complog_ctx_t;
+} cmplog_ctx_t;
 
 typedef struct {
 
-  complog_ctx_t operand1;
-  complog_ctx_t operand2;
+  cmplog_ctx_t operand1;
+  cmplog_ctx_t operand2;
 
-} complog_pair_ctx_t;
+} cmplog_pair_ctx_t;
 
-static guint64 complog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
+static guint64 cmplog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
 
   switch (reg) {
 
@@ -134,15 +134,15 @@ static guint64 complog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
 
 }
 
-static guint64 complog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
+static guint64 cmplog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
 
   guint64 base = 0;
   guint64 index = 0;
   guint64 address;
 
-  if (mem->base != X86_REG_INVALID) base = complog_read_reg(ctx, mem->base);
+  if (mem->base != X86_REG_INVALID) base = cmplog_read_reg(ctx, mem->base);
 
-  if (mem->index != X86_REG_INVALID) index = complog_read_reg(ctx, mem->index);
+  if (mem->index != X86_REG_INVALID) index = cmplog_read_reg(ctx, mem->index);
 
   address = base + (index * mem->scale) + mem->disp;
   return address;
@@ -150,16 +150,16 @@ static guint64 complog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
 }
 
 static guint64 cmplog_get_operand_value(GumCpuContext *context,
-                                        complog_ctx_t *ctx) {
+                                        cmplog_ctx_t * ctx) {
 
   switch (ctx->type) {
 
     case X86_OP_REG:
-      return complog_read_reg(context, ctx->reg);
+      return cmplog_read_reg(context, ctx->reg);
     case X86_OP_IMM:
       return ctx->imm;
     case X86_OP_MEM:
-      return complog_read_mem(context, &ctx->mem);
+      return cmplog_read_mem(context, &ctx->mem);
     default:
       FATAL("Invalid operand type: %d\n", ctx->type);
 
@@ -167,18 +167,18 @@ static guint64 cmplog_get_operand_value(GumCpuContext *context,
 
 }
 
-static void complog_call_callout(GumCpuContext *context, gpointer user_data) {
+static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 
   UNUSED_PARAMETER(user_data);
 
-  guint64 address = complog_read_reg(context, X86_REG_RIP);
-  guint64 rdi = complog_read_reg(context, X86_REG_RDI);
-  guint64 rsi = complog_read_reg(context, X86_REG_RSI);
+  guint64 address = cmplog_read_reg(context, X86_REG_RIP);
+  guint64 rdi = cmplog_read_reg(context, X86_REG_RDI);
+  guint64 rsi = cmplog_read_reg(context, X86_REG_RSI);
 
   void *ptr1 = GSIZE_TO_POINTER(rdi);
   void *ptr2 = GSIZE_TO_POINTER(rsi);
 
-  if (!complog_is_readable(ptr1, 32) || !complog_is_readable(ptr2, 32)) return;
+  if (!cmplog_is_readable(ptr1, 32) || !cmplog_is_readable(ptr2, 32)) return;
 
   uintptr_t k = address;
 
@@ -200,8 +200,8 @@ static void complog_call_callout(GumCpuContext *context, gpointer user_data) {
 
 }
 
-static void complog_instrument_put_operand(complog_ctx_t *ctx,
-                                           cs_x86_op *    operand) {
+static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
+                                          cs_x86_op *   operand) {
 
   ctx->type = operand->type;
   ctx->size = operand->size;
@@ -223,20 +223,20 @@ static void complog_instrument_put_operand(complog_ctx_t *ctx,
 
 }
 
-static void complog_instrument_call_put_callout(GumStalkerIterator *iterator,
-                                                cs_x86_op *         operand) {
+static void cmplog_instrument_call_put_callout(GumStalkerIterator *iterator,
+                                               cs_x86_op *         operand) {
 
-  complog_ctx_t *ctx = g_malloc(sizeof(complog_ctx_t));
+  cmplog_ctx_t *ctx = g_malloc(sizeof(cmplog_ctx_t));
   if (ctx == NULL) return;
 
-  complog_instrument_put_operand(ctx, operand);
+  cmplog_instrument_put_operand(ctx, operand);
 
-  gum_stalker_iterator_put_callout(iterator, complog_call_callout, ctx, g_free);
+  gum_stalker_iterator_put_callout(iterator, cmplog_call_callout, ctx, g_free);
 
 }
 
-static void complog_instrument_call(const cs_insn *     instr,
-                                    GumStalkerIterator *iterator) {
+static void cmplog_instrument_call(const cs_insn *     instr,
+                                   GumStalkerIterator *iterator) {
 
   cs_x86     x86 = instr->detail->x86;
   cs_x86_op *operand;
@@ -251,14 +251,14 @@ static void complog_instrument_call(const cs_insn *     instr,
   if (operand->type == X86_OP_MEM && operand->mem.segment != X86_REG_INVALID)
     return;
 
-  complog_instrument_call_put_callout(iterator, operand);
+  cmplog_instrument_call_put_callout(iterator, operand);
 
 }
 
-static void complog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
-                                   guint64 operand2, uint8_t size) {
+static void cmplog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
+                                  guint64 operand2, uint8_t size) {
 
-  guint64 address = complog_read_reg(context, X86_REG_RIP);
+  guint64 address = cmplog_read_reg(context, X86_REG_RIP);
 
   register uintptr_t k = (uintptr_t)address;
 
@@ -278,37 +278,36 @@ static void complog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
 
 }
 
-static void complog_cmp_sub_callout(GumCpuContext *context,
-                                    gpointer       user_data) {
+static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 
-  complog_pair_ctx_t *ctx = (complog_pair_ctx_t *)user_data;
+  cmplog_pair_ctx_t *ctx = (cmplog_pair_ctx_t *)user_data;
 
   if (ctx->operand1.size != ctx->operand2.size) FATAL("Operand size mismatch");
 
   guint64 operand1 = cmplog_get_operand_value(context, &ctx->operand1);
   guint64 operand2 = cmplog_get_operand_value(context, &ctx->operand2);
 
-  complog_handle_cmp_sub(context, operand1, operand2, ctx->operand1.size);
+  cmplog_handle_cmp_sub(context, operand1, operand2, ctx->operand1.size);
 
 }
 
-static void complog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
-                                                   cs_x86_op *         operand1,
-                                                   cs_x86_op *operand2) {
+static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
+                                                  cs_x86_op *         operand1,
+                                                  cs_x86_op *operand2) {
 
-  complog_pair_ctx_t *ctx = g_malloc(sizeof(complog_pair_ctx_t));
+  cmplog_pair_ctx_t *ctx = g_malloc(sizeof(cmplog_pair_ctx_t));
   if (ctx == NULL) return;
 
-  complog_instrument_put_operand(&ctx->operand1, operand1);
-  complog_instrument_put_operand(&ctx->operand2, operand2);
+  cmplog_instrument_put_operand(&ctx->operand1, operand1);
+  cmplog_instrument_put_operand(&ctx->operand2, operand2);
 
-  gum_stalker_iterator_put_callout(iterator, complog_cmp_sub_callout, ctx,
+  gum_stalker_iterator_put_callout(iterator, cmplog_cmp_sub_callout, ctx,
                                    g_free);
 
 }
 
-static void complog_instrument_cmp_sub(const cs_insn *     instr,
-                                       GumStalkerIterator *iterator) {
+static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
+                                      GumStalkerIterator *iterator) {
 
   cs_x86     x86 = instr->detail->x86;
   cs_x86_op *operand1;
@@ -340,16 +339,16 @@ static void complog_instrument_cmp_sub(const cs_insn *     instr,
       (operand2->mem.segment != X86_REG_INVALID))
     return;
 
-  complog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
+  cmplog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
 
 }
 
-void complog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
+void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
 
   if (__afl_cmp_map == NULL) return;
 
-  complog_instrument_call(instr, iterator);
-  complog_instrument_cmp_sub(instr, iterator);
+  cmplog_instrument_call(instr, iterator);
+  cmplog_instrument_cmp_sub(instr, iterator);
 
 }
 
