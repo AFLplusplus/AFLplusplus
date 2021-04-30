@@ -68,7 +68,7 @@ following options are currently supported.
 
 Additionally, the intention is to be able to make a direct performance
 comparison between the two approaches. Accordingly, FRIDA mode includes various
-tests target based on the [libpng](https://libpng.sourceforge.io/) benchmark used by
+test targets based on the [libpng](https://libpng.sourceforge.io/) benchmark used by
 [fuzzbench](https://google.github.io/fuzzbench/) and integrated with the
 [StandaloneFuzzTargetMain](https://raw.githubusercontent.com/llvm/llvm-project/main/compiler-rt/lib/fuzzer/standalone/StandaloneFuzzTargetMain.c)
 from the llvm project. These tests include basic fork-server support, persistent mode
@@ -112,9 +112,9 @@ to push and pop the full register context. Note that since this instrumentation
 is used on every basic block to generate coverage, it has a large impact on
 performance.
 
-CompLog support also adds code to the assembly, however, at present this code
+CmpLog support also adds code to the assembly, however, at present this code
 makes use of a basic C function and is yet to be optimized. Since not all
-instances run CompLog mode and instrumentation of the binary is less frequent
+instances run CmpLog mode and instrumentation of the binary is less frequent
 (only on CMP, SUB and CALL instructions) performance is not quite so critical.
 
 # Advanced configuration options
