@@ -20,6 +20,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add recording of previous fuzz attempts for persistent mode
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
+    - fixed a bug when trimming for stdin targets
     - default cmplog level (-l) is now 2, better efficiency.
     - cmplog level 3 (-l 3) now performs redqueen on everything.
       use with care.
