@@ -137,7 +137,7 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 ############################# SOURCE ###########################################
 
 define BUILD_SOURCE
-$(2): $(1) GNUmakefile | $(OBJ_DIR)
+$(2): $(1) $(INCLUDES) GNUmakefile | $(OBJ_DIR)
 	$(CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
