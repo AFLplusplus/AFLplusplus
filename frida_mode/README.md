@@ -18,15 +18,15 @@ perhaps leverage some of its design and implementation.
   | -------------------------|:----------:|:---------------------------------------:|
   | NeverZero                |     x      |                                         |
   | Persistent Mode          |     x      | (x64 only)(Only on function boundaries) |  
-  | LAF-Intel / CompCov      |     -      | (Superseded by CmpLog)                  |  
-  | CmpLog                   |     x      | (x64 only)                              |
+  | LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)      |
+  | CMPLOG                   |     x      | (x64 only)                              |
   | Selective Instrumentation|     x      |                                         |
   | Non-Colliding Coverage   |     -      |                                         |
   | Ngram prev_loc Coverage  |     -      |                                         |
   | Context Coverage         |     -      |                                         |
   | Auto Dictionary          |     -      |                                         |
   | Snapshot LKM Support     |     -      |                                         |
-  | In-Memory Test Cases     |     x      |(x64 only)                               |
+  | In-Memory Test Cases     |     x      | (x64 only)                              |
 
 # Compatibility
 Currently FRIDA mode supports Linux and macOS targets on both x86/x64
@@ -112,9 +112,9 @@ to push and pop the full register context. Note that since this instrumentation
 is used on every basic block to generate coverage, it has a large impact on
 performance.
 
-CmpLog support also adds code to the assembly, however, at present this code
+CMPLOG support also adds code to the assembly, however, at present this code
 makes use of a basic C function and is yet to be optimized. Since not all
-instances run CmpLog mode and instrumentation of the binary is less frequent
+instances run CMPLOG mode and instrumentation of the binary is less frequent
 (only on CMP, SUB and CALL instructions) performance is not quite so critical.
 
 # Advanced configuration options
