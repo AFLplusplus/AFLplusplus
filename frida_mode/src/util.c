@@ -20,7 +20,8 @@ guint64 util_read_address(char *key) {
 
     if (!g_ascii_isxdigit(*c)) {
 
-      FATAL("Invalid address not formed of hex digits: %s ('%c')\n", value_str, *c);
+      FATAL("Invalid address not formed of hex digits: %s ('%c')\n", value_str,
+            *c);
 
     }
 
