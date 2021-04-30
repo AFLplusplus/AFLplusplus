@@ -409,12 +409,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     if (F.size() < function_minimum_size) continue;
 
-    unsigned extra_increment_BB = 0;
     for (auto &BB : F) {
 
-      if (extra_increment_BB) {
-          // increment BB
-          --extra_increment_BB;
+      if (BB.getName() == "injected") {
           continue;
       }
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
@@ -662,8 +659,8 @@ bool AFLCoverage::runOnModule(Module &M) {
           // the calculation may need to repeat, if atomic compare_exchange is not successful
           BasicBlock::iterator it(*Counter); it++;
           BasicBlock * end_bb = BB.splitBasicBlock(it);
+          end_bb->setName("injected");
 
-          extra_increment_BB = 2;
           // insert the block before the second half of the split
           BasicBlock * do_while_bb = BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
 
