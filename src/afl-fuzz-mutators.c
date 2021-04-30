@@ -305,8 +305,12 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
 }
 
-u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
+// Custom testcase trimming.
+u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 **in_buf_p,
                     struct custom_mutator *mutator) {
+
+  // We need to pass pointers around, as growing testcases may need to realloc.
+  u8 *in_buf = *in_buf_p;
 
   u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
@@ -397,14 +401,21 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (likely(retlen && cksum == q->exec_cksum)) {
 
-      if (afl_realloc((void **)&in_buf, retlen) == NULL) {
+      // Check if we got a new retbuf and to memcpy our buf.
+      if (in_buf != retbuf) {
 
-        FATAL("can not allocate memory for trim");
+        if (afl_realloc((void **)in_buf_p, retlen) == NULL) {
+
+          FATAL("can not allocate memory for trim");
+
+        }
+
+        in_buf = *in_buf_p;
+
+        memcpy(in_buf, retbuf, retlen);
+        q->len = retlen;
 
       }
-
-      memcpy(in_buf, retbuf, retlen);
-      q->len = retlen;
 
       /* Let's save a clean trace, which will be needed by
          update_bitmap_score once we're done with the trimming stuff. */
