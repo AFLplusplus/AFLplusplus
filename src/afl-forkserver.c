@@ -1090,7 +1090,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #endif
 
-  if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
+  if (likely(fsrv->use_shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
 
