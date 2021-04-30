@@ -252,15 +252,20 @@ static void persistent_prologue_hook(GumX86Writer *      cw,
                                         -(GUM_RED_ZONE_SIZE));
 
   gum_x86_writer_put_mov_reg_address(cw, GUM_REG_RCX,
-                                     GUM_ADDRESS(__afl_fuzz_len));
+                                     GUM_ADDRESS(&__afl_fuzz_len));
+  gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_RCX, GUM_REG_RCX, 0);
   gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_RCX, GUM_REG_RCX, 0);
   gum_x86_writer_put_mov_reg_u64(cw, GUM_REG_RDI, 0xffffffff);
   gum_x86_writer_put_and_reg_reg(cw, GUM_REG_RCX, GUM_REG_RDI);
 
+  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_RDX,
+                                     GUM_ADDRESS(&__afl_fuzz_ptr));
+  gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_RDX, GUM_REG_RDX, 0);
+
   gum_x86_writer_put_call_address_with_arguments(
       cw, GUM_CALL_CAPI, GUM_ADDRESS(hook), 4, GUM_ARG_ADDRESS,
-      GUM_ADDRESS(regs), GUM_ARG_ADDRESS, GUM_ADDRESS(0), GUM_ARG_ADDRESS,
-      GUM_ADDRESS(__afl_fuzz_ptr), GUM_ARG_REGISTER, GUM_REG_RCX);
+      GUM_ADDRESS(regs), GUM_ARG_ADDRESS, GUM_ADDRESS(0), GUM_ARG_REGISTER,
+      GUM_REG_RDX, GUM_ARG_REGISTER, GUM_REG_RCX);
 
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
                                         (GUM_RED_ZONE_SIZE));

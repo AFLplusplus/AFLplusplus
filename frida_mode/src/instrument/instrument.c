@@ -5,6 +5,7 @@
 #include "config.h"
 #include "debug.h"
 
+#include "entry.h"
 #include "frida_cmplog.h"
 #include "instrument.h"
 #include "persistent.h"
@@ -79,6 +80,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
   gboolean       begin = TRUE;
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
+    if (instr->address == entry_start) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
 
     if (begin) {

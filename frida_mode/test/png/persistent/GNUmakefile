@@ -19,7 +19,7 @@ ifeq "$(ARCH)" "x86_64"
  AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s main -b 0x0000555555554000)
 endif
 
-.PHONY: all clean qemu frida
+.PHONY: all clean qemu qemu_entry frida frida_entry
 
 all:
 	make -C $(ROOT)frida_mode/test/png/
@@ -39,8 +39,33 @@ qemu: | $(BUILD_DIR)
 		-- \
 			$(TEST_BIN) @@
 
+qemu_entry: | $(BUILD_DIR)
+	AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR) \
+	AFL_QEMU_PERSISTENT_GPR=1 \
+	AFL_ENTRYPOINT=$(AFL_QEMU_PERSISTENT_ADDR) \
+	$(ROOT)afl-fuzz \
+		-D \
+		-V 30 \
+		-Q \
+		-i $(TEST_DATA_DIR) \
+		-o $(QEMU_OUT) \
+		-- \
+			$(TEST_BIN) @@
+
 frida: | $(BUILD_DIR)
 	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
+	$(ROOT)afl-fuzz \
+		-D \
+		-V 30 \
+		-O \
+		-i $(TEST_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-- \
+			$(TEST_BIN) @@
+
+frida_entry: | $(BUILD_DIR)
+	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
+	AFL_ENTRYPOINT=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	$(ROOT)afl-fuzz \
 		-D \
 		-V 30 \

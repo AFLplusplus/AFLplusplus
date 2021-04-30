@@ -14,6 +14,7 @@
 #include "config.h"
 #include "debug.h"
 
+#include "entry.h"
 #include "instrument.h"
 #include "interceptor.h"
 #include "lib.h"
@@ -36,8 +37,6 @@ extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
 typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
-
-extern void __afl_manual_init();
 
 static int on_fork(void) {
 
@@ -79,6 +78,7 @@ static void on_main_os(int argc, char **argv, char **envp) {
 static int *on_main(int argc, char **argv, char **envp) {
 
   void *fork_addr;
+
   on_main_os(argc, argv, envp);
 
   unintercept_self();
@@ -86,6 +86,7 @@ static int *on_main(int argc, char **argv, char **envp) {
   stalker_init();
 
   lib_init();
+  entry_init();
   instrument_init();
   persistent_init();
   prefetch_init();
@@ -95,13 +96,8 @@ static int *on_main(int argc, char **argv, char **envp) {
   intercept(fork_addr, on_fork, NULL);
 
   stalker_start();
-  stalker_pause();
+  entry_run();
 
-  __afl_manual_init();
-
-  /* Child here */
-  previous_pc = 0;
-  stalker_resume();
   return main_fn(argc, argv, envp);
 
 }

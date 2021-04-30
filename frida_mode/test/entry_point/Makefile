@@ -5,14 +5,8 @@ all:
 clean:
 	@gmake clean
 
-qemu:
-	@gmake qemu
-
-qemu_entry:
-	@gmake qemu_entry
-
 frida:
 	@gmake frida
 
 frida_entry:
-	@gmake frida_entry
+	@gmake frida
