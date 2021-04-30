@@ -544,7 +544,7 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_statsd)) {
 
-    if (unlikely(afl->force_ui_update && cur_ms - afl->statsd_last_send_ms >
+    if (unlikely(afl->force_ui_update || cur_ms - afl->statsd_last_send_ms >
                                              STATSD_UPDATE_SEC * 1000)) {
 
       /* reset counter, even if send failed. */
