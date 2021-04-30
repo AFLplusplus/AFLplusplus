@@ -40,7 +40,7 @@ qemu: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 		-- \
 			$(TESTINSTBIN) @@
 
-frida: $(FRIDA_TRACE) $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
+frida: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 	$(ROOT)afl-fuzz \
 		-D \
 		-O \

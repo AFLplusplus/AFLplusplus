@@ -7,3 +7,7 @@
 [submodule "qemu_mode/qemuafl"]
 	path = qemu_mode/qemuafl
 	url = https://github.com/AFLplusplus/qemuafl
+[submodule "frida_mode/frida"]
+	path = frida_mode/frida
+	url = https://github.com/WorksButNotTested/frida.git
+	branch = x64_stalker_fix
