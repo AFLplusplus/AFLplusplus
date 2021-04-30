@@ -560,12 +560,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
-      if (!*ld_path) ld_path = "ld.lld";
+      if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
+      if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
       cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);
 #else
       cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_path);
 #endif
+      free(ld_path);
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
