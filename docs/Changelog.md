@@ -32,10 +32,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       afl++ ignores these and uses them for splicing instead.
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
+    - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
     - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
-  - utils/aflpp_driver/aflpp_qemu_driver_hook fixed to work with qemu mode
+  - utils/aflpp_driver:
+    - aflpp_qemu_driver_hook fixed to work with qemu_mode
+    - aflpp_driver now compiled with -fPIC
   - add -d (add dead fuzzer stats) to afl-whatsup
 
 ### Version ++3.12c (release)

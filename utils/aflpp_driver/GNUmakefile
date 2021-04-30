@@ -7,7 +7,7 @@ ifneq "" "$(LLVM_BINDIR)"
   LLVM_BINDIR := $(LLVM_BINDIR)/
 endif
 
-CFLAGS := -O3 -funroll-loops -g
+CFLAGS := -O3 -funroll-loops -g -fPIC
 
 all:	libAFLDriver.a libAFLQemuDriver.a aflpp_qemu_driver_hook.so
 
@@ -36,7 +36,7 @@ aflpp_qemu_driver_hook.so:	aflpp_qemu_driver_hook.o
 	-$(LLVM_BINDIR)clang -shared aflpp_qemu_driver_hook.o -o aflpp_qemu_driver_hook.so
 
 aflpp_qemu_driver_hook.o:	aflpp_qemu_driver_hook.c
-	-$(LLVM_BINDIR)clang -fPIC $(CFLAGS) -funroll-loops -c aflpp_qemu_driver_hook.c
+	-$(LLVM_BINDIR)clang $(CFLAGS) -funroll-loops -c aflpp_qemu_driver_hook.c
 
 test:	debug
 	#clang -S -emit-llvm -D_DEBUG=\"1\" -I../../include -Wl,--allow-multiple-definition -funroll-loops -o aflpp_driver_test.ll aflpp_driver_test.c

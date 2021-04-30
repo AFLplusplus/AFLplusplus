@@ -70,12 +70,18 @@ static void __afl_map_shm(void) {
   char *id_str = getenv(SHM_ENV_VAR);
   char *ptr;
 
+
+  /* NOTE TODO BUG FIXME: if you want to supply a variable sized map then
+     uncomment the following: */
+
+  /*
   if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) {
 
     u32 val = atoi(ptr);
     if (val > 0) __afl_map_size = val;
 
   }
+  */
 
   if (__afl_map_size > MAP_SIZE) {
 
