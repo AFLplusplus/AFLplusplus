@@ -2212,6 +2212,31 @@ stop_fuzzing:
   }
 
   afl_fsrv_deinit(&afl->fsrv);
+
+  /* remove tmpfile */
+  if (afl->tmp_dir != NULL && !afl->in_place_resume) {
+
+    char tmpfile[PATH_MAX];
+
+    if (afl->file_extension) {
+
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
+               afl->file_extension);
+
+    } else {
+
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
+
+    }
+
+    if (unlink(tmpfile) != 0) {
+
+      FATAL("Could not unlink current input file: %s.", tmpfile);
+
+    }
+
+  }
+
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
