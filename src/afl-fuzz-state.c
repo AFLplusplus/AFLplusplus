@@ -193,7 +193,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_exit_on_time =
-                (u64 *) get_afl_env(afl_environment_variables[i]);
+                (u8 *) get_afl_env(afl_environment_variables[i]);
 
           } else if (!strncmp(env, "AFL_NO_AFFINITY",
 
