@@ -204,6 +204,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_EXIT_ON_TIME: exit when no new paths are found within the specified time period\n"
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
@@ -1243,6 +1244,14 @@ int main(int argc, char **argv_orig, char **envp) {
     s32 hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
     if (hang_tmout < 1) { FATAL("Invalid value for AFL_HANG_TMOUT"); }
     afl->hang_tmout = (u32)hang_tmout;
+
+  }
+
+  if (afl->afl_env.afl_exit_on_time) {
+
+    u64 exit_on_time = atoi(afl->afl_env.afl_exit_on_time);
+    if (exit_on_time < 1) { FATAL("Invalid value for AFL_EXIT_ON_TIME"); }
+    afl->exit_on_time = (u64)exit_on_time;
 
   }
 
