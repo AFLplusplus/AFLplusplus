@@ -211,8 +211,9 @@ if [ "$STATIC" = "1" ]; then
 
   echo Building STATIC binary
 
+  # static PIE causes https://github.com/AFLplusplus/AFLplusplus/issues/892
   QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
-    --static \
+    --static --disable-pie \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
 
