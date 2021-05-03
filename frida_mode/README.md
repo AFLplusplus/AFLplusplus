@@ -45,8 +45,8 @@ these, first run `make` to build any dependencies. Then run `make qemu` or
 `make frida` to run on either QEMU of FRIDA mode respectively.
 
 ## Usage
-FRIDA mode requires some small modifications to `afl-fuzz` and similar tools
-in AFLplusplus. The intention is that it behaves identically to QEMU, but uses
+FRIDA mode added some small modifications to `afl-fuzz` and similar tools
+in AFLplusplus. The intention was that it behaves identically to QEMU, but it uses
 the 'O' switch rather than 'Q'. Whilst the options 'f', 'F', 's' or 'S' may have
 made more sense for a mode powered by FRIDA Stalker, they were all taken, so
 instead we use 'O' in hommage to the [author](https://github.com/oleavr) of
