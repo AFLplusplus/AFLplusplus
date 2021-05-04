@@ -58,10 +58,10 @@ test -e ../afl-frida-trace.so && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent frida_mode, this will take approx 10 seconds"
         {
-          if file test-instr | grep -q "32-bit"; then
-          else
-            export AFL_FRIDA_PERSISTENT_ADDR=0x`nm test-instr | grep "T main" | awk '{print $1}'`
-          fi
+          #if file test-instr | grep -q "32-bit"; then
+          #else
+          #fi
+          export AFL_FRIDA_PERSISTENT_ADDR=0x`nm test-instr | grep "T main" | awk '{print $1}'`
           $ECHO "Info: AFL_FRIDA_PERSISTENT_ADDR=$AFL_FRIDA_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           env|grep AFL_|sort
           file test-instr
