@@ -43,6 +43,10 @@ ifeq "$(ARCH)" "aarch64"
  ARCH:=arm64
 endif
 
+ifeq "$(ARCH)" "i686"
+ ARCH:=x86
+endif
+
 ifeq "$(shell uname)" "Darwin"
  OS:=macos
  RT_CFLAGS:=$(RT_CFLAGS) -Wno-deprecated-declarations
