@@ -14,7 +14,7 @@ test -z "$AFL_CC" && {
 }
 
 test -e ../afl-frida-trace.so && {
-  cc -pie -fPIE -o test-instr ../test-instr.c
+  cc -no-pie -o test-instr ../test-instr.c
   cc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
     {
@@ -41,7 +41,7 @@ test -e ../afl-frida-trace.so && {
         {
           ../afl-fuzz -m none -V10 -O -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
-        test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
+        test -n "$( ls out/default/queue/id:000003* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with frida_mode cmplog"
         } || {
           echo CUT------------------------------------------------------------------CUT
@@ -58,7 +58,15 @@ test -e ../afl-frida-trace.so && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent frida_mode, this will take approx 10 seconds"
         {
+          if file test-instr | grep -q "32-bit"; then
+          else
+            export AFL_FRIDA_PERSISTENT_ADDR=0x`nm test-instr | grep "T main" | awk '{print $1}'`
+          fi
+          $ECHO "Info: AFL_FRIDA_PERSISTENT_ADDR=$AFL_FRIDA_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
+          env|grep AFL_|sort
+          file test-instr
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -O -i in -o out -- ./test-instr
+          unset AFL_FRIDA_PERSISTENT_ADDR
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent frida_mode"
