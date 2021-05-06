@@ -42,6 +42,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - aflpp_driver now compiled with -fPIC
   - unicornafl:
     - fix MIPS delay slot caching, thanks @JackGrence
+    - fixed aarch64 exit address
+    - execution no longer stops at address 0x0
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
 
