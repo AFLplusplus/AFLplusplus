@@ -55,7 +55,7 @@ bool isIgnoreFunction(const llvm::Function *F) {
   // Starting from "LLVMFuzzer" these are functions used in libfuzzer based
   // fuzzing campaign installations, e.g. oss-fuzz
 
-  static const char *ignoreList[] = {
+  static constexpr const char *ignoreList[] = {
 
       "asan.",
       "llvm.",
@@ -94,7 +94,7 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   }
 
-  static const char *ignoreSubstringList[] = {
+  static constexpr const char *ignoreSubstringList[] = {
 
       "__asan",       "__msan",     "__ubsan", "__lsan",
       "__san",        "__sanitize", "__cxx",   "_GLOBAL__",
