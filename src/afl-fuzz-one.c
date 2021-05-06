@@ -3010,13 +3010,13 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
     orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
-    if (res == FSRV_RUN_ERROR) {
+    if (unlikely(res == FSRV_RUN_ERROR)) {
 
       FATAL("Unable to execute target application");
 
     }
 
-    if (afl->stop_soon) {
+    if (unlikely(afl->stop_soon)) {
 
       ++afl->cur_skipped_paths;
       goto abandon_entry;
