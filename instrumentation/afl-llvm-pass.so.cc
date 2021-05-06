@@ -409,11 +409,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     if (F.size() < function_minimum_size) continue;
 
+    std::list<Value *> todo;
     for (auto &BB : F) {
 
-      if (BB.getName() == "injected") {
-          continue;
-      }
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
       IRBuilder<>          IRB(&(*IP));
 
@@ -639,66 +637,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (!skip_nozero) {
 
 #endif
-          /* hexcoder: Realize a counter that skips zero during overflow.
-           * Once this counter reaches its maximum value, it next increments to 1
-           *
-           * Instead of
-           * Counter + 1 -> Counter
-           * we inject now this
-           * Counter + 1 -> {Counter, OverflowFlag}
-           * Counter + OverflowFlag -> Counter
-           */
-
-          // C: unsigned char old = atomic_load_explicit(MapPtrIdx, memory_order_relaxed);
-          LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-          Counter->setAlignment(llvm::Align());
-          Counter->setAtomic(llvm::AtomicOrdering::Monotonic);
-          Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-          // insert a basic block with the corpus of a do while loop
-          // the calculation may need to repeat, if atomic compare_exchange is not successful
-          BasicBlock::iterator it(*Counter); it++;
-          BasicBlock * end_bb = BB.splitBasicBlock(it);
-          end_bb->setName("injected");
-
-          // insert the block before the second half of the split
-          BasicBlock * do_while_bb = BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
-
-          // set terminator of BB from target end_bb to target do_while_bb
-          auto term = BB.getTerminator();
-          BranchInst::Create(do_while_bb, &BB);
-          term->eraseFromParent();
-
-          auto saved = IRB.saveIP();
-          IRB.SetInsertPoint(do_while_bb, do_while_bb->getFirstInsertionPt());
-
-          PHINode * PN = IRB.CreatePHI(Int8Ty, 2);
-
-          auto * Cmp = IRB.CreateICmpEQ(Counter, ConstantInt::get(Int8Ty, -1));
-
-          Value *Incr = IRB.CreateAdd(Counter, One);
-
-          auto * Select = IRB.CreateSelect(Cmp, One, Incr);
-
-          auto * CmpXchg = IRB.CreateAtomicCmpXchg(MapPtrIdx, PN, Select,
-                           llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
-          CmpXchg->setAlignment(llvm::Align());
-          CmpXchg->setWeak(true);
-          CmpXchg->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-          Value * Success = IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({1}));
-          Value * OldVal = IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({0}));
-
-          PN->addIncoming(Counter, &BB);
-          PN->addIncoming(OldVal, do_while_bb);
-
-//          term = do_while_bb->getTerminator();
-
-//          BranchInst::Create(/*true*/end_bb, /*false*/do_while_bb, Success, do_while_bb);
-          IRB.CreateCondBr(Success, end_bb, do_while_bb);
-//          BranchInst::Create(end_bb, do_while_bb);
-//          term->eraseFromParent();
-          IRB.restoreIP(saved);
+          // register MapPtrIdx in a todo list
+          todo.push_back(MapPtrIdx);
 
       } else {
           IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One, llvm::AtomicOrdering::Monotonic);
@@ -794,6 +734,72 @@ bool AFLCoverage::runOnModule(Module &M) {
       inst_blocks++;
 
     }
+
+#if 1 /*Atomic NeverZero */
+    // handle the todo list
+    for (auto val : todo) {
+          /* hexcoder: Realize a counter that skips zero during overflow.
+           * Once this counter reaches its maximum value, it next increments to 1
+           *
+           * Instead of
+           * Counter + 1 -> Counter
+           * we inject now this
+           * Counter + 1 -> {Counter, OverflowFlag}
+           * Counter + OverflowFlag -> Counter
+           */
+
+          // C: unsigned char old = atomic_load_explicit(MapPtrIdx, memory_order_relaxed);
+          Value * MapPtrIdx = val;
+          Instruction * MapPtrIdxInst = cast<Instruction>(val);
+          BasicBlock::iterator it0(&(*MapPtrIdxInst));
+          ++it0;
+          IRBuilder<>          IRB(&(*it0));
+          LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+          Counter->setAlignment(llvm::Align());
+          Counter->setAtomic(llvm::AtomicOrdering::Monotonic);
+          Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+          BasicBlock *BB = IRB.GetInsertBlock();
+          // insert a basic block with the corpus of a do while loop
+          // the calculation may need to repeat, if atomic compare_exchange is not successful
+          BasicBlock::iterator it(*Counter); it++;
+          BasicBlock * end_bb = BB->splitBasicBlock(it);
+          end_bb->setName("injected");
+
+          // insert the block before the second half of the split
+          BasicBlock * do_while_bb = BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
+
+          // set terminator of BB from target end_bb to target do_while_bb
+          auto term = BB->getTerminator();
+          BranchInst::Create(do_while_bb, BB);
+          term->eraseFromParent();
+
+          IRB.SetInsertPoint(do_while_bb, do_while_bb->getFirstInsertionPt());
+
+          PHINode * PN = IRB.CreatePHI(Int8Ty, 2);
+
+          auto * Cmp = IRB.CreateICmpEQ(Counter, ConstantInt::get(Int8Ty, -1));
+
+          Value *Incr = IRB.CreateAdd(Counter, One);
+
+          auto * Select = IRB.CreateSelect(Cmp, One, Incr);
+
+          auto * CmpXchg = IRB.CreateAtomicCmpXchg(MapPtrIdx, PN, Select,
+                           llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
+          CmpXchg->setAlignment(llvm::Align());
+          CmpXchg->setWeak(true);
+          CmpXchg->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+          Value * Success = IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({1}));
+          Value * OldVal = IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({0}));
+
+          PN->addIncoming(Counter, BB);
+          PN->addIncoming(OldVal, do_while_bb);
+
+          IRB.CreateCondBr(Success, end_bb, do_while_bb);
+
+     }
+#endif
 
   }
 
