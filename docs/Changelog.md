@@ -40,6 +40,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - utils/aflpp_driver:
     - aflpp_qemu_driver_hook fixed to work with qemu_mode
     - aflpp_driver now compiled with -fPIC
+  - unicornafl:
+    - fix MIPS delay slot caching, thanks @JackGrence
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
 
