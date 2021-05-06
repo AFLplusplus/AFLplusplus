@@ -718,10 +718,7 @@ void sync_fuzzers(afl_state_t *afl) {
    trimmer uses power-of-two increments somewhere between 1/16 and 1/1024 of
    file size, to keep the stage short and sweet. */
 
-u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 **in_buf_p) {
-
-  // We need to pass pointers around, as growing testcases may need to realloc.
-  u8 *in_buf = *in_buf_p;
+u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   u32 orig_len = q->len;
 
@@ -735,8 +732,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 **in_buf_p) {
 
       if (el->afl_custom_trim) {
 
-        trimmed_case = trim_case_custom(afl, q, in_buf_p, el);
-        in_buf = *in_buf_p;
+        trimmed_case = trim_case_custom(afl, q, in_buf, el);
         custom_trimmed = true;
 
       }
