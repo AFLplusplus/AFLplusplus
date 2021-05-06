@@ -1250,7 +1250,6 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->afl_env.afl_exit_on_time) {
 
     u64 exit_on_time = atoi(afl->afl_env.afl_exit_on_time);
-    if (exit_on_time < 1) { FATAL("Invalid value for AFL_EXIT_ON_TIME"); }
     afl->exit_on_time = (u64)exit_on_time * 1000;
 
   }
