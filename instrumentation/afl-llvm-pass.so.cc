@@ -738,7 +738,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 #if 1 /*Atomic NeverZero */
     // handle the todo list
     for (auto val : todo) {
-          /* hexcoder: Realize a counter that skips zero during overflow.
+
+          /* hexcoder: Realize a thread-safe counter that skips zero during overflow.
            * Once this counter reaches its maximum value, it next increments to 1
            *
            * Instead of
@@ -748,12 +749,28 @@ bool AFLCoverage::runOnModule(Module &M) {
            * Counter + OverflowFlag -> Counter
            */
 
-          // C: unsigned char old = atomic_load_explicit(MapPtrIdx, memory_order_relaxed);
+          /* equivalent c code looks like this
+           * Thanks to https://preshing.com/20150402/you-can-do-any-kind-of-atomic-read-modify-write-operation/
+
+              int old = atomic_load_explicit(&Counter, memory_order_relaxed);
+              int new;
+              do {
+                   if (old == 255) {
+                     new = 1;
+                   } else {
+                     new = old + 1;
+                   }
+              } while (!atomic_compare_exchange_weak_explicit(&Counter, &old, new, memory_order_relaxed, memory_order_relaxed));
+
+           */
+
           Value * MapPtrIdx = val;
           Instruction * MapPtrIdxInst = cast<Instruction>(val);
           BasicBlock::iterator it0(&(*MapPtrIdxInst));
           ++it0;
           IRBuilder<>          IRB(&(*it0));
+
+          // load the old counter value atomically
           LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
           Counter->setAlignment(llvm::Align());
           Counter->setAtomic(llvm::AtomicOrdering::Monotonic);
@@ -762,7 +779,8 @@ bool AFLCoverage::runOnModule(Module &M) {
           BasicBlock *BB = IRB.GetInsertBlock();
           // insert a basic block with the corpus of a do while loop
           // the calculation may need to repeat, if atomic compare_exchange is not successful
-          BasicBlock::iterator it(*Counter); it++;
+
+          BasicBlock::iterator it(*Counter); it++; // split after load counter
           BasicBlock * end_bb = BB->splitBasicBlock(it);
           end_bb->setName("injected");
 
@@ -774,28 +792,38 @@ bool AFLCoverage::runOnModule(Module &M) {
           BranchInst::Create(do_while_bb, BB);
           term->eraseFromParent();
 
+          // continue to fill instructions into the do_while loop
           IRB.SetInsertPoint(do_while_bb, do_while_bb->getFirstInsertionPt());
 
           PHINode * PN = IRB.CreatePHI(Int8Ty, 2);
 
+          // compare with maximum value 0xff
           auto * Cmp = IRB.CreateICmpEQ(Counter, ConstantInt::get(Int8Ty, -1));
 
+          // increment the counter
           Value *Incr = IRB.CreateAdd(Counter, One);
 
+          // select the counter value or 1
           auto * Select = IRB.CreateSelect(Cmp, One, Incr);
 
+          // try to save back the new counter value
           auto * CmpXchg = IRB.CreateAtomicCmpXchg(MapPtrIdx, PN, Select,
                            llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
           CmpXchg->setAlignment(llvm::Align());
           CmpXchg->setWeak(true);
           CmpXchg->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
+          // get the result of trying to update the Counter
           Value * Success = IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({1}));
+          // get the (possibly updated) value of Counter
           Value * OldVal = IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({0}));
 
+          // initially we use Counter
           PN->addIncoming(Counter, BB);
+          // on retry, we use the updated value
           PN->addIncoming(OldVal, do_while_bb);
 
+          // if the cmpXchg was not successful, retry
           IRB.CreateCondBr(Success, end_bb, do_while_bb);
 
      }
