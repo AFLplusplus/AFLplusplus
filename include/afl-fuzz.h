@@ -392,7 +392,7 @@ typedef struct afl_env_vars {
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_kill_signal, *afl_target_env,
-      *afl_persistent_record;
+      *afl_persistent_record, *afl_exit_on_time;
 
 } afl_env_vars_t;
 
@@ -575,7 +575,8 @@ typedef struct afl_state {
       last_sync_cycle,                  /* Cycle no. of the last sync       */
       last_path_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
-      last_hang_time;                   /* Time for most recent hang (ms)   */
+      last_hang_time,                   /* Time for most recent hang (ms)   */
+      exit_on_time;                     /* Delay to exit if no new paths    */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */

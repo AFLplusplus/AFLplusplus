@@ -49,6 +49,7 @@ static char *afl_environment_variables[] = {
     "AFL_DUMB_FORKSRV",
     "AFL_ENTRYPOINT",
     "AFL_EXIT_WHEN_DONE",
+    "AFL_EXIT_ON_TIME",
     "AFL_EXIT_ON_SEED_ISSUES",
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
