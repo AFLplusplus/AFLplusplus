@@ -179,6 +179,8 @@ void load_stats_file(afl_state_t *afl) {
 
   }
 
+  if (afl->unique_crashes) { write_crash_readme(afl); }
+
   return;
 
 }
