@@ -64,7 +64,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=14.2.17
+GUM_DEVKIT_VERSION=14.2.18
 GUM_DEVKIT_FILENAME=frida-gum-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -72,17 +72,18 @@ GUM_DEVKIT_TARBALL:=$(FRIDA_BUILD_DIR)$(GUM_DEVKIT_FILENAME)
 GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gum.a
 GUM_DEVIT_HEADER=$(FRIDA_BUILD_DIR)frida-gum.h
 
-FRIDA_DIR:=$(PWD)frida/
+FRIDA_DIR:=$(PWD)build/frida-source/
 FRIDA_MAKEFILE:=$(FRIDA_DIR)Makefile
 FRIDA_GUM:=$(FRIDA_DIR)build/frida-linux-x86_64/lib/libfrida-gum-1.0.a
 FRIDA_GUM_DEVKIT_DIR:=$(FRIDA_DIR)build/gum-devkit/
 FRIDA_GUM_DEVKIT_HEADER:=$(FRIDA_GUM_DEVKIT_DIR)frida-gum.h
-FRIDA_GUM_DEVKIT_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
+FRIDA_GUM_DEVKIT_TARBALL:=$(FRIDA_DIR)build/frida-gum-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar
+FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
-.PHONY: all clean format
+.PHONY: all clean format $(FRIDA_GUM)
 
 ############################## ALL #############################################
 
@@ -97,8 +98,8 @@ $(OBJ_DIR): | $(BUILD_DIR)
 
 ############################# FRIDA ############################################
 
-$(FRIDA_MAKEFILE):
-	git submodule update --init --recursive $(FRIDA_DIR)
+$(FRIDA_MAKEFILE): | $(BUILD_DIR)
+	git clone --recursive https://github.com/frida/frida.git $(FRIDA_DIR)
 
 $(FRIDA_GUM): $(FRIDA_MAKEFILE)
 	cd $(FRIDA_DIR) && make gum-linux-$(ARCH)
@@ -107,7 +108,10 @@ $(FRIDA_GUM_DEVKIT_HEADER): $(FRIDA_GUM)
 	$(FRIDA_DIR)releng/devkit.py frida-gum linux-$(ARCH) $(FRIDA_DIR)build/gum-devkit/
 
 $(FRIDA_GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_HEADER)
-	cd $(FRIDA_GUM_DEVKIT_DIR) && tar cJvf $(FRIDA_GUM_DEVKIT_TARBALL) .
+	cd $(FRIDA_GUM_DEVKIT_DIR) && tar cvf $(FRIDA_GUM_DEVKIT_TARBALL) .
+
+$(FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL): $(FRIDA_GUM_DEVKIT_TARBALL)
+	xz -k -f -0 $(FRIDA_GUM_DEVKIT_TARBALL)
 
 ############################# DEVKIT ###########################################
 
@@ -115,7 +119,7 @@ $(FRIDA_BUILD_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 ifdef FRIDA_SOURCE
-$(GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_TARBALL)| $(FRIDA_BUILD_DIR)
+$(GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL)| $(FRIDA_BUILD_DIR)
 	cp -v $< $@
 else
 $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
