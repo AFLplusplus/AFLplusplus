@@ -5,7 +5,7 @@
 $ECHO "$BLUE[*] Testing: custom mutator"
 test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   # normalize path
-  CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../utils/custom_mutators;pwd)
+  CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../custom_mutators/examples;pwd)
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program for single mutator
