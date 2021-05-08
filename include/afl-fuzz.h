@@ -1135,6 +1135,7 @@ void   check_if_tty(afl_state_t *);
 void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
+void   write_crash_readme(afl_state_t *afl);
 
 /* CmpLog */
 
