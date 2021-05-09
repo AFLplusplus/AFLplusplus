@@ -53,8 +53,13 @@ instead we use 'O' in hommage to the [author](https://github.com/oleavr) of
 FRIDA.
 
 Similarly, the intention is to mimic the use of environment variables used by
+<<<<<<< Updated upstream
 QEMU where possible (by replacing `s/QEMU/FRIDA/g`). Accordingly, the
 following options are currently supported:
+=======
+QEMU where possible (although replacing `s/QEMU/FRIDA/g`). Accordingly, the
+following options are currently supported.
+>>>>>>> Stashed changes
 
 * `AFL_FRIDA_DEBUG_MAPS` - See `AFL_QEMU_DEBUG_MAPS`
 * `AFL_FRIDA_EXCLUDE_RANGES` - See `AFL_QEMU_EXCLUDE_RANGES`

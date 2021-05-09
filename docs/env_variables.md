@@ -284,6 +284,10 @@ checks or alter some of the more exotic semantics of the tool:
     normally indicated by the cycle counter in the UI turning green. May be
     convenient for some types of automated jobs.
 
+  - `AFL_EXIT_ON_TIME` Causes afl-fuzz to terminate if no new paths were 
+    found within a specified period of time. May be convenient for some 
+    types of automated jobs.
+
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behaviour
     which does not allow crashes or timeout seeds in the initial -i corpus.
 

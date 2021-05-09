@@ -175,6 +175,8 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
   guint64 rdi = cmplog_read_reg(context, X86_REG_RDI);
   guint64 rsi = cmplog_read_reg(context, X86_REG_RSI);
 
+  if (((G_MAXULONG - rdi) < 32) || ((G_MAXULONG - rsi) < 32)) return;
+
   void *ptr1 = GSIZE_TO_POINTER(rdi);
   void *ptr2 = GSIZE_TO_POINTER(rsi);
 
@@ -223,18 +225,6 @@ static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
 
 }
 
-static void cmplog_instrument_call_put_callout(GumStalkerIterator *iterator,
-                                               cs_x86_op *         operand) {
-
-  cmplog_ctx_t *ctx = g_malloc(sizeof(cmplog_ctx_t));
-  if (ctx == NULL) return;
-
-  cmplog_instrument_put_operand(ctx, operand);
-
-  gum_stalker_iterator_put_callout(iterator, cmplog_call_callout, ctx, g_free);
-
-}
-
 static void cmplog_instrument_call(const cs_insn *     instr,
                                    GumStalkerIterator *iterator) {
 
@@ -251,7 +241,7 @@ static void cmplog_instrument_call(const cs_insn *     instr,
   if (operand->type == X86_OP_MEM && operand->mem.segment != X86_REG_INVALID)
     return;
 
-  cmplog_instrument_call_put_callout(iterator, operand);
+  gum_stalker_iterator_put_callout(iterator, cmplog_call_callout, NULL, NULL);
 
 }
 
