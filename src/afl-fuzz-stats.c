@@ -179,6 +179,8 @@ void load_stats_file(afl_state_t *afl) {
 
   }
 
+  if (afl->unique_crashes) { write_crash_readme(afl); }
+
   return;
 
 }
@@ -569,6 +571,16 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
                !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)) {
+
+    afl->stop_soon = 2;
+
+  }
+
+  /* AFL_EXIT_ON_TIME. */ 
+
+  if (unlikely(afl->last_path_time && !afl->non_instrumented_mode && 
+    afl->afl_env.afl_exit_on_time && 
+    (cur_ms - afl->last_path_time) > afl->exit_on_time)) {
 
     afl->stop_soon = 2;
 

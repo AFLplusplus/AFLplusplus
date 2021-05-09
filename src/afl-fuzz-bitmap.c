@@ -397,7 +397,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
 /* Write a message accompanying the crash directory :-) */
 
-static void write_crash_readme(afl_state_t *afl) {
+void write_crash_readme(afl_state_t *afl) {
 
   u8    fn[PATH_MAX];
   s32   fd;
