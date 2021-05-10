@@ -312,7 +312,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
   u32 trim_exec = 0;
   u32 orig_len = q->len;
   u32 out_len = 0;
-  u8* out_buf = NULL;
+  u8 *out_buf = NULL;
 
   u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
@@ -475,8 +475,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
     close(fd);
 
     /* Update the queue's knowledge of length as soon as we write the file.
-       We do this here so that exit/error cases that *don't* update the file also
-       don't update q->len. */
+       We do this here so that exit/error cases that *don't* update the file
+       also don't update q->len. */
     q->len = out_len;
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, afl->fsrv.map_size);

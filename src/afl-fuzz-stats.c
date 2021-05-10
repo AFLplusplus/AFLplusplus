@@ -576,11 +576,11 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  /* AFL_EXIT_ON_TIME. */ 
+  /* AFL_EXIT_ON_TIME. */
 
-  if (unlikely(afl->last_path_time && !afl->non_instrumented_mode && 
-    afl->afl_env.afl_exit_on_time && 
-    (cur_ms - afl->last_path_time) > afl->exit_on_time)) {
+  if (unlikely(afl->last_path_time && !afl->non_instrumented_mode &&
+               afl->afl_env.afl_exit_on_time &&
+               (cur_ms - afl->last_path_time) > afl->exit_on_time)) {
 
     afl->stop_soon = 2;
 
