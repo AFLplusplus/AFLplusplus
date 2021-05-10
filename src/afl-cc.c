@@ -1574,7 +1574,12 @@ int main(int argc, char **argv, char **envp) {
     else if (have_gcc_plugin)
       compiler_mode = GCC_PLUGIN;
     else if (have_gcc)
-      compiler_mode = GCC;
+      #ifdef __APPLE__
+        // on OSX clang masquerades as GCC
+        compiler_mode = CLANG;
+      #else
+        compiler_mode = GCC;
+      #endif
     else if (have_lto)
       compiler_mode = LTO;
     else
@@ -1596,7 +1601,10 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (compiler_mode == CLANG) { instrument_mode = INSTRUMENT_CLANG; }
+  if (compiler_mode == CLANG) {
+    instrument_mode = INSTRUMENT_CLANG;
+    setenv(CLANG_ENV_VAR, "1", 1); // used by afl-as
+  }
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
