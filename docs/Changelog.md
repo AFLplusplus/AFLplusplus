@@ -44,6 +44,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix MIPS delay slot caching, thanks @JackGrence
     - fixed aarch64 exit address
     - execution no longer stops at address 0x0
+  - updated afl-system-config to support Arch Linux weirdness and increase
+    MacOS shared memory
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
 
