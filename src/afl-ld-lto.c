@@ -298,13 +298,12 @@ int main(int argc, char **argv) {
 
     SAYF(
         "\n"
-        "This is a helper application for afl-clang-lto. It is a wrapper "
-        "around GNU "
-        "llvm's 'lld',\n"
-        "executed by the toolchain whenever using "
-        "afl-clang-lto/afl-clang-lto++.\n"
+        "This is a helper application for afl-clang-lto.\n"
+        "It is a wrapper around llvm's 'lld' in case afl-clang-lto cannot be "
+        "used.\n"
+        "Note that the target still has to be compiled with -flto=full!\n"
         "You probably don't want to run this program directly but rather pass "
-        "it as LD parameter to configure scripts\n\n"
+        "it as LD\nparameter to e.g. configure scripts.\n\n"
 
         "Environment variables:\n"
         "  AFL_LD_PASSTHROUGH   do not link+optimize == no instrumentation\n"

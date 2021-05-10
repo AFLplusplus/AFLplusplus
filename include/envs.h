@@ -49,6 +49,7 @@ static char *afl_environment_variables[] = {
     "AFL_DUMB_FORKSRV",
     "AFL_ENTRYPOINT",
     "AFL_EXIT_WHEN_DONE",
+    "AFL_EXIT_ON_TIME",
     "AFL_EXIT_ON_SEED_ISSUES",
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
@@ -59,6 +60,9 @@ static char *afl_environment_variables[] = {
     "AFL_FRIDA_INST_RANGES",
     "AFL_FRIDA_INST_STRICT",
     "AFL_FRIDA_INST_TRACE",
+    "AFL_FRIDA_PERSISTENT_ADDR",
+    "AFL_FRIDA_PERSISTENT_CNT",
+    "AFL_FRIDA_PERSISTENT_HOOK",
     "AFL_FUZZER_ARGS",  // oss-fuzz
     "AFL_GDB",
     "AFL_GCC_ALLOWLIST",

@@ -204,6 +204,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_EXIT_ON_TIME: exit when no new paths are found within the specified time period\n"
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
@@ -1246,6 +1247,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_exit_on_time) {
+
+    u64 exit_on_time = atoi(afl->afl_env.afl_exit_on_time);
+    afl->exit_on_time = (u64)exit_on_time * 1000;
+
+  }
+
   if (afl->afl_env.afl_max_det_extras) {
 
     s32 max_det_extras = atoi(afl->afl_env.afl_max_det_extras);
@@ -1358,6 +1366,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl_preload = getenv("AFL_PRELOAD");
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
       if (afl_preload) {
 
         frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
@@ -1383,6 +1392,7 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (afl->fsrv.frida_mode) {
 
     u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    OKF("Injecting %s ...", frida_binary);
     setenv("LD_PRELOAD", frida_binary, 1);
     setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
     ck_free(frida_binary);
@@ -1697,13 +1707,14 @@ int main(int argc, char **argv_orig, char **envp) {
     // TODO: this is semi-nice
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-        !afl->unicorn_mode) {
+        !afl->fsrv.frida_mode && !afl->unicorn_mode) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
       char vbuf[16];
@@ -2209,6 +2220,31 @@ stop_fuzzing:
   }
 
   afl_fsrv_deinit(&afl->fsrv);
+
+  /* remove tmpfile */
+  if (afl->tmp_dir != NULL && !afl->in_place_resume) {
+
+    char tmpfile[PATH_MAX];
+
+    if (afl->file_extension) {
+
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
+               afl->file_extension);
+
+    } else {
+
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
+
+    }
+
+    if (unlink(tmpfile) != 0) {
+
+      FATAL("Could not unlink current input file: %s.", tmpfile);
+
+    }
+
+  }
+
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);

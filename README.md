@@ -91,9 +91,9 @@ behaviours and defaults:
   | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode | qemu_mode        |unicorn_mode |
   | -------------------------|:-------:|:---------:|:----------:|:----------:|:----------------:|:------------:|
   | NeverZero                | x86[_64]|     x(1)  |     x      |            |         x        |       x      |
-  | Persistent Mode          |         |     x     |     x      |            | x86[_64]/arm[64] |       x      |
+  | Persistent Mode          |         |     x     |     x      |     x      | x86[_64]/arm[64] |       x      |
   | LAF-Intel / CompCov      |         |     x     |            |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                   |         |     x     |            |            | x86[_64]/arm[64] |              |
+  | CmpLog                   |         |     x     |            |     x      | x86[_64]/arm[64] |              |
   | Selective Instrumentation|         |     x     |     x      |     x      |         x        |              |
   | Non-Colliding Coverage   |         |     x(4)  |            |            |        (x)(5)    |              |
   | Ngram prev_loc Coverage  |         |     x(6)  |            |            |                  |              |

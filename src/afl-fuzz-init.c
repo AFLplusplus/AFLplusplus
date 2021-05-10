@@ -2031,7 +2031,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
     fprintf(
         afl->fsrv.plot_file,
-        "# unix_time, cycles_done, cur_path, paths_total, "
+        "# relative_time, cycles_done, cur_path, paths_total, "
         "pending_total, pending_favs, map_size, unique_crashes, "
         "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
 
@@ -2773,6 +2773,14 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   } else if (getenv("AFL_PERSISTENT")) {
 
     WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
+
+  } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
+
+    OKF("FRIDA Persistent mode configuration options detected.");
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    afl->persistent_mode = 1;
+
+    afl->shmem_testcase_mode = 1;
 
   }
 
