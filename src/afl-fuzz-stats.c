@@ -386,7 +386,7 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   /* Fields in the file:
 
-     unix_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
+     relative_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
      favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
      execs_per_sec, edges_found */
 

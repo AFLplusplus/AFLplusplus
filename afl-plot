@@ -111,9 +111,9 @@ set terminal png truecolor enhanced size 1000,300 butt
 
 set output '$outputdir/high_freq.png'
 
-set xdata time
-set timefmt '%s'
-set format x "%b %d\n%H:%M"
+#set xdata time
+#set timefmt '%s'
+#set format x "%b %d\n%H:%M"
 set tics font 'small'
 unset mxtics
 unset mytics
