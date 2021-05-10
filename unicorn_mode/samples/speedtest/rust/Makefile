@@ -1,4 +1,10 @@
-all: fuzz
+.PHONY: all fuzz
+
+all: ../target ./target/release/unicornafl_harness
+
+afl-fuzz: ../../../../afl-fuzz
+../../../../afl-fuzz:
+	$(MAKE) -C ../../../../ afl-fuzz
 
 clean:
 	cargo clean
@@ -12,6 +18,6 @@ clean:
 ../target:
 	$(MAKE) -c ..
 
-fuzz: ../target ./target/release/unicornafl_harness
+fuzz: all afl-fuzz
 	rm -rf ./output
-	SKIP_BINCHECK=1 ../../../../afl-fuzz -s 1 -i ../sample_inputs -o ./output -- ./target/release/unicornafl_harness @@
+	SKIP_BIN_CHECK=1 ../../../../afl-fuzz -s 1 -i ../sample_inputs -o ./output -- ./target/release/unicornafl_harness @@

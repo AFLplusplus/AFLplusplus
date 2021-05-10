@@ -25,7 +25,7 @@
 #if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
   #define INC_AFL_AREA(loc)           \
     asm volatile(                     \
-        "incb (%0, %1, 1)\n"          \
+        "addb $1, (%0, %1, 1)\n"      \
         "adcb $0, (%0, %1, 1)\n"      \
         : /* no out */                \
         : "r"(afl_area_ptr), "r"(loc) \

@@ -144,8 +144,8 @@ typedef struct {
 
 /* Configurable stuff (use AFL_LD_* to set): */
 
-static u32 max_mem = MAX_ALLOC;         /* Max heap usage to permit         */
-static u8  alloc_verbose,               /* Additional debug messages        */
+static size_t max_mem = MAX_ALLOC;      /* Max heap usage to permit         */
+static u8     alloc_verbose,            /* Additional debug messages        */
     hard_fail,                          /* abort() when max_mem exceeded?   */
     no_calloc_over,                     /* abort() on calloc() overflows?   */
     align_allocations;                  /* Force alignment to sizeof(void*) */
@@ -154,7 +154,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
   #define __thread
   #warning no thread support available
 #endif
-static __thread size_t total_mem;       /* Currently allocated mem          */
+static _Atomic size_t total_mem;        /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static u32          alloc_canary;
@@ -172,9 +172,9 @@ static void *__dislocator_alloc(size_t len) {
 
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
 
-    if (hard_fail) FATAL("total allocs exceed %u MB", max_mem / 1024 / 1024);
+    if (hard_fail) FATAL("total allocs exceed %zu MB", max_mem / 1024 / 1024);
 
-    DEBUGF("total allocs exceed %u MB, returning NULL", max_mem / 1024 / 1024);
+    DEBUGF("total allocs exceed %zu MB, returning NULL", max_mem / 1024 / 1024);
 
     return NULL;
 
@@ -500,19 +500,20 @@ size_t malloc_usable_size(const void *ptr) {
 
 __attribute__((constructor)) void __dislocator_init(void) {
 
-  u8 *tmp = (u8 *)getenv("AFL_LD_LIMIT_MB");
+  char *tmp = getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
 
-    u8 *tok;
-    s32 mmem = (s32)strtol((char *)tmp, (char **)&tok, 10);
-    if (*tok != '\0' || errno == ERANGE) FATAL("Bad value for AFL_LD_LIMIT_MB");
+    char *             tok;
+    unsigned long long mmem = strtoull(tmp, &tok, 10);
+    if (*tok != '\0' || errno == ERANGE || mmem > SIZE_MAX / 1024 / 1024)
+      FATAL("Bad value for AFL_LD_LIMIT_MB");
     max_mem = mmem * 1024 * 1024;
 
   }
 
   alloc_canary = ALLOC_CANARY;
-  tmp = (u8 *)getenv("AFL_RANDOM_ALLOC_CANARY");
+  tmp = getenv("AFL_RANDOM_ALLOC_CANARY");
 
   if (tmp) arc4random_buf(&alloc_canary, sizeof(alloc_canary));
 

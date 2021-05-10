@@ -89,7 +89,7 @@ class SplitSwitchesTransform : public ModulePass {
 
   };
 
-  typedef std::vector<CaseExpr> CaseVector;
+  using CaseVector = std::vector<CaseExpr>;
 
  private:
   bool        splitSwitches(Module &M);

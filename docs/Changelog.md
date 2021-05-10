@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.13a (development)
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
+    it currently supports persistent mode and cmplog.
     thanks to @WorksButNotTested!
   - create a fuzzing dictionary with the help of CodeQL thanks to
     @microsvuln! see utils/autodict_ql
@@ -19,6 +20,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add recording of previous fuzz attempts for persistent mode
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
+    - fixed a bug when trimming for stdin targets
     - default cmplog level (-l) is now 2, better efficiency.
     - cmplog level 3 (-l 3) now performs redqueen on everything.
       use with care.
@@ -31,10 +33,20 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       afl++ ignores these and uses them for splicing instead.
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
+    - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
     - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
-  - utils/aflpp_driver/aflpp_qemu_driver_hook fixed to work with qemu mode
+  - utils/aflpp_driver:
+    - aflpp_qemu_driver_hook fixed to work with qemu_mode
+    - aflpp_driver now compiled with -fPIC
+  - unicornafl:
+    - fix MIPS delay slot caching, thanks @JackGrence
+    - fixed aarch64 exit address
+    - execution no longer stops at address 0x0
+  - updated afl-system-config to support Arch Linux weirdness and increase
+    MacOS shared memory
+  - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
 
 ### Version ++3.12c (release)

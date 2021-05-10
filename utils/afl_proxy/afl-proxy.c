@@ -70,12 +70,18 @@ static void __afl_map_shm(void) {
   char *id_str = getenv(SHM_ENV_VAR);
   char *ptr;
 
+  /* NOTE TODO BUG FIXME: if you want to supply a variable sized map then
+     uncomment the following: */
+
+  /*
   if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) {
 
     u32 val = atoi(ptr);
     if (val > 0) __afl_map_size = val;
 
   }
+
+  */
 
   if (__afl_map_size > MAP_SIZE) {
 
@@ -189,10 +195,7 @@ static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
   /* report that we are starting the target */
   if (write(FORKSRV_FD + 1, &res, 4) != 4) return 0;
 
-  if (status < 1)
-    return 0;
-  else
-    return status;
+  return status;
 
 }
 
@@ -210,7 +213,7 @@ int main(int argc, char *argv[]) {
 
   /* This is were the testcase data is written into */
   u8  buf[1024];  // this is the maximum size for a test case! set it!
-  u32 len;
+  s32 len;
 
   /* here you specify the map size you need that you are reporting to
      afl-fuzz.  Any value is fine as long as it can be divided by 32. */
@@ -222,10 +225,20 @@ int main(int argc, char *argv[]) {
 
   while ((len = __afl_next_testcase(buf, sizeof(buf))) > 0) {
 
-    /* here you have to create the magic that feeds the buf/len to the
-       target and write the coverage to __afl_area_ptr */
+    if (len > 4) {  // the minimum data size you need for the target
 
-    // ... the magic ...
+      /* here you have to create the magic that feeds the buf/len to the
+         target and write the coverage to __afl_area_ptr */
+
+      // ... the magic ...
+
+      // remove this, this is just to make afl-fuzz not complain when run
+      if (buf[0] == 0xff)
+        __afl_area_ptr[1] = 1;
+      else
+        __afl_area_ptr[2] = 2;
+
+    }
 
     /* report the test case is done and wait for the next */
     __afl_end_testcase();

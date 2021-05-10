@@ -29,7 +29,11 @@ MYCC = $(__CC:$(_UNIQ)$(CROSS)=$(CROSS)gcc)
 
 .PHONY: all clean
 
-all: fuzz
+all: ../target harness
+
+afl-fuzz: ../../../../afl-fuzz
+../../../../afl-fuzz:
+	$(MAKE) -C ../../../../ afl-fuzz
 
 clean:
 	rm -rf *.o harness harness-debug
@@ -49,6 +53,6 @@ harness-debug: harness-debug.o
 ../target:
 	$(MAKE) -C ..
 
-fuzz: ../target harness
+fuzz: all afl-fuzz
 	rm -rf ./output
-	SKIP_BINCHECK=1 ../../../../afl-fuzz -s 1 -i ../sample_inputs -o ./output -- ./harness @@
+	SKIP_BIN_CHECK=1 ../../../../afl-fuzz -s 1 -i ../sample_inputs -o ./output -- ./harness @@

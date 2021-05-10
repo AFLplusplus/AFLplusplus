@@ -83,5 +83,5 @@ You can find a simple solution in utils/argv_fuzzing.
 ## Attacking a format that uses checksums? 
 
 Remove the checksum-checking code or use a postprocessor!
-See utils/custom_mutators/ for more.
+See `afl_custom_post_process` in custom_mutators/examples/example.c for more.
 
