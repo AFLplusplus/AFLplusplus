@@ -4,6 +4,8 @@
 
 #include "util.h"
 
+#define DEFAULT_MMAP_MIN_ADDR (32UL << 10)
+
 extern struct cmp_map *__afl_cmp_map;
 
 static GArray *cmplog_ranges = NULL;
@@ -54,6 +56,16 @@ static gboolean cmplog_contains(GumAddress inner_base, GumAddress inner_limit,
 gboolean cmplog_is_readable(void *addr, size_t size) {
 
   if (cmplog_ranges == NULL) FATAL("CMPLOG not initialized");
+
+  /*
+   * The Linux kernel prevents mmap from allocating from the very bottom of the
+   * address space to mitigate NULL pointer dereference attacks. The exact size
+   * is set by sysctl by setting mmap_min_addr and 64k is suggested on most
+   * platforms with 32k on ARM systems. We therefore fail fast if the address
+   * is lower than this. This should avoid some overhead when functions are
+   * called where one of the parameters is a size, or a some other small value.
+   */
+  if (GPOINTER_TO_SIZE(addr) < DEFAULT_MMAP_MIN_ADDR) { return false; }
 
   GumAddress inner_base = GUM_ADDRESS(addr);
   GumAddress inner_limit = inner_base + size;
