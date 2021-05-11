@@ -134,7 +134,8 @@ static guint64 cmplog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
 
 }
 
-static guint64 cmplog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
+static gboolean cmplog_read_mem(GumX64CpuContext *ctx, uint8_t size,
+                                x86_op_mem *mem, guint64 *val) {
 
   guint64 base = 0;
   guint64 index = 0;
@@ -145,25 +146,51 @@ static guint64 cmplog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
   if (mem->index != X86_REG_INVALID) index = cmplog_read_reg(ctx, mem->index);
 
   address = base + (index * mem->scale) + mem->disp;
-  return address;
+
+  if (!cmplog_is_readable(address, size)) { return FALSE; }
+
+  switch (size) {
+
+    case 1:
+      *val = *((guint8 *)address);
+      return TRUE;
+    case 2:
+      *val = *((guint16 *)address);
+      return TRUE;
+    case 4:
+      *val = *((guint32 *)address);
+      return TRUE;
+    case 8:
+      *val = *((guint64 *)address);
+      return TRUE;
+    default:
+      FATAL("Invalid operand size: %d\n", size);
+
+  }
+
+  return FALSE;
 
 }
 
-static guint64 cmplog_get_operand_value(GumCpuContext *context,
-                                        cmplog_ctx_t * ctx) {
+static gboolean cmplog_get_operand_value(GumCpuContext *context,
+                                         cmplog_ctx_t *ctx, guint64 *val) {
 
   switch (ctx->type) {
 
     case X86_OP_REG:
-      return cmplog_read_reg(context, ctx->reg);
+      *val = cmplog_read_reg(context, ctx->reg);
+      return TRUE;
     case X86_OP_IMM:
-      return ctx->imm;
+      *val = ctx->imm;
+      return TRUE;
     case X86_OP_MEM:
-      return cmplog_read_mem(context, &ctx->mem);
+      return cmplog_read_mem(context, ctx->size, &ctx->mem, val);
     default:
       FATAL("Invalid operand type: %d\n", ctx->type);
 
   }
+
+  return FALSE;
 
 }
 
@@ -177,10 +204,10 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 
   if (((G_MAXULONG - rdi) < 32) || ((G_MAXULONG - rsi) < 32)) return;
 
+  if (!cmplog_is_readable(rdi, 32) || !cmplog_is_readable(rsi, 32)) return;
+
   void *ptr1 = GSIZE_TO_POINTER(rdi);
   void *ptr2 = GSIZE_TO_POINTER(rsi);
-
-  if (!cmplog_is_readable(ptr1, 32) || !cmplog_is_readable(ptr2, 32)) return;
 
   uintptr_t k = address;
 
@@ -271,11 +298,13 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
 static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 
   cmplog_pair_ctx_t *ctx = (cmplog_pair_ctx_t *)user_data;
+  guint64            operand1;
+  guint64            operand2;
 
   if (ctx->operand1.size != ctx->operand2.size) FATAL("Operand size mismatch");
 
-  guint64 operand1 = cmplog_get_operand_value(context, &ctx->operand1);
-  guint64 operand2 = cmplog_get_operand_value(context, &ctx->operand2);
+  if (!cmplog_get_operand_value(context, &ctx->operand1, &operand1)) { return; }
+  if (!cmplog_get_operand_value(context, &ctx->operand2, &operand2)) { return; }
 
   cmplog_handle_cmp_sub(context, operand1, operand2, ctx->operand1.size);
 
