@@ -9,6 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.13a (development)
+  - Note: plot_data switched to relative time from unix time in 3.10
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
     it currently supports persistent mode and cmplog.
     thanks to @WorksButNotTested!
