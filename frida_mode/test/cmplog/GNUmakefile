@@ -41,24 +41,24 @@ $(TEST_CMPLOG_OBJ): $(TEST_CMPLOG_DIR)compcovtest.cc
 
 qemu: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
 	$(ROOT)afl-fuzz \
-		-D \
 		-Q \
 		-i $(TEST_DATA_DIR) \
 		-o $(QEMU_OUT) \
 		-c 0 \
 		-l 3AT \
+		-Z \
 		-- \
 			$(TEST_CMPLOG_OBJ) @@
 
 frida: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
 	XAFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES) \
 	$(ROOT)afl-fuzz \
-		-D \
 		-O \
 		-i $(TEST_DATA_DIR) \
 		-o $(FRIDA_OUT) \
 		-c 0 \
 		-l 3AT \
+		-Z \
 		-- \
 			$(TEST_CMPLOG_OBJ) @@
 

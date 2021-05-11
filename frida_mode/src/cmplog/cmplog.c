@@ -53,7 +53,7 @@ static gboolean cmplog_contains(GumAddress inner_base, GumAddress inner_limit,
 
 }
 
-gboolean cmplog_is_readable(void *addr, size_t size) {
+gboolean cmplog_is_readable(guint64 addr, size_t size) {
 
   if (cmplog_ranges == NULL) FATAL("CMPLOG not initialized");
 
@@ -65,9 +65,9 @@ gboolean cmplog_is_readable(void *addr, size_t size) {
    * is lower than this. This should avoid some overhead when functions are
    * called where one of the parameters is a size, or a some other small value.
    */
-  if (GPOINTER_TO_SIZE(addr) < DEFAULT_MMAP_MIN_ADDR) { return false; }
+  if (addr < DEFAULT_MMAP_MIN_ADDR) { return false; }
 
-  GumAddress inner_base = GUM_ADDRESS(addr);
+  GumAddress inner_base = addr;
   GumAddress inner_limit = inner_base + size;
 
   for (guint i = 0; i < cmplog_ranges->len; i++) {
