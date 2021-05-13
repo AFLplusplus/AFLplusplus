@@ -341,6 +341,7 @@ int main(int argc, char **argv_orig, char **envp) {
      extras_dir_cnt = 0 /*, have_p = 0*/;
   char * afl_preload;
   char * frida_afl_preload = NULL;
+  char * fasan_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -785,6 +786,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->fsrv.frida_mode = 1;
+        if (get_afl_env("AFL_USE_FASAN")) { afl->fsrv.frida_asan = 1; }
 
         break;
 
@@ -1365,17 +1367,33 @@ int main(int argc, char **argv_orig, char **envp) {
     } else if (afl->fsrv.frida_mode) {
 
       afl_preload = getenv("AFL_PRELOAD");
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-      OKF("Injecting %s ...", frida_binary);
-      if (afl_preload) {
 
-        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+      if (afl->fsrv.frida_asan) {
 
-      } else {
+        OKF("Using Frida Address Sanitizer Mode");
 
-        frida_afl_preload = alloc_printf("%s", frida_binary);
+        u8 *asan_dso = find_afl_binary(argv[0], "libclang_rt.asan-x86_64.so");
+        OKF("Injecting %s ...", asan_dso);
+        if (afl_preload) {
+
+          fasan_afl_preload = alloc_printf("%s:%s", asan_dso, afl_preload);
+
+        } else {
+
+          fasan_afl_preload = alloc_printf("%s", asan_dso);
+
+        }
+
+        ck_free(asan_dso);
+
+        setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
 
       }
+
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
+      frida_afl_preload =
+          alloc_printf("%s:%s", fasan_afl_preload, frida_binary);
 
       ck_free(frida_binary);
 
@@ -1392,9 +1410,27 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (afl->fsrv.frida_mode) {
 
     u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-    OKF("Injecting %s ...", frida_binary);
-    setenv("LD_PRELOAD", frida_binary, 1);
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+    if (afl->fsrv.frida_asan) {
+
+      OKF("Using Frida Address Sanitizer Mode");
+
+      u8 *asan_dso = find_afl_binary(argv[0], "libclang_rt.asan-x86_64.so");
+      frida_afl_preload = alloc_printf("%s:%s", asan_dso, frida_binary);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+      ck_free(asan_dso);
+
+      setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
+
+    } else {
+
+      OKF("Injecting %s ...", frida_binary);
+      setenv("LD_PRELOAD", frida_binary, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+
+    }
+
     ck_free(frida_binary);
 
   }
@@ -2203,6 +2239,7 @@ stop_fuzzing:
 
   }
 
+  if (fasan_afl_preload) { ck_free(fasan_afl_preload); }
   if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
