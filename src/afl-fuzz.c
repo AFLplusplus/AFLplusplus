@@ -328,6 +328,50 @@ static int stricmp(char const *a, char const *b) {
 
 }
 
+static void fasan_check_afl_preload(char *afl_preload) {
+
+  char   first_preload[PATH_MAX + 1] = {0};
+  char * separator = strchr(afl_preload, ':');
+  size_t first_preload_len = PATH_MAX;
+  char * basename;
+  char   clang_runtime_prefix[] = "libclang_rt.asan-";
+
+  if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
+
+    first_preload_len = separator - afl_preload;
+
+  }
+
+  strncpy(first_preload, afl_preload, first_preload_len);
+
+  basename = strrchr(first_preload, '/');
+  if (basename == NULL) {
+
+    basename = first_preload;
+
+  } else {
+
+    basename = basename + 1;
+
+  }
+
+  if (strncmp(basename, clang_runtime_prefix,
+              sizeof(clang_runtime_prefix) - 1) != 0) {
+
+    FATAL("Address Sanitizer DSO must be the first DSO in AFL_PRELOAD");
+
+  }
+
+  if (access(first_preload, R_OK) != 0) {
+
+    FATAL("Address Sanitizer DSO not found");
+
+  }
+
+  OKF("Found ASAN DSO: %s", first_preload);
+
+}
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -341,7 +385,6 @@ int main(int argc, char **argv_orig, char **envp) {
      extras_dir_cnt = 0 /*, have_p = 0*/;
   char * afl_preload;
   char * frida_afl_preload = NULL;
-  char * fasan_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -1372,19 +1415,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         OKF("Using Frida Address Sanitizer Mode");
 
-        u8 *asan_dso = find_afl_binary(argv[0], "libclang_rt.asan-x86_64.so");
-        OKF("Injecting %s ...", asan_dso);
-        if (afl_preload) {
-
-          fasan_afl_preload = alloc_printf("%s:%s", asan_dso, afl_preload);
-
-        } else {
-
-          fasan_afl_preload = alloc_printf("%s", asan_dso);
-
-        }
-
-        ck_free(asan_dso);
+        fasan_check_afl_preload(afl_preload);
 
         setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
 
@@ -1392,8 +1423,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
-      frida_afl_preload =
-          alloc_printf("%s:%s", fasan_afl_preload, frida_binary);
+      frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
 
       ck_free(frida_binary);
 
@@ -1409,29 +1439,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else if (afl->fsrv.frida_mode) {
 
-    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
     if (afl->fsrv.frida_asan) {
 
       OKF("Using Frida Address Sanitizer Mode");
-
-      u8 *asan_dso = find_afl_binary(argv[0], "libclang_rt.asan-x86_64.so");
-      frida_afl_preload = alloc_printf("%s:%s", asan_dso, frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
-      ck_free(asan_dso);
-
-      setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
+      FATAL(
+          "Address Sanitizer DSO must be loaded using AFL_PRELOAD in Frida "
+          "Address Sanitizer Mode");
 
     } else {
 
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
       setenv("LD_PRELOAD", frida_binary, 1);
       setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+      ck_free(frida_binary);
 
     }
-
-    ck_free(frida_binary);
 
   }
 
@@ -2239,7 +2262,6 @@ stop_fuzzing:
 
   }
 
-  if (fasan_afl_preload) { ck_free(fasan_afl_preload); }
   if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);

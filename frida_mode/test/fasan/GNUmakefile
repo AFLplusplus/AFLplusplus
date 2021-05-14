@@ -63,7 +63,7 @@ frida-noasan: $(TEST_BIN) $(TEST_DATA_FILE)
 
 
 frida: $(TEST_BIN) $(TEST_DATA_FILE)
-	AFL_PATH=/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux/ \
+	AFL_PRELOAD=/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux/libclang_rt.asan-x86_64.so \
 	AFL_USE_FASAN=1 \
 	$(ROOT)afl-fuzz \
 		-D \
