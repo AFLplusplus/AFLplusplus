@@ -332,7 +332,7 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
+  s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
       map_size = get_map_size();
@@ -1770,7 +1770,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (extras_dir_cnt) {
 
-    for (i = 0; i < extras_dir_cnt; i++) {
+    for (u8 i = 0; i < extras_dir_cnt; i++) {
 
       load_extras(afl, extras_dir[i]);
 
@@ -1922,6 +1922,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (unlikely(seek_to)) {
 
+          if (unlikely(seek_to >= afl->queued_paths)) {
+
+            // This should never happen.
+            FATAL("BUG: seek_to location out of bounds!\n");
+
+          }
+
           afl->current_entry = seek_to;
           afl->queue_cur = afl->queue_buf[seek_to];
           seek_to = 0;
@@ -2061,7 +2068,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (i = 0; i < (s32)afl->queued_paths; i++) {
+        for (u32 i = 0; i < afl->queued_paths; i++) {
 
           if (likely(!afl->queue_buf[i]->disabled)) {
 
