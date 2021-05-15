@@ -1294,9 +1294,13 @@ void pivot_inputs(afl_state_t *afl) {
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry *s = afl->queue_buf[src_id];
+        if (src_id < afl->queued_paths) {
 
-        if (s) { q->depth = s->depth + 1; }
+          struct queue_entry *s = afl->queue_buf[src_id];
+
+          if (s) { q->depth = s->depth + 1; }
+
+        }
 
         if (afl->max_depth < q->depth) { afl->max_depth = q->depth; }
 
