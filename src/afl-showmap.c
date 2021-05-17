@@ -386,7 +386,7 @@ static u32 read_file(u8 *in_file) {
 
   }
 
-  in_len = st.st_size;
+  in_len = st.st_size > MAX_FILE ? MAX_FILE : st.st_size;
   in_data = ck_alloc_nozero(in_len);
 
   ck_read(fd, in_data, in_len, in_file);
