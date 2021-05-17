@@ -29,6 +29,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - ensure one fuzzer sync per cycle
     - fix afl_custom_queue_new_entry original file name when syncing
       from fuzzers
+    - on a crashing seed potentially the wrong input was disabled
     - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
       -i dir crashes the target or results in a timeout. By default
       afl++ ignores these and uses them for splicing instead.
