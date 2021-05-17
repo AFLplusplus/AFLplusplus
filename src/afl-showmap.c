@@ -76,17 +76,18 @@ static u32 in_len;                     /* Input data length                 */
 
 static u32 map_size = MAP_SIZE;
 
-static u8 quiet_mode,                  /* Hide non-essential messages?      */
+static bool quiet_mode,                /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
     raw_instr_output,                  /* Do not apply AFL filters          */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
     binary_mode,                       /* Write output as a binary map      */
     keep_cores,                        /* Allow coredumps?                  */
-    remove_shm = 1,                    /* remove shmem?                     */
+    remove_shm = true,                 /* remove shmem?                     */
     collect_coverage,                  /* collect coverage                  */
     have_coverage,                     /* have coverage?                    */
     no_classify,                       /* do not classify counts            */
-    debug;                             /* debug mode                        */
+    debug,                             /* debug mode                        */
+    print_filenames;                   /* print the current filename        */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -320,11 +321,11 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
   if (fsrv->trace_bits[0] == 1) {
 
     fsrv->trace_bits[0] = 0;
-    have_coverage = 1;
+    have_coverage = true;
 
   } else {
 
-    have_coverage = 0;
+    have_coverage = false;
 
   }
 
@@ -335,11 +336,11 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
   if (!fsrv->last_run_timed_out && !stop_soon &&
       WIFSIGNALED(fsrv->child_status)) {
 
-    child_crashed = 1;
+    child_crashed = true;
 
   } else {
 
-    child_crashed = 0;
+    child_crashed = false;
 
   }
 
@@ -374,6 +375,8 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 /* Read initial file. */
 
 static u32 read_file(u8 *in_file) {
+
+  if (print_filenames) { SAYF("Processing %s\n", in_file); }
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
@@ -515,11 +518,11 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
   if (fsrv->trace_bits[0] == 1) {
 
     fsrv->trace_bits[0] = 0;
-    have_coverage = 1;
+    have_coverage = true;
 
   } else {
 
-    have_coverage = 0;
+    have_coverage = false;
 
   }
 
@@ -529,7 +532,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status)) {
 
-    child_crashed = 1;
+    child_crashed = true;
 
   }
 
@@ -559,7 +562,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 static void handle_stop_sig(int sig) {
 
   (void)sig;
-  stop_soon = 1;
+  stop_soon = true;
   afl_fsrv_killall();
 
 }
@@ -742,6 +745,8 @@ static void usage(u8 *argv0) {
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
       "size the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
+      "printed to stdout\n"
       "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
@@ -755,14 +760,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // TODO: u64 mem_limit = MEM_LIMIT;                  /* Memory limit (MB) */
 
-  s32    opt, i;
-  u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
+  s32  opt, i;
+  bool mem_limit_given = false, timeout_given = false, unicorn_mode = false,
+       use_wine = false;
   char **use_argv;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t fsrv_var = {0};
-  if (getenv("AFL_DEBUG")) { debug = 1; }
+  if (getenv("AFL_DEBUG")) { debug = true; }
+  if (getenv("AFL_PRINT_FILENAMES")) { print_filenames = true; }
+
   fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
@@ -770,19 +778,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
+  if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
   while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOQUWbcrsh")) > 0) {
 
     switch (opt) {
 
       case 's':
-        no_classify = 1;
+        no_classify = true;
         break;
 
       case 'C':
-        collect_coverage = 1;
-        quiet_mode = 1;
+        collect_coverage = true;
+        quiet_mode = true;
         break;
 
       case 'i':
@@ -801,7 +809,7 @@ int main(int argc, char **argv_orig, char **envp) {
         u8 suffix = 'M';
 
         if (mem_limit_given) { FATAL("Multiple -m options not supported"); }
-        mem_limit_given = 1;
+        mem_limit_given = true;
 
         if (!optarg) { FATAL("Wrong usage of -m"); }
 
@@ -862,7 +870,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 't':
 
         if (timeout_given) { FATAL("Multiple -t options not supported"); }
-        timeout_given = 1;
+        timeout_given = true;
 
         if (!optarg) { FATAL("Wrong usage of -t"); }
 
@@ -884,12 +892,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (edges_only) { FATAL("Multiple -e options not supported"); }
         if (raw_instr_output) { FATAL("-e and -r are mutually exclusive"); }
-        edges_only = 1;
+        edges_only = true;
         break;
 
       case 'q':
 
-        quiet_mode = 1;
+        quiet_mode = true;
         break;
 
       case 'Z':
@@ -897,8 +905,8 @@ int main(int argc, char **argv_orig, char **envp) {
         /* This is an undocumented option to write data in the syntax expected
            by afl-cmin. Nobody else should have any use for this. */
 
-        cmin_mode = 1;
-        quiet_mode = 1;
+        cmin_mode = true;
+        quiet_mode = true;
         break;
 
       case 'A':
@@ -910,7 +918,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (fsrv->frida_mode) { FATAL("Multiple -O options not supported"); }
 
-        fsrv->frida_mode = 1;
+        fsrv->frida_mode = true;
 
         break;
 
@@ -918,21 +926,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (fsrv->qemu_mode) { FATAL("Multiple -Q options not supported"); }
 
-        fsrv->qemu_mode = 1;
+        fsrv->qemu_mode = true;
         break;
 
       case 'U':
 
         if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
 
-        unicorn_mode = 1;
+        unicorn_mode = true;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) { FATAL("Multiple -W options not supported"); }
-        fsrv->qemu_mode = 1;
-        use_wine = 1;
+        fsrv->qemu_mode = true;
+        use_wine = true;
 
         break;
 
@@ -941,20 +949,20 @@ int main(int argc, char **argv_orig, char **envp) {
         /* Secret undocumented mode. Writes output in raw binary format
            similar to that dumped by afl-fuzz in <out_dir/queue/fuzz_bitmap. */
 
-        binary_mode = 1;
+        binary_mode = true;
         break;
 
       case 'c':
 
         if (keep_cores) { FATAL("Multiple -c options not supported"); }
-        keep_cores = 1;
+        keep_cores = true;
         break;
 
       case 'r':
 
         if (raw_instr_output) { FATAL("Multiple -r options not supported"); }
         if (edges_only) { FATAL("-e and -r are mutually exclusive"); }
-        raw_instr_output = 1;
+        raw_instr_output = true;
         break;
 
       case 'h':
@@ -1064,7 +1072,7 @@ int main(int argc, char **argv_orig, char **envp) {
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
-  shm_fuzz->shmemfuzz_mode = 1;
+  shm_fuzz->shmemfuzz_mode = true;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
@@ -1073,7 +1081,7 @@ int main(int argc, char **argv_orig, char **envp) {
   setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
   ck_free(shm_str);
 #endif
-  fsrv->support_shmem_fuzz = 1;
+  fsrv->support_shmem_fuzz = true;
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
@@ -1125,7 +1133,7 @@ int main(int argc, char **argv_orig, char **envp) {
     struct stat statbuf;
 #endif
 
-    if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = 1;
+    if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = true;
 
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
     if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
@@ -1164,8 +1172,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if ((coverage_map = (u8 *)malloc(map_size)) == NULL)
         FATAL("coult not grab memory");
-      edges_only = 0;
-      raw_instr_output = 1;
+      edges_only = false;
+      raw_instr_output = true;
 
     }
 

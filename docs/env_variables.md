@@ -567,6 +567,9 @@ The corpus minimization script offers very little customization:
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
 
+  - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
+    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts scripting.
+
 ## 7) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (`-Q`), `AFL_PATH` will be
