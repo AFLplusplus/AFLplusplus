@@ -42,7 +42,7 @@ ifeq "$(ARCH)" "x86"
 LIBASAN_FILE:=libclang_rt.asan-i386.so
 endif
 
-ifeq "$(ARCH)" "x64"
+ifeq "$(ARCH)" "x86_64"
 LIBASAN_FILE:=libclang_rt.asan-x86_64.so
 endif
 
@@ -85,11 +85,14 @@ else
 endif
 
 
-.PHONY: all clean format frida-noasan frida debug run
+.PHONY: all 32 clean format frida-noasan frida debug run
 
 ############################## ALL #############################################
 
 all: $(TEST_BIN)
+
+32:
+	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 $(TEST_BIN): $(TEST_SRC) GNUmakefile | $(BUILD_DIR)
 	$(CC) \
@@ -120,7 +123,7 @@ frida-noasan: $(TEST_BIN) $(TEST_DATA_FILE)
 
 
 frida: $(TEST_BIN) $(TEST_DATA_FILE)
-	AFL_PRELOAD=/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux/libclang_rt.asan-x86_64.so \
+	AFL_PRELOAD=$(LIBASAN) \
 	AFL_USE_FASAN=1 \
 	$(ROOT)afl-fuzz \
 		-D \

@@ -90,7 +90,8 @@ static void lib_read_text_section(lib_details_t *lib_details, Elf_Ehdr *hdr) {
 
   if (!found_preferred_base) { FATAL("Failed to find preferred load address"); }
 
-  OKF("Image preferred load address 0x%016lx", preferred_base);
+  OKF("Image preferred load address 0x%016" G_GSIZE_MODIFIER "x",
+      preferred_base);
 
   shdr = (Elf_Shdr *)((char *)hdr + hdr->e_shoff);
   shstrtab = &shdr[hdr->e_shstrndx];
@@ -107,15 +108,16 @@ static void lib_read_text_section(lib_details_t *lib_details, Elf_Ehdr *hdr) {
     if (curr->sh_name == 0) continue;
 
     section_name = &shstr[curr->sh_name];
-    OKF("Section: %2lu - base: 0x%016lX size: 0x%016lX %s", i, curr->sh_addr,
-        curr->sh_size, section_name);
+    OKF("Section: %2" G_GSIZE_MODIFIER "u - base: 0x%016" G_GSIZE_MODIFIER
+        "X size: 0x%016" G_GSIZE_MODIFIER "X %s",
+        i, curr->sh_addr, curr->sh_size, section_name);
     if (memcmp(section_name, text_name, sizeof(text_name)) == 0 &&
         text_base == 0) {
 
       text_base = lib_details->base_address + curr->sh_addr - preferred_base;
       text_limit = text_base + curr->sh_size;
-      OKF("> text_addr: 0x%016lX", text_base);
-      OKF("> text_limit: 0x%016lX", text_limit);
+      OKF("> text_addr: 0x%016" G_GINT64_MODIFIER "X", text_base);
+      OKF("> text_limit: 0x%016" G_GINT64_MODIFIER "X", text_limit);
 
     }
 
@@ -153,7 +155,8 @@ void lib_init(void) {
 
   lib_details_t lib_details;
   gum_process_enumerate_modules(lib_find_exe, &lib_details);
-  OKF("Executable: 0x%016lx - %s", lib_details.base_address, lib_details.path);
+  OKF("Executable: 0x%016" G_GINT64_MODIFIER "x - %s", lib_details.base_address,
+      lib_details.path);
   lib_get_text_section(&lib_details);
 
 }

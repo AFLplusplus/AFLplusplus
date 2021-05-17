@@ -18,5 +18,11 @@ void asan_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
 
 }
 
+void asan_arch_init(void) {
+
+  FATAL("ASAN mode not supported on this architecture");
+
+}
+
 #endif
 

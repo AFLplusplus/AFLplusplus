@@ -34,7 +34,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
    */
   static char buffer[200];
   int         len;
-  guint64     current_pc = (guint64)user_data;
+  GumAddress  current_pc = GUM_ADDRESS(user_data);
   uint8_t *   cursor;
   uint64_t    value;
   if (unlikely(tracing)) {
@@ -86,8 +86,8 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     if (begin) {
 
-      prefetch_write((void *)instr->address);
-      if (!range_is_excluded((void *)instr->address)) {
+      prefetch_write(GSIZE_TO_POINTER(instr->address));
+      if (!range_is_excluded(GSIZE_TO_POINTER(instr->address))) {
 
         if (optimize) {
 
@@ -95,8 +95,8 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
         } else {
 
-          gum_stalker_iterator_put_callout(iterator, on_basic_block,
-                                           (gpointer)instr->address, NULL);
+          gum_stalker_iterator_put_callout(
+              iterator, on_basic_block, GSIZE_TO_POINTER(instr->address), NULL);
 
         }
 
@@ -106,7 +106,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     }
 
-    if (!range_is_excluded((void *)instr->address)) {
+    if (!range_is_excluded(GSIZE_TO_POINTER(instr->address))) {
 
       asan_instrument(instr, iterator);
       cmplog_instrument(instr, iterator);

@@ -2,8 +2,16 @@ PWD:=$(shell pwd)/
 ROOT:=$(shell realpath $(PWD)../../../../..)/
 BUILD_DIR:=$(PWD)build/
 
-AFLPP_DRIVER_HOOK_DIR=$(ROOT)utils/aflpp_driver/
-AFLPP_DRIVER_HOOK_OBJ=$(AFLPP_DRIVER_HOOK_DIR)aflpp_qemu_driver_hook.so
+AFLPP_DRIVER_HOOK_SRC=$(PWD)aflpp_qemu_driver_hook.c
+AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)aflpp_qemu_driver_hook.so
+
+CFLAGS+=-O3 \
+		-funroll-loops \
+		-g \
+		-fPIC \
+		-funroll-loops \
+
+LDFLAGS+=-shared \
 
 TEST_BIN:=$(PWD)../../build/test
 TEST_DATA_DIR:=../../build/libpng/libpng-1.2.56/contrib/pngsuite/
@@ -12,9 +20,20 @@ AFLPP_DRIVER_DUMMY_INPUT:=$(BUILD_DIR)in
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-AFL_QEMU_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x4000000000)
+ifndef ARCH
 
 ARCH=$(shell uname -m)
+ifeq "$(ARCH)" "aarch64"
+ ARCH:=arm64
+endif
+
+ifeq "$(ARCH)" "i686"
+ ARCH:=x86
+endif
+endif
+
+AFL_QEMU_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x4000000000)
+
 ifeq "$(ARCH)" "aarch64"
  AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000aaaaaaaaa000)
 endif
@@ -23,10 +42,17 @@ ifeq "$(ARCH)" "x86_64"
  AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000555555554000)
 endif
 
-.PHONY: all clean qemu qemu_entry frida frida_entry
+ifeq "$(ARCH)" "x86"
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x56555000)
+endif
 
-all:
+.PHONY: all 32 clean format qemu qemu_entry frida frida_entry debug
+
+all: $(AFLPP_DRIVER_HOOK_OBJ)
 	make -C $(ROOT)frida_mode/test/png/persistent/
+
+32:
+	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -37,8 +63,8 @@ $(TEST_DATA_DIR): | $(BUILD_DIR)
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
 	truncate -s 1M $@
 
-$(AFLPP_DRIVER_HOOK_OBJ): | $(AFLPP_DRIVER_HOOK_DIR)
-	make -C $(AFLPP_DRIVER_HOOK_DIR)
+$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
 
 qemu: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 	AFL_QEMU_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ) \
@@ -93,6 +119,18 @@ frida_entry: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 		-- \
 			$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
 
+debug:
+	echo $(AFL_FRIDA_PERSISTENT_ADDR)
+	gdb \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set environment AFL_FRIDA_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ)' \
+		--ex 'set environment AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR)' \
+		--ex 'set disassembly-flavor intel' \
+		--args $(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
+
 clean:
 	rm -rf $(BUILD_DIR)
+
+format:
+	cd $(ROOT) && echo $(AFLPP_DRIVER_HOOK_SRC) | xargs -L1 ./.custom-format.py -i
 

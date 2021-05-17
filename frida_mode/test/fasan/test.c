@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define UNUSED_PARAMETER(x) (void)(x)
+
 #define LOG(x)                              \
   do {                                      \
                                             \
@@ -66,6 +68,9 @@ void test(char data) {
 }
 
 int main(int argc, char **argv) {
+
+  UNUSED_PARAMETER(argc);
+  UNUSED_PARAMETER(argv);
 
   char input = '\0';
 

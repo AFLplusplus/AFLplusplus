@@ -41,7 +41,7 @@
                                  \
     }
 
-guint64 ctx_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
+gsize ctx_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
 
   switch (reg) {
 
