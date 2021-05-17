@@ -19,6 +19,7 @@ RT_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-sign-compare \
 		   -Wno-unused-function \
 		   -Wno-unused-result \
+		   -Wno-int-to-pointer-cast \
 
 LDFLAGS+=-shared \
 		 -lpthread \
@@ -38,6 +39,8 @@ FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
 FRIDA_TRACE_EMBEDDED:=$(BUILD_DIR)afl-frida-trace-embedded
 
+ifndef ARCH
+
 ARCH=$(shell uname -m)
 ifeq "$(ARCH)" "aarch64"
  ARCH:=arm64
@@ -45,6 +48,7 @@ endif
 
 ifeq "$(ARCH)" "i686"
  ARCH:=x86
+endif
 endif
 
 ifeq "$(shell uname)" "Darwin"
@@ -83,12 +87,15 @@ FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
-.PHONY: all clean format $(FRIDA_GUM)
+.PHONY: all 32 clean format $(FRIDA_GUM)
 
 ############################## ALL #############################################
 
 all: $(FRIDA_TRACE)
 	make -C $(ROOT)
+
+32:
+	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -161,11 +168,11 @@ $(foreach src,$(SOURCES),$(eval $(call BUILD_SOURCE,$(src),$(OBJ_DIR)$(notdir $(
 
 $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(AFL_COMPILER_RT_OBJ) GNUmakefile | $(BUILD_DIR)
 	$(CC) \
-		-o $@ \
 		$(OBJS) \
 		$(GUM_DEVIT_LIBRARY) \
 		$(AFL_COMPILER_RT_OBJ) \
 		$(LDFLAGS) \
+		-o $@ \
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
 

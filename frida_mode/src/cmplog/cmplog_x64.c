@@ -31,12 +31,12 @@ typedef struct {
 
 } cmplog_pair_ctx_t;
 
-static gboolean cmplog_read_mem(GumX64CpuContext *ctx, uint8_t size,
-                                x86_op_mem *mem, guint64 *val) {
+static gboolean cmplog_read_mem(GumCpuContext *ctx, uint8_t size,
+                                x86_op_mem *mem, gsize *val) {
 
-  guint64 base = 0;
-  guint64 index = 0;
-  guint64 address;
+  gsize base = 0;
+  gsize index = 0;
+  gsize address;
 
   if (mem->base != X86_REG_INVALID) base = ctx_read_reg(ctx, mem->base);
 
@@ -49,16 +49,16 @@ static gboolean cmplog_read_mem(GumX64CpuContext *ctx, uint8_t size,
   switch (size) {
 
     case 1:
-      *val = *((guint8 *)address);
+      *val = *((guint8 *)GSIZE_TO_POINTER(address));
       return TRUE;
     case 2:
-      *val = *((guint16 *)address);
+      *val = *((guint16 *)GSIZE_TO_POINTER(address));
       return TRUE;
     case 4:
-      *val = *((guint32 *)address);
+      *val = *((guint32 *)GSIZE_TO_POINTER(address));
       return TRUE;
     case 8:
-      *val = *((guint64 *)address);
+      *val = *((guint64 *)GSIZE_TO_POINTER(address));
       return TRUE;
     default:
       FATAL("Invalid operand size: %d\n", size);
@@ -70,7 +70,7 @@ static gboolean cmplog_read_mem(GumX64CpuContext *ctx, uint8_t size,
 }
 
 static gboolean cmplog_get_operand_value(GumCpuContext *context,
-                                         cmplog_ctx_t *ctx, guint64 *val) {
+                                         cmplog_ctx_t *ctx, gsize *val) {
 
   switch (ctx->type) {
 
@@ -95,9 +95,9 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 
   UNUSED_PARAMETER(user_data);
 
-  guint64 address = ctx_read_reg(context, X86_REG_RIP);
-  guint64 rdi = ctx_read_reg(context, X86_REG_RDI);
-  guint64 rsi = ctx_read_reg(context, X86_REG_RSI);
+  gsize address = ctx_read_reg(context, X86_REG_RIP);
+  gsize rdi = ctx_read_reg(context, X86_REG_RDI);
+  gsize rsi = ctx_read_reg(context, X86_REG_RSI);
 
   if (((G_MAXULONG - rdi) < 32) || ((G_MAXULONG - rsi) < 32)) return;
 
@@ -169,10 +169,10 @@ static void cmplog_instrument_call(const cs_insn *     instr,
 
 }
 
-static void cmplog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
-                                  guint64 operand2, uint8_t size) {
+static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
+                                  gsize operand2, uint8_t size) {
 
-  guint64 address = ctx_read_reg(context, X86_REG_RIP);
+  gsize address = ctx_read_reg(context, X86_REG_RIP);
 
   register uintptr_t k = (uintptr_t)address;
 
@@ -195,8 +195,8 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
 static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 
   cmplog_pair_ctx_t *ctx = (cmplog_pair_ctx_t *)user_data;
-  guint64            operand1;
-  guint64            operand2;
+  gsize              operand1;
+  gsize              operand2;
 
   if (ctx->operand1.size != ctx->operand2.size) FATAL("Operand size mismatch");
 

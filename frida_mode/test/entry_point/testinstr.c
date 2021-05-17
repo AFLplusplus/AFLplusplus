@@ -106,7 +106,9 @@ int run(char *file) {
 }
 
 void slow() {
+
   usleep(100000);
+
 }
 
 int main(int argc, char **argv) {

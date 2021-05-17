@@ -7,13 +7,13 @@
 #include "ctx.h"
 #include "util.h"
 
+#if defined(__x86_64__)
+
 typedef void (*asan_loadN_t)(uint64_t address, uint8_t size);
 typedef void (*asan_storeN_t)(uint64_t address, uint8_t size);
 
 asan_loadN_t  asan_loadN = NULL;
 asan_storeN_t asan_storeN = NULL;
-
-#if defined(__x86_64__)
 
 static void asan_callout(GumCpuContext *ctx, gpointer user_data) {
 
@@ -21,9 +21,9 @@ static void asan_callout(GumCpuContext *ctx, gpointer user_data) {
 
   cs_x86_op * operand = (cs_x86_op *)user_data;
   x86_op_mem *mem = &operand->mem;
-  uint64_t    base = 0;
-  uint64_t    index = 0;
-  uint64_t    address;
+  gsize       base = 0;
+  gsize       index = 0;
+  gsize       address;
   uint8_t     size;
 
   if (mem->base != X86_REG_INVALID) { base = ctx_read_reg(ctx, mem->base); }
