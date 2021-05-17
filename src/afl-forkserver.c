@@ -454,7 +454,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if (!fsrv->debug) {
 
       r.rlim_max = r.rlim_cur = 0;
-      setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
+      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
     }
 

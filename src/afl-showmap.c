@@ -376,7 +376,12 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
 static u32 read_file(u8 *in_file) {
 
-  if (print_filenames) { SAYF("Processing %s\n", in_file); }
+  if (print_filenames) {
+
+    SAYF("Processing %s\n", in_file);
+    fflush(stdout);
+
+  }
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
