@@ -50,6 +50,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     MacOS shared memory
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
+  - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the current filename
 
 ### Version ++3.12c (release)
   - afl-fuzz:
