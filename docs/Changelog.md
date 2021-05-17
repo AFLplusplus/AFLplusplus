@@ -33,6 +33,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
       -i dir crashes the target or results in a timeout. By default
       afl++ ignores these and uses them for splicing instead.
+    - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing after
+      no new paths have been found for n seconds
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
