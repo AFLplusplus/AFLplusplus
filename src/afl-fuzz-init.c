@@ -1044,18 +1044,16 @@ void perform_dry_run(afl_state_t *afl) {
 
         /* Remove from fuzzing queue but keep for splicing */
 
-        struct queue_entry *p = afl->queue;
+        if (!q->was_fuzzed) {
 
-        if (!p->was_fuzzed) {
-
-          p->was_fuzzed = 1;
+          q->was_fuzzed = 1;
           --afl->pending_not_fuzzed;
           --afl->active_paths;
 
         }
 
-        p->disabled = 1;
-        p->perf_score = 0;
+        q->disabled = 1;
+        q->perf_score = 0;
 
         u32 i = 0;
         while (unlikely(i < afl->queued_paths && afl->queue_buf[i] &&
