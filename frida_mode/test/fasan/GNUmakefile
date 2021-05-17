@@ -1,8 +1,6 @@
 PWD:=$(shell pwd)/
 ROOT:=$(shell realpath $(PWD)../../..)/
 BUILD_DIR:=$(PWD)build/
-LIBASAN:=/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux/libclang_rt.asan-x86_64.so
-# LIBASAN:=/usr/lib/x86_64-linux-gnu/libasan.so.6.0.0
 
 TEST_DATA_DIR:=$(BUILD_DIR)in/
 TEST_DATA_FILE:=$(TEST_DATA_DIR)in
@@ -27,6 +25,65 @@ CFLAGS+=-Werror \
 else
 CFLAGS+=-Wno-pointer-arith
 endif
+
+ifndef ARCH
+
+ARCH=$(shell uname -m)
+ifeq "$(ARCH)" "aarch64"
+ ARCH:=arm64
+endif
+
+ifeq "$(ARCH)" "i686"
+ ARCH:=x86
+endif
+endif
+
+ifeq "$(ARCH)" "x86"
+LIBASAN_FILE:=libclang_rt.asan-i386.so
+endif
+
+ifeq "$(ARCH)" "x64"
+LIBASAN_FILE:=libclang_rt.asan-x86_64.so
+endif
+
+ifeq "$(ARCH)" "aarch64"
+LIBASAN_FILE:=libclang_rt.asan-aarch64.so
+endif
+
+# LIBASAN:=/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux/libclang_rt.asan-x86_64.so
+# LIBASAN:=/usr/lib/x86_64-linux-gnu/libasan.so.6.0.0
+
+LLVM_CONFIG ?= llvm-config
+ifeq "$(shell test -e '$(shell which $(LLVM_CONFIG))' && echo 1)" "1"
+  $(info Found llvm-config: '$(shell which $(LLVM_CONFIG))')
+else
+  $(warning Cannot find llvm-config)
+endif
+
+LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)/
+$(info LLVM_BINDIR: $(LLVM_BINDIR))
+
+CLANG ?= $(LLVM_BINDIR)clang
+ifeq "$(shell test -e '$(CLANG)' && echo 1)" "1"
+  $(info Found clang: '$(CLANG)')
+else
+  $(warning Cannot find clang)
+endif
+
+CLANGVER = $(shell $(CLANG) --version | sed -E -ne '/^.*version\ (1?[0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+$(info Clang version $(CLANGVER))
+
+LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
+$(info LLVM_LIBDIR: $(LLVM_LIBDIR))
+
+LIBASAN:=$(LLVM_LIBDIR)/clang/$(CLANGVER)/lib/linux/$(LIBASAN_FILE)
+
+ifeq "$(shell test -e '$(LIBASAN)' && echo 1)" "1"
+  $(info Found Address Sanitizer DSO: '$(LIBASAN)')
+else
+  $(error Error cannot find Address Sanitizer DSO)
+endif
+
 
 .PHONY: all clean format frida-noasan frida debug run
 
