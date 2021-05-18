@@ -7,6 +7,8 @@ static GumStalker *stalker = NULL;
 
 void stalker_init(void) {
 
+  if (!gum_stalker_is_supported()) { FATAL("Failed to initialize embedded"); }
+
   stalker = gum_stalker_new();
   if (stalker == NULL) { FATAL("Failed to initialize stalker"); }
 
