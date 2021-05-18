@@ -25,6 +25,7 @@ LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv \
 		 -ldl \
+		 -z noexecstack \
 
 ifdef DEBUG
 CFLAGS+=-Werror \
