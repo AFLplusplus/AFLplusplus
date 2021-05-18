@@ -18,19 +18,19 @@ As FRIDA mode is new, it is missing a lot of features. The design is such that i
 should be possible to add these features in a similar manner to QEMU mode and
 perhaps leverage some of its design and implementation.
 
-  | Feature/Instrumentation  | frida-mode | Notes                                   |
-  | -------------------------|:----------:|:---------------------------------------:|
-  | NeverZero                |     x      |                                         |
-  | Persistent Mode          |     x      | (x64 only)(Only on function boundaries) |  
-  | LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)      |
-  | CMPLOG                   |     x      | (x64 only)                              |
-  | Selective Instrumentation|     x      |                                         |
-  | Non-Colliding Coverage   |     -      |                                         |
-  | Ngram prev_loc Coverage  |     -      |                                         |
-  | Context Coverage         |     -      |                                         |
-  | Auto Dictionary          |     -      |                                         |
-  | Snapshot LKM Support     |     -      |                                         |
-  | In-Memory Test Cases     |     x      | (x64 only)                              |
+  | Feature/Instrumentation  | frida-mode | Notes                                        |
+  | -------------------------|:----------:|:--------------------------------------------:|
+  | NeverZero                |     x      |                                              |
+  | Persistent Mode          |     x      | (x86/x64 only)(Only on function boundaries)  |  
+  | LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)           |
+  | CMPLOG                   |     x      | (x86/x64 only)                               |
+  | Selective Instrumentation|     x      |                                              |
+  | Non-Colliding Coverage   |     -      | (Not possible in binary-only instrumentation |
+  | Ngram prev_loc Coverage  |     -      |                                              |
+  | Context Coverage         |     -      |                                              |
+  | Auto Dictionary          |     -      |                                              |
+  | Snapshot LKM Support     |     -      |                                              |
+  | In-Memory Test Cases     |     x      | (x86/x64 only)                               |
 
 ## Compatibility
 Currently FRIDA mode supports Linux and macOS targets on both x86/x64
@@ -43,11 +43,17 @@ system does not support cross compilation.
 
 ## Getting Started
 
-To build everything run `make`.
+To build everything run `make`. To build for x86 run `make 32`. Note that in 
+x86 bit mode, it is not necessary for afl-fuzz to be built for 32-bit. However,
+the shared library for frida_mode must be since it is injected into the target
+process.
 
 Various tests can be found in subfolders within the `test/` directory. To use
 these, first run `make` to build any dependencies. Then run `make qemu` or
-`make frida` to run on either QEMU of FRIDA mode respectively.
+`make frida` to run on either QEMU of FRIDA mode respectively. To run frida 
+tests in 32-bit mode, run `make ARCH=x86 frida`. When switching between 
+architectures it may be necessary to run `make clean` first for a given build 
+target to remove previously generated binaries for a different architecture.
 
 ## Usage
 
@@ -130,9 +136,47 @@ them and they be inherited by the next child on fork.
 * `AFL_FRIDA_INST_TRACE` - Generate some logging when running instrumented code.
 Requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 
+## FASAN - Frida Address Sanitizer Mode
+Frida mode also supports FASAN. The design of this is actually quite simple and
+very similar to that used when instrumenting applications compiled from source.
+
+### Address Sanitizer Basics
+
+When Address Sanitizer is used to instrument programs built from source, the 
+compiler first adds a dependency (`DT_NEEDED` entry) for the Address Sanitizer
+dynamic shared object (DSO). This shared object contains the main logic for Address
+Sanitizer, including setting and managing up the shadow memory. It also provides
+replacement implementations for a number of functions in standard libraries. 
+
+These replacements include things like `malloc` and `free` which allows for those
+allocations to be marked in the shadow memory, but also a number of other fuctions.
+Consider `memcpy` for example, this is instrumented to validate the paramters 
+(test the source and destination buffers against the shadow memory. This is much 
+easier than instrumenting those standard libraries since, first it would require 
+you to re-compile them and secondly it would mean that the instrumentation would
+be applied at a more expensive granular level. Lastly, load-widening (typically 
+found in highy optimized code) can also make this instrumentation more difficult.
+
+Since the DSO is loaded before all of the standard libraries (in fact it insists
+on being first), the dynamic loader will use it to resolve imports from other
+modules which depend on it.
+
+### FASAN Implementation
+
+FASAN takes a similar approach. It requires the user to add the Address Sanitizer
+DSO to the `AFL_PRELOAD` environment variable such that it is loaded into the target.
+Again, it must be first in the list. This means that it is not necessary to 
+instrument the standard libraries to detect when an application has provided an 
+incorrect argument to `memcpy` for example. This avoids issues with load-widening 
+and should also mean a huge improvement in performance.
+
+FASAN then adds instrumentation for any instrucutions which use memory operands and
+then calls into the `__asan_loadN` and `__asan_storeN` functions provided by the DSO
+to validate memory accesses against the shadow memory.
+
 ## TODO
 
-The next features to be added are x86 support, integration with FuzzBench and
-support for ASAN. The intention is to achieve feature parity with QEMU mode in
-due course. Contributions are welcome, but please get in touch to ensure that
-efforts are deconflicted.
+The next features to be added are Aarch64 and Aarch32 support as well as looking at 
+potential performance improvements. The intention is to achieve feature parity with
+QEMU mode in due course. Contributions are welcome, but please get in touch to
+ensure that efforts are deconflicted.
