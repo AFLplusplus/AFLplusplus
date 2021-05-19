@@ -54,6 +54,11 @@ all: $(AFLPP_DRIVER_HOOK_OBJ)
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
+.PHONY: all clean qemu qemu_entry frida frida_entry
+
+all:
+	make -C $(ROOT)frida_mode/test/png/persistent/
+
 $(BUILD_DIR):
 	mkdir -p $@
 
