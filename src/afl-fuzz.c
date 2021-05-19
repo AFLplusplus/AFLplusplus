@@ -1414,24 +1414,26 @@ int main(int argc, char **argv_orig, char **envp) {
       OKF("Injecting %s ...", frida_binary);
       if (afl_preload) {
 
-      if (afl->fsrv.frida_asan) {
+        if (afl->fsrv.frida_asan) {
 
-        OKF("Using Frida Address Sanitizer Mode");
+          OKF("Using Frida Address Sanitizer Mode");
 
-        fasan_check_afl_preload(afl_preload);
+          fasan_check_afl_preload(afl_preload);
 
-        setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
+          setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
 
+        }
+
+        u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+        OKF("Injecting %s ...", frida_binary);
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+        ck_free(frida_binary);
+
+        setenv("LD_PRELOAD", frida_afl_preload, 1);
+        setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+      
       }
-
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-      OKF("Injecting %s ...", frida_binary);
-      frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
     } else {
 
