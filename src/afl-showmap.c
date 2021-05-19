@@ -774,7 +774,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_forkserver_t fsrv_var = {0};
   if (getenv("AFL_DEBUG")) { debug = true; }
-  if (getenv("AFL_PRINT_FILENAMES")) { print_filenames = true; }
+  if (get_afl_env("AFL_PRINT_FILENAMES")) { print_filenames = true; }
 
   fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);

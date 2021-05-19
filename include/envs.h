@@ -193,6 +193,7 @@ static char *afl_environment_variables[] = {
     "AFL_EXPAND_HAVOC_NOW",
     "AFL_USE_FASAN",
     "AFL_USE_QASAN",
+    "AFL_PRINT_FILENAMES",
     NULL
 
 };
