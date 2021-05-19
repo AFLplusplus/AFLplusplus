@@ -1432,7 +1432,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         setenv("LD_PRELOAD", frida_afl_preload, 1);
         setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
-      
+
       }
 
     } else {
