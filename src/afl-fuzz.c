@@ -1410,6 +1410,9 @@ int main(int argc, char **argv_orig, char **envp) {
     } else if (afl->fsrv.frida_mode) {
 
       afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
+      if (afl_preload) {
 
       if (afl->fsrv.frida_asan) {
 
