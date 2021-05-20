@@ -25,9 +25,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libqasan.h"
 #include "map_macro.h"
+#include <unistd.h>
+#include <sys/syscall.h>
 
-ssize_t (*__lq_libc_write)(int, const void *, size_t);
-ssize_t (*__lq_libc_read)(int, void *, size_t);
 char *(*__lq_libc_fgets)(char *, int, FILE *);
 int (*__lq_libc_atoi)(const char *);
 long (*__lq_libc_atol)(const char *);
@@ -37,8 +37,6 @@ void __libqasan_init_hooks(void) {
 
   __libqasan_init_malloc();
 
-  __lq_libc_write = ASSERT_DLSYM(write);
-  __lq_libc_read = ASSERT_DLSYM(read);
   __lq_libc_fgets = ASSERT_DLSYM(fgets);
   __lq_libc_atoi = ASSERT_DLSYM(atoi);
   __lq_libc_atol = ASSERT_DLSYM(atol);
@@ -52,7 +50,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
 
   QASAN_DEBUG("%14p: write(%d, %p, %zu)\n", rtv, fd, buf, count);
   QASAN_LOAD(buf, count);
-  ssize_t r = __lq_libc_write(fd, buf, count);
+  ssize_t r = syscall(SYS_write, fd, buf, count);
   QASAN_DEBUG("\t\t = %zd\n", r);
 
   return r;
@@ -65,7 +63,7 @@ ssize_t read(int fd, void *buf, size_t count) {
 
   QASAN_DEBUG("%14p: read(%d, %p, %zu)\n", rtv, fd, buf, count);
   QASAN_STORE(buf, count);
-  ssize_t r = __lq_libc_read(fd, buf, count);
+  ssize_t r = syscall(SYS_read, fd, buf, count);
   QASAN_DEBUG("\t\t = %zd\n", r);
 
   return r;

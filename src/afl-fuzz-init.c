@@ -1044,18 +1044,16 @@ void perform_dry_run(afl_state_t *afl) {
 
         /* Remove from fuzzing queue but keep for splicing */
 
-        struct queue_entry *p = afl->queue;
+        if (!q->was_fuzzed) {
 
-        if (!p->was_fuzzed) {
-
-          p->was_fuzzed = 1;
+          q->was_fuzzed = 1;
           --afl->pending_not_fuzzed;
           --afl->active_paths;
 
         }
 
-        p->disabled = 1;
-        p->perf_score = 0;
+        q->disabled = 1;
+        q->perf_score = 0;
 
         u32 i = 0;
         while (unlikely(i < afl->queued_paths && afl->queue_buf[i] &&
@@ -1294,9 +1292,13 @@ void pivot_inputs(afl_state_t *afl) {
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry *s = afl->queue_buf[src_id];
+        if (src_id < afl->queued_paths) {
 
-        if (s) { q->depth = s->depth + 1; }
+          struct queue_entry *s = afl->queue_buf[src_id];
+
+          if (s) { q->depth = s->depth + 1; }
+
+        }
 
         if (afl->max_depth < q->depth) { afl->max_depth = q->depth; }
 

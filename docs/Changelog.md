@@ -9,6 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.13a (development)
+  - Note: plot_data switched to relative time from unix time in 3.10
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
     it currently supports persistent mode and cmplog.
     thanks to @WorksButNotTested!
@@ -28,9 +29,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - ensure one fuzzer sync per cycle
     - fix afl_custom_queue_new_entry original file name when syncing
       from fuzzers
+    - on a crashing seed potentially the wrong input was disabled
     - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
       -i dir crashes the target or results in a timeout. By default
       afl++ ignores these and uses them for splicing instead.
+    - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing after
+      no new paths have been found for n seconds
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
@@ -48,6 +52,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     MacOS shared memory
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
+  - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the current filename
 
 ### Version ++3.12c (release)
   - afl-fuzz:

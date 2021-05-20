@@ -3,45 +3,11 @@
 #include "debug.h"
 #include "cmplog.h"
 
+#include "ctx.h"
 #include "frida_cmplog.h"
 #include "util.h"
 
 #if defined(__x86_64__)
-
-  #define X86_REG_8L(LABEL, REG)  \
-    case LABEL: {                 \
-                                  \
-      return REG & GUM_INT8_MASK; \
-                                  \
-    }
-
-  #define X86_REG_8H(LABEL, REG)          \
-    case LABEL: {                         \
-                                          \
-      return (REG & GUM_INT16_MASK) >> 8; \
-                                          \
-    }
-
-  #define X86_REG_16(LABEL, REG)     \
-    case LABEL: {                    \
-                                     \
-      return (REG & GUM_INT16_MASK); \
-                                     \
-    }
-
-  #define X86_REG_32(LABEL, REG)     \
-    case LABEL: {                    \
-                                     \
-      return (REG & GUM_INT32_MASK); \
-                                     \
-    }
-
-  #define X86_REG_64(LABEL, REG) \
-    case LABEL: {                \
-                                 \
-      return (REG);              \
-                                 \
-    }
 
 typedef struct {
 
@@ -65,105 +31,63 @@ typedef struct {
 
 } cmplog_pair_ctx_t;
 
-static guint64 cmplog_read_reg(GumX64CpuContext *ctx, x86_reg reg) {
+static gboolean cmplog_read_mem(GumCpuContext *ctx, uint8_t size,
+                                x86_op_mem *mem, gsize *val) {
 
-  switch (reg) {
+  gsize base = 0;
+  gsize index = 0;
+  gsize address;
 
-    X86_REG_8L(X86_REG_AL, ctx->rax)
-    X86_REG_8L(X86_REG_BL, ctx->rbx)
-    X86_REG_8L(X86_REG_CL, ctx->rcx)
-    X86_REG_8L(X86_REG_DL, ctx->rdx)
-    X86_REG_8L(X86_REG_BPL, ctx->rbp)
-    X86_REG_8L(X86_REG_SIL, ctx->rsi)
-    X86_REG_8L(X86_REG_DIL, ctx->rdi)
+  if (mem->base != X86_REG_INVALID) base = ctx_read_reg(ctx, mem->base);
 
-    X86_REG_8H(X86_REG_AH, ctx->rax)
-    X86_REG_8H(X86_REG_BH, ctx->rbx)
-    X86_REG_8H(X86_REG_CH, ctx->rcx)
-    X86_REG_8H(X86_REG_DH, ctx->rdx)
+  if (mem->index != X86_REG_INVALID) index = ctx_read_reg(ctx, mem->index);
 
-    X86_REG_16(X86_REG_AX, ctx->rax)
-    X86_REG_16(X86_REG_BX, ctx->rbx)
-    X86_REG_16(X86_REG_CX, ctx->rcx)
-    X86_REG_16(X86_REG_DX, ctx->rdx)
-    X86_REG_16(X86_REG_DI, ctx->rdi)
-    X86_REG_16(X86_REG_SI, ctx->rsi)
-    X86_REG_16(X86_REG_BP, ctx->rbp)
+  address = base + (index * mem->scale) + mem->disp;
 
-    X86_REG_32(X86_REG_EAX, ctx->rax)
-    X86_REG_32(X86_REG_ECX, ctx->rcx)
-    X86_REG_32(X86_REG_EDX, ctx->rdx)
-    X86_REG_32(X86_REG_EBX, ctx->rbx)
-    X86_REG_32(X86_REG_ESP, ctx->rsp)
-    X86_REG_32(X86_REG_EBP, ctx->rbp)
-    X86_REG_32(X86_REG_ESI, ctx->rsi)
-    X86_REG_32(X86_REG_EDI, ctx->rdi)
-    X86_REG_32(X86_REG_R8D, ctx->r8)
-    X86_REG_32(X86_REG_R9D, ctx->r9)
-    X86_REG_32(X86_REG_R10D, ctx->r10)
-    X86_REG_32(X86_REG_R11D, ctx->r11)
-    X86_REG_32(X86_REG_R12D, ctx->r12)
-    X86_REG_32(X86_REG_R13D, ctx->r13)
-    X86_REG_32(X86_REG_R14D, ctx->r14)
-    X86_REG_32(X86_REG_R15D, ctx->r15)
-    X86_REG_32(X86_REG_EIP, ctx->rip)
+  if (!cmplog_is_readable(address, size)) { return FALSE; }
 
-    X86_REG_64(X86_REG_RAX, ctx->rax)
-    X86_REG_64(X86_REG_RCX, ctx->rcx)
-    X86_REG_64(X86_REG_RDX, ctx->rdx)
-    X86_REG_64(X86_REG_RBX, ctx->rbx)
-    X86_REG_64(X86_REG_RSP, ctx->rsp)
-    X86_REG_64(X86_REG_RBP, ctx->rbp)
-    X86_REG_64(X86_REG_RSI, ctx->rsi)
-    X86_REG_64(X86_REG_RDI, ctx->rdi)
-    X86_REG_64(X86_REG_R8, ctx->r8)
-    X86_REG_64(X86_REG_R9, ctx->r9)
-    X86_REG_64(X86_REG_R10, ctx->r10)
-    X86_REG_64(X86_REG_R11, ctx->r11)
-    X86_REG_64(X86_REG_R12, ctx->r12)
-    X86_REG_64(X86_REG_R13, ctx->r13)
-    X86_REG_64(X86_REG_R14, ctx->r14)
-    X86_REG_64(X86_REG_R15, ctx->r15)
-    X86_REG_64(X86_REG_RIP, ctx->rip)
+  switch (size) {
 
+    case 1:
+      *val = *((guint8 *)GSIZE_TO_POINTER(address));
+      return TRUE;
+    case 2:
+      *val = *((guint16 *)GSIZE_TO_POINTER(address));
+      return TRUE;
+    case 4:
+      *val = *((guint32 *)GSIZE_TO_POINTER(address));
+      return TRUE;
+    case 8:
+      *val = *((guint64 *)GSIZE_TO_POINTER(address));
+      return TRUE;
     default:
-      FATAL("Failed to read register: %d", reg);
-      return 0;
+      FATAL("Invalid operand size: %d\n", size);
 
   }
 
-}
-
-static guint64 cmplog_read_mem(GumX64CpuContext *ctx, x86_op_mem *mem) {
-
-  guint64 base = 0;
-  guint64 index = 0;
-  guint64 address;
-
-  if (mem->base != X86_REG_INVALID) base = cmplog_read_reg(ctx, mem->base);
-
-  if (mem->index != X86_REG_INVALID) index = cmplog_read_reg(ctx, mem->index);
-
-  address = base + (index * mem->scale) + mem->disp;
-  return address;
+  return FALSE;
 
 }
 
-static guint64 cmplog_get_operand_value(GumCpuContext *context,
-                                        cmplog_ctx_t * ctx) {
+static gboolean cmplog_get_operand_value(GumCpuContext *context,
+                                         cmplog_ctx_t *ctx, gsize *val) {
 
   switch (ctx->type) {
 
     case X86_OP_REG:
-      return cmplog_read_reg(context, ctx->reg);
+      *val = ctx_read_reg(context, ctx->reg);
+      return TRUE;
     case X86_OP_IMM:
-      return ctx->imm;
+      *val = ctx->imm;
+      return TRUE;
     case X86_OP_MEM:
-      return cmplog_read_mem(context, &ctx->mem);
+      return cmplog_read_mem(context, ctx->size, &ctx->mem, val);
     default:
       FATAL("Invalid operand type: %d\n", ctx->type);
 
   }
+
+  return FALSE;
 
 }
 
@@ -171,16 +95,16 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 
   UNUSED_PARAMETER(user_data);
 
-  guint64 address = cmplog_read_reg(context, X86_REG_RIP);
-  guint64 rdi = cmplog_read_reg(context, X86_REG_RDI);
-  guint64 rsi = cmplog_read_reg(context, X86_REG_RSI);
+  gsize address = ctx_read_reg(context, X86_REG_RIP);
+  gsize rdi = ctx_read_reg(context, X86_REG_RDI);
+  gsize rsi = ctx_read_reg(context, X86_REG_RSI);
 
   if (((G_MAXULONG - rdi) < 32) || ((G_MAXULONG - rsi) < 32)) return;
 
+  if (!cmplog_is_readable(rdi, 32) || !cmplog_is_readable(rsi, 32)) return;
+
   void *ptr1 = GSIZE_TO_POINTER(rdi);
   void *ptr2 = GSIZE_TO_POINTER(rsi);
-
-  if (!cmplog_is_readable(ptr1, 32) || !cmplog_is_readable(ptr2, 32)) return;
 
   uintptr_t k = address;
 
@@ -245,10 +169,10 @@ static void cmplog_instrument_call(const cs_insn *     instr,
 
 }
 
-static void cmplog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
-                                  guint64 operand2, uint8_t size) {
+static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
+                                  gsize operand2, uint8_t size) {
 
-  guint64 address = cmplog_read_reg(context, X86_REG_RIP);
+  gsize address = ctx_read_reg(context, X86_REG_RIP);
 
   register uintptr_t k = (uintptr_t)address;
 
@@ -271,11 +195,13 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, guint64 operand1,
 static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 
   cmplog_pair_ctx_t *ctx = (cmplog_pair_ctx_t *)user_data;
+  gsize              operand1;
+  gsize              operand2;
 
   if (ctx->operand1.size != ctx->operand2.size) FATAL("Operand size mismatch");
 
-  guint64 operand1 = cmplog_get_operand_value(context, &ctx->operand1);
-  guint64 operand2 = cmplog_get_operand_value(context, &ctx->operand2);
+  if (!cmplog_get_operand_value(context, &ctx->operand1, &operand1)) { return; }
+  if (!cmplog_get_operand_value(context, &ctx->operand2, &operand2)) { return; }
 
   cmplog_handle_cmp_sub(context, operand1, operand2, ctx->operand1.size);
 

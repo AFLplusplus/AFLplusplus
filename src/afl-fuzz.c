@@ -328,11 +328,55 @@ static int stricmp(char const *a, char const *b) {
 
 }
 
+static void fasan_check_afl_preload(char *afl_preload) {
+
+  char   first_preload[PATH_MAX + 1] = {0};
+  char * separator = strchr(afl_preload, ':');
+  size_t first_preload_len = PATH_MAX;
+  char * basename;
+  char   clang_runtime_prefix[] = "libclang_rt.asan-";
+
+  if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
+
+    first_preload_len = separator - afl_preload;
+
+  }
+
+  strncpy(first_preload, afl_preload, first_preload_len);
+
+  basename = strrchr(first_preload, '/');
+  if (basename == NULL) {
+
+    basename = first_preload;
+
+  } else {
+
+    basename = basename + 1;
+
+  }
+
+  if (strncmp(basename, clang_runtime_prefix,
+              sizeof(clang_runtime_prefix) - 1) != 0) {
+
+    FATAL("Address Sanitizer DSO must be the first DSO in AFL_PRELOAD");
+
+  }
+
+  if (access(first_preload, R_OK) != 0) {
+
+    FATAL("Address Sanitizer DSO not found");
+
+  }
+
+  OKF("Found ASAN DSO: %s", first_preload);
+
+}
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
+  s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
       map_size = get_map_size();
@@ -785,6 +829,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->fsrv.frida_mode = 1;
+        if (get_afl_env("AFL_USE_FASAN")) { afl->fsrv.frida_asan = 1; }
 
         break;
 
@@ -1369,18 +1414,26 @@ int main(int argc, char **argv_orig, char **envp) {
       OKF("Injecting %s ...", frida_binary);
       if (afl_preload) {
 
+        if (afl->fsrv.frida_asan) {
+
+          OKF("Using Frida Address Sanitizer Mode");
+
+          fasan_check_afl_preload(afl_preload);
+
+          setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
+
+        }
+
+        u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+        OKF("Injecting %s ...", frida_binary);
         frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
 
-      } else {
+        ck_free(frida_binary);
 
-        frida_afl_preload = alloc_printf("%s", frida_binary);
+        setenv("LD_PRELOAD", frida_afl_preload, 1);
+        setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
       }
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
     } else {
 
@@ -1391,11 +1444,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else if (afl->fsrv.frida_mode) {
 
-    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-    OKF("Injecting %s ...", frida_binary);
-    setenv("LD_PRELOAD", frida_binary, 1);
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-    ck_free(frida_binary);
+    if (afl->fsrv.frida_asan) {
+
+      OKF("Using Frida Address Sanitizer Mode");
+      FATAL(
+          "Address Sanitizer DSO must be loaded using AFL_PRELOAD in Frida "
+          "Address Sanitizer Mode");
+
+    } else {
+
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
+      setenv("LD_PRELOAD", frida_binary, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+      ck_free(frida_binary);
+
+    }
 
   }
 
@@ -1770,7 +1834,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (extras_dir_cnt) {
 
-    for (i = 0; i < extras_dir_cnt; i++) {
+    for (u8 i = 0; i < extras_dir_cnt; i++) {
 
       load_extras(afl, extras_dir[i]);
 
@@ -1922,6 +1986,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (unlikely(seek_to)) {
 
+          if (unlikely(seek_to >= afl->queued_paths)) {
+
+            // This should never happen.
+            FATAL("BUG: seek_to location out of bounds!\n");
+
+          }
+
           afl->current_entry = seek_to;
           afl->queue_cur = afl->queue_buf[seek_to];
           seek_to = 0;
@@ -1940,8 +2011,10 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (unlikely(afl->queued_paths == prev_queued &&
-                   (get_cur_time() - afl->start_time) >= 3600)) {
+      if (unlikely(afl->queued_paths == prev_queued
+                   /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
+                      3600 */
+                   )) {
 
         if (afl->use_splicing) {
 
@@ -2059,7 +2132,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (i = 0; i < (s32)afl->queued_paths; i++) {
+        for (u32 i = 0; i < afl->queued_paths; i++) {
 
           if (likely(!afl->queue_buf[i]->disabled)) {
 
