@@ -3,7 +3,8 @@
 
 #include "frida-gum.h"
 
-extern guint64 entry_start;
+extern guint64  entry_start;
+extern gboolean entry_reached;
 
 void entry_init(void);
 

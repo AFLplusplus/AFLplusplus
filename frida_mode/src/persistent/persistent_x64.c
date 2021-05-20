@@ -241,7 +241,7 @@ static void persistent_prologue_hook(GumX86Writer *      cw,
 
 }
 
-void persistent_prologue(GumStalkerOutput *output) {
+void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
    *  SAVE REGS

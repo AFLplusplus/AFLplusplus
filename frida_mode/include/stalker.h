@@ -6,6 +6,7 @@
 void        stalker_init(void);
 GumStalker *stalker_get(void);
 void        stalker_start(void);
+void        stalker_trust(void);
 
 #endif
 

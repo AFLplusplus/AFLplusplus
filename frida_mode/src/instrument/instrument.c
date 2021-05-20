@@ -117,7 +117,11 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
       instrument_debug_start(instr->address, output);
 
-      prefetch_write(GSIZE_TO_POINTER(instr->address));
+      if (likely(entry_reached)) {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address));
+
+      }
 
       if (likely(!excluded)) {
 

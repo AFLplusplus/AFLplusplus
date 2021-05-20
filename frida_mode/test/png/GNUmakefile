@@ -112,3 +112,9 @@ frida: $(TEST_BIN)
 		-o $(FRIDA_OUT) \
 		-- \
 			$(TEST_BIN) @@
+
+debug:
+	gdb \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set disassembly-flavor intel' \
+		--args $(TEST_BIN) $(TEST_DATA_DIR)basn0g01.png

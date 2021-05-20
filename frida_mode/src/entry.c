@@ -4,12 +4,14 @@
 
 #include "entry.h"
 #include "instrument.h"
-#include "stalker.h"
+#include "persistent.h"
+#include "ranges.h"
 #include "util.h"
 
 extern void __afl_manual_init();
 
-guint64 entry_start = 0;
+guint64  entry_start = 0;
+gboolean entry_reached = FALSE;
 
 static void entry_launch(void) {
 
@@ -29,7 +31,15 @@ void entry_init(void) {
 
 void entry_run(void) {
 
-  if (entry_start == 0) { entry_launch(); }
+  if (entry_start == 0) {
+
+    OKF("AFL_ENTRYPOINT reached");
+    entry_reached = TRUE;
+
+    if (persistent_start == 0) { ranges_exclude(); }
+    entry_launch();
+
+  }
 
 }
 
@@ -44,6 +54,11 @@ static void entry_callout(GumCpuContext *cpu_context, gpointer user_data) {
 void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(output);
+  OKF("AFL_ENTRYPOINT reached");
+  entry_reached = TRUE;
+
+  if (persistent_start == 0) { ranges_exclude(); }
+
   gum_stalker_iterator_put_callout(iterator, entry_callout, NULL, NULL);
 
 }

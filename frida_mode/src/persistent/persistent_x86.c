@@ -1,6 +1,7 @@
 #include "frida-gum.h"
 
 #include "config.h"
+#include "debug.h"
 
 #include "instrument.h"
 #include "persistent.h"
@@ -184,7 +185,7 @@ static void persistent_prologue_hook(GumX86Writer *cw, struct x86_regs *regs) {
 
 }
 
-void persistent_prologue(GumStalkerOutput *output) {
+void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
    *  SAVE REGS

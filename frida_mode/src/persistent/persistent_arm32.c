@@ -61,7 +61,7 @@ gboolean persistent_is_supported(void) {
 
 }
 
-void persistent_prologue(GumStalkerOutput *output) {
+void persistent_prologue_arch(GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(output);
   FATAL("Persistent mode not supported on this architecture");

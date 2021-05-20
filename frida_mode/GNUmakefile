@@ -137,10 +137,10 @@ $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
 	wget -O $@ $(GUM_DEVKIT_URL)
 endif
 
-$(GUM_DEVIT_LIBRARY): | $(GUM_DEVKIT_TARBALL)
+$(GUM_DEVIT_LIBRARY): $(GUM_DEVKIT_TARBALL)
 	tar Jxvf $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
-$(GUM_DEVIT_HEADER): | $(GUM_DEVKIT_TARBALL)
+$(GUM_DEVIT_HEADER): $(GUM_DEVKIT_TARBALL)
 	tar Jxvf $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
 ############################## AFL #############################################

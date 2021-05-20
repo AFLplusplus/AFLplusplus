@@ -5,7 +5,9 @@
 #include "config.h"
 #include "debug.h"
 
+#include "entry.h"
 #include "persistent.h"
+#include "ranges.h"
 #include "util.h"
 
 int                    __afl_sharedmem_fuzzing = 0;
@@ -92,6 +94,14 @@ void persistent_init(void) {
     __afl_sharedmem_fuzzing = 1;
 
   }
+
+}
+
+void persistent_prologue(GumStalkerOutput *output) {
+
+  OKF("AFL_FRIDA_PERSISTENT_ADDR reached");
+  ranges_exclude();
+  persistent_prologue_arch(output);
 
 }
 

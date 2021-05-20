@@ -9,11 +9,5 @@ all:
 clean:
 	@gmake clean
 
-qemu:
-	@gmake qemu
-
 frida:
 	@gmake frida
-
-debug:
-	@gmake debug
