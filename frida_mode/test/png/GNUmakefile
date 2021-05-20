@@ -35,6 +35,9 @@ FRIDA_OUT:=$(BUILD_DIR)frida-out
 all: $(TEST_BIN)
 	make -C $(ROOT)frida_mode/
 
+32:
+	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
+
 $(BUILD_DIR):
 	mkdir -p $@
 
@@ -46,7 +49,7 @@ $(HARNESS_FILE): | $(HARNESS_BUILD_DIR)
 	wget -O $@ $(HARNESS_URL)
 
 $(HARNESS_OBJ): $(HARNESS_FILE)
-	$(CC) -o $@ -c $<
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ -c $<
 
 ######### PNGTEST ########
 
@@ -57,7 +60,7 @@ $(PNGTEST_FILE): | $(PNGTEST_BUILD_DIR)
 	wget -O $@ $(PNGTEST_URL)
 
 $(PNGTEST_OBJ): $(PNGTEST_FILE) | $(LIBPNG_DIR)
-	$(CXX) -std=c++11 -I $(LIBPNG_DIR) -o $@ -c $<
+	$(CXX) $(CFLAGS) $(LDFLAGS) -std=c++11 -I $(LIBPNG_DIR) -o $@ -c $<
 
 ######### LIBPNG ########
 
@@ -80,6 +83,8 @@ $(LIBPNG_LIB): $(LIBPNG_MAKEFILE)
 
 $(TEST_BIN): $(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB)
 	$(CXX) \
+		$(CFLAGS) \
+		$(LDFLAGS) \
 		-o $@ \
 		$(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB) \
 		-lz \

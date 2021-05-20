@@ -2,8 +2,8 @@ PWD:=$(shell pwd)/
 ROOT:=$(shell realpath $(PWD)../../../)/
 BUILD_DIR:=$(PWD)build/
 
-TEST_CMPLOG_DIR:=$(ROOT)qemu_mode/libcompcov/
-TEST_CMPLOG_OBJ=$(TEST_CMPLOG_DIR)compcovtest
+TEST_CMPLOG_SRC=$(PWD)cmplog.c
+TEST_CMPLOG_OBJ=$(BUILD_DIR)compcovtest
 
 TEST_BIN:=$(PWD)../../build/test
 
@@ -13,19 +13,13 @@ CMP_LOG_INPUT:=$(TEST_DATA_DIR)in
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-ARCH=$(shell uname -m)
-ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_INST_RANGES=$(shell $(PWD)get_section_addrs.py -f $(TEST_CMPLOG_OBJ) -s .text -b 0x0000aaaaaaaaa000)
-endif
+.PHONY: all 32 clean qemu frida format
 
-ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_INST_RANGES=$(shell $(PWD)get_section_addrs.py -f $(TEST_CMPLOG_OBJ) -s .text -b 0x0000555555554000)
-endif
-
-.PHONY: all clean qemu frida
-
-all:
+all: $(TEST_CMPLOG_OBJ)
 	make -C $(ROOT)frida_mode/
+
+32:
+	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -34,33 +28,42 @@ $(TEST_DATA_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 $(CMP_LOG_INPUT): | $(TEST_DATA_DIR)
-	truncate -s 64 $@
+	echo -n "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" > $@
 
-$(TEST_CMPLOG_OBJ): $(TEST_CMPLOG_DIR)compcovtest.cc
-	make -C $(TEST_CMPLOG_DIR) compcovtest
+$(TEST_CMPLOG_OBJ): $(TEST_CMPLOG_SRC) | $(BUILD_DIR)
+	$(CXX) -std=c++11 -g $(CFLAGS) $(LDFLAGS) $< -o $@
 
 qemu: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
 	$(ROOT)afl-fuzz \
-		-D \
 		-Q \
 		-i $(TEST_DATA_DIR) \
 		-o $(QEMU_OUT) \
 		-c 0 \
 		-l 3AT \
+		-Z \
 		-- \
 			$(TEST_CMPLOG_OBJ) @@
 
 frida: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
-	XAFL_FRIDA_INST_RANGES=$(AFL_FRIDA_INST_RANGES) \
 	$(ROOT)afl-fuzz \
-		-D \
 		-O \
 		-i $(TEST_DATA_DIR) \
 		-o $(FRIDA_OUT) \
 		-c 0 \
 		-l 3AT \
+		-Z \
 		-- \
 			$(TEST_CMPLOG_OBJ) @@
 
+debug: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
+	gdb \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set disassembly-flavor intel' \
+		--ex 'r $(CMP_LOG_INPUT)' \
+		--args $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
+
 clean:
 	rm -rf $(BUILD_DIR)
+
+format:
+	cd $(ROOT) && echo $(TEST_CMPLOG_SRC) | xargs -L1 ./.custom-format.py -i

@@ -285,8 +285,8 @@ checks or alter some of the more exotic semantics of the tool:
     convenient for some types of automated jobs.
 
   - `AFL_EXIT_ON_TIME` Causes afl-fuzz to terminate if no new paths were 
-    found within a specified period of time. May be convenient for some 
-    types of automated jobs.
+    found within a specified period of time (in seconds). May be convenient 
+    for some types of automated jobs.
 
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behaviour
     which does not allow crashes or timeout seeds in the initial -i corpus.
@@ -566,6 +566,9 @@ The corpus minimization script offers very little customization:
   - `AFL_ALLOW_TMP` permits this and some other scripts to run in /tmp. This is
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
+
+  - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
+    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts scripting.
 
 ## 7) Settings for afl-tmin
 

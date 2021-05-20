@@ -8,6 +8,18 @@ TEST_DATA_DIR:=../build/libpng/libpng-1.2.56/contrib/pngsuite/
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
+ifndef ARCH
+
+ARCH=$(shell uname -m)
+ifeq "$(ARCH)" "aarch64"
+ ARCH:=arm64
+endif
+
+ifeq "$(ARCH)" "i686"
+ ARCH:=x86
+endif
+endif
+
 AFL_QEMU_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s main -b 0x4000000000)
 
 ARCH=$(shell uname -m)
@@ -19,10 +31,17 @@ ifeq "$(ARCH)" "x86_64"
  AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s main -b 0x0000555555554000)
 endif
 
-.PHONY: all clean qemu qemu_entry frida frida_entry
+ifeq "$(ARCH)" "x86"
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s main -b 0x56555000)
+endif
+
+.PHONY: all 32 clean qemu qemu_entry frida frida_entry
 
 all:
 	make -C $(ROOT)frida_mode/test/png/
+
+32:
+	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 $(BUILD_DIR):
 	mkdir -p $@

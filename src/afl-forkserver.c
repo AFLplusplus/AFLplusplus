@@ -451,8 +451,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* Dumping cores is slow and can lead to anomalies if SIGKILL is delivered
        before the dump is complete. */
 
-    //    r.rlim_max = r.rlim_cur = 0;
-    //    setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
+    if (!fsrv->debug) {
+
+      r.rlim_max = r.rlim_cur = 0;
+      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
+
+    }
 
     /* Isolate the process and configure standard descriptors. If out_file is
        specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */

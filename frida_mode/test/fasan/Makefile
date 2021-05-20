@@ -9,8 +9,14 @@ all:
 clean:
 	@gmake clean
 
-qemu:
-	@gmake qemu
+frida-noasan:
+	@gmake frida-noasan
 
 frida:
 	@gmake frida
+
+debug:
+	@gmake debug
+
+run:
+	@gmake run

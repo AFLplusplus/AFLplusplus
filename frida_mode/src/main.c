@@ -75,16 +75,22 @@ static void on_main_os(int argc, char **argv, char **envp) {
 
 #endif
 
-static int *on_main(int argc, char **argv, char **envp) {
+static void embedded_init() {
 
-  void *fork_addr;
+  static gboolean initialized = false;
+  if (!initialized) {
 
-  on_main_os(argc, argv, envp);
+    gum_init_embedded();
+    initialized = true;
 
-  unintercept_self();
+  }
 
+}
+
+void afl_frida_start() {
+
+  embedded_init();
   stalker_init();
-
   lib_init();
   entry_init();
   instrument_init();
@@ -92,11 +98,22 @@ static int *on_main(int argc, char **argv, char **envp) {
   prefetch_init();
   ranges_init();
 
-  fork_addr = GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
+  void *fork_addr =
+      GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
   intercept(fork_addr, on_fork, NULL);
 
   stalker_start();
   entry_run();
+
+}
+
+static int *on_main(int argc, char **argv, char **envp) {
+
+  on_main_os(argc, argv, envp);
+
+  unintercept_self();
+
+  afl_frida_start();
 
   return main_fn(argc, argv, envp);
 
@@ -149,13 +166,7 @@ static void intercept_main(void) {
 
 __attribute__((constructor)) static void init(void) {
 
-  gum_init_embedded();
-  if (!gum_stalker_is_supported()) {
-
-    gum_deinit_embedded();
-    FATAL("Failed to initialize embedded");
-
-  }
+  embedded_init();
 
   intercept_main();
 
