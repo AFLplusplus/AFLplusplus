@@ -39,7 +39,6 @@ struct x86_regs {
 typedef struct x86_regs arch_api_regs;
 
 static arch_api_regs saved_regs = {0};
-static void *        saved_return = NULL;
 
 gboolean persistent_is_supported(void) {
 
@@ -138,36 +137,12 @@ static void instrument_persitent_restore_regs(GumX86Writer *   cw,
 
 }
 
-static void instrument_save_ret(GumX86Writer *cw, void **saved_return_ptr) {
+static void instrument_exit(GumX86Writer *cw) {
 
-  GumAddress saved_return_address = GUM_ADDRESS(saved_return_ptr);
-
-  gum_x86_writer_put_push_reg(cw, GUM_REG_EAX);
-  gum_x86_writer_put_push_reg(cw, GUM_REG_EBX);
-
-  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EAX, saved_return_address);
-  gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_EBX, GUM_REG_ESP, 0x8);
-  gum_x86_writer_put_mov_reg_offset_ptr_reg(cw, GUM_REG_EAX, 0, GUM_REG_EBX);
-
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_EBX);
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_EAX);
-
-}
-
-static void instrument_jump_ret(GumX86Writer *cw, void **saved_return_ptr) {
-
-  GumAddress saved_return_address = GUM_ADDRESS(saved_return_ptr);
-
-  /* Place holder for ret */
-  gum_x86_writer_put_push_reg(cw, GUM_REG_EAX);
-  gum_x86_writer_put_push_reg(cw, GUM_REG_EAX);
-
-  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EAX, saved_return_address);
-  gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_EAX, GUM_REG_EAX, 0);
-
-  gum_x86_writer_put_mov_reg_offset_ptr_reg(cw, GUM_REG_ESP, 0x4, GUM_REG_EAX);
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_EAX);
-  gum_x86_writer_put_ret(cw);
+  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EAX, GUM_ADDRESS(_exit));
+  gum_x86_writer_put_mov_reg_u32(cw, GUM_REG_EDI, 0);
+  gum_x86_writer_put_push_reg(cw, GUM_REG_EDI);
+  gum_x86_writer_put_call_reg(cw, GUM_REG_EAX);
 
 }
 
@@ -238,8 +213,7 @@ void persistent_prologue(GumStalkerOutput *output) {
   /* Stack must be 16-byte aligned per ABI */
   instrument_persitent_save_regs(cw, &saved_regs);
 
-  /* Stash and pop the return value */
-  instrument_save_ret(cw, &saved_return);
+  /* Pop the return value */
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_ESP, GUM_REG_ESP, (4));
 
   /* loop: */
@@ -265,7 +239,7 @@ void persistent_prologue(GumStalkerOutput *output) {
   /* done: */
   gum_x86_writer_put_label(cw, done);
 
-  instrument_jump_ret(cw, &saved_return);
+  instrument_exit(cw);
 
   /* original: */
   gum_x86_writer_put_label(cw, original);
