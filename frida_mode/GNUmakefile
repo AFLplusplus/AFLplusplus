@@ -93,7 +93,6 @@ AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 ############################## ALL #############################################
 
 all: $(FRIDA_TRACE)
-	make -C $(ROOT)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
