@@ -426,13 +426,15 @@ bool AFLdict2filePass::runOnModule(Module &M) {
               ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
               if (ilen) {
 
-                uint64_t literalLength = Str2.size();
+                uint64_t literalLength = Str2.length();
                 uint64_t optLength = ilen->getZExtValue();
                 if (literalLength + 1 == optLength) {
 
                   Str2.append("\0", 1);  // add null byte
 
                 }
+
+                if (optLength > Str2.length()) { optLength = Str2.length(); }
 
               }
 
@@ -532,6 +534,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               uint64_t literalLength = optLen;
               optLen = ilen->getZExtValue();
+              if (optLen > thestring.length()) { optLen = thestring.length(); }
               if (optLen < 2) { continue; }
               if (literalLength + 1 == optLen) {  // add null byte
                 thestring.append("\0", 1);
