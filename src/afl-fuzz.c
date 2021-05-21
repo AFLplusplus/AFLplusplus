@@ -1717,10 +1717,11 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-      !afl->unicorn_mode) {
+      !afl->unicorn_mode && !afl->fsrv.frida_mode &&
+      !((map_size == MAP_SIZE || map_size == 65536) &&
+        afl->afl_env.afl_skip_bin_check)) {
 
-    if (map_size <= DEFAULT_SHMEM_SIZE && !afl->non_instrumented_mode &&
-        !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
+    if (map_size <= DEFAULT_SHMEM_SIZE) {
 
       afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
       char vbuf[16];
@@ -1778,7 +1779,9 @@ int main(int argc, char **argv_orig, char **envp) {
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-        !afl->fsrv.frida_mode && !afl->unicorn_mode) {
+        !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+        !((map_size == MAP_SIZE || map_size == 65536) &&
+          afl->afl_env.afl_skip_bin_check)) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
       char vbuf[16];
