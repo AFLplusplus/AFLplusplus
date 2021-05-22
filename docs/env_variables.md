@@ -355,6 +355,7 @@ checks or alter some of the more exotic semantics of the tool:
     and shell scripts; and `AFL_DUMB_FORKSRV` in conjunction with the `-n`
     setting to instruct afl-fuzz to still follow the fork server protocol
     without expecting any instrumentation data in return.
+    Note that this also turns off auto map size detection.
 
   - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
     fuzzer to import test cases from other instances before doing anything
