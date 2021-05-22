@@ -52,6 +52,7 @@
 #include <fcntl.h>
 #include <limits.h>
 
+#include <dirent.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #ifndef USEMMAP
@@ -1129,8 +1130,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    DIR *          dir_in, *dir_out = NULL;
-    struct dirent *dir_ent;
+    DIR *           dir_in, *dir_out = NULL;
+    struct dirent **file_list;
+
     //    int            done = 0;
     u8 infile[PATH_MAX], outfile[PATH_MAX];
     u8 wait_for_gdb = 0;
@@ -1154,12 +1156,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       ck_free(dn);
     if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
-
-    if (!(dir_in = opendir(in_dir))) {
-
-      PFATAL("cannot open directory %s", in_dir);
-
-    }
 
     if (!collect_coverage) {
 
@@ -1246,7 +1242,16 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    while ((dir_ent = readdir(dir_in))) {
+    int file_count = scandir(in_dir, &file_list, NULL, alphasort);
+    if (file_count < 0) {
+
+      PFATAL("Failed to read from input dir at %s\n", in_dir);
+
+    }
+
+    for (int i = 0; i < file_count; i++) {
+
+      struct dirent *dir_ent = file_list[i];
 
       if (dir_ent->d_name[0] == '.') {
 
@@ -1293,9 +1298,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    free(file_list);
+    file_list = NULL;
+
     if (!quiet_mode) { OKF("Processed %llu input files.", fsrv->total_execs); }
 
-    closedir(dir_in);
     if (dir_out) { closedir(dir_out); }
 
     if (collect_coverage) {
