@@ -4,7 +4,7 @@
 
  - align map to 64 bytes but keep real IDs
  - Update afl->pending_not_fuzzed for MOpt
- - CPU affinity for many cores? There seems to be an issue > 96 cores
+ - put fuzz target in top line of UI
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
