@@ -238,7 +238,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_SKIP_BIN_CHECK: skip afl compatability checks, also disables auto map size\n"
+      "AFL_SKIP_BIN_CHECK: skip afl compatibility checks, also disables auto map size\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_STATSD: enables StatsD metrics collection\n"
