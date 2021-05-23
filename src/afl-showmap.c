@@ -1104,6 +1104,9 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
+    fsrv->kill_signal =
+        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+
     if (new_map_size) {
 
       // only reinitialize when it makes sense
@@ -1210,9 +1213,6 @@ int main(int argc, char **argv_orig, char **envp) {
       fsrv->init_tmout = (u32)forksrv_init_tmout;
 
     }
-
-    fsrv->kill_signal =
-        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
     if (getenv("AFL_CRASH_EXITCODE")) {
 
