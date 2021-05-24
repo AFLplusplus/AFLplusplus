@@ -54,3 +54,6 @@ https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4
 has a transform function you need to fill for your protobuf format, however
 needs to be ported to the updated afl++ custom mutator API (not much work):
 https://github.com/thebabush/afl-libprotobuf-mutator
+
+same as above but is for current afl++:
+https://github.com/P1umer/AFLplusplus-protobuf-mutator

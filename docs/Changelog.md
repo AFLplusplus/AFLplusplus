@@ -54,6 +54,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
   - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the current filename
+  - afl-showmap/cmin will now process queue items in alphabetical order
 
 ### Version ++3.12c (release)
   - afl-fuzz:

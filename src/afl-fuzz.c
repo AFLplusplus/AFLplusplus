@@ -238,7 +238,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
+      "AFL_SKIP_BIN_CHECK: skip afl compatibility checks, also disables auto map size\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_STATSD: enables StatsD metrics collection\n"
@@ -1717,10 +1717,10 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-      !afl->unicorn_mode) {
+      !afl->unicorn_mode && !afl->fsrv.frida_mode &&
+      !afl->afl_env.afl_skip_bin_check) {
 
-    if (map_size <= DEFAULT_SHMEM_SIZE && !afl->non_instrumented_mode &&
-        !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
+    if (map_size <= DEFAULT_SHMEM_SIZE) {
 
       afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
       char vbuf[16];
@@ -1778,7 +1778,8 @@ int main(int argc, char **argv_orig, char **envp) {
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-        !afl->fsrv.frida_mode && !afl->unicorn_mode) {
+        !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+        !afl->afl_env.afl_skip_bin_check) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
       char vbuf[16];

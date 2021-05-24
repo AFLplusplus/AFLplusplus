@@ -1640,7 +1640,7 @@ int main(int argc, char **argv, char **envp) {
         "   yes\n"
         "  [LLVM] llvm:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
-        "extern\n"
+        "yes\n"
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
