@@ -791,16 +791,19 @@ How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](
 When source code is *NOT* available, afl++ offers various support for fast,
 on-the-fly instrumentation of black-box binaries. 
 
-If you do not have to use Unicorn the following setup is recommended:
+If you do not have to use Unicorn the following setup is recommended to use
+qemu_mode:
   * run 1 afl-fuzz -Q instance with CMPLOG (`-c 0` + `AFL_COMPCOV_LEVEL=2`)
   * run 1 afl-fuzz -Q instance with QASAN  (`AFL_USE_QASAN=1`)
   * run 1 afl-fuzz -Q instance with LAF (``AFL_PRELOAD=libcmpcov.so` + `AFL_COMPCOV_LEVEL=2`)
+Alternatively you can use frida_mode, just switch `-Q` with `-O` and remove the
+LAF instance.
 
 Then run as many instances as you have cores left with either -Q mode or - better -
-use a binary rewriter like afl-dyninst, retrowrite, zipr, fibre, etc.
+use a binary rewriter like afl-dyninst, retrowrite, zaflr, fibre, etc.
 
-For Qemu mode, check out the persistent mode and snapshot features, they give
-a huge speed improvement!  
+For Qemu and Frida mode, check out the persistent mode and snapshot features,
+they give a huge speed improvement!  
 
 ### QEMU
 
@@ -812,8 +815,7 @@ feature by doing:
 cd qemu_mode
 ./build_qemu_support.sh
 ```
-For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md) -
-check out the snapshot feature! :-)
+For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
 If possible you should use the persistent mode, see [qemu_mode/README.persistent.md](qemu_mode/README.persistent.md).
 The mode is approximately 2-5x slower than compile-time instrumentation, and is
 less conducive to parallelization.
@@ -823,6 +825,20 @@ your binary, then you can use afl-fuzz normally and it will have twice
 the speed compared to qemu_mode (but slower than persistent mode).
 Note that several other binary rewriters exist, all with their advantages and
 caveats.
+
+### Frida
+
+Frida mode is sometimes faster and sometimes slower than Qemu mode.
+It is also newer, lacks COMPCOV, but supports MacOS.
+
+```shell
+cd frida_mode
+make
+```
+For additional instructions and caveats, see [frida_mode/README.md](frida_mode/README.md).
+If possible you should use the persistent mode, see [qemu_frida/README.persistent.md](qemu_frida/README.persistent.md).
+The mode is approximately 2-5x slower than compile-time instrumentation, and is
+less conducive to parallelization.
 
 ### Unicorn
 
