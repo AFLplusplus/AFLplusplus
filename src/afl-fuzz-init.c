@@ -2728,11 +2728,15 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "    When source code is not available, you may be able to leverage "
          "QEMU\n"
          "    mode support. Consult the README.md for tips on how to enable "
-         "this.\n"
+         "this.\n\n"
+
+         "    If your target is an instrumented binary (e.g. with zafl, "
+         "retrowrite,\n"
+         "    etc.) then set 'AFL_SKIP_BIN_CHECK=1'\n\n"
 
          "    (It is also possible to use afl-fuzz as a traditional, "
-         "non-instrumented fuzzer.\n"
-         "    For that, you can use the -n option - but expect much worse "
+         "non-instrumented\n"
+         "    fuzzer. For that use the -n option - but expect much worse "
          "results.)\n",
          doc_path);
 

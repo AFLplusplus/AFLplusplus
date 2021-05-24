@@ -1110,6 +1110,10 @@ u32 get_map_size(void) {
 
     if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
+  } else if (getenv("AFL_SKIP_BIN_CHECK")) {
+
+    map_size = MAP_SIZE;
+
   }
 
   return map_size;
