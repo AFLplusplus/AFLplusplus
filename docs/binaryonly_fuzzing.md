@@ -41,15 +41,20 @@
 
   As it is included in afl++ this needs no URL.
 
+  If you like to code a customized fuzzer without much work, we highly
+  recommend to check out our sister project libafl which will support QEMU
+  very too:
+  [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL)
+
 
 ## AFL FRIDA
 
-   In frida_mode you can fuzz binary-only targets easily like with QEMU,
-   with the advantage that frida_mode also works on MacOS (both intel and M1).
+  In frida_mode you can fuzz binary-only targets easily like with QEMU,
+  with the advantage that frida_mode also works on MacOS (both intel and M1).
 
-   If you want to fuzz a binary-only library then you can fuzz it with
-   frida-gum via utils/afl_frida/, you will have to write a harness to
-   call the target function in the library, use afl-frida.c as a template.
+  If you want to fuzz a binary-only library then you can fuzz it with
+  frida-gum via utils/afl_frida/, you will have to write a harness to
+  call the target function in the library, use afl-frida.c as a template.
 
   Both come with afl++ so this needs no URL.
 
@@ -57,6 +62,11 @@
   on iPhone or Android devices, for this you can use
   [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/)
   as an intermediate that uses afl++ for fuzzing.
+
+  If you like to code a customized fuzzer without much work, we highly
+  recommend to check out our sister project libafl which supports Frida too:
+  [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL)
+  Working examples already exist :-)
 
 
 ## WINE+QEMU
