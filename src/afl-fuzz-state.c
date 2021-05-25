@@ -206,8 +206,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_skip_crashes =
-                (u8 *)get_afl_env(afl_environment_variables[i]);
+            // we should mark this obsolete in a few versions
 
           } else if (!strncmp(env, "AFL_HANG_TMOUT",
 
