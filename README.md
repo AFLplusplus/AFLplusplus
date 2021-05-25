@@ -800,10 +800,10 @@ Alternatively you can use frida_mode, just switch `-Q` with `-O` and remove the
 LAF instance.
 
 Then run as many instances as you have cores left with either -Q mode or - better -
-use a binary rewriter like afl-dyninst, retrowrite, zaflr, fibre, etc.
+use a binary rewriter like afl-dyninst, retrowrite, zaflr, etc.
 
-For Qemu and Frida mode, check out the persistent mode and snapshot features,
-they give a huge speed improvement!  
+For Qemu and Frida mode, check out the persistent mode, it gives a huge speed
+improvement if it is possible to use.
 
 ### QEMU
 
@@ -822,7 +822,7 @@ less conducive to parallelization.
 
 If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
 your binary, then you can use afl-fuzz normally and it will have twice
-the speed compared to qemu_mode (but slower than persistent mode).
+the speed compared to qemu_mode (but slower than qemu persistent mode).
 Note that several other binary rewriters exist, all with their advantages and
 caveats.
 
