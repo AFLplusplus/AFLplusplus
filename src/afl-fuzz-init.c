@@ -113,7 +113,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   u8  lockfile[PATH_MAX] = "";
   s32 i;
 
-  if (afl->afl_env.afl_no_affinity) {
+  if (afl->afl_env.afl_no_affinity && !afl->afl_env.afl_try_affinity) {
 
     if (afl->cpu_to_bind != -1) {
 
@@ -130,10 +130,21 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (!bind_cpu(afl, afl->cpu_to_bind)) {
 
-      FATAL(
-          "Could not bind to requested CPU %d! Make sure you passed a valid "
-          "-b.",
-          afl->cpu_to_bind);
+      if (afl->afl_env.afl_try_affinity) {
+
+        WARNF(
+            "Could not bind to requested CPU %d! Make sure you passed a valid "
+            "-b.",
+            afl->cpu_to_bind);
+
+      } else {
+
+        FATAL(
+            "Could not bind to requested CPU %d! Make sure you passed a valid "
+            "-b.",
+            afl->cpu_to_bind);
+
+      }
 
     }
 
@@ -420,11 +431,14 @@ void bind_to_free_cpu(afl_state_t *afl) {
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
          "    other instances of afl-fuzz (or similar CPU-locked tasks). "
          "Starting\n"
-         "    another fuzzer on this machine is probably a bad plan, but if "
-         "you are\n"
-         "    absolutely sure, you can set AFL_NO_AFFINITY and try again.\n",
-         afl->cpu_core_count);
-    FATAL("No more free CPU cores");
+         "    another fuzzer on this machine is probably a bad plan.\n"
+         "%s",
+         afl->cpu_core_count,
+         afl->afl_env.afl_try_affinity ? ""
+                                       : "    If you are sure, you can set "
+                                         "AFL_NO_AFFINITY and try again.\n");
+
+    if (!afl->afl_env.afl_try_affinity) { FATAL("No more free CPU cores"); }
 
   }
 
