@@ -35,6 +35,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       afl++ ignores these and uses them for splicing instead.
     - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing after
       no new paths have been found for n seconds
+    - when AFL_FAST_CAL is set a variable path will no be calibrated 8 times
+      instead of 40
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
