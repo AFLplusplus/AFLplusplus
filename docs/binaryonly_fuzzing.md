@@ -43,7 +43,7 @@
 
   If you like to code a customized fuzzer without much work, we highly
   recommend to check out our sister project libafl which will support QEMU
-  very too:
+  too:
   [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL)
 
 
