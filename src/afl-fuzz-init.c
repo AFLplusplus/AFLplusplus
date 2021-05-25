@@ -823,7 +823,6 @@ void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q;
   u32                 cal_failures = 0, idx;
-  u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
   u8 *                use_mem;
 
   for (idx = 0; idx < afl->queued_paths; idx++) {
@@ -922,27 +921,6 @@ void perform_dry_run(afl_state_t *afl) {
       case FSRV_RUN_CRASH:
 
         if (afl->crash_mode) { break; }
-
-        if (skip_crashes) {
-
-          if (afl->fsrv.uses_crash_exitcode) {
-
-            WARNF(
-                "Test case results in a crash or AFL_CRASH_EXITCODE %d "
-                "(skipping)",
-                (int)(s8)afl->fsrv.crash_exitcode);
-
-          } else {
-
-            WARNF("Test case results in a crash (skipping)");
-
-          }
-
-          q->cal_failed = CAL_CHANCES;
-          ++cal_failures;
-          break;
-
-        }
 
         if (afl->fsrv.mem_limit) {
 
@@ -1117,14 +1095,12 @@ void perform_dry_run(afl_state_t *afl) {
 
     if (cal_failures == afl->queued_paths) {
 
-      FATAL("All test cases time out%s, giving up!",
-            skip_crashes ? " or crash" : "");
+      FATAL("All test cases time out or crash, giving up!");
 
     }
 
-    WARNF("Skipped %u test cases (%0.02f%%) due to timeouts%s.", cal_failures,
-          ((double)cal_failures) * 100 / afl->queued_paths,
-          skip_crashes ? " or crashes" : "");
+    WARNF("Skipped %u test cases (%0.02f%%) due to timeouts or crashes.",
+          cal_failures, ((double)cal_failures) * 100 / afl->queued_paths);
 
     if (cal_failures * 5 > afl->queued_paths) {
 
