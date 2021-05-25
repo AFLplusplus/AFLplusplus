@@ -92,6 +92,9 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 def introspection():
     return string
+
+def deinit():  # optional for Python
+    pass
 ```
 
 ### Custom Mutation
