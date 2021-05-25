@@ -679,8 +679,8 @@ If you see that an important area or a feature has not been covered so far then
 try to find an input that is able to reach that and start a new secondary in
 that fuzzing campaign with that seed as input, let it run for a few minutes,
 then terminate it. The main node will pick it up and make it available to the
-other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` if you have no
-free core.
+other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` or
+`export AFL_TRY_AFFINITY=1` if you have no free core.
 
 Note that you in nearly all cases can never reach full coverage. A lot of
 functionality is usually behind options that were not activated or fuzz e.g.
