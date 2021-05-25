@@ -212,7 +212,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "introspection");
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
     if (!py_functions[PY_FUNC_DEINIT])
-      FATAL("deinit function not found in python module");
+      WARNF("deinit function not found in python module");
 
     for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
 
