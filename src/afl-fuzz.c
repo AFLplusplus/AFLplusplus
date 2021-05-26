@@ -35,6 +35,10 @@
   #include <sys/shm.h>
 #endif
 
+#ifdef __APPLE__
+  #include <sys/qos.h>
+#endif
+
 #ifdef PROFILING
 extern u64 time_spent_working;
 #endif
