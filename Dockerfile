@@ -62,8 +62,10 @@ WORKDIR /AFLplusplus
 RUN export CC=gcc-10 && export CXX=g++-10 && make clean && \
     make distrib && make install && make clean
 
-RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
-RUN echo 'export PS1="[afl++]$PS1"' >> ~/.bashrc
+RUN sh -c 'echo set encoding=utf-8 > /root/.vimrc'
+RUN echo '. /etc/bash_completion' >> ~/.bashrc
+RUN echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc
+RUN echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc
 ENV IS_DOCKER="1"
 
 # Disabled until we have the container ready
