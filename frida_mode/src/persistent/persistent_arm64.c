@@ -111,5 +111,12 @@ void persistent_prologue(GumStalkerOutput *output) {
 
 }
 
+void persistent_epilogue(GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(output);
+  FATAL("Persistent mode not supported on this architecture");
+
+}
+
 #endif
 

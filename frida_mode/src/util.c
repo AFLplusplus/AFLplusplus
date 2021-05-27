@@ -10,7 +10,7 @@ guint64 util_read_address(char *key) {
 
   if (!g_str_has_prefix(value_str, "0x")) {
 
-    FATAL("Invalid address should have 0x prefix: %s\n", value_str);
+    FATAL("Invalid address should have 0x prefix: %s=%s\n", key, value_str);
 
   }
 
@@ -20,8 +20,8 @@ guint64 util_read_address(char *key) {
 
     if (!g_ascii_isxdigit(*c)) {
 
-      FATAL("Invalid address not formed of hex digits: %s ('%c')\n", value_str,
-            *c);
+      FATAL("Invalid address not formed of hex digits: %s=%s ('%c')\n", key,
+            value_str, *c);
 
     }
 
@@ -30,7 +30,7 @@ guint64 util_read_address(char *key) {
   guint64 value = g_ascii_strtoull(value_str2, NULL, 16);
   if (value == 0) {
 
-    FATAL("Invalid address failed hex conversion: %s\n", value_str2);
+    FATAL("Invalid address failed hex conversion: %s=%s\n", key, value_str2);
 
   }
 
@@ -48,7 +48,8 @@ guint64 util_read_num(char *key) {
 
     if (!g_ascii_isdigit(*c)) {
 
-      FATAL("Invalid address not formed of decimal digits: %s\n", value_str);
+      FATAL("Invalid address not formed of decimal digits: %s=%s\n", key,
+            value_str);
 
     }
 
@@ -57,7 +58,7 @@ guint64 util_read_num(char *key) {
   guint64 value = g_ascii_strtoull(value_str, NULL, 10);
   if (value == 0) {
 
-    FATAL("Invalid address failed numeric conversion: %s\n", value_str);
+    FATAL("Invalid address failed numeric conversion: %s=%s\n", key, value_str);
 
   }
 
