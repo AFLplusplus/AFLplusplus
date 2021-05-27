@@ -47,7 +47,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                    "x, previous_pc: 0x%016" G_GINT64_MODIFIER "x\n",
                    current_pc, previous_pc);
 
-    IGNORED_RERURN(write(STDOUT_FILENO, buffer, len + 1));
+    IGNORED_RETURN(write(STDOUT_FILENO, buffer, len + 1));
 
   }
 
@@ -79,17 +79,48 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
   const cs_insn *instr;
   gboolean       begin = TRUE;
+  gboolean       excluded;
+
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
     if (instr->address == entry_start) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
 
-    if (begin) {
+    /*
+     * Until we reach AFL_ENTRYPOINT (assumed to be main if not specified) or
+     * AFL_FRIDA_PERSISTENT_ADDR (if specified), we don't mark our ranges
+     * excluded as we wish to remain inside stalker at all times so that we can
+     * instrument our entry point and persistent loop (if present). This allows
+     * the user to exclude ranges which would be traversed between main and the
+     * AFL_ENTRYPOINT, but which they don't want included in their coverage
+     * information when fuzzing.
+     *
+     * Since we have no means to discard the instrumented copies of blocks
+     * (setting the trust threshold simply causes a new copy to be made on each
+     * execution), we instead ensure that we honour the additional
+     * instrumentation requested (e.g. coverage, asan and complog) when a block
+     * is compiled no matter where we are during initialization. We will end up
+     * re-using these blocks if the code under test calls a block which is also
+     * used during initialization.
+     *
+     * Coverage data generated during initialization isn't a problem since the
+     * map is zeroed each time the target is forked or each time the persistent
+     * loop is run.
+     *
+     * Lastly, we don't enable pre-fetching back to the parent until we reach
+     * our AFL_ENTRYPOINT, since it is not until then that we start the
+     * fork-server and thus start executing in the child.
+     */
+    excluded = range_is_excluded(GSIZE_TO_POINTER(instr->address));
+    if (unlikely(begin)) {
+
+      instrument_debug_start(instr->address, output);
 
       prefetch_write(GSIZE_TO_POINTER(instr->address));
-      if (!range_is_excluded(GSIZE_TO_POINTER(instr->address))) {
 
-        if (optimize) {
+      if (likely(!excluded)) {
+
+        if (likely(optimize)) {
 
           instrument_coverage_optimize(instr, output);
 
@@ -106,7 +137,9 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     }
 
-    if (!range_is_excluded(GSIZE_TO_POINTER(instr->address))) {
+    instrument_debug_instruction(instr->address, instr->size);
+
+    if (likely(!excluded)) {
 
       asan_instrument(instr, iterator);
       cmplog_instrument(instr, iterator);
@@ -116,6 +149,8 @@ static void instr_basic_block(GumStalkerIterator *iterator,
     gum_stalker_iterator_keep(iterator);
 
   }
+
+  instrument_debug_end(output);
 
 }
 

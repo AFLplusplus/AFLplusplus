@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -58,10 +59,10 @@ static void on_main_os(int argc, char **argv, char **envp) {
 static void on_main_os(int argc, char **argv, char **envp) {
 
   UNUSED_PARAMETER(argc);
-
   /* Personality doesn't affect the current process, it only takes effect on
    * evec */
   int persona = personality(ADDR_NO_RANDOMIZE);
+  if (persona == -1) { WARNF("Failed to set ADDR_NO_RANDOMIZE: %d", errno); }
   if ((persona & ADDR_NO_RANDOMIZE) == 0) { execvpe(argv[0], argv, envp); }
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
