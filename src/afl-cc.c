@@ -31,6 +31,7 @@
 #include <strings.h>
 #include <limits.h>
 #include <assert.h>
+#include <getopt.h>
 
 #if (LLVM_MAJOR - 0 == 0)
   #undef LLVM_MAJOR
@@ -75,6 +76,12 @@ enum {
   INSTRUMENT_OPT_NGRAM = 16,
   INSTRUMENT_OPT_CALLER = 32,
   INSTRUMENT_OPT_CTX_K = 64,
+
+};
+
+enum {
+
+  AFL_NOOPT = 100,
 
 };
 
@@ -1070,8 +1077,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 int main(int argc, char **argv, char **envp) {
 
-  int   i, passthrough = 0;
-  char *callname = argv[0], *ptr = NULL;
+  int           i, passthrough = 0;
+  s32           opt = 0;
+  struct option long_options[] = {{"afl_noopt", 0, 0, AFL_NOOPT}, {0, 0, 0, 0}};
+  char *        callname = argv[0], *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
 
@@ -1090,7 +1099,30 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
+  bool should_set_passthrough = 0;
+  while (!should_set_passthrough &&
+         ((opt = getopt_long_only(argc, argv, "-:", long_options, NULL)) > 0)) {
+
+    switch (opt) {
+
+      case AFL_NOOPT:
+        should_set_passthrough = 1;
+        for (int i = optind; i < argc; i++) {
+
+          argv[i - 1] = argv[i];
+
+        }
+
+        argv[argc - 1] = NULL;
+        argc--;
+        break;
+
+    }
+
+  }
+
+  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT") ||
+      should_set_passthrough) {
 
     passthrough = 1;
     if (!debug) { be_quiet = 1; }
