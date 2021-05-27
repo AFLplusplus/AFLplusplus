@@ -85,6 +85,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     if (instr->address == entry_start) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
+    if (instr->address == persistent_ret) { persistent_epilogue(output); }
 
     /*
      * Until we reach AFL_ENTRYPOINT (assumed to be main if not specified) or
