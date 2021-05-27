@@ -480,15 +480,40 @@ static GArray *merge_ranges(GArray *a) {
 
 }
 
+static gboolean exclude_ranges_callback(const GumRangeDetails *details,
+                                        gpointer               user_data) {
+
+  UNUSED_PARAMETER(user_data);
+  gchar *     name;
+  gboolean    found;
+  GumStalker *stalker;
+  if (details->file == NULL) { return TRUE; }
+  name = g_path_get_basename(details->file->path);
+
+  found = (g_strcmp0(name, "afl-frida-trace.so") == 0);
+  g_free(name);
+  if (!found) { return TRUE; }
+
+  stalker = stalker_get();
+  gum_stalker_exclude(stalker, details->range);
+
+  return FALSE;
+
+}
+
+static void ranges_exclude_self(void) {
+
+  gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, exclude_ranges_callback, NULL);
+
+}
+
 void ranges_init(void) {
 
-  GumMemoryRange  ri;
-  GArray *        step1;
-  GArray *        step2;
-  GArray *        step3;
-  GArray *        step4;
-  GumMemoryRange *r;
-  GumStalker *    stalker;
+  GumMemoryRange ri;
+  GArray *       step1;
+  GArray *       step2;
+  GArray *       step3;
+  GArray *       step4;
 
   if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) {
 
@@ -535,19 +560,13 @@ void ranges_init(void) {
   ranges = merge_ranges(step4);
   print_ranges("final", ranges);
 
-  stalker = stalker_get();
-
-  for (guint i = 0; i < ranges->len; i++) {
-
-    r = &g_array_index(ranges, GumMemoryRange, i);
-    gum_stalker_exclude(stalker, r);
-
-  }
-
   g_array_free(step4, TRUE);
   g_array_free(step3, TRUE);
   g_array_free(step2, TRUE);
   g_array_free(step1, TRUE);
+
+  /* *NEVER* stalk the stalker, only bad things will ever come of this! */
+  ranges_exclude_self();
 
 }
 
@@ -569,6 +588,22 @@ gboolean range_is_excluded(gpointer address) {
   }
 
   return false;
+
+}
+
+void ranges_exclude() {
+
+  GumMemoryRange *r;
+  GumStalker *    stalker = stalker_get();
+
+  OKF("Excluding ranges");
+
+  for (guint i = 0; i < ranges->len; i++) {
+
+    r = &g_array_index(ranges, GumMemoryRange, i);
+    gum_stalker_exclude(stalker, r);
+
+  }
 
 }
 
