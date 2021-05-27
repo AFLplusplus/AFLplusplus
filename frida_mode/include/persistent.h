@@ -18,6 +18,9 @@ extern unsigned char *__afl_fuzz_ptr;
 
 extern guint64                persistent_start;
 extern guint64                persistent_count;
+extern guint64                persistent_ret;
+extern guint64                persistent_ret_offset;
+extern gboolean               persistent_debug;
 extern afl_persistent_hook_fn hook;
 
 void persistent_init(void);
@@ -26,6 +29,7 @@ void persistent_init(void);
 gboolean persistent_is_supported(void);
 
 void persistent_prologue(GumStalkerOutput *output);
+void persistent_epilogue(GumStalkerOutput *output);
 
 #endif
 

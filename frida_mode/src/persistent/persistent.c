@@ -12,6 +12,9 @@ int                    __afl_sharedmem_fuzzing = 0;
 afl_persistent_hook_fn hook = NULL;
 guint64                persistent_start = 0;
 guint64                persistent_count = 0;
+guint64                persistent_ret = 0;
+guint64                persistent_ret_offset = 0;
+gboolean               persistent_debug = FALSE;
 
 void persistent_init(void) {
 
@@ -19,11 +22,35 @@ void persistent_init(void) {
 
   persistent_start = util_read_address("AFL_FRIDA_PERSISTENT_ADDR");
   persistent_count = util_read_num("AFL_FRIDA_PERSISTENT_CNT");
+  persistent_ret = util_read_address("AFL_FRIDA_PERSISTENT_RET");
+  persistent_ret_offset =
+      util_read_address("AFL_FRIDA_PERSISTENT_RETADDR_OFFSET");
 
-  if (persistent_count != 0 && persistent_start == 0)
+  if (getenv("AFL_FRIDA_PERSISTENT_DEBUG") != NULL) { persistent_debug = TRUE; }
+
+  if (persistent_count != 0 && persistent_start == 0) {
+
     FATAL(
         "AFL_FRIDA_PERSISTENT_ADDR must be specified if "
         "AFL_FRIDA_PERSISTENT_CNT is");
+
+  }
+
+  if (persistent_ret != 0 && persistent_start == 0) {
+
+    FATAL(
+        "AFL_FRIDA_PERSISTENT_ADDR must be specified if "
+        "AFL_FRIDA_PERSISTENT_RET is");
+
+  }
+
+  if (persistent_ret_offset != 0 && persistent_ret == 0) {
+
+    FATAL(
+        "AFL_FRIDA_PERSISTENT_RET must be specified if "
+        "AFL_FRIDA_PERSISTENT_RETADDR_OFFSET is");
+
+  }
 
   if (persistent_start != 0 && persistent_count == 0) persistent_count = 1000;
 
@@ -38,6 +65,11 @@ void persistent_init(void) {
   OKF("Instrumentation - persistent count [%c] (%" G_GINT64_MODIFIER "d)",
       persistent_start == 0 ? ' ' : 'X', persistent_count);
   OKF("Instrumentation - hook [%s]", hook_name);
+
+  OKF("Instrumentation - persistent ret [%c] (0x%016" G_GINT64_MODIFIER "X)",
+      persistent_ret == 0 ? ' ' : 'X', persistent_ret);
+  OKF("Instrumentation - persistent ret offset [%c] (%" G_GINT64_MODIFIER "d)",
+      persistent_ret_offset == 0 ? ' ' : 'X', persistent_ret_offset);
 
   if (hook_name != NULL) {
 

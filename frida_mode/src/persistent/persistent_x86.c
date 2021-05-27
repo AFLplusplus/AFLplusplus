@@ -244,7 +244,22 @@ void persistent_prologue(GumStalkerOutput *output) {
   /* original: */
   gum_x86_writer_put_label(cw, original);
 
+  if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
+
   gum_x86_writer_flush(cw);
+
+}
+
+void persistent_epilogue(GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+
+  if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
+
+  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_ESP, GUM_REG_ESP,
+                                        persistent_ret_offset);
+
+  gum_x86_writer_put_ret(cw);
 
 }
 

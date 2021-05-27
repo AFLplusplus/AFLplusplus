@@ -36,6 +36,10 @@ else
 CFLAGS+=-Wno-pointer-arith
 endif
 
+ifdef FRIDA_DEBUG
+CFLAGS += -DFRIDA_DEBUG
+endif
+
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
 FRIDA_TRACE_EMBEDDED:=$(BUILD_DIR)afl-frida-trace-embedded
@@ -93,9 +97,6 @@ AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 ############################## ALL #############################################
 
 all: $(FRIDA_TRACE)
-
-32:
-	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
