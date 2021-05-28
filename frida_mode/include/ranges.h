@@ -7,5 +7,7 @@ void ranges_init(void);
 
 gboolean range_is_excluded(gpointer address);
 
+void ranges_exclude();
+
 #endif
 
