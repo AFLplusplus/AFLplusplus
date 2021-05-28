@@ -1,6 +1,6 @@
 # AFL quick start guide
 
-You should read [README.md](README.md) - it's pretty short. If you really can't, here's
+You should read [README.md](../README.md) - it's pretty short. If you really can't, here's
 how to hit the ground running:
 
 1) Compile AFL with 'make'. If build fails, see [INSTALL.md](INSTALL.md) for tips.
