@@ -568,6 +568,8 @@ void ranges_init(void) {
   /* *NEVER* stalk the stalker, only bad things will ever come of this! */
   ranges_exclude_self();
 
+  ranges_exclude();
+
 }
 
 gboolean range_is_excluded(gpointer address) {
