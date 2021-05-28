@@ -16,14 +16,17 @@ static void instrument_debug(char *format, ...) {
 
   va_list ap;
   char    buffer[4096] = {0};
-  int     len = 0;
+  int     ret;
+  int len;
 
   va_start(ap, format);
 
-  len = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);
+  ret = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);
   va_end(ap);
 
-  if (len < 0) { return; }
+  if (ret < 0) { return; }
+
+  len = strnlen(buffer, sizeof(buffer));
 
   IGNORED_RETURN(write(debugging_fd, buffer, len));
 
