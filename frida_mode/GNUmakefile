@@ -36,10 +36,6 @@ else
 CFLAGS+=-Wno-pointer-arith
 endif
 
-ifdef FRIDA_DEBUG
-CFLAGS += -DFRIDA_DEBUG
-endif
-
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
 FRIDA_TRACE_EMBEDDED:=$(BUILD_DIR)afl-frida-trace-embedded

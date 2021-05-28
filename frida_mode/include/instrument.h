@@ -19,6 +19,7 @@ gboolean instrument_is_coverage_optimize_supported(void);
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output);
 
+void instrument_debug_init(void);
 void instrument_debug_start(uint64_t address, GumStalkerOutput *output);
 void instrument_debug_instruction(uint64_t address, uint16_t size);
 void instrument_debug_end(GumStalkerOutput *output);

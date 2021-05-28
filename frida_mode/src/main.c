@@ -19,10 +19,12 @@
 #include "instrument.h"
 #include "interceptor.h"
 #include "lib.h"
+#include "output.h"
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "stats.h"
 #include "util.h"
 
 #ifdef __APPLE__
@@ -95,9 +97,11 @@ void afl_frida_start() {
   lib_init();
   entry_init();
   instrument_init();
+  output_init();
   persistent_init();
   prefetch_init();
   ranges_init();
+  stats_init();
 
   void *fork_addr =
       GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));

@@ -13,6 +13,7 @@
 #include "prefetch.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "stats.h"
 #include "util.h"
 
 static gboolean               tracing = false;
@@ -113,6 +114,9 @@ static void instr_basic_block(GumStalkerIterator *iterator,
      * fork-server and thus start executing in the child.
      */
     excluded = range_is_excluded(GSIZE_TO_POINTER(instr->address));
+
+    stats_collect(instr, begin);
+
     if (unlikely(begin)) {
 
       instrument_debug_start(instr->address, output);
@@ -180,6 +184,7 @@ void instrument_init(void) {
   transformer =
       gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
 
+  instrument_debug_init();
   asan_init();
   cmplog_init();
 

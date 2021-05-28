@@ -1,0 +1,2824 @@
+
+
+total_transitions: 9
+	call_imms: 1
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 1
+	jmp_mems: 2
+	jmp_regs: 0
+
+	jmp_cond_imms: 2
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 19
+	call_imms: 4
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 2
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 1
+	jmp_mems: 3
+	jmp_regs: 0
+
+	jmp_cond_imms: 6
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 29
+	call_imms: 6
+	call_regs: 1
+	call_mems: 0
+	post_call_invokes: 3
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 2
+	jmp_mems: 3
+	jmp_regs: 0
+
+	jmp_cond_imms: 11
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 39
+	call_imms: 6
+	call_regs: 2
+	call_mems: 0
+	post_call_invokes: 5
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 2
+	jmp_mems: 3
+	jmp_regs: 0
+
+	jmp_cond_imms: 18
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 49
+	call_imms: 7
+	call_regs: 2
+	call_mems: 1
+	post_call_invokes: 6
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 2
+	jmp_mems: 3
+	jmp_regs: 0
+
+	jmp_cond_imms: 25
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 59
+	call_imms: 8
+	call_regs: 2
+	call_mems: 3
+	post_call_invokes: 6
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 3
+	jmp_mems: 3
+	jmp_regs: 0
+
+	jmp_cond_imms: 31
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 69
+	call_imms: 9
+	call_regs: 2
+	call_mems: 3
+	post_call_invokes: 7
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 3
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 38
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 79
+	call_imms: 10
+	call_regs: 2
+	call_mems: 3
+	post_call_invokes: 7
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 4
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 46
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 89
+	call_imms: 10
+	call_regs: 2
+	call_mems: 3
+	post_call_invokes: 7
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 4
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 56
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 99
+	call_imms: 11
+	call_regs: 2
+	call_mems: 3
+	post_call_invokes: 9
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 4
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 63
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 109
+	call_imms: 12
+	call_regs: 2
+	call_mems: 3
+	post_call_invokes: 12
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 5
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 68
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 119
+	call_imms: 12
+	call_regs: 2
+	call_mems: 4
+	post_call_invokes: 14
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 6
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 74
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 129
+	call_imms: 14
+	call_regs: 2
+	call_mems: 4
+	post_call_invokes: 16
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 6
+	jmp_mems: 4
+	jmp_regs: 0
+
+	jmp_cond_imms: 80
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 139
+	call_imms: 14
+	call_regs: 2
+	call_mems: 5
+	post_call_invokes: 17
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 6
+	jmp_mems: 5
+	jmp_regs: 0
+
+	jmp_cond_imms: 87
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 149
+	call_imms: 14
+	call_regs: 2
+	call_mems: 6
+	post_call_invokes: 17
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 6
+	jmp_mems: 5
+	jmp_regs: 0
+
+	jmp_cond_imms: 96
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 159
+	call_imms: 15
+	call_regs: 2
+	call_mems: 6
+	post_call_invokes: 18
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 8
+	jmp_mems: 5
+	jmp_regs: 0
+
+	jmp_cond_imms: 102
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 170
+	call_imms: 15
+	call_regs: 2
+	call_mems: 6
+	post_call_invokes: 18
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 10
+	jmp_mems: 5
+	jmp_regs: 0
+
+	jmp_cond_imms: 111
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 180
+	call_imms: 15
+	call_regs: 2
+	call_mems: 6
+	post_call_invokes: 20
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 11
+	jmp_mems: 5
+	jmp_regs: 0
+
+	jmp_cond_imms: 118
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 190
+	call_imms: 16
+	call_regs: 2
+	call_mems: 6
+	post_call_invokes: 20
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 11
+	jmp_mems: 6
+	jmp_regs: 1
+
+	jmp_cond_imms: 125
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 201
+	call_imms: 16
+	call_regs: 2
+	call_mems: 7
+	post_call_invokes: 21
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 13
+	jmp_mems: 6
+	jmp_regs: 1
+
+	jmp_cond_imms: 132
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 211
+	call_imms: 17
+	call_regs: 2
+	call_mems: 7
+	post_call_invokes: 22
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 14
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 138
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 223
+	call_imms: 18
+	call_regs: 2
+	call_mems: 8
+	post_call_invokes: 24
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 15
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 145
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 233
+	call_imms: 18
+	call_regs: 2
+	call_mems: 8
+	post_call_invokes: 25
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 16
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 153
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 244
+	call_imms: 19
+	call_regs: 2
+	call_mems: 9
+	post_call_invokes: 26
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 16
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 161
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+
+
+total_transitions: 254
+	call_imms: 20
+	call_regs: 2
+	call_mems: 9
+	post_call_invokes: 27
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 18
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 167
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 264
+	call_imms: 20
+	call_regs: 2
+	call_mems: 9
+	post_call_invokes: 29
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 20
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 173
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 275
+	call_imms: 21
+	call_regs: 2
+	call_mems: 10
+	post_call_invokes: 30
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 22
+	jmp_mems: 7
+	jmp_regs: 1
+
+	jmp_cond_imms: 179
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 285
+	call_imms: 22
+	call_regs: 2
+	call_mems: 10
+	post_call_invokes: 30
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 23
+	jmp_mems: 8
+	jmp_regs: 1
+
+	jmp_cond_imms: 186
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 295
+	call_imms: 22
+	call_regs: 2
+	call_mems: 10
+	post_call_invokes: 30
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 23
+	jmp_mems: 8
+	jmp_regs: 1
+
+	jmp_cond_imms: 196
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 305
+	call_imms: 22
+	call_regs: 2
+	call_mems: 10
+	post_call_invokes: 30
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 24
+	jmp_mems: 8
+	jmp_regs: 1
+
+	jmp_cond_imms: 205
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 315
+	call_imms: 22
+	call_regs: 2
+	call_mems: 10
+	post_call_invokes: 31
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 26
+	jmp_mems: 8
+	jmp_regs: 1
+
+	jmp_cond_imms: 212
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 326
+	call_imms: 22
+	call_regs: 3
+	call_mems: 10
+	post_call_invokes: 32
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 27
+	jmp_mems: 8
+	jmp_regs: 1
+
+	jmp_cond_imms: 220
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 337
+	call_imms: 23
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 36
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 27
+	jmp_mems: 9
+	jmp_regs: 1
+
+	jmp_cond_imms: 224
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 348
+	call_imms: 24
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 38
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 27
+	jmp_mems: 10
+	jmp_regs: 1
+
+	jmp_cond_imms: 231
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 362
+	call_imms: 26
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 39
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 28
+	jmp_mems: 11
+	jmp_regs: 1
+
+	jmp_cond_imms: 240
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 375
+	call_imms: 27
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 40
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 28
+	jmp_mems: 12
+	jmp_regs: 1
+
+	jmp_cond_imms: 250
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 387
+	call_imms: 28
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 41
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 28
+	jmp_mems: 12
+	jmp_regs: 3
+
+	jmp_cond_imms: 258
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 397
+	call_imms: 29
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 42
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 30
+	jmp_mems: 12
+	jmp_regs: 3
+
+	jmp_cond_imms: 264
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 407
+	call_imms: 29
+	call_regs: 4
+	call_mems: 10
+	post_call_invokes: 42
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 31
+	jmp_mems: 12
+	jmp_regs: 3
+
+	jmp_cond_imms: 273
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 418
+	call_imms: 29
+	call_regs: 4
+	call_mems: 11
+	post_call_invokes: 43
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 32
+	jmp_mems: 12
+	jmp_regs: 3
+
+	jmp_cond_imms: 281
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+
+
+total_transitions: 430
+	call_imms: 32
+	call_regs: 4
+	call_mems: 11
+	post_call_invokes: 45
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 33
+	jmp_mems: 13
+	jmp_regs: 3
+
+	jmp_cond_imms: 286
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 441
+	call_imms: 32
+	call_regs: 4
+	call_mems: 12
+	post_call_invokes: 46
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 33
+	jmp_mems: 13
+	jmp_regs: 3
+
+	jmp_cond_imms: 295
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+
+
+total_transitions: 453
+	call_imms: 33
+	call_regs: 4
+	call_mems: 12
+	post_call_invokes: 49
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 34
+	jmp_mems: 13
+	jmp_regs: 3
+
+	jmp_cond_imms: 302
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 465
+	call_imms: 35
+	call_regs: 4
+	call_mems: 12
+	post_call_invokes: 50
+	excluded_call_imms: 2
+	ret_slow_paths: 1
+
+	jmp_imms: 35
+	jmp_mems: 15
+	jmp_regs: 3
+
+	jmp_cond_imms: 308
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 475
+	call_imms: 38
+	call_regs: 4
+	call_mems: 12
+	post_call_invokes: 51
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 35
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 310
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 485
+	call_imms: 38
+	call_regs: 5
+	call_mems: 12
+	post_call_invokes: 52
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 36
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 317
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 495
+	call_imms: 38
+	call_regs: 5
+	call_mems: 13
+	post_call_invokes: 52
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 38
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 324
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 506
+	call_imms: 38
+	call_regs: 5
+	call_mems: 13
+	post_call_invokes: 53
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 39
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 333
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 516
+	call_imms: 40
+	call_regs: 5
+	call_mems: 13
+	post_call_invokes: 53
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 40
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 340
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 526
+	call_imms: 40
+	call_regs: 5
+	call_mems: 13
+	post_call_invokes: 54
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 40
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 349
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 540
+	call_imms: 42
+	call_regs: 5
+	call_mems: 13
+	post_call_invokes: 55
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 42
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 358
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 552
+	call_imms: 43
+	call_regs: 5
+	call_mems: 13
+	post_call_invokes: 57
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 43
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 366
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 563
+	call_imms: 43
+	call_regs: 5
+	call_mems: 14
+	post_call_invokes: 58
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 43
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 375
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 573
+	call_imms: 43
+	call_regs: 5
+	call_mems: 15
+	post_call_invokes: 59
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 44
+	jmp_mems: 16
+	jmp_regs: 3
+
+	jmp_cond_imms: 382
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 583
+	call_imms: 44
+	call_regs: 5
+	call_mems: 15
+	post_call_invokes: 59
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 45
+	jmp_mems: 17
+	jmp_regs: 3
+
+	jmp_cond_imms: 389
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 593
+	call_imms: 45
+	call_regs: 5
+	call_mems: 15
+	post_call_invokes: 60
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 46
+	jmp_mems: 17
+	jmp_regs: 3
+
+	jmp_cond_imms: 396
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 603
+	call_imms: 46
+	call_regs: 6
+	call_mems: 15
+	post_call_invokes: 64
+	excluded_call_imms: 3
+	ret_slow_paths: 3
+
+	jmp_imms: 46
+	jmp_mems: 17
+	jmp_regs: 3
+
+	jmp_cond_imms: 400
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 615
+	call_imms: 46
+	call_regs: 7
+	call_mems: 17
+	post_call_invokes: 64
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 46
+	jmp_mems: 17
+	jmp_regs: 3
+
+	jmp_cond_imms: 407
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 626
+	call_imms: 48
+	call_regs: 8
+	call_mems: 18
+	post_call_invokes: 66
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 46
+	jmp_mems: 18
+	jmp_regs: 3
+
+	jmp_cond_imms: 411
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 637
+	call_imms: 50
+	call_regs: 9
+	call_mems: 19
+	post_call_invokes: 68
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 47
+	jmp_mems: 19
+	jmp_regs: 3
+
+	jmp_cond_imms: 414
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 648
+	call_imms: 52
+	call_regs: 9
+	call_mems: 20
+	post_call_invokes: 70
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 47
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 419
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 660
+	call_imms: 52
+	call_regs: 10
+	call_mems: 20
+	post_call_invokes: 72
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 49
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 426
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 672
+	call_imms: 52
+	call_regs: 10
+	call_mems: 20
+	post_call_invokes: 72
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 51
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 436
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 683
+	call_imms: 53
+	call_regs: 11
+	call_mems: 21
+	post_call_invokes: 73
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 52
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 442
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 697
+	call_imms: 53
+	call_regs: 11
+	call_mems: 22
+	post_call_invokes: 74
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 53
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 453
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 709
+	call_imms: 53
+	call_regs: 13
+	call_mems: 22
+	post_call_invokes: 77
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 53
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 460
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 720
+	call_imms: 53
+	call_regs: 13
+	call_mems: 22
+	post_call_invokes: 77
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 55
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 469
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 730
+	call_imms: 54
+	call_regs: 13
+	call_mems: 24
+	post_call_invokes: 77
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 56
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 475
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 740
+	call_imms: 54
+	call_regs: 13
+	call_mems: 24
+	post_call_invokes: 80
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 57
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 481
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 753
+	call_imms: 54
+	call_regs: 14
+	call_mems: 24
+	post_call_invokes: 81
+	excluded_call_imms: 5
+	ret_slow_paths: 3
+
+	jmp_imms: 58
+	jmp_mems: 20
+	jmp_regs: 3
+
+	jmp_cond_imms: 491
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+
+
+total_transitions: 3
+	call_imms: 0
+	call_regs: 0
+	call_mems: 0
+	post_call_invokes: 0
+	excluded_call_imms: 0
+	ret_slow_paths: 0
+
+	jmp_imms: 1
+	jmp_mems: 1
+	jmp_regs: 0
+
+	jmp_cond_imms: 1
+	jmp_cond_mems: 0
+	jmp_cond_regs: 0
+	jmp_cond_jcxzs: 0
+
+	jmp_continuations: 0
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Running: /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input
+Running:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
+Done:    /home/jon/git/AFLplusplus/frida_mode/test/output/build/frida-out/default/.cur_input: (3 bytes)
