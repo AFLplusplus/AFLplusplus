@@ -46,6 +46,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
     - Fixed a crash in llvm dict2file when a strncmp length was -1
+    - added --afl-noopt support
   - utils/aflpp_driver:
     - aflpp_qemu_driver_hook fixed to work with qemu_mode
     - aflpp_driver now compiled with -fPIC
