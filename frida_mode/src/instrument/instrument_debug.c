@@ -20,7 +20,6 @@ static void instrument_debug(char *format, ...) {
   int len;
 
   va_start(ap, format);
-
   ret = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);
   va_end(ap);
 
