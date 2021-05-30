@@ -35,6 +35,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Removed automatic linking with -lc++ for LTO mode
   - utils/aflpp_driver/aflpp_qemu_driver_hook fixed to work with qemu mode
   - add -d (add dead fuzzer stats) to afl-whatsup
+  - add thread safe counters for LLVM CLASSIC (set AFL_LLVM_THREADSAFE_INST)
 
 ### Version ++3.12c (release)
   - afl-fuzz:

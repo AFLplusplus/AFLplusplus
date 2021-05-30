@@ -33,3 +33,8 @@ AFL_LLVM_SKIP_NEVERZERO=1
 ```
 If the target does not have extensive loops or functions that are called
 a lot then this can give a small performance boost.
+
+Please note that the default counter implementations are not thread safe!
+
+Support for thread safe counters in mode LLVM CLASSIC can be activated with setting
+`AFL_LLVM_THREADSAFE_INST=1`.

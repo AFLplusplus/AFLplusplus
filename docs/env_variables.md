@@ -231,6 +231,11 @@ Then there are a few specific features that are only available in instrumentatio
 
   See [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md) for more information.
 
+### Thread safe instrumentation counters (in mode LLVM CLASSIC)
+   - Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread safe counters.
+     The overhead is a bit higher compared to the older non-thread safe case. 
+     `AFL_LLVM_NOT_ZERO` and `AFL_LLVM_SKIP_NEVERZERO` are supported (see below). 
+
 ### NOT_ZERO
 
    - Setting `AFL_LLVM_NOT_ZERO=1` during compilation will use counters
