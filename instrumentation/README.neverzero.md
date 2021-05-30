@@ -16,11 +16,12 @@ at a very little cost (one instruction per edge).
 (The alternative of saturated counters has been tested also and proved to be
 inferior in terms of path discovery.)
 
-This is implemented in afl-gcc and afl-gcc-fast, however for llvm_mode this is optional if
-the llvm version is below 9 - as there is a perfomance bug that is only fixed
-in version 9 and onwards.
+This is implemented in afl-gcc and afl-gcc-fast, however for llvm_mode this is
+optional if multithread safe counters are selected or the llvm version is below
+9 - as there are severe performance costs in these cases.
 
-If you want to enable this for llvm versions below 9 then set
+If you want to enable this for llvm versions below 9 or thread safe counters
+then set
 
 ```
 export AFL_LLVM_NOT_ZERO=1

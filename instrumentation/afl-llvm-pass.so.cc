@@ -85,8 +85,8 @@ class AFLCoverage : public ModulePass {
   uint32_t ctx_k = 0;
   uint32_t map_size = MAP_SIZE;
   uint32_t function_minimum_size = 1;
-  char *   ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
-  char *   use_threadsafe_counters = nullptr;
+  const char *   ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
+  const char *   use_threadsafe_counters = nullptr;
 
 };
 
@@ -188,11 +188,18 @@ bool AFLCoverage::runOnModule(Module &M) {
   if ((isatty(2) && !getenv("AFL_QUIET")) || !!getenv("AFL_DEBUG")) {
 
     if (use_threadsafe_counters) {
-      SAYF(cCYA "afl-llvm-pass" VERSION cRST " using threadsafe instrumentation\n");
+      if (!getenv("AFL_LLVM_NOT_ZERO")) {
+        skip_nozero = "1";
+        SAYF(cCYA "afl-llvm-pass" VERSION cRST " using thread safe counters\n");
+      }
+      else {
+        SAYF(cCYA "afl-llvm-pass" VERSION cRST
+                  " using thread safe not-zero-counters\n");
+      }
     }
     else
     {
-      SAYF(cCYA "afl-llvm-pass" VERSION cRST " using non-threadsafe instrumentation\n");
+      SAYF(cCYA "afl-llvm-pass" VERSION cRST " using non-thread safe instrumentation\n");
     }
 
   }
