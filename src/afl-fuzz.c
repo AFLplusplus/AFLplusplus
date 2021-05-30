@@ -35,6 +35,10 @@
   #include <sys/shm.h>
 #endif
 
+#ifdef __APPLE__
+  #include <sys/qos.h>
+#endif
+
 #ifdef PROFILING
 extern u64 time_spent_working;
 #endif
@@ -220,6 +224,7 @@ static void usage(u8 *argv0, int more_help) {
       "                    then they are randomly selected instead all of them being\n"
       "                    used. Defaults to 200.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
+      "AFL_TRY_AFFINITY: try to bind to an unused core, but don't fail if unsuccessful\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
       "AFL_NO_AUTODICT: do not load an offered auto dictionary compiled into a target\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
@@ -240,7 +245,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip afl compatibility checks, also disables auto map size\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
-      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      //"AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_STATSD: enables StatsD metrics collection\n"
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
@@ -2296,26 +2301,9 @@ stop_fuzzing:
   afl_fsrv_deinit(&afl->fsrv);
 
   /* remove tmpfile */
-  if (afl->tmp_dir != NULL && !afl->in_place_resume) {
+  if (afl->tmp_dir != NULL && !afl->in_place_resume && afl->fsrv.out_file) {
 
-    char tmpfile[PATH_MAX];
-
-    if (afl->file_extension) {
-
-      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
-               afl->file_extension);
-
-    } else {
-
-      snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
-
-    }
-
-    if (unlink(tmpfile) != 0) {
-
-      FATAL("Could not unlink current input file: %s.", tmpfile);
-
-    }
+    (void)unlink(afl->fsrv.out_file);
 
   }
 

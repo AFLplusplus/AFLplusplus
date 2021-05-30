@@ -33,8 +33,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
       -i dir crashes the target or results in a timeout. By default
       afl++ ignores these and uses them for splicing instead.
-    - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing after
-      no new paths have been found for n seconds
+    - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing
+      after no new paths have been found for n seconds
+    - when AFL_FAST_CAL is set a variable path will now be calibrated
+      8 times instead of originally 40. Long calibration is now 20.
+    - added AFL_TRY_AFFINITY to try to bind to CPUs but don't error if
+      it fails
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
@@ -42,6 +46,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
     - Removed automatic linking with -lc++ for LTO mode
     - Fixed a crash in llvm dict2file when a strncmp length was -1
+    - added --afl-noopt support
   - utils/aflpp_driver:
     - aflpp_qemu_driver_hook fixed to work with qemu_mode
     - aflpp_driver now compiled with -fPIC
@@ -53,7 +58,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     MacOS shared memory
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
-  - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the current filename
+  - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the
+    current filename
   - afl-showmap/cmin will now process queue items in alphabetical order
 
 ### Version ++3.12c (release)

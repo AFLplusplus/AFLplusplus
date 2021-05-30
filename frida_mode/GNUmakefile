@@ -97,9 +97,6 @@ all: $(FRIDA_TRACE)
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
-32:
-	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
-
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 

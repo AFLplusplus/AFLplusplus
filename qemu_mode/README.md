@@ -110,22 +110,23 @@ takes priority over any included ranges or AFL_INST_LIBS.
 
 CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
 
-The environment variable that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
-There is also ./libcompcov/ which implements CompareCoverage for *cmp functions
-(splitting memcmp, strncmp, etc. to make these conditions easier solvable by
-afl-fuzz).
+You have to set `AFL_PRELOAD=/path/to/libcompcov.so` together with
+setting the AFL_COMPCOV_LEVEL you want to enable it.
 
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
-values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
-comparison instructions and memory comparison functions when libcompcov
-is preloaded.
-AFL_COMPCOV_LEVEL=3 has the same effects of AFL_COMPCOV_LEVEL=2 but enables also
-the instrumentation of the floating-point comparisons on x86 and x86_64 (experimental).
+values / read-only memory.
+
+AFL_COMPCOV_LEVEL=2 instruments all comparison instructions and memory
+comparison functions when libcompcov is preloaded.
+
+AFL_COMPCOV_LEVEL=3 has the same effects of AFL_COMPCOV_LEVEL=2 but enables
+also the instrumentation of the floating-point comparisons on x86 and x86_64
+(experimental).
 
 Integer comparison instructions are currently instrumented only
 on the x86, x86_64, arm and aarch64 targets.
 
-Highly recommended.
+Recommended, but not as good as CMPLOG mode (see below).
 
 ## 8) CMPLOG mode
 

@@ -312,13 +312,11 @@ checks or alter some of the more exotic semantics of the tool:
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
 
+  - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
+    on Linux systems, but will not terminate if that fails.
+
   - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
     that is compiled into the target.
-
-  - `AFL_SKIP_CRASHES` causes AFL++ to tolerate crashing files in the input
-    queue. This can help with rare situations where a program crashes only
-    intermittently, but it's not really recommended under normal operating
-    conditions.
 
   - Setting `AFL_HANG_TMOUT` allows you to specify a different timeout for
     deciding if a particular test case is a "hang". The default is 1 second

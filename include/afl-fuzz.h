@@ -385,10 +385,10 @@ typedef struct afl_env_vars {
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
-      afl_exit_on_seed_issues;
+      afl_exit_on_seed_issues, afl_try_affinity;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
-      *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
+      *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_kill_signal, *afl_target_env,

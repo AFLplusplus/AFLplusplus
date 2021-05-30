@@ -679,8 +679,8 @@ If you see that an important area or a feature has not been covered so far then
 try to find an input that is able to reach that and start a new secondary in
 that fuzzing campaign with that seed as input, let it run for a few minutes,
 then terminate it. The main node will pick it up and make it available to the
-other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` if you have no
-free core.
+other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` or
+`export AFL_TRY_AFFINITY=1` if you have no free core.
 
 Note that you in nearly all cases can never reach full coverage. A lot of
 functionality is usually behind options that were not activated or fuzz e.g.
@@ -800,10 +800,10 @@ Alternatively you can use frida_mode, just switch `-Q` with `-O` and remove the
 LAF instance.
 
 Then run as many instances as you have cores left with either -Q mode or - better -
-use a binary rewriter like afl-dyninst, retrowrite, zaflr, fibre, etc.
+use a binary rewriter like afl-dyninst, retrowrite, zaflr, etc.
 
-For Qemu and Frida mode, check out the persistent mode and snapshot features,
-they give a huge speed improvement!  
+For Qemu and Frida mode, check out the persistent mode, it gives a huge speed
+improvement if it is possible to use.
 
 ### QEMU
 
@@ -822,7 +822,7 @@ less conducive to parallelization.
 
 If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
 your binary, then you can use afl-fuzz normally and it will have twice
-the speed compared to qemu_mode (but slower than persistent mode).
+the speed compared to qemu_mode (but slower than qemu persistent mode).
 Note that several other binary rewriters exist, all with their advantages and
 caveats.
 
