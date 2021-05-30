@@ -1224,6 +1224,14 @@ int main(int argc, char **argv, char **envp) {
 
     if (strncmp(argv[i], "--afl", 5) == 0) {
 
+      if (!strcmp(argv[i], "--afl_noopt") || !strcmp(argv[i], "--afl-noopt")) {
+
+        passthrough = 1;
+        argv[i] = "-g";  // we have to overwrite it, -g is always good
+        continue;
+
+      }
+
       if (compiler_mode)
         WARNF(
             "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
@@ -1820,6 +1828,12 @@ int main(int argc, char **argv, char **envp) {
             "path\n"
             "If anything fails - be sure to read README.lto.md!\n");
 #endif
+
+      SAYF(
+          "\nYou can supply --afl-noopt to not instrument, like AFL_NOOPT. "
+          "(this is helpful\n"
+          "in some build systems if you do not want to instrument "
+          "everything.\n");
 
     }
 

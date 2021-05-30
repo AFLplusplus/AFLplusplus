@@ -1,9 +1,11 @@
 #include "frida-gum.h"
 
 #include "config.h"
+#include "debug.h"
 
 #include "instrument.h"
 #include "persistent.h"
+#include "util.h"
 
 #if defined(__x86_64__)
 
@@ -264,7 +266,6 @@ void persistent_prologue(GumStalkerOutput *output) {
   GumX86Writer *cw = output->writer.x86;
 
   gconstpointer loop = cw->code + 1;
-  // gum_x86_writer_put_breakpoint(cw);
 
   /* Stack must be 16-byte aligned per ABI */
   instrument_persitent_save_regs(cw, &saved_regs);
@@ -288,7 +289,9 @@ void persistent_prologue(GumStalkerOutput *output) {
   instrument_persitent_restore_regs(cw, &saved_regs);
   gconstpointer original = cw->code + 1;
   /* call original */
+
   gum_x86_writer_put_call_near_label(cw, original);
+
   /* jmp loop */
   gum_x86_writer_put_jmp_near_label(cw, loop);
 
@@ -300,7 +303,21 @@ void persistent_prologue(GumStalkerOutput *output) {
   /* original: */
   gum_x86_writer_put_label(cw, original);
 
+  if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
+
   gum_x86_writer_flush(cw);
+
+}
+
+void persistent_epilogue(GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+
+  if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
+
+  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
+                                        persistent_ret_offset);
+  gum_x86_writer_put_ret(cw);
 
 }
 

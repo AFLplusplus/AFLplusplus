@@ -174,11 +174,17 @@ size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
 static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
   unsigned char *buf = (unsigned char *)malloc(MAX_FILE);
+
   for (int i = 1; i < argc; i++) {
 
-    int fd = open(argv[i], O_RDONLY);
-    if (fd == -1) continue;
+    int fd = 0;
+
+    if (strcmp(argv[i], "-") != 0) { fd = open(argv[i], O_RDONLY); }
+
+    if (fd == -1) { continue; }
+
     ssize_t length = read(fd, buf, MAX_FILE);
+
     if (length > 0) {
 
       printf("Reading %zu bytes from %s\n", length, argv[i]);
@@ -187,7 +193,7 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
     }
 
-    close(fd);
+    if (fd > 0) { close(fd); }
 
   }
 
@@ -199,15 +205,19 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 int main(int argc, char **argv) {
 
   printf(
-      "======================= INFO =========================\n"
+      "============================== INFO ================================\n"
       "This binary is built for afl++.\n"
+      "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
+      "option\n"
       "To run the target function on individual input(s) execute this:\n"
       "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
       "To fuzz with afl-fuzz execute this:\n"
       "  afl-fuzz [afl-flags] -- %s [-N]\n"
       "afl-fuzz will run N iterations before re-spawning the process (default: "
       "INT_MAX)\n"
-      "======================================================\n",
+      "For stdin input processing, pass '-' as single command line option.\n"
+      "For file input processing, pass '@@' as single command line option.\n"
+      "===================================================================\n",
       argv[0], argv[0]);
 
   if (getenv("AFL_GDB")) {
@@ -237,22 +247,35 @@ int main(int argc, char **argv) {
   memcpy(dummy_input, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
   memcpy(dummy_input + 32, (void *)AFL_DEFER_FORKSVR,
          sizeof(AFL_DEFER_FORKSVR));
+
   int N = INT_MAX;
-  if (argc == 2 && argv[1][0] == '-')
-    N = atoi(argv[1] + 1);
-  else if (argc == 2 && (N = atoi(argv[1])) > 0)
-    printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
-  else if (argc > 1) {
+
+  if (argc == 2 && !strcmp(argv[1], "-")) {
 
     __afl_sharedmem_fuzzing = 0;
     __afl_manual_init();
+    return ExecuteFilesOnyByOne(argc, argv);
+
+  } else if (argc == 2 && argv[1][0] == '-') {
+
+    N = atoi(argv[1] + 1);
+
+  } else if (argc == 2 && (N = atoi(argv[1])) > 0) {
+
+    printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
+
+  } else if (argc > 1) {
+
+    __afl_sharedmem_fuzzing = 0;
+
+    if (argc == 2) { __afl_manual_init(); }
+
     return ExecuteFilesOnyByOne(argc, argv);
 
   }
 
   assert(N > 0);
 
-  //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
   __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
@@ -271,6 +294,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
     fprintf(stderr, "\n");
 #endif
+
     if (*__afl_fuzz_len) {
 
       num_runs++;

@@ -113,7 +113,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   u8  lockfile[PATH_MAX] = "";
   s32 i;
 
-  if (afl->afl_env.afl_no_affinity) {
+  if (afl->afl_env.afl_no_affinity && !afl->afl_env.afl_try_affinity) {
 
     if (afl->cpu_to_bind != -1) {
 
@@ -130,10 +130,21 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (!bind_cpu(afl, afl->cpu_to_bind)) {
 
-      FATAL(
-          "Could not bind to requested CPU %d! Make sure you passed a valid "
-          "-b.",
-          afl->cpu_to_bind);
+      if (afl->afl_env.afl_try_affinity) {
+
+        WARNF(
+            "Could not bind to requested CPU %d! Make sure you passed a valid "
+            "-b.",
+            afl->cpu_to_bind);
+
+      } else {
+
+        FATAL(
+            "Could not bind to requested CPU %d! Make sure you passed a valid "
+            "-b.",
+            afl->cpu_to_bind);
+
+      }
 
     }
 
@@ -420,11 +431,14 @@ void bind_to_free_cpu(afl_state_t *afl) {
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
          "    other instances of afl-fuzz (or similar CPU-locked tasks). "
          "Starting\n"
-         "    another fuzzer on this machine is probably a bad plan, but if "
-         "you are\n"
-         "    absolutely sure, you can set AFL_NO_AFFINITY and try again.\n",
-         afl->cpu_core_count);
-    FATAL("No more free CPU cores");
+         "    another fuzzer on this machine is probably a bad plan.\n"
+         "%s",
+         afl->cpu_core_count,
+         afl->afl_env.afl_try_affinity ? ""
+                                       : "    If you are sure, you can set "
+                                         "AFL_NO_AFFINITY and try again.\n");
+
+    if (!afl->afl_env.afl_try_affinity) { FATAL("No more free CPU cores"); }
 
   }
 
@@ -823,7 +837,6 @@ void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q;
   u32                 cal_failures = 0, idx;
-  u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
   u8 *                use_mem;
 
   for (idx = 0; idx < afl->queued_paths; idx++) {
@@ -922,27 +935,6 @@ void perform_dry_run(afl_state_t *afl) {
       case FSRV_RUN_CRASH:
 
         if (afl->crash_mode) { break; }
-
-        if (skip_crashes) {
-
-          if (afl->fsrv.uses_crash_exitcode) {
-
-            WARNF(
-                "Test case results in a crash or AFL_CRASH_EXITCODE %d "
-                "(skipping)",
-                (int)(s8)afl->fsrv.crash_exitcode);
-
-          } else {
-
-            WARNF("Test case results in a crash (skipping)");
-
-          }
-
-          q->cal_failed = CAL_CHANCES;
-          ++cal_failures;
-          break;
-
-        }
 
         if (afl->fsrv.mem_limit) {
 
@@ -1117,14 +1109,12 @@ void perform_dry_run(afl_state_t *afl) {
 
     if (cal_failures == afl->queued_paths) {
 
-      FATAL("All test cases time out%s, giving up!",
-            skip_crashes ? " or crash" : "");
+      FATAL("All test cases time out or crash, giving up!");
 
     }
 
-    WARNF("Skipped %u test cases (%0.02f%%) due to timeouts%s.", cal_failures,
-          ((double)cal_failures) * 100 / afl->queued_paths,
-          skip_crashes ? " or crashes" : "");
+    WARNF("Skipped %u test cases (%0.02f%%) due to timeouts or crashes.",
+          cal_failures, ((double)cal_failures) * 100 / afl->queued_paths);
 
     if (cal_failures * 5 > afl->queued_paths) {
 

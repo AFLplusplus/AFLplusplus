@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -18,10 +19,12 @@
 #include "instrument.h"
 #include "interceptor.h"
 #include "lib.h"
+#include "output.h"
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "stats.h"
 #include "util.h"
 
 #ifdef __APPLE__
@@ -58,10 +61,10 @@ static void on_main_os(int argc, char **argv, char **envp) {
 static void on_main_os(int argc, char **argv, char **envp) {
 
   UNUSED_PARAMETER(argc);
-
   /* Personality doesn't affect the current process, it only takes effect on
    * evec */
   int persona = personality(ADDR_NO_RANDOMIZE);
+  if (persona == -1) { WARNF("Failed to set ADDR_NO_RANDOMIZE: %d", errno); }
   if ((persona & ADDR_NO_RANDOMIZE) == 0) { execvpe(argv[0], argv, envp); }
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
@@ -94,9 +97,11 @@ void afl_frida_start() {
   lib_init();
   entry_init();
   instrument_init();
+  output_init();
   persistent_init();
   prefetch_init();
   ranges_init();
+  stats_init();
 
   void *fork_addr =
       GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
