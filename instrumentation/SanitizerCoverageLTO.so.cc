@@ -237,7 +237,8 @@ class ModuleSanitizerCoverage {
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 0;
   uint64_t                         map_addr = 0;
-  char *                           skip_nozero = NULL;
+  const char *                     skip_nozero = NULL;
+  const char *                     use_threadsafe_counters = nullptr;
   std::vector<BasicBlock *>        BlockList;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<std::string>         dictionary;
@@ -438,6 +439,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
     be_quiet = 1;
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
 
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
     if ((afl_global_id = atoi(ptr)) < 0)
@@ -1209,7 +1211,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
     return;  // Should not instrument sanitizer init functions.
   if (F.getName().startswith("__sanitizer_"))
     return;  // Don't instrument __sanitizer_* callbacks.
-  // Don't touch available_externally functions, their actual body is elewhere.
+  // Don't touch available_externally functions, their actual body is elsewhere.
   if (F.getLinkage() == GlobalValue::AvailableExternallyLinkage) return;
   // Don't instrument MSVC CRT configuration helpers. They may run before normal
   // initialization.
@@ -1496,27 +1498,33 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     }
 
     /* Update bitmap */
-#if 1 /* Atomic */
-    IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One, 
-        llvm::AtomicOrdering::Monotonic);
+    if (use_threadsafe_counters) { /* Atomic */
 
-#else
-    LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-    Counter->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
-
-    Value *Incr = IRB.CreateAdd(Counter, One);
-
-    if (skip_nozero == NULL) {
-
-      auto cf = IRB.CreateICmpEQ(Incr, Zero);
-      auto carry = IRB.CreateZExt(cf, Int8Tyi);
-      Incr = IRB.CreateAdd(Incr, carry);
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+                          llvm::AtomicOrdering::Monotonic);
 
     }
+    else
+    {
 
-    IRB.CreateStore(Incr, MapPtrIdx)
-        ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
-#endif
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      Counter->setMetadata(Mo->getMDKindID("nosanitize"),
+                           MDNode::get(*Ct, None));
+
+      Value *Incr = IRB.CreateAdd(Counter, One);
+
+      if (skip_nozero == NULL) {
+
+        auto cf = IRB.CreateICmpEQ(Incr, Zero);
+        auto carry = IRB.CreateZExt(cf, Int8Tyi);
+        Incr = IRB.CreateAdd(Incr, carry);
+
+      }
+
+      IRB.CreateStore(Incr, MapPtrIdx)
+          ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
+
+    }
     // done :)
 
     inst++;
