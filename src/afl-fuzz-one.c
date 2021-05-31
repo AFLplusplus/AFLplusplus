@@ -562,7 +562,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
       if (afl->cmplog_lvl == 3 ||
           (afl->cmplog_lvl == 2 && afl->queue_cur->tc_ref) ||
           !(afl->fsrv.total_execs % afl->queued_paths) ||
-          get_cur_time() - afl->last_path_time > 300000) {
+          get_cur_time() - afl->last_path_time > 300000) {  // 300 seconds
 
         if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
@@ -2013,7 +2013,7 @@ havoc_stage:
 
   }
 
-  if (unlikely(get_cur_time() - afl->last_path_time > 5000 &&
+  if (unlikely(get_cur_time() - afl->last_path_time > 5000 /* 5 seconds */ &&
                afl->ready_for_splicing_count > 1)) {
 
     /* add expensive havoc cases here if there is no findings in the last 5s */
@@ -3010,13 +3010,13 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
     orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
-    if (res == FSRV_RUN_ERROR) {
+    if (unlikely(res == FSRV_RUN_ERROR)) {
 
       FATAL("Unable to execute target application");
 
     }
 
-    if (afl->stop_soon) {
+    if (unlikely(afl->stop_soon)) {
 
       ++afl->cur_skipped_paths;
       goto abandon_entry;
@@ -3060,7 +3060,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
       if (afl->cmplog_lvl == 3 ||
           (afl->cmplog_lvl == 2 && afl->queue_cur->tc_ref) ||
           !(afl->fsrv.total_execs % afl->queued_paths) ||
-          get_cur_time() - afl->last_path_time > 300000) {
+          get_cur_time() - afl->last_path_time > 300000) {  // 300 seconds
 
         if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 

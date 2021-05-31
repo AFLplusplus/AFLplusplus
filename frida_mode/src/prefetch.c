@@ -3,8 +3,11 @@
 #include <sys/mman.h>
 
 #include "frida-gum.h"
-#include "prefetch.h"
+
 #include "debug.h"
+
+#include "prefetch.h"
+#include "stalker.h"
 
 #define TRUST 0
 #define PREFETCH_SIZE 65536
@@ -49,8 +52,9 @@ void prefetch_write(void *addr) {
 /*
  * Read the IPC region one block at the time and prefetch it
  */
-void prefetch_read(GumStalker *stalker) {
+void prefetch_read(void) {
 
+  GumStalker *stalker = stalker_get();
   if (prefetch_data == NULL) return;
 
   for (size_t i = 0; i < prefetch_data->count; i++) {
@@ -68,7 +72,7 @@ void prefetch_read(GumStalker *stalker) {
 
 }
 
-void prefetch_init() {
+void prefetch_init(void) {
 
   g_assert_cmpint(sizeof(prefetch_data_t), ==, PREFETCH_SIZE);
   gboolean prefetch = (getenv("AFL_FRIDA_INST_NO_PREFETCH") == NULL);
@@ -103,19 +107,6 @@ void prefetch_init() {
 
   /* Clear it, not sure it's necessary, just seems like good practice */
   memset(prefetch_data, '\0', sizeof(prefetch_data_t));
-
-}
-
-__attribute__((noinline)) static void prefetch_activation() {
-
-  asm volatile("");
-
-}
-
-void prefetch_start(GumStalker *stalker) {
-
-  gum_stalker_activate(stalker, prefetch_activation);
-  prefetch_activation();
 
 }
 

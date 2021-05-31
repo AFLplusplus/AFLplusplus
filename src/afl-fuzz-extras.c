@@ -130,6 +130,20 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     }
 
+    /* Skip [number] */
+
+    if (*lptr == '[') {
+
+      do {
+
+        ++lptr;
+
+      } while (*lptr >= '0' && *lptr <= '9');
+
+      if (*lptr == ']') { ++lptr; }
+
+    }
+
     /* Skip whitespace and = signs. */
 
     while (isspace(*lptr) || *lptr == '=') {

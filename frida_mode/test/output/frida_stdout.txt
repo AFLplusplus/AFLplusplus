@@ -1,0 +1,349 @@
+OG Range - 0x00007FFFF7FFE000 - 0x00007FFFF7FFF000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FFD000 - 0x00007FFFF7FFE000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FFC000 - 0x00007FFFF7FFD000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FF3000 - 0x00007FFFF7FFB000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FD0000 - 0x00007FFFF7FF3000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FCF000 - 0x00007FFFF7FD0000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FCE000 - 0x00007FFFF7FCF000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7FCB000 - 0x00007FFFF7FCE000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7DC4000 - 0x00007FFFF7FCB000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7DBC000 - 0x00007FFFF7DC4000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7DB0000 - 0x00007FFFF7DBC000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7A94000 - 0x00007FFFF7DB0000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7942000 - 0x00007FFFF7A94000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF78BF000 - 0x00007FFFF7942000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF78AF000 - 0x00007FFFF78BF000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF78AA000 - 0x00007FFFF78AB000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF78A9000 - 0x00007FFFF78AA000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF78A2000 - 0x00007FFFF78A6000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF789F000 - 0x00007FFFF78A2000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF789C000 - 0x00007FFFF789F000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7851000 - 0x00007FFFF789B000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76DB000 - 0x00007FFFF7851000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76DA000 - 0x00007FFFF76DB000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76D9000 - 0x00007FFFF76DA000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76B4000 - 0x00007FFFF76D9000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76B0000 - 0x00007FFFF76B4000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76AF000 - 0x00007FFFF76B0000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76AE000 - 0x00007FFFF76AF000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF76A9000 - 0x00007FFFF76AE000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7698000 - 0x00007FFFF76A9000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7691000 - 0x00007FFFF7698000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF768F000 - 0x00007FFFF7691000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF768E000 - 0x00007FFFF768F000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF768D000 - 0x00007FFFF768E000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7689000 - 0x00007FFFF768C000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7679000 - 0x00007FFFF7689000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7675000 - 0x00007FFFF7679000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7674000 - 0x00007FFFF7675000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7673000 - 0x00007FFFF7674000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7672000 - 0x00007FFFF7673000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF7670000 - 0x00007FFFF7672000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF766F000 - 0x00007FFFF7670000[0m
+[1;92m[+] [0mCMPLOG Range - 0x00007FFFF766D000 - 0x00007FFFF766F000[0m
+[1;92m[+] [0mRedirect 1 -> '/home/jon/git/AFLplusplus/frida_mode/test/output/frida_stdout.txt'[0m
+[1;92m[+] [0mRedirect 2 -> '/home/jon/git/AFLplusplus/frida_mode/test/output/frida_stderr.txt'[0m
+[1;92m[+] [0mInstrumentation - persistent mode [ ] (0x0000000000000000)[0m
+[1;92m[+] [0mInstrumentation - persistent count [ ] (0)[0m
+[1;92m[+] [0mInstrumentation - hook [(null)][0m
+[1;92m[+] [0mInstrumentation - persistent ret [ ] (0x0000000000000000)[0m
+[1;92m[+] [0mInstrumentation - persistent ret offset [ ] (0)[0m
+[1;92m[+] [0mInstrumentation - prefetch [X][0m
+[1;92m[+] [0mRange: Modules Length: 54[0m
+[1;92m[+] [0mRange: Modules Idx:   0 - 0x0000555555554000-0x0000555555555000[0m
+[1;92m[+] [0mRange: Modules Idx:   1 - 0x0000555555555000-0x0000555555556000[0m
+[1;92m[+] [0mRange: Modules Idx:   2 - 0x0000555555556000-0x0000555555557000[0m
+[1;92m[+] [0mRange: Modules Idx:   3 - 0x0000555555557000-0x0000555555558000[0m
+[1;92m[+] [0mRange: Modules Idx:   4 - 0x0000555555558000-0x0000555555559000[0m
+[1;92m[+] [0mRange: Modules Idx:   5 - 0x0000555555559000-0x000055555557a000[0m
+[1;92m[+] [0mRange: Modules Idx:   6 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: Modules Idx:   7 - 0x00007ffff766d000-0x00007ffff766f000[0m
+[1;92m[+] [0mRange: Modules Idx:   8 - 0x00007ffff766f000-0x00007ffff7670000[0m
+[1;92m[+] [0mRange: Modules Idx:   9 - 0x00007ffff7670000-0x00007ffff7672000[0m
+[1;92m[+] [0mRange: Modules Idx:  10 - 0x00007ffff7672000-0x00007ffff7673000[0m
+[1;92m[+] [0mRange: Modules Idx:  11 - 0x00007ffff7673000-0x00007ffff7674000[0m
+[1;92m[+] [0mRange: Modules Idx:  12 - 0x00007ffff7674000-0x00007ffff7675000[0m
+[1;92m[+] [0mRange: Modules Idx:  13 - 0x00007ffff7675000-0x00007ffff7679000[0m
+[1;92m[+] [0mRange: Modules Idx:  14 - 0x00007ffff7679000-0x00007ffff7689000[0m
+[1;92m[+] [0mRange: Modules Idx:  15 - 0x00007ffff7689000-0x00007ffff768c000[0m
+[1;92m[+] [0mRange: Modules Idx:  16 - 0x00007ffff768c000-0x00007ffff768d000[0m
+[1;92m[+] [0mRange: Modules Idx:  17 - 0x00007ffff768d000-0x00007ffff768e000[0m
+[1;92m[+] [0mRange: Modules Idx:  18 - 0x00007ffff768e000-0x00007ffff768f000[0m
+[1;92m[+] [0mRange: Modules Idx:  19 - 0x00007ffff768f000-0x00007ffff7691000[0m
+[1;92m[+] [0mRange: Modules Idx:  20 - 0x00007ffff7691000-0x00007ffff7698000[0m
+[1;92m[+] [0mRange: Modules Idx:  21 - 0x00007ffff7698000-0x00007ffff76a9000[0m
+[1;92m[+] [0mRange: Modules Idx:  22 - 0x00007ffff76a9000-0x00007ffff76ae000[0m
+[1;92m[+] [0mRange: Modules Idx:  23 - 0x00007ffff76ae000-0x00007ffff76af000[0m
+[1;92m[+] [0mRange: Modules Idx:  24 - 0x00007ffff76af000-0x00007ffff76b0000[0m
+[1;92m[+] [0mRange: Modules Idx:  25 - 0x00007ffff76b0000-0x00007ffff76b4000[0m
+[1;92m[+] [0mRange: Modules Idx:  26 - 0x00007ffff76b4000-0x00007ffff76d9000[0m
+[1;92m[+] [0mRange: Modules Idx:  27 - 0x00007ffff76d9000-0x00007ffff76da000[0m
+[1;92m[+] [0mRange: Modules Idx:  28 - 0x00007ffff76da000-0x00007ffff76db000[0m
+[1;92m[+] [0mRange: Modules Idx:  29 - 0x00007ffff76db000-0x00007ffff7851000[0m
+[1;92m[+] [0mRange: Modules Idx:  30 - 0x00007ffff7851000-0x00007ffff789b000[0m
+[1;92m[+] [0mRange: Modules Idx:  31 - 0x00007ffff789b000-0x00007ffff789c000[0m
+[1;92m[+] [0mRange: Modules Idx:  32 - 0x00007ffff789c000-0x00007ffff789f000[0m
+[1;92m[+] [0mRange: Modules Idx:  33 - 0x00007ffff789f000-0x00007ffff78a2000[0m
+[1;92m[+] [0mRange: Modules Idx:  34 - 0x00007ffff78a2000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: Modules Idx:  35 - 0x00007ffff78a9000-0x00007ffff78aa000[0m
+[1;92m[+] [0mRange: Modules Idx:  36 - 0x00007ffff78aa000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: Modules Idx:  37 - 0x00007ffff78af000-0x00007ffff78bf000[0m
+[1;92m[+] [0mRange: Modules Idx:  38 - 0x00007ffff78bf000-0x00007ffff7942000[0m
+[1;92m[+] [0mRange: Modules Idx:  39 - 0x00007ffff7942000-0x00007ffff7a94000[0m
+[1;92m[+] [0mRange: Modules Idx:  40 - 0x00007ffff7a94000-0x00007ffff7db0000[0m
+[1;92m[+] [0mRange: Modules Idx:  41 - 0x00007ffff7db0000-0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: Modules Idx:  42 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: Modules Idx:  43 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: Modules Idx:  44 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: Modules Idx:  45 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: Modules Idx:  46 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: Modules Idx:  47 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: Modules Idx:  48 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: Modules Idx:  49 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: Modules Idx:  50 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: Modules Idx:  51 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: Modules Idx:  52 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: Modules Idx:  53 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: AFL_INST_LIBS Length: 1[0m
+[1;92m[+] [0mRange: AFL_INST_LIBS Idx:   0 - 0x0000555555555160-0x0000555555555335[0m
+[1;92m[+] [0mRange: step1 Length: 1[0m
+[1;92m[+] [0mRange: step1 Idx:   0 - 0x0000555555555160-0x0000555555555335[0m
+[1;92m[+] [0mRange: step2 Length: 1[0m
+[1;92m[+] [0mRange: step2 Idx:   0 - 0x0000555555555160-0x0000555555555335[0m
+[1;92m[+] [0mRange: step3 Length: 1[0m
+[1;92m[+] [0mRange: step3 Idx:   0 - 0x0000555555555160-0x0000555555555335[0m
+[1;92m[+] [0mRange: step4 Length: 55[0m
+[1;92m[+] [0mRange: step4 Idx:   0 - 0x0000555555554000-0x0000555555555000[0m
+[1;92m[+] [0mRange: step4 Idx:   1 - 0x0000555555555000-0x0000555555555160[0m
+[1;92m[+] [0mRange: step4 Idx:   2 - 0x0000555555555335-0x0000555555556000[0m
+[1;92m[+] [0mRange: step4 Idx:   3 - 0x0000555555556000-0x0000555555557000[0m
+[1;92m[+] [0mRange: step4 Idx:   4 - 0x0000555555557000-0x0000555555558000[0m
+[1;92m[+] [0mRange: step4 Idx:   5 - 0x0000555555558000-0x0000555555559000[0m
+[1;92m[+] [0mRange: step4 Idx:   6 - 0x0000555555559000-0x000055555557a000[0m
+[1;92m[+] [0mRange: step4 Idx:   7 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: step4 Idx:   8 - 0x00007ffff766d000-0x00007ffff766f000[0m
+[1;92m[+] [0mRange: step4 Idx:   9 - 0x00007ffff766f000-0x00007ffff7670000[0m
+[1;92m[+] [0mRange: step4 Idx:  10 - 0x00007ffff7670000-0x00007ffff7672000[0m
+[1;92m[+] [0mRange: step4 Idx:  11 - 0x00007ffff7672000-0x00007ffff7673000[0m
+[1;92m[+] [0mRange: step4 Idx:  12 - 0x00007ffff7673000-0x00007ffff7674000[0m
+[1;92m[+] [0mRange: step4 Idx:  13 - 0x00007ffff7674000-0x00007ffff7675000[0m
+[1;92m[+] [0mRange: step4 Idx:  14 - 0x00007ffff7675000-0x00007ffff7679000[0m
+[1;92m[+] [0mRange: step4 Idx:  15 - 0x00007ffff7679000-0x00007ffff7689000[0m
+[1;92m[+] [0mRange: step4 Idx:  16 - 0x00007ffff7689000-0x00007ffff768c000[0m
+[1;92m[+] [0mRange: step4 Idx:  17 - 0x00007ffff768c000-0x00007ffff768d000[0m
+[1;92m[+] [0mRange: step4 Idx:  18 - 0x00007ffff768d000-0x00007ffff768e000[0m
+[1;92m[+] [0mRange: step4 Idx:  19 - 0x00007ffff768e000-0x00007ffff768f000[0m
+[1;92m[+] [0mRange: step4 Idx:  20 - 0x00007ffff768f000-0x00007ffff7691000[0m
+[1;92m[+] [0mRange: step4 Idx:  21 - 0x00007ffff7691000-0x00007ffff7698000[0m
+[1;92m[+] [0mRange: step4 Idx:  22 - 0x00007ffff7698000-0x00007ffff76a9000[0m
+[1;92m[+] [0mRange: step4 Idx:  23 - 0x00007ffff76a9000-0x00007ffff76ae000[0m
+[1;92m[+] [0mRange: step4 Idx:  24 - 0x00007ffff76ae000-0x00007ffff76af000[0m
+[1;92m[+] [0mRange: step4 Idx:  25 - 0x00007ffff76af000-0x00007ffff76b0000[0m
+[1;92m[+] [0mRange: step4 Idx:  26 - 0x00007ffff76b0000-0x00007ffff76b4000[0m
+[1;92m[+] [0mRange: step4 Idx:  27 - 0x00007ffff76b4000-0x00007ffff76d9000[0m
+[1;92m[+] [0mRange: step4 Idx:  28 - 0x00007ffff76d9000-0x00007ffff76da000[0m
+[1;92m[+] [0mRange: step4 Idx:  29 - 0x00007ffff76da000-0x00007ffff76db000[0m
+[1;92m[+] [0mRange: step4 Idx:  30 - 0x00007ffff76db000-0x00007ffff7851000[0m
+[1;92m[+] [0mRange: step4 Idx:  31 - 0x00007ffff7851000-0x00007ffff789b000[0m
+[1;92m[+] [0mRange: step4 Idx:  32 - 0x00007ffff789b000-0x00007ffff789c000[0m
+[1;92m[+] [0mRange: step4 Idx:  33 - 0x00007ffff789c000-0x00007ffff789f000[0m
+[1;92m[+] [0mRange: step4 Idx:  34 - 0x00007ffff789f000-0x00007ffff78a2000[0m
+[1;92m[+] [0mRange: step4 Idx:  35 - 0x00007ffff78a2000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: step4 Idx:  36 - 0x00007ffff78a9000-0x00007ffff78aa000[0m
+[1;92m[+] [0mRange: step4 Idx:  37 - 0x00007ffff78aa000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: step4 Idx:  38 - 0x00007ffff78af000-0x00007ffff78bf000[0m
+[1;92m[+] [0mRange: step4 Idx:  39 - 0x00007ffff78bf000-0x00007ffff7942000[0m
+[1;92m[+] [0mRange: step4 Idx:  40 - 0x00007ffff7942000-0x00007ffff7a94000[0m
+[1;92m[+] [0mRange: step4 Idx:  41 - 0x00007ffff7a94000-0x00007ffff7db0000[0m
+[1;92m[+] [0mRange: step4 Idx:  42 - 0x00007ffff7db0000-0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!
+0x00007ffff7dbc000[0m
+[1;92m[+] [0mRange: step4 Idx:  43 - 0x00007ffff7dbc000-0x00007ffff7dc4000[0m
+[1;92m[+] [0mRange: step4 Idx:  44 - 0x00007ffff7dc4000-0x00007ffff7fcb000[0m
+[1;92m[+] [0mRange: step4 Idx:  45 - 0x00007ffff7fcb000-0x00007ffff7fce000[0m
+[1;92m[+] [0mRange: step4 Idx:  46 - 0x00007ffff7fce000-0x00007ffff7fcf000[0m
+[1;92m[+] [0mRange: step4 Idx:  47 - 0x00007ffff7fcf000-0x00007ffff7fd0000[0m
+[1;92m[+] [0mRange: step4 Idx:  48 - 0x00007ffff7fd0000-0x00007ffff7ff3000[0m
+[1;92m[+] [0mRange: step4 Idx:  49 - 0x00007ffff7ff3000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: step4 Idx:  50 - 0x00007ffff7ffc000-0x00007ffff7ffd000[0m
+[1;92m[+] [0mRange: step4 Idx:  51 - 0x00007ffff7ffd000-0x00007ffff7ffe000[0m
+[1;92m[+] [0mRange: step4 Idx:  52 - 0x00007ffff7ffe000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: step4 Idx:  53 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: step4 Idx:  54 - 0xffffffffff600000-0xffffffffff601000[0m
+[1;92m[+] [0mRange: final Length: 9[0m
+[1;92m[+] [0mRange: final Idx:   0 - 0x0000555555554000-0x0000555555555160[0m
+[1;92m[+] [0mRange: final Idx:   1 - 0x0000555555555335-0x000055555557a000[0m
+[1;92m[+] [0mRange: final Idx:   2 - 0x00007ffff7615000-0x00007ffff7625000[0m
+[1;92m[+] [0mRange: final Idx:   3 - 0x00007ffff766d000-0x00007ffff78a6000[0m
+[1;92m[+] [0mRange: final Idx:   4 - 0x00007ffff78a9000-0x00007ffff78ab000[0m
+[1;92m[+] [0mRange: final Idx:   5 - 0x00007ffff78af000-0x00007ffff7ffb000[0m
+[1;92m[+] [0mRange: final Idx:   6 - 0x00007ffff7ffc000-0x00007ffff7fff000[0m
+[1;92m[+] [0mRange: final Idx:   7 - 0x00007ffffffdd000-0x00007ffffffff000[0m
+[1;92m[+] [0mRange: final Idx:   8 - 0xffffffffff600000-0xffffffffff601000[0m
+Looks like a zero to me!

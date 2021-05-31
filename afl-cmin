@@ -119,11 +119,13 @@ function usage() {
 "Environment variables used:\n" \
 "AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
 "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n" \
-"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n" \
+"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the forkserver to come up\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
-"AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
-"AFL_PATH: path for the afl-showmap binary if not found anywhere else\n" \
-"AFL_SKIP_BIN_CHECK: skip check for target binary\n"
+"AFL_KILL_SIGNAL: Signal delivered to child processes on timeout (default: SIGKILL)\n" \
+"AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH\n" \
+"AFL_PRINT_FILENAMES: If set, the filename currently processed will be " \
+      "printed to stdout\n" \
+"AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n"
    exit 1
 }
 

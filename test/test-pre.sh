@@ -62,6 +62,7 @@ $ECHO \\101 2>&1 | grep -qE '^A' || {
 test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
 
 export AFL_EXIT_WHEN_DONE=1
+export AFL_EXIT_ON_TIME=60
 export AFL_SKIP_CPUFREQ=1
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 unset AFL_NO_X86

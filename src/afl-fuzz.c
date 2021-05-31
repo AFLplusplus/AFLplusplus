@@ -35,6 +35,10 @@
   #include <sys/shm.h>
 #endif
 
+#ifdef __APPLE__
+  #include <sys/qos.h>
+#endif
+
 #ifdef PROFILING
 extern u64 time_spent_working;
 #endif
@@ -204,6 +208,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_EXIT_ON_TIME: exit when no new paths are found within the specified time period\n"
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
@@ -219,6 +224,7 @@ static void usage(u8 *argv0, int more_help) {
       "                    then they are randomly selected instead all of them being\n"
       "                    used. Defaults to 200.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
+      "AFL_TRY_AFFINITY: try to bind to an unused core, but don't fail if unsuccessful\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
       "AFL_NO_AUTODICT: do not load an offered auto dictionary compiled into a target\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
@@ -237,9 +243,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
+      "AFL_SKIP_BIN_CHECK: skip afl compatibility checks, also disables auto map size\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
-      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      //"AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_STATSD: enables StatsD metrics collection\n"
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
@@ -327,11 +333,55 @@ static int stricmp(char const *a, char const *b) {
 
 }
 
+static void fasan_check_afl_preload(char *afl_preload) {
+
+  char   first_preload[PATH_MAX + 1] = {0};
+  char * separator = strchr(afl_preload, ':');
+  size_t first_preload_len = PATH_MAX;
+  char * basename;
+  char   clang_runtime_prefix[] = "libclang_rt.asan-";
+
+  if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
+
+    first_preload_len = separator - afl_preload;
+
+  }
+
+  strncpy(first_preload, afl_preload, first_preload_len);
+
+  basename = strrchr(first_preload, '/');
+  if (basename == NULL) {
+
+    basename = first_preload;
+
+  } else {
+
+    basename = basename + 1;
+
+  }
+
+  if (strncmp(basename, clang_runtime_prefix,
+              sizeof(clang_runtime_prefix) - 1) != 0) {
+
+    FATAL("Address Sanitizer DSO must be the first DSO in AFL_PRELOAD");
+
+  }
+
+  if (access(first_preload, R_OK) != 0) {
+
+    FATAL("Address Sanitizer DSO not found");
+
+  }
+
+  OKF("Found ASAN DSO: %s", first_preload);
+
+}
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
+  s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
       map_size = get_map_size();
@@ -784,6 +834,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->fsrv.frida_mode = 1;
+        if (get_afl_env("AFL_USE_FASAN")) { afl->fsrv.frida_asan = 1; }
 
         break;
 
@@ -1246,6 +1297,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_exit_on_time) {
+
+    u64 exit_on_time = atoi(afl->afl_env.afl_exit_on_time);
+    afl->exit_on_time = (u64)exit_on_time * 1000;
+
+  }
+
   if (afl->afl_env.afl_max_det_extras) {
 
     s32 max_det_extras = atoi(afl->afl_env.afl_max_det_extras);
@@ -1358,20 +1416,29 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl_preload = getenv("AFL_PRELOAD");
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
       if (afl_preload) {
 
+        if (afl->fsrv.frida_asan) {
+
+          OKF("Using Frida Address Sanitizer Mode");
+
+          fasan_check_afl_preload(afl_preload);
+
+          setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
+
+        }
+
+        u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+        OKF("Injecting %s ...", frida_binary);
         frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
 
-      } else {
+        ck_free(frida_binary);
 
-        frida_afl_preload = alloc_printf("%s", frida_binary);
+        setenv("LD_PRELOAD", frida_afl_preload, 1);
+        setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
       }
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
     } else {
 
@@ -1382,10 +1449,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else if (afl->fsrv.frida_mode) {
 
-    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-    setenv("LD_PRELOAD", frida_binary, 1);
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-    ck_free(frida_binary);
+    if (afl->fsrv.frida_asan) {
+
+      OKF("Using Frida Address Sanitizer Mode");
+      FATAL(
+          "Address Sanitizer DSO must be loaded using AFL_PRELOAD in Frida "
+          "Address Sanitizer Mode");
+
+    } else {
+
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      OKF("Injecting %s ...", frida_binary);
+      setenv("LD_PRELOAD", frida_binary, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+      ck_free(frida_binary);
+
+    }
 
   }
 
@@ -1643,10 +1722,10 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-      !afl->unicorn_mode) {
+      !afl->unicorn_mode && !afl->fsrv.frida_mode &&
+      !afl->afl_env.afl_skip_bin_check) {
 
-    if (map_size <= DEFAULT_SHMEM_SIZE && !afl->non_instrumented_mode &&
-        !afl->fsrv.qemu_mode && !afl->unicorn_mode) {
+    if (map_size <= DEFAULT_SHMEM_SIZE) {
 
       afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
       char vbuf[16];
@@ -1697,13 +1776,15 @@ int main(int argc, char **argv_orig, char **envp) {
     // TODO: this is semi-nice
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-        !afl->unicorn_mode) {
+        !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+        !afl->afl_env.afl_skip_bin_check) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
       char vbuf[16];
@@ -1759,7 +1840,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (extras_dir_cnt) {
 
-    for (i = 0; i < extras_dir_cnt; i++) {
+    for (u8 i = 0; i < extras_dir_cnt; i++) {
 
       load_extras(afl, extras_dir[i]);
 
@@ -1911,6 +1992,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (unlikely(seek_to)) {
 
+          if (unlikely(seek_to >= afl->queued_paths)) {
+
+            // This should never happen.
+            FATAL("BUG: seek_to location out of bounds!\n");
+
+          }
+
           afl->current_entry = seek_to;
           afl->queue_cur = afl->queue_buf[seek_to];
           seek_to = 0;
@@ -1929,8 +2017,10 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (unlikely(afl->queued_paths == prev_queued &&
-                   (get_cur_time() - afl->start_time) >= 3600)) {
+      if (unlikely(afl->queued_paths == prev_queued
+                   /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
+                      3600 */
+                   )) {
 
         if (afl->use_splicing) {
 
@@ -2048,7 +2138,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (i = 0; i < (s32)afl->queued_paths; i++) {
+        for (u32 i = 0; i < afl->queued_paths; i++) {
 
           if (likely(!afl->queue_buf[i]->disabled)) {
 
@@ -2209,6 +2299,14 @@ stop_fuzzing:
   }
 
   afl_fsrv_deinit(&afl->fsrv);
+
+  /* remove tmpfile */
+  if (afl->tmp_dir != NULL && !afl->in_place_resume && afl->fsrv.out_file) {
+
+    (void)unlink(afl->fsrv.out_file);
+
+  }
+
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);

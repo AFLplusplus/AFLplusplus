@@ -289,6 +289,10 @@ checks or alter some of the more exotic semantics of the tool:
     normally indicated by the cycle counter in the UI turning green. May be
     convenient for some types of automated jobs.
 
+  - `AFL_EXIT_ON_TIME` Causes afl-fuzz to terminate if no new paths were 
+    found within a specified period of time (in seconds). May be convenient 
+    for some types of automated jobs.
+
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behaviour
     which does not allow crashes or timeout seeds in the initial -i corpus.
 
@@ -313,13 +317,11 @@ checks or alter some of the more exotic semantics of the tool:
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
 
+  - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
+    on Linux systems, but will not terminate if that fails.
+
   - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
     that is compiled into the target.
-
-  - `AFL_SKIP_CRASHES` causes AFL++ to tolerate crashing files in the input
-    queue. This can help with rare situations where a program crashes only
-    intermittently, but it's not really recommended under normal operating
-    conditions.
 
   - Setting `AFL_HANG_TMOUT` allows you to specify a different timeout for
     deciding if a particular test case is a "hang". The default is 1 second
@@ -356,6 +358,7 @@ checks or alter some of the more exotic semantics of the tool:
     and shell scripts; and `AFL_DUMB_FORKSRV` in conjunction with the `-n`
     setting to instruct afl-fuzz to still follow the fork server protocol
     without expecting any instrumentation data in return.
+    Note that this also turns off auto map size detection.
 
   - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
     fuzzer to import test cases from other instances before doing anything
@@ -567,6 +570,9 @@ The corpus minimization script offers very little customization:
   - `AFL_ALLOW_TMP` permits this and some other scripts to run in /tmp. This is
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
+
+  - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
+    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts scripting.
 
 ## 7) Settings for afl-tmin
 

@@ -503,21 +503,21 @@ code-format:
 	./.custom-format.py -i instrumentation/*.h
 	./.custom-format.py -i instrumentation/*.cc
 	./.custom-format.py -i instrumentation/*.c
+	./.custom-format.py -i *.h
+	./.custom-format.py -i *.c
 	@#./.custom-format.py -i custom_mutators/*/*.c* # destroys libfuzzer :-(
 	@#./.custom-format.py -i custom_mutators/*/*.h # destroys honggfuzz :-(
 	./.custom-format.py -i utils/*/*.c*
 	./.custom-format.py -i utils/*/*.h
 	./.custom-format.py -i test/*.c
+	./.custom-format.py -i frida_mode/src/*.c
+	./.custom-format.py -i frida_mode/include/*.h
+	-./.custom-format.py -i frida_mode/src/*/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
 	./.custom-format.py -i qemu_mode/libqasan/*.c
 	./.custom-format.py -i qemu_mode/libqasan/*.h
-	./.custom-format.py -i frida_mode/src/*.c
-	./.custom-format.py -i frida_mode/include/*.h
-	-./.custom-format.py -i frida_mode/src/*/*.c
-	./.custom-format.py -i *.h
-	./.custom-format.py -i *.c
 
 
 .PHONY: test_build
