@@ -43,6 +43,36 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] llvm_mode failed"
     CODE=1
   }
+  AFL_LLVM_INSTRUMENT=CLASSIC AFL_LLVM_THREADSAFE_INST=1 ../afl-clang-fast -o test-instr.ts ../test-instr.c > /dev/null 2>&1
+  test -e test-instr.ts && {
+    $ECHO "$GREEN[+] llvm_mode threadsafe compilation succeeded"
+    echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.ts.0 -r -- ./test-instr.ts > /dev/null 2>&1
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.ts.1 -r -- ./test-instr.ts < /dev/null > /dev/null 2>&1
+    test -e test-instr.ts.0 -a -e test-instr.ts.1 && {
+      diff test-instr.ts.0 test-instr.ts.1 > /dev/null 2>&1 && {
+        $ECHO "$RED[!] llvm_mode threadsafe instrumentation should be different on different input but is not"
+        CODE=1
+      } || {
+        $ECHO "$GREEN[+] llvm_mode threadsafe instrumentation present and working correctly"
+        TUPLES=`echo 0|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.ts 2>&1 | grep Captur | awk '{print$3}'`
+        test "$TUPLES" -gt 2 -a "$TUPLES" -lt 8 && {
+          $ECHO "$GREEN[+] llvm_mode run reported $TUPLES threadsafe instrumented locations which is fine"
+        } || {
+          $ECHO "$RED[!] llvm_mode threadsafe instrumentation produces weird numbers: $TUPLES"
+          CODE=1
+        }
+        test "$TUPLES" -lt 3 && SKIP=1
+        true
+      }
+    } || {
+      $ECHO "$RED[!] llvm_mode threadsafe instrumentation failed"
+      CODE=1
+    }
+    rm -f test-instr.ts.0 test-instr.ts.1
+  } || {
+    $ECHO "$RED[!] llvm_mode (threadsafe) failed"
+    CODE=1
+  }
   ../afl-clang-fast -DTEST_SHARED_OBJECT=1 -z defs -fPIC -shared -o test-instr.so ../test-instr.c > /dev/null 2>&1
   test -e test-instr.so && {
     $ECHO "$GREEN[+] llvm_mode shared object with -z defs compilation succeeded"
