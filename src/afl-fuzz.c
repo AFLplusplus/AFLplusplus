@@ -2286,13 +2286,10 @@ stop_fuzzing:
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);
-  unsetenv(SHM_ENV_VAR);
-  unsetenv(CMPLOG_SHM_ENV_VAR);
   afl_shm_deinit(&afl->shm);
 
   if (afl->shm_fuzz) {
 
-    unsetenv(SHM_FUZZ_ENV_VAR);
     afl_shm_deinit(afl->shm_fuzz);
     ck_free(afl->shm_fuzz);
 
