@@ -58,6 +58,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     MacOS shared memory
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
+  - add thread safe counters for LLVM CLASSIC (set AFL_LLVM_THREADSAFE_INST)
   - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the
     current filename
   - afl-showmap/cmin will now process queue items in alphabetical order
