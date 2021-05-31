@@ -111,9 +111,9 @@ set terminal png truecolor enhanced size 1000,300 butt
 
 set output '$outputdir/high_freq.png'
 
-set xdata time
-set timefmt '%s'
-set format x "%b %d\n%H:%M"
+#set xdata time
+#set timefmt '%s'
+#set format x "%b %d\n%H:%M"
 set tics font 'small'
 unset mxtics
 unset mytics
@@ -127,9 +127,8 @@ set key outside
 set autoscale xfixmin
 set autoscale xfixmax
 
-set xlabel "all times in UTC" font "small"
+#set xlabel "all times in UTC" font "small"
 
-set ytics auto
 plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'total paths' linecolor rgb '#000000' fillstyle transparent solid 0.2 noborder, \\
      '' using 1:3 with filledcurve x1 title 'current path' linecolor rgb '#f0f0f0' fillstyle transparent solid 0.5 noborder, \\
      '' using 1:5 with lines title 'pending paths' linecolor rgb '#0090ff' linewidth 3, \\
@@ -139,7 +138,6 @@ plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'total paths' lin
 set terminal png truecolor enhanced size 1000,200 butt
 set output '$outputdir/low_freq.png'
 
-set ytics 1
 plot '$inputdir/plot_data' using 1:8 with filledcurve x1 title '' linecolor rgb '#c00080' fillstyle transparent solid 0.2 noborder, \\
      '' using 1:8 with lines title ' uniq crashes' linecolor rgb '#c00080' linewidth 3, \\
      '' using 1:9 with lines title 'uniq hangs' linecolor rgb '#c000f0' linewidth 3, \\
@@ -148,14 +146,12 @@ plot '$inputdir/plot_data' using 1:8 with filledcurve x1 title '' linecolor rgb 
 set terminal png truecolor enhanced size 1000,200 butt
 set output '$outputdir/exec_speed.png'
 
-set ytics auto
 plot '$inputdir/plot_data' using 1:11 with filledcurve x1 title '' linecolor rgb '#0090ff' fillstyle transparent solid 0.2 noborder, \\
      '$inputdir/plot_data' using 1:11 with lines title '    execs/sec' linecolor rgb '#0090ff' linewidth 3 smooth bezier;
 
 set terminal png truecolor enhanced size 1000,300 butt
 set output '$outputdir/edges.png'
 
-set ytics auto
 plot '$inputdir/plot_data' using 1:13 with lines title '        edges' linecolor rgb '#0090ff' linewidth 3
 
 _EOF_

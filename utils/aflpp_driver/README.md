@@ -13,6 +13,12 @@ If this is the clang compile command to build for libfuzzer:
 then just switch `clang++` with `afl-clang-fast++` and our compiler will
 magically insert libAFLDriver.a :)
 
+To use shared-memory testcases, you need nothing to do.
+To use stdin testcases give `-` as the only command line parameter.
+To use file input testcases give `@@` as the only command line parameter.
+
+IMPORTANT: if you use `afl-cmin` or `afl-cmin.bash` then either pass `-`
+or `@@` as command line parameters.
 
 ## aflpp_qemu_driver
 

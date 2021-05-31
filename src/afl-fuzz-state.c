@@ -99,6 +99,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->cal_cycles = CAL_CYCLES;
   afl->cal_cycles_long = CAL_CYCLES_LONG;
   afl->hang_tmout = EXEC_TIMEOUT;
+  afl->exit_on_time = 0;
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
@@ -187,6 +188,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_exit_when_done =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_EXIT_ON_TIME",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_exit_on_time =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           } else if (!strncmp(env, "AFL_NO_AFFINITY",
 
                               afl_environment_variable_len)) {
@@ -194,12 +202,18 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_no_affinity =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_TRY_AFFINITY",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_try_affinity =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_SKIP_CRASHES",
 
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_skip_crashes =
-                (u8 *)get_afl_env(afl_environment_variables[i]);
+            // we should mark this obsolete in a few versions
 
           } else if (!strncmp(env, "AFL_HANG_TMOUT",
 

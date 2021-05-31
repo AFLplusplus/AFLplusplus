@@ -2,11 +2,11 @@
 
   (See [../README.md](../README.md) for the general instruction manual.)
 
-  (See [README.gcc_plugon.md](../README.gcc_plugin.md) for the GCC-based instrumentation.)
+  (See [README.gcc_plugin.md](../README.gcc_plugin.md) for the GCC-based instrumentation.)
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.4 up to 12 !
+! llvm_mode works with llvm versions 6.0 up to 12 !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude

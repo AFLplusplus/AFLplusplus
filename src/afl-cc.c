@@ -560,12 +560,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
-      if (!*ld_path) ld_path = "ld.lld";
+      if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
+      if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
       cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);
 #else
       cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_path);
 #endif
+      free(ld_path);
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
@@ -1222,6 +1224,14 @@ int main(int argc, char **argv, char **envp) {
 
     if (strncmp(argv[i], "--afl", 5) == 0) {
 
+      if (!strcmp(argv[i], "--afl_noopt") || !strcmp(argv[i], "--afl-noopt")) {
+
+        passthrough = 1;
+        argv[i] = "-g";  // we have to overwrite it, -g is always good
+        continue;
+
+      }
+
       if (compiler_mode)
         WARNF(
             "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
@@ -1572,7 +1582,12 @@ int main(int argc, char **argv, char **envp) {
     else if (have_gcc_plugin)
       compiler_mode = GCC_PLUGIN;
     else if (have_gcc)
+#ifdef __APPLE__
+      // on OSX clang masquerades as GCC
+      compiler_mode = CLANG;
+#else
       compiler_mode = GCC;
+#endif
     else if (have_lto)
       compiler_mode = LTO;
     else
@@ -1594,7 +1609,12 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (compiler_mode == CLANG) { instrument_mode = INSTRUMENT_CLANG; }
+  if (compiler_mode == CLANG) {
+
+    instrument_mode = INSTRUMENT_CLANG;
+    setenv(CLANG_ENV_VAR, "1", 1);  // used by afl-as
+
+  }
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
@@ -1628,7 +1648,7 @@ int main(int argc, char **argv, char **envp) {
         "   yes\n"
         "  [LLVM] llvm:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
-        "extern\n"
+        "yes\n"
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
@@ -1809,6 +1829,12 @@ int main(int argc, char **argv, char **envp) {
             "path\n"
             "If anything fails - be sure to read README.lto.md!\n");
 #endif
+
+      SAYF(
+          "\nYou can supply --afl-noopt to not instrument, like AFL_NOOPT. "
+          "(this is helpful\n"
+          "in some build systems if you do not want to instrument "
+          "everything.\n");
 
     }
 

@@ -416,7 +416,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     struct rlimit r;
 
-    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false) {
+    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false &&
+        fsrv->frida_mode == false) {
 
       unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
 
@@ -450,8 +451,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* Dumping cores is slow and can lead to anomalies if SIGKILL is delivered
        before the dump is complete. */
 
-    //    r.rlim_max = r.rlim_cur = 0;
-    //    setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
+    if (!fsrv->debug) {
+
+      r.rlim_max = r.rlim_cur = 0;
+      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
+
+    }
 
     /* Isolate the process and configure standard descriptors. If out_file is
        specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */
@@ -1089,7 +1094,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #endif
 
-  if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
+  if (likely(fsrv->use_shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
 

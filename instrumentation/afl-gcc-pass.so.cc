@@ -177,7 +177,7 @@ int plugin_is_GPL_compatible = 1;
 
 namespace {
 
-static const struct pass_data afl_pass_data = {
+static constexpr struct pass_data afl_pass_data = {
 
     .type = GIMPLE_PASS,
     .name = "afl",
@@ -503,7 +503,7 @@ struct afl_pass : gimple_opt_pass {
     // Starting from "LLVMFuzzer" these are functions used in libfuzzer based
     // fuzzing campaign installations, e.g. oss-fuzz
 
-    static const char *ignoreList[] = {
+    static constexpr const char *ignoreList[] = {
 
         "asan.",
         "llvm.",

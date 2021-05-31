@@ -179,6 +179,8 @@ void load_stats_file(afl_state_t *afl) {
 
   }
 
+  if (afl->unique_crashes) { write_crash_readme(afl); }
+
   return;
 
 }
@@ -366,7 +368,8 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                  afl->plot_prev_uh == afl->unique_hangs &&
                  afl->plot_prev_md == afl->max_depth &&
                  afl->plot_prev_ed == afl->fsrv.total_execs) ||
-                !afl->queue_cycle || get_cur_time() - afl->start_time <= 60))) {
+                !afl->queue_cycle ||
+                get_cur_time() - afl->start_time <= 60000))) {
 
     return;
 
@@ -384,14 +387,14 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   /* Fields in the file:
 
-     unix_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
+     relative_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
      favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
      execs_per_sec, edges_found */
 
   fprintf(afl->fsrv.plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
           "%u\n",
-          (afl->prev_run_time + get_cur_time() - afl->start_time),
+          ((afl->prev_run_time + get_cur_time() - afl->start_time) / 1000),
           afl->queue_cycle - 1, afl->current_entry, afl->queued_paths,
           afl->pending_not_fuzzed, afl->pending_favored, bitmap_cvg,
           afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
@@ -544,7 +547,7 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_statsd)) {
 
-    if (unlikely(afl->force_ui_update && cur_ms - afl->statsd_last_send_ms >
+    if (unlikely(afl->force_ui_update || cur_ms - afl->statsd_last_send_ms >
                                              STATSD_UPDATE_SEC * 1000)) {
 
       /* reset counter, even if send failed. */
@@ -569,6 +572,16 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
                !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)) {
+
+    afl->stop_soon = 2;
+
+  }
+
+  /* AFL_EXIT_ON_TIME. */
+
+  if (unlikely(afl->last_path_time && !afl->non_instrumented_mode &&
+               afl->afl_env.afl_exit_on_time &&
+               (cur_ms - afl->last_path_time) > afl->exit_on_time)) {
 
     afl->stop_soon = 2;
 

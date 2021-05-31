@@ -84,22 +84,23 @@ behaviours and defaults:
 
 ## Important features of afl++
 
-  afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 5.1
+  afl++ supports llvm from 6.0 up to version 12, very fast binary fuzzing with QEMU 5.1
   with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
   Mac OS, Solaris and Android support and much, much, much more.
 
   | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode | qemu_mode        |unicorn_mode |
   | -------------------------|:-------:|:---------:|:----------:|:----------:|:----------------:|:------------:|
-  | NeverZero                | x86[_64]|     x(1)  |     x      |            |         x        |       x      |
-  | Persistent Mode          |         |     x     |     x      |            | x86[_64]/arm[64] |       x      |
+  | NeverZero                | x86[_64]|     x(1)  |     x      |     x      |         x        |       x      |
+  | Persistent Mode          |         |     x     |     x      |  x86[_64]  | x86[_64]/arm[64] |       x      |
   | LAF-Intel / CompCov      |         |     x     |            |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                   |         |     x     |            |            | x86[_64]/arm[64] |              |
+  | CmpLog                   |         |     x     |            |  x86[_64]  | x86[_64]/arm[64] |              |
   | Selective Instrumentation|         |     x     |     x      |     x      |         x        |              |
   | Non-Colliding Coverage   |         |     x(4)  |            |            |        (x)(5)    |              |
   | Ngram prev_loc Coverage  |         |     x(6)  |            |            |                  |              |
   | Context Coverage         |         |     x(6)  |            |            |                  |              |
   | Auto Dictionary          |         |     x(7)  |            |            |                  |              |
   | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |            |        (x)(5)    |              |
+  | Shared Memory Testcases  |         |     x     |     x      |     x      |         x        |       x      |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in previous llvm versions
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
@@ -254,6 +255,7 @@ Here are some good writeups to show how to effectively use AFL++:
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
  * Superion for afl++: [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
+ * libprotobuf for afl++: [https://github.com/P1umer/AFLplusplus-protobuf-mutator](https://github.com/P1umer/AFLplusplus-protobuf-mutator)
  * libprotobuf raw: [https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
  * libprotobuf for old afl++ API: [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
 
@@ -293,7 +295,7 @@ anything below 9 is not recommended.
     |
     v
 +---------------------------------+
-| clang/clang++ 3.3+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
+| clang/clang++ 6.0+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
 +---------------------------------+     see [instrumentation/README.llvm.md](instrumentation/README.llvm.md)
     |
     | if not, or if the target fails with LLVM afl-clang-fast/++
@@ -435,7 +437,7 @@ described in [instrumentation/README.lto.md](instrumentation/README.lto.md).
 ##### cmake
 
 For `cmake` build systems this is usually done by:
-`mkdir build; cmake -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..`
+`mkdir build; cd build; cmake -DCMAKE_C_COMPILER=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..`
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
@@ -677,8 +679,8 @@ If you see that an important area or a feature has not been covered so far then
 try to find an input that is able to reach that and start a new secondary in
 that fuzzing campaign with that seed as input, let it run for a few minutes,
 then terminate it. The main node will pick it up and make it available to the
-other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` if you have no
-free core.
+other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` or
+`export AFL_TRY_AFFINITY=1` if you have no free core.
 
 Note that you in nearly all cases can never reach full coverage. A lot of
 functionality is usually behind options that were not activated or fuzz e.g.
@@ -789,16 +791,19 @@ How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](
 When source code is *NOT* available, afl++ offers various support for fast,
 on-the-fly instrumentation of black-box binaries. 
 
-If you do not have to use Unicorn the following setup is recommended:
+If you do not have to use Unicorn the following setup is recommended to use
+qemu_mode:
   * run 1 afl-fuzz -Q instance with CMPLOG (`-c 0` + `AFL_COMPCOV_LEVEL=2`)
   * run 1 afl-fuzz -Q instance with QASAN  (`AFL_USE_QASAN=1`)
   * run 1 afl-fuzz -Q instance with LAF (``AFL_PRELOAD=libcmpcov.so` + `AFL_COMPCOV_LEVEL=2`)
+Alternatively you can use frida_mode, just switch `-Q` with `-O` and remove the
+LAF instance.
 
 Then run as many instances as you have cores left with either -Q mode or - better -
-use a binary rewriter like afl-dyninst, retrowrite, zipr, fibre, etc.
+use a binary rewriter like afl-dyninst, retrowrite, zaflr, etc.
 
-For Qemu mode, check out the persistent mode and snapshot features, they give
-a huge speed improvement!  
+For Qemu and Frida mode, check out the persistent mode, it gives a huge speed
+improvement if it is possible to use.
 
 ### QEMU
 
@@ -810,17 +815,30 @@ feature by doing:
 cd qemu_mode
 ./build_qemu_support.sh
 ```
-For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md) -
-check out the snapshot feature! :-)
+For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
 If possible you should use the persistent mode, see [qemu_mode/README.persistent.md](qemu_mode/README.persistent.md).
 The mode is approximately 2-5x slower than compile-time instrumentation, and is
 less conducive to parallelization.
 
 If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
 your binary, then you can use afl-fuzz normally and it will have twice
-the speed compared to qemu_mode (but slower than persistent mode).
+the speed compared to qemu_mode (but slower than qemu persistent mode).
 Note that several other binary rewriters exist, all with their advantages and
 caveats.
+
+### Frida
+
+Frida mode is sometimes faster and sometimes slower than Qemu mode.
+It is also newer, lacks COMPCOV, but supports MacOS.
+
+```shell
+cd frida_mode
+make
+```
+For additional instructions and caveats, see [frida_mode/README.md](frida_mode/README.md).
+If possible you should use the persistent mode, see [qemu_frida/README.persistent.md](qemu_frida/README.persistent.md).
+The mode is approximately 2-5x slower than compile-time instrumentation, and is
+less conducive to parallelization.
 
 ### Unicorn
 
