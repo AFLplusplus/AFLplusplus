@@ -17,7 +17,7 @@ static void instrument_debug(char *format, ...) {
   va_list ap;
   char    buffer[4096] = {0};
   int     ret;
-  int len;
+  int     len;
 
   va_start(ap, format);
   ret = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);

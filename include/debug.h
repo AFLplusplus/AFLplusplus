@@ -362,7 +362,12 @@ static inline const char *colorfilter(const char *x) {
                                                                           \
     s32 _len = (s32)(len);                                                \
     s32 _res = write(_fd, (buf), _len);                                   \
-    if (_res != _len) RPFATAL(_res, "Short write to %s, fd %d", fn, _fd); \
+    if (_res != _len) {                                                   \
+                                                                          \
+      RPFATAL(_res, "Short write to %s, fd %d (%d of %d bytes)", fn, _fd, \
+              _res, _len);                                                \
+                                                                          \
+    }                                                                     \
                                                                           \
   } while (0)
 
