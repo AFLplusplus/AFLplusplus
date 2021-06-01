@@ -121,7 +121,7 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
     });
 
     /* everything as planned. use the potentially new data. */
-    afl_fsrv_write_to_testcase(&afl->fsrv, new_buf, new_size);
+    afl_fsrv_write_to_testcase(&afl->fsrv, new_mem, new_size);
 
   } else {
 
