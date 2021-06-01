@@ -333,7 +333,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
 
-      unsetenv(SHM_FUZZ_ENV_VAR);
       afl_shm_deinit(afl->shm_fuzz);
       ck_free(afl->shm_fuzz);
       afl->shm_fuzz = NULL;
