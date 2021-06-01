@@ -42,7 +42,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
     - added thread safe counters to all modes (`AFL_LLVM_THREADSAFE_INST`),
-      note that this disables never zero counters.
+      note that this disables NeverZero counters.
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
     - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
