@@ -1497,14 +1497,12 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     }
 
     /* Update bitmap */
-    if (use_threadsafe_counters) { /* Atomic */
+    if (use_threadsafe_counters) {                                /* Atomic */
 
       IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
                           llvm::AtomicOrdering::Monotonic);
 
-    }
-    else
-    {
+    } else {
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
       Counter->setMetadata(Mo->getMDKindID("nosanitize"),
@@ -1524,6 +1522,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
           ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
 
     }
+
     // done :)
 
     inst++;

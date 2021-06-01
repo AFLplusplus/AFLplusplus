@@ -41,6 +41,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       it fails
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
+    - added thread safe counters to all modes (`AFL_LLVM_THREADSAFE_INST`),
+      note that this disables never zero counters.
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
     - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD
@@ -58,7 +60,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     MacOS shared memory
   - updated the grammar custom mutator to the newest version
   - add -d (add dead fuzzer stats) to afl-whatsup
-  - add thread safe counters for LLVM CLASSIC (set AFL_LLVM_THREADSAFE_INST)
   - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the
     current filename
   - afl-showmap/cmin will now process queue items in alphabetical order

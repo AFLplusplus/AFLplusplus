@@ -81,12 +81,12 @@ class AFLCoverage : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  uint32_t ngram_size = 0;
-  uint32_t ctx_k = 0;
-  uint32_t map_size = MAP_SIZE;
-  uint32_t function_minimum_size = 1;
-  const char *   ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
-  const char *   use_threadsafe_counters = nullptr;
+  uint32_t    ngram_size = 0;
+  uint32_t    ctx_k = 0;
+  uint32_t    map_size = MAP_SIZE;
+  uint32_t    function_minimum_size = 1;
+  const char *ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
+  const char *use_threadsafe_counters = nullptr;
 
 };
 
@@ -188,18 +188,30 @@ bool AFLCoverage::runOnModule(Module &M) {
   if ((isatty(2) && !getenv("AFL_QUIET")) || !!getenv("AFL_DEBUG")) {
 
     if (use_threadsafe_counters) {
-      if (!getenv("AFL_LLVM_NOT_ZERO")) {
-        skip_nozero = "1";
-        SAYF(cCYA "afl-llvm-pass" VERSION cRST " using thread safe counters\n");
-      }
-      else {
-        SAYF(cCYA "afl-llvm-pass" VERSION cRST
-                  " using thread safe not-zero-counters\n");
-      }
-    }
-    else
-    {
-      SAYF(cCYA "afl-llvm-pass" VERSION cRST " using non-thread safe instrumentation\n");
+
+      // disabled unless there is support for other modules as well
+      // (increases documentation complexity)
+      /*      if (!getenv("AFL_LLVM_NOT_ZERO")) { */
+
+      skip_nozero = "1";
+      SAYF(cCYA "afl-llvm-pass" VERSION cRST " using thread safe counters\n");
+
+      /*
+
+            } else {
+
+              SAYF(cCYA "afl-llvm-pass" VERSION cRST
+                        " using thread safe not-zero-counters\n");
+
+            }
+
+      */
+
+    } else {
+
+      SAYF(cCYA "afl-llvm-pass" VERSION cRST
+                " using non-thread safe instrumentation\n");
+
     }
 
   }
@@ -649,44 +661,44 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       /* Update bitmap */
 
+      if (use_threadsafe_counters) {                              /* Atomic */
 
-      if (use_threadsafe_counters) {/* Atomic */
-
-  #if LLVM_VERSION_MAJOR < 9
+#if LLVM_VERSION_MAJOR < 9
         if (neverZero_counters_str !=
-            NULL) {  // with llvm 9 we make this the default as the bug in llvm is then fixed
-  #else
+            NULL) {  // with llvm 9 we make this the default as the bug in llvm
+                     // is then fixed
+#else
         if (!skip_nozero) {
 
-  #endif
+#endif
           // register MapPtrIdx in a todo list
           todo.push_back(MapPtrIdx);
 
-        }
-        else
-        {
+        } else {
+
           IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
                               llvm::AtomicOrdering::Monotonic);
+
         }
-      }
-      else
-      {
+
+      } else {
 
         LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
         Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
         Value *Incr = IRB.CreateAdd(Counter, One);
 
-  #if LLVM_VERSION_MAJOR < 9
+#if LLVM_VERSION_MAJOR < 9
         if (neverZero_counters_str !=
-            NULL) {  // with llvm 9 we make this the default as the bug in llvm is
-                     // then fixed
-  #else
+            NULL) {  // with llvm 9 we make this the default as the bug in llvm
+                     // is then fixed
+#else
         if (!skip_nozero) {
 
-  #endif
+#endif
           /* hexcoder: Realize a counter that skips zero during overflow.
-           * Once this counter reaches its maximum value, it next increments to 1
+           * Once this counter reaches its maximum value, it next increments to
+           * 1
            *
            * Instead of
            * Counter + 1 -> Counter
@@ -705,7 +717,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      } /* non atomic case */
+      }                                                  /* non atomic case */
 
       /* Update prev_loc history vector (by placing cur_loc at the head of the
          vector and shuffle the other elements back by one) */
@@ -762,16 +774,19 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     }
 
-    if (use_threadsafe_counters) { /*Atomic NeverZero */
+    if (use_threadsafe_counters) {                       /*Atomic NeverZero */
       // handle the list of registered blocks to instrument
       for (auto val : todo) {
-        /* hexcoder: Realize a thread-safe counter that skips zero during overflow. Once this counter reaches its maximum value, it next increments to 1
-             *
-             * Instead of
-             * Counter + 1 -> Counter
-             * we inject now this
-             * Counter + 1 -> {Counter, OverflowFlag}
-             * Counter + OverflowFlag -> Counter
+
+        /* hexcoder: Realize a thread-safe counter that skips zero during
+         * overflow. Once this counter reaches its maximum value, it next
+         * increments to 1
+         *
+         * Instead of
+         * Counter + 1 -> Counter
+         * we inject now this
+         * Counter + 1 -> {Counter, OverflowFlag}
+         * Counter + OverflowFlag -> Counter
          */
 
         /* equivalent c code looks like this
@@ -781,12 +796,19 @@ bool AFLCoverage::runOnModule(Module &M) {
             int old = atomic_load_explicit(&Counter, memory_order_relaxed);
             int new;
             do {
+
                  if (old == 255) {
+
                    new = 1;
+
                  } else {
+
                    new = old + 1;
+
                  }
+
             } while (!atomic_compare_exchange_weak_explicit(&Counter, &old, new,
+
          memory_order_relaxed, memory_order_relaxed));
 
          */
@@ -805,7 +827,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         BasicBlock *BB = IRB.GetInsertBlock();
         // insert a basic block with the corpus of a do while loop
-        // the calculation may need to repeat, if atomic compare_exchange is not successful
+        // the calculation may need to repeat, if atomic compare_exchange is not
+        // successful
 
         BasicBlock::iterator it(*Counter);
         it++;  // split after load counter
@@ -857,6 +880,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // if the cmpXchg was not successful, retry
         IRB.CreateCondBr(Success, end_bb, do_while_bb);
+
       }
 
     }
