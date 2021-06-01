@@ -572,6 +572,7 @@ clean:
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C qemu_mode/libqasan clean
+	$(MAKE) -C frida_mode clean
 ifeq "$(IN_REPO)" "1"
 	test -e qemu_mode/qemuafl/Makefile && $(MAKE) -C qemu_mode/qemuafl clean || true
 	test -e unicorn_mode/unicornafl/Makefile && $(MAKE) -C unicorn_mode/unicornafl clean || true
