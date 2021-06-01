@@ -179,6 +179,8 @@ void load_stats_file(afl_state_t *afl) {
 
   }
 
+  if (afl->unique_crashes) { write_crash_readme(afl); }
+
   return;
 
 }
@@ -355,18 +357,19 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                             double eps) {
 
-  if (unlikely(afl->stop_soon) ||
-      unlikely(afl->plot_prev_qp == afl->queued_paths &&
-               afl->plot_prev_pf == afl->pending_favored &&
-               afl->plot_prev_pnf == afl->pending_not_fuzzed &&
-               afl->plot_prev_ce == afl->current_entry &&
-               afl->plot_prev_qc == afl->queue_cycle &&
-               afl->plot_prev_uc == afl->unique_crashes &&
-               afl->plot_prev_uh == afl->unique_hangs &&
-               afl->plot_prev_md == afl->max_depth &&
-               afl->plot_prev_ed == afl->fsrv.total_execs) ||
-      unlikely(!afl->queue_cycle) ||
-      unlikely(get_cur_time() - afl->start_time <= 60)) {
+  if (unlikely(!afl->force_ui_update &&
+               (afl->stop_soon ||
+                (afl->plot_prev_qp == afl->queued_paths &&
+                 afl->plot_prev_pf == afl->pending_favored &&
+                 afl->plot_prev_pnf == afl->pending_not_fuzzed &&
+                 afl->plot_prev_ce == afl->current_entry &&
+                 afl->plot_prev_qc == afl->queue_cycle &&
+                 afl->plot_prev_uc == afl->unique_crashes &&
+                 afl->plot_prev_uh == afl->unique_hangs &&
+                 afl->plot_prev_md == afl->max_depth &&
+                 afl->plot_prev_ed == afl->fsrv.total_execs) ||
+                !afl->queue_cycle ||
+                get_cur_time() - afl->start_time <= 60000))) {
 
     return;
 
@@ -384,14 +387,14 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   /* Fields in the file:
 
-     unix_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
+     relative_time, afl->cycles_done, cur_path, paths_total, paths_not_fuzzed,
      favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
      execs_per_sec, edges_found */
 
   fprintf(afl->fsrv.plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
           "%u\n",
-          (afl->prev_run_time + get_cur_time() - afl->start_time),
+          ((afl->prev_run_time + get_cur_time() - afl->start_time) / 1000),
           afl->queue_cycle - 1, afl->current_entry, afl->queued_paths,
           afl->pending_not_fuzzed, afl->pending_favored, bitmap_cvg,
           afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
@@ -531,7 +534,8 @@ void show_stats(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000) {
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
 
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
@@ -543,7 +547,8 @@ void show_stats(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_statsd)) {
 
-    if (cur_ms - afl->statsd_last_send_ms > STATSD_UPDATE_SEC * 1000) {
+    if (unlikely(afl->force_ui_update || cur_ms - afl->statsd_last_send_ms >
+                                             STATSD_UPDATE_SEC * 1000)) {
 
       /* reset counter, even if send failed. */
       afl->statsd_last_send_ms = cur_ms;
@@ -555,7 +560,8 @@ void show_stats(afl_state_t *afl) {
 
   /* Every now and then, write plot data. */
 
-  if (cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000) {
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000)) {
 
     afl->stats_last_plot_ms = cur_ms;
     maybe_update_plot_file(afl, t_bytes, t_byte_ratio, afl->stats_avg_exec);
@@ -564,14 +570,24 @@ void show_stats(afl_state_t *afl) {
 
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
-  if (!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
-      !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done) {
+  if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
+               !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)) {
 
     afl->stop_soon = 2;
 
   }
 
-  if (afl->total_crashes && afl->afl_env.afl_bench_until_crash) {
+  /* AFL_EXIT_ON_TIME. */
+
+  if (unlikely(afl->last_path_time && !afl->non_instrumented_mode &&
+               afl->afl_env.afl_exit_on_time &&
+               (cur_ms - afl->last_path_time) > afl->exit_on_time)) {
+
+    afl->stop_soon = 2;
+
+  }
+
+  if (unlikely(afl->total_crashes && afl->afl_env.afl_bench_until_crash)) {
 
     afl->stop_soon = 2;
 
@@ -583,7 +599,7 @@ void show_stats(afl_state_t *afl) {
 
   /* If we haven't started doing things, bail out. */
 
-  if (!afl->queue_cur) { return; }
+  if (unlikely(!afl->queue_cur)) { return; }
 
   /* Compute some mildly useful bitmap stats. */
 
@@ -602,7 +618,7 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(TERM_HOME);
 
-  if (afl->term_too_small) {
+  if (unlikely(afl->term_too_small)) {
 
     SAYF(cBRI
          "Your terminal is too small to display the UI.\n"
@@ -861,9 +877,13 @@ void show_stats(afl_state_t *afl) {
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 
-  if (afl->skip_deterministic) {
+  if (unlikely(afl->custom_only)) {
 
-    strcpy(tmp, "n/a, n/a, n/a");
+    strcpy(tmp, "disabled (custom-mutator-only mode)");
+
+  } else if (likely(afl->skip_deterministic)) {
+
+    strcpy(tmp, "disabled (default, enable with -D)");
 
   } else {
 
@@ -881,7 +901,7 @@ void show_stats(afl_state_t *afl) {
                 "    levels : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->max_depth));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP8]),
@@ -897,7 +917,7 @@ void show_stats(afl_state_t *afl) {
                 "   pending : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_ARITH8]),
@@ -913,7 +933,7 @@ void show_stats(afl_state_t *afl) {
                 "  pend fav : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_favored));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_INTEREST8]),
@@ -929,7 +949,7 @@ void show_stats(afl_state_t *afl) {
                 " own finds : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->queued_discovered));
 
-  if (!afl->skip_deterministic) {
+  if (unlikely(!afl->skip_deterministic)) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_EXTRAS_UO]),
@@ -938,6 +958,14 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(3), afl->stage_cycles[STAGE_EXTRAS_UI]),
             u_stringify_int(IB(4), afl->stage_finds[STAGE_EXTRAS_AO]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_EXTRAS_AO]));
+
+  } else if (unlikely(!afl->extras_cnt || afl->custom_only)) {
+
+    strcpy(tmp, "n/a");
+
+  } else {
+
+    strcpy(tmp, "havoc mode");
 
   }
 
@@ -974,35 +1002,57 @@ void show_stats(afl_state_t *afl) {
                   : cRST),
        tmp);
 
-  if (afl->shm.cmplog_mode) {
+  if (unlikely(afl->afl_env.afl_python_module)) {
 
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s",
+    sprintf(tmp, "%s/%s,",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
-            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
-            u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(4), afl->stage_finds[STAGE_COLORIZATION]),
-            u_stringify_int(IB(5), afl->stage_cycles[STAGE_COLORIZATION]),
-            u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]),
-            u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
-
-    SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-         tmp);
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]));
 
   } else {
 
-    sprintf(tmp, "%s/%s, %s/%s",
-            u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
-            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
-            u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
-
-    SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-         tmp);
+    strcpy(tmp, "unused,");
 
   }
 
-  if (!afl->bytes_trim_out) {
+  if (unlikely(afl->afl_env.afl_custom_mutator_library)) {
+
+    strcat(tmp, " ");
+    strcat(tmp, u_stringify_int(IB(2), afl->stage_finds[STAGE_PYTHON]));
+    strcat(tmp, "/");
+    strcat(tmp, u_stringify_int(IB(3), afl->stage_cycles[STAGE_PYTHON]));
+    strcat(tmp, ",");
+
+  } else {
+
+    strcat(tmp, " unused,");
+
+  }
+
+  if (unlikely(afl->shm.cmplog_mode)) {
+
+    strcat(tmp, " ");
+    strcat(tmp, u_stringify_int(IB(4), afl->stage_finds[STAGE_COLORIZATION]));
+    strcat(tmp, "/");
+    strcat(tmp, u_stringify_int(IB(5), afl->stage_cycles[STAGE_COLORIZATION]));
+    strcat(tmp, ", ");
+    strcat(tmp, u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]));
+    strcat(tmp, "/");
+    strcat(tmp, u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
+
+  } else {
+
+    strcat(tmp, " unused, unused");
+
+  }
+
+  SAYF(bV bSTOP "py/custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+       tmp);
+
+  if (likely(afl->disable_trim)) {
+
+    sprintf(tmp, "disabled, ");
+
+  } else if (unlikely(!afl->bytes_trim_out)) {
 
     sprintf(tmp, "n/a, ");
 
@@ -1015,12 +1065,13 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (!afl->blocks_eff_total) {
+  if (likely(afl->skip_deterministic)) {
 
-    u8 tmp2[128];
+    strcat(tmp, "disabled");
 
-    sprintf(tmp2, "n/a");
-    strcat(tmp, tmp2);
+  } else if (unlikely(!afl->blocks_eff_total)) {
+
+    strcat(tmp, "n/a");
 
   } else {
 
@@ -1044,7 +1095,7 @@ void show_stats(afl_state_t *afl) {
   //
   //} else {
 
-  SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  SAYF(bV bSTOP "    trim/eff : " cRST "%-36s " bSTG bV RESET_G1, tmp);
 
   //}
 

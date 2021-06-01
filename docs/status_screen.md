@@ -251,8 +251,9 @@ exceed it by a margin sufficient to be classified as hangs.
   | arithmetics : 53/2.54M, 0/537k, 0/55.2k             |
   |  known ints : 8/322k, 12/1.32M, 10/1.70M            |
   |  dictionary : 9/52k, 1/53k, 1/24k                   |
-  |       havoc : 1903/20.0M, 0/0                       |
-  |        trim : 20.31%/9201, 17.05%                   |
+  |havoc/splice : 1903/20.0M, 0/0                       |
+  |py/custom/rq : unused, 53/2.54M, unused              |
+  |    trim/eff : 20.31%/9201, 17.05%                   |
   +-----------------------------------------------------+
 ```
 
@@ -267,6 +268,12 @@ files; the second one corresponds to the number of execs needed to achieve this
 goal. Finally, the third number shows the proportion of bytes that, although
 not possible to remove, were deemed to have no effect and were excluded from
 some of the more expensive deterministic fuzzing steps.
+
+Note that when deterministic mutation mode is off (which is the default
+because it is not very efficient) the first five lines display
+"disabled (default, enable with -D)".
+
+Only what is activated will have counter shown.
 
 ### Path geometry
 

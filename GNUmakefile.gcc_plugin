@@ -41,6 +41,8 @@ CXXEFLAGS   := $(CXXFLAGS) -Wall -std=c++11
 CC          ?= gcc
 CXX         ?= g++
 
+SYS = $(shell uname -s)
+
 ifeq "clang" "$(CC)"
         CC  = gcc
         CXX = g++
@@ -75,25 +77,25 @@ ifeq "$(TEST_MMAP)" "1"
 	override CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
-ifneq "$(shell uname -s)" "Haiku"
-ifneq "$(shell uname -s)" "OpenBSD"
+ifneq "$(SYS)" "Haiku"
+ifneq "$(SYS)" "OpenBSD"
   	LDFLAGS += -lrt
 endif
 else
 	CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
-ifeq "$(shell uname -s)" "OpenBSD"
+ifeq "$(SYS)" "OpenBSD"
     CC  = egcc
     CXX = eg++
     PLUGIN_FLAGS += -I/usr/local/include
 endif
 
-ifeq "$(shell uname -s)" "DragonFly"
+ifeq "$(SYS)" "DragonFly"
   	PLUGIN_FLAGS += -I/usr/local/include
 endif
 
-ifeq "$(shell uname -s)" "SunOS"
+ifeq "$(SYS)" "SunOS"
   	PLUGIN_FLAGS += -I/usr/include/gmp
 endif
 

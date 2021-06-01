@@ -8,6 +8,63 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++3.13c (release)
+  - Note: plot_data switched to relative time from unix time in 3.10
+  - frida_mode - new mode that uses frida to fuzz binary-only targets,
+    it currently supports persistent mode and cmplog.
+    thanks to @WorksButNotTested!
+  - create a fuzzing dictionary with the help of CodeQL thanks to
+    @microsvuln! see utils/autodict_ql
+  - afl-fuzz:
+    - added patch by @realmadsci to support @@ as part of command line
+      options, e.g. `afl-fuzz ... -- ./target --infile=@@`
+    - add recording of previous fuzz attempts for persistent mode
+      to allow replay of non-reproducable crashes, see
+      AFL_PERSISTENT_RECORD in config.h and docs/envs.h
+    - fixed a bug when trimming for stdin targets
+    - cmplog -l: default cmplog level is now 2, better efficiency.
+      level 3 now performs redqueen on everything. use with care.
+    - better fuzzing strategy yield display for enabled options
+    - ensure one fuzzer sync per cycle
+    - fix afl_custom_queue_new_entry original file name when syncing
+      from fuzzers
+    - fixed a crash when more than one custom mutator was used together
+      with afl_custom_post_process
+    - on a crashing seed potentially the wrong input was disabled
+    - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
+      -i dir crashes the target or results in a timeout. By default
+      afl++ ignores these and uses them for splicing instead.
+    - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing
+      after no new paths have been found for n seconds
+    - when AFL_FAST_CAL is set a variable path will now be calibrated
+      8 times instead of originally 40. Long calibration is now 20.
+    - added AFL_TRY_AFFINITY to try to bind to CPUs but don't error if
+      it fails
+  - afl-cc:
+    - We do not support llvm versions prior 6.0 anymore
+    - added thread safe counters to all modes (`AFL_LLVM_THREADSAFE_INST`),
+      note that this disables NeverZero counters.
+    - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
+    - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
+    - Removed InsTrim instrumentation as it is not as good as PCGUARD
+    - Removed automatic linking with -lc++ for LTO mode
+    - Fixed a crash in llvm dict2file when a strncmp length was -1
+    - added --afl-noopt support
+  - utils/aflpp_driver:
+    - aflpp_qemu_driver_hook fixed to work with qemu_mode
+    - aflpp_driver now compiled with -fPIC
+  - unicornafl:
+    - fix MIPS delay slot caching, thanks @JackGrence
+    - fixed aarch64 exit address
+    - execution no longer stops at address 0x0
+  - updated afl-system-config to support Arch Linux weirdness and increase
+    MacOS shared memory
+  - updated the grammar custom mutator to the newest version
+  - add -d (add dead fuzzer stats) to afl-whatsup
+  - added AFL_PRINT_FILENAMES to afl-showmap/cmin to print the
+    current filename
+  - afl-showmap/cmin will now process queue items in alphabetical order
+
 ### Version ++3.12c (release)
   - afl-fuzz:
     - added AFL_TARGET_ENV variable to pass extra env vars to the target

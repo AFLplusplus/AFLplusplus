@@ -3,6 +3,14 @@
 Custom mutators enhance and alter the mutation strategies of afl++.
 For further information and documentation on how to write your own, read [the docs](../docs/custom_mutators.md).
 
+## Examples
+
+The `./examples` folder contains examples for custom mutators in python and C.
+
+## Rust
+
+In `./rust`, you will find rust bindings, including a simple example in `./rust/example` and an example for structured fuzzing, based on lain, in`./rust/example_lain`.
+
 ## The afl++ Grammar Mutator
 
 If you use git to clone afl++, then the following will incorporate our
@@ -46,3 +54,6 @@ https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4
 has a transform function you need to fill for your protobuf format, however
 needs to be ported to the updated afl++ custom mutator API (not much work):
 https://github.com/thebabush/afl-libprotobuf-mutator
+
+same as above but is for current afl++:
+https://github.com/P1umer/AFLplusplus-protobuf-mutator

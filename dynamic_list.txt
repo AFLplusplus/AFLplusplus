@@ -21,6 +21,7 @@
   "__afl_coverage_interesting";
   "__afl_fuzz_len";
   "__afl_fuzz_ptr";
+  "__afl_sharedmem_fuzzing";
   "__sanitizer_cov_trace_pc_guard";
   "__sanitizer_cov_trace_pc_guard_init";
   "__cmplog_ins_hook1";

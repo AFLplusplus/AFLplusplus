@@ -437,8 +437,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   if (taint) {
 
-    if (afl->colorize_success &&
-        (len / positions == 1 && positions > CMPLOG_POSITIONS_MAX &&
+    if (afl->colorize_success && afl->cmplog_lvl < 3 &&
+        (positions > CMPLOG_POSITIONS_MAX && len / positions == 1 &&
          afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT)) {
 
 #ifdef _DEBUG
@@ -1749,6 +1749,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 #endif
 
+#ifdef _DEBUG
+      if (o->v0 != orig_o->v0 || o->v1 != orig_o->v1)
+        fprintf(stderr, "key=%u idx=%u o0=%llu v0=%llu o1=%llu v1=%llu\n", key,
+                idx, orig_o->v0, o->v0, orig_o->v1, o->v1);
+#endif
+
       // even for u128 and _ExtInt we do cmp_extend_encoding() because
       // if we got here their own special trials failed and it might just be
       // a cast from e.g. u64 to u128 from the input data.
@@ -2364,6 +2370,24 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       }
 
       status = 0;
+
+#ifdef _DEBUG
+      int w;
+      fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx,
+              SHAPE_BYTES(h->shape));
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", orig_o->v0[w]);
+      fprintf(stderr, " v0=");
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", o->v0[w]);
+      fprintf(stderr, " o1=");
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", orig_o->v1[w]);
+      fprintf(stderr, " v1=");
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", o->v1[w]);
+      fprintf(stderr, "\n");
+#endif
 
       if (unlikely(rtn_extend_encoding(
               afl, o->v0, o->v1, orig_o->v0, orig_o->v1, SHAPE_BYTES(h->shape),
