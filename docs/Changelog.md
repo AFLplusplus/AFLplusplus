@@ -8,6 +8,10 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++3.14a (release)
+  - Fix for llvm 13
+
+
 ### Version ++3.13c (release)
   - Note: plot_data switched to relative time from unix time in 3.10
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
