@@ -10,6 +10,8 @@ cc_library_shared {
     "-fPIC",
     "-fpermissive",
     "-std=c++11",
+    "-Wno-unused-parameter",
+    "-Wno-unused-variable",
   ],
 
   srcs: [
@@ -77,6 +79,8 @@ cc_library_shared {
     "-O0",
     "-funroll-loops",
     "-fPIC",
+    "-Wno-unused-parameter",
+    "-Wno-unused-function",
   ],
 
   srcs: [
@@ -99,6 +103,8 @@ cc_library_shared {
     "-O0",
     "-funroll-loops",
     "-fPIC",
+    "-Wno-unused-parameter",
+    "-Wno-pointer-sign",
   ],
 
   srcs: [

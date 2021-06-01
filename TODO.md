@@ -2,15 +2,16 @@
 
 ## Roadmap 3.00+
 
+ - align map to 64 bytes but keep real IDs
  - Update afl->pending_not_fuzzed for MOpt
- - CPU affinity for many cores? There seems to be an issue > 96 cores
+ - put fuzz target in top line of UI
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
  - intel-pt tracer
  - better autodetection of shifting runtime timeout values
  - cmplog: use colorization input for havoc?
- - cmplog: too much tainted bytes, directly add to dict and skip?
+ - parallel builds for source-only targets
 
 
 ## Further down the road
@@ -35,4 +36,5 @@ qemu_mode:
    up edge numbers that both following cmp paths have been found and then
    disable working on this edge id -> cmplog_intelligence branch
  - use cmplog colorization taint result for havoc locations?
-
+ - new instrumentation option for a thread-safe variant of feedback to shared mem.
+   The user decides, if this is needed (eg the target is multithreaded).

@@ -308,9 +308,11 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
                     struct custom_mutator *mutator) {
 
-  u8  needs_write = 0, fault = 0;
+  u8  fault = 0;
   u32 trim_exec = 0;
   u32 orig_len = q->len;
+  u32 out_len = 0;
+  u8 *out_buf = NULL;
 
   u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
@@ -397,19 +399,25 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (likely(retlen && cksum == q->exec_cksum)) {
 
-      q->len = retlen;
-      memcpy(in_buf, retbuf, retlen);
-
       /* Let's save a clean trace, which will be needed by
-         update_bitmap_score once we're done with the trimming stuff. */
+         update_bitmap_score once we're done with the trimming stuff.
+         Use out_buf NULL check to make this only happen once per trim. */
 
-      if (!needs_write) {
+      if (!out_buf) {
 
-        needs_write = 1;
         memcpy(afl->clean_trace_custom, afl->fsrv.trace_bits,
                afl->fsrv.map_size);
 
       }
+
+      if (afl_realloc((void **)&out_buf, retlen) == NULL) {
+
+        FATAL("can not allocate memory for trim");
+
+      }
+
+      out_len = retlen;
+      memcpy(out_buf, retbuf, retlen);
 
       /* Tell the custom mutator that the trimming was successful */
       afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 1);
@@ -417,7 +425,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
       if (afl->not_on_tty && afl->debug) {
 
         SAYF("[Custom Trimming] SUCCESS: %u/%u iterations (now at %u bytes)",
-             afl->stage_cur, afl->stage_max, q->len);
+             afl->stage_cur, afl->stage_max, out_len);
 
       }
 
@@ -450,16 +458,10 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
   }
 
-  if (afl->not_on_tty && afl->debug) {
-
-    SAYF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
-
-  }
-
-  /* If we have made changes to in_buf, we also need to update the on-disk
+  /* If we have made changes, we also need to update the on-disk
      version of the test case. */
 
-  if (needs_write) {
+  if (out_buf) {
 
     s32 fd;
 
@@ -469,16 +471,28 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
-    ck_write(fd, in_buf, q->len, q->fname);
+    ck_write(fd, out_buf, out_len, q->fname);
     close(fd);
+
+    /* Update the queue's knowledge of length as soon as we write the file.
+       We do this here so that exit/error cases that *don't* update the file
+       also don't update q->len. */
+    q->len = out_len;
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, afl->fsrv.map_size);
     update_bitmap_score(afl, q);
 
   }
 
+  if (afl->not_on_tty && afl->debug) {
+
+    SAYF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
+
+  }
+
 abort_trimming:
 
+  if (out_buf) afl_free(out_buf);
   afl->bytes_trim_out += q->len;
   return fault;
 

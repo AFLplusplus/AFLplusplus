@@ -9,7 +9,7 @@
 # TCG instrumentation and block chaining support by Andrea Biondo
 #                                    <andrea.biondo965@gmail.com>
 #
-# QEMU 3.1.1 port, TCG thread-safety, CompareCoverage and NeverZero
+# QEMU 5+ port, TCG thread-safety, CompareCoverage and NeverZero
 # counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 #
 # Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
@@ -211,8 +211,9 @@ if [ "$STATIC" = "1" ]; then
 
   echo Building STATIC binary
 
+  # static PIE causes https://github.com/AFLplusplus/AFLplusplus/issues/892
   QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
-    --static \
+    --static --disable-pie \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
 
@@ -360,6 +361,8 @@ if ! command -v "$CROSS" > /dev/null ; then
     make -C unsigaction && echo "[+] unsigaction ready"
     echo "[+] Building libqasan ..."
     make -C libqasan && echo "[+] unsigaction ready"
+    echo "[+] Building qemu libfuzzer helpers ..."
+    make -C ../utils/aflpp_driver
   else
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
   fi

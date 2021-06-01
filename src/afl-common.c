@@ -70,30 +70,25 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
       *use_stdin = false;
 
-      if (prog_in[0] != 0) {  // not afl-showmap special case
+      /* Be sure that we're always using fully-qualified paths. */
 
-        u8 *n_arg;
+      *aa_loc = 0;
 
-        /* Be sure that we're always using fully-qualified paths. */
+      /* Construct a replacement argv value. */
+      u8 *n_arg;
 
-        *aa_loc = 0;
+      if (prog_in[0] == '/') {
 
-        /* Construct a replacement argv value. */
+        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
 
-        if (prog_in[0] == '/') {
+      } else {
 
-          n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
-
-        } else {
-
-          n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
-
-        }
-
-        ck_free(argv[i]);
-        argv[i] = n_arg;
+        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
 
       }
+
+      ck_free(argv[i]);
+      argv[i] = n_arg;
 
     }
 
@@ -287,12 +282,19 @@ u8 *find_binary(u8 *fname) {
 
 u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
-  u8 *afl_path = NULL, *target_path, *own_copy;
+  u8 *afl_path = NULL, *target_path, *own_copy, *tmp;
+  int perm = X_OK;
+
+  if ((tmp = strrchr(fname, '.'))) {
+
+    if (!strcasecmp(tmp, ".so") || !strcasecmp(tmp, ".dylib")) { perm = R_OK; }
+
+  }
 
   if ((afl_path = getenv("AFL_PATH"))) {
 
     target_path = alloc_printf("%s/%s", afl_path, fname);
-    if (!access(target_path, X_OK)) {
+    if (!access(target_path, perm)) {
 
       return target_path;
 
@@ -316,7 +318,7 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
       target_path = alloc_printf("%s/%s", own_copy, fname);
       ck_free(own_copy);
 
-      if (!access(target_path, X_OK)) {
+      if (!access(target_path, perm)) {
 
         return target_path;
 
@@ -334,8 +336,17 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
   }
 
-  target_path = alloc_printf("%s/%s", BIN_PATH, fname);
-  if (!access(target_path, X_OK)) {
+  if (perm == X_OK) {
+
+    target_path = alloc_printf("%s/%s", BIN_PATH, fname);
+
+  } else {
+
+    target_path = alloc_printf("%s/%s", AFL_PATH, fname);
+
+  }
+
+  if (!access(target_path, perm)) {
 
     return target_path;
 
@@ -345,7 +356,15 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
   }
 
-  return find_binary(fname);
+  if (perm == X_OK) {
+
+    return find_binary(fname);
+
+  } else {
+
+    FATAL("Library '%s' not found", fname);
+
+  }
 
 }
 
@@ -460,9 +479,17 @@ void print_suggested_envs(char *mispelled_env) {
 
       size_t end = start + strcspn(afl_env + start, "_") + 1;
       memcpy(reduced, afl_env, start);
-      if (end < afl_env_len)
+      if (end < afl_env_len) {
+
         memcpy(reduced + start, afl_env + end, afl_env_len - end);
-      reduced[afl_env_len - end + start] = 0;
+
+      }
+
+      if (afl_env_len + start >= end) {
+
+        reduced[afl_env_len - end + start] = 0;
+
+      }
 
       int distance = string_distance_levenshtein(reduced, env_name);
       if (distance < ENV_SIMILARITY_TRESHOLD && seen[j] == 0) {
@@ -1090,6 +1117,10 @@ u32 get_map_size(void) {
     }
 
     if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
+
+  } else if (getenv("AFL_SKIP_BIN_CHECK")) {
+
+    map_size = MAP_SIZE;
 
   }
 

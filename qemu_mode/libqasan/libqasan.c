@@ -61,9 +61,18 @@ void __libqasan_print_maps(void) {
 
 }
 
-/*__attribute__((constructor))*/ void __libqasan_init() {
+int __libqasan_is_initialized = 0;
+
+__attribute__((constructor)) void __libqasan_init() {
+
+  if (__libqasan_is_initialized) return;
+  __libqasan_is_initialized = 1;
 
   __libqasan_init_hooks();
+
+  if (getenv("AFL_INST_LIBS") || getenv("QASAN_HOTPACH")) __libqasan_hotpatch();
+
+  if (getenv("AFL_INST_LIBS") || getenv("QASAN_HOTPACH")) __libqasan_hotpatch();
 
 #ifdef DEBUG
   __qasan_debug = getenv("QASAN_DEBUG") != NULL;
@@ -86,7 +95,6 @@ int __libc_start_main(int (*main)(int, char **, char **), int argc, char **argv,
   typeof(&__libc_start_main) orig = dlsym(RTLD_NEXT, "__libc_start_main");
 
   __libqasan_init();
-  if (getenv("AFL_INST_LIBS")) __libqasan_hotpatch();
 
   return orig(main, argc, argv, init, fini, rtld_fini, stack_end);
 

@@ -82,3 +82,7 @@ libAFLDriver.a
 libAFLQemuDriver.a
 test/.afl_performance
 gmon.out
+afl-frida-trace.so
+utils/afl_network_proxy/afl-network-client
+utils/afl_network_proxy/afl-network-server
+*.o.tmp

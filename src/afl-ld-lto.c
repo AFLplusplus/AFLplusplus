@@ -73,8 +73,8 @@ static u32 ld_param_cnt = 1;        /* Number of params to 'ld'             */
    so we exploit this property to keep the code "simple". */
 static void edit_params(int argc, char **argv) {
 
-  u32 i, instrim = 0, gold_pos = 0, gold_present = 0, rt_present = 0,
-         rt_lto_present = 0, inst_present = 0;
+  u32 i, gold_pos = 0, gold_present = 0, rt_present = 0, rt_lto_present = 0,
+         inst_present = 0;
   char *ptr;
 
   ld_params = ck_alloc(4096 * sizeof(u8 *));
@@ -186,17 +186,18 @@ static void edit_params(int argc, char **argv) {
 
   }
 
-  if (getenv("AFL_LLVM_INSTRIM"))
-    instrim = 1;
-  else if ((ptr = getenv("AFL_LLVM_INSTRUMENT")) &&
-           (strcasestr(ptr, "CFG") == 0 || strcasestr(ptr, "INSTRIM") == 0))
-    instrim = 1;
+  if (getenv("AFL_LLVM_INSTRIM") ||
+      ((ptr = getenv("AFL_LLVM_INSTRUMENT")) &&
+       (strcasestr(ptr, "CFG") == 0 || strcasestr(ptr, "INSTRIM") == 0)))
+    FATAL(
+        "InsTrim was removed because it is not effective. Use a modern LLVM "
+        "and PCGUARD (which is the default in afl-cc).\n");
 
   if (debug)
     DEBUGF(
-        "passthrough=%s instrim=%u, gold_pos=%u, gold_present=%s "
+        "passthrough=%s, gold_pos=%u, gold_present=%s "
         "inst_present=%s rt_present=%s rt_lto_present=%s\n",
-        passthrough ? "true" : "false", instrim, gold_pos,
+        passthrough ? "true" : "false", gold_pos,
         gold_present ? "true" : "false", inst_present ? "true" : "false",
         rt_present ? "true" : "false", rt_lto_present ? "true" : "false");
 
@@ -230,12 +231,8 @@ static void edit_params(int argc, char **argv) {
 
       if (!inst_present) {
 
-        if (instrim)
-          ld_params[ld_param_cnt++] =
-              alloc_printf("-mllvm=-load=%s/afl-llvm-lto-instrim.so", afl_path);
-        else
-          ld_params[ld_param_cnt++] = alloc_printf(
-              "-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", afl_path);
+        ld_params[ld_param_cnt++] = alloc_printf(
+            "-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", afl_path);
 
       }
 
@@ -301,13 +298,12 @@ int main(int argc, char **argv) {
 
     SAYF(
         "\n"
-        "This is a helper application for afl-clang-lto. It is a wrapper "
-        "around GNU "
-        "llvm's 'lld',\n"
-        "executed by the toolchain whenever using "
-        "afl-clang-lto/afl-clang-lto++.\n"
+        "This is a helper application for afl-clang-lto.\n"
+        "It is a wrapper around llvm's 'lld' in case afl-clang-lto cannot be "
+        "used.\n"
+        "Note that the target still has to be compiled with -flto=full!\n"
         "You probably don't want to run this program directly but rather pass "
-        "it as LD parameter to configure scripts\n\n"
+        "it as LD\nparameter to e.g. configure scripts.\n\n"
 
         "Environment variables:\n"
         "  AFL_LD_PASSTHROUGH   do not link+optimize == no instrumentation\n"

@@ -107,27 +107,21 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-      }
+        if (unlikely(!new_buf && new_size <= 0)) {
 
-      new_mem = new_buf;
+          FATAL("Custom_post_process failed (ret: %lu)",
+                (long unsigned)new_size);
+
+        }
+
+        new_mem = new_buf;
+
+      }
 
     });
 
-    if (unlikely(!new_buf && (new_size <= 0))) {
-
-      FATAL("Custom_post_process failed (ret: %lu)", (long unsigned)new_size);
-
-    } else if (likely(new_buf)) {
-
-      /* everything as planned. use the new data. */
-      afl_fsrv_write_to_testcase(&afl->fsrv, new_buf, new_size);
-
-    } else {
-
-      /* custom mutators do not has a custom_post_process function */
-      afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
-
-    }
+    /* everything as planned. use the potentially new data. */
+    afl_fsrv_write_to_testcase(&afl->fsrv, new_mem, new_size);
 
   } else {
 
@@ -188,22 +182,22 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf || (new_size <= 0))) {
+        if (unlikely(!new_buf || new_size <= 0)) {
 
           FATAL("Custom_post_process failed (ret: %lu)",
                 (long unsigned)new_size);
 
         }
 
-      }
+        new_mem = new_buf;
 
-      new_mem = new_buf;
+      }
 
     });
 
   }
 
-  if (afl->fsrv.shmem_fuzz) {
+  if (likely(afl->fsrv.use_shmem_fuzz)) {
 
     if (!post_process_skipped) {
 
@@ -211,9 +205,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
       memcpy(afl->fsrv.shmem_fuzz, new_mem, new_size);
 
-    }
-
-    else {
+    } else {
 
       memcpy(afl->fsrv.shmem_fuzz, mem, skip_at);
 
@@ -244,7 +236,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
     return;
 
-  } else if (afl->fsrv.out_file) {
+  } else if (unlikely(!afl->fsrv.use_stdin)) {
 
     if (unlikely(afl->no_unlink)) {
 
@@ -279,7 +271,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
   }
 
-  if (!afl->fsrv.out_file) {
+  if (afl->fsrv.use_stdin) {
 
     if (ftruncate(fd, new_size)) { PFATAL("ftruncate() failed"); }
     lseek(fd, 0, SEEK_SET);
@@ -412,7 +404,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
         }
 
         var_detected = 1;
-        afl->stage_max = CAL_CYCLES_LONG;
+        afl->stage_max = afl->fast_cal ? CAL_CYCLES : CAL_CYCLES_LONG;
 
       } else {
 
@@ -712,6 +704,7 @@ void sync_fuzzers(afl_state_t *afl) {
   if (afl->foreign_sync_cnt) read_foreign_testcases(afl, 0);
 
   afl->last_sync_time = get_cur_time();
+  afl->last_sync_cycle = afl->queue_cycle;
 
 }
 

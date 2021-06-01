@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++3.12c"
+#define VERSION "++3.13c"
 
 /******************************************************
  *                                                    *
@@ -71,7 +71,17 @@
 /* Maximum allowed fails per CMP value. Default: 128 */
 #define CMPLOG_FAIL_MAX 96
 
+/* -------------------------------------*/
 /* Now non-cmplog configuration options */
+/* -------------------------------------*/
+
+/* If a persistent target keeps state and found crashes are not reproducable
+   then enable this option and set the AFL_PERSISTENT_RECORD env variable
+   to a number. These number of testcases prior and including the crash case
+   will be kept and written to the crash/ directory as RECORD:... files.
+   Note that every crash will be written, not only unique ones! */
+
+//#define AFL_PERSISTENT_RECORD
 
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined
@@ -144,7 +154,7 @@
    cases that show variable behavior): */
 
 #define CAL_CYCLES 8U
-#define CAL_CYCLES_LONG 40U
+#define CAL_CYCLES_LONG 20U
 
 /* Number of subsequent timeouts before abandoning an input file: */
 
@@ -153,7 +163,7 @@
 /* Maximum number of unique hangs or crashes to record: */
 
 #define KEEP_UNIQUE_HANG 500U
-#define KEEP_UNIQUE_CRASH 5000U
+#define KEEP_UNIQUE_CRASH 10000U
 
 /* Baseline number of random tweaks during a single 'havoc' stage: */
 
@@ -395,6 +405,10 @@
 /* Distinctive exit code used to indicate MSAN trip condition: */
 
 #define MSAN_ERROR 86
+
+/* Distinctive exit code used to indicate LSAN trip condition: */
+
+#define LSAN_ERROR 23
 
 /* Designated file descriptors for forkserver commands (the application will
    use FORKSRV_FD and FORKSRV_FD + 1): */

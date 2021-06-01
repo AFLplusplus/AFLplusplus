@@ -21,32 +21,41 @@
 echo "$0 status check tool for afl-fuzz by Michal Zalewski"
 echo
 test "$1" = "-h" -o "$1" = "-hh" && {
-  echo $0 [-s] output_directory
+  echo "Usage: $0 [-s] [-d] afl_output_directory"
   echo
   echo Options:
-  echo   -s  -  skip details and output summary results only
+  echo "  -s  -  skip details and output summary results only"
+  echo "  -d  -  include dead fuzzer stats"
   echo
   exit 1
 }
 
-if [ "$1" = "-s" ]; then
+unset SUMMARY_ONLY
+unset PROCESS_DEAD
 
-  SUMMARY_ONLY=1
-  DIR="$2"
+while [ "$1" = "-s" -o "$1" = "-d" ]; do
 
-else
+  if [ "$1" = "-s" ]; then
+    SUMMARY_ONLY=1
+  fi
 
-  unset SUMMARY_ONLY
-  DIR="$1"
+  if [ "$1" = "-d" ]; then
+    PROCESS_DEAD=1
+  fi
+  
+  shift
 
-fi
+done
+
+DIR="$1"
 
 if [ "$DIR" = "" ]; then
 
-  echo "Usage: $0 [ -s ] afl_sync_dir" 1>&2
+  echo "Usage: $0 [-s] [-d] afl_output_directory" 1>&2
   echo 1>&2
-  echo "The -s option causes the tool to skip all the per-fuzzer trivia and show" 1>&2
-  echo "just the summary results. See docs/parallel_fuzzing.md for additional tips." 1>&2
+  echo Options: 1>&2
+  echo "  -s  -  skip details and output summary results only" 1>&2
+  echo "  -d  -  include dead fuzzer stats" 1>&2
   echo 1>&2
   exit 1
 
@@ -133,7 +142,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
   . "$TMP"
 
-  RUN_UNIX=$((CUR_TIME - start_time))
+  RUN_UNIX=$run_time
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
   RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
 
@@ -160,7 +169,13 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     fi
 
     DEAD_CNT=$((DEAD_CNT + 1))
-    continue
+    last_path=0
+
+    if [ "$PROCESS_DEAD" = "" ]; then
+
+      continue
+
+    fi
 
   fi
 
@@ -252,13 +267,24 @@ fmt_duration $TOTAL_LAST_PATH && TOTAL_LAST_PATH=$DUR_STRING
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
+if [ "$PROCESS_DEAD" = "" ]; then
+
+  TXT="excluded from stats"
+
+else
+
+  TXT="included in stats"
+  ALIVE_CNT=$(($ALIVE_CNT - $DEAD_CNT))
+
+fi
+
 echo "Summary stats"
 echo "============="
 echo
 echo "       Fuzzers alive : $ALIVE_CNT"
 
 if [ ! "$DEAD_CNT" = "0" ]; then
-  echo "      Dead or remote : $DEAD_CNT (excluded from stats)"
+  echo "      Dead or remote : $DEAD_CNT ($TXT)"
 fi
 
 echo "      Total run time : $FMT_TIME"

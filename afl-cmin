@@ -106,6 +106,7 @@ function usage() {
 "  -f file       - location read by the fuzzed program (stdin)\n" \
 "  -m megs       - memory limit for child process ("mem_limit" MB)\n" \
 "  -t msec       - run time limit for child process (none)\n" \
+"  -O            - use binary-only instrumentation (FRIDA mode)\n" \
 "  -Q            - use binary-only instrumentation (QEMU mode)\n" \
 "  -U            - use unicorn-based instrumentation (unicorn mode)\n" \
 "\n" \
@@ -118,11 +119,13 @@ function usage() {
 "Environment variables used:\n" \
 "AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
 "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n" \
-"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n" \
+"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the forkserver to come up\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
-"AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
-"AFL_PATH: path for the afl-showmap binary if not found anywhere else\n" \
-"AFL_SKIP_BIN_CHECK: skip check for target binary\n"
+"AFL_KILL_SIGNAL: Signal delivered to child processes on timeout (default: SIGKILL)\n" \
+"AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH\n" \
+"AFL_PRINT_FILENAMES: If set, the filename currently processed will be " \
+      "printed to stdout\n" \
+"AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n"
    exit 1
 }
 
@@ -140,7 +143,7 @@ BEGIN {
   # process options
   Opterr = 1    # default is to diagnose
   Optind = 1    # skip ARGV[0]
-  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eCQU?")) != -1) {
+  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eCOQU?")) != -1) {
     if (_go_c == "i") {
       if (!Optarg) usage()
       if (in_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
@@ -178,6 +181,12 @@ BEGIN {
     } else 
     if (_go_c == "e") {
       extra_par = extra_par " -e"
+      continue
+    } else 
+    if (_go_c == "O") {
+      if (frida_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      extra_par = extra_par " -O"
+      frida_mode = 1
       continue
     } else 
     if (_go_c == "Q") {
@@ -243,7 +252,7 @@ BEGIN {
   if (!stdin_file) {
     found_atat = 0
     for (prog_args_ind in prog_args) {
-      if ("@@" == prog_args[prog_args_ind]) {
+      if (match(prog_args[prog_args_ind], "@@") != 0) {
         found_atat = 1
         break
       }
@@ -275,7 +284,7 @@ BEGIN {
     target_bin = tnew
   }
 
-  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !unicorn_mode) {
+  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !frida_mode && !unicorn_mode) {
     if (0 != system( "grep -q __AFL_SHM_ID "target_bin )) {
       print "[-] Error: binary '"target_bin"' doesn't appear to be instrumented." > "/dev/stderr"
       exit 1

@@ -18,6 +18,7 @@ export AFL_QUIET=1
 export AFL_PATH=`pwd`/..
 
 unset AFL_EXIT_WHEN_DONE
+unset AFL_EXIT_ON_TIME
 unset AFL_SKIP_CPUFREQ
 unset AFL_DEBUG
 unset AFL_HARDEN
