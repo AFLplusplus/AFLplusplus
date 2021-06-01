@@ -438,7 +438,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   if (taint) {
 
     if (afl->colorize_success && afl->cmplog_lvl < 3 &&
-        (len / positions == 1 && positions > CMPLOG_POSITIONS_MAX &&
+        (positions > CMPLOG_POSITIONS_MAX && len / positions == 1 &&
          afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT)) {
 
 #ifdef _DEBUG
