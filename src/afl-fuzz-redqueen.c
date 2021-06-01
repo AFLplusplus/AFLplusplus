@@ -2663,7 +2663,12 @@ exit_its:
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
 
-    ck_free(afl->queue_cur->cmplog_colorinput);
+    if (afl->queue_cur->cmplog_colorinput) {
+
+      ck_free(afl->queue_cur->cmplog_colorinput);
+
+    }
+
     while (taint) {
 
       t = taint->next;
