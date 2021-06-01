@@ -662,24 +662,29 @@ bool AFLCoverage::runOnModule(Module &M) {
       /* Update bitmap */
 
       if (use_threadsafe_counters) {                              /* Atomic */
+                                     /*
+                                     #if LLVM_VERSION_MAJOR < 9
+                                             if (neverZero_counters_str !=
+                                                 NULL) {  // with llvm 9 we make this the default as the bug
+                                     in llvm
+                                                          // is then fixed
+                                     #else
+                                             if (!skip_nozero) {
+                             
+                                     #endif
+                                               // register MapPtrIdx in a todo list
+                                               todo.push_back(MapPtrIdx);
+                             
+                                             } else {
 
-#if LLVM_VERSION_MAJOR < 9
-        if (neverZero_counters_str !=
-            NULL) {  // with llvm 9 we make this the default as the bug in llvm
-                     // is then fixed
-#else
-        if (!skip_nozero) {
+                                     */
+        IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+                            llvm::AtomicOrdering::Monotonic);
+        /*
 
-#endif
-          // register MapPtrIdx in a todo list
-          todo.push_back(MapPtrIdx);
+                }
 
-        } else {
-
-          IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-                              llvm::AtomicOrdering::Monotonic);
-
-        }
+        */
 
       } else {
 
@@ -774,6 +779,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     }
 
+#if 0
     if (use_threadsafe_counters) {                       /*Atomic NeverZero */
       // handle the list of registered blocks to instrument
       for (auto val : todo) {
@@ -884,6 +890,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       }
 
     }
+
+#endif
 
   }
 
