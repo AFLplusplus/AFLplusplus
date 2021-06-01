@@ -107,27 +107,21 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-      }
+        if (unlikely(!new_buf && new_size <= 0)) {
 
-      new_mem = new_buf;
+          FATAL("Custom_post_process failed (ret: %lu)",
+                (long unsigned)new_size);
+
+        }
+
+        new_mem = new_buf;
+
+      }
 
     });
 
-    if (unlikely(!new_buf && (new_size <= 0))) {
-
-      FATAL("Custom_post_process failed (ret: %lu)", (long unsigned)new_size);
-
-    } else if (likely(new_buf)) {
-
-      /* everything as planned. use the new data. */
-      afl_fsrv_write_to_testcase(&afl->fsrv, new_buf, new_size);
-
-    } else {
-
-      /* custom mutators do not has a custom_post_process function */
-      afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
-
-    }
+    /* everything as planned. use the potentially new data. */
+    afl_fsrv_write_to_testcase(&afl->fsrv, new_buf, new_size);
 
   } else {
 
@@ -188,16 +182,16 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf || (new_size <= 0))) {
+        if (unlikely(!new_buf || new_size <= 0)) {
 
           FATAL("Custom_post_process failed (ret: %lu)",
                 (long unsigned)new_size);
 
         }
 
-      }
+        new_mem = new_buf;
 
-      new_mem = new_buf;
+      }
 
     });
 
