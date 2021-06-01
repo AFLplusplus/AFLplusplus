@@ -65,22 +65,17 @@ The QEMU mode is currently supported only on Linux. I think it's just a QEMU
 problem, I couldn't get a vanilla copy of user-mode emulation support working
 correctly on BSD at all.
 
-## 3. MacOS X on x86
+## 3. MacOS X on x86 and arm64 (M1)
 
 MacOS X should work, but there are some gotchas due to the idiosyncrasies of
 the platform. On top of this, I have limited release testing capabilities
 and depend mostly on user feedback.
 
-To build AFL, install Xcode and follow the general instructions for Linux.
+To build AFL, install llvm (and perhaps gcc) from brew and follow the general
+instructions for Linux. If possible avoid Xcode at all cost.
 
-The Xcode 'gcc' tool is just a wrapper for clang, so be sure to use afl-clang
-to compile any instrumented binaries; afl-gcc will fail unless you have GCC
-installed from another source (in which case, please specify `AFL_CC` and
-`AFL_CXX` to point to the "real" GCC binaries).
-
-Only 64-bit compilation will work on the platform; porting the 32-bit
-instrumentation would require a fair amount of work due to the way OS X
-handles relocations, and today, virtually all MacOS X boxes are 64-bit.
+afl-gcc will fail unless you have GCC installed, but that is using outdated
+instrumentation anyway. You don't want that.
 
 The crash reporting daemon that comes by default with MacOS X will cause
 problems with fuzzing. You need to turn it off by following the instructions
@@ -98,10 +93,7 @@ and definitely don't look POSIX-compliant. This means two things:
 
 User emulation mode of QEMU does not appear to be supported on MacOS X, so
 black-box instrumentation mode (`-Q`) will not work.
-
-The llvm instrumentation requires a fully-operational installation of clang. The one that
-comes with Xcode is missing some of the essential headers and helper tools.
-See README.llvm.md for advice on how to build the compiler from scratch.
+However Frida mode (`-O`) should work on x86 and arm64 MacOS boxes.
 
 MacOS X supports SYSV shared memory used by AFL's instrumentation, but the
 default settings aren't usable with AFL++. The default settings on 10.14 seem
