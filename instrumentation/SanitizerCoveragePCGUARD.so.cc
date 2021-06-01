@@ -1069,16 +1069,14 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
     /* Load counter for CurLoc */
 
-    Value *   MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+    Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
     if (use_threadsafe_counters) {
 
       IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
                           llvm::AtomicOrdering::Monotonic);
 
-    }
-    else
-    {
+    } else {
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
       /* Update bitmap */

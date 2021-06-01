@@ -93,8 +93,8 @@ class AFLLTOPass : public ModulePass {
   uint32_t               function_minimum_size = 1;
   uint32_t               inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   unsigned long long int map_addr = 0x10000;
-  const char *skip_nozero = NULL;
-  const char *use_threadsafe_counters = nullptr;
+  const char *           skip_nozero = NULL;
+  const char *           use_threadsafe_counters = nullptr;
 
 };
 
@@ -843,9 +843,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
           /* Update bitmap */
 
           if (use_threadsafe_counters) {
+
             IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
                                 llvm::AtomicOrdering::Monotonic);
+
           } else {
+
             LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
             Counter->setMetadata(M.getMDKindID("nosanitize"),
                                  MDNode::get(C, None));
@@ -861,7 +864,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
             }
 
             IRB.CreateStore(Incr, MapPtrIdx)
-                ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                ->setMetadata(M.getMDKindID("nosanitize"),
+                              MDNode::get(C, None));
+
           }
 
           // done :)
