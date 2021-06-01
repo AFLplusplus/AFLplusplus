@@ -47,6 +47,7 @@ typedef struct sharedmem {
 #endif
 
   u8 *map;                                          /* shared memory region */
+  u8 *found_new;
 
   size_t map_size;                                 /* actual allocated size */
 

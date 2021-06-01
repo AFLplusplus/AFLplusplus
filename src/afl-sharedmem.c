@@ -36,6 +36,7 @@
 #include "hash.h"
 #include "sharedmem.h"
 #include "cmplog.h"
+#include "unusual.h"
 #include "list.h"
 
 #include <stdio.h>
@@ -243,7 +244,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   u8 *shm_str;
 
   shm->shm_id =
-      shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+      shmget(IPC_PRIVATE, map_size + UNUSUAL_MAP_BYTES + sizeof(u8), IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {
@@ -286,6 +287,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
   shm->map = shmat(shm->shm_id, NULL, 0);
+  
+  shm->found_new = shm->map + UNUSUAL_MAP_BYTES;
 
   if (shm->map == (void *)-1 || !shm->map) {
 
