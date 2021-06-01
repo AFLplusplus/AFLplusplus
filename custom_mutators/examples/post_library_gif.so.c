@@ -45,6 +45,7 @@
    1) If you don't want to modify the test case, simply set `*out_buf = in_buf`
       and return the original `len`.
 
+   NOTE: the following is currently NOT true, we abort in this case!
    2) If you want to skip this test case altogether and have AFL generate a
       new one, return 0 or set `*out_buf = NULL`.
       Use this sparingly - it's faster than running the target program
@@ -53,14 +54,14 @@
    3) If you want to modify the test case, allocate an appropriately-sized
       buffer, move the data into that buffer, make the necessary changes, and
       then return the new pointer as out_buf. Return an appropriate len
-   afterwards.
+      afterwards.
 
       Note that the buffer will *not* be freed for you. To avoid memory leaks,
       you need to free it or reuse it on subsequent calls (as shown below).
 
       *** Feel free to reuse the original 'in_buf' BUFFER and return it. ***
 
-    Aight. The example below shows a simple postprocessor that tries to make
+    Alright. The example below shows a simple postprocessor that tries to make
     sure that all input files start with "GIF89a".
 
     PS. If you don't like C, you can try out the unix-based wrapper from

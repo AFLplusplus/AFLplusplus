@@ -1777,6 +1777,8 @@ int main(int argc, char **argv, char **envp) {
         SAYF(
             "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
             "variables:\n"
+            "  AFL_LLVM_THREADSAFE_INST: instrument with thread safe counters, "
+            "disables neverzero\n"
 
             COUNTER_BEHAVIOUR
 

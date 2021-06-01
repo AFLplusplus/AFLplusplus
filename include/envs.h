@@ -126,6 +126,7 @@ static char *afl_environment_variables[] = {
     "AFL_NGRAM_SIZE",
     "AFL_LLVM_NOT_ZERO",
     "AFL_LLVM_INSTRUMENT_FILE",
+    "AFL_LLVM_THREADSAFE_INST",
     "AFL_LLVM_SKIP_NEVERZERO",
     "AFL_NO_AFFINITY",
     "AFL_TRY_AFFINITY",

@@ -144,6 +144,11 @@ is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
 See [README.neverzero.md](README.neverzero.md)
 
+Support for thread safe counters has been added for all modes.
+Activate it with `AFL_LLVM_THREADSAFE_INST=1`. The tradeoff is better precision
+in multi threaded apps for a slightly higher instrumentation overhead.
+This also disables the nozero counter default for performance reasons.
+
 ## 4) Snapshot feature
 
 To speed up fuzzing you can use a linux loadable kernel module which enables

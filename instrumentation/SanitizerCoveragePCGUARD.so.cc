@@ -86,7 +86,8 @@ const char SanCovPCsSectionName[] = "sancov_pcs";
 
 const char SanCovLowestStackName[] = "__sancov_lowest_stack";
 
-static char *skip_nozero;
+static const char *skip_nozero;
+static const char *use_threadsafe_counters;
 
 namespace {
 
@@ -386,6 +387,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
     be_quiet = 1;
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
 
   initInstrumentList();
   scanForDangerousFunctions(&M);
@@ -1067,22 +1069,31 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
     /* Load counter for CurLoc */
 
-    Value *   MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
-    LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+    Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
-    /* Update bitmap */
+    if (use_threadsafe_counters) {
 
-    Value *Incr = IRB.CreateAdd(Counter, One);
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+                          llvm::AtomicOrdering::Monotonic);
 
-    if (skip_nozero == NULL) {
+    } else {
 
-      auto cf = IRB.CreateICmpEQ(Incr, Zero);
-      auto carry = IRB.CreateZExt(cf, Int8Ty);
-      Incr = IRB.CreateAdd(Incr, carry);
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      /* Update bitmap */
+
+      Value *Incr = IRB.CreateAdd(Counter, One);
+
+      if (skip_nozero == NULL) {
+
+        auto cf = IRB.CreateICmpEQ(Incr, Zero);
+        auto carry = IRB.CreateZExt(cf, Int8Ty);
+        Incr = IRB.CreateAdd(Incr, carry);
+
+      }
+
+      IRB.CreateStore(Incr, MapPtrIdx);
 
     }
-
-    IRB.CreateStore(Incr, MapPtrIdx);
 
     // done :)
 

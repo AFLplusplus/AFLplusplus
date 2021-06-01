@@ -22,13 +22,14 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to allow replay of non-reproducable crashes, see
       AFL_PERSISTENT_RECORD in config.h and docs/envs.h
     - fixed a bug when trimming for stdin targets
-    - default cmplog level (-l) is now 2, better efficiency.
-    - cmplog level 3 (-l 3) now performs redqueen on everything.
-      use with care.
-    - better fuzzing strategy yields for enabled options
+    - cmplog -l: default cmplog level is now 2, better efficiency.
+      level 3 now performs redqueen on everything. use with care.
+    - better fuzzing strategy yield display for enabled options
     - ensure one fuzzer sync per cycle
     - fix afl_custom_queue_new_entry original file name when syncing
       from fuzzers
+    - fixed a crash when more than one custom mutator was used together
+      with afl_custom_post_process
     - on a crashing seed potentially the wrong input was disabled
     - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
       -i dir crashes the target or results in a timeout. By default
@@ -41,6 +42,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       it fails
   - afl-cc:
     - We do not support llvm versions prior 6.0 anymore
+    - added thread safe counters to all modes (`AFL_LLVM_THREADSAFE_INST`),
+      note that this disables NeverZero counters.
     - Fix for -pie compiled binaries with default afl-clang-fast PCGUARD
     - Leak Sanitizer (AFL_USE_LSAN) added by Joshua Rogers, thanks!
     - Removed InsTrim instrumentation as it is not as good as PCGUARD

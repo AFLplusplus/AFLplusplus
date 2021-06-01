@@ -2066,13 +2066,10 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 4:
               afl->expand_havoc = 5;
-              if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl = 3;
+              // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
+              // 3;
               break;
             case 5:
-              // if not in sync mode, enable deterministic mode?
-              // if (!afl->sync_id) afl->skip_deterministic = 0;
-              afl->expand_havoc = 6;
-            case 6:
               // nothing else currently
               break;
 
