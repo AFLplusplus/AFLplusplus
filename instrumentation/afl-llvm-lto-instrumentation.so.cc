@@ -845,6 +845,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
           if (use_threadsafe_counters) {
 
             IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                                llvm_MaybeAlign(1),
+#endif
                                 llvm::AtomicOrdering::Monotonic);
 
           } else {
