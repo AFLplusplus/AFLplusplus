@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.14a (release)
-  - ... your pull request?
+  - Fix for llvm 13
 
 
 ### Version ++3.13c (release)
