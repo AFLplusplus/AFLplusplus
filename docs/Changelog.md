@@ -10,6 +10,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.14a (release)
   - Fix for llvm 13
+  - afl-fuzz:
+    - fix -F when a '/' was part of the parameter
+  - ensure afl-compiler-rt is built for gcc_module
 
 
 ### Version ++3.13c (release)
