@@ -131,6 +131,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #else
   shmctl(shm->shm_id, IPC_RMID, NULL);
   if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
+  shmctl(shm->unusual_shm_id, IPC_RMID, NULL);
 #endif
 
   shm->map = NULL;
@@ -244,7 +245,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   u8 *shm_str;
 
   shm->shm_id =
-      shmget(IPC_PRIVATE, map_size + UNUSUAL_MAP_BYTES + sizeof(u8), IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+      shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {
@@ -258,6 +259,23 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("shmget() failed");
 
     }
+
+  }
+
+  shm->unusual_shm_id = shmget(IPC_PRIVATE, UNUSUAL_MAP_BYTES + sizeof(u8),
+                               IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+
+  if (shm->unusual_shm_id < 0) {
+
+    shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+    if (shm->cmplog_mode) {
+
+      shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+    }
+
+    PFATAL("shmget() failed");
 
   }
 
@@ -286,9 +304,17 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  if (!non_instrumented_mode) {
+
+    shm_str = alloc_printf("%d", shm->unusual_shm_id);
+
+    setenv("__AFL_UNUSUAL_ID", shm_str, 1);
+
+    ck_free(shm_str);
+
+  }
+
   shm->map = shmat(shm->shm_id, NULL, 0);
-  
-  shm->found_new = shm->map + UNUSUAL_MAP_BYTES;
 
   if (shm->map == (void *)-1 || !shm->map) {
 
@@ -299,6 +325,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
     }
+
+    shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
     PFATAL("shmat() failed");
 
@@ -314,11 +342,29 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
+      shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
       PFATAL("shmat() failed");
 
     }
 
   }
+
+  u8 *unusual_values_map = shmat(shm->unusual_shm_id, NULL, 0);
+
+  if (unusual_values_map == (void *)-1 || !unusual_values_map) {
+
+    shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+    shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+    shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+    PFATAL("shmat() failed");
+
+  }
+
+  shm->found_new = unusual_values_map + UNUSUAL_MAP_BYTES;
 
 #endif
 

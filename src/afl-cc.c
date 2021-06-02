@@ -554,11 +554,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
     if (unusual_mode) {
-    
+
       if (lto_mode && !have_c) {
 
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/afl-unusual-pass.so", obj_path);
+        cc_params[cc_par_cnt++] =
+            alloc_printf("-Wl,-mllvm=-load=%s/afl-unusual-pass.so", obj_path);
 
       } else {
 
@@ -569,7 +569,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
             alloc_printf("%s/afl-unusual-pass.so", obj_path);
 
       }
-    
+
     }
 
 #if LLVM_MAJOR >= 13
@@ -2051,7 +2051,8 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-  unusual_mode = getenv("AFL_UNUSUAL_VALUES") || getenv("AFL_LLVM_UNUSUAL_VALUES");
+  unusual_mode =
+      getenv("AFL_UNUSUAL_VALUES") || getenv("AFL_LLVM_UNUSUAL_VALUES");
   if (!be_quiet && unusual_mode)
     printf("Unusual Values mode by <andreafioraldi@gmail.com>\n");
 

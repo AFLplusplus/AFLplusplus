@@ -119,7 +119,7 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 
-u8 *__afl_found_new;
+u8 *                         __afl_found_new;
 struct unusual_values_state *__afl_unusual_map;
 
 /* Child pid? */
@@ -435,10 +435,6 @@ static void __afl_map_shm(void) {
 
     }
 
-    // TODO set this for mmap too
-    __afl_unusual_map = (struct unusual_values_state*)(__afl_area_ptr + MAP_SIZE);
-    __afl_found_new = (u8*)(__afl_unusual_map + UNUSUAL_MAP_SIZE);
-    
 #endif
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
@@ -577,6 +573,27 @@ static void __afl_map_shm(void) {
     if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
 
       perror("shmat for cmplog");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+  }
+
+  id_str = getenv("__AFL_UNUSUAL_ID");
+
+  if (id_str) {
+
+    u32 shm_id = atoi(id_str);
+
+    // TODO set this for mmap too
+
+    __afl_unusual_map = (struct unusual_values_state *)shmat(shm_id, NULL, 0);
+    __afl_found_new = (u8 *)(__afl_unusual_map + UNUSUAL_MAP_SIZE);
+
+    if (!__afl_unusual_map || __afl_unusual_map == (void *)-1) {
+
+      perror("shmat for unusual");
       send_forkserver_error(FS_ERROR_SHM_OPEN);
       _exit(1);
 
@@ -1024,7 +1041,7 @@ static void __afl_start_forkserver(void) {
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
-        
+
         *__afl_found_new = 0;
 
         return;
@@ -2005,41 +2022,56 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 
 }
 
-#define OUTLIER_TRESHOLD 3
+#define OUTLIER_TRESHOLD 12
+#define OUTLIER_MIN_SAMPLES 16
 
-static u64 welford_sigma(struct unusual_values_state* state) {
-  if (state->n >= 2)
-    return sqrt(state->s[0] / (state->n - 1.0));
-  return 0; // TODO err
+static u64 welford_sigma(struct unusual_values_state *state) {
+
+  if (state->n >= 2) return sqrt(state->s[0] / (state->n - 1.0));
+  return 0;  // TODO err
+
 }
 
-static void welford_add(struct unusual_values_state* state, u64 x) {
+static void welford_add(struct unusual_values_state *state, u64 x) {
+
   size_t n = ++state->n;
   if (n == 1) {
+
     state->m[0] = x;
+
   } else {
+
     state->m[1] = state->m[0] + (x - state->m[0]) / n;
     state->s[1] = state->s[0] + (x - state->m[0]) * (x - state->m[1]);
-    state->m[0] = state->m[1]; /* for next time */
-    state->s[0] = state->s[1]; /* for next time */
+    state->m[0] = state->m[1];                             /* for next time */
+    state->s[0] = state->s[1];                             /* for next time */
+
   }
+
 }
 
-static int welford_is_outlier(struct unusual_values_state* state, u64 x) {
-  if (state->n < 2)
-    return 0;
+static int welford_is_outlier(struct unusual_values_state *state, u64 x) {
+
+  if (state->n < OUTLIER_MIN_SAMPLES) return 0;
   uint64_t upper = state->m[0] + OUTLIER_TRESHOLD * state->s[0];
   uint64_t lower = state->m[0] - OUTLIER_TRESHOLD * state->s[0];
   return x > upper || x < lower;
+
 }
 
 void __afl_unusual_values_1(u64 v0) {
+
   if (!__afl_unusual_map) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= UNUSUAL_MAP_SIZE - 1;
-  
-  *__afl_found_new = *__afl_found_new || welford_is_outlier(&__afl_unusual_map[k], v0);
+
+  int is_outlier = welford_is_outlier(&__afl_unusual_map[k], v0);
+  *__afl_found_new = *__afl_found_new || is_outlier;
+  fprintf(stderr, "(%lx) is_outlier = %d, value = %llu\n", k, is_outlier,
+          (unsigned long long)v0);
   welford_add(&__afl_unusual_map[k], v0);
+
 }
+

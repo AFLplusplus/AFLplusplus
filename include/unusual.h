@@ -25,9 +25,11 @@
   (UNUSUAL_MAP_SIZE * sizeof(struct unusual_values_state))
 
 struct unusual_values_state {
-  u64 m[2];
-  u64 s[2];
+
+  u64    m[2];
+  u64    s[2];
   size_t n;
+
 };
 
 #endif
