@@ -2059,7 +2059,7 @@ static int unusual_values_single(u32 k, u64 x) {
   struct single_var_invariant *inv = &__afl_unusual->single_invariants[k];
 
   // TODO signed version
-  if (x < inv->min) {
+  /*if (x < inv->min) {
 
     if (learning) {
 
@@ -2083,7 +2083,7 @@ static int unusual_values_single(u32 k, u64 x) {
 
     unusual = 2;
 
-  }
+  }*/
 
   switch (inv->invariant) {
 
@@ -2353,9 +2353,9 @@ u32 __afl_unusual_values_1(u32 k, u64 x) {
 
   int unusual = unusual_values_single(k, x);
 
-  if (unusual)
-    fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,
-            (unsigned long long)x);
+  // if (unusual)
+  //  fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,
+  //          (unsigned long long)x);
 
   if (unusual)
     return k;
@@ -2370,9 +2370,9 @@ u32 __afl_unusual_values_2(u32 k, u64 x, u64 y) {
 
   int unusual = unusual_values_pair(k, x, y);
 
-  if (unusual)
-    fprintf(stderr, "(%x) unusual = %d, x = %llu, y = %llu\n", k, unusual,
-            (unsigned long long)x, (unsigned long long)y);
+  // if (unusual)
+  //  fprintf(stderr, "(%x) unusual = %d, x = %llu, y = %llu\n", k, unusual,
+  //          (unsigned long long)x, (unsigned long long)y);
 
   if (unusual)
     return k;

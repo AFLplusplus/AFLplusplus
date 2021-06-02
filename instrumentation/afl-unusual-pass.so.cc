@@ -532,14 +532,18 @@ bool AFLUnusual::instrumentFunction() {
 
       for (auto X : P.second) {
 
-        cur_k = AFL_R(UNUSUAL_MAP_SIZE);
+        Dumpeds.insert(X);
+
+        /*cur_k = AFL_R(UNUSUAL_MAP_SIZE);
         CallInst *CI = IRB.CreateCall(
             unusualValuesFns[0],
             ArrayRef<Value *>{ConstantInt::get(Int32Ty, cur_k, true), X});
         CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
         ++Calls;
 
-        Rets.insert(CI);
+        Rets.insert(CI);*/
+
+        if (P.first == -1) continue;
 
         for (auto Y : P.second) {
 
@@ -555,8 +559,6 @@ bool AFLUnusual::instrumentFunction() {
           Rets.insert(CI);
 
         }
-
-        Dumpeds.insert(X);
 
       }
 
