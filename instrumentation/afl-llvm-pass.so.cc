@@ -679,6 +679,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
                                      */
         IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                            llvm::MaybeAlign(1),
+#endif
                             llvm::AtomicOrdering::Monotonic);
         /*
 
