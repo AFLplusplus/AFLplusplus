@@ -1,85 +1,44 @@
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/BinaryFormat/MachO.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Comdat.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/MDBuilder.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Use.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/MC/MCSectionMachO.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/ScopedPrinter.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Instrumentation.h"
-#include "llvm/Transforms/Utils/ASanStackFrameLayout.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include <algorithm>
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <climits>
-#include <iomanip>
-#include <limits>
-#include <memory>
-#include <sstream>
+#define AFL_LLVM_PASS
+
+#include "config.h"
+#include "debug.h"
+#include "unusual.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include <list>
 #include <string>
+#include <fstream>
 #include <vector>
 #include <map>
-#include <tuple>
-#include <fstream>
+#include <set>
+#include <algorithm>
+#include <sys/time.h>
+
+#include "llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
+typedef long double max_align_t;
+#endif
+
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
+  #include "llvm/IR/DebugInfo.h"
+  #include "llvm/IR/CFG.h"
+#else
+  #include "llvm/DebugInfo.h"
+  #include "llvm/Support/CFG.h"
+#endif
+
+#include "afl-llvm-common.h"
 
 using namespace llvm;
 
@@ -93,6 +52,8 @@ static size_t TypeSizeToSizeIndex(uint32_t TypeSize) {
 }
 
 */
+
+namespace {
 
 struct BBInfo {
 
@@ -149,15 +110,21 @@ struct AFLUnusual {
   Function *dbgDeclareFn;
 
   FunctionCallee unusualValuesFns[6];
+  FunctionCallee unusualValuesLogFn;
 
   LLVMContext *C;
   Module &     M;
   Function &   F;
   int          LongSize;
 
+  std::map<Value *, int> Comp;
+  int                    CompID = 0;
+
   std::vector<DILocalVariable *> DbgVars;
 
 };
+
+}  // namespace
 
 void AFLUnusual::initialize() {
 
@@ -196,20 +163,30 @@ void AFLUnusual::initialize() {
   IntTypeSized[2] = Int32Ty;
   IntTypeSized[3] = Int64Ty;
 
-  unusualValuesFns[0] =
-      M.getOrInsertFunction("__afl_unusual_values_1", VoidTy, Int64Ty);
-  unusualValuesFns[1] =
-      M.getOrInsertFunction("__afl_unusual_values_2", VoidTy, Int64Ty, Int64Ty);
-  unusualValuesFns[2] = M.getOrInsertFunction("__afl_unusual_values_3", VoidTy,
-                                              Int64Ty, Int64Ty, Int64Ty);
-  unusualValuesFns[3] = M.getOrInsertFunction(
-      "__afl_unusual_values_4", VoidTy, Int64Ty, Int64Ty, Int64Ty, Int64Ty);
-  unusualValuesFns[4] =
-      M.getOrInsertFunction("__afl_unusual_values_5", VoidTy, Int64Ty, Int64Ty,
-                            Int64Ty, Int64Ty, Int64Ty);
-  unusualValuesFns[5] =
-      M.getOrInsertFunction("__afl_unusual_values_6", VoidTy, Int64Ty, Int64Ty,
-                            Int64Ty, Int64Ty, Int64Ty, Int64Ty);
+  unusualValuesFns[0] = M.getOrInsertFunction("__afl_unusual_values_1", Int32Ty,
+                                              Int32Ty, Int64Ty);
+  unusualValuesFns[1] = M.getOrInsertFunction("__afl_unusual_values_2", Int32Ty,
+                                              Int32Ty, Int64Ty, Int64Ty);
+  unusualValuesFns[2] = M.getOrInsertFunction(
+      "__afl_unusual_values_3", Int32Ty, Int32Ty, Int64Ty, Int64Ty, Int64Ty);
+
+  unusualValuesLogFn =
+      M.getOrInsertFunction("__afl_unusual_values_log", VoidTy, Int32Ty);
+
+  /* Show a banner */
+
+  setvbuf(stdout, NULL, _IONBF, 0);
+
+  if (getenv("AFL_DEBUG")) debug = 1;
+
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
+
+    SAYF(cCYA "afl-unusual-pass" VERSION cRST
+              " by <andreafioraldi@gmail.com>\n");
+
+  } else
+
+    be_quiet = 1;
 
 }
 
@@ -218,9 +195,8 @@ bool AFLUnusual::dumpVariable(IRBuilder<> &                        IRB,
                               Value *                              V) {
 
   Type *T = V->getType();
-  /*int CompID = -1;
-    if (Comp.find(V) != Comp.end())
-      CompID = Comp[V];*/
+  int   CompID = -1;
+  if (Comp.find(V) != Comp.end()) CompID = Comp[V];
 
   switch (T->getTypeID()) {
 
@@ -233,7 +209,7 @@ bool AFLUnusual::dumpVariable(IRBuilder<> &                        IRB,
       //  V = IRB.CreateIntCast(V, Int8Ty, true);
 
       Value *I = IRB.CreateZExtOrBitCast(V, Int64Ty);
-      CompArgs[0].push_back(I);
+      CompArgs[CompID].push_back(I);
       return true;
 
     }
@@ -318,17 +294,24 @@ bool AFLUnusual::instrumentFunction() {
 
   if (isBlacklisted(&F)) return FunctionModified;  // not supported
 
+  u32             rand_seed;
+  unsigned int    cur_k = 0;
+  struct timeval  tv;
+  struct timezone tz;
+  /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
+  gettimeofday(&tv, &tz);
+  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  AFL_SR(rand_seed);
+
   std::vector<BasicBlock *> BBs;
   std::set<Value *>         DbgVals;
-
-  std::map<Value *, int> Comp;
-  int                    CompID = 0;
 
   for (Function::arg_iterator it = F.arg_begin(); it != F.arg_end(); ++it) {
 
     Argument *A = &*it;
     Value *   V = static_cast<Value *>(A);
 
+    AddComp(Comp, CompID, V);
     if (DbgVals.find(V) == DbgVals.end()) DbgVals.insert(V);
 
   }
@@ -383,7 +366,12 @@ bool AFLUnusual::instrumentFunction() {
       } else if (ReturnInst *RI = dyn_cast<ReturnInst>(&Inst)) {
 
         Value *RV = RI->getReturnValue();
-        if (RV && DbgVals.find(RV) == DbgVals.end()) DbgVals.insert(RV);
+        if (RV) {
+
+          if (DbgVals.find(RV) == DbgVals.end()) DbgVals.insert(RV);
+          AddComp(Comp, CompID, RV);
+
+        }
 
       }
 
@@ -534,29 +522,74 @@ bool AFLUnusual::instrumentFunction() {
 
     }
 
-    if (CompArgs[0].size() == 0) continue;
+    Dumpeds.clear();
 
-    // if (CompArgs[0].size() > 6) CompArgs[0].resize(6); // TODO
+    std::set<Value *> Rets;
 
-    // CallInst* CI = IRB.CreateCall(unusualValuesFns[CompArgs[0].size() -1],
-    // ArrayRef<Value*>(CompArgs[0]));
-    // CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+    for (auto P : CompArgs) {
 
-    for (auto V : CompArgs[0]) {
+      if (P.second.size() == 0) continue;
 
-      CallInst *CI = IRB.CreateCall(unusualValuesFns[0], ArrayRef<Value *>{V});
-      CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
-      ++Calls;
+      for (auto X : P.second) {
+
+        cur_k = AFL_R(UNUSUAL_MAP_SIZE);
+        CallInst *CI = IRB.CreateCall(
+            unusualValuesFns[0],
+            ArrayRef<Value *>{ConstantInt::get(Int32Ty, cur_k, true), X});
+        CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+        ++Calls;
+
+        Rets.insert(CI);
+
+        for (auto Y : P.second) {
+
+          if (X == Y || Dumpeds.find(Y) != Dumpeds.end()) continue;
+
+          cur_k = AFL_R(UNUSUAL_MAP_SIZE);
+          CallInst *CI = IRB.CreateCall(
+              unusualValuesFns[1],
+              ArrayRef<Value *>{ConstantInt::get(Int32Ty, cur_k, true), X, Y});
+          CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+          ++Calls;
+
+          Rets.insert(CI);
+
+        }
+
+        Dumpeds.insert(X);
+
+      }
+
+      FunctionModified = true;
 
     }
 
-    FunctionModified = true;
+    if (Rets.size()) {
+
+      Value *Hash = nullptr;
+      for (auto V : Rets) {
+
+        if (Hash == nullptr)
+          Hash = V;
+        else {
+
+          Hash = IRB.CreateXor(Hash, V);
+
+        }
+
+      }
+
+      CallInst *CI =
+          IRB.CreateCall(unusualValuesLogFn, ArrayRef<Value *>{Hash});
+      CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+
+    }
 
   }
 
-  if (FunctionModified && !getenv("AFL_QUIET")) {
+  if (FunctionModified && !be_quiet) {
 
-    errs() << "Inserted " << Calls << " calls to log values\n";
+    OKF("Inserted %d calls to log values.", (unsigned)Calls);
 
   }
 
@@ -590,7 +623,7 @@ class AFLUnusualFunctionPass : public FunctionPass {
     Module &   M = *F.getParent();
     AFLUnusual DI(M, F);
     bool       r = DI.instrumentFunction();
-    verifyFunction(F);
+    // verifyFunction(F);
     return r;
 
   }

@@ -119,8 +119,7 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 
-u8 *                         __afl_found_new;
-struct unusual_values_state *__afl_unusual_map;
+struct unusual_values_state *__afl_unusual;
 
 /* Child pid? */
 
@@ -588,10 +587,9 @@ static void __afl_map_shm(void) {
 
     // TODO set this for mmap too
 
-    __afl_unusual_map = (struct unusual_values_state *)shmat(shm_id, NULL, 0);
-    __afl_found_new = (u8 *)(__afl_unusual_map + UNUSUAL_MAP_SIZE);
+    __afl_unusual = (struct unusual_values_state *)shmat(shm_id, NULL, 0);
 
-    if (!__afl_unusual_map || __afl_unusual_map == (void *)-1) {
+    if (!__afl_unusual || __afl_unusual == (void *)-1) {
 
       perror("shmat for unusual");
       send_forkserver_error(FS_ERROR_SHM_OPEN);
@@ -819,7 +817,7 @@ static void __afl_start_snapshots(void) {
 
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-        *__afl_found_new = 0;
+        if (__afl_unusual) __afl_unusual->found_new = 0;
 
         return;
 
@@ -1042,7 +1040,7 @@ static void __afl_start_forkserver(void) {
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
 
-        *__afl_found_new = 0;
+        if (__afl_unusual) __afl_unusual->found_new = 0;
 
         return;
 
@@ -1099,7 +1097,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       memset(__afl_area_ptr, 0, __afl_map_size);
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-      *__afl_found_new = 0;
+      if (__afl_unusual) __afl_unusual->found_new = 0;
 
     }
 
@@ -1120,7 +1118,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
       __afl_selective_coverage_temp = 1;
-      *__afl_found_new = 0;
+      if (__afl_unusual) __afl_unusual->found_new = 0;
 
       return 1;
 
@@ -2022,56 +2020,371 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 
 }
 
-#define OUTLIER_TRESHOLD 12
-#define OUTLIER_MIN_SAMPLES 16
+#define GET_BIT(_ar, _b) !!((((u8 *)(_ar))[(_b) >> 3] & (128 >> ((_b)&7))))
 
-static u64 welford_sigma(struct unusual_values_state *state) {
+#define SET_BIT(_ar, _b)                    \
+  do {                                      \
+                                            \
+    u8 *_arf = (u8 *)(_ar);                 \
+    u32 _bf = (_b);                         \
+    _arf[(_bf) >> 3] |= (128 >> ((_bf)&7)); \
+                                            \
+  } while (0)
 
-  if (state->n >= 2) return sqrt(state->s[0] / (state->n - 1.0));
-  return 0;  // TODO err
+#define UNSET_BIT(_ar, _b)                   \
+  do {                                       \
+                                             \
+    u8 *_arf = (u8 *)(_ar);                  \
+    u32 _bf = (_b);                          \
+    _arf[(_bf) >> 3] &= ~(128 >> ((_bf)&7)); \
+                                             \
+  } while (0)
 
-}
+#define FLIP_BIT(_ar, _b)                   \
+  do {                                      \
+                                            \
+    u8 *_arf = (u8 *)(_ar);                 \
+    u32 _bf = (_b);                         \
+    _arf[(_bf) >> 3] ^= (128 >> ((_bf)&7)); \
+                                            \
+  } while (0)
 
-static void welford_add(struct unusual_values_state *state, u64 x) {
+#define UPDATE_MAP(k) SET_BIT(__afl_unusual->map, k)
+#define UPDATE_VIRGIN(k) SET_BIT(__afl_unusual->map, k)
 
-  size_t n = ++state->n;
-  if (n == 1) {
+static int unusual_values_single(u32 k, u64 x) {
 
-    state->m[0] = x;
+  int                          unusual = 0;
+  int                          learning = __afl_unusual->learning;
+  struct single_var_invariant *inv = &__afl_unusual->single_invariants[k];
 
-  } else {
+  // TODO signed version
+  if (x < inv->min) {
 
-    state->m[1] = state->m[0] + (x - state->m[0]) / n;
-    state->s[1] = state->s[0] + (x - state->m[0]) * (x - state->m[1]);
-    state->m[0] = state->m[1];                             /* for next time */
-    state->s[0] = state->s[1];                             /* for next time */
+    if (learning) {
+
+      inv->min = x;
+      UPDATE_VIRGIN(k);
+
+    }
+
+    unusual = 1;
 
   }
 
+  if (x > inv->max) {
+
+    if (learning) {
+
+      inv->max = x;
+      UPDATE_VIRGIN(k);
+
+    }
+
+    unusual = 2;
+
+  }
+
+  switch (inv->invariant) {
+
+    case INV_NONE: {
+
+      if (learning) {
+
+        if (x == 0)
+          inv->invariant = INV_EQ;
+        else if ((s64)x > 0)
+          inv->invariant = INV_GT;
+        else  // if ((s64)x < 0)
+          inv->invariant = INV_LT;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      break;
+
+    }
+
+    case INV_LT: {
+
+      if ((s64)x < 0) break;
+      if (learning) {
+
+        if (x == 0)
+          inv->invariant = INV_LE;
+        else
+          inv->invariant = INV_NE;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 3;
+      break;
+
+    }
+
+    case INV_LE: {
+
+      if ((s64)x <= 0) break;
+      if (learning) {
+
+        inv->invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 4;
+      break;
+
+    }
+
+    case INV_GT: {
+
+      if ((s64)x > 0) break;
+      if (learning) {
+
+        if (x == 0)
+          inv->invariant = INV_GE;
+        else
+          inv->invariant = INV_NE;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 5;
+      break;
+
+    }
+
+    case INV_GE: {
+
+      if ((s64)x >= 0) break;
+      if (learning) {
+
+        inv->invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 6;
+      break;
+
+    }
+
+    case INV_EQ: {
+
+      if (x == 0) break;
+      if (learning) {
+
+        if ((s64)x > 0)
+          inv->invariant = INV_GE;
+        else
+          inv->invariant = INV_LE;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 7;
+      break;
+
+    }
+
+    case INV_NE: {
+
+      if (x != 0) break;
+      if (learning) {
+
+        inv->invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 8;
+      break;
+
+    }
+
+    default:
+      break;
+
+  }
+
+  return unusual;
+
 }
 
-static int welford_is_outlier(struct unusual_values_state *state, u64 x) {
+static int unusual_values_pair(u32 k, u64 x, u64 y) {
 
-  if (state->n < OUTLIER_MIN_SAMPLES) return 0;
-  uint64_t upper = state->m[0] + OUTLIER_TRESHOLD * state->s[0];
-  uint64_t lower = state->m[0] - OUTLIER_TRESHOLD * state->s[0];
-  return x > upper || x < lower;
+  int unusual = 0;
+  int learning = __afl_unusual->learning;
+  u8 *invariant = &__afl_unusual->pair_invariants[k];
+
+  switch (*invariant) {
+
+    case INV_NONE: {
+
+      if (learning) {
+
+        if (x == y)
+          *invariant = INV_EQ;
+        else if ((s64)x > (s64)y)
+          *invariant = INV_GT;
+        else  // if ((s64)x < (s64)y)
+          *invariant = INV_LT;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      break;
+
+    }
+
+    case INV_LT: {
+
+      if ((s64)x < (s64)y) break;
+      if (learning) {
+
+        if (x == y)
+          *invariant = INV_LE;
+        else
+          *invariant = INV_NE;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 1;
+      break;
+
+    }
+
+    case INV_LE: {
+
+      if ((s64)x <= (s64)y) break;
+      if (learning) {
+
+        *invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 2;
+      break;
+
+    }
+
+    case INV_GT: {
+
+      if ((s64)x > (s64)y) break;
+      if (learning) {
+
+        if (x == y)
+          *invariant = INV_GE;
+        else
+          *invariant = INV_NE;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 3;
+      break;
+
+    }
+
+    case INV_GE: {
+
+      if ((s64)x >= (s64)y) break;
+      if (learning) {
+
+        *invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 4;
+      break;
+
+    }
+
+    case INV_EQ: {
+
+      if (x == y) break;
+      if (learning) {
+
+        if ((s64)x > (s64)y)
+          *invariant = INV_GE;
+        else
+          *invariant = INV_LE;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 5;
+      break;
+
+    }
+
+    case INV_NE: {
+
+      if (x != y) break;
+      if (learning) {
+
+        *invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+      }
+
+      unusual = 6;
+      break;
+
+    }
+
+    default:
+      break;
+
+  }
+
+  return unusual;
 
 }
 
-void __afl_unusual_values_1(u64 v0) {
+u32 __afl_unusual_values_1(u32 k, u64 x) {
 
-  if (!__afl_unusual_map) return;
+  if (!__afl_unusual) return 0;
 
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= UNUSUAL_MAP_SIZE - 1;
+  int unusual = unusual_values_single(k, x);
 
-  int is_outlier = welford_is_outlier(&__afl_unusual_map[k], v0);
-  *__afl_found_new = *__afl_found_new || is_outlier;
-  fprintf(stderr, "(%lx) is_outlier = %d, value = %llu\n", k, is_outlier,
-          (unsigned long long)v0);
-  welford_add(&__afl_unusual_map[k], v0);
+  if (unusual)
+    fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,
+            (unsigned long long)x);
+
+  if (unusual)
+    return k;
+  else
+    return 0;
+
+}
+
+u32 __afl_unusual_values_2(u32 k, u64 x, u64 y) {
+
+  if (!__afl_unusual) return 0;
+
+  int unusual = unusual_values_pair(k, x, y);
+
+  if (unusual)
+    fprintf(stderr, "(%x) unusual = %d, x = %llu, y = %llu\n", k, unusual,
+            (unsigned long long)x, (unsigned long long)y);
+
+  if (unusual)
+    return k;
+  else
+    return 0;
+
+}
+
+void __afl_unusual_values_log(u32 k) {
+
+  // TODO use map
+  if (!__afl_unusual->learning) __afl_area_ptr[k]++;
 
 }
 

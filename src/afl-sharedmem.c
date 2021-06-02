@@ -262,7 +262,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  shm->unusual_shm_id = shmget(IPC_PRIVATE, UNUSUAL_MAP_BYTES + sizeof(u8),
+  shm->unusual_shm_id = shmget(IPC_PRIVATE, sizeof(struct unusual_values_state),
                                IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
 
   if (shm->unusual_shm_id < 0) {
@@ -350,9 +350,9 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  u8 *unusual_values_map = shmat(shm->unusual_shm_id, NULL, 0);
+  shm->unusual = shmat(shm->unusual_shm_id, NULL, 0);
 
-  if (unusual_values_map == (void *)-1 || !unusual_values_map) {
+  if (shm->unusual == (void *)-1 || !shm->unusual) {
 
     shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
 
@@ -364,7 +364,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  shm->found_new = unusual_values_map + UNUSUAL_MAP_BYTES;
+  shm->unusual->learning = 1;
 
 #endif
 

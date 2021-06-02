@@ -21,14 +21,36 @@
 #include "types.h"
 
 #define UNUSUAL_MAP_SIZE 65536
-#define UNUSUAL_MAP_BYTES \
-  (UNUSUAL_MAP_SIZE * sizeof(struct unusual_values_state))
+
+enum {
+
+  INV_NONE = 0,
+  INV_LT,
+  INV_LE,
+  INV_GT,
+  INV_GE,
+  INV_EQ,
+  INV_NE,
+  INV_ALL,
+
+};
+
+struct single_var_invariant {
+
+  u64 max, min;
+  u8  invariant;
+
+};
 
 struct unusual_values_state {
 
-  u64    m[2];
-  u64    s[2];
-  size_t n;
+  u8 map[UNUSUAL_MAP_SIZE / 8];
+  u8 virgin[UNUSUAL_MAP_SIZE / 8];
+
+  struct single_var_invariant single_invariants[UNUSUAL_MAP_SIZE];
+  u8                          pair_invariants[UNUSUAL_MAP_SIZE];
+
+  u8 found_new, learning;
 
 };
 

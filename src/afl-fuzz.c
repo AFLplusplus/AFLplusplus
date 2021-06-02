@@ -1935,6 +1935,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  afl->clear_screen = 1;
+
   // (void)nice(-20);  // does not improve the speed
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
@@ -1975,6 +1977,13 @@ int main(int argc, char **argv_orig, char **envp) {
       ++afl->queue_cycle;
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_paths = 0;
+
+      // Set learning with a given probability
+      if (afl->queue_cycle) {
+
+        afl->shm.unusual->learning = rand_below(afl, 4) == 0;
+
+      }
 
       if (unlikely(afl->old_seed_selection)) {
 

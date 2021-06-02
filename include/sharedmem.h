@@ -29,6 +29,7 @@
 #define __AFL_SHAREDMEM_H
 
 #include "types.h"
+#include "unusual.h"
 
 typedef struct sharedmem {
 
@@ -47,8 +48,8 @@ typedef struct sharedmem {
   s32 unusual_shm_id;
 #endif
 
-  u8 *map;                                          /* shared memory region */
-  u8 *found_new;
+  u8 *                         map;                 /* shared memory region */
+  struct unusual_values_state *unusual;
 
   size_t map_size;                                 /* actual allocated size */
 
