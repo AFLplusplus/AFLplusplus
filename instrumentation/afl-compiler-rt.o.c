@@ -83,13 +83,14 @@ extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,
                            size_t bufferSize);
 #endif  // HAIKU
 
-u8   __afl_area_initial[MAP_INITIAL_SIZE];
-u8 * __afl_area_ptr_dummy = __afl_area_initial;
+static u8   __afl_area_initial[MAP_INITIAL_SIZE];
+static u8 * __afl_area_ptr_dummy = __afl_area_initial;
+static u8 * __afl_area_ptr_backup = __afl_area_initial;
+
 u8 * __afl_area_ptr = __afl_area_initial;
-u8 * __afl_area_ptr_backup = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
-u32  __afl_fuzz_len_dummy;
+static u32  __afl_fuzz_len_dummy;
 u32 *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
@@ -100,7 +101,7 @@ u64 __afl_map_addr;
 // for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
 int __afl_selective_coverage __attribute__((weak));
 int __afl_selective_coverage_start_off __attribute__((weak));
-int __afl_selective_coverage_temp = 1;
+static int __afl_selective_coverage_temp = 1;
 
 #if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
@@ -147,7 +148,7 @@ static int __afl_dummy_fd[2] = {2, 2};
 
 /* ensure we kill the child on termination */
 
-void at_exit(int signal) {
+static void at_exit(int signal) {
 
   if (child_pid > 0) { kill(child_pid, SIGKILL); }
 
@@ -179,7 +180,7 @@ void __afl_trace(const u32 x) {
 
 /* Error reporting to forkserver controller */
 
-void send_forkserver_error(int error) {
+static void send_forkserver_error(int error) {
 
   u32 status;
   if (!error || error > 0xffff) return;
@@ -1668,7 +1669,7 @@ void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
 }
 
-void __sanitizer_cov_trace_cost_cmp4(uint32_t arg1, uint32_t arg2) {
+void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2) {
 
   __cmplog_ins_hook4(arg1, arg2, 0);
 
