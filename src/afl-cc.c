@@ -315,7 +315,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
-     have_c = 0;
+     have_c = 0, partial_linking = 0;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
@@ -767,6 +767,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "-r")) partial_linking = 1;
     if (!strcmp(cur, "-c")) have_c = 1;
 
     if (!strncmp(cur, "-O", 2)) have_o = 1;
@@ -996,7 +997,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        if (!shared_linking)
+        if (!shared_linking && !partial_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
         if (lto_mode)
@@ -1005,7 +1006,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 32:
-        if (!shared_linking) {
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
@@ -1026,7 +1027,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        if (!shared_linking) {
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
@@ -1049,7 +1050,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking)
+    if (!shared_linking && !partial_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
