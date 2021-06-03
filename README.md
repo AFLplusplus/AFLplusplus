@@ -801,7 +801,7 @@ Alternatively you can use frida_mode, just switch `-Q` with `-O` and remove the
 LAF instance.
 
 Then run as many instances as you have cores left with either -Q mode or - better -
-use a binary rewriter like afl-dyninst, retrowrite, [Zafl](https://git.zephyr-software.com/opensrc/zafl), etc.
+use a binary rewriter like afl-dyninst, retrowrite, zafl, etc.
 
 For Qemu and Frida mode, check out the persistent mode, it gives a huge speed
 improvement if it is possible to use.
