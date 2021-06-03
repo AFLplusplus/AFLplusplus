@@ -436,7 +436,7 @@ bool AFLUnusual::instrumentFunction() {
         
         if (isa<Constant>(X)) {
 
-          errs() << "COSNT VAL  " << *X << "\n";
+          // errs() << "COSNT VAL  " << *X << "\n";
           Dumpeds1.insert(X);
 
         }
@@ -446,7 +446,7 @@ bool AFLUnusual::instrumentFunction() {
           // Skip load from constant mem
           if (AA.pointsToConstantMemory(L)) {
 
-            errs() << "COSNT MEM  " << *L << "\n";
+            // errs() << "COSNT MEM  " << *L << "\n";
             Dumpeds1.insert(X);
 
           }
@@ -484,9 +484,9 @@ bool AFLUnusual::instrumentFunction() {
 
             Rets.insert(CI);
 
-          } else
+          } // else
 
-            errs() << "SKIP " << A << " - " << B << "\n";
+            // errs() << "SKIP " << A << " - " << B << "\n";
 
           Dumpeds1.insert(X);
 
