@@ -20,6 +20,7 @@
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
+#include "unusual.h"
 #include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
@@ -32,6 +33,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <errno.h>
+#include <math.h>
 
 #include <sys/mman.h>
 #ifndef __HAIKU__
@@ -117,6 +119,12 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
+
+struct unusual_values_state  __afl_unusual_dummy;
+struct unusual_values_state *__afl_unusual = &__afl_unusual_dummy;
+
+int __afl_unusual_enabled __attribute__((weak));
+// TODO add a forkserver option to tell afl-fuzz about unusual
 
 /* Child pid? */
 
@@ -576,6 +584,26 @@ static void __afl_map_shm(void) {
 
   }
 
+  id_str = getenv("__AFL_UNUSUAL_ID");
+
+  if (id_str && __afl_unusual_enabled) {
+
+    u32 shm_id = atoi(id_str);
+
+    // TODO set this for mmap too
+
+    __afl_unusual = (struct unusual_values_state *)shmat(shm_id, NULL, 0);
+
+    if (!__afl_unusual || __afl_unusual == (void *)-1) {
+
+      perror("shmat for unusual");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+  }
+
 }
 
 /* unmap SHM. */
@@ -794,6 +822,7 @@ static void __afl_start_snapshots(void) {
 
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+        if (__afl_unusual) __afl_unusual->found_new = 0;
 
         return;
 
@@ -1015,6 +1044,9 @@ static void __afl_start_forkserver(void) {
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
+
+        if (__afl_unusual) __afl_unusual->found_new = 0;
+
         return;
 
       }
@@ -1070,6 +1102,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       memset(__afl_area_ptr, 0, __afl_map_size);
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+      if (__afl_unusual) __afl_unusual->found_new = 0;
 
     }
 
@@ -1090,6 +1123,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
       __afl_selective_coverage_temp = 1;
+      if (__afl_unusual) __afl_unusual->found_new = 0;
 
       return 1;
 

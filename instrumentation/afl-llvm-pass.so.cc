@@ -676,7 +676,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                                                todo.push_back(MapPtrIdx);
                              
                                              } else {
-
+                             
                                      */
         IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
 #if LLVM_VERSION_MAJOR >= 13

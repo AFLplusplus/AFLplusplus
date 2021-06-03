@@ -204,6 +204,9 @@ static char *afl_environment_variables[] = {
     "AFL_USE_FASAN",
     "AFL_USE_QASAN",
     "AFL_PRINT_FILENAMES",
+    "AFL_UNUSUAL_VALUES",
+    "AFL_LLVM_UNUSUAL_VALUES",
+    "AFL_SKIP_START_LEARNING",
     NULL
 
 };

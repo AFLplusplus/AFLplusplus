@@ -1942,6 +1942,7 @@ int main(int argc, char **argv_orig, char **envp) {
   u32 runs_in_current_cycle = (u32)-1;
   u32 prev_queued_paths = 0;
   u8  skipped_fuzz;
+  u8  prev_learning = 0;
 
   #ifdef INTROSPECTION
   char ifn[4096];
@@ -1955,6 +1956,11 @@ int main(int argc, char **argv_orig, char **envp) {
   setvbuf(afl->introspection_file, NULL, _IONBF, 0);
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
+
+  if (getenv("AFL_SKIP_START_LEARNING")) afl->shm.unusual->learning = 0;
+
+  afl->clear_screen = 1;
+  show_stats(afl);
 
   while (likely(!afl->stop_soon)) {
 
@@ -2014,6 +2020,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+      // Set learning with a given probability
+      if (afl->queue_cycle) {
+
+        afl->shm.unusual->learning = rand_below(afl, 4) == 0;
+        afl->clear_screen = 1;
+
+      }
+
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
@@ -2021,6 +2035,13 @@ int main(int argc, char **argv_orig, char **envp) {
                    /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
                       3600 */
                    )) {
+
+        if (!prev_learning) {
+
+          afl->shm.unusual->learning = 1;
+          afl->clear_screen = 1;
+
+        }
 
         if (afl->use_splicing) {
 
@@ -2173,6 +2194,8 @@ int main(int argc, char **argv_orig, char **envp) {
       skipped_fuzz = fuzz_one(afl);
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
+
+      prev_learning = afl->shm.unusual->learning;
 
       if (unlikely(afl->old_seed_selection)) {
 

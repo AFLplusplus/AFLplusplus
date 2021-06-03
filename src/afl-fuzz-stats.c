@@ -635,17 +635,26 @@ void show_stats(afl_state_t *afl) {
   banner_pad = (79 - banner_len) / 2;
   memset(tmp, ' ', banner_pad);
 
+  char *learning_str = "", *learning_pad = "          ";
+  if (afl->shm.unusual->learning) {
+
+    learning_str = ", learning";
+    learning_pad = "";
+
+  }
+
 #ifdef HAVE_AFFINITY
   sprintf(
       tmp + banner_pad,
-      "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]" cBLU " {%d}",
+      "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s%s]" cBLU " {%d}%s",
       afl->crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
-      afl->use_banner, afl->power_name, afl->cpu_aff);
+      afl->use_banner, afl->power_name, learning_str, afl->cpu_aff,
+      learning_pad);
 #else
   sprintf(
-      tmp + banner_pad, "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]",
+      tmp + banner_pad, "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s%s]%s",
       afl->crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
-      afl->use_banner, afl->power_name);
+      afl->use_banner, afl->power_name, learning_str, learning_pad);
 #endif                                                     /* HAVE_AFFINITY */
 
   SAYF("\n%s\n", tmp);

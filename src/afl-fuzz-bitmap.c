@@ -488,6 +488,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
 
+    if (!new_bits && !afl->shm.unusual->learning && afl->shm.unusual->found_new)
+      new_bits = 1;
+
     if (likely(!new_bits)) {
 
       if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
