@@ -1018,7 +1018,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        if (!shared_linking && !partial_linking)
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
