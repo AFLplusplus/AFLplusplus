@@ -103,7 +103,7 @@ struct AFLUnusual {
 
   FunctionCallee unusualValuesFns[6];
   FunctionCallee unusualValuesLogFn;
-  
+
   bool noSingle = false;
 
   LLVMContext *C;
@@ -186,7 +186,7 @@ void AFLUnusual::initialize() {
   } else
 
     be_quiet = 1;
-  
+
   noSingle = !!getenv("AFL_NO_SINGLE_UNUSUAL_VALUES");
 
 }
@@ -433,7 +433,7 @@ bool AFLUnusual::instrumentFunction() {
       for (auto X : P.second) {
 
         Value *XB = nullptr;
-        
+
         if (isa<Constant>(X)) {
 
           // errs() << "COSNT VAL  " << *X << "\n";
@@ -459,20 +459,41 @@ bool AFLUnusual::instrumentFunction() {
 
           Range Rng = RA.getRange(X);
 
-          int64_t A = (int64_t)Rng.getLower().getSExtValue();
-          int64_t B = (int64_t)Rng.getUpper().getSExtValue();
+          bool MustCheck = false;
+          u8   always_true = INV_ALL;
 
-          // errs() << "Range " << A << " - " << B << "\n";
+          if (!Rng.isUnknown() && !Rng.isEmpty()) {
 
-          u8 always_true = INV_NONE;
-          if (A > 0 && B > 0) always_true = INV_GT;
-          if (A >= 0 && B > 0) always_true = INV_GE;
-          if (A < 0 && B < 0) always_true = INV_LT;
-          if (A < 0 && B <= 0) always_true = INV_LE;
+            bool HasMin = Rng.getLower().getActiveBits() <= 64;
+            bool HasMax = Rng.getUpper().getActiveBits() <= 64;
 
-          // if (!((A > 0 && B > 0) || (A < 0 && B < 0) || (A == B))) {
+            if (HasMin && HasMax) {
 
-          if (A != B) {
+              int64_t A = (int64_t)Rng.getLower().getSExtValue();
+              int64_t B = (int64_t)Rng.getUpper().getSExtValue();
+
+              // errs() << "Range " << A << " - " << B << "\n";
+
+              if (A > 0 && B > 0) always_true = INV_GT;
+              if (A >= 0 && B > 0) always_true = INV_GE;
+              if (A < 0 && B < 0) always_true = INV_LT;
+              if (A < 0 && B <= 0) always_true = INV_LE;
+
+              // if (!((A > 0 && B > 0) || (A < 0 && B < 0) || (A == B))) {
+
+              if (A != B) { MustCheck = true; }  // else
+
+              // errs() << "SKIP " << A << " - " << B << "\n";
+
+            }
+
+          } else {
+
+            MustCheck = true;
+
+          }
+
+          if (MustCheck) {
 
             Key = AFL_R(UNUSUAL_MAP_SIZE);
             CallInst *CI = IRB.CreateCall(
@@ -484,9 +505,7 @@ bool AFLUnusual::instrumentFunction() {
 
             Rets.insert(CI);
 
-          } // else
-
-            // errs() << "SKIP " << A << " - " << B << "\n";
+          }
 
           Dumpeds1.insert(X);
 

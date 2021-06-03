@@ -85,15 +85,15 @@ extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,
                            size_t bufferSize);
 #endif  // HAIKU
 
-static u8   __afl_area_initial[MAP_INITIAL_SIZE];
-static u8 * __afl_area_ptr_dummy = __afl_area_initial;
-static u8 * __afl_area_ptr_backup = __afl_area_initial;
+static u8  __afl_area_initial[MAP_INITIAL_SIZE];
+static u8 *__afl_area_ptr_dummy = __afl_area_initial;
+static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
-u8 * __afl_area_ptr = __afl_area_initial;
-u8 * __afl_dictionary;
-u8 * __afl_fuzz_ptr;
-static u32  __afl_fuzz_len_dummy;
-u32 *__afl_fuzz_len = &__afl_fuzz_len_dummy;
+u8 *       __afl_area_ptr = __afl_area_initial;
+u8 *       __afl_dictionary;
+u8 *       __afl_fuzz_ptr;
+static u32 __afl_fuzz_len_dummy;
+u32 *      __afl_fuzz_len = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -101,8 +101,8 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 
 // for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
-int __afl_selective_coverage __attribute__((weak));
-int __afl_selective_coverage_start_off __attribute__((weak));
+int        __afl_selective_coverage __attribute__((weak));
+int        __afl_selective_coverage_start_off __attribute__((weak));
 static int __afl_selective_coverage_temp = 1;
 
 #if defined(__ANDROID__) || defined(__HAIKU__)

@@ -328,6 +328,13 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
     }
 
+    case INV_ALL: {
+
+      patch_caller(retaddr);
+      break;
+
+    }
+
     default:
       break;
 
