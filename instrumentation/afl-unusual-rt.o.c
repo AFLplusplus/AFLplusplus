@@ -85,7 +85,7 @@ static void patch_caller(uint8_t *retaddr) {
 
 }
 
-static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x) {
+static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x, u8 always_true) {
 
   int                          unusual = 0;
   int                          learning = __afl_unusual->learning;
@@ -144,6 +144,11 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x) {
         else
           inv->invariant = INV_NE;
         UPDATE_VIRGIN(k);
+        
+        if (always_true == inv->invariant) {
+          inv->invariant = INV_ALL;
+          patch_caller(retaddr);
+        }
 
       }
 
@@ -180,6 +185,11 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x) {
           inv->invariant = INV_NE;
         UPDATE_VIRGIN(k);
 
+        if (always_true == inv->invariant) {
+          inv->invariant = INV_ALL;
+          patch_caller(retaddr);
+        }
+
       }
 
       unusual = 5;
@@ -214,6 +224,11 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x) {
         else
           inv->invariant = INV_LE;
         UPDATE_VIRGIN(k);
+        
+        if (always_true == inv->invariant) {
+          inv->invariant = INV_ALL;
+          patch_caller(retaddr);
+        }
 
       }
 
@@ -284,7 +299,11 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x) {
           else {  // if (lt && gt && eq)
             inv->invariant = INV_ALL;
             patch_caller(retaddr);
-
+          }
+          
+          if (always_true == inv->invariant) {
+            inv->invariant = INV_ALL;
+            patch_caller(retaddr);
           }
 
         }
@@ -448,12 +467,12 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
 }
 
-u32 __afl_unusual_values_1(u32 k, u64 x) {
+u32 __afl_unusual_values_1(u32 k, u64 x, u8 always_true) {
 
   // if (!__afl_unusual) return 0;
 
   int unusual =
-      unusual_values_single((uint8_t *)__builtin_return_address(0), k, x);
+      unusual_values_single((uint8_t *)__builtin_return_address(0), k, x, always_true);
 
   // if (unusual)
   //  fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,

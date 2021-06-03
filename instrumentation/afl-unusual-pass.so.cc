@@ -26,6 +26,7 @@ typedef long double max_align_t;
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -61,8 +62,8 @@ namespace {
 struct AFLUnusual {
 
   AFLUnusual(Module &_M, Function &_F, DominatorTree &_DT,
-             IntraProceduralRA<Cousot> &_RA)
-      : M(_M), F(_F), DT(_DT), RA(_RA) {
+             IntraProceduralRA<Cousot> &_RA, AliasAnalysis &_AA)
+      : M(_M), F(_F), DT(_DT), RA(_RA), AA(_AA) {
 
     initialize();
 
@@ -107,8 +108,9 @@ struct AFLUnusual {
   Module &     M;
   Function &   F;
 
-  DominatorTree &            DT;
+  DominatorTree &DT;
   IntraProceduralRA<Cousot> &RA;
+  AliasAnalysis &AA;
 
   int LongSize;
 
@@ -159,7 +161,7 @@ void AFLUnusual::initialize() {
   IntTypeSized[3] = Int64Ty;
 
   unusualValuesFns[0] = M.getOrInsertFunction("__afl_unusual_values_1", Int32Ty,
-                                              Int32Ty, Int64Ty);
+                                              Int32Ty, Int64Ty, Int8Ty);
   unusualValuesFns[1] = M.getOrInsertFunction("__afl_unusual_values_2", Int32Ty,
                                               Int32Ty, Int64Ty, Int64Ty);
   unusualValuesFns[2] = M.getOrInsertFunction(
@@ -346,7 +348,7 @@ bool AFLUnusual::instrumentFunction() {
 
   std::set<Value *>                     Dumpeds1;
   std::set<std::pair<Value *, Value *>> Dumpeds2;
-
+  
   for (auto &BB : Blocks) {
 
     std::map<int, std::set<Value *>> CompArgs;
@@ -422,11 +424,24 @@ bool AFLUnusual::instrumentFunction() {
 
       if (P.first == -1) continue;
 
-      if (P.second.size() == 0) continue;
+      if (P.second.size() <= 1) continue;
 
       for (auto X : P.second) {
 
         Value *XB = nullptr;
+        
+        if (isa<Constant>(X)) {
+          errs() << "COSNT VAL  " << *X << "\n";
+          Dumpeds1.insert(X);
+        }
+        
+        if (LoadInst *L = dyn_cast<LoadInst>(X)) {
+          // Skip load from constant mem
+          if (AA.pointsToConstantMemory(L)) {
+            errs() << "COSNT MEM  " << *L << "\n";
+            Dumpeds1.insert(X);
+          }
+        }
 
         if (Dumpeds1.find(X) == Dumpeds1.end()) {
 
@@ -438,21 +453,25 @@ bool AFLUnusual::instrumentFunction() {
           int64_t B = (int64_t)Rng.getUpper().getSExtValue();
 
           // errs() << "Range " << A << " - " << B << "\n";
+          
+          u8 always_true = INV_NONE;
+          if (A > 0 && B > 0) always_true = INV_GT;
+          if (A >= 0 && B > 0) always_true = INV_GE;
+          if (A < 0 && B < 0) always_true = INV_LT;
+          if (A < 0 && B <= 0) always_true = INV_LE;
 
           // if (!((A > 0 && B > 0) || (A < 0 && B < 0) || (A == B))) {
 
           if (A != B) {
 
             Key = AFL_R(UNUSUAL_MAP_SIZE);
-            CallInst *CI = IRB.CreateCall(
-                unusualValuesFns[0],
-                ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB});
+            CallInst *CI = IRB.CreateCall(unusualValuesFns[0], ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB, ConstantInt::get(Int8Ty, always_true, true)});
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls1;
 
             Rets.insert(CI);
 
-          }
+          } else errs() << "SKIP " << A << " - " << B << "\n";
 
           Dumpeds1.insert(X);
 
@@ -537,6 +556,7 @@ class AFLUnusualFunctionPass : public FunctionPass {
     AU.setPreservesCFG();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<IntraProceduralRA<Cousot>>();
+    AU.addRequired<AAResultsWrapperPass>();
 
   }
 
@@ -551,7 +571,8 @@ class AFLUnusualFunctionPass : public FunctionPass {
     Module &       M = *F.getParent();
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     IntraProceduralRA<Cousot> &RA = getAnalysis<IntraProceduralRA<Cousot>>();
-    AFLUnusual                 DI(M, F, DT, RA);
+    AliasAnalysis &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
+    AFLUnusual                 DI(M, F, DT, RA, AA);
     bool                       r = DI.instrumentFunction();
     // verifyFunction(F);
     return r;
