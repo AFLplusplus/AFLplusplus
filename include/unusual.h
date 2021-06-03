@@ -22,6 +22,8 @@
 
 #define UNUSUAL_MAP_SIZE 65536
 
+#define INV_ONEOF_MAX_NUM_VALS 8
+
 enum {
 
   INV_NONE = 0,
@@ -31,13 +33,16 @@ enum {
   INV_GE,
   INV_EQ,
   INV_NE,
+  INV_ONEOF,
   INV_ALL,
 
 };
 
 struct single_var_invariant {
 
-  u64 max, min;
+  // u64 max, min;
+  u64 vals[INV_ONEOF_MAX_NUM_VALS];
+  u8  num_vals;
   u8  invariant;
 
 };

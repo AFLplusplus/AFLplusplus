@@ -1935,8 +1935,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  afl->clear_screen = 1;
-
   // (void)nice(-20);  // does not improve the speed
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
@@ -1958,6 +1956,11 @@ int main(int argc, char **argv_orig, char **envp) {
   setvbuf(afl->introspection_file, NULL, _IONBF, 0);
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
+
+  if (getenv("AFL_SKIP_START_LEARNING")) afl->shm.unusual->learning = 0;
+
+  afl->clear_screen = 1;
+  show_stats(afl);
 
   while (likely(!afl->stop_soon)) {
 
@@ -2021,11 +2024,6 @@ int main(int argc, char **argv_orig, char **envp) {
       if (afl->queue_cycle) {
 
         afl->shm.unusual->learning = rand_below(afl, 4) == 0;
-        afl->clear_screen = 1;
-
-      } else if (getenv("AFL_SKIP_START_LEARNING")) {
-
-        afl->shm.unusual->learning = 0;
         afl->clear_screen = 1;
 
       }
