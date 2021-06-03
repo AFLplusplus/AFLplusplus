@@ -206,6 +206,7 @@ static char *afl_environment_variables[] = {
     "AFL_PRINT_FILENAMES",
     "AFL_UNUSUAL_VALUES",
     "AFL_LLVM_UNUSUAL_VALUES",
+    "AFL_NO_SINGLE_UNUSUAL_VALUES",
     "AFL_SKIP_START_LEARNING",
     NULL
 

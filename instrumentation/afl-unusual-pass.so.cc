@@ -103,6 +103,8 @@ struct AFLUnusual {
 
   FunctionCallee unusualValuesFns[6];
   FunctionCallee unusualValuesLogFn;
+  
+  bool noSingle = false;
 
   LLVMContext *C;
   Module &     M;
@@ -184,6 +186,8 @@ void AFLUnusual::initialize() {
   } else
 
     be_quiet = 1;
+  
+  noSingle = !!getenv("AFL_NO_SINGLE_UNUSUAL_VALUES");
 
 }
 
@@ -429,7 +433,7 @@ bool AFLUnusual::instrumentFunction() {
       for (auto X : P.second) {
 
         Value *XB = nullptr;
-
+        
         if (isa<Constant>(X)) {
 
           errs() << "COSNT VAL  " << *X << "\n";
@@ -449,7 +453,7 @@ bool AFLUnusual::instrumentFunction() {
 
         }
 
-        if (Dumpeds1.find(X) == Dumpeds1.end()) {
+        if (!noSingle && Dumpeds1.find(X) == Dumpeds1.end()) {
 
           XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
 
