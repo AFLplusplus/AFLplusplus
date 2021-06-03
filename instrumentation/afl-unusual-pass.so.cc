@@ -108,9 +108,9 @@ struct AFLUnusual {
   Module &     M;
   Function &   F;
 
-  DominatorTree &DT;
+  DominatorTree &            DT;
   IntraProceduralRA<Cousot> &RA;
-  AliasAnalysis &AA;
+  AliasAnalysis &            AA;
 
   int LongSize;
 
@@ -348,7 +348,7 @@ bool AFLUnusual::instrumentFunction() {
 
   std::set<Value *>                     Dumpeds1;
   std::set<std::pair<Value *, Value *>> Dumpeds2;
-  
+
   for (auto &BB : Blocks) {
 
     std::map<int, std::set<Value *>> CompArgs;
@@ -429,18 +429,24 @@ bool AFLUnusual::instrumentFunction() {
       for (auto X : P.second) {
 
         Value *XB = nullptr;
-        
+
         if (isa<Constant>(X)) {
+
           errs() << "COSNT VAL  " << *X << "\n";
           Dumpeds1.insert(X);
+
         }
-        
+
         if (LoadInst *L = dyn_cast<LoadInst>(X)) {
+
           // Skip load from constant mem
           if (AA.pointsToConstantMemory(L)) {
+
             errs() << "COSNT MEM  " << *L << "\n";
             Dumpeds1.insert(X);
+
           }
+
         }
 
         if (Dumpeds1.find(X) == Dumpeds1.end()) {
@@ -453,7 +459,7 @@ bool AFLUnusual::instrumentFunction() {
           int64_t B = (int64_t)Rng.getUpper().getSExtValue();
 
           // errs() << "Range " << A << " - " << B << "\n";
-          
+
           u8 always_true = INV_NONE;
           if (A > 0 && B > 0) always_true = INV_GT;
           if (A >= 0 && B > 0) always_true = INV_GE;
@@ -465,13 +471,18 @@ bool AFLUnusual::instrumentFunction() {
           if (A != B) {
 
             Key = AFL_R(UNUSUAL_MAP_SIZE);
-            CallInst *CI = IRB.CreateCall(unusualValuesFns[0], ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB, ConstantInt::get(Int8Ty, always_true, true)});
+            CallInst *CI = IRB.CreateCall(
+                unusualValuesFns[0],
+                ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB,
+                                  ConstantInt::get(Int8Ty, always_true, true)});
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls1;
 
             Rets.insert(CI);
 
-          } else errs() << "SKIP " << A << " - " << B << "\n";
+          } else
+
+            errs() << "SKIP " << A << " - " << B << "\n";
 
           Dumpeds1.insert(X);
 
@@ -572,8 +583,8 @@ class AFLUnusualFunctionPass : public FunctionPass {
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     IntraProceduralRA<Cousot> &RA = getAnalysis<IntraProceduralRA<Cousot>>();
     AliasAnalysis &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    AFLUnusual                 DI(M, F, DT, RA, AA);
-    bool                       r = DI.instrumentFunction();
+    AFLUnusual     DI(M, F, DT, RA, AA);
+    bool           r = DI.instrumentFunction();
     // verifyFunction(F);
     return r;
 
