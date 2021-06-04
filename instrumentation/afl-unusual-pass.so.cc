@@ -426,9 +426,9 @@ bool AFLUnusual::instrumentFunction() {
 
     for (auto P : CompArgs) {
 
-      if (P.first == -1) continue;
+      // if (P.first == -1) continue;
 
-      if (P.second.size() <= 1) continue;
+      //if (P.second.size() <= 1) continue;
 
       for (auto X : P.second) {
 
@@ -512,28 +512,34 @@ bool AFLUnusual::instrumentFunction() {
         }
 
         // if (P.first == -1) continue;
+        
+        for (auto O : CompArgs) {
 
-        for (auto Y : P.second) {
+          if (P.first != -1 && P.first != O.first) continue;
 
-          if (X == Y || Dumpeds2.find(std::make_pair(X, Y)) != Dumpeds2.end() ||
-              Dumpeds2.find(std::make_pair(Y, X)) != Dumpeds2.end())
-            continue;
+          for (auto Y : O.second) {
 
-          if (XB == nullptr) XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
+            if (X == Y || Dumpeds2.find(std::make_pair(X, Y)) != Dumpeds2.end() ||
+                Dumpeds2.find(std::make_pair(Y, X)) != Dumpeds2.end())
+              continue;
 
-          Value *YB = IRB.CreateZExtOrBitCast(Y, Int64Ty);
+            if (XB == nullptr) XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
 
-          Key = AFL_R(UNUSUAL_MAP_SIZE);
-          CallInst *CI = IRB.CreateCall(
-              unusualValuesFns[1],
-              ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB, YB});
-          CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
-          ++Calls2;
+            Value *YB = IRB.CreateZExtOrBitCast(Y, Int64Ty);
 
-          Rets.insert(CI);
+            Key = AFL_R(UNUSUAL_MAP_SIZE);
+            CallInst *CI = IRB.CreateCall(
+                unusualValuesFns[1],
+                ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB, YB});
+            CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+            ++Calls2;
 
-          Dumpeds2.insert(std::make_pair(X, Y));
+            Rets.insert(CI);
 
+            Dumpeds2.insert(std::make_pair(X, Y));
+
+          }
+        
         }
 
       }
