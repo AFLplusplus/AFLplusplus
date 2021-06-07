@@ -19,6 +19,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - support partial linking
   - ensure afl-compiler-rt is built for gcc_module
   - afl-analyze now uses the forkserver for increased performance
+
+
 ### Version ++3.13c (release)
   - Note: plot_data switched to relative time from unix time in 3.10
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
