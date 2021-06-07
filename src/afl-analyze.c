@@ -225,7 +225,6 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
 }
 
-
 /* Handle timeout signal. */
 
 static void handle_timeout(int sig) {
@@ -237,7 +236,6 @@ static void handle_timeout(int sig) {
   if (child_pid > 0) kill(child_pid, SIGKILL);
 
 }
-
 
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */

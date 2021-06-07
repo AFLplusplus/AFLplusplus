@@ -768,7 +768,7 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bVR bH bSTOP                                              cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage"    bSTG bHT bH20 bH2                      bVL "\n");
+       " map coverage" bSTG bHT bH20 bH2                         bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -873,9 +873,8 @@ void show_stats(afl_state_t *afl) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                                                      bSTOP
-       " fuzzing strategy yields " bSTG bH10 bH2 bHT bH10 bH2 bH bHB bH bSTOP cCYA
-       " path geometry " bSTG bH5 bH2 bVL "\n");
+  SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bH2 bHT bH10 bH2
+           bH bHB bH bSTOP cCYA " path geometry " bSTG bH5 bH2 bVL "\n");
 
   if (unlikely(afl->custom_only)) {
 
