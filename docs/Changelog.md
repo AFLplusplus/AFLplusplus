@@ -12,6 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Fix for llvm 13
   - afl-fuzz:
     - fix -F when a '/' was part of the parameter
+    - removed implied -D determinstic from -M main
   - ensure afl-compiler-rt is built for gcc_module
 
 

@@ -575,7 +575,6 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->sync_id = ck_strdup(optarg);
-        afl->skip_deterministic = 0;  // force deterministic fuzzing
         afl->old_seed_selection = 1;  // force old queue walking seed selection
         afl->disable_trim = 1;        // disable trimming
 
