@@ -21,16 +21,16 @@ perhaps leverage some of its design and implementation.
   | Feature/Instrumentation  | frida-mode | Notes                                        |
   | -------------------------|:----------:|:--------------------------------------------:|
   | NeverZero                |     x      |                                              |
-  | Persistent Mode          |     x      | (x86/x64 only)(Only on function boundaries)  |
+  | Persistent Mode          |     x      | (x86/x64/aarch64 only)                       |
   | LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)           |
-  | CMPLOG                   |     x      | (x86/x64 only)                               |
+  | CMPLOG                   |     x      | (x86/x64/aarch64 only)                       |
   | Selective Instrumentation|     x      |                                              |
   | Non-Colliding Coverage   |     -      | (Not possible in binary-only instrumentation |
   | Ngram prev_loc Coverage  |     -      |                                              |
   | Context Coverage         |     -      |                                              |
   | Auto Dictionary          |     -      |                                              |
   | Snapshot LKM Support     |     -      |                                              |
-  | In-Memory Test Cases     |     x      | (x86/x64 only)                               |
+  | In-Memory Test Cases     |     x      | (x86/x64/aarch64 only)                       |
 
 ## Compatibility
 Currently FRIDA mode supports Linux and macOS targets on both x86/x64
@@ -288,7 +288,7 @@ to validate memory accesses against the shadow memory.
 
 ## TODO
 
-The next features to be added are Aarch64 and Aarch32 support as well as looking at
+The next features to be added are Aarch32 support as well as looking at
 potential performance improvements. The intention is to achieve feature parity with
 QEMU mode in due course. Contributions are welcome, but please get in touch to
 ensure that efforts are deconflicted.

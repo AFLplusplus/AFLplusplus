@@ -93,5 +93,17 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
+void instrument_flush(GumStalkerOutput *output) {
+
+  gum_arm64_writer_flush(output->writer.arm64);
+
+}
+
+gpointer instrument_cur(GumStalkerOutput *output) {
+
+  return gum_arm64_writer_cur(output->writer.arm64);
+
+}
+
 #endif
 
