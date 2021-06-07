@@ -15,6 +15,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - removed implied -D determinstic from -M main
     - if the target becomes unavailable check out out/default/error.txt for
       an indicator why
+  - afl-cc
+    - support partial linking
   - ensure afl-compiler-rt is built for gcc_module
 
 
