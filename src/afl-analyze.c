@@ -68,8 +68,6 @@ static u64 orig_cksum;                 /* Original checksum                 */
 
 static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 
-static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
-
 static bool edges_only,                  /* Ignore hit counts?              */
     use_hex_offsets,                   /* Show hex offsets?                 */
     use_stdin = true;                     /* Use stdin for program input?   */
@@ -631,8 +629,8 @@ static void set_up_environment(char **argv) {
   char *afl_preload;
   char *frida_afl_preload = NULL;
 
-  dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
+  fsrv.dev_null_fd = open("/dev/null", O_RDWR);
+  if (fsrv.dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
   if (!fsrv.out_file) {
 
