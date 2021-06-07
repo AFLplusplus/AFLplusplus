@@ -630,7 +630,9 @@ static void __afl_unmap_shm(void) {
 
 }
 
-void write_error(char *text) {
+#define write_error(text) write_error_with_location(text, __FILE__, __LINE__)
+
+void write_error_with_location(char *text, char* filename, int linenumber) {
 
   u8 *  o = getenv("__AFL_OUT_DIR");
   char *e = strerror(errno);
@@ -643,14 +645,14 @@ void write_error(char *text) {
 
     if (f) {
 
-      fprintf(f, "Error(%s): %s\n", text, e);
+      fprintf(f, "File %s, line %d: Error(%s): %s\n", filename, linenumber, text, e);
       fclose(f);
 
     }
 
   }
 
-  fprintf(stderr, "Error(%s): %s\n", text, e);
+  fprintf(stderr, "File %s, line %d: Error(%s): %s\n", filename, linenumber, text, e);
 
 }
 
@@ -2079,3 +2081,4 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 
 }
 
+#undef write_error
