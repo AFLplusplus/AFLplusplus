@@ -54,9 +54,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
-#include "forkserver.h"
-
-static s32 child_pid;                  /* PID of the tested program         */
 
 static u8 *in_file,                    /* Analyzer input test case          */
     *prog_in;                          /* Targeted program input file       */
@@ -78,8 +75,7 @@ static bool edges_only,                  /* Ignore hit counts?              */
     use_hex_offsets,                   /* Show hex offsets?                 */
     use_stdin = true;                     /* Use stdin for program input?   */
 
-static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
-    child_timed_out;                   /* Child timed out?                  */
+static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
 static u8 *target_path;
 static u8  frida_mode;
@@ -624,7 +620,7 @@ static void handle_stop_sig(int sig) {
   (void)sig;
   stop_soon = 1;
 
-  if (child_pid > 0) { kill(child_pid, SIGKILL); }
+  afl_fsrv_killall();
 
 }
 
@@ -892,9 +888,8 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'f':
 
         if (prog_in) { FATAL("Multiple -f options not supported"); }
-        use_stdin = 0;
-        prog_in = optarg;
         fsrv.use_stdin = 0;
+        prog_in = ck_strdup(optarg);
         break;
 
       case 'e':
@@ -1044,13 +1039,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
+
   atexit(at_exit_handler);
   setup_signal_handlers();
 
   set_up_environment(argv);
 
-  target_path = find_binary(argv[optind]);
+  fsrv.target_path = find_binary(argv[optind]);
+  fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, prog_in, &use_stdin);
 
   if (qemu_mode) {
@@ -1073,6 +1069,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  SAYF("\n");
+
   if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
 
     s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
@@ -1086,8 +1084,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  SAYF("\n");
-
   read_initial_file();
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
@@ -1096,7 +1092,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_start(&fsrv, use_argv, &stop_soon, false);
   analyze_run_target(in_data, in_len, 1);
 
-  if (child_timed_out) {
+  if (fsrv.last_run_timed_out) {
 
     FATAL("Target binary times out (adjusting -t may help).");
 
@@ -1112,10 +1108,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   OKF("We're done here. Have a nice day!\n");
 
-  if (target_path) { ck_free(target_path); }
-
-  afl_fsrv_deinit(&fsrv);
   afl_shm_deinit(&shm);
+  afl_fsrv_deinit(&fsrv);
+  if (fsrv.target_path) { ck_free(fsrv.target_path); }
+  if (in_data) { ck_free(in_data); }
+
 
   exit(0);
 
