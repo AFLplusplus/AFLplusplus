@@ -55,8 +55,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static u8 *in_file,                    /* Analyzer input test case          */
-    *prog_in;                          /* Targeted program input file       */
+static u8 *in_file;                    /* Analyzer input test case          */
 
 static u8 *in_data;                    /* Input data for analysis           */
 
@@ -170,7 +169,7 @@ static inline u8 anything_set(void) {
 
 static void at_exit_handler(void) {
 
-  unlink(prog_in);                                         /* Ignore errors */
+  unlink(fsrv.out_file);                                         /* Ignore errors */
 
 }
 
@@ -635,7 +634,7 @@ static void set_up_environment(char **argv) {
   dev_null_fd = open("/dev/null", O_RDWR);
   if (dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
-  if (!prog_in) {
+  if (!fsrv.out_file) {
 
     u8 *use_dir = ".";
 
@@ -646,9 +645,14 @@ static void set_up_environment(char **argv) {
 
     }
 
-    prog_in = alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
+    fsrv.out_file = alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
 
   }
+
+  unlink(fsrv.out_file);
+  fsrv.out_fd = open(fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+
+  if (fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", fsrv.out_file); }
 
   /* Set sane defaults... */
 
@@ -887,9 +891,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'f':
 
-        if (prog_in) { FATAL("Multiple -f options not supported"); }
+        if (fsrv.out_file) { FATAL("Multiple -f options not supported"); }
         fsrv.use_stdin = 0;
-        prog_in = ck_strdup(optarg);
+        fsrv.out_file = ck_strdup(optarg);
         break;
 
       case 'e':
@@ -1047,7 +1051,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   fsrv.target_path = find_binary(argv[optind]);
   fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
-  detect_file_args(argv + optind, prog_in, &use_stdin);
+  detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
 
   if (qemu_mode) {
 
@@ -1083,6 +1087,9 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv.init_tmout = (u32)forksrv_init_tmout;
 
   }
+
+  fsrv.kill_signal =
+      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
   read_initial_file();
 
