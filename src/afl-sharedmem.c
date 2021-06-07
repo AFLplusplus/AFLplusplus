@@ -262,20 +262,24 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  shm->unusual_shm_id = shmget(IPC_PRIVATE, sizeof(struct unusual_values_state),
-                               IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+  if (shm->unusual_mode) {
 
-  if (shm->unusual_shm_id < 0) {
+    shm->unusual_shm_id = shmget(IPC_PRIVATE, sizeof(struct unusual_values_state),
+                                 IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
 
-    shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+    if (shm->unusual_shm_id < 0) {
 
-    if (shm->cmplog_mode) {
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
 
-      shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+      if (shm->cmplog_mode) {
+
+        shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+      }
+
+      PFATAL("shmget() failed");
 
     }
-
-    PFATAL("shmget() failed");
 
   }
 
@@ -304,11 +308,11 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  if (!non_instrumented_mode) {
+  if (shm->unusual_mode && !non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->unusual_shm_id);
 
-    setenv("__AFL_UNUSUAL_ID", shm_str, 1);
+    setenv(UNUSUAL_SHM_ENV_VAR, shm_str, 1);
 
     ck_free(shm_str);
 
@@ -326,7 +330,11 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     }
 
-    shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
+    if (shm->unusual_mode) {
+
+      shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
+    
+    }
 
     PFATAL("shmat() failed");
 
@@ -341,6 +349,32 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+      
+      if (shm->unusual_mode) {
+
+        shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
+      
+      }
+
+      PFATAL("shmat() failed");
+
+    }
+
+  }
+
+  if (shm->unusual_mode) {
+  
+    shm->unusual = shmat(shm->unusual_shm_id, NULL, 0);
+
+    if (shm->unusual == (void *)-1 || !shm->unusual) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+      if (shm->cmplog_mode) {
+
+        shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+      
+      }
 
       shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
@@ -349,22 +383,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     }
 
   }
-
-  shm->unusual = shmat(shm->unusual_shm_id, NULL, 0);
-
-  if (shm->unusual == (void *)-1 || !shm->unusual) {
-
-    shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
-
-    shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
-
-    shmctl(shm->unusual_shm_id, IPC_RMID, NULL);  // do not leak shmem
-
-    PFATAL("shmat() failed");
-
-  }
-
-  shm->unusual->learning = 1;
 
 #endif
 

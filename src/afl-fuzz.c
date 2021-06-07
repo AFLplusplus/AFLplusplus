@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include "unusual.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
@@ -46,7 +47,7 @@ extern u64 time_spent_working;
 static void at_exit() {
 
   s32   i, pid1 = 0, pid2 = 0;
-  char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
+  char *list[] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, UNUSUAL_SHM_ENV_VAR, NULL};
   char *ptr;
 
   ptr = getenv(CPU_AFFINITY_ENV_VAR);
@@ -431,9 +432,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while ((opt = getopt(
-              argc, argv,
-              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
+  while ((opt = getopt(argc, argv, "+b:B:c:u:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
 
     switch (opt) {
 
@@ -463,6 +462,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->shm.cmplog_mode = 1;
         afl->cmplog_binary = ck_strdup(optarg);
+        break;
+
+      }
+
+      case 'u': {
+
+        afl->shm.unusual_mode = 1;
+        afl->unusual_binary = ck_strdup(optarg);
         break;
 
       }
@@ -1658,6 +1665,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->unusual_binary) {
+
+    if (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) {
+
+      FATAL("CmpLog and Unicorn/QEMU/Frida mode are not compatible at the moment, sorry");
+
+    }
+
+    if (!afl->non_instrumented_mode) {
+
+      check_binary(afl, afl->unusual_binary);
+
+    }
+
+  }
+
   check_binary(afl, argv[optind]);
 
   #ifdef AFL_PERSISTENT_RECORD
@@ -1836,6 +1859,80 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->unusual_binary) {
+
+    ACTF("Spawning unusual forkserver");
+    afl_fsrv_init_dup(&afl->unusual_fsrv, &afl->fsrv);
+    // TODO: this is semi-nice
+    afl->unusual_fsrv.trace_bits = afl->fsrv.trace_bits;
+    afl->unusual_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->unusual_fsrv.frida_mode = afl->fsrv.frida_mode;
+    afl->unusual_fsrv.unusual_binary = afl->unusual_binary;
+    afl->unusual_fsrv.init_child_func = unusual_exec_child;
+
+    if ((map_size <= DEFAULT_SHMEM_SIZE ||
+         afl->unusual_fsrv.map_size < map_size) &&
+        !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+        !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+        !afl->afl_env.afl_skip_bin_check) {
+
+      afl->unusual_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      char vbuf[16];
+      snprintf(vbuf, sizeof(vbuf), "%u", afl->unusual_fsrv.map_size);
+      setenv("AFL_MAP_SIZE", vbuf, 1);
+
+    }
+
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(&afl->unusual_fsrv, afl->argv, &afl->stop_soon,
+                             afl->afl_env.afl_debug_child);
+
+    // only reinitialize when it needs to be larger
+    if (map_size < new_map_size) {
+
+      OKF("Re-initializing maps to %u bytes due unusual", new_map_size);
+
+      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
+      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
+      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
+      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
+      afl->top_rated =
+          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
+      afl->clean_trace_custom =
+          ck_realloc(afl->clean_trace_custom, new_map_size);
+      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
+      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+
+      afl_fsrv_kill(&afl->fsrv);
+      if (afl->cmplog_binary) afl_fsrv_kill(&afl->cmplog_fsrv);
+      afl_fsrv_kill(&afl->unusual_fsrv);
+      afl_shm_deinit(&afl->shm);
+
+      afl->unusual_fsrv.map_size = new_map_size;  // non-unusual stays the same
+      map_size = new_map_size;
+
+      setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+      afl->fsrv.trace_bits =
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      if (afl->cmplog_binary) afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+      afl->unusual_fsrv.trace_bits = afl->fsrv.trace_bits;
+      afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
+      if (afl->cmplog_binary) {
+        afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
+                       afl->afl_env.afl_debug_child);
+      }
+      afl_fsrv_start(&afl->unusual_fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
+
+    }
+
+    OKF("Unusual forkserver successfully started");
+    afl->shm.unusual->learning = 1;
+
+  }
+
   load_auto(afl);
 
   if (extras_dir_cnt) {
@@ -1957,7 +2054,8 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
-  if (getenv("AFL_SKIP_START_LEARNING")) afl->shm.unusual->learning = 0;
+  if (getenv("AFL_SKIP_START_LEARNING") && afl->shm.unusual_mode)
+    afl->shm.unusual->learning = 0;
 
   afl->clear_screen = 1;
   show_stats(afl);
@@ -1975,6 +2073,16 @@ int main(int argc, char **argv_orig, char **envp) {
                    afl->sync_id)) {
 
         sync_fuzzers(afl);
+
+      }
+
+      // Set learning with a given probability
+      // TODO find a better policy
+      if (afl->queue_cycle && prev_learning && afl->shm.unusual_mode) {
+
+        afl->shm.unusual->learning = 0;
+        // afl->shm.unusual->learning = rand_below(afl, 4) == 0;
+        afl->clear_screen = 1;
 
       }
 
@@ -2020,14 +2128,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      // Set learning with a given probability
-      if (afl->queue_cycle) {
-
-        afl->shm.unusual->learning = rand_below(afl, 4) == 0;
-        afl->clear_screen = 1;
-
-      }
-
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
@@ -2036,7 +2136,7 @@ int main(int argc, char **argv_orig, char **envp) {
                       3600 */
                    )) {
 
-        if (!prev_learning) {
+        if (afl->shm.unusual_mode && !prev_learning) {
 
           afl->shm.unusual->learning = 1;
           afl->clear_screen = 1;
@@ -2195,7 +2295,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
-      prev_learning = afl->shm.unusual->learning;
+      if (afl->shm.unusual_mode)
+        prev_learning = afl->shm.unusual->learning;
 
       if (unlikely(afl->old_seed_selection)) {
 
@@ -2289,7 +2390,7 @@ stop_fuzzing:
   SAYF(cYEL "[!] " cRST
             "Profiling information: %llu ms total work, %llu ns/run\n",
        time_spent_working / 1000000,
-       time_spent_working / afl->fsrv.total_execs);
+       time_spent_working / total_execs_all(afl));
   #endif
 
   if (afl->is_main_node) {

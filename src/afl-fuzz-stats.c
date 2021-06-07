@@ -221,9 +221,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                 cur_time - afl->last_avg_exec_update >= 60000))) {
 
     afl->last_avg_execs_saved =
-        (double)(1000 * (afl->fsrv.total_execs - afl->last_avg_execs)) /
+        (double)(1000 * (total_execs_all(afl) - afl->last_avg_execs)) /
         (double)(cur_time - afl->last_avg_exec_update);
-    afl->last_avg_execs = afl->fsrv.total_execs;
+    afl->last_avg_execs = total_execs_all(afl);
     afl->last_avg_exec_update = cur_time;
 
   }
@@ -277,8 +277,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
           (afl->prev_run_time + cur_time - afl->start_time) / 1000,
           (u32)getpid(), afl->queue_cycle ? (afl->queue_cycle - 1) : 0,
-          afl->cycles_wo_finds, afl->fsrv.total_execs,
-          afl->fsrv.total_execs /
+          afl->cycles_wo_finds, total_execs_all(afl),
+          total_execs_all(afl) /
               ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
                1000),
           afl->last_avg_execs_saved, afl->queued_paths, afl->queued_favored,
@@ -287,7 +287,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           afl->queued_variable, stability, bitmap_cvg, afl->unique_crashes,
           afl->unique_hangs, afl->last_path_time / 1000,
           afl->last_crash_time / 1000, afl->last_hang_time / 1000,
-          afl->fsrv.total_execs - afl->last_crash_execs, afl->fsrv.exec_tmout,
+          total_execs_all(afl) - afl->last_crash_execs, afl->fsrv.exec_tmout,
           afl->slowest_exec_ms,
 #ifndef __HAIKU__
   #ifdef __APPLE__
@@ -367,7 +367,7 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                  afl->plot_prev_uc == afl->unique_crashes &&
                  afl->plot_prev_uh == afl->unique_hangs &&
                  afl->plot_prev_md == afl->max_depth &&
-                 afl->plot_prev_ed == afl->fsrv.total_execs) ||
+                 afl->plot_prev_ed == total_execs_all(afl)) ||
                 !afl->queue_cycle ||
                 get_cur_time() - afl->start_time <= 60000))) {
 
@@ -383,7 +383,7 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   afl->plot_prev_uc = afl->unique_crashes;
   afl->plot_prev_uh = afl->unique_hangs;
   afl->plot_prev_md = afl->max_depth;
-  afl->plot_prev_ed = afl->fsrv.total_execs;
+  afl->plot_prev_ed = total_execs_all(afl);
 
   /* Fields in the file:
 
@@ -451,7 +451,7 @@ void show_stats(afl_state_t *afl) {
 
   if (afl->most_execs_key == 1) {
 
-    if (afl->most_execs <= afl->fsrv.total_execs) {
+    if (afl->most_execs <= total_execs_all(afl)) {
 
       afl->most_execs_key = 2;
       afl->stop_soon = 2;
@@ -479,7 +479,7 @@ void show_stats(afl_state_t *afl) {
 
     if (likely(cur_ms != afl->start_time)) {
 
-      afl->stats_avg_exec = ((double)afl->fsrv.total_execs) * 1000 /
+      afl->stats_avg_exec = ((double)total_execs_all(afl)) * 1000 /
                             (afl->prev_run_time + cur_ms - afl->start_time);
 
     }
@@ -489,7 +489,7 @@ void show_stats(afl_state_t *afl) {
     if (likely(cur_ms != afl->stats_last_ms)) {
 
       double cur_avg =
-          ((double)(afl->fsrv.total_execs - afl->stats_last_execs)) * 1000 /
+          ((double)(total_execs_all(afl) - afl->stats_last_execs)) * 1000 /
           (cur_ms - afl->stats_last_ms);
 
       /* If there is a dramatic (5x+) jump in speed, reset the indicator
@@ -510,7 +510,7 @@ void show_stats(afl_state_t *afl) {
   }
 
   afl->stats_last_ms = cur_ms;
-  afl->stats_last_execs = afl->fsrv.total_execs;
+  afl->stats_last_execs = total_execs_all(afl);
 
   /* Tell the callers when to contact us (as measured in execs). */
 
@@ -636,7 +636,7 @@ void show_stats(afl_state_t *afl) {
   memset(tmp, ' ', banner_pad);
 
   char *learning_str = "", *learning_pad = "          ";
-  if (afl->shm.unusual->learning) {
+  if (afl->shm.unusual_mode && afl->shm.unusual->learning) {
 
     learning_str = ", learning";
     learning_pad = "";
@@ -848,13 +848,13 @@ void show_stats(afl_state_t *afl) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   "   new crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
+         u_stringify_int(IB(0), total_execs_all(afl)), crash_color, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   " total crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
+         u_stringify_int(IB(0), total_execs_all(afl)), crash_color, tmp);
 
   }
 

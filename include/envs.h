@@ -208,6 +208,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_UNUSUAL_VALUES",
     "AFL_NO_SINGLE_UNUSUAL_VALUES",
     "AFL_SKIP_START_LEARNING",
+    "AFL_LLVM_RAND_SEED",
     NULL
 
 };

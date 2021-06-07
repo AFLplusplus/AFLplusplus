@@ -644,6 +644,11 @@ typedef struct afl_state {
   char *           cmplog_binary;
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
+  /* Unusual */
+
+  char *           unusual_binary;
+  afl_forkserver_t unusual_fsrv;    /* unusual has its own little forkserver */
+
   /* Custom mutators */
   struct custom_mutator *mutator;
 
@@ -1056,7 +1061,7 @@ void minimize_bits(afl_state_t *, u8 *, u8 *);
 #ifndef SIMPLE_FILES
 u8 *describe_op(afl_state_t *, u8, size_t);
 #endif
-u8 save_if_interesting(afl_state_t *, void *, u32, u8);
+u8 save_if_interesting(afl_state_t *, void *, u32, u8, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
 u8 has_new_bits_unclassified(afl_state_t *, u8 *);
 
@@ -1080,6 +1085,10 @@ void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void show_stats(afl_state_t *);
 void show_init_stats(afl_state_t *);
+
+static inline u64 total_execs_all(afl_state_t * afl) {
+  return afl->fsrv.total_execs + /*afl->cmplog_fsrv.total_execs +*/ afl->unusual_fsrv.total_execs;
+}
 
 /* StatsD */
 
@@ -1140,6 +1149,10 @@ void   write_crash_readme(afl_state_t *afl);
 /* CmpLog */
 
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
+
+/* Unusual */
+
+u8 common_fuzz_unusual_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);

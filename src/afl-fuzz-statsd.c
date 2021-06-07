@@ -234,8 +234,8 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
     snprintf(
         buff, bufflen, afl->statsd_metric_format,
         afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
-        afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
-        afl->fsrv.total_execs /
+        afl->cycles_wo_finds, tags, total_execs_all(afl), tags,
+        total_execs_all(afl) /
             ((double)(get_cur_time() + afl->prev_run_time - afl->start_time) /
              1000),
         tags, afl->queued_paths, tags, afl->queued_favored, tags,
@@ -252,8 +252,8 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
     snprintf(
         buff, bufflen, afl->statsd_metric_format, tags,
         afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
-        afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
-        afl->fsrv.total_execs /
+        afl->cycles_wo_finds, tags, total_execs_all(afl), tags,
+        total_execs_all(afl) /
             ((double)(get_cur_time() + afl->prev_run_time - afl->start_time) /
              1000),
         tags, afl->queued_paths, tags, afl->queued_favored, tags,

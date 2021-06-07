@@ -2563,10 +2563,10 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   // Start insertion loop
 
   u64 orig_hit_cnt, new_hit_cnt;
-  u64 orig_execs = afl->fsrv.total_execs;
+  u64 orig_execs = total_execs_all(afl);
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
   u64 screen_update = 100000 / afl->queue_cur->exec_us,
-      execs = afl->fsrv.total_execs;
+      execs = total_execs_all(afl);
 
   afl->stage_name = "input-to-state";
   afl->stage_short = "its";
@@ -2646,9 +2646,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     }
 
-    if (afl->fsrv.total_execs - execs > screen_update) {
+    if (total_execs_all(afl) - execs > screen_update) {
 
-      execs = afl->fsrv.total_execs;
+      execs = total_execs_all(afl);
       show_stats(afl);
 
     }
@@ -2750,7 +2750,7 @@ exit_its:
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
+  afl->stage_cycles[STAGE_ITS] += total_execs_all(afl) - orig_execs;
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   FILE *f = stderr;

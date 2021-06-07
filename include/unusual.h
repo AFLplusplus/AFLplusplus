@@ -59,5 +59,10 @@ struct unusual_values_state {
 
 };
 
+/* Execs the child */
+
+struct afl_forkserver;
+void unusual_exec_child(struct afl_forkserver *fsrv, char **argv);
+
 #endif
 

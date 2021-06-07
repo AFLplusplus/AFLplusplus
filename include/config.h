@@ -462,6 +462,8 @@
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 
+#define UNUSUAL_SHM_ENV_VAR "__AFL_UNUSUAL_SHM_ID"
+
 /* CPU Affinity lockfile env var */
 
 #define CPU_AFFINITY_ENV_VAR "__AFL_LOCKFILE"

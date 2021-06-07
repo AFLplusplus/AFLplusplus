@@ -423,6 +423,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
+    if (!fsrv->unusual_binary && fsrv->qemu_mode == false &&
+        fsrv->frida_mode == false) {
+
+      unsetenv(UNUSUAL_SHM_ENV_VAR);  // we do not want that in non-unusual fsrv
+
+    }
+
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */
     if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {

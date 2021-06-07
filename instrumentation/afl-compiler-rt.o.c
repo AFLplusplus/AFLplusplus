@@ -584,7 +584,7 @@ static void __afl_map_shm(void) {
 
   }
 
-  id_str = getenv("__AFL_UNUSUAL_ID");
+  id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
   if (id_str && __afl_unusual_enabled) {
 

@@ -385,6 +385,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
   }
 
   if (new_bits == 2) { strcat(ret, ",+cov"); }
+  if (new_bits == 3) { strcat(ret, ",+un"); }
 
   if (unlikely(strlen(ret) >= max_description_len))
     FATAL("describe string is too long");
@@ -450,12 +451,43 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
+u8 is_unusual(afl_state_t *afl) {
+
+  if (unlikely(!afl->shm.unusual_mode)) { return 0; }
+
+  u64* current = (u64*)afl->shm.unusual->map;
+  u64* current_end = (u64*)(afl->shm.unusual->map + sizeof(afl->shm.unusual->map));
+  u64* virgin = (u64*)afl->shm.unusual->virgin;
+  u8 has_new = 0;
+  for (; current < current_end; virgin += 8, current += 8) {
+
+#define UNROLL(idx) \
+  if (current[idx] & virgin[idx]) { \
+    has_new = 1; \
+    virgin[idx] &= ~current[idx]; \
+  }
+    UNROLL(0)
+    UNROLL(1)
+    UNROLL(2)
+    UNROLL(3)
+    UNROLL(4)
+    UNROLL(5)
+    UNROLL(6)
+    UNROLL(7)
+#undef UNROLL
+
+  }
+
+  return has_new;
+
+}
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
 u8 __attribute__((hot))
-save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
+save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault, u8 check_unusual) {
 
   if (unlikely(len == 0)) { return 0; }
 
@@ -487,9 +519,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
        future fuzzing, etc. */
 
     new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
-
-    if (!new_bits && !afl->shm.unusual->learning && afl->shm.unusual->found_new)
-      new_bits = 1;
+    
+    if (check_unusual && is_unusual(afl) && !new_bits)
+      new_bits = 3;
 
     if (likely(!new_bits)) {
 
@@ -771,7 +803,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       }
 
       afl->last_crash_time = get_cur_time();
-      afl->last_crash_execs = afl->fsrv.total_execs;
+      afl->last_crash_execs = total_execs_all(afl);
 
       break;
 

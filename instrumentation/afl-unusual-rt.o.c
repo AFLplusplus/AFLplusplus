@@ -50,7 +50,8 @@ int __afl_unusual_enabled = 1;
   } while (0)
 
 #define UPDATE_MAP(k) SET_BIT(__afl_unusual->map, k)
-#define UPDATE_VIRGIN(k) SET_BIT(__afl_unusual->map, k)
+// #define UPDATE_VIRGIN(k) SET_BIT(__afl_unusual->map, k)
+#define UPDATE_VIRGIN(k)
 
 static void patch_caller(uint8_t *retaddr) {
 
@@ -524,8 +525,8 @@ extern u8 *__afl_area_ptr;
 
 void __afl_unusual_values_log(u32 k) {
 
-  // TODO use map
-  if (!__afl_unusual->learning) __afl_area_ptr[k]++;
+  // if (!__afl_unusual->learning) __afl_area_ptr[k]++;
+  UPDATE_MAP(k);
 
 }
 
