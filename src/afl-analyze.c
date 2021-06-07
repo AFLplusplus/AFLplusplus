@@ -58,8 +58,6 @@
 
 static s32 child_pid;                  /* PID of the tested program         */
 
-static u8 *trace_bits;                 /* SHM with instrumentation bitmap   */
-
 static u8 *in_file,                    /* Analyzer input test case          */
     *prog_in;                          /* Targeted program input file       */
 
@@ -159,7 +157,7 @@ static void classify_counts(u8 *mem) {
 
 static inline u8 anything_set(void) {
 
-  u32 *ptr = (u32 *)trace_bits;
+  u32 *ptr = (u32 *)fsrv.trace_bits;
   u32  i = (map_size >> 2);
 
   while (i--) {
@@ -879,6 +877,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-analyze" VERSION cRST " by Michal Zalewski\n");
 
+  afl_fsrv_init(&fsrv);
+
   while ((opt = getopt(argc, argv, "+i:f:m:t:eOQUWh")) > 0) {
 
     switch (opt) {
@@ -894,6 +894,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (prog_in) { FATAL("Multiple -f options not supported"); }
         use_stdin = 0;
         prog_in = optarg;
+        fsrv.use_stdin = 0;
         break;
 
       case 'e':
@@ -914,6 +915,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!strcmp(optarg, "none")) {
 
           mem_limit = 0;
+          fsrv.mem_limit = 0;
           break;
 
         }
@@ -952,6 +954,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        fsrv.mem_limit = mem_limit;
+
       }
 
       break;
@@ -971,6 +975,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        fsrv.exec_tmout = exec_tmout;
+
         break;
 
       case 'O':                                               /* FRIDA mode */
@@ -978,6 +984,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (frida_mode) { FATAL("Multiple -O options not supported"); }
 
         frida_mode = 1;
+        fsrv.frida_mode = frida_mode;
 
         break;
 
@@ -987,6 +994,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_QEMU; }
 
         qemu_mode = 1;
+        fsrv.mem_limit = mem_limit;
+        fsrv.qemu_mode = qemu_mode;
         break;
 
       case 'U':
@@ -995,6 +1004,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
+        fsrv.mem_limit = mem_limit;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
@@ -1004,6 +1014,8 @@ int main(int argc, char **argv_orig, char **envp) {
         use_wine = 1;
 
         if (!mem_limit_given) { mem_limit = 0; }
+        fsrv.qemu_mode = qemu_mode;
+        fsrv.mem_limit = mem_limit;
 
         break;
 
@@ -1022,6 +1034,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (optind == argc || !in_file) { usage(argv[0]); }
 
   map_size = get_map_size();
+  fsrv.map_size = map_size;
 
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
@@ -1031,7 +1044,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  trace_bits = afl_shm_init(&shm, map_size, 0);
+  fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
@@ -1059,8 +1072,6 @@ int main(int argc, char **argv_orig, char **envp) {
     use_argv = argv + optind;
 
   }
-
-  afl_fsrv_init(&fsrv);
 
   if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
 
