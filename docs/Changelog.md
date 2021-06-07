@@ -13,6 +13,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - fix -F when a '/' was part of the parameter
     - removed implied -D determinstic from -M main
+    - if the target becomes unavailable check out out/default/error.txt for
+      an indicator why
   - ensure afl-compiler-rt is built for gcc_module
 
 
