@@ -34,7 +34,7 @@ endif
 
 AFL_QEMU_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x4000000000)
 
-ifeq "$(ARCH)" "aarch64"
+ifeq "$(ARCH)" "arm64"
  AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000aaaaaaaaa000)
 endif
 
@@ -124,7 +124,7 @@ frida_entry: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 		-- \
 			$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
 
-debug:
+debug: $(AFLPP_DRIVER_DUMMY_INPUT)
 	echo $(AFL_FRIDA_PERSISTENT_ADDR)
 	gdb \
 		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
