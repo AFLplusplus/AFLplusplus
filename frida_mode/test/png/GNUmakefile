@@ -27,10 +27,11 @@ endif
 
 TEST_DATA_DIR:=$(LIBPNG_DIR)contrib/pngsuite/
 
+AFLPP_DRIVER_DUMMY_INPUT:=$(BUILD_DIR)in
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-.PHONY: all clean qemu frida
+.PHONY: all clean qemu frida debug
 
 all: $(TEST_BIN)
 	make -C $(ROOT)frida_mode/
@@ -40,6 +41,9 @@ all: $(TEST_BIN)
 
 $(BUILD_DIR):
 	mkdir -p $@
+
+$(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
+	truncate -s 1M $@
 
 ######### HARNESS ########
 $(HARNESS_BUILD_DIR): | $(BUILD_DIR)
@@ -112,3 +116,9 @@ frida: $(TEST_BIN)
 		-o $(FRIDA_OUT) \
 		-- \
 			$(TEST_BIN) @@
+
+debug: $(AFLPP_DRIVER_DUMMY_INPUT)
+	gdb \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set disassembly-flavor intel' \
+		--args $(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)

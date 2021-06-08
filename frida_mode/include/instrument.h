@@ -8,6 +8,7 @@
 extern __thread uint64_t previous_pc;
 extern uint8_t *         __afl_area_ptr;
 extern uint32_t          __afl_map_size;
+extern gboolean          instrument_suppression;
 
 void instrument_init(void);
 
@@ -17,6 +18,9 @@ GumStalkerTransformer *instrument_get_transformer(void);
 gboolean instrument_is_coverage_optimize_supported(void);
 
 void instrument_coverage_optimize(const cs_insn *   instr,
+                                  GumStalkerOutput *output);
+
+void instrument_coverage_suppress(const cs_insn *   instr,
                                   GumStalkerOutput *output);
 
 void     instrument_debug_init(void);
