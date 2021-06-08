@@ -17,6 +17,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       an indicator why
   - afl-cc
     - support partial linking
+    - We do support llvm versions from 3.8 again
+  - afl_analyze
+    - fix timeout handling and support forkserver
   - ensure afl-compiler-rt is built for gcc_module
   - afl-analyze now uses the forkserver for increased performance
 
