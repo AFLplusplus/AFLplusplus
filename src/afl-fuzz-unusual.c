@@ -34,7 +34,8 @@ void unusual_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
 
-  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->unusual_binary) {
+  if (!fsrv->qemu_mode && !fsrv->frida_mode &&
+      argv[0] != fsrv->unusual_binary) {
 
     argv[0] = fsrv->unusual_binary;
 
@@ -49,7 +50,7 @@ u8 common_fuzz_unusual_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   u8 fault;
 
   write_to_testcase(afl, out_buf, len);
-  
+
   unusual_values_state_reset(afl->shm.unusual);
 
   fault = fuzz_run_target(afl, &afl->unusual_fsrv, afl->fsrv.exec_tmout);
@@ -84,7 +85,8 @@ u8 common_fuzz_unusual_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault, !afl->shm.unusual->learning);
+  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault,
+                                                !afl->shm.unusual->learning);
 
   if (!(afl->stage_cur % afl->stats_update_freq) ||
       afl->stage_cur + 1 == afl->stage_max) {

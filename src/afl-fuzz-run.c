@@ -352,7 +352,9 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   }
 
   if (afl->shm.unusual_mode && afl->shm.unusual->learning) {
+
     fuzz_run_target(afl, &afl->unusual_fsrv, use_tmout);
+
   }
 
   start_us = get_cur_time_us();
@@ -659,7 +661,8 @@ void sync_fuzzers(afl_state_t *afl) {
         write_to_testcase(afl, mem, st.st_size);
 
         if (afl->shm.unusual_mode && afl->shm.unusual->learning)
-          fault = fuzz_run_target(afl, &afl->unusual_fsrv, afl->fsrv.exec_tmout);
+          fault =
+              fuzz_run_target(afl, &afl->unusual_fsrv, afl->fsrv.exec_tmout);
         else
           fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
@@ -901,7 +904,7 @@ u8 __attribute__((hot))
 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
-  
+
   if (afl->shm.unusual_mode && afl->shm.unusual->learning == 0)
     return common_fuzz_unusual_stuff(afl, out_buf, len);
 

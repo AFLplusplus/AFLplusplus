@@ -134,13 +134,17 @@ bool AFLCoverage::runOnModule(Module &M) {
   unsigned int    cur_loc = 0;
 
   if (getenv("AFL_LLVM_RAND_SEED")) {
+
     std::fstream seed_file(getenv("AFL_LLVM_RAND_SEED"), std::ios_base::in);
     seed_file >> rand_seed;
     seed_file.close();
+
   } else {
+
     /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
     gettimeofday(&tv, &tz);
     rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+
   }
 
   AFL_SR(rand_seed);
@@ -955,9 +959,12 @@ bool AFLCoverage::runOnModule(Module &M) {
   */
 
   if (getenv("AFL_LLVM_RAND_SEED")) {
-    std::fstream seed_file(getenv("AFL_LLVM_RAND_SEED"), std::ios_base::out | std::ios::trunc);
+
+    std::fstream seed_file(getenv("AFL_LLVM_RAND_SEED"),
+                           std::ios_base::out | std::ios::trunc);
     seed_file << AFL_R((u32)-1);
     seed_file.close();
+
   }
 
   /* Say something nice. */

@@ -16,7 +16,7 @@
 #include <sys/mman.h>
 #include <stdio.h>
 
-struct unusual_values_state  __afl_unusual_dummy;
+struct unusual_values_state __afl_unusual_dummy;
 // Override the weak symbol
 struct unusual_values_state *__afl_unusual = &__afl_unusual_dummy;
 
@@ -86,44 +86,21 @@ static void patch_caller(uint8_t *retaddr) {
 
 }
 
-static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
+static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
                                  u8 always_true) {
 
-  int                          unusual = 0;
+  u32 ret = 0;
+
   int                          learning = __afl_unusual->learning;
   struct single_var_invariant *inv = &__afl_unusual->single_invariants[k];
-
-  /*if (x < inv->min) {
-
-    if (learning) {
-
-      inv->min = x;
-      UPDATE_VIRGIN(k);
-
-    }
-
-    unusual = 1;
-
-  }
-
-  if (x > inv->max) {
-
-    if (learning) {
-
-      inv->max = x;
-      UPDATE_VIRGIN(k);
-
-    }
-
-    unusual = 2;
-
-  }*/
 
   switch (inv->invariant) {
 
     case INV_NONE: {
 
       if (learning) {
+
+        ++inv->execs;
 
         // inv->num_vals = 0;
         inv->vals[inv->num_vals++] = x;
@@ -141,6 +118,8 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if ((s64)x < 0) break;
       if (learning) {
 
+        ++inv->execs;
+
         if (x == 0)
           inv->invariant = INV_LE;
         else
@@ -154,9 +133,12 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
         }
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 3;
       break;
 
     }
@@ -166,14 +148,19 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if ((s64)x <= 0) break;
       if (learning) {
 
+        ++inv->execs;
+
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
         patch_caller(retaddr);
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 4;
       break;
 
     }
@@ -182,6 +169,8 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
       if ((s64)x > 0) break;
       if (learning) {
+
+        ++inv->execs;
 
         if (x == 0)
           inv->invariant = INV_GE;
@@ -196,9 +185,12 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
         }
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 5;
       break;
 
     }
@@ -208,14 +200,19 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if ((s64)x >= 0) break;
       if (learning) {
 
+        ++inv->execs;
+
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
         patch_caller(retaddr);
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 6;
       break;
 
     }
@@ -224,6 +221,8 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
       if (x == 0) break;
       if (learning) {
+
+        ++inv->execs;
 
         if ((s64)x > 0)
           inv->invariant = INV_GE;
@@ -238,9 +237,12 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
         }
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 7;
       break;
 
     }
@@ -250,14 +252,19 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if (x != 0) break;
       if (learning) {
 
+        ++inv->execs;
+
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
         patch_caller(retaddr);
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 8;
       break;
 
     }
@@ -276,6 +283,7 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
       if (learning) {
 
+        ++inv->execs;
         if (inv->num_vals < INV_ONEOF_MAX_NUM_VALS) {
 
           inv->vals[inv->num_vals++] = x;
@@ -321,9 +329,11 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
         UPDATE_VIRGIN(k);
 
-      }
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
 
-      unusual = 9;
+        ret = k;
+
+      }
 
       break;
 
@@ -341,28 +351,31 @@ static int unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
   }
 
-  return unusual;
+  return ret;
 
 }
 
-static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
+static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
-  int unusual = 0;
-  int learning = __afl_unusual->learning;
-  u8 *invariant = &__afl_unusual->pair_invariants[k];
+  u32 ret = 0;
 
-  switch (*invariant) {
+  int                         learning = __afl_unusual->learning;
+  struct pair_vars_invariant *inv = &__afl_unusual->pair_invariants[k];
+
+  switch (inv->invariant) {
 
     case INV_NONE: {
 
       if (learning) {
 
+        ++inv->execs;
+
         if (x == y)
-          *invariant = INV_EQ;
+          inv->invariant = INV_EQ;
         else if ((s64)x > (s64)y)
-          *invariant = INV_GT;
+          inv->invariant = INV_GT;
         else  // if ((s64)x < (s64)y)
-          *invariant = INV_LT;
+          inv->invariant = INV_LT;
         UPDATE_VIRGIN(k);
 
       }
@@ -376,15 +389,20 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if ((s64)x < (s64)y) break;
       if (learning) {
 
+        ++inv->execs;
+
         if (x == y)
-          *invariant = INV_LE;
+          inv->invariant = INV_LE;
         else
-          *invariant = INV_NE;
+          inv->invariant = INV_NE;
         UPDATE_VIRGIN(k);
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
 
       }
 
-      unusual = 1;
       break;
 
     }
@@ -394,14 +412,19 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if ((s64)x <= (s64)y) break;
       if (learning) {
 
-        *invariant = INV_ALL;
+        ++inv->execs;
+
+        inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
         patch_caller(retaddr);
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 2;
       break;
 
     }
@@ -411,15 +434,20 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if ((s64)x > (s64)y) break;
       if (learning) {
 
+        ++inv->execs;
+
         if (x == y)
-          *invariant = INV_GE;
+          inv->invariant = INV_GE;
         else
-          *invariant = INV_NE;
+          inv->invariant = INV_NE;
         UPDATE_VIRGIN(k);
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
 
       }
 
-      unusual = 3;
       break;
 
     }
@@ -429,14 +457,18 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if ((s64)x >= (s64)y) break;
       if (learning) {
 
-        *invariant = INV_ALL;
+        ++inv->execs;
+        inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
         patch_caller(retaddr);
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 4;
       break;
 
     }
@@ -446,15 +478,19 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if (x == y) break;
       if (learning) {
 
+        ++inv->execs;
         if ((s64)x > (s64)y)
-          *invariant = INV_GE;
+          inv->invariant = INV_GE;
         else
-          *invariant = INV_LE;
+          inv->invariant = INV_LE;
         UPDATE_VIRGIN(k);
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
 
       }
 
-      unusual = 5;
       break;
 
     }
@@ -464,14 +500,18 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if (x != y) break;
       if (learning) {
 
-        *invariant = INV_ALL;
+        ++inv->execs;
+        inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
         patch_caller(retaddr);
 
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
       }
 
-      unusual = 6;
       break;
 
     }
@@ -481,7 +521,7 @@ static int unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
   }
 
-  return unusual;
+  return ret;
 
 }
 
@@ -489,17 +529,14 @@ u32 __afl_unusual_values_1(u32 k, u64 x, u8 always_true) {
 
   // if (!__afl_unusual) return 0;
 
-  int unusual = unusual_values_single((uint8_t *)__builtin_return_address(0), k,
-                                      x, always_true);
+  u32 r = unusual_values_single((uint8_t *)__builtin_return_address(0), k, x,
+                                always_true);
 
   // if (unusual)
   //  fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,
   //          (unsigned long long)x);
 
-  if (unusual)
-    return k;
-  else
-    return 0;
+  return r;
 
 }
 
@@ -507,17 +544,13 @@ u32 __afl_unusual_values_2(u32 k, u64 x, u64 y) {
 
   // if (!__afl_unusual) return 0;
 
-  int unusual =
-      unusual_values_pair((uint8_t *)__builtin_return_address(0), k, x, y);
+  u32 r = unusual_values_pair((uint8_t *)__builtin_return_address(0), k, x, y);
 
   // if (unusual)
   //  fprintf(stderr, "(%x) unusual = %d, x = %llu, y = %llu\n", k, unusual,
   //          (unsigned long long)x, (unsigned long long)y);
 
-  if (unusual)
-    return k;
-  else
-    return 0;
+  return r;
 
 }
 

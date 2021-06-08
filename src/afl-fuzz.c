@@ -47,7 +47,8 @@ extern u64 time_spent_working;
 static void at_exit() {
 
   s32   i, pid1 = 0, pid2 = 0;
-  char *list[] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, UNUSUAL_SHM_ENV_VAR, NULL};
+  char *list[] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR,
+                  UNUSUAL_SHM_ENV_VAR, NULL};
   char *ptr;
 
   ptr = getenv(CPU_AFFINITY_ENV_VAR);
@@ -432,7 +433,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while ((opt = getopt(argc, argv, "+b:B:c:u:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
+  while ((opt = getopt(
+              argc, argv,
+              "+b:B:c:u:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) >
+         0) {
 
     switch (opt) {
 
@@ -1669,15 +1673,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) {
 
-      FATAL("CmpLog and Unicorn/QEMU/Frida mode are not compatible at the moment, sorry");
+      FATAL(
+          "CmpLog and Unicorn/QEMU/Frida mode are not compatible at the "
+          "moment, sorry");
 
     }
 
-    if (!afl->non_instrumented_mode) {
-
-      check_binary(afl, afl->unusual_binary);
-
-    }
+    if (!afl->non_instrumented_mode) { check_binary(afl, afl->unusual_binary); }
 
   }
 
@@ -1915,14 +1917,18 @@ int main(int argc, char **argv_orig, char **envp) {
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
-      if (afl->cmplog_binary) afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+      if (afl->cmplog_binary)
+        afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
       afl->unusual_fsrv.trace_bits = afl->fsrv.trace_bits;
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
       if (afl->cmplog_binary) {
+
         afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                        afl->afl_env.afl_debug_child);
+
       }
+
       afl_fsrv_start(&afl->unusual_fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
 
@@ -2078,13 +2084,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       // Set learning with a given probability
       // TODO find a better policy
-      if (afl->queue_cycle && prev_learning && afl->shm.unusual_mode) {
+      /*if (afl->queue_cycle && prev_learning && afl->shm.unusual_mode) {
 
         afl->shm.unusual->learning = 0;
         // afl->shm.unusual->learning = rand_below(afl, 4) == 0;
         afl->clear_screen = 1;
 
-      }
+      }*/
 
       ++afl->queue_cycle;
       runs_in_current_cycle = (u32)-1;
@@ -2136,12 +2142,19 @@ int main(int argc, char **argv_orig, char **envp) {
                       3600 */
                    )) {
 
-        if (afl->shm.unusual_mode && !prev_learning) {
+        if (afl->shm.unusual_mode) {
+
+          afl->shm.unusual->learning = !afl->shm.unusual->learning;
+          afl->clear_screen = 1;
+
+        }
+
+        /*if (afl->shm.unusual_mode && !prev_learning) {
 
           afl->shm.unusual->learning = 1;
           afl->clear_screen = 1;
 
-        }
+        }*/
 
         if (afl->use_splicing) {
 
@@ -2295,8 +2308,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
-      if (afl->shm.unusual_mode)
-        prev_learning = afl->shm.unusual->learning;
+      if (afl->shm.unusual_mode) prev_learning = afl->shm.unusual->learning;
 
       if (unlikely(afl->old_seed_selection)) {
 
@@ -2389,8 +2401,7 @@ stop_fuzzing:
   #ifdef PROFILING
   SAYF(cYEL "[!] " cRST
             "Profiling information: %llu ms total work, %llu ns/run\n",
-       time_spent_working / 1000000,
-       time_spent_working / total_execs_all(afl));
+       time_spent_working / 1000000, time_spent_working / total_execs_all(afl));
   #endif
 
   if (afl->is_main_node) {

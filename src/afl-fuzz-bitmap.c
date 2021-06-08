@@ -455,16 +455,19 @@ u8 is_unusual(afl_state_t *afl) {
 
   if (unlikely(!afl->shm.unusual_mode)) { return 0; }
 
-  u64* current = (u64*)afl->shm.unusual->map;
-  u64* current_end = (u64*)(afl->shm.unusual->map + sizeof(afl->shm.unusual->map));
-  u64* virgin = (u64*)afl->shm.unusual->virgin;
-  u8 has_new = 0;
+  u64 *current = (u64 *)afl->shm.unusual->map;
+  u64 *current_end =
+      (u64 *)(afl->shm.unusual->map + sizeof(afl->shm.unusual->map));
+  u64 *virgin = (u64 *)afl->shm.unusual->virgin;
+  u8   has_new = 0;
   for (; current < current_end; virgin += 8, current += 8) {
-
-#define UNROLL(idx) \
+\
+#define UNROLL(idx)                 \
   if (current[idx] & virgin[idx]) { \
-    has_new = 1; \
-    virgin[idx] &= ~current[idx]; \
+                                    \
+    has_new = 1;                    \
+    virgin[idx] &= ~current[idx];   \
+                                    \
   }
     UNROLL(0)
     UNROLL(1)
@@ -487,7 +490,8 @@ u8 is_unusual(afl_state_t *afl) {
    entry is saved, 0 otherwise. */
 
 u8 __attribute__((hot))
-save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault, u8 check_unusual) {
+save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault,
+                    u8 check_unusual) {
 
   if (unlikely(len == 0)) { return 0; }
 
@@ -519,9 +523,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault, u8 check_unu
        future fuzzing, etc. */
 
     new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
-    
-    if (check_unusual && is_unusual(afl) && !new_bits)
-      new_bits = 3;
+
+    if (check_unusual && is_unusual(afl) && !new_bits) new_bits = 3;
 
     if (likely(!new_bits)) {
 

@@ -24,6 +24,7 @@
 #define UNUSUAL_MAP_SIZE 65536
 
 #define INV_ONEOF_MAX_NUM_VALS 8
+#define INV_EXECS_MIN_BOUND 64
 
 enum {
 
@@ -41,10 +42,17 @@ enum {
 
 struct single_var_invariant {
 
-  // u64 max, min;
   u64 vals[INV_ONEOF_MAX_NUM_VALS];
   u8  num_vals;
+  u8  execs;
   u8  invariant;
+
+};
+
+struct __attribute__((__packed__)) pair_vars_invariant {
+
+  u8 invariant;
+  u8 execs;
 
 };
 
@@ -54,24 +62,24 @@ struct unusual_values_state {
   u8 virgin[UNUSUAL_MAP_SIZE / 8];
 
   struct single_var_invariant single_invariants[UNUSUAL_MAP_SIZE];
-  u8                          pair_invariants[UNUSUAL_MAP_SIZE];
+  struct pair_vars_invariant  pair_invariants[UNUSUAL_MAP_SIZE];
 
   u8 learning;
 
 };
 
-inline void unusual_values_state_init(struct unusual_values_state* state) {
-  
+inline void unusual_values_state_init(struct unusual_values_state *state) {
+
   // memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
   memset(state->virgin, 0xff, UNUSUAL_MAP_SIZE / 8);
   state->learning = 1;
-  
+
 }
 
-inline void unusual_values_state_reset(struct unusual_values_state* state) {
-  
+inline void unusual_values_state_reset(struct unusual_values_state *state) {
+
   memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
-  
+
 }
 
 /* Execs the child */

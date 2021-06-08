@@ -428,7 +428,7 @@ bool AFLUnusual::instrumentFunction() {
 
       // if (P.first == -1) continue;
 
-      //if (P.second.size() <= 1) continue;
+      // if (P.second.size() <= 1) continue;
 
       for (auto X : P.second) {
 
@@ -512,14 +512,15 @@ bool AFLUnusual::instrumentFunction() {
         }
 
         // if (P.first == -1) continue;
-        
+
         for (auto O : CompArgs) {
 
           if (P.first != -1 && P.first != O.first) continue;
 
           for (auto Y : O.second) {
 
-            if (X == Y || Dumpeds2.find(std::make_pair(X, Y)) != Dumpeds2.end() ||
+            if (X == Y ||
+                Dumpeds2.find(std::make_pair(X, Y)) != Dumpeds2.end() ||
                 Dumpeds2.find(std::make_pair(Y, X)) != Dumpeds2.end())
               continue;
 
@@ -530,7 +531,8 @@ bool AFLUnusual::instrumentFunction() {
             Key = AFL_R(UNUSUAL_MAP_SIZE);
             CallInst *CI = IRB.CreateCall(
                 unusualValuesFns[1],
-                ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB, YB});
+                ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB,
+                                  YB});
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls2;
 
@@ -539,7 +541,7 @@ bool AFLUnusual::instrumentFunction() {
             Dumpeds2.insert(std::make_pair(X, Y));
 
           }
-        
+
         }
 
       }
