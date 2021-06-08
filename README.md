@@ -84,7 +84,7 @@ behaviours and defaults:
 
 ## Important features of afl++
 
-  afl++ supports llvm from 6.0 up to version 12, very fast binary fuzzing with QEMU 5.1
+  afl++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with QEMU 5.1
   with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
   Mac OS, Solaris and Android support and much, much, much more.
 
@@ -296,7 +296,7 @@ anything below 9 is not recommended.
     |
     v
 +---------------------------------+
-| clang/clang++ 6.0+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
+| clang/clang++ 3.8+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
 +---------------------------------+     see [instrumentation/README.llvm.md](instrumentation/README.llvm.md)
     |
     | if not, or if the target fails with LLVM afl-clang-fast/++
@@ -801,7 +801,7 @@ Alternatively you can use frida_mode, just switch `-Q` with `-O` and remove the
 LAF instance.
 
 Then run as many instances as you have cores left with either -Q mode or - better -
-use a binary rewriter like afl-dyninst, retrowrite, zaflr, etc.
+use a binary rewriter like afl-dyninst, retrowrite, zafl, etc.
 
 For Qemu and Frida mode, check out the persistent mode, it gives a huge speed
 improvement if it is possible to use.

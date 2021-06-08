@@ -96,7 +96,6 @@ void stats_init(void) {
 void stats_vprint(int fd, char *format, va_list ap) {
 
   char buffer[4096] = {0};
-  int  ret;
   int  len;
 
   if (vsnprintf(buffer, sizeof(buffer) - 1, format, ap) < 0) { return; }

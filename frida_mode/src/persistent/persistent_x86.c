@@ -246,8 +246,6 @@ void persistent_prologue(GumStalkerOutput *output) {
 
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
 
-  gum_x86_writer_flush(cw);
-
 }
 
 void persistent_epilogue(GumStalkerOutput *output) {

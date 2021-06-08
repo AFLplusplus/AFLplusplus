@@ -480,13 +480,22 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
   for (iter = 0; iter < afl->foreign_sync_cnt; iter++) {
 
-    if (afl->foreign_syncs[iter].dir != NULL &&
-        afl->foreign_syncs[iter].dir[0] != 0) {
+    if (afl->foreign_syncs[iter].dir && afl->foreign_syncs[iter].dir[0]) {
 
       if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
       time_t mtime_max = 0;
-      u8 *   name = strrchr(afl->foreign_syncs[iter].dir, '/');
-      if (!name) { name = afl->foreign_syncs[iter].dir; }
+
+      u8 *name = strrchr(afl->foreign_syncs[iter].dir, '/');
+      if (!name) {
+
+        name = afl->foreign_syncs[iter].dir;
+
+      } else {
+
+        ++name;
+
+      }
+
       if (!strcmp(name, "queue") || !strcmp(name, "out") ||
           !strcmp(name, "default")) {
 
