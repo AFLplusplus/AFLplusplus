@@ -122,7 +122,7 @@
   [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
 
 
-## RETROWRITE
+## RETROWRITE, ZAFL, ... other binary rewriter
 
   If you have an x86/x86_64 binary that still has its symbols, is compiled
   with position independant code (PIC/PIE) and does not use most of the C++
@@ -131,6 +131,7 @@
 
   It is at about 80-85% performance.
 
+  [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
   [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
 

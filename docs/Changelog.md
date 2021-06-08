@@ -10,6 +10,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.14a (release)
   - Fix for llvm 13
+  - afl-fuzz:
+    - fix -F when a '/' was part of the parameter
+    - removed implied -D determinstic from -M main
+    - if the target becomes unavailable check out out/default/error.txt for
+      an indicator why
+  - afl-cc
+    - support partial linking
+    - We do support llvm versions from 3.8 again
+  - afl_analyze
+    - fix timeout handling and support forkserver
+  - ensure afl-compiler-rt is built for gcc_module
+  - afl-analyze now uses the forkserver for increased performance
 
 
 ### Version ++3.13c (release)

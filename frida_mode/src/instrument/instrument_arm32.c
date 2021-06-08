@@ -22,5 +22,17 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
+void instrument_flush(GumStalkerOutput *output) {
+
+  gum_arm_writer_flush(output->writer.arm);
+
+}
+
+gpointer instrument_cur(GumStalkerOutput *output) {
+
+  return gum_arm_writer_cur(output->writer.arm);
+
+}
+
 #endif
 

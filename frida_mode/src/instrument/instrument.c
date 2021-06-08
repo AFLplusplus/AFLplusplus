@@ -84,6 +84,8 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
+    if (unlikely(begin)) { instrument_debug_start(instr->address, output); }
+
     if (instr->address == entry_start) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
     if (instr->address == persistent_ret) { persistent_epilogue(output); }
@@ -119,8 +121,6 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     if (unlikely(begin)) {
 
-      instrument_debug_start(instr->address, output);
-
       prefetch_write(GSIZE_TO_POINTER(instr->address));
 
       if (likely(!excluded)) {
@@ -155,6 +155,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
   }
 
+  instrument_flush(output);
   instrument_debug_end(output);
 
 }
