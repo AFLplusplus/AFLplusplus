@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "types.h"
+#include <string.h>
 
 #define UNUSUAL_MAP_SIZE 65536
 
@@ -55,9 +56,23 @@ struct unusual_values_state {
   struct single_var_invariant single_invariants[UNUSUAL_MAP_SIZE];
   u8                          pair_invariants[UNUSUAL_MAP_SIZE];
 
-  u8 found_new, learning;
+  u8 learning;
 
 };
+
+inline void unusual_values_state_init(struct unusual_values_state* state) {
+  
+  // memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
+  memset(state->virgin, 0xff, UNUSUAL_MAP_SIZE / 8);
+  state->learning = 1;
+  
+}
+
+inline void unusual_values_state_reset(struct unusual_values_state* state) {
+  
+  memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
+  
+}
 
 /* Execs the child */
 

@@ -2417,6 +2417,8 @@ stop_fuzzing:
   }
 
   afl_fsrv_deinit(&afl->fsrv);
+  if (afl->cmplog_binary) afl_fsrv_deinit(&afl->cmplog_fsrv);
+  if (afl->unusual_binary) afl_fsrv_deinit(&afl->unusual_fsrv);
 
   /* remove tmpfile */
   if (afl->tmp_dir != NULL && !afl->in_place_resume && afl->fsrv.out_file) {

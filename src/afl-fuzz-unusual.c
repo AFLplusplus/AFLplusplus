@@ -50,7 +50,7 @@ u8 common_fuzz_unusual_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
   
-  memset(afl->shm.unusual->map, 0, sizeof(afl->shm.unusual->map));
+  unusual_values_state_reset(afl->shm.unusual);
 
   fault = fuzz_run_target(afl, &afl->unusual_fsrv, afl->fsrv.exec_tmout);
 
@@ -84,7 +84,7 @@ u8 common_fuzz_unusual_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault, afl->shm.unusual->learning);
+  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault, !afl->shm.unusual->learning);
 
   if (!(afl->stage_cur % afl->stats_update_freq) ||
       afl->stage_cur + 1 == afl->stage_max) {

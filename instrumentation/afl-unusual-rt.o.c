@@ -15,10 +15,10 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdio.h>
-extern struct unusual_values_state *__afl_unusual;
 
-// Override the weak symbol to enable unusual mode
-int __afl_unusual_enabled = 1;
+struct unusual_values_state  __afl_unusual_dummy;
+// Override the weak symbol
+struct unusual_values_state *__afl_unusual = &__afl_unusual_dummy;
 
 #define GET_BIT(_ar, _b) !!((((u8 *)(_ar))[(_b) >> 3] & (128 >> ((_b)&7))))
 

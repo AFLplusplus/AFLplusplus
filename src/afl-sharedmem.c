@@ -381,6 +381,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("shmat() failed");
 
     }
+    
+    unusual_values_state_init(shm->unusual);
 
   }
 

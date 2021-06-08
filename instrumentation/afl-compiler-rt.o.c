@@ -120,11 +120,7 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 
-struct unusual_values_state  __afl_unusual_dummy;
-struct unusual_values_state *__afl_unusual = &__afl_unusual_dummy;
-
-int __afl_unusual_enabled __attribute__((weak));
-// TODO add a forkserver option to tell afl-fuzz about unusual
+struct unusual_values_state *__afl_unusual __attribute__((weak));
 
 /* Child pid? */
 
@@ -584,9 +580,9 @@ static void __afl_map_shm(void) {
 
   }
 
-  id_str = getenv(CMPLOG_SHM_ENV_VAR);
+  id_str = getenv(UNUSUAL_SHM_ENV_VAR);
 
-  if (id_str && __afl_unusual_enabled) {
+  if (id_str) {
 
     u32 shm_id = atoi(id_str);
 
@@ -822,7 +818,6 @@ static void __afl_start_snapshots(void) {
 
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-        if (__afl_unusual) __afl_unusual->found_new = 0;
 
         return;
 
@@ -1045,8 +1040,6 @@ static void __afl_start_forkserver(void) {
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
 
-        if (__afl_unusual) __afl_unusual->found_new = 0;
-
         return;
 
       }
@@ -1102,7 +1095,6 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       memset(__afl_area_ptr, 0, __afl_map_size);
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-      if (__afl_unusual) __afl_unusual->found_new = 0;
 
     }
 
@@ -1123,7 +1115,6 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
       __afl_selective_coverage_temp = 1;
-      if (__afl_unusual) __afl_unusual->found_new = 0;
 
       return 1;
 
