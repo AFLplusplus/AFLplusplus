@@ -48,7 +48,7 @@ fn parse_locs(loc_name: &str) -> Result<Vec<u64>, io::Error> {
     let contents = &read_file(&format!("../target.offsets.{}", loc_name))?;
     //println!("Read: {:?}", contents);
     Ok(str_from_u8_unchecked(&contents)
-        .split("\n")
+        .split('\n')
         .map(|x| {
             //println!("Trying to convert {}", &x[2..]);
             let result = u64::from_str_radix(&x[2..], 16);
@@ -90,7 +90,8 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     let mut unicorn = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
     let mut uc: UnicornHandle<'_, _> = unicorn.borrow();
 
-    let binary = read_file(BINARY).expect(&format!("Could not read modem image: {}", BINARY));
+    let binary =
+        read_file(BINARY).unwrap_or_else(|_| panic!("Could not read modem image: {}", BINARY));
     let _aligned_binary_size = align(binary.len() as u64);
     // Apply constraints to the mutated input
     if binary.len() as u64 > CODE_SIZE_MAX {
@@ -151,7 +152,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
         already_allocated_malloc.set(true);
     };
 
-    let already_allocated_free = already_allocated.clone();
+    let already_allocated_free = already_allocated;
     // No real free, just set the "used"-flag to false.
     let hook_free = move |mut uc: UnicornHandle<'_, _>, addr, size| {
         if already_allocated_free.get() {
@@ -190,7 +191,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     }
 
     for addr in parse_locs("magicfn").unwrap() {
-        uc.add_code_hook(addr, addr, Box::new(hook_magicfn.clone()))?;
+        uc.add_code_hook(addr, addr, Box::new(hook_magicfn))?;
     }
 
     let place_input_callback =
@@ -225,7 +226,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     match ret {
         Ok(_) => {}
-        Err(e) => panic!(format!("found non-ok unicorn exit: {:?}", e)),
+        Err(e) => panic!("found non-ok unicorn exit: {:?}", e),
     }
 
     Ok(())
