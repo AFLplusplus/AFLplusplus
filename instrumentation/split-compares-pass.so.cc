@@ -435,39 +435,51 @@ bool SplitComparesTransform::simplifySignedCompare(
   ReplaceInstWithInst(IcmpInst->getParent()->getInstList(), ii, PN);
 
   // save for later
-  worklist.push_back(icmp_inv_sig_cmp);
   worklist.push_back(icmp_usign_cmp);
+
+  // signed comparisons are not supported by the splitting code, so we must not
+  // add it to the worklist.
+  // worklist.push_back(icmp_inv_sig_cmp);
 
   return true;
 }
 
 bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M) {
-  LLVMContext &C = M.getContext();
-
-  IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
-  BasicBlock * bb = cmp_inst->getParent();
+  auto pred = cmp_inst->getPredicate();
+  switch (pred) {
+    case CmpInst::ICMP_EQ:
+    case CmpInst::ICMP_NE:
+    case CmpInst::ICMP_UGT:
+    case CmpInst::ICMP_ULT:
+      break;
+    default:
+      // unsupported predicate!
+      return false;
+  }
 
   auto op0 = cmp_inst->getOperand(0);
   auto op1 = cmp_inst->getOperand(1);
 
   // get bitwidth by checking the bitwidth of the first operator
   IntegerType *intTyOp0 = dyn_cast<IntegerType>(op0->getType());
-  if (!intTyOp0) { return false; }
-  unsigned bitw = intTyOp0->getBitWidth();
+  if (!intTyOp0) { 
+    // not an integer type
+    return false; 
+  }
 
+  unsigned bitw = intTyOp0->getBitWidth();
   if (bitw == target_bitwidth) {
     // already the target bitwidth so we have to do nothing here.
     return true;
   }
 
+  LLVMContext &C = M.getContext();
+  IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
+  BasicBlock  *bb = cmp_inst->getParent();
   IntegerType *OldIntType = IntegerType::get(C, bitw);
   IntegerType *NewIntType = IntegerType::get(C, bitw / 2);
-
-  auto pred = cmp_inst->getPredicate();
-
-  BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(cmp_inst));
-
-  CmpInst *icmp_high, *icmp_low;
+  BasicBlock  *end_bb = bb->splitBasicBlock(BasicBlock::iterator(cmp_inst));
+  CmpInst     *icmp_high, *icmp_low;
 
   /* create the comparison of the top halves of the original operands */
   Instruction *s_op0, *op0_high, *s_op1, *op1_high;
