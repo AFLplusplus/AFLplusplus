@@ -137,8 +137,8 @@ class SplitComparesTransform : public ModulePass {
 
 char SplitComparesTransform::ID = 0;
 
-/* This function splits FCMP instructions with xGE or xLE predicates into two
- * FCMP instructions with predicate xGT or xLT and EQ */
+/// This function splits FCMP instructions with xGE or xLE predicates into two
+/// FCMP instructions with predicate xGT or xLT and EQ
 bool SplitComparesTransform::simplifyFPCompares(Module &M) {
   LLVMContext &              C = M.getContext();
   std::vector<Instruction *> fcomps;
@@ -254,22 +254,24 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
 
   return true;
 }
-/* This function splits ICMP instructions with xGE or xLE predicates into two
- * ICMP instructions with predicate xGT or xLT and EQ */
+
+/// This function splits ICMP instructions with xGE or xLE predicates into two
+/// ICMP instructions with predicate xGT or xLT and EQ
 bool SplitComparesTransform::simplifyOrEqualsCompare(
     CmpInst *IcmpInst, Module &M, std::vector<CmpInst *> &worklist) {
   LLVMContext &C = M.getContext();
   IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
 
+  /* find out what the new predicate is going to be */
+  auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
+  if (!cmp_inst) { return false; }
+  
   BasicBlock *bb = IcmpInst->getParent();
 
   auto op0 = IcmpInst->getOperand(0);
   auto op1 = IcmpInst->getOperand(1);
 
-  /* find out what the new predicate is going to be */
-  auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
-  if (!cmp_inst) { return false; }
-  auto               pred = cmp_inst->getPredicate();
+  CmpInst::Predicate pred = cmp_inst->getPredicate();
   CmpInst::Predicate new_pred;
 
   switch (pred) {
@@ -297,8 +299,7 @@ bool SplitComparesTransform::simplifyOrEqualsCompare(
 
   /* create the ICMP instruction with new_pred and add it to the old basic
    * block bb it is now at the position where the old IcmpInst was */
-  CmpInst *icmp_np;
-  icmp_np = CmpInst::Create(Instruction::ICmp, new_pred, op0, op1);
+  CmpInst *icmp_np = CmpInst::Create(Instruction::ICmp, new_pred, op0, op1);
   bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), icmp_np);
 
   /* create a new basic block which holds the new EQ icmp */
@@ -336,6 +337,9 @@ bool SplitComparesTransform::simplifyOrEqualsCompare(
   return true;
 }
 
+/// Simplify a signed comparison operator by splitting it into a unsigned and
+/// bit comparison. add all resulting comparisons to
+/// the worklist passed as a reference.
 bool SplitComparesTransform::simplifySignedCompare(
     CmpInst *IcmpInst, Module &M, std::vector<CmpInst *> &worklist) {
   LLVMContext &C = M.getContext();
@@ -368,25 +372,15 @@ bool SplitComparesTransform::simplifySignedCompare(
 
   /* create a 1 bit compare for the sign bit. to do this shift and trunc
    * the original operands so only the first bit remains.*/
-  Instruction *s_op0, *t_op0, *s_op1, *t_op1, *icmp_sign_bit;
+  Value *s_op0, *t_op0, *s_op1, *t_op1, *icmp_sign_bit;
 
-  s_op0 = BinaryOperator::Create(Instruction::LShr, op0,
-                                 ConstantInt::get(IntType, bitw - 1));
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), s_op0);
-  t_op0 = new TruncInst(s_op0, Int1Ty);
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), t_op0);
-
-  s_op1 = BinaryOperator::Create(Instruction::LShr, op1,
-                                 ConstantInt::get(IntType, bitw - 1));
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), s_op1);
-  t_op1 = new TruncInst(s_op1, Int1Ty);
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), t_op1);
-
+  IRBuilder<> IRB(bb->getTerminator());
+  s_op0 = IRB.CreateLShr(op0, ConstantInt::get(IntType, bitw - 1));
+  t_op0 = IRB.CreateTruncOrBitCast(s_op0, Int1Ty);
+  s_op1 = IRB.CreateLShr(op1, ConstantInt::get(IntType, bitw - 1));
+  t_op1 = IRB.CreateTruncOrBitCast(s_op1, Int1Ty);
   /* compare of the sign bits */
-  icmp_sign_bit =
-      CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, t_op0, t_op1);
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
-                           icmp_sign_bit);
+  icmp_sign_bit = IRB.CreateCmp(CmpInst::ICMP_EQ, t_op0, t_op1);
 
   /* create a new basic block which is executed if the signedness bit is
    * different */
