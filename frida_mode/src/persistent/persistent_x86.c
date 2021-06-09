@@ -39,6 +39,7 @@ struct x86_regs {
 typedef struct x86_regs arch_api_regs;
 
 static arch_api_regs saved_regs = {0};
+static gpointer      saved_ret = NULL;
 
 gboolean persistent_is_supported(void) {
 
@@ -117,7 +118,9 @@ static void instrument_persitent_restore_regs(GumX86Writer *   cw,
   gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_EBP, GUM_REG_EAX,
                                             (0x4 * 6));
 
-  /* Don't restore RIP or RSP */
+  /* Don't restore RIP */
+  gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_ESP, GUM_REG_EAX,
+                                            (0x4 * 8));
 
   /* Restore RBX, RAX & Flags */
   gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_EBX, GUM_REG_EAX,
@@ -184,6 +187,26 @@ static void persistent_prologue_hook(GumX86Writer *cw, struct x86_regs *regs) {
 
 }
 
+static void instrument_persitent_save_ret(GumX86Writer *cw) {
+
+  /* Stack usage by this function */
+  gssize offset = (3 * 4);
+
+  gum_x86_writer_put_pushfx(cw);
+  gum_x86_writer_put_push_reg(cw, GUM_REG_EAX);
+  gum_x86_writer_put_push_reg(cw, GUM_REG_EBX);
+
+  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EAX, GUM_ADDRESS(&saved_ret));
+  gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_REG_EBX, GUM_REG_ESP,
+                                            offset);
+  gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_REG_EAX, GUM_REG_EBX);
+
+  gum_x86_writer_put_pop_reg(cw, GUM_REG_EBX);
+  gum_x86_writer_put_pop_reg(cw, GUM_REG_EAX);
+  gum_x86_writer_put_popfx(cw);
+
+}
+
 void persistent_prologue(GumStalkerOutput *output) {
 
   /*
@@ -210,11 +233,10 @@ void persistent_prologue(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  /* Stack must be 16-byte aligned per ABI */
-  instrument_persitent_save_regs(cw, &saved_regs);
-
   /* Pop the return value */
-  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_ESP, GUM_REG_ESP, (4));
+  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_ESP, GUM_REG_ESP, 4);
+
+  instrument_persitent_save_regs(cw, &saved_regs);
 
   /* loop: */
   gum_x86_writer_put_label(cw, loop);
@@ -244,6 +266,8 @@ void persistent_prologue(GumStalkerOutput *output) {
   /* original: */
   gum_x86_writer_put_label(cw, original);
 
+  instrument_persitent_save_ret(cw);
+
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
 
 }
@@ -254,10 +278,8 @@ void persistent_epilogue(GumStalkerOutput *output) {
 
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
 
-  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_ESP, GUM_REG_ESP,
-                                        persistent_ret_offset);
-
-  gum_x86_writer_put_ret(cw);
+  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EAX, GUM_ADDRESS(&saved_ret));
+  gum_x86_writer_put_jmp_reg_ptr(cw, GUM_REG_EAX);
 
 }
 
