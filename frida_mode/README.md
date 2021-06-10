@@ -75,7 +75,6 @@ following options are currently supported:
 * `AFL_FRIDA_PERSISTENT_CNT` - See `AFL_QEMU_PERSISTENT_CNT`
 * `AFL_FRIDA_PERSISTENT_HOOK` - See `AFL_QEMU_PERSISTENT_HOOK`
 * `AFL_FRIDA_PERSISTENT_RET` - See `AFL_QEMU_PERSISTENT_RET`
-* `AFL_FRIDA_PERSISTENT_RETADDR_OFFSET` - See `AFL_QEMU_PERSISTENT_RETADDR_OFFSET`
 
 To enable the powerful CMPLOG mechanism, set `-c 0` for `afl-fuzz`.
 
@@ -164,8 +163,7 @@ application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 * `AFL_FRIDA_PERSISTENT_DEBUG` - Insert a Breakpoint into the instrumented code
 at `AFL_FRIDA_PERSISTENT_HOOK` and `AFL_FRIDA_PERSISTENT_RET` to allow the user
-to determine the value of `AFL_FRIDA_PERSISTENT_RETADDR_OFFSET` using a
-debugger.
+to detect issues in the persistent loop using a debugger.
 
 ```
 

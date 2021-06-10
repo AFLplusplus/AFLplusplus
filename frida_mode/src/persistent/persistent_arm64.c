@@ -268,12 +268,14 @@ static void instrument_persitent_restore_regs(GumArm64Writer *   cw,
                                               ARM64_REG_X0, (16 * 14),
                                               GUM_INDEX_SIGNED_OFFSET);
 
-  /* Don't restore RIP or RSP, use x1-x3 as clobber */
-
-  /* LR & Adjusted SP (clobber x1) */
+  /* LR & Adjusted SP (use x1 as clobber) */
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(cw, ARM64_REG_X30, ARM64_REG_X1,
                                               ARM64_REG_X0, (16 * 15),
                                               GUM_INDEX_SIGNED_OFFSET);
+
+  gum_arm64_writer_put_mov_reg_reg(cw, ARM64_REG_SP, ARM64_REG_X1);
+
+  /* Don't restore RIP use x1-x3 as clobber */
 
   /* PC (x2) & CPSR (x1) */
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(cw, ARM64_REG_X2, ARM64_REG_X1,
@@ -404,7 +406,6 @@ void persistent_prologue(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  /* Stack must be 16-byte aligned per ABI */
   instrument_persitent_save_regs(cw, &saved_regs);
 
   /* loop: */
@@ -449,9 +450,6 @@ void persistent_epilogue(GumStalkerOutput *output) {
   GumArm64Writer *cw = output->writer.arm64;
 
   if (persistent_debug) { gum_arm64_writer_put_brk_imm(cw, 0); }
-
-  gum_arm64_writer_put_add_reg_reg_imm(cw, ARM64_REG_SP, ARM64_REG_SP,
-                                       persistent_ret_offset);
 
   gum_arm64_writer_put_ldr_reg_address(cw, ARM64_REG_X0,
                                        GUM_ADDRESS(&saved_lr));
