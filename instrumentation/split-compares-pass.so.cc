@@ -506,15 +506,11 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
           BasicBlock::Create(C, "" /*"injected"*/, end_bb->getParent(), end_bb);
 
       Value *op0_low, *op1_low;
-
       IRBuilder<> Builder(cmp_low_bb);
 
       op0_low = Builder.CreateTrunc(op0, NewIntType);
       op1_low = Builder.CreateTrunc(op1, NewIntType);
-
-      icmp_low = dyn_cast<CmpInst>(Builder.CreateICmp(pred, op0_low, op1_low));
-      // icmp_low = CmpInst::Create(Instruction::ICmp, pred, op0_low, op1_low);
-      // cmp_low_bb->getInstList().push_back(icmp_low);
+      icmp_low = cast<CmpInst>(Builder.CreateICmp(pred, op0_low, op1_low));
 
       BranchInst::Create(end_bb, cmp_low_bb);
 
