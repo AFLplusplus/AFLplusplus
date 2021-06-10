@@ -1,16 +1,16 @@
 /*
- * compile with -DUINT_TYPE="unsigned char"
- *          or  -DUINT_TYPE="unsigned short"
- *          or  -DUINT_TYPE="unsigned int"
- *          or  -DUINT_TYPE="unsigned long"
- *          or  -DUINT_TYPE="unsigned long long"
+ * compile with -DINT_TYPE="char"
+ *          or  -DINT_TYPE="short"
+ *          or  -DINT_TYPE="int"
+ *          or  -DINT_TYPE="long"
+ *          or  -DINT_TYPE="long long"
  */
 
 #include <assert.h>
 
 int main() {
 
-  volatile UINT_TYPE a, b;
+  volatile unsigned INT_TYPE a, b;
 
   a = 1;
   b = 8;
@@ -21,7 +21,7 @@ int main() {
   assert((a != b));
   assert(!(a == b));
 
-  if ((UINT_TYPE)(~0) > 255) {
+  if ((INT_TYPE)(~0) > 255) {
     volatile unsigned short a, b;
     a = 256+2;
     b = 256+21;
@@ -41,7 +41,7 @@ int main() {
     assert((a != b));
     assert(!(a == b));
 
-    if ((UINT_TYPE)(~0) > 65535) {
+    if ((INT_TYPE)(~0) > 65535) {
       volatile unsigned int a, b;
       a = 65536+2;
       b = 65536+21;
@@ -62,7 +62,7 @@ int main() {
       assert(!(a == b));
     }
 
-    if ((UINT_TYPE)(~0) > 4294967295) {
+    if ((INT_TYPE)(~0) > 4294967295) {
       volatile unsigned long a, b;
       a = 4294967296+2;
       b = 4294967296+21;
@@ -93,7 +93,7 @@ int main() {
   assert((a != b));
   assert(!(a == b));
 
-  if ((UINT_TYPE)(~0) > 255) {
+  if ((INT_TYPE)(~0) > 255) {
     volatile unsigned short a, b;
     a = 256+2;
     b = 256+1;
@@ -113,7 +113,7 @@ int main() {
     assert((a != b));
     assert(!(a == b));
 
-    if ((UINT_TYPE)(~0) > 65535) {
+    if ((INT_TYPE)(~0) > 65535) {
       volatile unsigned int a, b;
       a = 65536+2;
       b = 65536+1;
@@ -133,7 +133,7 @@ int main() {
       assert((a != b));
       assert(!(a == b));
 
-      if ((UINT_TYPE)(~0) > 4294967295) {
+      if ((INT_TYPE)(~0) > 4294967295) {
         volatile unsigned long a, b;
         a = 4294967296+2;
         b = 4294967296+1;
@@ -176,7 +176,7 @@ int main() {
   assert(!(a != b));
   assert((a == b));
 
-  if ((UINT_TYPE)(~0) > 255) {
+  if ((INT_TYPE)(~0) > 255) {
     volatile unsigned short a, b;
     a = 256+5;
     b = 256+5;
@@ -187,7 +187,7 @@ int main() {
     assert(!(a != b));
     assert((a == b));
 
-    if ((UINT_TYPE)(~0) > 65535) {
+    if ((INT_TYPE)(~0) > 65535) {
       volatile unsigned int a, b;
       a = 65536+5;
       b = 65536+5;
@@ -198,7 +198,7 @@ int main() {
       assert(!(a != b));
       assert((a == b));
 
-      if ((UINT_TYPE)(~0) > 4294967295) {
+      if ((INT_TYPE)(~0) > 4294967295) {
         volatile unsigned long a, b;
         a = 4294967296+5;
         b = 4294967296+5;
