@@ -550,7 +550,8 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
       /* create a basic block which checks for the inverse predicate.
        * if this is true we can go to the end if not we have to go to the
        * bb which checks the lower half of the operands */
-      Instruction *icmp_inv_cmp, *op0_low, *op1_low;
+      Instruction *op0_low, *op1_low;
+      CmpInst *icmp_inv_cmp = nullptr;
       BasicBlock * inv_cmp_bb =
           BasicBlock::Create(C, "inv_cmp", end_bb->getParent(), end_bb);
       if (pred == CmpInst::ICMP_UGT) {
@@ -563,6 +564,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
       }
 
       inv_cmp_bb->getInstList().push_back(icmp_inv_cmp);
+      worklist.push_back(icmp_inv_cmp);
 
       auto term = bb->getTerminator();
       term->eraseFromParent();
