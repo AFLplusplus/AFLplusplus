@@ -81,18 +81,20 @@ class SplitComparesTransform : public ModulePass {
   bool   simplifyFPCompares(Module &M);
   size_t nextPowerOfTwo(size_t in);
 
+  using CmpWorklist = SmallVector<CmpInst *, 8>;
+
   /// simplify the comparison and then split the comparison until the
   /// target_bitwidth is reached.
   bool simplifyAndSplit(CmpInst *I, Module &M);
   /// simplify a non-strict comparison (e.g., less than or equals)
   bool simplifyOrEqualsCompare(CmpInst *IcmpInst, Module &M,
-                               std::vector<CmpInst *> &worklist);
+                               CmpWorklist &worklist);
   /// simplify a signed comparison (signed less or greater than)
   bool simplifySignedCompare(CmpInst *IcmpInst, Module &M,
-                             std::vector<CmpInst *> &worklist);
+                             CmpWorklist &worklist);
   /// splits an icmp into nested icmps recursivly until target_bitwidth is
   /// reached
-  bool splitCompare(CmpInst *I, Module &M);
+  bool splitCompare(CmpInst *I, Module &M, CmpWorklist &worklist);
 
   /// print an error to llvm's errs stream, but only if not ordered to be quiet
   void reportError(const StringRef msg, Instruction *I, Module &M) {
@@ -257,15 +259,16 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
 
 /// This function splits ICMP instructions with xGE or xLE predicates into two
 /// ICMP instructions with predicate xGT or xLT and EQ
-bool SplitComparesTransform::simplifyOrEqualsCompare(
-    CmpInst *IcmpInst, Module &M, std::vector<CmpInst *> &worklist) {
+bool SplitComparesTransform::simplifyOrEqualsCompare(CmpInst *    IcmpInst,
+                                                     Module &     M,
+                                                     CmpWorklist &worklist) {
   LLVMContext &C = M.getContext();
   IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
 
   /* find out what the new predicate is going to be */
   auto cmp_inst = dyn_cast<CmpInst>(IcmpInst);
   if (!cmp_inst) { return false; }
-  
+
   BasicBlock *bb = IcmpInst->getParent();
 
   auto op0 = IcmpInst->getOperand(0);
@@ -340,8 +343,8 @@ bool SplitComparesTransform::simplifyOrEqualsCompare(
 /// Simplify a signed comparison operator by splitting it into a unsigned and
 /// bit comparison. add all resulting comparisons to
 /// the worklist passed as a reference.
-bool SplitComparesTransform::simplifySignedCompare(
-    CmpInst *IcmpInst, Module &M, std::vector<CmpInst *> &worklist) {
+bool SplitComparesTransform::simplifySignedCompare(CmpInst *IcmpInst, Module &M,
+                                                   CmpWorklist &worklist) {
   LLVMContext &C = M.getContext();
   IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
 
@@ -438,7 +441,8 @@ bool SplitComparesTransform::simplifySignedCompare(
   return true;
 }
 
-bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M) {
+bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
+                                          CmpWorklist &worklist) {
   auto pred = cmp_inst->getPredicate();
   switch (pred) {
     case CmpInst::ICMP_EQ:
@@ -456,9 +460,9 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M) {
 
   // get bitwidth by checking the bitwidth of the first operator
   IntegerType *intTyOp0 = dyn_cast<IntegerType>(op0->getType());
-  if (!intTyOp0) { 
+  if (!intTyOp0) {
     // not an integer type
-    return false; 
+    return false;
   }
 
   unsigned bitw = intTyOp0->getBitWidth();
@@ -469,121 +473,123 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M) {
 
   LLVMContext &C = M.getContext();
   IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
-  BasicBlock  *bb = cmp_inst->getParent();
+  BasicBlock * bb = cmp_inst->getParent();
   IntegerType *OldIntType = IntegerType::get(C, bitw);
   IntegerType *NewIntType = IntegerType::get(C, bitw / 2);
-  BasicBlock  *end_bb = bb->splitBasicBlock(BasicBlock::iterator(cmp_inst));
-  CmpInst     *icmp_high, *icmp_low;
+  BasicBlock * end_bb = bb->splitBasicBlock(BasicBlock::iterator(cmp_inst));
+  CmpInst *    icmp_high, *icmp_low;
 
   /* create the comparison of the top halves of the original operands */
-  Instruction *s_op0, *op0_high, *s_op1, *op1_high;
+  Value *s_op0, *op0_high, *s_op1, *op1_high;
 
-  s_op0 = BinaryOperator::Create(Instruction::LShr, op0,
-                                 ConstantInt::get(OldIntType, bitw / 2));
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), s_op0);
-  op0_high = new TruncInst(s_op0, NewIntType);
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), op0_high);
+  IRBuilder<> IRB(bb->getTerminator());
 
-  s_op1 = BinaryOperator::Create(Instruction::LShr, op1,
-                                 ConstantInt::get(OldIntType, bitw / 2));
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), s_op1);
-  op1_high = new TruncInst(s_op1, NewIntType);
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), op1_high);
+  s_op0 = IRB.CreateBinOp(Instruction::LShr, op0,
+                          ConstantInt::get(OldIntType, bitw / 2));
+  op0_high = IRB.CreateTruncOrBitCast(s_op0, NewIntType);
 
-  icmp_high = CmpInst::Create(Instruction::ICmp, pred, op0_high, op1_high);
-  bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
-                           icmp_high);
+  s_op1 = IRB.CreateBinOp(Instruction::LShr, op1,
+                          ConstantInt::get(OldIntType, bitw / 2));
+  op1_high = IRB.CreateTruncOrBitCast(s_op1, NewIntType);
+  icmp_high = cast<CmpInst>(IRB.CreateICmp(pred, op0_high, op1_high));
 
   PHINode *PN = nullptr;
 
   /* now we have to destinguish between == != and > < */
-  if (pred == CmpInst::ICMP_EQ || pred == CmpInst::ICMP_NE) {
-    /* transformation for == and != icmps */
+  switch (pred) {
+    case CmpInst::ICMP_EQ:
+    case CmpInst::ICMP_NE: {
+      /* transformation for == and != icmps */
 
-    /* create a compare for the lower half of the original operands */
-    BasicBlock *cmp_low_bb =
-        BasicBlock::Create(C, "" /*"injected"*/, end_bb->getParent(), end_bb);
+      /* create a compare for the lower half of the original operands */
+      BasicBlock *cmp_low_bb =
+          BasicBlock::Create(C, "" /*"injected"*/, end_bb->getParent(), end_bb);
 
-    Value *op0_low, *op1_low;
+      Value *op0_low, *op1_low;
 
-    IRBuilder<> Builder(cmp_low_bb);
+      IRBuilder<> Builder(cmp_low_bb);
 
-    op0_low = Builder.CreateTrunc(op0, NewIntType);
-    op1_low = Builder.CreateTrunc(op1, NewIntType);
+      op0_low = Builder.CreateTrunc(op0, NewIntType);
+      op1_low = Builder.CreateTrunc(op1, NewIntType);
 
-    icmp_low = dyn_cast<CmpInst>(Builder.CreateICmp(pred, op0_low, op1_low));
-    // icmp_low = CmpInst::Create(Instruction::ICmp, pred, op0_low, op1_low);
-    // cmp_low_bb->getInstList().push_back(icmp_low);
+      icmp_low = dyn_cast<CmpInst>(Builder.CreateICmp(pred, op0_low, op1_low));
+      // icmp_low = CmpInst::Create(Instruction::ICmp, pred, op0_low, op1_low);
+      // cmp_low_bb->getInstList().push_back(icmp_low);
 
-    BranchInst::Create(end_bb, cmp_low_bb);
+      BranchInst::Create(end_bb, cmp_low_bb);
 
-    /* dependent on the cmp of the high parts go to the end or go on with
-     * the comparison */
-    auto        term = bb->getTerminator();
-    BranchInst *br = nullptr;
-    if (pred == CmpInst::ICMP_EQ) {
-      br = BranchInst::Create(cmp_low_bb, end_bb, icmp_high, bb);
-    } else {
-      /* CmpInst::ICMP_NE */
-      br = BranchInst::Create(end_bb, cmp_low_bb, icmp_high, bb);
+      /* dependent on the cmp of the high parts go to the end or go on with
+       * the comparison */
+      auto        term = bb->getTerminator();
+      BranchInst *br = nullptr;
+      if (pred == CmpInst::ICMP_EQ) {
+        br = BranchInst::Create(cmp_low_bb, end_bb, icmp_high, bb);
+      } else {
+        /* CmpInst::ICMP_NE */
+        br = BranchInst::Create(end_bb, cmp_low_bb, icmp_high, bb);
+      }
+      term->eraseFromParent();
+
+      /* create the PHI and connect the edges accordingly */
+      PN = PHINode::Create(Int1Ty, 2, "");
+      PN->addIncoming(icmp_low, cmp_low_bb);
+      Value *val = nullptr;
+      if (pred == CmpInst::ICMP_EQ) {
+        val = ConstantInt::get(Int1Ty, 0);
+      } else {
+        /* CmpInst::ICMP_NE */
+        val = ConstantInt::get(Int1Ty, 1);
+      }
+      PN->addIncoming(val, icmp_high->getParent());
+      break;
     }
-    term->eraseFromParent();
+    case CmpInst::ICMP_UGT:
+    case CmpInst::ICMP_ULT: {
+      /* transformations for < and > */
 
-    /* create the PHI and connect the edges accordingly */
-    PN = PHINode::Create(Int1Ty, 2, "");
-    PN->addIncoming(icmp_low, cmp_low_bb);
-    Value *val = nullptr;
-    if (pred == CmpInst::ICMP_EQ) {
-      val = ConstantInt::get(Int1Ty, 0);
-    } else {
-      /* CmpInst::ICMP_NE */
-      val = ConstantInt::get(Int1Ty, 1);
+      /* create a basic block which checks for the inverse predicate.
+       * if this is true we can go to the end if not we have to go to the
+       * bb which checks the lower half of the operands */
+      Instruction *icmp_inv_cmp, *op0_low, *op1_low;
+      BasicBlock * inv_cmp_bb =
+          BasicBlock::Create(C, "inv_cmp", end_bb->getParent(), end_bb);
+      if (pred == CmpInst::ICMP_UGT) {
+        icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT,
+                                       op0_high, op1_high);
+
+      } else {
+        icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT,
+                                       op0_high, op1_high);
+      }
+
+      inv_cmp_bb->getInstList().push_back(icmp_inv_cmp);
+
+      auto term = bb->getTerminator();
+      term->eraseFromParent();
+      BranchInst::Create(end_bb, inv_cmp_bb, icmp_high, bb);
+
+      /* create a bb which handles the cmp of the lower halves */
+      BasicBlock *cmp_low_bb =
+          BasicBlock::Create(C, "" /*"injected"*/, end_bb->getParent(), end_bb);
+      op0_low = new TruncInst(op0, NewIntType);
+      cmp_low_bb->getInstList().push_back(op0_low);
+      op1_low = new TruncInst(op1, NewIntType);
+      cmp_low_bb->getInstList().push_back(op1_low);
+
+      icmp_low = CmpInst::Create(Instruction::ICmp, pred, op0_low, op1_low);
+      cmp_low_bb->getInstList().push_back(icmp_low);
+      BranchInst::Create(end_bb, cmp_low_bb);
+
+      BranchInst::Create(end_bb, cmp_low_bb, icmp_inv_cmp, inv_cmp_bb);
+
+      PN = PHINode::Create(Int1Ty, 3);
+      PN->addIncoming(icmp_low, cmp_low_bb);
+      PN->addIncoming(ConstantInt::get(Int1Ty, 1), bb);
+      PN->addIncoming(ConstantInt::get(Int1Ty, 0), inv_cmp_bb);
+      break;
     }
-    PN->addIncoming(val, icmp_high->getParent());
-
-  } else {
-    /* CmpInst::ICMP_UGT and CmpInst::ICMP_ULT */
-    /* transformations for < and > */
-
-    /* create a basic block which checks for the inverse predicate.
-     * if this is true we can go to the end if not we have to go to the
-     * bb which checks the lower half of the operands */
-    Instruction *icmp_inv_cmp, *op0_low, *op1_low;
-    BasicBlock * inv_cmp_bb =
-        BasicBlock::Create(C, "inv_cmp", end_bb->getParent(), end_bb);
-    if (pred == CmpInst::ICMP_UGT) {
-      icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT,
-                                     op0_high, op1_high);
-
-    } else {
-      icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT,
-                                     op0_high, op1_high);
-    }
-
-    inv_cmp_bb->getInstList().push_back(icmp_inv_cmp);
-
-    auto term = bb->getTerminator();
-    term->eraseFromParent();
-    BranchInst::Create(end_bb, inv_cmp_bb, icmp_high, bb);
-
-    /* create a bb which handles the cmp of the lower halves */
-    BasicBlock *cmp_low_bb =
-        BasicBlock::Create(C, "" /*"injected"*/, end_bb->getParent(), end_bb);
-    op0_low = new TruncInst(op0, NewIntType);
-    cmp_low_bb->getInstList().push_back(op0_low);
-    op1_low = new TruncInst(op1, NewIntType);
-    cmp_low_bb->getInstList().push_back(op1_low);
-
-    icmp_low = CmpInst::Create(Instruction::ICmp, pred, op0_low, op1_low);
-    cmp_low_bb->getInstList().push_back(icmp_low);
-    BranchInst::Create(end_bb, cmp_low_bb);
-
-    BranchInst::Create(end_bb, cmp_low_bb, icmp_inv_cmp, inv_cmp_bb);
-
-    PN = PHINode::Create(Int1Ty, 3);
-    PN->addIncoming(icmp_low, cmp_low_bb);
-    PN->addIncoming(ConstantInt::get(Int1Ty, 1), bb);
-    PN->addIncoming(ConstantInt::get(Int1Ty, 0), inv_cmp_bb);
+    default:
+      return false;
   }
 
   BasicBlock::iterator ii(cmp_inst);
@@ -593,21 +599,15 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M) {
   // bitwidth we recursivly split the low and high parts again until we have
   // target bitwidth.
   if ((bitw / 2) > target_bitwidth) {
-    if (!splitCompare(icmp_high, M)) {
-      reportError("Failed to split high comparison", icmp_high, M);
-      return false;
-    }
-    if (!splitCompare(icmp_low, M)) {
-      reportError("Failed to split low comparison", icmp_low, M);
-      return false;
-    }
+    worklist.push_back(icmp_high);
+    worklist.push_back(icmp_low);
   }
 
   return true;
 }
 
 bool SplitComparesTransform::simplifyAndSplit(CmpInst *I, Module &M) {
-  std::vector<CmpInst *> worklist;
+  CmpWorklist worklist;
 
   auto op0 = I->getOperand(0);
   auto op1 = I->getOperand(1);
@@ -651,11 +651,12 @@ bool SplitComparesTransform::simplifyAndSplit(CmpInst *I, Module &M) {
   // we only have to split the original CmpInst.
   if (worklist.size() == 0) { worklist.push_back(I); }
 
-  for (auto cmp : worklist) {
+  while (!worklist.empty()) {
+    CmpInst *cmp = worklist.pop_back_val();
     // we split the simplified compares into comparisons with smaller bitwidths
     // if they are larger than our target_bitwidth.
     if (bitw > target_bitwidth) {
-      if (!splitCompare(cmp, M)) {
+      if (!splitCompare(cmp, M, worklist)) {
         reportError("Failed to split comparison", cmp, M);
       }
 
