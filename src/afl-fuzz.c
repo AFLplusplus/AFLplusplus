@@ -1276,7 +1276,6 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
-  if (get_afl_env("AFL_FAST_CAL")) { afl->fast_cal = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
 
   if (afl->afl_env.afl_autoresume) {
@@ -1488,14 +1487,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) { afl->not_on_tty = 0; }
-
-  if (afl->afl_env.afl_cal_fast) {
-
-    /* Use less calibration cycles, for slow applications */
-    afl->cal_cycles = 3;
-    afl->cal_cycles_long = 5;
-
-  }
 
   if (afl->afl_env.afl_custom_mutator_only) {
 

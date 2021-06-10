@@ -15,6 +15,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - removed implied -D determinstic from -M main
     - if the target becomes unavailable check out out/default/error.txt for
       an indicator why
+    - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
   - afl-cc
     - support partial linking
     - We do support llvm versions from 3.8 again

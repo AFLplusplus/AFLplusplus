@@ -167,7 +167,7 @@ static inline u8 anything_set(void) {
 
 static void at_exit_handler(void) {
 
-  unlink(fsrv.out_file);                                         /* Ignore errors */
+  unlink(fsrv.out_file);                                   /* Ignore errors */
 
 }
 
@@ -643,12 +643,14 @@ static void set_up_environment(char **argv) {
 
     }
 
-    fsrv.out_file = alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
+    fsrv.out_file =
+        alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
 
   }
 
   unlink(fsrv.out_file);
-  fsrv.out_fd = open(fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  fsrv.out_fd =
+      open(fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
 
   if (fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", fsrv.out_file); }
 
@@ -1117,7 +1119,6 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_deinit(&fsrv);
   if (fsrv.target_path) { ck_free(fsrv.target_path); }
   if (in_data) { ck_free(in_data); }
-
 
   exit(0);
 
