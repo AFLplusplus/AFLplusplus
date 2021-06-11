@@ -1,4 +1,6 @@
 #include <unistd.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
 
 #include "frida-gum.h"
 
@@ -18,44 +20,50 @@
 
 static gboolean               tracing = false;
 static gboolean               optimize = false;
+static gboolean               unique = false;
 static GumStalkerTransformer *transformer = NULL;
 
 __thread uint64_t previous_pc = 0;
+
+static GumAddress previous_rip = 0;
+static u8 *       edges_notified = NULL;
+
+static void trace_debug(char *format, ...) {
+
+  va_list ap;
+  char    buffer[4096] = {0};
+  int     ret;
+  int     len;
+
+  va_start(ap, format);
+  ret = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);
+  va_end(ap);
+
+  if (ret < 0) { return; }
+
+  len = strnlen(buffer, sizeof(buffer));
+
+  IGNORED_RETURN(write(STDOUT_FILENO, buffer, len));
+
+}
 
 __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                                                 gpointer       user_data) {
 
   UNUSED_PARAMETER(context);
-  /*
-   * This function is performance critical as it is called to instrument every
-   * basic block. By moving our print buffer to a global, we avoid it affecting
-   * the critical path with additional stack adjustments if tracing is not
-   * enabled. If tracing is enabled, then we're printing a load of diagnostic
-   * information so this overhead is unlikely to be noticeable.
-   */
-  static char buffer[200];
-  int         len;
-  GumAddress  current_pc = GUM_ADDRESS(user_data);
-  uint8_t *   cursor;
-  uint64_t    value;
-  if (unlikely(tracing)) {
 
-    /* Avoid any functions which may cause an allocation since the target app
-     * may already be running inside malloc and it isn't designed to be
-     * re-entrant on a single thread */
-    len = snprintf(buffer, sizeof(buffer),
-                   "current_pc: 0x%016" G_GINT64_MODIFIER
-                   "x, previous_pc: 0x%016" G_GINT64_MODIFIER "x\n",
-                   current_pc, previous_pc);
+  GumAddress current_rip = GUM_ADDRESS(user_data);
+  GumAddress current_pc;
+  GumAddress edge;
+  uint8_t *  cursor;
+  uint64_t   value;
 
-    IGNORED_RETURN(write(STDOUT_FILENO, buffer, len + 1));
-
-  }
-
-  current_pc = (current_pc >> 4) ^ (current_pc << 8);
+  current_pc = (current_rip >> 4) ^ (current_rip << 8);
   current_pc &= MAP_SIZE - 1;
 
-  cursor = &__afl_area_ptr[current_pc ^ previous_pc];
+  edge = current_pc ^ previous_pc;
+
+  cursor = &__afl_area_ptr[edge];
   value = *cursor;
 
   if (value == 0xff) {
@@ -70,6 +78,23 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
   *cursor = value;
   previous_pc = current_pc >> 1;
+
+  if (unlikely(tracing)) {
+
+    if (!unique || edges_notified[edge] == 0) {
+
+      trace_debug("TRACE: edge: %10" G_GINT64_MODIFIER
+                  "d, current_rip: 0x%016" G_GINT64_MODIFIER
+                  "x, previous_rip: 0x%016" G_GINT64_MODIFIER "x\n",
+                  edge, current_rip, previous_rip);
+
+    }
+
+    if (unique) { edges_notified[edge] = 1; }
+
+    previous_rip = current_rip;
+
+  }
 
 }
 
@@ -164,17 +189,27 @@ void instrument_init(void) {
 
   optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
   tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
+  unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
 
   if (!instrument_is_coverage_optimize_supported()) optimize = false;
 
   OKF("Instrumentation - optimize [%c]", optimize ? 'X' : ' ');
   OKF("Instrumentation - tracing [%c]", tracing ? 'X' : ' ');
+  OKF("Instrumentation - unique [%c]", unique ? 'X' : ' ');
 
   if (tracing && optimize) {
 
-    FATAL("AFL_FRIDA_INST_OPTIMIZE and AFL_FRIDA_INST_TRACE are incompatible");
+    FATAL("AFL_FRIDA_INST_TRACE requires AFL_FRIDA_INST_NO_OPTIMIZE");
 
   }
+
+  if (unique && optimize) {
+
+    FATAL("AFL_FRIDA_INST_TRACE_UNIQUE requires AFL_FRIDA_INST_NO_OPTIMIZE");
+
+  }
+
+  if (unique) { tracing = TRUE; }
 
   if (__afl_map_size != 0x10000) {
 
@@ -184,6 +219,28 @@ void instrument_init(void) {
 
   transformer =
       gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
+
+  if (unique) {
+
+    int shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+    if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
+
+    edges_notified = shmat(shm_id, NULL, 0);
+    g_assert(edges_notified != MAP_FAILED);
+
+    /*
+     * Configure the shared memory region to be removed once the process dies.
+     */
+    if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
+
+      FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
+
+    }
+
+    /* Clear it, not sure it's necessary, just seems like good practice */
+    memset(edges_notified, '\0', MAP_SIZE);
+
+  }
 
   instrument_debug_init();
   asan_init();

@@ -20,6 +20,7 @@ RT_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-unused-function \
 		   -Wno-unused-result \
 		   -Wno-int-to-pointer-cast \
+		   -Wno-pointer-sign \
 
 LDFLAGS+=-shared \
 		 -lpthread \
