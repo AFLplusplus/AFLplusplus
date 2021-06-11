@@ -13,20 +13,23 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix -F when a '/' was part of the parameter
     - fixed a crash for cmplog for very slow inputs
     - removed implied -D determinstic from -M main
-    - if the target becomes unavailable check out out/default/error.txt for
-      an indicator why
+    - if the target becomes unavailable check out out/default/error.txt
+      for an indicator why
     - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
-  - afl-cc
-    - Update to COMPCOV/laf-intel that speeds up the instrumentation process
-      a lot - thanks to Michael Rodler/f0rki for the PR!
-    - Fix to instrument global functions in c++
+  - afl-cc:
+    - Update to COMPCOV/laf-intel that speeds up the instrumentation
+      process a lot - thanks to Michael Rodler/f0rki for the PR!
+    - Fix to instrument global namespace functions in c++
     - Fix for llvm 13
     - support partial linking
     - We do support llvm versions from 3.8 to 5.0 again
-  - afl_analyze
-    - fix timeout handling and support forkserver
+  - frida_mode:
+    - fix for cmplog
+    - remove need for AFL_FRIDA_PERSISTENT_RETADDR_OFFSET
+  - afl_analyze:
+    - fix timeout handling
+    - add forkserver support for better performance
   - ensure afl-compiler-rt is built for gcc_module
-  - afl-analyze now uses the forkserver for increased performance
 
 
 ### Version ++3.13c (release)
