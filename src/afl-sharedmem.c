@@ -173,6 +173,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
   }
 
   afl_shm_free(&shm->shm);
+  afl_shm_free(&shm->mapsize_shm);
 
   if (shm->cmplog_mode) { afl_shm_free(&shm->cmplog_shm); }
 
@@ -186,7 +187,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
                  unsigned char non_instrumented_mode) {
 
   afl_shm_alloc(&shm->shm, MAX_MAP_SIZE);
+
+  afl_shm_alloc(&shm->mapsize_shm, sizeof(struct map_size));
+  shm->map_size_ptr = (struct map_size*)shm->mapsize_shm.map;
+
   shm->map_size = map_size;
+  shm->map_size_ptr->size = map_size;
+
 
   if (shm->cmplog_mode) {
 

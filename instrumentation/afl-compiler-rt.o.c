@@ -189,7 +189,7 @@ static void send_forkserver_error(int error) {
 
 }
 
-static void* __afl_map(char * id_str, void * addr) {
+static void* __afl_map(char * id_str, size_t size, void * addr) {
   u8 *map = NULL;
 
   #ifdef USEMMAP
@@ -209,10 +209,10 @@ static void* __afl_map(char * id_str, void * addr) {
   if (addr == NULL) {
 
   map =
-      (u8 *)mmap(0, MAX_MAP_SIZE, PROT_READ, MAP_NORESERVE | MAP_SHARED, shm_fd, 0);
+      (u8 *)mmap(0, size, PROT_READ, MAP_NORESERVE | MAP_SHARED, shm_fd, 0);
   } else {
     map =
-      (u8 *)mmap(0, MAX_MAP_SIZE, PROT_READ, MAP_NORESERVE | MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
+      (u8 *)mmap(0, size, PROT_READ, MAP_NORESERVE | MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
   }
 
   if (map == MAP_FAILED) {
@@ -252,10 +252,10 @@ static void* __afl_map(char * id_str, void * addr) {
   return map;
 }
 
-void __afl_unmap(void * addr) {
+void __afl_unmap(void * addr, size_t size) {
 #ifdef USEMMAP
 
-    munmap((void *)addr, MAX_MAP_SIZE);
+    munmap((void *)addr, size);
 
 #else
 
@@ -278,7 +278,7 @@ static void __afl_map_shm_fuzz() {
 
   if (id_str) {
 
-    u8 *map = __afl_map(id_str, NULL);
+    u8 *map = __afl_map(id_str, MAX_MAP_SIZE, NULL);
 
     /* Whooooops. */
 
@@ -413,7 +413,7 @@ static void __afl_map_shm(void) {
 
 #endif
 
-    __afl_area_ptr = __afl_map(id_str, (void*)__afl_map_addr);
+    __afl_area_ptr = __afl_map(id_str, MAX_MAP_SIZE, (void*)__afl_map_addr);
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -510,7 +510,7 @@ static void __afl_map_shm(void) {
 
     }
 
-    __afl_cmp_map = __afl_map(id_str, NULL);
+    __afl_cmp_map = __afl_map(id_str, MAX_MAP_SIZE, NULL);
 
     __afl_cmp_map_backup = __afl_cmp_map;
 
@@ -536,7 +536,7 @@ static void __afl_unmap_shm(void) {
 
   if (id_str) {
 
-    __afl_unmap(__afl_area_ptr);
+    __afl_unmap(__afl_area_ptr, MAX_MAP_SIZE);
 
   } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
 
@@ -552,7 +552,7 @@ static void __afl_unmap_shm(void) {
 
   if (id_str) {
 
-    __afl_unmap(__afl_cmp_map);
+    __afl_unmap(__afl_cmp_map, MAX_MAP_SIZE);
     __afl_cmp_map = NULL;
 
   }

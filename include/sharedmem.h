@@ -46,16 +46,23 @@ typedef struct {
 
 } sharedmem_alloc_t;
 
+struct map_size {
+  u32 size;
+};
+
 typedef struct sharedmem {
 
   sharedmem_alloc_t shm;
   sharedmem_alloc_t cmplog_shm;
+  sharedmem_alloc_t mapsize_shm;
 
   int cmplog_mode;
   int shmemfuzz_mode;
 
-  struct cmp_map *cmp_map;
   size_t          map_size;                        /* actual allocated size */
+
+  struct cmp_map  *cmp_map;
+  struct map_size *map_size_ptr;
 
 } sharedmem_t;
 
