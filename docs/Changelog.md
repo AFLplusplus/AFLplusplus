@@ -31,7 +31,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add forkserver support for better performance
   - ensure afl-compiler-rt is built for gcc_module
 
-
 ### Version ++3.13c (release)
   - Note: plot_data switched to relative time from unix time in 3.10
   - frida_mode - new mode that uses frida to fuzz binary-only targets,
