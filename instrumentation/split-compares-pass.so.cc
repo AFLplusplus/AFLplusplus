@@ -432,7 +432,7 @@ bool SplitComparesTransform::simplifySignedCompare(CmpInst *IcmpInst, Module &M,
   s_op1 = IRB.CreateLShr(op1, ConstantInt::get(IntType, bitw - 1));
   t_op1 = IRB.CreateTruncOrBitCast(s_op1, Int1Ty);
   /* compare of the sign bits */
-  icmp_sign_bit = IRB.CreateCmp(CmpInst::ICMP_EQ, t_op0, t_op1);
+  icmp_sign_bit = IRB.CreateICmp(CmpInst::ICMP_EQ, t_op0, t_op1);
 
   /* create a new basic block which is executed if the signedness bit is
    * different */
@@ -1397,7 +1397,11 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   }
 
   bool brokenDebug = false;
-  if (verifyModule(M, &errs(), &brokenDebug)) {
+  if (verifyModule( M, &errs()
+#if LLVM_VERSION_MAJOR > 3 || (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
+    ,&brokenDebug		// 9th May 2016
+#endif
+    )) {
 
     reportError(
         "Module Verifier failed! Consider reporting a bug with the AFL++ "
