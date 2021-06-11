@@ -2544,7 +2544,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
 #else
-  u8 *shm_str = alloc_printf("%d", afl->shm_fuzz->shm_id);
+  u8 *shm_str = alloc_printf("%d", afl->shm_fuzz->shm.shm_id);
   setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
   ck_free(shm_str);
 #endif

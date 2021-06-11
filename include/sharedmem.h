@@ -30,29 +30,33 @@
 
 #include "types.h"
 
-typedef struct sharedmem {
-
-  // extern unsigned char *trace_bits;
+typedef struct {
 
 #ifdef USEMMAP
   /* ================ Proteas ================ */
   int  g_shm_fd;
   char g_shm_file_path[L_tmpnam];
-  int  cmplog_g_shm_fd;
-  char cmplog_g_shm_file_path[L_tmpnam];
 /* ========================================= */
 #else
   s32 shm_id;                          /* ID of the SHM region              */
-  s32 cmplog_shm_id;
 #endif
 
-  u8 *map;                                          /* shared memory region */
+  void * map;
+  size_t size;
 
-  size_t map_size;                                 /* actual allocated size */
+} sharedmem_alloc_t;
 
-  int             cmplog_mode;
-  int             shmemfuzz_mode;
+typedef struct sharedmem {
+
+  sharedmem_alloc_t shm;
+  sharedmem_alloc_t cmplog_shm;
+
+  int cmplog_mode;
+  int shmemfuzz_mode;
+
   struct cmp_map *cmp_map;
+  u8 *            map;                              /* shared memory region */
+  size_t          map_size;                        /* actual allocated size */
 
 } sharedmem_t;
 
