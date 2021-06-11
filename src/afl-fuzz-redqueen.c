@@ -724,7 +724,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 //#endif
 
-static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_entry *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
                               u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
@@ -1391,7 +1391,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
 #ifdef WORD_SIZE_64
 
-static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_entry *h,
                                u128 pattern, u128 repl, u128 o_pattern,
                                u128 changed_val, u8 attr, u32 idx,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
@@ -1575,11 +1575,11 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u32 lvl, struct tainted *taint) {
 
-  struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  struct tainted *   t;
-  u32                i, j, idx, taint_len, loggeds;
-  u32                have_taint = 1;
-  u8                 status = 0, found_one = 0;
+  struct cmp_entry *h = &afl->shm.cmp_map->entries[key];
+  struct tainted *  t;
+  u32               i, j, idx, taint_len, loggeds;
+  u32               have_taint = 1;
+  u8                status = 0, found_one = 0;
 
   /* loop cmps are useless, detect and ignore them */
 #ifdef WORD_SIZE_64
@@ -1618,7 +1618,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
+    struct cmp_operands *o = &afl->shm.cmp_map->entries[key].log[i].cmp;
 
     // loop detection code
     if (i == 0) {
@@ -1639,13 +1639,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
-    struct cmp_operands *orig_o = &afl->orig_cmp_map->log[key][i];
+    struct cmp_operands *orig_o = &afl->orig_cmp_map->entries[key].log[i].cmp;
 
     // opt not in the paper
     for (j = 0; j < i; ++j) {
 
-      if (afl->shm.cmp_map->log[key][j].v0 == o->v0 &&
-          afl->shm.cmp_map->log[key][i].v1 == o->v1) {
+      if (afl->shm.cmp_map->entries[key].log[j].cmp.v0 == o->v0 &&
+          afl->shm.cmp_map->entries[key].log[i].cmp.v1 == o->v1) {
 
         goto cmp_fuzz_next_iter;
 
@@ -2291,10 +2291,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u8 lvl, struct tainted *taint) {
 
-  struct tainted *   t;
-  struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  u32                i, j, idx, have_taint = 1, taint_len, loggeds;
-  u8                 status = 0, found_one = 0;
+  struct tainted *  t;
+  struct cmp_entry *h = &afl->shm.cmp_map->entries[key];
+  u32               i, j, idx, have_taint = 1, taint_len, loggeds;
+  u8                status = 0, found_one = 0;
 
   if (h->hits > CMP_MAP_RTN_H) {
 
@@ -2308,16 +2308,14 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmpfn_operands *o =
-        &((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[i];
+    struct cmpfn_operands *o = &afl->shm.cmp_map->entries[key].log[i].fn;
 
-    struct cmpfn_operands *orig_o =
-        &((struct cmpfn_operands *)afl->orig_cmp_map->log[key])[i];
+    struct cmpfn_operands *orig_o = &afl->orig_cmp_map->entries[key].log[i].fn;
 
     // opt not in the paper
     for (j = 0; j < i; ++j) {
 
-      if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j], o,
+      if (!memcmp(&(afl->shm.cmp_map->entries[key].log[j].fn), o,
                   sizeof(struct cmpfn_operands))) {
 
         goto rtn_fuzz_next_iter;
@@ -2327,7 +2325,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     }
 
     /*
-      struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
+      struct cmp_entry *hh = &afl->orig_cmp_map->headers[key];
     fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
     h->shape, h->attribute); for (j = 0; j < 8; j++) fprintf(stderr, "%02x",
     o->v0[j]); fprintf(stderr, " v1="); for (j = 0; j < 8; j++) fprintf(stderr,
@@ -2539,7 +2537,12 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   }
 
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
-  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+  for (size_t i = 0; i < CMP_MAP_W; i++) {
+
+    memset(&afl->shm.cmp_map->entries[i], 0, offsetof(struct cmp_entry, log));
+
+  }
+
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) {
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
@@ -2588,7 +2591,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
 
-    if (!afl->shm.cmp_map->headers[k].hits) { continue; }
+    if (!afl->shm.cmp_map->entries[k].hits) { continue; }
 
     if (afl->pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
         afl->pass_stats[k].total >= CMPLOG_FAIL_MAX) {
@@ -2597,19 +2600,19 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       fprintf(stderr, "DISABLED %u\n", k);
 #endif
 
-      afl->shm.cmp_map->headers[k].hits = 0;  // ignore this cmp
+      afl->shm.cmp_map->entries[k].hits = 0;  // ignore this cmp
 
     }
 
-    if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
+    if (afl->shm.cmp_map->entries[k].type == CMP_TYPE_INS) {
 
       afl->stage_max +=
-          MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_H);
+          MIN((u32)(afl->shm.cmp_map->entries[k].hits), (u32)CMP_MAP_H);
 
     } else {
 
       afl->stage_max +=
-          MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_RTN_H);
+          MIN((u32)(afl->shm.cmp_map->entries[k].hits), (u32)CMP_MAP_RTN_H);
 
     }
 
@@ -2617,13 +2620,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   for (k = 0; k < CMP_MAP_W; ++k) {
 
-    if (!afl->shm.cmp_map->headers[k].hits) { continue; }
+    if (!afl->shm.cmp_map->entries[k].hits) { continue; }
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
     ++cmp_locations;
 #endif
 
-    if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
+    if (afl->shm.cmp_map->entries[k].type == CMP_TYPE_INS) {
 
       if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {
 

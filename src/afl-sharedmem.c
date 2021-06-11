@@ -191,7 +191,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   if (shm->cmplog_mode) {
 
-    afl_shm_alloc(&shm->cmplog_shm, sizeof(struct cmp_map));
+    afl_shm_alloc(&shm->cmplog_shm, MAX_MAP_SIZE);
     shm->cmp_map = (struct cmp_map *)shm->cmplog_shm.map;
 
   }

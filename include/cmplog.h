@@ -41,17 +41,6 @@
 #define CMP_TYPE_INS 1
 #define CMP_TYPE_RTN 2
 
-struct cmp_header {
-
-  unsigned hits : 24;
-  unsigned id : 24;
-  unsigned shape : 5;
-  unsigned type : 2;
-  unsigned attribute : 4;
-  unsigned reserved : 5;
-
-} __attribute__((packed));
-
 struct cmp_operands {
 
   u64 v0;
@@ -68,12 +57,29 @@ struct cmpfn_operands {
 
 };
 
-typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
+union cmp_log {
+
+  struct cmp_operands   cmp;
+  struct cmpfn_operands fn;
+
+};
+
+struct cmp_entry {
+
+  unsigned hits : 24;
+  unsigned id : 24;
+  unsigned shape : 5;
+  unsigned type : 2;
+  unsigned attribute : 4;
+  unsigned reserved : 5;
+
+  union cmp_log log[CMP_MAP_H];
+
+};
 
 struct cmp_map {
 
-  struct cmp_header   headers[CMP_MAP_W];
-  struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
+  struct cmp_entry entries[CMP_MAP_W];
 
 };
 

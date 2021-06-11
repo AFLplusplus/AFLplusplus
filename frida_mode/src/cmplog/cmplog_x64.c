@@ -111,18 +111,16 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
 
-  __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+  __afl_cmp_map->entries[k].type = CMP_TYPE_RTN;
 
-  u32 hits = __afl_cmp_map->headers[k].hits;
-  __afl_cmp_map->headers[k].hits = hits + 1;
+  u32 hits = __afl_cmp_map->entries[k].hits;
+  __afl_cmp_map->entries[k].hits = hits + 1;
 
-  __afl_cmp_map->headers[k].shape = 31;
+  __afl_cmp_map->entries[k].shape = 31;
 
   hits &= CMP_MAP_RTN_H - 1;
-  gum_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0, ptr1,
-             32);
-  gum_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1, ptr2,
-             32);
+  gum_memcpy(__afl_cmp_map->entries[k].log[hits].fn.v0, ptr1, 32);
+  gum_memcpy(__afl_cmp_map->entries[k].log[hits].fn.v1, ptr2, 32);
 
 }
 
@@ -179,16 +177,16 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
 
-  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+  __afl_cmp_map->entries[k].type = CMP_TYPE_INS;
 
-  u32 hits = __afl_cmp_map->headers[k].hits;
-  __afl_cmp_map->headers[k].hits = hits + 1;
+  u32 hits = __afl_cmp_map->entries[k].hits;
+  __afl_cmp_map->entries[k].hits = hits + 1;
 
-  __afl_cmp_map->headers[k].shape = (size - 1);
+  __afl_cmp_map->entries[k].shape = (size - 1);
 
   hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = operand1;
-  __afl_cmp_map->log[k][hits].v1 = operand2;
+  __afl_cmp_map->entries[k].log[hits].cmp.v0 = operand1;
+  __afl_cmp_map->entries[k].log[hits].cmp.v1 = operand2;
 
 }
 
