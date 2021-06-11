@@ -167,15 +167,15 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */
-  if (ftruncate(shm->g_shm_fd, map_size)) {
+  if (ftruncate(shm->g_shm_fd, MAX_MAP_SIZE)) {
 
     PFATAL("setup_shm(): ftruncate() failed");
 
   }
 
   /* map the shared memory segment to the address space of the process */
-  shm->map =
-      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
+  shm->map = mmap(0, MAX_MAP_SIZE, PROT_READ | PROT_WRITE,
+                  MAP_SHARED | MAP_NORESERVE, shm->g_shm_fd, 0);
   if (shm->map == MAP_FAILED) {
 
     close(shm->g_shm_fd);
@@ -207,15 +207,15 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
     /* configure the size of the shared memory segment */
-    if (ftruncate(shm->cmplog_g_shm_fd, map_size)) {
+    if (ftruncate(shm->cmplog_g_shm_fd, MAX_MAP_SIZE)) {
 
       PFATAL("setup_shm(): cmplog ftruncate() failed");
 
     }
 
     /* map the shared memory segment to the address space of the process */
-    shm->cmp_map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                        shm->cmplog_g_shm_fd, 0);
+    shm->cmp_map = mmap(0, MAX_MAP_SIZE, PROT_READ | PROT_WRITE,
+                        MAP_SHARED | MAP_NORESERVE, shm->cmplog_g_shm_fd, 0);
     if (shm->cmp_map == MAP_FAILED) {
 
       close(shm->cmplog_g_shm_fd);
@@ -243,12 +243,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   u8 *shm_str;
 
   shm->shm_id =
-      shmget(IPC_PRIVATE, map_size,
+      shmget(IPC_PRIVATE, MAX_MAP_SIZE,
              IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION | SHM_NORESERVE);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {
 
+    /* TODO!!! */
     shm->cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),
                                 IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
 

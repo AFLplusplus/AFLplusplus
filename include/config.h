@@ -439,6 +439,7 @@
 
 #define MAP_SIZE_POW2 16
 #define MAP_SIZE (1U << MAP_SIZE_POW2)
+#define MAX_MAP_SIZE (256UL << 20)
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 
