@@ -26,6 +26,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - frida_mode:
     - fix for cmplog
     - remove need for AFL_FRIDA_PERSISTENT_RETADDR_OFFSET
+    - feature parity of aarch64 with intel now (persistent, cmplog,
+      in-memory testcases, asan)
   - afl_analyze:
     - fix timeout handling
     - add forkserver support for better performance
