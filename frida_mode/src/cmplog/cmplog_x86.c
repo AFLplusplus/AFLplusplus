@@ -114,6 +114,7 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
   uintptr_t k = address;
 
   k = (k >> 4) ^ (k << 8);
+  // TODO: DONT HARD CODE THE MAP SIZE
   k &= CMP_MAP_W - 1;
 
   __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
@@ -182,6 +183,7 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
   register uintptr_t k = (uintptr_t)address;
 
   k = (k >> 4) ^ (k << 8);
+  // TODO: DONT HARD CODE THE MAP SIZE
   k &= CMP_MAP_W - 1;
 
   __afl_cmp_map->headers[k].type = CMP_TYPE_INS;

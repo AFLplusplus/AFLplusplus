@@ -1455,7 +1455,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 
@@ -1486,7 +1486,7 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 
@@ -1525,7 +1525,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 
@@ -1564,7 +1564,7 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 
@@ -1608,7 +1608,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 
@@ -1652,7 +1652,7 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 
@@ -1758,7 +1758,7 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
     uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
     k = (k >> 4) ^ (k << 8);
-    k &= CMP_MAP_W - 1;
+    k &= __afl_map_size_addr->size - 1;
 
     u32 hits;
 
@@ -1860,7 +1860,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   // fprintf(stderr, "RTN2 %u\n", len);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   u32 hits;
 

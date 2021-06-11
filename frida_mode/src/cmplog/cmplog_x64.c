@@ -5,6 +5,7 @@
 
 #include "ctx.h"
 #include "frida_cmplog.h"
+#include "instrument.h"
 #include "util.h"
 
 #if defined(__x86_64__)
@@ -109,7 +110,7 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
   uintptr_t k = address;
 
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   __afl_cmp_map->entries[k].type = CMP_TYPE_RTN;
 
@@ -175,7 +176,7 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
   register uintptr_t k = (uintptr_t)address;
 
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= __afl_map_size_addr->size - 1;
 
   __afl_cmp_map->entries[k].type = CMP_TYPE_INS;
 

@@ -54,6 +54,8 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   guint64 current_pc = instr->address;
   guint64 area_offset = (current_pc >> 4) ^ (current_pc << 8);
+
+  // TODO: DONT HARD CODE THE MAP SIZE
   area_offset &= MAP_SIZE - 1;
   GumX86Writer *cw = output->writer.x86;
 

@@ -16,6 +16,10 @@ static const guint8 afl_log_code[] = {
     0x51,                                                       /* push rcx */
     0x52,                                                       /* push rdx */
 
+    0x8b, 0x36,                                           /* mov esi, [rsi] */
+    0xff, 0xce,                                                  /* dec esi */
+    0x21, 0xf7,                                             /* and edi, esi */
+
     0x48, 0x8b, 0x0d, 0x28,
     0x00, 0x00, 0x00,                          /* mov rcx, sym.&previous_pc */
     0x48, 0x8b, 0x11,                               /* mov rdx, qword [rcx] */
@@ -54,6 +58,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   guint64 current_pc = instr->address;
   guint64 area_offset = (current_pc >> 4) ^ (current_pc << 8);
   area_offset &= MAP_SIZE - 1;
+  GumAddress    map_size = GUM_ADDRESS(&__afl_map_size_addr->size);
   GumX86Writer *cw = output->writer.x86;
 
   if (current_log_impl == 0 ||
@@ -81,8 +86,11 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
                                         -GUM_RED_ZONE_SIZE);
   gum_x86_writer_put_push_reg(cw, GUM_REG_RDI);
+  gum_x86_writer_put_push_reg(cw, GUM_REG_RSI);
   gum_x86_writer_put_mov_reg_address(cw, GUM_REG_RDI, area_offset);
+  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_RSI, map_size);
   gum_x86_writer_put_call_address(cw, current_log_impl);
+  gum_x86_writer_put_pop_reg(cw, GUM_REG_RSI);
   gum_x86_writer_put_pop_reg(cw, GUM_REG_RDI);
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
                                         GUM_RED_ZONE_SIZE);

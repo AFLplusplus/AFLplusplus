@@ -2458,7 +2458,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u8 r = 1;
   if (unlikely(!afl->pass_stats)) {
 
-    afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
+    size_t cmp_map_size = sizeof(struct cmp_entry) * afl->shm.map_size_ptr->size;
+    afl->pass_stats = ck_alloc(cmp_map_size);
 
   }
 
@@ -2538,7 +2539,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   }
 
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, cmp_map_size);
-  for (size_t i = 0; i < CMP_MAP_W; i++) {
+  for (size_t i = 0; i < afl->shm.map_size_ptr->size; i++) {
 
     memset(&afl->shm.cmp_map->entries[i], 0, offsetof(struct cmp_entry, log));
 
@@ -2590,7 +2591,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   u32 k;
-  for (k = 0; k < CMP_MAP_W; ++k) {
+  for (k = 0; k < afl->shm.map_size_ptr->size; ++k) {
 
     if (!afl->shm.cmp_map->entries[k].hits) { continue; }
 
@@ -2619,7 +2620,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  for (k = 0; k < CMP_MAP_W; ++k) {
+  for (k = 0; k < afl->shm.map_size_ptr->size; ++k) {
 
     if (!afl->shm.cmp_map->entries[k].hits) { continue; }
 

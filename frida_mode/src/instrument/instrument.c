@@ -22,16 +22,21 @@ static GumStalkerTransformer *transformer = NULL;
 
 __thread uint64_t previous_pc = 0;
 
+static void check_power_of_two(u32 n) {
+
+  if (n == 0 || (n & (n - 1)) != 0) { FATAL("Expected power of two: %u", n); }
+
+}
+
 __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                                                 gpointer       user_data) {
 
   UNUSED_PARAMETER(context);
+  u32 map_size = __afl_map_size_addr->size;
 
-  if (__afl_map_size_addr->size != MAP_SIZE) {
+  if (map_size != MAP_SIZE) { FATAL("Unexpected map size: %u", map_size); }
 
-    FATAL("Unexpected map size: %u", __afl_map_size_addr->size);
-
-  }
+  check_power_of_two(map_size);
 
   /*
    * This function is performance critical as it is called to instrument every
@@ -60,7 +65,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   }
 
   current_pc = (current_pc >> 4) ^ (current_pc << 8);
-  current_pc &= MAP_SIZE - 1;
+  current_pc &= map_size - 1;
 
   cursor = &__afl_area_ptr[current_pc ^ previous_pc];
   value = *cursor;
