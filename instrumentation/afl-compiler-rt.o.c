@@ -189,6 +189,81 @@ static void send_forkserver_error(int error) {
 
 }
 
+static void* __afl_map(char * id_str, void * addr) {
+  u8 *map = NULL;
+
+  #ifdef USEMMAP
+  const char *shm_file_path = id_str;
+  int         shm_fd = -1;
+
+  /* create the shared memory segment as if it was a file */
+  shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+  if (shm_fd == -1) {
+
+    fprintf(stderr, "shm_open() failed for fuzz\n");
+    send_forkserver_error(FS_ERROR_SHM_OPEN);
+    exit(1);
+
+  }
+
+  if (addr == NULL) {
+
+  map =
+      (u8 *)mmap(0, MAX_MAP_SIZE, PROT_READ, MAP_NORESERVE | MAP_SHARED, shm_fd, 0);
+  } else {
+    map =
+      (u8 *)mmap(0, MAX_MAP_SIZE, PROT_READ, MAP_NORESERVE | MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
+  }
+
+  if (map == MAP_FAILED) {
+
+    fprintf(stderr, "mmap() failed\n");
+    perror("mmap for map");
+
+    if (addr == NULL)
+      send_forkserver_error(FS_ERROR_MMAP);
+    else
+      send_forkserver_error(FS_ERROR_MAP_ADDR);
+
+    exit(2);
+
+  }
+
+
+#else
+  u32 shm_id = atoi(id_str);
+  map = (u8 *)shmat(shm_id, addr, 0);
+
+  if (!map || map == (void *)-1) {
+    fprintf(stderr, "shmat() failed\n");
+    perror("shmat for map");
+
+    if (addr == NULL)
+      send_forkserver_error(FS_ERROR_SHMAT);
+    else
+      send_forkserver_error(FS_ERROR_MAP_ADDR);
+
+    perror("shmat for map");
+    _exit(1);
+
+  }
+
+#endif
+  return map;
+}
+
+void __afl_unmap(void * addr) {
+#ifdef USEMMAP
+
+    munmap((void *)addr, MAX_MAP_SIZE);
+
+#else
+
+    shmdt((void *)addr);
+
+#endif
+}
+
 /* SHM fuzzing setup. */
 
 static void __afl_map_shm_fuzz() {
@@ -203,40 +278,9 @@ static void __afl_map_shm_fuzz() {
 
   if (id_str) {
 
-    u8 *map = NULL;
-
-#ifdef USEMMAP
-    const char *shm_file_path = id_str;
-    int         shm_fd = -1;
-
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
-
-      fprintf(stderr, "shm_open() failed for fuzz\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
-
-    }
-
-    map =
-        (u8 *)mmap(0, MAX_FILE + sizeof(u32), PROT_READ, MAP_SHARED, shm_fd, 0);
-
-#else
-    u32 shm_id = atoi(id_str);
-    map = (u8 *)shmat(shm_id, NULL, 0);
-
-#endif
+    u8 *map = __afl_map(id_str, NULL);
 
     /* Whooooops. */
-
-    if (!map || map == (void *)-1) {
-
-      perror("Could not access fuzzing shared memory");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
-
-    }
 
     __afl_fuzz_len = (u32 *)map;
     __afl_fuzz_ptr = map + sizeof(u32);
@@ -353,55 +397,7 @@ static void __afl_map_shm(void) {
 
     }
 
-#ifdef USEMMAP
-    const char *   shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char *shm_base = NULL;
-
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
-
-      fprintf(stderr, "shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
-
-    }
-
-    /* map the shared memory segment to the address space of the process */
-    if (__afl_map_addr) {
-
-      shm_base =
-          mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
-               MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
-
-    } else {
-
-      shm_base = mmap(0, __afl_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                      shm_fd, 0);
-
-    }
-
-    close(shm_fd);
-    shm_fd = -1;
-
-    if (shm_base == MAP_FAILED) {
-
-      fprintf(stderr, "mmap() failed\n");
-      perror("mmap for map");
-
-      if (__afl_map_addr)
-        send_forkserver_error(FS_ERROR_MAP_ADDR);
-      else
-        send_forkserver_error(FS_ERROR_MMAP);
-
-      exit(2);
-
-    }
-
-    __afl_area_ptr = shm_base;
-#else
-    u32 shm_id = atoi(id_str);
+#ifndef USEMMAP
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
@@ -415,23 +411,9 @@ static void __afl_map_shm(void) {
 
     }
 
-    __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
-
-    /* Whooooops. */
-
-    if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
-
-      if (__afl_map_addr)
-        send_forkserver_error(FS_ERROR_MAP_ADDR);
-      else
-        send_forkserver_error(FS_ERROR_SHMAT);
-
-      perror("shmat for map");
-      _exit(1);
-
-    }
-
 #endif
+
+    __afl_area_ptr = __afl_map(id_str, (void*)__afl_map_addr);
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -528,41 +510,7 @@ static void __afl_map_shm(void) {
 
     }
 
-#ifdef USEMMAP
-    const char *    shm_file_path = id_str;
-    int             shm_fd = -1;
-    struct cmp_map *shm_base = NULL;
-
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
-
-      perror("shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
-
-    }
-
-    /* map the shared memory segment to the address space of the process */
-    shm_base = mmap(0, sizeof(struct cmp_map), PROT_READ | PROT_WRITE,
-                    MAP_SHARED, shm_fd, 0);
-    if (shm_base == MAP_FAILED) {
-
-      close(shm_fd);
-      shm_fd = -1;
-
-      fprintf(stderr, "mmap() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(2);
-
-    }
-
-    __afl_cmp_map = shm_base;
-#else
-    u32 shm_id = atoi(id_str);
-
-    __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
-#endif
+    __afl_cmp_map = __afl_map(id_str, NULL);
 
     __afl_cmp_map_backup = __afl_cmp_map;
 
@@ -588,15 +536,7 @@ static void __afl_unmap_shm(void) {
 
   if (id_str) {
 
-#ifdef USEMMAP
-
-    munmap((void *)__afl_area_ptr, __afl_map_size);
-
-#else
-
-    shmdt((void *)__afl_area_ptr);
-
-#endif
+    __afl_unmap(__afl_area_ptr);
 
   } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
 
@@ -612,16 +552,7 @@ static void __afl_unmap_shm(void) {
 
   if (id_str) {
 
-#ifdef USEMMAP
-
-    munmap((void *)__afl_cmp_map, __afl_map_size);
-
-#else
-
-    shmdt((void *)__afl_cmp_map);
-
-#endif
-
+    __afl_unmap(__afl_cmp_map);
     __afl_cmp_map = NULL;
 
   }
