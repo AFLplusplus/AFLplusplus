@@ -1697,17 +1697,6 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->fsrv.frida_mode || afl->unicorn_mode) {
 
     map_size = afl->fsrv.map_size = MAP_SIZE;
-    afl->virgin_bits = ck_realloc_no_commit(afl->virgin_bits, MAX_MAP_SIZE);
-    afl->virgin_tmout = ck_realloc_no_commit(afl->virgin_tmout, MAX_MAP_SIZE);
-    afl->virgin_crash = ck_realloc_no_commit(afl->virgin_crash, MAX_MAP_SIZE);
-    afl->var_bytes = ck_realloc_no_commit(afl->var_bytes, MAX_MAP_SIZE);
-    afl->top_rated =
-        ck_realloc_no_commit(afl->top_rated, map_size * sizeof(void *));
-    afl->clean_trace = ck_realloc_no_commit(afl->clean_trace, MAX_MAP_SIZE);
-    afl->clean_trace_custom =
-        ck_realloc_no_commit(afl->clean_trace_custom, MAX_MAP_SIZE);
-    afl->first_trace = ck_realloc_no_commit(afl->first_trace, MAX_MAP_SIZE);
-    afl->map_tmp_buf = ck_realloc_no_commit(afl->map_tmp_buf, MAX_MAP_SIZE);
 
   }
 
@@ -1736,23 +1725,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
-      afl->virgin_bits = ck_realloc_no_commit(afl->virgin_bits, MAX_MAP_SIZE);
-      afl->virgin_tmout = ck_realloc_no_commit(afl->virgin_tmout, MAX_MAP_SIZE);
-      afl->virgin_crash = ck_realloc_no_commit(afl->virgin_crash, MAX_MAP_SIZE);
-      afl->var_bytes = ck_realloc_no_commit(afl->var_bytes, MAX_MAP_SIZE);
-      afl->top_rated =
-          ck_realloc_no_commit(afl->top_rated, MAX_MAP_SIZE * sizeof(void *));
-      afl->clean_trace = ck_realloc_no_commit(afl->clean_trace, MAX_MAP_SIZE);
-      afl->clean_trace_custom =
-          ck_realloc_no_commit(afl->clean_trace_custom, MAX_MAP_SIZE);
-      afl->first_trace = ck_realloc_no_commit(afl->first_trace, MAX_MAP_SIZE);
-      afl->map_tmp_buf = ck_realloc_no_commit(afl->map_tmp_buf, MAX_MAP_SIZE);
-
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
-      afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      afl->shm.map_size = new_map_size;
+      afl->fsrv.trace_bits = afl->shm.shm.map;
+
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -1796,18 +1774,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
 
-      afl->virgin_bits = ck_realloc_no_commit(afl->virgin_bits, MAX_MAP_SIZE);
-      afl->virgin_tmout = ck_realloc_no_commit(afl->virgin_tmout, MAX_MAP_SIZE);
-      afl->virgin_crash = ck_realloc_no_commit(afl->virgin_crash, MAX_MAP_SIZE);
-      afl->var_bytes = ck_realloc_no_commit(afl->var_bytes, MAX_MAP_SIZE);
-      afl->top_rated =
-          ck_realloc_no_commit(afl->top_rated, MAX_MAP_SIZE * sizeof(void *));
-      afl->clean_trace = ck_realloc_no_commit(afl->clean_trace, MAX_MAP_SIZE);
-      afl->clean_trace_custom =
-          ck_realloc_no_commit(afl->clean_trace_custom, MAX_MAP_SIZE);
-      afl->first_trace = ck_realloc_no_commit(afl->first_trace, MAX_MAP_SIZE);
-      afl->map_tmp_buf = ck_realloc_no_commit(afl->map_tmp_buf, MAX_MAP_SIZE);
-
       afl_fsrv_kill(&afl->fsrv);
       afl_fsrv_kill(&afl->cmplog_fsrv);
       afl_shm_deinit(&afl->shm);
@@ -1816,8 +1782,10 @@ int main(int argc, char **argv_orig, char **envp) {
       map_size = new_map_size;
 
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
-      afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      afl->fsrv.map_size = new_map_size;
+      afl->shm.map_size = new_map_size;
+      afl->fsrv.trace_bits = afl->shm.shm.map;
+
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);

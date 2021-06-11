@@ -40,12 +40,7 @@
 /* Initial size used for afl_realloc */
 #define INITIAL_GROWTH_SIZE (64)
 
-// Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
-
-#ifndef _WANT_ORIGINAL_AFL_ALLOC
-  // afl++ stuff without memory corruption checks - for speed
-
-  #define NO_COMMIT_MAGIC 0xdeadface
+#define NO_COMMIT_MAGIC 0xdeadface
 
 typedef struct {
 
@@ -54,6 +49,59 @@ typedef struct {
   u8  buffer[0];
 
 } no_commit_t;
+
+static inline void *DFL_ck_alloc_no_commit(u32 size) {
+
+  no_commit_t *mem;
+
+  if (size == 0) { return NULL; }
+  if (UINT32_MAX - sizeof(no_commit_t) < size) {
+
+    FATAL("Requested too much memory: %u bytes", size);
+
+  }
+
+  int flags = MAP_PRIVATE | MAP_ANONYMOUS;  // | MAP_NORESERVE;
+
+  mem = (no_commit_t *)mmap(NULL, size + sizeof(no_commit_t),
+                            PROT_READ | PROT_WRITE, flags, -1, 0);
+  if (mem == MAP_FAILED) {
+
+    FATAL("Failed to allocate: %u bytes, errno: %d", size, errno);
+
+  }
+
+  mem->magic = NO_COMMIT_MAGIC;
+  mem->size = size + sizeof(no_commit_t);
+
+  return &mem->buffer;
+
+}
+
+static inline void DFL_ck_free_no_commit(void *mem) {
+
+  if (mem == NULL) { return; }
+  if (mem < (void *)offsetof(no_commit_t, buffer)) {
+
+    FATAL("Invalid address: %p", mem);
+
+  }
+
+  no_commit_t *hdr = (no_commit_t *)((u8 *)mem - offsetof(no_commit_t, buffer));
+  if (hdr->magic != NO_COMMIT_MAGIC) { FATAL("Corrupted magic"); }
+
+  if (munmap(hdr, hdr->size) < 0) {
+
+    FATAL("Failed to free: %p, errno: %d", mem, errno);
+
+  }
+
+}
+
+// Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
+
+#ifndef _WANT_ORIGINAL_AFL_ALLOC
+  // afl++ stuff without memory corruption checks - for speed
 
   /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
@@ -105,34 +153,6 @@ static inline void *DFL_ck_alloc_nozero(u32 size) {
 
 }
 
-static inline void *DFL_ck_alloc_no_commit(u32 size) {
-
-  no_commit_t *mem;
-
-  if (size == 0) { return NULL; }
-  if (UINT32_MAX - sizeof(no_commit_t) < size) {
-
-    FATAL("Requested too much memory: %u bytes", size);
-
-  }
-
-  int flags = MAP_PRIVATE | MAP_ANONYMOUS;  // | MAP_NORESERVE;
-
-  mem = (no_commit_t *)mmap(NULL, size + sizeof(no_commit_t),
-                            PROT_READ | PROT_WRITE, flags, -1, 0);
-  if (mem == MAP_FAILED) {
-
-    FATAL("Failed to allocate: %u bytes, errno: %d", size, errno);
-
-  }
-
-  mem->magic = NO_COMMIT_MAGIC;
-  mem->size = size + sizeof(no_commit_t);
-
-  return &mem->buffer;
-
-}
-
 /* Allocate a buffer, returning zeroed memory.
   Returns null for 0 size */
 
@@ -155,26 +175,6 @@ static inline void DFL_ck_free(void *mem) {
   if (!mem) { return; }
 
   free(mem);
-
-}
-
-static inline void DFL_ck_free_no_commit(void *mem) {
-
-  if (mem == NULL) { return; }
-  if (mem < (void *)offsetof(no_commit_t, buffer)) {
-
-    FATAL("Invalid address: %p", mem);
-
-  }
-
-  no_commit_t *hdr = (no_commit_t *)((u8 *)mem - offsetof(no_commit_t, buffer));
-  if (hdr->magic != NO_COMMIT_MAGIC) { FATAL("Corrupted magic"); }
-
-  if (munmap(hdr, hdr->size) < 0) {
-
-    FATAL("Failed to free: %p, errno: %d", mem, errno);
-
-  }
 
 }
 
@@ -203,13 +203,6 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
   ALLOC_CHECK_RESULT(ret, size);
 
   return (void *)ret;
-
-}
-
-static inline void *DFL_ck_realloc_no_commit(void *orig, u32 size) {
-
-  DFL_ck_free_no_commit(orig);
-  return DFL_ck_alloc_no_commit(size);
 
 }
 
@@ -242,7 +235,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   #define ck_free DFL_ck_free
 
   #define ck_alloc_no_commit DFL_ck_alloc_no_commit
-  #define ck_realloc_no_commit DFL_ck_realloc_no_commit
   #define ck_free_no_commit DFL_ck_free_no_commit
 
   #define alloc_report()
@@ -494,6 +486,9 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
     #define ck_free DFL_ck_free
 
     #define alloc_report()
+
+    #define ck_alloc_no_commit DFL_ck_alloc_no_commit
+    #define ck_free_no_commit DFL_ck_free_no_commit
 
   #else
 
