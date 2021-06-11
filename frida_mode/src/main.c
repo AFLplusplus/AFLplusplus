@@ -114,7 +114,7 @@ static void afl_print_cmdline(void) {
 
   int idx = 0;
 
-  for (size_t i = 0; i < bytes_read; i++) {
+  for (ssize_t i = 0; i < bytes_read; i++) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
@@ -151,7 +151,7 @@ static void afl_print_env(void) {
 
   int idx = 0;
 
-  for (size_t i = 0; i < bytes_read; i++) {
+  for (ssize_t i = 0; i < bytes_read; i++) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
