@@ -19,9 +19,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-cc
     - Update to COMPCOV/laf-intel that speeds up the instrumentation process
       a lot - thanks to Michael Rodler/f0rki for the PR!
+    - Fix to instrument global functions in c++
     - Fix for llvm 13
     - support partial linking
-    - We do support llvm versions from 3.8 again
+    - We do support llvm versions from 3.8 to 5.0 again
   - afl_analyze
     - fix timeout handling and support forkserver
   - ensure afl-compiler-rt is built for gcc_module
