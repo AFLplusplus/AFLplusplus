@@ -192,7 +192,7 @@ static void at_exit_handler(void) {
 
   if (remove_shm) {
 
-    if (shm.map) afl_shm_deinit(&shm);
+    if (shm.shm.map) afl_shm_deinit(&shm);
     if (fsrv->use_shmem_fuzz) deinit_shmem(fsrv, shm_fuzz);
 
   }

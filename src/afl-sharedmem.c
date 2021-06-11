@@ -186,7 +186,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
                  unsigned char non_instrumented_mode) {
 
   afl_shm_alloc(&shm->shm, MAX_MAP_SIZE);
-  shm->map = shm->shm.map;
   shm->map_size = map_size;
 
   if (shm->cmplog_mode) {

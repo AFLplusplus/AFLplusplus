@@ -1759,6 +1759,7 @@ int main(int argc, char **argv_orig, char **envp) {
         !afl->afl_env.afl_skip_bin_check) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      afl->shm.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
       char vbuf[16];
       snprintf(vbuf, sizeof(vbuf), "%u", afl->cmplog_fsrv.map_size);
       setenv("AFL_MAP_SIZE", vbuf, 1);
