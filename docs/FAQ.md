@@ -3,6 +3,7 @@
 ## Contents
 
   * [What is the difference between afl and afl++?](#what-is-the-difference-between-afl-and-afl)
+  * [I got a weird compile error from clang](#i-got-a-weird-compile-error-from-clang)
   * [How to improve the fuzzing speed?](#how-to-improve-the-fuzzing-speed)
   * [How do I fuzz a network service?](#how-do-i-fuzz-a-network-service)
   * [How do I fuzz a GUI program?](#how-do-i-fuzz-a-gui-program)
@@ -34,6 +35,26 @@ then implemented their own research and features, making it now by far the most
 flexible and feature rich guided fuzzer available as open source.
 And in independent fuzzing benchmarks it is one of the best fuzzers available,
 e.g. [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html)
+
+## I got a weird compile error from clang
+
+If you see this kind of error when trying to instrument a target with afl-cc/
+afl-clang-fast/afl-clang-lto:
+```
+/prg/tmp/llvm-project/build/bin/clang-13: symbol lookup error: /usr/local/bin/../lib/afl//cmplog-instructions-pass.so: undefined symbol: _ZNK4llvm8TypeSizecvmEv
+clang-13: error: unable to execute command: No such file or directory
+clang-13: error: clang frontend command failed due to signal (use -v to see invocation)
+clang version 13.0.0 (https://github.com/llvm/llvm-project 1d7cf550721c51030144f3cd295c5789d51c4aad)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /prg/tmp/llvm-project/build/bin
+clang-13: note: diagnostic msg: 
+********************
+```
+Then this means that your OS updated the clang installation from an upgrade
+package and because of that the afl++ llvm plugins do not match anymore.
+
+Solution: `git pull ; make clean install` of afl++
 
 ## How to improve the fuzzing speed?
 

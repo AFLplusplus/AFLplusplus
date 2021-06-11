@@ -17,11 +17,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       an indicator why
     - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
   - afl-cc
+    - Update to COMPCOV/laf-intel that speeds up the instrumentation process
+      a lot - thanks to Michael Rodler/f0rki for the PR!
+    - Fix for llvm 13
     - support partial linking
     - We do support llvm versions from 3.8 again
   - afl_analyze
     - fix timeout handling and support forkserver
-  - Fix for llvm 13
   - ensure afl-compiler-rt is built for gcc_module
   - afl-analyze now uses the forkserver for increased performance
 
