@@ -751,6 +751,8 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 }
 
+/* Get unix time in milliseconds */
+
 u64 get_cur_time(void) {
 
   struct timeval  tv;

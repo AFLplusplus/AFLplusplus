@@ -9,9 +9,9 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.14a (release)
-  - Fix for llvm 13
   - afl-fuzz:
     - fix -F when a '/' was part of the parameter
+    - fixed a crash for cmplog for very slow inputs
     - removed implied -D determinstic from -M main
     - if the target becomes unavailable check out out/default/error.txt for
       an indicator why
@@ -21,6 +21,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - We do support llvm versions from 3.8 again
   - afl_analyze
     - fix timeout handling and support forkserver
+  - Fix for llvm 13
   - ensure afl-compiler-rt is built for gcc_module
   - afl-analyze now uses the forkserver for increased performance
 
