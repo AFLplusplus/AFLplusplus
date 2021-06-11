@@ -32,7 +32,6 @@
 
 #define CMPLOG_LVL_MAX 3
 
-#define CMP_MAP_W 65536
 #define CMP_MAP_H 32
 #define CMP_MAP_RTN_H (CMP_MAP_H / 4)
 
@@ -79,7 +78,7 @@ struct cmp_entry {
 
 struct cmp_map {
 
-  struct cmp_entry entries[CMP_MAP_W];
+  struct cmp_entry entries[0];
 
 };
 

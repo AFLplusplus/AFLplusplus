@@ -2514,7 +2514,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   // Generate the cmplog data
 
   // manually clear the full cmp_map
-  memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
+  size_t cmp_map_size = sizeof(struct cmp_entry) * afl->shm.map_size_ptr->size;
+  memset(afl->shm.cmp_map, 0, cmp_map_size);
   if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) {
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
@@ -2532,11 +2533,11 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   if (unlikely(!afl->orig_cmp_map)) {
 
-    afl->orig_cmp_map = ck_alloc_nozero(sizeof(struct cmp_map));
+    afl->orig_cmp_map = ck_alloc_nozero(cmp_map_size);
 
   }
 
-  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
+  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, cmp_map_size);
   for (size_t i = 0; i < CMP_MAP_W; i++) {
 
     memset(&afl->shm.cmp_map->entries[i], 0, offsetof(struct cmp_entry, log));
