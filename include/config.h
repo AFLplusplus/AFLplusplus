@@ -382,6 +382,10 @@
 
 #define SHM_ENV_VAR "__AFL_SHM_ID"
 
+/* Environment variable used to pass SHM SIZE ID to the called program. */
+
+#define SHM_SIZE_ENV_VAR "__AFL_SHM_SIZE_ID"
+
 /* Environment variable used to pass SHM FUZZ ID to the called program. */
 
 #define SHM_FUZZ_ENV_VAR "__AFL_SHM_FUZZ_ID"

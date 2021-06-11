@@ -4,10 +4,11 @@
 #include "frida-gum.h"
 
 #include "config.h"
+#include "sharedmem.h"
 
 extern __thread uint64_t previous_pc;
 extern uint8_t *         __afl_area_ptr;
-extern uint32_t          __afl_map_size;
+extern struct map_size * __afl_map_size_addr;
 
 void instrument_init(void);
 

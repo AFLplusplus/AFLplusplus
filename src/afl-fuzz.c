@@ -1729,6 +1729,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
       afl->shm.map_size = new_map_size;
+      afl->shm.map_size_ptr->size = new_map_size;
       afl->fsrv.trace_bits = afl->shm.shm.map;
 
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
@@ -1760,6 +1761,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
       afl->shm.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      afl->shm.map_size_ptr->size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      ;
       char vbuf[16];
       snprintf(vbuf, sizeof(vbuf), "%u", afl->cmplog_fsrv.map_size);
       setenv("AFL_MAP_SIZE", vbuf, 1);
@@ -1785,6 +1788,7 @@ int main(int argc, char **argv_orig, char **envp) {
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.map_size = new_map_size;
       afl->shm.map_size = new_map_size;
+      afl->shm.map_size_ptr->size = new_map_size;
       afl->fsrv.trace_bits = afl->shm.shm.map;
 
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;

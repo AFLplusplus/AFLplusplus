@@ -21,6 +21,7 @@
 #include "types.h"
 #include "cmplog.h"
 #include "llvm-alternative-coverage.h"
+#include "sharedmem.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,6 +93,11 @@ u8 *       __afl_dictionary;
 u8 *       __afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
 u32 *      __afl_fuzz_len = &__afl_fuzz_len_dummy;
+
+struct map_size __afl_map_size_addr_default = {
+  .size = MAP_SIZE
+};
+struct map_size* __afl_map_size_addr = &__afl_map_size_addr_default;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -452,6 +458,14 @@ static void __afl_map_shm(void) {
 
   }
 
+  id_str = getenv(SHM_SIZE_ENV_VAR);
+  if (id_str) {
+    __afl_map_size_addr = __afl_map(id_str, sizeof(struct map_size), NULL);
+  } else {
+    __afl_map_size_addr = &__afl_map_size_addr_default;
+    __afl_map_size_addr_default.size = __afl_map_size;
+  }
+
   __afl_area_ptr_backup = __afl_area_ptr;
 
   if (__afl_debug) {
@@ -547,6 +561,17 @@ static void __afl_unmap_shm(void) {
   }
 
   __afl_area_ptr = __afl_area_ptr_dummy;
+
+  id_str = getenv(SHM_SIZE_ENV_VAR);
+
+  if (id_str) {
+
+    __afl_unmap(__afl_map_size_addr, MAX_MAP_SIZE);
+    __afl_map_size_addr = NULL;
+
+  }
+
+
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 

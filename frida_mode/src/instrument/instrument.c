@@ -26,6 +26,13 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                                                 gpointer       user_data) {
 
   UNUSED_PARAMETER(context);
+
+  if (__afl_map_size_addr->size != MAP_SIZE) {
+
+    FATAL("Unexpected map size: %u", __afl_map_size_addr->size);
+
+  }
+
   /*
    * This function is performance critical as it is called to instrument every
    * basic block. By moving our print buffer to a global, we avoid it affecting
@@ -173,12 +180,6 @@ void instrument_init(void) {
   if (tracing && optimize) {
 
     FATAL("AFL_FRIDA_INST_OPTIMIZE and AFL_FRIDA_INST_TRACE are incompatible");
-
-  }
-
-  if (__afl_map_size != 0x10000) {
-
-    FATAL("Bad map size: 0x%08x", __afl_map_size);
 
   }
 

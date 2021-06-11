@@ -189,11 +189,10 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   afl_shm_alloc(&shm->shm, MAX_MAP_SIZE);
 
   afl_shm_alloc(&shm->mapsize_shm, sizeof(struct map_size));
-  shm->map_size_ptr = (struct map_size*)shm->mapsize_shm.map;
+  shm->map_size_ptr = (struct map_size *)shm->mapsize_shm.map;
 
   shm->map_size = map_size;
   shm->map_size_ptr->size = map_size;
-
 
   if (shm->cmplog_mode) {
 
@@ -214,6 +213,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
        with better auto-detection later on, perhaps? */
 
     setenv(SHM_ENV_VAR, shm_str, 1);
+
+    ck_free(shm_str);
+
+    shm_str = alloc_printf("%d", shm->mapsize_shm.shm_id);
+
+    setenv(SHM_SIZE_ENV_VAR, shm_str, 1);
 
     ck_free(shm_str);
 
