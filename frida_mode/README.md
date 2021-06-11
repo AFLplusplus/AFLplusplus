@@ -155,8 +155,10 @@ instrumentation (the default where available). Required to use
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork.
-* `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks
-`AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
+requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
+is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
 application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 * `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target
