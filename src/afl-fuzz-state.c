@@ -112,15 +112,15 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->cpu_aff = -1;                    /* Selected CPU core                */
 #endif                                                     /* HAVE_AFFINITY */
 
-  afl->virgin_bits = ck_alloc(map_size);
-  afl->virgin_tmout = ck_alloc(map_size);
-  afl->virgin_crash = ck_alloc(map_size);
-  afl->var_bytes = ck_alloc(map_size);
-  afl->top_rated = ck_alloc(map_size * sizeof(void *));
-  afl->clean_trace = ck_alloc(map_size);
-  afl->clean_trace_custom = ck_alloc(map_size);
-  afl->first_trace = ck_alloc(map_size);
-  afl->map_tmp_buf = ck_alloc(map_size);
+  afl->virgin_bits = ck_alloc_no_commit(map_size);
+  afl->virgin_tmout = ck_alloc_no_commit(map_size);
+  afl->virgin_crash = ck_alloc_no_commit(map_size);
+  afl->var_bytes = ck_alloc_no_commit(map_size);
+  afl->top_rated = ck_alloc_no_commit(map_size * sizeof(void *));
+  afl->clean_trace = ck_alloc_no_commit(map_size);
+  afl->clean_trace_custom = ck_alloc_no_commit(map_size);
+  afl->first_trace = ck_alloc_no_commit(map_size);
+  afl->map_tmp_buf = ck_alloc_no_commit(map_size);
 
   afl->fsrv.use_stdin = 1;
   afl->fsrv.map_size = map_size;
@@ -555,15 +555,15 @@ void afl_state_deinit(afl_state_t *afl) {
   afl_free(afl->in_scratch_buf);
   afl_free(afl->ex_buf);
 
-  ck_free(afl->virgin_bits);
-  ck_free(afl->virgin_tmout);
-  ck_free(afl->virgin_crash);
-  ck_free(afl->var_bytes);
-  ck_free(afl->top_rated);
-  ck_free(afl->clean_trace);
-  ck_free(afl->clean_trace_custom);
-  ck_free(afl->first_trace);
-  ck_free(afl->map_tmp_buf);
+  ck_free_no_commit(afl->virgin_bits);
+  ck_free_no_commit(afl->virgin_tmout);
+  ck_free_no_commit(afl->virgin_crash);
+  ck_free_no_commit(afl->var_bytes);
+  ck_free_no_commit(afl->top_rated);
+  ck_free_no_commit(afl->clean_trace);
+  ck_free_no_commit(afl->clean_trace_custom);
+  ck_free_no_commit(afl->first_trace);
+  ck_free_no_commit(afl->map_tmp_buf);
 
   list_remove(&afl_states, afl);
 

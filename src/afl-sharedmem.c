@@ -202,8 +202,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     /* create the shared memory segment as if it was a file */
     shm->cmplog_g_shm_fd =
-        shm_open(shm->cmplog_g_shm_file_path, O_CREAT | O_RDWR | O_EXCL,
-                 DEFAULT_PERMISSION);
+        shm_open(shm->cmplog_g_shm_file_path,
+                 O_CREAT | O_RDWR | O_EXCL | MAP_NORESERVE, DEFAULT_PERMISSION);
     if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
     /* configure the size of the shared memory segment */
@@ -243,7 +243,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   u8 *shm_str;
 
   shm->shm_id =
-      shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+      shmget(IPC_PRIVATE, map_size,
+             IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION | SHM_NORESERVE);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {
