@@ -2453,13 +2453,18 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
+
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
-  u8 r = 1;
-  if (unlikely(!afl->pass_stats)) {
+  u8     r = 1;
+  size_t cmp_map_size = sizeof(struct cmp_entry) * afl->shm.map_size_ptr->size;
 
-    size_t cmp_map_size = sizeof(struct cmp_entry) * afl->shm.map_size_ptr->size;
+  static u32 last_stat_size = 0;
+  if (unlikely(!afl->pass_stats) || unlikely(last_stat_size != cmp_map_size)) {
+
+    ck_free(afl->pass_stats);
     afl->pass_stats = ck_alloc(cmp_map_size);
+    last_stat_size = cmp_map_size;
 
   }
 
@@ -2515,7 +2520,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   // Generate the cmplog data
 
   // manually clear the full cmp_map
-  size_t cmp_map_size = sizeof(struct cmp_entry) * afl->shm.map_size_ptr->size;
   memset(afl->shm.cmp_map, 0, cmp_map_size);
   if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) {
 
@@ -2532,9 +2536,12 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  if (unlikely(!afl->orig_cmp_map)) {
+  static u32 orig_map_size = 0;
+  if (unlikely(!afl->orig_cmp_map) || unlikely(orig_map_size != cmp_map_size)) {
 
+    ck_free(afl->orig_cmp_map);
     afl->orig_cmp_map = ck_alloc_nozero(cmp_map_size);
+    orig_map_size = cmp_map_size;
 
   }
 

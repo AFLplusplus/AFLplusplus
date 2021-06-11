@@ -38,6 +38,47 @@
 u64 time_spent_working = 0;
 #endif
 
+__attribute__((hot)) static void reconsider_map_size(afl_state_t *     afl,
+                                                     afl_forkserver_t *fsrv) {
+
+  static size_t cnt = 0;
+  if (cnt > 10) {
+
+    cnt = 0;
+
+  } else {
+
+    cnt++;
+    return;
+
+  }
+
+  u32 map_size = afl->shm.map_size;
+  u32 used = 0;
+  u8 *map = afl->shm.shm.map;
+  for (u32 i = 0; i < afl->shm.map_size; i++) {
+
+    if (map[i] != 0) { used++; }
+
+  }
+
+  /* If more than half the buckets are populated */
+  if (used > (map_size >> 1)) {
+
+    if (map_size < MAX_MAP_SIZE) {
+
+      OKF("reconsider_map_size - used_buckets %u/%u", used, map_size);
+      WARNF("\n\n\n ADJUSTING MAP SIZE \n\n\n");
+      afl->shm.map_size = map_size << 1;
+      afl->shm.map_size_ptr->size = map_size << 1;
+      fsrv->map_size = map_size << 1;
+
+    }
+
+  }
+
+}
+
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
@@ -59,6 +100,8 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 #endif
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+
+  reconsider_map_size(afl, fsrv);
 
 #ifdef PROFILING
   clock_gettime(CLOCK_REALTIME, &spec);

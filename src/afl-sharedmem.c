@@ -82,15 +82,15 @@ static void afl_shm_alloc(sharedmem_alloc_t *shm, size_t size) {
   if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */
-  if (ftruncate(shm->g_shm_fd, MAX_MAP_SIZE)) {
+  if (ftruncate(shm->g_shm_fd, size)) {
 
     PFATAL("setup_shm(): ftruncate() failed");
 
   }
 
   /* map the shared memory segment to the address space of the process */
-  shm->map = mmap(0, MAX_MAP_SIZE, PROT_READ | PROT_WRITE,
-                  MAP_SHARED | MAP_NORESERVE, shm->g_shm_fd, 0);
+  shm->map = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE,
+                  shm->g_shm_fd, 0);
   if (shm->map == MAP_FAILED) {
 
     close(shm->g_shm_fd);
@@ -104,7 +104,7 @@ static void afl_shm_alloc(sharedmem_alloc_t *shm, size_t size) {
   if (shm->map == (void *)-1 || !shm->map) PFATAL("mmap() failed");
 #else
   shm->shm_id =
-      shmget(IPC_PRIVATE, MAX_MAP_SIZE,
+      shmget(IPC_PRIVATE, size,
              IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION | SHM_NORESERVE);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 

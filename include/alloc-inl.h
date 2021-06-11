@@ -167,9 +167,9 @@ static inline void *DFL_ck_alloc(u32 size) {
 
 }
 
-/* Free memory, checking for double free and corrupted heap. When DEBUG_BUILD
-   is set, the old memory will be also clobbered with 0xFF. */
-
+  /* Free memory, checking for double free and corrupted heap. When DEBUG_BUILD
+     is set, the old memory will be also clobbered with 0xFF. */
+  #include <execinfo.h>
 static inline void DFL_ck_free(void *mem) {
 
   if (!mem) { return; }

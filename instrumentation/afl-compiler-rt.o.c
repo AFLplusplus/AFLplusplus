@@ -94,10 +94,8 @@ u8 *       __afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
 u32 *      __afl_fuzz_len = &__afl_fuzz_len_dummy;
 
-struct map_size __afl_map_size_addr_default = {
-  .size = MAP_SIZE
-};
-struct map_size* __afl_map_size_addr = &__afl_map_size_addr_default;
+struct map_size  __afl_map_size_addr_default = {.size = MAP_SIZE};
+struct map_size *__afl_map_size_addr = &__afl_map_size_addr_default;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -195,10 +193,11 @@ static void send_forkserver_error(int error) {
 
 }
 
-static void* __afl_map(char * id_str, size_t size, void * addr) {
+static void *__afl_map(char *id_str, size_t size, void *addr) {
+
   u8 *map = NULL;
 
-  #ifdef USEMMAP
+#ifdef USEMMAP
   const char *shm_file_path = id_str;
   int         shm_fd = -1;
 
@@ -214,11 +213,14 @@ static void* __afl_map(char * id_str, size_t size, void * addr) {
 
   if (addr == NULL) {
 
-  map =
-      (u8 *)mmap(0, size, PROT_READ, MAP_NORESERVE | MAP_SHARED, shm_fd, 0);
+    map = (u8 *)mmap(0, size, PROT_READ, MAP_NORESERVE | MAP_SHARED, shm_fd, 0);
+
   } else {
+
     map =
-      (u8 *)mmap(0, size, PROT_READ, MAP_NORESERVE | MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
+        (u8 *)mmap(0, size, PROT_READ,
+                   MAP_NORESERVE | MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
+
   }
 
   if (map == MAP_FAILED) {
@@ -235,12 +237,12 @@ static void* __afl_map(char * id_str, size_t size, void * addr) {
 
   }
 
-
 #else
   u32 shm_id = atoi(id_str);
   map = (u8 *)shmat(shm_id, addr, 0);
 
   if (!map || map == (void *)-1) {
+
     fprintf(stderr, "shmat() failed\n");
     perror("shmat for map");
 
@@ -256,18 +258,21 @@ static void* __afl_map(char * id_str, size_t size, void * addr) {
 
 #endif
   return map;
+
 }
 
-void __afl_unmap(void * addr, size_t size) {
+void __afl_unmap(void *addr, size_t size) {
+
 #ifdef USEMMAP
 
-    munmap((void *)addr, size);
+  munmap((void *)addr, size);
 
 #else
 
-    shmdt((void *)addr);
+  shmdt((void *)addr);
 
 #endif
+
 }
 
 /* SHM fuzzing setup. */
@@ -419,7 +424,7 @@ static void __afl_map_shm(void) {
 
 #endif
 
-    __afl_area_ptr = __afl_map(id_str, MAX_MAP_SIZE, (void*)__afl_map_addr);
+    __afl_area_ptr = __afl_map(id_str, MAX_MAP_SIZE, (void *)__afl_map_addr);
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -460,10 +465,14 @@ static void __afl_map_shm(void) {
 
   id_str = getenv(SHM_SIZE_ENV_VAR);
   if (id_str) {
+
     __afl_map_size_addr = __afl_map(id_str, sizeof(struct map_size), NULL);
+
   } else {
+
     __afl_map_size_addr = &__afl_map_size_addr_default;
     __afl_map_size_addr_default.size = __afl_map_size;
+
   }
 
   __afl_area_ptr_backup = __afl_area_ptr;
@@ -570,8 +579,6 @@ static void __afl_unmap_shm(void) {
     __afl_map_size_addr = NULL;
 
   }
-
-
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
