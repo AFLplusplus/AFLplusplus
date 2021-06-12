@@ -1,3 +1,9 @@
+# Test Branch
+
+Collects total count of interesting functions (1 max per basic block) and loops
+on the path in map[1] and map[2].
+Only works for afl-clang-fast default instrumentation with llvm 10.0.1 or newer.
+
 # American Fuzzy Lop plus plus (afl++)
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">

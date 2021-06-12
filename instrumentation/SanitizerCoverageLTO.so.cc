@@ -20,6 +20,8 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -157,6 +159,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
 }
 
+using LoopInfoCallback = function_ref<const LoopInfo *(Function &F)>;
 using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
 using PostDomTreeCallback =
     function_ref<const PostDominatorTree *(Function &F)>;
@@ -180,11 +183,13 @@ class ModuleSanitizerCoverage {
   }
 
   bool instrumentModule(Module &M, DomTreeCallback DTCallback,
-                        PostDomTreeCallback PDTCallback);
+                        PostDomTreeCallback PDTCallback,
+                        LoopInfoCallback    LCallback);
 
  private:
   void            instrumentFunction(Function &F, DomTreeCallback DTCallback,
-                                     PostDomTreeCallback PDTCallback);
+                                     PostDomTreeCallback PDTCallback,
+                                     LoopInfoCallback    LCallback);
   void            InjectCoverageForIndirectCalls(Function &              F,
                                                  ArrayRef<Instruction *> IndirCalls);
   bool            InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks,
@@ -234,10 +239,12 @@ class ModuleSanitizerCoverage {
   // const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
   uint32_t                         inst = 0;
-  uint32_t                         afl_global_id = 0;
+  uint32_t                         afl_global_id = 2;
   uint64_t                         map_addr = 0;
   const char *                     skip_nozero = NULL;
   const char *                     use_threadsafe_counters = nullptr;
+  uint32_t                         do_loop = 1, do_func = 1;
+  char *                           no_interesting = NULL;
   std::vector<BasicBlock *>        BlockList;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<std::string>         dictionary;
@@ -270,6 +277,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
 
   }
 
@@ -297,7 +305,13 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
   bool runOnModule(Module &M) override {
 
     ModuleSanitizerCoverage ModuleSancov(Options);
-    // , Allowlist.get(), Blocklist.get());
+
+    auto LoopCallback = [this](Function &F) -> const LoopInfo * {
+
+      return &this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+    };
+
     auto DTCallback = [this](Function &F) -> const DominatorTree * {
 
       return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -311,7 +325,8 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
     };
 
-    return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
+    return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback,
+                                         LoopCallback);
 
   }
 
@@ -343,7 +358,13 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
 
   };
 
-  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
+  auto LoopCallback = [&FAM](Function &F) -> const LoopInfo * {
+
+    return &FAM.getResult<LoopAnalysis>(F);
+
+  };
+
+  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback, LoopCallback))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
@@ -378,8 +399,10 @@ std::pair<Value *, Value *> ModuleSanitizerCoverage::CreateSecStartEnd(
 
 */
 
-bool ModuleSanitizerCoverage::instrumentModule(
-    Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+bool ModuleSanitizerCoverage::instrumentModule(Module &            M,
+                                               DomTreeCallback     DTCallback,
+                                               PostDomTreeCallback PDTCallback,
+                                               LoopInfoCallback    LCallback) {
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
   /*
@@ -439,6 +462,9 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
+  no_interesting = getenv("AFL_NO_INTERESTING");
+  if (getenv("LOOP_ONLY")) do_func = 0;
+  if (getenv("FUNC_ONLY")) do_loop = 0;
 
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
     if ((afl_global_id = atoi(ptr)) < 0)
@@ -957,7 +983,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
   //    M.getOrInsertFunction(SanCovTracePCGuardName, VoidTy, Int32PtrTy);
 
   for (auto &F : M)
-    instrumentFunction(F, DTCallback, PDTCallback);
+    instrumentFunction(F, DTCallback, PDTCallback, LCallback);
 
   // afl++ START
   if (documentFile) {
@@ -1011,7 +1037,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       uint32_t write_loc = afl_global_id;
 
-      if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
+      if (afl_global_id % 32) write_loc = (((afl_global_id + 8) >> 4) << 4);
 
       GlobalVariable *AFLFinalLoc =
           new GlobalVariable(M, Int32Tyi, true, GlobalValue::ExternalLinkage, 0,
@@ -1203,7 +1229,8 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
 }
 
 void ModuleSanitizerCoverage::instrumentFunction(
-    Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+    Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback,
+    LoopInfoCallback LCallback) {
 
   if (F.empty()) return;
   if (F.getName().find(".module_ctor") != std::string::npos)
@@ -1242,9 +1269,58 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
   const DominatorTree *    DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
+  const LoopInfo *         LI = LCallback(F);
   bool                     IsLeafFunc = true;
 
+  if (!no_interesting && LI && do_loop) {
+
+    // fprintf(stderr, "%s: Have LoopInfo!\n", F.getName().str().c_str());
+    for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
+
+      Loop *L = *I;
+      // fprintf(stderr, "Have L = %u %u %u %u\n", L->getNumBlocks(),
+      // L->getLoopDepth(), L->isInnermost(), L->isOutermost());
+      BasicBlock *In, *Out;
+      bool        ok = L->getIncomingAndBackEdge(In, Out);
+      if (ok) {
+
+        // fprintf(stderr, "in:%s %zu out:%s %zu\n", getBBName(In), In->size(),
+        // getBBName(Out), Out->size());
+        LLVMContext &        Ctx = F.getParent()->getContext();
+        BasicBlock::iterator IP = In->getFirstInsertionPt();
+        IRBuilder<>          IRB(&*IP);
+
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+
+        // Load counter for 1
+
+        Value *MapPtrIdx = IRB.CreateGEP(
+            MapPtr, ConstantInt::get(IntegerType::getInt8Ty(Ctx), 2));
+        LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+
+        // Saturated Add
+
+        auto cf = IRB.CreateICmpULT(
+            Counter, ConstantInt::get(IntegerType::getInt8Ty(Ctx), 255));
+        auto carry = IRB.CreateZExt(cf, IntegerType::getInt8Ty(Ctx));
+        auto Incr = IRB.CreateAdd(Counter, carry);
+
+        // Update bitmap
+
+        IRB.CreateStore(Incr, MapPtrIdx);
+
+      }
+
+      // auto subL = L->getSubLoops();
+      // if (subL.size()) fprintf(stderr, "Have subloops!\n");
+
+    }
+
+  }
+
   for (auto &BB : F) {
+
+    u32 call_cnt = 0;
 
     for (auto &IN : BB) {
 
@@ -1256,6 +1332,14 @@ void ModuleSanitizerCoverage::instrumentFunction(
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
         StringRef FuncName = Callee->getName();
+
+        if (isInterestingCallInst(callInst)) {
+
+          call_cnt = 1;
+          continue;
+
+        }
+
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
         Value *val = ConstantInt::get(Int32Ty, ++afl_global_id);
@@ -1267,6 +1351,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
     if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
       BlocksToInstrument.push_back(&BB);
+
     for (auto &Inst : BB) {
 
       if (Options.IndirectCalls) {
@@ -1275,6 +1360,32 @@ void ModuleSanitizerCoverage::instrumentFunction(
         if (CB && !CB->getCalledFunction()) IndirCalls.push_back(&Inst);
 
       }
+
+    }
+
+    if (!no_interesting && call_cnt && do_func) {
+
+      LLVMContext &        Ctx = F.getParent()->getContext();
+      BasicBlock::iterator IP = BB.getFirstInsertionPt();
+      IRBuilder<>          IRB(&*IP);
+
+      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+
+      // Load counter for 1
+
+      Value *   MapPtrIdx = IRB.CreateGEP(MapPtr, One);
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+
+      // Saturated Add
+
+      auto cf = IRB.CreateICmpULT(
+          Counter, ConstantInt::get(IntegerType::getInt8Ty(Ctx), 255));
+      auto carry = IRB.CreateZExt(cf, IntegerType::getInt8Ty(Ctx));
+      auto Incr = IRB.CreateAdd(Counter, carry);
+
+      // Update bitmap
+
+      IRB.CreateStore(Incr, MapPtrIdx);
 
     }
 
@@ -1637,6 +1748,7 @@ static void registerLTOPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
   auto p = new ModuleSanitizerCoverageLegacyPass();
+  PM.add(new LoopInfoWrapperPass());
   PM.add(p);
 
 }
