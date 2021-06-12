@@ -92,16 +92,16 @@ behaviours and defaults:
   | -------------------------|:-------:|:---------:|:----------:|:----------------:|:----------------:|:----------------:|
   | Threadsafe counters      |         |     x(3)  |            |                  |                  |                  |
   | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |         x        |         x        |
-  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] | x86[_64]/arm[64] |         x        |
+  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm64   | x86[_64]/arm[64] |         x        |
   | LAF-Intel / CompCov      |         |     x     |            |                  | x86[_64]/arm[64] | x86[_64]/arm[64] |
-  | CmpLog                   |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm[64] |                  |
+  | CmpLog                   |         |     x     |            | x86[_64]/arm64   | x86[_64]/arm[64] |                  |
   | Selective Instrumentation|         |     x     |     x      |         x        |         x        |                  |
   | Non-Colliding Coverage   |         |     x(4)  |            |                  |        (x)(5)    |                  |
   | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |                  |                  |
   | Context Coverage         |         |     x(6)  |            |                  |                  |                  |
   | Auto Dictionary          |         |     x(7)  |            |                  |                  |                  |
   | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |                  |        (x)(5)    |                  |
-  | Shared Memory Testcases  |         |     x     |     x      |         x        |         x        |         x        |
+  | Shared Memory Testcases  |         |     x     |     x      | x86[_64]/arm64   |         x        |         x        |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in previous llvm versions
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
