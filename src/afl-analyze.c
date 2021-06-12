@@ -55,12 +55,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static s32 child_pid;                  /* PID of the tested program         */
-
-static u8 *trace_bits;                 /* SHM with instrumentation bitmap   */
-
-static u8 *in_file,                    /* Analyzer input test case          */
-    *prog_in;                          /* Targeted program input file       */
+static u8 *in_file;                    /* Analyzer input test case          */
 
 static u8 *in_data;                    /* Input data for analysis           */
 
@@ -73,18 +68,18 @@ static u64 orig_cksum;                 /* Original checksum                 */
 
 static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 
-static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
-
 static bool edges_only,                  /* Ignore hit counts?              */
     use_hex_offsets,                   /* Show hex offsets?                 */
     use_stdin = true;                     /* Use stdin for program input?   */
 
-static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
-    child_timed_out;                   /* Child timed out?                  */
+static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
 static u8 *target_path;
+static u8  frida_mode;
 static u8  qemu_mode;
 static u32 map_size = MAP_SIZE;
+
+static afl_forkserver_t fsrv = {0};   /* The forkserver                     */
 
 /* Constants used for describing byte behavior. */
 
@@ -155,7 +150,7 @@ static void classify_counts(u8 *mem) {
 
 static inline u8 anything_set(void) {
 
-  u32 *ptr = (u32 *)trace_bits;
+  u32 *ptr = (u32 *)fsrv.trace_bits;
   u32  i = (map_size >> 2);
 
   while (i--) {
@@ -172,7 +167,7 @@ static inline u8 anything_set(void) {
 
 static void at_exit_handler(void) {
 
-  unlink(prog_in);                                         /* Ignore errors */
+  unlink(fsrv.out_file);                                   /* Ignore errors */
 
 }
 
@@ -204,116 +199,29 @@ static void read_initial_file(void) {
 
 }
 
-/* Write output file. */
-
-static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
-
-  s32 ret;
-
-  unlink(path);                                            /* Ignore errors */
-
-  ret = open(path, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
-
-  if (ret < 0) { PFATAL("Unable to create '%s'", path); }
-
-  ck_write(ret, mem, len, path);
-
-  lseek(ret, 0, SEEK_SET);
-
-  return ret;
-
-}
-
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
+static u32 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
 
-  static struct itimerval it;
-  int                     status = 0;
+  afl_fsrv_write_to_testcase(&fsrv, mem, len);
+  fsrv_run_result_t ret = afl_fsrv_run_target(&fsrv, exec_tmout, &stop_soon);
 
-  s32 prog_in_fd;
-  u64 cksum;
+  if (ret == FSRV_RUN_ERROR) {
 
-  memset(trace_bits, 0, map_size);
-  MEM_BARRIER();
+    FATAL("Error in forkserver");
 
-  prog_in_fd = write_to_file(prog_in, mem, len);
+  } else if (ret == FSRV_RUN_NOINST) {
 
-  child_pid = fork();
+    FATAL("Target not instrumented");
 
-  if (child_pid < 0) { PFATAL("fork() failed"); }
+  } else if (ret == FSRV_RUN_NOBITS) {
 
-  if (!child_pid) {
-
-    struct rlimit r;
-
-    if (dup2(use_stdin ? prog_in_fd : dev_null_fd, 0) < 0 ||
-        dup2(dev_null_fd, 1) < 0 || dup2(dev_null_fd, 2) < 0) {
-
-      *(u32 *)trace_bits = EXEC_FAIL_SIG;
-      PFATAL("dup2() failed");
-
-    }
-
-    close(dev_null_fd);
-    close(prog_in_fd);
-
-    if (mem_limit) {
-
-      r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
-
-#ifdef RLIMIT_AS
-
-      setrlimit(RLIMIT_AS, &r);                            /* Ignore errors */
-
-#else
-
-      setrlimit(RLIMIT_DATA, &r);                          /* Ignore errors */
-
-#endif                                                        /* ^RLIMIT_AS */
-
-    }
-
-    r.rlim_max = r.rlim_cur = 0;
-    setrlimit(RLIMIT_CORE, &r);                            /* Ignore errors */
-
-    execv(target_path, argv);
-
-    *(u32 *)trace_bits = EXEC_FAIL_SIG;
-    exit(0);
+    FATAL("Failed to run target");
 
   }
 
-  close(prog_in_fd);
-
-  /* Configure timeout, wait for child, cancel timeout. */
-
-  child_timed_out = 0;
-  it.it_value.tv_sec = (exec_tmout / 1000);
-  it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  if (waitpid(child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
-
-  child_pid = 0;
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  MEM_BARRIER();
-
-  /* Clean up bitmap, analyze exit condition, etc. */
-
-  if (*(u32 *)trace_bits == EXEC_FAIL_SIG) {
-
-    FATAL("Unable to execute '%s'", argv[0]);
-
-  }
-
-  classify_counts(trace_bits);
+  classify_counts(fsrv.trace_bits);
   total_execs++;
 
   if (stop_soon) {
@@ -325,21 +233,19 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   /* Always discard inputs that time out. */
 
-  if (child_timed_out) {
+  if (fsrv.last_run_timed_out) {
 
     exec_hangs++;
     return 0;
 
   }
 
-  cksum = hash64(trace_bits, map_size, HASH_CONST);
+  u64 cksum = hash64(fsrv.trace_bits, fsrv.map_size, HASH_CONST);
 
-  /* We don't actually care if the target is crashing or not,
-     except that when it does, the checksum should be different. */
+  if (ret == FSRV_RUN_CRASH) {
 
-  if (WIFSIGNALED(status) ||
-      (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
-      (WIFEXITED(status) && WEXITSTATUS(status))) {
+    /* We don't actually care if the target is crashing or not,
+       except that when it does, the checksum should be different. */
 
     cksum ^= 0xffffffff;
 
@@ -603,7 +509,7 @@ static void dump_hex(u32 len, u8 *b_data) {
 
 /* Actually analyze! */
 
-static void analyze(char **argv) {
+static void analyze() {
 
   u32 i;
   u32 boring_len = 0, prev_xff = 0, prev_x01 = 0, prev_s10 = 0, prev_a10 = 0;
@@ -629,16 +535,16 @@ static void analyze(char **argv) {
        code. */
 
     in_data[i] ^= 0xff;
-    xor_ff = analyze_run_target(argv, in_data, in_len, 0);
+    xor_ff = analyze_run_target(in_data, in_len, 0);
 
     in_data[i] ^= 0xfe;
-    xor_01 = analyze_run_target(argv, in_data, in_len, 0);
+    xor_01 = analyze_run_target(in_data, in_len, 0);
 
     in_data[i] = (in_data[i] ^ 0x01) - 0x10;
-    sub_10 = analyze_run_target(argv, in_data, in_len, 0);
+    sub_10 = analyze_run_target(in_data, in_len, 0);
 
     in_data[i] += 0x20;
-    add_10 = analyze_run_target(argv, in_data, in_len, 0);
+    add_10 = analyze_run_target(in_data, in_len, 0);
     in_data[i] -= 0x10;
 
     /* Classify current behavior. */
@@ -711,20 +617,22 @@ static void handle_stop_sig(int sig) {
   (void)sig;
   stop_soon = 1;
 
-  if (child_pid > 0) { kill(child_pid, SIGKILL); }
+  afl_fsrv_killall();
 
 }
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(void) {
+static void set_up_environment(char **argv) {
 
-  u8 *x;
+  u8 *  x;
+  char *afl_preload;
+  char *frida_afl_preload = NULL;
 
-  dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
+  fsrv.dev_null_fd = open("/dev/null", O_RDWR);
+  if (fsrv.dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
-  if (!prog_in) {
+  if (!fsrv.out_file) {
 
     u8 *use_dir = ".";
 
@@ -735,9 +643,16 @@ static void set_up_environment(void) {
 
     }
 
-    prog_in = alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
+    fsrv.out_file =
+        alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
 
   }
+
+  unlink(fsrv.out_file);
+  fsrv.out_fd =
+      open(fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+
+  if (fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", fsrv.out_file); }
 
   /* Set sane defaults... */
 
@@ -781,6 +696,18 @@ static void set_up_environment(void) {
 
   }
 
+  x = get_afl_env("LSAN_OPTIONS");
+
+  if (x) {
+
+    if (!strstr(x, "symbolize=0")) {
+
+      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
+
+    }
+
+  }
+
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
          "detect_leaks=0:"
@@ -818,11 +745,37 @@ static void set_up_environment(void) {
                          "handle_sigfpe=0:"
                          "handle_sigill=0", 0);
 
+  setenv("LSAN_OPTIONS",
+         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
+         "fast_unwind_on_malloc=0:"
+         "symbolize=0:"
+         "print_suppressions=0",
+         0);
+
   if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
       /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
+
+    } else if (frida_mode) {
+
+      afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      if (afl_preload) {
+
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+      } else {
+
+        frida_afl_preload = alloc_printf("%s", frida_binary);
+
+      }
+
+      ck_free(frida_binary);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
     } else {
 
@@ -831,7 +784,16 @@ static void set_up_environment(void) {
 
     }
 
+  } else if (frida_mode) {
+
+    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+    setenv("LD_PRELOAD", frida_binary, 1);
+    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+    ck_free(frida_binary);
+
   }
+
+  if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
 }
 
@@ -872,6 +834,7 @@ static void usage(u8 *argv0) {
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%u ms)\n"
       "  -m megs       - memory limit for child process (%u MB)\n"
+      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -914,7 +877,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-analyze" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:f:m:t:eQUWh")) > 0) {
+  afl_fsrv_init(&fsrv);
+
+  while ((opt = getopt(argc, argv, "+i:f:m:t:eOQUWh")) > 0) {
 
     switch (opt) {
 
@@ -926,9 +891,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'f':
 
-        if (prog_in) { FATAL("Multiple -f options not supported"); }
-        use_stdin = 0;
-        prog_in = optarg;
+        if (fsrv.out_file) { FATAL("Multiple -f options not supported"); }
+        fsrv.use_stdin = 0;
+        fsrv.out_file = ck_strdup(optarg);
         break;
 
       case 'e':
@@ -949,6 +914,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!strcmp(optarg, "none")) {
 
           mem_limit = 0;
+          fsrv.mem_limit = 0;
           break;
 
         }
@@ -987,6 +953,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        fsrv.mem_limit = mem_limit;
+
       }
 
       break;
@@ -1006,6 +974,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        fsrv.exec_tmout = exec_tmout;
+
+        break;
+
+      case 'O':                                               /* FRIDA mode */
+
+        if (frida_mode) { FATAL("Multiple -O options not supported"); }
+
+        frida_mode = 1;
+        fsrv.frida_mode = frida_mode;
+
         break;
 
       case 'Q':
@@ -1014,6 +993,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_QEMU; }
 
         qemu_mode = 1;
+        fsrv.mem_limit = mem_limit;
+        fsrv.qemu_mode = qemu_mode;
         break;
 
       case 'U':
@@ -1022,6 +1003,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
+        fsrv.mem_limit = mem_limit;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
@@ -1031,6 +1013,8 @@ int main(int argc, char **argv_orig, char **envp) {
         use_wine = 1;
 
         if (!mem_limit_given) { mem_limit = 0; }
+        fsrv.qemu_mode = qemu_mode;
+        fsrv.mem_limit = mem_limit;
 
         break;
 
@@ -1049,6 +1033,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (optind == argc || !in_file) { usage(argv[0]); }
 
   map_size = get_map_size();
+  fsrv.map_size = map_size;
 
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
@@ -1058,14 +1043,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* initialize cmplog_mode */
   shm.cmplog_mode = 0;
-  trace_bits = afl_shm_init(&shm, map_size, 0);
+
   atexit(at_exit_handler);
   setup_signal_handlers();
 
-  set_up_environment();
+  set_up_environment(argv);
 
-  target_path = find_binary(argv[optind]);
-  detect_file_args(argv + optind, prog_in, &use_stdin);
+  fsrv.target_path = find_binary(argv[optind]);
+  fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
+  detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
 
   if (qemu_mode) {
 
@@ -1089,14 +1075,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF("\n");
 
+  if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+    s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+    if (forksrv_init_tmout < 1) {
+
+      FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+    fsrv.init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  fsrv.kill_signal =
+      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+
   read_initial_file();
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
-  analyze_run_target(use_argv, in_data, in_len, 1);
+  afl_fsrv_start(&fsrv, use_argv, &stop_soon, false);
+  analyze_run_target(in_data, in_len, 1);
 
-  if (child_timed_out) {
+  if (fsrv.last_run_timed_out) {
 
     FATAL("Target binary times out (adjusting -t may help).");
 
@@ -1108,13 +1111,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  analyze(use_argv);
+  analyze();
 
   OKF("We're done here. Have a nice day!\n");
 
-  if (target_path) { ck_free(target_path); }
-
   afl_shm_deinit(&shm);
+  afl_fsrv_deinit(&fsrv);
+  if (fsrv.target_path) { ck_free(fsrv.target_path); }
+  if (in_data) { ck_free(in_data); }
 
   exit(0);
 

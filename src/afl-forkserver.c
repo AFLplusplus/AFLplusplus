@@ -42,6 +42,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
@@ -126,7 +127,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->last_run_timed_out = 0;
 
   fsrv_to->init_child_func = from->init_child_func;
-  // Note: do not copy ->add_extra_func
+  // Note: do not copy ->add_extra_func or ->persistent_record*
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -364,6 +365,24 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
+#ifdef AFL_PERSISTENT_RECORD
+  if (unlikely(fsrv->persistent_record)) {
+
+    fsrv->persistent_record_data =
+        (u8 **)ck_alloc(fsrv->persistent_record * sizeof(u8 *));
+    fsrv->persistent_record_len =
+        (u32 *)ck_alloc(fsrv->persistent_record * sizeof(u32));
+
+    if (!fsrv->persistent_record_data || !fsrv->persistent_record_len) {
+
+      FATAL("Unable to allocate memory for persistent replay.");
+
+    }
+
+  }
+
+#endif
+
   if (fsrv->use_fauxsrv) {
 
     /* TODO: Come up with some nice way to initialize this all */
@@ -397,7 +416,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     struct rlimit r;
 
-    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false) {
+    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false &&
+        fsrv->frida_mode == false) {
 
       unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
 
@@ -431,8 +451,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* Dumping cores is slow and can lead to anomalies if SIGKILL is delivered
        before the dump is complete. */
 
-    //    r.rlim_max = r.rlim_cur = 0;
-    //    setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
+    if (!fsrv->debug) {
+
+      r.rlim_max = r.rlim_cur = 0;
+      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
+
+    }
 
     /* Isolate the process and configure standard descriptors. If out_file is
        specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */
@@ -483,7 +507,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
-    /* Set sane defaults for ASAN if nothing else specified. */
+    /* Set sane defaults for ASAN if nothing else is specified. */
 
     if (!getenv("ASAN_OPTIONS"))
       setenv("ASAN_OPTIONS",
@@ -500,7 +524,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
              "handle_sigill=0",
              1);
 
-    /* Set sane defaults for UBSAN if nothing else specified. */
+    /* Set sane defaults for UBSAN if nothing else is specified. */
 
     if (!getenv("UBSAN_OPTIONS"))
       setenv("UBSAN_OPTIONS",
@@ -537,6 +561,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "handle_sigfpe=0:"
            "handle_sigill=0",
            1);
+
+    /* LSAN, too, does not support abort_on_error=1. */
+
+    if (!getenv("LSAN_OPTIONS"))
+      setenv("LSAN_OPTIONS",
+            "exitcode=" STRINGIFY(LSAN_ERROR) ":"
+            "fast_unwind_on_malloc=0:"
+            "symbolize=0:"
+            "print_suppressions=0",
+            1);
 
     fsrv->init_child_func(fsrv, argv);
 
@@ -792,7 +826,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (fsrv->last_run_timed_out) {
 
-    FATAL("Timeout while initializing fork server (adjusting -t may help)");
+    FATAL(
+        "Timeout while initializing fork server (setting "
+        "AFL_FORKSRV_INIT_TMOUT may help)");
 
   }
 
@@ -809,7 +845,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
            "read\n"
-           "    %s/notes_for_asan.md for help.\n",
+           "    %s/notes_for_asan.md for help and run with '-m 0'.\n",
            doc_path);
 
     } else if (!fsrv->mem_limit) {
@@ -817,18 +853,21 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
-           "    from the fuzzer! There are several probable explanations:\n\n"
+           "    from the fuzzer! You can try the following:\n\n"
 
-           "    - The target binary requires a large map and crashes before "
-           "reporting.\n"
-           "      Set a high value (e.g. AFL_MAP_SIZE=8000000) or use "
-           "AFL_DEBUG=1 to see the\n"
-           "      message from the target binary\n\n"
+           "    - The target binary crashes because necessary runtime "
+           "conditions it needs\n"
+           "      are not met. Try to:\n"
+           "      1. Run again with AFL_DEBUG=1 set and check the output of "
+           "the target\n"
+           "         binary for clues.\n"
+           "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+           "analyze the\n"
+           "         generated core dump.\n\n"
 
-           "    - The binary is just buggy and explodes entirely on its own. "
-           "If so, you\n"
-           "      need to fix the underlying problem or find a better "
-           "replacement.\n\n"
+           "    - Possibly the target requires a huge coverage map and has "
+           "CTORS.\n"
+           "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
            MSG_FORK_ON_APPLE
 
@@ -844,13 +883,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
-           "    from the fuzzer! There are several probable explanations:\n\n"
+           "    from the fuzzer! You can try the following:\n\n"
 
-           "    - The target binary requires a large map and crashes before "
-           "reporting.\n"
-           "      Set a high value (e.g. AFL_MAP_SIZE=8000000) or use "
-           "AFL_DEBUG=1 to see the\n"
-           "      message from the target binary\n\n"
+           "    - The target binary crashes because necessary runtime "
+           "conditions it needs\n"
+           "      are not met. Try to:\n"
+           "      1. Run again with AFL_DEBUG=1 set and check the output of "
+           "the target\n"
+           "         binary for clues.\n"
+           "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+           "analyze the\n"
+           "         generated core dump.\n\n"
 
            "    - The current memory limit (%s) is too restrictive, causing "
            "the\n"
@@ -868,12 +911,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "      estimate the required amount of virtual memory for the "
            "binary.\n\n"
 
-           "    - The binary is just buggy and explodes entirely on its own. "
-           "If so, you\n"
-           "      need to fix the underlying problem or find a better "
-           "replacement.\n\n"
-
            MSG_FORK_ON_APPLE
+
+           "    - Possibly the target requires a huge coverage map and has "
+           "CTORS.\n"
+           "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
@@ -903,7 +945,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    read %s/notes_for_asan.md for help.\n",
+         "    read %s/notes_for_asan.md for help and run with '-m 0'.\n",
          doc_path);
 
   } else if (!fsrv->mem_limit) {
@@ -911,10 +953,22 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated before we could complete"
          " a\n"
-         "handshake with the injected code.\n"
-         "Most likely the target has a huge coverage map, retry with setting"
-         " the\n"
-         "environment variable AFL_MAP_SIZE=8000000\n"
+         "handshake with the injected code. You can try the following:\n\n"
+
+         "    - The target binary crashes because necessary runtime conditions "
+         "it needs\n"
+         "      are not met. Try to:\n"
+         "      1. Run again with AFL_DEBUG=1 set and check the output of the "
+         "target\n"
+         "         binary for clues.\n"
+         "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+         "analyze the\n"
+         "         generated core dump.\n\n"
+
+         "    - Possibly the target requires a huge coverage map and has "
+         "CTORS.\n"
+         "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
+
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -926,14 +980,23 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "\n" cLRD "[-] " cRST
         "Hmm, looks like the target binary terminated "
         "before we could complete a\n"
-        "    handshake with the injected code. There are %s probable "
-        "explanations:\n\n"
+        "    handshake with the injected code. You can try the following:\n\n"
 
         "%s"
 
-        "    - Most likely the target has a huge coverage map, retry with "
-        "setting the\n"
-        "      environment variable AFL_MAP_SIZE=8000000\n\n"
+        "    - The target binary crashes because necessary runtime conditions "
+        "it needs\n"
+        "      are not met. Try to:\n"
+        "      1. Run again with AFL_DEBUG=1 set and check the output of the "
+        "target\n"
+        "         binary for clues.\n"
+        "      2. Run again with AFL_DEBUG=1 and 'ulimit -c unlimited' and "
+        "analyze the\n"
+        "         generated core dump.\n\n"
+
+        "    - Possibly the target requires a huge coverage map and has "
+        "CTORS.\n"
+        "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
         "    - The current memory limit (%s) is too restrictive, causing an "
         "OOM\n"
@@ -958,7 +1021,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "options\n"
         "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
         "tips.\n",
-        getenv(DEFER_ENV_VAR) ? "three" : "two",
         getenv(DEFER_ENV_VAR)
             ? "    - You are using deferred forkserver, but __AFL_INIT() is "
               "never\n"
@@ -1006,7 +1068,33 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
+#ifdef AFL_PERSISTENT_RECORD
+  if (unlikely(fsrv->persistent_record)) {
+
+    fsrv->persistent_record_len[fsrv->persistent_record_idx] = len;
+    fsrv->persistent_record_data[fsrv->persistent_record_idx] = afl_realloc(
+        (void **)&fsrv->persistent_record_data[fsrv->persistent_record_idx],
+        len);
+
+    if (unlikely(!fsrv->persistent_record_data[fsrv->persistent_record_idx])) {
+
+      FATAL("allocating replay memory failed.");
+
+    }
+
+    memcpy(fsrv->persistent_record_data[fsrv->persistent_record_idx], buf, len);
+
+    if (unlikely(++fsrv->persistent_record_idx >= fsrv->persistent_record)) {
+
+      fsrv->persistent_record_idx = 0;
+
+    }
+
+  }
+
+#endif
+
+  if (likely(fsrv->use_shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
 
@@ -1038,12 +1126,14 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
       if (unlikely(fsrv->no_unlink)) {
 
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC,
+                  DEFAULT_PERMISSION);
 
       } else {
 
         unlink(fsrv->out_file);                           /* Ignore errors. */
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL,
+                  DEFAULT_PERMISSION);
 
       }
 
@@ -1117,6 +1207,26 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
+
+#ifdef AFL_PERSISTENT_RECORD
+  // end of persistent loop?
+  if (unlikely(fsrv->persistent_record &&
+               fsrv->persistent_record_pid != fsrv->child_pid)) {
+
+    fsrv->persistent_record_pid = fsrv->child_pid;
+    u32 idx, val;
+    if (unlikely(!fsrv->persistent_record_idx))
+      idx = fsrv->persistent_record - 1;
+    else
+      idx = fsrv->persistent_record_idx - 1;
+    val = fsrv->persistent_record_len[idx];
+    memset((void *)fsrv->persistent_record_len, 0,
+           fsrv->persistent_record * sizeof(u32));
+    fsrv->persistent_record_len[idx] = val;
+
+  }
+
+#endif
 
   if (fsrv->child_pid <= 0) {
 
@@ -1210,11 +1320,46 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   if (unlikely(
           /* A normal crash/abort */
           (WIFSIGNALED(fsrv->child_status)) ||
-          /* special handling for msan */
-          (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+          /* special handling for msan and lsan */
+          (fsrv->uses_asan &&
+           (WEXITSTATUS(fsrv->child_status) == MSAN_ERROR ||
+            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR)) ||
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(fsrv->persistent_record)) {
+
+      char fn[PATH_MAX];
+      u32  i, writecnt = 0;
+      for (i = 0; i < fsrv->persistent_record; ++i) {
+
+        u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
+        u8 *data = fsrv->persistent_record_data[entry];
+        u32 len = fsrv->persistent_record_len[entry];
+        if (likely(len && data)) {
+
+          snprintf(fn, sizeof(fn), "%s/RECORD:%06u,cnt:%06u",
+                   fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
+                   writecnt++);
+          int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+          if (fd >= 0) {
+
+            ck_write(fd, data, len, fn);
+            close(fd);
+
+          }
+
+        }
+
+      }
+
+      ++fsrv->persistent_record_cnt;
+
+    }
+
+#endif
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =

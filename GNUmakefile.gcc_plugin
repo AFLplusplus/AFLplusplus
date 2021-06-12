@@ -41,6 +41,8 @@ CXXEFLAGS   := $(CXXFLAGS) -Wall -std=c++11
 CC          ?= gcc
 CXX         ?= g++
 
+SYS = $(shell uname -s)
+
 ifeq "clang" "$(CC)"
         CC  = gcc
         CXX = g++
@@ -75,30 +77,30 @@ ifeq "$(TEST_MMAP)" "1"
 	override CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
-ifneq "$(shell uname -s)" "Haiku"
-ifneq "$(shell uname -s)" "OpenBSD"
+ifneq "$(SYS)" "Haiku"
+ifneq "$(SYS)" "OpenBSD"
   	LDFLAGS += -lrt
 endif
 else
 	CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
-ifeq "$(shell uname -s)" "OpenBSD"
+ifeq "$(SYS)" "OpenBSD"
     CC  = egcc
     CXX = eg++
     PLUGIN_FLAGS += -I/usr/local/include
 endif
 
-ifeq "$(shell uname -s)" "DragonFly"
+ifeq "$(SYS)" "DragonFly"
   	PLUGIN_FLAGS += -I/usr/local/include
 endif
 
-ifeq "$(shell uname -s)" "SunOS"
+ifeq "$(SYS)" "SunOS"
   	PLUGIN_FLAGS += -I/usr/include/gmp
 endif
 
 
-PROGS        = ./afl-gcc-pass.so
+PROGS        = ./afl-gcc-pass.so ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o
 
 .PHONY: all
 all: test_shm test_deps $(PROGS) test_build all_done
@@ -127,6 +129,17 @@ test_deps:
 
 afl-common.o: ./src/afl-common.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
+
+./afl-compiler-rt.o: instrumentation/afl-compiler-rt.o.c
+	$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
+
+./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c
+	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
+	@$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-32.o afl-llvm-rt-32.o; else echo "failed (that's fine)"; fi
+
+./afl-compiler-rt-64.o: instrumentation/afl-compiler-rt.o.c
+	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
+	@$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-64.o afl-llvm-rt-64.o; else echo "failed (that's fine)"; fi
 
 ./afl-gcc-pass.so: instrumentation/afl-gcc-pass.so.cc | test_deps
 	$(CXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@

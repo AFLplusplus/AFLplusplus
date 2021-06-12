@@ -7,7 +7,7 @@ test "$1" = "-h" -o "$1" = "-hh" && {
   echo afl-system-config has no command line options
   echo
   echo afl-system reconfigures the system to a high performance fuzzing state
-  echo WARNING: this reduces the security of the system
+  echo "WARNING: this reduces the security of the system!"
   echo
   exit 1
 }
@@ -15,14 +15,20 @@ test "$1" = "-h" -o "$1" = "-hh" && {
 DONE=
 PLATFORM=`uname -s`
 echo This reconfigures the system to have a better fuzzing performance.
+echo "WARNING: this reduces the security of the system!"
+echo
 if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then
 	echo "Warning: you need to be root to run this!"
 	# we do not exit as other mechanisms exist that allows to do this than
 	# being root. let the errors speak for themselves.
 fi
+sleep 1
 if [ "$PLATFORM" = "Linux" ] ; then
 {
-  sysctl -w kernel.core_pattern=core
+  sysctl -w kernel.core_uses_pid=0
+  # Arch Linux requires core_pattern to be empty :(
+  test -e /etc/arch-release && sysctl -w kernel.core_pattern=
+  test -e /etc/arch-release || sysctl -w kernel.core_pattern=core
   sysctl -w kernel.randomize_va_space=0
   sysctl -w kernel.sched_child_runs_first=1
   sysctl -w kernel.sched_autogroup_enabled=1
@@ -35,12 +41,17 @@ if [ "$PLATFORM" = "Linux" ] ; then
   test -e /sys/devices/system/cpu/intel_pstate/no_turbo && echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo
   test -e /sys/devices/system/cpu/cpufreq/boost && echo 1 > /sys/devices/system/cpu/cpufreq/boost
   test -e /sys/devices/system/cpu/intel_pstate/max_perf_pct && echo 100 > /sys/devices/system/cpu/intel_pstate/max_perf_pct
+  test -n "$(which auditctl)" && auditctl -a never,task >/dev/null 2>&1
 } > /dev/null
   echo Settings applied.
+  echo
   dmesg | egrep -q 'nospectre_v2|spectre_v2=off' || {
     echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
     echo '  /etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=0 l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx_async_abort=off arm64.nopauth audit=0 hardened_usercopy=off ssbd=force-off"'
+    echo
   }
+  echo If you run fuzzing instances in docker, run them with \"--security-opt seccomp=unconfined\" for more speed
+  echo
   DONE=1
 fi
 if [ "$PLATFORM" = "FreeBSD" ] ; then
@@ -49,6 +60,7 @@ if [ "$PLATFORM" = "FreeBSD" ] ; then
   sysctl kern.elf64.aslr.enable=0
 } > /dev/null
   echo Settings applied.
+  echo
   cat <<EOF
 In order to suppress core file generation during fuzzing it is recommended to set
 me:\\
@@ -58,11 +70,12 @@ EOF
   echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
   echo '  sysctl hw.ibrs_disable=1'
   echo 'Setting kern.pmap.pg_ps_enabled=0 into /boot/loader.conf might be helpful too.'
+  echo
   DONE=1
 fi
 if [ "$PLATFORM" = "OpenBSD" ] ; then
-  echo
   echo 'System security features cannot be disabled on OpenBSD.'
+  echo
   DONE=1
 fi
 if [ "$PLATFORM" = "DragonFly" ] ; then
@@ -74,35 +87,43 @@ me:\\
 	:coredumpsize=0:
 in the ~/.login_conf file for the user used for fuzzing.
 EOF
+  echo
   DONE=1
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
 {
-  #echo It is recommended to enable unprivileged users to set cpu affinity
-  #echo to be able to use afl-gotcpu meaningfully.
   /sbin/sysctl -w security.models.extensions.user_set_cpu_affinity=1
 } > /dev/null
   echo Settings applied.
+  echo
   DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
+  sysctl kern.sysv.shmmax=8388608
+  sysctl kern.sysv.shmseg=48
+  sysctl kern.sysv.shmall=98304
+  echo Settings applied.
+  echo
   if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then
-    echo We unload the default crash reporter here
+    echo
+    echo Unloading the default crash reporter
     SL=/System/Library; PL=com.apple.ReportCrash
-    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
-    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
-    echo Settings applied.
-  else
-    echo Nothing to do.
+    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist >/dev/null 2>&1
+    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist >/dev/null 2>&1
+    echo
   fi
+  echo It is recommended to disable System Integration Protection for increased performance.
+  echo
   DONE=1
 fi
 if [ "$PLATFORM" = "Haiku" ] ; then
-  SETTINGS=~/config/settings/system/debug_server/settings
+  DEBUG_SERVER_DIR=~/config/settings/system/debug_server
+  [ ! -d ${DEBUG_SERVER_DIR} ] && mkdir -p ${DEBUG_SERVER_DIR}
+  SETTINGS=${DEBUG_SERVER_DIR}/settings
   [ -r ${SETTINGS} ] && grep -qE "default_action\s+kill" ${SETTINGS} && { echo "Nothing to do"; } || { \
     echo We change the debug_server default_action from user to silently kill; \
     [ ! -r ${SETTINGS} ] && echo "default_action kill" >${SETTINGS} || { mv ${SETTINGS} s.tmp; sed -e "s/default_action\s\s*user/default_action kill/" s.tmp > ${SETTINGS}; rm s.tmp; }; \
-    echo Settings applied.; \
+    echo Settings applied.; echo; \
   }
   DONE=1
 fi

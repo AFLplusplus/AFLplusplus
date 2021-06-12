@@ -96,13 +96,12 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->splicing_with = -1;              /* Splicing with which test case?   */
   afl->cpu_to_bind = -1;
   afl->havoc_stack_pow2 = HAVOC_STACK_POW2;
-  afl->cal_cycles = CAL_CYCLES;
-  afl->cal_cycles_long = CAL_CYCLES_LONG;
   afl->hang_tmout = EXEC_TIMEOUT;
+  afl->exit_on_time = 0;
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
-  afl->cmplog_lvl = 1;
+  afl->cmplog_lvl = 2;
 #ifndef NO_SPLICING
   afl->use_splicing = 1;
 #endif
@@ -187,6 +186,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_exit_when_done =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_EXIT_ON_TIME",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_exit_on_time =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           } else if (!strncmp(env, "AFL_NO_AFFINITY",
 
                               afl_environment_variable_len)) {
@@ -194,6 +200,11 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_no_affinity =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_TRY_AFFINITY",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_try_affinity =
           } else if (!strncmp(env, "AFL_NO_INTERESTING",
 
                               afl_environment_variable_len)) {
@@ -205,8 +216,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_skip_crashes =
-                (u8 *)get_afl_env(afl_environment_variables[i]);
+            // we should mark this obsolete in a few versions
 
           } else if (!strncmp(env, "AFL_HANG_TMOUT",
 
@@ -299,11 +309,25 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_autoresume =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_PERSISTENT_RECORD",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_persistent_record =
+                get_afl_env(afl_environment_variables[i]);
+
           } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES",
 
                               afl_environment_variable_len)) {
 
             afl->cycle_schedules = afl->afl_env.afl_cycle_schedules =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_EXIT_ON_SEED_ISSUES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_exit_on_seed_issues =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_EXPAND_HAVOC_NOW",
@@ -314,6 +338,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_CAL_FAST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_cal_fast =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_FAST_CAL",
 
                               afl_environment_variable_len)) {
 

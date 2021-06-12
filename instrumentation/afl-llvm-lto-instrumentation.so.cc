@@ -89,11 +89,12 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  uint32_t afl_global_id = 1, autodictionary = 1;
-  uint32_t function_minimum_size = 1;
-  uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
-  uint64_t map_addr = 0x10000;
-  char *   skip_nozero = NULL;
+  uint32_t               afl_global_id = 1, autodictionary = 1;
+  uint32_t               function_minimum_size = 1;
+  uint32_t               inst_blocks = 0, inst_funcs = 0, total_instr = 0;
+  unsigned long long int map_addr = 0x10000;
+  const char *           skip_nozero = NULL;
+  const char *           use_threadsafe_counters = nullptr;
 
 };
 
@@ -130,6 +131,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
   } else
 
     be_quiet = 1;
+
+  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
 
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
@@ -176,7 +179,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (debug) { fprintf(stderr, "map address is 0x%lx\n", map_addr); }
+  if (debug) { fprintf(stderr, "map address is 0x%llx\n", map_addr); }
 
   /* Get/set the globals for the SHM region. */
 
@@ -839,22 +842,35 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           /* Update bitmap */
 
-          LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-          Counter->setMetadata(M.getMDKindID("nosanitize"),
-                               MDNode::get(C, None));
+          if (use_threadsafe_counters) {
 
-          Value *Incr = IRB.CreateAdd(Counter, One);
+            IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                                llvm::MaybeAlign(1),
+#endif
+                                llvm::AtomicOrdering::Monotonic);
 
-          if (skip_nozero == NULL) {
+          } else {
 
-            auto cf = IRB.CreateICmpEQ(Incr, Zero);
-            auto carry = IRB.CreateZExt(cf, Int8Ty);
-            Incr = IRB.CreateAdd(Incr, carry);
+            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            Counter->setMetadata(M.getMDKindID("nosanitize"),
+                                 MDNode::get(C, None));
+
+            Value *Incr = IRB.CreateAdd(Counter, One);
+
+            if (skip_nozero == NULL) {
+
+              auto cf = IRB.CreateICmpEQ(Incr, Zero);
+              auto carry = IRB.CreateZExt(cf, Int8Ty);
+              Incr = IRB.CreateAdd(Incr, carry);
+
+            }
+
+            IRB.CreateStore(Incr, MapPtrIdx)
+                ->setMetadata(M.getMDKindID("nosanitize"),
+                              MDNode::get(C, None));
 
           }
-
-          IRB.CreateStore(Incr, MapPtrIdx)
-              ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
           // done :)
 

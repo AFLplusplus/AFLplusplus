@@ -32,7 +32,8 @@ Here's a quick overview of the stuff you can find in this directory:
                            with additional gdb metadata.
 
   - custom_mutators      - examples for the afl++ custom mutator interface in
-                           C and Python
+                           C and Python. Note: They were moved to
+                           ../custom_mutators/examples/
 
   - distributed_fuzzing  - a sample script for synchronizing fuzzer instances
                            across multiple machines (see parallel_fuzzing.md).

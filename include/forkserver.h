@@ -77,6 +77,10 @@ typedef struct afl_forkserver {
 
   bool qemu_mode;                       /* if running in qemu mode or not   */
 
+  bool frida_mode;                     /* if running in frida mode or not   */
+
+  bool frida_asan;                    /* if running with asan in frida mode */
+
   bool use_stdin;                       /* use stdin for sending data       */
 
   bool no_unlink;                       /* do not unlink cur_input          */
@@ -93,6 +97,17 @@ typedef struct afl_forkserver {
   u8 *shmem_fuzz;                       /* allocated memory for fuzzing     */
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
+
+  /* persistent mode replay functionality */
+  u32 persistent_record;                /* persistent replay setting        */
+#ifdef AFL_PERSISTENT_RECORD
+  u32  persistent_record_idx;           /* persistent replay cache ptr      */
+  u32  persistent_record_cnt;           /* persistent replay counter        */
+  u8 * persistent_record_dir;
+  u8 **persistent_record_data;
+  u32 *persistent_record_len;
+  s32  persistent_record_pid;
+#endif
 
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);

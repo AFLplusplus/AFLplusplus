@@ -5,7 +5,7 @@
 $ECHO "$BLUE[*] Testing: custom mutator"
 test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   # normalize path
-  CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../utils/custom_mutators;pwd)
+  CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../custom_mutators/examples;pwd)
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program for single mutator
@@ -29,8 +29,8 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       }
     }
     # Compile the custom mutator
-    cc -D_FIXED_CHAR=0x41 -g -fPIC -shared -I../include ../utils/custom_mutators/simple_example.c -o libexamplemutator.so > /dev/null 2>&1
-    cc -D_FIXED_CHAR=0x42 -g -fPIC -shared -I../include ../utils/custom_mutators/simple_example.c -o libexamplemutator2.so > /dev/null 2>&1
+    cc -D_FIXED_CHAR=0x41 -g -fPIC -shared -I../include ../custom_mutators/examples/simple_example.c -o libexamplemutator.so > /dev/null 2>&1
+    cc -D_FIXED_CHAR=0x42 -g -fPIC -shared -I../include ../custom_mutators/examples/simple_example.c -o libexamplemutator2.so > /dev/null 2>&1
     test -e test-custom-mutator -a -e ./libexamplemutator.so && {
       # Create input directory
       mkdir -p in

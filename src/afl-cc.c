@@ -66,7 +66,6 @@ enum {
   INSTRUMENT_CLASSIC = 1,
   INSTRUMENT_AFL = 1,
   INSTRUMENT_PCGUARD = 2,
-  INSTRUMENT_INSTRIM = 3,
   INSTRUMENT_CFG = 3,
   INSTRUMENT_LTO = 4,
   INSTRUMENT_LLVMNATIVE = 5,
@@ -316,7 +315,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
-     have_c = 0;
+     have_c = 0, partial_linking = 0;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
@@ -430,9 +429,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (compiler_mode == LLVM || compiler_mode == LTO) {
 
     cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
-
-    if (lto_mode && plusplus_mode)
-      cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
 
     if (lto_mode && have_instr_env) {
 
@@ -564,12 +560,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !have_c) {
 
       u8 *ld_path = strdup(AFL_REAL_LD);
-      if (!*ld_path) ld_path = "ld.lld";
+      if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
+      if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
       cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);
 #else
       cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_path);
 #endif
+      free(ld_path);
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
@@ -588,9 +586,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-  #ifdef __ANDROID__
+  #if defined __ANDROID__ || ANDROID
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-        instrument_mode != INSTRUMENT_LLVMNATIVE;
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
   #else
         if (have_instr_list) {
 
@@ -639,12 +637,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
-        if (instrument_mode == INSTRUMENT_CFG)
-          cc_params[cc_par_cnt++] =
-              alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-        else
-          cc_params[cc_par_cnt++] =
-              alloc_printf("%s/afl-llvm-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 
       }
 
@@ -774,6 +767,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
+    if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
     if (!strcmp(cur, "-c")) have_c = 1;
 
     if (!strncmp(cur, "-O", 2)) have_o = 1;
@@ -822,6 +817,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-fsanitize=undefined";
     cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
     cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
+
+  }
+
+  if (getenv("AFL_USE_LSAN")) {
+
+    cc_params[cc_par_cnt++] = "-fsanitize=leak";
+    cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
+    cc_params[cc_par_cnt++] = "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
 
   }
 
@@ -995,7 +998,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        if (!shared_linking)
+        if (!shared_linking && !partial_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
         if (lto_mode)
@@ -1004,7 +1007,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 32:
-        if (!shared_linking) {
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
@@ -1025,7 +1028,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        if (!shared_linking) {
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
@@ -1048,7 +1051,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking)
+    if (!shared_linking && !partial_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
@@ -1223,6 +1226,14 @@ int main(int argc, char **argv, char **envp) {
 
     if (strncmp(argv[i], "--afl", 5) == 0) {
 
+      if (!strcmp(argv[i], "--afl_noopt") || !strcmp(argv[i], "--afl-noopt")) {
+
+        passthrough = 1;
+        argv[i] = "-g";  // we have to overwrite it, -g is always good
+        continue;
+
+      }
+
       if (compiler_mode)
         WARNF(
             "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
@@ -1252,8 +1263,9 @@ int main(int argc, char **argv, char **envp) {
 
                  strcasecmp(ptr, "CFG") == 0) {
 
-        compiler_mode = LLVM;
-        instrument_mode = INSTRUMENT_CFG;
+        FATAL(
+            "InsTrim instrumentation was removed. Use a modern LLVM and "
+            "PCGUARD (default in afl-cc).\n");
 
       } else if (strcasecmp(ptr, "AFL") == 0 ||
 
@@ -1319,10 +1331,9 @@ int main(int argc, char **argv, char **envp) {
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
 
-    if (instrument_mode == 0)
-      instrument_mode = INSTRUMENT_CFG;
-    else if (instrument_mode != INSTRUMENT_CFG)
-      FATAL("you cannot set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
+    FATAL(
+        "InsTrim instrumentation was removed. Use a modern LLVM and PCGUARD "
+        "(default in afl-cc).\n");
 
   }
 
@@ -1409,17 +1420,9 @@ int main(int argc, char **argv, char **envp) {
       if (strncasecmp(ptr2, "cfg", strlen("cfg")) == 0 ||
           strncasecmp(ptr2, "instrim", strlen("instrim")) == 0) {
 
-        if (instrument_mode == INSTRUMENT_LTO) {
-
-          instrument_mode = INSTRUMENT_CFG;
-          lto_mode = 1;
-
-        } else if (!instrument_mode || instrument_mode == INSTRUMENT_CFG)
-
-          instrument_mode = INSTRUMENT_CFG;
-        else
-          FATAL("main instrumentation mode already set with %s",
-                instrument_mode_string[instrument_mode]);
+        FATAL(
+            "InsTrim instrumentation was removed. Use a modern LLVM and "
+            "PCGUARD (default in afl-cc).\n");
 
       }
 
@@ -1428,7 +1431,7 @@ int main(int argc, char **argv, char **envp) {
         lto_mode = 1;
         if (!instrument_mode || instrument_mode == INSTRUMENT_LTO)
           instrument_mode = INSTRUMENT_LTO;
-        else if (instrument_mode != INSTRUMENT_CFG)
+        else
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);
 
@@ -1456,9 +1459,11 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0) {
+      if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0 ||
+          strncasecmp(ptr2, "kctx-", strlen("c-ctx-")) == 0 ||
+          strncasecmp(ptr2, "k-ctx-", strlen("k-ctx-")) == 0) {
 
-        u8 *ptr3 = ptr2 + strlen("ctx-");
+        u8 *ptr3 = ptr2;
         while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
           ptr3++;
 
@@ -1494,7 +1499,7 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
+      if (strcasecmp(ptr2, "ctx") == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
         setenv("AFL_LLVM_CTX", "1", 1);
@@ -1579,7 +1584,12 @@ int main(int argc, char **argv, char **envp) {
     else if (have_gcc_plugin)
       compiler_mode = GCC_PLUGIN;
     else if (have_gcc)
+#ifdef __APPLE__
+      // on OSX clang masquerades as GCC
+      compiler_mode = CLANG;
+#else
       compiler_mode = GCC;
+#endif
     else if (have_lto)
       compiler_mode = LTO;
     else
@@ -1601,7 +1611,12 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (compiler_mode == CLANG) { instrument_mode = INSTRUMENT_CLANG; }
+  if (compiler_mode == CLANG) {
+
+    instrument_mode = INSTRUMENT_CLANG;
+    setenv(CLANG_ENV_VAR, "1", 1);  // used by afl-as
+
+  }
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
@@ -1635,17 +1650,12 @@ int main(int argc, char **argv, char **envp) {
         "   yes\n"
         "  [LLVM] llvm:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
-        "extern\n"
+        "yes\n"
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
         "        - CALLER\n"
         "        - CTX\n"
-        "        - NGRAM-{2-16}\n"
-        "      INSTRIM                           no  yes     module yes yes "
-        "   yes\n"
-        "        - NORMAL\n"
-        "        - CALLER\n"
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
@@ -1697,9 +1707,7 @@ int main(int argc, char **argv, char **envp) {
         "  CTX:     CLASSIC + full callee context "
         "(instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
-        "((instrumentation/README.ngram.md)\n"
-        "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
-        "(instrumentation/README.instrim.md)\n\n");
+        "((instrumentation/README.ngram.md)\n\n");
 
 #undef NATIVE_MSG
 
@@ -1749,7 +1757,8 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_ASAN: activate address sanitizer\n"
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
-          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n");
+          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+          "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
 
       if (have_gcc_plugin)
         SAYF(
@@ -1770,6 +1779,8 @@ int main(int argc, char **argv, char **envp) {
         SAYF(
             "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
             "variables:\n"
+            "  AFL_LLVM_THREADSAFE_INST: instrument with thread safe counters, "
+            "disables neverzero\n"
 
             COUNTER_BEHAVIOUR
 
@@ -1794,19 +1805,16 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, "
-            "NGRAM-2 ..-16\n"
+            "    CLASSIC, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, NGRAM-2 "
+            "..-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
-            "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-            "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
-            "(option to INSTRIM)\n"
             "  AFL_LLVM_CALLER: use single context sensitive coverage (for "
             "CLASSIC)\n"
             "  AFL_LLVM_CTX: use full context sensitive coverage (for "
             "CLASSIC)\n"
             "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
-            "CLASSIC & INSTRIM)\n");
+            "CLASSIC)\n");
 
 #ifdef AFL_CLANG_FLTO
       if (have_lto)
@@ -1827,6 +1835,12 @@ int main(int argc, char **argv, char **envp) {
             "path\n"
             "If anything fails - be sure to read README.lto.md!\n");
 #endif
+
+      SAYF(
+          "\nYou can supply --afl-noopt to not instrument, like AFL_NOOPT. "
+          "(this is helpful\n"
+          "in some build systems if you do not want to instrument "
+          "everything.\n");
 
     }
 
@@ -1954,11 +1968,7 @@ int main(int argc, char **argv, char **envp) {
         "(requires LLVM 11 or higher)");
 #endif
 
-  if (instrument_opt_mode && instrument_mode == INSTRUMENT_CFG &&
-      instrument_opt_mode & INSTRUMENT_OPT_CTX)
-    FATAL("CFG instrumentation mode supports NGRAM and CALLER, but not CTX.");
-  else if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
-    // we will drop CFG/INSTRIM in the future so do not advertise
+  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
     FATAL(
         "CALLER, CTX and NGRAM instrumentation options can only be used with "
         "the LLVM CLASSIC instrumentation mode.");
@@ -2026,7 +2036,7 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);
 
   if (!ptr) {

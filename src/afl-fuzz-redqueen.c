@@ -252,7 +252,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   u64 start_time = get_cur_time();
 #endif
 
-  u32 screen_update = 1000000 / afl->queue_cur->exec_us;
+  u32 screen_update;
   u64 orig_hit_cnt, new_hit_cnt, exec_cksum;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -260,6 +260,24 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   afl->stage_short = "colorization";
   afl->stage_max = (len << 1);
   afl->stage_cur = 0;
+
+  if (likely(afl->queue_cur->exec_us)) {
+
+    if (likely((100000 / 2) >= afl->queue_cur->exec_us)) {
+
+      screen_update = 100000 / afl->queue_cur->exec_us;
+
+    } else {
+
+      screen_update = 1;
+
+    }
+
+  } else {
+
+    screen_update = 100000;
+
+  }
 
   // in colorization we do not classify counts, hence we have to calculate
   // the original checksum.
@@ -437,8 +455,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   if (taint) {
 
-    if (afl->colorize_success &&
-        (len / positions == 1 && positions > CMPLOG_POSITIONS_MAX &&
+    if (afl->colorize_success && afl->cmplog_lvl < 3 &&
+        (positions > CMPLOG_POSITIONS_MAX && len / positions == 1 &&
          afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT)) {
 
 #ifdef _DEBUG
@@ -905,17 +923,16 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       // test for arithmetic, eg. "if ((user_val - 0x1111) == 0x1234) ..."
       s64 diff = pattern - b_val;
       s64 o_diff = o_pattern - o_b_val;
-      /*
-            fprintf(stderr, "DIFF1 idx=%03u shape=%02u %llx-%llx=%lx\n", idx,
-                    h->shape + 1, o_pattern, o_b_val, o_diff);
-            fprintf(stderr, "DIFF1 %016llx %llx-%llx=%lx\n", repl, pattern,
-         b_val, diff);*/
+      /* fprintf(stderr, "DIFF1 idx=%03u shape=%02u %llx-%llx=%lx\n", idx,
+                 h->shape + 1, o_pattern, o_b_val, o_diff);
+         fprintf(stderr, "DIFF1 %016llx %llx-%llx=%lx\n", repl, pattern,
+                 b_val, diff); */
       if (diff == o_diff && diff) {
 
         // this could be an arithmetic transformation
 
         u64 new_repl = (u64)((s64)repl - diff);
-        //        fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
+        // fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
 
         if (unlikely(cmp_extend_encoding(
                 afl, h, pattern, new_repl, o_pattern, repl, IS_TRANSFORM, idx,
@@ -935,15 +952,17 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         diff = pattern ^ b_val;
         s64 o_diff = o_pattern ^ o_b_val;
 
-        /*        fprintf(stderr, "DIFF2 idx=%03u shape=%02u %llx-%llx=%lx\n",
-           idx, h->shape + 1, o_pattern, o_b_val, o_diff); fprintf(stderr,
-           "DIFF2 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);*/
+        /* fprintf(stderr, "DIFF2 idx=%03u shape=%02u %llx-%llx=%lx\n",
+                   idx, h->shape + 1, o_pattern, o_b_val, o_diff);
+           fprintf(stderr,
+                   "DIFF2 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);
+        */
         if (diff == o_diff && diff) {
 
           // this could be a XOR transformation
 
           u64 new_repl = (u64)((s64)repl ^ diff);
-          //          fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
+          // fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
 
           if (unlikely(cmp_extend_encoding(
                   afl, h, pattern, new_repl, o_pattern, repl, IS_TRANSFORM, idx,
@@ -982,15 +1001,17 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         }
 
-        /*        fprintf(stderr, "DIFF3 idx=%03u shape=%02u %llx-%llx=%lx\n",
-           idx, h->shape + 1, o_pattern, o_b_val, o_diff); fprintf(stderr,
-           "DIFF3 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);*/
+        /* fprintf(stderr, "DIFF3 idx=%03u shape=%02u %llx-%llx=%lx\n",
+                   idx, h->shape + 1, o_pattern, o_b_val, o_diff);
+           fprintf(stderr,
+                   "DIFF3 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);
+        */
         if (o_diff && diff) {
 
           // this could be a lower to upper
 
           u64 new_repl = (repl & (0x5f5f5f5f5f5f5f5f & mask));
-          //          fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
+          // fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
 
           if (unlikely(cmp_extend_encoding(
                   afl, h, pattern, new_repl, o_pattern, repl, IS_TRANSFORM, idx,
@@ -1029,15 +1050,17 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         }
 
-        /*        fprintf(stderr, "DIFF4 idx=%03u shape=%02u %llx-%llx=%lx\n",
-           idx, h->shape + 1, o_pattern, o_b_val, o_diff); fprintf(stderr,
-           "DIFF4 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);*/
+        /* fprintf(stderr, "DIFF4 idx=%03u shape=%02u %llx-%llx=%lx\n",
+                   idx, h->shape + 1, o_pattern, o_b_val, o_diff);
+           fprintf(stderr,
+                   "DIFF4 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);
+        */
         if (o_diff && diff) {
 
           // this could be a lower to upper
 
           u64 new_repl = (repl | (0x2020202020202020 & mask));
-          //          fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
+          // fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
 
           if (unlikely(cmp_extend_encoding(
                   afl, h, pattern, new_repl, o_pattern, repl, IS_TRANSFORM, idx,
@@ -1383,7 +1406,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  //#endif                                           /* CMPLOG_SOLVE_ARITHMETIC
+  //#endif                                           /*
+  // CMPLOG_SOLVE_ARITHMETIC
 
   return 0;
 
@@ -1747,6 +1771,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       }
 
+#endif
+
+#ifdef _DEBUG
+      if (o->v0 != orig_o->v0 || o->v1 != orig_o->v1)
+        fprintf(stderr, "key=%u idx=%u o0=%llu v0=%llu o1=%llu v1=%llu\n", key,
+                idx, orig_o->v0, o->v0, orig_o->v1, o->v1);
 #endif
 
       // even for u128 and _ExtInt we do cmp_extend_encoding() because
@@ -2146,7 +2176,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         memcpy(buf + idx, tmp, i + 1);
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        // fprintf(stderr, "RTN ATTEMPT tohex %u result %u\n", tohex, *status);
+        // fprintf(stderr, "RTN ATTEMPT tohex %u result %u\n", tohex,
+        // *status);
 
       }
 
@@ -2229,7 +2260,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
         for (j = 0; j <= i; j++)
           buf[idx + j] = repl[j] - arith_val[j];
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        // fprintf(stderr, "RTN ATTEMPT arith %u result %u\n", arith, *status);
+        // fprintf(stderr, "RTN ATTEMPT arith %u result %u\n", arith,
+        // *status);
 
       }
 
@@ -2322,16 +2354,17 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     /*
       struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
-    fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
-    h->shape, h->attribute); for (j = 0; j < 8; j++) fprintf(stderr, "%02x",
-    o->v0[j]); fprintf(stderr, " v1="); for (j = 0; j < 8; j++) fprintf(stderr,
-    "%02x", o->v1[j]); fprintf(stderr, "\nRTN O hits=%u id=%u shape=%u attr=%u
-    o0=", hh->hits, hh->id, hh->shape, hh->attribute); for (j = 0; j < 8; j++)
-      fprintf(stderr, "%02x", orig_o->v0[j]);
-    fprintf(stderr, " o1=");
-    for (j = 0; j < 8; j++)
-      fprintf(stderr, "%02x", orig_o->v1[j]);
-    fprintf(stderr, "\n");
+      fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits,
+              h->id, h->shape, h->attribute);
+      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", o->v0[j]);
+      fprintf(stderr, " v1=");
+      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", o->v1[j]);
+      fprintf(stderr, "\nRTN O hits=%u id=%u shape=%u attr=%u o0=",
+              hh->hits, hh->id, hh->shape, hh->attribute);
+      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", orig_o->v0[j]);
+      fprintf(stderr, " o1=");
+      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", orig_o->v1[j]);
+      fprintf(stderr, "\n");
     */
 
     t = taint;
@@ -2364,6 +2397,24 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       }
 
       status = 0;
+
+#ifdef _DEBUG
+      int w;
+      fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx,
+              SHAPE_BYTES(h->shape));
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", orig_o->v0[w]);
+      fprintf(stderr, " v0=");
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", o->v0[w]);
+      fprintf(stderr, " o1=");
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", orig_o->v1[w]);
+      fprintf(stderr, " v1=");
+      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+        fprintf(stderr, "%02x", o->v1[w]);
+      fprintf(stderr, "\n");
+#endif
 
       if (unlikely(rtn_extend_encoding(
               afl, o->v0, o->v1, orig_o->v0, orig_o->v1, SHAPE_BYTES(h->shape),
@@ -2639,7 +2690,12 @@ exit_its:
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
 
-    ck_free(afl->queue_cur->cmplog_colorinput);
+    if (afl->queue_cur->cmplog_colorinput) {
+
+      ck_free(afl->queue_cur->cmplog_colorinput);
+
+    }
+
     while (taint) {
 
       t = taint->next;

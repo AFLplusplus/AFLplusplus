@@ -89,10 +89,13 @@ def queue_get(filename):
 
 def queue_new_entry(filename_new_queue, filename_orig_queue):
     pass
-```
 
 def introspection():
     return string
+
+def deinit():  # optional for Python
+    pass
+```
 
 ### Custom Mutation
 
@@ -120,6 +123,7 @@ def introspection():
     Note that this function is optional - but it makes sense to use it.
     You would only skip this if `post_process` is used to fix checksums etc.
     so if you are using it e.g. as a post processing library.
+    Note that a length > 0 *must* be returned!
 
 - `describe` (optional):
 
@@ -285,8 +289,8 @@ afl-fuzz /path/to/program
 
 ## 4) Example
 
-Please see [example.c](../utils/custom_mutators/example.c) and
-[example.py](../utils/custom_mutators/example.py)
+Please see [example.c](../custom_mutators/examples/example.c) and
+[example.py](../custom_mutators/examples/example.py)
 
 ## 5) Other Resources
 

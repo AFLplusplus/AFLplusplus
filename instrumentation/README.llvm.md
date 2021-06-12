@@ -2,11 +2,11 @@
 
   (See [../README.md](../README.md) for the general instruction manual.)
 
-  (See [README.gcc_plugon.md](../README.gcc_plugin.md) for the GCC-based instrumentation.)
+  (See [README.gcc_plugin.md](../README.gcc_plugin.md) for the GCC-based instrumentation.)
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.4 up to 12 !
+! llvm_mode works with llvm versions 3.8 up to 12 !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude
@@ -101,8 +101,7 @@ instrumentation by either setting `AFL_CC_COMPILER=LLVM` or pass the parameter
 The tool honors roughly the same environmental variables as afl-gcc (see
 [docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
 AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
-as it does not serve a good purpose with the more effective PCGUARD, LTO and
- instrim CFG analysis.
+as it does not serve a good purpose with the more effective PCGUARD analysis.
 
 ## 3) Options
 
@@ -116,26 +115,20 @@ For splitting memcmp, strncmp, etc. please see [README.laf-intel.md](README.laf-
 
 Then there are different ways of instrumenting the target:
 
-1. There is an optimized instrumentation strategy that uses CFGs and
-markers to just instrument what is needed. This increases speed by 10-15%
-without any disadvantages
-If you want to use this, set AFL_LLVM_INSTRUMENT=CFG or AFL_LLVM_INSTRIM=1
-See [README.instrim.md](README.instrim.md)
-
-2. An even better instrumentation strategy uses LTO and link time
+1. An better instrumentation strategy uses LTO and link time
 instrumentation. Note that not all targets can compile in this mode, however
 if it works it is the best option you can use.
 Simply use afl-clang-lto/afl-clang-lto++ to use this option.
 See [README.lto.md](README.lto.md)
 
-3. Alternativly you can choose a completely different coverage method:
+2. Alternativly you can choose a completely different coverage method:
 
-3a. N-GRAM coverage - which combines the previous visited edges with the
+2a. N-GRAM coverage - which combines the previous visited edges with the
 current one. This explodes the map but on the other hand has proven to be
 effective for fuzzing.
 See [README.ngram.md](README.ngram.md)
 
-3b. Context sensitive coverage - which combines the visited edges with an
+2b. Context sensitive coverage - which combines the visited edges with an
 individual caller ID (the function that called the current one)
 [README.ctx.md](README.ctx.md)
 
@@ -150,6 +143,11 @@ path discovery, but the llvm implementation for x86 for this functionality
 is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
 See [README.neverzero.md](README.neverzero.md)
+
+Support for thread safe counters has been added for all modes.
+Activate it with `AFL_LLVM_THREADSAFE_INST=1`. The tradeoff is better precision
+in multi threaded apps for a slightly higher instrumentation overhead.
+This also disables the nozero counter default for performance reasons.
 
 ## 4) Snapshot feature
 

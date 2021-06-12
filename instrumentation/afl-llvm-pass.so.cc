@@ -81,11 +81,12 @@ class AFLCoverage : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  uint32_t ngram_size = 0;
-  uint32_t ctx_k = 0;
-  uint32_t map_size = MAP_SIZE;
-  uint32_t function_minimum_size = 1;
-  char *   ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
+  uint32_t    ngram_size = 0;
+  uint32_t    ctx_k = 0;
+  uint32_t    map_size = MAP_SIZE;
+  uint32_t    function_minimum_size = 1;
+  const char *ctx_str = NULL, *caller_str = NULL, *skip_nozero = NULL;
+  const char *use_threadsafe_counters = nullptr;
 
 };
 
@@ -182,6 +183,38 @@ bool AFLCoverage::runOnModule(Module &M) {
   char *neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
+
+  if ((isatty(2) && !getenv("AFL_QUIET")) || !!getenv("AFL_DEBUG")) {
+
+    if (use_threadsafe_counters) {
+
+      // disabled unless there is support for other modules as well
+      // (increases documentation complexity)
+      /*      if (!getenv("AFL_LLVM_NOT_ZERO")) { */
+
+      skip_nozero = "1";
+      SAYF(cCYA "afl-llvm-pass" VERSION cRST " using thread safe counters\n");
+
+      /*
+
+            } else {
+
+              SAYF(cCYA "afl-llvm-pass" VERSION cRST
+                        " using thread safe not-zero-counters\n");
+
+            }
+
+      */
+
+    } else {
+
+      SAYF(cCYA "afl-llvm-pass" VERSION cRST
+                " using non-thread safe instrumentation\n");
+
+    }
+
+  }
 
   unsigned PrevLocSize = 0;
   unsigned PrevCallerSize = 0;
@@ -388,7 +421,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
 
   // other constants we need
-  ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
   Value *   PrevCtx = NULL;     // CTX sensitive coverage
@@ -410,6 +442,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     if (F.size() < function_minimum_size) continue;
 
+    std::list<Value *> todo;
     for (auto &BB : F) {
 
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
@@ -628,37 +661,71 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       /* Update bitmap */
 
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      if (use_threadsafe_counters) {                              /* Atomic */
+                                     /*
+                                     #if LLVM_VERSION_MAJOR < 9
+                                             if (neverZero_counters_str !=
+                                                 NULL) {  // with llvm 9 we make this the default as the bug
+                                     in llvm
+                                                          // is then fixed
+                                     #else
+                                             if (!skip_nozero) {
+                             
+                                     #endif
+                                               // register MapPtrIdx in a todo list
+                                               todo.push_back(MapPtrIdx);
+                             
+                                             } else {
+                             
+                                     */
+        IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                            llvm::MaybeAlign(1),
+#endif
+                            llvm::AtomicOrdering::Monotonic);
+        /*
 
-      Value *Incr = IRB.CreateAdd(Counter, One);
+                }
+
+        */
+
+      } else {
+
+        LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        Value *Incr = IRB.CreateAdd(Counter, One);
 
 #if LLVM_VERSION_MAJOR < 9
-      if (neverZero_counters_str !=
-          NULL) {  // with llvm 9 we make this the default as the bug in llvm is
-                   // then fixed
+        if (neverZero_counters_str !=
+            NULL) {  // with llvm 9 we make this the default as the bug in llvm
+                     // is then fixed
 #else
-      if (!skip_nozero) {
+        if (!skip_nozero) {
 
 #endif
-        /* hexcoder: Realize a counter that skips zero during overflow.
-         * Once this counter reaches its maximum value, it next increments to 1
-         *
-         * Instead of
-         * Counter + 1 -> Counter
-         * we inject now this
-         * Counter + 1 -> {Counter, OverflowFlag}
-         * Counter + OverflowFlag -> Counter
-         */
+          /* hexcoder: Realize a counter that skips zero during overflow.
+           * Once this counter reaches its maximum value, it next increments to
+           * 1
+           *
+           * Instead of
+           * Counter + 1 -> Counter
+           * we inject now this
+           * Counter + 1 -> {Counter, OverflowFlag}
+           * Counter + OverflowFlag -> Counter
+           */
 
-        auto cf = IRB.CreateICmpEQ(Incr, Zero);
-        auto carry = IRB.CreateZExt(cf, Int8Ty);
-        Incr = IRB.CreateAdd(Incr, carry);
+          ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
+          auto         cf = IRB.CreateICmpEQ(Incr, Zero);
+          auto         carry = IRB.CreateZExt(cf, Int8Ty);
+          Incr = IRB.CreateAdd(Incr, carry);
 
-      }
+        }
 
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        IRB.CreateStore(Incr, MapPtrIdx)
+            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+      }                                                  /* non atomic case */
 
       /* Update prev_loc history vector (by placing cur_loc at the head of the
          vector and shuffle the other elements back by one) */
@@ -714,6 +781,120 @@ bool AFLCoverage::runOnModule(Module &M) {
       inst_blocks++;
 
     }
+
+#if 0
+    if (use_threadsafe_counters) {                       /*Atomic NeverZero */
+      // handle the list of registered blocks to instrument
+      for (auto val : todo) {
+
+        /* hexcoder: Realize a thread-safe counter that skips zero during
+         * overflow. Once this counter reaches its maximum value, it next
+         * increments to 1
+         *
+         * Instead of
+         * Counter + 1 -> Counter
+         * we inject now this
+         * Counter + 1 -> {Counter, OverflowFlag}
+         * Counter + OverflowFlag -> Counter
+         */
+
+        /* equivalent c code looks like this
+         * Thanks to
+         https://preshing.com/20150402/you-can-do-any-kind-of-atomic-read-modify-write-operation/
+
+            int old = atomic_load_explicit(&Counter, memory_order_relaxed);
+            int new;
+            do {
+
+                 if (old == 255) {
+
+                   new = 1;
+
+                 } else {
+
+                   new = old + 1;
+
+                 }
+
+            } while (!atomic_compare_exchange_weak_explicit(&Counter, &old, new,
+
+         memory_order_relaxed, memory_order_relaxed));
+
+         */
+
+        Value *              MapPtrIdx = val;
+        Instruction *        MapPtrIdxInst = cast<Instruction>(val);
+        BasicBlock::iterator it0(&(*MapPtrIdxInst));
+        ++it0;
+        IRBuilder<> IRB(&(*it0));
+
+        // load the old counter value atomically
+        LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+        Counter->setAlignment(llvm::Align());
+        Counter->setAtomic(llvm::AtomicOrdering::Monotonic);
+        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        BasicBlock *BB = IRB.GetInsertBlock();
+        // insert a basic block with the corpus of a do while loop
+        // the calculation may need to repeat, if atomic compare_exchange is not
+        // successful
+
+        BasicBlock::iterator it(*Counter);
+        it++;  // split after load counter
+        BasicBlock *end_bb = BB->splitBasicBlock(it);
+        end_bb->setName("injected");
+
+        // insert the block before the second half of the split
+        BasicBlock *do_while_bb =
+            BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
+
+        // set terminator of BB from target end_bb to target do_while_bb
+        auto term = BB->getTerminator();
+        BranchInst::Create(do_while_bb, BB);
+        term->eraseFromParent();
+
+        // continue to fill instructions into the do_while loop
+        IRB.SetInsertPoint(do_while_bb, do_while_bb->getFirstInsertionPt());
+
+        PHINode *PN = IRB.CreatePHI(Int8Ty, 2);
+
+        // compare with maximum value 0xff
+        auto *Cmp = IRB.CreateICmpEQ(Counter, ConstantInt::get(Int8Ty, -1));
+
+        // increment the counter
+        Value *Incr = IRB.CreateAdd(Counter, One);
+
+        // select the counter value or 1
+        auto *Select = IRB.CreateSelect(Cmp, One, Incr);
+
+        // try to save back the new counter value
+        auto *CmpXchg = IRB.CreateAtomicCmpXchg(
+            MapPtrIdx, PN, Select, llvm::AtomicOrdering::Monotonic,
+            llvm::AtomicOrdering::Monotonic);
+        CmpXchg->setAlignment(llvm::Align());
+        CmpXchg->setWeak(true);
+        CmpXchg->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        // get the result of trying to update the Counter
+        Value *Success =
+            IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({1}));
+        // get the (possibly updated) value of Counter
+        Value *OldVal =
+            IRB.CreateExtractValue(CmpXchg, ArrayRef<unsigned>({0}));
+
+        // initially we use Counter
+        PN->addIncoming(Counter, BB);
+        // on retry, we use the updated value
+        PN->addIncoming(OldVal, do_while_bb);
+
+        // if the cmpXchg was not successful, retry
+        IRB.CreateCondBr(Success, end_bb, do_while_bb);
+
+      }
+
+    }
+
+#endif
 
   }
 

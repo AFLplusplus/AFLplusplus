@@ -41,6 +41,33 @@
 
   As it is included in afl++ this needs no URL.
 
+  If you like to code a customized fuzzer without much work, we highly
+  recommend to check out our sister project libafl which will support QEMU
+  too:
+  [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL)
+
+
+## AFL FRIDA
+
+  In frida_mode you can fuzz binary-only targets easily like with QEMU,
+  with the advantage that frida_mode also works on MacOS (both intel and M1).
+
+  If you want to fuzz a binary-only library then you can fuzz it with
+  frida-gum via utils/afl_frida/, you will have to write a harness to
+  call the target function in the library, use afl-frida.c as a template.
+
+  Both come with afl++ so this needs no URL.
+
+  You can also perform remote fuzzing with frida, e.g. if you want to fuzz
+  on iPhone or Android devices, for this you can use
+  [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/)
+  as an intermediate that uses afl++ for fuzzing.
+
+  If you like to code a customized fuzzer without much work, we highly
+  recommend to check out our sister project libafl which supports Frida too:
+  [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL)
+  Working examples already exist :-)
+
 
 ## WINE+QEMU
 
@@ -60,13 +87,6 @@
   Unicorn. For further information, check out [unicorn_mode/README.md](../unicorn_mode/README.md).
 
   As it is included in afl++ this needs no URL.
-
-
-## AFL FRIDA
-
-   If you want to fuzz a binary-only shared library then you can fuzz it with
-   frida-gum via utils/afl_frida/, you will have to write a harness to
-   call the target function in the library, use afl-frida.c as a template.
 
 
 ## AFL UNTRACER
@@ -102,7 +122,7 @@
   [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
 
 
-## RETROWRITE
+## RETROWRITE, ZAFL, ... other binary rewriter
 
   If you have an x86/x86_64 binary that still has its symbols, is compiled
   with position independant code (PIC/PIE) and does not use most of the C++
@@ -111,6 +131,7 @@
 
   It is at about 80-85% performance.
 
+  [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
   [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
 
@@ -157,19 +178,6 @@
   If anyone finds any coresight implementation for afl please ping me: vh@thc.org
 
 
-## FRIDA
-
-  Frida is a dynamic instrumentation engine like Pintool, Dyninst and Dynamorio.
-  What is special is that it is written Python, and scripted with Javascript.
-  It is mostly used to reverse binaries on mobile phones however can be used
-  everywhere.
-
-  There is a WIP fuzzer available at [https://github.com/andreafioraldi/frida-fuzzer](https://github.com/andreafioraldi/frida-fuzzer)
-
-  There is also an early implementation in an AFL++ test branch:
-  [https://github.com/AFLplusplus/AFLplusplus/tree/frida](https://github.com/AFLplusplus/AFLplusplus/tree/frida)
-
-
 ## PIN & DYNAMORIO
 
   Pintool and Dynamorio are dynamic instrumentation engines, and they can be
@@ -205,7 +213,8 @@
   * QSYM: [https://github.com/sslab-gatech/qsym](https://github.com/sslab-gatech/qsym)
   * Manticore: [https://github.com/trailofbits/manticore](https://github.com/trailofbits/manticore)
   * S2E: [https://github.com/S2E](https://github.com/S2E)
-  * Tinyinst [https://github.com/googleprojectzero/TinyInst](https://github.com/googleprojectzero/TinyInst) (Mac/Windows only)
+  * Tinyinst: [https://github.com/googleprojectzero/TinyInst](https://github.com/googleprojectzero/TinyInst) (Mac/Windows only)
+  * Jackalope: [https://github.com/googleprojectzero/Jackalope](https://github.com/googleprojectzero/Jackalope)
   *  ... please send me any missing that are good
 
 

@@ -53,7 +53,7 @@ unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eQUCh" opt; do
+while getopts "+i:o:f:m:t:eOQUCh" opt; do
 
   case "$opt" in 
 
@@ -83,6 +83,10 @@ while getopts "+i:o:f:m:t:eQUCh" opt; do
     "C")
          export AFL_CMIN_CRASHES_ONLY=1
          ;;
+    "O")
+         EXTRA_PAR="$EXTRA_PAR -O"
+         FRIDA_MODE=1
+         ;;         
     "Q")
          EXTRA_PAR="$EXTRA_PAR -Q"
          QEMU_MODE=1
@@ -118,6 +122,7 @@ Execution control settings:
   -f file       - location read by the fuzzed program (stdin)
   -m megs       - memory limit for child process ($MEM_LIMIT MB)
   -t msec       - run time limit for child process (none)
+  -O            - use binary-only instrumentation (FRIDA mode)
   -Q            - use binary-only instrumentation (QEMU mode)
   -U            - use unicorn-based instrumentation (Unicorn mode)
   
@@ -209,7 +214,7 @@ if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
 
 fi
 
-if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
+if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
 
   if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then
     echo "[-] Error: binary '$TARGET_BIN' doesn't appear to be instrumented." 1>&2

@@ -517,11 +517,12 @@ static void add_instrumentation(void) {
     } else {
 
       char modeline[100];
-      snprintf(modeline, sizeof(modeline), "%s%s%s%s",
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s",
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
-               getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+               getenv("AFL_USE_UBSAN") ? ", UBSAN" : "",
+               getenv("AFL_USE_LSAN") ? ", LSAN" : "");
 
       OKF("Instrumented %u locations (%s-bit, %s mode, ratio %u%%).", ins_lines,
           use_64bit ? "64" : "32", modeline, inst_ratio);
@@ -585,7 +586,7 @@ int main(int argc, char **argv) {
         "AFL_QUIET: suppress verbose output\n"
         "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
         "AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources\n"
-        "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, AFL_USE_UBSAN:\n"
+        "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, AFL_USE_UBSAN, AFL_USE_LSAN:\n"
         "  used in the instrumentation summary message\n",
         argv[0]);
 

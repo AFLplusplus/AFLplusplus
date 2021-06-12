@@ -62,15 +62,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sancov"
 
-static const char *const SanCovTracePCIndirName =
-    "__sanitizer_cov_trace_pc_indir";
-static const char *const SanCovTracePCName = "__sanitizer_cov_trace_pc";
-// static const char *const SanCovTracePCGuardName =
+const char SanCovTracePCIndirName[] = "__sanitizer_cov_trace_pc_indir";
+const char SanCovTracePCName[] = "__sanitizer_cov_trace_pc";
+// const char SanCovTracePCGuardName =
 //    "__sanitizer_cov_trace_pc_guard";
-static const char *const SanCovGuardsSectionName = "sancov_guards";
-static const char *const SanCovCountersSectionName = "sancov_cntrs";
-static const char *const SanCovBoolFlagSectionName = "sancov_bools";
-static const char *const SanCovPCsSectionName = "sancov_pcs";
+const char SanCovGuardsSectionName[] = "sancov_guards";
+const char SanCovCountersSectionName[] = "sancov_cntrs";
+const char SanCovBoolFlagSectionName[] = "sancov_bools";
+const char SanCovPCsSectionName[] = "sancov_pcs";
 
 static cl::opt<int> ClCoverageLevel(
     "lto-coverage-level",
@@ -242,8 +241,9 @@ class ModuleSanitizerCoverage {
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 2;
   uint64_t                         map_addr = 0;
+  const char *                     skip_nozero = NULL;
+  const char *                     use_threadsafe_counters = nullptr;
   uint32_t                         do_loop = 1, do_func = 1;
-  char *                           skip_nozero = NULL;
   char *                           no_interesting = NULL;
   std::vector<BasicBlock *>        BlockList;
   DenseMap<Value *, std::string *> valueMap;
@@ -461,6 +461,7 @@ bool ModuleSanitizerCoverage::instrumentModule(Module &            M,
     be_quiet = 1;
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
   no_interesting = getenv("AFL_NO_INTERESTING");
   if (getenv("LOOP_ONLY")) do_func = 0;
   if (getenv("FUNC_ONLY")) do_loop = 0;
@@ -1236,7 +1237,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
     return;  // Should not instrument sanitizer init functions.
   if (F.getName().startswith("__sanitizer_"))
     return;  // Don't instrument __sanitizer_* callbacks.
-  // Don't touch available_externally functions, their actual body is elewhere.
+  // Don't touch available_externally functions, their actual body is elsewhere.
   if (F.getLinkage() == GlobalValue::AvailableExternallyLinkage) return;
   // Don't instrument MSVC CRT configuration helpers. They may run before normal
   // initialization.
@@ -1607,22 +1608,34 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     }
 
     /* Update bitmap */
+    if (use_threadsafe_counters) {                                /* Atomic */
 
-    LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-    Counter->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                          llvm::MaybeAlign(1),
+#endif
+                          llvm::AtomicOrdering::Monotonic);
 
-    Value *Incr = IRB.CreateAdd(Counter, One);
+    } else {
 
-    if (skip_nozero == NULL) {
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      Counter->setMetadata(Mo->getMDKindID("nosanitize"),
+                           MDNode::get(*Ct, None));
 
-      auto cf = IRB.CreateICmpEQ(Incr, Zero);
-      auto carry = IRB.CreateZExt(cf, Int8Tyi);
-      Incr = IRB.CreateAdd(Incr, carry);
+      Value *Incr = IRB.CreateAdd(Counter, One);
+
+      if (skip_nozero == NULL) {
+
+        auto cf = IRB.CreateICmpEQ(Incr, Zero);
+        auto carry = IRB.CreateZExt(cf, Int8Tyi);
+        Incr = IRB.CreateAdd(Incr, carry);
+
+      }
+
+      IRB.CreateStore(Incr, MapPtrIdx)
+          ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
 
     }
-
-    IRB.CreateStore(Incr, MapPtrIdx)
-        ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
 
     // done :)
 

@@ -55,7 +55,7 @@ make fairly broad use of environmental variables instead:
     overridden.
 
   - Setting `AFL_USE_ASAN` automatically enables ASAN, provided that your
-    compiler supports that. Note that fuzzing with ASAN is mildly challenging
+    compiler supports it. Note that fuzzing with ASAN is mildly challenging
     - see [notes_for_asan.md](notes_for_asan.md).
 
     (You can also enable MSAN via `AFL_USE_MSAN`; ASAN and MSAN come with the
@@ -63,6 +63,13 @@ make fairly broad use of environmental variables instead:
     similarly by setting the environment variable `AFL_USE_UBSAN=1`. Finally
     there is the Control Flow Integrity sanitizer that can be activated by
     `AFL_USE_CFISAN=1`)
+
+  - Setting `AFL_USE_LSAN` automatically enables Leak-Sanitizer, provided
+    that your compiler supports it. To perform a leak check within your
+    program at a certain point (such as at the end of an __AFL_LOOP),
+    you can run the macro __AFL_LEAK_CHECK(); which will cause
+    an abort if any memory is leaked (you can combine this with the
+    LSAN_OPTIONS=suppressions option to supress some known leaks).
 
   - Setting `AFL_CC`, `AFL_CXX`, and `AFL_AS` lets you use alternate downstream
     compilation tools, rather than the default 'clang', 'gcc', or 'as' binaries
@@ -101,9 +108,6 @@ make fairly broad use of environmental variables instead:
   - Setting `AFL_QUIET` will prevent afl-cc and afl-as banners from being
     displayed during compilation, in case you find them distracting.
 
-  - Setting `AFL_CAL_FAST` will speed up the initial calibration, if the
-    application is very slow.
-
 ## 2) Settings for LLVM and LTO: afl-clang-fast / afl-clang-fast++ / afl-clang-lto / afl-clang-lto++
 
   - `AFL_NO_INTERESTING` disables counting dangerous functions and loops in
@@ -133,16 +137,15 @@ Then there are a few specific features that are only available in instrumentatio
         PCGUARD - our own pcgard based instrumentation (default)
         NATIVE - clang's original pcguard based instrumentation
         CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
-        CFG - InsTrim instrumentation (see below)
         LTO - LTO instrumentation (see below)
         CTX - context sensitive instrumentation (see below)
         NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
         GCC - outdated gcc instrumentation
         CLANG - outdated clang instrumentation
-      In CLASSIC (default) and CFG/INSTRIM you can also specify CTX and/or
-      NGRAM, seperate the options with a comma "," then, e.g.:
-        `AFL_LLVM_INSTRUMENT=CFG,CTX,NGRAM-4`
-      Not that this is a good idea to use both CTX and NGRAM :)
+      In CLASSIC you can also specify CTX and/or NGRAM, seperate the options
+      with a comma "," then, e.g.:
+        `AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4`
+      Note that this is actually not a good idea to use both CTX and NGRAM :)
 
 ### LTO
 
@@ -175,24 +178,6 @@ Then there are a few specific features that are only available in instrumentatio
      into the instrumentation is set in a global variable
 
   See [instrumentation/README.lto.md](../instrumentation/README.lto.md) for more information.
-
-### INSTRIM
-
-  This feature increases the speed by ~15% without any disadvantages to the
-    classic instrumentation.
-
-  Note that there is also an LTO version (if you have llvm 11 or higher) -
-    that is the best instrumentation we have. Use `afl-clang-lto` to activate.
-    The InsTrim LTO version additionally has all the options and features of
-    LTO (see above).
-
-   - Setting `AFL_LLVM_INSTRIM` or `AFL_LLVM_INSTRUMENT=CFG` activates this mode
-
-   - Setting `AFL_LLVM_INSTRIM_LOOPHEAD=1` expands on INSTRIM to optimize loops.
-      afl-fuzz will only be able to see the path the loop took, but not how
-      many times it was called (unless it is a complex loop).
-
-  See [instrumentation/README.instrim.md](../instrumentation/README.instrim.md)
 
 ### NGRAM
 
@@ -245,6 +230,12 @@ Then there are a few specific features that are only available in instrumentatio
       listed in the specified file.
 
   See [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md) for more information.
+
+### Thread safe instrumentation counters (in all modes)
+
+   - Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread
+     safe counters. The overhead is a little bit higher compared to the older
+     non-thread safe case. Note that this disables neverzero (see below).
 
 ### NOT_ZERO
 
@@ -299,6 +290,13 @@ checks or alter some of the more exotic semantics of the tool:
     normally indicated by the cycle counter in the UI turning green. May be
     convenient for some types of automated jobs.
 
+  - `AFL_EXIT_ON_TIME` Causes afl-fuzz to terminate if no new paths were 
+    found within a specified period of time (in seconds). May be convenient 
+    for some types of automated jobs.
+
+  - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behaviour
+    which does not allow crashes or timeout seeds in the initial -i corpus.
+
   - `AFL_MAP_SIZE` sets the size of the shared map that afl-fuzz, afl-showmap,
     afl-tmin and afl-analyze create to gather instrumentation data from
     the target. This must be equal or larger than the size the target was
@@ -323,13 +321,11 @@ checks or alter some of the more exotic semantics of the tool:
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
 
+  - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
+    on Linux systems, but will not terminate if that fails.
+
   - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
     that is compiled into the target.
-
-  - `AFL_SKIP_CRASHES` causes AFL++ to tolerate crashing files in the input
-    queue. This can help with rare situations where a program crashes only
-    intermittently, but it's not really recommended under normal operating
-    conditions.
 
   - Setting `AFL_HANG_TMOUT` allows you to specify a different timeout for
     deciding if a particular test case is a "hang". The default is 1 second
@@ -366,6 +362,7 @@ checks or alter some of the more exotic semantics of the tool:
     and shell scripts; and `AFL_DUMB_FORKSRV` in conjunction with the `-n`
     setting to instruct afl-fuzz to still follow the fork server protocol
     without expecting any instrumentation data in return.
+    Note that this also turns off auto map size detection.
 
   - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
     fuzzer to import test cases from other instances before doing anything
@@ -392,12 +389,14 @@ checks or alter some of the more exotic semantics of the tool:
 
   - `AFL_FAST_CAL` keeps the calibration stage about 2.5x faster (albeit less
     precise), which can help when starting a session against a slow target.
+    `AFL_CAL_FAST` works too.
 
   - The CPU widget shown at the bottom of the screen is fairly simplistic and
     may complain of high load prematurely, especially on systems with low core
     counts. To avoid the alarming red color, you can set `AFL_NO_CPU_RED`.
 
-  - In QEMU mode (-Q), `AFL_PATH` will be searched for afl-qemu-trace.
+  - In QEMU mode (-Q) and Frida mode (-O), `AFL_PATH` will
+    be searched for afl-qemu-trace and afl-frida-trace.so.
 
   - In QEMU mode (-Q), setting `AFL_QEMU_CUSTOM_BIN` cause afl-fuzz to skip
     prepending `afl-qemu-trace` to your command line. Use this if you wish to use a
@@ -429,6 +428,16 @@ checks or alter some of the more exotic semantics of the tool:
 
   - Setting `AFL_FORCE_UI` will force painting the UI on the screen even if
     no valid terminal was detected (for virtual consoles)
+
+  - If you are using persistent mode (you should, see [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md))
+    some targets keep inherent state due which a detected crash testcase does
+    not crash the target again when the testcase is given. To be able to still
+    re-trigger these crashes you can use the `AFL_PERSISTENT_RECORD` variable
+    with a value of how many previous fuzz cases to keep prio a crash.
+    if set to e.g. 10, then the 9 previous inputs are written to
+    out/default/crashes as RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008
+    and RECORD:000000,cnt:000009 being the crash case.
+    NOTE: This option needs to be enabled in config.h first!
 
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
     Others need not apply, unless they also want to disable the
@@ -567,6 +576,9 @@ The corpus minimization script offers very little customization:
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
 
+  - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
+    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts scripting.
+
 ## 7) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (`-Q`), `AFL_PATH` will be
@@ -620,7 +632,7 @@ optimal values if not already present in the environment:
     override this by setting `LD_BIND_LAZY` beforehand, but it is almost
     certainly pointless.
 
-  - By default, `ASAN_OPTIONS` are set to:
+  - By default, `ASAN_OPTIONS` are set to (among others):
 ```
     abort_on_error=1
     detect_leaks=0
@@ -641,7 +653,14 @@ optimal values if not already present in the environment:
     msan_track_origins=0
     allocator_may_return_null=1
 ```
-  Be sure to include the first one when customizing anything, since some
-    MSAN versions don't call `abort()` on error, and we need a way to detect
-    faults.
+  - Similarly, the default `LSAN_OPTIONS` are set to:
+```
+    exit_code=23
+    fast_unwind_on_malloc=0
+    symbolize=0
+    print_suppressions=0
+```
+  Be sure to include the first ones for LSAN and MSAN when customizing
+     anything, since some MSAN and LSAN versions don't call `abort()` on
+     error, and we need a way to detect faults.
 

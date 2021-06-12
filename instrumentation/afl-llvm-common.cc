@@ -57,7 +57,7 @@ bool isIgnoreFunction(const llvm::Function *F) {
   // Starting from "LLVMFuzzer" these are functions used in libfuzzer based
   // fuzzing campaign installations, e.g. oss-fuzz
 
-  static const char *ignoreList[] = {
+  static constexpr const char *ignoreList[] = {
 
       "asan.",
       "llvm.",
@@ -96,17 +96,17 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   }
 
-  static const char *ignoreSubstringList[] = {
+  static constexpr const char *ignoreSubstringList[] = {
 
-      "__asan",       "__msan",     "__ubsan", "__lsan",
-      "__san",        "__sanitize", "__cxx",   "_GLOBAL__",
-      "DebugCounter", "DwarfDebug", "DebugLoc"
+      "__asan", "__msan",       "__ubsan",    "__lsan",  "__san", "__sanitize",
+      "__cxx",  "DebugCounter", "DwarfDebug", "DebugLoc"
 
   };
 
   for (auto const &ignoreListFunc : ignoreSubstringList) {
 
-    if (F->getName().contains(ignoreListFunc)) { return true; }
+    // hexcoder: F->getName().contains() not avaiilable in llvm 3.8.0
+    if (StringRef::npos != F->getName().find(ignoreListFunc)) { return true; }
 
   }
 

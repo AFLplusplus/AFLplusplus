@@ -90,12 +90,15 @@ for crash in $DIR/crashes/id:*; do
 
   for a in $@; do
 
-    if [ "$a" = "@@" ] ; then
-      use_args="$use_args $crash"
+    case "$a" in
+      *@@*)
       unset use_stdio
-    else
+      use_args="$use_args `printf %s "$a" | sed -e 's<@@<'$crash'<g'`"
+      ;;
+      *)
       use_args="$use_args $a"
-    fi
+      ;;
+    esac
 
   done
 

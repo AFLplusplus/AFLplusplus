@@ -45,7 +45,6 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -53,7 +52,9 @@
 #include <netinet/ip6.h>
 #include <arpa/inet.h>
 #include <sys/mman.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/socket.h>
 #include <netdb.h>
 

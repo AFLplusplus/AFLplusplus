@@ -3,42 +3,6 @@
 In the following, we describe a variety of ideas that could be implemented
 for future AFL++ versions.
 
-# GSoC 2021
-
-All GSoC 2021 projects will be in the Rust development language!
-
-## UI for libaflrs
-
-Write a user interface to libaflrs, the upcoming backend of afl++.
-This might look like the afl-fuzz UI, but you can improve on it - and should!
-
-## Schedulers for libaflrs
-
-Schedulers is a mechanism that selects items from the fuzzing corpus based
-on strategy and randomness. One scheduler might focus on long paths,
-another on rarity of edges disocvered, still another on a combination on
-things. Some of the schedulers in afl++ have to be ported, but you are free
-to come up with your own if you want to - and see how it performs.
-
-## Forkserver support for libaflrs
-
-The current libaflrs implementation fuzzes in-memory, however obviously we
-want to support afl instrumented binaries as well.
-Hence a forkserver support needs to be implemented - forking off the target
-and talking to the target via a socketpair and the communication protocol
-within.
-
-## More Observers for libaflrs
-
-An observer is measuring functionality that looks at the target being fuzzed
-and documents something about it. In traditional fuzzing this is the coverage
-in the target, however we want to add various more observers, e.g. stack depth,
-heap usage, etc. - this is a topic for an experienced Rust developer.
-
-# Generic ideas and wishlist - NOT PART OF GSoC 2021 !
-
-The below list is not part of GSoC 2021.
-
 ## Analysis software
 
 Currently analysis is done by using afl-plot, which is rather outdated.
@@ -64,6 +28,19 @@ WASM AST, or by patching feedback into a WASM VMs of choice, similar to
 the current Unicorn instrumentation.
 
 Mentor: any
+
+## Support other programming languages
+
+Other programming languages also use llvm hence they could (easily?) supported
+for fuzzing, e.g. mono, swift, go, kotlin native, fortran, ...
+
+GCC also supports: Objective-C, Fortran, Ada, Go, and D
+(according to [Gcc homepage](https://gcc.gnu.org/))
+
+LLVM is also used by: Rust, LLGo (Go), kaleidoscope (Haskell), flang (Fortran), emscripten (JavaScript, WASM), ilwasm (CIL (C#))
+(according to [LLVM frontends](https://gist.github.com/axic/62d66fb9d8bccca6cc48fa9841db9241))
+
+Mentor: vanhauser-thc
 
 ## Machine Learning
 

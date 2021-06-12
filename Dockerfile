@@ -37,7 +37,7 @@ RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main
 
 RUN apt-get update && apt-get full-upgrade -y && \
     apt-get -y install --no-install-suggests --no-install-recommends \
-    gcc-10 g++-10 gcc-10-plugin-dev gcc-10-multilib gdb lcov \
+    gcc-10 g++-10 gcc-10-plugin-dev gcc-10-multilib gcc-multilib gdb lcov \
     clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
     libc++abi1-12 libc++abi-12-dev libclang1-12 libclang-12-dev \
     libclang-common-12-dev libclang-cpp12 libclang-cpp12-dev liblld-12 \
@@ -50,6 +50,7 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
 
 ENV LLVM_CONFIG=llvm-config-12
 ENV AFL_SKIP_CPUFREQ=1
+ENV AFL_TRY_AFFINITY=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 
 RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov /afl-cov
@@ -61,8 +62,10 @@ WORKDIR /AFLplusplus
 RUN export CC=gcc-10 && export CXX=g++-10 && make clean && \
     make distrib && make install && make clean
 
-RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
-RUN echo 'export PS1="[afl++]$PS1"' >> ~/.bashrc
+RUN sh -c 'echo set encoding=utf-8 > /root/.vimrc'
+RUN echo '. /etc/bash_completion' >> ~/.bashrc
+RUN echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc
+RUN echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc
 ENV IS_DOCKER="1"
 
 # Disabled until we have the container ready
