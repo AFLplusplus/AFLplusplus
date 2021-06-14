@@ -73,6 +73,7 @@ struct unusual_values_state {
 
   u8 map[UNUSUAL_MAP_SIZE / 8];
   u8 virgin[UNUSUAL_MAP_SIZE / 8];
+  u8 crash[UNUSUAL_MAP_SIZE / 8];
 
   struct single_var_invariant single_invariants[UNUSUAL_MAP_SIZE];
   struct pair_vars_invariant  pair_invariants[UNUSUAL_MAP_SIZE];
@@ -85,6 +86,7 @@ inline void unusual_values_state_init(struct unusual_values_state *state) {
 
   // memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
   memset(state->virgin, 0xff, UNUSUAL_MAP_SIZE / 8);
+  memset(state->crash, 0xff, UNUSUAL_MAP_SIZE / 8);
   state->learning = 1;
 
 }

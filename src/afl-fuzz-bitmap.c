@@ -504,6 +504,41 @@ u8 is_unusual(afl_state_t *afl) {
 
 }
 
+u8 is_unusual_crash(afl_state_t *afl) {
+
+  if (unlikely(!afl->shm.unusual_mode)) { return 0; }
+
+  u64 *current_begin = (u64 *)afl->shm.unusual->map;
+  u64 *current = current_begin;
+  u64 *current_end =
+      (u64 *)(afl->shm.unusual->map + sizeof(afl->shm.unusual->map));
+  u64 *virgin = (u64 *)afl->shm.unusual->crash;
+  u8   has_new = 0;
+  for (; current < current_end; virgin += 8, current += 8) {
+\
+#define UNROLL(idx)                 \
+  if (current[idx] & virgin[idx]) { \
+                                    \
+    has_new = 1;                    \
+    virgin[idx] &= ~current[idx];   \
+                                    \
+  }
+    UNROLL(0)
+    UNROLL(1)
+    UNROLL(2)
+    UNROLL(3)
+    UNROLL(4)
+    UNROLL(5)
+    UNROLL(6)
+    UNROLL(7)
+#undef UNROLL
+
+  }
+
+  return has_new;
+
+}
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
@@ -767,7 +802,13 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault,
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
-        if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
+        u8 has_new = has_new_bits(afl, afl->virgin_crash);
+
+        if (!has_new && check_unusual && is_unusual_crash(afl)) has_new = 1;
+
+        // if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
+
+        if (!has_new) { return keeping; }
 
       }
 

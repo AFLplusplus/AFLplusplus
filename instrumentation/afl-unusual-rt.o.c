@@ -50,7 +50,13 @@ struct unusual_values_state *__afl_unusual = &__afl_unusual_dummy;
   } while (0)
 
 #define UPDATE_MAP(k) SET_BIT(__afl_unusual->map, k)
-#define UPDATE_VIRGIN(k) SET_BIT(__afl_unusual->virgin, k)
+#define UPDATE_VIRGIN(k)               \
+  {                                    \
+                                       \
+    SET_BIT(__afl_unusual->virgin, k); \
+    SET_BIT(__afl_unusual->crash, k);  \
+                                       \
+  }
 // #define UPDATE_VIRGIN(k)
 
 static void patch_caller(uint8_t *retaddr) {
