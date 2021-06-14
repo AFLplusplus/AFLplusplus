@@ -204,21 +204,23 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
-  printf(
-      "============================== INFO ================================\n"
-      "This binary is built for afl++.\n"
-      "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
-      "option\n"
-      "To run the target function on individual input(s) execute this:\n"
-      "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
-      "To fuzz with afl-fuzz execute this:\n"
-      "  afl-fuzz [afl-flags] -- %s [-N]\n"
-      "afl-fuzz will run N iterations before re-spawning the process (default: "
-      "INT_MAX)\n"
-      "For stdin input processing, pass '-' as single command line option.\n"
-      "For file input processing, pass '@@' as single command line option.\n"
-      "===================================================================\n",
-      argv[0], argv[0]);
+  if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
+    printf(
+        "============================== INFO ================================\n"
+        "This binary is built for afl++.\n"
+        "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
+        "option\n"
+        "To run the target function on individual input(s) execute this:\n"
+        "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
+        "To fuzz with afl-fuzz execute this:\n"
+        "  afl-fuzz [afl-flags] -- %s [-N]\n"
+        "afl-fuzz will run N iterations before re-spawning the process "
+        "(default: "
+        "INT_MAX)\n"
+        "For stdin input processing, pass '-' as single command line option.\n"
+        "For file input processing, pass '@@' as single command line option.\n"
+        "===================================================================\n",
+        argv[0], argv[0]);
 
   if (getenv("AFL_GDB")) {
 
