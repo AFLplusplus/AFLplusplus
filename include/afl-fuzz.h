@@ -478,9 +478,7 @@ typedef struct afl_state {
 
   u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
 
-  u8 cal_cycles,                        /* Calibration cycles defaults      */
-      cal_cycles_long,                  /* Calibration cycles defaults      */
-      havoc_stack_pow2,                 /* HAVOC_STACK_POW2                 */
+  u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
