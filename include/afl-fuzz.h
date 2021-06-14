@@ -629,6 +629,9 @@ typedef struct afl_state {
   struct queue_entry **queue_buf;
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
+  struct queue_entry **top_rated_unusual;   /* Top entries for unusual      */
+
+  u8 *unusual_item_changed;
 
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */

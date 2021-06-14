@@ -353,7 +353,22 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   if (afl->shm.unusual_mode && afl->shm.unusual->learning) {
 
+    write_to_testcase(afl, use_mem, q->len);
+
     fuzz_run_target(afl, &afl->unusual_fsrv, use_tmout);
+
+    /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
+       we want to bail out quickly. */
+
+    if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration; }
+
+    if (!afl->non_instrumented_mode && !afl->stage_cur &&
+        !count_bytes(afl, afl->unusual_fsrv.trace_bits)) {
+
+      fault = FSRV_RUN_NOINST;
+      goto abort_calibration;
+
+    }
 
   }
 

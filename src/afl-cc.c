@@ -553,25 +553,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if (unusual_mode) {
-
-      if (lto_mode && !have_c) {
-
-        cc_params[cc_par_cnt++] =
-            alloc_printf("-Wl,-mllvm=-load=%s/afl-unusual-pass.so", obj_path);
-
-      } else {
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-unusual-pass.so", obj_path);
-
-      }
-
-    }
-
 #if LLVM_MAJOR >= 13
     // fuck you llvm 13
     cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
@@ -1011,6 +992,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  if (unusual_mode) {
+
+    if (lto_mode && !have_c) {
+
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/afl-unusual-pass.so", obj_path);
+
+    } else {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-unusual-pass.so", obj_path);
+
+    }
+
+  }
+
 #ifndef __ANDROID__
 
   if (compiler_mode != GCC && compiler_mode != CLANG) {
@@ -1022,9 +1022,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
-          if (unusual_mode)
-            cc_params[cc_par_cnt++] =
-                alloc_printf("%s/afl-unusual-rt.o", obj_path);
+          // if (unusual_mode)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-unusual-rt.o", obj_path);
 
         }
 
@@ -1040,9 +1040,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
           if (access(cc_params[cc_par_cnt - 1], R_OK))
             FATAL("-m32 is not supported by your compiler");
-          if (unusual_mode)
-            cc_params[cc_par_cnt++] =
-                alloc_printf("%s/afl-unusual-rt-32.o", obj_path);
+          // if (unusual_mode)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-unusual-rt-32.o", obj_path);
 
         }
 
@@ -1064,9 +1064,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
           if (access(cc_params[cc_par_cnt - 1], R_OK))
             FATAL("-m64 is not supported by your compiler");
-          if (unusual_mode)
-            cc_params[cc_par_cnt++] =
-                alloc_printf("%s/afl-unusual-rt-64.o", obj_path);
+          // if (unusual_mode)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-unusual-rt-64.o", obj_path);
 
         }
 

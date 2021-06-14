@@ -2045,7 +2045,6 @@ int main(int argc, char **argv_orig, char **envp) {
   u32 runs_in_current_cycle = (u32)-1;
   u32 prev_queued_paths = 0;
   u8  skipped_fuzz;
-  u8  prev_learning = 0;
 
   #ifdef INTROSPECTION
   char ifn[4096];
@@ -2084,10 +2083,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
       // Set learning with a given probability
       // TODO find a better policy
-      /*if (afl->queue_cycle && prev_learning && afl->shm.unusual_mode) {
+      if (afl->queue_cycle && afl->shm.unusual->learning &&
+          afl->shm.unusual_mode) {
 
         afl->shm.unusual->learning = 0;
         // afl->shm.unusual->learning = rand_below(afl, 4) == 0;
+        afl->clear_screen = 1;
+
+      }
+
+      /*if (afl->shm.unusual_mode && afl->queue_cycle) {
+
+        u8 prev_learning = afl->shm.unusual->learning;
+        afl->shm.unusual->learning = !prev_learning;
         afl->clear_screen = 1;
 
       }*/
@@ -2307,8 +2315,6 @@ int main(int argc, char **argv_orig, char **envp) {
       skipped_fuzz = fuzz_one(afl);
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
-
-      if (afl->shm.unusual_mode) prev_learning = afl->shm.unusual->learning;
 
       if (unlikely(afl->old_seed_selection)) {
 

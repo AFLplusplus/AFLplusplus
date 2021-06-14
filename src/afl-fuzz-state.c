@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "unusual.h"
 #include "envs.h"
 
 s8  interesting_8[] = {INTERESTING_8};
@@ -119,6 +120,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->virgin_crash = ck_alloc(map_size);
   afl->var_bytes = ck_alloc(map_size);
   afl->top_rated = ck_alloc(map_size * sizeof(void *));
+  afl->top_rated_unusual = ck_alloc(UNUSUAL_MAP_SIZE * sizeof(void *));
+  afl->unusual_item_changed = ck_alloc(UNUSUAL_MAP_SIZE);
   afl->clean_trace = ck_alloc(map_size);
   afl->clean_trace_custom = ck_alloc(map_size);
   afl->first_trace = ck_alloc(map_size);
@@ -555,6 +558,8 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->virgin_crash);
   ck_free(afl->var_bytes);
   ck_free(afl->top_rated);
+  ck_free(afl->top_rated_unusual);
+  ck_free(afl->unusual_item_changed);
   ck_free(afl->clean_trace);
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);

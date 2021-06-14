@@ -50,8 +50,8 @@ struct unusual_values_state *__afl_unusual = &__afl_unusual_dummy;
   } while (0)
 
 #define UPDATE_MAP(k) SET_BIT(__afl_unusual->map, k)
-// #define UPDATE_VIRGIN(k) SET_BIT(__afl_unusual->map, k)
-#define UPDATE_VIRGIN(k)
+#define UPDATE_VIRGIN(k) SET_BIT(__afl_unusual->virgin, k)
+// #define UPDATE_VIRGIN(k)
 
 static void patch_caller(uint8_t *retaddr) {
 
@@ -532,6 +532,8 @@ u32 __afl_unusual_values_1(u32 k, u64 x, u8 always_true) {
   u32 r = unusual_values_single((uint8_t *)__builtin_return_address(0), k, x,
                                 always_true);
 
+  UPDATE_MAP(r);
+
   // if (unusual)
   //  fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,
   //          (unsigned long long)x);
@@ -545,6 +547,8 @@ u32 __afl_unusual_values_2(u32 k, u64 x, u64 y) {
   // if (!__afl_unusual) return 0;
 
   u32 r = unusual_values_pair((uint8_t *)__builtin_return_address(0), k, x, y);
+
+  UPDATE_MAP(r);
 
   // if (unusual)
   //  fprintf(stderr, "(%x) unusual = %d, x = %llu, y = %llu\n", k, unusual,

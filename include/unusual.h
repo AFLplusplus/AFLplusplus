@@ -24,7 +24,7 @@
 #define UNUSUAL_MAP_SIZE 65536
 
 #define INV_ONEOF_MAX_NUM_VALS 8
-#define INV_EXECS_MIN_BOUND 64
+#define INV_EXECS_MIN_BOUND 32
 
 enum {
 
@@ -38,6 +38,11 @@ enum {
   INV_ONEOF,
   INV_ALL,
 
+  // ptr invariants (reuse INV_EQ and INV_GT)
+  INV_GT_PAGE,  // greater than PAGE_SIZE
+  INV_HEAP,     // future use, maybe with sbrk(0)
+  INV_STACK,    // check if below __builtin_frame_address(0)
+
 };
 
 struct single_var_invariant {
@@ -46,6 +51,13 @@ struct single_var_invariant {
   u8  num_vals;
   u8  execs;
   u8  invariant;
+
+};
+
+struct single_ptr_invariant {
+
+  u8 execs;
+  u8 invariant;
 
 };
 

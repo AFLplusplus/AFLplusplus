@@ -49,9 +49,9 @@ u8 common_fuzz_unusual_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  write_to_testcase(afl, out_buf, len);
-
   unusual_values_state_reset(afl->shm.unusual);
+
+  write_to_testcase(afl, out_buf, len);
 
   fault = fuzz_run_target(afl, &afl->unusual_fsrv, afl->fsrv.exec_tmout);
 

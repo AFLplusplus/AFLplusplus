@@ -23,6 +23,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "unusual.h"
 #include <limits.h>
 #include <ctype.h>
 #include <math.h>
@@ -550,6 +551,23 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
+  if (afl->shm.unusual_mode && !afl->shm.unusual->learning) {
+
+    for (i = 0; i < UNUSUAL_MAP_SIZE; i++) {
+
+      if (afl->unusual_item_changed[i]) {
+
+        /* Insert ourselves as the new winner. */
+        afl->top_rated_unusual[i] = q;
+        afl->score_changed = 1;
+        afl->unusual_item_changed[i] = 0;
+
+      }
+
+    }
+
+  }
+
   /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
      winner, and how it compares to us. */
   for (i = 0; i < afl->fsrv.map_size; ++i) {
@@ -660,6 +678,31 @@ void cull_queue(afl_state_t *afl) {
   for (i = 0; i < afl->queued_paths; i++) {
 
     afl->queue_buf[i]->favored = 0;
+
+  }
+
+  if (afl->shm.unusual_mode) {
+
+    for (i = 0; i < UNUSUAL_MAP_SIZE; i++) {
+
+      if (afl->top_rated_unusual[i]) {
+
+        /* if top rated for any i, will be favored */
+        u8 was_favored_already = afl->top_rated_unusual[i]->favored;
+
+        afl->top_rated_unusual[i]->favored = 1;
+
+        /* increments counts only if not also favored for another i */
+        if (!was_favored_already) {
+
+          afl->queued_favored++;
+          if (!afl->top_rated_unusual[i]->was_fuzzed) afl->pending_favored++;
+
+        }
+
+      }
+
+    }
 
   }
 

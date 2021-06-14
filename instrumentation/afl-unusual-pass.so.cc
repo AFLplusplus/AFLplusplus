@@ -380,6 +380,11 @@ bool AFLUnusual::instrumentFunction() {
 
       }
 
+      // TODO get pointer values but avoid to emit checks that compare
+      // pointers to integers
+      // to check single invariants on pointers emit a different check
+      // routine that see if it is NULL or a stack or heap ptr
+
       return false;
 
     };

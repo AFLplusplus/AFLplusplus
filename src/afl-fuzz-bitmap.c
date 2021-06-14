@@ -384,8 +384,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   }
 
-  if (new_bits == 2) { strcat(ret, ",+cov"); }
-  if (new_bits == 3) { strcat(ret, ",+un"); }
+  if (new_bits == 2 || new_bits == 5) { strcat(ret, ",+cov"); }
+  if (new_bits >= 3) { strcat(ret, ",+un"); }
 
   if (unlikely(strlen(ret) >= max_description_len))
     FATAL("describe string is too long");
@@ -455,19 +455,37 @@ u8 is_unusual(afl_state_t *afl) {
 
   if (unlikely(!afl->shm.unusual_mode)) { return 0; }
 
-  u64 *current = (u64 *)afl->shm.unusual->map;
+  u64 *current_begin = (u64 *)afl->shm.unusual->map;
+  u64 *current = current_begin;
   u64 *current_end =
       (u64 *)(afl->shm.unusual->map + sizeof(afl->shm.unusual->map));
   u64 *virgin = (u64 *)afl->shm.unusual->virgin;
   u8   has_new = 0;
   for (; current < current_end; virgin += 8, current += 8) {
 \
-#define UNROLL(idx)                 \
-  if (current[idx] & virgin[idx]) { \
-                                    \
-    has_new = 1;                    \
-    virgin[idx] &= ~current[idx];   \
-                                    \
+#define GET_BIT(_ar, _b) !!((((u8 *)(_ar))[(_b) >> 3] & (128 >> ((_b)&7))))
+#define UNROLL(idx)                                                       \
+  if (current[idx] & virgin[idx]) {                                       \
+                                                                          \
+    if (GET_BIT(current, 0))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 0] = 1; \
+    if (GET_BIT(current, 1))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 1] = 1; \
+    if (GET_BIT(current, 2))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 2] = 1; \
+    if (GET_BIT(current, 3))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 3] = 1; \
+    if (GET_BIT(current, 4))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 4] = 1; \
+    if (GET_BIT(current, 5))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 5] = 1; \
+    if (GET_BIT(current, 6))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 6] = 1; \
+    if (GET_BIT(current, 7))                                              \
+      afl->unusual_item_changed[(&current[idx] - current_begin) + 7] = 1; \
+    has_new = 1;                                                          \
+    virgin[idx] &= ~current[idx];                                         \
+                                                                          \
   }
     UNROLL(0)
     UNROLL(1)
@@ -478,6 +496,7 @@ u8 is_unusual(afl_state_t *afl) {
     UNROLL(6)
     UNROLL(7)
 #undef UNROLL
+#undef GET_BIT
 
   }
 
@@ -524,7 +543,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault,
 
     new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
 
-    if (check_unusual && is_unusual(afl) && !new_bits) new_bits = 3;
+    if (check_unusual && is_unusual(afl)) {
+
+      if (!new_bits) classify_counts(&afl->fsrv);
+      new_bits += 3;
+
+    }
 
     if (likely(!new_bits)) {
 
