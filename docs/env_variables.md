@@ -108,9 +108,6 @@ make fairly broad use of environmental variables instead:
   - Setting `AFL_QUIET` will prevent afl-cc and afl-as banners from being
     displayed during compilation, in case you find them distracting.
 
-  - Setting `AFL_CAL_FAST` will speed up the initial calibration, if the
-    application is very slow.
-
 ## 2) Settings for LLVM and LTO: afl-clang-fast / afl-clang-fast++ / afl-clang-lto / afl-clang-lto++
 
 The native instrumentation helpers (instrumentation and gcc_plugin) accept a subset
@@ -386,6 +383,7 @@ checks or alter some of the more exotic semantics of the tool:
 
   - `AFL_FAST_CAL` keeps the calibration stage about 2.5x faster (albeit less
     precise), which can help when starting a session against a slow target.
+    `AFL_CAL_FAST` works too.
 
   - The CPU widget shown at the bottom of the screen is fairly simplistic and
     may complain of high load prematurely, especially on systems with low core

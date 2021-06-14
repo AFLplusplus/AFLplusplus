@@ -96,9 +96,8 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   static constexpr const char *ignoreSubstringList[] = {
 
-      "__asan",       "__msan",     "__ubsan", "__lsan",
-      "__san",        "__sanitize", "__cxx",   "_GLOBAL__",
-      "DebugCounter", "DwarfDebug", "DebugLoc"
+      "__asan", "__msan",       "__ubsan",    "__lsan",  "__san", "__sanitize",
+      "__cxx",  "DebugCounter", "DwarfDebug", "DebugLoc"
 
   };
 
