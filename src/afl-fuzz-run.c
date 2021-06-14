@@ -355,6 +355,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
+    if (unlikely(afl->debug)) { DEBUGF("calibration stage %d/%d\n", afl->stage_cur+1, afl->stage_max); }
+
     u64 cksum;
 
     write_to_testcase(afl, use_mem, q->len);
@@ -400,6 +402,15 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
           }
 
+        }
+
+        if (unlikely(!var_detected)) {
+          // note: from_queue seems to only be set during initialization
+          if (afl->afl_env.afl_no_ui || from_queue) {
+            WARNF("instability detected during calibration\n");
+          } else if (afl->debug) {
+            DEBUGF("instability detected during calibration\n");
+          }
         }
 
         var_detected = 1;
