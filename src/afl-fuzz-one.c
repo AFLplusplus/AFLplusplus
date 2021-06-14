@@ -73,7 +73,7 @@ static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
 /* Helper to choose random block len for block operations in fuzz_one().
    Doesn't return zero, provided that max_len is > 0. */
 
-static u32 choose_block_len(afl_state_t *afl, u32 limit) {
+static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   u32 min_value, max_value;
   u32 rlim = MIN(afl->queue_cycle, (u32)3);
