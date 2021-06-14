@@ -102,9 +102,11 @@ struct AFLUnusual {
   Function *dbgDeclareFn;
 
   FunctionCallee unusualValuesFns[6];
+  FunctionCallee unusualValuesPtrFn;
   FunctionCallee unusualValuesLogFn;
 
   bool noSingle = false;
+  bool noPtrs = false;
 
   LLVMContext *C;
   Module &     M;
@@ -169,6 +171,8 @@ void AFLUnusual::initialize() {
   unusualValuesFns[2] = M.getOrInsertFunction(
       "__afl_unusual_values_3", Int32Ty, Int32Ty, Int64Ty, Int64Ty, Int64Ty);
 
+  unusualValuesPtrFn = M.getOrInsertFunction("__afl_unusual_values_ptr", Int32Ty, Int32Ty, Int8PTy, Int8Ty);
+
   unusualValuesLogFn =
       M.getOrInsertFunction("__afl_unusual_values_log", VoidTy, Int32Ty);
 
@@ -188,6 +192,7 @@ void AFLUnusual::initialize() {
     be_quiet = 1;
 
   noSingle = !!getenv("AFL_NO_SINGLE_UNUSUAL_VALUES");
+  noPtrs = !!getenv("AFL_NO_PTR_UNUSUAL_VALUES");
 
 }
 
@@ -231,6 +236,18 @@ static void MergeComp(std::map<Value *, int> &Comp, int &CompID, Value *A,
     }
 
   }
+
+}
+
+static bool IsAlloca(Value* V) {
+
+  // we assume it is a ptr instruction
+  if (isa<AllocaInst>(V)) return true;
+  if (auto C = dyn_cast<CastInst>(V)) {
+    return IsAlloca(C->getOperand(0));
+  }
+  
+  return false;
 
 }
 
@@ -282,9 +299,17 @@ bool AFLUnusual::instrumentFunction() {
 
     for (auto &I : *BB) {
 
-      if (LoadInst *L = dyn_cast<LoadInst>(&I)) AddComp(Comp, CompID, L);
+      if (auto *L = dyn_cast<LoadInst>(&I)) {
 
-      if (DbgValueInst *DbgValue = dyn_cast<DbgValueInst>(&I)) {
+        AddComp(Comp, CompID, L);
+        AddComp(Comp, CompID, L->getPointerOperand());
+
+      } else if (auto ST = dyn_cast<StoreInst>(&I)) {
+
+        AddComp(Comp, CompID, ST->getPointerOperand());
+        AddComp(Comp, CompID, ST->getValueOperand());
+
+      } else if (auto *DbgValue = dyn_cast<DbgValueInst>(&I)) {
 
         Value *V = DbgValue->getValue();
         if (V && !isa<Constant>(V)) {
@@ -294,7 +319,7 @@ bool AFLUnusual::instrumentFunction() {
 
         }
 
-      } else if (ReturnInst *RI = dyn_cast<ReturnInst>(&I)) {
+      } else if (auto *RI = dyn_cast<ReturnInst>(&I)) {
 
         Value *V = RI->getReturnValue();
         if (V && !isa<Constant>(V)) {
@@ -378,12 +403,21 @@ bool AFLUnusual::instrumentFunction() {
 
         }
 
-      }
+      } else if (!noPtrs && T->getTypeID() == Type::PointerTyID) {
+      
+        //if (!AA.pointsToConstantMemory(V)) {
+        
+          // TODO get pointer values but avoid to emit checks that compare
+          // pointers to integers
+          // to check single invariants on pointers emit a different check
+          // routine that see if it is NULL or a stack or heap ptr
 
-      // TODO get pointer values but avoid to emit checks that compare
-      // pointers to integers
-      // to check single invariants on pointers emit a different check
-      // routine that see if it is NULL or a stack or heap ptr
+          CompArgs[CompID].insert(V);
+          return true;
+        
+        //}
+
+      }
 
       return false;
 
@@ -407,7 +441,7 @@ bool AFLUnusual::instrumentFunction() {
         if (!isa<PointerType>(GEP->getSourceElementType())) continue;
         if (!GEP->hasIndices()) continue;
 
-        // GroupVar(GEP->getPointerOperand());
+        GroupVar(GEP->getPointerOperand());
 
         for (auto Idx = GEP->idx_begin(); Idx != GEP->idx_end(); ++Idx) {
 
@@ -417,12 +451,12 @@ bool AFLUnusual::instrumentFunction() {
 
       } else if (auto LD = dyn_cast<LoadInst>(&I)) {
 
-        // GroupVar(LD->getPointerOperand());
+        GroupVar(LD->getPointerOperand());
         GroupVar(LD);
 
       } else if (auto ST = dyn_cast<StoreInst>(&I)) {
 
-        // GroupVar(ST->getPointerOperand());
+        GroupVar(ST->getPointerOperand());
         GroupVar(ST->getValueOperand());
 
       }
@@ -445,11 +479,17 @@ bool AFLUnusual::instrumentFunction() {
           Dumpeds1.insert(X);
 
         }
+        
+        if (X->getType()->getTypeID() == Type::PointerTyID && IsAlloca(X)) {
+          
+          Dumpeds1.insert(X);
+          
+        }
 
         if (LoadInst *L = dyn_cast<LoadInst>(X)) {
 
           // Skip load from constant mem
-          if (AA.pointsToConstantMemory(L)) {
+          if (AA.pointsToConstantMemory(L->getPointerOperand())) {
 
             // errs() << "COSNT MEM  " << *L << "\n";
             Dumpeds1.insert(X);
@@ -460,12 +500,11 @@ bool AFLUnusual::instrumentFunction() {
 
         if (!noSingle && Dumpeds1.find(X) == Dumpeds1.end()) {
 
-          XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
-
           Range Rng = RA.getRange(X);
 
           bool MustCheck = false;
           u8   always_true = INV_ALL;
+          u8   always_ptr_true = INV_ALL;
 
           if (!Rng.isUnknown() && !Rng.isEmpty()) {
 
@@ -483,6 +522,8 @@ bool AFLUnusual::instrumentFunction() {
               if (A >= 0 && B > 0) always_true = INV_GE;
               if (A < 0 && B < 0) always_true = INV_LT;
               if (A < 0 && B <= 0) always_true = INV_LE;
+              
+              if ((uint64_t)A >= 4096) always_ptr_true = INV_GE_PAGE;
 
               // if (!((A > 0 && B > 0) || (A < 0 && B < 0) || (A == B))) {
 
@@ -500,11 +541,31 @@ bool AFLUnusual::instrumentFunction() {
 
           if (MustCheck) {
 
+            CallInst *CI;
             Key = AFL_R(UNUSUAL_MAP_SIZE);
-            CallInst *CI = IRB.CreateCall(
-                unusualValuesFns[0],
-                ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB,
-                                  ConstantInt::get(Int8Ty, always_true, true)});
+            
+            if (X->getType()->getTypeID() == Type::IntegerTyID) {
+
+              XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
+              //XB->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+
+              CI = IRB.CreateCall(
+                  unusualValuesFns[0],
+                  ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB,
+                                    ConstantInt::get(Int8Ty, always_true, true)});
+                                    
+            } else { // Pointer
+            
+              auto* XP = IRB.CreateBitCast(X, Int8PTy);
+              //XP->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+            
+              CI = IRB.CreateCall(
+                  unusualValuesPtrFn,
+                  ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XP,
+                                    ConstantInt::get(Int8Ty, always_ptr_true, true)});
+            
+            }
+
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls1;
 
@@ -525,19 +586,28 @@ bool AFLUnusual::instrumentFunction() {
           for (auto Y : O.second) {
 
             if (X == Y ||
+                X->getType()->getTypeID() != Y->getType()->getTypeID() ||
                 Dumpeds2.find(std::make_pair(X, Y)) != Dumpeds2.end() ||
                 Dumpeds2.find(std::make_pair(Y, X)) != Dumpeds2.end())
               continue;
-
-            if (XB == nullptr) XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
-
-            Value *YB = IRB.CreateZExtOrBitCast(Y, Int64Ty);
-
+            
+            if (X->getType()->getTypeID() == Type::PointerTyID && IsAlloca(X) && IsAlloca(Y)) continue;
+            
+            CallInst *CI;
             Key = AFL_R(UNUSUAL_MAP_SIZE);
-            CallInst *CI = IRB.CreateCall(
+
+            if (XB == nullptr) {
+              XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
+              //XB->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
+            }
+
+            auto *YB = IRB.CreateZExtOrBitCast(Y, Int64Ty);
+
+            CI = IRB.CreateCall(
                 unusualValuesFns[1],
                 ArrayRef<Value *>{ConstantInt::get(Int32Ty, Key, true), XB,
                                   YB});
+
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls2;
 
@@ -551,11 +621,11 @@ bool AFLUnusual::instrumentFunction() {
 
       }
 
-      FunctionModified = true;
-
     }
 
     if (Rets.size()) {
+    
+      FunctionModified = true;
 
       Value *Hash = nullptr;
       for (auto V : Rets) {

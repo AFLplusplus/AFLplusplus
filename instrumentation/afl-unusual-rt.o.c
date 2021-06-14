@@ -525,6 +525,183 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
 }
 
+static uintptr_t stack_end = UINTPTR_MAX;
+
+__attribute__((constructor)) void register_stack_end(void) {
+
+  int dummy;
+  
+  long page_size = sysconf(_SC_PAGE_SIZE);
+  stack_end = (uintptr_t)&dummy & ~(page_size - 1) + page_size;
+
+}
+
+static int is_stack(uintptr_t p) {
+
+  int dummy;
+  uintptr_t sp = (uintptr_t)&dummy;
+  
+  long page_size = sysconf(_SC_PAGE_SIZE);
+  uintptr_t page = sp & ~(page_size - 1);
+  
+  return p >= page && p < stack_end;
+
+}
+
+static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_true) {
+
+  u32 ret = 0;
+
+  uintptr_t first_page = (uintptr_t)sysconf(_SC_PAGE_SIZE);
+  int learning = __afl_unusual->learning;
+
+  struct single_var_invariant *inv = &__afl_unusual->single_invariants[k];
+
+  switch (inv->invariant) {
+
+    case INV_NONE: {
+
+      if (learning) {
+
+        ++inv->execs;
+        
+        if (x == 0) inv->invariant = INV_EQ;
+        else if (is_stack(x)) inv->invariant = INV_STACK;
+        else if (x >= first_page) inv->invariant = INV_GE_PAGE;
+        else if (x < first_page) inv->invariant = INV_LT_PAGE;
+        else inv->invariant = INV_ALL;
+        
+        if (always_true == inv->invariant || INV_ALL == inv->invariant) {
+
+          inv->invariant = INV_ALL;
+          patch_caller(retaddr);
+
+        }
+
+        UPDATE_VIRGIN(k);
+
+      }
+
+      break;
+
+    }
+    
+    case INV_EQ: {
+
+      if (x == 0) break;
+      if (learning) {
+
+        ++inv->execs;
+        
+        if (x < first_page) inv->invariant = INV_LT_PAGE;
+        else inv->invariant = INV_ALL;
+        
+        if (always_true == inv->invariant || INV_ALL == inv->invariant) {
+
+          inv->invariant = INV_ALL;
+          patch_caller(retaddr);
+
+        }
+
+        UPDATE_VIRGIN(k);
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
+      }
+
+      break;
+
+    }
+
+    case INV_LT_PAGE: {
+
+      if (x < first_page) break;
+      if (learning) {
+
+        ++inv->execs;
+
+        inv->invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+        patch_caller(retaddr);
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
+      }
+
+      break;
+
+    }
+
+    case INV_GE_PAGE: {
+
+      if (x >= first_page) break;
+      if (learning) {
+
+        ++inv->execs;
+
+        inv->invariant = INV_ALL;
+        UPDATE_VIRGIN(k);
+
+        patch_caller(retaddr);
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
+      }
+
+      break;
+
+    }
+
+    case INV_STACK: {
+
+      if (is_stack(x)) break;
+      if (learning) {
+
+        ++inv->execs;
+
+        if (x >= first_page) inv->invariant = INV_GE_PAGE;
+        else inv->invariant = INV_ALL;
+        
+        if (always_true == inv->invariant || INV_ALL == inv->invariant) {
+
+          inv->invariant = INV_ALL;
+          patch_caller(retaddr);
+
+        }
+
+      } else if (inv->execs >= INV_EXECS_MIN_BOUND) {
+
+        ret = k;
+
+      }
+
+      break;
+
+    }
+
+    case INV_ALL: {
+
+      patch_caller(retaddr);
+      break;
+
+    }
+
+    default:
+      break;
+
+  }
+
+  return ret;
+
+}
+
 u32 __afl_unusual_values_1(u32 k, u64 x, u8 always_true) {
 
   // if (!__afl_unusual) return 0;
@@ -553,6 +730,23 @@ u32 __afl_unusual_values_2(u32 k, u64 x, u64 y) {
   // if (unusual)
   //  fprintf(stderr, "(%x) unusual = %d, x = %llu, y = %llu\n", k, unusual,
   //          (unsigned long long)x, (unsigned long long)y);
+
+  return r;
+
+}
+
+u32 __afl_unusual_values_ptr(u32 k, uintptr_t x, u8 always_true) {
+
+  // if (!__afl_unusual) return 0;
+
+  u32 r = unusual_values_ptr((uint8_t *)__builtin_return_address(0), k, x,
+                                always_true);
+
+  UPDATE_MAP(r);
+
+  // if (unusual)
+  //  fprintf(stderr, "(%x) unusual = %d, x = %llu\n", k, unusual,
+  //          (unsigned long long)x);
 
   return r;
 

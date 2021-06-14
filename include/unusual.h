@@ -38,8 +38,9 @@ enum {
   INV_ONEOF,
   INV_ALL,
 
-  // ptr invariants (reuse INV_EQ and INV_GT)
-  INV_GT_PAGE,  // greater than PAGE_SIZE
+  // ptr invariants (reuse INV_EQ)
+  INV_GE_PAGE,  // greater equal than PAGE_SIZE
+  INV_LT_PAGE,  // greater than PAGE_SIZE
   INV_HEAP,     // future use, maybe with sbrk(0)
   INV_STACK,    // check if below __builtin_frame_address(0)
 

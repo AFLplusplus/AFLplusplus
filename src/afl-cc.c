@@ -643,6 +643,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       }
 
     }
+    
+    if (unusual_mode) {
+
+      if (lto_mode && !have_c) {
+
+        cc_params[cc_par_cnt++] =
+            alloc_printf("-Wl,-mllvm=-load=%s/afl-unusual-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/afl-unusual-pass.so", obj_path);
+
+      }
+
+    }
 
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
@@ -989,25 +1008,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
        systems that rely on a separate source preprocessing step. */
     cc_params[cc_par_cnt] = NULL;
     return;
-
-  }
-
-  if (unusual_mode) {
-
-    if (lto_mode && !have_c) {
-
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/afl-unusual-pass.so", obj_path);
-
-    } else {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-unusual-pass.so", obj_path);
-
-    }
 
   }
 
