@@ -520,15 +520,20 @@ void show_stats(afl_state_t *afl) {
   /* Do some bitmap stats. */
   
   u32 t_unusual_bits = 0;
-  double t_unusual_ratio;
-  u64 *current_begin = (u64 *)afl->shm.unusual->virgin;
-  u64 *current = current_begin;
-  u64 *current_end =
-      (u64 *)(afl->shm.unusual->virgin + sizeof(afl->shm.unusual->virgin));
-  for (; current < current_end; current += 8) {
-    t_unusual_bits += __builtin_popcountll(~(long long)*current);
+  double t_unusual_ratio = 0.0;
+
+  if (afl->shm.unusual_mode) {
+
+    u64 *current_begin = (u64 *)afl->shm.unusual->virgin;
+    u64 *current = current_begin;
+    u64 *current_end =
+        (u64 *)(afl->shm.unusual->virgin + sizeof(afl->shm.unusual->virgin));
+    for (; current < current_end; current += 8) {
+      t_unusual_bits += __builtin_popcountll(~(long long)*current);
+    }
+    t_unusual_ratio = ((double)t_unusual_bits * 100) / UNUSUAL_MAP_SIZE;
+
   }
-  t_unusual_ratio = ((double)t_unusual_bits * 100) / UNUSUAL_MAP_SIZE;
 
   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
