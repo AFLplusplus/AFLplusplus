@@ -549,6 +549,20 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(perf_score <= 0)) { goto abandon_entry; }
 
+  // Unusual learning phase
+  
+  if (afl->shm.unusual_mode) {
+  
+    afl->shm.unusual->learning = 1;
+    
+    write_to_testcase(afl, out_buf, len);
+
+    fuzz_run_target(afl, &afl->unusual_fsrv, afl->fsrv.exec_tmout);
+    
+    afl->shm.unusual->learning = 0;
+
+  }
+
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
                (u32)len <= afl->cmplog_max_filesize)) {
