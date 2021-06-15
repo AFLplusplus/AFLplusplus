@@ -557,8 +557,6 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
       if (afl->unusual_item_changed[i]) {
       
-        fprintf(stderr, "AAAAAAAAAAAAAAAAAAAA %d\n", i);
-
         /* Insert ourselves as the new winner. */
         afl->top_rated_unusual[i] = q;
         afl->score_changed = 1;
