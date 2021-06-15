@@ -2150,12 +2150,12 @@ int main(int argc, char **argv_orig, char **envp) {
                       3600 */
                    )) {
 
-        if (afl->shm.unusual_mode) {
+        /*if (afl->shm.unusual_mode) {
 
           afl->shm.unusual->learning = !afl->shm.unusual->learning;
           afl->clear_screen = 1;
 
-        }
+        }*/
 
         /*if (afl->shm.unusual_mode && !prev_learning) {
 

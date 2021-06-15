@@ -82,7 +82,7 @@ struct unusual_values_state {
 
 };
 
-inline void unusual_values_state_init(struct unusual_values_state *state) {
+static inline void unusual_values_state_init(struct unusual_values_state *state) {
 
   // memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
   memset(state->virgin, 0xff, UNUSUAL_MAP_SIZE / 8);
@@ -91,7 +91,7 @@ inline void unusual_values_state_init(struct unusual_values_state *state) {
 
 }
 
-inline void unusual_values_state_reset(struct unusual_values_state *state) {
+static inline void unusual_values_state_reset(struct unusual_values_state *state) {
 
   memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
 
@@ -103,4 +103,3 @@ struct afl_forkserver;
 void unusual_exec_child(struct afl_forkserver *fsrv, char **argv);
 
 #endif
-

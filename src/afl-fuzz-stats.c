@@ -518,6 +518,17 @@ void show_stats(afl_state_t *afl) {
   if (!afl->stats_update_freq) { afl->stats_update_freq = 1; }
 
   /* Do some bitmap stats. */
+  
+  u32 t_unusual_bits = 0;
+  double t_unusual_ratio;
+  u64 *current_begin = (u64 *)afl->shm.unusual->virgin;
+  u64 *current = current_begin;
+  u64 *current_end =
+      (u64 *)(afl->shm.unusual->virgin + sizeof(afl->shm.unusual->virgin));
+  for (; current < current_end; current += 8) {
+    t_unusual_bits += __builtin_popcountll((long long)*current);
+  }
+  t_unusual_ratio = ((double)t_unusual_bits * 100) / UNUSUAL_MAP_SIZE;
 
   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
@@ -789,9 +800,9 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
-  sprintf(tmp, "%0.02f%% / %0.02f%%",
+  sprintf(tmp, "%0.02f%% / %0.02f%% - %0.02f%%",
           ((double)afl->queue_cur->bitmap_size) * 100 / afl->fsrv.map_size,
-          t_byte_ratio);
+          t_byte_ratio, t_unusual_ratio);
 
   SAYF("    map density : %s%-21s" bSTG bV "\n",
        t_byte_ratio > 70

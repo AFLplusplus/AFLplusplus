@@ -99,14 +99,14 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
   int                          learning = __afl_unusual->learning;
   struct single_var_invariant *inv = &__afl_unusual->single_invariants[k];
+  
+  u8 old = inv->invariant;
 
   switch (inv->invariant) {
 
     case INV_NONE: {
 
       if (learning) {
-
-        ++inv->execs;
 
         // inv->num_vals = 0;
         inv->vals[inv->num_vals++] = x;
@@ -123,8 +123,6 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
       if ((s64)x < 0) break;
       if (learning) {
-
-        ++inv->execs;
 
         if (x == 0)
           inv->invariant = INV_LE;
@@ -154,8 +152,6 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if ((s64)x <= 0) break;
       if (learning) {
 
-        ++inv->execs;
-
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -175,8 +171,6 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
       if ((s64)x > 0) break;
       if (learning) {
-
-        ++inv->execs;
 
         if (x == 0)
           inv->invariant = INV_GE;
@@ -206,8 +200,6 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if ((s64)x >= 0) break;
       if (learning) {
 
-        ++inv->execs;
-
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -227,8 +219,6 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
 
       if (x == 0) break;
       if (learning) {
-
-        ++inv->execs;
 
         if ((s64)x > 0)
           inv->invariant = INV_GE;
@@ -258,8 +248,6 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if (x != 0) break;
       if (learning) {
 
-        ++inv->execs;
-
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -288,8 +276,7 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       if (oneof) break;
 
       if (learning) {
-
-        ++inv->execs;
+        
         if (inv->num_vals < INV_ONEOF_MAX_NUM_VALS) {
 
           inv->vals[inv->num_vals++] = x;
@@ -356,6 +343,10 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
       break;
 
   }
+  
+  if (learning) ++inv->execs;
+
+  if (old != inv->invariant) fprintf(stderr, "LEARNING %x %d -- %d %d\n", k, inv->execs, old, inv->invariant);
 
   return ret;
 
@@ -373,8 +364,6 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
     case INV_NONE: {
 
       if (learning) {
-
-        ++inv->execs;
 
         if (x == y)
           inv->invariant = INV_EQ;
@@ -394,8 +383,6 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
       if ((s64)x < (s64)y) break;
       if (learning) {
-
-        ++inv->execs;
 
         if (x == y)
           inv->invariant = INV_LE;
@@ -418,8 +405,6 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if ((s64)x <= (s64)y) break;
       if (learning) {
 
-        ++inv->execs;
-
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -439,8 +424,6 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
       if ((s64)x > (s64)y) break;
       if (learning) {
-
-        ++inv->execs;
 
         if (x == y)
           inv->invariant = INV_GE;
@@ -463,7 +446,6 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if ((s64)x >= (s64)y) break;
       if (learning) {
 
-        ++inv->execs;
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -483,8 +465,7 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
 
       if (x == y) break;
       if (learning) {
-
-        ++inv->execs;
+        
         if ((s64)x > (s64)y)
           inv->invariant = INV_GE;
         else
@@ -506,7 +487,6 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       if (x != y) break;
       if (learning) {
 
-        ++inv->execs;
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -526,6 +506,8 @@ static u32 unusual_values_pair(uint8_t *retaddr, u32 k, u64 x, u64 y) {
       break;
 
   }
+  
+  if (learning) ++inv->execs;
 
   return ret;
 
@@ -569,8 +551,6 @@ static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_tr
 
       if (learning) {
 
-        ++inv->execs;
-        
         if (x == 0) inv->invariant = INV_EQ;
         else if (is_stack(x)) inv->invariant = INV_STACK;
         else if (x >= first_page) inv->invariant = INV_GE_PAGE;
@@ -597,8 +577,6 @@ static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_tr
       if (x == 0) break;
       if (learning) {
 
-        ++inv->execs;
-        
         if (x < first_page) inv->invariant = INV_LT_PAGE;
         else inv->invariant = INV_ALL;
         
@@ -626,8 +604,6 @@ static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_tr
       if (x < first_page) break;
       if (learning) {
 
-        ++inv->execs;
-
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -648,8 +624,6 @@ static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_tr
       if (x >= first_page) break;
       if (learning) {
 
-        ++inv->execs;
-
         inv->invariant = INV_ALL;
         UPDATE_VIRGIN(k);
 
@@ -669,8 +643,6 @@ static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_tr
 
       if (is_stack(x)) break;
       if (learning) {
-
-        ++inv->execs;
 
         if (x >= first_page) inv->invariant = INV_GE_PAGE;
         else inv->invariant = INV_ALL;
@@ -703,6 +675,8 @@ static u32 unusual_values_ptr(uint8_t *retaddr, u32 k, uintptr_t x, u8 always_tr
       break;
 
   }
+  
+  if (learning) ++inv->execs;
 
   return ret;
 
@@ -714,6 +688,8 @@ u32 __afl_unusual_values_1(u32 k, u64 x, u8 always_true) {
 
   u32 r = unusual_values_single((uint8_t *)__builtin_return_address(0), k, x,
                                 always_true);
+
+  //if (r && GET_BIT(__afl_unusual->virgin, r)) fprintf(stderr, "VIOLATED 1 %x\n", r);
 
   UPDATE_MAP(r);
 
@@ -730,6 +706,8 @@ u32 __afl_unusual_values_2(u32 k, u64 x, u64 y) {
   // if (!__afl_unusual) return 0;
 
   u32 r = unusual_values_pair((uint8_t *)__builtin_return_address(0), k, x, y);
+
+  //if (r && GET_BIT(__afl_unusual->virgin, r)) fprintf(stderr, "VIOLATED 2 %x\n", r);
 
   UPDATE_MAP(r);
 
@@ -748,6 +726,8 @@ u32 __afl_unusual_values_ptr(u32 k, uintptr_t x, u8 always_true) {
   u32 r = unusual_values_ptr((uint8_t *)__builtin_return_address(0), k, x,
                                 always_true);
 
+  //if (r && GET_BIT(__afl_unusual->virgin, r)) fprintf(stderr, "VIOLATED P %x\n", r);
+
   UPDATE_MAP(r);
 
   // if (unusual)
@@ -761,6 +741,10 @@ u32 __afl_unusual_values_ptr(u32 k, uintptr_t x, u8 always_true) {
 extern u8 *__afl_area_ptr;
 
 void __afl_unusual_values_log(u32 k) {
+
+  k &= UNUSUAL_MAP_SIZE -1;
+
+  //if (k && GET_BIT(__afl_unusual->virgin, k)) fprintf(stderr, "FILLING %x\n", k);
 
   // if (!__afl_unusual->learning) __afl_area_ptr[k]++;
   UPDATE_MAP(k);

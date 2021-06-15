@@ -381,7 +381,9 @@ bool AFLUnusual::instrumentFunction() {
   for (auto &BB : Blocks) {
 
     std::map<int, std::set<Value *>> CompArgs;
-    std::set<Value *>                Rets;
+    
+    std::set<Value *> Rets;
+    Value* Hash = nullptr;
 
     IRBuilder<> IRB(BB->getTerminator());
 
@@ -396,7 +398,7 @@ bool AFLUnusual::instrumentFunction() {
         TypeSize BitsNum = T->getPrimitiveSizeInBits();
         if (BitsNum <= 64) {
 
-          // Value *I = IRB.CreateZExtOrBitCast(V, Int64Ty);
+          // Value *I = IRB.CreateSExtOrBitCast(V, Int64Ty);
           // CompArgs[CompID].insert(I);
           CompArgs[CompID].insert(V);
           return true;
@@ -436,7 +438,8 @@ bool AFLUnusual::instrumentFunction() {
 
       }
 
-      if (auto GEP = dyn_cast<GetElementPtrInst>(&I)) {
+      // ATM remove GEP as interesting instruction
+      /* if (auto GEP = dyn_cast<GetElementPtrInst>(&I)) {
 
         if (!isa<PointerType>(GEP->getSourceElementType())) continue;
         if (!GEP->hasIndices()) continue;
@@ -449,7 +452,9 @@ bool AFLUnusual::instrumentFunction() {
 
         }
 
-      } else if (auto LD = dyn_cast<LoadInst>(&I)) {
+      } else */
+      
+      if (auto LD = dyn_cast<LoadInst>(&I)) {
 
         GroupVar(LD->getPointerOperand());
         GroupVar(LD);
@@ -462,6 +467,8 @@ bool AFLUnusual::instrumentFunction() {
       }
 
     }
+    
+    int SingleCnt = 0;
 
     for (auto P : CompArgs) {
 
@@ -546,7 +553,7 @@ bool AFLUnusual::instrumentFunction() {
             
             if (X->getType()->getTypeID() == Type::IntegerTyID) {
 
-              XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
+              XB = IRB.CreateSExtOrBitCast(X, Int64Ty);
               //XB->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
 
               CI = IRB.CreateCall(
@@ -568,8 +575,11 @@ bool AFLUnusual::instrumentFunction() {
 
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls1;
+            ++SingleCnt;
 
             Rets.insert(CI);
+            if (Hash == nullptr) Hash = CI;
+            else Hash = IRB.CreateXor(Hash, CI);
 
           }
 
@@ -597,11 +607,11 @@ bool AFLUnusual::instrumentFunction() {
             Key = AFL_R(UNUSUAL_MAP_SIZE);
 
             if (XB == nullptr) {
-              XB = IRB.CreateZExtOrBitCast(X, Int64Ty);
+              XB = IRB.CreateSExtOrBitCast(X, Int64Ty);
               //XB->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             }
 
-            auto *YB = IRB.CreateZExtOrBitCast(Y, Int64Ty);
+            auto *YB = IRB.CreateSExtOrBitCast(Y, Int64Ty);
 
             CI = IRB.CreateCall(
                 unusualValuesFns[1],
@@ -612,6 +622,8 @@ bool AFLUnusual::instrumentFunction() {
             ++Calls2;
 
             Rets.insert(CI);
+            if (Hash == nullptr) Hash = CI;
+            else Hash = IRB.CreateXor(Hash, CI);
 
             Dumpeds2.insert(std::make_pair(X, Y));
 
@@ -623,22 +635,9 @@ bool AFLUnusual::instrumentFunction() {
 
     }
 
-    if (Rets.size()) {
+    if (Rets.size() && !(SingleCnt == 1 && Rets.size() == 1)) {
     
       FunctionModified = true;
-
-      Value *Hash = nullptr;
-      for (auto V : Rets) {
-
-        if (Hash == nullptr)
-          Hash = V;
-        else {
-
-          Hash = IRB.CreateXor(Hash, V);
-
-        }
-
-      }
 
       CallInst *CI =
           IRB.CreateCall(unusualValuesLogFn, ArrayRef<Value *>{Hash});
