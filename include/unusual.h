@@ -87,7 +87,7 @@ static inline void unusual_values_state_init(struct unusual_values_state *state)
   // memset(state->map, 0, UNUSUAL_MAP_SIZE / 8);
   memset(state->virgin, 0xff, UNUSUAL_MAP_SIZE / 8);
   memset(state->crash, 0xff, UNUSUAL_MAP_SIZE / 8);
-  state->learning = 1;
+  // state->learning = 1;
 
 }
 

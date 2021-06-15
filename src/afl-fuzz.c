@@ -1935,7 +1935,7 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     OKF("Unusual forkserver successfully started");
-    afl->shm.unusual->learning = 1;
+    // afl->shm.unusual->learning = 1;
 
   }
 
@@ -2059,9 +2059,9 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
-  if (getenv("AFL_SKIP_START_LEARNING") && afl->shm.unusual_mode) {
+  /*if (getenv("AFL_SKIP_START_LEARNING") && afl->shm.unusual_mode) {
     afl->shm.unusual->learning = 0;
-  }
+  }*/
     
 
   afl->clear_screen = 1;
@@ -2085,12 +2085,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       // Set learning with a given probability
       // TODO find a better policy
-      if (afl->queue_cycle && afl->shm.unusual_mode) {
+      /*if (afl->queue_cycle && afl->shm.unusual_mode) {
 
         afl->shm.unusual->learning = rand_below(afl, 4) == 0;
         afl->clear_screen = 1;
 
-      }
+      }*/
 
       /*if (afl->shm.unusual_mode && afl->queue_cycle) {
 

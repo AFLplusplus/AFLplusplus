@@ -351,11 +351,15 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  if (afl->shm.unusual_mode && afl->shm.unusual->learning) {
+  if (afl->shm.unusual_mode /* && afl->shm.unusual->learning */) {
+  
+    afl->shm.unusual->learning = 1;
 
     write_to_testcase(afl, use_mem, q->len);
 
     fuzz_run_target(afl, &afl->unusual_fsrv, use_tmout);
+    
+    afl->shm.unusual->learning = 0;
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
@@ -920,7 +924,8 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  if (afl->shm.unusual_mode && afl->shm.unusual->learning == 0)
+  //if (afl->shm.unusual_mode && afl->shm.unusual->learning == 0)
+  if (afl->shm.unusual_mode && rand_below(afl, 16) == 0)
     return common_fuzz_unusual_stuff(afl, out_buf, len);
 
   write_to_testcase(afl, out_buf, len);
