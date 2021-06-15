@@ -526,7 +526,7 @@ void show_stats(afl_state_t *afl) {
   u64 *current_end =
       (u64 *)(afl->shm.unusual->virgin + sizeof(afl->shm.unusual->virgin));
   for (; current < current_end; current += 8) {
-    t_unusual_bits += __builtin_popcountll((long long)*current);
+    t_unusual_bits += __builtin_popcountll(~(long long)*current);
   }
   t_unusual_ratio = ((double)t_unusual_bits * 100) / UNUSUAL_MAP_SIZE;
 

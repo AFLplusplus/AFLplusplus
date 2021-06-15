@@ -100,7 +100,7 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
   int                          learning = __afl_unusual->learning;
   struct single_var_invariant *inv = &__afl_unusual->single_invariants[k];
   
-  u8 old = inv->invariant;
+  // u8 old = inv->invariant;
 
   switch (inv->invariant) {
 
@@ -346,7 +346,7 @@ static u32 unusual_values_single(uint8_t *retaddr, u32 k, u64 x,
   
   if (learning) ++inv->execs;
 
-  if (old != inv->invariant) fprintf(stderr, "LEARNING %x %d -- %d %d\n", k, inv->execs, old, inv->invariant);
+  // if (old != inv->invariant) fprintf(stderr, "LEARNING %x %d -- %d %d\n", k, inv->execs, old, inv->invariant);
 
   return ret;
 

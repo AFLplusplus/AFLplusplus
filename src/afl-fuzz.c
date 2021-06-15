@@ -2059,8 +2059,10 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
-  if (getenv("AFL_SKIP_START_LEARNING") && afl->shm.unusual_mode)
+  if (getenv("AFL_SKIP_START_LEARNING") && afl->shm.unusual_mode) {
     afl->shm.unusual->learning = 0;
+  }
+    
 
   afl->clear_screen = 1;
   show_stats(afl);
@@ -2083,11 +2085,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       // Set learning with a given probability
       // TODO find a better policy
-      if (afl->queue_cycle && afl->shm.unusual->learning &&
-          afl->shm.unusual_mode) {
+      if (afl->queue_cycle && afl->shm.unusual_mode) {
 
-        afl->shm.unusual->learning = 0;
-        // afl->shm.unusual->learning = rand_below(afl, 4) == 0;
+        afl->shm.unusual->learning = rand_below(afl, 4) == 0;
         afl->clear_screen = 1;
 
       }
