@@ -2,6 +2,8 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <syscall.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
 
 #include "frida-gum.h"
 
@@ -10,18 +12,30 @@
 #include "util.h"
 
 #define DEFAULT_MMAP_MIN_ADDR (32UL << 10)
-#define FD_TMP_MAX_SIZE 65536
+#define RANGE_DATA_SIZE (64UL << 10)
+#define RANGE_DATA_MAX                                         \
+  ((RANGE_DATA_SIZE - offsetof(cmplog_range_data_t, ranges)) / \
+   sizeof(GumMemoryRange))
+#define MICRO_TO_SEC 1000000
+#define MINUTE_TO_SEC 60
+#define RANGE_DATA_FREQ (5UL * MINUTE_TO_SEC * MICRO_TO_SEC)
 
 extern struct cmp_map *__afl_cmp_map;
 
-static GArray *cmplog_ranges = NULL;
-static int     fd_tmp = -1;
-static ssize_t fd_tmp_size = 0;
+typedef struct {
+
+  gint64         time;
+  guint          count;
+  GumMemoryRange ranges[0];
+
+} cmplog_range_data_t;
+
+cmplog_range_data_t *range_data = NULL;
 
 static gboolean cmplog_range(const GumRangeDetails *details,
                              gpointer               user_data) {
 
-  UNUSED_PARAMETER(user_data);
+  GArray *       cmplog_ranges = (GArray *)user_data;
   GumMemoryRange range = *details->range;
   g_array_append_val(cmplog_ranges, range);
   return TRUE;
@@ -35,37 +49,38 @@ static gint cmplog_sort(gconstpointer a, gconstpointer b) {
 
 }
 
-static int cmplog_create_temp(void) {
+static void cmplog_get_ranges(void) {
 
-  const char *tmpdir = g_get_tmp_dir();
-  OKF("CMPLOG Temporary directory: %s", tmpdir);
-  gchar *fname = g_strdup_printf("%s/frida-cmplog-XXXXXX", tmpdir);
-  OKF("CMPLOG Temporary file template: %s", fname);
-  int fd = mkstemp(fname);
-  OKF("CMPLOG Temporary file: %s", fname);
+  guint64 current_time = g_get_monotonic_time();
+  if (range_data->time != 0) {
 
-  if (fd < 0) {
-
-    FATAL("Failed to create temp file: %s, errno: %d", fname, errno);
+    if (current_time - range_data->time < RANGE_DATA_FREQ) { return; }
 
   }
 
-  if (unlink(fname) < 0) {
+  OKF("CMPLOG - Collecting ranges");
 
-    FATAL("Failed to unlink temp file: %s (%d), errno: %d", fname, fd, errno);
+  GArray *cmplog_ranges =
+      g_array_sized_new(false, false, sizeof(GumMemoryRange), 100);
+  gum_process_enumerate_ranges(GUM_PAGE_READ, cmplog_range, cmplog_ranges);
+  g_array_sort(cmplog_ranges, cmplog_sort);
+
+  if (cmplog_ranges->len > RANGE_DATA_MAX) {
+
+    FATAL("Too many ranges: %u > %lu", cmplog_ranges->len, RANGE_DATA_MAX);
 
   }
 
-  if (ftruncate(fd, 0) < 0) {
+  range_data->time = current_time;
+  range_data->count = cmplog_ranges->len;
+  for (guint i = 0; i < cmplog_ranges->len; i++) {
 
-    FATAL("Failed to ftruncate temp file: %s (%d), errno: %d", fname, fd,
-          errno);
+    GumMemoryRange *range = &g_array_index(cmplog_ranges, GumMemoryRange, i);
+    memcpy(&range_data->ranges[i], range, sizeof(GumMemoryRange));
 
   }
 
-  g_free(fname);
-
-  return fd;
+  g_array_free(cmplog_ranges, TRUE);
 
 }
 
@@ -73,25 +88,37 @@ void cmplog_init(void) {
 
   if (__afl_cmp_map != NULL) { OKF("CMPLOG mode enabled"); }
 
-  cmplog_ranges = g_array_sized_new(false, false, sizeof(GumMemoryRange), 100);
-  gum_process_enumerate_ranges(GUM_PAGE_READ, cmplog_range, NULL);
-  g_array_sort(cmplog_ranges, cmplog_sort);
+  int shm_id =
+      shmget(IPC_PRIVATE, RANGE_DATA_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
 
-  for (guint i = 0; i < cmplog_ranges->len; i++) {
+  range_data = shmat(shm_id, NULL, 0);
+  g_assert(range_data != MAP_FAILED);
 
-    GumMemoryRange *range = &g_array_index(cmplog_ranges, GumMemoryRange, i);
-    OKF("CMPLOG Range - 0x%016" G_GINT64_MODIFIER "X - 0x%016" G_GINT64_MODIFIER
-        "X",
-        range->base_address, range->base_address + range->size);
+  /*
+   * Configure the shared memory region to be removed once the process dies.
+   */
+  if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
+
+    FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
 
   }
 
-  /*
-   * We can't use /dev/null or /dev/zero for this since it appears that they
-   * don't validate the input buffer. Persumably as an optimization because they
-   * don't actually write any data. The file will be deleted on close.
-   */
-  fd_tmp = cmplog_create_temp();
+  /* Clear it, not sure it's necessary, just seems like good practice */
+  memset(range_data, '\0', RANGE_DATA_SIZE);
+
+  OKF("CMPLOG - RANGE_DATA_MAX: %lu", RANGE_DATA_MAX);
+
+  cmplog_get_ranges();
+
+  for (guint i = 0; i < range_data->count; i++) {
+
+    GumMemoryRange *range = &range_data->ranges[i];
+    OKF("CMPLOG Range - %3u: 0x%016" G_GINT64_MODIFIER
+        "X - 0x%016" G_GINT64_MODIFIER "X",
+        i, range->base_address, range->base_address + range->size);
+
+  }
 
 }
 
@@ -104,7 +131,7 @@ static gboolean cmplog_contains(GumAddress inner_base, GumAddress inner_limit,
 
 gboolean cmplog_is_readable(guint64 addr, size_t size) {
 
-  if (cmplog_ranges == NULL) FATAL("CMPLOG not initialized");
+  if (range_data == NULL) FATAL("CMPLOG not initialized");
 
   /*
    * The Linux kernel prevents mmap from allocating from the very bottom of the
@@ -122,9 +149,9 @@ gboolean cmplog_is_readable(guint64 addr, size_t size) {
   GumAddress inner_base = addr;
   GumAddress inner_limit = inner_base + size;
 
-  for (guint i = 0; i < cmplog_ranges->len; i++) {
+  for (guint i = 0; i < range_data->count; i++) {
 
-    GumMemoryRange *range = &g_array_index(cmplog_ranges, GumMemoryRange, i);
+    GumMemoryRange *range = &range_data->ranges[i];
     GumAddress      outer_base = range->base_address;
     GumAddress      outer_limit = outer_base + range->size;
 
@@ -133,37 +160,7 @@ gboolean cmplog_is_readable(guint64 addr, size_t size) {
 
   }
 
-  /*
-   * Our address map can change (e.g. stack growth), use write as a fallback to
-   * validate our address.
-   */
-  ssize_t written = syscall(__NR_write, fd_tmp, (void *)addr, size);
-
-  /*
-   * If the write succeeds, then the buffer must be valid otherwise it would
-   * return EFAULT
-   */
-  if (written > 0) {
-
-    fd_tmp_size += written;
-    if (fd_tmp_size > FD_TMP_MAX_SIZE) {
-
-      /*
-       * Truncate the file, we don't want our temp file to continue growing!
-       */
-      if (ftruncate(fd_tmp, 0) < 0) {
-
-        FATAL("Failed to truncate fd_tmp (%d), errno: %d", fd_tmp, errno);
-
-      }
-
-      fd_tmp_size = 0;
-
-    }
-
-    if ((size_t)written == size) { return true; }
-
-  }
+  cmplog_get_ranges();
 
   return false;
 
