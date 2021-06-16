@@ -145,8 +145,6 @@ gboolean cmplog_is_readable(guint64 addr, size_t size) {
   /* Check our addres/length don't wrap around */
   if (SIZE_MAX - addr < size) { return false; }
 
-  if (size > MAX_MEMFD_SIZE) { return false; }
-
   GumAddress inner_base = addr;
   GumAddress inner_limit = inner_base + size;
 
