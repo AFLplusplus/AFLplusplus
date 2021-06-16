@@ -233,7 +233,11 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
-  if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
+  if (!outfile || !*outfile) {
+
+    FATAL("Output filename not set (Bug in AFL++?)");
+
+  }
 
   if (cmin_mode &&
       (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
@@ -753,7 +757,9 @@ u32 execute_testcases(u8 *dir) {
 
     }
 
-    // DO
+    if (!collect_coverage)
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, nl[i]->d_name);
+
     if (read_file(fn2)) {
 
       if (wait_for_gdb) {
@@ -800,31 +806,31 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-      "  -o file       - file to write the trace data to\n\n"
+      "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-      "  -t msec       - timeout for each run (none)\n"
-      "  -m megs       - memory limit for child process (%u MB)\n"
-      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
-      "  -Q            - use binary-only instrumentation (QEMU mode)\n"
-      "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
-      "                  (Not necessary, here for consistency with other afl-* "
+      "  -t msec    - timeout for each run (none)\n"
+      "  -m megs    - memory limit for child process (%u MB)\n"
+      "  -O         - use binary-only instrumentation (FRIDA mode)\n"
+      "  -Q         - use binary-only instrumentation (QEMU mode)\n"
+      "  -U         - use Unicorn-based instrumentation (Unicorn mode)\n"
+      "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
+      "               (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
       "Other settings:\n"
-      "  -i dir        - process all files in this directory, must be combined "
+      "  -i dir     - process all files below this directory, must be combined "
       "with -o.\n"
-      "                  With -C, -o is a file, without -C it must be a "
+      "               With -C, -o is a file, without -C it must be a "
       "directory\n"
-      "                  and each bitmap will be written there individually.\n"
-      "  -C            - collect coverage, writes all edges to -o and gives a "
+      "               and each bitmap will be written there individually.\n"
+      "  -C         - collect coverage, writes all edges to -o and gives a "
       "summary\n"
-      "                  Must be combined with -i.\n"
-      "  -q            - sink program's output and don't show messages\n"
-      "  -e            - show edge coverage only, ignore hit counts\n"
-      "  -r            - show real tuple values instead of AFL filter values\n"
-      "  -s            - do not classify the map\n"
-      "  -c            - allow core dumps\n\n"
+      "               Must be combined with -i.\n"
+      "  -q         - sink program's output and don't show messages\n"
+      "  -e         - show edge coverage only, ignore hit counts\n"
+      "  -r         - show real tuple values instead of AFL filter values\n"
+      "  -s         - do not classify the map\n"
+      "  -c         - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
@@ -1259,7 +1265,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } else {
 
-      if ((coverage_map = (u8 *)malloc(map_size)) == NULL)
+      if ((coverage_map = (u8 *)malloc(map_size + 64)) == NULL)
         FATAL("coult not grab memory");
       edges_only = false;
       raw_instr_output = true;
