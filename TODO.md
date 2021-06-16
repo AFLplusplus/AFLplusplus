@@ -2,13 +2,11 @@
 
 ## Roadmap 3.00+
 
- - align map to 64 bytes but keep real IDs
  - Update afl->pending_not_fuzzed for MOpt
  - put fuzz target in top line of UI
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
- - intel-pt tracer
  - better autodetection of shifting runtime timeout values
  - cmplog: use colorization input for havoc?
  - parallel builds for source-only targets

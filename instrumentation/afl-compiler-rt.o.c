@@ -271,12 +271,6 @@ static void __afl_map_shm(void) {
 
   if (__afl_final_loc) {
 
-    if (__afl_final_loc % 64) {
-
-      __afl_final_loc = (((__afl_final_loc + 63) >> 6) << 6);
-
-    }
-
     __afl_map_size = __afl_final_loc;
 
     if (__afl_final_loc > MAP_SIZE) {
