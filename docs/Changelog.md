@@ -31,6 +31,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl_analyze:
     - fix timeout handling
     - add forkserver support for better performance
+  - afl-cmin, afl-cmin.bash and afl-showmap -i do now descend into
+    subdirectories (like afl-fuzz does)
   - ensure afl-compiler-rt is built for gcc_module
 
 ### Version ++3.13c (release)
