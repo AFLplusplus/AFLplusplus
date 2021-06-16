@@ -1019,7 +1019,7 @@ static void __afl_start_forkserver(void) {
 
       if (read(FORKSRV_FD, &was_killed, 4) != 4) {
 
-        write_error("read from afl-fuzz");
+        //write_error("read from afl-fuzz");
         _exit(1);
 
       }
