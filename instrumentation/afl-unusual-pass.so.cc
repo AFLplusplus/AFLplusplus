@@ -577,9 +577,11 @@ bool AFLUnusual::instrumentFunction() {
             ++Calls1;
             ++SingleCnt;
 
-            Rets.insert(CI);
+            /*Rets.insert(CI);
             if (Hash == nullptr) Hash = CI;
-            else Hash = IRB.CreateXor(Hash, CI);
+            else Hash = IRB.CreateXor(Hash, CI);*/
+            
+            FunctionModified = true;
 
           }
 
@@ -621,11 +623,13 @@ bool AFLUnusual::instrumentFunction() {
             CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
             ++Calls2;
 
-            Rets.insert(CI);
+            /*Rets.insert(CI);
             if (Hash == nullptr) Hash = CI;
-            else Hash = IRB.CreateXor(Hash, CI);
+            else Hash = IRB.CreateXor(Hash, CI);*/
 
             Dumpeds2.insert(std::make_pair(X, Y));
+            
+            FunctionModified = true;
 
           }
 
@@ -635,7 +639,7 @@ bool AFLUnusual::instrumentFunction() {
 
     }
 
-    if (Rets.size() && !(SingleCnt == 1 && Rets.size() == 1)) {
+    /*if (Rets.size() && !(SingleCnt == 1 && Rets.size() == 1)) {
     
       FunctionModified = true;
 
@@ -643,7 +647,7 @@ bool AFLUnusual::instrumentFunction() {
           IRB.CreateCall(unusualValuesLogFn, ArrayRef<Value *>{Hash});
       CI->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(*C, None));
 
-    }
+    }*/
 
   }
 

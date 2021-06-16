@@ -1970,11 +1970,11 @@ int main(int argc, char **argv_orig, char **envp) {
   memset(afl->virgin_tmout, 255, map_size);
   memset(afl->virgin_crash, 255, map_size);
   
-  if (afl->shm.unusual_mode) afl->shm.unusual->learning = 1;
+  //if (afl->shm.unusual_mode) afl->shm.unusual->learning = 1;
 
   perform_dry_run(afl);
   
-  if (afl->shm.unusual_mode) afl->shm.unusual->learning = 0;
+  //if (afl->shm.unusual_mode) afl->shm.unusual->learning = 0;
 
   if (afl->q_testcase_max_cache_entries) {
 
