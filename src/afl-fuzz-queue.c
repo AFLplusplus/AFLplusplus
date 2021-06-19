@@ -59,7 +59,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
   weight *= (1 + (q->tc_ref / avg_top_size));
   if (unlikely(q->favored)) { weight *= 5; }
-  if (unlikely(!q->was_fuzzed)) { weight = (weight << 1); }
+  if (unlikely(!q->was_fuzzed)) { weight *= 2; }
 
   return weight;
 
