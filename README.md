@@ -25,11 +25,16 @@
   For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
   with `AFL_LLVM_CMPLOG=1`.
 
-## Major changes in afl++ 3.00 onwards:
+## Major behaviour changes in afl++ 3.00 onwards:
 
 With afl++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
 binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
 iOS etc.
+
+With afl++ 3.14 we introduced the following changes from previous behaviours:
+  * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
+  * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash
+    however does not)
 
 With afl++ 3.10 we introduced the following changes from previous behaviours:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout
@@ -38,7 +43,6 @@ With afl++ 3.10 we introduced the following changes from previous behaviours:
 
 With afl++ 3.00 we introduced changes that break some previous afl and afl++
 behaviours and defaults:
-
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
     only one compiler: afl-cc. All previous compilers now symlink to this one.
     All instrumentation source code is now in the `instrumentation/` folder.
@@ -572,8 +576,15 @@ to use afl-clang-lto as the compiler. You also have the option to generate
 a dictionary yourself, see [utils/libtokencap/README.md](utils/libtokencap/README.md).
 
 afl-fuzz has a variety of options that help to workaround target quirks like
-specific locations for the input file (`-f`), not performing deterministic
-fuzzing (`-d`) and many more. Check out `afl-fuzz -h`.
+specific locations for the input file (`-f`), performing deterministic
+fuzzing (`-D`) and many more. Check out `afl-fuzz -h`.
+
+We highly recommend that you set a memory limit for running the target with `-m`
+which defines the maximum memory in MB. This prevents a potential
+out-of-memory problem for your system plus helps you detect missing `malloc()`
+failure handling in the target.
+Play around with various -m values until you find one that safely works for all
+your input seeds (if you have good ones and then double or quadrouple that.
 
 By default afl-fuzz never stops fuzzing. To terminate afl++ simply press Control-C
 or send a signal SIGINT. You can limit the number of executions or approximate runtime
@@ -614,23 +625,28 @@ For every secondary fuzzer there should be a variation, e.g.:
  * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
    (see above). Important note: If you run more than one laf-intel/COMPCOV
    fuzzer and you want them to share their intermediate results, the main
-   fuzzer (`-M`) must be one of the them!
+   fuzzer (`-M`) must be one of the them! (Although this is not really
+   recommended.)
 
 All other secondaries should be used like this:
- * A third to a half with the MOpt mutator enabled: `-L 0`
- * run with a different power schedule, available are:
-   `fast (default), explore, coe, lin, quad, exploit, mmopt, rare, seek`
-   which you can set with e.g. `-p seek`
+ * A quarter to a third with the MOpt mutator enabled: `-L 0`
+ * run with a different power schedule, recommended are:
+   `fast (default), explore, coe, lin, quad, exploit and rare`
+   which you can set with e.g. `-p explore`
+ * a few instances should use the old queue cycling with `-Z`
 
 Also it is recommended to set `export AFL_IMPORT_FIRST=1` to load testcases
 from other fuzzers in the campaign first.
+
+If you have a large corpus, a corpus from a previous run or are fuzzing in
+a CI, then also set `export AFL_CMPLOG_ONLY_NEW=1` and `export AFL_FAST_CAL=1`.
 
 You can also use different fuzzers.
 If you are using afl spinoffs or afl conforming fuzzers, then just use the
 same -o directory and give it a unique `-S` name.
 Examples are:
  * [Eclipser](https://github.com/SoftSec-KAIST/Eclipser/)
- * [Untracer](https://github.com/FoRTE-Research/UnTracer-AFL)
+ * [symcc](https://github.com/eurecom-s/symcc/)
  * [AFLsmart](https://github.com/aflsmart/aflsmart)
  * [FairFuzz](https://github.com/carolemieux/afl-rb)
  * [Neuzz](https://github.com/Dongdongshe/neuzz)
@@ -638,9 +654,11 @@ Examples are:
 
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 
-However you can also sync afl++ with honggfuzz, libfuzzer with -entropic, etc.
+However you can also sync afl++ with honggfuzz, libfuzzer with `-entropic=1`, etc.
 Just show the main fuzzer (-M) with the `-F` option where the queue/work
 directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
+Using honggfuzz (with `-n 1` or `-n 2`) and libfuzzer in parallel is highly
+recommended!
 
 #### c) The status of the fuzz campaign
 
@@ -767,25 +785,26 @@ campaigns as these are much shorter runnings.
      corpus needs to be loaded.
   * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new found paths, not the
     initial corpus as this very likely has been done for them already.
-  * Keep the generated corpus, use afl-cmin and reuse it everytime!
+  * Keep the generated corpus, use afl-cmin and reuse it every time!
 
 2. Additionally randomize the afl++ compilation options, e.g.
   * 40% for `AFL_LLVM_CMPLOG`
   * 10% for `AFL_LLVM_LAF_ALL`
 
 3. Also randomize the afl-fuzz runtime options, e.g.
-  * 60% for `AFL_DISABLE_TRIM`
+  * 65% for `AFL_DISABLE_TRIM`
   * 50% use a dictionary generated by `AFL_LLVM_DICT2FILE`
-  * 50% use MOpt (`-L 0`)
+  * 40% use MOpt (`-L 0`)
   * 40% for `AFL_EXPAND_HAVOC_NOW`
-  * 30% for old queue processing (`-Z`)
+  * 20% for old queue processing (`-Z`)
   * for CMPLOG targets, 60% for `-l 2`, 40% for `-l 3`
 
 4. Do *not* run any `-M` modes, just running `-S` modes is better for CI fuzzing.
-   `-M` enables deterministic fuzzing, old queue handling etc. which is good for
-   a fuzzing campaign but not good for short CI runs.
+   `-M` enables old queue handling etc. which is good for a fuzzing campaign but
+   not good for short CI runs.
 
-How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/4bb61df7905c6005000f5766e966e6fe30ab4559/infra/base-images/base-builder/compile_afl#L69).
+How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-builder/compile_afl)
+and [clusterfuzz](https://github.com/google/clusterfuzz/blob/master/src/python/bot/fuzzers/afl/launcher.py).
 
 ## Fuzzing binary-only targets
 
