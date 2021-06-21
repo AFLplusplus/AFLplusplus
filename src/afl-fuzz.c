@@ -125,7 +125,7 @@ static void usage(u8 *argv0, int more_help) {
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
       "immediately,\n"
-      "                  -1 = immediately and together with normal mutation).\n"
+      "                  -1 = immediately and together with normal mutation.\n"
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
