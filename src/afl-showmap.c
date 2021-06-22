@@ -690,6 +690,8 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
     } else {
 
+      /* CoreSight mode uses the default behavior. */
+
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
 
@@ -843,6 +845,7 @@ static void usage(u8 *argv0) {
       "  -t msec    - timeout for each run (none)\n"
       "  -m megs    - memory limit for child process (%u MB)\n"
       "  -O         - use binary-only instrumentation (FRIDA mode)\n"
+      "  -P         - use binary-only instrumentation (CoreSight mode)\n"
       "  -Q         - use binary-only instrumentation (QEMU mode)\n"
       "  -U         - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
@@ -917,7 +920,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOQUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOPQUWbcrsh")) > 0) {
 
     switch (opt) {
 
@@ -1060,6 +1063,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      /* FIXME: We want to use -P for consistency, but it is already unsed for
+       * undocumenetd feature "Another afl-cmin specific feature." */
+      case 'P':                                           /* CoreSight mode */
+
+        if (fsrv->cs_mode) { FATAL("Multiple -P options not supported"); }
+
+        fsrv->cs_mode = true;
+        break;
+
       case 'Q':
 
         if (fsrv->qemu_mode) { FATAL("Multiple -Q options not supported"); }
@@ -1124,6 +1136,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (fsrv->cs_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT; }
   if (fsrv->qemu_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
   if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -1204,6 +1217,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+  } else if (fsrv->cs_mode) {
+
+    use_argv =
+        get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+
   } else {
 
     use_argv = argv + optind;
@@ -1230,7 +1248,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
-  if (!fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;

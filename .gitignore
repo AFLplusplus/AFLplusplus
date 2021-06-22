@@ -30,6 +30,7 @@ afl-g++-fast
 afl-gotcpu
 afl-ld
 afl-ld-lto
+afl-cs-proxy
 afl-qemu-trace
 afl-showmap
 afl-tmin
@@ -94,3 +95,5 @@ utils/optimin/optimin
 utils/persistent_mode/persistent_demo
 utils/persistent_mode/persistent_demo_new
 utils/persistent_mode/test-instr
+!coresight_mode
+!coresight_mode/coresight-trace
