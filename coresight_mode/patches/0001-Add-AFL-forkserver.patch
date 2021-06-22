@@ -1,0 +1,117 @@
+diff --git a/glibc-2.33/elf/rtld.c b/glibc-2.33/elf/rtld.c
+index 596b6ac3..2ee270d4 100644
+--- a/glibc-2.33/elf/rtld.c
++++ b/glibc-2.33/elf/rtld.c
+@@ -169,6 +169,99 @@ uintptr_t __pointer_chk_guard_local
+ strong_alias (__pointer_chk_guard_local, __pointer_chk_guard)
+ #endif
+ 
++#define AFLCS_RTLD 1
++
++#if AFLCS_RTLD
++
++#include <sys/shm.h>
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <dlfcn.h>
++#include <signal.h>
++
++#include <asm/unistd.h>
++#include <unistd.h>
++
++#define FORKSRV_FD 198
++
++#define AFLCS_ENABLE "__AFLCS_ENABLE"
++
++/* We use this additional AFLCS_# AFLCS_#+1 pair to communicate with proxy */
++#define AFLCS_FORKSRV_FD (FORKSRV_FD - 3)
++#define AFLCS_RTLD_SNIPPET do { __cs_start_forkserver(); } while(0)
++
++/* Fork server logic, invoked before we return from _dl_start. */
++
++static void __cs_start_forkserver(void) {
++  int status;
++  pid_t child_pid;
++  static char tmp[4] = {0, 0, 0, 0};
++
++  if (!getenv(AFLCS_ENABLE)) {
++    return;
++  }
++
++  if (write(AFLCS_FORKSRV_FD + 1, tmp, 4) != 4) {
++    _exit(-1);
++  }
++
++  /* All right, let's await orders... */
++  while (1) {
++    /* Whoops, parent dead? */
++    if (read(AFLCS_FORKSRV_FD, tmp, 4) != 4) {
++      _exit(1);
++    }
++
++    child_pid = INLINE_SYSCALL(clone, 5,
++        CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | SIGCHLD, 0,
++        NULL, NULL, &THREAD_SELF->tid);
++    if (child_pid < 0) {
++      _exit(4);
++    }
++    if (!child_pid) {
++      /* Child process. Wait for parent start tracing */
++      kill(getpid(), SIGSTOP);
++      /* Close descriptors and run free. */
++      close(AFLCS_FORKSRV_FD);
++      close(AFLCS_FORKSRV_FD + 1);
++      return;
++    }
++
++    /* Parent. */
++    if (write(AFLCS_FORKSRV_FD + 1, &child_pid, 4) != 4) {
++      _exit(5);
++    }
++
++    /* Wait until SIGCONT is signaled. */
++    if (waitpid(child_pid, &status, WCONTINUED) < 0) {
++      _exit(6);
++    }
++    if (!WIFCONTINUED(status)) {
++      /* Relay status to proxy. */
++      if (write(AFLCS_FORKSRV_FD + 1, &status, 4) != 4) {
++        _exit(7);
++      }
++      continue;
++    }
++    while (1) {
++      /* Get status. */
++      if (waitpid(child_pid, &status, WUNTRACED) < 0) {
++        _exit(8);
++      }
++      /* Relay status to proxy. */
++      if (write(AFLCS_FORKSRV_FD + 1, &status, 4) != 4) {
++        _exit(9);
++      }
++      if (!(WIFSTOPPED(status) && WSTOPSIG(status) == SIGSTOP)) {
++        /* The child process is exited. */
++        break;
++      }
++    }
++  }
++}
++
++#endif /* AFLCS_RTLD */
++
+ /* Check that AT_SECURE=0, or that the passed name does not contain
+    directories and is not overly long.  Reject empty names
+    unconditionally.  */
+@@ -588,6 +681,12 @@ _dl_start (void *arg)
+ # define ELF_MACHINE_START_ADDRESS(map, start) (start)
+ #endif
+ 
++    /* AFL-CS-START */
++#if AFLCS_RTLD
++    AFLCS_RTLD_SNIPPET;
++#endif
++    /* AFL-CS-END */
++
+     return ELF_MACHINE_START_ADDRESS (GL(dl_ns)[LM_ID_BASE]._ns_loaded, entry);
+   }
+ }

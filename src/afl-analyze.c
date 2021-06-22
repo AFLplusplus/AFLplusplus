@@ -77,6 +77,7 @@ static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 static u8 *target_path;
 static u8  frida_mode;
 static u8  qemu_mode;
+static u8  cs_mode;
 static u32 map_size = MAP_SIZE;
 
 static afl_forkserver_t fsrv = {0};   /* The forkserver                     */
@@ -790,6 +791,8 @@ static void set_up_environment(char **argv) {
 
     } else {
 
+      /* CoreSight mode uses the default behavior. */
+
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
 
@@ -845,6 +848,7 @@ static void usage(u8 *argv0) {
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%u ms)\n"
       "  -m megs       - memory limit for child process (%u MB)\n"
+      "  -A            - use binary-only instrumentation (CoreSight mode)\n"
       "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
@@ -890,7 +894,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_fsrv_init(&fsrv);
 
-  while ((opt = getopt(argc, argv, "+i:f:m:t:eOQUWh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWh")) > 0) {
 
     switch (opt) {
 
@@ -989,6 +993,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'A':                                           /* CoreSight mode */
+
+        if (cs_mode) { FATAL("Multiple -A options not supported"); }
+
+        cs_mode = 1;
+        fsrv.cs_mode = cs_mode;
+        break;
+
       case 'O':                                               /* FRIDA mode */
 
         if (frida_mode) { FATAL("Multiple -O options not supported"); }
@@ -1079,6 +1091,10 @@ int main(int argc, char **argv_orig, char **envp) {
           get_qemu_argv(argv[0], &target_path, argc - optind, argv + optind);
 
     }
+
+  } else if (cs_mode) {
+
+    use_argv = get_cs_argv(argv[0], &target_path, argc - optind, argv + optind);
 
   } else {
 
