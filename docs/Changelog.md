@@ -16,6 +16,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - if the target becomes unavailable check out out/default/error.txt
       for an indicator why
     - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
+    - reverse read the queue on resumes (more effective)
   - afl-cc:
     - Update to COMPCOV/laf-intel that speeds up the instrumentation
       process a lot - thanks to Michael Rodler/f0rki for the PR!

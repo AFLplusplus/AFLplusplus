@@ -424,7 +424,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
         }
 
         var_detected = 1;
-        afl->stage_max = afl->afl_env.afl_cal_fast ? CAL_CYCLES : CAL_CYCLES_LONG;
+        afl->stage_max =
+            afl->afl_env.afl_cal_fast ? CAL_CYCLES : CAL_CYCLES_LONG;
 
       } else {
 

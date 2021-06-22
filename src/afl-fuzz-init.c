@@ -710,7 +710,10 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   }
 
-  for (i = 0; i < (u32)nl_cnt; ++i) {
+  i = nl_cnt;
+  do {
+
+    --i;
 
     struct stat st;
 
@@ -801,7 +804,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
     */
 
-  }
+  } while (i > 0);
 
   free(nl);                                                  /* not tracked */
 
