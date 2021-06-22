@@ -233,6 +233,15 @@ static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
 
     case X86_INS_CMP:
     case X86_INS_SUB:
+    case X86_INS_SCASB:
+    case X86_INS_SCASD:
+    case X86_INS_SCASQ:
+    case X86_INS_SCASW:
+    case X86_INS_CMPSB:
+    case X86_INS_CMPSD:
+    case X86_INS_CMPSQ:
+    case X86_INS_CMPSS:
+    case X86_INS_CMPSW:
       break;
     default:
       return;
@@ -246,14 +255,6 @@ static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
 
   if (operand1->type == X86_OP_INVALID) return;
   if (operand2->type == X86_OP_INVALID) return;
-
-  if ((operand1->type == X86_OP_MEM) &&
-      (operand1->mem.segment != X86_REG_INVALID))
-    return;
-
-  if ((operand2->type == X86_OP_MEM) &&
-      (operand2->mem.segment != X86_REG_INVALID))
-    return;
 
   cmplog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
 
