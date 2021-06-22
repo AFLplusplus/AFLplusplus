@@ -25,8 +25,7 @@ RT_CFLAGS:=-Wno-unused-parameter \
 LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv \
-		 -ldl \
-		 -z noexecstack \
+		 -ldl
 
 ifdef DEBUG
 CFLAGS+=-Werror \
