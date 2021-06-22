@@ -101,7 +101,8 @@ static void afl_print_cmdline(void) {
 
   if (fd < 0) {
 
-    FATAL("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    WARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    return;
 
   }
 
@@ -138,7 +139,8 @@ static void afl_print_env(void) {
 
   if (fd < 0) {
 
-    FATAL("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    WARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    return;
 
   }
 
