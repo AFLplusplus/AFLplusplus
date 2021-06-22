@@ -177,7 +177,7 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
   register uintptr_t k = (uintptr_t)address;
 
   k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  k &= CMP_MAP_W - 7;
 
   __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
@@ -197,8 +197,6 @@ static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
   cmplog_pair_ctx_t *ctx = (cmplog_pair_ctx_t *)user_data;
   gsize              operand1;
   gsize              operand2;
-
-  if (ctx->operand1.size != ctx->operand2.size) FATAL("Operand size mismatch");
 
   if (!cmplog_get_operand_value(context, &ctx->operand1, &operand1)) { return; }
   if (!cmplog_get_operand_value(context, &ctx->operand2, &operand2)) { return; }
@@ -233,6 +231,15 @@ static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
 
     case X86_INS_CMP:
     case X86_INS_SUB:
+    case X86_INS_SCASB:
+    case X86_INS_SCASD:
+    case X86_INS_SCASQ:
+    case X86_INS_SCASW:
+    case X86_INS_CMPSB:
+    case X86_INS_CMPSD:
+    case X86_INS_CMPSQ:
+    case X86_INS_CMPSS:
+    case X86_INS_CMPSW:
       break;
     default:
       return;
@@ -247,13 +254,8 @@ static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
   if (operand1->type == X86_OP_INVALID) return;
   if (operand2->type == X86_OP_INVALID) return;
 
-  if ((operand1->type == X86_OP_MEM) &&
-      (operand1->mem.segment != X86_REG_INVALID))
-    return;
-
-  if ((operand2->type == X86_OP_MEM) &&
-      (operand2->mem.segment != X86_REG_INVALID))
-    return;
+  /* Both operands are the same size */
+  if (operand1->size == 1) { return; }
 
   cmplog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
 

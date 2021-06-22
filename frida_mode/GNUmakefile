@@ -59,6 +59,7 @@ else
 ifdef DEBUG
  RT_CFLAGS:=$(RT_CFLAGS) -Wno-prio-ctor-dtor
 endif
+LDFLAGS+=-z noexecstack
 endif
 
 ifeq "$(shell uname)" "Linux"
