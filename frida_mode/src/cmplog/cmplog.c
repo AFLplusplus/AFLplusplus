@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -18,8 +19,9 @@ static GArray *        cmplog_ranges = NULL;
 static GHashTable *    hash_yes = NULL;
 static GHashTable *    hash_no = NULL;
 
-static int    tmpfd = -1;
-static size_t tmpfd_size = 0;
+static long page_size = 0;
+static long page_offset_mask = 0;
+static long page_mask = 0;
 
 static gboolean cmplog_range(const GumRangeDetails *details,
                              gpointer               user_data) {
@@ -50,8 +52,6 @@ static void cmplog_get_ranges(void) {
 
 void cmplog_init(void) {
 
-  gchar *name_used;
-
   if (__afl_cmp_map != NULL) { OKF("CMPLOG mode enabled"); }
 
   cmplog_get_ranges();
@@ -65,11 +65,9 @@ void cmplog_init(void) {
 
   }
 
-  tmpfd = g_file_open_tmp(".afl-frida-compcov-XXXXXX", &name_used, NULL);
-  if (tmpfd < 0) { FATAL("Failed to create_tmpfd, errno: %d", errno); }
-
-  unlink(name_used);
-  g_free(name_used);
+  page_size = sysconf(_SC_PAGE_SIZE);
+  page_offset_mask = page_size - 1;
+  page_mask = ~(page_offset_mask);
 
   hash_yes = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (hash_yes == NULL) {
@@ -99,44 +97,17 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
   if (g_hash_table_contains(hash_yes, (gpointer)addr)) { return true; }
   if (g_hash_table_contains(hash_no, (gpointer)addr)) { return false; }
 
-  if (tmpfd_size > MAX_MEMFD_SIZE) {
+  void * page_addr = (void *)(addr & page_mask);
+  size_t page_offset = addr & page_offset_mask;
 
-    if (lseek(tmpfd, 0, SEEK_SET) < 0) {
-
-      FATAL("CMPLOG - Failed lseek, errno: %d", errno);
-
-    }
-
-  }
+  /* If it spans a page, then bail */
+  if (page_size - page_offset < size) { return false; }
 
   /*
-   * Our address map can change (e.g. stack growth), use write as a fallback to
+   * Our address map can change (e.g. stack growth), use msync as a fallback to
    * validate our address.
    */
-  ssize_t written = syscall(SYS_write, tmpfd, (void *)addr, size);
-  if (written < 0 && errno != EFAULT && errno != 0) {
-
-    FATAL("CMPLOG - Failed SYS_write, errno: %d", errno);
-
-  }
-
-  /*
-   * If the write succeeds, then the buffer must be valid otherwise it would
-   * return EFAULT
-   */
-  if (written > 0) { tmpfd_size += written; }
-
-  if ((size_t)written == size) {
-
-    if (!g_hash_table_add(hash_yes, (gpointer)addr)) {
-
-      FATAL("Failed - g_hash_table_add");
-
-    }
-
-    return true;
-
-  } else {
+  if (msync(page_addr, page_offset + size, MS_ASYNC) < 0) {
 
     if (!g_hash_table_add(hash_no, (gpointer)addr)) {
 
@@ -145,6 +116,16 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
     }
 
     return false;
+
+  } else {
+
+    if (!g_hash_table_add(hash_yes, (gpointer)addr)) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
+
+    return true;
 
   }
 
