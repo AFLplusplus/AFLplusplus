@@ -15,7 +15,8 @@
 
 extern struct cmp_map *__afl_cmp_map;
 static GArray *        cmplog_ranges = NULL;
-static GHashTable *    hash = NULL;
+static GHashTable *    hash_yes = NULL;
+static GHashTable *    hash_no = NULL;
 
 static int    tmpfd = -1;
 static size_t tmpfd_size = 0;
@@ -70,8 +71,19 @@ void cmplog_init(void) {
   unlink(name_used);
   g_free(name_used);
 
-  hash = g_hash_table_new(g_direct_hash, g_direct_equal);
-  if (hash == NULL) { FATAL("Failed to g_hash_table_new, errno: %d", errno); }
+  hash_yes = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if (hash_yes == NULL) {
+
+    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+
+  }
+
+  hash_no = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if (hash_no == NULL) {
+
+    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+
+  }
 
 }
 
@@ -84,7 +96,8 @@ static gboolean cmplog_contains(GumAddress inner_base, GumAddress inner_limit,
 
 gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
-  if (g_hash_table_contains(hash, (gpointer)addr)) { return true; }
+  if (g_hash_table_contains(hash_yes, (gpointer)addr)) { return true; }
+  if (g_hash_table_contains(hash_no, (gpointer)addr)) { return false; }
 
   if (tmpfd_size > MAX_MEMFD_SIZE) {
 
@@ -115,7 +128,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
   if ((size_t)written == size) {
 
-    if (!g_hash_table_add(hash, (gpointer)addr)) {
+    if (!g_hash_table_add(hash_yes, (gpointer)addr)) {
 
       FATAL("Failed - g_hash_table_add");
 
@@ -123,9 +136,17 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
     return true;
 
-  }
+  } else {
 
-  return false;
+    if (!g_hash_table_add(hash_no, (gpointer)addr)) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
+
+    return false;
+
+  }
 
 }
 
