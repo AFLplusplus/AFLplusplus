@@ -1,7 +1,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <syscall.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include "frida-gum.h"
 
@@ -16,8 +17,8 @@ extern struct cmp_map *__afl_cmp_map;
 static GArray *        cmplog_ranges = NULL;
 static GHashTable *    hash = NULL;
 
-static int    memfd = -1;
-static size_t memfd_size = 0;
+static int    tmpfd = -1;
+static size_t tmpfd_size = 0;
 
 static gboolean cmplog_range(const GumRangeDetails *details,
                              gpointer               user_data) {
@@ -48,6 +49,8 @@ static void cmplog_get_ranges(void) {
 
 void cmplog_init(void) {
 
+  gchar *name_used;
+
   if (__afl_cmp_map != NULL) { OKF("CMPLOG mode enabled"); }
 
   cmplog_get_ranges();
@@ -61,8 +64,11 @@ void cmplog_init(void) {
 
   }
 
-  memfd = syscall(__NR_memfd_create, "cmplog_memfd", 0);
-  if (memfd < 0) { FATAL("Failed to create_memfd, errno: %d", errno); }
+  tmpfd = g_file_open_tmp(".afl-frida-compcov-XXXXXX", &name_used, NULL);
+  if (tmpfd < 0) { FATAL("Failed to create_tmpfd, errno: %d", errno); }
+
+  unlink(name_used);
+  g_free(name_used);
 
   hash = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (hash == NULL) { FATAL("Failed to g_hash_table_new, errno: %d", errno); }
@@ -80,9 +86,9 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
   if (g_hash_table_contains(hash, (gpointer)addr)) { return true; }
 
-  if (memfd_size > MAX_MEMFD_SIZE) {
+  if (tmpfd_size > MAX_MEMFD_SIZE) {
 
-    if (lseek(memfd, 0, SEEK_SET) < 0) {
+    if (lseek(tmpfd, 0, SEEK_SET) < 0) {
 
       FATAL("CMPLOG - Failed lseek, errno: %d", errno);
 
@@ -94,10 +100,10 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
    * Our address map can change (e.g. stack growth), use write as a fallback to
    * validate our address.
    */
-  ssize_t written = syscall(SYS_write, memfd, (void *)addr, size);
+  ssize_t written = syscall(SYS_write, tmpfd, (void *)addr, size);
   if (written < 0 && errno != EFAULT && errno != 0) {
 
-    FATAL("CMPLOG - Failed __NR_write, errno: %d", errno);
+    FATAL("CMPLOG - Failed SYS_write, errno: %d", errno);
 
   }
 
@@ -105,7 +111,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
    * If the write succeeds, then the buffer must be valid otherwise it would
    * return EFAULT
    */
-  if (written > 0) { memfd_size += written; }
+  if (written > 0) { tmpfd_size += written; }
 
   if ((size_t)written == size) {
 
