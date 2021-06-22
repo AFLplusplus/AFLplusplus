@@ -254,7 +254,7 @@ static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
   if (operand1->type == X86_OP_INVALID) return;
   if (operand2->type == X86_OP_INVALID) return;
 
-  if (operand1->size != operand2->size) FATAL("Operand size mismatch");
+  /* Both operands are the same size */
   if (operand1->size == 1) { return; }
 
   cmplog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
