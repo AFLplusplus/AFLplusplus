@@ -106,7 +106,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
    * Our address map can change (e.g. stack growth), use write as a fallback to
    * validate our address.
    */
-  ssize_t written = syscall(__NR_write, memfd, (void *)addr, size);
+  ssize_t written = syscall(SYS_write, memfd, (void *)addr, size);
   if (written < 0 && errno != EFAULT && errno != 0) {
     FATAL("CMPLOG - Failed __NR_write, errno: %d", errno);
   }
