@@ -57,7 +57,8 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
 
   if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
-  weight *= (1 + (q->tc_ref / avg_top_size));
+  weight *=
+      (1 + ((q->tc_ref + q->interesting_functions + q->loops) / avg_top_size));
   if (unlikely(q->favored)) weight *= 5;
 
   return weight;
@@ -104,7 +105,7 @@ void create_alias_table(afl_state_t *afl) {
 
         avg_exec_us += q->exec_us;
         avg_bitmap_size += log(q->bitmap_size);
-        avg_top_size += q->tc_ref;
+        avg_top_size += (q->interesting_functions + q->loops + q->tc_ref);
         ++active;
 
       }
@@ -466,6 +467,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
   queue_buf[afl->queued_paths - 1] = q;
   q->id = afl->queued_paths - 1;
+  q->interesting_functions = afl->interesting_functions;
+  q->loops = afl->loops;
 
   afl->last_path_time = get_cur_time();
 
@@ -952,7 +955,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       // increase the score for every bitmap byte for which this entry
       // is the top contender
-      perf_score += (q->tc_ref * 10);
+      perf_score += ((q->tc_ref + q->interesting_functions + q->loops) * 10);
       // the more often fuzz result paths are equal to this queue entry,
       // reduce its value
       perf_score *= (1 - (double)((double)afl->n_fuzz[q->n_fuzz_entry] /

@@ -240,6 +240,7 @@ static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
     case X86_INS_CMPSQ:
     case X86_INS_CMPSS:
     case X86_INS_CMPSW:
+
       break;
     default:
       return;

@@ -1795,7 +1795,10 @@ int main(int argc, char **argv, char **envp) {
             "functions\n"
             "  AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST: enable "
             "instrument allow/\n"
-            "    deny listing (selective instrumentation)\n");
+            "    deny listing (selective instrumentation)\n"
+            "  AFL_NO_INTERESTING: do not collect counts of loops and memory "
+            "dangerous\n"
+            "    functions. (afl++ PCGUARD modes)\n");
 
       if (have_llvm)
         SAYF(

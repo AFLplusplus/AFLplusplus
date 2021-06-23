@@ -110,6 +110,9 @@ make fairly broad use of environmental variables instead:
 
 ## 2) Settings for LLVM and LTO: afl-clang-fast / afl-clang-fast++ / afl-clang-lto / afl-clang-lto++
 
+  - `AFL_NO_INTERESTING` disables counting dangerous functions and loops in
+     afl-clang-fast and afl-clang-lto PCGUARD modes (which are the default).
+
 The native instrumentation helpers (instrumentation and gcc_plugin) accept a subset
 of the settings discussed in section 1, with the exception of:
 
@@ -298,6 +301,9 @@ checks or alter some of the more exotic semantics of the tool:
     afl-tmin and afl-analyze create to gather instrumentation data from
     the target. This must be equal or larger than the size the target was
     compiled with.
+
+  - `AFL_NO_INTERESTING` will ignore counted dangerous functions and loops
+    by the instrumentation (done by default by afl++'s PCGUARD instrumentations).
 
   - `AFL_CMPLOG_ONLY_NEW` will only perform the expensive cmplog feature for
     newly found testcases and not for testcases that are loaded on startup

@@ -1339,6 +1339,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    free(file_list);
+    file_list = NULL;
+
     if (!quiet_mode) { OKF("Processed %llu input files.", fsrv->total_execs); }
 
     if (dir_out) { closedir(dir_out); }
