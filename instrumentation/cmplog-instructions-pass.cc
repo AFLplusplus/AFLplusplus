@@ -222,6 +222,18 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   FunctionCallee cmplogHookInsN = cN;
 #endif
 
+  GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
+
+  if (!AFLCmplogPtr) {
+
+    AFLCmplogPtr = new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                                      GlobalValue::ExternalWeakLinkage, 0,
+                                      "__afl_cmp_map");
+
+  }
+
+  Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
+
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
 
@@ -280,8 +292,15 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       }
 
-      IRBuilder<> IRB(SI->getParent());
-      IRB.SetInsertPoint(SI);
+      IRBuilder<> IRB2(SI->getParent());
+      IRB2.SetInsertPoint(SI);
+
+      LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+      CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+      auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, SI, false);
+
+      IRBuilder<> IRB(ThenTerm);
 
       if (max_size > 128) {
 
@@ -409,8 +428,15 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
     for (auto &selectcmpInst : icomps) {
 
-      IRBuilder<> IRB(selectcmpInst->getParent());
-      IRB.SetInsertPoint(selectcmpInst);
+      IRBuilder<> IRB2(selectcmpInst->getParent());
+      IRB2.SetInsertPoint(selectcmpInst);
+      LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+      CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+      auto ThenTerm =
+          SplitBlockAndInsertIfThen(is_not_null, selectcmpInst, false);
+
+      IRBuilder<> IRB(ThenTerm);
 
       Value *op0 = selectcmpInst->getOperand(0);
       Value *op1 = selectcmpInst->getOperand(1);
