@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
@@ -12,6 +12,8 @@
 
 static int      debugging_fd = -1;
 static gpointer instrument_gen_start = NULL;
+
+char *instrument_debug_filename = NULL;
 
 static void instrument_debug(char *format, ...) {
 
@@ -79,18 +81,25 @@ static void instrument_disasm(guint8 *start, guint8 *end) {
 
 }
 
+void instrument_debug_config(void) {
+
+  instrument_debug_filename = getenv("AFL_FRIDA_INST_DEBUG_FILE");
+
+}
+
 void instrument_debug_init(void) {
 
-  char *filename = getenv("AFL_FRIDA_INST_DEBUG_FILE");
-  OKF("Instrumentation debugging - enabled [%c]", filename == NULL ? ' ' : 'X');
+  OKF("Instrumentation debugging - enabled [%c]",
+      instrument_debug_filename == NULL ? ' ' : 'X');
 
-  if (filename == NULL) { return; }
+  if (instrument_debug_filename == NULL) { return; }
 
-  OKF("Instrumentation debugging - file [%s]", filename);
+  OKF("Instrumentation debugging - file [%s]", instrument_debug_filename);
 
-  if (filename == NULL) { return; }
+  if (instrument_debug_filename == NULL) { return; }
 
-  char *path = g_canonicalize_filename(filename, g_get_current_dir());
+  char *path =
+      g_canonicalize_filename(instrument_debug_filename, g_get_current_dir());
 
   OKF("Instrumentation debugging - path [%s]", path);
 

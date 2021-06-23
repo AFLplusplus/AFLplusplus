@@ -1,4 +1,4 @@
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "config.h"
 
@@ -152,7 +152,7 @@ static void instrument_exit(GumX86Writer *cw) {
 static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
-  previous_pc = 0;
+  instrument_previous_pc = 0;
   return ret;
 
 }
@@ -167,7 +167,7 @@ static void instrument_afl_persistent_loop(GumX86Writer *cw) {
 
 static void persistent_prologue_hook(GumX86Writer *cw, struct x86_regs *regs) {
 
-  if (hook == NULL) return;
+  if (persistent_hook == NULL) return;
 
   gum_x86_writer_put_mov_reg_address(cw, GUM_REG_ECX,
                                      GUM_ADDRESS(&__afl_fuzz_len));
@@ -180,7 +180,7 @@ static void persistent_prologue_hook(GumX86Writer *cw, struct x86_regs *regs) {
 
   /* Base address is 64-bits (hence two zero arguments) */
   gum_x86_writer_put_call_address_with_arguments(
-      cw, GUM_CALL_CAPI, GUM_ADDRESS(hook), 5, GUM_ARG_ADDRESS,
+      cw, GUM_CALL_CAPI, GUM_ADDRESS(persistent_hook), 5, GUM_ARG_ADDRESS,
       GUM_ADDRESS(regs), GUM_ARG_ADDRESS, GUM_ADDRESS(0), GUM_ARG_ADDRESS,
       GUM_ADDRESS(0), GUM_ARG_REGISTER, GUM_REG_EDX, GUM_ARG_REGISTER,
       GUM_REG_ECX);

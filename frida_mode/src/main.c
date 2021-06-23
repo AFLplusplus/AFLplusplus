@@ -11,14 +11,15 @@
   #include <sys/personality.h>
 #endif
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
 
 #include "entry.h"
 #include "instrument.h"
-#include "interceptor.h"
+#include "intercept.h"
+#include "js.h"
 #include "lib.h"
 #include "output.h"
 #include "persistent.h"
@@ -43,13 +44,6 @@ extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
 typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
-
-static int on_fork(void) {
-
-  prefetch_read();
-  return fork();
-
-}
 
 #ifdef __APPLE__
 static void on_main_os(int argc, char **argv, char **envp) {
@@ -174,23 +168,36 @@ void afl_frida_start(void) {
   afl_print_cmdline();
   afl_print_env();
 
+  /* Configure */
+  entry_config();
+  instrument_config();
+  js_config();
+  lib_config();
+  output_config();
+  persistent_config();
+  prefetch_config();
+  ranges_config();
+  stalker_config();
+  stats_config();
+
+  js_start();
+
+  /* Initialize */
+  output_init();
+
   embedded_init();
-  stalker_init();
-  lib_init();
   entry_init();
   instrument_init();
-  output_init();
+  lib_init();
   persistent_init();
   prefetch_init();
+  stalker_init();
   ranges_init();
   stats_init();
 
-  void *fork_addr =
-      GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
-  intercept(fork_addr, on_fork, NULL);
-
+  /* Start */
   stalker_start();
-  entry_run();
+  entry_start();
 
 }
 
@@ -198,7 +205,7 @@ static int *on_main(int argc, char **argv, char **envp) {
 
   on_main_os(argc, argv, envp);
 
-  unintercept_self();
+  intercept_unhook_self();
 
   afl_frida_start();
 
@@ -212,7 +219,7 @@ extern int *main(int argc, char **argv, char **envp);
 static void intercept_main(void) {
 
   main_fn = main;
-  intercept(main, on_main, NULL);
+  intercept_hook(main, on_main, NULL);
 
 }
 
@@ -225,7 +232,7 @@ static void intercept_main(void) {
   OKF("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
   void *main = GSIZE_TO_POINTER(entry);
   main_fn = main;
-  intercept(main, on_main, NULL);
+  intercept_hook(main, on_main, NULL);
 
 }
 
@@ -236,8 +243,8 @@ static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
                               void(*stack_end)) {
 
   main_fn = main;
-  unintercept_self();
-  intercept(main, on_main, NULL);
+  intercept_unhook_self();
+  intercept_hook(main, on_main, NULL);
   return __libc_start_main(main, argc, ubp_av, init, fini, rtld_fini,
                            stack_end);
 
@@ -245,7 +252,7 @@ static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
 
 static void intercept_main(void) {
 
-  intercept(__libc_start_main, on_libc_start_main, NULL);
+  intercept_hook(__libc_start_main, on_libc_start_main, NULL);
 
 }
 

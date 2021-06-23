@@ -1,7 +1,7 @@
 #ifndef _CTX_H
 #define _CTX_H
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #if defined(__x86_64__)
 gsize ctx_read_reg(GumX64CpuContext *ctx, x86_reg reg);
