@@ -11,6 +11,7 @@
 #include "entry.h"
 #include "frida_cmplog.h"
 #include "instrument.h"
+#include "js.h"
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
@@ -165,8 +166,6 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
       }
 
-      begin = FALSE;
-
     }
 
     instrument_debug_instruction(instr->address, instr->size);
@@ -178,7 +177,13 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     }
 
-    gum_stalker_iterator_keep(iterator);
+    if (js_stalker_callback(instr, begin, excluded, output)) {
+
+      gum_stalker_iterator_keep(iterator);
+
+    }
+
+    begin = FALSE;
 
   }
 

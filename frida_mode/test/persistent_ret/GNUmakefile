@@ -90,12 +90,21 @@ frida_js: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 		-i $(TESTINSTR_DATA_DIR) \
 		-o $(FRIDA_OUT) \
 		-- \
-			$(TESTINSTBIN) @@
+			$(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 
 debug: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 	gdb \
 		--ex 'set environment AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR)' \
 		--ex 'set environment AFL_FRIDA_PERSISTENT_RET=$(AFL_FRIDA_PERSISTENT_RET)' \
+		--ex 'set environment AFL_FRIDA_PERSISTENT_DEBUG=1' \
+		--ex 'set environment AFL_DEBUG_CHILD=1' \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set disassembly-flavor intel' \
+		--args $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
+
+debug_js: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
+	gdb \
+		--ex 'set environment AFL_FRIDA_JS_SCRIPT=test.js' \
 		--ex 'set environment AFL_FRIDA_PERSISTENT_DEBUG=1' \
 		--ex 'set environment AFL_DEBUG_CHILD=1' \
 		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
