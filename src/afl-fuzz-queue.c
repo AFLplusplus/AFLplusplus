@@ -199,6 +199,8 @@ void create_alias_table(afl_state_t *afl) {
   while (nS)
     afl->alias_probability[S[--nS]] = 1;
 
+  afl->reinit_table = 0;
+
   /*
   #ifdef INTROSPECTION
     u8 fn[PATH_MAX];
