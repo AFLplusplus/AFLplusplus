@@ -740,10 +740,9 @@ u32 execute_testcases(u8 *dir) {
 
     }
 
-    free(nl[i]);
-
     if (!S_ISREG(st.st_mode) || !st.st_size) {
 
+      free(nl[i]);
       ck_free(fn2);
       continue;
 
@@ -759,6 +758,8 @@ u32 execute_testcases(u8 *dir) {
 
     if (!collect_coverage)
       snprintf(outfile, sizeof(outfile), "%s/%s", out_file, nl[i]->d_name);
+
+    free(nl[i]);
 
     if (read_file(fn2)) {
 
