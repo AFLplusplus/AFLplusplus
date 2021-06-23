@@ -104,7 +104,6 @@ Iterator Unique(Iterator first, Iterator last) {
 bool CmpLogInstructions::hookInstrs(Module &M) {
 
   std::vector<Instruction *> icomps;
-  std::vector<SwitchInst *>  switches;
   LLVMContext &              C = M.getContext();
 
   Type *       VoidTy = Type::getVoidTy(C);
@@ -247,171 +246,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
           icomps.push_back(selectcmpInst);
-
-        }
-
-        SwitchInst *switchInst = nullptr;
-        if ((switchInst = dyn_cast<SwitchInst>(BB.getTerminator()))) {
-
-          if (switchInst->getNumCases() > 1) { switches.push_back(switchInst); }
-
-        }
-
-      }
-
-    }
-
-  }
-
-  // unique the collected switches
-  switches.erase(Unique(switches.begin(), switches.end()), switches.end());
-
-  // Instrument switch values for cmplog
-  if (switches.size()) {
-
-    if (!be_quiet)
-      errs() << "Hooking " << switches.size() << " switch instructions\n";
-
-    for (auto &SI : switches) {
-
-      Value *       Val = SI->getCondition();
-      unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
-      unsigned char do_cast = 0;
-
-      if (!SI->getNumCases() || max_size < 16) {
-
-        // if (!be_quiet) errs() << "skip trivial switch..\n";
-        continue;
-
-      }
-
-      if (max_size % 8) {
-
-        max_size = (((max_size / 8) + 1) * 8);
-        do_cast = 1;
-
-      }
-
-      IRBuilder<> IRB2(SI->getParent());
-      IRB2.SetInsertPoint(SI);
-
-      LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
-      CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
-      auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, SI, false);
-
-      IRBuilder<> IRB(ThenTerm);
-
-      if (max_size > 128) {
-
-        if (!be_quiet) {
-
-          fprintf(stderr,
-                  "Cannot handle this switch bit size: %u (truncating)\n",
-                  max_size);
-
-        }
-
-        max_size = 128;
-        do_cast = 1;
-
-      }
-
-      // do we need to cast?
-      switch (max_size) {
-
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128:
-          cast_size = max_size;
-          break;
-        default:
-          cast_size = 128;
-          do_cast = 1;
-
-      }
-
-      Value *CompareTo = Val;
-
-      if (do_cast) {
-
-        CompareTo =
-            IRB.CreateIntCast(CompareTo, IntegerType::get(C, cast_size), false);
-
-      }
-
-      for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
-           ++i) {
-
-#if LLVM_VERSION_MAJOR < 5
-        ConstantInt *cint = i.getCaseValue();
-#else
-        ConstantInt *cint = i->getCaseValue();
-#endif
-
-        if (cint) {
-
-          std::vector<Value *> args;
-          args.push_back(CompareTo);
-
-          Value *new_param = cint;
-
-          if (do_cast) {
-
-            new_param =
-                IRB.CreateIntCast(cint, IntegerType::get(C, cast_size), false);
-
-          }
-
-          if (new_param) {
-
-            args.push_back(new_param);
-            ConstantInt *attribute = ConstantInt::get(Int8Ty, 1);
-            args.push_back(attribute);
-            if (cast_size != max_size) {
-
-              ConstantInt *bitsize =
-                  ConstantInt::get(Int8Ty, (max_size / 8) - 1);
-              args.push_back(bitsize);
-
-            }
-
-            switch (cast_size) {
-
-              case 8:
-                IRB.CreateCall(cmplogHookIns1, args);
-                break;
-              case 16:
-                IRB.CreateCall(cmplogHookIns2, args);
-                break;
-              case 32:
-                IRB.CreateCall(cmplogHookIns4, args);
-                break;
-              case 64:
-                IRB.CreateCall(cmplogHookIns8, args);
-                break;
-              case 128:
-#ifdef WORD_SIZE_64
-                if (max_size == 128) {
-
-                  IRB.CreateCall(cmplogHookIns16, args);
-
-                } else {
-
-                  IRB.CreateCall(cmplogHookInsN, args);
-
-                }
-
-#endif
-                break;
-              default:
-                break;
-
-            }
-
-          }
 
         }
 
@@ -627,7 +461,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
   }
 
-  if (switches.size() || icomps.size())
+  if (icomps.size())
     return true;
   else
     return false;
