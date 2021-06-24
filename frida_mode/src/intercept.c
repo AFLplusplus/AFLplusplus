@@ -1,10 +1,10 @@
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
-#include "interceptor.h"
+#include "intercept.h"
 
-void intercept(void *address, gpointer replacement, gpointer user_data) {
+void intercept_hook(void *address, gpointer replacement, gpointer user_data) {
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
   gum_interceptor_begin_transaction(interceptor);
@@ -15,7 +15,7 @@ void intercept(void *address, gpointer replacement, gpointer user_data) {
 
 }
 
-void unintercept(void *address) {
+void intercept_unhook(void *address) {
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
 
@@ -26,10 +26,10 @@ void unintercept(void *address) {
 
 }
 
-void unintercept_self(void) {
+void intercept_unhook_self(void) {
 
   GumInvocationContext *ctx = gum_interceptor_get_current_invocation();
-  unintercept(ctx->function);
+  intercept_unhook(ctx->function);
 
 }
 

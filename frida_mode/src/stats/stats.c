@@ -5,7 +5,7 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
@@ -17,15 +17,16 @@
 
 stats_data_header_t *stats_data = NULL;
 
-static int      stats_parent_pid = -1;
-static int      stats_fd = -1;
-static gboolean stats_transitions = FALSE;
-static guint64  stats_interval = 0;
+static int stats_parent_pid = -1;
+static int stats_fd = -1;
 
-void stats_init(void) {
+char *   stats_filename = NULL;
+guint64  stats_interval = 0;
+gboolean stats_transitions = FALSE;
 
-  stats_parent_pid = getpid();
-  char *filename = getenv("AFL_FRIDA_STATS_FILE");
+void stats_config(void) {
+
+  stats_filename = getenv("AFL_FRIDA_STATS_FILE");
   stats_interval = util_read_num("AFL_FRIDA_STATS_INTERVAL");
   if (getenv("AFL_FRIDA_STATS_TRANSITIONS") != NULL) {
 
@@ -33,10 +34,16 @@ void stats_init(void) {
 
   }
 
-  OKF("Stats - file [%s]", filename);
+}
+
+void stats_init(void) {
+
+  stats_parent_pid = getpid();
+
+  OKF("Stats - file [%s]", stats_filename);
   OKF("Stats - interval [%" G_GINT64_MODIFIER "u]", stats_interval);
 
-  if (stats_interval != 0 && filename == NULL) {
+  if (stats_interval != 0 && stats_filename == NULL) {
 
     FATAL(
         "AFL_FRIDA_STATS_FILE must be specified if "
@@ -46,7 +53,7 @@ void stats_init(void) {
 
   if (stats_interval == 0) { stats_interval = 10; }
 
-  if (filename == NULL) { return; }
+  if (stats_filename == NULL) { return; }
 
   if (!stats_is_supported_arch()) {
 
@@ -56,11 +63,11 @@ void stats_init(void) {
 
   char *path = NULL;
 
-  if (filename == NULL) { return; }
+  if (stats_filename == NULL) { return; }
 
   if (stats_transitions) { gum_stalker_set_counters_enabled(TRUE); }
 
-  path = g_canonicalize_filename(filename, g_get_current_dir());
+  path = g_canonicalize_filename(stats_filename, g_get_current_dir());
 
   OKF("Stats - path [%s]", path);
 

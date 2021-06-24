@@ -10,34 +10,7 @@ TESTINSTSRC:=$(PWD)testinstr.c
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/test/png/persistent/get_symbol_addr.py
-
-ifndef ARCH
-
-ARCH=$(shell uname -m)
-ifeq "$(ARCH)" "aarch64"
- ARCH:=arm64
-endif
-
-ifeq "$(ARCH)" "i686"
- ARCH:=x86
-endif
-endif
-
-ARCH=$(shell uname -m)
-ifeq "$(ARCH)" "aarch64"
- AFL_ENTRYPOINT=$(shell $(GET_SYMBOL_ADDR) -f $(TESTINSTBIN) -s run -b 0x0000aaaaaaaaa000)
-endif
-
-ifeq "$(ARCH)" "x86_64"
- AFL_ENTRYPOINT=$(shell $(GET_SYMBOL_ADDR) -f $(TESTINSTBIN) -s run -b 0x0000555555554000)
-endif
-
-ifeq "$(ARCH)" "x86"
- AFL_ENTRYPOINT=$(shell $(GET_SYMBOL_ADDR) -f $(TESTINSTBIN) -s run -b 0x56555000)
-endif
-
-.PHONY: all clean frida
+.PHONY: all 32 clean qemu frida
 
 all: $(TESTINSTBIN)
 	make -C $(ROOT)frida_mode/
@@ -61,7 +34,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 frida: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
-	AFL_ENTRYPOINT=$(AFL_ENTRYPOINT) \
+	AFL_FRIDA_JS_SCRIPT=test.js \
 	$(ROOT)afl-fuzz \
 		-D \
 		-O \

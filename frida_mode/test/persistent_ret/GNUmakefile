@@ -82,6 +82,16 @@ frida_ret: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 		-- \
 			$(TESTINSTBIN) @@
 
+frida_js: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
+	AFL_FRIDA_JS_SCRIPT=test.js \
+	$(ROOT)afl-fuzz \
+		-D \
+		-O \
+		-i $(TESTINSTR_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-- \
+			$(TESTINSTBIN) @@
+
 debug: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 	gdb \
 		--ex 'set environment AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR)' \

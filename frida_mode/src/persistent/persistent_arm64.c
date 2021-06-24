@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
@@ -318,7 +318,7 @@ static void instrument_exit(GumArm64Writer *cw) {
 static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
-  previous_pc = 0;
+  instrument_previous_pc = 0;
   return ret;
 
 }
@@ -337,7 +337,7 @@ static void instrument_afl_persistent_loop(GumArm64Writer *cw) {
 static void persistent_prologue_hook(GumArm64Writer *   cw,
                                      struct arm64_regs *regs) {
 
-  if (hook == NULL) return;
+  if (persistent_hook == NULL) return;
 
   gum_arm64_writer_put_sub_reg_reg_imm(cw, ARM64_REG_SP, ARM64_REG_SP,
                                        GUM_RED_ZONE_SIZE);
@@ -354,7 +354,7 @@ static void persistent_prologue_hook(GumArm64Writer *   cw,
   gum_arm64_writer_put_ldr_reg_reg_offset(cw, ARM64_REG_X2, ARM64_REG_X2, 0);
 
   gum_arm64_writer_put_call_address_with_arguments(
-      cw, GUM_ADDRESS(hook), 4, GUM_ARG_ADDRESS, GUM_ADDRESS(regs),
+      cw, GUM_ADDRESS(persistent_hook), 4, GUM_ARG_ADDRESS, GUM_ADDRESS(regs),
       GUM_ARG_ADDRESS, GUM_ADDRESS(0), GUM_ARG_REGISTER, ARM64_REG_X2,
       GUM_ARG_REGISTER, ARM64_REG_X3);
 
