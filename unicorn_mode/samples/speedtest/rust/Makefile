@@ -16,7 +16,7 @@ clean:
 	cargo build
 
 ../target:
-	$(MAKE) -c ..
+	$(MAKE) -C ..
 
 fuzz: all afl-fuzz
 	rm -rf ./output

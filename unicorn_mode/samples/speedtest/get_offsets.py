@@ -59,7 +59,7 @@ for line in objdump_output.split("\n"):
     last_line = line
 
 if main_loc is None:
-    raise (
+    raise Exception(
         "Could not find main in ./target! Make sure objdump is installed and the target is compiled."
     )
 
