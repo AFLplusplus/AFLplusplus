@@ -1397,11 +1397,13 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   }
 
   bool brokenDebug = false;
-  if (verifyModule( M, &errs()
-#if LLVM_VERSION_MAJOR > 3 || (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
-    ,&brokenDebug		// 9th May 2016
+  if (verifyModule(M, &errs()
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
+                          ,
+                   &brokenDebug  // 9th May 2016
 #endif
-    )) {
+                   )) {
 
     reportError(
         "Module Verifier failed! Consider reporting a bug with the AFL++ "
