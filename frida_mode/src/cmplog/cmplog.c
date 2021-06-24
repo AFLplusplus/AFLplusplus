@@ -5,7 +5,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
@@ -47,6 +47,10 @@ static void cmplog_get_ranges(void) {
   cmplog_ranges = g_array_sized_new(false, false, sizeof(GumMemoryRange), 100);
   gum_process_enumerate_ranges(GUM_PAGE_READ, cmplog_range, cmplog_ranges);
   g_array_sort(cmplog_ranges, cmplog_sort);
+
+}
+
+void cmplog_config(void) {
 
 }
 
@@ -94,10 +98,10 @@ static gboolean cmplog_contains(GumAddress inner_base, GumAddress inner_limit,
 
 gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
-  if (g_hash_table_contains(hash_yes, (gpointer)addr)) { return true; }
-  if (g_hash_table_contains(hash_no, (gpointer)addr)) { return false; }
+  if (g_hash_table_contains(hash_yes, GSIZE_TO_POINTER(addr))) { return true; }
+  if (g_hash_table_contains(hash_no, GSIZE_TO_POINTER(addr))) { return false; }
 
-  void * page_addr = (void *)(addr & page_mask);
+  void * page_addr = GSIZE_TO_POINTER(addr & page_mask);
   size_t page_offset = addr & page_offset_mask;
 
   /* If it spans a page, then bail */
@@ -109,7 +113,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
    */
   if (msync(page_addr, page_offset + size, MS_ASYNC) < 0) {
 
-    if (!g_hash_table_add(hash_no, (gpointer)addr)) {
+    if (!g_hash_table_add(hash_no, GSIZE_TO_POINTER(addr))) {
 
       FATAL("Failed - g_hash_table_add");
 
@@ -119,7 +123,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
   } else {
 
-    if (!g_hash_table_add(hash_yes, (gpointer)addr)) {
+    if (!g_hash_table_add(hash_yes, GSIZE_TO_POINTER(addr))) {
 
       FATAL("Failed - g_hash_table_add");
 

@@ -2,7 +2,7 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
@@ -18,12 +18,13 @@
 #include "stats.h"
 #include "util.h"
 
-static gboolean               tracing = false;
-static gboolean               optimize = false;
-static gboolean               unique = false;
+gboolean instrument_tracing = false;
+gboolean instrument_optimize = false;
+gboolean instrument_unique = false;
+
 static GumStalkerTransformer *transformer = NULL;
 
-__thread uint64_t previous_pc = 0;
+__thread uint64_t instrument_previous_pc = 0;
 
 static GumAddress previous_rip = 0;
 static u8 *       edges_notified = NULL;
@@ -61,7 +62,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   current_pc = (current_rip >> 4) ^ (current_rip << 8);
   current_pc &= MAP_SIZE - 1;
 
-  edge = current_pc ^ previous_pc;
+  edge = current_pc ^ instrument_previous_pc;
 
   cursor = &__afl_area_ptr[edge];
   value = *cursor;
@@ -77,11 +78,11 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   }
 
   *cursor = value;
-  previous_pc = current_pc >> 1;
+  instrument_previous_pc = current_pc >> 1;
 
-  if (unlikely(tracing)) {
+  if (unlikely(instrument_tracing)) {
 
-    if (!unique || edges_notified[edge] == 0) {
+    if (!instrument_unique || edges_notified[edge] == 0) {
 
       trace_debug("TRACE: edge: %10" G_GINT64_MODIFIER
                   "d, current_rip: 0x%016" G_GINT64_MODIFIER
@@ -90,7 +91,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
     }
 
-    if (unique) { edges_notified[edge] = 1; }
+    if (instrument_unique) { edges_notified[edge] = 1; }
 
     previous_rip = current_rip;
 
@@ -98,8 +99,9 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
 }
 
-static void instr_basic_block(GumStalkerIterator *iterator,
-                              GumStalkerOutput *output, gpointer user_data) {
+static void instrument_basic_block(GumStalkerIterator *iterator,
+                                   GumStalkerOutput *  output,
+                                   gpointer            user_data) {
 
   UNUSED_PARAMETER(user_data);
 
@@ -111,7 +113,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
     if (unlikely(begin)) { instrument_debug_start(instr->address, output); }
 
-    if (instr->address == entry_start) { entry_prologue(iterator, output); }
+    if (instr->address == entry_point) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
     if (instr->address == persistent_ret) { persistent_epilogue(output); }
 
@@ -150,7 +152,7 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
       if (likely(!excluded)) {
 
-        if (likely(optimize)) {
+        if (likely(instrument_optimize)) {
 
           instrument_coverage_optimize(instr, output);
 
@@ -185,31 +187,39 @@ static void instr_basic_block(GumStalkerIterator *iterator,
 
 }
 
+void instrument_config(void) {
+
+  instrument_optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
+  instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
+  instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
+
+  instrument_debug_config();
+  asan_config();
+  cmplog_config();
+
+}
+
 void instrument_init(void) {
 
-  optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
-  tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
-  unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
+  if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
 
-  if (!instrument_is_coverage_optimize_supported()) optimize = false;
+  OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
+  OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
+  OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
 
-  OKF("Instrumentation - optimize [%c]", optimize ? 'X' : ' ');
-  OKF("Instrumentation - tracing [%c]", tracing ? 'X' : ' ');
-  OKF("Instrumentation - unique [%c]", unique ? 'X' : ' ');
-
-  if (tracing && optimize) {
+  if (instrument_tracing && instrument_optimize) {
 
     FATAL("AFL_FRIDA_INST_TRACE requires AFL_FRIDA_INST_NO_OPTIMIZE");
 
   }
 
-  if (unique && optimize) {
+  if (instrument_unique && instrument_optimize) {
 
     FATAL("AFL_FRIDA_INST_TRACE_UNIQUE requires AFL_FRIDA_INST_NO_OPTIMIZE");
 
   }
 
-  if (unique) { tracing = TRUE; }
+  if (instrument_unique) { instrument_tracing = TRUE; }
 
   if (__afl_map_size != 0x10000) {
 
@@ -217,10 +227,10 @@ void instrument_init(void) {
 
   }
 
-  transformer =
-      gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
+  transformer = gum_stalker_transformer_make_from_callback(
+      instrument_basic_block, NULL, NULL);
 
-  if (unique) {
+  if (instrument_unique) {
 
     int shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
     if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
