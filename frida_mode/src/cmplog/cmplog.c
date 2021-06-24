@@ -83,13 +83,6 @@ void cmplog_init(void) {
 
   }
 
-  /*
-   * We can't use /dev/null or /dev/zero for this since it appears that they
-   * don't validate the input buffer. Persumably as an optimization because they
-   * don't actually write any data. The file will be deleted on close.
-   */
-  fd_tmp = cmplog_create_temp();
-
 }
 
 static gboolean cmplog_contains(GumAddress inner_base, GumAddress inner_limit,
