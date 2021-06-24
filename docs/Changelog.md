@@ -31,11 +31,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       in-memory testcases, asan)
   - qemu_mode:
     - performance fix when cmplog was used
+  - afl-cmin and afl-showmap -i do now descend into subdirectories
+    (like afl-fuzz does) - note that afl-cmin.bash does not!
   - afl_analyze:
     - fix timeout handling
     - add forkserver support for better performance
-  - afl-cmin and afl-showmap -i do now descend into subdirectories
-    (like afl-fuzz does) - note that afl-cmin.bash does not!
   - ensure afl-compiler-rt is built for gcc_module
 
 ### Version ++3.13c (release)
