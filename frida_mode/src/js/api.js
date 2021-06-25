@@ -1,201 +1,243 @@
-const write = new NativeFunction(
-    Module.getExportByName(null, 'write'),
-    'int',
-    ['int', 'pointer', 'int']
-);
-
-const afl_frida_trace = Process.findModuleByName('afl-frida-trace.so');
-
-function get_api(name, ret, args) {
-    const addr = afl_frida_trace.findExportByName(name);
-    return new NativeFunction(addr, ret, args);
-}
-
-const js_api_done = get_api(
-    'js_api_done',
-    'void',
-    []);
-
-const js_api_error = get_api(
-    'js_api_error',
-    'void',
-    ['pointer']);
-
-const js_api_set_entrypoint = get_api(
-    'js_api_set_entrypoint',
-    'void',
-    ['pointer']);
-
-const js_api_set_persistent_address = get_api(
-    'js_api_set_persistent_address',
-    'void',
-    ['pointer']);
-
-const js_api_set_persistent_return = get_api(
-    'js_api_set_persistent_return',
-    'void',
-    ['pointer']);
-
-const js_api_set_persistent_count = get_api(
-    'js_api_set_persistent_count',
-    'void',
-    ['uint64']);
-
-const js_api_set_persistent_debug = get_api(
-    'js_api_set_persistent_debug',
-    'void',
-    []);
-
-const js_api_set_debug_maps = get_api(
-    'js_api_set_debug_maps',
-    'void',
-    []);
-
-const js_api_add_include_range = get_api(
-    'js_api_add_include_range',
-    'void',
-    ['pointer', 'size_t']);
-
-const js_api_add_exclude_range = get_api(
-    'js_api_add_exclude_range',
-    'void',
-    ['pointer', 'size_t']);
-
-const js_api_set_instrument_libraries = get_api(
-    'js_api_set_instrument_libraries',
-    'void',
-    []);
-
-const js_api_set_instrument_debug_file = get_api(
-    'js_api_set_instrument_debug_file',
-    'void',
-    ['pointer']);
-
-const js_api_set_prefetch_disable = get_api(
-    'js_api_set_prefetch_disable',
-    'void',
-    []);
-
-const js_api_set_instrument_no_optimize = get_api(
-    'js_api_set_instrument_no_optimize',
-    'void',
-    []);
-
-const js_api_set_instrument_trace = get_api(
-    'js_api_set_instrument_trace',
-    'void',
-    []);
-
-const js_api_set_instrument_trace_unique = get_api(
-    'js_api_set_instrument_trace_unique',
-    'void',
-    []);
-
-const js_api_set_stdout = get_api(
-    'js_api_set_stdout',
-    'void',
-    ['pointer']);
-
-const js_api_set_stderr = get_api(
-    'js_api_set_stderr',
-    'void',
-    ['pointer']);
-
-const js_api_set_stats_file = get_api(
-    'js_api_set_stats_file',
-    'void',
-    ['pointer']);
-
-const js_api_set_stats_interval = get_api(
-    'js_api_set_stats_interval',
-    'void',
-    ['uint64']);
-
-const js_api_set_stats_transitions = get_api(
-    'js_api_set_stats_transitions',
-    'void',
-    []);
-
-const afl = {
-    print: function (msg) {
+"use strict";
+class Afl {
+    /**
+     * This is equivalent to setting a value in `AFL_FRIDA_EXCLUDE_RANGES`,
+     * it takes as arguments a `NativePointer` and a `number`. It can be
+     * called multiple times to exclude several ranges.
+     */
+    static addExcludedRange(addressess, size) {
+        Afl.jsApiAddExcludeRange(addressess, size);
+    }
+    /**
+     * This is equivalent to setting a value in `AFL_FRIDA_INST_RANGES`,
+     * it takes as arguments a `NativePointer` and a `number`. It can be
+     * called multiple times to include several ranges.
+     */
+    static addIncludedRange(addressess, size) {
+        Afl.jsApiAddIncludeRange(addressess, size);
+    }
+    /**
+     * This must always be called at the end of your script. This lets
+     * FRIDA mode know that your configuration is finished and that
+     * execution has reached the end of your script. Failure to call
+     * this will result in a fatal error.
+     */
+    static done() {
+        Afl.jsApiDone();
+    }
+    /**
+     * This function can be called within your script to cause FRIDA
+     * mode to trigger a fatal error. This is useful if for example you
+     * discover a problem you weren't expecting and want everything to
+     * stop. The user will need to enable `AFL_DEBUG_CHILD=1` to view
+     * this error message.
+     */
+    static error(msg) {
+        const buf = Memory.allocUtf8String(msg);
+        Afl.jsApiError(buf);
+    }
+    /**
+     * Function used to provide access to `__afl_fuzz_ptr`, which contains the length of
+     * fuzzing data when using in-memory test case fuzzing.
+     */
+    static getAflFuzzLen() {
+        return Afl.jsApiGetSymbol("__afl_fuzz_len");
+    }
+    /**
+     * Function used to provide access to `__afl_fuzz_ptr`, which contains the fuzzing
+     * data when using in-memory test case fuzzing.
+     */
+    static getAflFuzzPtr() {
+        return Afl.jsApiGetSymbol("__afl_fuzz_ptr");
+    }
+    /**
+     * Print a message to the STDOUT. This should be preferred to
+     * FRIDA's `console.log` since FRIDA will queue it's log messages.
+     * If `console.log` is used in a callback in particular, then there
+     * may no longer be a thread running to service this queue.
+     */
+    static print(msg) {
         const STDOUT_FILENO = 2;
         const log = `${msg}\n`;
         const buf = Memory.allocUtf8String(log);
-        write(STDOUT_FILENO, buf, log.length);
-    },
-    done: function() {
-        js_api_done();
-    },
-    error: function(msg) {
-        const buf = Memory.allocUtf8String(msg);
-        js_api_error(buf);
-    },
-    setEntryPoint: function(addr) {
-        js_api_set_entrypoint(addr);
-    },
-    setPersistentAddress: function(addr) {
-        js_api_set_persistent_address(addr);
-    },
-    setPersistentReturn: function(addr) {
-        js_api_set_persistent_return(addr);
-    },
-    setPersistentCount: function(addr) {
-        js_api_set_persistent_count(addr);
-    },
-    setPersistentDebug: function() {
-        js_api_set_persistent_debug();
-    },
-    setDebugMaps: function() {
-        js_api_set_debug_maps();
-    },
-    addIncludedRange: function(address, size) {
-        js_api_add_include_range(address, size);
-    },
-    addExcludedRange: function(address, size) {
-        js_api_add_exclude_range(address, size);
-    },
-    setInstrumentLibraries: function() {
-        js_api_set_instrument_libraries();
-    },
-    setInstrumentDebugFile: function(file) {
-        const buf = Memory.allocUtf8String(file);
-        js_api_set_instrument_debug_file(buf)
-    },
-    setPrefetchDisable: function() {
-        js_api_set_prefetch_disable();
-    },
-    setInstrumentNoOptimize: function() {
-        js_api_set_instrument_no_optimize();
-    },
-    setInstrumentEnableTracing: function() {
-        js_api_set_instrument_trace();
-    },
-    setInstrumentTracingUnique: function() {
-        js_api_set_instrument_trace_unique();
-    },
-    setStdOut: function(file) {
-        const buf = Memory.allocUtf8String(file);
-        js_api_set_stdout(buf)
-    },
-    setStdErr: function(file) {
-        const buf = Memory.allocUtf8String(file);
-        js_api_set_stderr(buf)
-    },
-    setStatsFile: function(file) {
-        const buf = Memory.allocUtf8String(file);
-        js_api_set_stats_file(buf)
-    },
-    setStatsInterval: function(interval) {
-        js_api_set_stats_interval(interval);
-    },
-    setStatsTransitions: function() {
-        js_api_set_stats_transitions();
+        Afl.jsApiWrite(STDOUT_FILENO, buf, log.length);
     }
-
-};
-
-Object.defineProperty(global, 'Afl', {value: afl, writeable: false});
-
-////////////////////////////////////////////////////////////////////////////////
-//                          END OF API                                        //
-////////////////////////////////////////////////////////////////////////////////
+    /**
+     * See `AFL_FRIDA_DEBUG_MAPS`.
+     */
+    static setDebugMaps() {
+        Afl.jsApiSetDebugMaps();
+    }
+    /**
+     * This has the same effect as setting `AFL_ENTRYPOINT`, but has the
+     * convenience of allowing you to use FRIDAs APIs to determine the
+     * address you would like to configure, rather than having to grep
+     * the output of `readelf` or something similarly ugly. This
+     * function should be called with a `NativePointer` as its
+     * argument.
+     */
+    static setEntryPoint(address) {
+        Afl.jsApiSetEntryPoint(address);
+    }
+    /**
+     * Function used to enable in-memory test cases for fuzzing.
+     */
+    static setInMemoryFuzzing() {
+        Afl.jsApiAflSharedMemFuzzing.writeInt(1);
+    }
+    /**
+     * See `AFL_FRIDA_INST_DEBUG_FILE`. This function takes a single `string` as
+     * an argument.
+     */
+    static setInstrumentDebugFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetInstrumentDebugFile(buf);
+    }
+    /**
+     * See `AFL_FRIDA_INST_TRACE`.
+     */
+    static setInstrumentEnableTracing() {
+        Afl.jsApiSetInstrumentTrace();
+    }
+    /**
+     * See `AFL_INST_LIBS`.
+     */
+    static setInstrumentLibraries() {
+        Afl.jsApiSetInstrumentLibraries();
+    }
+    /**
+     * See `AFL_FRIDA_INST_NO_OPTIMIZE`
+     */
+    static setInstrumentNoOptimize() {
+        Afl.jsApiSetInstrumentNoOptimize();
+    }
+    /**
+     * See `AFL_FRIDA_INST_TRACE_UNIQUE`.
+     */
+    static setInstrumentTracingUnique() {
+        Afl.jsApiSetInstrumentTraceUnique();
+    }
+    /**
+     * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
+     * `NativePointer` should be provided as it's argument.
+     */
+    static setPersistentAddress(address) {
+        Afl.jsApiSetPersistentAddress(address);
+    }
+    /**
+     * This is equivalent to setting `AFL_FRIDA_PERSISTENT_CNT`, a
+     * `number` should be provided as it's argument.
+     */
+    static setPersistentCount(count) {
+        Afl.jsApiSetPersistentCount(count);
+    }
+    /**
+     * See `AFL_FRIDA_PERSISTENT_DEBUG`.
+     */
+    static setPersistentDebug() {
+        Afl.jsApiSetPersistentDebug();
+    }
+    /**
+     * See `AFL_FRIDA_PERSISTENT_ADDR`. This function takes a NativePointer as an
+     * argument. See above for examples of use.
+     */
+    static setPersistentHook(address) {
+        Afl.jsApiSetPersistentHook(address);
+    }
+    /**
+     * This is equivalent to setting `AFL_FRIDA_PERSISTENT_RET`, again a
+     * `NativePointer` should be provided as it's argument.
+     */
+    static setPersistentReturn(address) {
+        Afl.jsApiSetPersistentReturn(address);
+    }
+    /**
+     * See `AFL_FRIDA_INST_NO_PREFETCH`.
+     */
+    static setPrefetchDisable() {
+        Afl.jsApiSetPrefetchDisable();
+    }
+    /*
+     * Set a function to be called for each instruction which is instrumented
+     * by AFL FRIDA mode.
+     */
+    static setStalkerCallback(callback) {
+        Afl.jsApiSetStalkerCallback(callback);
+    }
+    /**
+     * See `AFL_FRIDA_STATS_FILE`. This function takes a single `string` as
+     * an argument.
+     */
+    static setStatsFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetStatsFile(buf);
+    }
+    /**
+     * See `AFL_FRIDA_STATS_INTERVAL`. This function takes a `number` as an
+     * argument
+     */
+    static setStatsInterval(interval) {
+        Afl.jsApiSetStatsInterval(interval);
+    }
+    /**
+     * See `AFL_FRIDA_STATS_TRANSITIONS`
+     */
+    static setStatsTransitions() {
+        Afl.jsApiSetStatsTransitions();
+    }
+    /**
+     * See `AFL_FRIDA_OUTPUT_STDERR`. This function takes a single `string` as
+     * an argument.
+     */
+    static setStdErr(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetStdErr(buf);
+    }
+    /**
+     * See `AFL_FRIDA_OUTPUT_STDOUT`. This function takes a single `string` as
+     * an argument.
+     */
+    static setStdOut(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetStdOut(buf);
+    }
+    static jsApiGetFunction(name, retType, argTypes) {
+        const addr = Afl.module.getExportByName(name);
+        return new NativeFunction(addr, retType, argTypes);
+    }
+    static jsApiGetSymbol(name) {
+        return Afl.module.getExportByName(name);
+    }
+}
+/**
+ * Field containing the `Module` object for `afl-frida-trace.so` (the FRIDA mode
+ * implementation).
+ */
+Afl.module = Process.getModuleByName("afl-frida-trace.so");
+Afl.jsApiAddExcludeRange = Afl.jsApiGetFunction("js_api_add_exclude_range", "void", ["pointer", "size_t"]);
+Afl.jsApiAddIncludeRange = Afl.jsApiGetFunction("js_api_add_include_range", "void", ["pointer", "size_t"]);
+Afl.jsApiAflSharedMemFuzzing = Afl.jsApiGetSymbol("__afl_sharedmem_fuzzing");
+Afl.jsApiDone = Afl.jsApiGetFunction("js_api_done", "void", []);
+Afl.jsApiError = Afl.jsApiGetFunction("js_api_error", "void", ["pointer"]);
+Afl.jsApiSetDebugMaps = Afl.jsApiGetFunction("js_api_set_debug_maps", "void", []);
+Afl.jsApiSetEntryPoint = Afl.jsApiGetFunction("js_api_set_entrypoint", "void", ["pointer"]);
+Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_debug_file", "void", ["pointer"]);
+Afl.jsApiSetInstrumentLibraries = Afl.jsApiGetFunction("js_api_set_instrument_libraries", "void", []);
+Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_no_optimize", "void", []);
+Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
+Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);
+Afl.jsApiSetPersistentAddress = Afl.jsApiGetFunction("js_api_set_persistent_address", "void", ["pointer"]);
+Afl.jsApiSetPersistentCount = Afl.jsApiGetFunction("js_api_set_persistent_count", "void", ["uint64"]);
+Afl.jsApiSetPersistentDebug = Afl.jsApiGetFunction("js_api_set_persistent_debug", "void", []);
+Afl.jsApiSetPersistentHook = Afl.jsApiGetFunction("js_api_set_persistent_hook", "void", ["pointer"]);
+Afl.jsApiSetPersistentReturn = Afl.jsApiGetFunction("js_api_set_persistent_return", "void", ["pointer"]);
+Afl.jsApiSetPrefetchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_disable", "void", []);
+Afl.jsApiSetStalkerCallback = Afl.jsApiGetFunction("js_api_set_stalker_callback", "void", ["pointer"]);
+Afl.jsApiSetStatsFile = Afl.jsApiGetFunction("js_api_set_stats_file", "void", ["pointer"]);
+Afl.jsApiSetStatsInterval = Afl.jsApiGetFunction("js_api_set_stats_interval", "void", ["uint64"]);
+Afl.jsApiSetStatsTransitions = Afl.jsApiGetFunction("js_api_set_stats_transitions", "void", []);
+Afl.jsApiSetStdErr = Afl.jsApiGetFunction("js_api_set_stderr", "void", ["pointer"]);
+Afl.jsApiSetStdOut = Afl.jsApiGetFunction("js_api_set_stdout", "void", ["pointer"]);
+Afl.jsApiWrite = new NativeFunction(
+/* tslint:disable-next-line:no-null-keyword */
+Module.getExportByName(null, "write"), "int", ["int", "pointer", "int"]);

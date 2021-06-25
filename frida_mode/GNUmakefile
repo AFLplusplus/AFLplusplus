@@ -94,11 +94,15 @@ FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
-.PHONY: all 32 clean format $(FRIDA_GUM) quickjs
+HOOK_DIR:=$(PWD)hook/
+AFLPP_DRIVER_HOOK_SRC=$(HOOK_DIR)hook.c
+AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)hook.so
+
+.PHONY: all 32 clean format hook $(FRIDA_GUM)
 
 ############################## ALL #############################################
 
-all: $(FRIDA_TRACE)
+all: $(FRIDA_TRACE) $(AFLPP_DRIVER_HOOK_OBJ)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
@@ -197,13 +201,20 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
 
+############################# HOOK #############################################
+
+$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
+
+hook: $(AFLPP_DRIVER_HOOK_OBJ)
+
 ############################# CLEAN ############################################
 clean:
 	rm -rf $(BUILD_DIR)
 
 ############################# FORMAT ###########################################
 format:
-	cd $(ROOT) && echo $(SOURCES) | xargs -L1 ./.custom-format.py -i
+	cd $(ROOT) && echo $(SOURCES) $(AFLPP_DRIVER_HOOK_SRC) | xargs -L1 ./.custom-format.py -i
 	cd $(ROOT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
 
 ############################# RUN #############################################

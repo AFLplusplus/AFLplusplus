@@ -5,34 +5,44 @@ Afl.print('');
 
 Afl.print(`PID: ${Process.id}`);
 
+const name = Process.enumerateModules()[0].name;
+Afl.print(`Name: ${name}`);
+
 new ModuleMap().values().forEach(m => {
     Afl.print(`${m.base}-${m.base.add(m.size)} ${m.name}`);
 });
 
-const persistent_addr = DebugSymbol.fromName('main');
-Afl.print(`persistent_addr: ${persistent_addr.address}`);
+if (name === 'testinstr') {
+    const persistent_addr = DebugSymbol.fromName('LLVMFuzzerTestOneInput').address;
+    Afl.print(`persistent_addr: ${persistent_addr}`);
+    Afl.setEntryPoint(persistent_addr);
+    Afl.setPersistentAddress(persistent_addr);
+    Afl.setInstrumentDebugFile("/dev/stdout");
+    Afl.setPersistentDebug();
+    Afl.setInstrumentNoOptimize();
+    Afl.setInstrumentEnableTracing();
 
-const persistent_ret = DebugSymbol.fromName('slow');
-Afl.print(`persistent_ret: ${persistent_ret.address}`);
+    const LLVMFuzzerTestOneInput = new NativeFunction(
+        persistent_addr,
+        'void',
+        ['pointer', 'uint64'],
+        {traps: "all"});
 
-Afl.setPersistentAddress(persistent_addr.address);
-Afl.setPersistentReturn(persistent_ret.address);
-Afl.setPersistentCount(1000000);
+    const persistentHook = new NativeCallback(
+        (data, size) => {
+            const input = Afl.aflFuzzPtr.readPointer();
+            const len = Afl.aflFuzzLen.readPointer().readU32();
+            const hd = hexdump(input, {length: len, header: false, ansi: true});
+            Afl.print(`input: ${hd}`);
+            LLVMFuzzerTestOneInput(input, len);
+        },
+        'void',
+        ['pointer', 'uint64']);
 
-Afl.setDebugMaps();
+    Afl.aflSharedMemFuzzing.writeInt(1);
+    Interceptor.replace(persistent_addr, persistentHook);
+    Interceptor.flush();
+}
 
-const mod = Process.findModuleByName("libc-2.31.so")
-Afl.addExcludedRange(mod.base, mod.size);
-Afl.setInstrumentLibraries();
-Afl.setInstrumentDebugFile("/tmp/instr.log");
-Afl.setPrefetchDisable();
-Afl.setInstrumentNoOptimize();
-Afl.setInstrumentEnableTracing();
-Afl.setInstrumentTracingUnique();
-Afl.setStdOut("/tmp/stdout.txt");
-Afl.setStdErr("/tmp/stderr.txt");
-Afl.setStatsFile("/tmp/stats.txt");
-Afl.setStatsInterval(1);
-Afl.setStatsTransitions();
-Afl.done();
 Afl.print("done");
+Afl.done();

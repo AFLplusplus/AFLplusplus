@@ -16,13 +16,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifdef __APPLE__
-  #define TESTINSTR_SECTION
-#else
-  #define TESTINSTR_SECTION __attribute__((section(".testinstr")))
-#endif
-
-void testinstr(char *buf, int len) {
+void LLVMFuzzerTestOneInput(char *buf, int len) {
 
   if (len < 1) return;
   buf[len] = 0;
@@ -90,7 +84,7 @@ int run(char *file) {
 
     dprintf(STDERR_FILENO, "Running:    %s: (%zd bytes)\n", file, n_read);
 
-    testinstr(buf, len);
+    LLVMFuzzerTestOneInput(buf, len);
     dprintf(STDERR_FILENO, "Done:    %s: (%zd bytes)\n", file, n_read);
 
     result = 0;

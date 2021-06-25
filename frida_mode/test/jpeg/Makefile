@@ -14,6 +14,3 @@ frida:
 
 debug:
 	@gmake debug
-
-hook:
-	@gmake hook

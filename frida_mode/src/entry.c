@@ -13,6 +13,7 @@ guint64 entry_point = 0;
 
 static void entry_launch(void) {
 
+  OKF("Entry point reached");
   __afl_manual_init();
 
   /* Child here */

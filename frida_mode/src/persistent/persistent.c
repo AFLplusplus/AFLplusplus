@@ -47,19 +47,6 @@ void persistent_config(void) {
 
   }
 
-}
-
-void persistent_init(void) {
-
-  OKF("Instrumentation - persistent mode [%c] (0x%016" G_GINT64_MODIFIER "X)",
-      persistent_start == 0 ? ' ' : 'X', persistent_start);
-  OKF("Instrumentation - persistent count [%c] (%" G_GINT64_MODIFIER "d)",
-      persistent_start == 0 ? ' ' : 'X', persistent_count);
-  OKF("Instrumentation - hook [%s]", hook_name);
-
-  OKF("Instrumentation - persistent ret [%c] (0x%016" G_GINT64_MODIFIER "X)",
-      persistent_ret == 0 ? ' ' : 'X', persistent_ret);
-
   if (hook_name == NULL) { return; }
 
   void *hook_obj = dlopen(hook_name, RTLD_NOW);
@@ -79,7 +66,20 @@ void persistent_init(void) {
   if (persistent_hook == NULL)
     FATAL("Failed to find afl_persistent_hook in %s", hook_name);
 
-  __afl_sharedmem_fuzzing = 1;
+}
+
+void persistent_init(void) {
+
+  OKF("Instrumentation - persistent mode [%c] (0x%016" G_GINT64_MODIFIER "X)",
+      persistent_start == 0 ? ' ' : 'X', persistent_start);
+  OKF("Instrumentation - persistent count [%c] (%" G_GINT64_MODIFIER "d)",
+      persistent_start == 0 ? ' ' : 'X', persistent_count);
+  OKF("Instrumentation - hook [%s]", hook_name);
+
+  OKF("Instrumentation - persistent ret [%c] (0x%016" G_GINT64_MODIFIER "X)",
+      persistent_ret == 0 ? ' ' : 'X', persistent_ret);
+
+  if (persistent_hook != NULL) { __afl_sharedmem_fuzzing = 1; }
 
 }
 

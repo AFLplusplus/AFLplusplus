@@ -9,8 +9,17 @@ all:
 clean:
 	@gmake clean
 
-frida:
-	@gmake frida
+frida_js_entry:
+	@gmake frida_js_entry
+
+frida_js_replace:
+	@gmake frida_js_replace
+
+frida_js_patch:
+	@gmake frida_js_patch
+
+frida_js_stalker:
+	@gmake frida_js_stalker
 
 debug:
 	@gmake debug
