@@ -191,7 +191,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     for I in char short int long "long long"; do
       for BITS in 8 16 32 64; do
         bin="$testcase-split-$I-$BITS.compcov" 
-        AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
+        AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -fsigned-char -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
         if ! test -e "$bin"; then
             cat test.out
             $ECHO "$RED[!] llvm_mode laf-intel/compcov integer splitting failed! ($testcase with type $I split to $BITS)!";
