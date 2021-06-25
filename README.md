@@ -113,7 +113,7 @@ behaviours and defaults:
   4. with pcguard mode and LTO mode for LLVM 11 and newer
   5. upcoming, development in the branch
   6. not compatible with LTO instrumentation and needs at least LLVM v4.1
-  7. automatic in LTO mode with LLVM 11 and newer, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
+  7. automatic in LTO mode with LLVM 11 and newer, an extra pass for all LLVM versions that write to a file to use with afl-fuzz' `-x`
   8. the snapshot LKM is currently unmaintained due to too many kernel changes coming too fast :-(
 
   Among others, the following features and patches have been integrated:
