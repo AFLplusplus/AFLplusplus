@@ -5,8 +5,9 @@
 #include "js.h"
 #include "util.h"
 
-static char *js_script = NULL;
-gboolean     js_done = FALSE;
+static char *             js_script = NULL;
+gboolean                  js_done = FALSE;
+js_api_stalker_callback_t js_user_callback = NULL;
 
 static gchar *           filename = "afl.js";
 static gchar *           contents;
@@ -108,6 +109,14 @@ void js_start(void) {
     g_main_context_iteration(context, FALSE);
 
   if (!js_done) { FATAL("Script didn't call Afl.done()"); }
+
+}
+
+gboolean js_stalker_callback(const cs_insn *insn, gboolean begin,
+                             gboolean excluded, GumStalkerOutput *output) {
+
+  if (js_user_callback == NULL) { return TRUE; }
+  return js_user_callback(insn, begin, excluded, output);
 
 }
 

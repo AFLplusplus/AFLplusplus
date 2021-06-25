@@ -138,5 +138,15 @@ void js_api_set_stats_transitions() {
 
 }
 
-// "AFL_FRIDA_PERSISTENT_HOOK",
+void js_api_set_persistent_hook(void *address) {
+
+  persistent_hook = address;
+
+}
+
+void js_api_set_stalker_callback(const js_api_stalker_callback_t callback) {
+
+  js_user_callback = callback;
+
+}
 

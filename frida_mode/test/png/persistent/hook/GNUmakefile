@@ -2,8 +2,7 @@ PWD:=$(shell pwd)/
 ROOT:=$(shell realpath $(PWD)../../../../..)/
 BUILD_DIR:=$(PWD)build/
 
-AFLPP_DRIVER_HOOK_SRC=$(PWD)aflpp_qemu_driver_hook.c
-AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)aflpp_qemu_driver_hook.so
+AFLPP_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/hook.so
 
 CFLAGS+=-O3 \
 		-funroll-loops \
@@ -48,7 +47,7 @@ endif
 
 .PHONY: all 32 clean format qemu qemu_entry frida frida_entry debug
 
-all: $(AFLPP_DRIVER_HOOK_OBJ)
+all:
 	make -C $(ROOT)frida_mode/test/png/persistent/
 
 32:
@@ -67,9 +66,6 @@ $(TEST_DATA_DIR): | $(BUILD_DIR)
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
 	truncate -s 1M $@
-
-$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
 
 qemu: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 	AFL_QEMU_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ) \
@@ -115,6 +111,28 @@ frida_entry: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 	AFL_FRIDA_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ) \
 	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	AFL_ENTRYPOINT=$(AFL_FRIDA_PERSISTENT_ADDR) \
+	$(ROOT)afl-fuzz \
+		-D \
+		-V 30 \
+		-O \
+		-i $(TEST_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-- \
+			$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
+
+frida_js_load: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
+	AFL_FRIDA_JS_SCRIPT=load.js \
+	$(ROOT)afl-fuzz \
+		-D \
+		-V 30 \
+		-O \
+		-i $(TEST_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-- \
+			$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
+
+frida_js_cmodule: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
+	AFL_FRIDA_JS_SCRIPT=cmodule.js \
 	$(ROOT)afl-fuzz \
 		-D \
 		-V 30 \

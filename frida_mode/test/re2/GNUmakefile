@@ -2,8 +2,7 @@ PWD:=$(shell pwd)/
 ROOT:=$(shell realpath $(PWD)../../..)/
 BUILD_DIR:=$(PWD)build/
 
-AFLPP_DRIVER_HOOK_SRC=$(PWD)aflpp_qemu_driver_hook.c
-AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)aflpp_qemu_driver_hook.so
+AFLPP_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/hook.so
 
 LIBRE2_BUILD_DIR:=$(BUILD_DIR)libre2/
 HARNESS_BUILD_DIR:=$(BUILD_DIR)harness/
@@ -116,11 +115,6 @@ $(TEST_BIN): $(HARNESS_OBJ) $(RE2TEST_OBJ) $(LIBRE2_LIB)
 		$(LDFLAGS) \
 		$(TEST_BIN_LDFLAGS) \
 
-########## HOOK ########
-
-$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
-	$(CC) -shared $(CFLAGS) $(LDFLAGS) $< -o $@
-
 ########## DUMMY #######
 
 $(TEST_DATA_DIR): | $(BUILD_DIR)
@@ -130,8 +124,6 @@ $(AFLPP_DRIVER_DUMMY_INPUT): | $(TEST_DATA_DIR)
 	truncate -s 1M $@
 
 ###### TEST DATA #######
-
-hook: $(AFLPP_DRIVER_HOOK_OBJ)
 
 clean:
 	rm -rf $(BUILD_DIR)
