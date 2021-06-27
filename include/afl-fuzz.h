@@ -519,7 +519,8 @@ typedef struct afl_state {
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
-      old_seed_selection;               /* use vanilla afl seed selection   */
+      old_seed_selection,               /* use vanilla afl seed selection   */
+      reinit_table;                     /* reinit the queue weight table    */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */

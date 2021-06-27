@@ -2154,7 +2154,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (unlikely(prev_queued_paths < afl->queued_paths)) {
+        if (unlikely(prev_queued_paths < afl->queued_paths ||
+                     afl->reinit_table)) {
 
           // we have new queue entries since the last run, recreate alias table
           prev_queued_paths = afl->queued_paths;
