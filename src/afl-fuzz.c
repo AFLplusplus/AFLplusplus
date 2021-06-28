@@ -125,7 +125,7 @@ static void usage(u8 *argv0, int more_help) {
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
       "immediately,\n"
-      "                  -1 = immediately and together with normal mutation).\n"
+      "                  -1 = immediately and together with normal mutation.\n"
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
@@ -1911,7 +1911,12 @@ int main(int argc, char **argv_orig, char **envp) {
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();
-  if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
+  if (afl->in_place_resume || afl->afl_env.afl_autoresume) {
+
+    load_stats_file(afl);
+
+  }
+
   write_stats_file(afl, 0, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
@@ -2149,7 +2154,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (unlikely(prev_queued_paths < afl->queued_paths)) {
+        if (unlikely(prev_queued_paths < afl->queued_paths ||
+                     afl->reinit_table)) {
 
           // we have new queue entries since the last run, recreate alias table
           prev_queued_paths = afl->queued_paths;

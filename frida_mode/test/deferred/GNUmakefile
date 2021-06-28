@@ -37,7 +37,7 @@ ifeq "$(ARCH)" "x86"
  AFL_ENTRYPOINT=$(shell $(GET_SYMBOL_ADDR) -f $(TESTINSTBIN) -s run -b 0x56555000)
 endif
 
-.PHONY: all clean qemu frida
+.PHONY: all clean frida
 
 all: $(TESTINSTBIN)
 	make -C $(ROOT)frida_mode/

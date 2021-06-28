@@ -271,12 +271,6 @@ static void __afl_map_shm(void) {
 
   if (__afl_final_loc) {
 
-    if (__afl_final_loc % 64) {
-
-      __afl_final_loc = (((__afl_final_loc + 63) >> 6) << 6);
-
-    }
-
     __afl_map_size = __afl_final_loc;
 
     if (__afl_final_loc > MAP_SIZE) {
@@ -623,6 +617,7 @@ static void __afl_unmap_shm(void) {
 #endif
 
     __afl_cmp_map = NULL;
+    __afl_cmp_map_backup = NULL;
 
   }
 
@@ -632,7 +627,7 @@ static void __afl_unmap_shm(void) {
 
 #define write_error(text) write_error_with_location(text, __FILE__, __LINE__)
 
-void write_error_with_location(char *text, char* filename, int linenumber) {
+void write_error_with_location(char *text, char *filename, int linenumber) {
 
   u8 *  o = getenv("__AFL_OUT_DIR");
   char *e = strerror(errno);
@@ -645,14 +640,16 @@ void write_error_with_location(char *text, char* filename, int linenumber) {
 
     if (f) {
 
-      fprintf(f, "File %s, line %d: Error(%s): %s\n", filename, linenumber, text, e);
+      fprintf(f, "File %s, line %d: Error(%s): %s\n", filename, linenumber,
+              text, e);
       fclose(f);
 
     }
 
   }
 
-  fprintf(stderr, "File %s, line %d: Error(%s): %s\n", filename, linenumber, text, e);
+  fprintf(stderr, "File %s, line %d: Error(%s): %s\n", filename, linenumber,
+          text, e);
 
 }
 
@@ -1019,7 +1016,7 @@ static void __afl_start_forkserver(void) {
 
       if (read(FORKSRV_FD, &was_killed, 4) != 4) {
 
-        write_error("read from afl-fuzz");
+        // write_error("read from afl-fuzz");
         _exit(1);
 
       }
@@ -1690,7 +1687,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1794,7 +1791,7 @@ void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
 
   for (uint64_t i = 0; i < cases[0]; i++) {
 
@@ -1891,7 +1888,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
     fprintf(stderr, "\n");
   */
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
   // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
@@ -1975,7 +1972,7 @@ static u8 *get_llvm_stdstring(u8 *string) {
 
 void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
   if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
     return;
 
@@ -1985,7 +1982,7 @@ void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
 void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
   if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
     return;
 
@@ -1996,7 +1993,7 @@ void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
 void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
   if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
     return;
 
@@ -2006,7 +2003,7 @@ void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
 void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (likely(!__afl_cmp_map)) return;
   if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
     return;
 
@@ -2040,7 +2037,7 @@ void __afl_coverage_on() {
   if (likely(__afl_selective_coverage && __afl_selective_coverage_temp)) {
 
     __afl_area_ptr = __afl_area_ptr_backup;
-    __afl_cmp_map = __afl_cmp_map_backup;
+    if (__afl_cmp_map_backup) { __afl_cmp_map = __afl_cmp_map_backup; }
 
   }
 
@@ -2082,3 +2079,4 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 }
 
 #undef write_error
+

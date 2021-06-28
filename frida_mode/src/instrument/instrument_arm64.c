@@ -1,4 +1,4 @@
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
@@ -72,7 +72,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
     gum_arm64_writer_put_bytes(cw, afl_log_code, sizeof(afl_log_code));
 
     uint8_t **afl_area_ptr_ptr = &__afl_area_ptr;
-    uint64_t *afl_prev_loc_ptr = &previous_pc;
+    uint64_t *afl_prev_loc_ptr = &instrument_previous_pc;
     gum_arm64_writer_put_bytes(cw, (const guint8 *)&afl_area_ptr_ptr,
                                sizeof(afl_area_ptr_ptr));
     gum_arm64_writer_put_bytes(cw, (const guint8 *)&afl_prev_loc_ptr,

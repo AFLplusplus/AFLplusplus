@@ -16,6 +16,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - if the target becomes unavailable check out out/default/error.txt
       for an indicator why
     - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
+    - reverse read the queue on resumes (more effective)
   - afl-cc:
     - Update to COMPCOV/laf-intel that speeds up the instrumentation
       process a lot - thanks to Michael Rodler/f0rki for the PR!
@@ -24,10 +25,14 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - support partial linking
     - We do support llvm versions from 3.8 to 5.0 again
   - frida_mode:
-    - fix for cmplog
+    - several fixes for cmplog
     - remove need for AFL_FRIDA_PERSISTENT_RETADDR_OFFSET
     - feature parity of aarch64 with intel now (persistent, cmplog,
       in-memory testcases, asan)
+  - qemu_mode:
+    - performance fix when cmplog was used
+  - afl-cmin and afl-showmap -i do now descend into subdirectories
+    (like afl-fuzz does) - note that afl-cmin.bash does not!
   - afl_analyze:
     - fix timeout handling
     - add forkserver support for better performance
