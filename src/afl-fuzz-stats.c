@@ -264,6 +264,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           "peak_rss_mb       : %lu\n"
           "cpu_affinity      : %d\n"
           "edges_found       : %u\n"
+          "total_edges       : %u\n"
           "var_byte_count    : %u\n"
           "havoc_expansion   : %u\n"
           "testcache_size    : %llu\n"
@@ -303,10 +304,10 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #else
           -1,
 #endif
-          t_bytes, afl->var_byte_count, afl->expand_havoc,
-          afl->q_testcase_cache_size, afl->q_testcase_cache_count,
-          afl->q_testcase_evictions, afl->use_banner,
-          afl->unicorn_mode ? "unicorn" : "",
+          t_bytes, afl->fsrv.real_map_size, afl->var_byte_count,
+          afl->expand_havoc, afl->q_testcase_cache_size,
+          afl->q_testcase_cache_count, afl->q_testcase_evictions,
+          afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",
           afl->non_instrumented_mode ? " non_instrumented " : "",
           afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
@@ -326,7 +327,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
     u32 i = 0;
     fprintf(f, "virgin_bytes     :");
-    for (i = 0; i < afl->fsrv.map_size; i++) {
+    for (i = 0; i < afl->fsrv.real_map_size; i++) {
 
       if (afl->virgin_bits[i] != 0xff) {
 
@@ -338,7 +339,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
     fprintf(f, "\n");
     fprintf(f, "var_bytes        :");
-    for (i = 0; i < afl->fsrv.map_size; i++) {
+    for (i = 0; i < afl->fsrv.real_map_size; i++) {
 
       if (afl->var_bytes[i]) { fprintf(f, " %u", i); }
 
@@ -520,7 +521,7 @@ void show_stats(afl_state_t *afl) {
   /* Do some bitmap stats. */
 
   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
-  t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
+  t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.real_map_size;
 
   if (likely(t_bytes) && unlikely(afl->var_byte_count)) {
 
@@ -781,7 +782,7 @@ void show_stats(afl_state_t *afl) {
   SAYF(bV bSTOP "  now processing : " cRST "%-18s " bSTG bV bSTOP, tmp);
 
   sprintf(tmp, "%0.02f%% / %0.02f%%",
-          ((double)afl->queue_cur->bitmap_size) * 100 / afl->fsrv.map_size,
+          ((double)afl->queue_cur->bitmap_size) * 100 / afl->fsrv.real_map_size,
           t_byte_ratio);
 
   SAYF("    map density : %s%-19s" bSTG bV "\n",

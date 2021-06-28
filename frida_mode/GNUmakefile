@@ -6,6 +6,11 @@ INCLUDES:=$(wildcard $(INC_DIR)*.h)
 BUILD_DIR:=$(PWD)build/
 OBJ_DIR:=$(BUILD_DIR)obj/
 
+JS_DIR:=$(SRC_DIR)js/
+JS_NAME:=api.js
+JS:=$(JS_DIR)$(JS_NAME)
+JS_SRC:=$(BUILD_DIR)api.c
+JS_OBJ:=$(BUILD_DIR)api.o
 SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
 OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
 CFLAGS+=-fPIC \
@@ -25,8 +30,7 @@ RT_CFLAGS:=-Wno-unused-parameter \
 LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv \
-		 -ldl \
-		 -z noexecstack \
+		 -ldl
 
 ifdef DEBUG
 CFLAGS+=-Werror \
@@ -60,6 +64,7 @@ else
 ifdef DEBUG
  RT_CFLAGS:=$(RT_CFLAGS) -Wno-prio-ctor-dtor
 endif
+LDFLAGS+=-z noexecstack
 endif
 
 ifeq "$(shell uname)" "Linux"
@@ -71,29 +76,33 @@ ifndef OS
 endif
 
 GUM_DEVKIT_VERSION=14.2.18
-GUM_DEVKIT_FILENAME=frida-gum-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
+GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
 GUM_DEVKIT_TARBALL:=$(FRIDA_BUILD_DIR)$(GUM_DEVKIT_FILENAME)
-GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gum.a
-GUM_DEVIT_HEADER=$(FRIDA_BUILD_DIR)frida-gum.h
+GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gumjs.a
+GUM_DEVIT_HEADER=$(FRIDA_BUILD_DIR)frida-gumjs.h
 
 FRIDA_DIR:=$(PWD)build/frida-source/
 FRIDA_MAKEFILE:=$(FRIDA_DIR)Makefile
-FRIDA_GUM:=$(FRIDA_DIR)build/frida-linux-x86_64/lib/libfrida-gum-1.0.a
+FRIDA_GUM:=$(FRIDA_DIR)build/frida-linux-x86_64/lib/libfrida-gumjs-1.0.a
 FRIDA_GUM_DEVKIT_DIR:=$(FRIDA_DIR)build/gum-devkit/
-FRIDA_GUM_DEVKIT_HEADER:=$(FRIDA_GUM_DEVKIT_DIR)frida-gum.h
-FRIDA_GUM_DEVKIT_TARBALL:=$(FRIDA_DIR)build/frida-gum-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar
+FRIDA_GUM_DEVKIT_HEADER:=$(FRIDA_GUM_DEVKIT_DIR)frida-gumjs.h
+FRIDA_GUM_DEVKIT_TARBALL:=$(FRIDA_DIR)build/frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar
 FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
-.PHONY: all 32 clean format $(FRIDA_GUM)
+HOOK_DIR:=$(PWD)hook/
+AFLPP_DRIVER_HOOK_SRC=$(HOOK_DIR)hook.c
+AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)hook.so
+
+.PHONY: all 32 clean format hook $(FRIDA_GUM)
 
 ############################## ALL #############################################
 
-all: $(FRIDA_TRACE)
+all: $(FRIDA_TRACE) $(AFLPP_DRIVER_HOOK_OBJ)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
@@ -113,7 +122,7 @@ $(FRIDA_GUM): $(FRIDA_MAKEFILE)
 	cd $(FRIDA_DIR) && make gum-linux-$(ARCH)
 
 $(FRIDA_GUM_DEVKIT_HEADER): $(FRIDA_GUM)
-	$(FRIDA_DIR)releng/devkit.py frida-gum linux-$(ARCH) $(FRIDA_DIR)build/gum-devkit/
+	$(FRIDA_DIR)releng/devkit.py frida-gumjs linux-$(ARCH) $(FRIDA_DIR)build/gum-devkit/
 
 $(FRIDA_GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_HEADER)
 	cd $(FRIDA_GUM_DEVKIT_DIR) && tar cvf $(FRIDA_GUM_DEVKIT_TARBALL) .
@@ -150,6 +159,20 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 		-o $@ \
 		-c $<
 
+############################### JS #############################################
+
+$(JS_SRC): $(JS) | $(BUILD_DIR)
+	cd $(JS_DIR) && xxd -i $(JS_NAME) $@
+
+$(JS_OBJ): $(JS_SRC)
+	$(CC) \
+		$(CFLAGS) \
+		-I $(ROOT)include \
+		-I $(FRIDA_BUILD_DIR) \
+		-I $(INC_DIR) \
+		-c $< \
+		-o $@
+
 ############################# SOURCE ###########################################
 
 define BUILD_SOURCE
@@ -167,9 +190,10 @@ $(foreach src,$(SOURCES),$(eval $(call BUILD_SOURCE,$(src),$(OBJ_DIR)$(notdir $(
 
 ######################## AFL-FRIDA-TRACE #######################################
 
-$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(AFL_COMPILER_RT_OBJ) GNUmakefile | $(BUILD_DIR)
-	$(CC) \
+$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) GNUmakefile | $(BUILD_DIR)
+	$(CXX) \
 		$(OBJS) \
+		$(JS_OBJ) \
 		$(GUM_DEVIT_LIBRARY) \
 		$(AFL_COMPILER_RT_OBJ) \
 		$(LDFLAGS) \
@@ -177,13 +201,20 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(AFL_COMPILER_
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
 
+############################# HOOK #############################################
+
+$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
+
+hook: $(AFLPP_DRIVER_HOOK_OBJ)
+
 ############################# CLEAN ############################################
 clean:
 	rm -rf $(BUILD_DIR)
 
 ############################# FORMAT ###########################################
 format:
-	cd $(ROOT) && echo $(SOURCES) | xargs -L1 ./.custom-format.py -i
+	cd $(ROOT) && echo $(SOURCES) $(AFLPP_DRIVER_HOOK_SRC) | xargs -L1 ./.custom-format.py -i
 	cd $(ROOT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
 
 ############################# RUN #############################################

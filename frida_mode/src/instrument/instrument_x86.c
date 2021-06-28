@@ -1,4 +1,4 @@
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
@@ -16,7 +16,7 @@ static void instrument_coverage_function(GumX86Writer *cw) {
   gum_x86_writer_put_push_reg(cw, GUM_REG_EDX);
 
   gum_x86_writer_put_mov_reg_address(cw, GUM_REG_ECX,
-                                     GUM_ADDRESS(&previous_pc));
+                                     GUM_ADDRESS(&instrument_previous_pc));
   gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_REG_EDX, GUM_REG_ECX);
   gum_x86_writer_put_xor_reg_reg(cw, GUM_REG_EDX, GUM_REG_EDI);
 

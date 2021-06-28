@@ -2,17 +2,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
 #include "output.h"
 
-static int output_fd = -1;
+char *output_stdout = NULL;
+char *output_stderr = NULL;
 
-static void output_redirect(int fd, char *variable) {
+static void output_redirect(int fd, char *filename) {
 
-  char *filename = getenv(variable);
   char *path = NULL;
 
   if (filename == NULL) { return; }
@@ -21,8 +21,8 @@ static void output_redirect(int fd, char *variable) {
 
   OKF("Redirect %d -> '%s'", fd, path);
 
-  output_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
-                   S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+  int output_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
+                       S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
   g_free(path);
 
@@ -34,12 +34,24 @@ static void output_redirect(int fd, char *variable) {
 
   }
 
+  close(output_fd);
+
+}
+
+void output_config(void) {
+
+  output_stdout = getenv("AFL_FRIDA_OUTPUT_STDOUT");
+  output_stderr = getenv("AFL_FRIDA_OUTPUT_STDERR");
+
 }
 
 void output_init(void) {
 
-  output_redirect(STDOUT_FILENO, "AFL_FRIDA_OUTPUT_STDOUT");
-  output_redirect(STDERR_FILENO, "AFL_FRIDA_OUTPUT_STDERR");
+  OKF("Output - StdOut: %s", output_stdout);
+  OKF("Output - StdErr: %s", output_stderr);
+
+  output_redirect(STDOUT_FILENO, output_stdout);
+  output_redirect(STDERR_FILENO, output_stderr);
 
 }
 
