@@ -371,3 +371,5 @@ class Afl {
   }
 
 }
+
+export { Afl };
