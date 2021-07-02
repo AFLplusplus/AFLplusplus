@@ -19,13 +19,14 @@ CFLAGS+=-fPIC \
 		-g \
 		-O3 \
 		-funroll-loops \
+		-ffunction-sections \
 
 RT_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-sign-compare \
 		   -Wno-unused-function \
 		   -Wno-unused-result \
 		   -Wno-int-to-pointer-cast \
-		   -Wno-pointer-sign \
+		   -Wno-pointer-sign
 
 LDFLAGS+=-shared \
 		 -lpthread \
@@ -64,7 +65,10 @@ else
 ifdef DEBUG
  RT_CFLAGS:=$(RT_CFLAGS) -Wno-prio-ctor-dtor
 endif
-LDFLAGS+=-z noexecstack
+LDFLAGS+=	-z noexecstack \
+			-Wl,--gc-sections \
+			-Wl,--exclude-libs,ALL
+LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
 ifeq "$(shell uname)" "Linux"
@@ -164,7 +168,7 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 $(JS_SRC): $(JS) | $(BUILD_DIR)
 	cd $(JS_DIR) && xxd -i $(JS_NAME) $@
 
-$(JS_OBJ): $(JS_SRC)
+$(JS_OBJ): $(JS_SRC) GNUmakefile
 	$(CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
@@ -197,6 +201,7 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 		$(GUM_DEVIT_LIBRARY) \
 		$(AFL_COMPILER_RT_OBJ) \
 		$(LDFLAGS) \
+		$(LDSCRIPT) \
 		-o $@ \
 
 	cp -v $(FRIDA_TRACE) $(ROOT)

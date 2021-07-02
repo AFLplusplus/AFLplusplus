@@ -18,7 +18,7 @@ RUN git checkout dev
 WORKDIR /AFLplusplus/frida_mode
 ENV CFLAGS="\
     -DADDR_NO_RANDOMIZE=0x0040000 \
-    -D_POSIX_C_SOURCE=200809L \
     -Wno-implicit-function-declaration \
     "
+ENV CXX=$CC
 RUN make

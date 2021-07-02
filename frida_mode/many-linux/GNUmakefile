@@ -15,6 +15,7 @@ $(BUILD_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR)
+	docker images --filter 'dangling=true' -q --no-trunc | xargs -L1 docker rmi --force
 
 shell:
 	docker run -ti --rm many-afl-frida /bin/bash
