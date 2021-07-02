@@ -26,7 +26,6 @@ typedef long double max_align_t;
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -62,8 +61,8 @@ namespace {
 struct AFLUnusual {
 
   AFLUnusual(Module &_M, Function &_F, DominatorTree &_DT,
-             IntraProceduralRA<Cousot> &_RA, AliasAnalysis &_AA)
-      : M(_M), F(_F), DT(_DT), RA(_RA), AA(_AA) {
+             IntraProceduralRA<Cousot> &_RA)
+      : M(_M), F(_F), DT(_DT), RA(_RA) {
 
     initialize();
 
@@ -114,7 +113,6 @@ struct AFLUnusual {
 
   DominatorTree &            DT;
   IntraProceduralRA<Cousot> &RA;
-  AliasAnalysis &            AA;
 
   int LongSize;
 
@@ -493,7 +491,7 @@ bool AFLUnusual::instrumentFunction() {
           
         }
 
-        if (LoadInst *L = dyn_cast<LoadInst>(X)) {
+        /*if (LoadInst *L = dyn_cast<LoadInst>(X)) {
 
           // Skip load from constant mem
           if (AA.pointsToConstantMemory(L->getPointerOperand())) {
@@ -503,7 +501,7 @@ bool AFLUnusual::instrumentFunction() {
 
           }
 
-        }
+        }*/
 
         if (!noSingle && Dumpeds1.find(X) == Dumpeds1.end()) {
 
@@ -672,7 +670,7 @@ class AFLUnusualFunctionPass : public FunctionPass {
     AU.setPreservesCFG();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<IntraProceduralRA<Cousot>>();
-    AU.addRequired<AAResultsWrapperPass>();
+    //AU.addRequired<AAResultsWrapperPass>();
 
   }
 
@@ -687,8 +685,7 @@ class AFLUnusualFunctionPass : public FunctionPass {
     Module &       M = *F.getParent();
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     IntraProceduralRA<Cousot> &RA = getAnalysis<IntraProceduralRA<Cousot>>();
-    AliasAnalysis &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    AFLUnusual     DI(M, F, DT, RA, AA);
+    AFLUnusual     DI(M, F, DT, RA);
     bool           r = DI.instrumentFunction();
     // verifyFunction(F);
     return r;
