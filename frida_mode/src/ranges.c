@@ -145,11 +145,13 @@ static void convert_name_token(gchar *token, GumMemoryRange *range) {
 
 static void convert_token(gchar *token, GumMemoryRange *range) {
 
-  if (g_strrstr(token, "-")) {
+  if (g_str_has_prefix(token, "0x")) {
 
     convert_address_token(token, range);
 
-  } else {
+  }
+
+  else {
 
     convert_name_token(token, range);
 
@@ -509,6 +511,13 @@ void ranges_config(void) {
   if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) { ranges_debug_maps = TRUE; }
   if (getenv("AFL_INST_LIBS") != NULL) { ranges_inst_libs = TRUE; }
 
+  if (ranges_debug_maps) {
+
+    gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback,
+                                 NULL);
+
+  }
+
   include_ranges = collect_ranges("AFL_FRIDA_INST_RANGES");
   exclude_ranges = collect_ranges("AFL_FRIDA_EXCLUDE_RANGES");
 
@@ -521,13 +530,6 @@ void ranges_init(void) {
   GArray *       step2;
   GArray *       step3;
   GArray *       step4;
-
-  if (ranges_debug_maps) {
-
-    gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback,
-                                 NULL);
-
-  }
 
   OKF("Ranges - Instrument libraries [%c]", ranges_inst_libs ? 'X' : ' ');
 
