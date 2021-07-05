@@ -789,7 +789,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
     if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
-    if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
+    if (!strcmp(cur, "-Wl,--relocatable")) partial_linking = 1;
+    if (!strcmp(cur, "-r")) partial_linking = 1;
+    if (!strcmp(cur, "--relocatable")) partial_linking = 1;
     if (!strcmp(cur, "-c")) have_c = 1;
 
     if (!strncmp(cur, "-O", 2)) have_o = 1;
