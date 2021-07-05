@@ -160,7 +160,7 @@ instrumentation (the default where available). Required to use
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork.
 * `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
-requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
+implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
 is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
