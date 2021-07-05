@@ -24,6 +24,12 @@ __attribute__((visibility("default"))) void js_api_error(char *msg) {
 __attribute__((visibility("default"))) void js_api_set_entrypoint(
     void *address) {
 
+  if (address == NULL) {
+
+    js_api_error("js_api_set_entrypoint called with NULL");
+
+  }
+
   entry_point = GPOINTER_TO_SIZE(address);
 
 }
@@ -31,12 +37,24 @@ __attribute__((visibility("default"))) void js_api_set_entrypoint(
 __attribute__((visibility("default"))) void js_api_set_persistent_address(
     void *address) {
 
+  if (address == NULL) {
+
+    js_api_error("js_api_set_persistent_address called with NULL");
+
+  }
+
   persistent_start = GPOINTER_TO_SIZE(address);
 
 }
 
 __attribute__((visibility("default"))) void js_api_set_persistent_return(
     void *address) {
+
+  if (address == NULL) {
+
+    js_api_error("js_api_set_persistent_return called with NULL");
+
+  }
 
   persistent_ret = GPOINTER_TO_SIZE(address);
 
@@ -149,6 +167,12 @@ __attribute__((visibility("default"))) void js_api_set_stats_transitions() {
 
 __attribute__((visibility("default"))) void js_api_set_persistent_hook(
     void *address) {
+
+  if (address == NULL) {
+
+    js_api_error("js_api_set_persistent_hook called with NULL");
+
+  }
 
   persistent_hook = address;
 

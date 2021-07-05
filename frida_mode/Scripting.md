@@ -605,6 +605,19 @@ difficult to diagnose. The code above only prints the instructions when running
 in the parent process (the one provided by `Process.id` when the JS script is
 executed).
 
+# OSX
+Note that the JavaScript debug symbol api for OSX makes use of the
+`CoreSymbolication` APIs and as such the `CoreFoundation` module must be loaded
+into the target to make use of it. This can be done by setting:
+
+```
+AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
+```
+
+It should be noted that `CoreSymbolication` API may take a while to initialize
+and build its caches. For this reason, it may be nescessary to also increase the
+value of the `-t` flag passed to `afl-fuzz`.
+
 # API
 ```js
 class Afl {
