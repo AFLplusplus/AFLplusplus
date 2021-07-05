@@ -102,6 +102,9 @@ HOOK_DIR:=$(PWD)hook/
 AFLPP_DRIVER_HOOK_SRC=$(HOOK_DIR)hook.c
 AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)hook.so
 
+BIN2C:=$(BUILD_DIR)bin2c
+BIN2C_SRC:=$(PWD)util/bin2c.c
+
 .PHONY: all 32 clean format hook $(FRIDA_GUM)
 
 ############################## ALL #############################################
@@ -165,8 +168,11 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 
 ############################### JS #############################################
 
-$(JS_SRC): $(JS) | $(BUILD_DIR)
-	cd $(JS_DIR) && xxd -i $(JS_NAME) $@
+$(BIN2C): $(BIN2C_SRC)
+	$(CC) -o $@ $<
+
+$(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
+	cd $(JS_DIR) && $(BIN2C) api_js $(JS) $@
 
 $(JS_OBJ): $(JS_SRC) GNUmakefile
 	$(CC) \
@@ -219,7 +225,7 @@ clean:
 
 ############################# FORMAT ###########################################
 format:
-	cd $(ROOT) && echo $(SOURCES) $(AFLPP_DRIVER_HOOK_SRC) | xargs -L1 ./.custom-format.py -i
+	cd $(ROOT) && echo $(SOURCES) $(AFLPP_DRIVER_HOOK_SRC) $(BIN2C_SRC) | xargs -L1 ./.custom-format.py -i
 	cd $(ROOT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
 
 ############################# RUN #############################################
