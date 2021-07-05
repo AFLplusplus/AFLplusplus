@@ -19,9 +19,11 @@ typedef struct {
 
 gboolean ranges_debug_maps = FALSE;
 gboolean ranges_inst_libs = FALSE;
+gboolean ranges_inst_jit = FALSE;
 
 static GArray *module_ranges = NULL;
 static GArray *libs_ranges = NULL;
+static GArray *jit_ranges = NULL;
 static GArray *include_ranges = NULL;
 static GArray *exclude_ranges = NULL;
 static GArray *ranges = NULL;
@@ -174,19 +176,27 @@ static gboolean print_ranges_callback(const GumRangeDetails *details,
                                       gpointer               user_data) {
 
   UNUSED_PARAMETER(user_data);
+
   if (details->file == NULL) {
 
-    OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER "X",
+    OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER
+        "X %c%c%c",
         details->range->base_address,
-        details->range->base_address + details->range->size);
+        details->range->base_address + details->range->size,
+        details->protection & GUM_PAGE_READ ? 'R' : '-',
+        details->protection & GUM_PAGE_WRITE ? 'W' : '-',
+        details->protection & GUM_PAGE_EXECUTE ? 'X' : '-');
 
   } else {
 
     OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER
-        "X %s(0x%016" G_GINT64_MODIFIER "x)",
+        "X %c%c%c %s(0x%016" G_GINT64_MODIFIER "x)",
         details->range->base_address,
         details->range->base_address + details->range->size,
-        details->file->path, details->file->offset);
+        details->protection & GUM_PAGE_READ ? 'R' : '-',
+        details->protection & GUM_PAGE_WRITE ? 'W' : '-',
+        details->protection & GUM_PAGE_EXECUTE ? 'X' : '-', details->file->path,
+        details->file->offset);
 
   }
 
@@ -327,6 +337,39 @@ static GArray *collect_libs_ranges(void) {
 
   print_ranges("AFL_INST_LIBS", result);
 
+  return result;
+
+}
+
+static gboolean collect_jit_ranges_callback(const GumRangeDetails *details,
+                                            gpointer               user_data) {
+
+  GArray *ranges = (GArray *)user_data;
+
+  /* If the executable code isn't backed by a file, it's probably JIT */
+  if (details->file == NULL) {
+
+    GumMemoryRange range = *details->range;
+    g_array_append_val(ranges, range);
+
+  }
+
+  return TRUE;
+
+}
+
+static GArray *collect_jit_ranges(void) {
+
+  GArray *result;
+  result = g_array_new(false, false, sizeof(GumMemoryRange));
+  if (!ranges_inst_jit) {
+
+    gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, collect_jit_ranges_callback,
+                                 result);
+
+  }
+
+  print_ranges("JIT", result);
   return result;
 
 }
@@ -510,6 +553,7 @@ void ranges_config(void) {
 
   if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) { ranges_debug_maps = TRUE; }
   if (getenv("AFL_INST_LIBS") != NULL) { ranges_inst_libs = TRUE; }
+  if (getenv("AFL_FRIDA_INST_JIT") != NULL) { ranges_inst_jit = TRUE; }
 
   if (ranges_debug_maps) {
 
@@ -530,7 +574,9 @@ void ranges_init(void) {
   GArray *       step2;
   GArray *       step3;
   GArray *       step4;
+  GArray *       step5;
 
+  OKF("Ranges - Instrument jit [%c]", ranges_inst_jit ? 'X' : ' ');
   OKF("Ranges - Instrument libraries [%c]", ranges_inst_libs ? 'X' : ' ');
 
   print_ranges("AFL_FRIDA_INST_RANGES", include_ranges);
@@ -538,6 +584,7 @@ void ranges_init(void) {
 
   module_ranges = collect_module_ranges();
   libs_ranges = collect_libs_ranges();
+  jit_ranges = collect_jit_ranges();
 
   /* If include ranges is empty, then assume everything is included */
   if (include_ranges->len == 0) {
@@ -560,17 +607,20 @@ void ranges_init(void) {
   step3 = subtract_ranges(step2, exclude_ranges);
   print_ranges("step3", step3);
 
-  /*
-   * After step3, we have the total ranges to be instrumented, we now subtract
-   * that from the original ranges of the modules to configure stalker.
-   */
-
-  step4 = subtract_ranges(module_ranges, step3);
+  step4 = subtract_ranges(step3, jit_ranges);
   print_ranges("step4", step4);
 
-  ranges = merge_ranges(step4);
+  /*
+   * After step4, we have the total ranges to be instrumented, we now subtract
+   * that from the original ranges of the modules to configure stalker.
+   */
+  step5 = subtract_ranges(module_ranges, step4);
+  print_ranges("step5", step5);
+
+  ranges = merge_ranges(step5);
   print_ranges("final", ranges);
 
+  g_array_free(step5, TRUE);
   g_array_free(step4, TRUE);
   g_array_free(step3, TRUE);
   g_array_free(step2, TRUE);

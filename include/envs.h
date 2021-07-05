@@ -56,6 +56,7 @@ static char *afl_environment_variables[] = {
     "AFL_FRIDA_DEBUG_MAPS",
     "AFL_FRIDA_EXCLUDE_RANGES",
     "AFL_FRIDA_INST_DEBUG_FILE",
+    "AFL_FRIDA_INST_JIT",
     "AFL_FRIDA_INST_NO_OPTIMIZE",
     "AFL_FRIDA_INST_NO_PREFETCH",
     "AFL_FRIDA_INST_RANGES",

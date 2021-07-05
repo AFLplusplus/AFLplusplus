@@ -77,6 +77,12 @@ __attribute__((visibility("default"))) void js_api_add_exclude_range(
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_instrument_jit() {
+
+  ranges_inst_jit = TRUE;
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_instrument_libraries() {
 
   ranges_inst_libs = TRUE;
