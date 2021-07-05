@@ -214,13 +214,15 @@ void instrument_init(void) {
 
   if (instrument_tracing && instrument_optimize) {
 
-    FATAL("AFL_FRIDA_INST_TRACE requires AFL_FRIDA_INST_NO_OPTIMIZE");
+    WARNF("AFL_FRIDA_INST_TRACE implies AFL_FRIDA_INST_NO_OPTIMIZE");
+    instrument_optimize = FALSE;
 
   }
 
   if (instrument_unique && instrument_optimize) {
 
-    FATAL("AFL_FRIDA_INST_TRACE_UNIQUE requires AFL_FRIDA_INST_NO_OPTIMIZE");
+    WARNF("AFL_FRIDA_INST_TRACE_UNIQUE implies AFL_FRIDA_INST_NO_OPTIMIZE");
+    instrument_optimize = FALSE;
 
   }
 
