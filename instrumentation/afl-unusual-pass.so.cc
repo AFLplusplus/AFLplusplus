@@ -40,10 +40,10 @@ typedef long double max_align_t;
 #endif
 
 #include "afl-llvm-common.h"
-#include "RangeAnalysis.h"
+//#include "RangeAnalysis.h"
 
 using namespace llvm;
-using namespace RangeAnalysis;
+//using namespace RangeAnalysis;
 
 /*
 static size_t TypeSizeToSizeIndex(uint32_t TypeSize) {
@@ -60,9 +60,9 @@ namespace {
 
 struct AFLUnusual {
 
-  AFLUnusual(Module &_M, Function &_F, DominatorTree &_DT,
-             IntraProceduralRA<Cousot> &_RA)
-      : M(_M), F(_F), DT(_DT), RA(_RA) {
+  AFLUnusual(Module &_M, Function &_F, DominatorTree &_DT)
+             //IntraProceduralRA<Cousot> &_RA)
+      : M(_M), F(_F), DT(_DT) {
 
     initialize();
 
@@ -112,7 +112,7 @@ struct AFLUnusual {
   Function &   F;
 
   DominatorTree &            DT;
-  IntraProceduralRA<Cousot> &RA;
+  //IntraProceduralRA<Cousot> &RA;
 
   int LongSize;
 
@@ -505,13 +505,15 @@ bool AFLUnusual::instrumentFunction() {
 
         if (!noSingle && Dumpeds1.find(X) == Dumpeds1.end()) {
 
-          Range Rng = RA.getRange(X);
+          //Range Rng = RA.getRange(X);
 
           bool MustCheck = false;
           u8   always_true = INV_ALL;
           u8   always_ptr_true = INV_ALL;
+          
+          MustCheck = true;
 
-          if (!Rng.isUnknown() && !Rng.isEmpty()) {
+          /*if (!Rng.isUnknown() && !Rng.isEmpty()) {
 
             bool HasMin = Rng.getLower().getActiveBits() <= 64;
             bool HasMax = Rng.getUpper().getActiveBits() <= 64;
@@ -542,7 +544,7 @@ bool AFLUnusual::instrumentFunction() {
 
             MustCheck = true;
 
-          }
+          }*/
 
           if (MustCheck) {
 
@@ -669,7 +671,7 @@ class AFLUnusualFunctionPass : public FunctionPass {
 
     AU.setPreservesCFG();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<IntraProceduralRA<Cousot>>();
+    //AU.addRequired<IntraProceduralRA<Cousot>>();
     //AU.addRequired<AAResultsWrapperPass>();
 
   }
@@ -684,8 +686,8 @@ class AFLUnusualFunctionPass : public FunctionPass {
 
     Module &       M = *F.getParent();
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    IntraProceduralRA<Cousot> &RA = getAnalysis<IntraProceduralRA<Cousot>>();
-    AFLUnusual     DI(M, F, DT, RA);
+    //IntraProceduralRA<Cousot> &RA = getAnalysis<IntraProceduralRA<Cousot>>();
+    AFLUnusual     DI(M, F, DT);
     bool           r = DI.instrumentFunction();
     // verifyFunction(F);
     return r;
@@ -697,8 +699,8 @@ class AFLUnusualFunctionPass : public FunctionPass {
 char AFLUnusualFunctionPass::ID = 0;
 
 // For RangeAnalysis
-template <class CGT>
-char IntraProceduralRA<CGT>::ID;
+//template <class CGT>
+//char IntraProceduralRA<CGT>::ID;
 
 static void registerAFLUnusualPass(const PassManagerBuilder &,
                                    legacy::PassManagerBase &PM) {

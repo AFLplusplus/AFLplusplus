@@ -433,7 +433,7 @@ endif
 ./cmplog-instructions-pass.so:	instrumentation/cmplog-instructions-pass.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
-afl-unusual-pass.so:	instrumentation/afl-unusual-pass.so.cc instrumentation/RangeAnalysis.cpp instrumentation/afl-llvm-common.o | test_deps
+afl-unusual-pass.so:	instrumentation/afl-unusual-pass.so.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $^ -o $@ $(CLANG_LFL)
 
 afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/afl-llvm-common.o | test_deps
