@@ -26,7 +26,7 @@ LDFLAGS += -lpthread
 
 TEST_BIN:=$(BUILD_DIR)test
 ifeq "$(shell uname)" "Darwin"
-TEST_BIN_LDFLAGS:=-undefined dynamic_lookup
+TEST_BIN_LDFLAGS:=-undefined dynamic_lookup -Wl,-no_pie
 endif
 
 TEST_DATA_DIR:=$(BUILD_DIR)in/
@@ -46,16 +46,18 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+
 ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000aaaaaaaaa000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000aaaaaaaaa000)
 endif
 
 ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000555555554000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000555555554000)
 endif
 
 ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x56555000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x56555000)
 endif
 
 .PHONY: all clean frida hook
@@ -77,7 +79,7 @@ $(HARNESS_FILE): | $(HARNESS_BUILD_DIR)
 	wget -O $@ $(HARNESS_URL)
 
 $(HARNESS_OBJ): $(HARNESS_FILE)
-	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ -c $<
+	$(CC) $(CXXFLAGS) $(LDFLAGS) $(TEST_BIN_LDFLAGS) -o $@ -c $<
 
 ######### JPEGTEST ########
 

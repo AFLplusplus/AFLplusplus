@@ -13,6 +13,10 @@ TESTINSTSRC2:=$(PWD)test2.c
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
+ifeq "$(shell uname)" "Darwin"
+AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
+endif
+
 .PHONY: all 32 clean qemu frida
 
 all: $(TESTINSTBIN) $(TESTINSTBIN2)
@@ -40,12 +44,14 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 frida_js_entry: $(TESTINSTBIN) $(TEST_DATA_FILE)
+	AFL_PRELOAD=$(AFL_PRELOAD) \
 	AFL_FRIDA_JS_SCRIPT=entry.js \
 	$(ROOT)afl-fuzz \
 		-D \
 		-O \
 		-i $(TEST_DATA_DIR) \
 		-o $(FRIDA_OUT) \
+		-t 10000+ \
 		-- \
 			$(TESTINSTBIN) @@
 
