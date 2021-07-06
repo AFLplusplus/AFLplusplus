@@ -149,7 +149,13 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     if (unlikely(begin)) {
 
-      prefetch_write(GSIZE_TO_POINTER(instr->address));
+      instrument_debug_start(instr->address, output);
+
+      if (likely(entry_reached)) {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address));
+
+      }
 
       if (likely(!excluded)) {
 
