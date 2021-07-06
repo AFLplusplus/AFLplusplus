@@ -440,10 +440,10 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
     fprintf(
         f,
         "Colorization: fname=%s len=%u ms=%llu result=%u execs=%u found=%llu "
-        "taint=%u\n",
+        "taint=%u auto_extra_before=%u\n",
         afl->queue_cur->fname, len, get_cur_time() - start_time,
         afl->queue_cur->colorized, afl->stage_cur, new_hit_cnt - orig_hit_cnt,
-        positions);
+        positions, afl->a_extras_cnt);
 
   #ifndef _DEBUG
     if (afl->not_on_tty) { fclose(f); }
@@ -1834,7 +1834,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 #endif
 
     // If failed, add to dictionary
-    if (!found_one) {
+    //if (!found_one) {
 
       if (afl->pass_stats[key].total == 0) {
 
@@ -1856,7 +1856,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       }
 
-    }
+    //}
 
   cmp_fuzz_next_iter:
     afl->stage_cur++;
@@ -2451,7 +2451,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     }
 
     // If failed, add to dictionary
-    if (!found_one && (lvl & LVL1)) {
+    if (/*!found_one &&*/ (lvl & LVL1)) {
 
       if (unlikely(!afl->pass_stats[key].total)) {
 
@@ -2795,9 +2795,10 @@ exit_its:
   if (f) {
 
     fprintf(f,
-            "Cmplog: fname=%s len=%u ms=%llu result=%u finds=%llu entries=%u\n",
+            "Cmplog: fname=%s len=%u ms=%llu result=%u finds=%llu entries=%u "
+            "auto_extra_after=%u\n",
             afl->queue_cur->fname, len, get_cur_time() - start_time, r,
-            new_hit_cnt - orig_hit_cnt, cmp_locations);
+            new_hit_cnt - orig_hit_cnt, cmp_locations, afl->a_extras_cnt);
 
   #ifndef _DEBUG
     if (afl->not_on_tty) { fclose(f); }
