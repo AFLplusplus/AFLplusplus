@@ -17,7 +17,7 @@ ifeq "$(shell uname)" "Darwin"
 AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
 endif
 
-.PHONY: all 32 clean qemu frida
+.PHONY: all 32 clean qemu frida debug
 
 all: $(TESTINSTBIN) $(TESTINSTBIN2)
 	make -C $(ROOT)frida_mode/
@@ -84,3 +84,15 @@ frida_js_stalker: $(TESTINSTBIN2) $(TEST_DATA_FILE)
 		-o $(FRIDA_OUT) \
 		-- \
 			$(TESTINSTBIN2) @@
+
+debug: $(TEST_DATA_FILE)
+	gdb \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set environment AFL_FRIDA_JS_SCRIPT=entry.js' \
+		--ex 'set disassembly-flavor intel' \
+		--args $(TESTINSTBIN) $(TEST_DATA_FILE)
+
+strace: $(TEST_DATA_FILE)
+	LD_PRELOAD=$(ROOT)afl-frida-trace.so \
+	AFL_FRIDA_JS_SCRIPT=entry.js \
+	strace $(TESTINSTBIN) $(TEST_DATA_FILE)
