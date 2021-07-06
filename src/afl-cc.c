@@ -1949,7 +1949,7 @@ int main(int argc, char **argv, char **envp) {
   opt_params[opt_par_cnt++] = opt_cmd;
   opt_params[opt_par_cnt++] = "-O0";
   opt_params[opt_par_cnt++] = "--analyze";
-  opt_params[opt_par_cnt++] = "--basiccg";
+  opt_params[opt_par_cnt++] = "--dot-callgraph";
   opt_params[opt_par_cnt++] = "-o";
   opt_params[opt_par_cnt++] = cg_file;
   opt_params[opt_par_cnt++] = ll_file;
@@ -1976,8 +1976,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (waitpid(pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
-  unlink(ll_file);
-  if (!be_quiet) SAYF("Done!\n");
+  if (!be_quiet) SAYF("Done, delete '%s' now.\n", ll_file);
 
   return 0;
 
