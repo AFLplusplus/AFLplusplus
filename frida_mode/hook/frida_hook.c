@@ -1,10 +1,10 @@
 /*
  *
  * Modify this file to set the right registers with the fuzz input and length.
- * It is a good idea to check input_buf_len to be not larger than the 
+ * It is a good idea to check input_buf_len to be not larger than the
  * destination buffer!
  *
- */ 
+ */
 
 
 #include <stdint.h>
