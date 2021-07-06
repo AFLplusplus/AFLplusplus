@@ -9,12 +9,15 @@ static char *             js_script = NULL;
 gboolean                  js_done = FALSE;
 js_api_stalker_callback_t js_user_callback = NULL;
 
-static gchar *           filename = "afl.js";
-static gchar *           contents;
-static GumScriptBackend *backend;
-static GCancellable *    cancellable = NULL;
-static GError *          error = NULL;
-static GumScript *       script;
+static gchar *             filename = "afl.js";
+static gchar *             contents;
+static GumScriptBackend *  backend;
+static GCancellable *      cancellable = NULL;
+static GError *            error = NULL;
+static GumScript *         script;
+static GumScriptScheduler *scheduler;
+static GMainContext *      context;
+static GMainLoop *         main_loop;
 
 static void js_msg(GumScript *script, const gchar *message, GBytes *data,
                    gpointer user_data) {
@@ -80,18 +83,44 @@ static void js_print_script(gchar *source) {
 
 }
 
-void js_start(void) {
+static void create_cb(GObject *source_object, GAsyncResult *result,
+                      gpointer user_data) {
 
-  GMainContext *context;
+  UNUSED_PARAMETER(source_object);
+  UNUSED_PARAMETER(user_data);
+  script = gum_script_backend_create_finish(backend, result, &error);
+
+}
+
+static void load_cb(GObject *source_object, GAsyncResult *result,
+                    gpointer user_data) {
+
+  UNUSED_PARAMETER(source_object);
+  UNUSED_PARAMETER(user_data);
+  gum_script_load_finish(script, result);
+
+}
+
+void js_start(void) {
 
   gchar *source = js_get_script();
   if (source == NULL) { return; }
   js_print_script(source);
 
+  scheduler = gum_script_backend_get_scheduler();
+  gum_script_scheduler_disable_background_thread(scheduler);
+
   backend = gum_script_backend_obtain_qjs();
 
-  script = gum_script_backend_create_sync(backend, "example", source,
-                                          cancellable, &error);
+  context = gum_script_scheduler_get_js_context(scheduler);
+  main_loop = g_main_loop_new(context, true);
+  g_main_context_push_thread_default(context);
+
+  gum_script_backend_create(backend, "example", source, cancellable, create_cb,
+                            &error);
+
+  while (g_main_context_pending(context))
+    g_main_context_iteration(context, FALSE);
 
   if (error != NULL) {
 
@@ -100,13 +129,12 @@ void js_start(void) {
 
   }
 
-  gum_script_set_message_handler(script, js_msg, NULL, NULL);
+  gum_script_load(script, cancellable, load_cb, NULL);
 
-  gum_script_load_sync(script, cancellable);
-
-  context = g_main_context_get_thread_default();
   while (g_main_context_pending(context))
     g_main_context_iteration(context, FALSE);
+
+  gum_script_set_message_handler(script, js_msg, NULL, NULL);
 
   if (!js_done) { FATAL("Script didn't call Afl.done()"); }
 
