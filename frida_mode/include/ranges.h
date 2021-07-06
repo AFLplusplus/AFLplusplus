@@ -5,6 +5,7 @@
 
 extern gboolean ranges_debug_maps;
 extern gboolean ranges_inst_libs;
+extern gboolean ranges_inst_jit;
 
 void ranges_config(void);
 void ranges_init(void);

@@ -153,6 +153,9 @@ Generated block 0x7ffff75e98e2
 
 ***
 ```
+* `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
+code. Code is considered to be JIT if the executable segment is not backed by a
+file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
 instrumentation (the default where available). Required to use
 `AFL_FRIDA_INST_TRACE`.
