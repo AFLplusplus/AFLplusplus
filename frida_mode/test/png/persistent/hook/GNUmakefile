@@ -31,18 +31,24 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
-AFL_QEMU_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x4000000000)
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+
+AFL_QEMU_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x4000000000)
 
 ifeq "$(ARCH)" "arm64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000aaaaaaaaa000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000aaaaaaaaa000)
 endif
 
 ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000555555554000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000555555554000)
 endif
 
 ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)../get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x56555000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x56555000)
+endif
+
+ifeq "$(shell uname)" "Darwin"
+AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
 endif
 
 .PHONY: all 32 clean format qemu qemu_entry frida frida_entry debug
@@ -121,6 +127,7 @@ frida_entry: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 			$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
 
 frida_js_load: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
+	AFL_PRELOAD=$(AFL_PRELOAD) \
 	AFL_FRIDA_JS_SCRIPT=load.js \
 	$(ROOT)afl-fuzz \
 		-D \
@@ -128,10 +135,12 @@ frida_js_load: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DI
 		-O \
 		-i $(TEST_DATA_DIR) \
 		-o $(FRIDA_OUT) \
+		-t 10000+ \
 		-- \
 			$(TEST_BIN) $(AFLPP_DRIVER_DUMMY_INPUT)
 
 frida_js_cmodule: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
+	AFL_PRELOAD=$(AFL_PRELOAD) \
 	AFL_FRIDA_JS_SCRIPT=cmodule.js \
 	$(ROOT)afl-fuzz \
 		-D \

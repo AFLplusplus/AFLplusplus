@@ -22,7 +22,7 @@ PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/master/benchmar
 
 TEST_BIN:=$(BUILD_DIR)test
 ifeq "$(shell uname)" "Darwin"
-TEST_BIN_LDFLAGS:=-undefined dynamic_lookup
+TEST_BIN_LDFLAGS:=-undefined dynamic_lookup -Wl,-no_pie
 endif
 
 TEST_DATA_DIR:=$(LIBPNG_DIR)contrib/pngsuite/
