@@ -98,9 +98,12 @@ FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
-HOOK_DIR:=$(PWD)hook/
-AFLPP_DRIVER_HOOK_SRC=$(HOOK_DIR)hook.c
-AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)hook.so
+FRIDA_HOOK_DIR:=$(PWD)hook/
+AFLPP_FRIDA_DRIVER_HOOK_SRC=$(FRIDA_HOOK_DIR)hook.c
+AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(BUILD_DIR)frida_hook.so
+
+QEMU_HOOK_DIR:=$(ROOT)utils/aflpp_driver/
+AFLPP_QEMU_DRIVER_HOOK_OBJ:=$(BUILD_DIR)qemu_hook.so
 
 BIN2C:=$(BUILD_DIR)bin2c
 BIN2C_SRC:=$(PWD)util/bin2c.c
@@ -109,7 +112,7 @@ BIN2C_SRC:=$(PWD)util/bin2c.c
 
 ############################## ALL #############################################
 
-all: $(FRIDA_TRACE) $(AFLPP_DRIVER_HOOK_OBJ)
+all: $(FRIDA_TRACE) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
@@ -214,10 +217,14 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 
 ############################# HOOK #############################################
 
-$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
+$(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
 
-hook: $(AFLPP_DRIVER_HOOK_OBJ)
+$(AFLPP_QEMU_DRIVER_HOOK_OBJ): | $(QEMU_HOOK_DIR)
+	make -C $(QEMU_HOOK_DIR) aflpp_qemu_driver_hook.so
+	cp $(QEMU_HOOK_DIR)aflpp_qemu_driver_hook.so $@
+
+hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
 ############################# CLEAN ############################################
 clean:
@@ -225,7 +232,7 @@ clean:
 
 ############################# FORMAT ###########################################
 format:
-	cd $(ROOT) && echo $(SOURCES) $(AFLPP_DRIVER_HOOK_SRC) $(BIN2C_SRC) | xargs -L1 ./.custom-format.py -i
+	cd $(ROOT) && echo $(SOURCES) $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(BIN2C_SRC) | xargs -L1 ./.custom-format.py -i
 	cd $(ROOT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
 
 ############################# RUN #############################################
