@@ -1,3 +1,12 @@
+/*
+ *
+ * Modify this file to set the right registers with the fuzz input and length.
+ * It is a good idea to check input_buf_len to be not larger than the 
+ * destination buffer!
+ *
+ */ 
+
+
 #include <stdint.h>
 #include <string.h>
 
@@ -8,6 +17,8 @@
 __attribute__((visibility("default"))) void afl_persistent_hook(
     GumCpuContext *regs, uint8_t *input_buf, uint32_t input_buf_len) {
 
+  // do a length check matching the target!
+
   memcpy((void *)regs->rdi, input_buf, input_buf_len);
   regs->rsi = input_buf_len;
 
@@ -17,6 +28,8 @@ __attribute__((visibility("default"))) void afl_persistent_hook(
 
 __attribute__((visibility("default"))) void afl_persistent_hook(
     GumCpuContext *regs, uint8_t *input_buf, uint32_t input_buf_len) {
+
+  // do a length check matching the target!
 
   void **esp = (void **)regs->esp;
   void * arg1 = esp[0];
@@ -30,6 +43,8 @@ __attribute__((visibility("default"))) void afl_persistent_hook(
 
 __attribute__((visibility("default"))) void afl_persistent_hook(
     GumCpuContext *regs, uint8_t *input_buf, uint32_t input_buf_len) {
+
+  // do a length check matching the target!
 
   memcpy((void *)regs->x[0], input_buf, input_buf_len);
   regs->x[1] = input_buf_len;
