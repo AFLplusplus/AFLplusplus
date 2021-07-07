@@ -10,18 +10,16 @@ static GumAddress current_log_impl = GUM_ADDRESS(0);
 
 static const guint8 afl_log_code[] = {
 
-    // 0xcc,
-
     0x9c,                                                         /* pushfq */
     0x51,                                                       /* push rcx */
     0x52,                                                       /* push rdx */
 
-    0x48, 0x8b, 0x0d, 0x28,
+    0x48, 0x8b, 0x0d, 0x26,
     0x00, 0x00, 0x00,                          /* mov rcx, sym.&previous_pc */
     0x48, 0x8b, 0x11,                               /* mov rdx, qword [rcx] */
     0x48, 0x31, 0xfa,                                       /* xor rdx, rdi */
 
-    0x48, 0x03, 0x15, 0x13,
+    0x48, 0x03, 0x15, 0x11,
     0x00, 0x00, 0x00,                     /* add rdx, sym._afl_area_ptr_ptr */
 
     0x80, 0x02, 0x01,                              /* add byte ptr [rdx], 1 */
@@ -34,7 +32,8 @@ static const guint8 afl_log_code[] = {
     0x9d,                                                          /* popfq */
 
     0xc3,                                                            /* ret */
-    0x90, 0x90, 0x90                                             /* nop pad */
+
+    0x90
 
     /* Read-only data goes here: */
     /* uint8_t* __afl_area_ptr */
@@ -48,11 +47,14 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
+static guint8 align_pad[] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
 
   guint64 current_pc = instr->address;
   guint64 area_offset = (current_pc >> 4) ^ (current_pc << 8);
+  guint64 misalign = 0;
   area_offset &= MAP_SIZE - 1;
   GumX86Writer *cw = output->writer.x86;
 
@@ -64,6 +66,13 @@ void instrument_coverage_optimize(const cs_insn *   instr,
     gconstpointer after_log_impl = cw->code + 1;
 
     gum_x86_writer_put_jmp_near_label(cw, after_log_impl);
+
+    misalign = (cw->pc & 0x7);
+    if (misalign != 0) {
+
+      gum_x86_writer_put_bytes(cw, align_pad, 8 - misalign);
+
+    }
 
     current_log_impl = cw->pc;
     gum_x86_writer_put_bytes(cw, afl_log_code, sizeof(afl_log_code));
