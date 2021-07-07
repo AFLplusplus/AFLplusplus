@@ -20,6 +20,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-cc:
     - Update to COMPCOV/laf-intel that speeds up the instrumentation
       process a lot - thanks to Michael Rodler/f0rki for the PR!
+    - Fix for failures for some sized string instrumentations
     - Fix to instrument global namespace functions in c++
     - Fix for llvm 13
     - support partial linking
