@@ -759,6 +759,12 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
                   uint64_t literalLength = Str2.size();
                   uint64_t optLength = ilen->getZExtValue();
+                  if (optLength > literalLength + 1) {
+
+                    optLength = Str2.length() + 1;
+
+                  }
+
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
@@ -862,6 +868,12 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
                 uint64_t literalLength = optLen;
                 optLen = ilen->getZExtValue();
+                if (optLen > thestring.length() + 1) {
+
+                  optLen = thestring.length() + 1;
+
+                }
+
                 if (optLen < 2) { continue; }
                 if (literalLength + 1 == optLen) {  // add null byte
                   thestring.append("\0", 1);
