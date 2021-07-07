@@ -7,6 +7,7 @@
 #include "persistent.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "stats.h"
 #include "util.h"
 
 extern void __afl_manual_init();
@@ -21,6 +22,7 @@ static void entry_launch(void) {
 
   /* Child here */
   instrument_previous_pc = 0;
+  stats_on_fork();
 
 }
 
