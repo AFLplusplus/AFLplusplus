@@ -143,7 +143,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n\n"
 
-      "Testing settings:\n"
+      "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
       "  -V seconds    - fuzz for a specified time then terminate\n"
       "  -E execs      - fuzz for an approx. no. of total executions then "
