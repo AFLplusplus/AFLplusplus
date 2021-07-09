@@ -1,27 +1,27 @@
 #ifndef _GRAMFUZZ_H
 
-  #define _GRAMFUZZ_H
+#define _GRAMFUZZ_H
 
-  #include <json-c/json.h>
-  #include <unistd.h>
-  #include "hashmap.h"
-  #include "uthash.h"
-  #include "utarray.h"
+#include <json-c/json.h>
+#include <unistd.h>
+#include "hashmap.h"
+#include "uthash.h"
+#include "utarray.h"
 
-  #define INIT_INPUTS 100  // No. of initial inputs to be generated
+#define INIT_INPUTS 100  // No. of initial inputs to be generated
 
 // Set this as `numstates` + 1 where `numstates` is retrieved from gen automata
 // json #define STATES 63
 
-  #define INIT_SIZE 100  // Initial size of the dynamic array holding the input
+#define INIT_SIZE 100  // Initial size of the dynamic array holding the input
 
-  #define SPLICE_CORPUS 10000
-  #define RECUR_THRESHOLD 6
-  #define SIZE_THRESHOLD 2048
+#define SPLICE_CORPUS 10000
+#define RECUR_THRESHOLD 6
+#define SIZE_THRESHOLD 2048
 
-  #define FLUSH_INTERVAL \
-    3600  // Inputs that gave new coverage will be dumped every FLUSH_INTERVAL
-          // seconds
+#define FLUSH_INTERVAL \
+  3600  // Inputs that gave new coverage will be dumped every FLUSH_INTERVAL
+        // seconds
 
 typedef struct trigger {
 
@@ -199,6 +199,7 @@ Array *performSpliceGF(state *, Array *, afl_state_t *);
 void   dump_input(u8 *, char *, int *);
 void   write_input(Array *, u8 *);
 Array *read_input(state *, u8 *);
+Array *open_input(state *, u8 *, size_t);
 state *pda;
 
 // // AFL-specific struct

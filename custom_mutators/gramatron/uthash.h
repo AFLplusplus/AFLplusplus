@@ -59,6 +59,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       *_da_dst = (char *)(src);           \
                                           \
     } while (0)
+
 #else
   #define DECLTYPE_ASSIGN(dst, src) \
     do {                            \
@@ -66,6 +67,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       (dst) = DECLTYPE(dst)(src);   \
                                     \
     } while (0)
+
 #endif
 
 /* a number of the hash function use uint32_t which isn't defined on Pre VS2010
@@ -138,6 +140,7 @@ typedef unsigned char uint8_t;
       (oomed) = 1;               \
                                  \
     } while (0)
+\
   #define IF_HASH_NONFATAL_OOM(x) x
 
 #else
@@ -153,10 +156,11 @@ typedef unsigned char uint8_t;
 #endif
 
 /* initial number of buckets */
-#define HASH_INITIAL_NUM_BUCKETS 32U     /* initial number of buckets        */
-#define HASH_INITIAL_NUM_BUCKETS_LOG2 5U /* lg2 of initial number of buckets \
-                                          */
-#define HASH_BKT_CAPACITY_THRESH 10U     /* expand when bucket count reaches */
+#define HASH_INITIAL_NUM_BUCKETS 32U    /* initial number of buckets        */
+#define HASH_INITIAL_NUM_BUCKETS_LOG2                                    \
+  5U                                 /* lg2 of initial number of buckets \
+                                      */
+#define HASH_BKT_CAPACITY_THRESH 10U    /* expand when bucket count reaches */
 
 /* calculate the element whose hash handle address is hhp */
 #define ELMT_FROM_HH(tbl, hhp) ((void *)(((char *)(hhp)) - ((tbl)->hho)))
@@ -376,6 +380,8 @@ typedef unsigned char uint8_t;
                                                                          \
     } while ((_hs_iter = HH_FROM_ELMT((head)->hh.tbl, _hs_iter)->next)); \
                                                                          \
+                                                                         \
+                                                                         \
   } while (0)
 
 #ifdef NO_DECLTYPE
@@ -396,6 +402,8 @@ typedef unsigned char uint8_t;
         DECLTYPE_ASSIGN(head, _hs_saved_head);                             \
                                                                            \
       } while ((_hs_iter = HH_FROM_ELMT((head)->hh.tbl, _hs_iter)->next)); \
+                                                                           \
+                                                                           \
                                                                            \
     } while (0)
 #endif
@@ -639,6 +647,7 @@ typedef unsigned char uint8_t;
     HASH_FIND(hh, head, findstr, _uthash_hfstr_keylen, out);          \
                                                                       \
   } while (0)
+\
 #define HASH_ADD_STR(head, strfield, add)                                     \
   do {                                                                        \
                                                                               \
@@ -646,6 +655,7 @@ typedef unsigned char uint8_t;
     HASH_ADD(hh, head, strfield[0], _uthash_hastr_keylen, add);               \
                                                                               \
   } while (0)
+\
 #define HASH_REPLACE_STR(head, strfield, add, replaced)                       \
   do {                                                                        \
                                                                               \
@@ -653,6 +663,7 @@ typedef unsigned char uint8_t;
     HASH_REPLACE(hh, head, strfield[0], _uthash_hrstr_keylen, add, replaced); \
                                                                               \
   } while (0)
+\
 #define HASH_FIND_INT(head, findint, out) \
   HASH_FIND(hh, head, findint, sizeof(int), out)
 #define HASH_ADD_INT(head, intfield, add) \
@@ -679,6 +690,7 @@ typedef unsigned char uint8_t;
       exit(-1);                     \
                                     \
     } while (0)
+\
   #define HASH_FSCK(hh, head, where)                                          \
     do {                                                                      \
                                                                               \
@@ -748,6 +760,7 @@ typedef unsigned char uint8_t;
       }                                                                       \
                                                                               \
     } while (0)
+
 #else
   #define HASH_FSCK(hh, head, where)
 #endif
@@ -764,6 +777,7 @@ typedef unsigned char uint8_t;
       write(HASH_EMIT_KEYS, keyptr, (unsigned long)fieldlen); \
                                                               \
     } while (0)
+
 #else
   #define HASH_EMIT_KEY(hh, head, keyptr, fieldlen)
 #endif
@@ -806,6 +820,7 @@ typedef unsigned char uint8_t;
     }                                                            \
                                                                  \
   } while (0)
+
 /* FNV-1a variation */
 #define HASH_FNV(key, keylen, hashv)                             \
   do {                                                           \
@@ -1098,6 +1113,7 @@ typedef unsigned char uint8_t;
       hashv = _mur_h1;                                               \
                                                                      \
     } while (0)
+
 #endif                                     /* HASH_USING_NO_STRICT_ALIASING */
 
 /* iterate over items in a known bucket to find desired item */
@@ -1335,6 +1351,7 @@ typedef unsigned char uint8_t;
               _hs_psize--;                                                     \
                                                                                \
             } else if ((cmpfcn(DECLTYPE(head)(                                 \
+                                                                               \
                                    ELMT_FROM_HH((head)->hh.tbl, _hs_p)),       \
                                DECLTYPE(head)(ELMT_FROM_HH((head)->hh.tbl,     \
                                                            _hs_q)))) <= 0) {   \

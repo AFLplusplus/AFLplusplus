@@ -31,6 +31,45 @@ struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
+void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
+                                    u8 *fname, u8 *mother_fname) {
+
+  if (afl->custom_mutators_count) {
+
+    u8 updated = 0;
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_queue_new_entry) {
+
+        if (el->afl_custom_queue_new_entry(el->data, fname, mother_fname)) {
+
+          updated = 1;
+
+        }
+
+      }
+
+    });
+
+    if (updated) {
+
+      struct stat st;
+      if (stat(fname, &st)) { PFATAL("File %s is gone!", fname); }
+      if (!st.st_size) {
+
+        FATAL("File %s became empty in custom mutator!", fname);
+
+      }
+
+      q->len = st.st_size;
+
+    }
+
+  }
+
+}
+
 void setup_custom_mutators(afl_state_t *afl) {
 
   /* Try mutator library first */
