@@ -47,7 +47,7 @@ int afl_custom_post_trim(void *data, unsigned char success);
 size_t afl_custom_havoc_mutation(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, size_t max_size);
 unsigned char afl_custom_havoc_mutation_probability(void *data);
 unsigned char afl_custom_queue_get(void *data, const unsigned char *filename);
-void afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
+u8 afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
 const char* afl_custom_introspection(my_mutator_t *data);
 void afl_custom_deinit(void *data);
 ```
@@ -88,7 +88,7 @@ def queue_get(filename):
     return True
 
 def queue_new_entry(filename_new_queue, filename_orig_queue):
-    pass
+    return False
 
 def introspection():
     return string
@@ -156,6 +156,7 @@ def deinit():  # optional for Python
 - `queue_new_entry` (optional):
 
     This methods is called after adding a new test case to the queue.
+    If the contents of the file was changed return True, False otherwise.
 
 - `introspection` (optional):
 
