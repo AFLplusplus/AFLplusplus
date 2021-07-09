@@ -248,32 +248,6 @@ Array *parse_input(state *pda, FILE *fp) {
 
 }
 
-Array *open_input(state *pda, u8 *data, size_t len) {
-
-  int fd = memfd_create("foo", O_RDWR);
-  if (fd < 0) {
-
-    fprintf(stderr, "Error: memfd_create failed\n");
-    return NULL;
-
-  }
-
-  ck_write(fd, data, len, "memfd_create");
-  lseek(fd, 0, SEEK_SET);
-  FILE *f = fdopen(fd, "rb");
-  if (!f) {
-
-    fprintf(stderr, "Error: fdopen failed\n");
-    return NULL;
-
-  }
-
-  Array *res = parse_input(pda, f);
-  fclose(f);
-  return res;
-
-}
-
 // Read the input representation into memory
 Array *read_input(state *pda, u8 *fn) {
 

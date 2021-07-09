@@ -199,7 +199,6 @@ Array *performSpliceGF(state *, Array *, afl_state_t *);
 void   dump_input(u8 *, char *, int *);
 void   write_input(Array *, u8 *);
 Array *read_input(state *, u8 *);
-Array *open_input(state *, u8 *, size_t);
 state *pda;
 
 // // AFL-specific struct
