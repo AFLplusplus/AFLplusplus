@@ -474,6 +474,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   if (afl->custom_mutators_count) {
 
+    u8 updated = 0;
+
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_queue_new_entry) {
@@ -487,11 +489,29 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
         }
 
-        el->afl_custom_queue_new_entry(el->data, fname, fname_orig);
+        if (el->afl_custom_queue_new_entry(el->data, fname, fname_orig)) {
+
+          updated = 1;
+
+        }
 
       }
 
     });
+
+    if (updated) {
+
+      struct stat st;
+      if (stat(fname, &st)) { PFATAL("File %s is gone!", fname); }
+      if (!st.st_size) {
+
+        FATAL("File %s became empty in custom mutator!", fname);
+
+      }
+
+      q->len = st.st_size;
+
+    }
 
   }
 

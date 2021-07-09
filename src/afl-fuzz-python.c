@@ -813,8 +813,8 @@ u8 queue_get_py(void *py_mutator, const u8 *filename) {
 
 }
 
-void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
-                        const u8 *filename_orig_queue) {
+u8 queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
+                      const u8 *filename_orig_queue) {
 
   PyObject *py_args, *py_value;
 
@@ -861,7 +861,21 @@ void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
       py_args);
   Py_DECREF(py_args);
 
-  if (py_value == NULL) {
+  if (py_value != NULL) {
+
+    int ret = PyObject_IsTrue(py_value);
+    Py_DECREF(py_value);
+
+    if (ret == -1) {
+
+      PyErr_Print();
+      FATAL("Failed to convert return value");
+
+    }
+
+    return (u8)ret & 0xFF;
+
+  } else {
 
     PyErr_Print();
     FATAL("Call failed");

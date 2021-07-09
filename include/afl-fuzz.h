@@ -972,8 +972,8 @@ struct custom_mutator {
    * @param filename_orig_queue File name of the original queue entry. This
    *     argument can be NULL while initializing the fuzzer
    */
-  void (*afl_custom_queue_new_entry)(void *data, const u8 *filename_new_queue,
-                                     const u8 *filename_orig_queue);
+  u8 (*afl_custom_queue_new_entry)(void *data, const u8 *filename_new_queue,
+                                   const u8 *filename_orig_queue);
   /**
    * Deinitialize the custom mutator.
    *
@@ -1021,7 +1021,7 @@ size_t      havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
 u8          havoc_mutation_probability_py(void *);
 u8          queue_get_py(void *, const u8 *);
 const char *introspection_py(void *);
-void        queue_new_entry_py(void *, const u8 *, const u8 *);
+u8          queue_new_entry_py(void *, const u8 *, const u8 *);
 void        deinit_py(void *);
 
 #endif

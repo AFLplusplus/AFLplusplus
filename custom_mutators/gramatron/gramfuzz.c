@@ -219,7 +219,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
     data->mut_alloced = 1;
     free(spliceCandidate->start);
     free(spliceCandidate);
-    free(automaton_fn);
+    ck_free(automaton_fn);
 
   } else {  // Generate an input from scratch
 
@@ -251,9 +251,9 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @param filename_new_queue File name of the new queue entry
  * @param filename_orig_queue File name of the original queue entry
  */
-void afl_custom_queue_new_entry(my_mutator_t * data,
-                                const uint8_t *filename_new_queue,
-                                const uint8_t *filename_orig_queue) {
+u8 afl_custom_queue_new_entry(my_mutator_t * data,
+                              const uint8_t *filename_new_queue,
+                              const uint8_t *filename_orig_queue) {
 
   // get the filename
   u8 *   automaton_fn, *unparsed_input;
@@ -270,6 +270,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
 
     new_input = gen_input(pda, NULL);
     write_input(new_input, automaton_fn);
+
     // Update the placeholder file
     if (unlink(filename_new_queue)) {
 
@@ -282,15 +283,17 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
               S_IRUSR | S_IWUSR);
     if (fd < 0) { PFATAL("Failed to update file '%s'", filename_new_queue); }
     int written = write(fd, unparsed_input, new_input->inputlen + 1);
+    close(fd);
+
     free(new_input->start);
     free(new_input);
     free(unparsed_input);
 
   }
 
-  free(automaton_fn);
+  ck_free(automaton_fn);
 
-  return;
+  return 1;
 
 }
 
@@ -388,7 +391,7 @@ uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
 
   // data->getdupesret = get_dupes(data->orig_walk, &data->recurlen);
 
-  free(automaton_fn);
+  ck_free(automaton_fn);
   return 1;
 
 }
