@@ -159,7 +159,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   // u32 recur_len = 0;       // The number of recursive features
   // data->mutator_buf = NULL;
 
-  char *automaton_file = getenv("GRAMMATRON_AUTOMATION");
+  char *automaton_file = getenv("GRAMATRON_AUTOMATION");
   if (automaton_file) {
 
     pda = create_pda(automaton_file);
@@ -168,7 +168,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
     fprintf(stderr,
             "\nError: GrammaTron needs an automation json file set in "
-            "AFL_GRAMMATRON_AUTOMATON\n");
+            "AFL_GRAMATRON_AUTOMATON\n");
     exit(-1);
 
   }
@@ -208,18 +208,18 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
         doMult(data->orig_walk, data->recurIdx, data->recurlen);
     data->mut_alloced = 1;
 
-  } else if (data->mut_idx == 2) {  // Perform splice mutation
+    /*} else if (data->mut_idx == 2) {  // Perform splice mutation
 
-    // Read the input representation for the splice candidate
-    u8 *   automaton_fn = alloc_printf("%s.aut", add_buf);
-    Array *spliceCandidate = read_input(pda, automaton_fn);
+      // Read the input representation for the splice candidate
+      //u8 *   automaton_fn = alloc_printf("%s.aut", add_buf);
+      Array *spliceCandidate = open_input(pda, add_buf, add_buf_size);
 
-    data->mutated_walk =
-        performSpliceOne(data->orig_walk, data->statemap, spliceCandidate);
-    data->mut_alloced = 1;
-    free(spliceCandidate->start);
-    free(spliceCandidate);
-    ck_free(automaton_fn);
+      data->mutated_walk =
+          performSpliceOne(data->orig_walk, data->statemap, spliceCandidate);
+      data->mut_alloced = 1;
+      free(spliceCandidate->start);
+      free(spliceCandidate);
+      //ck_free(automaton_fn);*/
 
   } else {  // Generate an input from scratch
 
@@ -262,6 +262,10 @@ u8 afl_custom_queue_new_entry(my_mutator_t * data,
 
   automaton_fn = alloc_printf("%s.aut", filename_new_queue);
   // Check if this method is being called during initialization
+
+  // fprintf(stderr, "new: %s, old: %s, auto: %s\n",
+  // filename_new_queue,filename_orig_queue,automaton_fn);
+
   if (filename_orig_queue) {
 
     write_input(data->mutated_walk, automaton_fn);

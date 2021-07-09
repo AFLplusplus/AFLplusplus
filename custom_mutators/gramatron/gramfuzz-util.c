@@ -4,6 +4,11 @@
 #include <assert.h>
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
+#ifdef _GNU_SOURCE
+  #undef _GNU_SOURCE
+#endif
+#define _GNU_SOURCE
+#include <sys/mman.h>
 
 /* Dynamic Array for adding to the input repr
  * */
@@ -178,7 +183,7 @@ void write_input(Array *input, u8 *fn) {
   // If the input has already been flushed, then skip silently
   if (fp == NULL) {
 
-    printf("\n File could not be open, exiting");
+    fprintf(stderr, "\n File '%s' could not be open, exiting\n", fn);
     exit(1);
 
   }
@@ -196,22 +201,13 @@ void write_input(Array *input, u8 *fn) {
 
 }
 
-// Read the input representation into memory
-Array *read_input(state *pda, u8 *fn) {
+Array *parse_input(state *pda, FILE *fp) {
 
-  FILE *    fp;
   terminal *term;
   state *   state_ptr;
   trigger * trigger;
   int       trigger_idx;
   Array *   input = (Array *)calloc(1, sizeof(Array));
-  fp = fopen(fn, "rb");
-  if (fp == NULL) {
-
-    printf("\nFile:%s does not exist..exiting", fn);
-    exit(1);
-
-  }
 
   // Read the length parameters
   fread(&input->used, sizeof(size_t), 1, fp);
@@ -219,6 +215,12 @@ Array *read_input(state *pda, u8 *fn) {
   fread(&input->inputlen, sizeof(size_t), 1, fp);
 
   terminal *start_ptr = (terminal *)calloc(input->size, sizeof(terminal));
+  if (!start_ptr) {
+
+    fprintf(stderr, "alloc failed!\n");
+    return NULL;
+
+  }
 
   // Read the dynamic array to memory
   fread(start_ptr, input->size * sizeof(terminal), 1, fp);
@@ -242,9 +244,51 @@ Array *read_input(state *pda, u8 *fn) {
   // printf("\nUsed:%zu Size:%zu Inputlen:%zu", input->used, input->size,
   // input->inputlen);
 
-  fclose(fp);
-
   return input;
+
+}
+
+Array *open_input(state *pda, u8 *data, size_t len) {
+
+  int fd = memfd_create("foo", O_RDWR);
+  if (fd < 0) {
+
+    fprintf(stderr, "Error: memfd_create failed\n");
+    return NULL;
+
+  }
+
+  ck_write(fd, data, len, "memfd_create");
+  lseek(fd, 0, SEEK_SET);
+  FILE *f = fdopen(fd, "rb");
+  if (!f) {
+
+    fprintf(stderr, "Error: fdopen failed\n");
+    return NULL;
+
+  }
+
+  Array *res = parse_input(pda, f);
+  fclose(f);
+  return res;
+
+}
+
+// Read the input representation into memory
+Array *read_input(state *pda, u8 *fn) {
+
+  FILE *fp;
+  fp = fopen(fn, "rb");
+  if (fp == NULL) {
+
+    fprintf(stderr, "\n File '%s' does not exist, exiting\n", fn);
+    exit(1);
+
+  }
+
+  Array *res = parse_input(pda, fp);
+  fclose(fp);
+  return res;
 
 }
 

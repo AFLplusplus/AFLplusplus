@@ -23,8 +23,8 @@ You have to set the grammar file to use with `GRAMMATRON_AUTOMATION`:
 ```
 export AFL_DISABLE_TRIM=1
 export AFL_CUSTOM_MUTATOR_ONLY=1
-export AFL_CUSTOM_MUTATOR_LIBRARY=./grammatron.so
-export GRAMMATRON_AUTOMATION=grammars/ruby/source_automata.json
+export AFL_CUSTOM_MUTATOR_LIBRARY=./gramatron.so
+export GRAMATRON_AUTOMATION=grammars/ruby/source_automata.json
 afl-fuzz -i in -o out -- ./target
 ```
 

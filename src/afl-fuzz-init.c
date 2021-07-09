@@ -881,11 +881,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     u32 read_len = MIN(q->len, (u32)MAX_FILE);
     use_mem = afl_realloc(AFL_BUF_PARAM(in), read_len);
-    if (read(fd, use_mem, read_len) != (ssize_t)read_len) {
-
-      FATAL("Short read from '%s'", q->fname);
-
-    }
+    ck_read(fd, use_mem, read_len, q->fname);
 
     close(fd);
 
@@ -1349,6 +1345,12 @@ void pivot_inputs(afl_state_t *afl) {
     /* Make sure that the passed_det value carries over, too. */
 
     if (q->passed_det) { mark_as_det_done(afl, q); }
+
+    if (afl->custom_mutators_count) {
+
+      run_afl_custom_queue_new_entry(afl, q, q->fname, NULL);
+
+    }
 
     ++id;
 

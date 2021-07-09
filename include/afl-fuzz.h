@@ -1005,6 +1005,8 @@ void setup_custom_mutators(afl_state_t *);
 void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       struct custom_mutator *mutator);
+void run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
+                                    u8 *);
 
 /* Python */
 #ifdef USE_PYTHON
