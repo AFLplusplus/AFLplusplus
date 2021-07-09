@@ -208,18 +208,32 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
         doMult(data->orig_walk, data->recurIdx, data->recurlen);
     data->mut_alloced = 1;
 
-    /*} else if (data->mut_idx == 2) {  // Perform splice mutation
+  } else if (data->mut_idx == 2) {  // Perform splice mutation
 
-      // Read the input representation for the splice candidate
-      //u8 *   automaton_fn = alloc_printf("%s.aut", add_buf);
-      Array *spliceCandidate = open_input(pda, add_buf, add_buf_size);
+    // we cannot use the supplied splice data so choose a new random file
+    u32                 tid = rand() % data->afl->queued_paths;
+    struct queue_entry *q = data->afl->queue_buf[tid];
+
+    // Read the input representation for the splice candidate
+    u8 *   automaton_fn = alloc_printf("%s.aut", q->fname);
+    Array *spliceCandidate = read_input(pda, automaton_fn);
+
+    if (spliceCandidate) {
 
       data->mutated_walk =
           performSpliceOne(data->orig_walk, data->statemap, spliceCandidate);
       data->mut_alloced = 1;
       free(spliceCandidate->start);
       free(spliceCandidate);
-      //ck_free(automaton_fn);*/
+
+    } else {
+
+      data->mutated_walk = gen_input(pda, NULL);
+      data->mut_alloced = 1;
+
+    }
+
+    ck_free(automaton_fn);
 
   } else {  // Generate an input from scratch
 
