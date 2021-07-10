@@ -1834,29 +1834,41 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 #endif
 
     // If failed, add to dictionary
-    //if (!found_one) {
+    if (!found_one || afl->queue_cur->is_ascii) {
 
       if (afl->pass_stats[key].total == 0) {
 
 #ifdef WORD_SIZE_64
         if (unlikely(is_n)) {
 
-          try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
-          try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
+          if (!found_one ||
+              check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
+                  SHAPE_BYTES(h->shape))
+            try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
+          if (!found_one ||
+              check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
+                  SHAPE_BYTES(h->shape))
+            try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
 
         } else
 
 #endif
         {
 
-          try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
-          try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+          if (!found_one ||
+              check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
+                  SHAPE_BYTES(h->shape))
+            try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
+          if (!found_one ||
+              check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
+                  SHAPE_BYTES(h->shape))
+            try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
 
         }
 
       }
 
-    //}
+    }
 
   cmp_fuzz_next_iter:
     afl->stage_cur++;
@@ -2451,12 +2463,18 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     }
 
     // If failed, add to dictionary
-    if (/*!found_one &&*/ (lvl & LVL1)) {
+    if ((!found_one && (lvl & LVL1)) || afl->queue_cur->is_ascii) {
 
       if (unlikely(!afl->pass_stats[key].total)) {
 
-        maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
-        maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
+        if (!found_one ||
+            check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
+                SHAPE_BYTES(h->shape))
+          maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
+        if (!found_one ||
+            check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
+                SHAPE_BYTES(h->shape))
+          maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
 
       }
 
