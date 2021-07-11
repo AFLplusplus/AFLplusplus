@@ -339,7 +339,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
   }
 
-  while (afl->stage_cur < afl->stage_max) {
+  while (afl->stage_cur <= afl->stage_max) {
 
     u8 *retbuf = NULL;
 
