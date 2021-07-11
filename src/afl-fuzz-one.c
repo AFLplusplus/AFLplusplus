@@ -448,11 +448,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     ACTF(
         "Fuzzing test case #%u (%u total, %llu uniq crashes found, "
-        "perf_score=%0.0f, exec_us=%llu, hits=%u, map=%u)...",
+        "perf_score=%0.0f, exec_us=%llu, hits=%u, map=%u, ascii=%u)...",
         afl->current_entry, afl->queued_paths, afl->unique_crashes,
         afl->queue_cur->perf_score, afl->queue_cur->exec_us,
         likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
-        afl->queue_cur->bitmap_size);
+        afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii);
     fflush(stdout);
 
   }
@@ -1999,11 +1999,15 @@ havoc_stage:
      where we take the input file and make random stacked tweaks. */
 
 #define MAX_HAVOC_ENTRY 59                                      /* 55 to 60 */
+#define MUTATE_ASCII_DICT 12
 
   u32 r_max, r;
 
   r_max = (MAX_HAVOC_ENTRY + 1) + (afl->extras_cnt ? 4 : 0) +
-          (afl->a_extras_cnt ? 4 : 0);
+          (afl->a_extras_cnt ? (unlikely(afl->cmplog_binary && afl->queue_cur->is_ascii)
+                                    ? 4 + MUTATE_ASCII_DICT
+                                    : 4)
+                             : 0);
 
   if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
@@ -2587,6 +2591,20 @@ havoc_stage:
           }
 
           if (afl->a_extras_cnt) {
+
+            if (unlikely(afl->cmplog_binary && afl->queue_cur->is_ascii)) {
+
+              if (r > MUTATE_ASCII_DICT) {
+
+                r -= MUTATE_ASCII_DICT;
+
+              } else {
+
+                r = 0;
+
+              }
+
+            }
 
             if (r < 2) {
 
