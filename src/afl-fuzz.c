@@ -2266,8 +2266,8 @@ stop_fuzzing:
     u8  time_tmp[64];
     u_stringify_time_diff(time_tmp, get_cur_time(), afl->start_time);
     ACTF(
-        "Statistics: %u new paths found, %.02f coverage achieved, %llu crashes "
-        "found, %llu timeouts found, total runtime %s",
+        "Statistics: %u new paths found, %.02f%% coverage achieved, %llu "
+        "crashes found, %llu timeouts found, total runtime %s",
         afl->queued_discovered,
         ((double)t_bytes * 100) / afl->fsrv.real_map_size, afl->unique_crashes,
         afl->unique_hangs, time_tmp);

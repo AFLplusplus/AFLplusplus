@@ -1999,15 +1999,16 @@ havoc_stage:
      where we take the input file and make random stacked tweaks. */
 
 #define MAX_HAVOC_ENTRY 59                                      /* 55 to 60 */
-#define MUTATE_ASCII_DICT 12
+#define MUTATE_ASCII_DICT 20
 
   u32 r_max, r;
 
   r_max = (MAX_HAVOC_ENTRY + 1) + (afl->extras_cnt ? 4 : 0) +
-          (afl->a_extras_cnt ? (unlikely(afl->cmplog_binary && afl->queue_cur->is_ascii)
-                                    ? 4 + MUTATE_ASCII_DICT
-                                    : 4)
-                             : 0);
+          (afl->a_extras_cnt
+               ? (unlikely(afl->cmplog_binary && afl->queue_cur->is_ascii)
+                      ? 4 + MUTATE_ASCII_DICT
+                      : 4)
+               : 0);
 
   if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
