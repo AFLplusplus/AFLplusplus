@@ -188,13 +188,7 @@ Four steps are required to do this and it also requires quite some knowledge
 of coding and/or disassembly and is effectively possible only with
 afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation.
 
-  1. First step: Identify which edge ID numbers are unstable
-
-     run the target with `export AFL_DEBUG=1` for a few minutes then terminate.
-     The out/fuzzer_stats file will then show the edge IDs that were identified
-     as unstable.
-
-  2. Second step: Find the responsible function(s).
+  1. First step: Instrument to be able to find the responsible function(s).
 
      a) For LTO instrumented binaries this can be documented during compile
         time, just set `export AFL_LLVM_DOCUMENT_IDS=/path/to/a/file`.
@@ -216,6 +210,14 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation.
      c) in all other instrumentation types this is not possible. So just
         recompile with the two mentioned above. This is just for
         identifying the functions that have unstable edges.
+
+  2. Second step: Identify which edge ID numbers are unstable
+
+     run the target with `export AFL_DEBUG=1` for a few minutes then terminate.
+     The out/fuzzer_stats file will then show the edge IDs that were identified
+     as unstable in the `var_bytes` entry. You can match these numbers
+     directly to the data you created in the first step.
+     Now you know which functions are responsible for the instability
 
   3. Third step: create a text file with the filenames/functions
 
