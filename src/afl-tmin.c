@@ -1105,8 +1105,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_environment_vars(envp);
 
-  if (getenv("AFL_NO_FORKSRV")) {   /* if set, use the fauxserver */
+  if (getenv("AFL_NO_FORKSRV")) {             /* if set, use the fauxserver */
     fsrv->use_fauxsrv = true;
+
   }
 
   setenv("AFL_NO_AUTODICT", "1", 1);
