@@ -1002,7 +1002,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-
   if (getenv("AFL_DEBUG")) {
 
     DEBUGF("");
