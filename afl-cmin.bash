@@ -135,6 +135,7 @@ For additional tips, please consult README.md.
 
 Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
+AFL_NO_FORKSRV: run target via execve instead of using the forkserver
 AFL_PATH: last resort location to find the afl-showmap binary
 AFL_SKIP_BIN_CHECK: skip check for target binary
 _EOF_
