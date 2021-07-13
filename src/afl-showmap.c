@@ -853,7 +853,8 @@ static void usage(u8 *argv0) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
       "printed to stdout\n"
-      "AFL_QUIET: do not print extra informational output\n",
+      "AFL_QUIET: do not print extra informational output\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -1096,6 +1097,11 @@ int main(int argc, char **argv_orig, char **envp) {
   if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
   check_environment_vars(envp);
+
+  if (getenv("AFL_NO_FORKSRV")) {             /* if set, use the fauxserver */
+    fsrv->use_fauxsrv = true;
+
+  }
 
   if (getenv("AFL_DEBUG")) {
 
