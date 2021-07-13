@@ -882,9 +882,8 @@ static void usage(u8 *argv0) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
-      "TMPDIR: directory to use for temporary input files\n"
-
-      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      "TMPDIR: directory to use for temporary input files\n",
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
