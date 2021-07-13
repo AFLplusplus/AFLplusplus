@@ -753,8 +753,10 @@ static void usage(u8 *argv0) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
       "printed to stdout\n"
-      "AFL_QUIET: do not print extra informational output\n",
-      argv0, MEM_LIMIT, doc_path);
+      "AFL_QUIET: do not print extra informational output\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the "
+      "forkserver\n" argv0,
+      MEM_LIMIT, doc_path);
 
   exit(1);
 
