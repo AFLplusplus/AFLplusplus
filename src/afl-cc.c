@@ -767,6 +767,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         cc_params[cc_par_cnt++] = afllib;
 
+#ifdef __APPLE__
+        cc_params[cc_par_cnt++] = "-undefined";
+        cc_params[cc_par_cnt++] = "dynamic_lookup";
+#endif
+
       }
 
       continue;
