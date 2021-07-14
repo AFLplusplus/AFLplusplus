@@ -237,7 +237,7 @@ static void instrument_exit(GumArm64Writer *cw) {
 static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
-  instrument_previous_pc = 0;
+  instrument_previous_pc = instrument_hash_zero;
   return ret;
 
 }

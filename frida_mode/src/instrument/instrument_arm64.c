@@ -12,15 +12,15 @@ static GumAddress current_log_impl = GUM_ADDRESS(0);
 static const guint8 afl_log_code[] = {
 
     // __afl_area_ptr[current_pc ^ previous_pc]++;
-    // previous_pc = current_pc >> 1;
+    // previous_pc = current_pc ROR 1;
     0xE1, 0x0B, 0xBF, 0xA9,  // stp x1, x2, [sp, -0x10]!
     0xE3, 0x13, 0xBF, 0xA9,  // stp x3, x4, [sp, -0x10]!
 
     // x0 = current_pc
-    0xe1, 0x01, 0x00, 0x58,  // ldr x1, #0x3c, =&__afl_area_ptr
+    0x21, 0x02, 0x00, 0x58,  // ldr x1, #0x44, =&__afl_area_ptr
     0x21, 0x00, 0x40, 0xf9,  // ldr x1, [x1] (=__afl_area_ptr)
 
-    0xe2, 0x01, 0x00, 0x58,  // ldr x2, #0x3c, =&previous_pc
+    0x22, 0x02, 0x00, 0x58,  // ldr x2, #0x44, =&previous_pc
     0x42, 0x00, 0x40, 0xf9,  // ldr x2, [x2] (=previous_pc)
 
     // __afl_area_ptr[current_pc ^ previous_pc]++;
@@ -30,8 +30,11 @@ static const guint8 afl_log_code[] = {
     0x63, 0x00, 0x1f, 0x9a,  // adc x3, x3, xzr
     0x23, 0x68, 0x22, 0xf8,  // str x3, [x1, x2]
 
-    // previous_pc = current_pc >> 1;
-    0xe0, 0x07, 0x40, 0x8b,  // add x0, xzr, x0, LSR #1
+    // previous_pc = current_pc ROR 1;
+    0xe4, 0x07, 0x40, 0x8b,  // add x4, xzr, x0, LSR #1
+    0xe0, 0xff, 0x00, 0x8b,  // add x0, xzr, x0, LSL #63
+    0x80, 0xc0, 0x40, 0x8b,  // add x0, x4, x0, LSR #48
+
     0xe2, 0x00, 0x00, 0x58,  // ldr x2, #0x1c, =&previous_pc
     0x40, 0x00, 0x00, 0xf9,  // str x0, [x2]
 
@@ -54,8 +57,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
 
   guint64 current_pc = instr->address;
-  guint64 area_offset = (current_pc >> 4) ^ (current_pc << 8);
-  area_offset &= MAP_SIZE - 1;
+  guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
   GumArm64Writer *cw = output->writer.arm64;
 
   if (current_log_impl == 0 ||
