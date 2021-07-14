@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "debug.h"
+#include "hash.h"
 
 #include "asan.h"
 #include "entry.h"
@@ -22,10 +23,12 @@
 gboolean instrument_tracing = false;
 gboolean instrument_optimize = false;
 gboolean instrument_unique = false;
+guint64  instrument_hash_zero = 0;
+guint64  instrument_hash_seed = 0;
 
 static GumStalkerTransformer *transformer = NULL;
 
-__thread uint64_t instrument_previous_pc = 0;
+__thread guint64 instrument_previous_pc = 0;
 
 static GumAddress previous_rip = 0;
 static u8 *       edges_notified = NULL;
@@ -49,21 +52,18 @@ static void trace_debug(char *format, ...) {
 
 }
 
-__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
-                                                gpointer       user_data) {
+guint64 instrument_get_offset_hash(GumAddress current_rip) {
 
-  UNUSED_PARAMETER(context);
+  guint64 area_offset = hash64((unsigned char *)&current_rip,
+                               sizeof(GumAddress), instrument_hash_seed);
+  return area_offset &= MAP_SIZE - 1;
 
-  GumAddress current_rip = GUM_ADDRESS(user_data);
-  GumAddress current_pc;
-  GumAddress edge;
-  uint8_t *  cursor;
-  uint64_t   value;
+}
 
-  current_pc = (current_rip >> 4) ^ (current_rip << 8);
-  current_pc &= MAP_SIZE - 1;
+__attribute__((hot)) static void instrument_increment_map(GumAddress edge) {
 
-  edge = current_pc ^ instrument_previous_pc;
+  uint8_t *cursor;
+  uint64_t value;
 
   cursor = &__afl_area_ptr[edge];
   value = *cursor;
@@ -79,7 +79,21 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   }
 
   *cursor = value;
-  instrument_previous_pc = current_pc >> 1;
+
+}
+
+__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
+                                                gpointer       user_data) {
+
+  UNUSED_PARAMETER(context);
+
+  GumAddress current_rip = GUM_ADDRESS(user_data);
+  guint64    current_pc = instrument_get_offset_hash(current_rip);
+  guint64    edge;
+
+  edge = current_pc ^ instrument_previous_pc;
+
+  instrument_increment_map(edge);
 
   if (unlikely(instrument_tracing)) {
 
@@ -97,6 +111,9 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
     previous_rip = current_rip;
 
   }
+
+  instrument_previous_pc =
+      ((current_pc & (MAP_SIZE - 1) >> 1)) | ((current_pc & 0x1) << 15);
 
 }
 
@@ -265,6 +282,19 @@ void instrument_init(void) {
 
   }
 
+  /*
+   * By using a different seed value for the hash, we can make different
+   * instances have edge collisions in different places when carrying out
+   * parallel fuzzing. The seed itself, doesn't have to be random, it just
+   * needs to be different for each instance.
+   */
+  instrument_hash_seed =
+      g_get_monotonic_time() ^ (((guint64)getpid()) << 32) ^ gettid();
+
+  OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
+      instrument_hash_seed);
+  instrument_hash_zero = instrument_get_offset_hash(0);
+
   instrument_debug_init();
   asan_init();
   cmplog_init();
@@ -275,6 +305,12 @@ GumStalkerTransformer *instrument_get_transformer(void) {
 
   if (transformer == NULL) { FATAL("Instrumentation not initialized"); }
   return transformer;
+
+}
+
+void instrument_on_fork() {
+
+  instrument_previous_pc = instrument_hash_zero;
 
 }
 

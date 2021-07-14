@@ -26,7 +26,7 @@ file "$target" | grep -q executable && {
   exit 0
 }
 
-hex_base=$(echo "$3" | awk '{sub("^0x","");print $0}')
+hex_base=$(echo "$3" | awk '{sub("^0x","");print $0}' | tr a-f A-F )
 nm "$target" | grep -i "T $symbol" | awk '{print$1}' | tr a-f A-F | \
   xargs echo "ibase=16;obase=10;$hex_base + " | bc | tr A-F a-f | awk '{print "0x"$0}'
 exit 0
