@@ -48,13 +48,9 @@ be then manually fed to a more resource-hungry program later on.
 Also note that reading the fuzzing input via stdin is faster than reading from
 a file.
 
-## 3. Use LLVM instrumentation
+## 3. Use LLVM persistent instrumentation
 
-When fuzzing slow targets, you can gain 20-100% performance improvement by
-using the LLVM-based instrumentation mode described in [the instrumentation README](../instrumentation/README.llvm.md).
-Note that this mode requires the use of clang and will not work with GCC.
-
-The LLVM mode also offers a "persistent", in-process fuzzing mode that can
+The LLVM mode offers a "persistent", in-process fuzzing mode that can
 work well for certain types of self-contained libraries, and for fast targets,
 can offer performance gains up to 5-10x; and a "deferred fork server" mode
 that can offer huge benefits for programs with high startup overhead. Both
@@ -138,8 +134,7 @@ misses, or similar factors, but they are less likely to be a concern.)
 
 ## 7. Keep memory use and timeouts in check
 
-If you have increased the `-m` or `-t` limits more than truly necessary, consider
-dialing them back down.
+Consider setting low values for -m and -t.
 
 For programs that are nominally very fast, but get sluggish for some inputs,
 you can also try setting `-t` values that are more punishing than what `afl-fuzz`
@@ -164,6 +159,20 @@ There are several OS-level factors that may affect fuzzing speed:
   - Network filesystems, either used for fuzzer input / output, or accessed by
     the fuzzed binary to read configuration files (pay special attention to the
     home directory - many programs search it for dot-files).
+  - Disable all the spectre, meltdown etc. security countermeasures in the
+    kernel if your machine is properly separated:
+
+```
+ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off
+no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable
+nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off
+spectre_v2=off stf_barrier=off
+```
+    In most Linux distributions you can put this into a `/etc/default/grub`
+    variable.
+
+The following list of changes are made when executing `afl-system-config`:
+ 
   - On-demand CPU scaling. The Linux `ondemand` governor performs its analysis
     on a particular schedule and is known to underestimate the needs of
     short-lived processes spawned by `afl-fuzz` (or any other fuzzer). On Linux,
@@ -196,26 +205,4 @@ There are several OS-level factors that may affect fuzzing speed:
     Setting a different scheduling policy for the fuzzer process - say
     `SCHED_RR` - can usually speed things up, too, but needs to be done with
     care.
-  - Use the `afl-system-config` script to set all proc/sys settings above in one go.
-  - Disable all the spectre, meltdown etc. security countermeasures in the
-    kernel if your machine is properly separated:
 
-```
-ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off
-no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable
-nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off
-spectre_v2=off stf_barrier=off
-```
-    In most Linux distributions you can put this into a `/etc/default/grub`
-    variable.
-
-## 9. If all other options fail, use `-d`
-
-For programs that are genuinely slow, in cases where you really can't escape
-using huge input files, or when you simply want to get quick and dirty results
-early on, you can always resort to the `-d` mode.
-
-The mode causes `afl-fuzz` to skip all the deterministic fuzzing steps, which
-makes output a lot less neat and can ultimately make the testing a bit less
-in-depth, but it will give you an experience more familiar from other fuzzing
-tools.
