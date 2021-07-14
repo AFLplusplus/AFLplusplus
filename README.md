@@ -660,7 +660,7 @@ of the testcases. Depending on the average testcase size (and those found
 during fuzzing) and their number, a value between 50-500MB is recommended.
 You can set the cache size (in MB) by setting the environment variable `AFL_TESTCACHE_SIZE`.
 
-There should be one main fuzzer (`-M main` option) and as many secondary
+There should be one main fuzzer (`-M main-$HOSTNAME` option) and as many secondary
 fuzzers (eg `-S variant1`) as you have cores that you use.
 Every -M/-S entry needs a unique name (that can be whatever), however the same
 -o output directory location has to be used for all instances.
@@ -668,7 +668,7 @@ Every -M/-S entry needs a unique name (that can be whatever), however the same
 For every secondary fuzzer there should be a variation, e.g.:
  * one should fuzz the target that was compiled differently: with sanitizers
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
-   export AFL_USE_CFISAN=1 ; export AFL_USE_LSAN=1`)
+   export AFL_USE_CFISAN=1`)
  * one or two should fuzz the target with CMPLOG/redqueen (see above), at
    least one cmplog instance should follow transformations (`-l AT`)
  * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
@@ -694,8 +694,9 @@ You can also use different fuzzers.
 If you are using afl spinoffs or afl conforming fuzzers, then just use the
 same -o directory and give it a unique `-S` name.
 Examples are:
- * [Eclipser](https://github.com/SoftSec-KAIST/Eclipser/)
+ * [Fuzzolic](https://github.com/season-lab/fuzzolic)
  * [symcc](https://github.com/eurecom-s/symcc/)
+ * [Eclipser](https://github.com/SoftSec-KAIST/Eclipser/)
  * [AFLsmart](https://github.com/aflsmart/aflsmart)
  * [FairFuzz](https://github.com/carolemieux/afl-rb)
  * [Neuzz](https://github.com/Dongdongshe/neuzz)
@@ -709,7 +710,46 @@ directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
 Using honggfuzz (with `-n 1` or `-n 2`) and libfuzzer in parallel is highly
 recommended!
 
-#### c) The status of the fuzz campaign
+#### c) Using multiple machines for fuzzing
+
+Maybe you have more than one machine you want to fuzz the same target on.
+Simply start the `afl-fuzz` (and perhaps libfuzzer, honggfuzz, ...)
+orchestra as you like, just ensure that your have one and only one `-M`
+instance per server, and that its name is unique, hence the recommendation
+for `-M main-$HOSTNAME`.
+
+Now there are three strategies on how you can sync between the servers:
+  * never: sounds weird, but this makes every server an island and has the
+    chance the each follow different paths into the target. You can make
+    this even more interesting by even giving different seeds to each server.
+  * regularly (~4h): this ensures that all fuzzing campaigns on the servers
+    "see" the same thing. It is like fuzzing on a huge server.
+  * in intervals of 1/10th of the overall expected runtime of the fuzzing you
+    sync. This tries a bit to combine both. have some individuality of the
+    paths each campaign on a server explores, on the other hand if one
+    gets stuck where another found progress this is handed over making it
+    unstuck.
+
+The syncing process itself is very simple.
+As the `-M main-$HOSTNAME` instance syncs to all `-S` secondaries as well
+as to other fuzzers, you have to copy only this directory to the other
+machines.
+
+Lets say all servers have the `-o out` directory in /target/foo/out, and
+you created a file `servers.txt` which contains the hostnames of all
+participating servers, plus you have an ssh key deployed to all of them,
+then run:
+```bash
+for FROM in `cat servers.txt`; do
+  for TO in `cat servers.txt`; do
+    rsync -rlpogtz --rsh=ssh $FROM:/target/foo/out/main-$FROM $TO:target/foo/out/
+  done
+done
+```
+You can run this manually, per cron job - as you need it.
+There is a more complex and configurable script in `utils/distributed_fuzzing`.
+
+#### d) The status of the fuzz campaign
 
 afl++ comes with the `afl-whatsup` script to show the status of the fuzzing
 campaign.
@@ -718,9 +758,12 @@ Just supply the directory that afl-fuzz is given with the -o option and
 you will see a detailed status of every fuzzer in that campaign plus
 a summary.
 
-To have only the summary use the `-s` switch e.g.: `afl-whatsup -s output/`
+To have only the summary use the `-s` switch e.g.: `afl-whatsup -s out/`
 
-#### d) Checking the coverage of the fuzzing
+If you have multiple servers then use the command after a sync, or you have
+to execute this script per server.
+
+#### e) Checking the coverage of the fuzzing
 
 The `paths found` value is a bad indicator how good the coverage is.
 
@@ -755,7 +798,7 @@ functionality is usually behind options that were not activated or fuzz e.g.
 if you fuzz a library to convert image formats and your target is the png to
 tiff API then you will not touch any of the other library APIs and features.
 
-#### e) How long to fuzz a target?
+#### f) How long to fuzz a target?
 
 This is a difficult question.
 Basically if no new path is found for a long time (e.g. for a day or a week)
@@ -767,7 +810,7 @@ Keep the queue/ directory (for future fuzzings of the same or similar targets)
 and use them to seed other good fuzzers like libfuzzer with the -entropic
 switch or honggfuzz.
 
-#### f) Improve the speed!
+#### g) Improve the speed!
 
  * Use [persistent mode](instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
