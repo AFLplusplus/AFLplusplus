@@ -154,6 +154,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
   for (auto &F : M) {
 
     if (isIgnoreFunction(&F)) continue;
+    if (!isInInstrumentList(&F) || !F.size()) { continue; }
 
     /*  Some implementation notes.
      *

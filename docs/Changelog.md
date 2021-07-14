@@ -24,10 +24,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Fix to instrument global namespace functions in c++
     - Fix for llvm 13
     - support partial linking
+    - do honor AFL_LLVM_{ALLOW/DENY}LIST for LTO autodictionary and DICT2FILE
     - We do support llvm versions from 3.8 to 5.0 again
   - frida_mode:
     - several fixes for cmplog
     - remove need for AFL_FRIDA_PERSISTENT_RETADDR_OFFSET
+    - less coverage collision
     - feature parity of aarch64 with intel now (persistent, cmplog,
       in-memory testcases, asan)
   - afl-cmin and afl-showmap -i do now descend into subdirectories
