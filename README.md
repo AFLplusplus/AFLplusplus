@@ -469,8 +469,8 @@ Then build the target. (Usually with `make`)
 
 1. sometimes configure and build systems are fickle and do not like
    stderr output (and think this means a test failure) - which is something
-   afl++ likes to do to show statistics. It is recommended to disable them via
-   `export AFL_QUIET=1`.
+   afl++ likes to do to show statistics. It is recommended to disable afl++
+   instrumentation reporting via `export AFL_QUIET=1`.
 
 2. sometimes configure and build systems error on warnings - these should be
    disabled (e.g. `--disable-werror` for some configure scripts).
