@@ -21,7 +21,7 @@ CFLAGS+=-fPIC \
 		-funroll-loops \
 		-ffunction-sections \
 
-RT_CFLAGS:=-Wno-unused-parameter \
+AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-sign-compare \
 		   -Wno-unused-function \
 		   -Wno-unused-result \
@@ -60,10 +60,10 @@ endif
 
 ifeq "$(shell uname)" "Darwin"
  OS:=macos
- RT_CFLAGS:=$(RT_CFLAGS) -Wno-deprecated-declarations
+ AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
 else
 ifdef DEBUG
- RT_CFLAGS:=$(RT_CFLAGS) -Wno-prio-ctor-dtor
+ AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-prio-ctor-dtor
 endif
 LDFLAGS+=	-z noexecstack \
 			-Wl,--gc-sections \
@@ -79,7 +79,12 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
+ifeq "$(ARCH)" "arm64"
+# 15.0.0 Not released for aarch64 yet
+GUM_DEVKIT_VERSION=14.2.18
+else
 GUM_DEVKIT_VERSION=15.0.0
+endif
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -97,6 +102,9 @@ FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
+
+AFL_PERFORMANCE_SRC:=$(ROOT)src/afl-performance.c
+AFL_PERFORMANCE_OBJ:=$(OBJ_DIR)afl-performance.o
 
 HOOK_DIR:=$(PWD)hook/
 AFLPP_FRIDA_DRIVER_HOOK_SRC=$(HOOK_DIR)frida_hook.c
@@ -163,7 +171,16 @@ $(GUM_DEVIT_HEADER): $(GUM_DEVKIT_TARBALL)
 $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 	$(CC) \
 		$(CFLAGS) \
-		$(RT_CFLAGS) \
+		$(AFL_CFLAGS) \
+		-I $(ROOT) \
+		-I $(ROOT)include \
+		-o $@ \
+		-c $<
+
+$(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
+	$(CC) \
+		$(CFLAGS) \
+		$(AFL_CFLAGS) \
 		-I $(ROOT) \
 		-I $(ROOT)include \
 		-o $@ \
@@ -172,7 +189,7 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 ############################### JS #############################################
 
 $(BIN2C): $(BIN2C_SRC)
-	$(CC) -o $@ $<
+	$(CC) -D_GNU_SOURCE -o $@ $<
 
 $(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
 	cd $(JS_DIR) && $(BIN2C) api_js $(JS) $@
@@ -203,12 +220,13 @@ $(foreach src,$(SOURCES),$(eval $(call BUILD_SOURCE,$(src),$(OBJ_DIR)$(notdir $(
 
 ######################## AFL-FRIDA-TRACE #######################################
 
-$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) GNUmakefile | $(BUILD_DIR)
+$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) $(AFL_PERFORMANCE_OBJ) GNUmakefile | $(BUILD_DIR)
 	$(CXX) \
 		$(OBJS) \
 		$(JS_OBJ) \
 		$(GUM_DEVIT_LIBRARY) \
 		$(AFL_COMPILER_RT_OBJ) \
+		$(AFL_PERFORMANCE_OBJ) \
 		$(LDFLAGS) \
 		$(LDSCRIPT) \
 		-o $@ \

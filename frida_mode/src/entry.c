@@ -21,7 +21,7 @@ static void entry_launch(void) {
   __afl_manual_init();
 
   /* Child here */
-  instrument_previous_pc = 0;
+  instrument_on_fork();
   stats_on_fork();
 
 }

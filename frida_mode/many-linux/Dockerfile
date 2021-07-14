@@ -11,7 +11,7 @@ RUN git clone https://github.com/AFLplusplus/AFLplusplus.git
 
 WORKDIR /AFLplusplus
 RUN mkdir -p /AFLplusplus/frida_mode/build/frida/
-RUN curl -L -o /AFLplusplus/frida_mode/build/frida/frida-gumjs-devkit-14.2.18-linux-x86_64.tar.xz "https://github.com/frida/frida/releases/download/14.2.18/frida-gumjs-devkit-14.2.18-linux-x86_64.tar.xz"
+RUN curl -L -o /AFLplusplus/frida_mode/build/frida/frida-gumjs-devkit-15.0.0-linux-x86_64.tar.xz "https://github.com/frida/frida/releases/download/15.0.0/frida-gumjs-devkit-15.0.0-linux-x86_64.tar.xz"
 
 WORKDIR /AFLplusplus
 RUN git checkout dev

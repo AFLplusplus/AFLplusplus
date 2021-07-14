@@ -293,6 +293,10 @@ FASAN then adds instrumentation for any instrucutions which use memory operands 
 then calls into the `__asan_loadN` and `__asan_storeN` functions provided by the DSO
 to validate memory accesses against the shadow memory.
 
+# Collisions
+FRIDA mode has also introduced some improvements to reduce collisions in the map.
+See [here](MapDensity.md) for details.
+
 ## TODO
 
 The next features to be added are Aarch32 support as well as looking at
