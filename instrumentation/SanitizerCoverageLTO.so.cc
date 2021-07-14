@@ -516,6 +516,8 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
     for (auto &F : M) {
 
+      if (!isInInstrumentList(&F) || !F.size()) { continue; }
+
       for (auto &BB : F) {
 
         for (auto &IN : BB) {

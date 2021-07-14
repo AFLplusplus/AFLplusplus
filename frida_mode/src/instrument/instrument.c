@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include "frida-gumjs.h"
 
@@ -289,7 +290,7 @@ void instrument_init(void) {
    * needs to be different for each instance.
    */
   instrument_hash_seed =
-      g_get_monotonic_time() ^ (((guint64)getpid()) << 32) ^ gettid();
+      g_get_monotonic_time() ^ (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
 
   OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
       instrument_hash_seed);
