@@ -36,6 +36,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix timeout handling
     - add forkserver support for better performance
   - ensure afl-compiler-rt is built for gcc_module
+  - always build aflpp_driver for libfuzzer harnesses
   - added `AFL_NO_FORKSRV` env variable support to
     afl-cmin, afl-tmin, and afl-showmap, by @jhertz
   - removed outdated documents, improved existing documentation

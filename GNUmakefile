@@ -306,6 +306,7 @@ endif
 
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
+	-$(MAKE) -C utils/aflpp_driver
 
 .PHONY: llvm
 llvm:
@@ -597,7 +598,6 @@ distrib: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
-	-$(MAKE) -C utils/aflpp_driver
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
@@ -622,7 +622,6 @@ source-only: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
-	-$(MAKE) -C utils/aflpp_driver
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
