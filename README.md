@@ -387,7 +387,56 @@ afl++ performs "never zero" counting in its bitmap. You can read more about this
 here:
  * [instrumentation/README.neverzero.md](instrumentation/README.neverzero.md)
 
-#### c) Modify the target
+#### c) Sanitizers
+
+It is possible to use sanitizers when instrumenting targets for fuzzing,
+which allows you to find bugs that would not necessarily result in a crash.
+
+Note that sanitizers have a huge impact on CPU (= less executions per second)
+and RAM usage. Also you should only run one afl-fuz instance per sanitizer type.
+This is enough because a user-after-free bug will be picked up, e.g. by
+ASAN (address sanitizer) anyway when syncing to other fuzzing instances,
+so not all fuzzing instances need to be instrumented with ASAN.
+
+The wolloing sanitizers have built-in support in afl++:
+  * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
+    use-after-free, NULL pointer dereference, buffer overruns, etc.
+    Enabled with `export AFL_USE_ASAN=1` before compiling.
+  * MSAN = Memory SANitizer, finds read access to uninitialized memory, eg.
+    a local variable that is defined and read before it is even set.
+    Enabled with `export AFL_USE_MSAN=1` before compiling.
+  * UBSAN = Undefined Behaviour SANitizer, finds instances where - by the
+    C and C++ standards - undefined behaviour happens, e.g. adding two
+    signed integers together where the result is larger than a signed integer
+    can hold.
+    Enabled with `export AFL_USE_UBSAN=1` before compiling.
+  * CFISAN = Control Flow Integrity SANitizer, finds instances where the
+    control flow is found to be illegal. Originally this was rather to
+    prevent return oriented programming exploit chains from functioning,
+    in fuzzing this is mostly reduced to detecting type confusion
+    vulnerabilities - which is however one of the most important and dangerous
+    C++ memory corruption classes!
+    Enabled with `export AFL_USE_CFISAN=1` before compiling.
+  * LSAN = Leak SANitizer, finds memory leaks in a program. This is not really
+    a security issue, but for developers this can be very valuable.
+    Note that unlike the other sanitizers above this needs
+    `__AFL_LEAK_CHECK();` added to all areas of the target source code where you
+    find a leak check necessary!
+    Enabled with `export AFL_USE_LSAN=1` before compiling.
+
+It is possible to further modify the behaviour of the sanitizers at run-time
+by setting `ASAN_OPTIONS=...`, `LSAN_OPTIONS` etc. - the availabel parameter
+can be looked up in the sanitizer documentation of llvm/clang.
+afl-fuzz however requires some specific parameters important for fuzzing to be
+set if you want to set your own, and will bail and report what it is missing.
+
+Note that some sanitizers cannot be used together, e.g. ASAN and MSAN, and
+others often cannot work together because of target weirdness, e.g. ASAN and
+CFISAN. You might need to experiment which sanitizers you can combine in a
+target (which means more instances can be run without a sanitized target,
+which is more effective).
+
+#### d) Modify the target
 
 If the target has features that make fuzzing more difficult, e.g.
 checksums, HMAC, etc. then modify the source code so that this is
@@ -405,7 +454,7 @@ these checks within this specific defines:
 
 All afl++ compilers will set this preprocessor definition automatically.
 
-#### d) Instrument the target
+#### e) Instrument the target
 
 In this step the target source code is compiled so that it can be fuzzed.
 
@@ -462,7 +511,7 @@ non-standard way to set this, otherwise set up the build normally and edit the
 generated build environment afterwards manually to point it to the right compiler
 (and/or ranlib and ar).
 
-#### d) Better instrumentation
+#### f) Better instrumentation
 
 If you just fuzz a target program as-is you are wasting a great opportunity for
 much more fuzzing speed.

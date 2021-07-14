@@ -38,6 +38,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - ensure afl-compiler-rt is built for gcc_module
   - added `AFL_NO_FORKSRV` env variable support to
     afl-cmin, afl-tmin, and afl-showmap, by @jhertz
+  - removed outdated documents, improved existing documentation
 
 ### Version ++3.13c (release)
   - Note: plot_data switched to relative time from unix time in 3.10
