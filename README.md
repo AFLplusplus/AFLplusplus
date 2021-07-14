@@ -393,12 +393,12 @@ It is possible to use sanitizers when instrumenting targets for fuzzing,
 which allows you to find bugs that would not necessarily result in a crash.
 
 Note that sanitizers have a huge impact on CPU (= less executions per second)
-and RAM usage. Also you should only run one afl-fuz instance per sanitizer type.
-This is enough because a user-after-free bug will be picked up, e.g. by
+and RAM usage. Also you should only run one afl-fuzz instance per sanitizer type.
+This is enough because a use-after-free bug will be picked up, e.g. by
 ASAN (address sanitizer) anyway when syncing to other fuzzing instances,
 so not all fuzzing instances need to be instrumented with ASAN.
 
-The wolloing sanitizers have built-in support in afl++:
+The following sanitizers have built-in support in afl++:
   * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
     use-after-free, NULL pointer dereference, buffer overruns, etc.
     Enabled with `export AFL_USE_ASAN=1` before compiling.
@@ -425,10 +425,10 @@ The wolloing sanitizers have built-in support in afl++:
     Enabled with `export AFL_USE_LSAN=1` before compiling.
 
 It is possible to further modify the behaviour of the sanitizers at run-time
-by setting `ASAN_OPTIONS=...`, `LSAN_OPTIONS` etc. - the availabel parameter
+by setting `ASAN_OPTIONS=...`, `LSAN_OPTIONS` etc. - the available parameters
 can be looked up in the sanitizer documentation of llvm/clang.
 afl-fuzz however requires some specific parameters important for fuzzing to be
-set if you want to set your own, and will bail and report what it is missing.
+set. If you want to set your own, it might bail and report what it is missing.
 
 Note that some sanitizers cannot be used together, e.g. ASAN and MSAN, and
 others often cannot work together because of target weirdness, e.g. ASAN and
