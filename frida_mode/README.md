@@ -162,6 +162,9 @@ instrumentation (the default where available). Required to use
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork.
+* `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
+generate block (and hence edge) IDs. Setting this to a constant value may be
+useful for debugging purposes, e.g. investigating unstable edges.
 * `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
 implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge

@@ -27,6 +27,9 @@ gboolean instrument_unique = false;
 guint64  instrument_hash_zero = 0;
 guint64  instrument_hash_seed = 0;
 
+gboolean instrument_use_fixed_seed = FALSE;
+guint64  instrument_fixed_seed = 0;
+
 static GumStalkerTransformer *transformer = NULL;
 
 __thread guint64 instrument_previous_pc = 0;
@@ -221,6 +224,8 @@ void instrument_config(void) {
   instrument_optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
   instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
   instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
+  instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
+  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
 
   instrument_debug_config();
   asan_config();
@@ -235,6 +240,8 @@ void instrument_init(void) {
   OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
   OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
   OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
+  OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
+      instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
 
   if (instrument_tracing && instrument_optimize) {
 
@@ -270,7 +277,8 @@ void instrument_init(void) {
     g_assert(edges_notified != MAP_FAILED);
 
     /*
-     * Configure the shared memory region to be removed once the process dies.
+     * Configure the shared memory region to be removed once the process
+     * dies.
      */
     if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
 
@@ -283,14 +291,26 @@ void instrument_init(void) {
 
   }
 
-  /*
-   * By using a different seed value for the hash, we can make different
-   * instances have edge collisions in different places when carrying out
-   * parallel fuzzing. The seed itself, doesn't have to be random, it just
-   * needs to be different for each instance.
-   */
-  instrument_hash_seed =
-      g_get_monotonic_time() ^ (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
+  if (instrument_use_fixed_seed) {
+
+    /*
+     * This configuration option may be useful for diagnostics or
+     * debugging.
+     */
+    instrument_hash_seed = instrument_fixed_seed;
+
+  } else {
+
+    /*
+     * By using a different seed value for the hash, we can make different
+     * instances have edge collisions in different places when carrying out
+     * parallel fuzzing. The seed itself, doesn't have to be random, it
+     * just needs to be different for each instance.
+     */
+    instrument_hash_seed = g_get_monotonic_time() ^
+                           (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
+
+  }
 
   OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
       instrument_hash_seed);

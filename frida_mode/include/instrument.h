@@ -12,6 +12,9 @@ extern gboolean         instrument_unique;
 extern __thread guint64 instrument_previous_pc;
 extern guint64          instrument_hash_zero;
 
+extern gboolean instrument_use_fixed_seed;
+extern guint64  instrument_fixed_seed;
+
 extern uint8_t *__afl_area_ptr;
 extern uint32_t __afl_map_size;
 

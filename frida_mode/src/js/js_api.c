@@ -127,6 +127,14 @@ __attribute__((visibility("default"))) void js_api_set_instrument_no_optimize(
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_instrument_seed(
+    guint64 seed) {
+
+  instrument_use_fixed_seed = TRUE;
+  instrument_fixed_seed = seed;
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_instrument_trace(void) {
 
   instrument_tracing = TRUE;

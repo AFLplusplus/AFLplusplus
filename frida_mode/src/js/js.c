@@ -89,10 +89,7 @@ static void load_cb(GObject *source_object, GAsyncResult *result,
   UNUSED_PARAMETER(source_object);
   UNUSED_PARAMETER(user_data);
   gum_script_load_finish(script, result);
-  if (error != NULL)
-  {
-    FATAL("Failed to load script - %s", error->message);
-  }
+  if (error != NULL) { FATAL("Failed to load script - %s", error->message); }
 
 }
 
@@ -102,10 +99,7 @@ static void create_cb(GObject *source_object, GAsyncResult *result,
   UNUSED_PARAMETER(source_object);
   UNUSED_PARAMETER(user_data);
   script = gum_script_backend_create_finish(backend, result, &error);
-  if (error != NULL)
-  {
-    FATAL("Failed to create script: %s", error->message);
-  }
+  if (error != NULL) { FATAL("Failed to create script: %s", error->message); }
 
   gum_script_set_message_handler(script, js_msg, NULL, NULL);
 
@@ -145,3 +139,4 @@ gboolean js_stalker_callback(const cs_insn *insn, gboolean begin,
   return js_user_callback(insn, begin, excluded, output);
 
 }
+
