@@ -516,15 +516,15 @@ generated build environment afterwards manually to point it to the right compile
 If you just fuzz a target program as-is you are wasting a great opportunity for
 much more fuzzing speed.
 
-This requires the usage of afl-clang-lto or afl-clang-fast.
+This variant requires the usage of afl-clang-lto, afl-clang-fast or afl-gcc-fast.
 
-This is the so-called `persistent mode`, which is much, much faster but
+It is the so-called `persistent mode`, which is much, much faster but
 requires that you code a source file that is specifically calling the target
 functions that you want to fuzz, plus a few specific afl++ functions around
 it. See [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md) for details.
 
 Basically if you do not fuzz a target in persistent mode then you are just
-doing it for a hobby and not professionally :-)
+doing it for a hobby and not professionally :-).
 
 #### g) libfuzzer fuzzer harnesses with LLVMFuzzerTestOneInput()
 
