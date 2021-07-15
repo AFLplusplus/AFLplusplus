@@ -12,11 +12,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - fix -F when a '/' was part of the parameter
     - fixed a crash for cmplog for very slow inputs
+    - fix for AFLfast schedule counting
     - removed implied -D determinstic from -M main
     - if the target becomes unavailable check out out/default/error.txt
       for an indicator why
     - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
     - reverse read the queue on resumes (more effective)
+    - fix custom mutator trimming
   - afl-cc:
     - Update to COMPCOV/laf-intel that speeds up the instrumentation
       process a lot - thanks to Michael Rodler/f0rki for the PR!
