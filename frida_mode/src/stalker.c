@@ -43,9 +43,6 @@ void stalker_init(void) {
   /* *NEVER* stalk the stalker, only bad things will ever come of this! */
   gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, stalker_exclude_self, NULL);
 
-  /* *NEVER* stalk the stalker, only bad things will ever come of this! */
-  gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, stalker_exclude_self, NULL);
-
 }
 
 GumStalker *stalker_get(void) {
