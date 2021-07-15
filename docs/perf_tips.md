@@ -134,7 +134,7 @@ misses, or similar factors, but they are less likely to be a concern.)
 
 ## 7. Keep memory use and timeouts in check
 
-Consider setting low values for -m and -t.
+Consider setting low values for `-m` and `-t`.
 
 For programs that are nominally very fast, but get sluggish for some inputs,
 you can also try setting `-t` values that are more punishing than what `afl-fuzz`
