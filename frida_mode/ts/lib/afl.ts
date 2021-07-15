@@ -140,6 +140,13 @@ class Afl {
     Afl.jsApiSetInstrumentNoOptimize();
   }
 
+  /*
+   * See `AFL_FRIDA_INST_SEED`
+   */
+  public static setInstrumentSeed(seed: NativePointer): void {
+    Afl.jsApiSetInstrumentSeed(seed);
+  }
+
   /**
    * See `AFL_FRIDA_INST_TRACE_UNIQUE`.
    */
@@ -294,6 +301,11 @@ class Afl {
     "js_api_set_instrument_no_optimize",
     "void",
     []);
+
+  private static readonly jsApiSetInstrumentSeed = Afl.jsApiGetFunction(
+    "js_api_set_instrument_seed",
+    "void",
+    ["uint64"]);
 
   private static readonly jsApiSetInstrumentTrace = Afl.jsApiGetFunction(
     "js_api_set_instrument_trace",
