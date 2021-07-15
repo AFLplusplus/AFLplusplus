@@ -526,6 +526,24 @@ it. See [instrumentation/README.persistent_mode.md](instrumentation/README.persi
 Basically if you do not fuzz a target in persistent mode then you are just
 doing it for a hobby and not professionally :-)
 
+#### g) libfuzzer fuzzer harnesses with LLVMFuzzerTestOneInput()
+
+libfuzzer `LLVMFuzzerTestOneInput()` harnesses are the defacto standard
+for fuzzing, and they can be used with afl++ (and honggfuzz) as well!
+Compiling them is as simple as:
+```
+afl-clang-fast++ -fsanitize=fuzzer -o harness harness.cpp targetlib.a
+```
+You can even use advanced libfuzzer features like `FuzzedDataProvider`,
+`LLVMFuzzerMutate()` etc. and they will work!
+
+The generated binary is fuzzed with afl-fuzz like any other fuzz target.
+
+Bonus: the target is already optimized for fuzzing due persistent mode and
+shared-memory testcases and hence gives you the fastest speed possible.
+
+For more information see [utils/aflpp_driver/README.md](utils/aflpp_driver/README.md)
+
 ### 2. Preparing the fuzzing campaign
 
 As you fuzz the target with mutated input, having as diverse inputs for the
@@ -606,6 +624,16 @@ hence all you need is to specify the seed input directory with the result of
 step [2a. Collect inputs](#a-collect-inputs):
 `afl-fuzz -i input -o output -- bin/target -d @@`
 Note that the directory specified with -o will be created if it does not exist.
+
+It can be valuable to run afl-fuzz in a screen or tmux shell so you can log off,
+or afl-fuzz is not aborted if you are running it in a remote ssh session where
+the connection fails in between.
+Only do that though once you have verified that your fuzzing setup works!
+Simply run it like `screen -dmS afl-main -- afl-fuzz -M main-$HOSTNAME -i ...`
+and it will start away in a screen session. To enter this session simply type
+`screen -r afl-main`. You see - it makes sense to name the screen session
+same as the afl-fuzz -M/-S naming :-)
+For more information on screen or tmux please check their documentation.
 
 If you need to stop and re-start the fuzzing, use the same command line options
 (or even change them by selecting a different power schedule or another
