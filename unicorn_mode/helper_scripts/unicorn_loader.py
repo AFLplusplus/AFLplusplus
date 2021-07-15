@@ -194,10 +194,10 @@ class AflUnicornEngine(Uc):
         self.__load_registers(regs, reg_map, debug_print)
         # If we have extra FLOATING POINT regs, load them in!
         if 'regs_extended' in context:
-		if context['regs_extended']:
-		    regs_extended = context['regs_extended']
-		    reg_map = self.__get_registers_extended(self._arch_str)
-		    self.__load_registers(regs_extended, reg_map, debug_print)
+            if context['regs_extended']:
+                regs_extended = context['regs_extended']
+                reg_map = self.__get_registers_extended(self._arch_str)
+                self.__load_registers(regs_extended, reg_map, debug_print)
 
         # For ARM, sometimes the stack pointer is erased ??? (I think I fixed this (issue with ordering of dumper.py, I'll keep the write anyways)
         if self.__get_arch_and_mode(self.get_arch_str())[0] == UC_ARCH_ARM:
