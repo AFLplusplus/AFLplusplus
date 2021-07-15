@@ -20,11 +20,11 @@ import time
 import zlib
 
 # Unicorn imports
-from unicorn import *
-from unicorn.arm_const import *
-from unicorn.arm64_const import *
-from unicorn.x86_const import *
-from unicorn.mips_const import *
+from unicornafl import *
+from unicornafl.arm_const import *
+from unicornafl.arm64_const import *
+from unicornafl.x86_const import *
+from unicornafl.mips_const import *
 
 # If Capstone libraries are availible (only check once)
 try:
