@@ -54,8 +54,8 @@ behaviours and defaults:
     shared libraries, etc. Additionally QEMU 5.1 supports more CPU targets so
     this is really worth it.
   * When instrumenting targets, afl-cc will not supersede optimizations anymore
-    if any were given. This allows to fuzz targets as same as they are built
-    for debug or release.
+    if any were given. This allows to fuzz targets build regularly like those  
+    for debug or release versions.
   * afl-fuzz:
     * if neither -M or -S is specified, `-S default` is assumed, so more
       fuzzers can easily be added later
@@ -439,10 +439,10 @@ which is more effective).
 #### d) Modify the target
 
 If the target has features that make fuzzing more difficult, e.g.
-checksums, HMAC, etc. then modify the source code so that this is
-removed.
-This can even be done for operational source code by eliminating
-these checks within this specific defines:
+checksums, HMAC, etc. then modify the source code so that checks for these
+values are removed.
+This can even be done safely for source code used in operational products
+by eliminating these checks within these AFL specific blocks:
 
 ```
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
@@ -539,7 +539,7 @@ You can even use advanced libfuzzer features like `FuzzedDataProvider`,
 
 The generated binary is fuzzed with afl-fuzz like any other fuzz target.
 
-Bonus: the target is already optimized for fuzzing due persistent mode and
+Bonus: the target is already optimized for fuzzing due to persistent mode and
 shared-memory testcases and hence gives you the fastest speed possible.
 
 For more information see [utils/aflpp_driver/README.md](utils/aflpp_driver/README.md)
@@ -793,7 +793,7 @@ to execute this script per server.
 
 #### e) Checking the coverage of the fuzzing
 
-The `paths found` value is a bad indicator how good the coverage is.
+The `paths found` value is a bad indicator for checking how good the coverage is.
 
 A better indicator - if you use default llvm instrumentation with at least
 version 9 - is to use `afl-showmap` with the collect coverage option `-C` on
@@ -821,10 +821,11 @@ then terminate it. The main node will pick it up and make it available to the
 other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` or
 `export AFL_TRY_AFFINITY=1` if you have no free core.
 
-Note that you in nearly all cases can never reach full coverage. A lot of
-functionality is usually behind options that were not activated or fuzz e.g.
-if you fuzz a library to convert image formats and your target is the png to
-tiff API then you will not touch any of the other library APIs and features.
+Note that in nearly all cases you can never reach full coverage. A lot of
+functionality is usually dependent on exclusive options that would need individual
+fuzzing campaigns each with one of these options set. E.g. if you fuzz a library to
+convert image formats and your target is the png to tiff API then you will not
+touch any of the other library APIs and features.
 
 #### f) How long to fuzz a target?
 
