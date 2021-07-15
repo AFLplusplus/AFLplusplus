@@ -83,21 +83,33 @@ static void js_print_script(gchar *source) {
 
 }
 
-static void create_cb(GObject *source_object, GAsyncResult *result,
-                      gpointer user_data) {
-
-  UNUSED_PARAMETER(source_object);
-  UNUSED_PARAMETER(user_data);
-  script = gum_script_backend_create_finish(backend, result, &error);
-
-}
-
 static void load_cb(GObject *source_object, GAsyncResult *result,
                     gpointer user_data) {
 
   UNUSED_PARAMETER(source_object);
   UNUSED_PARAMETER(user_data);
   gum_script_load_finish(script, result);
+  if (error != NULL)
+  {
+    FATAL("Failed to load script - %s", error->message);
+  }
+
+}
+
+static void create_cb(GObject *source_object, GAsyncResult *result,
+                      gpointer user_data) {
+
+  UNUSED_PARAMETER(source_object);
+  UNUSED_PARAMETER(user_data);
+  script = gum_script_backend_create_finish(backend, result, &error);
+  if (error != NULL)
+  {
+    FATAL("Failed to create script: %s", error->message);
+  }
+
+  gum_script_set_message_handler(script, js_msg, NULL, NULL);
+
+  gum_script_load(script, cancellable, load_cb, NULL);
 
 }
 
@@ -122,20 +134,6 @@ void js_start(void) {
   while (g_main_context_pending(context))
     g_main_context_iteration(context, FALSE);
 
-  if (error != NULL) {
-
-    g_printerr("%s\n", error->message);
-    FATAL("Error processing script");
-
-  }
-
-  gum_script_load(script, cancellable, load_cb, NULL);
-
-  while (g_main_context_pending(context))
-    g_main_context_iteration(context, FALSE);
-
-  gum_script_set_message_handler(script, js_msg, NULL, NULL);
-
   if (!js_done) { FATAL("Script didn't call Afl.done()"); }
 
 }
@@ -147,4 +145,3 @@ gboolean js_stalker_callback(const cs_insn *insn, gboolean begin,
   return js_user_callback(insn, begin, excluded, output);
 
 }
-
