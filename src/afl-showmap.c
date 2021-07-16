@@ -401,14 +401,23 @@ static u32 read_file(u8 *in_file) {
 
   if (fstat(fd, &st) || !st.st_size) {
 
-    WARNF("Zero-sized input file '%s'.", in_file);
+    if (!be_quiet && !quiet_mode) {
+
+      WARNF("Zero-sized input file '%s'.", in_file);
+
+    }
 
   }
 
   if (st.st_size > MAX_FILE) {
 
-    WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
-          MAX_FILE);
+    if (!be_quiet && !quiet_mode) {
+
+      WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
+            MAX_FILE);
+
+    }
+
     in_len = MAX_FILE;
 
   } else {
@@ -748,7 +757,7 @@ u32 execute_testcases(u8 *dir) {
 
     }
 
-    if (st.st_size > MAX_FILE && !be_quiet) {
+    if (st.st_size > MAX_FILE && !be_quiet && !quiet_mode) {
 
       WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
@@ -853,7 +862,8 @@ static void usage(u8 *argv0) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
       "printed to stdout\n"
-      "AFL_QUIET: do not print extra informational output\n",
+      "AFL_QUIET: do not print extra informational output\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -1096,6 +1106,11 @@ int main(int argc, char **argv_orig, char **envp) {
   if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
   check_environment_vars(envp);
+
+  if (getenv("AFL_NO_FORKSRV")) {             /* if set, use the fauxserver */
+    fsrv->use_fauxsrv = true;
+
+  }
 
   if (getenv("AFL_DEBUG")) {
 

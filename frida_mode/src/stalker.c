@@ -38,7 +38,7 @@ void stalker_init(void) {
   stalker = gum_stalker_new();
   if (stalker == NULL) { FATAL("Failed to initialize stalker"); }
 
-  gum_stalker_set_trust_threshold(stalker, 0);
+  gum_stalker_set_trust_threshold(stalker, -1);
 
   /* *NEVER* stalk the stalker, only bad things will ever come of this! */
   gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, stalker_exclude_self, NULL);
@@ -56,6 +56,12 @@ void stalker_start(void) {
 
   GumStalkerTransformer *transformer = instrument_get_transformer();
   gum_stalker_follow_me(stalker, transformer, NULL);
+
+}
+
+void stalker_trust(void) {
+
+  gum_stalker_set_trust_threshold(stalker, 0);
 
 }
 

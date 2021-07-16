@@ -10,23 +10,21 @@ static GumAddress current_log_impl = GUM_ADDRESS(0);
 
 static const guint8 afl_log_code[] = {
 
-    // 0xcc,
-
     0x9c,                                                         /* pushfq */
     0x51,                                                       /* push rcx */
     0x52,                                                       /* push rdx */
 
-    0x48, 0x8b, 0x0d, 0x28,
+    0x48, 0x8b, 0x0d, 0x26,
     0x00, 0x00, 0x00,                          /* mov rcx, sym.&previous_pc */
     0x48, 0x8b, 0x11,                               /* mov rdx, qword [rcx] */
     0x48, 0x31, 0xfa,                                       /* xor rdx, rdi */
 
-    0x48, 0x03, 0x15, 0x13,
+    0x48, 0x03, 0x15, 0x11,
     0x00, 0x00, 0x00,                     /* add rdx, sym._afl_area_ptr_ptr */
 
     0x80, 0x02, 0x01,                              /* add byte ptr [rdx], 1 */
     0x80, 0x12, 0x00,                              /* adc byte ptr [rdx], 0 */
-    0x48, 0xd1, 0xef,                                         /* shr rdi, 1 */
+    0x66, 0xd1, 0xcf,                                          /* ror di, 1 */
     0x48, 0x89, 0x39,                               /* mov qword [rcx], rdi */
 
     0x5a,                                                        /* pop rdx */
@@ -34,7 +32,8 @@ static const guint8 afl_log_code[] = {
     0x9d,                                                          /* popfq */
 
     0xc3,                                                            /* ret */
-    0x90, 0x90, 0x90                                             /* nop pad */
+
+    0x90
 
     /* Read-only data goes here: */
     /* uint8_t* __afl_area_ptr */
@@ -48,12 +47,11 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
-                                  GumStalkerOutput *output) {
+static guint8 align_pad[] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
 
-  guint64 current_pc = instr->address;
-  guint64 area_offset = (current_pc >> 4) ^ (current_pc << 8);
-  area_offset &= MAP_SIZE - 1;
+static void instrument_coverate_write_function(GumStalkerOutput *output) {
+
+  guint64       misalign = 0;
   GumX86Writer *cw = output->writer.x86;
 
   if (current_log_impl == 0 ||
@@ -64,6 +62,13 @@ void instrument_coverage_optimize(const cs_insn *   instr,
     gconstpointer after_log_impl = cw->code + 1;
 
     gum_x86_writer_put_jmp_near_label(cw, after_log_impl);
+
+    misalign = (cw->pc & 0x7);
+    if (misalign != 0) {
+
+      gum_x86_writer_put_bytes(cw, align_pad, 8 - misalign);
+
+    }
 
     current_log_impl = cw->pc;
     gum_x86_writer_put_bytes(cw, afl_log_code, sizeof(afl_log_code));
@@ -77,6 +82,15 @@ void instrument_coverage_optimize(const cs_insn *   instr,
     gum_x86_writer_put_label(cw, after_log_impl);
 
   }
+
+}
+
+void instrument_coverage_optimize(const cs_insn *   instr,
+                                  GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+  guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
+  instrument_coverate_write_function(output);
 
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
                                         -GUM_RED_ZONE_SIZE);

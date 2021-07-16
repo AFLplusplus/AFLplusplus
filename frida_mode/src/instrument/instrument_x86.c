@@ -30,7 +30,8 @@ static void instrument_coverage_function(GumX86Writer *cw) {
   uint8_t adc_byte_ptr_edx_0[] = {0x80, 0x12, 0x00};
   gum_x86_writer_put_bytes(cw, adc_byte_ptr_edx_0, sizeof(adc_byte_ptr_edx_0));
 
-  gum_x86_writer_put_shr_reg_u8(cw, GUM_REG_EDI, 1);
+  uint8_t ror_di_1[] = {0x66, 0xd1, 0xcf};
+  gum_x86_writer_put_bytes(cw, ror_di_1, sizeof(ror_di_1));
   gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_REG_ECX, GUM_REG_EDI);
 
   gum_x86_writer_put_pop_reg(cw, GUM_REG_EDX);
@@ -46,15 +47,8 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
-                                  GumStalkerOutput *output) {
+static void instrument_coverate_write_function(GumStalkerOutput *output) {
 
-  UNUSED_PARAMETER(instr);
-  UNUSED_PARAMETER(output);
-
-  guint64 current_pc = instr->address;
-  guint64 area_offset = (current_pc >> 4) ^ (current_pc << 8);
-  area_offset &= MAP_SIZE - 1;
   GumX86Writer *cw = output->writer.x86;
 
   if (current_log_impl == 0 ||
@@ -73,7 +67,15 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   }
 
-  // gum_x86_writer_put_breakpoint(cw);
+}
+
+void instrument_coverage_optimize(const cs_insn *   instr,
+                                  GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+  guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
+  instrument_coverate_write_function(output);
+
   gum_x86_writer_put_push_reg(cw, GUM_REG_EDI);
   gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EDI, area_offset);
   gum_x86_writer_put_call_address(cw, current_log_impl);

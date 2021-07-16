@@ -22,20 +22,30 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+
+ifeq "$(shell uname)" "Darwin"
+TEST_BIN_LDFLAGS:=-Wl,-no_pie
+endif
+
 ARCH=$(shell uname -m)
 ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TESTINSTBIN) -s main -b 0x0000aaaaaaaaa000)
- AFL_FRIDA_PERSISTENT_RET=$(shell $(PWD)get_symbol_addr.py -f $(TESTINSTBIN) -s slow -b 0x0000aaaaaaaaa000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main 0x0000aaaaaaaaa000)
+ AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow 0x0000aaaaaaaaa000)
 endif
 
 ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TESTINSTBIN) -s main -b 0x0000555555554000)
- AFL_FRIDA_PERSISTENT_RET=$(shell $(PWD)get_symbol_addr.py -f $(TESTINSTBIN) -s slow -b 0x0000555555554000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main 0x0000555555554000)
+ AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow 0x0000555555554000)
 endif
 
 ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TESTINSTBIN) -s main -b 0x56555000)
- AFL_FRIDA_PERSISTENT_RET=$(shell $(PWD)get_symbol_addr.py -f $(TESTINSTBIN) -s slow -b 0x56555000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main 0x56555000)
+ AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow 0x56555000)
+endif
+
+ifeq "$(shell uname)" "Darwin"
+AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
 endif
 
 .PHONY: all 32 clean qemu frida
@@ -56,7 +66,7 @@ $(TESTINSTR_DATA_FILE): | $(TESTINSTR_DATA_DIR)
 	echo -n "000" > $@
 
 $(TESTINSTBIN): $(TESTINSTSRC) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $(LDFLAGS) $(TEST_BIN_LDFLAGS) -o $@ $<
 
 clean:
 	rm -rf $(BUILD_DIR)
@@ -83,6 +93,7 @@ frida_ret: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 			$(TESTINSTBIN) @@
 
 frida_js: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
+	AFL_PRELOAD=$(AFL_PRELOAD) \
 	AFL_FRIDA_JS_SCRIPT=test.js \
 	$(ROOT)afl-fuzz \
 		-D \

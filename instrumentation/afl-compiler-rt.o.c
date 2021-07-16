@@ -299,8 +299,9 @@ static void __afl_map_shm(void) {
 
           if (!getenv("AFL_QUIET"))
             fprintf(stderr,
-                    "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u "
-                    "to be able to run this instrumented program!\n",
+                    "Warning: AFL++ tools might need to set AFL_MAP_SIZE to %u "
+                    "to be able to run this instrumented program if this "
+                    "crashes!\n",
                     __afl_final_loc);
 
         }

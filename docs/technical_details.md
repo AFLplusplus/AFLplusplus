@@ -1,5 +1,9 @@
 # Technical "whitepaper" for afl-fuzz
 
+
+NOTE: this document is rather outdated!
+
+
 This document provides a quick overview of the guts of American Fuzzy Lop.
 See README.md for the general instruction manual; and for a discussion of
 motivations and design goals behind AFL, see historical_notes.md.

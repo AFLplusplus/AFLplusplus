@@ -237,7 +237,7 @@ static void instrument_exit(GumArm64Writer *cw) {
 static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
-  instrument_previous_pc = 0;
+  instrument_previous_pc = instrument_hash_zero;
   return ret;
 
 }
@@ -299,7 +299,7 @@ static void instrument_persitent_save_lr(GumArm64Writer *cw) {
 
 }
 
-void persistent_prologue(GumStalkerOutput *output) {
+void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
    *  SAVE REGS
@@ -366,7 +366,7 @@ void persistent_prologue(GumStalkerOutput *output) {
 
 }
 
-void persistent_epilogue(GumStalkerOutput *output) {
+void persistent_epilogue_arch(GumStalkerOutput *output) {
 
   GumArm64Writer *cw = output->writer.arm64;
 

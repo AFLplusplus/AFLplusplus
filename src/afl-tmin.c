@@ -877,12 +877,13 @@ static void usage(u8 *argv0) {
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "ASAN_OPTIONS: custom settings for ASAN\n"
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
-      "TMPDIR: directory to use for temporary input files\n"
-      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      "TMPDIR: directory to use for temporary input files\n",
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
@@ -1104,6 +1105,12 @@ int main(int argc, char **argv_orig, char **envp) {
   if (optind == argc || !in_file || !output_file) { usage(argv[0]); }
 
   check_environment_vars(envp);
+
+  if (getenv("AFL_NO_FORKSRV")) {             /* if set, use the fauxserver */
+    fsrv->use_fauxsrv = true;
+
+  }
+
   setenv("AFL_NO_AUTODICT", "1", 1);
 
   /* initialize cmplog_mode */

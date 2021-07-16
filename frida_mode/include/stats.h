@@ -28,6 +28,7 @@ gboolean stats_is_supported_arch(void);
 size_t   stats_data_size_arch(void);
 void     stats_collect_arch(const cs_insn *instr);
 void     stats_write_arch(void);
+void     stats_on_fork(void);
 
 #endif
 

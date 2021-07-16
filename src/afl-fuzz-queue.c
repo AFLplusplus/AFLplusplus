@@ -1135,11 +1135,9 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
         do_once = 1;
         // release unneeded memory
-        u8 *ptr = ck_realloc(
+        afl->q_testcase_cache = ck_realloc(
             afl->q_testcase_cache,
             (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
-
-        if (ptr) { afl->q_testcase_cache = (struct queue_entry **)ptr; }
 
       }
 

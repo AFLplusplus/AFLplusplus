@@ -19,13 +19,14 @@ CFLAGS+=-fPIC \
 		-g \
 		-O3 \
 		-funroll-loops \
+		-ffunction-sections \
 
-RT_CFLAGS:=-Wno-unused-parameter \
+AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-sign-compare \
 		   -Wno-unused-function \
 		   -Wno-unused-result \
 		   -Wno-int-to-pointer-cast \
-		   -Wno-pointer-sign \
+		   -Wno-pointer-sign
 
 LDFLAGS+=-shared \
 		 -lpthread \
@@ -52,6 +53,10 @@ ifeq "$(ARCH)" "aarch64"
  ARCH:=arm64
 endif
 
+ifeq "$(ARCH)" "armv7l"
+ ARCH:=armhf
+endif
+
 ifeq "$(ARCH)" "i686"
  ARCH:=x86
 endif
@@ -59,12 +64,15 @@ endif
 
 ifeq "$(shell uname)" "Darwin"
  OS:=macos
- RT_CFLAGS:=$(RT_CFLAGS) -Wno-deprecated-declarations
+ AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
 else
 ifdef DEBUG
- RT_CFLAGS:=$(RT_CFLAGS) -Wno-prio-ctor-dtor
+ AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-prio-ctor-dtor
 endif
-LDFLAGS+=-z noexecstack
+LDFLAGS+=	-z noexecstack \
+			-Wl,--gc-sections \
+			-Wl,--exclude-libs,ALL
+LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
 ifeq "$(shell uname)" "Linux"
@@ -75,7 +83,16 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
+ifeq "$(ARCH)" "arm64"
+# 15.0.0 Not released for aarch64 yet
 GUM_DEVKIT_VERSION=14.2.18
+else
+ifeq "$(ARCH)" "armhf"
+GUM_DEVKIT_VERSION=14.2.18
+else
+GUM_DEVKIT_VERSION=15.0.0
+endif
+endif
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -94,15 +111,24 @@ FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
 
+AFL_PERFORMANCE_SRC:=$(ROOT)src/afl-performance.c
+AFL_PERFORMANCE_OBJ:=$(OBJ_DIR)afl-performance.o
+
 HOOK_DIR:=$(PWD)hook/
-AFLPP_DRIVER_HOOK_SRC=$(HOOK_DIR)hook.c
-AFLPP_DRIVER_HOOK_OBJ=$(BUILD_DIR)hook.so
+AFLPP_FRIDA_DRIVER_HOOK_SRC=$(HOOK_DIR)frida_hook.c
+AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(BUILD_DIR)frida_hook.so
+
+AFLPP_QEMU_DRIVER_HOOK_SRC:=$(HOOK_DIR)qemu_hook.c
+AFLPP_QEMU_DRIVER_HOOK_OBJ:=$(BUILD_DIR)qemu_hook.so
+
+BIN2C:=$(BUILD_DIR)bin2c
+BIN2C_SRC:=$(PWD)util/bin2c.c
 
 .PHONY: all 32 clean format hook $(FRIDA_GUM)
 
 ############################## ALL #############################################
 
-all: $(FRIDA_TRACE) $(AFLPP_DRIVER_HOOK_OBJ)
+all: $(FRIDA_TRACE) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
@@ -143,17 +169,26 @@ $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
 	wget -O $@ $(GUM_DEVKIT_URL)
 endif
 
-$(GUM_DEVIT_LIBRARY): | $(GUM_DEVKIT_TARBALL)
-	tar Jxvf $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
+$(GUM_DEVIT_LIBRARY): $(GUM_DEVKIT_TARBALL)
+	tar Jxvfm $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
-$(GUM_DEVIT_HEADER): | $(GUM_DEVKIT_TARBALL)
-	tar Jxvf $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
+$(GUM_DEVIT_HEADER): $(GUM_DEVKIT_TARBALL)
+	tar Jxvfm $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
 ############################## AFL #############################################
 $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 	$(CC) \
 		$(CFLAGS) \
-		$(RT_CFLAGS) \
+		$(AFL_CFLAGS) \
+		-I $(ROOT) \
+		-I $(ROOT)include \
+		-o $@ \
+		-c $<
+
+$(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
+	$(CC) \
+		$(CFLAGS) \
+		$(AFL_CFLAGS) \
 		-I $(ROOT) \
 		-I $(ROOT)include \
 		-o $@ \
@@ -161,10 +196,13 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 
 ############################### JS #############################################
 
-$(JS_SRC): $(JS) | $(BUILD_DIR)
-	cd $(JS_DIR) && xxd -i $(JS_NAME) $@
+$(BIN2C): $(BIN2C_SRC)
+	$(CC) -D_GNU_SOURCE -o $@ $<
 
-$(JS_OBJ): $(JS_SRC)
+$(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
+	cd $(JS_DIR) && $(BIN2C) api_js $(JS) $@
+
+$(JS_OBJ): $(JS_SRC) GNUmakefile
 	$(CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
@@ -190,23 +228,28 @@ $(foreach src,$(SOURCES),$(eval $(call BUILD_SOURCE,$(src),$(OBJ_DIR)$(notdir $(
 
 ######################## AFL-FRIDA-TRACE #######################################
 
-$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) GNUmakefile | $(BUILD_DIR)
+$(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) $(AFL_PERFORMANCE_OBJ) GNUmakefile | $(BUILD_DIR)
 	$(CXX) \
 		$(OBJS) \
 		$(JS_OBJ) \
 		$(GUM_DEVIT_LIBRARY) \
 		$(AFL_COMPILER_RT_OBJ) \
+		$(AFL_PERFORMANCE_OBJ) \
 		$(LDFLAGS) \
+		$(LDSCRIPT) \
 		-o $@ \
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
 
 ############################# HOOK #############################################
 
-$(AFLPP_DRIVER_HOOK_OBJ): $(AFLPP_DRIVER_HOOK_SRC) | $(BUILD_DIR)
+$(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(GUM_DEVIT_HEADER) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
 
-hook: $(AFLPP_DRIVER_HOOK_OBJ)
+$(AFLPP_QEMU_DRIVER_HOOK_OBJ): $(AFLPP_QEMU_DRIVER_HOOK_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+
+hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
 ############################# CLEAN ############################################
 clean:
@@ -214,7 +257,7 @@ clean:
 
 ############################# FORMAT ###########################################
 format:
-	cd $(ROOT) && echo $(SOURCES) $(AFLPP_DRIVER_HOOK_SRC) | xargs -L1 ./.custom-format.py -i
+	cd $(ROOT) && echo $(SOURCES) $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(BIN2C_SRC) | xargs -L1 ./.custom-format.py -i
 	cd $(ROOT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
 
 ############################# RUN #############################################
