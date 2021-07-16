@@ -6,7 +6,7 @@
 
 #if defined(__arm__)
 
-gsize ctx_read_reg(GumIA32CpuContext *ctx, x86_reg reg) {
+gsize ctx_read_reg(GumArmCpuContext *ctx, arm_reg reg) {
 
   FATAL("ctx_read_reg unimplemented for this architecture");
 
