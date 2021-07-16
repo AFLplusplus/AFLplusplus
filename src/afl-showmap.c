@@ -401,14 +401,23 @@ static u32 read_file(u8 *in_file) {
 
   if (fstat(fd, &st) || !st.st_size) {
 
-    WARNF("Zero-sized input file '%s'.", in_file);
+    if (!be_quiet && !quiet_mode) {
+
+      WARNF("Zero-sized input file '%s'.", in_file);
+
+    }
 
   }
 
   if (st.st_size > MAX_FILE) {
 
-    WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
-          MAX_FILE);
+    if (!be_quiet && !quiet_mode) {
+
+      WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
+            MAX_FILE);
+
+    }
+
     in_len = MAX_FILE;
 
   } else {
@@ -748,7 +757,7 @@ u32 execute_testcases(u8 *dir) {
 
     }
 
-    if (st.st_size > MAX_FILE && !be_quiet) {
+    if (st.st_size > MAX_FILE && !be_quiet && !quiet_mode) {
 
       WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),

@@ -574,6 +574,8 @@ Note that the INPUTFILE argument that the target program would read from has to 
 If the target reads from stdin instead, just omit the `@@` as this is the
 default.
 
+This step is highly recommended!
+
 #### c) Minimizing all corpus files
 
 The shorter the input files that still traverse the same path
@@ -589,7 +591,8 @@ for i in *; do
 done
 ```
 
-This step can also be parallelized, e.g. with `parallel`
+This step can also be parallelized, e.g. with `parallel`.
+Note that this step is rather optional though.
 
 #### Done!
 
