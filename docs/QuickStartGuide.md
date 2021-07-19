@@ -18,13 +18,11 @@ how to hit the ground running:
    custom SIGSEGV or SIGABRT handlers and background processes. For tips on
    detecting non-crashing flaws, see section 11 in [README.md](README.md) .
 
-3) Compile the program / library to be fuzzed using afl-gcc. A common way to
+3) Compile the program / library to be fuzzed using afl-cc. A common way to
    do this would be:
 
-   CC=/path/to/afl-gcc CXX=/path/to/afl-g++ ./configure --disable-shared
+   CC=/path/to/afl-cc CXX=/path/to/afl-c++ ./configure --disable-shared
    make clean all
-
-   If program build fails, ping <afl-users@googlegroups.com>.
 
 4) Get a small but valid input file that makes sense to the program. When
    fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in
@@ -40,9 +38,6 @@ how to hit the ground running:
 
 6) Investigate anything shown in red in the fuzzer UI by promptly consulting
    [status_screen.md](status_screen.md).
-
-7) compile and use llvm_mode (afl-clang-fast/afl-clang-fast++) as it is way
-   faster and has a few cool features
 
 8) There is a basic docker build with 'docker build -t aflplusplus .'
 

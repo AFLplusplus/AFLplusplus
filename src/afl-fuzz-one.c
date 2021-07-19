@@ -73,7 +73,7 @@ static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
 /* Helper to choose random block len for block operations in fuzz_one().
    Doesn't return zero, provided that max_len is > 0. */
 
-static u32 choose_block_len(afl_state_t *afl, u32 limit) {
+static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   u32 min_value, max_value;
   u32 rlim = MIN(afl->queue_cycle, (u32)3);
@@ -2057,7 +2057,7 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                afl_realloc(AFL_BUF_PARAM(out), temp_len);
+                out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len);
                 if (unlikely(!afl->out_buf)) { PFATAL("alloc"); }
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
@@ -2102,9 +2102,9 @@ havoc_stage:
 
         case 8 ... 9: {
 
-          /* Set word to interesting value, randomly choosing endian. */
+        case 8 ... 9: {
 
-          if (temp_len < 2) { break; }
+          /* Set word to interesting value, little endian. */
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16");
@@ -2136,9 +2136,9 @@ havoc_stage:
 
         case 12 ... 13: {
 
-          /* Set dword to interesting value, randomly choosing endian. */
+        case 12 ... 13: {
 
-          if (temp_len < 4) { break; }
+          /* Set dword to interesting value, little endian. */
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32");
@@ -2862,6 +2862,7 @@ abandon_entry:
 
       --afl->pending_not_fuzzed;
       afl->queue_cur->was_fuzzed = 1;
+      afl->reinit_table = 1;
       if (afl->queue_cur->favored) { --afl->pending_favored; }
 
     }

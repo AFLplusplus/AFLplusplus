@@ -154,6 +154,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
   for (auto &F : M) {
 
     if (isIgnoreFunction(&F)) continue;
+    if (!isInInstrumentList(&F) || !F.size()) { continue; }
 
     /*  Some implementation notes.
      *
@@ -428,6 +429,12 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
                 uint64_t literalLength = Str2.length();
                 uint64_t optLength = ilen->getZExtValue();
+                if (optLength > literalLength + 1) {
+
+                  optLength = Str2.length() + 1;
+
+                }
+
                 if (literalLength + 1 == optLength) {
 
                   Str2.append("\0", 1);  // add null byte

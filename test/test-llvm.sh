@@ -4,14 +4,6 @@
 
 $ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
-  # on FreeBSD need to set AFL_CC
-  test `uname -s` = 'FreeBSD' && {
-    if type clang >/dev/null; then
-      export AFL_CC=`command -v clang`
-    else
-      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-    fi
-  }
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
@@ -130,10 +122,6 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   # now we want to be sure that afl-fuzz is working
-  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$YELLOW[-] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
-    true
-  }) ||
   # make sure crash reporter is disabled on Mac OS X
   (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"

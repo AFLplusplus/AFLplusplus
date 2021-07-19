@@ -1,0 +1,32 @@
+{
+  "name": "@worksbutnottested/aflplusplus-frida",
+  "version": "1.0.1",
+  "description": "AFLplusplus Frida Mode",
+  "main": "./dist/afl.js",
+  "types": "./dist/afl.d.ts",
+  "files": [
+    "/dist/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:worksbutnottested/AFLplusplus.git"
+  },
+  "publishConfig": {
+    "cache": "~/.npm",
+    "registry": "https://npm.pkg.github.com/@worksbutnottested"
+  },
+  "scripts": {
+    "prepare": "npm run build",
+    "build": "tsc",
+    "lint": "tslint -p tslint.json"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.2",
+    "typescript": "^4.0.3",
+    "typescript-tslint-plugin": "^0.5.5",
+    "tslint": "^6.1.3"
+  },
+  "dependencies": {
+    "@types/frida-gum": "^16.2.0"
+  }
+}

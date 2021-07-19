@@ -125,7 +125,7 @@ static void usage(u8 *argv0, int more_help) {
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
       "immediately,\n"
-      "                  -1 = immediately and together with normal mutation).\n"
+      "                  -1 = immediately and together with normal mutation.\n"
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
@@ -143,7 +143,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n\n"
 
-      "Testing settings:\n"
+      "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
       "  -V seconds    - fuzz for a specified time then terminate\n"
       "  -E execs      - fuzz for an approx. no. of total executions then "
@@ -158,7 +158,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
-      "  -d            - skip deterministic fuzzing in -M mode\n"
+      // "  -d            - skip deterministic fuzzing in -M mode\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -575,7 +575,6 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->sync_id = ck_strdup(optarg);
-        afl->skip_deterministic = 0;  // force deterministic fuzzing
         afl->old_seed_selection = 1;  // force old queue walking seed selection
         afl->disable_trim = 1;        // disable trimming
 
@@ -1206,6 +1205,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  setenv("__AFL_OUT_DIR", afl->out_dir, 1);
+
   if (get_afl_env("AFL_DISABLE_TRIM")) { afl->disable_trim = 1; }
 
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI")) {
@@ -1275,7 +1276,6 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
-  if (get_afl_env("AFL_FAST_CAL")) { afl->fast_cal = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
 
   if (afl->afl_env.afl_autoresume) {
@@ -1487,14 +1487,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) { afl->not_on_tty = 0; }
-
-  if (afl->afl_env.afl_cal_fast) {
-
-    /* Use less calibration cycles, for slow applications */
-    afl->cal_cycles = 3;
-    afl->cal_cycles_long = 5;
-
-  }
 
   if (afl->afl_env.afl_custom_mutator_only) {
 
@@ -1919,7 +1911,12 @@ int main(int argc, char **argv_orig, char **envp) {
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();
-  if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
+  if (afl->in_place_resume || afl->afl_env.afl_autoresume) {
+
+    load_stats_file(afl);
+
+  }
+
   write_stats_file(afl, 0, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
@@ -2157,7 +2154,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (unlikely(prev_queued_paths < afl->queued_paths)) {
+        if (unlikely(prev_queued_paths < afl->queued_paths ||
+                     afl->reinit_table)) {
 
           // we have new queue entries since the last run, recreate alias table
           prev_queued_paths = afl->queued_paths;
@@ -2283,13 +2281,10 @@ stop_fuzzing:
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);
-  unsetenv(SHM_ENV_VAR);
-  unsetenv(CMPLOG_SHM_ENV_VAR);
   afl_shm_deinit(&afl->shm);
 
   if (afl->shm_fuzz) {
 
-    unsetenv(SHM_FUZZ_ENV_VAR);
     afl_shm_deinit(afl->shm_fuzz);
     ck_free(afl->shm_fuzz);
 

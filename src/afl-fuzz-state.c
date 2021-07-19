@@ -96,8 +96,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->splicing_with = -1;              /* Splicing with which test case?   */
   afl->cpu_to_bind = -1;
   afl->havoc_stack_pow2 = HAVOC_STACK_POW2;
-  afl->cal_cycles = CAL_CYCLES;
-  afl->cal_cycles_long = CAL_CYCLES_LONG;
   afl->hang_tmout = EXEC_TIMEOUT;
   afl->exit_on_time = 0;
   afl->stats_update_freq = 1;
@@ -335,6 +333,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_CAL_FAST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_cal_fast =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_FAST_CAL",
 
                               afl_environment_variable_len)) {
 
