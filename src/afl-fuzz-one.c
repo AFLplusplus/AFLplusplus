@@ -2057,7 +2057,7 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                afl_realloc(AFL_BUF_PARAM(out), temp_len);
+                out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len);
                 if (unlikely(!afl->out_buf)) { PFATAL("alloc"); }
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
@@ -2102,7 +2102,7 @@ havoc_stage:
 
         case 8 ... 9: {
 
-          /* Set word to interesting value, randomly choosing endian. */
+          /* Set word to interesting value, little endian. */
 
           if (temp_len < 2) { break; }
 
@@ -2119,7 +2119,7 @@ havoc_stage:
 
         case 10 ... 11: {
 
-          /* Set word to interesting value, randomly choosing endian. */
+          /* Set word to interesting value, big endian. */
 
           if (temp_len < 2) { break; }
 
@@ -2136,7 +2136,7 @@ havoc_stage:
 
         case 12 ... 13: {
 
-          /* Set dword to interesting value, randomly choosing endian. */
+          /* Set dword to interesting value, little endian. */
 
           if (temp_len < 4) { break; }
 
@@ -2153,7 +2153,7 @@ havoc_stage:
 
         case 14 ... 15: {
 
-          /* Set dword to interesting value, randomly choosing endian. */
+          /* Set dword to interesting value, big endian. */
 
           if (temp_len < 4) { break; }
 

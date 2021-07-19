@@ -546,6 +546,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                   uint64_t literalLength = Str2.size();
                   uint64_t optLength = ilen->getZExtValue();
+                  if (optLength > literalLength + 1) {
+
+                    optLength = Str2.length() + 1;
+
+                  }
+
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
@@ -649,6 +655,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                 uint64_t literalLength = optLen;
                 optLen = ilen->getZExtValue();
+                if (optLen > literalLength + 1) { optLen = literalLength + 1; }
                 if (optLen < 2) { continue; }
                 if (literalLength + 1 == optLen) {  // add null byte
                   thestring.append("\0", 1);

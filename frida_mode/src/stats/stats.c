@@ -178,9 +178,11 @@ void stats_write(void) {
 
 }
 
-static void stats_maybe_write(void) {
+void stats_on_fork(void) {
 
   guint64 current_time;
+
+  if (stats_filename == NULL) { return; }
 
   if (stats_interval == 0) { return; }
 
@@ -207,8 +209,6 @@ void stats_collect(const cs_insn *instr, gboolean begin) {
   stats_data->num_instructions++;
 
   stats_collect_arch(instr);
-
-  stats_maybe_write();
 
 }
 

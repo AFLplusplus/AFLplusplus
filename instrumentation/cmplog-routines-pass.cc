@@ -184,6 +184,18 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   FunctionCallee cmplogGccStdC = c4;
 #endif
 
+  GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
+
+  if (!AFLCmplogPtr) {
+
+    AFLCmplogPtr = new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                                      GlobalValue::ExternalWeakLinkage, 0,
+                                      "__afl_cmp_map");
+
+  }
+
+  Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
+
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
 
@@ -289,8 +301,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
 
-    IRBuilder<> IRB(callInst->getParent());
-    IRB.SetInsertPoint(callInst);
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
 
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
@@ -308,8 +327,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
 
-    IRBuilder<> IRB(callInst->getParent());
-    IRB.SetInsertPoint(callInst);
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
 
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
@@ -327,8 +353,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
 
-    IRBuilder<> IRB(callInst->getParent());
-    IRB.SetInsertPoint(callInst);
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
 
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
@@ -346,8 +379,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
 
-    IRBuilder<> IRB(callInst->getParent());
-    IRB.SetInsertPoint(callInst);
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
 
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
@@ -365,8 +405,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
 
-    IRBuilder<> IRB(callInst->getParent());
-    IRB.SetInsertPoint(callInst);
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
 
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);

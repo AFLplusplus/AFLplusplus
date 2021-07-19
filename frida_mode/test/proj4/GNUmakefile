@@ -2,7 +2,7 @@ PWD:=$(shell pwd)/
 ROOT:=$(shell realpath $(PWD)../../..)/
 BUILD_DIR:=$(PWD)build/
 
-AFLPP_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/hook.so
+AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/frida_hook.so
 
 LIBPROJ4_BUILD_DIR:=$(BUILD_DIR)libproj4/
 HARNESS_BUILD_DIR:=$(BUILD_DIR)harness/
@@ -26,7 +26,7 @@ LDFLAGS += -lpthread
 
 TEST_BIN:=$(BUILD_DIR)test
 ifeq "$(shell uname)" "Darwin"
-TEST_BIN_LDFLAGS:=-undefined dynamic_lookup
+TEST_BIN_LDFLAGS:=-undefined dynamic_lookup -Wl,-no_pie
 endif
 
 TEST_DATA_DIR:=$(BUILD_DIR)in/
@@ -46,16 +46,18 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+
 ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000aaaaaaaaa000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000aaaaaaaaa000)
 endif
 
 ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x0000555555554000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000555555554000)
 endif
 
 ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(PWD)get_symbol_addr.py -f $(TEST_BIN) -s LLVMFuzzerTestOneInput -b 0x56555000)
+ AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x56555000)
 endif
 
 .PHONY: all clean frida hook
@@ -130,7 +132,7 @@ $(TEST_DATA_FILE): | $(TEST_DATA_DIR)
 clean:
 	rm -rf $(BUILD_DIR)
 
-frida: $(TEST_BIN) $(AFLPP_DRIVER_HOOK_OBJ) $(TEST_DATA_FILE)
+frida: $(TEST_BIN) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(TEST_DATA_FILE)
 	AFL_DEBUG_CHILD=1 \
 	AFL_DISABLE_TRIM=1 \
 	AFL_FRIDA_PERSISTENT_CNT=1000000 \
@@ -142,7 +144,7 @@ frida: $(TEST_BIN) $(AFLPP_DRIVER_HOOK_OBJ) $(TEST_DATA_FILE)
 	AFL_SKIP_CPUFREQ=1 \
 	AFL_SKIP_CRASHES=1 \
 	AFL_TESTCACHE_SIZE=2 \
-	AFL_FRIDA_PERSISTENT_HOOK=$(AFLPP_DRIVER_HOOK_OBJ) \
+	AFL_FRIDA_PERSISTENT_HOOK=$(AFLPP_FRIDA_DRIVER_HOOK_OBJ) \
 	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	AFL_ENTRYPOINT=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	$(ROOT)afl-fuzz \
