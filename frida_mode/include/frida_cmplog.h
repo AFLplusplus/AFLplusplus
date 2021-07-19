@@ -3,6 +3,7 @@
 
 extern struct cmp_map *__afl_cmp_map;
 
+void cmplog_config(void);
 void cmplog_init(void);
 
 /* Functions to be implemented by the different architectures */

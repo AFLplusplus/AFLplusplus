@@ -186,6 +186,29 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   rm -f test-instr.plain
 
+  $ECHO "$GREY[*] llvm_mode laf-intel/compcov testing splitting integer types (this might take some time)"
+  for testcase in ./test-int_cases.c ./test-uint_cases.c; do
+    for I in char short int long "long long"; do
+      for BITS in 8 16 32 64; do
+        bin="$testcase-split-$I-$BITS.compcov" 
+        AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -fsigned-char -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
+        if ! test -e "$bin"; then
+            cat test.out
+            $ECHO "$RED[!] llvm_mode laf-intel/compcov integer splitting failed! ($testcase with type $I split to $BITS)!";
+            CODE=1
+            break
+        fi
+        if ! "$bin"; then
+            $ECHO "$RED[!] llvm_mode laf-intel/compcov integer splitting resulted in miscompilation (type $I split to $BITS)!";
+            CODE=1
+            break
+        fi
+        rm -f "$bin" test.out || true
+      done
+    done
+  done
+  rm -f test-int-split*.compcov test.out
+
   AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && test_compcov_binary_functionality ./test-compcov.compcov && {
     grep --binary-files=text -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {

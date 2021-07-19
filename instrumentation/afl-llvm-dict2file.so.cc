@@ -541,7 +541,12 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               uint64_t literalLength = optLen;
               optLen = ilen->getZExtValue();
-              if (optLen > thestring.length()) { optLen = thestring.length(); }
+              if (optLen > thestring.length() + 1) {
+
+                optLen = thestring.length() + 1;
+
+              }
+
               if (optLen < 2) { continue; }
               if (literalLength + 1 == optLen) {  // add null byte
                 thestring.append("\0", 1);

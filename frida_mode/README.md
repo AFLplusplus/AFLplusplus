@@ -21,16 +21,16 @@ perhaps leverage some of its design and implementation.
   | Feature/Instrumentation  | frida-mode | Notes                                        |
   | -------------------------|:----------:|:--------------------------------------------:|
   | NeverZero                |     x      |                                              |
-  | Persistent Mode          |     x      | (x86/x64 only)(Only on function boundaries)  |
+  | Persistent Mode          |     x      | (x86/x64/aarch64 only)                       |
   | LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)           |
-  | CMPLOG                   |     x      | (x86/x64 only)                               |
+  | CMPLOG                   |     x      | (x86/x64/aarch64 only)                       |
   | Selective Instrumentation|     x      |                                              |
   | Non-Colliding Coverage   |     -      | (Not possible in binary-only instrumentation |
   | Ngram prev_loc Coverage  |     -      |                                              |
   | Context Coverage         |     -      |                                              |
   | Auto Dictionary          |     -      |                                              |
   | Snapshot LKM Support     |     -      |                                              |
-  | In-Memory Test Cases     |     x      | (x86/x64 only)                               |
+  | In-Memory Test Cases     |     x      | (x86/x64/aarch64 only)                       |
 
 ## Compatibility
 Currently FRIDA mode supports Linux and macOS targets on both x86/x64
@@ -75,9 +75,12 @@ following options are currently supported:
 * `AFL_FRIDA_PERSISTENT_CNT` - See `AFL_QEMU_PERSISTENT_CNT`
 * `AFL_FRIDA_PERSISTENT_HOOK` - See `AFL_QEMU_PERSISTENT_HOOK`
 * `AFL_FRIDA_PERSISTENT_RET` - See `AFL_QEMU_PERSISTENT_RET`
-* `AFL_FRIDA_PERSISTENT_RETADDR_OFFSET` - See `AFL_QEMU_PERSISTENT_RETADDR_OFFSET`
 
 To enable the powerful CMPLOG mechanism, set `-c 0` for `afl-fuzz`.
+
+## Scripting
+
+One of the more powerful features of FRIDA mode is it's support for configuration by JavaScript, rather than using environment variables. For details of how this works see [here](Scripting.md).
 
 ## Performance
 
@@ -150,22 +153,29 @@ Generated block 0x7ffff75e98e2
 
 ***
 ```
+* `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
+code. Code is considered to be JIT if the executable segment is not backed by a
+file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
 instrumentation (the default where available). Required to use
 `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork.
-* `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks
-`AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
+generate block (and hence edge) IDs. Setting this to a constant value may be
+useful for debugging purposes, e.g. investigating unstable edges.
+* `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
+implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
+is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
 application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 * `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target
 application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 * `AFL_FRIDA_PERSISTENT_DEBUG` - Insert a Breakpoint into the instrumented code
 at `AFL_FRIDA_PERSISTENT_HOOK` and `AFL_FRIDA_PERSISTENT_RET` to allow the user
-to determine the value of `AFL_FRIDA_PERSISTENT_RETADDR_OFFSET` using a
-debugger.
+to detect issues in the persistent loop using a debugger.
 
 ```
 
@@ -286,9 +296,13 @@ FASAN then adds instrumentation for any instrucutions which use memory operands 
 then calls into the `__asan_loadN` and `__asan_storeN` functions provided by the DSO
 to validate memory accesses against the shadow memory.
 
+# Collisions
+FRIDA mode has also introduced some improvements to reduce collisions in the map.
+See [here](MapDensity.md) for details.
+
 ## TODO
 
-The next features to be added are Aarch64 and Aarch32 support as well as looking at
+The next features to be added are Aarch32 support as well as looking at
 potential performance improvements. The intention is to achieve feature parity with
 QEMU mode in due course. Contributions are welcome, but please get in touch to
 ensure that efforts are deconflicted.

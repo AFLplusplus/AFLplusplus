@@ -1514,6 +1514,9 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     if (use_threadsafe_counters) {                                /* Atomic */
 
       IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                          llvm::MaybeAlign(1),
+#endif
                           llvm::AtomicOrdering::Monotonic);
 
     } else {

@@ -1,4 +1,4 @@
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
@@ -17,11 +17,16 @@ typedef struct {
 
 } convert_name_ctx_t;
 
-GArray *module_ranges = NULL;
-GArray *libs_ranges = NULL;
-GArray *include_ranges = NULL;
-GArray *exclude_ranges = NULL;
-GArray *ranges = NULL;
+gboolean ranges_debug_maps = FALSE;
+gboolean ranges_inst_libs = FALSE;
+gboolean ranges_inst_jit = FALSE;
+
+static GArray *module_ranges = NULL;
+static GArray *libs_ranges = NULL;
+static GArray *jit_ranges = NULL;
+static GArray *include_ranges = NULL;
+static GArray *exclude_ranges = NULL;
+static GArray *ranges = NULL;
 
 static void convert_address_token(gchar *token, GumMemoryRange *range) {
 
@@ -142,11 +147,13 @@ static void convert_name_token(gchar *token, GumMemoryRange *range) {
 
 static void convert_token(gchar *token, GumMemoryRange *range) {
 
-  if (g_strrstr(token, "-")) {
+  if (g_str_has_prefix(token, "0x")) {
 
     convert_address_token(token, range);
 
-  } else {
+  }
+
+  else {
 
     convert_name_token(token, range);
 
@@ -169,19 +176,27 @@ static gboolean print_ranges_callback(const GumRangeDetails *details,
                                       gpointer               user_data) {
 
   UNUSED_PARAMETER(user_data);
+
   if (details->file == NULL) {
 
-    OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER "X",
+    OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER
+        "X %c%c%c",
         details->range->base_address,
-        details->range->base_address + details->range->size);
+        details->range->base_address + details->range->size,
+        details->protection & GUM_PAGE_READ ? 'R' : '-',
+        details->protection & GUM_PAGE_WRITE ? 'W' : '-',
+        details->protection & GUM_PAGE_EXECUTE ? 'X' : '-');
 
   } else {
 
     OKF("MAP - 0x%016" G_GINT64_MODIFIER "x - 0x%016" G_GINT64_MODIFIER
-        "X %s(0x%016" G_GINT64_MODIFIER "x)",
+        "X %c%c%c %s(0x%016" G_GINT64_MODIFIER "x)",
         details->range->base_address,
         details->range->base_address + details->range->size,
-        details->file->path, details->file->offset);
+        details->protection & GUM_PAGE_READ ? 'R' : '-',
+        details->protection & GUM_PAGE_WRITE ? 'W' : '-',
+        details->protection & GUM_PAGE_EXECUTE ? 'X' : '-', details->file->path,
+        details->file->offset);
 
   }
 
@@ -225,6 +240,43 @@ static GArray *collect_module_ranges(void) {
 
 }
 
+static void check_for_overlaps(GArray *array) {
+
+  for (guint i = 1; i < array->len; i++) {
+
+    GumMemoryRange *prev = &g_array_index(array, GumMemoryRange, i - 1);
+    GumMemoryRange *curr = &g_array_index(array, GumMemoryRange, i);
+    GumAddress      prev_limit = prev->base_address + prev->size;
+    GumAddress      curr_limit = curr->base_address + curr->size;
+    if (prev_limit > curr->base_address) {
+
+      FATAL("OVerlapping ranges 0x%016" G_GINT64_MODIFIER
+            "x-0x%016" G_GINT64_MODIFIER "x 0x%016" G_GINT64_MODIFIER
+            "x-0x%016" G_GINT64_MODIFIER "x",
+            prev->base_address, prev_limit, curr->base_address, curr_limit);
+
+    }
+
+  }
+
+}
+
+void ranges_add_include(GumMemoryRange *range) {
+
+  g_array_append_val(include_ranges, *range);
+  g_array_sort(include_ranges, range_sort);
+  check_for_overlaps(include_ranges);
+
+}
+
+void ranges_add_exclude(GumMemoryRange *range) {
+
+  g_array_append_val(exclude_ranges, *range);
+  g_array_sort(exclude_ranges, range_sort);
+  check_for_overlaps(exclude_ranges);
+
+}
+
 static GArray *collect_ranges(char *env_key) {
 
   char *         env_val;
@@ -253,23 +305,7 @@ static GArray *collect_ranges(char *env_key) {
 
   g_array_sort(result, range_sort);
 
-  /* Check for overlaps */
-  for (i = 1; i < token_count; i++) {
-
-    GumMemoryRange *prev = &g_array_index(result, GumMemoryRange, i - 1);
-    GumMemoryRange *curr = &g_array_index(result, GumMemoryRange, i);
-    GumAddress      prev_limit = prev->base_address + prev->size;
-    GumAddress      curr_limit = curr->base_address + curr->size;
-    if (prev_limit > curr->base_address) {
-
-      FATAL("OVerlapping ranges 0x%016" G_GINT64_MODIFIER
-            "x-0x%016" G_GINT64_MODIFIER "x 0x%016" G_GINT64_MODIFIER
-            "x-0x%016" G_GINT64_MODIFIER "x",
-            prev->base_address, prev_limit, curr->base_address, curr_limit);
-
-    }
-
-  }
+  check_for_overlaps(result);
 
   print_ranges(env_key, result);
 
@@ -285,15 +321,15 @@ static GArray *collect_libs_ranges(void) {
   GumMemoryRange range;
   result = g_array_new(false, false, sizeof(GumMemoryRange));
 
-  if (getenv("AFL_INST_LIBS") == NULL) {
-
-    range.base_address = lib_get_text_base();
-    range.size = lib_get_text_limit() - lib_get_text_base();
-
-  } else {
+  if (ranges_inst_libs) {
 
     range.base_address = 0;
     range.size = G_MAXULONG;
+
+  } else {
+
+    range.base_address = lib_get_text_base();
+    range.size = lib_get_text_limit() - lib_get_text_base();
 
   }
 
@@ -301,6 +337,39 @@ static GArray *collect_libs_ranges(void) {
 
   print_ranges("AFL_INST_LIBS", result);
 
+  return result;
+
+}
+
+static gboolean collect_jit_ranges_callback(const GumRangeDetails *details,
+                                            gpointer               user_data) {
+
+  GArray *ranges = (GArray *)user_data;
+
+  /* If the executable code isn't backed by a file, it's probably JIT */
+  if (details->file == NULL) {
+
+    GumMemoryRange range = *details->range;
+    g_array_append_val(ranges, range);
+
+  }
+
+  return TRUE;
+
+}
+
+static GArray *collect_jit_ranges(void) {
+
+  GArray *result;
+  result = g_array_new(false, false, sizeof(GumMemoryRange));
+  if (!ranges_inst_jit) {
+
+    gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, collect_jit_ranges_callback,
+                                 result);
+
+  }
+
+  print_ranges("JIT", result);
   return result;
 
 }
@@ -480,30 +549,21 @@ static GArray *merge_ranges(GArray *a) {
 
 }
 
-static gboolean exclude_ranges_callback(const GumRangeDetails *details,
-                                        gpointer               user_data) {
+void ranges_config(void) {
 
-  UNUSED_PARAMETER(user_data);
-  gchar *     name;
-  gboolean    found;
-  GumStalker *stalker;
-  if (details->file == NULL) { return TRUE; }
-  name = g_path_get_basename(details->file->path);
+  if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) { ranges_debug_maps = TRUE; }
+  if (getenv("AFL_INST_LIBS") != NULL) { ranges_inst_libs = TRUE; }
+  if (getenv("AFL_FRIDA_INST_JIT") != NULL) { ranges_inst_jit = TRUE; }
 
-  found = (g_strcmp0(name, "afl-frida-trace.so") == 0);
-  g_free(name);
-  if (!found) { return TRUE; }
+  if (ranges_debug_maps) {
 
-  stalker = stalker_get();
-  gum_stalker_exclude(stalker, details->range);
+    gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback,
+                                 NULL);
 
-  return FALSE;
+  }
 
-}
-
-static void ranges_exclude_self(void) {
-
-  gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, exclude_ranges_callback, NULL);
+  include_ranges = collect_ranges("AFL_FRIDA_INST_RANGES");
+  exclude_ranges = collect_ranges("AFL_FRIDA_EXCLUDE_RANGES");
 
 }
 
@@ -514,17 +574,22 @@ void ranges_init(void) {
   GArray *       step2;
   GArray *       step3;
   GArray *       step4;
+  GArray *       step5;
 
-  if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) {
+  OKF("Ranges - Instrument jit [%c]", ranges_inst_jit ? 'X' : ' ');
+  OKF("Ranges - Instrument libraries [%c]", ranges_inst_libs ? 'X' : ' ');
 
-    gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback,
-                                 NULL);
+  print_ranges("AFL_FRIDA_INST_RANGES", include_ranges);
+  print_ranges("AFL_FRIDA_EXCLUDE_RANGES", exclude_ranges);
 
-  }
+  OKF("Ranges - Instrument libraries [%c]", ranges_inst_libs ? 'X' : ' ');
+
+  print_ranges("AFL_FRIDA_INST_RANGES", include_ranges);
+  print_ranges("AFL_FRIDA_EXCLUDE_RANGES", exclude_ranges);
 
   module_ranges = collect_module_ranges();
   libs_ranges = collect_libs_ranges();
-  include_ranges = collect_ranges("AFL_FRIDA_INST_RANGES");
+  jit_ranges = collect_jit_ranges();
 
   /* If include ranges is empty, then assume everything is included */
   if (include_ranges->len == 0) {
@@ -534,8 +599,6 @@ void ranges_init(void) {
     g_array_append_val(include_ranges, ri);
 
   }
-
-  exclude_ranges = collect_ranges("AFL_FRIDA_EXCLUDE_RANGES");
 
   /* Intersect with .text section of main executable unless AFL_INST_LIBS */
   step1 = intersect_ranges(module_ranges, libs_ranges);
@@ -549,24 +612,24 @@ void ranges_init(void) {
   step3 = subtract_ranges(step2, exclude_ranges);
   print_ranges("step3", step3);
 
-  /*
-   * After step3, we have the total ranges to be instrumented, we now subtract
-   * that from the original ranges of the modules to configure stalker.
-   */
-
-  step4 = subtract_ranges(module_ranges, step3);
+  step4 = subtract_ranges(step3, jit_ranges);
   print_ranges("step4", step4);
 
-  ranges = merge_ranges(step4);
+  /*
+   * After step4, we have the total ranges to be instrumented, we now subtract
+   * that from the original ranges of the modules to configure stalker.
+   */
+  step5 = subtract_ranges(module_ranges, step4);
+  print_ranges("step5", step5);
+
+  ranges = merge_ranges(step5);
   print_ranges("final", ranges);
 
+  g_array_free(step5, TRUE);
   g_array_free(step4, TRUE);
   g_array_free(step3, TRUE);
   g_array_free(step2, TRUE);
   g_array_free(step1, TRUE);
-
-  /* *NEVER* stalk the stalker, only bad things will ever come of this! */
-  ranges_exclude_self();
 
   ranges_exclude();
 

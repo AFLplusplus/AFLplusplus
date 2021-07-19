@@ -46,7 +46,7 @@ ifeq "$(ARCH)" "x86_64"
 LIBASAN_FILE:=libclang_rt.asan-x86_64.so
 endif
 
-ifeq "$(ARCH)" "aarch64"
+ifeq "$(ARCH)" "arm64"
 LIBASAN_FILE:=libclang_rt.asan-aarch64.so
 endif
 
@@ -110,7 +110,7 @@ $(TEST_DATA_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 $(TEST_DATA_FILE): | $(TEST_DATA_DIR)
-	echo -n "TUODATM" > $@
+	echo -n "XUODATM" > $@
 
 frida-noasan: $(TEST_BIN) $(TEST_DATA_FILE)
 		$(ROOT)afl-fuzz \

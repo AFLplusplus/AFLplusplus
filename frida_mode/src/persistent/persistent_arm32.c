@@ -1,4 +1,4 @@
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #include "debug.h"
 
@@ -61,14 +61,14 @@ gboolean persistent_is_supported(void) {
 
 }
 
-void persistent_prologue(GumStalkerOutput *output) {
+void persistent_prologue_arch(GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(output);
   FATAL("Persistent mode not supported on this architecture");
 
 }
 
-void persistent_epilogue(GumStalkerOutput *output) {
+void persistent_epilogue_arch(GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(output);
   FATAL("Persistent mode not supported on this architecture");

@@ -1,7 +1,9 @@
 #ifndef _LIB_H
 #define _LIB_H
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
+
+void lib_config(void);
 
 void lib_init(void);
 

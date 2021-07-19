@@ -27,16 +27,8 @@
   "__afl_selective_coverage";
   "__afl_selective_coverage_start_off";
   "__afl_selective_coverage_temp";
-  "__afl_coverage_discard";
-  "__afl_coverage_skip";
-  "__afl_coverage_on";
-  "__afl_coverage_off";
-  "__afl_coverage_interesting";
-  "__afl_fuzz_len";
-  "__afl_fuzz_ptr";
   "__afl_sharedmem_fuzzing";
-  "__sanitizer_cov_trace_pc_guard";
-  "__sanitizer_cov_trace_pc_guard_init";
+  "__afl_trace";
   "__cmplog_ins_hook1";
   "__cmplog_ins_hook16";
   "__cmplog_ins_hook2";

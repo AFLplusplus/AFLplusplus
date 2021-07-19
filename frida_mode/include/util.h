@@ -1,7 +1,7 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 #define UNUSED_PARAMETER(x) (void)(x)
 #define IGNORED_RETURN(x) (void)!(x)
