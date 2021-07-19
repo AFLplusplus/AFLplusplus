@@ -45,7 +45,7 @@ endif
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's/svn//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
 LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[0-5]\.' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
 LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[3-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
@@ -61,7 +61,7 @@ ifeq "$(LLVMVER)" ""
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(error llvm_mode only supports llvm from version 6.0 onwards)
+  $(error llvm_mode only supports llvm from version 3.8 onwards)
 endif
 
 ifeq "$(LLVM_TOO_NEW)" "1"
@@ -306,7 +306,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o 
-PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./afl-llvm-lto-instrumentation.so ./SanitizerCoverageLTO.so
+PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./afl-llvm-lto-instrumentation.so ./SanitizerCoverageLTO.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""

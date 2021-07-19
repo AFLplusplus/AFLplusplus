@@ -8,6 +8,43 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++3.14c (release)
+  - afl-fuzz:
+    - fix -F when a '/' was part of the parameter
+    - fixed a crash for cmplog for very slow inputs
+    - fix for AFLfast schedule counting
+    - removed implied -D determinstic from -M main
+    - if the target becomes unavailable check out out/default/error.txt
+      for an indicator why
+    - AFL_CAL_FAST was a dead env, now does the same as AFL_FAST_CAL
+    - reverse read the queue on resumes (more effective)
+    - fix custom mutator trimming
+  - afl-cc:
+    - Update to COMPCOV/laf-intel that speeds up the instrumentation
+      process a lot - thanks to Michael Rodler/f0rki for the PR!
+    - Fix for failures for some sized string instrumentations
+    - Fix to instrument global namespace functions in c++
+    - Fix for llvm 13
+    - support partial linking
+    - do honor AFL_LLVM_{ALLOW/DENY}LIST for LTO autodictionary and DICT2FILE
+    - We do support llvm versions from 3.8 to 5.0 again
+  - frida_mode:
+    - several fixes for cmplog
+    - remove need for AFL_FRIDA_PERSISTENT_RETADDR_OFFSET
+    - less coverage collision
+    - feature parity of aarch64 with intel now (persistent, cmplog,
+      in-memory testcases, asan)
+  - afl-cmin and afl-showmap -i do now descend into subdirectories
+    (like afl-fuzz does) - note that afl-cmin.bash does not!
+  - afl_analyze:
+    - fix timeout handling
+    - add forkserver support for better performance
+  - ensure afl-compiler-rt is built for gcc_module
+  - always build aflpp_driver for libfuzzer harnesses
+  - added `AFL_NO_FORKSRV` env variable support to
+    afl-cmin, afl-tmin, and afl-showmap, by @jhertz
+  - removed outdated documents, improved existing documentation
+
 ### Version ++3.13c (release)
   - Note: plot_data switched to relative time from unix time in 3.10
   - frida_mode - new mode that uses frida to fuzz binary-only targets,

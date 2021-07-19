@@ -3,3 +3,5 @@ frida_test.dat
 qemu_test.dat
 frida_out/**
 qemu_out/**
+ts/dist/
+ts/node_modules/

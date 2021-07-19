@@ -130,41 +130,6 @@ sysctl kern.sysv.shmall=98304
 See http://www.spy-hill.com/help/apple/SharedMemory.html for documentation for
 these settings and how to make them permanent.
 
-MacOS X supports SYSV shared memory used by AFL's instrumentation, but the
-default settings aren't usable with AFL++. The default settings on 10.14 seem
-to be:
-
-```bash
-$ ipcs -M
-IPC status from <running system> as of XXX
-shminfo:
-        shmmax: 4194304 (max shared memory segment size)
-        shmmin:       1 (min shared memory segment size)
-        shmmni:      32 (max number of shared memory identifiers)
-        shmseg:       8 (max shared memory segments per process)
-        shmall:    1024 (max amount of shared memory in pages)
-```
-
-To temporarily change your settings to something minimally usable with AFL++,
-run these commands as root:
-
-```bash
-sysctl kern.sysv.shmmax=8388608
-sysctl kern.sysv.shmall=4096
-```
-
-If you're running more than one instance of AFL you likely want to make `shmall`
-bigger and increase `shmseg` as well:
-
-```bash
-sysctl kern.sysv.shmmax=8388608
-sysctl kern.sysv.shmseg=48
-sysctl kern.sysv.shmall=98304
-```
-
-See http://www.spy-hill.com/help/apple/SharedMemory.html for documentation for
-these settings and how to make them permanent.
-
 ## 4. Linux or *BSD on non-x86 systems
 
 Standard build will fail on non-x86 systems, but you should be able to
