@@ -1,11 +1,13 @@
 #include <unistd.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
+#include "hash.h"
 
 #include "asan.h"
 #include "entry.h"
@@ -22,10 +24,15 @@
 gboolean instrument_tracing = false;
 gboolean instrument_optimize = false;
 gboolean instrument_unique = false;
+guint64  instrument_hash_zero = 0;
+guint64  instrument_hash_seed = 0;
+
+gboolean instrument_use_fixed_seed = FALSE;
+guint64  instrument_fixed_seed = 0;
 
 static GumStalkerTransformer *transformer = NULL;
 
-__thread uint64_t instrument_previous_pc = 0;
+__thread guint64 instrument_previous_pc = 0;
 
 static GumAddress previous_rip = 0;
 static u8 *       edges_notified = NULL;
@@ -49,21 +56,18 @@ static void trace_debug(char *format, ...) {
 
 }
 
-__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
-                                                gpointer       user_data) {
+guint64 instrument_get_offset_hash(GumAddress current_rip) {
 
-  UNUSED_PARAMETER(context);
+  guint64 area_offset = hash64((unsigned char *)&current_rip,
+                               sizeof(GumAddress), instrument_hash_seed);
+  return area_offset &= MAP_SIZE - 1;
 
-  GumAddress current_rip = GUM_ADDRESS(user_data);
-  GumAddress current_pc;
-  GumAddress edge;
-  uint8_t *  cursor;
-  uint64_t   value;
+}
 
-  current_pc = (current_rip >> 4) ^ (current_rip << 8);
-  current_pc &= MAP_SIZE - 1;
+__attribute__((hot)) static void instrument_increment_map(GumAddress edge) {
 
-  edge = current_pc ^ instrument_previous_pc;
+  uint8_t *cursor;
+  uint64_t value;
 
   cursor = &__afl_area_ptr[edge];
   value = *cursor;
@@ -79,7 +83,21 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   }
 
   *cursor = value;
-  instrument_previous_pc = current_pc >> 1;
+
+}
+
+__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
+                                                gpointer       user_data) {
+
+  UNUSED_PARAMETER(context);
+
+  GumAddress current_rip = GUM_ADDRESS(user_data);
+  guint64    current_pc = instrument_get_offset_hash(current_rip);
+  guint64    edge;
+
+  edge = current_pc ^ instrument_previous_pc;
+
+  instrument_increment_map(edge);
 
   if (unlikely(instrument_tracing)) {
 
@@ -97,6 +115,9 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
     previous_rip = current_rip;
 
   }
+
+  instrument_previous_pc =
+      ((current_pc & (MAP_SIZE - 1) >> 1)) | ((current_pc & 0x1) << 15);
 
 }
 
@@ -149,7 +170,13 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     if (unlikely(begin)) {
 
-      prefetch_write(GSIZE_TO_POINTER(instr->address));
+      instrument_debug_start(instr->address, output);
+
+      if (likely(entry_reached)) {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address));
+
+      }
 
       if (likely(!excluded)) {
 
@@ -197,6 +224,8 @@ void instrument_config(void) {
   instrument_optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
   instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
   instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
+  instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
+  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
 
   instrument_debug_config();
   asan_config();
@@ -211,16 +240,20 @@ void instrument_init(void) {
   OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
   OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
   OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
+  OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
+      instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
 
   if (instrument_tracing && instrument_optimize) {
 
-    FATAL("AFL_FRIDA_INST_TRACE requires AFL_FRIDA_INST_NO_OPTIMIZE");
+    WARNF("AFL_FRIDA_INST_TRACE implies AFL_FRIDA_INST_NO_OPTIMIZE");
+    instrument_optimize = FALSE;
 
   }
 
   if (instrument_unique && instrument_optimize) {
 
-    FATAL("AFL_FRIDA_INST_TRACE_UNIQUE requires AFL_FRIDA_INST_NO_OPTIMIZE");
+    WARNF("AFL_FRIDA_INST_TRACE_UNIQUE implies AFL_FRIDA_INST_NO_OPTIMIZE");
+    instrument_optimize = FALSE;
 
   }
 
@@ -244,7 +277,8 @@ void instrument_init(void) {
     g_assert(edges_notified != MAP_FAILED);
 
     /*
-     * Configure the shared memory region to be removed once the process dies.
+     * Configure the shared memory region to be removed once the process
+     * dies.
      */
     if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
 
@@ -257,6 +291,31 @@ void instrument_init(void) {
 
   }
 
+  if (instrument_use_fixed_seed) {
+
+    /*
+     * This configuration option may be useful for diagnostics or
+     * debugging.
+     */
+    instrument_hash_seed = instrument_fixed_seed;
+
+  } else {
+
+    /*
+     * By using a different seed value for the hash, we can make different
+     * instances have edge collisions in different places when carrying out
+     * parallel fuzzing. The seed itself, doesn't have to be random, it
+     * just needs to be different for each instance.
+     */
+    instrument_hash_seed = g_get_monotonic_time() ^
+                           (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
+
+  }
+
+  OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
+      instrument_hash_seed);
+  instrument_hash_zero = instrument_get_offset_hash(0);
+
   instrument_debug_init();
   asan_init();
   cmplog_init();
@@ -267,6 +326,12 @@ GumStalkerTransformer *instrument_get_transformer(void) {
 
   if (transformer == NULL) { FATAL("Instrumentation not initialized"); }
   return transformer;
+
+}
+
+void instrument_on_fork() {
+
+  instrument_previous_pc = instrument_hash_zero;
 
 }
 

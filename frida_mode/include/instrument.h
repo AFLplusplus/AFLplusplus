@@ -5,11 +5,15 @@
 
 #include "config.h"
 
-extern char *            instrument_debug_filename;
-extern gboolean          instrument_tracing;
-extern gboolean          instrument_optimize;
-extern gboolean          instrument_unique;
-extern __thread uint64_t instrument_previous_pc;
+extern char *           instrument_debug_filename;
+extern gboolean         instrument_tracing;
+extern gboolean         instrument_optimize;
+extern gboolean         instrument_unique;
+extern __thread guint64 instrument_previous_pc;
+extern guint64          instrument_hash_zero;
+
+extern gboolean instrument_use_fixed_seed;
+extern guint64  instrument_fixed_seed;
 
 extern uint8_t *__afl_area_ptr;
 extern uint32_t __afl_map_size;
@@ -33,5 +37,10 @@ void     instrument_debug_instruction(uint64_t address, uint16_t size);
 void     instrument_debug_end(GumStalkerOutput *output);
 void     instrument_flush(GumStalkerOutput *output);
 gpointer instrument_cur(GumStalkerOutput *output);
+
+void instrument_on_fork();
+
+guint64 instrument_get_offset_hash(GumAddress current_rip);
+
 #endif
 

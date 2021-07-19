@@ -30,7 +30,10 @@ void persistent_init(void);
 gboolean persistent_is_supported(void);
 
 void persistent_prologue(GumStalkerOutput *output);
+void persistent_prologue_arch(GumStalkerOutput *output);
+
 void persistent_epilogue(GumStalkerOutput *output);
+void persistent_epilogue_arch(GumStalkerOutput *output);
 
 #endif
 

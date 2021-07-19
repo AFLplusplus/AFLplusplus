@@ -153,14 +153,20 @@ Generated block 0x7ffff75e98e2
 
 ***
 ```
+* `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
+code. Code is considered to be JIT if the executable segment is not backed by a
+file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
 instrumentation (the default where available). Required to use
 `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork.
+* `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
+generate block (and hence edge) IDs. Setting this to a constant value may be
+useful for debugging purposes, e.g. investigating unstable edges.
 * `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
-requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
+implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
 is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
@@ -289,6 +295,10 @@ and should also mean a huge improvement in performance.
 FASAN then adds instrumentation for any instrucutions which use memory operands and
 then calls into the `__asan_loadN` and `__asan_storeN` functions provided by the DSO
 to validate memory accesses against the shadow memory.
+
+# Collisions
+FRIDA mode has also introduced some improvements to reduce collisions in the map.
+See [here](MapDensity.md) for details.
 
 ## TODO
 

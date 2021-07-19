@@ -163,7 +163,7 @@ static void afl_print_env(void) {
 
 }
 
-void afl_frida_start(void) {
+__attribute__((visibility("default"))) void afl_frida_start(void) {
 
   afl_print_cmdline();
   afl_print_env();

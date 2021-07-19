@@ -204,9 +204,7 @@ trimmed input. Here's a quick API description:
     arguments because we already have the initial buffer from `init_trim` and we
     can memorize the current state in the data variables. This can also save
     reparsing steps for each iteration. It should return the trimmed input
-    buffer, where the returned data must not exceed the initial input data in
-    length. Returning anything that is larger than the original data (passed to
-    `init_trim`) will result in a fatal abort of AFL++.
+    buffer.
 
 - `post_trim` (optional)
 

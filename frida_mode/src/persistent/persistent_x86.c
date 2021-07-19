@@ -130,7 +130,7 @@ static void instrument_exit(GumX86Writer *cw) {
 static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
-  instrument_previous_pc = 0;
+  instrument_previous_pc = instrument_hash_zero;
   return ret;
 
 }
@@ -184,7 +184,7 @@ static void instrument_persitent_save_ret(GumX86Writer *cw) {
 
 }
 
-void persistent_prologue(GumStalkerOutput *output) {
+void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
    *  SAVE REGS
@@ -251,7 +251,7 @@ void persistent_prologue(GumStalkerOutput *output) {
 
 }
 
-void persistent_epilogue(GumStalkerOutput *output) {
+void persistent_epilogue_arch(GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
 

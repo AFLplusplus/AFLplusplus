@@ -13,7 +13,11 @@ TESTINSTSRC2:=$(PWD)test2.c
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-.PHONY: all 32 clean qemu frida
+ifeq "$(shell uname)" "Darwin"
+AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
+endif
+
+.PHONY: all 32 clean qemu frida debug
 
 all: $(TESTINSTBIN) $(TESTINSTBIN2)
 	make -C $(ROOT)frida_mode/
@@ -40,12 +44,14 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 frida_js_entry: $(TESTINSTBIN) $(TEST_DATA_FILE)
+	AFL_PRELOAD=$(AFL_PRELOAD) \
 	AFL_FRIDA_JS_SCRIPT=entry.js \
 	$(ROOT)afl-fuzz \
 		-D \
 		-O \
 		-i $(TEST_DATA_DIR) \
 		-o $(FRIDA_OUT) \
+		-t 10000+ \
 		-- \
 			$(TESTINSTBIN) @@
 
@@ -78,3 +84,15 @@ frida_js_stalker: $(TESTINSTBIN2) $(TEST_DATA_FILE)
 		-o $(FRIDA_OUT) \
 		-- \
 			$(TESTINSTBIN2) @@
+
+debug: $(TEST_DATA_FILE)
+	gdb \
+		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
+		--ex 'set environment AFL_FRIDA_JS_SCRIPT=entry.js' \
+		--ex 'set disassembly-flavor intel' \
+		--args $(TESTINSTBIN) $(TEST_DATA_FILE)
+
+strace: $(TEST_DATA_FILE)
+	LD_PRELOAD=$(ROOT)afl-frida-trace.so \
+	AFL_FRIDA_JS_SCRIPT=entry.js \
+	strace $(TESTINSTBIN) $(TEST_DATA_FILE)

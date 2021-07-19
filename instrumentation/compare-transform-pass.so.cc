@@ -313,26 +313,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
             if (ilen) {
 
-              uint64_t len = ilen->getZExtValue();
               // if len is zero this is a pointless call but allow real
               // implementation to worry about that
-              if (len < 2) continue;
+              if (ilen->getZExtValue() < 2) { continue; }
 
-              if (isMemcmp) {
-
-                // if size of compare is larger than constant string this is
-                // likely a bug but allow real implementation to worry about
-                // that
-                uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
-                if (literalLength + 1 < ilen->getZExtValue()) continue;
-
-              }
-
-            } else if (isMemcmp)
+            } else if (isMemcmp) {
 
               // this *may* supply a len greater than the constant string at
               // runtime so similarly we don't want to have to handle that
               continue;
+
+            }
 
           }
 
@@ -421,7 +412,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     }
 
     if (TmpConstStr.length() < 2 ||
-        (TmpConstStr.length() == 2 && !TmpConstStr[1])) {
+        (TmpConstStr.length() == 2 && TmpConstStr[1] == 0)) {
 
       continue;
 
