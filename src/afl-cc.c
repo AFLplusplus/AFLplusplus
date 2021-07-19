@@ -637,33 +637,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if (cmplog_mode) {
-
-      if (lto_mode && !have_c) {
-
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
-
-      } else {
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/cmplog-routines-pass.so", obj_path);
-
-      }
-
-    }
-
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
     // in case LLVM is installed not via a package manager or "make install"

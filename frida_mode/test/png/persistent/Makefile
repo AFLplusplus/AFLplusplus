@@ -20,6 +20,3 @@ frida:
 
 frida_entry:
 	@gmake frida_entry
-
-debug:
-	@gmake debug

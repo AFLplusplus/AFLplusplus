@@ -1,4 +1,4 @@
-#include "frida-gumjs.h"
+#include "frida-gum.h"
 
 #include "debug.h"
 
@@ -30,9 +30,6 @@ typedef struct {
   guint64 num_ret;
 
   guint64 num_rip_relative;
-
-  guint64 num_rip_relative_type[X86_INS_ENDING];
-  char    name_rip_relative_type[X86_INS_ENDING][CS_MNEMONIC_SIZE];
 
 } stats_data_arch_t;
 
@@ -138,18 +135,6 @@ void stats_write_arch(void) {
               "(%3.2f%%)\n",
               stats_data_arch->num_rip_relative,
               (stats_data_arch->num_rip_relative * 100 / num_instructions));
-
-  for (size_t i = 0; i < X86_INS_ENDING; i++) {
-
-    if (stats_data_arch->num_rip_relative_type[i] != 0) {
-
-      stats_print("                     %10d %s\n",
-                  stats_data_arch->num_rip_relative_type[i],
-                  stats_data_arch->name_rip_relative_type[i]);
-
-    }
-
-  }
 
   stats_print("\n");
   stats_print("\n");
@@ -271,9 +256,6 @@ static void stats_collect_rip_relative_arch(const cs_insn *instr) {
   if (rm != 5) { return; }
 
   stats_data_arch->num_rip_relative++;
-  stats_data_arch->num_rip_relative_type[instr->id]++;
-  memcpy(stats_data_arch->name_rip_relative_type[instr->id], instr->mnemonic,
-         CS_MNEMONIC_SIZE);
 
 }
 

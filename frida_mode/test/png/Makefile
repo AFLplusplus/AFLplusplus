@@ -14,6 +14,3 @@ qemu:
 
 frida:
 	@gmake frida
-
-debug:
-	@gmake debug

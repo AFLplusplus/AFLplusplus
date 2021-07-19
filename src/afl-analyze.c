@@ -877,8 +877,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-analyze" VERSION cRST " by Michal Zalewski\n");
 
-  afl_fsrv_init(&fsrv);
-
   while ((opt = getopt(argc, argv, "+i:f:m:t:eOQUWh")) > 0) {
 
     switch (opt) {
@@ -984,6 +982,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
         frida_mode = 1;
         fsrv.frida_mode = frida_mode;
+
+        break;
+
+      case 'O':                                               /* FRIDA mode */
+
+        if (frida_mode) { FATAL("Multiple -O options not supported"); }
+
+        frida_mode = 1;
 
         break;
 

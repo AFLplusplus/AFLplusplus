@@ -2,11 +2,10 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 
-#include "frida-gumjs.h"
+#include "frida-gum.h"
 
 #include "debug.h"
 
-#include "intercept.h"
 #include "prefetch.h"
 #include "stalker.h"
 
@@ -21,10 +20,9 @@ typedef struct {
 
 } prefetch_data_t;
 
-gboolean prefetch_enable = TRUE;
-
 static prefetch_data_t *prefetch_data = NULL;
-static int              prefetch_shm_id = -1;
+
+static int prefetch_shm_id = -1;
 
 /*
  * We do this from the transformer since we need one anyway for coverage, this
@@ -74,33 +72,14 @@ void prefetch_read(void) {
 
 }
 
-void prefetch_config(void) {
-
-  prefetch_enable = (getenv("AFL_FRIDA_INST_NO_PREFETCH") == NULL);
-
-}
-
-static int prefetch_on_fork(void) {
-
-  prefetch_read();
-  return fork();
-
-}
-
-static void prefetch_hook_fork(void) {
-
-  void *fork_addr =
-      GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
-  intercept_hook(fork_addr, prefetch_on_fork, NULL);
-
-}
-
 void prefetch_init(void) {
 
   g_assert_cmpint(sizeof(prefetch_data_t), ==, PREFETCH_SIZE);
-  OKF("Instrumentation - prefetch [%c]", prefetch_enable ? 'X' : ' ');
+  gboolean prefetch = (getenv("AFL_FRIDA_INST_NO_PREFETCH") == NULL);
 
-  if (!prefetch_enable) { return; }
+  OKF("Instrumentation - prefetch [%c]", prefetch ? 'X' : ' ');
+
+  if (!prefetch) { return; }
   /*
    * Make our shared memory, we can attach before we fork, just like AFL does
    * with the coverage bitmap region and fork will take care of ensuring both
@@ -128,8 +107,6 @@ void prefetch_init(void) {
 
   /* Clear it, not sure it's necessary, just seems like good practice */
   memset(prefetch_data, '\0', sizeof(prefetch_data_t));
-
-  prefetch_hook_fork();
 
 }
 

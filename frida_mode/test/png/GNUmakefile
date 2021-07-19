@@ -22,7 +22,7 @@ PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/master/benchmar
 
 TEST_BIN:=$(BUILD_DIR)test
 ifeq "$(shell uname)" "Darwin"
-TEST_BIN_LDFLAGS:=-undefined dynamic_lookup -Wl,-no_pie
+TEST_BIN_LDFLAGS:=-undefined dynamic_lookup
 endif
 
 TEST_DATA_DIR:=$(LIBPNG_DIR)contrib/pngsuite/
@@ -112,9 +112,3 @@ frida: $(TEST_BIN)
 		-o $(FRIDA_OUT) \
 		-- \
 			$(TEST_BIN) @@
-
-debug:
-	gdb \
-		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
-		--ex 'set disassembly-flavor intel' \
-		--args $(TEST_BIN) $(TEST_DATA_DIR)basn0g01.png

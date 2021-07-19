@@ -24,8 +24,5 @@ frida:
 frida_entry:
 	@gmake frida_entry
 
-frida_js:
-	@gmake frida_js
-
 debug:
 	@gmake debug

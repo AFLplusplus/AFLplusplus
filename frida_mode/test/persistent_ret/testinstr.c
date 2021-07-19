@@ -17,14 +17,13 @@
 #include <unistd.h>
 
 #ifdef __APPLE__
-  #define MAIN_SECTION
+  #define TESTINSTR_SECTION
 #else
-  #define MAIN_SECTION __attribute__((section(".main")))
+  #define TESTINSTR_SECTION __attribute__((section(".testinstr")))
 #endif
 
-void LLVMFuzzerTestOneInput(char *buf, int len) {
+void testinstr(char *buf, int len) {
 
-  printf (">>> LLVMFuzzerTestOneInput >>>\n");
   if (len < 1) return;
   buf[len] = 0;
 
@@ -44,7 +43,7 @@ void slow() {
 
 }
 
-MAIN_SECTION int main(int argc, char **argv) {
+TESTINSTR_SECTION int main(int argc, char **argv) {
 
   char * file;
   int    fd = -1;
@@ -102,7 +101,7 @@ MAIN_SECTION int main(int argc, char **argv) {
 
     dprintf(STDERR_FILENO, "Running:    %s: (%zd bytes)\n", file, n_read);
 
-    LLVMFuzzerTestOneInput(buf, len);
+    testinstr(buf, len);
     dprintf(STDERR_FILENO, "Done:    %s: (%zd bytes)\n", file, n_read);
 
     slow();
