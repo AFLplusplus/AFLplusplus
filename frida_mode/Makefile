@@ -11,6 +11,3 @@ clean:
 
 format:
 	@gmake format
-
-hook:
-	@gmake hook

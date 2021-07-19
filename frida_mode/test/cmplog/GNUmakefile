@@ -13,7 +13,7 @@ CMP_LOG_INPUT:=$(TEST_DATA_DIR)in
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-.PHONY: all 32 clean qemu frida frida-nocmplog format
+.PHONY: all 32 clean qemu frida format
 
 all: $(TEST_CMPLOG_OBJ)
 	make -C $(ROOT)frida_mode/
@@ -51,15 +51,6 @@ frida: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
 		-o $(FRIDA_OUT) \
 		-c 0 \
 		-l 3AT \
-		-Z \
-		-- \
-			$(TEST_CMPLOG_OBJ) @@
-
-frida-nocmplog: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
-	$(ROOT)afl-fuzz \
-		-O \
-		-i $(TEST_DATA_DIR) \
-		-o $(FRIDA_OUT) \
 		-Z \
 		-- \
 			$(TEST_CMPLOG_OBJ) @@

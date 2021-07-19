@@ -2102,9 +2102,9 @@ havoc_stage:
 
         case 8 ... 9: {
 
-          /* Set word to interesting value, little endian. */
+        case 8 ... 9: {
 
-          if (temp_len < 2) { break; }
+          /* Set word to interesting value, little endian. */
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16");
@@ -2119,7 +2119,7 @@ havoc_stage:
 
         case 10 ... 11: {
 
-          /* Set word to interesting value, big endian. */
+          /* Set word to interesting value, randomly choosing endian. */
 
           if (temp_len < 2) { break; }
 
@@ -2136,9 +2136,9 @@ havoc_stage:
 
         case 12 ... 13: {
 
-          /* Set dword to interesting value, little endian. */
+        case 12 ... 13: {
 
-          if (temp_len < 4) { break; }
+          /* Set dword to interesting value, little endian. */
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32");
@@ -2153,7 +2153,7 @@ havoc_stage:
 
         case 14 ... 15: {
 
-          /* Set dword to interesting value, big endian. */
+          /* Set dword to interesting value, randomly choosing endian. */
 
           if (temp_len < 4) { break; }
 

@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
   }
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#if defined(__x86_64__)
   uint64_t x = 0;
   fread(&x, sizeof(x), 1, file);
   if (x != 0xCAFEBABECAFEBABE) {

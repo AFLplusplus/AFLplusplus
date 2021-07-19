@@ -15,10 +15,6 @@ qemu:
 frida:
 	@gmake frida
 
-
-frida-nocmplog:
-	@gmake frida-nocmplog
-
 format:
 	@gmake format
 

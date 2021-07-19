@@ -881,6 +881,10 @@ void show_stats(afl_state_t *afl) {
 
     strcpy(tmp, "disabled (custom-mutator-only mode)");
 
+  if (unlikely(afl->custom_only)) {
+
+    strcpy(tmp, "disabled (custom-mutator-only mode)");
+
   } else if (likely(afl->skip_deterministic)) {
 
     strcpy(tmp, "disabled (default, enable with -D)");
@@ -1017,10 +1021,9 @@ void show_stats(afl_state_t *afl) {
   if (unlikely(afl->afl_env.afl_custom_mutator_library)) {
 
     strcat(tmp, " ");
-    strcat(tmp, u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]));
+    strcat(tmp, u_stringify_int(IB(2), afl->stage_finds[STAGE_PYTHON]));
     strcat(tmp, "/");
-    strcat(tmp,
-           u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
+    strcat(tmp, u_stringify_int(IB(3), afl->stage_cycles[STAGE_PYTHON]));
     strcat(tmp, ",");
 
   } else {

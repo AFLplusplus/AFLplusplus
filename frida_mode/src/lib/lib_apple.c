@@ -1,5 +1,5 @@
 #ifdef __APPLE__
-  #include "frida-gumjs.h"
+  #include "frida-gum.h"
 
   #include "debug.h"
 
@@ -53,10 +53,6 @@ gboolean lib_get_text_section(const GumDarwinSectionDetails *details,
   }
 
   return TRUE;
-
-}
-
-void lib_config(void) {
 
 }
 

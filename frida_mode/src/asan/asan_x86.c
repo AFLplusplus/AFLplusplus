@@ -1,5 +1,5 @@
 #include <dlfcn.h>
-#include "frida-gumjs.h"
+#include "frida-gum.h"
 
 #include "debug.h"
 

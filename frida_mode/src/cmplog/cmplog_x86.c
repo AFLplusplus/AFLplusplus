@@ -1,4 +1,4 @@
-#include "frida-gumjs.h"
+#include "frida-gum.h"
 
 #include "debug.h"
 #include "cmplog.h"

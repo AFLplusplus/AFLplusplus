@@ -90,8 +90,7 @@ static bool quiet_mode,                /* Hide non-essential messages?      */
     have_coverage,                     /* have coverage?                    */
     no_classify,                       /* do not classify counts            */
     debug,                             /* debug mode                        */
-    print_filenames,                   /* print the current filename        */
-    wait_for_gdb;
+    print_filenames;                   /* print the current filename        */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -418,6 +417,18 @@ static u32 read_file(u8 *in_file) {
 
     }
 
+    in_len = MAX_FILE;
+
+  } else {
+
+    in_len = st.st_size;
+
+  }
+
+  if (st.st_size > MAX_FILE) {
+
+    WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
+          MAX_FILE);
     in_len = MAX_FILE;
 
   } else {
@@ -819,13 +830,13 @@ static void usage(u8 *argv0) {
       "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-      "  -t msec    - timeout for each run (none)\n"
-      "  -m megs    - memory limit for child process (%u MB)\n"
-      "  -O         - use binary-only instrumentation (FRIDA mode)\n"
-      "  -Q         - use binary-only instrumentation (QEMU mode)\n"
-      "  -U         - use Unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
-      "               (Not necessary, here for consistency with other afl-* "
+      "  -t msec       - timeout for each run (none)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
+      "  -O            - use binary-only instrumentation (FRIDA mode)\n"
+      "  -Q            - use binary-only instrumentation (QEMU mode)\n"
+      "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
+      "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
       "Other settings:\n"
       "  -i dir     - process all files below this directory, must be combined "
@@ -862,8 +873,7 @@ static void usage(u8 *argv0) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
       "printed to stdout\n"
-      "AFL_QUIET: do not print extra informational output\n"
-      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
+      "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -1248,7 +1258,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    DIR *dir_in, *dir_out = NULL;
+    DIR *           dir_in, *dir_out = NULL;
+    struct dirent **file_list;
+
+    //    int            done = 0;
+    u8 infile[PATH_MAX], outfile[PATH_MAX];
+    u8 wait_for_gdb = 0;
+#if !defined(DT_REG)
+    struct stat statbuf;
+#endif
 
     if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = true;
 
@@ -1349,11 +1367,27 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    if (execute_testcases(in_dir) == 0) {
+    int file_count = scandir(in_dir, &file_list, NULL, alphasort);
+    if (file_count < 0) {
+
+      PFATAL("Failed to read from input dir at %s\n", in_dir);
+
+    }
+
+    for (int i = 0; i < file_count; i++) {
+
+      struct dirent *dir_ent = file_list[i];
+
+      if (dir_ent->d_name[0] == '.') {
+
+        continue;  // skip anything that starts with '.'
 
       FATAL("could not read input testcases from %s", in_dir);
 
     }
+
+    free(file_list);
+    file_list = NULL;
 
     if (!quiet_mode) { OKF("Processed %llu input files.", fsrv->total_execs); }
 

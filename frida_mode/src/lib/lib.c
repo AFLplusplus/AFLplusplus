@@ -6,7 +6,7 @@
   #include <sys/mman.h>
   #include <unistd.h>
 
-  #include "frida-gumjs.h"
+  #include "frida-gum.h"
 
   #include "debug.h"
 
@@ -148,10 +148,6 @@ static void lib_get_text_section(lib_details_t *details) {
 
   munmap(hdr, len);
   close(fd);
-
-}
-
-void lib_config(void) {
 
 }
 

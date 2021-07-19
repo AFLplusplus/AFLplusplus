@@ -1,19 +1,14 @@
 #include <unistd.h>
-#include <sys/shm.h>
-#include <sys/mman.h>
-#include <sys/syscall.h>
 
-#include "frida-gumjs.h"
+#include "frida-gum.h"
 
 #include "config.h"
 #include "debug.h"
-#include "hash.h"
 
 #include "asan.h"
 #include "entry.h"
 #include "frida_cmplog.h"
 #include "instrument.h"
-#include "js.h"
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
@@ -21,55 +16,46 @@
 #include "stats.h"
 #include "util.h"
 
-gboolean instrument_tracing = false;
-gboolean instrument_optimize = false;
-gboolean instrument_unique = false;
-guint64  instrument_hash_zero = 0;
-guint64  instrument_hash_seed = 0;
-
-gboolean instrument_use_fixed_seed = FALSE;
-guint64  instrument_fixed_seed = 0;
-
+static gboolean               tracing = false;
+static gboolean               optimize = false;
 static GumStalkerTransformer *transformer = NULL;
 
-__thread guint64 instrument_previous_pc = 0;
+__thread uint64_t previous_pc = 0;
 
-static GumAddress previous_rip = 0;
-static u8 *       edges_notified = NULL;
+__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
+                                                gpointer       user_data) {
 
-static void trace_debug(char *format, ...) {
+  UNUSED_PARAMETER(context);
+  /*
+   * This function is performance critical as it is called to instrument every
+   * basic block. By moving our print buffer to a global, we avoid it affecting
+   * the critical path with additional stack adjustments if tracing is not
+   * enabled. If tracing is enabled, then we're printing a load of diagnostic
+   * information so this overhead is unlikely to be noticeable.
+   */
+  static char buffer[200];
+  int         len;
+  GumAddress  current_pc = GUM_ADDRESS(user_data);
+  uint8_t *   cursor;
+  uint64_t    value;
+  if (unlikely(tracing)) {
 
-  va_list ap;
-  char    buffer[4096] = {0};
-  int     ret;
-  int     len;
+    /* Avoid any functions which may cause an allocation since the target app
+     * may already be running inside malloc and it isn't designed to be
+     * re-entrant on a single thread */
+    len = snprintf(buffer, sizeof(buffer),
+                   "current_pc: 0x%016" G_GINT64_MODIFIER
+                   "x, previous_pc: 0x%016" G_GINT64_MODIFIER "x\n",
+                   current_pc, previous_pc);
 
-  va_start(ap, format);
-  ret = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);
-  va_end(ap);
+    IGNORED_RETURN(write(STDOUT_FILENO, buffer, len + 1));
 
-  if (ret < 0) { return; }
+  }
 
-  len = strnlen(buffer, sizeof(buffer));
+  current_pc = (current_pc >> 4) ^ (current_pc << 8);
+  current_pc &= MAP_SIZE - 1;
 
-  IGNORED_RETURN(write(STDOUT_FILENO, buffer, len));
-
-}
-
-guint64 instrument_get_offset_hash(GumAddress current_rip) {
-
-  guint64 area_offset = hash64((unsigned char *)&current_rip,
-                               sizeof(GumAddress), instrument_hash_seed);
-  return area_offset &= MAP_SIZE - 1;
-
-}
-
-__attribute__((hot)) static void instrument_increment_map(GumAddress edge) {
-
-  uint8_t *cursor;
-  uint64_t value;
-
-  cursor = &__afl_area_ptr[edge];
+  cursor = &__afl_area_ptr[current_pc ^ previous_pc];
   value = *cursor;
 
   if (value == 0xff) {
@@ -83,47 +69,12 @@ __attribute__((hot)) static void instrument_increment_map(GumAddress edge) {
   }
 
   *cursor = value;
+  previous_pc = current_pc >> 1;
 
 }
 
-__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
-                                                gpointer       user_data) {
-
-  UNUSED_PARAMETER(context);
-
-  GumAddress current_rip = GUM_ADDRESS(user_data);
-  guint64    current_pc = instrument_get_offset_hash(current_rip);
-  guint64    edge;
-
-  edge = current_pc ^ instrument_previous_pc;
-
-  instrument_increment_map(edge);
-
-  if (unlikely(instrument_tracing)) {
-
-    if (!instrument_unique || edges_notified[edge] == 0) {
-
-      trace_debug("TRACE: edge: %10" G_GINT64_MODIFIER
-                  "d, current_rip: 0x%016" G_GINT64_MODIFIER
-                  "x, previous_rip: 0x%016" G_GINT64_MODIFIER "x\n",
-                  edge, current_rip, previous_rip);
-
-    }
-
-    if (instrument_unique) { edges_notified[edge] = 1; }
-
-    previous_rip = current_rip;
-
-  }
-
-  instrument_previous_pc =
-      ((current_pc & (MAP_SIZE - 1) >> 1)) | ((current_pc & 0x1) << 15);
-
-}
-
-static void instrument_basic_block(GumStalkerIterator *iterator,
-                                   GumStalkerOutput *  output,
-                                   gpointer            user_data) {
+static void instr_basic_block(GumStalkerIterator *iterator,
+                              GumStalkerOutput *output, gpointer user_data) {
 
   UNUSED_PARAMETER(user_data);
 
@@ -133,9 +84,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
-    if (unlikely(begin)) { instrument_debug_start(instr->address, output); }
-
-    if (instr->address == entry_point) { entry_prologue(iterator, output); }
+    if (instr->address == entry_start) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
     if (instr->address == persistent_ret) { persistent_epilogue(output); }
 
@@ -172,15 +121,11 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
       instrument_debug_start(instr->address, output);
 
-      if (likely(entry_reached)) {
-
-        prefetch_write(GSIZE_TO_POINTER(instr->address));
-
-      }
+      prefetch_write(GSIZE_TO_POINTER(instr->address));
 
       if (likely(!excluded)) {
 
-        if (likely(instrument_optimize)) {
+        if (likely(optimize)) {
 
           instrument_coverage_optimize(instr, output);
 
@@ -193,6 +138,8 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
       }
 
+      begin = FALSE;
+
     }
 
     instrument_debug_instruction(instr->address, instr->size);
@@ -204,60 +151,29 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     }
 
-    if (js_stalker_callback(instr, begin, excluded, output)) {
-
-      gum_stalker_iterator_keep(iterator);
-
-    }
-
-    begin = FALSE;
+    gum_stalker_iterator_keep(iterator);
 
   }
 
-  instrument_flush(output);
   instrument_debug_end(output);
-
-}
-
-void instrument_config(void) {
-
-  instrument_optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
-  instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
-  instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
-  instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
-  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
-
-  instrument_debug_config();
-  asan_config();
-  cmplog_config();
 
 }
 
 void instrument_init(void) {
 
-  if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
+  optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
+  tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
 
-  OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
-  OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
-  OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
-  OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
-      instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
+  if (!instrument_is_coverage_optimize_supported()) optimize = false;
 
-  if (instrument_tracing && instrument_optimize) {
+  OKF("Instrumentation - optimize [%c]", optimize ? 'X' : ' ');
+  OKF("Instrumentation - tracing [%c]", tracing ? 'X' : ' ');
 
-    WARNF("AFL_FRIDA_INST_TRACE implies AFL_FRIDA_INST_NO_OPTIMIZE");
-    instrument_optimize = FALSE;
+  if (tracing && optimize) {
 
-  }
-
-  if (instrument_unique && instrument_optimize) {
-
-    WARNF("AFL_FRIDA_INST_TRACE_UNIQUE implies AFL_FRIDA_INST_NO_OPTIMIZE");
-    instrument_optimize = FALSE;
+    FATAL("AFL_FRIDA_INST_OPTIMIZE and AFL_FRIDA_INST_TRACE are incompatible");
 
   }
-
-  if (instrument_unique) { instrument_tracing = TRUE; }
 
   if (__afl_map_size != 0x10000) {
 
@@ -265,56 +181,8 @@ void instrument_init(void) {
 
   }
 
-  transformer = gum_stalker_transformer_make_from_callback(
-      instrument_basic_block, NULL, NULL);
-
-  if (instrument_unique) {
-
-    int shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
-    if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
-
-    edges_notified = shmat(shm_id, NULL, 0);
-    g_assert(edges_notified != MAP_FAILED);
-
-    /*
-     * Configure the shared memory region to be removed once the process
-     * dies.
-     */
-    if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
-
-      FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-    }
-
-    /* Clear it, not sure it's necessary, just seems like good practice */
-    memset(edges_notified, '\0', MAP_SIZE);
-
-  }
-
-  if (instrument_use_fixed_seed) {
-
-    /*
-     * This configuration option may be useful for diagnostics or
-     * debugging.
-     */
-    instrument_hash_seed = instrument_fixed_seed;
-
-  } else {
-
-    /*
-     * By using a different seed value for the hash, we can make different
-     * instances have edge collisions in different places when carrying out
-     * parallel fuzzing. The seed itself, doesn't have to be random, it
-     * just needs to be different for each instance.
-     */
-    instrument_hash_seed = g_get_monotonic_time() ^
-                           (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
-
-  }
-
-  OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
-      instrument_hash_seed);
-  instrument_hash_zero = instrument_get_offset_hash(0);
+  transformer =
+      gum_stalker_transformer_make_from_callback(instr_basic_block, NULL, NULL);
 
   instrument_debug_init();
   asan_init();
@@ -326,12 +194,6 @@ GumStalkerTransformer *instrument_get_transformer(void) {
 
   if (transformer == NULL) { FATAL("Instrumentation not initialized"); }
   return transformer;
-
-}
-
-void instrument_on_fork() {
-
-  instrument_previous_pc = instrument_hash_zero;
 
 }
 

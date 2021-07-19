@@ -1,24 +1,13 @@
 #ifndef _INSTRUMENT_H
 #define _INSTRUMENT_H
 
-#include "frida-gumjs.h"
+#include "frida-gum.h"
 
 #include "config.h"
 
-extern char *           instrument_debug_filename;
-extern gboolean         instrument_tracing;
-extern gboolean         instrument_optimize;
-extern gboolean         instrument_unique;
-extern __thread guint64 instrument_previous_pc;
-extern guint64          instrument_hash_zero;
-
-extern gboolean instrument_use_fixed_seed;
-extern guint64  instrument_fixed_seed;
-
-extern uint8_t *__afl_area_ptr;
-extern uint32_t __afl_map_size;
-
-void instrument_config(void);
+extern __thread uint64_t previous_pc;
+extern uint8_t *         __afl_area_ptr;
+extern uint32_t          __afl_map_size;
 
 void instrument_init(void);
 
@@ -30,17 +19,9 @@ gboolean instrument_is_coverage_optimize_supported(void);
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output);
 
-void     instrument_debug_config(void);
-void     instrument_debug_init(void);
-void     instrument_debug_start(uint64_t address, GumStalkerOutput *output);
-void     instrument_debug_instruction(uint64_t address, uint16_t size);
-void     instrument_debug_end(GumStalkerOutput *output);
-void     instrument_flush(GumStalkerOutput *output);
-gpointer instrument_cur(GumStalkerOutput *output);
-
-void instrument_on_fork();
-
-guint64 instrument_get_offset_hash(GumAddress current_rip);
-
+void instrument_debug_init(void);
+void instrument_debug_start(uint64_t address, GumStalkerOutput *output);
+void instrument_debug_instruction(uint64_t address, uint16_t size);
+void instrument_debug_end(GumStalkerOutput *output);
 #endif
 

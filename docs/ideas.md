@@ -34,12 +34,6 @@ Mentor: any
 Other programming languages also use llvm hence they could (easily?) supported
 for fuzzing, e.g. mono, swift, go, kotlin native, fortran, ...
 
-GCC also supports: Objective-C, Fortran, Ada, Go, and D
-(according to [Gcc homepage](https://gcc.gnu.org/))
-
-LLVM is also used by: Rust, LLGo (Go), kaleidoscope (Haskell), flang (Fortran), emscripten (JavaScript, WASM), ilwasm (CIL (C#))
-(according to [LLVM frontends](https://gist.github.com/axic/62d66fb9d8bccca6cc48fa9841db9241))
-
 Mentor: vanhauser-thc
 
 ## Machine Learning

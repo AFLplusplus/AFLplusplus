@@ -127,7 +127,7 @@ set key outside
 set autoscale xfixmin
 set autoscale xfixmax
 
-set xlabel "relative time in seconds" font "small"
+#set xlabel "all times in UTC" font "small"
 
 plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'total paths' linecolor rgb '#000000' fillstyle transparent solid 0.2 noborder, \\
      '' using 1:3 with filledcurve x1 title 'current path' linecolor rgb '#f0f0f0' fillstyle transparent solid 0.5 noborder, \\

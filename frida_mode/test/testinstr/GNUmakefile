@@ -53,13 +53,6 @@ frida: $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
 			$(TESTINSTBIN) @@
 
 debug:
-	echo $(AFL_FRIDA_PERSISTENT_ADDR)
-	gdb \
-		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
-		--ex 'set disassembly-flavor intel' \
-		--args $(TESTINSTBIN) $(TESTINSTR_DATA_FILE)
-
-debug:
 	gdb \
 		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
 		--ex 'set disassembly-flavor intel' \

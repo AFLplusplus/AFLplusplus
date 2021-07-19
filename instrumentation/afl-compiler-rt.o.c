@@ -83,15 +83,14 @@ extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,
                            size_t bufferSize);
 #endif  // HAIKU
 
-static u8  __afl_area_initial[MAP_INITIAL_SIZE];
-static u8 *__afl_area_ptr_dummy = __afl_area_initial;
-static u8 *__afl_area_ptr_backup = __afl_area_initial;
-
-u8 *       __afl_area_ptr = __afl_area_initial;
-u8 *       __afl_dictionary;
-u8 *       __afl_fuzz_ptr;
-static u32 __afl_fuzz_len_dummy;
-u32 *      __afl_fuzz_len = &__afl_fuzz_len_dummy;
+u8   __afl_area_initial[MAP_INITIAL_SIZE];
+u8 * __afl_area_ptr_dummy = __afl_area_initial;
+u8 * __afl_area_ptr = __afl_area_initial;
+u8 * __afl_area_ptr_backup = __afl_area_initial;
+u8 * __afl_dictionary;
+u8 * __afl_fuzz_ptr;
+u32  __afl_fuzz_len_dummy;
+u32 *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
