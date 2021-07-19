@@ -8,7 +8,7 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
-### Version ++3.14a (release)
+### Version ++3.14c (release)
   - afl-fuzz:
     - fix -F when a '/' was part of the parameter
     - fixed a crash for cmplog for very slow inputs

@@ -2,9 +2,9 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  Release Version: [3.13c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [3.14c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 3.14a
+  Github Version: 3.15a
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
@@ -30,6 +30,11 @@
 With afl++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
 binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
 iOS etc.
+
+With afl++ 3.15 we introduced the following changes from previous behaviours:
+  * Also -M main mode does not due deterministic fuzzing by default anymore
+  * afl-cmin and afl-showmap -Ci now descent into subdirectories like
+    afl-fuzz -i does (but note that afl-cmin.bash does not)
 
 With afl++ 3.14 we introduced the following changes from previous behaviours:
   * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
