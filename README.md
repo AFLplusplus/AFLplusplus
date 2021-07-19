@@ -32,7 +32,7 @@ binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
 iOS etc.
 
 With afl++ 3.15 we introduced the following changes from previous behaviours:
-  * Also -M main mode does not due deterministic fuzzing by default anymore
+  * Also -M main mode does not do deterministic fuzzing by default anymore
   * afl-cmin and afl-showmap -Ci now descent into subdirectories like
     afl-fuzz -i does (but note that afl-cmin.bash does not)
 
