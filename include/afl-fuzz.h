@@ -478,9 +478,7 @@ typedef struct afl_state {
 
   u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
 
-  u8 cal_cycles,                        /* Calibration cycles defaults      */
-      cal_cycles_long,                  /* Calibration cycles defaults      */
-      havoc_stack_pow2,                 /* HAVOC_STACK_POW2                 */
+  u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
@@ -521,7 +519,8 @@ typedef struct afl_state {
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
-      old_seed_selection;               /* use vanilla afl seed selection   */
+      old_seed_selection,               /* use vanilla afl seed selection   */
+      reinit_table;                     /* reinit the queue weight table    */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */

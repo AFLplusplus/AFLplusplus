@@ -58,7 +58,8 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
   weight *= (1 + (q->tc_ref / avg_top_size));
-  if (unlikely(q->favored)) weight *= 5;
+  if (unlikely(q->favored)) { weight *= 5; }
+  if (unlikely(!q->was_fuzzed)) { weight *= 2; }
 
   return weight;
 
@@ -197,6 +198,8 @@ void create_alias_table(afl_state_t *afl) {
 
   while (nS)
     afl->alias_probability[S[--nS]] = 1;
+
+  afl->reinit_table = 0;
 
   /*
   #ifdef INTROSPECTION
@@ -1132,11 +1135,9 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
         do_once = 1;
         // release unneeded memory
-        u8 *ptr = ck_realloc(
+        afl->q_testcase_cache = ck_realloc(
             afl->q_testcase_cache,
             (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
-
-        if (ptr) { afl->q_testcase_cache = (struct queue_entry **)ptr; }
 
       }
 

@@ -57,7 +57,7 @@ LLVM_APPLE_XCODE = $(shell clang -v 2>&1 | grep -q Apple && echo 1 || echo 0)
 LLVM_LTO   = 0
 
 ifeq "$(LLVMVER)" ""
-  $(warning [!] llvm_mode needs llvm-config, which was not found)
+  $(warning [!] llvm_mode needs llvm-config, which was not found. Set LLVM_CONFIG to its path and retry.)
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
@@ -431,6 +431,9 @@ endif
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./cmplog-instructions-pass.so:	instrumentation/cmplog-instructions-pass.cc instrumentation/afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+
+./cmplog-switches-pass.so:	instrumentation/cmplog-switches-pass.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/afl-llvm-common.o | test_deps

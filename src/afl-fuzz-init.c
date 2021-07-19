@@ -480,13 +480,22 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
   for (iter = 0; iter < afl->foreign_sync_cnt; iter++) {
 
-    if (afl->foreign_syncs[iter].dir != NULL &&
-        afl->foreign_syncs[iter].dir[0] != 0) {
+    if (afl->foreign_syncs[iter].dir && afl->foreign_syncs[iter].dir[0]) {
 
       if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
       time_t mtime_max = 0;
-      u8 *   name = strrchr(afl->foreign_syncs[iter].dir, '/');
-      if (!name) { name = afl->foreign_syncs[iter].dir; }
+
+      u8 *name = strrchr(afl->foreign_syncs[iter].dir, '/');
+      if (!name) {
+
+        name = afl->foreign_syncs[iter].dir;
+
+      } else {
+
+        ++name;
+
+      }
+
       if (!strcmp(name, "queue") || !strcmp(name, "out") ||
           !strcmp(name, "default")) {
 
@@ -701,96 +710,103 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   }
 
-  for (i = 0; i < (u32)nl_cnt; ++i) {
+  if (nl_cnt) {
 
-    struct stat st;
+    i = nl_cnt;
+    do {
 
-    u8 dfn[PATH_MAX];
-    snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
-             nl[i]->d_name);
-    u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
+      --i;
 
-    u8 passed_det = 0;
+      struct stat st;
+      u8          dfn[PATH_MAX];
+      snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
+               nl[i]->d_name);
+      u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
 
-    if (lstat(fn2, &st) || access(fn2, R_OK)) {
+      u8 passed_det = 0;
 
-      PFATAL("Unable to access '%s'", fn2);
+      if (lstat(fn2, &st) || access(fn2, R_OK)) {
 
-    }
+        PFATAL("Unable to access '%s'", fn2);
 
-    /* obviously we want to skip "descending" into . and .. directories,
-       however it is a good idea to skip also directories that start with
-       a dot */
-    if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
+      }
 
-      free(nl[i]);                                           /* not tracked */
-      read_testcases(afl, fn2);
-      ck_free(fn2);
-      continue;
+      /* obviously we want to skip "descending" into . and .. directories,
+         however it is a good idea to skip also directories that start with
+         a dot */
+      if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
 
-    }
+        free(nl[i]);                                         /* not tracked */
+        read_testcases(afl, fn2);
+        ck_free(fn2);
+        continue;
 
-    free(nl[i]);
+      }
 
-    if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
+      free(nl[i]);
 
-      ck_free(fn2);
-      continue;
+      if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
-    }
+        ck_free(fn2);
+        continue;
 
-    if (st.st_size > MAX_FILE) {
+      }
 
-      WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
-            stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
-            stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+      if (st.st_size > MAX_FILE) {
 
-    }
+        WARNF("Test case '%s' is too big (%s, limit is %s), partial reading",
+              fn2,
+              stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+              stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
 
-    /* Check for metadata that indicates that deterministic fuzzing
-       is complete for this entry. We don't want to repeat deterministic
-       fuzzing when resuming aborted scans, because it would be pointless
-       and probably very time-consuming. */
+      }
 
-    if (!access(dfn, F_OK)) { passed_det = 1; }
+      /* Check for metadata that indicates that deterministic fuzzing
+         is complete for this entry. We don't want to repeat deterministic
+         fuzzing when resuming aborted scans, because it would be pointless
+         and probably very time-consuming. */
 
-    add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
-                 passed_det);
+      if (!access(dfn, F_OK)) { passed_det = 1; }
 
-    if (unlikely(afl->shm.cmplog_mode)) {
+      add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
+                   passed_det);
 
-      if (afl->cmplog_lvl == 1) {
+      if (unlikely(afl->shm.cmplog_mode)) {
 
-        if (!afl->cmplog_max_filesize ||
-            afl->cmplog_max_filesize < st.st_size) {
+        if (afl->cmplog_lvl == 1) {
 
-          afl->cmplog_max_filesize = st.st_size;
+          if (!afl->cmplog_max_filesize ||
+              afl->cmplog_max_filesize < st.st_size) {
 
-        }
+            afl->cmplog_max_filesize = st.st_size;
 
-      } else if (afl->cmplog_lvl == 2) {
+          }
 
-        if (!afl->cmplog_max_filesize ||
-            afl->cmplog_max_filesize > st.st_size) {
+        } else if (afl->cmplog_lvl == 2) {
 
-          afl->cmplog_max_filesize = st.st_size;
+          if (!afl->cmplog_max_filesize ||
+              afl->cmplog_max_filesize > st.st_size) {
+
+            afl->cmplog_max_filesize = st.st_size;
+
+          }
 
         }
 
       }
 
-    }
+      /*
+          if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    /*
-        if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+            u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size,
+         HASH_CONST); afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+            afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
 
-          u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size,
-       HASH_CONST); afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-          afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+          }
 
-        }
+      */
 
-    */
+    } while (i > 0);
 
   }
 

@@ -48,7 +48,7 @@ fn parse_locs(loc_name: &str) -> Result<Vec<u64>, io::Error> {
     let contents = &read_file(&format!("../target.offsets.{}", loc_name))?;
     //println!("Read: {:?}", contents);
     Ok(str_from_u8_unchecked(&contents)
-        .split("\n")
+        .split('\n')
         .map(|x| {
             //println!("Trying to convert {}", &x[2..]);
             let result = u64::from_str_radix(&x[2..], 16);
@@ -90,7 +90,8 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     let mut unicorn = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
     let mut uc: UnicornHandle<'_, _> = unicorn.borrow();
 
-    let binary = read_file(BINARY).expect(&format!("Could not read modem image: {}", BINARY));
+    let binary =
+        read_file(BINARY).unwrap_or_else(|_| panic!("Could not read modem image: {}", BINARY));
     let _aligned_binary_size = align(binary.len() as u64);
     // Apply constraints to the mutated input
     if binary.len() as u64 > CODE_SIZE_MAX {
@@ -151,7 +152,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
         already_allocated_malloc.set(true);
     };
 
-    let already_allocated_free = already_allocated.clone();
+    let already_allocated_free = already_allocated;
     // No real free, just set the "used"-flag to false.
     let hook_free = move |mut uc: UnicornHandle<'_, _>, addr, size| {
         if already_allocated_free.get() {
@@ -190,11 +191,11 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     }
 
     for addr in parse_locs("magicfn").unwrap() {
-        uc.add_code_hook(addr, addr, Box::new(hook_magicfn.clone()))?;
+        uc.add_code_hook(addr, addr, Box::new(hook_magicfn))?;
     }
 
     let place_input_callback =
-        |mut uc: UnicornHandle<'_, _>, afl_input: &mut [u8], _persistent_round| {
+        |uc: &mut UnicornHandle<'_, _>, afl_input: &mut [u8], _persistent_round| {
             // apply constraints to the mutated input
             if afl_input.len() > INPUT_MAX as usize {
                 //println!("Skipping testcase with leng {}", afl_input.len());
@@ -208,7 +209,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     // return true if the last run should be counted as crash
     let crash_validation_callback =
-        |_uc: UnicornHandle<'_, _>, result, _input: &[u8], _persistent_round| {
+        |_uc: &mut UnicornHandle<'_, _>, result, _input: &[u8], _persistent_round| {
             result != uc_error::OK
         };
 
@@ -216,16 +217,16 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     let ret = uc.afl_fuzz(
         input_file,
-        Box::new(place_input_callback),
+        place_input_callback,
         &end_addrs,
-        Box::new(crash_validation_callback),
+        crash_validation_callback,
         false,
         1000,
     );
 
     match ret {
         Ok(_) => {}
-        Err(e) => panic!(format!("found non-ok unicorn exit: {:?}", e)),
+        Err(e) => panic!("found non-ok unicorn exit: {:?}", e),
     }
 
     Ok(())

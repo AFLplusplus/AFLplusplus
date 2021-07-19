@@ -314,7 +314,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   ++q->cal_failed;
 
   afl->stage_name = "calibration";
-  afl->stage_max = afl->fast_cal ? 3 : CAL_CYCLES;
+  afl->stage_max = afl->afl_env.afl_cal_fast ? 3 : CAL_CYCLES;
 
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
@@ -333,7 +333,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
 
-      unsetenv(SHM_FUZZ_ENV_VAR);
       afl_shm_deinit(afl->shm_fuzz);
       ck_free(afl->shm_fuzz);
       afl->shm_fuzz = NULL;
@@ -355,6 +354,12 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   start_us = get_cur_time_us();
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
+
+    if (unlikely(afl->debug)) {
+
+      DEBUGF("calibration stage %d/%d\n", afl->stage_cur + 1, afl->stage_max);
+
+    }
 
     u64 cksum;
 
@@ -398,6 +403,21 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
             afl->var_bytes[i] = 1;
             // ignore the variable edge by setting it to fully discovered
             afl->virgin_bits[i] = 0;
+
+          }
+
+        }
+
+        if (unlikely(!var_detected)) {
+
+          // note: from_queue seems to only be set during initialization
+          if (afl->afl_env.afl_no_ui || from_queue) {
+
+            WARNF("instability detected during calibration");
+
+          } else if (afl->debug) {
+
+            DEBUGF("instability detected during calibration\n");
 
           }
 

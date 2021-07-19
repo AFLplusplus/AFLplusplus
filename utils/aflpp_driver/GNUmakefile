@@ -15,15 +15,15 @@ aflpp_driver.o:	aflpp_driver.c
 	-$(LLVM_BINDIR)clang -I. -I../../include $(CFLAGS) -c aflpp_driver.c
 
 libAFLDriver.a:	aflpp_driver.o
-	ar ru libAFLDriver.a aflpp_driver.o
-	cp -vf libAFLDriver.a ../../
+	@ar rc libAFLDriver.a aflpp_driver.o
+	@cp -vf libAFLDriver.a ../../
 
 debug:
 	$(LLVM_BINDIR)clang -Wno-deprecated -I../../include $(CFLAGS) -D_DEBUG=\"1\" -c -o afl-performance.o ../../src/afl-performance.c
 	$(LLVM_BINDIR)clang -I../../include -D_DEBUG=\"1\" -g -funroll-loops -c aflpp_driver.c
 	#$(LLVM_BINDIR)clang -S -emit-llvm -Wno-deprecated -I../../include $(CFLAGS) -D_DEBUG=\"1\" -c -o afl-performance.ll ../../src/afl-performance.c
 	#$(LLVM_BINDIR)clang -S -emit-llvm -I../../include -D_DEBUG=\"1\" -g -funroll-loops -c aflpp_driver.c
-	ar ru libAFLDriver.a afl-performance.o aflpp_driver.o
+	ar rc libAFLDriver.a afl-performance.o aflpp_driver.o
 
 aflpp_qemu_driver.o:	aflpp_qemu_driver.c
 	-$(LLVM_BINDIR)clang $(CFLAGS) -O0 -funroll-loops -c aflpp_qemu_driver.c

@@ -67,6 +67,8 @@ static char *stdin_file;               /* stdin file                        */
 static u8 *in_dir = NULL,              /* input folder                      */
     *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
 
+static u8 outfile[PATH_MAX];
+
 static u8 *in_data,                    /* Input data                        */
     *coverage_map;                     /* Coverage map                      */
 
@@ -230,7 +232,11 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
-  if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
+  if (!outfile || !*outfile) {
+
+    FATAL("Output filename not set (Bug in AFL++?)");
+
+  }
 
   if (cmin_mode &&
       (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
@@ -394,7 +400,28 @@ static u32 read_file(u8 *in_file) {
 
   if (fstat(fd, &st) || !st.st_size) {
 
-    WARNF("Zero-sized input file '%s'.", in_file);
+    if (!be_quiet && !quiet_mode) {
+
+      WARNF("Zero-sized input file '%s'.", in_file);
+
+    }
+
+  }
+
+  if (st.st_size > MAX_FILE) {
+
+    if (!be_quiet && !quiet_mode) {
+
+      WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
+            MAX_FILE);
+
+    }
+
+    in_len = MAX_FILE;
+
+  } else {
+
+    in_len = st.st_size;
 
   }
 
@@ -692,6 +719,96 @@ static void setup_signal_handlers(void) {
 
 }
 
+u32 execute_testcases(u8 *dir) {
+
+  struct dirent **nl;
+  s32             nl_cnt, subdirs = 1;
+  u32             i, done = 0;
+  u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+
+  if (!be_quiet) { ACTF("Scanning '%s'...", dir); }
+
+  /* We use scandir() + alphasort() rather than readdir() because otherwise,
+     the ordering of test cases would vary somewhat randomly and would be
+     difficult to control. */
+
+  nl_cnt = scandir(dir, &nl, NULL, alphasort);
+
+  if (nl_cnt < 0) { return 0; }
+
+  for (i = 0; i < (u32)nl_cnt; ++i) {
+
+    struct stat st;
+
+    u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
+
+    if (lstat(fn2, &st) || access(fn2, R_OK)) {
+
+      PFATAL("Unable to access '%s'", fn2);
+
+    }
+
+    /* obviously we want to skip "descending" into . and .. directories,
+       however it is a good idea to skip also directories that start with
+       a dot */
+    if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
+
+      free(nl[i]);                                           /* not tracked */
+      done += execute_testcases(fn2);
+      ck_free(fn2);
+      continue;
+
+    }
+
+    if (!S_ISREG(st.st_mode) || !st.st_size) {
+
+      free(nl[i]);
+      ck_free(fn2);
+      continue;
+
+    }
+
+    if (st.st_size > MAX_FILE && !be_quiet && !quiet_mode) {
+
+      WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
+            stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+            stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+
+    }
+
+    if (!collect_coverage)
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, nl[i]->d_name);
+
+    free(nl[i]);
+
+    if (read_file(fn2)) {
+
+      if (wait_for_gdb) {
+
+        fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
+        fprintf(stderr, "exec: kill -CONT %d\n", getpid());
+        kill(0, SIGSTOP);
+
+      }
+
+      showmap_run_target_forkserver(fsrv, in_data, in_len);
+      ck_free(in_data);
+      ++done;
+
+      if (collect_coverage)
+        analyze_results(fsrv);
+      else
+        tcnt = write_results_to_file(fsrv, outfile);
+
+    }
+
+  }
+
+  free(nl);                                                  /* not tracked */
+  return done;
+
+}
+
 /* Show banner. */
 
 static void show_banner(void) {
@@ -710,7 +827,7 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-      "  -o file       - file to write the trace data to\n\n"
+      "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
       "  -t msec       - timeout for each run (none)\n"
@@ -722,19 +839,19 @@ static void usage(u8 *argv0) {
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
       "Other settings:\n"
-      "  -i dir        - process all files in this directory, must be combined "
+      "  -i dir     - process all files below this directory, must be combined "
       "with -o.\n"
-      "                  With -C, -o is a file, without -C it must be a "
+      "               With -C, -o is a file, without -C it must be a "
       "directory\n"
-      "                  and each bitmap will be written there individually.\n"
-      "  -C            - collect coverage, writes all edges to -o and gives a "
+      "               and each bitmap will be written there individually.\n"
+      "  -C         - collect coverage, writes all edges to -o and gives a "
       "summary\n"
-      "                  Must be combined with -i.\n"
-      "  -q            - sink program's output and don't show messages\n"
-      "  -e            - show edge coverage only, ignore hit counts\n"
-      "  -r            - show real tuple values instead of AFL filter values\n"
-      "  -s            - do not classify the map\n"
-      "  -c            - allow core dumps\n\n"
+      "               Must be combined with -i.\n"
+      "  -q         - sink program's output and don't show messages\n"
+      "  -e         - show edge coverage only, ignore hit counts\n"
+      "  -r         - show real tuple values instead of AFL filter values\n"
+      "  -s         - do not classify the map\n"
+      "  -c         - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
@@ -1000,6 +1117,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_environment_vars(envp);
 
+  if (getenv("AFL_NO_FORKSRV")) {             /* if set, use the fauxserver */
+    fsrv->use_fauxsrv = true;
+
+  }
+
   if (getenv("AFL_DEBUG")) {
 
     DEBUGF("");
@@ -1177,7 +1299,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } else {
 
-      if ((coverage_map = (u8 *)malloc(map_size)) == NULL)
+      if ((coverage_map = (u8 *)malloc(map_size + 64)) == NULL)
         FATAL("coult not grab memory");
       edges_only = false;
       raw_instr_output = true;
@@ -1260,44 +1382,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         continue;  // skip anything that starts with '.'
 
-      }
-
-#if defined(DT_REG)      /* Posix and Solaris do not know d_type and DT_REG */
-      if (dir_ent->d_type != DT_REG) {
-
-        continue;  // only regular files
-
-      }
-
-#endif
-
-      snprintf(infile, sizeof(infile), "%s/%s", in_dir, dir_ent->d_name);
-
-#if !defined(DT_REG)                                          /* use stat() */
-      if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
-#endif
-
-      if (!collect_coverage)
-        snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
-
-      if (read_file(infile)) {
-
-        if (wait_for_gdb) {
-
-          fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
-          fprintf(stderr, "exec: kill -CONT %d\n", getpid());
-          kill(0, SIGSTOP);
-
-        }
-
-        showmap_run_target_forkserver(fsrv, in_data, in_len);
-        ck_free(in_data);
-        if (collect_coverage)
-          analyze_results(fsrv);
-        else
-          tcnt = write_results_to_file(fsrv, outfile);
-
-      }
+      FATAL("could not read input testcases from %s", in_dir);
 
     }
 
