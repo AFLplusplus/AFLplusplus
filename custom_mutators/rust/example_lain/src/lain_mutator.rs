@@ -4,8 +4,9 @@ use custom_mutator::{export_mutator, CustomMutator};
 use lain::{
     mutator::Mutator,
     prelude::*,
-    rand::{rngs::StdRng, SeedableRng},
 };
+// We're using RomuRand from LibAFL instead of the slower rand trait.
+use libafl::bolts::rands::StdRand;
 
 #[derive(Debug, Mutatable, NewFuzzed, BinarySerialize)]
 struct MyStruct {
@@ -25,7 +26,7 @@ struct MyStruct {
 }
 
 struct LainMutator {
-    mutator: Mutator<StdRng>,
+    mutator: Mutator<StdRand>,
     buffer: Vec<u8>,
 }
 
@@ -34,7 +35,7 @@ impl CustomMutator for LainMutator {
 
     fn init(seed: u32) -> Result<Self, ()> {
         Ok(Self {
-            mutator: Mutator::new(StdRng::seed_from_u64(seed as u64)),
+            mutator: Mutator::new(StdRand::with_seed(seed as u64)),
             buffer: Vec::new(),
         })
     }

@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 custom_mutator = { path = "../custom_mutator" }
 lain="0.5"
+libafl= {version = "0.5", default-features = false, features = ["std", "rand_trait"]}
 
 [[example]]
 name = "example_lain"
