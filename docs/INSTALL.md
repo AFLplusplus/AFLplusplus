@@ -74,12 +74,29 @@ and depend mostly on user feedback.
 To build AFL, install llvm (and perhaps gcc) from brew and follow the general
 instructions for Linux. If possible avoid Xcode at all cost.
 
+`brew install wget git make llvm`
+
+Be sure to setup PATH to point to the correct clang binaries and use gmake, e.g.:
+
+```
+export PATH="/usr/local/Cellar/llvm/12.0.1/bin/:$PATH"
+gmake
+cd frida_mode
+gmake
+cd ..
+gmake install
+```
+
 afl-gcc will fail unless you have GCC installed, but that is using outdated
 instrumentation anyway. You don't want that.
+Note that afl-clang-lto, afl-gcc-fast and qemu_mode are not working on MacOS.
 
 The crash reporting daemon that comes by default with MacOS X will cause
-problems with fuzzing. You need to turn it off by following the instructions
-provided here: http://goo.gl/CCcd5u
+problems with fuzzing. You need to turn it off:
+```
+launchctl unload -w /System/Library/LaunchAgents/com.apple.ReportCrash.plist
+sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.ReportCrash.Root.plist
+```
 
 The `fork()` semantics on OS X are a bit unusual compared to other unix systems
 and definitely don't look POSIX-compliant. This means two things:
