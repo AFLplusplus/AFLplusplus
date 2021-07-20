@@ -1,5 +1,5 @@
 PWD:=$(shell pwd)/
-ROOT:=$(shell realpath $(PWD)..)/
+ROOT:=$(PWD)../
 INC_DIR:=$(PWD)include/
 SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
