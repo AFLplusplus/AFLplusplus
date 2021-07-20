@@ -23,6 +23,8 @@
   3600  // Inputs that gave new coverage will be dumped every FLUSH_INTERVAL
         // seconds
 
+afl_state_t *global_afl;
+
 typedef struct trigger {
 
   char * id;
