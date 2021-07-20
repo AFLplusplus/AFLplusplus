@@ -619,7 +619,7 @@ where
         }
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &Path, filename_orig_queue: Option<&Path>) {
+    fn queue_new_entry(&mut self, filename_new_queue: &Path, filename_orig_queue: Option<&Path>) -> bool {
         match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
             Ok(r) => r,
             Err(e) => {
