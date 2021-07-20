@@ -13,7 +13,7 @@ Array *performRandomMutation(state *pda, Array *input) {
   Array *sliced;
 
   // Get offset at which to generate new input and slice it
-  int idx = rand() % input->used;
+  int idx = rand_below(global_afl, input->used);
   sliced = slice(input, idx);
   // print_repr(sliced, "Slice");
 
@@ -58,7 +58,7 @@ Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
     int length = utarray_len(stateptr);
     if (length) {
 
-      int *splice_idx = (int *)utarray_eltptr(stateptr, rand() % length);
+      int *splice_idx = (int *)utarray_eltptr(stateptr, rand_below(global_afl, length));
       ip.orig_idx = *splice_idx;
       ip.splice_idx = x;
       utarray_push_back(pairs, &ip);
@@ -69,7 +69,7 @@ Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
 
   // Pick a random pair
   int length = utarray_len(pairs);
-  cand = (intpair_t *)utarray_eltptr(pairs, rand() % length);
+  cand = (intpair_t *)utarray_eltptr(pairs, rand_below(global_afl, length));
   // printf("\n Orig_idx:%d Splice_idx:%d", cand->orig_idx, cand->splice_idx);
 
   // Perform the splicing
@@ -162,7 +162,7 @@ UT_array **get_dupes(Array *input, int *recur_len) {
 Array *doMult(Array *input, UT_array **recur, int recurlen) {
 
   int       offset = 0;
-  int       idx = rand() % (recurlen);
+  int       idx = rand_below(global_afl, recurlen);
   UT_array *recurMap = recur[idx];
   UT_array *recurPtr;
   Array *   prefix;
@@ -225,14 +225,13 @@ void getTwoIndices(UT_array *recur, int recurlen, int *firstIdx,
   for (int i = offset - 1; i > 0; i--) {
 
     // Pick a random index from 0 to i
-    int j = rand() % (i + 1);
+    int j = rand_below(global_afl, i + 1);
 
     // Swap arr[i] with the element at random index
     swap(&ArrayRecurIndices[i], &ArrayRecurIndices[j]);
 
   }
 
-  // Get the first two indices
   *firstIdx = ArrayRecurIndices[0];
   *secondIdx = ArrayRecurIndices[1];
 

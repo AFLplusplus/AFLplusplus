@@ -1,20 +1,15 @@
 # GramaTron
 
 Gramatron is a coverage-guided fuzzer that uses grammar automatons to perform
-grammar-aware fuzzing.  Technical details about our framework are available in our
-[ISSTA'21 paper](https://nebelwelt.net/files/21ISSTA.pdf). The artifact to reproduce the
-experiments presented in our paper are present in `artifact/`. Instructions to run
-a sample campaign and incorporate new grammars is presented below: 
+grammar-aware fuzzing.  Technical details about our framework are available
+in the [ISSTA'21 paper](https://nebelwelt.net/files/21ISSTA.pdf).
+The artifact to reproduce the experiments presented in the paper are present
+in `artifact/`. Instructions to run a sample campaign and incorporate new
+grammars is presented below: 
 
 # Compiling
 
-- Install `json-c` 
-```
-git clone https://github.com/json-c/json-c.git
-cd json-c && git reset --hard af8dd4a307e7b837f9fa2959549548ace4afe08b && sh autogen.sh && ./configure && make && make install 
-```
-
-afterwards you can just `make` GrammaTron
+Simply execute `./build_gramatron_mutator.sh`
 
 # Running
 
@@ -48,4 +43,3 @@ Eg. ./preprocess/prep_automaton.sh ~/grammars/ruby/source.json PROGRAM
 
 Eg. ./test SanityCheck ~/grammars/ruby/source_automata.json
 ```
-
