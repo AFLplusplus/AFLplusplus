@@ -53,7 +53,11 @@ pub trait RawCustomMutator {
         1
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &Path, _filename_orig_queue: Option<&Path>) -> bool {
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &Path,
+        _filename_orig_queue: Option<&Path>,
+    ) -> bool {
         false
     }
 
@@ -86,7 +90,6 @@ pub mod wrappers {
 
     use std::{
         any::Any,
-        convert::TryInto,
         ffi::{c_void, CStr, OsStr},
         mem::ManuallyDrop,
         os::{raw::c_char, unix::ffi::OsStrExt},
@@ -178,6 +181,10 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
+    /// # Safety
+    ///
+    /// May dereference all passed-in pointers.
+    /// Should not be called manually, but will be called by `afl-fuzz`
     pub unsafe fn afl_custom_fuzz_<M: RawCustomMutator>(
         data: *mut c_void,
         buf: *mut u8,
@@ -201,13 +208,10 @@ pub mod wrappers {
             } else {
                 Some(slice::from_raw_parts(add_buf, add_buf_size))
             };
-            match context
-                .mutator
-                .fuzz(buff_slice, add_buff_slice, max_size.try_into().unwrap())
-            {
+            match context.mutator.fuzz(buff_slice, add_buff_slice, max_size) {
                 Some(buffer) => {
                     *out_buf = buffer.as_ptr();
-                    buffer.len().try_into().unwrap()
+                    buffer.len()
                 }
                 None => {
                     // return the input buffer with 0-length to let AFL skip this mutation attempt
@@ -266,7 +270,7 @@ pub mod wrappers {
             };
             context
                 .mutator
-                .queue_new_entry(filename_new_queue, filename_orig_queue);
+                .queue_new_entry(filename_new_queue, filename_orig_queue)
         }) {
             Ok(ret) => ret,
             Err(err) => panic_handler("afl_custom_queue_new_entry", err),
@@ -544,8 +548,8 @@ pub trait CustomMutator {
         &mut self,
         filename_new_queue: &Path,
         filename_orig_queue: Option<&Path>,
-    ) -> Result<(), Self::Error> {
-        Ok(())
+    ) -> Result<bool, Self::Error> {
+        Ok(false)
     }
 
     fn queue_get(&mut self, filename: &Path) -> Result<bool, Self::Error> {
@@ -619,11 +623,16 @@ where
         }
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &Path, filename_orig_queue: Option<&Path>) -> bool {
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &Path,
+        filename_orig_queue: Option<&Path>,
+    ) -> bool {
         match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
             Ok(r) => r,
             Err(e) => {
                 Self::handle_error(e);
+                false
             }
         }
     }
@@ -698,16 +707,14 @@ mod default_mutator_describe {
 fn truncate_str_unicode_safe(s: &str, max_len: usize) -> &str {
     if s.len() <= max_len {
         s
+    } else if let Some((last_index, _)) = s
+        .char_indices()
+        .take_while(|(index, _)| *index <= max_len)
+        .last()
+    {
+        &s[..last_index]
     } else {
-        if let Some((last_index, _)) = s
-            .char_indices()
-            .take_while(|(index, _)| *index <= max_len)
-            .last()
-        {
-            &s[..last_index]
-        } else {
-            ""
-        }
+        ""
     }
 }
 
