@@ -53,7 +53,9 @@ pub trait RawCustomMutator {
         1
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &Path, _filename_orig_queue: Option<&Path>) {}
+    fn queue_new_entry(&mut self, filename_new_queue: &Path, _filename_orig_queue: Option<&Path>) -> bool {
+        false
+    }
 
     fn queue_get(&mut self, filename: &Path) -> bool {
         true
@@ -246,7 +248,7 @@ pub mod wrappers {
         data: *mut c_void,
         filename_new_queue: *const c_char,
         filename_orig_queue: *const c_char,
-    ) {
+    ) -> bool {
         match catch_unwind(|| {
             let mut context = FFIContext::<M>::from(data);
             if filename_new_queue.is_null() {

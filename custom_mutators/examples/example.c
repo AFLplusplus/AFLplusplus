@@ -349,12 +349,15 @@ uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
  * @param data pointer returned in afl_custom_init for this fuzz case
  * @param filename_new_queue File name of the new queue entry
  * @param filename_orig_queue File name of the original queue entry
+ * @return if the file contents was modified return 1 (True), 0 (False)
+ *         otherwise
  */
-void afl_custom_queue_new_entry(my_mutator_t * data,
-                                const uint8_t *filename_new_queue,
-                                const uint8_t *filename_orig_queue) {
+uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
+                                   const uint8_t *filename_new_queue,
+                                   const uint8_t *filename_orig_queue) {
 
   /* Additional analysis on the original or new test case */
+  return 0;
 
 }
 
