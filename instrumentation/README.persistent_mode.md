@@ -2,13 +2,16 @@
 
 ## 1) Introduction
 
-The most effective way is to fuzz in persistent mode, as the speed can easily
+In persistent mode, afl++ fuzzes a target multiple times
+in a single process, instead of forking a new process for each fuzz execution.
+This is the most effective way to fuzz, as the speed can easily
 be x10 or x20 times faster without any disadvanges.
-*All professional fuzzing is using this mode.*
+*All professional fuzzing uses this mode.*
 
-This requires that the target can be called in a (or several) function(s),
-and that its state can be resetted so that multiple calls can be performed
-without resource leaks and former runs having no impact on following runs
+
+Persistent mode requires that the target can be called in one or more functions,
+and that its state can be reset so that multiple calls can be performed
+without resource leaks and earlier runs will have no impact on future runs
 (this can be seen by the `stability` indicator in the `afl-fuzz` UI).
 
 Examples can be found in [utils/persistent_mode](../utils/persistent_mode).
