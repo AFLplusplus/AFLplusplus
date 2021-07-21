@@ -226,6 +226,10 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
+    ///
+    /// # Safety
+    /// Dereferences the passed-in pointers up to `buf_size` bytes.
+    /// Should not be called directly.
     pub unsafe fn afl_custom_fuzz_count_<M: RawCustomMutator>(
         data: *mut c_void,
         buf: *const u8,
@@ -278,6 +282,10 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
+    ///
+    /// # Safety
+    /// May dereference the passed-in `data` pointer.
+    /// Should not be called directly.
     pub unsafe fn afl_custom_deinit_<M: RawCustomMutator>(data: *mut c_void) {
         match catch_unwind(|| {
             // drop the context
@@ -392,18 +400,16 @@ macro_rules! export_mutator {
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_fuzz_count(
+        pub unsafe extern "C" fn afl_custom_fuzz_count(
             data: *mut ::std::os::raw::c_void,
             buf: *const u8,
             buf_size: usize,
         ) -> u32 {
-            unsafe {
-                $crate::wrappers::afl_custom_fuzz_count_::<$mutator_type>(data, buf, buf_size)
-            }
+            $crate::wrappers::afl_custom_fuzz_count_::<$mutator_type>(data, buf, buf_size)
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_fuzz(
+        pub unsafe extern "C" fn afl_custom_fuzz(
             data: *mut ::std::os::raw::c_void,
             buf: *mut u8,
             buf_size: usize,
@@ -412,17 +418,15 @@ macro_rules! export_mutator {
             add_buf_size: usize,
             max_size: usize,
         ) -> usize {
-            unsafe {
-                $crate::wrappers::afl_custom_fuzz_::<$mutator_type>(
-                    data,
-                    buf,
-                    buf_size,
-                    out_buf,
-                    add_buf,
-                    add_buf_size,
-                    max_size,
-                )
-            }
+            $crate::wrappers::afl_custom_fuzz_::<$mutator_type>(
+                data,
+                buf,
+                buf_size,
+                out_buf,
+                add_buf,
+                add_buf_size,
+                max_size,
+            )
         }
 
         #[no_mangle]
@@ -430,7 +434,7 @@ macro_rules! export_mutator {
             data: *mut ::std::os::raw::c_void,
             filename_new_queue: *const ::std::os::raw::c_char,
             filename_orig_queue: *const ::std::os::raw::c_char,
-        ) {
+        ) -> bool {
             $crate::wrappers::afl_custom_queue_new_entry_::<$mutator_type>(
                 data,
                 filename_new_queue,
@@ -462,8 +466,8 @@ macro_rules! export_mutator {
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_deinit(data: *mut ::std::os::raw::c_void) {
-            unsafe { $crate::wrappers::afl_custom_deinit_::<$mutator_type>(data) }
+        pub unsafe extern "C" fn afl_custom_deinit(data: *mut ::std::os::raw::c_void) {
+            $crate::wrappers::afl_custom_deinit_::<$mutator_type>(data)
         }
     };
 }
