@@ -560,7 +560,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     }
 
     /* due to classify counts we have to recalculate the checksum */
-    cksum = afl->queue_top->exec_cksum =
+    afl->queue_top->exec_cksum =
         hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
