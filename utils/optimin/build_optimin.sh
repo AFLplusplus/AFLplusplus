@@ -122,9 +122,10 @@ echo
 echo "[+] EvalMaxSAT successfully prepared!"
 echo "[+] Building OptiMin now."
 mkdir -p build
-cd build
-cmake .. -DLLVM_DIR=`$LLVM_CONFIG --cmakedir`
-make -j$CORES
+cd build || exit 1
+cmake .. -DLLVM_DIR=`$LLVM_CONFIG --cmakedir` || exit 1
+make -j$CORES || exit 1
 cd ..
 echo
+cp -fv build/src/optimin . || exit 1
 echo "[+] OptiMin successfully built!"
