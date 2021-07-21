@@ -9,7 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
-  - added the very good grammar mutator "GramaTron" to the custom_mutators
+  - added the very good grammar mutator "GramaTron" to the
+    custom_mutators
+  - added optimin, a faster and better corpus minimizer by
+    Adrian Herrera. Thank you!
 
 
 ### Version ++3.14c (release)
