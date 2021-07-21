@@ -19,34 +19,33 @@ To build the `optimin` just execute the `build_optimin.sh` script.
 Running `optimin` is the same as running `afl-cmin`:
 
 ```
-Required parameters:
-  -i dir        - input directory with starting corpus
-  -o dir        - output directory for minimized files
+./optimin -h
+OVERVIEW: Optimal corpus minimizer
+USAGE: optimin [options] <target program> [target args...]
 
-Execution control settings:
-  -f file       - location read by the fuzzed program (stdin)
-  -m megs       - memory limit for child process (none MB)
-  -t msec       - run time limit for child process (none)
-  -O            - use binary-only instrumentation (FRIDA mode)
-  -Q            - use binary-only instrumentation (QEMU mode)
-  -U            - use unicorn-based instrumentation (unicorn mode)
+OPTIONS:
 
-Minimization settings:
-  -C            - keep crashing inputs, reject everything else
-  -e            - solve for edge coverage only, ignore hit counts
+Color Options:
 
-For additional tips, please consult README.md
+  --color     - Use colors in output (default=autodetect)
 
-Environment variables used:
-AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp
-AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash
-AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the forkserver to come up
-AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory
-AFL_KILL_SIGNAL: Signal delivered to child processes on timeout (default: SIGKILL)
-AFL_NO_FORKSRV: run target via execve instead of using the forkserver
-AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH
-AFL_PRINT_FILENAMES: If set, the filename currently processed will be printed to stdout
-AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary
+General options:
+
+  -C          - Keep crashing inputs, reject everything else
+  -Q          - Use binary-only instrumentation
+  -f          - Include edge hit counts
+  -i dir      - Input directory
+  -m megs     - Memory limit for child process (default=none)
+  -o dir      - Output directory
+  -p          - Display progress bar
+  -t msec     - Run time limit for child process (default=none)
+  -w csv      - Weights file
+
+Generic Options:
+
+  --help      - Display available options (--help-hidden for more)
+  --help-list - Display list of available options (--help-list-hidden for more)
+  --version   - Display the version of this program
 ```
 
 Example: `optimin -i files -o seeds -- ./target @@`
