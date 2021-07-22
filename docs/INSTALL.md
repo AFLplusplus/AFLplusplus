@@ -74,12 +74,15 @@ and depend mostly on user feedback.
 To build AFL, install llvm (and perhaps gcc) from brew and follow the general
 instructions for Linux. If possible avoid Xcode at all cost.
 
-`brew install wget git make llvm`
+`brew install wget git make cmake llvm`
 
-Be sure to setup PATH to point to the correct clang binaries and use gmake, e.g.:
+Be sure to setup PATH to point to the correct clang binaries and use the
+freshly installed clang, clang++ and gmake, e.g.:
 
 ```
 export PATH="/usr/local/Cellar/llvm/12.0.1/bin/:$PATH"
+export CC=clang
+export CXX=clang++
 gmake
 cd frida_mode
 gmake
