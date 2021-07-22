@@ -116,29 +116,38 @@ static const auto StatMsg = [] {
 
 };
 
-static cl::opt<std::string>  CorpusDir("i", cl::desc("Input directory"),
+static cl::opt<std::string> CorpusDir("i", cl::desc("Input directory"),
                                       cl::value_desc("dir"), cl::Required);
-static cl::opt<std::string>  OutputDir("o", cl::desc("Output directory"),
+static cl::opt<std::string> OutputDir("o", cl::desc("Output directory"),
                                       cl::value_desc("dir"), cl::Required);
-static cl::opt<bool>         EdgesOnly("f", cl::desc("Include edge hit counts"),
+
+static cl::opt<bool>        ShowProgBar("p", cl::desc("Display progress bar"));
+static cl::opt<bool>        EdgesOnly("f", cl::desc("Include edge hit counts"),
                                cl::init(true));
-static cl::opt<bool>         ShowProgBar("p", cl::desc("Display progress bar"));
-static cl::opt<std::string>  WeightsFile("w", cl::desc("Weights file"),
+static cl::opt<std::string> WeightsFile("w", cl::desc("Weights file"),
                                         cl::value_desc("csv"));
+
 static cl::opt<std::string>  TargetProg(cl::Positional,
                                        cl::desc("<target program>"),
                                        cl::Required);
 static cl::list<std::string> TargetArgs(cl::ConsumeAfter,
                                         cl::desc("[target args...]"));
-static cl::opt<std::string>  MemLimit(
+
+static cl::opt<std::string> MemLimit(
     "m", cl::desc("Memory limit for child process (default=none)"),
     cl::value_desc("megs"), cl::init("none"));
 static cl::opt<std::string> Timeout(
     "t", cl::desc("Run time limit for child process (default=5000)"),
     cl::value_desc("msec"), cl::init("4000"));
+
 static cl::opt<bool> CrashMode(
     "C", cl::desc("Keep crashing inputs, reject everything else"));
-static cl::opt<bool> QemuMode("Q", cl::desc("Use binary-only instrumentation"));
+static cl::opt<bool> FridaMode(
+    "O", cl::desc("Use binary-only instrumentation (FRIDA mode)"));
+static cl::opt<bool> QemuMode(
+    "Q", cl::desc("Use binary-only instrumentation (QEMU mode)"));
+static cl::opt<bool> UnicornMode(
+    "U", cl::desc("Use unicorn-based instrumentation (unicorn mode)"));
 
 }  // anonymous namespace
 
@@ -184,7 +193,6 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
 
   // Prepare afl-showmap arguments
   SmallVector<StringRef, 12> AFLShowmapArgs{
-
       AFLShowmapPath, "-m", MemLimit, "-t", Timeout, "-q", "-o", OutputPath};
 
   if (TargetArgsHasAtAt)
@@ -192,8 +200,9 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
   else
     Redirects[/* stdin */ 0] = Seed;
 
+  if (FridaMode) AFLShowmapArgs.push_back("-O");
   if (QemuMode) AFLShowmapArgs.push_back("-Q");
-  if (CrashMode) AFLShowmapArgs.push_back("-C");
+  if (UnicornMode) AFLShowmapArgs.push_back("-U");
 
   AFLShowmapArgs.append({"--", TargetProg});
   AFLShowmapArgs.append(TargetArgs.begin(), TargetArgs.end());
@@ -269,9 +278,10 @@ int main(int argc, char *argv[]) {
 
   cl::ParseCommandLineOptions(argc, argv, "Optimal corpus minimizer");
 
-  if (!sys::fs::is_directory(OutputDir)) {
+  if (EC = sys::fs::create_directory(OutputDir)) {
 
-    ErrMsg() << "Invalid output directory `" << OutputDir << "`\n";
+    ErrMsg() << "Invalid output directory `" << OutputDir
+             << "`: " << EC.message() << '\n';
     return 1;
 
   }
