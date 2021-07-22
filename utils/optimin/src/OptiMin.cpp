@@ -134,8 +134,8 @@ static cl::opt<std::string>  MemLimit(
     "m", cl::desc("Memory limit for child process (default=none)"),
     cl::value_desc("megs"), cl::init("none"));
 static cl::opt<std::string> Timeout(
-    "t", cl::desc("Run time limit for child process (default=none)"),
-    cl::value_desc("msec"), cl::init("none"));
+    "t", cl::desc("Run time limit for child process (default=5000)"),
+    cl::value_desc("msec"), cl::init("4000"));
 static cl::opt<bool> CrashMode(
     "C", cl::desc("Keep crashing inputs, reject everything else"));
 static cl::opt<bool> QemuMode("Q", cl::desc("Use binary-only instrumentation"));
