@@ -14,8 +14,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added optimin, a faster and better corpus minimizer by
     Adrian Herrera. Thank you!
   - added afl-persistent-config script to set perform permanent system
-    configuration setting for fuzzing, for Linux and Macos.
+    configuration settings for fuzzing, for Linux and Macos.
     thanks to jhertz!
+  - removed utils/afl_frida because frida_mode/ is now so much better
 
 
 ### Version ++3.14c (release)
