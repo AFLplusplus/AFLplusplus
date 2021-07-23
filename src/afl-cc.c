@@ -1921,9 +1921,7 @@ int main(int argc, char **argv, char **envp) {
       // ptr = instrument_mode_string[instrument_mode];
       // }
 
-    } else if (instrument_mode == INSTRUMENT_LTO ||
-
-               instrument_mode == INSTRUMENT_CLASSIC) {
+    } else if (instrument_mode == INSTRUMENT_CLASSIC) {
 
       lto_mode = 1;
 
