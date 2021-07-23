@@ -547,7 +547,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     afl->queue_cur->perf_score = orig_perf = perf_score =
         calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
+  if (unlikely(perf_score <= 0 && afl->active_paths > 1)) {
+
+    goto abandon_entry;
+
+  }
 
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
@@ -3047,7 +3051,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   else
     orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
+  if (unlikely(perf_score <= 0 && afl->active_paths > 1)) {
+
+    goto abandon_entry;
+
+  }
 
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
