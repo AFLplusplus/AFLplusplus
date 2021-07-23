@@ -32,7 +32,7 @@ e.g.:
 afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
 ```
 
-### on the (afl-fuzz) master
+### on the (afl-fuzz) main node
 
 Just run afl-fuzz with your normal options, however the target should be
 `afl-network-client` with the IP and PORT of the `afl-network-server` and
