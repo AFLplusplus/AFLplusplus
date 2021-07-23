@@ -806,7 +806,21 @@ To have only the summary use the `-s` switch e.g.: `afl-whatsup -s out/`
 If you have multiple servers then use the command after a sync, or you have
 to execute this script per server.
 
-#### e) Checking the coverage of the fuzzing
+#### e) Stopping fuzzing, restarting fuzzing, adding new seeds
+
+To stop an afl-fuzz run, simply press Control-C.
+
+To restart an afl-fuzz run, just reuse the same command line but replace the
+`-i directory` with `-i -` or set `AFL_AUTORESUME=1`.
+
+If you want to add new seeds to a fuzzing campaign you can run a temporary
+fuzzing instance, e.g. when your main fuzzer is using `-o out` and the new
+seeds are in `newseeds/` directory:
+```
+AFL_BENCH_JUST_ONE=1 AFL_FAST_CAL=1 afl-fuzz -i newseeds -o out -S newseeds -- ./target
+```
+
+#### f) Checking the coverage of the fuzzing
 
 The `paths found` value is a bad indicator for checking how good the coverage is.
 
@@ -842,7 +856,7 @@ fuzzing campaigns each with one of these options set. E.g. if you fuzz a library
 convert image formats and your target is the png to tiff API then you will not
 touch any of the other library APIs and features.
 
-#### f) How long to fuzz a target?
+#### g) How long to fuzz a target?
 
 This is a difficult question.
 Basically if no new path is found for a long time (e.g. for a day or a week)
@@ -854,13 +868,14 @@ Keep the queue/ directory (for future fuzzings of the same or similar targets)
 and use them to seed other good fuzzers like libfuzzer with the -entropic
 switch or honggfuzz.
 
-#### g) Improve the speed!
+#### h) Improve the speed!
 
  * Use [persistent mode](instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
- * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
+ * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure) - you can also just run `sudo afl-persistent-config`
  * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
  * Use your cores! [3.b) Using multiple cores/threads](#b-using-multiple-coresthreads)
+ * Run `sudo afl-system-config` before starting the first afl-fuzz instance after a reboot
 
 ### The End
 
