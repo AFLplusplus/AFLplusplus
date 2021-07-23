@@ -348,7 +348,7 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> SeedFiles;
   sys::fs::file_status     Status;
 
-  for (sys::fs::directory_iterator Dir(CorpusDir, EC), DirEnd;
+  for (sys::fs::recursive_directory_iterator Dir(CorpusDir, EC), DirEnd;
        Dir != DirEnd && !EC; Dir.increment(EC)) {
 
     if (EC) {
