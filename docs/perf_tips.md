@@ -170,6 +170,7 @@ spectre_v2=off stf_barrier=off
 ```
     In most Linux distributions you can put this into a `/etc/default/grub`
     variable.
+    You can use `sudo afl-persistent-config` to set these options for you.
 
 The following list of changes are made when executing `afl-system-config`:
  
