@@ -68,10 +68,10 @@ if [[ "$PLATFORM" = "Darwin" ]] ; then
     <array>
       <string>/usr/sbin/sysctl</string>
       <string>-w</string>
-      <string>kern.sysv.shmmax=268435456</string>
+      <string>kern.sysv.shmmax=524288000</string>
       <string>kern.sysv.shmmni=128</string>
       <string>kern.sysv.shmseg=32</string>
-      <string>kern.sysv.shmall=65536</string>
+      <string>kern.sysv.shmall=131072000</string>
     </array>
     <key>KeepAlive</key>
     <false/>
