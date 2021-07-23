@@ -2,6 +2,9 @@
 
 Here's a quick overview of the stuff you can find in this directory:
 
+  - aflpp_driver         - easily instrument LLVMFuzzerTestOneInput()
+                           harnesses.
+
   - afl_network_proxy    - fuzz a target over the network: afl-fuzz on
                            a host, target on an embedded system.
 
@@ -12,11 +15,15 @@ Here's a quick overview of the stuff you can find in this directory:
   - afl_untracer         - fuzz binary-only libraries much faster but with
                            less coverage than qemu_mode
 
+  - analysis_scripts     - random -o out analysis scripts
+
   - argv_fuzzing         - a simple wrapper to allow cmdline to be fuzzed
                            (e.g., to test setuid programs).
 
   - asan_cgroups         - a contributed script to simplify fuzzing ASAN
                            binaries with robust memory limits on Linux.
+
+  - autodict_ql          - generate dictionary files from source code.
 
   - bash_shellshock      - a simple hack used to find a bunch of
                            post-Shellshock bugs in bash.
@@ -35,8 +42,14 @@ Here's a quick overview of the stuff you can find in this directory:
                            C and Python. Note: They were moved to
                            ../custom_mutators/examples/
 
+  - defork               - intercept fork() in targets
+
   - distributed_fuzzing  - a sample script for synchronizing fuzzer instances
                            across multiple machines (see parallel_fuzzing.md).
+
+  - libdislocator        - like ASAN but lightweight.
+
+  - libtokencap          - collect string tokens for a dictionary.
 
   - libpng_no_checksum   - a sample patch for removing CRC checks in libpng.
 
@@ -44,6 +57,8 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - persistent_mode      - an example of how to use the LLVM persistent process
                            mode to speed up certain fuzzing jobs.
+
+  - qemu_persistent_hook - persistent mode support module for qemu.
 
   - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
                            for fuzzing access with afl++
