@@ -14,6 +14,7 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/Chrono.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Error.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/Path.h>
@@ -180,16 +181,18 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
 
 }
 
-[[nodiscard]] static std::error_code getAFLCoverage(const StringRef    Seed,
-                                                    AFLCoverageVector &Cov) {
+static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov) {
 
   Optional<StringRef> Redirects[] = {None, None, None};
-  std::error_code     EC;
 
   // Create temporary output file
-  SmallString<64> OutputPath;
-  if (EC = sys::fs::createTemporaryFile("showmap", "txt", OutputPath))
-    return EC;
+  SmallString<32> OutputPath;
+  if (const auto EC = sys::fs::createTemporaryFile("showmap", "txt", OutputPath)) {
+
+      return createStringError(
+          EC, "Failed to create temporary file for afl-showmap output");
+
+  }
 
   // Prepare afl-showmap arguments
   SmallVector<StringRef, 12> AFLShowmapArgs{
@@ -210,14 +213,16 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
   // Run afl-showmap
   const int RC = sys::ExecuteAndWait(AFLShowmapPath, AFLShowmapArgs,
                                      /*env=*/None, Redirects);
-  if (RC) return std::make_error_code(std::errc::executable_format_error);
+  if (RC)
+    return createStringError(inconvertibleErrorCode(), "afl-showmap failed");
 
   // Parse afl-showmap output
   const auto CovOrErr = MemoryBuffer::getFile(OutputPath);
-  if (EC = CovOrErr.getError()) {
+  if (const auto EC = CovOrErr.getError()) {
 
     sys::fs::remove(OutputPath);
-    return EC;
+    return createStringError(EC, "Failed to read afl-showmap output file `%s`",
+                             OutputPath.c_str());
 
   }
 
@@ -237,7 +242,8 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
 
   }
 
-  return sys::fs::remove(OutputPath);
+  sys::fs::remove(OutputPath);
+  return Error::success();
 
 }
 
@@ -278,7 +284,7 @@ int main(int argc, char *argv[]) {
 
   cl::ParseCommandLineOptions(argc, argv, "Optimal corpus minimizer");
 
-  if (EC = sys::fs::create_directory(OutputDir)) {
+  if ((EC = sys::fs::create_directory(OutputDir))) {
 
     ErrMsg() << "Invalid output directory `" << OutputDir
              << "`: " << EC.message() << '\n';
@@ -316,7 +322,7 @@ int main(int argc, char *argv[]) {
     StartTimer(/*ShowProgBar=*/false);
 
     const auto WeightsOrErr = MemoryBuffer::getFile(WeightsFile);
-    if (EC = WeightsOrErr.getError()) {
+    if ((EC = WeightsOrErr.getError())) {
 
       ErrMsg() << "Failed to read weights from `" << WeightsFile
                << "`: " << EC.message() << '\n';
@@ -354,7 +360,7 @@ int main(int argc, char *argv[]) {
     }
 
     const auto &Path = Dir->path();
-    if (EC = sys::fs::status(Path, Status)) {
+    if ((EC = sys::fs::status(Path, Status))) {
 
       WarnMsg() << "Failed to access seed file `" << Path
                 << "`: " << EC.message() << ". Skipping...\n";
@@ -402,10 +408,10 @@ int main(int argc, char *argv[]) {
 
     // Execute seed
     Cov.clear();
-    if (EC = getAFLCoverage(SeedFile, Cov)) {
+    if (auto Err = getAFLCoverage(SeedFile, Cov)) {
 
-      ErrMsg() << "Failed to get coverage for seed " << SeedFile << ": "
-               << EC.message() << '\n';
+      ErrMsg() << "Failed to get coverage for seed `" << SeedFile << "`: "
+               << Err << '\n';
       return 1;
 
     }
@@ -519,7 +525,7 @@ int main(int argc, char *argv[]) {
     OutputSeed = OutputDir;
     sys::path::append(OutputSeed, sys::path::filename(Seed));
 
-    if (EC = sys::fs::copy_file(Seed, OutputSeed)) {
+    if ((EC = sys::fs::copy_file(Seed, OutputSeed))) {
 
       WarnMsg() << "Failed to copy `" << Seed << "` to `" << OutputDir
                 << "`: " << EC.message() << '\n';
