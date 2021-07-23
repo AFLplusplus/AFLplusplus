@@ -1,0 +1,59 @@
+#!/bin/bash
+# written by jhertz
+# 
+
+PLATFORM=`uname -s`
+
+
+# check that we're on Mac
+if [[ ! "$PLATFORM" = "Darwin" ]] ; then
+   echo "This script is for Mac OS"
+   exit 1
+fi
+
+# check if UID == 0
+if [[ $EUID -ne 0 ]]; then
+   echo "You really should be root to do this"
+   exit 1
+fi
+
+# check if SIP is disabled
+if [[ ! $(csrutil status | grep "disabled") ]]; then
+   echo "SIP needs to be disabled"
+   exit 1
+fi
+
+echo "Okay cool, checks passed"
+
+echo "Installing plist"
+
+cat << EOF > /Library/LaunchDaemons/shm_setup.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+ <key>Label</key>
+ <string>shmemsetup</string>
+ <key>UserName</key>
+ <string>root</string>
+ <key>GroupName</key>
+ <string>wheel</string>
+ <key>ProgramArguments</key>
+ <array>
+ <string>/usr/sbin/sysctl</string>
+ <string>-w</string>
+ <string>kern.sysv.shmmax=268435456</string>
+ <string>kern.sysv.shmmni=128</string>
+ <string>kern.sysv.shmseg=32</string>
+ <string>kern.sysv.shmall=65536</string>
+  </array>
+ <key>KeepAlive</key>
+ <false/>
+ <key>RunAtLoad</key>
+ <true/>
+</dict>
+</plist>
+EOF
+
+echo "Reboot and enjoy your fuzzing"
+
