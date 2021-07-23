@@ -13,6 +13,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     custom_mutators
   - added optimin, a faster and better corpus minimizer by
     Adrian Herrera. Thank you!
+  - added afl-persistent-config script to set perform permanent system
+    configuration setting for fuzzing, for Linux and Macos.
+    thanks to jhertz!
 
 
 ### Version ++3.14c (release)

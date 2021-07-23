@@ -623,6 +623,13 @@ system for optimal speed - which afl-fuzz checks and bails otherwise.
 Set `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot
 run afl-system-config with root privileges on the host for whatever reason.
 
+Note there is also `sudo afl-persistent-config` which sets additional permanent
+boot options for a much better fuzzing performance.
+
+Note that both scripts improve your fuzzing performance but also decrease your
+system protection against attacks! So set strong firewall rules and only
+expose SSH as a network service if you use these (which is highly recommended).
+
 If you have an input corpus from step 2 then specify this directory with the `-i`
 option. Otherwise create a new directory and create a file with any content
 as test data in there.
