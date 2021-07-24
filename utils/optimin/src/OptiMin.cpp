@@ -94,6 +94,7 @@ static std::chrono::seconds Duration;
 static std::string AFLShowmapPath;
 static bool        TargetArgsHasAtAt = false;
 static bool        KeepTraces = false;
+static bool        SkipBinCheck = false;
 
 static const auto ErrMsg = [] {
 
@@ -183,12 +184,14 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
 
 }
 
-static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov) {
+static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov,
+                            bool BinCheck = false) {
 
   Optional<StringRef> Redirects[] = {None, None, None};
 
   SmallString<32> TracePath{OutputDir};
-  sys::path::append(TracePath, ".traces", sys::path::filename(Seed));
+  StringRef TraceName = BinCheck ? ".run_test" : sys::path::filename(Seed);
+  sys::path::append(TracePath, ".traces", TraceName);
 
   // Prepare afl-showmap arguments
   SmallVector<StringRef, 12> AFLShowmapArgs{
@@ -238,7 +241,7 @@ static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov) {
 
   }
 
-  if (!KeepTraces) sys::fs::remove(TracePath);
+  if (!KeepTraces || BinCheck) sys::fs::remove(TracePath);
   return Error::success();
 
 }
@@ -281,6 +284,7 @@ int main(int argc, char *argv[]) {
   cl::ParseCommandLineOptions(argc, argv, "Optimal corpus minimizer");
 
   KeepTraces = !!std::getenv("AFL_KEEP_TRACES");
+  SkipBinCheck = !!std::getenv("AFL_SKIP_BIN_CHECK");
   const auto AFLPath = std::getenv("AFL_PATH");
 
   for (const auto &Arg : TargetArgs)
@@ -405,6 +409,29 @@ int main(int argc, char *argv[]) {
   EndTimer(/*ShowProgBar=*/false);
 
   // ------------------------------------------------------------------------ //
+  // Test the target binary
+  // ------------------------------------------------------------------------ //
+
+  AFLCoverageVector Cov;
+
+  if (!SkipBinCheck && SeedFiles.size() > 0) {
+
+    StatMsg() << "Testing the target binary... ";
+    StartTimer(/*ShowProgBar=*/false);
+
+    if (auto Err = getAFLCoverage(SeedFiles.front(), Cov, /*BinCheck=*/true)) {
+
+      ErrMsg() << "No instrumentation output detected (perhaps crash or timeout)";
+      return 1;
+
+    }
+
+    EndTimer(/*ShowProgBar=*/false);
+    SuccMsg() << "OK, " << Cov.size() << " tuples recorded\n";
+
+  }
+
+  // ------------------------------------------------------------------------ //
   // Generate seed coverage
   //
   // Iterate over the corpus directory, which should contain seed files. Execute
@@ -422,7 +449,6 @@ int main(int argc, char *argv[]) {
   EvalMaxSAT        Solver(/*nbMinimizeThread=*/0);
   MaxSATSeeds       SeedVars;
   MaxSATCoverageMap SeedCoverage;
-  AFLCoverageVector Cov;
 
   for (const auto &SeedFile : SeedFiles) {
 
