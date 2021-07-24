@@ -40,7 +40,7 @@ General options:
   -m megs     - Memory limit for child process (default=none)
   -o dir      - Output directory
   -p          - Display progress bar
-  -t msec     - Run time limit for child process (default=none)
+  -t msec     - Run time limit for child process (default=5000)
   -w csv      - Weights file
 
 Generic Options:
