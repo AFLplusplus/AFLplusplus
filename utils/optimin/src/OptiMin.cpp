@@ -5,6 +5,7 @@
  */
 
 #include <cstdint>
+#include <cstdlib>
 #include <vector>
 
 #include <llvm/ADT/DenseSet.h>
@@ -92,6 +93,7 @@ static std::chrono::seconds Duration;
 
 static std::string AFLShowmapPath;
 static bool        TargetArgsHasAtAt = false;
+static bool        KeepTraces = false;
 
 static const auto ErrMsg = [] {
 
@@ -185,18 +187,12 @@ static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov) {
 
   Optional<StringRef> Redirects[] = {None, None, None};
 
-  // Create temporary output file
-  SmallString<32> OutputPath;
-  if (const auto EC = sys::fs::createTemporaryFile("showmap", "txt", OutputPath)) {
-
-      return createStringError(
-          EC, "Failed to create temporary file for afl-showmap output");
-
-  }
+  SmallString<32> TracePath{OutputDir};
+  sys::path::append(TracePath, ".traces", sys::path::filename(Seed));
 
   // Prepare afl-showmap arguments
   SmallVector<StringRef, 12> AFLShowmapArgs{
-      AFLShowmapPath, "-m", MemLimit, "-t", Timeout, "-q", "-o", OutputPath};
+      AFLShowmapPath, "-m", MemLimit, "-t", Timeout, "-q", "-o", TracePath};
 
   if (TargetArgsHasAtAt)
     AFLShowmapArgs.append({"-A", Seed});
@@ -217,12 +213,12 @@ static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov) {
     return createStringError(inconvertibleErrorCode(), "afl-showmap failed");
 
   // Parse afl-showmap output
-  const auto CovOrErr = MemoryBuffer::getFile(OutputPath);
+  const auto CovOrErr = MemoryBuffer::getFile(TracePath);
   if (const auto EC = CovOrErr.getError()) {
 
-    sys::fs::remove(OutputPath);
+    sys::fs::remove(TracePath);
     return createStringError(EC, "Failed to read afl-showmap output file `%s`",
-                             OutputPath.c_str());
+                             TracePath.c_str());
 
   }
 
@@ -242,7 +238,7 @@ static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov) {
 
   }
 
-  sys::fs::remove(OutputPath);
+  if (!KeepTraces) sys::fs::remove(TracePath);
   return Error::success();
 
 }
@@ -277,20 +273,15 @@ int main(int argc, char *argv[]) {
   std::error_code EC;
 
   // ------------------------------------------------------------------------ //
-  // Parse command-line options
+  // Parse command-line options and environment variables
   //
   // Also check the target arguments, as this determines how we run afl-showmap.
   // ------------------------------------------------------------------------ //
 
   cl::ParseCommandLineOptions(argc, argv, "Optimal corpus minimizer");
 
-  if ((EC = sys::fs::create_directory(OutputDir))) {
-
-    ErrMsg() << "Invalid output directory `" << OutputDir
-             << "`: " << EC.message() << '\n';
-    return 1;
-
-  }
+  KeepTraces = !!std::getenv("AFL_KEEP_TRACES");
+  const auto AFLPath = std::getenv("AFL_PATH");
 
   for (const auto &Arg : TargetArgs)
     if (Arg == "@@") TargetArgsHasAtAt = true;
@@ -299,7 +290,13 @@ int main(int argc, char *argv[]) {
   // Find afl-showmap
   // ------------------------------------------------------------------------ //
 
-  const auto AFLShowmapOrErr = sys::findProgramByName("afl-showmap");
+  SmallVector<StringRef, 16> EnvPaths;
+
+  if (const char *PathEnv = std::getenv("PATH"))
+    SplitString(PathEnv, EnvPaths, ":");
+  if (AFLPath) EnvPaths.push_back(AFLPath);
+
+  const auto AFLShowmapOrErr = sys::findProgramByName("afl-showmap", EnvPaths);
   if (AFLShowmapOrErr.getError()) {
 
     ErrMsg() << "Failed to find afl-showmap. Check your PATH\n";
@@ -333,6 +330,29 @@ int main(int argc, char *argv[]) {
     GetWeights(*WeightsOrErr.get(), Weights);
 
     EndTimer(/*ShowProgBar=*/false);
+
+  }
+
+  // ------------------------------------------------------------------------ //
+  // Setup output directory
+  // ------------------------------------------------------------------------ //
+
+  SmallString<32> TraceDir{OutputDir};
+  sys::path::append(TraceDir, ".traces");
+
+  if ((EC = sys::fs::remove_directories(TraceDir))) {
+
+    ErrMsg() << "Failed to remove existing trace directory in `" << OutputDir
+             << "`: " << EC.message() << '\n';
+    return 1;
+
+  }
+
+  if ((EC = sys::fs::create_directories(TraceDir))) {
+
+    ErrMsg() << "Failed to create output directory `" << OutputDir << "`: "
+             << EC.message() << '\n';
+    return 1;
 
   }
 
