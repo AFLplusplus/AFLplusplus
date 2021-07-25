@@ -5249,7 +5249,6 @@ pacemaker_fuzzing:
         }
 
         afl->temp_puppet_find = afl->total_puppet_find;
-        u64 temp_stage_finds_puppet = 0;
         for (i = 0; i < operator_num; ++i) {
 
           if (MOpt_globals.is_pilot_mode) {
@@ -5275,7 +5274,6 @@ pacemaker_fuzzing:
 
           MOpt_globals.finds[i] = MOpt_globals.finds_v2[i];
           MOpt_globals.cycles[i] = MOpt_globals.cycles_v2[i];
-          temp_stage_finds_puppet += MOpt_globals.finds[i];
 
         }                                    /* for i = 0; i < operator_num */
 
@@ -5337,7 +5335,6 @@ pacemaker_fuzzing:
                 afl->core_operator_finds_puppet_v2[i];
             afl->core_operator_cycles_puppet[i] =
                 afl->core_operator_cycles_puppet_v2[i];
-            temp_stage_finds_puppet += afl->core_operator_finds_puppet[i];
 
           }
 
