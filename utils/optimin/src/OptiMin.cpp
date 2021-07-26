@@ -212,8 +212,13 @@ static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov,
   // Run afl-showmap
   const int RC = sys::ExecuteAndWait(AFLShowmapPath, AFLShowmapArgs,
                                      /*env=*/None, Redirects);
-  if (RC)
+  if (RC && !CrashMode) {
+
+    ErrMsg() << "Exit code " << RC << " != 0 received from afl-showmap";
+    sys::fs::remove(TracePath);
     return createStringError(inconvertibleErrorCode(), "afl-showmap failed");
+
+  }
 
   // Parse afl-showmap output
   const auto CovOrErr = MemoryBuffer::getFile(TracePath);
@@ -287,6 +292,8 @@ int main(int argc, char *argv[]) {
   SkipBinCheck = !!std::getenv("AFL_SKIP_BIN_CHECK");
   const auto AFLPath = std::getenv("AFL_PATH");
 
+  if (CrashMode) ::setenv("AFL_CMIN_CRASHES_ONLY", "1", /*overwrite=*/true);
+
   for (const auto &Arg : TargetArgs)
     if (Arg == "@@") TargetArgsHasAtAt = true;
 
@@ -354,8 +361,8 @@ int main(int argc, char *argv[]) {
 
   if ((EC = sys::fs::create_directories(TraceDir))) {
 
-    ErrMsg() << "Failed to create output directory `" << OutputDir << "`: "
-             << EC.message() << '\n';
+    ErrMsg() << "Failed to create output directory `" << OutputDir
+             << "`: " << EC.message() << '\n';
     return 1;
 
   }
@@ -421,7 +428,8 @@ int main(int argc, char *argv[]) {
 
     if (auto Err = getAFLCoverage(SeedFiles.front(), Cov, /*BinCheck=*/true)) {
 
-      ErrMsg() << "No instrumentation output detected (perhaps crash or timeout)";
+      ErrMsg()
+          << "No instrumentation output detected (perhaps crash or timeout)";
       return 1;
 
     }
@@ -456,8 +464,8 @@ int main(int argc, char *argv[]) {
     Cov.clear();
     if (auto Err = getAFLCoverage(SeedFile, Cov)) {
 
-      ErrMsg() << "Failed to get coverage for seed `" << SeedFile << "`: "
-               << Err << '\n';
+      ErrMsg() << "Failed to get coverage for seed `" << SeedFile
+               << "`: " << Err << '\n';
       return 1;
 
     }
