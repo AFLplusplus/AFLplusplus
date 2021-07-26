@@ -168,7 +168,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
     fprintf(stderr,
             "\nError: GrammaTron needs an automation json file set in "
-            "AFL_GRAMATRON_AUTOMATON\n");
+            "GRAMATRON_AUTOMATION\n");
     exit(-1);
 
   }

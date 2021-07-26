@@ -49,6 +49,13 @@ if [ ! -f "../../config.h" ]; then
 
 fi
 
+if [ ! -f "../../src/afl-performance.o" ]; then
+
+  echo "[-] Error: you must build afl-fuzz first and not do a \"make clean\""
+  exit 1
+
+fi
+
 PYTHONBIN=`command -v python3 || command -v python || command -v python2 || echo python3`
 MAKECMD=make
 TARCMD=tar
@@ -121,20 +128,22 @@ fi
 test -d json-c || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got json-c."
 
-cd "json-c" || exit 1
-echo "[*] Checking out $JSONC_VERSION"
-sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
-git checkout "$JSONC_VERSION" || exit 1
-sh autogen.sh || exit 1
-export CFLAGS=-fPIC
-./configure --disable-shared || exit 1
-make || exit 1
-cd ..
+test -e json-c/.libs/libjson-c.a || {
+  cd "json-c" || exit 1
+  echo "[*] Checking out $JSONC_VERSION"
+  sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
+  git checkout "$JSONC_VERSION" || exit 1
+  sh autogen.sh || exit 1
+  export CFLAGS=-fPIC
+  ./configure --disable-shared || exit 1
+  make || exit 1
+  cd ..
+}
 
 echo
 echo
 echo "[+] Json-c successfully prepared!"
 echo "[+] Builing gramatron now."
-$CC -O3 -g -fPIC -Wno-unused-result -Wl,--allow-multiple-definition -I../../include -o gramatron.so -shared -I. -I/prg/dev/include gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c json-c/.libs/libjson-c.a || exit 1
+$CC -O3 -g -fPIC -Wno-unused-result -Wl,--allow-multiple-definition -I../../include -o gramatron.so -shared -I. -I/prg/dev/include gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c ../../src/afl-performance.o json-c/.libs/libjson-c.a || exit 1
 echo
 echo "[+] gramatron successfully built!"
