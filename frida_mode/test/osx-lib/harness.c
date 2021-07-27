@@ -17,8 +17,9 @@ int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size){
     return 0;
 }
 
-void run (int argc, const char * argv[])
+int main(int argc, const char * argv[])
 {
+
     for (int i = 1; i < argc; i++) {
         fprintf(stderr, "Running: %s\n", argv[i]);
         FILE *f = fopen(argv[i], "r");
@@ -34,20 +35,22 @@ void run (int argc, const char * argv[])
         free(buf);
         fprintf(stderr, "Done:    %s: (%zd bytes)\n", argv[i], n_read);
     }
+
+    return 0;
 }
 
-static int load()
-{
+__attribute__((constructor()))
+void constructor(void) {
     // handles to required libs
     void *dylib = NULL;
 
-    dylib = dlopen("./libcrashme.dylib", RTLD_LAZY);
+    dylib = dlopen("./libcrashme.dylib", RTLD_NOW);
     if (dylib == NULL)
     {
 
         printf("[-] Failed to load lib\n");
         printf("[-] Dlerror: %s\n", dlerror());
-        return 1;
+        exit(1);
 
     }
 
@@ -58,20 +61,9 @@ static int load()
     {
 
         printf("[-] Failed to find function\n");
-        return 1;
+        exit(1);
 
     }
 
     printf("[+] Found function.\n");
-    return 0;
-}
-
-int main(int argc, const char * argv[])
-{
-
-    if (load() != 0) { return 1; }
-
-    run(argc, argv);
-
-    return 0;
 }
