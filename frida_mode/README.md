@@ -300,6 +300,18 @@ to validate memory accesses against the shadow memory.
 FRIDA mode has also introduced some improvements to reduce collisions in the map.
 See [here](MapDensity.md) for details.
 
+# OSX Library Fuzzing
+An example of how to fuzz a dynamic library on OSX is included [here](test/osx-lib).
+This requires the use of a simple test harness executable which will load the
+library and call a target function within it. The dependent library can either
+be loaded in using `dlopen` and `dlsym` in a function marked
+`__attribute__((constructor()))` or the test harness can simply be linked
+against it. It is important that the target library is loaded before execution
+of `main`, since this is the point that FRIDA mode is initialized. Otherwise, it
+will not be possible to configure coverage for the test library using
+`AFL_FRIDA_INST_RANGES` or similar.
+
+
 ## TODO
 
 The next features to be added are Aarch32 support as well as looking at
