@@ -64,7 +64,10 @@ using AFLTuple = std::pair<AFLTupleID, /* Frequency */ unsigned>;
 /// Coverage for a given seed file
 using AFLCoverageVector = std::vector<AFLTuple>;
 
-/// Maps seed file paths to a weight
+/// Map seed file paths to its coverage vector
+using AFLCoverageMap = StringMap<AFLCoverageVector>;
+
+/// Map seed file paths to a weight
 using WeightsMap = StringMap<Weight>;
 
 /// A seed identifier in the MaxSAT solver
@@ -88,6 +91,9 @@ using MaxSATCoverageMap = DenseMap<AFLTupleID, MaxSATSeedSet>;
 // `afl-showmap.c`
 static constexpr uint32_t MAX_EDGE_FREQ = 8;
 
+// The maximum number of failures allowed when parsing a weights file
+static constexpr unsigned MAX_WEIGHT_FAILURES = 5;
+
 static sys::TimePoint<>     StartTime, EndTime;
 static std::chrono::seconds Duration;
 
@@ -98,30 +104,30 @@ static bool        SkipBinCheck = false;
 
 static const auto ErrMsg = [] {
 
-  return WithColor(errs(), HighlightColor::Error) << "[-] ";
+  return WithColor(errs(), raw_ostream::RED, /*Bold=*/true) << "[-] ";
 
 };
 
 static const auto WarnMsg = [] {
 
-  return WithColor(errs(), HighlightColor::Warning) << "[-] ";
+  return WithColor(errs(), raw_ostream::MAGENTA, /*Bold=*/true) << "[-] ";
 
 };
 
 static const auto SuccMsg = [] {
 
-  return WithColor(outs(), HighlightColor::String) << "[+] ";
+  return WithColor(outs(), raw_ostream::GREEN, /*Bold=*/true) << "[+] ";
 
 };
 
 static const auto StatMsg = [] {
 
-  return WithColor(outs(), HighlightColor::Remark) << "[*] ";
+  return WithColor(outs(), raw_ostream::BLUE, /*Bold=*/true) << "[*] ";
 
 };
 
-static cl::opt<std::string> CorpusDir("i", cl::desc("Input directory"),
-                                      cl::value_desc("dir"), cl::Required);
+static cl::opt<std::string> InputDir("i", cl::desc("Input directory"),
+                                     cl::value_desc("dir"), cl::Required);
 static cl::opt<std::string> OutputDir("o", cl::desc("Output directory"),
                                       cl::value_desc("dir"), cl::Required);
 
@@ -164,6 +170,7 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
   SmallVector<StringRef, 0> Lines;
   MB.getBuffer().trim().split(Lines, '\n');
 
+  unsigned FailureCount = 0;
   unsigned Weight = 0;
 
   for (const auto &Line : Lines) {
@@ -176,7 +183,13 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
 
     } else {
 
-      WarnMsg() << "Failed to read weight for `" << Seed << "`. Skipping...\n";
+      if (FailureCount >= MAX_WEIGHT_FAILURES) {
+        ErrMsg() << "Too many failures. Aborting\n";
+        std::exit(1);
+      }
+
+      WarnMsg() << "Failed to read weight for '" << Seed << "'. Skipping...\n";
+      FailureCount++;
 
     }
 
@@ -184,51 +197,10 @@ static void GetWeights(const MemoryBuffer &MB, WeightsMap &Weights) {
 
 }
 
-static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov,
-                            bool BinCheck = false) {
+static std::error_code readCov(const StringRef Trace, AFLCoverageVector &Cov) {
 
-  Optional<StringRef> Redirects[] = {None, None, None};
-
-  SmallString<32> TracePath{OutputDir};
-  StringRef TraceName = BinCheck ? ".run_test" : sys::path::filename(Seed);
-  sys::path::append(TracePath, ".traces", TraceName);
-
-  // Prepare afl-showmap arguments
-  SmallVector<StringRef, 12> AFLShowmapArgs{
-      AFLShowmapPath, "-m", MemLimit, "-t", Timeout, "-q", "-o", TracePath};
-
-  if (TargetArgsHasAtAt)
-    AFLShowmapArgs.append({"-A", Seed});
-  else
-    Redirects[/* stdin */ 0] = Seed;
-
-  if (FridaMode) AFLShowmapArgs.push_back("-O");
-  if (QemuMode) AFLShowmapArgs.push_back("-Q");
-  if (UnicornMode) AFLShowmapArgs.push_back("-U");
-
-  AFLShowmapArgs.append({"--", TargetProg});
-  AFLShowmapArgs.append(TargetArgs.begin(), TargetArgs.end());
-
-  // Run afl-showmap
-  const int RC = sys::ExecuteAndWait(AFLShowmapPath, AFLShowmapArgs,
-                                     /*env=*/None, Redirects);
-  if (RC && !CrashMode) {
-
-    ErrMsg() << "Exit code " << RC << " != 0 received from afl-showmap";
-    sys::fs::remove(TracePath);
-    return createStringError(inconvertibleErrorCode(), "afl-showmap failed");
-
-  }
-
-  // Parse afl-showmap output
-  const auto CovOrErr = MemoryBuffer::getFile(TracePath);
-  if (const auto EC = CovOrErr.getError()) {
-
-    sys::fs::remove(TracePath);
-    return createStringError(EC, "Failed to read afl-showmap output file `%s`",
-                             TracePath.c_str());
-
-  }
+  const auto CovOrErr = MemoryBuffer::getFile(Trace);
+  if (const auto EC = CovOrErr.getError()) return EC;
 
   SmallVector<StringRef, 0> Lines;
   CovOrErr.get()->getBuffer().trim().split(Lines, '\n');
@@ -246,7 +218,86 @@ static Error getAFLCoverage(const StringRef Seed, AFLCoverageVector &Cov,
 
   }
 
-  if (!KeepTraces || BinCheck) sys::fs::remove(TracePath);
+  return std::error_code();
+
+}
+
+static Error runShowmap(AFLCoverageMap &CovMap) {
+
+  Optional<StringRef> Redirects[] = {None, None, None};
+
+  SmallString<32> TraceDir{OutputDir};
+  sys::path::append(TraceDir, ".traces");
+
+  SmallString<32> StdinFile{TraceDir};
+  sys::path::append(StdinFile, ".cur_input");
+
+  // Prepare afl-showmap arguments
+  SmallVector<StringRef, 12> AFLShowmapArgs{
+      AFLShowmapPath, "-m", MemLimit, "-t", Timeout,
+      "-q",           "-i", InputDir, "-o", TraceDir};
+
+  if (TargetArgsHasAtAt) {
+
+    AFLShowmapArgs.append({"-A", StdinFile});
+    Redirects[/* stdin */ 0] = "/dev/null";
+
+  }
+
+  if (FridaMode) AFLShowmapArgs.push_back("-O");
+  if (QemuMode) AFLShowmapArgs.push_back("-Q");
+  if (UnicornMode) AFLShowmapArgs.push_back("-U");
+
+  AFLShowmapArgs.append({"--", TargetProg});
+  AFLShowmapArgs.append(TargetArgs.begin(), TargetArgs.end());
+
+  // Run afl-showmap
+  const int RC = sys::ExecuteAndWait(AFLShowmapPath, AFLShowmapArgs,
+                                     /*env=*/None, Redirects);
+  if (RC && !CrashMode) {
+
+    ErrMsg() << "Exit code " << RC << " != 0 received from afl-showmap\n";
+    sys::fs::remove_directories(TraceDir);
+    return createStringError(inconvertibleErrorCode(), "afl-showmap failed");
+
+  }
+
+  // Parse afl-showmap output
+  AFLCoverageVector    Cov;
+  std::error_code      EC;
+  sys::fs::file_status Status;
+
+  for (sys::fs::recursive_directory_iterator Dir(TraceDir, EC), DirEnd;
+       Dir != DirEnd && !EC; Dir.increment(EC)) {
+
+    if (EC) return errorCodeToError(EC);
+
+    const auto &Path = Dir->path();
+    if ((EC = sys::fs::status(Path, Status))) return errorCodeToError(EC);
+
+    switch (Status.type()) {
+
+      case sys::fs::file_type::regular_file:
+      case sys::fs::file_type::symlink_file:
+      case sys::fs::file_type::type_unknown:
+        Cov.clear();
+        if ((EC = readCov(Path, Cov))) {
+
+          sys::fs::remove(Path);
+          return errorCodeToError(EC);
+
+        }
+
+        CovMap.try_emplace(sys::path::filename(Path), Cov);
+      default:
+        /* Ignore */
+        break;
+
+    }
+
+  }
+
+  if (!KeepTraces) sys::fs::remove_directories(TraceDir);
   return Error::success();
 
 }
@@ -326,14 +377,14 @@ int main(int argc, char *argv[]) {
 
   if (WeightsFile != "") {
 
-    StatMsg() << "Reading weights from `" << WeightsFile << "`... ";
+    StatMsg() << "Reading weights from '" << WeightsFile << "'... ";
     StartTimer(/*ShowProgBar=*/false);
 
     const auto WeightsOrErr = MemoryBuffer::getFile(WeightsFile);
     if ((EC = WeightsOrErr.getError())) {
 
-      ErrMsg() << "Failed to read weights from `" << WeightsFile
-               << "`: " << EC.message() << '\n';
+      ErrMsg() << "Failed to read weights from '" << WeightsFile
+               << "': " << EC.message() << '\n';
       return 1;
 
     }
@@ -341,6 +392,71 @@ int main(int argc, char *argv[]) {
     GetWeights(*WeightsOrErr.get(), Weights);
 
     EndTimer(/*ShowProgBar=*/false);
+
+  }
+
+  // ------------------------------------------------------------------------ //
+  // Traverse input directory
+  //
+  // Find the seed files inside this directory (and subdirectories).
+  // ------------------------------------------------------------------------ //
+
+  StatMsg() << "Locating seeds in '" << InputDir << "'... ";
+  StartTimer(/*ShowProgBar=*/false);
+
+  bool IsDirResult;
+  if ((EC = sys::fs::is_directory(InputDir, IsDirResult))) {
+
+    ErrMsg() << "Invalid input directory '" << InputDir
+             << "': " << EC.message() << '\n';
+    return 1;
+
+  }
+
+  sys::fs::file_status Status;
+  StringMap<std::string> SeedFiles;
+
+  for (sys::fs::recursive_directory_iterator Dir(InputDir, EC), DirEnd;
+       Dir != DirEnd && !EC; Dir.increment(EC)) {
+
+    if (EC) {
+
+      ErrMsg() << "Failed to traverse input directory '" << InputDir
+               << "': " << EC.message() << '\n';
+      return 1;
+
+    }
+
+    const auto &Path = Dir->path();
+    if ((EC = sys::fs::status(Path, Status))) {
+
+      ErrMsg() << "Failed to access '" << Path << "': " << EC.message()
+               << '\n';
+      return 1;
+
+    }
+
+    switch (Status.type()) {
+
+    case sys::fs::file_type::regular_file:
+    case sys::fs::file_type::symlink_file:
+    case sys::fs::file_type::type_unknown:
+      SeedFiles.try_emplace(sys::path::filename(Path),
+                            sys::path::parent_path(Path));
+    default:
+      /* Ignore */
+      break;
+
+    }
+
+  }
+
+  EndTimer(/*ShowProgBar=*/false);
+
+  if (SeedFiles.empty()) {
+
+    ErrMsg() << "Failed to find any seed files in '" << InputDir << "'\n";
+    return 1;
 
   }
 
@@ -353,67 +469,19 @@ int main(int argc, char *argv[]) {
 
   if ((EC = sys::fs::remove_directories(TraceDir))) {
 
-    ErrMsg() << "Failed to remove existing trace directory in `" << OutputDir
-             << "`: " << EC.message() << '\n';
+    ErrMsg() << "Failed to remove existing trace directory in '" << OutputDir
+             << "': " << EC.message() << '\n';
     return 1;
 
   }
 
   if ((EC = sys::fs::create_directories(TraceDir))) {
 
-    ErrMsg() << "Failed to create output directory `" << OutputDir
-             << "`: " << EC.message() << '\n';
+    ErrMsg() << "Failed to create output directory '" << OutputDir
+             << "': " << EC.message() << '\n';
     return 1;
 
   }
-
-  // ------------------------------------------------------------------------ //
-  // Traverse corpus directory
-  //
-  // Find the seed files inside this directory.
-  // ------------------------------------------------------------------------ //
-
-  StatMsg() << "Locating seeds in `" << CorpusDir << "`... ";
-  StartTimer(/*ShowProgBar=*/false);
-
-  std::vector<std::string> SeedFiles;
-  sys::fs::file_status     Status;
-
-  for (sys::fs::recursive_directory_iterator Dir(CorpusDir, EC), DirEnd;
-       Dir != DirEnd && !EC; Dir.increment(EC)) {
-
-    if (EC) {
-
-      ErrMsg() << "Failed to traverse corpus directory `" << CorpusDir
-               << "`: " << EC.message() << '\n';
-      return 1;
-
-    }
-
-    const auto &Path = Dir->path();
-    if ((EC = sys::fs::status(Path, Status))) {
-
-      WarnMsg() << "Failed to access seed file `" << Path
-                << "`: " << EC.message() << ". Skipping...\n";
-      continue;
-
-    }
-
-    switch (Status.type()) {
-
-      case sys::fs::file_type::regular_file:
-      case sys::fs::file_type::symlink_file:
-      case sys::fs::file_type::type_unknown:
-        SeedFiles.push_back(Path);
-      default:
-        /* Ignore */
-        break;
-
-    }
-
-  }
-
-  EndTimer(/*ShowProgBar=*/false);
 
   // ------------------------------------------------------------------------ //
   // Test the target binary
@@ -421,18 +489,19 @@ int main(int argc, char *argv[]) {
 
   AFLCoverageVector Cov;
 
-  if (!SkipBinCheck && SeedFiles.size() > 0) {
+  if (!SkipBinCheck) {
 
     StatMsg() << "Testing the target binary... ";
     StartTimer(/*ShowProgBar=*/false);
 
-    if (auto Err = getAFLCoverage(SeedFiles.front(), Cov, /*BinCheck=*/true)) {
-
-      ErrMsg()
-          << "No instrumentation output detected (perhaps crash or timeout)";
-      return 1;
-
-    }
+    //    if (auto Err = runShowmap(TestSeed, Cov, /*BinCheck=*/true)) {
+    //
+    //      ErrMsg()
+    //          << "No instrumentation output detected (perhaps crash or
+    //          timeout)";
+    //      return 1;
+    //
+    //    }
 
     EndTimer(/*ShowProgBar=*/false);
     SuccMsg() << "OK, " << Cov.size() << " tuples recorded\n";
@@ -447,35 +516,28 @@ int main(int argc, char *argv[]) {
   // then store this coverage information in the appropriate data structures.
   // ------------------------------------------------------------------------ //
 
-  size_t       SeedCount = 0;
-  const size_t NumSeeds = SeedFiles.size();
+  StatMsg() << "Running afl-showmap on " << SeedFiles.size() << " seeds...\n";
+  StartTimer(/*ShowProgBar=*/false);
 
-  if (!ShowProgBar)
-    StatMsg() << "Generating coverage for " << NumSeeds << " seeds... ";
-  StartTimer(ShowProgBar);
-
-  EvalMaxSAT        Solver(/*nbMinimizeThread=*/0);
+  AFLCoverageMap    CovMap;
   MaxSATSeeds       SeedVars;
   MaxSATCoverageMap SeedCoverage;
+  EvalMaxSAT        Solver(/*nbMinimizeThread=*/0);
 
-  for (const auto &SeedFile : SeedFiles) {
+  if (auto Err = runShowmap(CovMap)) {
 
-    // Execute seed
-    Cov.clear();
-    if (auto Err = getAFLCoverage(SeedFile, Cov)) {
+    ErrMsg() << "Failed to generate coverage: " << Err << '\n';
+    return 1;
 
-      ErrMsg() << "Failed to get coverage for seed `" << SeedFile
-               << "`: " << Err << '\n';
-      return 1;
+  }
 
-    }
-
+  for (const auto &SeedCov : CovMap) {
     // Create a variable to represent the seed
     const SeedID Var = Solver.newVar();
-    SeedVars.push_back({Var, SeedFile});
+    SeedVars.emplace_back(Var, SeedCov.first());
 
     // Record the set of seeds that cover a particular edge
-    for (const auto &[Edge, Freq] : Cov) {
+    for (auto &[Edge, Freq] : SeedCov.second) {
 
       if (EdgesOnly) {
 
@@ -492,12 +554,10 @@ int main(int argc, char *argv[]) {
 
     }
 
-    if ((++SeedCount % 10 == 0) && ShowProgBar)
-      ProgBar.update(SeedCount * 100 / NumSeeds, "Generating seed coverage");
-
   }
 
-  EndTimer(ShowProgBar);
+  SuccMsg() << "afl-showmap completed in ";
+  EndTimer(/*ShowProgBar=*/false);
 
   // ------------------------------------------------------------------------ //
   // Set the hard and soft constraints in the solver
@@ -506,7 +566,7 @@ int main(int argc, char *argv[]) {
   if (!ShowProgBar) StatMsg() << "Generating constraints... ";
   StartTimer(ShowProgBar);
 
-  SeedCount = 0;
+  size_t SeedCount = 0;
 
   // Ensure that at least one seed is selected that covers a particular edge
   // (hard constraint)
@@ -552,7 +612,7 @@ int main(int argc, char *argv[]) {
   // ------------------------------------------------------------------------ //
 
   SmallVector<StringRef, 64> Solution;
-  SmallString<32>            OutputSeed;
+  SmallString<32>            InputSeed, OutputSeed;
 
   if (Solved) {
 
@@ -561,28 +621,31 @@ int main(int argc, char *argv[]) {
 
   } else {
 
-    ErrMsg() << "Failed to find an optimal solution for `" << CorpusDir
-             << "`\n";
+    ErrMsg() << "Failed to find an optimal solution for '" << InputDir << "'\n";
     return 1;
 
   }
 
   SuccMsg() << "Minimized corpus size: " << Solution.size() << " seeds\n";
 
-  if (!ShowProgBar) StatMsg() << "Copying to `" << OutputDir << "`... ";
+  if (!ShowProgBar) StatMsg() << "Copying to '" << OutputDir << "'... ";
   StartTimer(ShowProgBar);
 
   SeedCount = 0;
 
   for (const auto &Seed : Solution) {
 
+    InputSeed = SeedFiles[Seed];
+    sys::path::append(InputSeed, Seed);
+
     OutputSeed = OutputDir;
-    sys::path::append(OutputSeed, sys::path::filename(Seed));
+    sys::path::append(OutputSeed, Seed);
 
-    if ((EC = sys::fs::copy_file(Seed, OutputSeed))) {
+    if ((EC = sys::fs::copy_file(InputSeed, OutputSeed))) {
 
-      WarnMsg() << "Failed to copy `" << Seed << "` to `" << OutputDir
-                << "`: " << EC.message() << '\n';
+      ErrMsg() << "Failed to copy '" << Seed << "' to '" << OutputDir
+               << "': " << EC.message() << '\n';
+      return 1;
 
     }
 
