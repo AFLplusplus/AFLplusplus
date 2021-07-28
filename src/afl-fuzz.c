@@ -339,7 +339,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
   char * separator = strchr(afl_preload, ':');
   size_t first_preload_len = PATH_MAX;
   char * basename;
-  char   clang_runtime_prefix[] = "libclang_rt.asan-";
+  char   clang_runtime_prefix[] = "libclang_rt.asan";
 
   if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
 
