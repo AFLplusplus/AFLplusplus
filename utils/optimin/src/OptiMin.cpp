@@ -23,7 +23,6 @@
 #include <llvm/Support/WithColor.h>
 
 #include "EvalMaxSAT.h"
-#include "ProgressBar.h"
 
 using namespace llvm;
 
@@ -131,7 +130,6 @@ static cl::opt<std::string> InputDir("i", cl::desc("Input directory"),
 static cl::opt<std::string> OutputDir("o", cl::desc("Output directory"),
                                       cl::value_desc("dir"), cl::Required);
 
-static cl::opt<bool>        ShowProgBar("p", cl::desc("Display progress bar"));
 static cl::opt<bool>        EdgesOnly("f", cl::desc("Include edge hit counts"),
                                cl::init(true));
 static cl::opt<std::string> WeightsFile("w", cl::desc("Weights file"),
@@ -302,22 +300,19 @@ static Error runShowmap(AFLCoverageMap &CovMap) {
 
 }
 
-static inline void StartTimer(bool ShowProgBar) {
+static inline void StartTimer() {
 
   StartTime = std::chrono::system_clock::now();
 
 }
 
-static inline void EndTimer(bool ShowProgBar) {
+static inline void EndTimer() {
 
   EndTime = std::chrono::system_clock::now();
   Duration =
       std::chrono::duration_cast<std::chrono::seconds>(EndTime - StartTime);
 
-  if (ShowProgBar)
-    outs() << '\n';
-  else
-    outs() << Duration.count() << "s\n";
+  SuccMsg() << "  Completed in " << Duration.count() << " s\n";
 
 }
 
@@ -328,7 +323,6 @@ static inline void EndTimer(bool ShowProgBar) {
 int main(int argc, char *argv[]) {
 
   WeightsMap      Weights;
-  ProgressBar     ProgBar;
   std::error_code EC;
 
   // ------------------------------------------------------------------------ //
@@ -377,8 +371,8 @@ int main(int argc, char *argv[]) {
 
   if (WeightsFile != "") {
 
-    StatMsg() << "Reading weights from '" << WeightsFile << "'... ";
-    StartTimer(/*ShowProgBar=*/false);
+    StatMsg() << "Reading weights from '" << WeightsFile << "'...\n";
+    StartTimer();
 
     const auto WeightsOrErr = MemoryBuffer::getFile(WeightsFile);
     if ((EC = WeightsOrErr.getError())) {
@@ -391,7 +385,7 @@ int main(int argc, char *argv[]) {
 
     GetWeights(*WeightsOrErr.get(), Weights);
 
-    EndTimer(/*ShowProgBar=*/false);
+    EndTimer();
 
   }
 
@@ -401,8 +395,8 @@ int main(int argc, char *argv[]) {
   // Find the seed files inside this directory (and subdirectories).
   // ------------------------------------------------------------------------ //
 
-  StatMsg() << "Locating seeds in '" << InputDir << "'... ";
-  StartTimer(/*ShowProgBar=*/false);
+  StatMsg() << "Locating seeds in '" << InputDir << "'...\n";
+  StartTimer();
 
   bool IsDirResult;
   if ((EC = sys::fs::is_directory(InputDir, IsDirResult))) {
@@ -451,7 +445,7 @@ int main(int argc, char *argv[]) {
 
   }
 
-  EndTimer(/*ShowProgBar=*/false);
+  EndTimer();
 
   if (SeedFiles.empty()) {
 
@@ -491,8 +485,8 @@ int main(int argc, char *argv[]) {
 
   if (!SkipBinCheck) {
 
-    StatMsg() << "Testing the target binary... ";
-    StartTimer(/*ShowProgBar=*/false);
+    StatMsg() << "Testing the target binary...\n";
+    StartTimer();
 
     //    if (auto Err = runShowmap(TestSeed, Cov, /*BinCheck=*/true)) {
     //
@@ -503,7 +497,7 @@ int main(int argc, char *argv[]) {
     //
     //    }
 
-    EndTimer(/*ShowProgBar=*/false);
+    EndTimer();
     SuccMsg() << "OK, " << Cov.size() << " tuples recorded\n";
 
   }
@@ -517,7 +511,7 @@ int main(int argc, char *argv[]) {
   // ------------------------------------------------------------------------ //
 
   StatMsg() << "Running afl-showmap on " << SeedFiles.size() << " seeds...\n";
-  StartTimer(/*ShowProgBar=*/false);
+  StartTimer();
 
   AFLCoverageMap    CovMap;
   MaxSATSeeds       SeedVars;
@@ -557,14 +551,14 @@ int main(int argc, char *argv[]) {
   }
 
   SuccMsg() << "afl-showmap completed in ";
-  EndTimer(/*ShowProgBar=*/false);
+  EndTimer();
 
   // ------------------------------------------------------------------------ //
   // Set the hard and soft constraints in the solver
   // ------------------------------------------------------------------------ //
 
-  if (!ShowProgBar) StatMsg() << "Generating constraints... ";
-  StartTimer(ShowProgBar);
+  StatMsg() << "Generating constraints...\n";
+  StartTimer();
 
   size_t SeedCount = 0;
 
@@ -581,10 +575,6 @@ int main(int argc, char *argv[]) {
 
     Solver.addClause(Clauses);
 
-    if ((++SeedCount % 10 == 0) && ShowProgBar)
-      ProgBar.update(SeedCount * 100 / SeedCoverage.size(),
-                     "Generating clauses");
-
   }
 
   // Select the minimum number of seeds that cover a particular set of edges
@@ -592,18 +582,18 @@ int main(int argc, char *argv[]) {
   for (const auto &[Var, Seed] : SeedVars)
     Solver.addWeightedClause({-Var}, Weights[sys::path::filename(Seed)]);
 
-  EndTimer(ShowProgBar);
+  EndTimer();
 
   // ------------------------------------------------------------------------ //
   // Generate a solution
   // ------------------------------------------------------------------------ //
 
-  StatMsg() << "Solving... ";
-  StartTimer(/*ShowProgBar=*/false);
+  StatMsg() << "Solving...\n";
+  StartTimer();
 
   const bool Solved = Solver.solve();
 
-  EndTimer(/*ShowProgBar=*/false);
+  EndTimer();
 
   // ------------------------------------------------------------------------ //
   // Save the solution
@@ -626,10 +616,9 @@ int main(int argc, char *argv[]) {
 
   }
 
-  SuccMsg() << "Minimized corpus size: " << Solution.size() << " seeds\n";
-
-  if (!ShowProgBar) StatMsg() << "Copying to '" << OutputDir << "'... ";
-  StartTimer(ShowProgBar);
+  StatMsg() << "Copying " << Solution.size() << " seeds to '"
+            << OutputDir << "'...\n";
+  StartTimer();
 
   SeedCount = 0;
 
@@ -649,12 +638,9 @@ int main(int argc, char *argv[]) {
 
     }
 
-    if ((++SeedCount % 10 == 0) && ShowProgBar)
-      ProgBar.update(SeedCount * 100 / Solution.size(), "Copying seeds");
-
   }
 
-  EndTimer(ShowProgBar);
+  EndTimer();
   SuccMsg() << "Done!\n";
 
   return 0;
