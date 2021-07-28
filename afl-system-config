@@ -101,9 +101,10 @@ if [ "$PLATFORM" = "NetBSD" ] ; then
   DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
-  sysctl kern.sysv.shmmax=8388608
+  sysctl kern.sysv.shmmax=524288000
+  sysctl kern.sysv.shmmin=1
   sysctl kern.sysv.shmseg=48
-  sysctl kern.sysv.shmall=98304
+  sysctl kern.sysv.shmall=131072000
   echo Settings applied.
   echo
   if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then
