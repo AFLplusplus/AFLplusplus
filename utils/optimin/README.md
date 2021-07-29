@@ -32,13 +32,15 @@ Color Options:
 General options:
 
   -C          - Keep crashing inputs, reject everything else
-  -Q          - Use binary-only instrumentation
+  -O          - Use binary-only instrumentation (FRIDA mode)
+  -Q          - Use binary-only instrumentation (QEMU mode)
+  -U          - Use unicorn-based instrumentation (unicorn mode)
   -f          - Include edge hit counts
   -i dir      - Input directory
   -m megs     - Memory limit for child process (default=none)
   -o dir      - Output directory
   -p          - Display progress bar
-  -t msec     - Run time limit for child process (default=none)
+  -t msec     - Run time limit for child process (default=5000)
   -w csv      - Weights file
 
 Generic Options:
