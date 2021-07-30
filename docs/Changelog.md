@@ -16,6 +16,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added afl-persistent-config script to set perform permanent system
     configuration settings for fuzzing, for Linux and Macos.
     thanks to jhertz!
+  - added xml, curl and exotic string functions to llvm dictionary features
   - removed utils/afl_frida because frida_mode/ is now so much better
 
 

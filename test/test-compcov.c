@@ -29,6 +29,8 @@ int main(int argc, char **argv) {
     printf("your string was APRI\n");
   else if (strcasecmp(input, "Kiwi") == 0)
     printf("your string was Kiwi\n");
+  else if (strstr(input, "tsala") == 0)
+    printf("your string is a fruit salad\n");
   else if (strncasecmp(input, "avocado", 9) == 0)
     printf("your string was avocado\n");
   else if (strncasecmp(input, "Grapes", argc > 2 ? atoi(argv[2]) : 3) == 0)
