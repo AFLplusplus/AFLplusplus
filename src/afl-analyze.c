@@ -984,7 +984,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         frida_mode = 1;
         fsrv.frida_mode = frida_mode;
-        setenv("AFL_FRIDA_INST_SEED", "1", 1);
+        setenv("AFL_FRIDA_INST_SEED", "0x0", 1);
 
         break;
 
