@@ -42,7 +42,7 @@ ARCH = $(shell uname -m)
 $(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
 
 ifdef NO_SPLICING
-  override CFLAGS += -DNO_SPLICING
+  override CFLAGS_OPT += -DNO_SPLICING
 endif
 
 ifdef ASAN_BUILD
@@ -115,13 +115,13 @@ endif
 
 ifdef PROFILING
   $(info Compiling with profiling information, for analysis: gprof ./afl-fuzz gmon.out > prof.txt)
-  CFLAGS_OPT += -pg -DPROFILING=1
-  LDFLAGS += -pg
+  override CFLAGS_OPT += -pg -DPROFILING=1
+  override LDFLAGS += -pg
 endif
 
 ifdef INTROSPECTION
   $(info Compiling with introspection documentation)
-  CFLAGS_OPT += -DINTROSPECTION=1
+  override CFLAGS_OPT += -DINTROSPECTION=1
 endif
 
 ifneq "$(ARCH)" "x86_64"
@@ -136,7 +136,7 @@ endif
 
 ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
-  CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror
+  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
 else
   CFLAGS ?= -O3 -funroll-loops $(CFLAGS_OPT)
 endif
@@ -147,28 +147,28 @@ override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpoi
 
 ifeq "$(SYS)" "FreeBSD"
   override CFLAGS  += -I /usr/local/include/
-  LDFLAGS += -L /usr/local/lib/
+  override LDFLAGS += -L /usr/local/lib/
 endif
 
 ifeq "$(SYS)" "DragonFly"
   override CFLAGS  += -I /usr/local/include/
-  LDFLAGS += -L /usr/local/lib/
+  override LDFLAGS += -L /usr/local/lib/
 endif
 
 ifeq "$(SYS)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/ -mno-retpoline
-  LDFLAGS += -Wl,-z,notext -L /usr/local/lib/
+  override LDFLAGS += -Wl,-z,notext -L /usr/local/lib/
 endif
 
 ifeq "$(SYS)" "NetBSD"
   override CFLAGS  += -I /usr/pkg/include/
-  LDFLAGS += -L /usr/pkg/lib/
+  override LDFLAGS += -L /usr/pkg/lib/
 endif
 
 ifeq "$(SYS)" "Haiku"
   SHMAT_OK=0
   override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
-  LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
+  override LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
@@ -244,22 +244,22 @@ ifneq "$(filter Linux GNU%,$(SYS))" ""
  ifndef DEBUG
   override CFLAGS += -D_FORTIFY_SOURCE=2
  endif
-  LDFLAGS += -ldl -lrt -lm
+  override LDFLAGS += -ldl -lrt -lm
 endif
 
 ifneq "$(findstring FreeBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring OpenBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread
 endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h

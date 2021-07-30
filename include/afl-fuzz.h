@@ -45,7 +45,6 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
-#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
