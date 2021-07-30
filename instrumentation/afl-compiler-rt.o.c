@@ -22,6 +22,10 @@
 #include "cmplog.h"
 #include "llvm-alternative-coverage.h"
 
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+#undef XXH_INLINE_ALL
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -153,6 +157,12 @@ static void at_exit(int signal) {
   if (child_pid > 0) { kill(child_pid, SIGKILL); }
 
 }
+
+#ifdef WORD_SIZE_64
+  #define default_hash(a, b) XXH64(a, b, HASH_CONST)
+#else
+  #define default_hash(a, b) XXH64(a, b, HASH_CONST)
+#endif
 
 /* Uninspired gcc plugin instrumentation */
 
@@ -1492,11 +1502,9 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1523,11 +1531,9 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1562,11 +1568,9 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1601,11 +1605,9 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1645,11 +1647,9 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1689,11 +1689,9 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
   if (likely(!__afl_cmp_map)) return;
 
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1795,11 +1793,10 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
   for (uint64_t i = 0; i < cases[0]; i++) {
 
+    u32       hits;
     uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
-    k = (k >> 4) ^ (k << 8);
-    k &= CMP_MAP_W - 1;
-
-    u32 hits;
+    k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                    (CMP_MAP_W - 1));
 
     if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
@@ -1897,11 +1894,9 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   int len = MIN(l1, l2);
 
   // fprintf(stderr, "RTN2 %u\n", len);
+  u32       hits;
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
-
-  u32 hits;
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 

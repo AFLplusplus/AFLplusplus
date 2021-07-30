@@ -702,6 +702,8 @@ void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (afl->a_extras_cnt < MAX_AUTO_EXTRAS) {
 
+    mem[len] = 0;
+    fprintf(stderr, "AUTO EXTRA: %s\n", mem);
     memcpy(afl->a_extras[afl->a_extras_cnt].data, mem, len);
     afl->a_extras[afl->a_extras_cnt].len = len;
     ++afl->a_extras_cnt;
@@ -709,6 +711,8 @@ void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
   } else {
 
     i = MAX_AUTO_EXTRAS / 2 + rand_below(afl, (MAX_AUTO_EXTRAS + 1) / 2);
+    mem[len] = 0;
+    fprintf(stderr, "AUTO EXTRA REPLACE: %s\n", mem);
 
     memcpy(afl->a_extras[i].data, mem, len);
     afl->a_extras[i].len = len;
