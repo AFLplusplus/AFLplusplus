@@ -1027,6 +1027,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (fsrv->frida_mode) { FATAL("Multiple -O options not supported"); }
 
         fsrv->frida_mode = 1;
+        setenv("AFL_FRIDA_INST_SEED", "1", 1);
 
         break;
 
