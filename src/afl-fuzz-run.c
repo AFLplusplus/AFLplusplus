@@ -220,7 +220,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
       fprintf(
           stderr, "FS crc: %16llx len: %u\n",
-          hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, 0xa5b35705),
+          hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, HASH_CONST),
           *afl->fsrv.shmem_fuzz_len);
       fprintf(stderr, "SHM :");
       for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
