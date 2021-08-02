@@ -1398,6 +1398,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 
+  check_crash_handling();
+  check_cpu_governor(afl);
+
   if (getenv("LD_PRELOAD")) {
 
     WARNF(
@@ -1498,8 +1501,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  check_crash_handling();
-  check_cpu_governor(afl);
 
   get_core_count(afl);
 
