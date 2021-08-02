@@ -72,7 +72,7 @@ $(TEST_DATA_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
-	truncate -s 1M $@
+	dd if=/dev/zero bs=1M count=1 of=$@
 
 qemu: $(AFLPP_DRIVER_DUMMY_INPUT) $(AFLPP_QEMU_DRIVER_HOOK_OBJ) | $(BUILD_DIR)
 	AFL_QEMU_PERSISTENT_HOOK=$(AFLPP_QEMU_DRIVER_HOOK_OBJ) \

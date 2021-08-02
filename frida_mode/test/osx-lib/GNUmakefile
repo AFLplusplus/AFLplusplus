@@ -52,7 +52,7 @@ $(TESTINSTR_DATA_FILE): | $(TESTINSTR_DATA_DIR)
 	echo -n "$$FA$$" > $@
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
-	truncate -s 1M $@
+	dd if=/dev/zero bs=1M count=1 of=$@
 
 $(HARNESS_BIN): $(HARNESS_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(HARNESS_LDFLAGS) -o $@ $<

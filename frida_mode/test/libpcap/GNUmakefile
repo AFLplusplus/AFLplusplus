@@ -142,7 +142,7 @@ $(TEST_BIN): $(HARNESS_OBJ) $(PCAPTEST_OBJ) $(LIBPCAP_LIB)
 ########## DUMMY #######
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(TCPDUMP_TESTS_DIR)
-	truncate -s 1M $@
+	dd if=/dev/zero bs=1M count=1 of=$@
 
 ###### TEST DATA #######
 

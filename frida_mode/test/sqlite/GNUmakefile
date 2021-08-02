@@ -120,7 +120,7 @@ sqlite: $(SQLITE_TEST_DIR) $(TEST_BIN)
 ########## DUMMY #######
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(SQLITE_TEST_DIR)
-	truncate -s 1M $@
+	dd if=/dev/zero bs=1M count=1 of=$@
 
 ###### TEST DATA #######
 

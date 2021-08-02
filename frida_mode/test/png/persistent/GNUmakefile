@@ -49,7 +49,7 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
-	truncate -s 1M $@
+	dd if=/dev/zero bs=1M count=1 of=$@
 
 qemu: | $(BUILD_DIR)
 	AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR) \
