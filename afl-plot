@@ -102,11 +102,21 @@ fi
 rm -f "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png" "$outputdir/edges.png"
 mv -f "$outputdir/index.html" "$outputdir/index.html.orig" 2>/dev/null
 
+mkdir -p "$outputdir/tmp"
+/usr/local/bin/afl-plot-ui > "$outputdir/tmp/win_ids" &
+
+sleep 1
+
+W_ID1=$(cat $outputdir/tmp/win_ids | head -1)
+W_ID2=$(cat $outputdir/tmp/win_ids | head -2 | tail -1)
+W_ID3=$(cat $outputdir/tmp/win_ids | head -3 | tail -1)
+W_ID4=$(cat $outputdir/tmp/win_ids | tail -1)
+
 echo "[*] Generating plots..."
 
 (
 
-cat <<_EOF_
+cat << _EOF_
 set terminal png truecolor enhanced size 1000,300 butt
 
 set output '$outputdir/high_freq.png'
@@ -135,6 +145,37 @@ plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'total paths' lin
      '' using 1:6 with lines title 'pending favs' linecolor rgb '#c00080' linewidth 3, \\
      '' using 1:2 with lines title 'cycles done' linecolor rgb '#c000f0' linewidth 3
 
+set term x11 window "$W_ID3"
+set output
+replot
+
+pause mouse close
+
+_EOF_
+
+) | gnuplot &
+
+(
+
+cat << _EOF_
+#set xdata time
+#set timefmt '%s'
+#set format x "%b %d\n%H:%M"
+set tics font 'small'
+unset mxtics
+unset mytics
+
+set grid xtics linetype 0 linecolor rgb '#e0e0e0'
+set grid ytics linetype 0 linecolor rgb '#e0e0e0'
+set border linecolor rgb '#50c0f0'
+set tics textcolor rgb '#000000'
+set key outside
+
+set autoscale xfixmin
+set autoscale xfixmax
+
+set xlabel "relative time in seconds" font "small"
+
 set terminal png truecolor enhanced size 1000,200 butt
 set output '$outputdir/low_freq.png'
 
@@ -143,20 +184,90 @@ plot '$inputdir/plot_data' using 1:8 with filledcurve x1 title '' linecolor rgb 
      '' using 1:9 with lines title 'uniq hangs' linecolor rgb '#c000f0' linewidth 3, \\
      '' using 1:10 with lines title 'levels' linecolor rgb '#0090ff' linewidth 3
 
+set term x11 window "$W_ID4"
+set output
+replot
+
+pause mouse close
+
+_EOF_
+
+) | gnuplot &
+
+(
+
+cat << _EOF_
+#set xdata time
+#set timefmt '%s'
+#set format x "%b %d\n%H:%M"
+set tics font 'small'
+unset mxtics
+unset mytics
+
+set grid xtics linetype 0 linecolor rgb '#e0e0e0'
+set grid ytics linetype 0 linecolor rgb '#e0e0e0'
+set border linecolor rgb '#50c0f0'
+set tics textcolor rgb '#000000'
+set key outside
+
+set autoscale xfixmin
+set autoscale xfixmax
+
+set xlabel "relative time in seconds" font "small"
+
 set terminal png truecolor enhanced size 1000,200 butt
 set output '$outputdir/exec_speed.png'
 
 plot '$inputdir/plot_data' using 1:11 with filledcurve x1 title '' linecolor rgb '#0090ff' fillstyle transparent solid 0.2 noborder, \\
      '$inputdir/plot_data' using 1:11 with lines title '    execs/sec' linecolor rgb '#0090ff' linewidth 3 smooth bezier;
 
+set term x11 window "$W_ID2"
+set output
+replot
+
+pause mouse close
+
+_EOF_
+
+) | gnuplot &
+
+(
+
+cat << _EOF_
+#set xdata time
+#set timefmt '%s'
+#set format x "%b %d\n%H:%M"
+set tics font 'small'
+unset mxtics
+unset mytics
+
+set grid xtics linetype 0 linecolor rgb '#e0e0e0'
+set grid ytics linetype 0 linecolor rgb '#e0e0e0'
+set border linecolor rgb '#50c0f0'
+set tics textcolor rgb '#000000'
+set key outside
+
+set autoscale xfixmin
+set autoscale xfixmax
+
+set xlabel "relative time in seconds" font "small"
+
 set terminal png truecolor enhanced size 1000,300 butt
 set output '$outputdir/edges.png'
 
 plot '$inputdir/plot_data' using 1:13 with lines title '        edges' linecolor rgb '#0090ff' linewidth 3
 
+set term x11 window "$W_ID1"
+set output
+replot
+
+pause mouse close
+
 _EOF_
 
-) | gnuplot 
+) | gnuplot &
+
+sleep 2
 
 if [ ! -s "$outputdir/exec_speed.png" ]; then
 
@@ -187,6 +298,12 @@ _EOF_
 
 chmod 755 "$outputdir"
 chmod 644 "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png" "$outputdir/edges.png" "$outputdir/index.html"
+
+rm "$outputdir/tmp/win_ids"
+
+if [ -z "$(ls -A $outputdir/tmp)" ]; then
+	rm -r "$outputdir/tmp"
+fi
 
 echo "[+] All done - enjoy your charts!"
 
