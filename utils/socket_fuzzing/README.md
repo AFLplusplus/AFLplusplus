@@ -8,4 +8,4 @@ a network socket.
 This is desock_dup.c from the amazing preeny project
 https://github.com/zardus/preeny
 
-It is packaged in afl++ to have it at hand if needed
+It is packaged in AFL++ to have it at hand if needed

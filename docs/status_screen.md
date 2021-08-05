@@ -35,7 +35,7 @@ american fuzzy lop ++3.01a (default) [fast] {0}
 
 The top line shows you which mode afl-fuzz is running in
 (normal: "american fuzy lop", crash exploration mode: "peruvian rabbit mode")
-and the version of afl++.
+and the version of AFL++.
 Next to the version is the banner, which, if not set with -T by hand, will
 either show the binary name being fuzzed, or the -M/-S main/secondary name for
 parallel fuzzing.
@@ -409,7 +409,7 @@ directory. This includes:
   - `edges_found`       - how many edges have been found
   - `var_byte_count`    - how many edges are non-deterministic
   - `afl_banner`        - banner text (e.g. the target name)
-  - `afl_version`       - the version of afl used
+  - `afl_version`       - the version of AFL used
   - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented
   - `command_line`      - full command line used for the fuzzing session
 

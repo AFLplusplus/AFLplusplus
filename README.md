@@ -1,4 +1,4 @@
-# American Fuzzy Lop plus plus (afl++)
+# American Fuzzy Lop plus plus (AFL++)
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
@@ -8,7 +8,7 @@
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
-  afl++ is maintained by:
+  AFL++ is maintained by:
 
   * Marc "van Hauser" Heuse <mh@mh-sec.de>,
   * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
@@ -17,36 +17,36 @@
 
   Originally developed by Michał "lcamtuf" Zalewski.
 
-  afl++ is a superior fork to Google's afl - more speed, more and better
+  AFL++ is a superior fork to Google's AFL - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
-  If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
+  If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
   on the website. To cite our work, look at the [Cite](#cite) section.
   For comparisons use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
   with `AFL_LLVM_CMPLOG=1`.
 
-## Major behaviour changes in afl++ 3.00 onwards:
+## Major behaviour changes in AFL++ 3.00 onwards:
 
-With afl++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
+With AFL++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
 binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
 iOS etc.
 
-With afl++ 3.15 we introduced the following changes from previous behaviours:
+With AFL++ 3.15 we introduced the following changes from previous behaviours:
   * Also -M main mode does not do deterministic fuzzing by default anymore
   * afl-cmin and afl-showmap -Ci now descent into subdirectories like
     afl-fuzz -i does (but note that afl-cmin.bash does not)
 
-With afl++ 3.14 we introduced the following changes from previous behaviours:
+With AFL++ 3.14 we introduced the following changes from previous behaviours:
   * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
   * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash
     however does not)
 
-With afl++ 3.10 we introduced the following changes from previous behaviours:
+With AFL++ 3.10 we introduced the following changes from previous behaviours:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout
     with the value given being the maximum timeout. The original meaning of
     "skipping timeouts instead of abort" is now inherent to the -t option.
 
-With afl++ 3.00 we introduced changes that break some previous afl and afl++
+With AFL++ 3.00 we introduced changes that break some previous AFL and AFL++
 behaviours and defaults:
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
     only one compiler: afl-cc. All previous compilers now symlink to this one.
@@ -82,18 +82,18 @@ behaviours and defaults:
 ## Contents
 
   1. [Features](#important-features-of-afl)
-  2. [How to compile and install afl++](#building-and-installing-afl)
+  2. [How to compile and install AFL++](#building-and-installing-afl)
   3. [How to fuzz a target](#how-to-fuzz-with-afl)
   4. [Fuzzing binary-only targets](#fuzzing-binary-only-targets)
-  5. [Good examples and writeups of afl++ usages](#good-examples-and-writeups)
+  5. [Good examples and writeups of AFL++ usages](#good-examples-and-writeups)
   6. [CI Fuzzing](#ci-fuzzing)
   7. [Branches](#branches)
   8. [Want to help?](#help-wanted)
-  9. [Detailed help and description of afl++](#challenges-of-guided-fuzzing)
+  9. [Detailed help and description of AFL++](#challenges-of-guided-fuzzing)
 
-## Important features of afl++
+## Important features of AFL++
 
-  afl++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with QEMU 5.1
+  AFL++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with QEMU 5.1
   with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
   Mac OS, Solaris and Android support and much, much, much more.
 
@@ -136,7 +136,7 @@ behaviours and defaults:
   * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework
   * Frida and ptrace mode to fuzz binary-only libraries, etc.
 
-  So all in all this is the best-of afl that is out there :-)
+  So all in all this is the best-of AFL that is out there :-)
 
   For new versions and additional information, check out:
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -151,9 +151,9 @@ behaviours and defaults:
 
   The following branches exist:
 
-  * [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/) : stable state of afl++ - it is synced from dev from time to
+  * [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/) : stable state of AFL++ - it is synced from dev from time to
     time when we are satisfied with its stability
-  * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
+  * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of AFL++ - bleeding edge and you might catch a
     checkout which does not compile or has a bug. *We only accept PRs in dev!!*
   * [release](https://github.com/AFLplusplus/AFLplusplus/tree/release) : the latest release
   * (any other) : experimental branches to work on specific features or testing
@@ -175,9 +175,9 @@ We have an idea list in [docs/ideas.md](docs/ideas.md).
 For everyone who wants to contribute (and send pull requests) please read
 [CONTRIBUTING.md](CONTRIBUTING.md) before your submit.
 
-## Building and installing afl++
+## Building and installing AFL++
 
-An easy way to install afl++ with everything compiled is available via docker:
+An easy way to install AFL++ with everything compiled is available via docker:
 You can use the [Dockerfile](Dockerfile) (which has gcc-10 and clang-11 -
 hence afl-clang-lto is available!) or just pull directly from the docker hub:
 ```shell
@@ -187,7 +187,7 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 This image is automatically generated when a push to the stable repo happens.
 You will find your target source code in /src in the container.
 
-If you want to build afl++ yourself you have many options.
+If you want to build AFL++ yourself you have many options.
 The easiest choice is to build and install everything:
 
 ```shell
@@ -205,7 +205,7 @@ It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
 Note that "make distrib" also builds instrumentation, qemu_mode, unicorn_mode and
-more. If you just want plain afl++ then do "make all", however compiling and
+more. If you just want plain AFL++ then do "make all", however compiling and
 using at least instrumentation is highly recommended for much better results -
 hence in this case
 
@@ -216,7 +216,7 @@ is what you should choose.
 
 These build targets exist:
 
-* all: just the main afl++ binaries
+* all: just the main AFL++ binaries
 * binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap
 * source-only: everything for source code fuzzing: instrumentation, libdislocator, libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
@@ -230,7 +230,7 @@ These build targets exist:
 * help: shows these build options
 
 [Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html) you can also build statically linked versions of the 
-afl++ binaries by passing the STATIC=1 argument to make:
+AFL++ binaries by passing the STATIC=1 argument to make:
 
 ```shell
 make STATIC=1
@@ -264,14 +264,14 @@ Here are some good writeups to show how to effectively use AFL++:
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
- * Superion for afl++: [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
- * libprotobuf for afl++: [https://github.com/P1umer/AFLplusplus-protobuf-mutator](https://github.com/P1umer/AFLplusplus-protobuf-mutator)
+ * Superion for AFL++: [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
+ * libprotobuf for AFL++: [https://github.com/P1umer/AFLplusplus-protobuf-mutator](https://github.com/P1umer/AFLplusplus-protobuf-mutator)
  * libprotobuf raw: [https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
- * libprotobuf for old afl++ API: [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
+ * libprotobuf for old AFL++ API: [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
 
 If you find other good ones, please send them to us :-)
 
-## How to fuzz with afl++
+## How to fuzz with AFL++
 
 The following describes how to fuzz with a target if source code is available.
 If you have a binary-only target please skip to [#Instrumenting binary-only apps](#Instrumenting binary-only apps)
@@ -287,9 +287,9 @@ Fuzzing source code is a three-step process.
 
 ### 1. Instrumenting that target
 
-#### a) Selecting the best afl++ compiler for instrumenting the target
+#### a) Selecting the best AFL++ compiler for instrumenting the target
 
-afl++ comes with a central compiler `afl-cc` that incorporates various different
+AFL++ comes with a central compiler `afl-cc` that incorporates various different
 kinds of compiler targets and and instrumentation options.
 The following evaluation flow will help you to select the best possible.
 
@@ -339,7 +339,7 @@ You can select the mode for the afl-cc compiler by:
 MODE can be one of: LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
 (afl-g*-fast) or GCC (afl-gcc/afl-g++) or CLANG(afl-clang/afl-clang++).
 
-Because no afl specific command-line options are accepted (beside the
+Because no AFL specific command-line options are accepted (beside the
 --afl-MODE command), the compile-time tools make fairly broad use of environment
 variables, which can be listed with `afl-cc -hh` or by reading [docs/env_variables.md](docs/env_variables.md).
 
@@ -347,7 +347,7 @@ variables, which can be listed with `afl-cc -hh` or by reading [docs/env_variabl
 
 The following options are available when you instrument with LTO mode (afl-clang-fast/afl-clang-lto):
 
- * Splitting integer, string, float and switch comparisons so afl++ can easier
+ * Splitting integer, string, float and switch comparisons so AFL++ can easier
    solve these. This is an important option if you do not have a very good
    and large input corpus. This technique is called laf-intel or COMPCOV.
    To use this set the following environment variable before compiling the
@@ -355,7 +355,7 @@ The following options are available when you instrument with LTO mode (afl-clang
    You can read more about this in [instrumentation/README.laf-intel.md](instrumentation/README.laf-intel.md)
  * A different technique (and usually a better one than laf-intel) is to
    instrument the target so that any compare values in the target are sent to
-   afl++ which then tries to put these values into the fuzzing data at different
+   AFL++ which then tries to put these values into the fuzzing data at different
    locations. This technique is very fast and good - if the target does not
    transform input data before comparison. Therefore this technique is called
    `input to state` or `redqueen`.
@@ -388,7 +388,7 @@ time less effective. See:
  * [instrumentation/README.ctx.md](instrumentation/README.ctx.md)
  * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
 
-afl++ performs "never zero" counting in its bitmap. You can read more about this
+AFL++ performs "never zero" counting in its bitmap. You can read more about this
 here:
  * [instrumentation/README.neverzero.md](instrumentation/README.neverzero.md)
 
@@ -403,7 +403,7 @@ This is enough because a use-after-free bug will be picked up, e.g. by
 ASAN (address sanitizer) anyway when syncing to other fuzzing instances,
 so not all fuzzing instances need to be instrumented with ASAN.
 
-The following sanitizers have built-in support in afl++:
+The following sanitizers have built-in support in AFL++:
   * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
     use-after-free, NULL pointer dereference, buffer overruns, etc.
     Enabled with `export AFL_USE_ASAN=1` before compiling.
@@ -457,13 +457,13 @@ by eliminating these checks within these AFL specific blocks:
 #endif
 ```
 
-All afl++ compilers will set this preprocessor definition automatically.
+All AFL++ compilers will set this preprocessor definition automatically.
 
 #### e) Instrument the target
 
 In this step the target source code is compiled so that it can be fuzzed.
 
-Basically you have to tell the target build system that the selected afl++
+Basically you have to tell the target build system that the selected AFL++
 compiler is used. Also - if possible - you should always configure the
 build system such that the target is compiled statically and not dynamically.
 How to do this is described below.
@@ -474,13 +474,13 @@ Then build the target. (Usually with `make`)
 
 1. sometimes configure and build systems are fickle and do not like
    stderr output (and think this means a test failure) - which is something
-   afl++ likes to do to show statistics. It is recommended to disable afl++
+   AFL++ likes to do to show statistics. It is recommended to disable AFL++
    instrumentation reporting via `export AFL_QUIET=1`.
 
 2. sometimes configure and build systems error on warnings - these should be
    disabled (e.g. `--disable-werror` for some configure scripts).
 
-3. in case the configure/build system complains about afl++'s compiler and
+3. in case the configure/build system complains about AFL++'s compiler and
    aborts then set `export AFL_NOOPT=1` which will then just behave like the
    real compiler. This option has to be unset again before building the target!
 
@@ -504,12 +504,12 @@ described in [instrumentation/README.lto.md](instrumentation/README.lto.md).
 
 ##### meson
 
-For meson you have to set the afl++ compiler with the very first command!
+For meson you have to set the AFL++ compiler with the very first command!
 `CC=afl-cc CXX=afl-c++ meson`
 
 ##### other build systems or if configure/cmake didn't work
 
-Sometimes cmake and configure do not pick up the afl++ compiler, or the
+Sometimes cmake and configure do not pick up the AFL++ compiler, or the
 ranlib/ar that is needed - because this was just not foreseen by the developer
 of the target. Or they have non-standard options. Figure out if there is a 
 non-standard way to set this, otherwise set up the build normally and edit the
@@ -525,7 +525,7 @@ This variant requires the usage of afl-clang-lto, afl-clang-fast or afl-gcc-fast
 
 It is the so-called `persistent mode`, which is much, much faster but
 requires that you code a source file that is specifically calling the target
-functions that you want to fuzz, plus a few specific afl++ functions around
+functions that you want to fuzz, plus a few specific AFL++ functions around
 it. See [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md) for details.
 
 Basically if you do not fuzz a target in persistent mode then you are just
@@ -534,7 +534,7 @@ doing it for a hobby and not professionally :-).
 #### g) libfuzzer fuzzer harnesses with LLVMFuzzerTestOneInput()
 
 libfuzzer `LLVMFuzzerTestOneInput()` harnesses are the defacto standard
-for fuzzing, and they can be used with afl++ (and honggfuzz) as well!
+for fuzzing, and they can be used with AFL++ (and honggfuzz) as well!
 Compiling them is as simple as:
 ```
 afl-clang-fast++ -fsanitize=fuzzer -o harness harness.cpp targetlib.a
@@ -566,7 +566,7 @@ normal data it receives and processes to a file and use these.
 
 #### b) Making the input corpus unique
 
-Use the afl++ tool `afl-cmin` to remove inputs from the corpus that do not
+Use the AFL++ tool `afl-cmin` to remove inputs from the corpus that do not
 produce a new path in the target.
 
 Put all files from step a) into one directory, e.g. INPUTS.
@@ -678,7 +678,7 @@ failure handling in the target.
 Play around with various -m values until you find one that safely works for all
 your input seeds (if you have good ones and then double or quadrouple that.
 
-By default afl-fuzz never stops fuzzing. To terminate afl++ simply press Control-C
+By default afl-fuzz never stops fuzzing. To terminate AFL++ simply press Control-C
 or send a signal SIGINT. You can limit the number of executions or approximate runtime
 in seconds with options also.
 
@@ -693,7 +693,7 @@ All labels are explained in [docs/status_screen.md](docs/status_screen.md).
 If you want to seriously fuzz then use as many cores/threads as possible to
 fuzz your target.
 
-On the same machine - due to the design of how afl++ works - there is a maximum
+On the same machine - due to the design of how AFL++ works - there is a maximum
 number of CPU cores/threads that are useful, use more and the overall performance
 degrades instead. This value depends on the target, and the limit is between 32
 and 64 cores per machine.
@@ -734,7 +734,7 @@ If you have a large corpus, a corpus from a previous run or are fuzzing in
 a CI, then also set `export AFL_CMPLOG_ONLY_NEW=1` and `export AFL_FAST_CAL=1`.
 
 You can also use different fuzzers.
-If you are using afl spinoffs or afl conforming fuzzers, then just use the
+If you are using AFL spinoffs or AFL conforming fuzzers, then just use the
 same -o directory and give it a unique `-S` name.
 Examples are:
  * [Fuzzolic](https://github.com/season-lab/fuzzolic)
@@ -747,7 +747,7 @@ Examples are:
 
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 
-However you can also sync afl++ with honggfuzz, libfuzzer with `-entropic=1`, etc.
+However you can also sync AFL++ with honggfuzz, libfuzzer with `-entropic=1`, etc.
 Just show the main fuzzer (-M) with the `-F` option where the queue/work
 directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
 Using honggfuzz (with `-n 1` or `-n 2`) and libfuzzer in parallel is highly
@@ -794,7 +794,7 @@ There is a more complex and configurable script in `utils/distributed_fuzzing`.
 
 #### d) The status of the fuzz campaign
 
-afl++ comes with the `afl-whatsup` script to show the status of the fuzzing
+AFL++ comes with the `afl-whatsup` script to show the status of the fuzzing
 campaign.
 
 Just supply the directory that afl-fuzz is given with the -o option and
@@ -886,7 +886,7 @@ This is basically all you need to know to professionally run fuzzing campaigns.
 If you want to know more, the rest of this README and the tons of texts in
 [docs/](docs/) will have you covered.
 
-Note that there are also a lot of tools out there that help fuzzing with afl++
+Note that there are also a lot of tools out there that help fuzzing with AFL++
 (some might be deprecated or unsupported):
 
 Speeding up fuzzing:
@@ -938,7 +938,7 @@ campaigns as these are much shorter runnings.
     initial corpus as this very likely has been done for them already.
   * Keep the generated corpus, use afl-cmin and reuse it every time!
 
-2. Additionally randomize the afl++ compilation options, e.g.
+2. Additionally randomize the AFL++ compilation options, e.g.
   * 40% for `AFL_LLVM_CMPLOG`
   * 10% for `AFL_LLVM_LAF_ALL`
 
@@ -954,12 +954,12 @@ campaigns as these are much shorter runnings.
    `-M` enables old queue handling etc. which is good for a fuzzing campaign but
    not good for short CI runs.
 
-How this can look like can e.g. be seen at afl++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-builder/compile_afl)
+How this can look like can e.g. be seen at AFL++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-builder/compile_afl)
 and [clusterfuzz](https://github.com/google/clusterfuzz/blob/master/src/python/bot/fuzzers/afl/launcher.py).
 
 ## Fuzzing binary-only targets
 
-When source code is *NOT* available, afl++ offers various support for fast,
+When source code is *NOT* available, AFL++ offers various support for fast,
 on-the-fly instrumentation of black-box binaries. 
 
 If you do not have to use Unicorn the following setup is recommended to use
@@ -1013,7 +1013,7 @@ less conducive to parallelization.
 
 ### Unicorn
 
-For non-Linux binaries you can use afl++'s unicorn mode which can emulate
+For non-Linux binaries you can use AFL++'s unicorn mode which can emulate
 anything you want - for the price of speed and user written scripts.
 See [unicorn_mode](unicorn_mode/README.md).
 
@@ -1215,13 +1215,13 @@ can be operated in a very simple way:
 
 The tool works with crashing and non-crashing test cases alike. In the crash
 mode, it will happily accept instrumented and non-instrumented binaries. In the
-non-crashing mode, the minimizer relies on standard afl++ instrumentation to make
+non-crashing mode, the minimizer relies on standard AFL++ instrumentation to make
 the file simpler without altering the execution path.
 
 The minimizer accepts the -m, -t, -f and @@ syntax in a manner compatible with
 afl-fuzz.
 
-Another tool in afl++ is the afl-analyze tool. It takes an input
+Another tool in AFL++ is the afl-analyze tool. It takes an input
 file, attempts to sequentially flip bytes, and observes the behavior of the
 tested program. It then color-codes the input based on which sections appear to
 be critical, and which are not; while not bulletproof, it can often offer quick
@@ -1264,7 +1264,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
     for something to blow up.
 
   - Targeted programs may end up erratically grabbing gigabytes of memory or
-    filling up disk space with junk files. afl++ tries to enforce basic memory
+    filling up disk space with junk files. AFL++ tries to enforce basic memory
     limits, but can't prevent each and every possible mishap. The bottom line
     is that you shouldn't be fuzzing on systems where the prospect of data loss
     is not an acceptable risk.
@@ -1293,7 +1293,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
 
 Here are some of the most important caveats for AFL:
 
-  - afl++ detects faults by checking for the first spawned process dying due to
+  - AFL++ detects faults by checking for the first spawned process dying due to
     a signal (SIGSEGV, SIGABRT, etc). Programs that install custom handlers for
     these signals may need to have the relevant code commented out. In the same
     vein, faults in child processes spawned by the fuzzed target may evade
@@ -1329,7 +1329,7 @@ Beyond this, see INSTALL for platform-specific tips.
 
 ## Special thanks
 
-Many of the improvements to the original afl and afl++ wouldn't be possible
+Many of the improvements to the original AFL and AFL++ wouldn't be possible
 without feedback, bug reports, or patches from:
 
 ```
@@ -1413,7 +1413,7 @@ Bibtex:
 Questions? Concerns? Bug reports? The contributors can be reached via
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
-There is also a mailing list for the afl/afl++ project; to join, send a mail to
+There is also a mailing list for the AFL/AFL++ project; to join, send a mail to
 <afl-users+subscribe@googlegroups.com>. Or, if you prefer to browse archives
 first, try: [https://groups.google.com/group/afl-users](https://groups.google.com/group/afl-users)
 

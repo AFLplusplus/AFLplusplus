@@ -38,7 +38,7 @@ Here's a quick overview of the stuff you can find in this directory:
   - crash_triage         - a very rudimentary example of how to annotate crashes
                            with additional gdb metadata.
 
-  - custom_mutators      - examples for the afl++ custom mutator interface in
+  - custom_mutators      - examples for the AFL++ custom mutator interface in
                            C and Python. Note: They were moved to
                            ../custom_mutators/examples/
 
@@ -61,7 +61,7 @@ Here's a quick overview of the stuff you can find in this directory:
   - qemu_persistent_hook - persistent mode support module for qemu.
 
   - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
-                           for fuzzing access with afl++
+                           for fuzzing access with AFL++
 
 Note that the minimize_corpus.sh tool has graduated from the utils/
 directory and is now available as ../afl-cmin. The LLVM mode has likewise
