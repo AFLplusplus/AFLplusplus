@@ -570,7 +570,7 @@ clean:
 	$(MAKE) -C utils/afl_network_proxy clean
 	$(MAKE) -C utils/socket_fuzzing clean
 	$(MAKE) -C utils/argv_fuzzing clean
-	$(MAKE) -C utils/plot_ui clean
+	-$(MAKE) -C utils/plot_ui clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C qemu_mode/libqasan clean
@@ -602,7 +602,7 @@ distrib: all
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
-	$(MAKE) -C utils/plot_ui
+	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -614,7 +614,7 @@ binary-only: test_shm test_python ready $(PROGS)
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
-	$(MAKE) -C utils/plot_ui
+	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -625,7 +625,7 @@ source-only: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/plot_ui
+	# -$(MAKE) -C utils/plot_ui
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
