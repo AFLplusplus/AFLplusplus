@@ -570,6 +570,7 @@ clean:
 	$(MAKE) -C utils/afl_network_proxy clean
 	$(MAKE) -C utils/socket_fuzzing clean
 	$(MAKE) -C utils/argv_fuzzing clean
+	$(MAKE) -C utils/plot_ui clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C qemu_mode/libqasan clean
@@ -601,6 +602,7 @@ distrib: all
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
+	$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -612,6 +614,7 @@ binary-only: test_shm test_python ready $(PROGS)
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
+	$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -622,6 +625,7 @@ source-only: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
+	$(MAKE) -C utils/plot_ui
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
@@ -650,6 +654,7 @@ install: all $(MANPAGES)
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f utils/plot_ui/afl-plot-ui ]; then install -m 755 utils/plot_ui/afl-plot-ui $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
