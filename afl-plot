@@ -22,10 +22,17 @@ get_abs_path() {
 echo "progress plotting utility for afl-fuzz by Michal Zalewski"
 echo
 
-if ( [ "$#" != "2" ] && [ "$#" != "3" ] ) || ( [ "$#" = "3" ] && [ "$3" != "-g" ] && [ "$3" != "--graphical" ] ); then
+GRAPHICAL="0"
+
+if [ "$1"  = "-g" ] || [ "$1" = "--graphical" ]; then
+GRAPHICAL="1"
+shift
+fi
+
+if [ "$#" != "2" ]; then
 
   cat 1>&2 <<_EOF_
-$0 afl_state_dir graph_output_dir [ -g | --graphical ]
+$0 [ -g | --graphical ] afl_state_dir graph_output_dir
 
 This program generates gnuplot images from afl-fuzz output data.
 
@@ -36,7 +43,7 @@ Usage:
     graph_output_dir    should point to an empty directory where this
                         tool can write the resulting plots to
     -g, --graphical     (optional) display the plots in a graphical window
-                        (requires GTK as a dependency)
+                        (you should have built afl-plot-ui to use this option)
 
 The program will put index.html and three PNG images in the output directory;
 you should be able to view it with any web browser of your choice.
@@ -171,8 +178,7 @@ $GNUPLOT_SETUP
 plot '$inputdir/plot_data' using 1:13 with lines title '        edges' linecolor rgb '#0090ff' linewidth 3
 "
 
-
-if [ "$#" = "3" ] && ( [ "$3" = "-g" ] || [ "$3" = "--graphical" ] ); then
+if [ "$#" = "2" ] && [ "$GRAPHICAL" = "1" ]; then
 
 afl-plot-ui -h > /dev/null 2>&1
 
@@ -192,7 +198,7 @@ fi
 mkdir -p "$outputdir/tmp"
 afl-plot-ui > "$outputdir/tmp/win_ids" &
 
-sleep 2
+sleep 0.5
 
 W_ID1=$(cat $outputdir/tmp/win_ids | head -1)
 W_ID2=$(cat $outputdir/tmp/win_ids | head -2 | tail -1)
@@ -213,7 +219,7 @@ pause mouse close
 
 _EOF_
 
-) | gnuplot &
+) | gnuplot 2> /dev/null &
 
 (
 
@@ -227,7 +233,7 @@ pause mouse close
 
 _EOF_
 
-) | gnuplot &
+) | gnuplot 2> /dev/null &
 
 (
 
@@ -241,7 +247,7 @@ pause mouse close
 
 _EOF_
 
-) | gnuplot &
+) | gnuplot 2> /dev/null &
 
 (
 
@@ -255,9 +261,9 @@ pause mouse close
 
 _EOF_
 
-) | gnuplot &
+) | gnuplot 2> /dev/null &
 
-sleep 2
+sleep 1
 
 rm "$outputdir/tmp/win_ids"
 
@@ -284,6 +290,8 @@ $PLOT_EG
 _EOF_
 
 ) | gnuplot
+
+echo "[?] You can also use -g flag to view the plots in an GUI window, and interact with the plots (if you have build afl-plot-ui). Run \"afl-plot\" to know more."
 
 fi
 
