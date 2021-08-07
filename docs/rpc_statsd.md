@@ -31,9 +31,9 @@ By doing so, you might be able to see when the fuzzing process has reached a sta
 (according to your own criteria) for your targets, etc. And doing so without requiring to log into each instance manually.
 
 An example visualisation may look like the following:
-![StatsD Grafana](visualization/statsd-grafana.png)
+![StatsD Grafana](resources/statsd-grafana.png)
 
-*Notes: The exact same dashboard can be imported with [this JSON template](statsd/grafana-afl++.json).*
+*Notes: The exact same dashboard can be imported with [this JSON template](resources/grafana-afl++.json).*
 
 ## How to use
 

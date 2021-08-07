@@ -684,7 +684,7 @@ in seconds with options also.
 
 When you start afl-fuzz you will see a user interface that shows what the status
 is:
-![docs/screenshot.png](docs/screenshot.png)
+![docs/resources/screenshot.png](docs/resources/screenshot.png)
 
 All labels are explained in [docs/status_screen.md](docs/status_screen.md).
 
