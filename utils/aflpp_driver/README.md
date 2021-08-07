@@ -1,4 +1,4 @@
-# afl++ drivers
+# AFL++ drivers
 
 ## aflpp_driver
 

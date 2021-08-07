@@ -19,7 +19,7 @@ This version requires a current llvm 11+ compiled from the github master.
 
 ## Introduction and problem description
 
-A big issue with how afl/afl++ works is that the basic block IDs that are
+A big issue with how AFL/AFL++ works is that the basic block IDs that are
 set during compilation are random - and hence naturally the larger the number
 of instrumented locations, the higher the number of edge collisions are in the
 map. This can result in not discovering new paths and therefore degrade the

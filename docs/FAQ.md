@@ -1,8 +1,8 @@
-# Frequently asked questions about afl++
+# Frequently asked questions about AFL++
 
 ## Contents
 
-  * [What is the difference between afl and afl++?](#what-is-the-difference-between-afl-and-afl)
+  * [What is the difference between AFL and AFL++?](#what-is-the-difference-between-afl-and-afl)
   * [I got a weird compile error from clang](#i-got-a-weird-compile-error-from-clang)
   * [How to improve the fuzzing speed?](#how-to-improve-the-fuzzing-speed)
   * [How do I fuzz a network service?](#how-do-i-fuzz-a-network-service)
@@ -14,7 +14,7 @@
 If you find an interesting or important question missing, submit it via
 [https://github.com/AFLplusplus/AFLplusplus/issues](https://github.com/AFLplusplus/AFLplusplus/issues)
 
-## What is the difference between afl and afl++?
+## What is the difference between AFL and AFL++?
 
 American Fuzzy Lop (AFL) was developed by Michał "lcamtuf" Zalewski starting in
 2013/2014, and when he left Google end of 2017 he stopped developing it.
@@ -24,13 +24,13 @@ it is only accepting PRs from the community and is not developing enhancements
 anymore.
 
 In the second quarter of 2019, 1 1/2 year later when no further development of
-AFL had happened and it became clear there would none be coming, afl++
+AFL had happened and it became clear there would none be coming, AFL++
 was born, where initially community patches were collected and applied
 for bug fixes and enhancements. Then from various AFL spin-offs - mostly academic
 research - features were integrated. This already resulted in a much advanced
 AFL.
 
-Until the end of 2019 the afl++ team had grown to four active developers which
+Until the end of 2019 the AFL++ team had grown to four active developers which
 then implemented their own research and features, making it now by far the most
 flexible and feature rich guided fuzzer available as open source.
 And in independent fuzzing benchmarks it is one of the best fuzzers available,
@@ -52,15 +52,15 @@ clang-13: note: diagnostic msg:
 ********************
 ```
 Then this means that your OS updated the clang installation from an upgrade
-package and because of that the afl++ llvm plugins do not match anymore.
+package and because of that the AFL++ llvm plugins do not match anymore.
 
-Solution: `git pull ; make clean install` of afl++
+Solution: `git pull ; make clean install` of AFL++
 
 ## How to improve the fuzzing speed?
 
   1. Use [llvm_mode](../instrumentation/README.llvm.md): afl-clang-lto (llvm >= 11) or afl-clang-fast (llvm >= 9 recommended)
   2. Use [persistent mode](../instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
-  3. Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
+  3. Use the [AFL++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
   4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to put the input file directory on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
   5. Improve Linux kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system less secure)
   6. Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
@@ -86,7 +86,7 @@ and perform binary fuzzing) you can also use a shared library with AFL_PRELOAD
 to emulate the network. This is also much faster than the real network would be.
 See [utils/socket_fuzzing/](../utils/socket_fuzzing/).
 
-There is an outdated afl++ branch that implements networking if you are
+There is an outdated AFL++ branch that implements networking if you are
 desperate though: [https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking) - 
 however a better option is AFLnet ([https://github.com/aflnet/aflnet](https://github.com/aflnet/aflnet))
 which allows you to define network state with different type of data packets.
@@ -158,7 +158,7 @@ reaction to timing, etc. then in some of the re-executions with the same data
 the edge coverage result will be different accross runs.
 Those edges that change are then flagged "unstable".
 
-The more "unstable" edges, the more difficult for afl++ to identify valid new
+The more "unstable" edges, the more difficult for AFL++ to identify valid new
 paths.
 
 A value above 90% is usually fine and a value above 80% is also still ok, and

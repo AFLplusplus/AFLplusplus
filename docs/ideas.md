@@ -1,4 +1,4 @@
-# Ideas for afl++
+# Ideas for AFL++
 
 In the following, we describe a variety of ideas that could be implemented
 for future AFL++ versions.
