@@ -1,12 +1,12 @@
-# Fuzzing binary-only programs with afl++
+# Fuzzing binary-only programs with AFL++
 
-  afl++, libfuzzer and others are great if you have the source code, and
+  AFL++, libfuzzer and others are great if you have the source code, and
   it allows for very fast and coverage guided fuzzing.
 
   However, if there is only the binary program and no source code available,
   then standard `afl-fuzz -n` (non-instrumented mode) is not effective.
 
-  The following is a description of how these binaries can be fuzzed with afl++.
+  The following is a description of how these binaries can be fuzzed with AFL++.
 
 
 ## TL;DR:
@@ -39,7 +39,7 @@
   Note that there is also honggfuzz: [https://github.com/google/honggfuzz](https://github.com/google/honggfuzz)
   which now has a qemu_mode, but its performance is just 1.5% ...
 
-  As it is included in afl++ this needs no URL.
+  As it is included in AFL++ this needs no URL.
 
   If you like to code a customized fuzzer without much work, we highly
   recommend to check out our sister project libafl which will support QEMU
@@ -56,12 +56,12 @@
   frida-gum via utils/afl_frida/, you will have to write a harness to
   call the target function in the library, use afl-frida.c as a template.
 
-  Both come with afl++ so this needs no URL.
+  Both come with AFL++ so this needs no URL.
 
   You can also perform remote fuzzing with frida, e.g. if you want to fuzz
   on iPhone or Android devices, for this you can use
   [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/)
-  as an intermediate that uses afl++ for fuzzing.
+  as an intermediate that uses AFL++ for fuzzing.
 
   If you like to code a customized fuzzer without much work, we highly
   recommend to check out our sister project libafl which supports Frida too:
@@ -74,7 +74,7 @@
   Wine mode can run Win32 PE binaries with the QEMU instrumentation.
   It needs Wine, python3 and the pefile python package installed.
 
-  As it is included in afl++ this needs no URL.
+  As it is included in AFL++ this needs no URL.
 
 
 ## UNICORN
@@ -83,10 +83,10 @@
   In contrast to QEMU, Unicorn does not offer a full system or even userland
   emulation. Runtime environment and/or loaders have to be written from scratch,
   if needed. On top, block chaining has been removed. This means the speed boost
-  introduced in  the patched QEMU Mode of afl++ cannot simply be ported over to
+  introduced in  the patched QEMU Mode of AFL++ cannot simply be ported over to
   Unicorn. For further information, check out [unicorn_mode/README.md](../unicorn_mode/README.md).
 
-  As it is included in afl++ this needs no URL.
+  As it is included in AFL++ this needs no URL.
 
 
 ## AFL UNTRACER
@@ -153,7 +153,7 @@
   As a result, the overall speed decrease is about 70-90% (depending on
   the implementation and other factors).
 
-  There are two afl intel-pt implementations:
+  There are two AFL intel-pt implementations:
 
   1. [https://github.com/junxzm1990/afl-pt](https://github.com/junxzm1990/afl-pt)
      => this needs Ubuntu 14.04.05 without any updates and the 4.4 kernel.
@@ -175,7 +175,7 @@
   the ARM chip is difficult too.
   My guess is that it is slower than Qemu, but faster than Intel PT.
 
-  If anyone finds any coresight implementation for afl please ping me: vh@thc.org
+  If anyone finds any coresight implementation for AFL please ping me: vh@thc.org
 
 
 ## PIN & DYNAMORIO

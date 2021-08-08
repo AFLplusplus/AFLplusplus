@@ -8,4 +8,4 @@ the target will belive it is running as the child, post-fork.
 This is defork.c from the amazing preeny project
 https://github.com/zardus/preeny
 
-It is altered for afl++ to work with its fork-server: the initial fork will go through, the second fork will be blocked.
+It is altered for AFL++ to work with its fork-server: the initial fork will go through, the second fork will be blocked.

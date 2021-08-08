@@ -11,7 +11,7 @@
 
 ## 1) Settings for all compilers
 
-Starting with afl++ 3.0 there is only one compiler: afl-cc
+Starting with AFL++ 3.0 there is only one compiler: afl-cc
 To select the different instrumentation modes this can be done by
   1. passing the --afl-MODE command line option to the compiler
   2. or using a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
@@ -23,10 +23,10 @@ To select the different instrumentation modes this can be done by
 (afl-g*-fast) or `GCC` (afl-gcc/afl-g++).
 
 Because (with the exception of the --afl-MODE command line option) the
-compile-time tools do not accept afl specific command-line options, they
+compile-time tools do not accept AFL specific command-line options, they
 make fairly broad use of environmental variables instead:
 
-  - Some build/configure scripts break with afl++ compilers. To be able to
+  - Some build/configure scripts break with AFL++ compilers. To be able to
     pass them, do:
 ```
        export CC=afl-cc
@@ -37,7 +37,7 @@ make fairly broad use of environmental variables instead:
        make
 ```
 
-  - Most afl tools do not print any output if stdout/stderr are redirected.
+  - Most AFL tools do not print any output if stdout/stderr are redirected.
     If you want to get the output into a file then set the `AFL_DEBUG`
     environment variable.
     This is sadly necessary for various build processes which fail otherwise.
@@ -149,7 +149,7 @@ Then there are a few specific features that are only available in instrumentatio
   This is a different kind way of instrumentation: first it compiles all
     code in LTO (link time optimization) and then performs an edge inserting
     instrumentation which is 100% collision free (collisions are a big issue
-    in afl and afl-like instrumentations). This is performed by using
+    in AFL and AFL-like instrumentations). This is performed by using
     afl-clang-lto/afl-clang-lto++ instead of afl-clang-fast, but is only
     built if LLVM 11 or newer is used.
 
@@ -167,7 +167,7 @@ Then there are a few specific features that are only available in instrumentatio
      or which functions were touched by an input.
    - `AFL_LLVM_MAP_ADDR` sets the fixed map address to a different address than
      the default `0x10000`. A value of 0 or empty sets the map address to be
-     dynamic (the original afl way, which is slower)
+     dynamic (the original AFL way, which is slower)
    - `AFL_LLVM_MAP_DYNAMIC` sets the shared memory address to be dynamic
    - `AFL_LLVM_LTO_STARTID` sets the starting location ID for the instrumentation.
      This defaults to 1
@@ -480,11 +480,11 @@ checks or alter some of the more exotic semantics of the tool:
     allows you to add tags to your fuzzing instances. This is especially useful when running
     multiple instances (`-M/-S` for example). Applied tags are `banner` and `afl_version`.
     `banner` corresponds to the name of the fuzzer provided through `-M/-S`.
-    `afl_version` corresponds to the currently running afl version (e.g `++3.0c`).
+    `afl_version` corresponds to the currently running AFL version (e.g `++3.0c`).
     Default (empty/non present) will add no tags to the metrics.
     See [rpc_statsd.md](rpc_statsd.md) for more information.
 
-  - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
+  - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL treats as crash.
     For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
     in an `-1` return code (i.e. `exit(-1)` got called), will be treated
     as if a crash had ocurred.

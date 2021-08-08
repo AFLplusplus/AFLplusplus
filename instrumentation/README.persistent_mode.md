@@ -2,7 +2,7 @@
 
 ## 1) Introduction
 
-In persistent mode, afl++ fuzzes a target multiple times
+In persistent mode, AFL++ fuzzes a target multiple times
 in a single process, instead of forking a new process for each fuzz execution.
 This is the most effective way to fuzz, as the speed can easily
 be x10 or x20 times faster without any disadvanges.

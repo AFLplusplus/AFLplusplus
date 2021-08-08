@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     configuration settings for fuzzing, for Linux and Macos.
     thanks to jhertz!
   - added xml, curl and exotic string functions to llvm dictionary features
+  - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
 
 
@@ -82,7 +83,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - on a crashing seed potentially the wrong input was disabled
     - added AFL_EXIT_ON_SEED_ISSUES env that will exit if a seed in
       -i dir crashes the target or results in a timeout. By default
-      afl++ ignores these and uses them for splicing instead.
+      AFL++ ignores these and uses them for splicing instead.
     - added AFL_EXIT_ON_TIME env that will make afl-fuzz exit fuzzing
       after no new paths have been found for n seconds
     - when AFL_FAST_CAL is set a variable path will now be calibrated
@@ -236,7 +237,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
   - Added `AFL_KILL_SIGNAL` env variable (thanks @v-p-b)
   - @Edznux added a nice documentation on how to use rpc.statsd with
-    afl++ in docs/rpc_statsd.md, thanks!
+    AFL++ in docs/rpc_statsd.md, thanks!
 
 ### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
@@ -292,7 +293,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - custom mutators
     - added a new custom mutator: symcc -> https://github.com/eurecom-s3/symcc/
     - added a new custom mutator: libfuzzer that integrates libfuzzer mutations
-    - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
+    - Our AFL++ Grammar-Mutator is now better integrated into custom_mutators/
     - added INTROSPECTION support for custom modules
     - python fuzz function was not optional, fixed
     - some python mutator speed improvements
@@ -303,7 +304,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.68c (release)
-  - added the GSoC excellent afl++ grammar mutator by Shengtuo to our
+  - added the GSoC excellent AFL++ grammar mutator by Shengtuo to our
     custom_mutators/ (see custom_mutators/README.md) - or get it here:
     https://github.com/AFLplusplus/Grammar-Mutator
   - a few QOL changes for Apple and its outdated gmake
@@ -326,12 +327,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - llvm_mode:
     - ported SanCov to LTO, and made it the default for LTO. better
       instrumentation locations
-    - Further llvm 12 support (fast moving target like afl++ :-) )
+    - Further llvm 12 support (fast moving target like AFL++ :-) )
     - deprecated LLVM SKIPSINGLEBLOCK env environment
 
 
 ### Version ++2.67c (release)
-  - Support for improved afl++ snapshot module:
+  - Support for improved AFL++ snapshot module:
     https://github.com/AFLplusplus/AFL-Snapshot-LKM
   - Due to the instrumentation needing more memory, the initial memory sizes
     for -m have been increased
@@ -433,7 +434,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     files/stdin) - 10-100% performance increase
   - General support for 64 bit PowerPC, RiscV, Sparc etc.
   - fix afl-cmin.bash
-  - slightly better performance compilation options for afl++ and targets
+  - slightly better performance compilation options for AFL++ and targets
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk
@@ -446,7 +447,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
      - AFL_MAP_SIZE was not working correctly
      - better python detection
-     - an old, old bug in afl that would show negative stability in rare
+     - an old, old bug in AFL that would show negative stability in rare
        circumstances is now hopefully fixed
      - AFL_POST_LIBRARY was deprecated, use AFL_CUSTOM_MUTATOR_LIBRARY
        instead (see docs/custom_mutators.md)
@@ -505,8 +506,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - extended forkserver: map_size and more information is communicated to
     afl-fuzz (and afl-fuzz acts accordingly)
   - new environment variable: AFL_MAP_SIZE to specify the size of the shared map
-  - if AFL_CC/AFL_CXX is set but empty afl compilers did fail, fixed
-    (this bug is in vanilla afl too)
+  - if AFL_CC/AFL_CXX is set but empty AFL compilers did fail, fixed
+    (this bug is in vanilla AFL too)
   - added NO_PYTHON flag to disable python support when building afl-fuzz
   - more refactoring
 
@@ -520,7 +521,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - all:
     - big code changes to make afl-fuzz thread-safe so afl-fuzz can spawn
       multiple fuzzing threads in the future or even become a library
-    - afl basic tools now report on the environment variables picked up
+    - AFL basic tools now report on the environment variables picked up
     - more tools get environment variable usage info in the help output
     - force all output to stdout (some OK/SAY/WARN messages were sent to
       stdout, some to stderr)
@@ -669,7 +670,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - qemu and unicorn download scripts now try to download until the full
     download succeeded. f*ckin travis fails downloading 40% of the time!
   - more support for Android (please test!)
-  - added the few Android stuff we didnt have already from Google afl repository
+  - added the few Android stuff we didnt have already from Google AFL repository
   - removed unnecessary warnings
 
 
@@ -717,7 +718,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
   - big code refactoring:
     * all includes are now in include/
-    * all afl sources are now in src/ - see src/README.md
+    * all AFL sources are now in src/ - see src/README.md
     * afl-fuzz was split up in various individual files for including
       functionality in other programs (e.g. forkserver, memory map, etc.)
       for better readability.
@@ -733,7 +734,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - fix for a few features to support different map sized than 2^16
   - afl-showmap: new option -r now shows the real values in the buckets (stock
-    afl never did), plus shows tuple content summary information now
+    AFL never did), plus shows tuple content summary information now
   - small docu updates
   - NeverZero counters for QEMU
   - NeverZero counters for Unicorn
@@ -776,7 +777,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     debugging
   - added -V time and -E execs option to better comparison runs, runs afl-fuzz
     for a specific time/executions.
-  - added a -s seed switch to allow afl run with a fixed initial
+  - added a -s seed switch to allow AFL run with a fixed initial
     seed that is not updated. This is good for performance and path discovery
     tests as the random numbers are deterministic then
   - llvm_mode LAF_... env variables can now be specified as AFL_LLVM_LAF_...
@@ -1597,7 +1598,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version 1.63b:
 
   - Updated cgroups_asan/ with a new version from Sam, made a couple changes
-    to streamline it and keep parallel afl instances in separate groups.
+    to streamline it and keep parallel AFL instances in separate groups.
 
   - Fixed typos, thanks to Jakub Wilk.
 
@@ -2395,7 +2396,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
   - Added AFL_KEEP_ASSEMBLY for easier troubleshooting.
 
-  - Added an override for AFL_USE_ASAN if set at afl compile time. Requested by
+  - Added an override for AFL_USE_ASAN if set at AFL compile time. Requested by
     Hanno Boeck.
 
 ### Version 0.79b:
