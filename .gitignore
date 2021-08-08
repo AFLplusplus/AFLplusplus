@@ -85,4 +85,5 @@ gmon.out
 afl-frida-trace.so
 utils/afl_network_proxy/afl-network-client
 utils/afl_network_proxy/afl-network-server
+utils/plot_ui/afl-plot-ui
 *.o.tmp

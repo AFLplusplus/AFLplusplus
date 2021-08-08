@@ -1,4 +1,4 @@
-# strcmp() / memcmp() CompareCoverage library for afl++ QEMU
+# strcmp() / memcmp() CompareCoverage library for AFL++ QEMU
 
   Written by Andrea Fioraldi <andreafioraldi@gmail.com>
 

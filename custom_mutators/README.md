@@ -1,6 +1,6 @@
 # Custom Mutators
 
-Custom mutators enhance and alter the mutation strategies of afl++.
+Custom mutators enhance and alter the mutation strategies of AFL++.
 For further information and documentation on how to write your own, read [the docs](../docs/custom_mutators.md).
 
 ## Examples
@@ -11,9 +11,9 @@ The `./examples` folder contains examples for custom mutators in python and C.
 
 In `./rust`, you will find rust bindings, including a simple example in `./rust/example` and an example for structured fuzzing, based on lain, in`./rust/example_lain`.
 
-## The afl++ Grammar Mutator
+## The AFL++ Grammar Mutator
 
-If you use git to clone afl++, then the following will incorporate our
+If you use git to clone AFL++, then the following will incorporate our
 excellent grammar custom mutator:
 ```sh
 git submodule update --init
@@ -40,7 +40,7 @@ Multiple custom mutators can be used by separating their paths with `:` in the e
 
 ### Superion Mutators
 
-Adrian Tiron ported the Superion grammar fuzzer to afl++, it is WIP and
+Adrian Tiron ported the Superion grammar fuzzer to AFL++, it is WIP and
 requires cmake (among other things):
 [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
@@ -52,8 +52,8 @@ transforms protobuf raw:
 https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator
 
 has a transform function you need to fill for your protobuf format, however
-needs to be ported to the updated afl++ custom mutator API (not much work):
+needs to be ported to the updated AFL++ custom mutator API (not much work):
 https://github.com/thebabush/afl-libprotobuf-mutator
 
-same as above but is for current afl++:
+same as above but is for current AFL++:
 https://github.com/P1umer/AFLplusplus-protobuf-mutator

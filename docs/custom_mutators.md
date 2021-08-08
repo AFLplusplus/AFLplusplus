@@ -21,7 +21,7 @@ fuzzing by using libraries that perform mutations according to a given grammar.
 
 The custom mutator is passed to `afl-fuzz` via the `AFL_CUSTOM_MUTATOR_LIBRARY`
 or `AFL_PYTHON_MODULE` environment variable, and must export a fuzz function.
-Now afl also supports multiple custom mutators which can be specified in the same `AFL_CUSTOM_MUTATOR_LIBRARY` environment variable like this.
+Now AFL also supports multiple custom mutators which can be specified in the same `AFL_CUSTOM_MUTATOR_LIBRARY` environment variable like this.
 ```bash
 export AFL_CUSTOM_MUTATOR_LIBRARY="full/path/to/mutator_first.so;full/path/to/mutator_second.so"
 ```
