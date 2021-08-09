@@ -3,9 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define WIDTH 400
-#define HEIGHT 640
-
 char USAGE[] =
     "is a helper utility for rendering the GNUplot graphs in a GTK window. This allows to real time resizing, scrolling, and cursor positioning features while viewing the graph. This utility also provides options to hide graphs using check buttons.\n \
 \n \
@@ -43,7 +40,6 @@ int main(int argc, char **argv) {
   gtk_init(&argc, &argv);
 
   window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  gtk_window_set_default_size(GTK_WINDOW(window), WIDTH, HEIGHT);
   gtk_window_set_title(GTK_WINDOW(window), "Graph drawing");
   gtk_container_set_border_width(GTK_CONTAINER(window), 10);
 
