@@ -146,10 +146,6 @@ void load_stats_file(afl_state_t *afl) {
           if (!strcmp(keystring, "execs_done        "))
             afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
           break;
-        case 10:
-          if (!strcmp(keystring, "paths_total       "))
-            afl->queued_paths = strtoul(lptr, &nptr, 10);
-          break;
         case 12:
           if (!strcmp(keystring, "paths_found       "))
             afl->queued_discovered = strtoul(lptr, &nptr, 10);
