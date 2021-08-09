@@ -3,9 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define WIDTH 400
-#define HEIGHT 640
-
 char USAGE[] =
     "is a helper utility for rendering the GNUplot graphs in a GTK window. This allows to real time resizing, scrolling, and cursor positioning features while viewing the graph. This utility also provides options to hide graphs using check buttons.\n \
 \n \
@@ -32,7 +29,8 @@ int main(int argc, char **argv) {
   GtkWidget *cbuttons_frame;
   GtkWidget *cbuttons_hbox;
 
-  GtkWidget *separator_maj, *separator_min1, *separator_min2, *separator_min3;
+  GtkWidget *separator_top;
+  GtkWidget *pane1, *pane2, *pane3;
 
   GtkWidget *plots_vbox;
   GtkWidget *plot_edges_frame, *plot_exec_speed_frame, *plot_high_freq_frame,
@@ -42,7 +40,6 @@ int main(int argc, char **argv) {
   gtk_init(&argc, &argv);
 
   window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  gtk_window_set_default_size(GTK_WINDOW(window), WIDTH, HEIGHT);
   gtk_window_set_title(GTK_WINDOW(window), "Graph drawing");
   gtk_container_set_border_width(GTK_CONTAINER(window), 10);
 
@@ -84,45 +81,53 @@ int main(int argc, char **argv) {
   gtk_container_add(GTK_CONTAINER(cbuttons_frame), cbuttons_hbox);
   gtk_box_pack_start(GTK_BOX(main_vbox), cbuttons_frame, FALSE, TRUE, 1);
 
-  separator_maj = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-  gtk_box_pack_start(GTK_BOX(main_vbox), separator_maj, FALSE, TRUE, 1);
+  separator_top = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+  gtk_box_pack_start(GTK_BOX(main_vbox), separator_top, FALSE, TRUE, 1);
 
   plots_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
 
   plot_edges_frame = gtk_frame_new("Edges");
-  gtk_container_set_border_width(GTK_CONTAINER(plot_edges_frame), 5);
+  gtk_frame_set_shadow_type(GTK_FRAME(plot_edges_frame), GTK_SHADOW_IN);
+  gtk_container_set_border_width(GTK_CONTAINER(plot_edges_frame), 10);
   plot_edges = gtk_socket_new();
+  gtk_widget_set_size_request(plot_edges, -1, 100);
   gtk_container_add(GTK_CONTAINER(plot_edges_frame), plot_edges);
 
   plot_exec_speed_frame = gtk_frame_new("Exec Speed");
-  gtk_container_set_border_width(GTK_CONTAINER(plot_exec_speed_frame), 5);
+  gtk_frame_set_shadow_type(GTK_FRAME(plot_exec_speed_frame), GTK_SHADOW_IN);
+  gtk_container_set_border_width(GTK_CONTAINER(plot_exec_speed_frame), 10);
   plot_exec_speed = gtk_socket_new();
+  gtk_widget_set_size_request(plot_exec_speed, -1, 100);
   gtk_container_add(GTK_CONTAINER(plot_exec_speed_frame), plot_exec_speed);
 
   plot_high_freq_frame = gtk_frame_new("High Frequency");
-  gtk_container_set_border_width(GTK_CONTAINER(plot_high_freq_frame), 5);
+  gtk_frame_set_shadow_type(GTK_FRAME(plot_high_freq_frame), GTK_SHADOW_IN);
+  gtk_container_set_border_width(GTK_CONTAINER(plot_high_freq_frame), 10);
   plot_high_freq = gtk_socket_new();
+  gtk_widget_set_size_request(plot_high_freq, -1, 100);
   gtk_container_add(GTK_CONTAINER(plot_high_freq_frame), plot_high_freq);
 
   plot_low_freq_frame = gtk_frame_new("Low Frequency");
-  gtk_container_set_border_width(GTK_CONTAINER(plot_low_freq_frame), 5);
+  gtk_frame_set_shadow_type(GTK_FRAME(plot_low_freq_frame), GTK_SHADOW_IN);
+  gtk_container_set_border_width(GTK_CONTAINER(plot_low_freq_frame), 10);
   plot_low_freq = gtk_socket_new();
+  gtk_widget_set_size_request(plot_low_freq, -1, 100);
   gtk_container_add(GTK_CONTAINER(plot_low_freq_frame), plot_low_freq);
 
-  separator_min1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-  separator_min2 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-  separator_min3 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+  pane1 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+  pane2 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+  pane3 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
 
-  gtk_box_pack_start(GTK_BOX(plots_vbox), plot_edges_frame, TRUE, TRUE, 1);
-  gtk_box_pack_start(GTK_BOX(plots_vbox), separator_min1, FALSE, TRUE, 1);
+  gtk_paned_pack1(GTK_PANED(pane1), plot_edges_frame, TRUE, FALSE);
+  gtk_paned_pack2(GTK_PANED(pane1), plot_exec_speed_frame, TRUE, FALSE);
 
-  gtk_box_pack_start(GTK_BOX(plots_vbox), plot_exec_speed_frame, TRUE, TRUE, 1);
-  gtk_box_pack_start(GTK_BOX(plots_vbox), separator_min2, FALSE, TRUE, 1);
+  gtk_paned_pack1(GTK_PANED(pane2), pane1, TRUE, FALSE);
+  gtk_paned_pack2(GTK_PANED(pane2), plot_high_freq_frame, TRUE, FALSE);
 
-  gtk_box_pack_start(GTK_BOX(plots_vbox), plot_high_freq_frame, TRUE, TRUE, 1);
-  gtk_box_pack_start(GTK_BOX(plots_vbox), separator_min3, FALSE, TRUE, 1);
+  gtk_paned_pack1(GTK_PANED(pane3), pane2, TRUE, FALSE);
+  gtk_paned_pack2(GTK_PANED(pane3), plot_low_freq_frame, TRUE, FALSE);
 
-  gtk_box_pack_start(GTK_BOX(plots_vbox), plot_low_freq_frame, TRUE, TRUE, 1);
+  gtk_box_pack_start(GTK_BOX(plots_vbox), pane3, TRUE, TRUE, 0);
 
   gtk_box_pack_start(GTK_BOX(main_vbox), plots_vbox, TRUE, TRUE, 1);
 
