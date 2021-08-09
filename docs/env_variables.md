@@ -55,8 +55,7 @@ make fairly broad use of environmental variables instead:
     overridden.
 
   - Setting `AFL_USE_ASAN` automatically enables ASAN, provided that your
-    compiler supports it. Note that fuzzing with ASAN is mildly challenging
-    - see [notes_for_asan.md](notes_for_asan.md).
+    compiler supports it.
 
     (You can also enable MSAN via `AFL_USE_MSAN`; ASAN and MSAN come with the
     same gotchas; the modes are mutually exclusive. UBSAN can be enabled
