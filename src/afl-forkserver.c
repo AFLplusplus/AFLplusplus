@@ -845,9 +845,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "    from the fuzzer! Since it seems to be built with ASAN and you "
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
-           "read\n"
-           "    %s/notes_for_asan.md for help and run with '-m 0'.\n",
-           doc_path);
+           "run with '-m 0'.\n");
 
     } else if (!fsrv->mem_limit) {
 
@@ -946,8 +944,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    read %s/notes_for_asan.md for help and run with '-m 0'.\n",
-         doc_path);
+         "    run with '-m 0'.\n");
 
   } else if (!fsrv->mem_limit) {
 
