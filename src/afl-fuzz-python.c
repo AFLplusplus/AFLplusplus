@@ -445,6 +445,10 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   /* Initialize the custom mutator */
   init_py(afl, py_mutator, rand_below(afl, 0xFFFFFFFF));
+  
+  mutator->stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
+  mutator->stacked_custom_prob =
+      6;  // like one of the default mutations in havoc
 
   return mutator;
 
