@@ -978,7 +978,7 @@ void perform_dry_run(afl_state_t *afl) {
                "quickly\n"
                "      estimate the required amount of virtual memory for the "
                "binary. Also,\n"
-               "      if you are using ASAN, see %s/notes_for_asan.md.\n\n"
+               "      if you are using ASAN, set '-m 0'.\n\n"
 
                "    - In QEMU persistent mode the selected address(es) for the "
                "loop are not\n"
@@ -994,7 +994,7 @@ void perform_dry_run(afl_state_t *afl) {
                "troubleshooting tips.\n",
                stringify_mem_size(val_buf, sizeof(val_buf),
                                   afl->fsrv.mem_limit << 20),
-               afl->fsrv.mem_limit - 1, doc_path);
+               afl->fsrv.mem_limit - 1);
 
         } else {
 

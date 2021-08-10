@@ -244,7 +244,11 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   shm->shm_id =
       shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
-  if (shm->shm_id < 0) { PFATAL("shmget() failed, try running afl-system-config"); }
+  if (shm->shm_id < 0) {
+
+    PFATAL("shmget() failed, try running afl-system-config");
+
+  }
 
   if (shm->cmplog_mode) {
 
@@ -325,3 +329,4 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   return shm->map;
 
 }
+

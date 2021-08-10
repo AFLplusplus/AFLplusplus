@@ -1501,7 +1501,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-
   get_core_count(afl);
 
   atexit(at_exit);
