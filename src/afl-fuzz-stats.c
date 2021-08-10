@@ -147,8 +147,19 @@ void load_stats_file(afl_state_t *afl) {
             afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
           break;
         case 10:
-          if (!strcmp(keystring, "paths_total       "))
-            afl->queued_paths = strtoul(lptr, &nptr, 10);
+          if (!strcmp(keystring, "paths_total       ")) {
+
+            u32 paths_total = strtoul(lptr, &nptr, 10);
+            if (paths_total != afl->queued_paths) {
+
+              WARNF(
+                  "queue/ has been modified -- things might not work, you're "
+                  "on your own!");
+
+            }
+
+          }
+
           break;
         case 12:
           if (!strcmp(keystring, "paths_found       "))
