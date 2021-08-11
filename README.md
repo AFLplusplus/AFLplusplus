@@ -1322,8 +1322,7 @@ Here are some of the most important caveats for AFL:
     `AFL_CUSTOM_MUTATOR_LIBRARY`
 
   - There are some unfortunate trade-offs with ASAN and 64-bit binaries. This
-    isn't due to any specific fault of afl-fuzz; see [docs/notes_for_asan.md](docs/notes_for_asan.md)
-    for tips.
+    isn't due to any specific fault of afl-fuzz.
 
   - There is no direct support for fuzzing network services, background
     daemons, or interactive apps that require UI interaction to work. You may
