@@ -311,6 +311,9 @@ of `main`, since this is the point that FRIDA mode is initialized. Otherwise, it
 will not be possible to configure coverage for the test library using
 `AFL_FRIDA_INST_RANGES` or similar.
 
+# Debugging
+Please refer to the [debugging](#debugging) guide for assistant should you
+encounter problems with FRIDA mode.
 
 ## TODO
 
