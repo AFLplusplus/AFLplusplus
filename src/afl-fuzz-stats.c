@@ -534,6 +534,20 @@ void show_stats(afl_state_t *afl) {
   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.real_map_size;
 
+  if (unlikely(t_bytes > afl->fsrv.real_map_size)) {
+
+    if (unlikely(!afl->afl_env.afl_ignore_problems)) {
+
+      FATAL(
+          "Incorrect fuzzing setup detected. Your target seems to have loaded "
+          "incorrectly instrumented shared libraries. If you use LTO mode "
+          "please see instrumentation/README.lto.md. To ignore this problem "
+          "and continue fuzzing just set 'AFL_IGNORE_PROBLEMS=1'.\n");
+
+    }
+
+  }
+
   if (likely(t_bytes) && unlikely(afl->var_byte_count)) {
 
     stab_ratio = 100 - (((double)afl->var_byte_count * 100) / t_bytes);

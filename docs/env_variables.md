@@ -432,6 +432,10 @@ checks or alter some of the more exotic semantics of the tool:
     and RECORD:000000,cnt:000009 being the crash case.
     NOTE: This option needs to be enabled in config.h first!
 
+  - If afl-fuzz encounters an incorrect fuzzing setup during a fuzzing session
+    (not at startup), it will terminate. If you do not want this then you can
+    set `AFL_IGNORE_PROBLEMS`.
+
   - If you are Jakub, you may need `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`.
     Others need not apply, unless they also want to disable the
     `/proc/sys/kernel/core_pattern` check.

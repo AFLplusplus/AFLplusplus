@@ -473,6 +473,13 @@ compiler is used. Also - if possible - you should always configure the
 build system such that the target is compiled statically and not dynamically.
 How to do this is described below.
 
+The #1 rule when instrumenting a target is: avoid instrumenting shared
+libraries at all cost. You would need to set LD_LIBRARY_PATH to point to
+these, you could accidently type "make install" and install them system wide -
+so don't. Really don't.
+**Always compile libraries you want to have instrumented as static and link
+these to the target program!**
+
 Then build the target. (Usually with `make`)
 
 **NOTES**
