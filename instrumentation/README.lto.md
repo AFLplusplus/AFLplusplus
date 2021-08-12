@@ -138,6 +138,34 @@ make
 NOTE: some targets also need to set the linker, try both `afl-clang-lto` and
 `afl-ld-lto` for `LD=` before `configure`.
 
+## Instrumenting shared libraries
+
+Note: this is highly discouraged! Try to compile to static libraries with
+afl-clang-lto instead of shared libraries!
+
+To make instrumented shared libraries work with afl-clang-lto you have to do
+quite some extra steps.
+
+Every shared library you want to instrument has to be individually compiled-
+The environment variable `AFL_LLVM_LTO_DONTWRITEID=1` has to be set during
+compilation.
+Additionally the environment variable `AFL_LLVM_LTO_STARTID` has to be set to
+the combined edge values of all previous compiled instrumented shared
+libraries for that target.
+E.g. for the first shared library this would be `AFL_LLVM_LTO_STARTID=0` and
+afl-clang-lto will then report how many edges have been instrumented (let's say
+it reported 1000 instrumented edges).
+The second shared library then has to be set to that value
+(`AFL_LLVM_LTO_STARTID=1000` in our example), the third to all previous
+combined, etc.
+
+The final program compilation step then may *not* have `AFL_LLVM_LTO_DONTWRITEID`
+set, and `AFL_LLVM_LTO_STARTID` must be set to all combined edges of all shared
+libaries it will be linked to.
+
+This is quite some hands-on work, so better stay away from instrumenting
+shared libraries :-)
+
 ## AUTODICTIONARY feature
 
 While compiling, a dictionary based on string comparisons is automatically

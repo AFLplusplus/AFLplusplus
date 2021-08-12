@@ -216,6 +216,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
+      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"

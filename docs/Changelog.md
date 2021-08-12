@@ -9,6 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
+  - afl-fuzz:
+    added AFL_IGNORE_PROBLEMS plus checks to identify and abort on
+    incorrect LTO usage setups and enhanced the READMEs for better
+    information on how to deal with instrumenting libraries
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
   - added optimin, a faster and better corpus minimizer by
