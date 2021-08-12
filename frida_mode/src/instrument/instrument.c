@@ -116,8 +116,8 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
   }
 
-  instrument_previous_pc =
-      ((current_pc & (MAP_SIZE - 1) >> 1)) | ((current_pc & 0x1) << 15);
+  instrument_previous_pc = ((current_pc & (MAP_SIZE - 1) >> 1)) |
+                           ((current_pc & 0x1) << (MAP_SIZE_POW2 - 1));
 
 }
 
