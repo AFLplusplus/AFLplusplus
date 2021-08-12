@@ -263,6 +263,10 @@ Here are some good writeups to show how to effectively use AFL++:
  * [https://securitylab.github.com/research/fuzzing-apache-1](https://securitylab.github.com/research/fuzzing-apache-1)
  * [https://github.com/antonio-morales/Fuzzing101](https://github.com/antonio-morales/Fuzzing101)
 
+If you do not want to follow a tutorial but rather try an exercise type of
+training then we can highly recommend the following:
+ * [https://github.com/antonio-morales/Fuzzing101](https://github.com/antonio-morales/Fuzzing101)
+
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
  * Superion for AFL++: [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
