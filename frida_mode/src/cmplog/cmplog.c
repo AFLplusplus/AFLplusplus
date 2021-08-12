@@ -56,7 +56,9 @@ void cmplog_config(void) {
 
 void cmplog_init(void) {
 
-  if (__afl_cmp_map != NULL) { OKF("CMPLOG mode enabled"); }
+  OKF("CMPLOG - Enabled [%c]", __afl_cmp_map == NULL ? ' ' : 'X');
+
+  if (__afl_cmp_map == NULL) { return; }
 
   cmplog_get_ranges();
 
