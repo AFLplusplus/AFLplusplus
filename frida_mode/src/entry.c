@@ -21,6 +21,7 @@ static void entry_launch(void) {
   __afl_manual_init();
 
   /* Child here */
+  entry_reached = TRUE;
   instrument_on_fork();
   stats_on_fork();
 
@@ -59,7 +60,6 @@ void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output) {
 
   if (persistent_start == 0) {
 
-    entry_reached = TRUE;
     ranges_exclude();
     stalker_trust();
 
