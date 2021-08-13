@@ -106,7 +106,7 @@ static pthread_spinlock_t quarantine_lock;
 #endif
 
 // need qasan disabled
-static int quanratine_push(struct chunk_begin *ck) {
+static int quarantine_push(struct chunk_begin *ck) {
 
   if (ck->requested_size >= QUARANTINE_MAX_BYTES) return 0;
 
@@ -236,7 +236,7 @@ void __libqasan_free(void *ptr) {
   QASAN_STORE(ptr, n);
   int state = QASAN_SWAP(QASAN_DISABLED);  // disable qasan for this thread
 
-  if (!quanratine_push(p)) {
+  if (!quarantine_push(p)) {
 
     if (p->aligned_orig)
       backend_free(p->aligned_orig);
