@@ -7,9 +7,9 @@ If you find an interesting or important question missing, submit it via
 
   * [What is the difference between AFL and AFL++?](#what-is-the-difference-between-afl-and-afl)
   * [I got a weird compile error from clang](#i-got-a-weird-compile-error-from-clang)
-  * [How to improve the fuzzing speed?](#how-to-improve-the-fuzzing-speed)
-  * [How do I fuzz a network service?](#how-do-i-fuzz-a-network-service)
-  * [How do I fuzz a GUI program?](#how-do-i-fuzz-a-gui-program)
+  * [How can I improve the fuzzing speed?](#how-can-i-improve-the-fuzzing-speed)
+  * [How can I fuzz a network service?](#how-can-i-fuzz-a-network-service)
+  * [How can I fuzz a GUI program?](#how-can-i-fuzz-a-gui-program)
   * [What is an edge?](#what-is-an-edge)
   * [Why is my stability below 100%?](#why-is-my-stability-below-100)
   * [How can I improve the stability value?](#how-can-i-improve-the-stability-value)
@@ -40,7 +40,7 @@ package and because of that the AFL++ llvm plugins do not match anymore.
 
 Solution: `git pull ; make clean install` of AFL++
 
-## How to improve the fuzzing speed?
+## How can I improve the fuzzing speed?
 
 See [docs/best_practices.md#improving-speed](docs/best_practices.md#improving-speed).
 
@@ -48,13 +48,13 @@ See [docs/best_practices.md#improving-speed](docs/best_practices.md#improving-sp
 
 See [docs/best_practices.md#improving-stability](docs/best_practices.md#improving-stability).
 
-## How do I fuzz a network service?
+## How can I fuzz a network service?
 
 The short answer is - you cannot, at least not "out of the box".
 
 For more information, see [docs/best_practices.md#fuzzing-network-service](docs/best_practices.md#fuzzing-network-service).
 
-## How do I fuzz a GUI program?
+## How can I fuzz a GUI program?
 
 See [docs/best_practices.md#fuzzing-gui-program](docs/best_practices.md#fuzzing-gui-program).
 
