@@ -19,10 +19,11 @@ Originally developed by Michał "lcamtuf" Zalewski.
 
 AFL++ is a superior fork to Google's AFL - more speed, more and better mutations, more and better instrumentation, custom module support, etc.
 
+For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab. Also take a look at the list of [major behaviour changes in AFL++](docs/behaviour_changes.md).
+
 If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/) on the website.
 To cite our work, look at [Cite.md](docs/cite.md).
-For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast`
-with `AFL_LLVM_CMPLOG=1`.
+For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`.
 
 You are free to copy, modify, and distribute AFL++ with attribution under the terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
@@ -48,22 +49,26 @@ To install AFL++ with everything compiled, use Docker:
   docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
   ```
 
-  This image is automatically generated when a push to the stable repo happens.
+  This image is automatically generated when a push to the stable repo happens (see [docs/branches.md](docs/branches.md)).
   You will find your target source code in `/src` in the container.
 
-To build AFL++ yourself, continue at [building_installing.md](building_installing.md).
+To build AFL++ yourself, continue at [docs/building_installing.md](docs/building_installing.md).
 
 ## Quickstart: Fuzzing with AFL++
-
-*THIS SECTION IS WIP*
 
 *NOTE: Before you start, please read about the [common sense risks of fuzzing](docs/common_sense_risks.md).*
 
 This is a quickstart for fuzzing targets with the source code available.
-
 To read about the process in detail, see [docs/fuzzing.md](docs/fuzzing.md).
 
-For fuzzing binary-only targets, see [docs/fuzzing_binary-only_targets.md](docs/fuzzing_binary-only_targets.md).
+To learn about fuzzing other target, see:
+* Binary-only targets: [docs/fuzzing_binary-only_targets.md](docs/fuzzing_binary-only_targets.md)
+* Network services: [docs/best_practices.md#fuzzing-a-network-service](docs/best_practices.md#fuzzing-a-network-service)
+* GUI programs: [docs/best_practices.md#fuzzing-a-gui-program](docs/best_practices.md#fuzzing-a-gui-program)
+
+Step-by-step quickstart:
+
+*THIS SECTION IS WIP*
 
 1. Instrumenting the target:
     1. Selecting a compiler.
@@ -137,9 +142,6 @@ Thank you!
 
 Questions? Concerns? Bug reports?
 
-* The contributors can be reached via
-[https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
-
+* The contributors can be reached via [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
 * There is a mailing list for the AFL/AFL++ project ([browse archive](https://groups.google.com/group/afl-users)). To compare notes with other users or to get notified about major new features, send an email to <afl-users+subscribe@googlegroups.com>.
-
 * Or join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
