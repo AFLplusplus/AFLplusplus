@@ -1,18 +1,69 @@
 # Best practices
 
+## Contents
+
+### Targets
+
+  * [Fuzzing a GUI program](#fuzzing-a-gui-program)
+  * [Fuzzing a network service](#fuzzing-a-network-service)
+
+### Improvements
+
+  * [Improving speed](#improving-speed)
+  * [Improving stability?](#improving-stability)
+
+## Targets
+
+### Fuzzing a binary-only target
+
+For a comprehensive guide, see [binaryonly_fuzzing.md](binaryonly_fuzzing.md).
+
+### Fuzzing a GUI program
+
+If the GUI program can read the fuzz data from a file (via the command line, a fixed location or via an environment variable) without needing any user interaction, then it would be suitable for fuzzing.
+
+Otherwise, it is not possible without modifying the source code - which is a very good idea anyway as the GUI functionality is a huge CPU/time overhead for the fuzzing.
+
+So create a new `main()` that just reads the test case and calls the functionality for processing the input that the GUI program is using.
+
+### Fuzzing a network service
+
+Fuzzing a network service does not work "out of the box".
+
+Using a network channel is inadequate for several reasons:
+- it has a slow-down of x10-20 on the fuzzing speed
+- it does not scale to fuzzing multiple instances easily,
+- instead of one initial data packet often a back-and-forth interplay of packets is needed for stateful protocols (which is totally unsupported by most coverage aware fuzzers).
+
+The established method to fuzz network services is to modify the source code
+to read from a file or stdin (fd 0) (or even faster via shared memory, combine
+this with persistent mode [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)
+and you have a performance gain of x10 instead of a performance loss of over
+x10 - that is a x100 difference!).
+
+If modifying the source is not an option (e.g. because you only have a binary
+and perform binary fuzzing) you can also use a shared library with AFL_PRELOAD
+to emulate the network. This is also much faster than the real network would be.
+See [utils/socket_fuzzing/](../utils/socket_fuzzing/).
+
+There is an outdated AFL++ branch that implements networking if you are
+desperate though: [https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking) - 
+however a better option is AFLnet ([https://github.com/aflnet/aflnet](https://github.com/aflnet/aflnet))
+which allows you to define network state with different type of data packets.
+
 ## Improvements
 
-### Improving speed <a name="#improving-speed"></a>
+### Improving speed
 
-  1. Use [llvm_mode](../instrumentation/README.llvm.md): afl-clang-lto (llvm >= 11) or afl-clang-fast (llvm >= 9 recommended).
-  2. Use [persistent mode](../instrumentation/README.persistent_mode.md) (x2-x20 speed increase).
-  3. Use the [AFL++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase).
-  4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to put the input file directory on a tempfs location, see [docs/env_variables.md](docs/env_variables.md).
-  5. Improve Linux kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system less secure).
-  6. Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem.
-  7. Use your cores! [README.md:3.b) Using multiple cores/threads](../README.md#b-using-multiple-coresthreads).
+1. Use [llvm_mode](../instrumentation/README.llvm.md): afl-clang-lto (llvm >= 11) or afl-clang-fast (llvm >= 9 recommended).
+2. Use [persistent mode](../instrumentation/README.persistent_mode.md) (x2-x20 speed increase).
+3. Use the [AFL++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase).
+4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to put the input file directory on a tempfs location, see [docs/env_variables.md](docs/env_variables.md).
+5. Improve Linux kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system less secure).
+6. Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem.
+7. Use your cores! [README.md:3.b) Using multiple cores/threads](../README.md#b-using-multiple-coresthreads).
 
-### Improving stability <a name="#improving-stability"></a>
+### Improving stability
 
 For fuzzing a 100% stable target that covers all edges is the best case.
 A 90% stable target that covers all edges is however better than a 100% stable target that ignores 10% of the edges.
@@ -66,38 +117,3 @@ Four steps are required to do this and it also requires quite some knowledge of 
      Recompile, fuzz it, be happy :)
 
      This link explains this process for [Fuzzbench](https://github.com/google/fuzzbench/issues/677).
-
-## Targets
-
-### Fuzzing a GUI program <a name="#fuzzing-gui-program"></a>
-
-If the GUI program can read the fuzz data from a file (via the command line, a fixed location or via an environment variable) without needing any user interaction, then it would be suitable for fuzzing.
-
-Otherwise, it is not possible without modifying the source code - which is a very good idea anyway as the GUI functionality is a huge CPU/time overhead for the fuzzing.
-
-So create a new `main()` that just reads the test case and calls the functionality for processing the input that the GUI program is using.
-
-### Fuzzing a network service <a name="#fuzzing-network-service"></a>
-
-The short answer is - you cannot, at least not "out of the box".
-
-Using a network channel is inadequate for several reasons:
-- it has a slow-down of x10-20 on the fuzzing speed
-- it does not scale to fuzzing multiple instances easily,
-- instead of one initial data packet often a back-and-forth interplay of packets is needed for stateful protocols (which is totally unsupported by most coverage aware fuzzers).
-
-The established method to fuzz network services is to modify the source code
-to read from a file or stdin (fd 0) (or even faster via shared memory, combine
-this with persistent mode [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)
-and you have a performance gain of x10 instead of a performance loss of over
-x10 - that is a x100 difference!).
-
-If modifying the source is not an option (e.g. because you only have a binary
-and perform binary fuzzing) you can also use a shared library with AFL_PRELOAD
-to emulate the network. This is also much faster than the real network would be.
-See [utils/socket_fuzzing/](../utils/socket_fuzzing/).
-
-There is an outdated AFL++ branch that implements networking if you are
-desperate though: [https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking) - 
-however a better option is AFLnet ([https://github.com/aflnet/aflnet](https://github.com/aflnet/aflnet))
-which allows you to define network state with different type of data packets.
