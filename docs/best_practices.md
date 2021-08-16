@@ -4,13 +4,14 @@
 
 ### Targets
 
+  * [Fuzzing a binary-only target](#fuzzing-a-binary-only-target)
   * [Fuzzing a GUI program](#fuzzing-a-gui-program)
   * [Fuzzing a network service](#fuzzing-a-network-service)
 
 ### Improvements
 
   * [Improving speed](#improving-speed)
-  * [Improving stability?](#improving-stability)
+  * [Improving stability](#improving-stability)
 
 ## Targets
 
