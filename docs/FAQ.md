@@ -1,12 +1,13 @@
 # Frequently asked questions (FAQ)
 
 If you find an interesting or important question missing, submit it via
-[https://github.com/AFLplusplus/AFLplusplus/issues](https://github.com/AFLplusplus/AFLplusplus/issues).
+[https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
 
 ### General
 
-  * [What is the difference between afl and afl++?](#what-is-the-difference-between-afl-and-afl)
-  * [What is an edge?](#what-is-an-edge)
+  * [What is the difference between AFL and AFL++?](#what-is-the-difference-between-afl-and-afl)
+  * [Where can I find tutorials?](#where-can-i-find-tutorials)
+  * [What is an "edge"?](#what-is-an-edge)
 
 ### Targets
 
@@ -30,15 +31,18 @@ If you find an interesting or important question missing, submit it via
 
 AFL++ is a superior fork to Google's AFL - more speed, more and better mutations, more and better instrumentation, custom module support, etc.
 
-For more information about the history of AFL++, see [docs/history_afl++.md](docs/history_afl++.md).
+For more information about the history of AFL++, see [history_afl++.md](history_afl++.md).
+
+### Where can I find tutorials?
+
+We compiled a list of tutorials and exercises, see [links_examples_writeups.md](links_examples_writeups.md).
 
 ### What is an "edge"?
 
 A program contains `functions`, `functions` contain the compiled machine code.
 The compiled machine code in a `function` can be in a single or many `basic blocks`.
-A `basic block` is the largest possible number of subsequent machine code
-instructions that has exactly one entrypoint (which can be be entered by multiple other basic blocks)
-and runs linearly without branching or jumping to other addresses (except at the end).
+A `basic block` is the largest possible number of subsequent machine code instructions that has exactly one entrypoint (which can be be entered by multiple other basic blocks) and runs linearly without branching or jumping to other addresses (except at the end).
+
 ```
 function() {
   A:
@@ -56,10 +60,11 @@ function() {
     return
 }
 ```
+
 Every code block between two jump locations is a `basic block`.
 
-An `edge` is then the unique relationship between two directly connected `basic blocks` (from the
-code example above):
+An `edge` is then the unique relationship between two directly connected `basic blocks` (from the code example above):
+
 ```
               Block A
                 |
@@ -72,6 +77,7 @@ code example above):
               v
               Block E
 ```
+
 Every line between two blocks is an `edge`.
 Note that a few basic block loop to itself, this too would be an edge.
 
@@ -87,47 +93,41 @@ To learn how these binaries can be fuzzed, read [binaryonly_fuzzing.md](binaryon
 
 The short answer is - you cannot, at least not "out of the box".
 
-For more information on fuzzing network services, see [docs/best_practices.md#fuzzing-network-service](docs/best_practices.md#fuzzing-network-service).
+For more information on fuzzing network services, see [best_practices.md#fuzzing-network-service](best_practices.md#fuzzing-network-service).
 
 ### How can I fuzz a GUI program?
 
 Not all GUI programs are suitable for fuzzing. If the GUI program can read the fuzz data from a file without needing any user interaction, then it would be suitable for fuzzing.
 
-For more information on fuzzing GUI programs, see [docs/best_practices.md#fuzzing-gui-program](docs/best_practices.md#fuzzing-gui-program).
+For more information on fuzzing GUI programs, see [best_practices.md#fuzzing-gui-program](best_practices.md#fuzzing-gui-program).
 
 ### How can I improve the fuzzing speed?
 
-There are a few things you can do to improve the fuzzing speed, see [docs/best_practices.md#improving-speed](docs/best_practices.md#improving-speed).
+There are a few things you can do to improve the fuzzing speed, see [best_practices.md#improving-speed](best_practices.md#improving-speed).
 
 ### Why is my stability below 100%?
 
-Stability is measured by how many percent of the edges in the target are
-"stable". Sending the same input again and again should take the exact same
-path through the target every time. If that is the case, the stability is 100%.
+Stability is measured by how many percent of the edges in the target are "stable".
+Sending the same input again and again should take the exact same path through the target every time.
+If that is the case, the stability is 100%.
 
-If however randomness happens, e.g. a thread reading other external data,
-reaction to timing, etc., then in some of the re-executions with the same data
-the edge coverage result will be different accross runs.
+If however randomness happens, e.g. a thread reading other external data, reaction to timing, etc., then in some of the re-executions with the same data the edge coverage result will be different accross runs.
 Those edges that change are then flagged "unstable".
 
-The more "unstable" edges, the more difficult for AFL++ to identify valid new
-paths.
+The more "unstable" edges, the more difficult for AFL++ to identify valid new paths.
 
-A value above 90% is usually fine and a value above 80% is also still ok, and
-even a value above 20% can still result in successful finds of bugs.
-However, it is recommended that for values below 90% or 80% you should take
-countermeasures to improve stability.
+A value above 90% is usually fine and a value above 80% is also still ok, and even a value above 20% can still result in successful finds of bugs.
+However, it is recommended that for values below 90% or 80% you should take countermeasures to improve stability.
 
 ### How can I improve the stability value?
 
 This depends on the target and the instrumentation.
 
-For more information on stability and how to improve the stability value, see [docs/best_practices.md#improving-stability](docs/best_practices.md#improving-stability).
+For more information on stability and how to improve the stability value, see [best_practices.md#improving-stability](best_practices.md#improving-stability).
 
 ### I got a weird compile error from clang
 
-If you see this kind of error when trying to instrument a target with afl-cc/
-afl-clang-fast/afl-clang-lto:
+If you see this kind of error when trying to instrument a target with afl-cc/afl-clang-fast/afl-clang-lto:
 
 ```
 /prg/tmp/llvm-project/build/bin/clang-13: symbol lookup error: /usr/local/bin/../lib/afl//cmplog-instructions-pass.so: undefined symbol: _ZNK4llvm8TypeSizecvmEv
@@ -141,7 +141,6 @@ clang-13: note: diagnostic msg:
 ********************
 ```
 
-Then this means that your OS updated the clang installation from an upgrade
-package and because of that the AFL++ llvm plugins do not match anymore.
+Then this means that your OS updated the clang installation from an upgrade package and because of that the AFL++ llvm plugins do not match anymore.
 
-Solution: `git pull ; make clean install` of AFL++
+Solution: `git pull ; make clean install` of AFL++.
