@@ -93,13 +93,13 @@ To learn how these binaries can be fuzzed, read [binaryonly_fuzzing.md](binaryon
 
 The short answer is - you cannot, at least not "out of the box".
 
-For more information on fuzzing network services, see [best_practices.md#fuzzing-network-service](best_practices.md#fuzzing-network-service).
+For more information on fuzzing network services, see [best_practices.md#fuzzing-a-network-service](best_practices.md#fuzzing-a-network-service).
 
 ### How can I fuzz a GUI program?
 
 Not all GUI programs are suitable for fuzzing. If the GUI program can read the fuzz data from a file without needing any user interaction, then it would be suitable for fuzzing.
 
-For more information on fuzzing GUI programs, see [best_practices.md#fuzzing-gui-program](best_practices.md#fuzzing-gui-program).
+For more information on fuzzing GUI programs, see [best_practices.md#fuzzing-a-gui-program](best_practices.md#fuzzing-a-gui-program).
 
 ### How can I improve the fuzzing speed?
 
