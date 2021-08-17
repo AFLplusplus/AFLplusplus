@@ -131,7 +131,8 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 (only on CMP, SUB and CALL instructions) performance is not quite so critical.
 
 ## Advanced configuration options
-
+* `AFL_FRIDA_INST_COVERAGE_FILE` - File to write DynamoRio format coverage
+information (e.g. to be loaded within IDA lighthouse).
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
 and their instrumented counterparts during block compilation.
 ```

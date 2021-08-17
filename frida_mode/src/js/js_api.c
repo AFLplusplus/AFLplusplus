@@ -107,6 +107,13 @@ __attribute__((visibility("default"))) void js_api_set_instrument_libraries() {
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_instrument_coverage_file(
+    char *path) {
+
+  instrument_coverage_filename = g_strdup(path);
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_instrument_debug_file(
     char *path) {
 
