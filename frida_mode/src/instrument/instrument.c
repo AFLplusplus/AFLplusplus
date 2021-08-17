@@ -217,7 +217,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
   instrument_flush(output);
   instrument_debug_end(output);
-  instrument_coverage_end(instr->address);
+  instrument_coverage_end(instr->address + instr->size);
 
 }
 
