@@ -23,6 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added xml, curl and exotic string functions to llvm dictionary features
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
+  - added uninstall target to makefile (todo: update new readme!)
 
 
 ### Version ++3.14c (release)
