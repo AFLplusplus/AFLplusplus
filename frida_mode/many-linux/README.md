@@ -5,4 +5,5 @@ This folder contains a Docker image to allow the building of
 based on CentOS Linux 5. By building `afl-frida-trace.so` for such an old
 version of Linux, given the strong backward compatibility of Linux, this should
 work on the majority of Linux environments. This may be useful for targetting
-Linux distributions other than your development environment.
+Linux distributions other than your development environment. `many-local` builds
+`AFLplusplus` from the local working copy in the `many-linux` environment.

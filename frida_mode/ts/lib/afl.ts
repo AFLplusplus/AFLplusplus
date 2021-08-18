@@ -104,6 +104,15 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
+   * as an argument.
+   */
+  public static setInstrumentCoverageFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetInstrumentCoverageFile(buf);
+  }
+
+  /**
    * See `AFL_FRIDA_INST_DEBUG_FILE`. This function takes a single `string` as
    * an argument.
    */
@@ -279,6 +288,11 @@ class Afl {
 
   private static readonly jsApiSetEntryPoint = Afl.jsApiGetFunction(
     "js_api_set_entrypoint",
+    "void",
+    ["pointer"]);
+
+  private static readonly jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction(
+    "js_api_set_instrument_coverage_file",
     "void",
     ["pointer"]);
 

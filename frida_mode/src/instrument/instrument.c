@@ -171,6 +171,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
     if (unlikely(begin)) {
 
       instrument_debug_start(instr->address, output);
+      instrument_coverage_start(instr->address);
 
       if (likely(entry_reached)) {
 
@@ -216,6 +217,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
   instrument_flush(output);
   instrument_debug_end(output);
+  instrument_coverage_end(instr->address + instr->size);
 
 }
 
@@ -228,6 +230,7 @@ void instrument_config(void) {
   instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
 
   instrument_debug_config();
+  instrument_coverage_config();
   asan_config();
   cmplog_config();
 
@@ -317,6 +320,7 @@ void instrument_init(void) {
   instrument_hash_zero = instrument_get_offset_hash(0);
 
   instrument_debug_init();
+  instrument_coverage_init();
   asan_init();
   cmplog_init();
 
