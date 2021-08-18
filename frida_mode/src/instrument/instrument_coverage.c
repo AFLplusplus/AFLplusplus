@@ -340,7 +340,7 @@ void instrument_coverage_init(void) {
   if (pid == 0) {
 
     instrument_coverage_run();
-    exit(0);
+    _exit(0);
 
   }
 
