@@ -310,7 +310,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 
 .PHONY: llvm
 llvm:
-	-$(MAKE) -j -f GNUmakefile.llvm
+	-$(MAKE) -j4 -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 .PHONY: gcc_plugin
@@ -598,7 +598,7 @@ endif
 
 .PHONY: distrib
 distrib: all
-	-$(MAKE) -j -f GNUmakefile.llvm
+	-$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
@@ -630,7 +630,7 @@ endif
 
 .PHONY: source-only
 source-only: all
-	-$(MAKE) -j -f GNUmakefile.llvm
+	-$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
