@@ -162,7 +162,12 @@ instrumentation (the default where available). Required to use
 `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
-them and they be inherited by the next child on fork.
+them and they be inherited by the next child on fork, implies
+`AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH`.
+* `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH` - Disable prefetching of stalker
+backpatching information. By default the child will report applied backpatches
+to the parent so that they can be applied and then be inherited by the next
+child on fork.
 * `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
 generate block (and hence edge) IDs. Setting this to a constant value may be
 useful for debugging purposes, e.g. investigating unstable edges.
@@ -189,6 +194,9 @@ gdb \
 		--args <my-executable> [my arguments]
 
 ```
+* `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
+stored along-side branch instructions which provide a cache to avoid having to
+call back into FRIDA to find the next block. Default is 32.
 * `AFL_FRIDA_STATS_FILE` - Write statistics information about the code being
 instrumented to the given file name. The statistics are written only for the
 child process when new block is instrumented (when the
@@ -198,67 +206,70 @@ the existing blocks instrumented have been executed in a different order.
 ```
 stats
 -----
-Index:                          2
-Pid:                            1815944
-Time:                           2021-05-28 15:26:41
-Blocks:                         1985
-Instructions:                   9192
-Avg Instructions / Block:       4
+Time                  2021-07-21 11:45:49
+Elapsed                                 1 seconds
 
-Call Immediates:                391 (4.25%)
-Call Immediates Excluded:       65 (0.71%)
-Call Register:                  0 (0.00%)
-Call Memory:                    0 (0.00%)
 
-Jump Immediates:                202 (2.20%)
-Jump Register:                  10 (0.11%)
-Jump Memory:                    12 (0.13%)
+Transitions                    cumulative               delta
+-----------                    ----------               -----
+total                              753619               17645
+call_imm                             9193 ( 1.22%)        344 ( 1.95%) [       344/s]
+call_reg                                0 ( 0.00%)          0 ( 0.00%) [         0/s]
+call_mem                                0 ( 0.00%)          0 ( 0.00%) [         0/s]
+ret_slow_path                       67974 ( 9.02%)       2988 (16.93%) [      2988/s]
+post_call_invoke                     7996 ( 1.06%)        299 ( 1.69%) [       299/s]
+excluded_call_imm                    3804 ( 0.50%)        200 ( 1.13%) [       200/s]
+jmp_imm                              5445 ( 0.72%)        255 ( 1.45%) [       255/s]
+jmp_reg                             42081 ( 5.58%)       1021 ( 5.79%) [      1021/s]
+jmp_mem                            578092 (76.71%)      10956 (62.09%) [     10956/s]
+jmp_cond_imm                        38951 ( 5.17%)       1579 ( 8.95%) [      1579/s]
+jmp_cond_mem                            0 ( 0.00%)          0 ( 0.00%) [         0/s]
+jmp_cond_reg                            0 ( 0.00%)          0 ( 0.00%) [         0/s]
+jmp_cond_jcxz                           0 ( 0.00%)          0 ( 0.00%) [         0/s]
+jmp_continuation                       84 ( 0.01%)          3 ( 0.02%) [         3/s]
 
-Conditional Jump Immediates:    1210 (13.16%)
-Conditional Jump CX Immediate:  0 (0.00%)
-Conditional Jump Register:      0 (0.00%)
-Conditional Jump Memory:        0 (0.00%)
 
-Returns:                        159 (0.00%)
+Instrumentation
+---------------
+Instructions                         7907
+Blocks                               1764
+Avg Instructions / Block                4
 
-Rip Relative:                   247 (0.00%)
 
+EOB Instructions
+----------------
+Total                                1763 (22.30%)
+Call Immediates                       358 ( 4.53%)
+Call Immediates Excluded               74 ( 0.94%)
+Call Register                           0 ( 0.00%)
+Call Memory                             0 ( 0.00%)
+Jump Immediates                       176 ( 2.23%)
+Jump Register                           8 ( 0.10%)
+Jump Memory                            10 ( 0.13%)
+Conditional Jump Immediates          1051 (13.29%)
+Conditional Jump CX Immediate           0 ( 0.00%)
+Conditional Jump Register               0 ( 0.00%)
+Conditional Jump Memory                 0 ( 0.00%)
+Returns                               160 ( 2.02%)
+
+
+Relocated Instructions
+----------------------
+Total                                 232 ( 2.93%)
+addsd                                   2 ( 0.86%)
+cmp                                    46 (19.83%)
+comisd                                  2 ( 0.86%)
+divsd                                   2 ( 0.86%)
+divss                                   2 ( 0.86%)
+lea                                   142 (61.21%)
+mov                                    32 (13.79%)
+movsd                                   2 ( 0.86%)
+ucomisd                                 2 ( 0.86%)
 ```
 * `AFL_FRIDA_STATS_INTERVAL` - The maximum frequency to output statistics
 information. Stats will be written whenever they are updated if the given
 interval has elapsed since last time they were written.
-* `AFL_FRIDA_STATS_TRANSITIONS` - Also dump the internal stalker counters to
-stderr when the regular stats are written. Note that these stats are reset in
-the child each time a new fork occurs since they are not stored in shared
-memory. Unfortunately, these stats are internal to stalker, so this is the best
-we can do for now.
-```
-stats
------
-Index: 2
-Pid:   1816794
-Time:  2021-05-28 15:26:41
 
-
-total_transitions: 786
-        call_imms: 97
-        call_regs: 0
-        call_mems: 0
-        post_call_invokes: 86
-        excluded_call_imms: 29
-        ret_slow_paths: 23
-
-        jmp_imms: 58
-        jmp_mems: 7
-        jmp_regs: 26
-
-        jmp_cond_imms: 460
-        jmp_cond_mems: 0
-        jmp_cond_regs: 0
-        jmp_cond_jcxzs: 0
-
-        jmp_continuations: 0
-```
 ## FASAN - Frida Address Sanitizer Mode
 Frida mode also supports FASAN. The design of this is actually quite simple and
 very similar to that used when instrumenting applications compiled from source.

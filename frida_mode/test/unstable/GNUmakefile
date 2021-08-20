@@ -1,5 +1,5 @@
 PWD:=$(shell pwd)/
-ROOT:=$(shell realpath $(PWD)../../..)/
+ROOT:=$(PWD)../../../
 BUILD_DIR:=$(PWD)build/
 UNSTABLE_DATA_DIR:=$(BUILD_DIR)in/
 UNSTABLE_DATA_FILE:=$(UNSTABLE_DATA_DIR)in
