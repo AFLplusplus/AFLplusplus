@@ -4,7 +4,7 @@ With StatsD, Prometheus, and Grafana you can set up a tool chain for remote moni
 
 This enables you to create nice and readable dashboards containing all the information you need on your fuzzer instances. There is no need to write your own statistics parsing system, deploy and maintain it to all your instances, and sync with your graph rendering system.
 
-Compared to the default integrated UI of AFL++, this can help you to visualize trends and the fuzzing state over time. You might be able to see when the fuzzing process has reached a state of no progress and visualize what are the "best strategies" for your targets (according to your own criteria). You can do so without logging into each instance manually.
+Compared to the default integrated UI of AFL++, this can help you to visualize trends and the fuzzing state over time. You might be able to see when the fuzzing process has reached a state of no progress and visualize what are the "best strategies" for your targets (according to your own criteria). You can do so without logging into each instance individually.
 
 ![example visualization with Grafana](resources/statsd-grafana.png)
 
