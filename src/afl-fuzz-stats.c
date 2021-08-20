@@ -1339,7 +1339,7 @@ void show_init_stats(afl_state_t *afl) {
 
     }
 
-    ACTF("No -t option specified, so I'll use exec an timeout of %u ms.",
+    ACTF("No -t option specified, so I'll use an exec timeout of %u ms.",
          afl->fsrv.exec_tmout);
 
     afl->timeout_given = 1;
