@@ -60,6 +60,7 @@ static char *afl_environment_variables[] = {
     "AFL_FRIDA_INST_JIT",
     "AFL_FRIDA_INST_NO_OPTIMIZE",
     "AFL_FRIDA_INST_NO_PREFETCH",
+    "AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH",
     "AFL_FRIDA_INST_RANGES",
     "AFL_FRIDA_INST_SEED",
     "AFL_FRIDA_INST_TRACE",
@@ -74,7 +75,6 @@ static char *afl_environment_variables[] = {
     "AFL_FRIDA_PERSISTENT_RET",
     "AFL_FRIDA_STATS_FILE",
     "AFL_FRIDA_STATS_INTERVAL",
-    "AFL_FRIDA_STATS_TRANSITIONS",
     "AFL_FUZZER_ARGS",  // oss-fuzz
     "AFL_GDB",
     "AFL_GCC_ALLOWLIST",

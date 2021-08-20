@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
@@ -277,8 +278,6 @@ static void instrument_coverage_run() {
 
   if (bytes != 0) { FATAL("Coverage data truncated"); }
 
-  if (errno != ENOENT) { FATAL("Coverage I/O error"); }
-
   OKF("Coverage - Preparing");
 
   coverage_get_ranges();
@@ -325,7 +324,7 @@ void instrument_coverage_init(void) {
 
   g_free(path);
 
-  if (pipe2(coverage_pipes, O_DIRECT) != 0) { FATAL("Failed to create pipes"); }
+  if (pipe(coverage_pipes) != 0) { FATAL("Failed to create pipes"); }
 
   coverage_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (coverage_hash == NULL) {

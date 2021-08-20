@@ -164,7 +164,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
      * our AFL_ENTRYPOINT, since it is not until then that we start the
      * fork-server and thus start executing in the child.
      */
-    excluded = range_is_excluded(GSIZE_TO_POINTER(instr->address));
+    excluded = range_is_excluded(GUM_ADDRESS(instr->address));
 
     stats_collect(instr, begin);
 
@@ -173,11 +173,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       instrument_debug_start(instr->address, output);
       instrument_coverage_start(instr->address);
 
-      if (likely(entry_reached)) {
-
-        prefetch_write(GSIZE_TO_POINTER(instr->address));
-
-      }
+      prefetch_write(GSIZE_TO_POINTER(instr->address));
 
       if (likely(!excluded)) {
 

@@ -1,5 +1,5 @@
 PWD:=$(shell pwd)/
-ROOT:=$(shell realpath $(PWD)../../..)/
+ROOT:=$(PWD)../../../
 BUILD_DIR:=$(PWD)build/
 
 LIBPNG_BUILD_DIR:=$(BUILD_DIR)libpng/

@@ -1,3 +1,5 @@
+#include <dlfcn.h>
+
 #include "frida-gumjs.h"
 
 #include "debug.h"
@@ -13,7 +15,8 @@
 extern void __afl_manual_init();
 
 guint64  entry_point = 0;
-gboolean entry_reached = FALSE;
+gboolean entry_compiled = FALSE;
+gboolean entry_run = FALSE;
 
 static void entry_launch(void) {
 
@@ -21,7 +24,7 @@ static void entry_launch(void) {
   __afl_manual_init();
 
   /* Child here */
-  entry_reached = TRUE;
+  entry_run = TRUE;
   instrument_on_fork();
   stats_on_fork();
 
@@ -37,6 +40,8 @@ void entry_init(void) {
 
   OKF("entry_point: 0x%016" G_GINT64_MODIFIER "X", entry_point);
 
+  if (dlopen(NULL, RTLD_NOW) == NULL) { FATAL("Failed to dlopen: %d", errno); }
+
 }
 
 void entry_start(void) {
@@ -49,6 +54,7 @@ static void entry_callout(GumCpuContext *cpu_context, gpointer user_data) {
 
   UNUSED_PARAMETER(cpu_context);
   UNUSED_PARAMETER(user_data);
+  entry_compiled = TRUE;
   entry_launch();
 
 }

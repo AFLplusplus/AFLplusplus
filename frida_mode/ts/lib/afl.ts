@@ -203,6 +203,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH`.
+   */
+  public static setPrefetchBackpatchDisable(): void {
+    Afl.jsApiSetPrefetchBackpatchDisable();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_NO_PREFETCH`.
    */
   public static setPrefetchDisable(): void {
@@ -215,6 +222,13 @@ class Afl {
    */
   public static setStalkerCallback(callback: NativePointer): void {
     Afl.jsApiSetStalkerCallback(callback);
+  }
+
+  /**
+   * See `AFL_FRIDA_STALKER_IC_ENTRIES`.
+   */
+  public static setStalkerIcEntries(val: number): void {
+    Afl.jsApiSetStalkerIcEntries(val);
   }
 
   /**
@@ -232,13 +246,6 @@ class Afl {
    */
   public static setStatsInterval(interval: number): void {
     Afl.jsApiSetStatsInterval(interval);
-  }
-
-  /**
-   * See `AFL_FRIDA_STATS_TRANSITIONS`
-   */
-  public static setStatsTransitions(): void {
-    Afl.jsApiSetStatsTransitions();
   }
 
   /**
@@ -356,6 +363,11 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetPrefetchBackpatchDisable = Afl.jsApiGetFunction(
+    "js_api_set_prefetch_backpatch_disable",
+    "void",
+    []);
+
   private static readonly jsApiSetPrefetchDisable = Afl.jsApiGetFunction(
     "js_api_set_prefetch_disable",
     "void",
@@ -366,6 +378,11 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetStalkerIcEntries = Afl.jsApiGetFunction(
+    "js_api_set_stalker_ic_entries",
+    "void",
+    ["uint32"]);
+
   private static readonly jsApiSetStatsFile = Afl.jsApiGetFunction(
     "js_api_set_stats_file",
     "void",
@@ -375,11 +392,6 @@ class Afl {
     "js_api_set_stats_interval",
     "void",
     ["uint64"]);
-
-  private static readonly jsApiSetStatsTransitions = Afl.jsApiGetFunction(
-    "js_api_set_stats_transitions",
-    "void",
-    []);
 
   private static readonly jsApiSetStdErr = Afl.jsApiGetFunction(
     "js_api_set_stderr",
