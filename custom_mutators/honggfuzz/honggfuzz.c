@@ -65,9 +65,9 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 /* When a new queue entry is added we check if there are new dictionary
    entries to add to honggfuzz structure */
 
-void afl_custom_queue_new_entry(my_mutator_t * data,
-                                const uint8_t *filename_new_queue,
-                                const uint8_t *filename_orig_queue) {
+uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
+                                   const uint8_t *filename_new_queue,
+                                   const uint8_t *filename_orig_queue) {
 
   if (run.global->mutate.dictionaryCnt >= 1024) return;
 
@@ -96,6 +96,8 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
     data->a_extras_cnt++;
 
   }
+
+  return 0;
 
 }
 

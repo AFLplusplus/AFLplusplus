@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "hash.h"
-
 void __attribute__((noinline)) crashme(const uint8_t *Data, size_t Size) {
 
   if (Size < 5) return;

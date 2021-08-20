@@ -1,4 +1,4 @@
-# Using afl++ with partial instrumentation
+# Using AFL++ with partial instrumentation
 
   This file describes two different mechanisms to selectively instrument
   only specific parts in the target.
@@ -13,7 +13,7 @@ the program, leaving the rest uninstrumented. This helps to focus the fuzzer
 on the important parts of the program, avoiding undesired noise and
 disturbance by uninteresting code being exercised.
 
-For this purpose, "partial instrumentation" support is provided by afl++ that
+For this purpose, "partial instrumentation" support is provided by AFL++ that
 allows to specify what should be instrumented and what not.
 
 Both mechanisms can be used together.
@@ -100,7 +100,7 @@ exists somewhere else in the project directories.
 You can also specify function names. Note that for C++ the function names
 must be mangled to match! `nm` can print these names.
 
-afl++ is able to identify whether an entry is a filename or a function.
+AFL++ is able to identify whether an entry is a filename or a function.
 However if you want to be sure (and compliant to the sancov allow/blocklist
 format), you can specify source file entries like this:
 ```

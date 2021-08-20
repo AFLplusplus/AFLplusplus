@@ -53,7 +53,13 @@ pub trait RawCustomMutator {
         1
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &Path, _filename_orig_queue: Option<&Path>) {}
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &Path,
+        _filename_orig_queue: Option<&Path>,
+    ) -> bool {
+        false
+    }
 
     fn queue_get(&mut self, filename: &Path) -> bool {
         true
@@ -84,7 +90,6 @@ pub mod wrappers {
 
     use std::{
         any::Any,
-        convert::TryInto,
         ffi::{c_void, CStr, OsStr},
         mem::ManuallyDrop,
         os::{raw::c_char, unix::ffi::OsStrExt},
@@ -176,6 +181,10 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
+    /// # Safety
+    ///
+    /// May dereference all passed-in pointers.
+    /// Should not be called manually, but will be called by `afl-fuzz`
     pub unsafe fn afl_custom_fuzz_<M: RawCustomMutator>(
         data: *mut c_void,
         buf: *mut u8,
@@ -199,13 +208,10 @@ pub mod wrappers {
             } else {
                 Some(slice::from_raw_parts(add_buf, add_buf_size))
             };
-            match context
-                .mutator
-                .fuzz(buff_slice, add_buff_slice, max_size.try_into().unwrap())
-            {
+            match context.mutator.fuzz(buff_slice, add_buff_slice, max_size) {
                 Some(buffer) => {
                     *out_buf = buffer.as_ptr();
-                    buffer.len().try_into().unwrap()
+                    buffer.len()
                 }
                 None => {
                     // return the input buffer with 0-length to let AFL skip this mutation attempt
@@ -220,6 +226,10 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
+    ///
+    /// # Safety
+    /// Dereferences the passed-in pointers up to `buf_size` bytes.
+    /// Should not be called directly.
     pub unsafe fn afl_custom_fuzz_count_<M: RawCustomMutator>(
         data: *mut c_void,
         buf: *const u8,
@@ -246,7 +256,7 @@ pub mod wrappers {
         data: *mut c_void,
         filename_new_queue: *const c_char,
         filename_orig_queue: *const c_char,
-    ) {
+    ) -> bool {
         match catch_unwind(|| {
             let mut context = FFIContext::<M>::from(data);
             if filename_new_queue.is_null() {
@@ -264,7 +274,7 @@ pub mod wrappers {
             };
             context
                 .mutator
-                .queue_new_entry(filename_new_queue, filename_orig_queue);
+                .queue_new_entry(filename_new_queue, filename_orig_queue)
         }) {
             Ok(ret) => ret,
             Err(err) => panic_handler("afl_custom_queue_new_entry", err),
@@ -272,6 +282,10 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
+    ///
+    /// # Safety
+    /// May dereference the passed-in `data` pointer.
+    /// Should not be called directly.
     pub unsafe fn afl_custom_deinit_<M: RawCustomMutator>(data: *mut c_void) {
         match catch_unwind(|| {
             // drop the context
@@ -386,18 +400,16 @@ macro_rules! export_mutator {
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_fuzz_count(
+        pub unsafe extern "C" fn afl_custom_fuzz_count(
             data: *mut ::std::os::raw::c_void,
             buf: *const u8,
             buf_size: usize,
         ) -> u32 {
-            unsafe {
-                $crate::wrappers::afl_custom_fuzz_count_::<$mutator_type>(data, buf, buf_size)
-            }
+            $crate::wrappers::afl_custom_fuzz_count_::<$mutator_type>(data, buf, buf_size)
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_fuzz(
+        pub unsafe extern "C" fn afl_custom_fuzz(
             data: *mut ::std::os::raw::c_void,
             buf: *mut u8,
             buf_size: usize,
@@ -406,17 +418,15 @@ macro_rules! export_mutator {
             add_buf_size: usize,
             max_size: usize,
         ) -> usize {
-            unsafe {
-                $crate::wrappers::afl_custom_fuzz_::<$mutator_type>(
-                    data,
-                    buf,
-                    buf_size,
-                    out_buf,
-                    add_buf,
-                    add_buf_size,
-                    max_size,
-                )
-            }
+            $crate::wrappers::afl_custom_fuzz_::<$mutator_type>(
+                data,
+                buf,
+                buf_size,
+                out_buf,
+                add_buf,
+                add_buf_size,
+                max_size,
+            )
         }
 
         #[no_mangle]
@@ -424,7 +434,7 @@ macro_rules! export_mutator {
             data: *mut ::std::os::raw::c_void,
             filename_new_queue: *const ::std::os::raw::c_char,
             filename_orig_queue: *const ::std::os::raw::c_char,
-        ) {
+        ) -> bool {
             $crate::wrappers::afl_custom_queue_new_entry_::<$mutator_type>(
                 data,
                 filename_new_queue,
@@ -456,8 +466,8 @@ macro_rules! export_mutator {
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_deinit(data: *mut ::std::os::raw::c_void) {
-            unsafe { $crate::wrappers::afl_custom_deinit_::<$mutator_type>(data) }
+        pub unsafe extern "C" fn afl_custom_deinit(data: *mut ::std::os::raw::c_void) {
+            $crate::wrappers::afl_custom_deinit_::<$mutator_type>(data)
         }
     };
 }
@@ -542,8 +552,8 @@ pub trait CustomMutator {
         &mut self,
         filename_new_queue: &Path,
         filename_orig_queue: Option<&Path>,
-    ) -> Result<(), Self::Error> {
-        Ok(())
+    ) -> Result<bool, Self::Error> {
+        Ok(false)
     }
 
     fn queue_get(&mut self, filename: &Path) -> Result<bool, Self::Error> {
@@ -617,11 +627,16 @@ where
         }
     }
 
-    fn queue_new_entry(&mut self, filename_new_queue: &Path, filename_orig_queue: Option<&Path>) {
+    fn queue_new_entry(
+        &mut self,
+        filename_new_queue: &Path,
+        filename_orig_queue: Option<&Path>,
+    ) -> bool {
         match self.queue_new_entry(filename_new_queue, filename_orig_queue) {
             Ok(r) => r,
             Err(e) => {
                 Self::handle_error(e);
+                false
             }
         }
     }
@@ -696,16 +711,14 @@ mod default_mutator_describe {
 fn truncate_str_unicode_safe(s: &str, max_len: usize) -> &str {
     if s.len() <= max_len {
         s
+    } else if let Some((last_index, _)) = s
+        .char_indices()
+        .take_while(|(index, _)| *index <= max_len)
+        .last()
+    {
+        &s[..last_index]
     } else {
-        if let Some((last_index, _)) = s
-            .char_indices()
-            .take_while(|(index, _)| *index <= max_len)
-            .last()
-        {
-            &s[..last_index]
-        } else {
-            ""
-        }
+        ""
     }
 }
 

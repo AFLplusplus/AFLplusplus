@@ -33,6 +33,8 @@ int main(int argc, char **argv) {
     printf("your string was avocado\n");
   else if (strncasecmp(input, "Grapes", argc > 2 ? atoi(argv[2]) : 3) == 0)
     printf("your string was a prefix of Grapes\n");
+  else if (strstr(input, "tsala") != NULL)
+    printf("your string is a fruit salad\n");
   else if (strcmp(input, "BUFFEROVERFLOW") == 0) {
 
     buf = (char *)malloc(16);
@@ -41,7 +43,6 @@ int main(int argc, char **argv) {
     printf("This will only crash with libdislocator: %s\n", buf);
 
   } else if (*(unsigned int *)input == 0xabadcafe)
-
     printf("GG you eat cmp tokens for breakfast!\n");
   else if (memcmp(cmpval, input, 8) == 0)
     printf("local var memcmp works!\n");

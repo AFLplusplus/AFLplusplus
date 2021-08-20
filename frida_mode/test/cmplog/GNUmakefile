@@ -1,5 +1,5 @@
 PWD:=$(shell pwd)/
-ROOT:=$(shell realpath $(PWD)../../../)/
+ROOT:=$(PWD)../../../
 BUILD_DIR:=$(PWD)build/
 
 TEST_CMPLOG_SRC=$(PWD)cmplog.c

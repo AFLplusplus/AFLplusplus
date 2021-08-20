@@ -78,9 +78,9 @@ extern "C" my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 /* When a new queue entry is added we check if there are new dictionary
    entries to add to honggfuzz structure */
 #if 0
-extern "C" void afl_custom_queue_new_entry(my_mutator_t * data,
-                                           const uint8_t *filename_new_queue,
-                                           const uint8_t *filename_orig_queue) {
+extern "C" uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
+                                              const uint8_t *filename_new_queue,
+                                              const uint8_t *filename_orig_queue) {
 
   while (data->extras_cnt < afl_struct->extras_cnt) {
 
@@ -109,6 +109,8 @@ extern "C" void afl_custom_queue_new_entry(my_mutator_t * data,
     */
 
   }
+
+  return 0;
 
 }
 

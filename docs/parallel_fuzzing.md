@@ -27,7 +27,7 @@ will not be able to use that input to guide their work.
 To help with this problem, afl-fuzz offers a simple way to synchronize test
 cases on the fly.
 
-Note that afl++ has AFLfast's power schedules implemented.
+Note that AFL++ has AFLfast's power schedules implemented.
 It is therefore a good idea to use different power schedules if you run
 several instances in parallel. See [power_schedules.md](power_schedules.md)
 
@@ -116,7 +116,7 @@ distribute the deterministic fuzzing across. Note that if you boot up fewer
 fuzzers than indicated by the second number passed to -M, you may end up with
 poor coverage.
 
-## 4) Syncing with non-afl fuzzers or independant instances
+## 4) Syncing with non-AFL fuzzers or independant instances
 
 A -M main node can be told with the `-F other_fuzzer_queue_directory` option
 to sync results from other fuzzers, e.g. libfuzzer or honggfuzz.

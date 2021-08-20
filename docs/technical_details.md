@@ -156,7 +156,7 @@ In contrast to more greedy genetic algorithms, this approach allows the tool
 to progressively explore various disjoint and possibly mutually incompatible
 features of the underlying data format, as shown in this image:
 
-  ![gzip_coverage](./visualization/afl_gzip.png)
+  ![gzip_coverage](./resources/afl_gzip.png)
 
 Several practical examples of the results of this algorithm are discussed
 here:

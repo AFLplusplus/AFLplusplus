@@ -7,3 +7,9 @@
 [submodule "qemu_mode/qemuafl"]
 	path = qemu_mode/qemuafl
 	url = https://github.com/AFLplusplus/qemuafl
+[submodule "custom_mutators/gramatron/json-c"]
+	path = custom_mutators/gramatron/json-c
+	url = https://github.com/json-c/json-c
+[submodule "utils/optimin/EvalMaxSAT"]
+	path = utils/optimin/EvalMaxSAT
+	url = https://github.com/FlorentAvellaneda/EvalMaxSAT

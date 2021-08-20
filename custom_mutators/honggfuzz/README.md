@@ -1,7 +1,7 @@
 # custum mutator: honggfuzz mangle
 
 this is the honggfuzz mutator in mangle.c as a custom mutator
-module for afl++. It is the original mangle.c, mangle.h and honggfuzz.h
+module for AFL++. It is the original mangle.c, mangle.h and honggfuzz.h
 with a lot of mocking around it :-)
 
 just type `make` to build

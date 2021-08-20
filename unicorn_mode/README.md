@@ -2,13 +2,13 @@
 
 The idea and much of the original implementation comes from Nathan Voss <njvoss299@gmail.com>.
 
-The port to afl++ is by Dominik Maier <mail@dmnk.co>.
+The port to AFL++ is by Dominik Maier <mail@dmnk.co>.
 
 The CompareCoverage and NeverZero counters features are by Andrea Fioraldi <andreafioraldi@gmail.com>.
 
 ## 1) Introduction
 
-The code in ./unicorn_mode allows you to build the (Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with afl support.
+The code in ./unicorn_mode allows you to build the (Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with AFL support.
 This means, you can run anything that can be emulated in unicorn and obtain instrumentation
 output for black-box, closed-source binary code snippets. This mechanism 
 can be then used by afl-fuzz to stress-test targets that couldn't be built 
@@ -24,7 +24,7 @@ For some pointers for more advanced emulation, take a look at [BaseSAFE](https:/
 
 ### Building AFL++'s Unicorn Mode
 
-First, make afl++ as usual.
+First, make AFL++ as usual.
 Once that completes successfully you need to build and add in the Unicorn Mode 
 features:
 

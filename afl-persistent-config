@@ -1,0 +1,133 @@
+#!/bin/bash
+# written by jhertz
+# 
+
+test "$1" = "-h" -o "$1" = "-hh" && {
+  echo 'afl-persistent-config'
+  echo
+  echo $0
+  echo
+  echo afl-persistent-config has no command line options
+  echo
+  echo afl-persistent-config permanently reconfigures the system to a high performance fuzzing state.
+  echo "WARNING: this reduces the security of the system!"
+  echo
+  echo Note that there is also afl-system-config which sets additional runtime
+  echo configuration options.
+  exit 0
+}
+
+echo
+echo "WARNING: This scripts makes permanent configuration changes to the system to"
+echo "         increase the performance for fuzzing. As a result, the system also"
+echo "         becomes less secure against attacks! If you use this script, setup"
+echo "         strong firewall rules and only make SSH available as a network"
+echo "         service!"
+echo
+echo -n "Type \"YES\" to continue: "
+read ANSWER
+if [[ "$ANSWER" != "YES" ]]; then
+  echo Input was not YES, aborting ...
+  exit 1
+fi
+
+echo
+PLATFORM=`uname -s`
+
+# check that we're on Mac
+if [[ "$PLATFORM" = "Darwin" ]] ; then
+
+  # check if UID == 0
+  if [[ "$EUID" -ne 0 ]]; then
+    echo "You need to be root to do this. E.g. use \"sudo\""
+    exit 1
+  fi
+
+  # check if SIP is disabled
+  if [[ ! $(csrutil status | grep "disabled") ]]; then
+    echo "SIP needs to be disabled. Restart and press Command-R at reboot, Utilities => Terminal => enter \"csrutil disable\""
+    exit 1
+  fi
+
+  echo "Checks passed."
+
+  echo "Installing /Library/LaunchDaemons/shm_setup.plist"
+
+  cat << EOF > /Library/LaunchDaemons/shm_setup.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>shmemsetup</string>
+    <key>UserName</key>
+    <string>root</string>
+    <key>GroupName</key>
+    <string>wheel</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/sbin/sysctl</string>
+      <string>-w</string>
+      <string>kern.sysv.shmmax=524288000</string>
+      <string>kern.sysv.shmmin=1</string>
+      <string>kern.sysv.shmmni=128</string>
+      <string>kern.sysv.shmseg=48</string>
+      <string>kern.sysv.shmall=131072000</string>
+    </array>
+    <key>KeepAlive</key>
+    <false/>
+    <key>RunAtLoad</key>
+    <true/>
+  </dict>
+</plist>
+EOF
+
+  echo
+  echo "Reboot and enjoy your fuzzing"
+  exit 0
+fi
+
+if [[ "$PLATFORM" = "Linux" ]] ; then
+
+  # check if UID == 0
+  if [[ "$EUID" -ne 0 ]]; then
+    echo "You need to be root to do this. E.g. use \"sudo\""
+    exit 1
+  fi
+
+  echo "Checks passed."
+
+  test -d /etc/sysctl.d || echo Error: /etc/sysctl.d directory not found, cannot install shmem config
+  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing && {
+    echo "Installing /etc/sysctl.d/99-fuzzing"
+    cat << EOF > /etc/sysctl.d/99-fuzzing
+kernel.core_uses_pid=0
+kernel.core_pattern=core
+kernel.randomize_va_space=0
+kernel.sched_child_runs_first=1
+kernel.sched_autogroup_enabled=1
+kernel.sched_migration_cost_ns=50000000
+kernel.sched_latency_ns=250000000
+EOF
+  }
+
+  egrep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null || echo Error: /etc/default/grub with GRUB_CMDLINE_LINUX_DEFAULT is not present, cannot set boot options
+  egrep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null && {
+    egrep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | egrep -q hardened_usercopy=off || {
+      echo "Configuring performance boot options"
+      LINE=`egrep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | sed 's/^GRUB_CMDLINE_LINUX_DEFAULT=//' | tr -d '"'`
+      OPTIONS="$LINE ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx=on tsx_async_abort=off mitigations=off audit=0 hardened_usercopy=off ssbd=force-off"
+      echo Setting boot options in /etc/default/grub to GRUB_CMDLINE_LINUX_DEFAULT=\"$OPTIONS\"
+      sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$OPTIONS\"|" /etc/default/grub
+    }
+  }
+
+  echo
+  echo "Reboot and enjoy your fuzzing"
+  exit 0
+fi
+
+
+
+echo "Error: Unknown platform \"$PLATFORM\", currently supported are Linux and MacOS."
+exit 1

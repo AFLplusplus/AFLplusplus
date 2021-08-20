@@ -11,7 +11,7 @@ assignees: ''
 1. You have verified that the issue to be present in the current `dev` branch
 2. Please supply the command line options and relevant environment variables, e.g. a copy-paste of the contents of `out/default/fuzzer_setup`
 
-Thank you for making afl++ better!
+Thank you for making AFL++ better!
 
 **Describe the bug**
 A clear and concise description of what the bug is.

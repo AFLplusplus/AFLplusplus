@@ -116,8 +116,8 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
   }
 
-  instrument_previous_pc =
-      ((current_pc & (MAP_SIZE - 1) >> 1)) | ((current_pc & 0x1) << 15);
+  instrument_previous_pc = ((current_pc & (MAP_SIZE - 1) >> 1)) |
+                           ((current_pc & 0x1) << (MAP_SIZE_POW2 - 1));
 
 }
 
@@ -164,19 +164,16 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
      * our AFL_ENTRYPOINT, since it is not until then that we start the
      * fork-server and thus start executing in the child.
      */
-    excluded = range_is_excluded(GSIZE_TO_POINTER(instr->address));
+    excluded = range_is_excluded(GUM_ADDRESS(instr->address));
 
     stats_collect(instr, begin);
 
     if (unlikely(begin)) {
 
       instrument_debug_start(instr->address, output);
+      instrument_coverage_start(instr->address);
 
-      if (likely(entry_reached)) {
-
-        prefetch_write(GSIZE_TO_POINTER(instr->address));
-
-      }
+      prefetch_write(GSIZE_TO_POINTER(instr->address));
 
       if (likely(!excluded)) {
 
@@ -216,6 +213,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
   instrument_flush(output);
   instrument_debug_end(output);
+  instrument_coverage_end(instr->address + instr->size);
 
 }
 
@@ -228,6 +226,7 @@ void instrument_config(void) {
   instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
 
   instrument_debug_config();
+  instrument_coverage_config();
   asan_config();
   cmplog_config();
 
@@ -317,6 +316,7 @@ void instrument_init(void) {
   instrument_hash_zero = instrument_get_offset_hash(0);
 
   instrument_debug_init();
+  instrument_coverage_init();
   asan_init();
   cmplog_init();
 

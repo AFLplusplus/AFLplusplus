@@ -1,4 +1,4 @@
-## Using afl++ without inlined instrumentation
+## Using AFL++ without inlined instrumentation
 
   This file describes how you can disable inlining of instrumentation.
 
