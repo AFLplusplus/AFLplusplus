@@ -10,7 +10,7 @@ Compared to the default integrated UI of AFL++, this can help you to visualize t
 
 This is an example visualization with Grafana. The dashboard can be imported with [this JSON template](resources/grafana-afl++.json).
 
-## Afl++ metrics and StatsD
+## AFL++ metrics and StatsD
 
 StatsD allows you to receive and aggregate metrics from a wide range of applications and retransmit them to a backend of your choice.
 
