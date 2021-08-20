@@ -635,9 +635,7 @@ void ranges_init(void) {
 
 }
 
-gboolean range_is_excluded(gpointer address) {
-
-  GumAddress test = GUM_ADDRESS(address);
+gboolean range_is_excluded(GumAddress address) {
 
   if (ranges == NULL) { return false; }
 
@@ -646,9 +644,9 @@ gboolean range_is_excluded(gpointer address) {
     GumMemoryRange *curr = &g_array_index(ranges, GumMemoryRange, i);
     GumAddress      curr_limit = curr->base_address + curr->size;
 
-    if (test < curr->base_address) { return false; }
+    if (address < curr->base_address) { return false; }
 
-    if (test < curr_limit) { return true; }
+    if (address < curr_limit) { return true; }
 
   }
 

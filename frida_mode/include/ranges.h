@@ -10,7 +10,7 @@ extern gboolean ranges_inst_jit;
 void ranges_config(void);
 void ranges_init(void);
 
-gboolean range_is_excluded(gpointer address);
+gboolean range_is_excluded(GumAddress address);
 
 void ranges_exclude();
 
