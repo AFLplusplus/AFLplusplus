@@ -288,6 +288,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           bool   isStrncasecmp = true;
           bool   isIntMemcpy = true;
           bool   isStdString = true;
+          bool   isStrstr = true;
           bool   addedNull = false;
           size_t optLen = 0;
 
@@ -295,12 +296,46 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           if (!Callee) continue;
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
           std::string FuncName = Callee->getName().str();
-          isStrcmp &= !FuncName.compare("strcmp");
+          isStrcmp &=
+              (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
+               !FuncName.compare("xmlStrEqual") ||
+               !FuncName.compare("g_strcmp0") ||
+               !FuncName.compare("curl_strequal") ||
+               !FuncName.compare("strcsequal"));
           isMemcmp &=
-              (!FuncName.compare("memcmp") || !FuncName.compare("bcmp"));
-          isStrncmp &= !FuncName.compare("strncmp");
-          isStrcasecmp &= !FuncName.compare("strcasecmp");
-          isStrncasecmp &= !FuncName.compare("strncasecmp");
+              (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
+               !FuncName.compare("CRYPTO_memcmp") ||
+               !FuncName.compare("OPENSSL_memcmp") ||
+               !FuncName.compare("memcmp_const_time") ||
+               !FuncName.compare("memcmpct"));
+          isStrncmp &= (!FuncName.compare("strncmp") ||
+                        !FuncName.compare("xmlStrncmp") ||
+                        !FuncName.compare("curl_strnequal"));
+          isStrcasecmp &= (!FuncName.compare("strcasecmp") ||
+                           !FuncName.compare("stricmp") ||
+                           !FuncName.compare("ap_cstr_casecmp") ||
+                           !FuncName.compare("OPENSSL_strcasecmp") ||
+                           !FuncName.compare("xmlStrcasecmp") ||
+                           !FuncName.compare("g_strcasecmp") ||
+                           !FuncName.compare("g_ascii_strcasecmp") ||
+                           !FuncName.compare("Curl_strcasecompare") ||
+                           !FuncName.compare("Curl_safe_strcasecompare") ||
+                           !FuncName.compare("cmsstrcasecmp"));
+          isStrncasecmp &= (!FuncName.compare("strncasecmp") ||
+                            !FuncName.compare("strnicmp") ||
+                            !FuncName.compare("ap_cstr_casecmpn") ||
+                            !FuncName.compare("OPENSSL_strncasecmp") ||
+                            !FuncName.compare("xmlStrncasecmp") ||
+                            !FuncName.compare("g_ascii_strncasecmp") ||
+                            !FuncName.compare("Curl_strncasecompare") ||
+                            !FuncName.compare("g_strncasecmp"));
+          isStrstr &= (!FuncName.compare("strstr") ||
+                       !FuncName.compare("g_strstr_len") ||
+                       !FuncName.compare("ap_strcasestr") ||
+                       !FuncName.compare("xmlStrstr") ||
+                       !FuncName.compare("xmlStrcasestr") ||
+                       !FuncName.compare("g_str_has_prefix") ||
+                       !FuncName.compare("g_str_has_suffix"));
           isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
           isStdString &= ((FuncName.find("basic_string") != std::string::npos &&
                            FuncName.find("compare") != std::string::npos) ||
@@ -308,13 +343,17 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                            FuncName.find("find") != std::string::npos));
 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-              !isStrncasecmp && !isIntMemcpy && !isStdString)
+              !isStrncasecmp && !isIntMemcpy && !isStdString && !isStrstr)
             continue;
 
           /* Verify the strcmp/memcmp/strncmp/strcasecmp/strncasecmp function
            * prototype */
           FunctionType *FT = Callee->getFunctionType();
 
+          isStrstr &=
+              FT->getNumParams() == 2 &&
+              FT->getParamType(0) == FT->getParamType(1) &&
+              FT->getParamType(0) == IntegerType::getInt8PtrTy(M.getContext());
           isStrcmp &=
               FT->getNumParams() == 2 && FT->getReturnType()->isIntegerTy(32) &&
               FT->getParamType(0) == FT->getParamType(1) &&
@@ -345,7 +384,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                          FT->getParamType(1)->isPointerTy();
 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-              !isStrncasecmp && !isIntMemcpy && !isStdString)
+              !isStrncasecmp && !isIntMemcpy && !isStdString && !isStrstr)
             continue;
 
           /* is a str{n,}{case,}cmp/memcmp, check if we have
@@ -359,7 +398,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           bool        HasStr1;
           getConstantStringInfo(Str1P, TmpStr);
 
-          if (TmpStr.empty()) {
+          if (isStrstr || TmpStr.empty()) {
 
             HasStr1 = false;
 

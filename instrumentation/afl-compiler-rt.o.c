@@ -320,7 +320,7 @@ static void __afl_map_shm(void) {
 
     fprintf(stderr,
             "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_area_ptr_dummy 0x%p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+            "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
             "__afl_final_loc %u, "
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
@@ -471,7 +471,7 @@ static void __afl_map_shm(void) {
 
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_area_ptr_dummy 0x%p, __afl_map_addr 0x%llx, MAP_SIZE "
+            "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
             "%u, __afl_final_loc %u, "
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
@@ -1273,7 +1273,12 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
   if (__afl_already_initialized_second) return;
   __afl_already_initialized_second = 1;
 
-  if (getenv("AFL_DEBUG")) { __afl_debug = 1; }
+  if (getenv("AFL_DEBUG")) {
+
+    __afl_debug = 1;
+    fprintf(stderr, "DEBUG: debug enabled\n");
+
+  }
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;

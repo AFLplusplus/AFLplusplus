@@ -4,6 +4,7 @@
 #include "frida-gumjs.h"
 
 extern gboolean prefetch_enable;
+extern gboolean prefetch_backpatch;
 
 void prefetch_config(void);
 void prefetch_init(void);

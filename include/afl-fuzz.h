@@ -45,7 +45,6 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
-#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -385,7 +384,7 @@ typedef struct afl_env_vars {
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
-      afl_exit_on_seed_issues, afl_try_affinity;
+      afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -972,8 +971,8 @@ struct custom_mutator {
    * @param filename_orig_queue File name of the original queue entry. This
    *     argument can be NULL while initializing the fuzzer
    */
-  void (*afl_custom_queue_new_entry)(void *data, const u8 *filename_new_queue,
-                                     const u8 *filename_orig_queue);
+  u8 (*afl_custom_queue_new_entry)(void *data, const u8 *filename_new_queue,
+                                   const u8 *filename_orig_queue);
   /**
    * Deinitialize the custom mutator.
    *
@@ -1005,6 +1004,8 @@ void setup_custom_mutators(afl_state_t *);
 void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       struct custom_mutator *mutator);
+void run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
+                                    u8 *);
 
 /* Python */
 #ifdef USE_PYTHON
@@ -1021,7 +1022,7 @@ size_t      havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
 u8          havoc_mutation_probability_py(void *);
 u8          queue_get_py(void *, const u8 *);
 const char *introspection_py(void *);
-void        queue_new_entry_py(void *, const u8 *, const u8 *);
+u8          queue_new_entry_py(void *, const u8 *, const u8 *);
 void        deinit_py(void *);
 
 #endif

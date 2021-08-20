@@ -845,9 +845,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "    from the fuzzer! Since it seems to be built with ASAN and you "
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
-           "read\n"
-           "    %s/notes_for_asan.md for help and run with '-m 0'.\n",
-           doc_path);
+           "run with '-m 0'.\n");
 
     } else if (!fsrv->mem_limit) {
 
@@ -946,8 +944,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    read %s/notes_for_asan.md for help and run with '-m 0'.\n",
-         doc_path);
+         "    run with '-m 0'.\n");
 
   } else if (!fsrv->mem_limit) {
 
@@ -1105,7 +1102,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
     if (getenv("AFL_DEBUG")) {
 
       fprintf(stderr, "FS crc: %016llx len: %u\n",
-              hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
+              hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, HASH_CONST),
               *fsrv->shmem_fuzz_len);
       fprintf(stderr, "SHM :");
       for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)

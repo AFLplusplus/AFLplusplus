@@ -6,10 +6,12 @@ test "$1" = "-h" -o "$1" = "-hh" && {
   echo
   echo afl-system-config has no command line options
   echo
-  echo afl-system reconfigures the system to a high performance fuzzing state
+  echo afl-system-config reconfigures the system to a high performance fuzzing state.
   echo "WARNING: this reduces the security of the system!"
   echo
-  exit 1
+  echo Note that there is also afl-persistent-config which sets additional permanent
+  echo configuration options.
+  exit 0
 }
 
 DONE=
@@ -99,9 +101,10 @@ if [ "$PLATFORM" = "NetBSD" ] ; then
   DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
-  sysctl kern.sysv.shmmax=8388608
+  sysctl kern.sysv.shmmax=524288000
+  sysctl kern.sysv.shmmin=1
   sysctl kern.sysv.shmseg=48
-  sysctl kern.sysv.shmall=98304
+  sysctl kern.sysv.shmall=131072000
   echo Settings applied.
   echo
   if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then

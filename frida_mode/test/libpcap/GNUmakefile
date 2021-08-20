@@ -1,5 +1,5 @@
 PWD:=$(shell pwd)/
-ROOT:=$(shell realpath $(PWD)../../..)/
+ROOT:=$(PWD)../../../
 BUILD_DIR:=$(PWD)build/
 
 AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/frida_hook.so
@@ -142,7 +142,7 @@ $(TEST_BIN): $(HARNESS_OBJ) $(PCAPTEST_OBJ) $(LIBPCAP_LIB)
 ########## DUMMY #######
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(TCPDUMP_TESTS_DIR)
-	truncate -s 1M $@
+	dd if=/dev/zero bs=1048576 count=1 of=$@
 
 ###### TEST DATA #######
 
