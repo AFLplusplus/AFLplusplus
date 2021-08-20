@@ -308,7 +308,7 @@ library and call a target function within it. The dependent library can either
 be loaded in using `dlopen` and `dlsym` in a function marked
 `__attribute__((constructor()))` or the test harness can simply be linked
 against it. It is important that the target library is loaded before execution
-of `main`, since this is the point that FRIDA mode is initialized. Otherwise, it
+of `main`, since this is the point where FRIDA mode is initialized. Otherwise, it
 will not be possible to configure coverage for the test library using
 `AFL_FRIDA_INST_RANGES` or similar.
 
