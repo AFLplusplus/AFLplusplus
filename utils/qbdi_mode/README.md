@@ -1,8 +1,8 @@
 # qbdi-based binary-only instrumentation for afl-fuzz
 
 NOTE: this code is outdated and first would need to be adapted to the current
-AFL++ versions first.
-Try frida_mode/ or fpicker [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/) first, maybe they suite your need.
+AFL++ versions.
+Try frida_mode or fpicker [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/) first, maybe they suite your need.
 
 ## 1) Introduction
 
