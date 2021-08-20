@@ -113,8 +113,8 @@ void afl_persistent_hook(struct x86_64_regs *regs, uint64_t guest_base,
 ```
 
 ## ASAN
-It is also possible to enalbe ASAN (if that is the configuration you are having
-issues with) without having to use `afl-fuzz` this can be done as follows (note
+It is also possible to enable ASAN (if that is the configuration you are having
+issues with) without having to use `afl-fuzz`. This can be done as follows (note
 that the name of the asan DSO may need to be changed depending on your
 platform). Note that the asan DSO must appear first in the `LD_PRELOAD`
 environment variable:
