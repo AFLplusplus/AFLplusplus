@@ -13,7 +13,7 @@
 char *instrument_coverage_filename = NULL;
 
 static int         coverage_fd = -1;
-static int         coverage_pipes[2] = {0};
+static int         coverage_pipes[2] = {-1, -1};
 static uint64_t    coverage_last_start = 0;
 static GHashTable *coverage_hash = NULL;
 static GArray *    coverage_modules = NULL;
@@ -353,11 +353,15 @@ void instrument_coverage_init(void) {
 
 void instrument_coverage_start(uint64_t address) {
 
+  if (instrument_coverage_filename == NULL) { return; }
+
   coverage_last_start = address;
 
 }
 
 void instrument_coverage_end(uint64_t address) {
+
+  if (instrument_coverage_filename == NULL) { return; }
 
   coverage_data_t data = {
 
