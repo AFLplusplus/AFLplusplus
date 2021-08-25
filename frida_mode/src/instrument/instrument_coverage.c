@@ -27,7 +27,7 @@ typedef struct {
   gsize      size;
   char       name[PATH_MAX + 1];
   char       path[PATH_MAX + 1];
-  bool       referenced;
+  guint      count;
   guint16    id;
 
 } coverage_module_t;
@@ -62,7 +62,7 @@ static gboolean coverage_module(const GumModuleDetails *details,
 
   if (details->path != NULL) strncpy(coverage.path, details->path, PATH_MAX);
 
-  coverage.referenced = false;
+  coverage.count = 0;
   coverage.id = 0;
 
   g_array_append_val(coverage_modules, coverage);
@@ -83,9 +83,25 @@ static gint coverage_sort(gconstpointer a, gconstpointer b) {
 
 }
 
+void instrument_coverage_print(char *format, ...) {
+
+  char buffer[4096] = {0};
+  int  len;
+
+  va_list ap;
+  va_start(ap, format);
+
+  if (vsnprintf(buffer, sizeof(buffer) - 1, format, ap) < 0) { return; }
+
+  len = strnlen(buffer, sizeof(buffer));
+  IGNORED_RETURN(write(STDOUT_FILENO, buffer, len));
+  va_end(ap);
+
+}
+
 static void coverage_get_ranges(void) {
 
-  OKF("Coverage - Collecting ranges");
+  instrument_coverage_print("Coverage - Collecting ranges\n");
 
   coverage_modules =
       g_array_sized_new(false, false, sizeof(coverage_module_t), 100);
@@ -96,9 +112,10 @@ static void coverage_get_ranges(void) {
 
     coverage_module_t *module =
         &g_array_index(coverage_modules, coverage_module_t, i);
-    OKF("Coverage Module - %3u: 0x%016" G_GINT64_MODIFIER
-        "X - 0x%016" G_GINT64_MODIFIER "X",
-        i, module->base_address, module->limit);
+    instrument_coverage_print("Coverage Module - %3u: 0x%016" G_GINT64_MODIFIER
+                              "X - 0x%016" G_GINT64_MODIFIER "X (%s)\n",
+                              i, module->base_address, module->limit,
+                              module->path);
 
   }
 
@@ -121,13 +138,14 @@ static void instrument_coverage_mark(void *key, void *value, void *user_data) {
 
     val->module = module;
     coverage_marked_entries++;
-    module->referenced = true;
+    module->count++;
     return;
 
   }
 
-  OKF("Coverage cannot find module for: 0x%016" G_GINT64_MODIFIER
-      "X - 0x%016" G_GINT64_MODIFIER "X %u %u",
+  instrument_coverage_print(
+      "Coverage cannot find module for: 0x%016" G_GINT64_MODIFIER
+      "X - 0x%016" G_GINT64_MODIFIER "X %u %u\n",
       val->start, val->end, i, coverage_modules->len);
 
 }
@@ -178,7 +196,7 @@ static void coverage_write_modules() {
 
     coverage_module_t *module =
         &g_array_index(coverage_modules, coverage_module_t, i);
-    if (!module->referenced) continue;
+    if (module->count == 0) continue;
 
     coverage_format("%3u, ", emitted);
     coverage_format("%016" G_GINT64_MODIFIER "X, ", module->base_address);
@@ -201,6 +219,9 @@ static void coverage_write_events(void *key, void *value, void *user_data) {
   UNUSED_PARAMETER(key);
   UNUSED_PARAMETER(user_data);
   coverage_data_t *val = (coverage_data_t *)value;
+
+  if (val->module == NULL) { return; }
+
   coverage_event_t evt = {
 
       .offset = val->start - val->module->base_address,
@@ -237,12 +258,13 @@ static void coverage_mark_modules() {
     coverage_module_t *module =
         &g_array_index(coverage_modules, coverage_module_t, i);
 
-    OKF("Coverage Module - %3u: [%c] 0x%016" G_GINT64_MODIFIER
-        "X - 0x%016" G_GINT64_MODIFIER "X (%u:%s)",
-        i, module->referenced ? 'X' : ' ', module->base_address, module->limit,
-        module->id, module->path);
+    instrument_coverage_print(
+        "Coverage Module - %3u: [%c] 0x%016" G_GINT64_MODIFIER
+        "X - 0x%016" G_GINT64_MODIFIER "X [%u] (%u:%s)\n",
+        i, module->count == 0 ? ' ' : 'X', module->base_address, module->limit,
+        module->count, module->id, module->path);
 
-    if (!module->referenced) { continue; }
+    if (module->count == 0) { continue; }
 
     module->id = coverage_marked_modules;
     coverage_marked_modules++;
@@ -256,7 +278,7 @@ static void instrument_coverage_run() {
   int              bytes;
   coverage_data_t  data;
   coverage_data_t *value;
-  OKF("Coverage - Running");
+  instrument_coverage_print("Coverage - Running\n");
 
   if (close(coverage_pipes[STDOUT_FILENO]) != 0) {
 
@@ -278,22 +300,24 @@ static void instrument_coverage_run() {
 
   if (bytes != 0) { FATAL("Coverage data truncated"); }
 
-  OKF("Coverage - Preparing");
+  instrument_coverage_print("Coverage - Preparing\n");
 
   coverage_get_ranges();
 
   guint size = g_hash_table_size(coverage_hash);
-  OKF("Coverage - Total Entries: %u", size);
+  instrument_coverage_print("Coverage - Total Entries: %u\n", size);
 
   g_hash_table_foreach(coverage_hash, instrument_coverage_mark, NULL);
-  OKF("Coverage - Marked Entries: %u", coverage_marked_entries);
+  instrument_coverage_print("Coverage - Marked Entries: %u\n",
+                            coverage_marked_entries);
 
   coverage_mark_modules();
-  OKF("Coverage - Marked Modules: %u", coverage_marked_modules);
+  instrument_coverage_print("Coverage - Marked Modules: %u\n",
+                            coverage_marked_modules);
 
   coverage_write_header();
 
-  OKF("Coverage - Completed");
+  instrument_coverage_print("Coverage - Completed\n");
 
 }
 
@@ -339,9 +363,12 @@ void instrument_coverage_init(void) {
   if (pid == 0) {
 
     instrument_coverage_run();
+    kill(getpid(), SIGKILL);
     _exit(0);
 
   }
+
+  if (close(coverage_fd) < 0) { FATAL("Failed to close coverage output file"); }
 
   if (close(coverage_pipes[STDIN_FILENO]) != 0) {
 
