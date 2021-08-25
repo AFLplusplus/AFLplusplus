@@ -93,7 +93,7 @@ behaviours and defaults:
 
 ## Important features of AFL++
 
-  AFL++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with QEMU 5.1
+  AFL++ supports llvm from 3.8 up to version 13, very fast binary fuzzing with QEMU 5.1
   with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
   Mac OS, Solaris and Android support and much, much, much more.
 
