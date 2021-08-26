@@ -164,6 +164,15 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE`. This function takes a single
+   * `string` as an argument.
+   */
+  public static setInstrumentUnstableCoverageFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
+  }
+
+  /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
    * `NativePointer` should be provided as it's argument.
    */
@@ -337,6 +346,11 @@ class Afl {
     "js_api_set_instrument_trace_unique",
     "void",
     []);
+
+  private static readonly jsApiSetInstrumentUnstableCoverageFile = Afl.jsApiGetFunction(
+    "js_api_set_instrument_unstable_coverage_file",
+    "void",
+    ["pointer"]);
 
   private static readonly jsApiSetPersistentAddress = Afl.jsApiGetFunction(
     "js_api_set_persistent_address",

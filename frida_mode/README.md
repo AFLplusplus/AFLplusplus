@@ -175,6 +175,9 @@ useful for debugging purposes, e.g. investigating unstable edges.
 implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
 is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE` - File to write DynamoRio format
+coverage information for unstable edges (e.g. to be loaded within IDA
+lighthouse).
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
 application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 * `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target

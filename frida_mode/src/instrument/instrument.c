@@ -29,13 +29,22 @@ guint64  instrument_hash_seed = 0;
 
 gboolean instrument_use_fixed_seed = FALSE;
 guint64  instrument_fixed_seed = 0;
+char *   instrument_coverage_unstable_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
 __thread guint64 instrument_previous_pc = 0;
 
 static GumAddress previous_rip = 0;
+static GumAddress previous_end = 0;
 static u8 *       edges_notified = NULL;
+
+typedef struct {
+
+  GumAddress address;
+  GumAddress end;
+
+} block_ctx_t;
 
 static void trace_debug(char *format, ...) {
 
@@ -91,9 +100,11 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
   UNUSED_PARAMETER(context);
 
-  GumAddress current_rip = GUM_ADDRESS(user_data);
-  guint64    current_pc = instrument_get_offset_hash(current_rip);
-  guint64    edge;
+  block_ctx_t *ctx = (block_ctx_t *)user_data;
+  GumAddress   current_rip = ctx->address;
+  guint16      current_end = ctx->end;
+  guint64      current_pc = instrument_get_offset_hash(current_rip);
+  guint64      edge;
 
   edge = current_pc ^ instrument_previous_pc;
 
@@ -112,9 +123,17 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
     if (instrument_unique) { edges_notified[edge] = 1; }
 
-    previous_rip = current_rip;
+  }
+
+  if (unlikely(instrument_coverage_unstable_filename != NULL)) {
+
+    instrument_coverage_unstable(edge, previous_rip, previous_end, current_rip,
+                                 current_end);
 
   }
+
+  previous_rip = current_rip;
+  previous_end = current_end;
 
   instrument_previous_pc = ((current_pc & (MAP_SIZE - 1) >> 1)) |
                            ((current_pc & 0x1) << (MAP_SIZE_POW2 - 1));
@@ -130,6 +149,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   const cs_insn *instr;
   gboolean       begin = TRUE;
   gboolean       excluded;
+  block_ctx_t *  ctx = NULL;
 
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
@@ -183,8 +203,9 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
         } else {
 
-          gum_stalker_iterator_put_callout(
-              iterator, on_basic_block, GSIZE_TO_POINTER(instr->address), NULL);
+          ctx = gum_malloc0(sizeof(block_ctx_t));
+          ctx->address = GUM_ADDRESS(instr->address);
+          gum_stalker_iterator_put_callout(iterator, on_basic_block, ctx, NULL);
 
         }
 
@@ -211,6 +232,8 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
   }
 
+  if (ctx != NULL) { ctx->end = (instr->address + instr->size); }
+
   instrument_flush(output);
   instrument_debug_end(output);
   instrument_coverage_end(instr->address + instr->size);
@@ -224,6 +247,8 @@ void instrument_config(void) {
   instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
   instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
   instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
+  instrument_coverage_unstable_filename =
+      (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
 
   instrument_debug_config();
   instrument_coverage_config();
@@ -241,10 +266,20 @@ void instrument_init(void) {
   OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
   OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
       instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
+  OKF("Instrumentation - unstable coverage [%c] [%s]",
+      instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
+      instrument_coverage_unstable_filename);
 
   if (instrument_tracing && instrument_optimize) {
 
     WARNF("AFL_FRIDA_INST_TRACE implies AFL_FRIDA_INST_NO_OPTIMIZE");
+    instrument_optimize = FALSE;
+
+  }
+
+  if (instrument_coverage_unstable_filename && instrument_optimize) {
+
+    WARNF("AFL_FRIDA_INST_COVERAGE_FILE implies AFL_FRIDA_INST_NO_OPTIMIZE");
     instrument_optimize = FALSE;
 
   }
