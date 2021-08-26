@@ -164,6 +164,13 @@ __attribute__((visibility("default"))) void js_api_set_instrument_trace_unique(
 
 }
 
+__attribute__((visibility("default"))) void
+js_api_set_instrument_unstable_coverage_file(char *path) {
+
+  instrument_coverage_unstable_filename = g_strdup(path);
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_stdout(char *file) {
 
   output_stdout = g_strdup(file);
