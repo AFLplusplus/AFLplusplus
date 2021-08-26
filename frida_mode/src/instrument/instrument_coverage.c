@@ -13,10 +13,11 @@
 char *instrument_coverage_filename = NULL;
 
 static int         coverage_fd = -1;
-static int         coverage_pipes[2] = {0};
+static int         coverage_pipes[2] = {-1, -1};
 static uint64_t    coverage_last_start = 0;
 static GHashTable *coverage_hash = NULL;
 static GArray *    coverage_modules = NULL;
+static GArray *    coverage_ranges = NULL;
 static guint       coverage_marked_modules = 0;
 static guint       coverage_marked_entries = 0;
 
@@ -25,18 +26,19 @@ typedef struct {
   GumAddress base_address;
   GumAddress limit;
   gsize      size;
-  char       name[PATH_MAX + 1];
   char       path[PATH_MAX + 1];
-  bool       referenced;
+  guint64    offset;
+  gboolean   is_executable;
+  guint      count;
   guint16    id;
 
-} coverage_module_t;
+} coverage_range_t;
 
 typedef struct {
 
-  uint64_t           start;
-  uint64_t           end;
-  coverage_module_t *module;
+  uint64_t          start;
+  uint64_t          end;
+  coverage_range_t *module;
 
 } coverage_data_t;
 
@@ -48,32 +50,44 @@ typedef struct {
 
 } coverage_event_t;
 
-static gboolean coverage_module(const GumModuleDetails *details,
-                                gpointer                user_data) {
+static gboolean coverage_range(const GumRangeDetails *details,
+                               gpointer               user_data) {
 
   UNUSED_PARAMETER(user_data);
-  coverage_module_t coverage = {0};
+  coverage_range_t coverage = {0};
+
+  if (details->file == NULL) { return TRUE; }
+  if (details->protection == GUM_PAGE_NO_ACCESS) { return TRUE; }
 
   coverage.base_address = details->range->base_address;
   coverage.size = details->range->size;
   coverage.limit = coverage.base_address + coverage.size;
 
-  if (details->name != NULL) strncpy(coverage.name, details->name, PATH_MAX);
+  strncpy(coverage.path, details->file->path, PATH_MAX);
+  coverage.offset = details->file->offset;
 
-  if (details->path != NULL) strncpy(coverage.path, details->path, PATH_MAX);
+  if ((details->protection & GUM_PAGE_EXECUTE) == 0) {
 
-  coverage.referenced = false;
+    coverage.is_executable = false;
+
+  } else {
+
+    coverage.is_executable = true;
+
+  }
+
+  coverage.count = 0;
   coverage.id = 0;
 
-  g_array_append_val(coverage_modules, coverage);
+  g_array_append_val(coverage_ranges, coverage);
   return TRUE;
 
 }
 
 static gint coverage_sort(gconstpointer a, gconstpointer b) {
 
-  coverage_module_t *ma = (coverage_module_t *)a;
-  coverage_module_t *mb = (coverage_module_t *)b;
+  coverage_range_t *ma = (coverage_range_t *)a;
+  coverage_range_t *mb = (coverage_range_t *)b;
 
   if (ma->base_address < mb->base_address) return -1;
 
@@ -83,22 +97,90 @@ static gint coverage_sort(gconstpointer a, gconstpointer b) {
 
 }
 
-static void coverage_get_ranges(void) {
+void instrument_coverage_print(char *format, ...) {
 
-  OKF("Coverage - Collecting ranges");
+  char buffer[4096] = {0};
+  int  len;
+
+  va_list ap;
+  va_start(ap, format);
+
+  if (vsnprintf(buffer, sizeof(buffer) - 1, format, ap) < 0) { return; }
+
+  len = strnlen(buffer, sizeof(buffer));
+  IGNORED_RETURN(write(STDOUT_FILENO, buffer, len));
+  va_end(ap);
+
+}
+
+static void coverage_get_modules(void) {
+
+  instrument_coverage_print("Coverage - Collecting modules\n");
 
   coverage_modules =
-      g_array_sized_new(false, false, sizeof(coverage_module_t), 100);
-  gum_process_enumerate_modules(coverage_module, NULL);
-  g_array_sort(coverage_modules, coverage_sort);
+      g_array_sized_new(false, false, sizeof(coverage_range_t), 100);
+
+  coverage_range_t current = {0};
+
+  for (guint i = 0; i < coverage_ranges->len; i++) {
+
+    coverage_range_t *range =
+        &g_array_index(coverage_ranges, coverage_range_t, i);
+
+    if (range->offset == 0 ||
+        (strncmp(range->path, current.path, PATH_MAX) != 0)) {
+
+      if (current.is_executable) {
+
+        g_array_append_val(coverage_modules, current);
+        memset(&current, '\0', sizeof(coverage_range_t));
+
+      }
+
+      memcpy(&current, range, sizeof(coverage_range_t));
+
+    } else {
+
+      current.limit = range->limit;
+      current.size = current.limit - current.base_address;
+      if (range->is_executable) { current.is_executable = true; }
+
+    }
+
+  }
+
+  if (current.is_executable) { g_array_append_val(coverage_modules, current); }
 
   for (guint i = 0; i < coverage_modules->len; i++) {
 
-    coverage_module_t *module =
-        &g_array_index(coverage_modules, coverage_module_t, i);
-    OKF("Coverage Module - %3u: 0x%016" G_GINT64_MODIFIER
-        "X - 0x%016" G_GINT64_MODIFIER "X",
-        i, module->base_address, module->limit);
+    coverage_range_t *module =
+        &g_array_index(coverage_modules, coverage_range_t, i);
+    instrument_coverage_print("Coverage Module - %3u: 0x%016" G_GINT64_MODIFIER
+                              "X - 0x%016" G_GINT64_MODIFIER "X (%s)\n",
+                              i, module->base_address, module->limit,
+                              module->path);
+
+  }
+
+}
+
+static void coverage_get_ranges(void) {
+
+  instrument_coverage_print("Coverage - Collecting ranges\n");
+
+  coverage_ranges =
+      g_array_sized_new(false, false, sizeof(coverage_range_t), 100);
+  gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, coverage_range, NULL);
+  g_array_sort(coverage_ranges, coverage_sort);
+
+  for (guint i = 0; i < coverage_ranges->len; i++) {
+
+    coverage_range_t *range =
+        &g_array_index(coverage_ranges, coverage_range_t, i);
+    instrument_coverage_print("Coverage Range - %3u: 0x%016" G_GINT64_MODIFIER
+                              "X - 0x%016" G_GINT64_MODIFIER "X (%s)\n",
+                              i, range->base_address, range->limit,
+                              range->path);
 
   }
 
@@ -113,22 +195,23 @@ static void instrument_coverage_mark(void *key, void *value, void *user_data) {
 
   for (i = 0; i < coverage_modules->len; i++) {
 
-    coverage_module_t *module =
-        &g_array_index(coverage_modules, coverage_module_t, i);
+    coverage_range_t *module =
+        &g_array_index(coverage_modules, coverage_range_t, i);
     if (val->start > module->limit) continue;
 
     if (val->end >= module->limit) break;
 
     val->module = module;
     coverage_marked_entries++;
-    module->referenced = true;
+    module->count++;
     return;
 
   }
 
-  OKF("Coverage cannot find module for: 0x%016" G_GINT64_MODIFIER
-      "X - 0x%016" G_GINT64_MODIFIER "X %u %u",
-      val->start, val->end, i, coverage_modules->len);
+  instrument_coverage_print(
+      "Coverage cannot find module for: 0x%016" G_GINT64_MODIFIER
+      "X - 0x%016" G_GINT64_MODIFIER "X\n",
+      val->start, val->end);
 
 }
 
@@ -176,9 +259,9 @@ static void coverage_write_modules() {
   guint emitted = 0;
   for (guint i = 0; i < coverage_modules->len; i++) {
 
-    coverage_module_t *module =
-        &g_array_index(coverage_modules, coverage_module_t, i);
-    if (!module->referenced) continue;
+    coverage_range_t *module =
+        &g_array_index(coverage_modules, coverage_range_t, i);
+    if (module->count == 0) continue;
 
     coverage_format("%3u, ", emitted);
     coverage_format("%016" G_GINT64_MODIFIER "X, ", module->base_address);
@@ -201,6 +284,9 @@ static void coverage_write_events(void *key, void *value, void *user_data) {
   UNUSED_PARAMETER(key);
   UNUSED_PARAMETER(user_data);
   coverage_data_t *val = (coverage_data_t *)value;
+
+  if (val->module == NULL) { return; }
+
   coverage_event_t evt = {
 
       .offset = val->start - val->module->base_address,
@@ -234,15 +320,16 @@ static void coverage_mark_modules() {
   guint i;
   for (i = 0; i < coverage_modules->len; i++) {
 
-    coverage_module_t *module =
-        &g_array_index(coverage_modules, coverage_module_t, i);
+    coverage_range_t *module =
+        &g_array_index(coverage_modules, coverage_range_t, i);
 
-    OKF("Coverage Module - %3u: [%c] 0x%016" G_GINT64_MODIFIER
-        "X - 0x%016" G_GINT64_MODIFIER "X (%u:%s)",
-        i, module->referenced ? 'X' : ' ', module->base_address, module->limit,
-        module->id, module->path);
+    instrument_coverage_print(
+        "Coverage Module - %3u: [%c] 0x%016" G_GINT64_MODIFIER
+        "X - 0x%016" G_GINT64_MODIFIER "X [%u] (%u:%s)\n",
+        i, module->count == 0 ? ' ' : 'X', module->base_address, module->limit,
+        module->count, module->id, module->path);
 
-    if (!module->referenced) { continue; }
+    if (module->count == 0) { continue; }
 
     module->id = coverage_marked_modules;
     coverage_marked_modules++;
@@ -256,7 +343,7 @@ static void instrument_coverage_run() {
   int              bytes;
   coverage_data_t  data;
   coverage_data_t *value;
-  OKF("Coverage - Running");
+  instrument_coverage_print("Coverage - Running\n");
 
   if (close(coverage_pipes[STDOUT_FILENO]) != 0) {
 
@@ -278,22 +365,25 @@ static void instrument_coverage_run() {
 
   if (bytes != 0) { FATAL("Coverage data truncated"); }
 
-  OKF("Coverage - Preparing");
+  instrument_coverage_print("Coverage - Preparing\n");
 
   coverage_get_ranges();
+  coverage_get_modules();
 
   guint size = g_hash_table_size(coverage_hash);
-  OKF("Coverage - Total Entries: %u", size);
+  instrument_coverage_print("Coverage - Total Entries: %u\n", size);
 
   g_hash_table_foreach(coverage_hash, instrument_coverage_mark, NULL);
-  OKF("Coverage - Marked Entries: %u", coverage_marked_entries);
+  instrument_coverage_print("Coverage - Marked Entries: %u\n",
+                            coverage_marked_entries);
 
   coverage_mark_modules();
-  OKF("Coverage - Marked Modules: %u", coverage_marked_modules);
+  instrument_coverage_print("Coverage - Marked Modules: %u\n",
+                            coverage_marked_modules);
 
   coverage_write_header();
 
-  OKF("Coverage - Completed");
+  instrument_coverage_print("Coverage - Completed\n");
 
 }
 
@@ -339,9 +429,12 @@ void instrument_coverage_init(void) {
   if (pid == 0) {
 
     instrument_coverage_run();
+    kill(getpid(), SIGKILL);
     _exit(0);
 
   }
+
+  if (close(coverage_fd) < 0) { FATAL("Failed to close coverage output file"); }
 
   if (close(coverage_pipes[STDIN_FILENO]) != 0) {
 
@@ -353,11 +446,15 @@ void instrument_coverage_init(void) {
 
 void instrument_coverage_start(uint64_t address) {
 
+  if (instrument_coverage_filename == NULL) { return; }
+
   coverage_last_start = address;
 
 }
 
 void instrument_coverage_end(uint64_t address) {
+
+  if (instrument_coverage_filename == NULL) { return; }
 
   coverage_data_t data = {
 
