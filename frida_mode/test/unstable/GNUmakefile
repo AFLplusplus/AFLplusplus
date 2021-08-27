@@ -85,6 +85,21 @@ frida: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
 		-- \
 			$(UNSTABLE_BIN) @@
 
+frida_coverage: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
+	AFL_DEBUG=1 \
+	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
+	AFL_FRIDA_OUTPUT_STDOUT=/tmp/stdout.txt \
+    AFL_FRIDA_OUTPUT_STDERR=/tmp/stderr.txt \
+	AFL_FRIDA_INST_COVERAGE_FILE=/tmp/coverage.dat \
+    AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE=/tmp/unstable.dat \
+	$(ROOT)afl-fuzz \
+		-D \
+		-O \
+		-i $(UNSTABLE_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-- \
+			$(UNSTABLE_BIN) @@
+
 debug:
 	gdb \
 		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
