@@ -3,6 +3,8 @@ BIN_PATH  = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH  = $(PREFIX)/share/doc/afl
 
+SYS = $(shell uname -s)
+
 PROGRAMS = afl-network-client afl-network-server
 
 HASH=\#
@@ -11,6 +13,10 @@ CFLAGS += -Wno-pointer-sign
 
 ifdef STATIC
   CFLAGS += -static
+endif
+
+ifeq "$(SYS)" "SunOS"
+  LDFLAGS += -lnsl -lsocket
 endif
 
 ifeq "$(shell echo '$(HASH)include <libdeflate.h>@int main() { struct libdeflate_compressor *d = libdeflate_alloc_compressor(1); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 -ldeflate 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
