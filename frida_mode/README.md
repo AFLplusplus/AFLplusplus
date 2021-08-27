@@ -197,6 +197,8 @@ gdb \
 		--args <my-executable> [my arguments]
 
 ```
+* `AFL_FRIDA_SECCOMP_FILE` - Write a log of any syscalls made by the target to
+the specified file.
 * `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
 stored along-side branch instructions which provide a cache to avoid having to
 call back into FRIDA to find the next block. Default is 32.
