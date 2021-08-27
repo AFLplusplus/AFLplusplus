@@ -60,12 +60,12 @@ AUTODICTIONARY: 11 strings found
 
 ## Getting llvm 11+
 
-### Installing llvm version 11
+### Installing llvm version 11 or 12
 
-llvm 11 should be available in all current Linux repositories.
+llvm 11 or even 12 should be available in all current Linux repositories.
 If you use an outdated Linux distribution read the next section.
 
-### Installing llvm from the llvm repository (version 12)
+### Installing llvm from the llvm repository (version 12+)
 
 Installing the llvm snapshot builds is easy and mostly painless:
 
@@ -85,7 +85,7 @@ apt-get install -y clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
     libomp5-12 lld-12 lldb-12 llvm-12 llvm-12-dev llvm-12-runtime llvm-12-tools
 ```
 
-### Building llvm yourself (version 12)
+### Building llvm yourself (version 12+)
 
 Building llvm from github takes quite some long time and is not painless:
 ```sh

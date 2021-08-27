@@ -138,6 +138,14 @@ class Afl {
         Afl.jsApiSetInstrumentTraceUnique();
     }
     /**
+     * See `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE`. This function takes a single
+     * `string` as an argument.
+     */
+    static setInstrumentUnstableCoverageFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
+    }
+    /**
      * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
      * `NativePointer` should be provided as it's argument.
      */
@@ -255,6 +263,7 @@ Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_n
 Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", "void", ["uint64"]);
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
 Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);
+Afl.jsApiSetInstrumentUnstableCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_unstable_coverage_file", "void", ["pointer"]);
 Afl.jsApiSetPersistentAddress = Afl.jsApiGetFunction("js_api_set_persistent_address", "void", ["pointer"]);
 Afl.jsApiSetPersistentCount = Afl.jsApiGetFunction("js_api_set_persistent_count", "void", ["uint64"]);
 Afl.jsApiSetPersistentDebug = Afl.jsApiGetFunction("js_api_set_persistent_debug", "void", []);
