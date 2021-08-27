@@ -8,6 +8,7 @@
 #include "instrument.h"
 #include "persistent.h"
 #include "ranges.h"
+#include "seccomp.h"
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -26,6 +27,7 @@ static void entry_launch(void) {
   /* Child here */
   entry_run = TRUE;
   instrument_on_fork();
+  seccomp_on_fork();
   stats_on_fork();
 
 }
