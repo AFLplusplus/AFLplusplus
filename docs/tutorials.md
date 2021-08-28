@@ -1,4 +1,4 @@
-# Links: examples and writeups
+# Tutorials
 
 Here are some good writeups to show how to effectively use AFL++:
 
