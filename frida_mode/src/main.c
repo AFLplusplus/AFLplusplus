@@ -25,6 +25,7 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "seccomp.h"
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -177,6 +178,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   persistent_config();
   prefetch_config();
   ranges_config();
+  seccomp_config();
   stalker_config();
   stats_config();
 
@@ -191,6 +193,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   lib_init();
   persistent_init();
   prefetch_init();
+  seccomp_init();
   stalker_init();
   ranges_init();
   stats_init();
