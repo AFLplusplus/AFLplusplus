@@ -7,6 +7,7 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "seccomp.h"
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -168,6 +169,13 @@ __attribute__((visibility("default"))) void
 js_api_set_instrument_unstable_coverage_file(char *path) {
 
   instrument_coverage_unstable_filename = g_strdup(path);
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_seccomp_file(
+    char *file) {
+
+  seccomp_filename = g_strdup(file);
 
 }
 
