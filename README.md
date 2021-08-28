@@ -19,129 +19,163 @@ Originally developed by Michał "lcamtuf" Zalewski.
 
 AFL++ is a superior fork to Google's AFL - more speed, more and better mutations, more and better instrumentation, custom module support, etc.
 
-For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab. Also take a look at the list of [major behaviour changes in AFL++](docs/behaviour_changes.md).
-
-If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/) on the website.
-To cite our work, look at [Cite.md](docs/cite.md).
-For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`.
-
 You are free to copy, modify, and distribute AFL++ with attribution under the terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
-## Help wanted
+## Getting started
 
-We have several [to dos](TODO.md) and [ideas](docs/ideas.md) we would like to see in AFL++ to make it even better.
-However, we already work on so many things that we do not have the time for all the big ideas.
+Here is some information to get you started:
 
-This can be your way to support and contribute to AFL++ - extend it to do something cool.
-
-For everyone who wants to contribute (and send pull requests), please read our [contributing guidelines](CONTRIBUTING.md) before your submit.
-
-Thank you to [everyone who contributed](#special-thanks).
+* For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab and [branches](docs/branches.md). Also take a look at the list of [major behaviour changes in AFL++](docs/behaviour_changes.md).
+* If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/) on the website.
+* To cite our work, look at the [Cite](#cite) section.
+* For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`. You can find the `aflplusplus` default configuration on Google's [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
 
 ## Building and installing AFL++
 
-To install AFL++ with everything compiled, use Docker:
-* You can either use the [Dockerfile](Dockerfile) (which has gcc-10 and clang-11 - hence afl-clang-lto is available!)
-* Or just pull directly from the Docker Hub:
+To install AFL++ with everything compiled, pull the image directly from the Docker Hub:
 
-  ```shell
-  docker pull aflplusplus/aflplusplus
-  docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
-  ```
+```shell
+docker pull aflplusplus/aflplusplus
+docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+```
 
-  This image is automatically generated when a push to the stable repo happens (see [docs/branches.md](docs/branches.md)).
-  You will find your target source code in `/src` in the container.
+This image is automatically generated when a push to the stable repo happens (see [docs/branches.md](docs/branches.md)).
+You will find your target source code in `/src` in the container.
 
 To build AFL++ yourself, continue at [docs/building_installing.md](docs/building_installing.md).
 
-## Quickstart: Fuzzing with AFL++
+## Quick start: Fuzzing with AFL++
 
 *NOTE: Before you start, please read about the [common sense risks of fuzzing](docs/common_sense_risks.md).*
 
-This is a quickstart for fuzzing targets with the source code available.
+This is a quick start for fuzzing targets with the source code available.
 To read about the process in detail, see [docs/fuzzing.md](docs/fuzzing.md).
 
-To learn about fuzzing other target, see:
+To learn about fuzzing other targets, see:
 * Binary-only targets: [docs/fuzzing_binary-only_targets.md](docs/fuzzing_binary-only_targets.md)
 * Network services: [docs/best_practices.md#fuzzing-a-network-service](docs/best_practices.md#fuzzing-a-network-service)
 * GUI programs: [docs/best_practices.md#fuzzing-a-gui-program](docs/best_practices.md#fuzzing-a-gui-program)
 
-Step-by-step quickstart:
+Step-by-step quick start:
 
-*THIS SECTION IS WIP*
+1. Compile the program or library to be fuzzed using `afl-cc`.
+A common way to do this would be:
 
-1. Instrumenting the target:
-    1. Selecting a compiler.
-    2. Instrumenting the target.
-2. Preparing the fuzzing campaign.
-3. Fuzzing the target:
-    1. Running afl-fuzz.
-    2. Stopping or restarting afl-fuzz or adding new seeds.
-4. Monitoring.
-    1. Checking the status.
-    2. Checking the coverage.
-5. Triaging crashes.
+        CC=/path/to/afl-cc CXX=/path/to/afl-c++ ./configure --disable-shared
+        make clean all
 
-## Special thanks
+2. Get a small but valid input file that makes sense to the program.
+When fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in [dictionaries/README.md](../dictionaries/README.md), too.
 
-Many of the improvements to the original AFL and AFL++ wouldn't be possible without feedback, bug reports, or patches from:
+3. If the program reads from stdin, run `afl-fuzz` like so:
 
-```
-  Jann Horn                             Hanno Boeck
-  Felix Groebert                        Jakub Wilk
-  Richard W. M. Jones                   Alexander Cherepanov
-  Tom Ritter                            Hovik Manucharyan
-  Sebastian Roschke                     Eberhard Mattes
-  Padraig Brady                         Ben Laurie
-  @dronesec                             Luca Barbato
-  Tobias Ospelt                         Thomas Jarosch
-  Martin Carpenter                      Mudge Zatko
-  Joe Zbiciak                           Ryan Govostes
-  Michael Rash                          William Robinet
-  Jonathan Gray                         Filipe Cabecinhas
-  Nico Weber                            Jodie Cunningham
-  Andrew Griffiths                      Parker Thompson
-  Jonathan Neuschaefer                  Tyler Nighswander
-  Ben Nagy                              Samir Aguiar
-  Aidan Thornton                        Aleksandar Nikolich
-  Sam Hakim                             Laszlo Szekeres
-  David A. Wheeler                      Turo Lamminen
-  Andreas Stieger                       Richard Godbee
-  Louis Dassy                           teor2345
-  Alex Moneger                          Dmitry Vyukov
-  Keegan McAllister                     Kostya Serebryany
-  Richo Healey                          Martijn Bogaard
-  rc0r                                  Jonathan Foote
-  Christian Holler                      Dominique Pelle
-  Jacek Wielemborek                     Leo Barnes
-  Jeremy Barnes                         Jeff Trull
-  Guillaume Endignoux                   ilovezfs
-  Daniel Godas-Lopez                    Franjo Ivancic
-  Austin Seipp                          Daniel Komaromy
-  Daniel Binderman                      Jonathan Metzman
-  Vegard Nossum                         Jan Kneschke
-  Kurt Roeckx                           Marcel Boehme
-  Van-Thuan Pham                        Abhik Roychoudhury
-  Joshua J. Drake                       Toby Hutton
-  Rene Freingruber                      Sergey Davidoff
-  Sami Liedes                           Craig Young
-  Andrzej Jackowski                     Daniel Hodson
-  Nathan Voss                           Dominik Maier
-  Andrea Biondo                         Vincent Le Garrec
-  Khaled Yakdan                         Kuang-che Wu
-  Josephine Calliotte                   Konrad Welc
-  Thomas Rooijakkers                    David Carlier
-  Ruben ten Hove                        Joey Jiao
-  fuzzah
-```
+        ./afl-fuzz -i testcase_dir -o findings_dir -- \
+          /path/to/tested/program [...program's cmdline...]
 
-Thank you!
-(For people sending pull requests - please add yourself to this list :-)
+   If the program takes input from a file, you can put `@@` in the program's command line; AFL will put an auto-generated file name in there for you.
+
+4. Investigate anything shown in red in the fuzzer UI by promptly consulting [docs/status_screen.md](docs/status_screen.md).
 
 ## Contact
 
 Questions? Concerns? Bug reports?
 
 * The contributors can be reached via [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
+* Take a look at our [FAQ](docs/faq.md). If you find an interesting or important question missing, submit it via
+[https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
 * There is a mailing list for the AFL/AFL++ project ([browse archive](https://groups.google.com/group/afl-users)). To compare notes with other users or to get notified about major new features, send an email to <afl-users+subscribe@googlegroups.com>.
 * Or join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
+
+## Help wanted
+
+We have several [ideas](docs/ideas.md) we would like to see in AFL++ to make it even better.
+However, we already work on so many things that we do not have the time for all the big ideas.
+
+This can be your way to support and contribute to AFL++ - extend it to do something cool.
+
+For everyone who wants to contribute (and send pull requests), please read our [contributing guidelines](CONTRIBUTING.md) before your submit.
+
+## Special thanks
+
+Many of the improvements to the original AFL and AFL++ wouldn't be possible without feedback, bug reports, or patches from our contributors.
+
+Thank you!
+(For people sending pull requests - please add yourself to this list :-)
+
+<details>
+
+  <summary>List of contributors</summary>
+
+  ```
+    Jann Horn                             Hanno Boeck
+    Felix Groebert                        Jakub Wilk
+    Richard W. M. Jones                   Alexander Cherepanov
+    Tom Ritter                            Hovik Manucharyan
+    Sebastian Roschke                     Eberhard Mattes
+    Padraig Brady                         Ben Laurie
+    @dronesec                             Luca Barbato
+    Tobias Ospelt                         Thomas Jarosch
+    Martin Carpenter                      Mudge Zatko
+    Joe Zbiciak                           Ryan Govostes
+    Michael Rash                          William Robinet
+    Jonathan Gray                         Filipe Cabecinhas
+    Nico Weber                            Jodie Cunningham
+    Andrew Griffiths                      Parker Thompson
+    Jonathan Neuschaefer                  Tyler Nighswander
+    Ben Nagy                              Samir Aguiar
+    Aidan Thornton                        Aleksandar Nikolich
+    Sam Hakim                             Laszlo Szekeres
+    David A. Wheeler                      Turo Lamminen
+    Andreas Stieger                       Richard Godbee
+    Louis Dassy                           teor2345
+    Alex Moneger                          Dmitry Vyukov
+    Keegan McAllister                     Kostya Serebryany
+    Richo Healey                          Martijn Bogaard
+    rc0r                                  Jonathan Foote
+    Christian Holler                      Dominique Pelle
+    Jacek Wielemborek                     Leo Barnes
+    Jeremy Barnes                         Jeff Trull
+    Guillaume Endignoux                   ilovezfs
+    Daniel Godas-Lopez                    Franjo Ivancic
+    Austin Seipp                          Daniel Komaromy
+    Daniel Binderman                      Jonathan Metzman
+    Vegard Nossum                         Jan Kneschke
+    Kurt Roeckx                           Marcel Boehme
+    Van-Thuan Pham                        Abhik Roychoudhury
+    Joshua J. Drake                       Toby Hutton
+    Rene Freingruber                      Sergey Davidoff
+    Sami Liedes                           Craig Young
+    Andrzej Jackowski                     Daniel Hodson
+    Nathan Voss                           Dominik Maier
+    Andrea Biondo                         Vincent Le Garrec
+    Khaled Yakdan                         Kuang-che Wu
+    Josephine Calliotte                   Konrad Welc
+    Thomas Rooijakkers                    David Carlier
+    Ruben ten Hove                        Joey Jiao
+    fuzzah
+  ```
+
+</details>
+
+## Cite
+
+If you use AFL++ in scientific work, consider citing [our paper](https://www.usenix.org/conference/woot20/presentation/fioraldi) presented at WOOT'20:
+
+    Andrea Fioraldi, Dominik Maier, Heiko Eißfeldt, and Marc Heuse. “AFL++: Combining incremental steps of fuzzing research”. In 14th USENIX Workshop on Offensive Technologies (WOOT 20). USENIX Association, Aug. 2020.
+
+<details>
+
+<summary>BibTeX</summary>
+
+  ```bibtex
+  @inproceedings {AFLplusplus-Woot20,
+  author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
+  title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},
+  booktitle = {14th {USENIX} Workshop on Offensive Technologies ({WOOT} 20)},
+  year = {2020},
+  publisher = {{USENIX} Association},
+  month = aug,
+  }
+  ```
+
+</details>

@@ -51,9 +51,9 @@ anything below 9 is not recommended.
 
 Clickable README links for the chosen compiler:
 
-  * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
-  * [LLVM mode - afl-clang-fast](instrumentation/README.llvm.md)
-  * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
+  * [LTO mode - afl-clang-lto](../instrumentation/README.lto.md)
+  * [LLVM mode - afl-clang-fast](../instrumentation/README.llvm.md)
+  * [GCC_PLUGIN mode - afl-gcc-fast](../instrumentation/README.gcc_plugin.md)
   * GCC/CLANG modes (afl-gcc/afl-clang) have no README as they have no own features
 
 You can select the mode for the afl-cc compiler by:
@@ -79,7 +79,7 @@ The following options are available when you instrument with LTO mode (afl-clang
    and large input corpus. This technique is called laf-intel or COMPCOV.
    To use this set the following environment variable before compiling the
    target: `export AFL_LLVM_LAF_ALL=1`
-   You can read more about this in [instrumentation/README.laf-intel.md](instrumentation/README.laf-intel.md)
+   You can read more about this in [instrumentation/README.laf-intel.md](../instrumentation/README.laf-intel.md)
  * A different technique (and usually a better one than laf-intel) is to
    instrument the target so that any compare values in the target are sent to
    AFL++ which then tries to put these values into the fuzzing data at different
@@ -91,7 +91,7 @@ The following options are available when you instrument with LTO mode (afl-clang
    via the `-c` parameter.
    Note that you can compile also just a cmplog binary and use that for both
    however there will be a performance penality.
-   You can read more about this in [instrumentation/README.cmplog.md](instrumentation/README.cmplog.md)
+   You can read more about this in [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md)
 
 If you use LTO, LLVM or GCC_PLUGIN mode (afl-clang-fast/afl-clang-lto/afl-gcc-fast)
 you have the option to selectively only instrument parts of the target that you
@@ -108,16 +108,16 @@ are interested in:
    default to instrument unless noted (DENYLIST) or not perform instrumentation
    unless requested (ALLOWLIST).
    **NOTE:** During optimization functions might be inlined and then would not match!
-   See [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
+   See [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
 
 There are many more options and modes available however these are most of the
 time less effective. See:
- * [instrumentation/README.ctx.md](instrumentation/README.ctx.md)
- * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
+ * [instrumentation/README.ctx.md](../instrumentation/README.ctx.md)
+ * [instrumentation/README.ngram.md](../instrumentation/README.ngram.md)
 
 AFL++ performs "never zero" counting in its bitmap. You can read more about this
 here:
- * [instrumentation/README.neverzero.md](instrumentation/README.neverzero.md)
+ * [instrumentation/README.neverzero.md](../instrumentation/README.neverzero.md)
 
 #### c) Sanitizers
 
@@ -225,7 +225,7 @@ For `configure` build systems this is usually done by:
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
-described in [instrumentation/README.lto.md](instrumentation/README.lto.md).
+described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
 ##### cmake
 
@@ -234,7 +234,7 @@ For `cmake` build systems this is usually done by:
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
-described in [instrumentation/README.lto.md](instrumentation/README.lto.md).
+described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
 ##### meson
 
@@ -260,7 +260,7 @@ This variant requires the usage of afl-clang-lto, afl-clang-fast or afl-gcc-fast
 It is the so-called `persistent mode`, which is much, much faster but
 requires that you code a source file that is specifically calling the target
 functions that you want to fuzz, plus a few specific AFL++ functions around
-it. See [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md) for details.
+it. See [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md) for details.
 
 Basically if you do not fuzz a target in persistent mode then you are just
 doing it for a hobby and not professionally :-).
@@ -281,7 +281,7 @@ The generated binary is fuzzed with afl-fuzz like any other fuzz target.
 Bonus: the target is already optimized for fuzzing due to persistent mode and
 shared-memory testcases and hence gives you the fastest speed possible.
 
-For more information see [utils/aflpp_driver/README.md](utils/aflpp_driver/README.md)
+For more information see [utils/aflpp_driver/README.md](../utils/aflpp_driver/README.md)
 
 ### 2. Preparing the fuzzing campaign
 
@@ -394,12 +394,12 @@ out of memory. You can decrease the memory with the `-m` option, the value is
 in MB. If this is too small for the target, you can usually see this by
 afl-fuzz bailing with the message that it could not connect to the forkserver.
 
-Adding a dictionary is helpful. See the directory [dictionaries/](dictionaries/) if
+Adding a dictionary is helpful. See the directory [dictionaries/](../dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
 that dictionary by adding `-x dictionaries/FORMAT.dict`. With afl-clang-lto
 you have an autodictionary generation for which you need to do nothing except
 to use afl-clang-lto as the compiler. You also have the option to generate
-a dictionary yourself, see [utils/libtokencap/README.md](utils/libtokencap/README.md).
+a dictionary yourself, see [utils/libtokencap/README.md](../utils/libtokencap/README.md).
 
 afl-fuzz has a variety of options that help to workaround target quirks like
 specific locations for the input file (`-f`), performing deterministic
@@ -604,7 +604,7 @@ switch or honggfuzz.
 
 #### h) Improve the speed!
 
- * Use [persistent mode](instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
+ * Use [persistent mode](../instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [env_variables.md](env_variables.md)
  * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure) - you can also just run `sudo afl-persistent-config`
  * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem

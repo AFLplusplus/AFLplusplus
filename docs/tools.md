@@ -1,4 +1,4 @@
-# Links: tools that help fuzzing with AFL++
+# Tools that help fuzzing with AFL++
 
 Speeding up fuzzing:
  * [libfiowrapper](https://github.com/marekzmyslowski/libfiowrapper) - if the function you want to fuzz requires loading a file, this allows using the shared memory testcase feature :-) - recommended.
