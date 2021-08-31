@@ -60,12 +60,12 @@ AUTODICTIONARY: 11 strings found
 
 ## Getting llvm 11+
 
-### Installing llvm version 11
+### Installing llvm version 11 or 12
 
-llvm 11 should be available in all current Linux repositories.
+llvm 11 or even 12 should be available in all current Linux repositories.
 If you use an outdated Linux distribution read the next section.
 
-### Installing llvm from the llvm repository (version 12)
+### Installing llvm from the llvm repository (version 12+)
 
 Installing the llvm snapshot builds is easy and mostly painless:
 
@@ -85,7 +85,7 @@ apt-get install -y clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
     libomp5-12 lld-12 lldb-12 llvm-12 llvm-12-dev llvm-12-runtime llvm-12-tools
 ```
 
-### Building llvm yourself (version 12)
+### Building llvm yourself (version 12+)
 
 Building llvm from github takes quite some long time and is not painless:
 ```sh
@@ -146,22 +146,22 @@ afl-clang-lto instead of shared libraries!
 To make instrumented shared libraries work with afl-clang-lto you have to do
 quite some extra steps.
 
-Every shared library you want to instrument has to be individually compiled-
+Every shared library you want to instrument has to be individually compiled.
 The environment variable `AFL_LLVM_LTO_DONTWRITEID=1` has to be set during
 compilation.
 Additionally the environment variable `AFL_LLVM_LTO_STARTID` has to be set to
-the combined edge values of all previous compiled instrumented shared
+the added edge count values of all previous compiled instrumented shared
 libraries for that target.
 E.g. for the first shared library this would be `AFL_LLVM_LTO_STARTID=0` and
 afl-clang-lto will then report how many edges have been instrumented (let's say
 it reported 1000 instrumented edges).
 The second shared library then has to be set to that value
-(`AFL_LLVM_LTO_STARTID=1000` in our example), the third to all previous
-combined, etc.
+(`AFL_LLVM_LTO_STARTID=1000` in our example), for the third to all previous
+counts added, etc.
 
 The final program compilation step then may *not* have `AFL_LLVM_LTO_DONTWRITEID`
-set, and `AFL_LLVM_LTO_STARTID` must be set to all combined edges of all shared
-libaries it will be linked to.
+set, and `AFL_LLVM_LTO_STARTID` must be set to all edge counts added of all shared
+libraries it will be linked to.
 
 This is quite some hands-on work, so better stay away from instrumenting
 shared libraries :-)

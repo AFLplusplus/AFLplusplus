@@ -1,9 +1,9 @@
 PWD:=$(shell pwd)/
-ROOT:=$(shell realpath $(PWD)../../../..)/
+ROOT:=$(PWD)../../../../
 BUILD_DIR:=$(PWD)build/
 
 TEST_BIN:=$(PWD)../build/test
-TEST_DATA_DIR:=../build/libpng/libpng-1.2.56/contrib/pngsuite/
+TEST_DATA_DIR:=$(PWD)../build/libpng/libpng-1.2.56/contrib/pngsuite/
 
 AFLPP_DRIVER_DUMMY_INPUT:=$(BUILD_DIR)in
 QEMU_OUT:=$(BUILD_DIR)qemu-out
@@ -49,7 +49,7 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
-	dd if=/dev/zero bs=1M count=1 of=$@
+	dd if=/dev/zero bs=1048576 count=1 of=$@
 
 qemu: | $(BUILD_DIR)
 	AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR) \

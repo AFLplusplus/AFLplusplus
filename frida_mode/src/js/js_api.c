@@ -7,8 +7,11 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "seccomp.h"
+#include "stalker.h"
 #include "stats.h"
 #include "util.h"
+
 __attribute__((visibility("default"))) void js_api_done() {
 
   js_done = TRUE;
@@ -107,6 +110,13 @@ __attribute__((visibility("default"))) void js_api_set_instrument_libraries() {
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_instrument_coverage_file(
+    char *path) {
+
+  instrument_coverage_filename = g_strdup(path);
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_instrument_debug_file(
     char *path) {
 
@@ -117,6 +127,13 @@ __attribute__((visibility("default"))) void js_api_set_instrument_debug_file(
 __attribute__((visibility("default"))) void js_api_set_prefetch_disable(void) {
 
   prefetch_enable = FALSE;
+
+}
+
+__attribute__((visibility("default"))) void
+js_api_set_prefetch_backpatch_disable(void) {
+
+  prefetch_backpatch = FALSE;
 
 }
 
@@ -148,6 +165,20 @@ __attribute__((visibility("default"))) void js_api_set_instrument_trace_unique(
 
 }
 
+__attribute__((visibility("default"))) void
+js_api_set_instrument_unstable_coverage_file(char *path) {
+
+  instrument_coverage_unstable_filename = g_strdup(path);
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_seccomp_file(
+    char *file) {
+
+  seccomp_filename = g_strdup(file);
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_stdout(char *file) {
 
   output_stdout = g_strdup(file);
@@ -173,12 +204,6 @@ __attribute__((visibility("default"))) void js_api_set_stats_interval(
 
 }
 
-__attribute__((visibility("default"))) void js_api_set_stats_transitions() {
-
-  stats_transitions = TRUE;
-
-}
-
 __attribute__((visibility("default"))) void js_api_set_persistent_hook(
     void *address) {
 
@@ -196,6 +221,13 @@ __attribute__((visibility("default"))) void js_api_set_stalker_callback(
     const js_api_stalker_callback_t callback) {
 
   js_user_callback = callback;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_stalker_ic_entries(
+    guint val) {
+
+  stalker_ic_entries = val;
 
 }
 

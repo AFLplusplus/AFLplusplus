@@ -89,7 +89,7 @@ void persistent_init(void) {
 void persistent_prologue(GumStalkerOutput *output) {
 
   OKF("AFL_FRIDA_PERSISTENT_ADDR reached");
-  entry_reached = TRUE;
+  entry_compiled = TRUE;
   ranges_exclude();
   stalker_trust();
   persistent_prologue_arch(output);
