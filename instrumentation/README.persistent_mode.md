@@ -2,17 +2,18 @@
 
 ## 1) Introduction
 
-In persistent mode, AFL++ fuzzes a target multiple times
-in a single process, instead of forking a new process for each fuzz execution.
-This is the most effective way to fuzz, as the speed can easily
-be x10 or x20 times faster without any disadvanges.
+In persistent mode, AFL++ fuzzes a target multiple times in a single forked
+process, instead of forking a new process for each fuzz execution.
+This is the most effective way to fuzz, as the speed can easily be x10 or x20
+times faster without any disadvanges.
 *All professional fuzzing uses this mode.*
 
-
 Persistent mode requires that the target can be called in one or more functions,
-and that its state can be reset so that multiple calls can be performed
-without resource leaks and earlier runs will have no impact on future runs
-(this can be seen by the `stability` indicator in the `afl-fuzz` UI).
+and that it's state can be completely reset so that multiple calls can be
+performed without resource leaks, and that earlier runs will have no impact on
+future runs (an indicator for this is the `stability` value in the `afl-fuzz`
+UI, if this decreases to lower values in persistent mode compared to
+non-persistent mode, that the fuzz target keeps state).
 
 Examples can be found in [utils/persistent_mode](../utils/persistent_mode).
 

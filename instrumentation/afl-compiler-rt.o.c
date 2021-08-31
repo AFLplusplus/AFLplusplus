@@ -1273,7 +1273,12 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
   if (__afl_already_initialized_second) return;
   __afl_already_initialized_second = 1;
 
-  if (getenv("AFL_DEBUG")) { __afl_debug = 1; }
+  if (getenv("AFL_DEBUG")) {
+
+    __afl_debug = 1;
+    fprintf(stderr, "DEBUG: debug enabled\n");
+
+  }
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;

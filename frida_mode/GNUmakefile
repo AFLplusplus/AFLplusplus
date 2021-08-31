@@ -83,16 +83,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-ifeq "$(ARCH)" "arm64"
-# 15.0.0 Not released for aarch64 yet
-GUM_DEVKIT_VERSION=14.2.18
-else
-ifeq "$(ARCH)" "armhf"
-GUM_DEVKIT_VERSION=14.2.18
-else
-GUM_DEVKIT_VERSION=15.0.0
-endif
-endif
+GUM_DEVKIT_VERSION=15.0.16
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -166,7 +157,7 @@ $(GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL)| $(FRIDA_BUILD_DIR
 	cp -v $< $@
 else
 $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
-	wget -O $@ $(GUM_DEVKIT_URL)
+	wget -O $@ $(GUM_DEVKIT_URL) || curl -L -o $@ $(GUM_DEVKIT_URL)
 endif
 
 $(GUM_DEVIT_LIBRARY): $(GUM_DEVKIT_TARBALL)

@@ -80,7 +80,6 @@ Afl.setInstrumentEnableTracing();
 Afl.setInstrumentTracingUnique();
 Afl.setStatsFile("/tmp/stats.txt");
 Afl.setStatsInterval(1);
-Afl.setStatsTransitions();
 
 /* *ALWAYS* call this when you have finished all your configuration */
 Afl.done();
@@ -831,13 +830,6 @@ class Afl {
    */
   public static setStatsInterval(interval: number): void {
     Afl.jsApiSetStatsInterval(interval);
-  }
-
-  /**
-   * See `AFL_FRIDA_STATS_TRANSITIONS`
-   */
-  public static setStatsTransitions(): void {
-    Afl.jsApiSetStatsTransitions();
   }
 
   /**

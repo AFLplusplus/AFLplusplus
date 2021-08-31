@@ -10,9 +10,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
   - afl-fuzz:
-    added AFL_IGNORE_PROBLEMS plus checks to identify and abort on
-    incorrect LTO usage setups and enhanced the READMEs for better
-    information on how to deal with instrumenting libraries
+    - added AFL_IGNORE_PROBLEMS plus checks to identify and abort on
+      incorrect LTO usage setups and enhanced the READMEs for better
+      information on how to deal with instrumenting libraries
+  - afl-cc:
+    - fix for shared linking on MacOS
+    - llvm and LTO mode verified to work with new llvm 14-dev
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
   - added optimin, a faster and better corpus minimizer by
@@ -23,6 +26,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added xml, curl and exotic string functions to llvm dictionary features
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
+  - added uninstall target to makefile (todo: update new readme!)
 
 
 ### Version ++3.14c (release)

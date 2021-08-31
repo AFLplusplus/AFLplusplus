@@ -104,6 +104,15 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
+   * as an argument.
+   */
+  public static setInstrumentCoverageFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetInstrumentCoverageFile(buf);
+  }
+
+  /**
    * See `AFL_FRIDA_INST_DEBUG_FILE`. This function takes a single `string` as
    * an argument.
    */
@@ -155,6 +164,15 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE`. This function takes a single
+   * `string` as an argument.
+   */
+  public static setInstrumentUnstableCoverageFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
+  }
+
+  /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
    * `NativePointer` should be provided as it's argument.
    */
@@ -194,10 +212,26 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH`.
+   */
+  public static setPrefetchBackpatchDisable(): void {
+    Afl.jsApiSetPrefetchBackpatchDisable();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_NO_PREFETCH`.
    */
   public static setPrefetchDisable(): void {
     Afl.jsApiSetPrefetchDisable();
+  }
+
+  /**
+   * See `AFL_FRIDA_SECCOMP_FILE`. This function takes a single `string` as
+   * an argument.
+   */
+  public static setSeccompFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetSeccompFile(buf);
   }
 
   /*
@@ -206,6 +240,13 @@ class Afl {
    */
   public static setStalkerCallback(callback: NativePointer): void {
     Afl.jsApiSetStalkerCallback(callback);
+  }
+
+  /**
+   * See `AFL_FRIDA_STALKER_IC_ENTRIES`.
+   */
+  public static setStalkerIcEntries(val: number): void {
+    Afl.jsApiSetStalkerIcEntries(val);
   }
 
   /**
@@ -223,13 +264,6 @@ class Afl {
    */
   public static setStatsInterval(interval: number): void {
     Afl.jsApiSetStatsInterval(interval);
-  }
-
-  /**
-   * See `AFL_FRIDA_STATS_TRANSITIONS`
-   */
-  public static setStatsTransitions(): void {
-    Afl.jsApiSetStatsTransitions();
   }
 
   /**
@@ -282,6 +316,11 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction(
+    "js_api_set_instrument_coverage_file",
+    "void",
+    ["pointer"]);
+
   private static readonly jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction(
     "js_api_set_instrument_debug_file",
     "void",
@@ -317,6 +356,11 @@ class Afl {
     "void",
     []);
 
+  private static readonly jsApiSetInstrumentUnstableCoverageFile = Afl.jsApiGetFunction(
+    "js_api_set_instrument_unstable_coverage_file",
+    "void",
+    ["pointer"]);
+
   private static readonly jsApiSetPersistentAddress = Afl.jsApiGetFunction(
     "js_api_set_persistent_address",
     "void",
@@ -342,15 +386,30 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetPrefetchBackpatchDisable = Afl.jsApiGetFunction(
+    "js_api_set_prefetch_backpatch_disable",
+    "void",
+    []);
+
   private static readonly jsApiSetPrefetchDisable = Afl.jsApiGetFunction(
     "js_api_set_prefetch_disable",
     "void",
     []);
 
+  private static readonly jsApiSetSeccompFile = Afl.jsApiGetFunction(
+    "js_api_set_seccomp_file",
+    "void",
+    ["pointer"]);
+
   private static readonly jsApiSetStalkerCallback = Afl.jsApiGetFunction(
     "js_api_set_stalker_callback",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetStalkerIcEntries = Afl.jsApiGetFunction(
+    "js_api_set_stalker_ic_entries",
+    "void",
+    ["uint32"]);
 
   private static readonly jsApiSetStatsFile = Afl.jsApiGetFunction(
     "js_api_set_stats_file",
@@ -361,11 +420,6 @@ class Afl {
     "js_api_set_stats_interval",
     "void",
     ["uint64"]);
-
-  private static readonly jsApiSetStatsTransitions = Afl.jsApiGetFunction(
-    "js_api_set_stats_transitions",
-    "void",
-    []);
 
   private static readonly jsApiSetStdErr = Afl.jsApiGetFunction(
     "js_api_set_stderr",

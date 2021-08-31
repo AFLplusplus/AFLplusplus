@@ -6,11 +6,13 @@
 #include "config.h"
 
 extern char *           instrument_debug_filename;
+extern char *           instrument_coverage_filename;
 extern gboolean         instrument_tracing;
 extern gboolean         instrument_optimize;
 extern gboolean         instrument_unique;
 extern __thread guint64 instrument_previous_pc;
 extern guint64          instrument_hash_zero;
+extern char *           instrument_coverage_unstable_filename;
 
 extern gboolean instrument_use_fixed_seed;
 extern guint64  instrument_fixed_seed;
@@ -37,6 +39,15 @@ void     instrument_debug_instruction(uint64_t address, uint16_t size);
 void     instrument_debug_end(GumStalkerOutput *output);
 void     instrument_flush(GumStalkerOutput *output);
 gpointer instrument_cur(GumStalkerOutput *output);
+
+void instrument_coverage_config(void);
+void instrument_coverage_init(void);
+void instrument_coverage_start(uint64_t address);
+void instrument_coverage_end(uint64_t address);
+
+void instrument_coverage_unstable(guint64 edge, guint64 previous_rip,
+                                  guint64 previous_end, guint64 current_rip,
+                                  guint64 current_end);
 
 void instrument_on_fork();
 

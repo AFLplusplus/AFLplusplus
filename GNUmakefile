@@ -310,7 +310,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 
 .PHONY: llvm
 llvm:
-	-$(MAKE) -j -f GNUmakefile.llvm
+	-$(MAKE) -j4 -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 .PHONY: gcc_plugin
@@ -353,6 +353,7 @@ help:
 	@echo "install: installs everything you have compiled with the build option above"
 	@echo "clean: cleans everything compiled (not downloads when on a checkout)"
 	@echo "deepclean: cleans everything including downloads"
+	@echo "uninstall: uninstall afl++ from the system"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
 	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
@@ -597,7 +598,7 @@ endif
 
 .PHONY: distrib
 distrib: all
-	-$(MAKE) -j -f GNUmakefile.llvm
+	-$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
@@ -629,7 +630,7 @@ endif
 
 .PHONY: source-only
 source-only: all
-	-$(MAKE) -j -f GNUmakefile.llvm
+	-$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
@@ -691,3 +692,16 @@ endif
 	install -m 644 docs/*.md $${DESTDIR}$(DOC_PATH)
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
+
+.PHONY: uninstall
+uninstall:
+	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-qemu-trace afl-plot-ui afl-fuzz-document afl-network-server afl-g* afl-plot.sh afl-as afl-ld-lto afl-c* afl-lto*
+	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as afl-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt
+	-rm -rf $${DESTDIR}$(MISC_PATH)/testcases $${DESTDIR}$(MISC_PATH)/dictionaries
+	-sh -c "ls docs/*.md | sed 's|^docs/|$${DESTDIR}$(DOC_PATH)/|' | xargs rm -f"
+	-cd $${DESTDIR}$(MAN_PATH) && rm -f $(MANPAGES)
+	-rmdir $${DESTDIR}$(BIN_PATH) 2>/dev/null
+	-rmdir $${DESTDIR}$(HELPER_PATH) 2>/dev/null
+	-rmdir $${DESTDIR}$(MISC_PATH) 2>/dev/null
+	-rmdir $${DESTDIR}$(DOC_PATH) 2>/dev/null
+	-rmdir $${DESTDIR}$(MAN_PATH) 2>/dev/null
