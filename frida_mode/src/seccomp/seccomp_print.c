@@ -1,9 +1,9 @@
-#include <stdarg.h>
-
-#include "seccomp.h"
-#include "util.h"
-
 #ifndef __APPLE__
+
+  #include <stdarg.h>
+
+  #include "seccomp.h"
+  #include "util.h"
 
 static void seccomp_print_v(int fd, char *format, va_list ap) {
 

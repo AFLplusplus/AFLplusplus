@@ -1,13 +1,13 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#include "debug.h"
-
-#include "seccomp.h"
-
 #ifndef __APPLE__
+
+  #include <stdint.h>
+  #include <stdio.h>
+  #include <sys/syscall.h>
+  #include <unistd.h>
+
+  #include "debug.h"
+
+  #include "seccomp.h"
 
 int seccomp_event_create(void) {
 

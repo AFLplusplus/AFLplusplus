@@ -1,11 +1,11 @@
-#include <limits.h>
-#include <stdio.h>
-
-#include "debug.h"
-
-#include "seccomp.h"
-
 #ifndef __APPLE__
+
+  #include <limits.h>
+  #include <stdio.h>
+
+  #include "debug.h"
+
+  #include "seccomp.h"
 
 typedef struct {
 

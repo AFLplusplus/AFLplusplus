@@ -1,11 +1,11 @@
-#include <execinfo.h>
-#include <fcntl.h>
-
-#include "seccomp.h"
-
-#include "debug.h"
-
 #ifndef __APPLE__
+
+  #include <execinfo.h>
+  #include <fcntl.h>
+
+  #include "seccomp.h"
+
+  #include "debug.h"
 
 static void seccomp_callback_filter(struct seccomp_notif *     req,
                                     struct seccomp_notif_resp *resp,

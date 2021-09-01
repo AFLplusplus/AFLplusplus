@@ -1,26 +1,26 @@
-#include <alloca.h>
-#include <errno.h>
-#include <execinfo.h>
-#include <linux/filter.h>
-#include <sys/ioctl.h>
-#include <sys/prctl.h>
-#include <sys/syscall.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include "debug.h"
-
-#include "frida-gumjs.h"
-
-#include "seccomp.h"
-#include "util.h"
-
 #ifndef __APPLE__
+
+  #include <alloca.h>
+  #include <errno.h>
+  #include <execinfo.h>
+  #include <linux/filter.h>
+  #include <sys/ioctl.h>
+  #include <sys/prctl.h>
+  #include <sys/syscall.h>
+  #include <signal.h>
+  #include <stdbool.h>
+  #include <stddef.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <unistd.h>
+
+  #include "debug.h"
+
+  #include "frida-gumjs.h"
+
+  #include "seccomp.h"
+  #include "util.h"
 
   #define SECCOMP_FILTER_NUM_FRAMES 512
 

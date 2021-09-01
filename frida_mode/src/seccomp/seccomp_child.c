@@ -1,18 +1,18 @@
-#include <fcntl.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "debug.h"
-
-#include "seccomp.h"
-
 #ifndef __APPLE__
+
+  #include <fcntl.h>
+  #include <sched.h>
+  #include <signal.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <sys/mman.h>
+  #include <sys/prctl.h>
+  #include <sys/types.h>
+  #include <unistd.h>
+
+  #include "debug.h"
+
+  #include "seccomp.h"
 
   #define SECCOMP_CHILD_STACK_SIZE (1UL << 20)
 
