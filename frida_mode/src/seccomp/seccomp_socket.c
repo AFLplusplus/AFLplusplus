@@ -1,13 +1,13 @@
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#include "debug.h"
-
-#include "seccomp.h"
-
 #ifndef __APPLE__
+
+  #include <stdio.h>
+  #include <string.h>
+  #include <sys/socket.h>
+  #include <unistd.h>
+
+  #include "debug.h"
+
+  #include "seccomp.h"
 
 union cmsg {
 
