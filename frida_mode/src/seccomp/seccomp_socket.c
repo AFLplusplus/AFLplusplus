@@ -7,6 +7,8 @@
 
 #include "seccomp.h"
 
+#ifndef __APPLE__
+
 union cmsg {
 
   char           buf[CMSG_SPACE(sizeof(int))];
@@ -118,4 +120,6 @@ int seccomp_socket_recv(int sockfd) {
   return fd;
 
 }
+
+#endif
 
