@@ -12,7 +12,9 @@
 
 #include "seccomp.h"
 
-#define SECCOMP_CHILD_STACK_SIZE (1UL << 20)
+#ifndef __APPLE__
+
+  #define SECCOMP_CHILD_STACK_SIZE (1UL << 20)
 
 typedef void (*seccomp_child_func_t)(int event_fd, void *ctx);
 
@@ -66,4 +68,6 @@ void seccomp_child_wait(int event_fd) {
   seccomp_event_destroy(event_fd);
 
 }
+
+#endif
 

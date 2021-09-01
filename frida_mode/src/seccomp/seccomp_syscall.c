@@ -5,6 +5,8 @@
 
 #include "seccomp.h"
 
+#ifndef __APPLE__
+
 typedef struct {
 
   int  id;
@@ -332,4 +334,6 @@ char *seccomp_syscall_lookup(int id) {
   return seccomp_syscall_table[id].name;
 
 }
+
+#endif
 
