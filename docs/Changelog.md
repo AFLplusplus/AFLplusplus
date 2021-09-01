@@ -13,6 +13,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_IGNORE_PROBLEMS plus checks to identify and abort on
       incorrect LTO usage setups and enhanced the READMEs for better
       information on how to deal with instrumenting libraries
+    - fix a regression introduced in 3.10 that resulted in less
+      coverage being detected. thanks to Collin May for reporting!
+
   - afl-cc:
     - fix for shared linking on MacOS
     - llvm and LTO mode verified to work with new llvm 14-dev
