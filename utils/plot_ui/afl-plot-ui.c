@@ -170,3 +170,4 @@ static void plot_toggled(GtkWidget *caller, gpointer data) {
   }
 
 }
+

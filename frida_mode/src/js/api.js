@@ -191,6 +191,14 @@ class Afl {
     static setPrefetchDisable() {
         Afl.jsApiSetPrefetchDisable();
     }
+    /**
+     * See `AFL_FRIDA_SECCOMP_FILE`. This function takes a single `string` as
+     * an argument.
+     */
+    static setSeccompFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetSeccompFile(buf);
+    }
     /*
      * Set a function to be called for each instruction which is instrumented
      * by AFL FRIDA mode.
@@ -271,6 +279,7 @@ Afl.jsApiSetPersistentHook = Afl.jsApiGetFunction("js_api_set_persistent_hook", 
 Afl.jsApiSetPersistentReturn = Afl.jsApiGetFunction("js_api_set_persistent_return", "void", ["pointer"]);
 Afl.jsApiSetPrefetchBackpatchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_backpatch_disable", "void", []);
 Afl.jsApiSetPrefetchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_disable", "void", []);
+Afl.jsApiSetSeccompFile = Afl.jsApiGetFunction("js_api_set_seccomp_file", "void", ["pointer"]);
 Afl.jsApiSetStalkerCallback = Afl.jsApiGetFunction("js_api_set_stalker_callback", "void", ["pointer"]);
 Afl.jsApiSetStalkerIcEntries = Afl.jsApiGetFunction("js_api_set_stalker_ic_entries", "void", ["uint32"]);
 Afl.jsApiSetStatsFile = Afl.jsApiGetFunction("js_api_set_stats_file", "void", ["pointer"]);

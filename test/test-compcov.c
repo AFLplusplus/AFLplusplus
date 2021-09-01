@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
     printf("This will only crash with libdislocator: %s\n", buf);
 
   } else if (*(unsigned int *)input == 0xabadcafe)
+
     printf("GG you eat cmp tokens for breakfast!\n");
   else if (memcmp(cmpval, input, 8) == 0)
     printf("local var memcmp works!\n");
