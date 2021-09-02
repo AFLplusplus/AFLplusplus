@@ -1,11 +1,13 @@
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#ifndef __APPLE__
 
-#include "debug.h"
+  #include <stdio.h>
+  #include <string.h>
+  #include <sys/socket.h>
+  #include <unistd.h>
 
-#include "seccomp.h"
+  #include "debug.h"
+
+  #include "seccomp.h"
 
 union cmsg {
 
@@ -118,4 +120,6 @@ int seccomp_socket_recv(int sockfd) {
   return fd;
 
 }
+
+#endif
 

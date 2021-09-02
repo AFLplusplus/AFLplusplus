@@ -1,18 +1,20 @@
-#include <fcntl.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
-#include <sys/types.h>
-#include <unistd.h>
+#ifndef __APPLE__
 
-#include "debug.h"
+  #include <fcntl.h>
+  #include <sched.h>
+  #include <signal.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <sys/mman.h>
+  #include <sys/prctl.h>
+  #include <sys/types.h>
+  #include <unistd.h>
 
-#include "seccomp.h"
+  #include "debug.h"
 
-#define SECCOMP_CHILD_STACK_SIZE (1UL << 20)
+  #include "seccomp.h"
+
+  #define SECCOMP_CHILD_STACK_SIZE (1UL << 20)
 
 typedef void (*seccomp_child_func_t)(int event_fd, void *ctx);
 
@@ -66,4 +68,6 @@ void seccomp_child_wait(int event_fd) {
   seccomp_event_destroy(event_fd);
 
 }
+
+#endif
 

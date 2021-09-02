@@ -1,15 +1,95 @@
 #ifndef _SECCOMP_H
 #define _SECCOMP_H
 
-#include <linux/seccomp.h>
+#ifndef __APPLE__
 
-#include "frida-gumjs.h"
+  #include <stdint.h>
+  #include <linux/filter.h>
 
-#define SECCOMP_SOCKET_SEND_FD 0x1D3
-#define SECCOMP_SOCKET_RECV_FD 0x1D4
+  #include "frida-gumjs.h"
 
-#define SECCOMP_OUTPUT_FILE_FD 0x1D5
-#define SECCOMP_PARENT_EVENT_FD 0x1D6
+  /******************************************************************************/
+  #define PR_SET_NO_NEW_PRIVS 38
+
+  #define SECCOMP_SET_MODE_STRICT 0
+  #define SECCOMP_SET_MODE_FILTER 1
+  #define SECCOMP_GET_ACTION_AVAIL 2
+  #define SECCOMP_GET_NOTIF_SIZES 3
+
+  #define SECCOMP_IOC_MAGIC '!'
+  #define SECCOMP_IO(nr) _IO(SECCOMP_IOC_MAGIC, nr)
+  #define SECCOMP_IOR(nr, type) _IOR(SECCOMP_IOC_MAGIC, nr, type)
+  #define SECCOMP_IOW(nr, type) _IOW(SECCOMP_IOC_MAGIC, nr, type)
+  #define SECCOMP_IOWR(nr, type) _IOWR(SECCOMP_IOC_MAGIC, nr, type)
+
+  /* Flags for seccomp notification fd ioctl. */
+  #define SECCOMP_IOCTL_NOTIF_RECV SECCOMP_IOWR(0, struct seccomp_notif)
+  #define SECCOMP_IOCTL_NOTIF_SEND SECCOMP_IOWR(1, struct seccomp_notif_resp)
+  #define SECCOMP_IOCTL_NOTIF_ID_VALID SECCOMP_IOW(2, __u64)
+
+  #define SECCOMP_FILTER_FLAG_NEW_LISTENER (1UL << 3)
+  #define SECCOMP_RET_ALLOW 0x7fff0000U
+  #define SECCOMP_RET_USER_NOTIF 0x7fc00000U
+
+  #define SYS_seccomp __NR_seccomp
+  #ifndef __NR_seccomp
+    #if defined(__arm__)
+      #define __NR_seccomp 383
+    #elif defined(__aarch64__)
+      #define __NR_seccomp 277
+    #elif defined(__x86_64__)
+      #define __NR_seccomp 317
+    #elif defined(__i386__)
+      #define __NR_seccomp 354
+    #else
+      #pragma error "Unsupported architecture"
+    #endif
+  #endif
+
+  #define SECCOMP_USER_NOTIF_FLAG_CONTINUE (1UL << 0)
+
+struct seccomp_notif_resp {
+
+  __u64 id;
+  __s64 val;
+  __s32 error;
+  __u32 flags;
+
+};
+
+struct seccomp_data {
+
+  int   nr;
+  __u32 arch;
+  __u64 instruction_pointer;
+  __u64 args[6];
+
+};
+
+struct seccomp_notif {
+
+  __u64               id;
+  __u32               pid;
+  __u32               flags;
+  struct seccomp_data data;
+
+};
+
+struct seccomp_notif_sizes {
+
+  __u16 seccomp_notif;
+  __u16 seccomp_notif_resp;
+  __u16 seccomp_data;
+
+};
+
+  /******************************************************************************/
+
+  #define SECCOMP_SOCKET_SEND_FD 0x1D3
+  #define SECCOMP_SOCKET_RECV_FD 0x1D4
+
+  #define SECCOMP_OUTPUT_FILE_FD 0x1D5
+  #define SECCOMP_PARENT_EVENT_FD 0x1D6
 
 enum {
 
@@ -319,22 +399,18 @@ enum {
 
 };
 
-extern char *seccomp_filename;
-
 typedef void (*seccomp_child_func_t)(int event_fd, void *ctx);
 
 typedef void (*seccomp_filter_callback_t)(struct seccomp_notif *     req,
                                           struct seccomp_notif_resp *resp,
                                           GumReturnAddressArray *    frames);
 
-void seccomp_config(void);
-void seccomp_init(void);
-void seccomp_on_fork(void);
-void seccomp_print(char *format, ...);
-
 void seccomp_atomic_set(volatile bool *ptr, bool val);
 bool seccomp_atomic_try_set(volatile bool *ptr, bool val);
 void seccomp_atomic_wait(volatile bool *ptr, bool val);
+
+void seccomp_callback_parent(void);
+void seccomp_callback_initialize(void);
 
 void seccomp_child_run(seccomp_child_func_t child_func, void *ctx, pid_t *child,
                        int *event_fd);
@@ -349,11 +425,20 @@ int  seccomp_filter_install(pid_t child);
 void seccomp_filter_child_install(void);
 void seccomp_filter_run(int fd, seccomp_filter_callback_t callback);
 
+void seccomp_print(char *format, ...);
+
 void seccomp_socket_create(int *sock);
 void seccomp_socket_send(int sockfd, int fd);
 int  seccomp_socket_recv(int sockfd);
 
 char *seccomp_syscall_lookup(int id);
+
+#endif
+extern char *seccomp_filename;
+
+void seccomp_config(void);
+void seccomp_init(void);
+void seccomp_on_fork(void);
 
 #endif
 

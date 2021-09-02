@@ -711,7 +711,6 @@ void instrument_coverage_normal_init(void) {
 
 void instrument_coverage_unstable_find_output(void) {
 
-  pid_t  parent = getpid();
   gchar *fds_name = g_strdup_printf("/proc/%d/fd/", getppid());
 
   gchar *root = g_file_read_link("/proc/self/root", NULL);

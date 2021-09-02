@@ -1,15 +1,17 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/eventfd.h>
-#include <unistd.h>
+#ifndef __APPLE__
 
-#include "debug.h"
+  #include <stdint.h>
+  #include <stdio.h>
+  #include <sys/syscall.h>
+  #include <unistd.h>
 
-#include "seccomp.h"
+  #include "debug.h"
+
+  #include "seccomp.h"
 
 int seccomp_event_create(void) {
 
-  int fd = eventfd(0, 0);
+  int fd = syscall(SYS_eventfd, 0, 0);
   if (fd < 0) { FATAL("seccomp_event_create"); }
   return fd;
 
@@ -42,4 +44,6 @@ void seccomp_event_destroy(int fd) {
   if (close(fd) < 0) { FATAL("seccomp_event_destroy"); }
 
 }
+
+#endif
 

@@ -1,7 +1,9 @@
-#include <stdbool.h>
-#include <stdio.h>
+#ifndef __APPLE__
 
-#include "debug.h"
+  #include <stdbool.h>
+  #include <stdio.h>
+
+  #include "debug.h"
 
 void seccomp_atomic_set(volatile bool *ptr, bool val) {
 
@@ -25,4 +27,6 @@ void seccomp_atomic_wait(volatile bool *ptr, bool val) {
     ;
 
 }
+
+#endif
 
