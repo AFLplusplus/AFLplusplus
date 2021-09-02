@@ -129,7 +129,7 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
 
   int pid = fork();
 
-  if (pid == -1) return;
+  if (pid == -1) return 0;
 
   if (pid) {
 
@@ -147,7 +147,7 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
         if (r <= 0) {
 
           close(pipefd[1]);
-          return;
+          return 0;
 
         }
 
