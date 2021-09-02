@@ -1,9 +1,11 @@
-#include <limits.h>
-#include <stdio.h>
+#ifndef __APPLE__
 
-#include "debug.h"
+  #include <limits.h>
+  #include <stdio.h>
 
-#include "seccomp.h"
+  #include "debug.h"
+
+  #include "seccomp.h"
 
 typedef struct {
 
@@ -332,4 +334,6 @@ char *seccomp_syscall_lookup(int id) {
   return seccomp_syscall_table[id].name;
 
 }
+
+#endif
 

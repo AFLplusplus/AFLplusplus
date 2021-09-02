@@ -1,27 +1,28 @@
-#include <alloca.h>
-#include <errno.h>
-#include <execinfo.h>
-#include <linux/filter.h>
-#include <linux/seccomp.h>
-#include <sys/ioctl.h>
-#include <sys/prctl.h>
-#include <sys/syscall.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#ifndef __APPLE__
 
-#include "debug.h"
+  #include <alloca.h>
+  #include <errno.h>
+  #include <execinfo.h>
+  #include <linux/filter.h>
+  #include <sys/ioctl.h>
+  #include <sys/prctl.h>
+  #include <sys/syscall.h>
+  #include <signal.h>
+  #include <stdbool.h>
+  #include <stddef.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <unistd.h>
 
-#include "frida-gumjs.h"
+  #include "debug.h"
 
-#include "seccomp.h"
-#include "util.h"
+  #include "frida-gumjs.h"
 
-#define SECCOMP_FILTER_NUM_FRAMES 512
+  #include "seccomp.h"
+  #include "util.h"
+
+  #define SECCOMP_FILTER_NUM_FRAMES 512
 
 extern void gum_linux_parse_ucontext(const ucontext_t *uc, GumCpuContext *ctx);
 
@@ -127,7 +128,10 @@ static GumBacktracer *       seccomp_filter_backtracer = NULL;
 static void seccomp_filter_child_handler(int sig, siginfo_t *info,
                                          void *ucontext) {
 
-  GumCpuContext cpu_context;
+  UNUSED_PARAMETER(sig);
+  UNUSED_PARAMETER(info);
+  UNUSED_PARAMETER(ucontext);
+
   if (seccomp_filter_backtracer == NULL) {
 
     seccomp_filter_backtracer = gum_backtracer_make_fuzzy();
@@ -150,7 +154,8 @@ static void seccomp_filter_parent_handler(int sig, siginfo_t *info,
   ucontext_t *uc = (ucontext_t *)ucontext;
   gum_linux_parse_ucontext(uc, &seccomp_filter_cpu_context);
 
-  if (tgkill(seccomp_filter_child, seccomp_filter_child, SIGUSR1) < 0) {
+  if (syscall(SYS_tgkill, seccomp_filter_child, seccomp_filter_child, SIGUSR1) <
+      0) {
 
     FATAL("kill");
 
@@ -255,4 +260,6 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
   }
 
 }
+
+#endif
 
