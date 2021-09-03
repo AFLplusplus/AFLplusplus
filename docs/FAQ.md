@@ -6,7 +6,7 @@ If you find an interesting or important question missing, submit it via
 ## General
 
 <details>
-  <summary>What is the difference between AFL and AFL++?</summary>
+  <summary>What is the difference between AFL and AFL++?</summary><p>
 
   AFL++ is a superior fork to Google's AFL - more speed, more and better mutations, more and better instrumentation, custom module support, etc.
 
@@ -20,16 +20,16 @@ If you find an interesting or important question missing, submit it via
 
   Until the end of 2019, the AFL++ team had grown to four active developers which then implemented their own research and features, making it now by far the most flexible and feature rich guided fuzzer available as open source.
   And in independent fuzzing benchmarks it is one of the best fuzzers available, e.g. [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html).
-</details>
+</p></details>
 
 <details>
-  <summary>Where can I find tutorials?</summary>
+  <summary>Where can I find tutorials?</summary><p>
 
   We compiled a list of tutorials and exercises, see [tutorials.md](tutorials.md).
-</details>
+</p></details>
 
 <details>
-  <summary>What is an "edge"?</summary>
+  <summary>What is an "edge"?</summary><p>
 
   A program contains `functions`, `functions` contain the compiled machine code.
   The compiled machine code in a `function` can be in a single or many `basic blocks`.
@@ -72,46 +72,46 @@ If you find an interesting or important question missing, submit it via
 
   Every line between two blocks is an `edge`.
   Note that a few basic block loop to itself, this too would be an edge.
-</details>
+</p></details>
 
 ## Targets
 
 <details>
-  <summary>How can I fuzz a binary-only target?</summary>
+  <summary>How can I fuzz a binary-only target?</summary><p>
 
   AFL++ is a great fuzzer if you have the source code available.
 
   However, if there is only the binary program and no source code available, then the standard non-instrumented mode is not effective.
 
   To learn how these binaries can be fuzzed, read [binaryonly_fuzzing.md](binaryonly_fuzzing.md).
-</details>
+</p></details>
 
 <details>
-  <summary>How can I fuzz a network service?</summary>
+  <summary>How can I fuzz a network service?</summary><p>
 
   The short answer is - you cannot, at least not "out of the box".
 
   For more information on fuzzing network services, see [best_practices.md#fuzzing-a-network-service](best_practices.md#fuzzing-a-network-service).
-</details>
+</p></details>
 
 <details>
-  <summary>How can I fuzz a GUI program?</summary>
+  <summary>How can I fuzz a GUI program?</summary><p>
 
   Not all GUI programs are suitable for fuzzing. If the GUI program can read the fuzz data from a file without needing any user interaction, then it would be suitable for fuzzing.
 
   For more information on fuzzing GUI programs, see [best_practices.md#fuzzing-a-gui-program](best_practices.md#fuzzing-a-gui-program).
-</details>
+</p></details>
 
 ## Performance
 
 <details>
-  <summary>How can I improve the fuzzing speed?</summary>
+  <summary>How can I improve the fuzzing speed?</summary><p>
 
   There are a few things you can do to improve the fuzzing speed, see [best_practices.md#improving-speed](best_practices.md#improving-speed).
-</details>
+</p></details>
 
 <details>
-  <summary>Why is my stability below 100%?</summary>
+  <summary>Why is my stability below 100%?</summary><p>
 
   Stability is measured by how many percent of the edges in the target are "stable".
   Sending the same input again and again should take the exact same path through the target every time.
@@ -126,12 +126,12 @@ If you find an interesting or important question missing, submit it via
   However, it is recommended that for values below 90% or 80% you should take countermeasures to improve stability.
 
   For more information on stability and how to improve the stability value, see [best_practices.md#improving-stability](best_practices.md#improving-stability).
-</details>
+</p></details>
 
 ## Troubleshooting
 
 <details>
-  <summary>I got a weird compile error from clang.</summary>
+  <summary>I got a weird compile error from clang.</summary><p>
 
   If you see this kind of error when trying to instrument a target with afl-cc/afl-clang-fast/afl-clang-lto:
 
@@ -150,4 +150,4 @@ If you find an interesting or important question missing, submit it via
   Then this means that your OS updated the clang installation from an upgrade package and because of that the AFL++ llvm plugins do not match anymore.
 
   Solution: `git pull ; make clean install` of AFL++.
-</details>
+</p></details>
