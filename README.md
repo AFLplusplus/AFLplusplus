@@ -29,6 +29,7 @@ Here is some information to get you started:
 * If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/) on the website.
 * To cite our work, look at the [Cite](#cite) section.
 * For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`. You can find the `aflplusplus` default configuration on Google's [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
+* To get you started with tutorials, go to [docs/tutorials.md](docs/tutorials.md).
 
 ## Building and installing AFL++
 
@@ -49,7 +50,7 @@ To build AFL++ yourself, continue at [docs/building_installing.md](docs/building
 *NOTE: Before you start, please read about the [common sense risks of fuzzing](docs/common_sense_risks.md).*
 
 This is a quick start for fuzzing targets with the source code available.
-To read about the process in detail, see [docs/fuzzing.md](docs/fuzzing.md).
+To read about the process in detail, see [docs/fuzzing_expert.md](docs/fuzzing_expert.md).
 
 To learn about fuzzing other targets, see:
 * Binary-only targets: [docs/fuzzing_binary-only_targets.md](docs/fuzzing_binary-only_targets.md)
