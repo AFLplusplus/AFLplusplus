@@ -33,7 +33,7 @@ Here is some information to get you started:
 
 ## Building and installing AFL++
 
-To install AFL++ with everything compiled, pull the image directly from the Docker Hub:
+To have AFL++ easily available with everything compiled, pull the image directly from the Docker Hub:
 
 ```shell
 docker pull aflplusplus/aflplusplus
@@ -43,7 +43,7 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 This image is automatically generated when a push to the stable repo happens (see [docs/branches.md](docs/branches.md)).
 You will find your target source code in `/src` in the container.
 
-To build AFL++ yourself, continue at [docs/building_installing.md](docs/building_installing.md).
+To build AFL++ yourself, continue at [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Quick start: Fuzzing with AFL++
 
