@@ -6,7 +6,7 @@ If you find an interesting or important question missing, submit it via
 ## General
 
 <details>
-  <summary>What is the difference between AFL and AFL++?</summary><p>
+  <summary id="what-is-the-difference-between-afl-and-aflplusplus">What is the difference between AFL and AFL++?</summary><p>
 
   AFL++ is a superior fork to Google's AFL - more speed, more and better mutations, more and better instrumentation, custom module support, etc.
 
@@ -23,13 +23,13 @@ If you find an interesting or important question missing, submit it via
 </p></details>
 
 <details>
-  <summary>Where can I find tutorials?</summary><p>
+  <summary id="where-can-i-find-tutorials">Where can I find tutorials?</summary><p>
 
   We compiled a list of tutorials and exercises, see [tutorials.md](tutorials.md).
 </p></details>
 
 <details>
-  <summary>What is an "edge"?</summary><p>
+  <summary id="what-is-an-edge">What is an "edge"?</summary><p>
 
   A program contains `functions`, `functions` contain the compiled machine code.
   The compiled machine code in a `function` can be in a single or many `basic blocks`.
@@ -77,7 +77,7 @@ If you find an interesting or important question missing, submit it via
 ## Targets
 
 <details>
-  <summary>How can I fuzz a binary-only target?</summary><p>
+  <summary id="how-can-i-fuzz-a-binary-only-target">How can I fuzz a binary-only target?</summary><p>
 
   AFL++ is a great fuzzer if you have the source code available.
 
@@ -87,7 +87,7 @@ If you find an interesting or important question missing, submit it via
 </p></details>
 
 <details>
-  <summary>How can I fuzz a network service?</summary><p>
+  <summary id="how-can-i-fuzz-a-network-service">How can I fuzz a network service?</summary><p>
 
   The short answer is - you cannot, at least not "out of the box".
 
@@ -95,7 +95,7 @@ If you find an interesting or important question missing, submit it via
 </p></details>
 
 <details>
-  <summary>How can I fuzz a GUI program?</summary><p>
+  <summary id="how-can-i-fuzz-a-gui-program">How can I fuzz a GUI program?</summary><p>
 
   Not all GUI programs are suitable for fuzzing. If the GUI program can read the fuzz data from a file without needing any user interaction, then it would be suitable for fuzzing.
 
@@ -105,13 +105,13 @@ If you find an interesting or important question missing, submit it via
 ## Performance
 
 <details>
-  <summary>How can I improve the fuzzing speed?</summary><p>
+  <summary id="how-can-i-improve-the-fuzzing-speed">How can I improve the fuzzing speed?</summary><p>
 
   There are a few things you can do to improve the fuzzing speed, see [best_practices.md#improving-speed](best_practices.md#improving-speed).
 </p></details>
 
 <details>
-  <summary>Why is my stability below 100%?</summary><p>
+  <summary id="why-is-my-stability-below-100percent">Why is my stability below 100%?</summary><p>
 
   Stability is measured by how many percent of the edges in the target are "stable".
   Sending the same input again and again should take the exact same path through the target every time.
@@ -131,7 +131,7 @@ If you find an interesting or important question missing, submit it via
 ## Troubleshooting
 
 <details>
-  <summary>I got a weird compile error from clang.</summary><p>
+  <summary id="i-got-a-weird-compile-error-from-clang">I got a weird compile error from clang.</summary><p>
 
   If you see this kind of error when trying to instrument a target with afl-cc/afl-clang-fast/afl-clang-lto:
 
