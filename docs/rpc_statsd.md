@@ -1,6 +1,6 @@
 # Remote monitoring and metrics visualization
 
-With StatsD, Prometheus, and Grafana you can set up a tool chain for remote monitoring and visualization of AFL++ metrics. All tools are free and open source.
+AFL++ can send out metrics as StatsD messages. For remote monitoring and visualization of the metrics, you can set up a tool chain. For example, with Prometheus and Grafana. All tools are free and open source.
 
 This enables you to create nice and readable dashboards containing all the information you need on your fuzzer instances. There is no need to write your own statistics parsing system, deploy and maintain it to all your instances, and sync with your graph rendering system.
 
