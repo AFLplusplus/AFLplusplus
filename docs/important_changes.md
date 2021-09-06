@@ -1,4 +1,6 @@
-# Major behaviour changes in AFL++
+# Important changes in AFL++
+
+This document lists important changes in AFL++, for example, major behaviour changes.
 
 ## From version 3.00 onwards
 
