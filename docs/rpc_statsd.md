@@ -66,7 +66,7 @@ For all your fuzzers, only one instance of StatsD, Prometheus, and Grafana is re
 
 You can create and move the infrastructure files into a directory of your choice. The directory will store all the required configuration files.
 
-To install and set up StatsD, Prometheus, and Grafana:
+To install and set up Prometheus and Grafana:
 
 1. Install Docker and Docker Compose:
 
