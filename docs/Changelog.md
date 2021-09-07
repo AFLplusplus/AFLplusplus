@@ -15,7 +15,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       information on how to deal with instrumenting libraries
     - fix a regression introduced in 3.10 that resulted in less
       coverage being detected. thanks to Collin May for reporting!
-
+  - afl-showmap, afl-tmin and afl-analyze now honor persistent mode
+    for more speed. thanks to dloffre-snl for reporting!
   - afl-cc:
     - fix for shared linking on MacOS
     - llvm and LTO mode verified to work with new llvm 14-dev

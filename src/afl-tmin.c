@@ -1209,6 +1209,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   read_initial_file();
+  (void)check_binary_signatures(fsrv->target_path);
 
   if (!fsrv->qemu_mode && !unicorn_mode) {
 

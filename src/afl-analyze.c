@@ -1093,6 +1093,7 @@ int main(int argc, char **argv_orig, char **envp) {
       parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
   read_initial_file();
+  (void)check_binary_signatures(fsrv.target_path);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
