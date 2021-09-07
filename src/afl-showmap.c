@@ -1189,7 +1189,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  (void)check_binary_signatures(fsrv->target_path);
+  if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
