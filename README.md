@@ -25,7 +25,7 @@ You are free to copy, modify, and distribute AFL++ with attribution under the te
 
 Here is some information to get you started:
 
-* For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab and [branches](docs/branches.md). Also take a look at the list of [important behaviour changes in AFL++](docs/important_changes.md).
+* For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab and [branches](docs/branches.md). Also take a look at the list of [important changes in AFL++](docs/important_changes.md).
 * If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/) on the website.
 * To cite our work, look at the [Cite](#cite) section.
 * For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`. You can find the `aflplusplus` default configuration on Google's [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).

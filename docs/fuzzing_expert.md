@@ -620,4 +620,4 @@ This is basically all you need to know to professionally run fuzzing campaigns.
 If you want to know more, the tons of texts in [docs/](./) will have you covered.
 
 Note that there are also a lot of tools out there that help fuzzing with AFL++
-(some might be deprecated or unsupported), see [links_tools.md](links_tools.md).
+(some might be deprecated or unsupported), see [tools.md](tools.md).

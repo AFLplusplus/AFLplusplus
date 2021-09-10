@@ -27,16 +27,16 @@ Run the bundled `afl-plot` utility to generate browser-friendly graphs.
 Check out the `fuzzer_stats` file in the AFL output dir or try `afl-whatsup`.
 
 ## Puzzled by something showing up in red or purple in the AFL UI?
-It could be important - consult docs/status_screen.md right away!
+It could be important - consult [status_screen.md](status_screen.md) right away!
 
 ## Know your target? Convert it to persistent mode for a huge performance gain!
-Consult section #5 in README.llvm.md for tips.
+Consult section #5 in [instrumentation/README.llvm.md](../instrumentation/README.llvm.md) for tips.
 
 ## Using clang? 
-Check out instrumentation/ for a faster alternative to afl-gcc!
+Check out [instrumentation/](../instrumentation/) for a faster alternative to afl-gcc!
 
 ## Did you know that AFL can fuzz closed-source or cross-platform binaries?
-Check out qemu_mode/README.md and unicorn_mode/README.md for more.
+Check out [qemu_mode/README.md](../qemu_mode/README.md) and [unicorn_mode/README.md](../unicorn_mode/README.md) for more.
 
 ## Did you know that afl-fuzz can minimize any test case for you?
 Try the bundled `afl-tmin` tool - and get small repro files fast!
@@ -46,7 +46,7 @@ Try the bundled `afl-tmin` tool - and get small repro files fast!
 
 ## Trouble dealing with a machine uprising? Relax, we've all been there.
 
-Find essential survival tips at http://lcamtuf.coredump.cx/prep/.
+Find essential survival tips at [http://lcamtuf.coredump.cx/prep/](http://lcamtuf.coredump.cx/prep/).
 
 ## Want to automatically spot non-crashing memory handling bugs?
 
@@ -54,7 +54,7 @@ Try running an AFL-generated corpus through ASAN, MSAN, or Valgrind.
 
 ## Good selection of input files is critical to a successful fuzzing job.
 
-See docs/perf_tips.md for pro tips.
+See [perf_tips.md](perf_tips.md) for pro tips.
 
 ## You can improve the odds of automatically spotting stack corruption issues.
 
@@ -70,18 +70,18 @@ sanity-checking `assert()` / `abort()` statements to effortlessly catch logic bu
 
 ## Hey kid... pssst... want to figure out how AFL really works?
 
-Check out docs/technical_details.md for all the gory details in one place!
+Check out [technical_details.md](technical_details.md) for all the gory details in one place!
 
 ## There's a ton of third-party helper tools designed to work with AFL!
 
-Be sure to check out docs/sister_projects.md before writing your own.
+Be sure to check out [sister_projects.md](sister_projects.md) before writing your own.
 
 ## Need to fuzz the command-line arguments of a particular program?
 
-You can find a simple solution in utils/argv_fuzzing.
+You can find a simple solution in [utils/argv_fuzzing](../utils/argv_fuzzing/).
 
 ## Attacking a format that uses checksums? 
 
 Remove the checksum-checking code or use a postprocessor!
-See `afl_custom_post_process` in custom_mutators/examples/example.c for more.
+See `afl_custom_post_process` in [custom_mutators/examples/example.c](../custom_mutators/examples/example.c) for more.
 
