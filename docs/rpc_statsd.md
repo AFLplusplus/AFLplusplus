@@ -62,7 +62,7 @@ The easiest way to install and set up the infrastructure is with Docker and Dock
 
 Depending on your fuzzing setup and infrastructure, you may not want to run these applications on your fuzzer instances. This setup may be modified before use in a production environment; for example, adding passwords, creating volumes for storage, tweaking the metrics gathering to get host metrics (CPU, RAM, and so on).
 
-For all your fuzzers, only one instance of StatsD, Prometheus, and Grafana is required.
+For all your fuzzing instances, only one instance of Prometheus and Grafana is required. The [statsd exporter](https://registry.hub.docker.com/r/prom/statsd-exporter) converts the StatsD metrics to Prometheus. If you are using a provider that supports StatsD directly, you can skip this part of the setup."
 
 You can create and move the infrastructure files into a directory of your choice. The directory will store all the required configuration files.
 
