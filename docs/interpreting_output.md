@@ -1,6 +1,6 @@
 # Interpreting output
 
-See the [docs/status_screen.md](docs/status_screen.md) file for information on
+See the [status_screen.md](status_screen.md) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
 sure to consult this file especially if any UI elements are highlighted in red.
 

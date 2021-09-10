@@ -15,7 +15,7 @@ Here are some of the most important caveats for AFL:
     To work around this, you can comment out the relevant checks (see
     utils/libpng_no_checksum/ for inspiration); if this is not possible,
     you can also write a postprocessor, one of the hooks of custom mutators.
-    See [docs/custom_mutators.md](docs/custom_mutators.md) on how to use
+    See [custom_mutators.md](custom_mutators.md) on how to use
     `AFL_CUSTOM_MUTATOR_LIBRARY`
 
   - There are some unfortunate trade-offs with ASAN and 64-bit binaries. This

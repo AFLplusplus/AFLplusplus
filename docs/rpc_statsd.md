@@ -41,7 +41,7 @@ To enable the StatsD reporting on your fuzzer instances, you need to set the env
 
 Setting `AFL_STATSD_TAGS_FLAVOR` to the provider of your choice will assign tags / labels to each metric based on their format.
 The possible values are  `dogstatsd`, `librato`, `signalfx` or `influxdb`.
-For more information on these env vars, check out `docs/env_variables.md`.
+For more information on these env vars, check out [env_variables.md](env_variables.md).
 
 The simplest way of using this feature is to use any metric provider and change the host/port of your StatsD daemon,
 with `AFL_STATSD_HOST` and `AFL_STATSD_PORT`, if required (defaults are `localhost` and port `8125`).
