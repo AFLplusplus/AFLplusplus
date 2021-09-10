@@ -25,7 +25,7 @@ You are free to copy, modify, and distribute AFL++ with attribution under the te
 
 Here is some information to get you started:
 
-* For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab and [branches](docs/branches.md). Also take a look at the list of [major behaviour changes in AFL++](docs/behaviour_changes.md).
+* For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab and [branches](docs/branches.md). Also take a look at the list of [important behaviour changes in AFL++](docs/important_changes.md).
 * If you want to use AFL++ for your academic work, check the [papers page](https://aflplus.plus/papers/) on the website.
 * To cite our work, look at the [Cite](#cite) section.
 * For comparisons, use the fuzzbench `aflplusplus` setup, or use `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`. You can find the `aflplusplus` default configuration on Google's [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
@@ -66,7 +66,7 @@ A common way to do this would be:
         make clean all
 
 2. Get a small but valid input file that makes sense to the program.
-When fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in [dictionaries/README.md](../dictionaries/README.md), too.
+When fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in [dictionaries/README.md](dictionaries/README.md), too.
 
 3. If the program reads from stdin, run `afl-fuzz` like so:
 
@@ -82,7 +82,7 @@ When fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described i
 Questions? Concerns? Bug reports?
 
 * The contributors can be reached via [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
-* Take a look at our [FAQ](docs/faq.md). If you find an interesting or important question missing, submit it via
+* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important question missing, submit it via
 [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
 * There is a mailing list for the AFL/AFL++ project ([browse archive](https://groups.google.com/group/afl-users)). To compare notes with other users or to get notified about major new features, send an email to <afl-users+subscribe@googlegroups.com>.
 * Or join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
