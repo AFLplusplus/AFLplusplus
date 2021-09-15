@@ -51,7 +51,7 @@ make
 ```
 
 For additional instructions and caveats, see [frida_mode/README.md](../frida_mode/README.md).
-If possible you should use the persistent mode, see [qemu_frida/README.persistent.md](../qemu_frida/README.persistent.md).
+If possible you should use the persistent mode, see [qemu_frida/README.md](../qemu_frida/README.md).
 The mode is approximately 2-5x slower than compile-time instrumentation, and is
 less conducive to parallelization.
 
@@ -71,7 +71,8 @@ cd unicorn_mode
 
 If the goal is to fuzz a dynamic library then there are two options available.
 For both you need to write a small harness that loads and calls the library.
-Faster is the frida solution: [utils/afl_frida/README.md](../utils/afl_frida/README.md)
+Then you fuzz this with either frida_mode or qemu_mode, and either use
+`AFL_INST_LIBS=1` or `AFL_QEMU/FRIDA_INST_RANGES`
 
 Another, less precise and slower option is using ptrace with debugger interrupt
 instrumentation: [utils/afl_untracer/README.md](../utils/afl_untracer/README.md).

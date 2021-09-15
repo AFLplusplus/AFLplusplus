@@ -472,7 +472,7 @@ If you are using AFL spinoffs or AFL conforming fuzzers, then just use the
 same -o directory and give it a unique `-S` name.
 Examples are:
  * [Fuzzolic](https://github.com/season-lab/fuzzolic)
- * [symcc](https://github.com/eurecom-s/symcc/)
+ * [symcc](https://github.com/eurecom-s3/symcc/)
  * [Eclipser](https://github.com/SoftSec-KAIST/Eclipser/)
  * [AFLsmart](https://github.com/aflsmart/aflsmart)
  * [FairFuzz](https://github.com/carolemieux/afl-rb)

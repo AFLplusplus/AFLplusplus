@@ -26,4 +26,4 @@ Some notes on CI Fuzzing - this fuzzing is different to normal fuzzing campaigns
 `-M` enables old queue handling etc. which is good for a fuzzing campaign but not good for short CI runs.
 
 How this can look like can e.g. be seen at AFL++'s setup in Google's [oss-fuzz](https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-builder/compile_afl)
-and [clusterfuzz](https://github.com/google/clusterfuzz/blob/master/src/python/bot/fuzzers/afl/launcher.py).
+and [clusterfuzz](https://github.com/google/clusterfuzz/blob/master/src/clusterfuzz/_internal/bot/fuzzers/afl/launcher.py).
