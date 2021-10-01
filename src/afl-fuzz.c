@@ -1918,7 +1918,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  write_stats_file(afl, 0, 0, 0, 0);
+  if (!afl->non_instrumented_mode) { write_stats_file(afl, 0, 0, 0, 0); }
   maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 

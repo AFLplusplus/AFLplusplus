@@ -560,8 +560,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (unlikely(afl->force_ui_update ||
-               cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
+  if (unlikely(!afl->non_instrumented_mode &&
+               (afl->force_ui_update ||
+                cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000))) {
 
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
