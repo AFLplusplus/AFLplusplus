@@ -144,7 +144,7 @@ static void instrument_coverate_write_function(GumStalkerOutput *output) {
   GumX86Writer *cw = output->writer.x86;
   GumAddress    code_addr = 0;
   afl_log_code  code = {0};
-  guint64       instrument_hash_zero = 0;
+  /*guint64       instrument_hash_zero = 0;*/
 
   if (current_log_impl == 0 ||
       !gum_x86_writer_can_branch_directly_between(cw->pc, current_log_impl) ||
@@ -183,7 +183,8 @@ static void instrument_coverate_write_function(GumStalkerOutput *output) {
 
     }
 
-    *((gint *)&code.bytes[patch_offset1]) = (gint)current_pc_value1;
+    gint *dst_pc_value = (gint *)&code.bytes[patch_offset1];
+    *dst_pc_value = (gint)current_pc_value1;
 
     gssize current_pc_value2 =
         GPOINTER_TO_SIZE(&instrument_previous_pc) -
@@ -200,7 +201,8 @@ static void instrument_coverate_write_function(GumStalkerOutput *output) {
 
     }
 
-    *((gint *)&code.bytes[patch_offset2]) = (gint)current_pc_value2;
+    dst_pc_value = (gint *)&code.bytes[patch_offset2];
+    *dst_pc_value = (gint)current_pc_value2;
 
     gsize afl_area_ptr_value =
         GPOINTER_TO_SIZE(__afl_area_ptr) -
@@ -217,7 +219,8 @@ static void instrument_coverate_write_function(GumStalkerOutput *output) {
 
     }
 
-    *((gint *)&code.bytes[afl_area_ptr_offset]) = (gint)afl_area_ptr_value;
+    gint *dst_afl_area_ptr_value = (gint *)&code.bytes[afl_area_ptr_offset];
+    *dst_afl_area_ptr_value = (gint)afl_area_ptr_value;
 
     gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
 

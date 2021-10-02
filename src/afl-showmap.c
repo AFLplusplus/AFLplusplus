@@ -413,7 +413,7 @@ static u32 read_file(u8 *in_file) {
 
     if (!be_quiet && !quiet_mode) {
 
-      WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
+      WARNF("Input file '%s' is too large, only reading %ld bytes.", in_file,
             MAX_FILE);
 
     }
