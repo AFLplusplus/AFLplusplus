@@ -1348,7 +1348,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else if (afl->q_testcase_max_cache_size < 2 * MAX_FILE) {
 
-    FATAL("AFL_TESTCACHE_SIZE must be set to %u or more, or 0 to disable",
+    FATAL("AFL_TESTCACHE_SIZE must be set to %ld or more, or 0 to disable",
           (2 * MAX_FILE) % 1048576 == 0 ? (2 * MAX_FILE) / 1048576
                                         : 1 + ((2 * MAX_FILE) / 1048576));
 
