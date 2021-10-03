@@ -341,8 +341,14 @@ void instrument_init(void) {
      * parallel fuzzing. The seed itself, doesn't have to be random, it
      * just needs to be different for each instance.
      */
+    guint64 tid;
+#if defined(__APPLE__)
+    pthread_threadid_np(NULL, &tid);
+#else
+    tid = syscall(SYS_gettid);
+#endif
     instrument_hash_seed = g_get_monotonic_time() ^
-                           (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
+                           (((guint64)getpid()) << 32) ^ tid;
 
   }
 
