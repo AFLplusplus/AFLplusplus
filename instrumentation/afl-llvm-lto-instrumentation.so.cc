@@ -28,6 +28,7 @@
 #include <sys/time.h>
 
 #include <list>
+#include <memory>
 #include <string>
 #include <fstream>
 #include <set>
@@ -1015,13 +1016,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       if (count) {
 
-        if ((ptr = (char *)malloc(memlen + count)) == NULL) {
-
-          fprintf(stderr, "Error: malloc for %zu bytes failed!\n",
-                  memlen + count);
-          exit(-1);
-
-        }
+        auto ptrhld = std::unique_ptr<char []>(new char[memlen + count]);
 
         count = 0;
 
@@ -1030,8 +1025,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (offset + token.length() < 0xfffff0 && count < MAX_AUTO_EXTRAS) {
 
-            ptr[offset++] = (uint8_t)token.length();
-            memcpy(ptr + offset, token.c_str(), token.length());
+            ptrhld.get()[offset++] = (uint8_t)token.length();
+            memcpy(ptrhld.get() + offset, token.c_str(), token.length());
             offset += token.length();
             count++;
 
@@ -1051,10 +1046,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
         GlobalVariable *AFLInternalDictionary = new GlobalVariable(
             M, ArrayTy, true, GlobalValue::ExternalLinkage,
             ConstantDataArray::get(C,
-                                   *(new ArrayRef<char>((char *)ptr, offset))),
+                                   *(new ArrayRef<char>(ptrhld.get(), offset))),
             "__afl_internal_dictionary");
         AFLInternalDictionary->setInitializer(ConstantDataArray::get(
-            C, *(new ArrayRef<char>((char *)ptr, offset))));
+            C, *(new ArrayRef<char>(ptrhld.get(), offset))));
         AFLInternalDictionary->setConstant(true);
 
         GlobalVariable *AFLDictionary = new GlobalVariable(
