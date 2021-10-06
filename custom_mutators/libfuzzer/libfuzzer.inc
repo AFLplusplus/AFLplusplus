@@ -2,7 +2,7 @@
 
 extern "C" ATTRIBUTE_INTERFACE void
 LLVMFuzzerMyInit(int (*Callback)(const uint8_t *Data, size_t Size), unsigned int Seed) {
-  Random Rand(Seed);
+  auto *Rand = new Random(Seed);
   FuzzingOptions Options;
   Options.Verbosity = 3;
   Options.MaxLen = 1024000;
@@ -30,7 +30,7 @@ LLVMFuzzerMyInit(int (*Callback)(const uint8_t *Data, size_t Size), unsigned int
   struct EntropicOptions Entropic;
   Entropic.Enabled = Options.Entropic;
   EF = new ExternalFunctions();
-  auto *MD = new MutationDispatcher(Rand, Options);
+  auto *MD = new MutationDispatcher(*Rand, Options);
   auto *Corpus = new InputCorpus(Options.OutputCorpus, Entropic);
   auto *F = new Fuzzer(Callback, *Corpus, *MD, Options);
 }
