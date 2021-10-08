@@ -2467,21 +2467,35 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     // If failed, add to dictionary
     if ((!found_one && (lvl & LVL1)) || afl->queue_cur->is_ascii) {
 
-      // fprintf(stderr, "SHOULD: %s %s\n", o->v0, o->v1);
       // if (unlikely(!afl->pass_stats[key].total)) {
 
-      u32 hlen = (h->shape < 3 ? SHAPE_BYTES(h->shape) : 4);
+      u32 shape_len = SHAPE_BYTES(h->shape);
+      u32 v0_len = shape_len, v1_len = shape_len;
+      if (afl->queue_cur->is_ascii ||
+          check_if_text_buf((u8 *)&o->v0, shape_len) == shape_len) {
 
-      if (!memcmp(o->v0, orig_o->v0, hlen) &&
-          (!found_one ||
-           check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
-               SHAPE_BYTES(h->shape)))
-        maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
-      if (!memcmp(o->v1, orig_o->v1, hlen) &&
-          (!found_one ||
-           check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
-               SHAPE_BYTES(h->shape)))
-        maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
+        if (strlen(o->v0)) v0_len = strlen(o->v0);
+
+      }
+
+      if (afl->queue_cur->is_ascii ||
+          check_if_text_buf((u8 *)&o->v1, shape_len) == shape_len) {
+
+        if (strlen(o->v1)) v1_len = strlen(o->v1);
+
+      }
+
+      // fprintf(stderr, "SHOULD: found:%u ascii:%u text?%u:%u %u:%s %u:%s \n",
+      // found_one, afl->queue_cur->is_ascii, check_if_text_buf((u8 *)&o->v0,
+      // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
+      // o->v0, v1_len, o->v1);
+
+      if (!memcmp(o->v0, orig_o->v0, v0_len) ||
+          (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
+        maybe_add_auto(afl, o->v0, v0_len);
+      if (!memcmp(o->v1, orig_o->v1, v1_len) ||
+          (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len))
+        maybe_add_auto(afl, o->v1, v1_len);
 
       //}
 

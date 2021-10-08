@@ -1999,14 +1999,14 @@ havoc_stage:
      where we take the input file and make random stacked tweaks. */
 
 #define MAX_HAVOC_ENTRY 59                                      /* 55 to 60 */
-#define MUTATE_ASCII_DICT 20
+#define MUTATE_ASCII_DICT 64
 
   u32 r_max, r;
 
   r_max = (MAX_HAVOC_ENTRY + 1) + (afl->extras_cnt ? 4 : 0) +
           (afl->a_extras_cnt
                ? (unlikely(afl->cmplog_binary && afl->queue_cur->is_ascii)
-                      ? 4 + MUTATE_ASCII_DICT
+                      ? MUTATE_ASCII_DICT
                       : 4)
                : 0);
 
@@ -2593,21 +2593,15 @@ havoc_stage:
 
           if (afl->a_extras_cnt) {
 
+            u32 r_cmp = 2;
+
             if (unlikely(afl->cmplog_binary && afl->queue_cur->is_ascii)) {
 
-              if (r > MUTATE_ASCII_DICT) {
-
-                r -= MUTATE_ASCII_DICT;
-
-              } else {
-
-                r = 0;
-
-              }
+              r_cmp = MUTATE_ASCII_DICT >> 1;
 
             }
 
-            if (r < 2) {
+            if (r < r_cmp) {
 
               /* Use the dictionary. */
 
@@ -2627,7 +2621,7 @@ havoc_stage:
 
               break;
 
-            } else if (r < 4) {
+            } else if (r < (r_cmp << 1)) {
 
               u32 use_extra = rand_below(afl, afl->a_extras_cnt);
               u32 extra_len = afl->a_extras[use_extra].len;
@@ -2656,7 +2650,7 @@ havoc_stage:
 
             } else {
 
-              r -= 4;
+              r -= (r_cmp << 1);
 
             }
 
