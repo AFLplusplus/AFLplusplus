@@ -101,9 +101,9 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
 /* When a new queue entry is added we run this input with the symcc
    instrumented binary */
-void afl_custom_queue_new_entry(my_mutator_t * data,
-                                const uint8_t *filename_new_queue,
-                                const uint8_t *filename_orig_queue) {
+uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
+                                   const uint8_t *filename_new_queue,
+                                   const uint8_t *filename_orig_queue) {
 
   int         pipefd[2];
   struct stat st;
@@ -129,7 +129,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
 
   int pid = fork();
 
-  if (pid == -1) return;
+  if (pid == -1) return 0;
 
   if (pid) {
 
@@ -147,7 +147,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
         if (r <= 0) {
 
           close(pipefd[1]);
-          return;
+          return 0;
 
         }
 
@@ -231,6 +231,8 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
     exit(-1);
 
   }
+
+  return 0;
 
 }
 

@@ -767,6 +767,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         cc_params[cc_par_cnt++] = afllib;
 
+#ifdef __APPLE__
+        cc_params[cc_par_cnt++] = "-undefined";
+        cc_params[cc_par_cnt++] = "dynamic_lookup";
+#endif
+
       }
 
       continue;
@@ -788,7 +793,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "-dynamiclib")) shared_linking = 1;
     if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
+    if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
     if (!strcmp(cur, "-Wl,--relocatable")) partial_linking = 1;
     if (!strcmp(cur, "-r")) partial_linking = 1;
     if (!strcmp(cur, "--relocatable")) partial_linking = 1;
@@ -1077,6 +1084,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!shared_linking && !partial_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
+  #endif
+
+  #if defined(__APPLE__)
+    if (shared_linking || partial_linking) {
+
+      cc_params[cc_par_cnt++] = "-Wl,-U";
+      cc_params[cc_par_cnt++] = "-Wl,___afl_area_ptr";
+      cc_params[cc_par_cnt++] = "-Wl,-U";
+      cc_params[cc_par_cnt++] = "-Wl,___sanitizer_cov_trace_pc_guard_init";
+
+    }
+
   #endif
 
   }
@@ -1916,9 +1935,7 @@ int main(int argc, char **argv, char **envp) {
       // ptr = instrument_mode_string[instrument_mode];
       // }
 
-    } else if (instrument_mode == INSTRUMENT_LTO ||
-
-               instrument_mode == INSTRUMENT_CLASSIC) {
+    } else if (instrument_mode == INSTRUMENT_CLASSIC) {
 
       lto_mode = 1;
 

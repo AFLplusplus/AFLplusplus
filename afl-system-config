@@ -6,10 +6,12 @@ test "$1" = "-h" -o "$1" = "-hh" && {
   echo
   echo afl-system-config has no command line options
   echo
-  echo afl-system reconfigures the system to a high performance fuzzing state
+  echo afl-system-config reconfigures the system to a high performance fuzzing state.
   echo "WARNING: this reduces the security of the system!"
   echo
-  exit 1
+  echo Note that there is also afl-persistent-config which sets additional permanent
+  echo configuration options.
+  exit 0
 }
 
 DONE=
@@ -50,7 +52,7 @@ if [ "$PLATFORM" = "Linux" ] ; then
     echo '  /etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=0 l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx_async_abort=off arm64.nopauth audit=0 hardened_usercopy=off ssbd=force-off"'
     echo
   }
-  echo If you run fuzzing instances in docker, run them with \"--security-opt seccomp=unconfined\" for more speed
+  echo If you run fuzzing instances in docker, run them with \"--security-opt seccomp=unconfined\" for more speed.
   echo
   DONE=1
 fi
@@ -99,9 +101,10 @@ if [ "$PLATFORM" = "NetBSD" ] ; then
   DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
-  sysctl kern.sysv.shmmax=8388608
+  sysctl kern.sysv.shmmax=524288000
+  sysctl kern.sysv.shmmin=1
   sysctl kern.sysv.shmseg=48
-  sysctl kern.sysv.shmall=98304
+  sysctl kern.sysv.shmall=131072000
   echo Settings applied.
   echo
   if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then

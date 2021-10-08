@@ -19,7 +19,7 @@ This version requires a current llvm 11+ compiled from the github master.
 
 ## Introduction and problem description
 
-A big issue with how afl/afl++ works is that the basic block IDs that are
+A big issue with how AFL/AFL++ works is that the basic block IDs that are
 set during compilation are random - and hence naturally the larger the number
 of instrumented locations, the higher the number of edge collisions are in the
 map. This can result in not discovering new paths and therefore degrade the
@@ -60,12 +60,12 @@ AUTODICTIONARY: 11 strings found
 
 ## Getting llvm 11+
 
-### Installing llvm version 11
+### Installing llvm version 11 or 12
 
-llvm 11 should be available in all current Linux repositories.
+llvm 11 or even 12 should be available in all current Linux repositories.
 If you use an outdated Linux distribution read the next section.
 
-### Installing llvm from the llvm repository (version 12)
+### Installing llvm from the llvm repository (version 12+)
 
 Installing the llvm snapshot builds is easy and mostly painless:
 
@@ -85,7 +85,7 @@ apt-get install -y clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
     libomp5-12 lld-12 lldb-12 llvm-12 llvm-12-dev llvm-12-runtime llvm-12-tools
 ```
 
-### Building llvm yourself (version 12)
+### Building llvm yourself (version 12+)
 
 Building llvm from github takes quite some long time and is not painless:
 ```sh
@@ -137,6 +137,34 @@ make
 
 NOTE: some targets also need to set the linker, try both `afl-clang-lto` and
 `afl-ld-lto` for `LD=` before `configure`.
+
+## Instrumenting shared libraries
+
+Note: this is highly discouraged! Try to compile to static libraries with
+afl-clang-lto instead of shared libraries!
+
+To make instrumented shared libraries work with afl-clang-lto you have to do
+quite some extra steps.
+
+Every shared library you want to instrument has to be individually compiled.
+The environment variable `AFL_LLVM_LTO_DONTWRITEID=1` has to be set during
+compilation.
+Additionally the environment variable `AFL_LLVM_LTO_STARTID` has to be set to
+the added edge count values of all previous compiled instrumented shared
+libraries for that target.
+E.g. for the first shared library this would be `AFL_LLVM_LTO_STARTID=0` and
+afl-clang-lto will then report how many edges have been instrumented (let's say
+it reported 1000 instrumented edges).
+The second shared library then has to be set to that value
+(`AFL_LLVM_LTO_STARTID=1000` in our example), for the third to all previous
+counts added, etc.
+
+The final program compilation step then may *not* have `AFL_LLVM_LTO_DONTWRITEID`
+set, and `AFL_LLVM_LTO_STARTID` must be set to all edge counts added of all shared
+libraries it will be linked to.
+
+This is quite some hands-on work, so better stay away from instrumenting
+shared libraries :-)
 
 ## AUTODICTIONARY feature
 

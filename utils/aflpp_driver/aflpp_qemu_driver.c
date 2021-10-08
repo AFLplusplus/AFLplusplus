@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,6 +28,9 @@ int main(int argc, char **argv) {
 
   } else {
 
+    fprintf(stderr,
+            "Using shared-memory testcases. To read via stdin, set "
+            "AFL_QEMU_DRIVER_NO_HOOK=1.\n");
     uint8_t dummy_input[1024000] = {0};
     LLVMFuzzerTestOneInput(dummy_input, 1);
 

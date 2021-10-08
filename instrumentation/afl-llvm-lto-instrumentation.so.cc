@@ -28,6 +28,7 @@
 #include <sys/time.h>
 
 #include <list>
+#include <memory>
 #include <string>
 #include <fstream>
 #include <set>
@@ -393,12 +394,40 @@ bool AFLLTOPass::runOnModule(Module &M) {
             if (!Callee) continue;
             if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
             std::string FuncName = Callee->getName().str();
-            isStrcmp &= !FuncName.compare("strcmp");
+
+            isStrcmp &= (!FuncName.compare("strcmp") ||
+                         !FuncName.compare("xmlStrcmp") ||
+                         !FuncName.compare("xmlStrEqual") ||
+                         !FuncName.compare("g_strcmp0") ||
+                         !FuncName.compare("curl_strequal") ||
+                         !FuncName.compare("strcsequal"));
             isMemcmp &=
-                (!FuncName.compare("memcmp") || !FuncName.compare("bcmp"));
-            isStrncmp &= !FuncName.compare("strncmp");
-            isStrcasecmp &= !FuncName.compare("strcasecmp");
-            isStrncasecmp &= !FuncName.compare("strncasecmp");
+                (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
+                 !FuncName.compare("CRYPTO_memcmp") ||
+                 !FuncName.compare("OPENSSL_memcmp") ||
+                 !FuncName.compare("memcmp_const_time") ||
+                 !FuncName.compare("memcmpct"));
+            isStrncmp &= (!FuncName.compare("strncmp") ||
+                          !FuncName.compare("xmlStrncmp") ||
+                          !FuncName.compare("curl_strnequal"));
+            isStrcasecmp &= (!FuncName.compare("strcasecmp") ||
+                             !FuncName.compare("stricmp") ||
+                             !FuncName.compare("ap_cstr_casecmp") ||
+                             !FuncName.compare("OPENSSL_strcasecmp") ||
+                             !FuncName.compare("xmlStrcasecmp") ||
+                             !FuncName.compare("g_strcasecmp") ||
+                             !FuncName.compare("g_ascii_strcasecmp") ||
+                             !FuncName.compare("Curl_strcasecompare") ||
+                             !FuncName.compare("Curl_safe_strcasecompare") ||
+                             !FuncName.compare("cmsstrcasecmp"));
+            isStrncasecmp &= (!FuncName.compare("strncasecmp") ||
+                              !FuncName.compare("strnicmp") ||
+                              !FuncName.compare("ap_cstr_casecmpn") ||
+                              !FuncName.compare("OPENSSL_strncasecmp") ||
+                              !FuncName.compare("xmlStrncasecmp") ||
+                              !FuncName.compare("g_ascii_strncasecmp") ||
+                              !FuncName.compare("Curl_strncasecompare") ||
+                              !FuncName.compare("g_strncasecmp"));
             isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
             isStdString &=
                 ((FuncName.find("basic_string") != std::string::npos &&
@@ -546,6 +575,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                   uint64_t literalLength = Str2.size();
                   uint64_t optLength = ilen->getZExtValue();
+                  if (optLength > literalLength + 1) {
+
+                    optLength = Str2.length() + 1;
+
+                  }
+
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
@@ -649,6 +684,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                 uint64_t literalLength = optLen;
                 optLen = ilen->getZExtValue();
+                if (optLen > literalLength + 1) { optLen = literalLength + 1; }
                 if (optLen < 2) { continue; }
                 if (literalLength + 1 == optLen) {  // add null byte
                   thestring.append("\0", 1);
@@ -980,13 +1016,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       if (count) {
 
-        if ((ptr = (char *)malloc(memlen + count)) == NULL) {
-
-          fprintf(stderr, "Error: malloc for %zu bytes failed!\n",
-                  memlen + count);
-          exit(-1);
-
-        }
+        auto ptrhld = std::unique_ptr<char []>(new char[memlen + count]);
 
         count = 0;
 
@@ -995,8 +1025,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (offset + token.length() < 0xfffff0 && count < MAX_AUTO_EXTRAS) {
 
-            ptr[offset++] = (uint8_t)token.length();
-            memcpy(ptr + offset, token.c_str(), token.length());
+            ptrhld.get()[offset++] = (uint8_t)token.length();
+            memcpy(ptrhld.get() + offset, token.c_str(), token.length());
             offset += token.length();
             count++;
 
@@ -1016,10 +1046,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
         GlobalVariable *AFLInternalDictionary = new GlobalVariable(
             M, ArrayTy, true, GlobalValue::ExternalLinkage,
             ConstantDataArray::get(C,
-                                   *(new ArrayRef<char>((char *)ptr, offset))),
+                                   *(new ArrayRef<char>(ptrhld.get(), offset))),
             "__afl_internal_dictionary");
         AFLInternalDictionary->setInitializer(ConstantDataArray::get(
-            C, *(new ArrayRef<char>((char *)ptr, offset))));
+            C, *(new ArrayRef<char>(ptrhld.get(), offset))));
         AFLInternalDictionary->setConstant(true);
 
         GlobalVariable *AFLDictionary = new GlobalVariable(

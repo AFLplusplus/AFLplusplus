@@ -1,6 +1,6 @@
 # argvfuzz
 
-afl supports fuzzing file inputs or stdin. When source is available,
+AFL supports fuzzing file inputs or stdin. When source is available,
 `argv-fuzz-inl.h` can be used to change `main()` to build argv from stdin.
 
 `argvfuzz` tries to provide the same functionality for binaries. When loaded

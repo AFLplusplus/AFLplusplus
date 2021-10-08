@@ -54,6 +54,7 @@ afl-showmap.8
 afl-system-config.8
 afl-tmin.8
 afl-whatsup.8
+afl-persistent-config.8
 afl-c++
 afl-cc
 afl-lto
@@ -85,4 +86,11 @@ gmon.out
 afl-frida-trace.so
 utils/afl_network_proxy/afl-network-client
 utils/afl_network_proxy/afl-network-server
+utils/plot_ui/afl-plot-ui
 *.o.tmp
+utils/afl_proxy/afl-proxy
+utils/optimin/build
+utils/optimin/optimin
+utils/persistent_mode/persistent_demo
+utils/persistent_mode/persistent_demo_new
+utils/persistent_mode/test-instr

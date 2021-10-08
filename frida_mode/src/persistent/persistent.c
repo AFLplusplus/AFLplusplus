@@ -5,7 +5,10 @@
 #include "config.h"
 #include "debug.h"
 
+#include "entry.h"
 #include "persistent.h"
+#include "ranges.h"
+#include "stalker.h"
 #include "util.h"
 
 int          __afl_sharedmem_fuzzing = 0;
@@ -80,6 +83,23 @@ void persistent_init(void) {
       persistent_ret == 0 ? ' ' : 'X', persistent_ret);
 
   if (persistent_hook != NULL) { __afl_sharedmem_fuzzing = 1; }
+
+}
+
+void persistent_prologue(GumStalkerOutput *output) {
+
+  OKF("AFL_FRIDA_PERSISTENT_ADDR reached");
+  entry_compiled = TRUE;
+  ranges_exclude();
+  stalker_trust();
+  persistent_prologue_arch(output);
+
+}
+
+void persistent_epilogue(GumStalkerOutput *output) {
+
+  OKF("AFL_FRIDA_PERSISTENT_RET reached");
+  persistent_epilogue_arch(output);
 
 }
 

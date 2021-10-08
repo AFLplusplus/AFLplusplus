@@ -143,7 +143,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n\n"
 
-      "Testing settings:\n"
+      "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
       "  -V seconds    - fuzz for a specified time then terminate\n"
       "  -E execs      - fuzz for an approx. no. of total executions then "
@@ -158,7 +158,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
-      "  -d            - skip deterministic fuzzing in -M mode\n"
+      // "  -d            - skip deterministic fuzzing in -M mode\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -216,6 +216,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
+      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
@@ -339,7 +340,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
   char * separator = strchr(afl_preload, ':');
   size_t first_preload_len = PATH_MAX;
   char * basename;
-  char   clang_runtime_prefix[] = "libclang_rt.asan-";
+  char   clang_runtime_prefix[] = "libclang_rt.asan";
 
   if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
 
@@ -1347,7 +1348,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else if (afl->q_testcase_max_cache_size < 2 * MAX_FILE) {
 
-    FATAL("AFL_TESTCACHE_SIZE must be set to %u or more, or 0 to disable",
+    FATAL("AFL_TESTCACHE_SIZE must be set to %ld or more, or 0 to disable",
           (2 * MAX_FILE) % 1048576 == 0 ? (2 * MAX_FILE) / 1048576
                                         : 1 + ((2 * MAX_FILE) / 1048576));
 
@@ -1397,6 +1398,9 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
+
+  check_crash_handling();
+  check_cpu_governor(afl);
 
   if (getenv("LD_PRELOAD")) {
 
@@ -1497,9 +1501,6 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->skip_deterministic = 1;
 
   }
-
-  check_crash_handling();
-  check_cpu_governor(afl);
 
   get_core_count(afl);
 
@@ -1917,7 +1918,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  write_stats_file(afl, 0, 0, 0, 0);
+  if (!afl->non_instrumented_mode) { write_stats_file(afl, 0, 0, 0, 0); }
   maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 

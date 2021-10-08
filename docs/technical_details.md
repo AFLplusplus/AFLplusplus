@@ -1,5 +1,9 @@
 # Technical "whitepaper" for afl-fuzz
 
+
+NOTE: this document is rather outdated!
+
+
 This document provides a quick overview of the guts of American Fuzzy Lop.
 See README.md for the general instruction manual; and for a discussion of
 motivations and design goals behind AFL, see historical_notes.md.
@@ -152,7 +156,7 @@ In contrast to more greedy genetic algorithms, this approach allows the tool
 to progressively explore various disjoint and possibly mutually incompatible
 features of the underlying data format, as shown in this image:
 
-  ![gzip_coverage](./visualization/afl_gzip.png)
+  ![gzip_coverage](./resources/afl_gzip.png)
 
 Several practical examples of the results of this algorithm are discussed
 here:

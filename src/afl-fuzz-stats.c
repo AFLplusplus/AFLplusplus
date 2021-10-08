@@ -147,8 +147,19 @@ void load_stats_file(afl_state_t *afl) {
             afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
           break;
         case 10:
-          if (!strcmp(keystring, "paths_total       "))
-            afl->queued_paths = strtoul(lptr, &nptr, 10);
+          if (!strcmp(keystring, "paths_total       ")) {
+
+            u32 paths_total = strtoul(lptr, &nptr, 10);
+            if (paths_total != afl->queued_paths) {
+
+              WARNF(
+                  "queue/ has been modified -- things might not work, you're "
+                  "on your own!");
+
+            }
+
+          }
+
           break;
         case 12:
           if (!strcmp(keystring, "paths_found       "))
@@ -524,6 +535,20 @@ void show_stats(afl_state_t *afl) {
   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.real_map_size;
 
+  if (unlikely(t_bytes > afl->fsrv.real_map_size)) {
+
+    if (unlikely(!afl->afl_env.afl_ignore_problems)) {
+
+      FATAL(
+          "Incorrect fuzzing setup detected. Your target seems to have loaded "
+          "incorrectly instrumented shared libraries. If you use LTO mode "
+          "please see instrumentation/README.lto.md. To ignore this problem "
+          "and continue fuzzing just set 'AFL_IGNORE_PROBLEMS=1'.\n");
+
+    }
+
+  }
+
   if (likely(t_bytes) && unlikely(afl->var_byte_count)) {
 
     stab_ratio = 100 - (((double)afl->var_byte_count * 100) / t_bytes);
@@ -536,8 +561,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (unlikely(afl->force_ui_update ||
-               cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
+  if (unlikely(!afl->non_instrumented_mode &&
+               (afl->force_ui_update ||
+                cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000))) {
 
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
@@ -1315,7 +1341,7 @@ void show_init_stats(afl_state_t *afl) {
 
     }
 
-    ACTF("No -t option specified, so I'll use exec timeout of %u ms.",
+    ACTF("No -t option specified, so I'll use an exec timeout of %u ms.",
          afl->fsrv.exec_tmout);
 
     afl->timeout_given = 1;

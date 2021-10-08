@@ -6,31 +6,66 @@
 
 #include "debug.h"
 
+#include "entry.h"
 #include "intercept.h"
 #include "prefetch.h"
 #include "stalker.h"
+#include "util.h"
 
 #define TRUST 0
 #define PREFETCH_SIZE 65536
 #define PREFETCH_ENTRIES ((PREFETCH_SIZE - sizeof(size_t)) / sizeof(void *))
+
+#define BP_SIZE 524288
 
 typedef struct {
 
   size_t count;
   void * entry[PREFETCH_ENTRIES];
 
+  guint8 backpatch_data[BP_SIZE];
+  gsize  backpatch_size;
+
 } prefetch_data_t;
 
 gboolean prefetch_enable = TRUE;
+gboolean prefetch_backpatch = TRUE;
 
 static prefetch_data_t *prefetch_data = NULL;
 static int              prefetch_shm_id = -1;
+
+static void gum_afl_stalker_backpatcher_notify(GumStalkerObserver *self,
+                                               const GumBackpatch *backpatch,
+                                               gsize               size) {
+
+  UNUSED_PARAMETER(self);
+  if (!entry_run) { return; }
+  gsize remaining =
+      sizeof(prefetch_data->backpatch_data) - prefetch_data->backpatch_size;
+  if (sizeof(gsize) + size > remaining) { return; }
+
+  gsize *dst_backpatch_size = (gsize *)
+      &prefetch_data->backpatch_data[prefetch_data->backpatch_size];
+  *dst_backpatch_size = size;
+  prefetch_data->backpatch_size += sizeof(gsize);
+
+  memcpy(&prefetch_data->backpatch_data[prefetch_data->backpatch_size],
+         backpatch, size);
+  prefetch_data->backpatch_size += size;
+
+}
 
 /*
  * We do this from the transformer since we need one anyway for coverage, this
  * saves the need to use an event sink.
  */
 void prefetch_write(void *addr) {
+
+#if defined(__aarch64__)
+  if (!entry_compiled) { return; }
+#else
+  if (!entry_run) { return; }
+#endif
 
   /* Bail if we aren't initialized */
   if (prefetch_data == NULL) return;
@@ -51,10 +86,7 @@ void prefetch_write(void *addr) {
 
 }
 
-/*
- * Read the IPC region one block at the time and prefetch it
- */
-void prefetch_read(void) {
+static void prefetch_read_blocks(void) {
 
   GumStalker *stalker = stalker_get();
   if (prefetch_data == NULL) return;
@@ -74,9 +106,60 @@ void prefetch_read(void) {
 
 }
 
+static void prefetch_read_patches(void) {
+
+  gsize         offset = 0;
+  GumStalker *  stalker = stalker_get();
+  GumBackpatch *backpatch = NULL;
+
+  for (gsize remaining = prefetch_data->backpatch_size - offset;
+       remaining > sizeof(gsize);
+       remaining = prefetch_data->backpatch_size - offset) {
+
+    gsize *src_backpatch_data = (gsize *)&prefetch_data->backpatch_data[offset];
+    gsize size = *src_backpatch_data;
+    offset += sizeof(gsize);
+
+    if (prefetch_data->backpatch_size - offset < size) {
+
+      FATAL("Incomplete backpatch entry");
+
+    }
+
+    backpatch = (GumBackpatch *)&prefetch_data->backpatch_data[offset];
+    gum_stalker_prefetch_backpatch(stalker, backpatch);
+    offset += size;
+
+  }
+
+  prefetch_data->backpatch_size = 0;
+
+}
+
+/*
+ * Read the IPC region one block at the time and prefetch it
+ */
+void prefetch_read(void) {
+
+  prefetch_read_blocks();
+  prefetch_read_patches();
+
+}
+
 void prefetch_config(void) {
 
   prefetch_enable = (getenv("AFL_FRIDA_INST_NO_PREFETCH") == NULL);
+
+  if (prefetch_enable) {
+
+    prefetch_backpatch =
+        (getenv("AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH") == NULL);
+
+  } else {
+
+    prefetch_backpatch = FALSE;
+
+  }
 
 }
 
@@ -97,8 +180,9 @@ static void prefetch_hook_fork(void) {
 
 void prefetch_init(void) {
 
-  g_assert_cmpint(sizeof(prefetch_data_t), ==, PREFETCH_SIZE);
   OKF("Instrumentation - prefetch [%c]", prefetch_enable ? 'X' : ' ');
+  OKF("Instrumentation - prefetch_backpatch [%c]",
+      prefetch_backpatch ? 'X' : ' ');
 
   if (!prefetch_enable) { return; }
   /*
@@ -130,6 +214,12 @@ void prefetch_init(void) {
   memset(prefetch_data, '\0', sizeof(prefetch_data_t));
 
   prefetch_hook_fork();
+
+  if (!prefetch_backpatch) { return; }
+
+  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
+  iface->notify_backpatch = gum_afl_stalker_backpatcher_notify;
 
 }
 

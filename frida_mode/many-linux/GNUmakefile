@@ -1,20 +1,25 @@
 PWD:=$(shell pwd)/
+ROOT:=$(PWD)../../
 BUILD_DIR:=$(PWD)build/
 
-.PHONY: all clean shell
+.PHONY: all build docker clean shell
 
-all: | $(BUILD_DIR)
-	docker build --tag many-afl-frida .
+all: docker
 	docker run --rm \
-		-v $(PWD)build/:/export \
+		-v $(ROOT):/AFLplusplus \
 		many-afl-frida \
-		cp /AFLplusplus/afl-frida-trace.so /export
+		make -C /AFLplusplus/frida_mode clean all
 
-$(BUILD_DIR):
-	mkdir -p $@
+build:
+	docker run --rm \
+		-v $(ROOT):/AFLplusplus \
+		many-afl-frida \
+		make -C /AFLplusplus/frida_mode
+
+docker:
+	docker build --tag many-afl-frida .
 
 clean:
-	rm -rf $(BUILD_DIR)
 	docker images --filter 'dangling=true' -q --no-trunc | xargs -L1 docker rmi --force
 
 shell:

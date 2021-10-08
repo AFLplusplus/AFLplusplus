@@ -19,7 +19,7 @@ Afl.setPersistentAddress(persistent_addr);
 
 const path = Afl.module.path;
 const dir = path.substring(0, path.lastIndexOf("/"));
-const mod = Module.load(`${dir}/frida_mode/build/hook.so`);
+const mod = Module.load(`${dir}/frida_mode/build/frida_hook.so`);
 const hook = mod.getExportByName('afl_persistent_hook');
 Afl.setPersistentHook(hook);
 

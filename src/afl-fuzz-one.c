@@ -547,7 +547,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     afl->queue_cur->perf_score = orig_perf = perf_score =
         calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
+  if (unlikely(perf_score <= 0 && afl->active_paths > 1)) {
+
+    goto abandon_entry;
+
+  }
 
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
@@ -2062,7 +2066,7 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                afl_realloc(AFL_BUF_PARAM(out), temp_len);
+                out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len);
                 if (unlikely(!afl->out_buf)) { PFATAL("alloc"); }
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
@@ -2107,7 +2111,7 @@ havoc_stage:
 
         case 8 ... 9: {
 
-          /* Set word to interesting value, randomly choosing endian. */
+          /* Set word to interesting value, little endian. */
 
           if (temp_len < 2) { break; }
 
@@ -2124,7 +2128,7 @@ havoc_stage:
 
         case 10 ... 11: {
 
-          /* Set word to interesting value, randomly choosing endian. */
+          /* Set word to interesting value, big endian. */
 
           if (temp_len < 2) { break; }
 
@@ -2141,7 +2145,7 @@ havoc_stage:
 
         case 12 ... 13: {
 
-          /* Set dword to interesting value, randomly choosing endian. */
+          /* Set dword to interesting value, little endian. */
 
           if (temp_len < 4) { break; }
 
@@ -2158,7 +2162,7 @@ havoc_stage:
 
         case 14 ... 15: {
 
-          /* Set dword to interesting value, randomly choosing endian. */
+          /* Set dword to interesting value, big endian. */
 
           if (temp_len < 4) { break; }
 
@@ -3060,7 +3064,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   else
     orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
+  if (unlikely(perf_score <= 0 && afl->active_paths > 1)) {
+
+    goto abandon_entry;
+
+  }
 
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
@@ -5254,7 +5262,6 @@ pacemaker_fuzzing:
         }
 
         afl->temp_puppet_find = afl->total_puppet_find;
-        u64 temp_stage_finds_puppet = 0;
         for (i = 0; i < operator_num; ++i) {
 
           if (MOpt_globals.is_pilot_mode) {
@@ -5280,7 +5287,6 @@ pacemaker_fuzzing:
 
           MOpt_globals.finds[i] = MOpt_globals.finds_v2[i];
           MOpt_globals.cycles[i] = MOpt_globals.cycles_v2[i];
-          temp_stage_finds_puppet += MOpt_globals.finds[i];
 
         }                                    /* for i = 0; i < operator_num */
 
@@ -5342,7 +5348,6 @@ pacemaker_fuzzing:
                 afl->core_operator_finds_puppet_v2[i];
             afl->core_operator_cycles_puppet[i] =
                 afl->core_operator_cycles_puppet_v2[i];
-            temp_stage_finds_puppet += afl->core_operator_finds_puppet[i];
 
           }
 

@@ -86,6 +86,14 @@ class Afl {
         Afl.jsApiAflSharedMemFuzzing.writeInt(1);
     }
     /**
+     * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
+     * as an argument.
+     */
+    static setInstrumentCoverageFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetInstrumentCoverageFile(buf);
+    }
+    /**
      * See `AFL_FRIDA_INST_DEBUG_FILE`. This function takes a single `string` as
      * an argument.
      */
@@ -117,11 +125,25 @@ class Afl {
     static setInstrumentNoOptimize() {
         Afl.jsApiSetInstrumentNoOptimize();
     }
+    /*
+     * See `AFL_FRIDA_INST_SEED`
+     */
+    static setInstrumentSeed(seed) {
+        Afl.jsApiSetInstrumentSeed(seed);
+    }
     /**
      * See `AFL_FRIDA_INST_TRACE_UNIQUE`.
      */
     static setInstrumentTracingUnique() {
         Afl.jsApiSetInstrumentTraceUnique();
+    }
+    /**
+     * See `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE`. This function takes a single
+     * `string` as an argument.
+     */
+    static setInstrumentUnstableCoverageFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
     }
     /**
      * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
@@ -158,10 +180,24 @@ class Afl {
         Afl.jsApiSetPersistentReturn(address);
     }
     /**
+     * See `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH`.
+     */
+    static setPrefetchBackpatchDisable() {
+        Afl.jsApiSetPrefetchBackpatchDisable();
+    }
+    /**
      * See `AFL_FRIDA_INST_NO_PREFETCH`.
      */
     static setPrefetchDisable() {
         Afl.jsApiSetPrefetchDisable();
+    }
+    /**
+     * See `AFL_FRIDA_SECCOMP_FILE`. This function takes a single `string` as
+     * an argument.
+     */
+    static setSeccompFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetSeccompFile(buf);
     }
     /*
      * Set a function to be called for each instruction which is instrumented
@@ -169,6 +205,12 @@ class Afl {
      */
     static setStalkerCallback(callback) {
         Afl.jsApiSetStalkerCallback(callback);
+    }
+    /**
+     * See `AFL_FRIDA_STALKER_IC_ENTRIES`.
+     */
+    static setStalkerIcEntries(val) {
+        Afl.jsApiSetStalkerIcEntries(val);
     }
     /**
      * See `AFL_FRIDA_STATS_FILE`. This function takes a single `string` as
@@ -184,12 +226,6 @@ class Afl {
      */
     static setStatsInterval(interval) {
         Afl.jsApiSetStatsInterval(interval);
-    }
-    /**
-     * See `AFL_FRIDA_STATS_TRANSITIONS`
-     */
-    static setStatsTransitions() {
-        Afl.jsApiSetStatsTransitions();
     }
     /**
      * See `AFL_FRIDA_OUTPUT_STDERR`. This function takes a single `string` as
@@ -227,22 +263,27 @@ Afl.jsApiDone = Afl.jsApiGetFunction("js_api_done", "void", []);
 Afl.jsApiError = Afl.jsApiGetFunction("js_api_error", "void", ["pointer"]);
 Afl.jsApiSetDebugMaps = Afl.jsApiGetFunction("js_api_set_debug_maps", "void", []);
 Afl.jsApiSetEntryPoint = Afl.jsApiGetFunction("js_api_set_entrypoint", "void", ["pointer"]);
+Afl.jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_coverage_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_debug_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentJit = Afl.jsApiGetFunction("js_api_set_instrument_jit", "void", []);
 Afl.jsApiSetInstrumentLibraries = Afl.jsApiGetFunction("js_api_set_instrument_libraries", "void", []);
 Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_no_optimize", "void", []);
+Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", "void", ["uint64"]);
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
 Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);
+Afl.jsApiSetInstrumentUnstableCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_unstable_coverage_file", "void", ["pointer"]);
 Afl.jsApiSetPersistentAddress = Afl.jsApiGetFunction("js_api_set_persistent_address", "void", ["pointer"]);
 Afl.jsApiSetPersistentCount = Afl.jsApiGetFunction("js_api_set_persistent_count", "void", ["uint64"]);
 Afl.jsApiSetPersistentDebug = Afl.jsApiGetFunction("js_api_set_persistent_debug", "void", []);
 Afl.jsApiSetPersistentHook = Afl.jsApiGetFunction("js_api_set_persistent_hook", "void", ["pointer"]);
 Afl.jsApiSetPersistentReturn = Afl.jsApiGetFunction("js_api_set_persistent_return", "void", ["pointer"]);
+Afl.jsApiSetPrefetchBackpatchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_backpatch_disable", "void", []);
 Afl.jsApiSetPrefetchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_disable", "void", []);
+Afl.jsApiSetSeccompFile = Afl.jsApiGetFunction("js_api_set_seccomp_file", "void", ["pointer"]);
 Afl.jsApiSetStalkerCallback = Afl.jsApiGetFunction("js_api_set_stalker_callback", "void", ["pointer"]);
+Afl.jsApiSetStalkerIcEntries = Afl.jsApiGetFunction("js_api_set_stalker_ic_entries", "void", ["uint32"]);
 Afl.jsApiSetStatsFile = Afl.jsApiGetFunction("js_api_set_stats_file", "void", ["pointer"]);
 Afl.jsApiSetStatsInterval = Afl.jsApiGetFunction("js_api_set_stats_interval", "void", ["uint64"]);
-Afl.jsApiSetStatsTransitions = Afl.jsApiGetFunction("js_api_set_stats_transitions", "void", []);
 Afl.jsApiSetStdErr = Afl.jsApiGetFunction("js_api_set_stderr", "void", ["pointer"]);
 Afl.jsApiSetStdOut = Afl.jsApiGetFunction("js_api_set_stdout", "void", ["pointer"]);
 Afl.jsApiWrite = new NativeFunction(

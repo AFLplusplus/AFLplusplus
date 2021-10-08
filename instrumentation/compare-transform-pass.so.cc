@@ -151,12 +151,39 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (!Callee) continue;
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
           StringRef FuncName = Callee->getName();
-          isStrcmp &= !FuncName.compare(StringRef("strcmp"));
-          isMemcmp &= (!FuncName.compare(StringRef("memcmp")) ||
-                       !FuncName.compare(StringRef("bcmp")));
-          isStrncmp &= !FuncName.compare(StringRef("strncmp"));
-          isStrcasecmp &= !FuncName.compare(StringRef("strcasecmp"));
-          isStrncasecmp &= !FuncName.compare(StringRef("strncasecmp"));
+          isStrcmp &=
+              (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
+               !FuncName.compare("xmlStrEqual") ||
+               !FuncName.compare("g_strcmp0") ||
+               !FuncName.compare("curl_strequal") ||
+               !FuncName.compare("strcsequal"));
+          isMemcmp &=
+              (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
+               !FuncName.compare("CRYPTO_memcmp") ||
+               !FuncName.compare("OPENSSL_memcmp") ||
+               !FuncName.compare("memcmp_const_time") ||
+               !FuncName.compare("memcmpct"));
+          isStrncmp &= (!FuncName.compare("strncmp") ||
+                        !FuncName.compare("xmlStrncmp") ||
+                        !FuncName.compare("curl_strnequal"));
+          isStrcasecmp &= (!FuncName.compare("strcasecmp") ||
+                           !FuncName.compare("stricmp") ||
+                           !FuncName.compare("ap_cstr_casecmp") ||
+                           !FuncName.compare("OPENSSL_strcasecmp") ||
+                           !FuncName.compare("xmlStrcasecmp") ||
+                           !FuncName.compare("g_strcasecmp") ||
+                           !FuncName.compare("g_ascii_strcasecmp") ||
+                           !FuncName.compare("Curl_strcasecompare") ||
+                           !FuncName.compare("Curl_safe_strcasecompare") ||
+                           !FuncName.compare("cmsstrcasecmp"));
+          isStrncasecmp &= (!FuncName.compare("strncasecmp") ||
+                            !FuncName.compare("strnicmp") ||
+                            !FuncName.compare("ap_cstr_casecmpn") ||
+                            !FuncName.compare("OPENSSL_strncasecmp") ||
+                            !FuncName.compare("xmlStrncasecmp") ||
+                            !FuncName.compare("g_ascii_strncasecmp") ||
+                            !FuncName.compare("Curl_strncasecompare") ||
+                            !FuncName.compare("g_strncasecmp"));
           isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
@@ -313,26 +340,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
             if (ilen) {
 
-              uint64_t len = ilen->getZExtValue();
               // if len is zero this is a pointless call but allow real
               // implementation to worry about that
-              if (len < 2) continue;
+              if (ilen->getZExtValue() < 2) { continue; }
 
-              if (isMemcmp) {
-
-                // if size of compare is larger than constant string this is
-                // likely a bug but allow real implementation to worry about
-                // that
-                uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
-                if (literalLength + 1 < ilen->getZExtValue()) continue;
-
-              }
-
-            } else if (isMemcmp)
+            } else if (isMemcmp) {
 
               // this *may* supply a len greater than the constant string at
               // runtime so similarly we don't want to have to handle that
               continue;
+
+            }
 
           }
 
@@ -421,7 +439,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     }
 
     if (TmpConstStr.length() < 2 ||
-        (TmpConstStr.length() == 2 && !TmpConstStr[1])) {
+        (TmpConstStr.length() == 2 && TmpConstStr[1] == 0)) {
 
       continue;
 

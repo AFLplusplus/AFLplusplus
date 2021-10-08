@@ -25,8 +25,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#define _GNU_SOURCE
+#define __USE_GNU
+#include <string.h>
 #include <strings.h>
 #include <math.h>
+#include <sys/mman.h>
 
 #include "debug.h"
 #include "alloc-inl.h"
@@ -50,6 +54,66 @@ u8  last_intr = 0;
 #ifndef AFL_PATH
   #define AFL_PATH "/usr/local/lib/afl/"
 #endif
+
+u32 check_binary_signatures(u8 *fn) {
+
+  int ret = 0, fd = open(fn, O_RDONLY);
+  if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
+  struct stat st;
+  if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
+  u32 f_len = st.st_size;
+  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
+  close(fd);
+
+  if (memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+
+    if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    ret = 1;
+
+  } else if (getenv("AFL_PERSISTENT")) {
+
+    if (!be_quiet) {
+
+      WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
+
+    }
+
+  } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
+
+    if (!be_quiet) {
+
+      OKF("FRIDA Persistent mode configuration options detected.");
+
+    }
+
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    ret = 1;
+
+  }
+
+  if (memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+
+    if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
+    setenv(DEFER_ENV_VAR, "1", 1);
+    ret += 2;
+
+  } else if (getenv("AFL_DEFER_FORKSRV")) {
+
+    if (!be_quiet) {
+
+      WARNF("AFL_DEFER_FORKSRV is no longer supported and may misbehave!");
+
+    }
+
+  }
+
+  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+
+  return ret;
+
+}
 
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 

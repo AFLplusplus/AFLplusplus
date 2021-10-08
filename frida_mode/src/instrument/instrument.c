@@ -1,11 +1,13 @@
 #include <unistd.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include "frida-gumjs.h"
 
 #include "config.h"
 #include "debug.h"
+#include "hash.h"
 
 #include "asan.h"
 #include "entry.h"
@@ -22,13 +24,27 @@
 gboolean instrument_tracing = false;
 gboolean instrument_optimize = false;
 gboolean instrument_unique = false;
+guint64  instrument_hash_zero = 0;
+guint64  instrument_hash_seed = 0;
+
+gboolean instrument_use_fixed_seed = FALSE;
+guint64  instrument_fixed_seed = 0;
+char *   instrument_coverage_unstable_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
-__thread uint64_t instrument_previous_pc = 0;
+__thread guint64 instrument_previous_pc = 0;
 
 static GumAddress previous_rip = 0;
+static GumAddress previous_end = 0;
 static u8 *       edges_notified = NULL;
+
+typedef struct {
+
+  GumAddress address;
+  GumAddress end;
+
+} block_ctx_t;
 
 static void trace_debug(char *format, ...) {
 
@@ -49,21 +65,18 @@ static void trace_debug(char *format, ...) {
 
 }
 
-__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
-                                                gpointer       user_data) {
+guint64 instrument_get_offset_hash(GumAddress current_rip) {
 
-  UNUSED_PARAMETER(context);
+  guint64 area_offset = hash64((unsigned char *)&current_rip,
+                               sizeof(GumAddress), instrument_hash_seed);
+  return area_offset &= MAP_SIZE - 1;
 
-  GumAddress current_rip = GUM_ADDRESS(user_data);
-  GumAddress current_pc;
-  GumAddress edge;
-  uint8_t *  cursor;
-  uint64_t   value;
+}
 
-  current_pc = (current_rip >> 4) ^ (current_rip << 8);
-  current_pc &= MAP_SIZE - 1;
+__attribute__((hot)) static void instrument_increment_map(GumAddress edge) {
 
-  edge = current_pc ^ instrument_previous_pc;
+  uint8_t *cursor;
+  uint64_t value;
 
   cursor = &__afl_area_ptr[edge];
   value = *cursor;
@@ -79,7 +92,23 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   }
 
   *cursor = value;
-  instrument_previous_pc = current_pc >> 1;
+
+}
+
+__attribute__((hot)) static void on_basic_block(GumCpuContext *context,
+                                                gpointer       user_data) {
+
+  UNUSED_PARAMETER(context);
+
+  block_ctx_t *ctx = (block_ctx_t *)user_data;
+  GumAddress   current_rip = ctx->address;
+  guint16      current_end = ctx->end;
+  guint64      current_pc = instrument_get_offset_hash(current_rip);
+  guint64      edge;
+
+  edge = current_pc ^ instrument_previous_pc;
+
+  instrument_increment_map(edge);
 
   if (unlikely(instrument_tracing)) {
 
@@ -94,9 +123,20 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
     if (instrument_unique) { edges_notified[edge] = 1; }
 
-    previous_rip = current_rip;
+  }
+
+  if (unlikely(instrument_coverage_unstable_filename != NULL)) {
+
+    instrument_coverage_unstable(edge, previous_rip, previous_end, current_rip,
+                                 current_end);
 
   }
+
+  previous_rip = current_rip;
+  previous_end = current_end;
+
+  instrument_previous_pc = ((current_pc & (MAP_SIZE - 1) >> 1)) |
+                           ((current_pc & 0x1) << (MAP_SIZE_POW2 - 1));
 
 }
 
@@ -109,6 +149,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   const cs_insn *instr;
   gboolean       begin = TRUE;
   gboolean       excluded;
+  block_ctx_t *  ctx = NULL;
 
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
@@ -143,11 +184,14 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
      * our AFL_ENTRYPOINT, since it is not until then that we start the
      * fork-server and thus start executing in the child.
      */
-    excluded = range_is_excluded(GSIZE_TO_POINTER(instr->address));
+    excluded = range_is_excluded(GUM_ADDRESS(instr->address));
 
     stats_collect(instr, begin);
 
     if (unlikely(begin)) {
+
+      instrument_debug_start(instr->address, output);
+      instrument_coverage_start(instr->address);
 
       prefetch_write(GSIZE_TO_POINTER(instr->address));
 
@@ -159,8 +203,9 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
         } else {
 
-          gum_stalker_iterator_put_callout(
-              iterator, on_basic_block, GSIZE_TO_POINTER(instr->address), NULL);
+          ctx = gum_malloc0(sizeof(block_ctx_t));
+          ctx->address = GUM_ADDRESS(instr->address);
+          gum_stalker_iterator_put_callout(iterator, on_basic_block, ctx, NULL);
 
         }
 
@@ -187,8 +232,11 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
   }
 
+  if (ctx != NULL) { ctx->end = (instr->address + instr->size); }
+
   instrument_flush(output);
   instrument_debug_end(output);
+  instrument_coverage_end(instr->address + instr->size);
 
 }
 
@@ -197,8 +245,13 @@ void instrument_config(void) {
   instrument_optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
   instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
   instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
+  instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
+  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
+  instrument_coverage_unstable_filename =
+      (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
 
   instrument_debug_config();
+  instrument_coverage_config();
   asan_config();
   cmplog_config();
 
@@ -211,10 +264,22 @@ void instrument_init(void) {
   OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
   OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
   OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
+  OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
+      instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
+  OKF("Instrumentation - unstable coverage [%c] [%s]",
+      instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
+      instrument_coverage_unstable_filename);
 
   if (instrument_tracing && instrument_optimize) {
 
     WARNF("AFL_FRIDA_INST_TRACE implies AFL_FRIDA_INST_NO_OPTIMIZE");
+    instrument_optimize = FALSE;
+
+  }
+
+  if (instrument_coverage_unstable_filename && instrument_optimize) {
+
+    WARNF("AFL_FRIDA_INST_COVERAGE_FILE implies AFL_FRIDA_INST_NO_OPTIMIZE");
     instrument_optimize = FALSE;
 
   }
@@ -246,7 +311,8 @@ void instrument_init(void) {
     g_assert(edges_notified != MAP_FAILED);
 
     /*
-     * Configure the shared memory region to be removed once the process dies.
+     * Configure the shared memory region to be removed once the process
+     * dies.
      */
     if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
 
@@ -259,7 +325,39 @@ void instrument_init(void) {
 
   }
 
+  if (instrument_use_fixed_seed) {
+
+    /*
+     * This configuration option may be useful for diagnostics or
+     * debugging.
+     */
+    instrument_hash_seed = instrument_fixed_seed;
+
+  } else {
+
+    /*
+     * By using a different seed value for the hash, we can make different
+     * instances have edge collisions in different places when carrying out
+     * parallel fuzzing. The seed itself, doesn't have to be random, it
+     * just needs to be different for each instance.
+     */
+    guint64 tid;
+#if defined(__APPLE__)
+    pthread_threadid_np(NULL, &tid);
+#else
+    tid = syscall(SYS_gettid);
+#endif
+    instrument_hash_seed = g_get_monotonic_time() ^
+                           (((guint64)getpid()) << 32) ^ tid;
+
+  }
+
+  OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
+      instrument_hash_seed);
+  instrument_hash_zero = instrument_get_offset_hash(0);
+
   instrument_debug_init();
+  instrument_coverage_init();
   asan_init();
   cmplog_init();
 
@@ -269,6 +367,12 @@ GumStalkerTransformer *instrument_get_transformer(void) {
 
   if (transformer == NULL) { FATAL("Instrumentation not initialized"); }
   return transformer;
+
+}
+
+void instrument_on_fork() {
+
+  instrument_previous_pc = instrument_hash_zero;
 
 }
 

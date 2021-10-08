@@ -7,27 +7,22 @@
 
 #if defined(__arm__)
 
-gboolean stats_is_supported_arch(void) {
-
-  return FALSE;
-
-}
-
-size_t stats_data_size_arch(void) {
+void starts_arch_init(void) {
 
   FATAL("Stats not supported on this architecture");
 
 }
 
-void stats_write_arch(void) {
+void stats_write_arch(stats_data_t *data) {
 
   FATAL("Stats not supported on this architecture");
 
 }
 
-void stats_collect_arch(const cs_insn *instr) {
+void stats_collect_arch(const cs_insn *instr, gboolean begin) {
 
   UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(begin);
   FATAL("Stats not supported on this architecture");
 
 }
