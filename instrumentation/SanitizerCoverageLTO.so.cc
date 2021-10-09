@@ -250,7 +250,7 @@ class ModuleSanitizerCoverage {
   Module *                         Mo = NULL;
   GlobalVariable *                 AFLMapPtr = NULL;
   Value *                          MapPtrFixed = NULL;
-  FILE *                           documentFile = NULL;
+  std::ofstream                    dFile;
   size_t                           found = 0;
   // afl++ END
 
@@ -446,7 +446,8 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
-    if ((documentFile = fopen(ptr, "a")) == NULL)
+    dFile.open(ptr, std::ofstream::out | std::ofstream::app);
+    if (dFile.is_open())
       WARNF("Cannot access document file %s", ptr);
 
   }
@@ -1003,12 +1004,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
     instrumentFunction(F, DTCallback, PDTCallback);
 
   // afl++ START
-  if (documentFile) {
-
-    fclose(documentFile);
-    documentFile = NULL;
-
-  }
+  if (dFile.is_open()) dFile.close();
 
   if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
 
@@ -1509,12 +1505,11 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     // afl++ START
     ++afl_global_id;
 
-    if (documentFile) {
+    if (dFile.is_open()) {
 
       unsigned long long int moduleID =
           (((unsigned long long int)(rand() & 0xffffffff)) << 32) | getpid();
-      fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n", moduleID,
-              F.getName().str().c_str(), afl_global_id);
+      dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str() << " edgeID=" << afl_global_id << "\n";
 
     }
 

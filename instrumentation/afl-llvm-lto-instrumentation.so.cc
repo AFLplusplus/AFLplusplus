@@ -107,8 +107,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
   //  std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<BasicBlock *>        BlockList;
+  std::ofstream                    dFile;
   char *                           ptr;
-  FILE *                           documentFile = NULL;
   size_t                           found = 0;
 
   srand((unsigned int)time(NULL));
@@ -136,7 +136,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
-    if ((documentFile = fopen(ptr, "a")) == NULL)
+    dFile.open(ptr, std::ofstream::out | std::ofstream::app);
+    if (!dFile.is_open())
       WARNF("Cannot access document file %s", ptr);
 
   }
@@ -844,10 +845,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           }
 
-          if (documentFile) {
+          if (dFile.is_open()) {
 
-            fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n",
-                    moduleID, F.getName().str().c_str(), afl_global_id);
+             dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str() << " edgeID=" << afl_global_id << "\n";
 
           }
 
@@ -919,8 +919,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (documentFile) fclose(documentFile);
-  documentFile = NULL;
+  if (dFile.is_open()) dFile.close();
 
   // save highest location ID to global variable
   // do this after each function to fail faster
