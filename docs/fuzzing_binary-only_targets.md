@@ -71,7 +71,7 @@ cd unicorn_mode
 
 If the goal is to fuzz a dynamic library then there are two options available.
 For both you need to write a small harness that loads and calls the library.
-Faster is the frida solution: [utils/afl_frida/README.md](../utils/afl_frida/README.md)
+Faster is the frida solution: [frida_mode/README.md](../frida_mode/README.md)
 
 Another, less precise and slower option is using ptrace with debugger interrupt
 instrumentation: [utils/afl_untracer/README.md](../utils/afl_untracer/README.md).
