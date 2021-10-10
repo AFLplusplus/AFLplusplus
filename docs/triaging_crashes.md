@@ -43,4 +43,4 @@ file, attempts to sequentially flip bytes, and observes the behavior of the
 tested program. It then color-codes the input based on which sections appear to
 be critical, and which are not; while not bulletproof, it can often offer quick
 insights into complex file formats. More info about its operation can be found
-near the end of [docs/technical_details.md](docs/technical_details.md).
+near the end of [technical_details.md](technical_details.md).
