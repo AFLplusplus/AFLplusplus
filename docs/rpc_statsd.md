@@ -50,7 +50,7 @@ Depending on your StatsD server, you will be able to monitor, trigger alerts, or
     -  `librato`
     -  `signalfx`
     
-    For more information on environment variables, see [docs/env_variables.md](docs/env_variables.md).
+    For more information on environment variables, see [env_variables.md](env_variables.md).
 
     Note: When using multiple fuzzer instances with StatsD it is *strongly* recommended to set up `AFL_STATSD_TAGS_FLAVOR` to match your StatsD server. This will allow you to see individual fuzzer performance, detect bad ones, and see the progress of each strategy.
 
