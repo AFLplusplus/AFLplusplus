@@ -70,12 +70,23 @@ When fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described i
 
 3. If the program reads from stdin, run `afl-fuzz` like so:
 
-        ./afl-fuzz -i testcase_dir -o findings_dir -- \
-          /path/to/tested/program [...program's cmdline...]
+```
+   ./afl-fuzz -i seeds_dir -o output_dir -- \
+     /path/to/tested/program [...program's cmdline...]
+```
 
-   If the program takes input from a file, you can put `@@` in the program's command line; AFL will put an auto-generated file name in there for you.
+   To add a dictionary, add `-x /path/to/dictionary.txt` to afl-fuzz.
+
+   If the program takes input from a file, you can put `@@` in the program's
+   command line; AFL will put an auto-generated file name in there for you.
 
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting [docs/status_screen.md](docs/status_screen.md).
+
+5. You will find found crashes and hangs in the subdirectories `crashes/` and
+   `hangs/` in the `-o output_dir` directory. You can replay the crashes by
+   feeding them to the target, e.g.:
+   `cat output_dir/crashes/id:000000,* | /path/to/tested/program [...program's cmdline...]`
+   You can generate cores or use gdb directly to follow up the crashes.
 
 ## Contact
 

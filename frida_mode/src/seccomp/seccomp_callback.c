@@ -14,8 +14,12 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   GumDebugSymbolDetails details = {0};
   if (req->data.nr == SYS_OPENAT) {
 
+#if UINTPTR_MAX == 0xffffffffffffffffu
     seccomp_print("SYS_OPENAT: (%s)\n", (char *)req->data.args[1]);
-
+#endif
+#if UINTPTR_MAX == 0xffffffff
+    seccomp_print("SYS_OPENAT: (%s)\n", (char *)(__u32)req->data.args[1]);
+#endif
   }
 
   seccomp_print(

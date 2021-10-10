@@ -105,7 +105,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     // Set the program counter to the start of the code
     let main_locs = parse_locs("main").unwrap();
     //println!("Entry Point: {:x}", main_locs[0]);
-    uc.reg_write(RegisterX86::RIP as i32, main_locs[0])?;
+    uc.reg_write(RIP, main_locs[0])?;
 
     // Setup the stack.
     uc.mem_map(
@@ -114,14 +114,14 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
         Permission::READ | Permission::WRITE,
     )?;
     // Setup the stack pointer, but allocate two pointers for the pointers to input.
-    uc.reg_write(RSP as i32, STACK_ADDRESS + STACK_SIZE - 16)?;
+    uc.reg_write(RSP, STACK_ADDRESS + STACK_SIZE - 16)?;
 
     // Setup our input space, and push the pointer to it in the function params
     uc.mem_map(INPUT_ADDRESS, INPUT_MAX as usize, Permission::READ)?;
     // We have argc = 2
-    uc.reg_write(RDI as i32, 2)?;
+    uc.reg_write(RDI, 2)?;
     // RSI points to our little 2 QWORD space at the beginning of the stack...
-    uc.reg_write(RSI as i32, STACK_ADDRESS + STACK_SIZE - 16)?;
+    uc.reg_write(RSI, STACK_ADDRESS + STACK_SIZE - 16)?;
     // ... which points to the Input. Write the ptr to mem in little endian.
     uc.mem_write(
         STACK_ADDRESS + STACK_SIZE - 16,
@@ -139,7 +139,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
             abort();
         }
         // read the first param
-        let malloc_size = uc.reg_read(RDI as i32).unwrap();
+        let malloc_size = uc.reg_read(RDI).unwrap();
         if malloc_size > HEAP_SIZE_MAX {
             println!(
                 "Tried to allocate {} bytes, but we may only allocate up to {}",
@@ -147,8 +147,8 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
             );
             abort();
         }
-        uc.reg_write(RAX as i32, HEAP_ADDRESS).unwrap();
-        uc.reg_write(RIP as i32, addr + size as u64).unwrap();
+        uc.reg_write(RAX, HEAP_ADDRESS).unwrap();
+        uc.reg_write(RIP, addr + size as u64).unwrap();
         already_allocated_malloc.set(true);
     };
 
@@ -160,7 +160,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
             abort();
         }
         // read the first param
-        let free_ptr = uc.reg_read(RDI as i32).unwrap();
+        let free_ptr = uc.reg_read(RDI).unwrap();
         if free_ptr != HEAP_ADDRESS {
             println!(
                 "Tried to free wrong mem region {:x} at code loc {:x}",
@@ -168,7 +168,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
             );
             abort();
         }
-        uc.reg_write(RIP as i32, addr + size as u64).unwrap();
+        uc.reg_write(RIP, addr + size as u64).unwrap();
         already_allocated_free.set(false);
     };
 
@@ -178,7 +178,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     // This is a fancy print function that we're just going to skip for fuzzing.
     let hook_magicfn = move |mut uc: UnicornHandle<'_, _>, addr, size| {
-        uc.reg_write(RIP as i32, addr + size as u64).unwrap();
+        uc.reg_write(RIP, addr + size as u64).unwrap();
     };
 
     for addr in parse_locs("malloc").unwrap() {

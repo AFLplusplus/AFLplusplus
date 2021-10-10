@@ -62,7 +62,7 @@ which allows you to define network state with different type of data packets.
 4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to put the input file directory on a tempfs location, see [env_variables.md](env_variables.md).
 5. Improve Linux kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system less secure).
 6. Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem.
-7. Use your cores! [README.md:3.b) Using multiple cores/threads](../README.md#b-using-multiple-coresthreads).
+7. Use your cores! [fuzzing_expert.md:b) Using multiple cores](fuzzing_expert.md#b-using-multiple-cores).
 
 ### Improving stability
 

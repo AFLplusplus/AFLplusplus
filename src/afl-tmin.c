@@ -221,7 +221,7 @@ static void read_initial_file(void) {
 
   if (st.st_size >= TMIN_MAX_FILE) {
 
-    FATAL("Input file is too large (%u MB max)", TMIN_MAX_FILE / 1024 / 1024);
+    FATAL("Input file is too large (%ld MB max)", TMIN_MAX_FILE / 1024 / 1024);
 
   }
 
