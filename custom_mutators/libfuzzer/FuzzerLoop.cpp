@@ -1086,6 +1086,7 @@ ATTRIBUTE_INTERFACE size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size,
                                             size_t MaxSize) {
 
   assert(fuzzer::F);
+  fuzzer::F->GetMD().StartMutationSequence();
   size_t r = fuzzer::F->GetMD().DefaultMutate(Data, Size, MaxSize);
 #ifdef  INTROSPECTION
   introspection_ptr = fuzzer::F->GetMD().WriteMutationSequence();

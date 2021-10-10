@@ -59,7 +59,7 @@ GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
 
 AFL_QEMU_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x4000000000)
 
-ifeq "$(ARCH)" "aarch64"
+ifeq "$(ARCH)" "arm64"
  AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000aaaaaaaaa000)
 endif
 
