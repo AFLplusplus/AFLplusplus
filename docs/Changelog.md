@@ -18,6 +18,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix -n dumb mode (nobody should use this)
   - afl-showmap, afl-tmin and afl-analyze now honor persistent mode
     for more speed. thanks to dloffre-snl for reporting!
+  - Prevent accidently killing non-afl/fuzz services when aborting
+    afl-showmap and other tools.
   - afl-cc:
     - fix for shared linking on MacOS
     - llvm and LTO mode verified to work with new llvm 14-dev
