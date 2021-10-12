@@ -45,12 +45,15 @@ typedef long double max_align_t;
 #endif
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
+//#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+//#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -68,17 +71,18 @@ using namespace llvm;
 
 namespace {
 
-class AFLCoverage : public ModulePass {
+//class AFLCoverage : public ModulePass {
+class AFLCoverage : public PassInfoMixin<AFLCoverage> {
 
  public:
-  static char ID;
-  AFLCoverage() : ModulePass(ID) {
+//  static char ID;
+  AFLCoverage() {
 
     initInstrumentList();
 
   }
 
-  bool runOnModule(Module &M) override;
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  protected:
   uint32_t    ngram_size = 0;
@@ -92,7 +96,38 @@ class AFLCoverage : public ModulePass {
 
 }  // namespace
 
-char AFLCoverage::ID = 0;
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION, "AFLCoverage", "v0.1",
+    /* lambda to insert our pass into the pass pipeline. */
+    [](PassBuilder &PB) {
+#if 1
+       using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+       PB.registerOptimizerLastEPCallback(
+         [](ModulePassManager &MPM, OptimizationLevel OL) {
+           MPM.addPass(AFLCoverage());
+         }
+       );
+/* TODO LTO registration */
+#else
+       using PipelineElement = typename PassBuilder::PipelineElement;
+       PB.registerPipelineParsingCallback(
+         [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
+            if ( Name == "AFLCoverage" ) {
+              MPM.addPass(AFLCoverage);
+              return true;
+            } else {
+              return false;
+            }
+         }
+       );
+#endif
+    }
+  };
+}
+
+//char AFLCoverage::ID = 0;
 
 /* needed up to 3.9.0 */
 #if LLVM_VERSION_MAJOR == 3 && \
@@ -118,7 +153,7 @@ uint64_t PowerOf2Ceil(unsigned in) {
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
-bool AFLCoverage::runOnModule(Module &M) {
+PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
   LLVMContext &C = M.getContext();
 
@@ -132,6 +167,8 @@ bool AFLCoverage::runOnModule(Module &M) {
   struct timezone tz;
   u32             rand_seed;
   unsigned int    cur_loc = 0;
+
+  auto PA = PreservedAnalyses::none();
 
   /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
   gettimeofday(&tv, &tz);
@@ -969,10 +1006,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   }
 
-  return true;
+  return PA;
 
 }
-
+#if 0
 static void registerAFLPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
@@ -985,4 +1022,4 @@ static RegisterStandardPasses RegisterAFLPass(
 
 static RegisterStandardPasses RegisterAFLPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerAFLPass);
-
+#endif
