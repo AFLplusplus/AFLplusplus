@@ -176,7 +176,7 @@ llvmGetPassPluginInfo() {
        PB.registerPipelineParsingCallback(
          [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
             if ( Name == "splitcompares" ) {
-              MPM.addPass(SplitComparesTransform);
+              MPM.addPass(SplitComparesTransform());
               return true;
             } else {
               return false;

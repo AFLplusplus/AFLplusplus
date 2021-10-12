@@ -27,11 +27,14 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
+//#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+//#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -54,28 +57,16 @@ using namespace llvm;
 
 namespace {
 
-class SplitSwitchesTransform : public ModulePass {
+class SplitSwitchesTransform : public PassInfoMixin<SplitSwitchesTransform> {
 
  public:
-  static char ID;
-  SplitSwitchesTransform() : ModulePass(ID) {
+  SplitSwitchesTransform() {
 
     initInstrumentList();
 
   }
 
-  bool runOnModule(Module &M) override;
-
-#if LLVM_VERSION_MAJOR >= 4
-  StringRef getPassName() const override {
-
-#else
-  const char *getPassName() const override {
-
-#endif
-    return "splits switch constructs";
-
-  }
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   struct CaseExpr {
 
@@ -103,7 +94,36 @@ class SplitSwitchesTransform : public ModulePass {
 
 }  // namespace
 
-char SplitSwitchesTransform::ID = 0;
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION, "splitswitches", "v0.1",
+    /* lambda to insert our pass into the pass pipeline. */
+    [](PassBuilder &PB) {
+#if 1
+       using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+       PB.registerOptimizerLastEPCallback(
+         [](ModulePassManager &MPM, OptimizationLevel OL) {
+           MPM.addPass(SplitSwitchesTransform());
+         }
+       );
+/* TODO LTO registration */
+#else
+       using PipelineElement = typename PassBuilder::PipelineElement;
+       PB.registerPipelineParsingCallback(
+         [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
+            if ( Name == "splitswitches" ) {
+              MPM.addPass(SplitSwitchesTransform());
+              return true;
+            } else {
+              return false;
+            }
+         }
+       );
+#endif
+    }
+  };
+}
 
 /* switchConvert - Transform simple list of Cases into list of CaseRange's */
 BasicBlock *SplitSwitchesTransform::switchConvert(
@@ -415,19 +435,26 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
 }
 
-bool SplitSwitchesTransform::runOnModule(Module &M) {
+PreservedAnalyses SplitSwitchesTransform::run(Module &M, ModuleAnalysisManager &MAM) {
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     printf("Running split-switches-pass by laf.intel@gmail.com\n");
   else
     be_quiet = 1;
+
+  auto PA = PreservedAnalyses::none();
+
   splitSwitches(M);
   verifyModule(M);
 
-  return true;
+/*  if (modified) {
+    PA.abandon<XX_Manager>();
+  }*/
+
+  return PA;
 
 }
-
+#if 0
 static void registerSplitSwitchesTransPass(const PassManagerBuilder &,
                                            legacy::PassManagerBase &PM) {
 
@@ -447,4 +474,4 @@ static RegisterStandardPasses RegisterSplitSwitchesTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerSplitSwitchesTransPass);
 #endif
-
+#endif

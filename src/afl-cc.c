@@ -460,11 +460,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/split-switches-pass.so", obj_path);
+            alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 
       }
 
@@ -531,11 +529,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
             alloc_printf("%s/cmplog-switches-pass.so", obj_path);
 
         // reuse split switches from laf
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/split-switches-pass.so", obj_path);
+            alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 
       }
 
