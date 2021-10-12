@@ -34,6 +34,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
   - added uninstall target to makefile (todo: update new readme!)
+  - removed indirections in rust callbacks for unicornafl
 
 
 ### Version ++3.14c (release)
