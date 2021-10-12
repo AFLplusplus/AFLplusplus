@@ -1,6 +1,7 @@
 /*
  * Copyright 2016 laf-intel
  * extended for floating point by Heiko Eißfeldt
+ * adapted to new pass manager by Heiko Eißfeldt
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +34,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 //#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+//#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Module.h"
 
@@ -61,7 +62,7 @@ namespace {
 class SplitComparesTransform : public PassInfoMixin<SplitComparesTransform> {
 
  public:
-  static char ID;
+//  static char ID;
   SplitComparesTransform() : enableFPSplit(0) {
 
     initInstrumentList();
@@ -159,7 +160,7 @@ class SplitComparesTransform : public PassInfoMixin<SplitComparesTransform> {
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {
-    LLVM_PLUGIN_API_VERSION, "SplitCompares", "v0.1",
+    LLVM_PLUGIN_API_VERSION, "splitcompares", "v0.1",
     /* lambda to insert our pass into the pass pipeline. */
     [](PassBuilder &PB) {
 #if 1
@@ -187,7 +188,7 @@ llvmGetPassPluginInfo() {
   };
 }
 
-char SplitComparesTransform::ID = 0;
+//char SplitComparesTransform::ID = 0;
 
 /// This function splits FCMP instructions with xGE or xLE predicates into two
 /// FCMP instructions with predicate xGT or xLT and EQ
@@ -700,7 +701,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
   ReplaceInstWithInst(cmp_inst->getParent()->getInstList(), ii, PN);
 
   // We split the comparison into low and high. If this isn't our target
-  // bitwidth we recursivly split the low and high parts again until we have
+  // bitwidth we recursively split the low and high parts again until we have
   // target bitwidth.
   if ((bitw / 2) > target_bitwidth) {
 
@@ -1352,7 +1353,7 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
       getenv("AFL_DEBUG") != NULL) {
 
-    errs() << "Split-compare-pass by laf.intel@gmail.com, extended by "
+    errs() << "Split-compare-newpass by laf.intel@gmail.com, extended by "
               "heiko@hexco.de (splitting icmp to "
            << target_bitwidth << " bit)\n";
 
@@ -1364,7 +1365,7 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
 
   }
 
-  auto PA = PreservedAnalyses::all();
+  auto PA = PreservedAnalyses::none();
 
   if (enableFPSplit) {
 
@@ -1445,6 +1446,11 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
                 nullptr, M);
     StripDebugInfo(M);
 
+  }
+
+  if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
+      getenv("AFL_DEBUG") != NULL) {
+    errs() << count << " comparisons found\n";
   }
 
 /*  if (modified) {
