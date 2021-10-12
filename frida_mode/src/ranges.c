@@ -549,18 +549,19 @@ static GArray *merge_ranges(GArray *a) {
 
 }
 
+void ranges_print_debug_maps(void) {
+
+  gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback, NULL);
+
+}
+
 void ranges_config(void) {
 
   if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) { ranges_debug_maps = TRUE; }
   if (getenv("AFL_INST_LIBS") != NULL) { ranges_inst_libs = TRUE; }
   if (getenv("AFL_FRIDA_INST_JIT") != NULL) { ranges_inst_jit = TRUE; }
 
-  if (ranges_debug_maps) {
-
-    gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback,
-                                 NULL);
-
-  }
+  if (ranges_debug_maps) { ranges_print_debug_maps(); }
 
   include_ranges = collect_ranges("AFL_FRIDA_INST_RANGES");
   exclude_ranges = collect_ranges("AFL_FRIDA_EXCLUDE_RANGES");
