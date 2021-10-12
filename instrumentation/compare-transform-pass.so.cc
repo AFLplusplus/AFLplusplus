@@ -26,7 +26,10 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
+//#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -52,28 +55,16 @@ using namespace llvm;
 
 namespace {
 
-class CompareTransform : public ModulePass {
+class CompareTransform : public PassInfoMixin<CompareTransform> {
 
  public:
-  static char ID;
-  CompareTransform() : ModulePass(ID) {
+  CompareTransform() {
 
     initInstrumentList();
 
   }
 
-  bool runOnModule(Module &M) override;
-
-#if LLVM_VERSION_MAJOR < 4
-  const char *getPassName() const override {
-
-#else
-  StringRef      getPassName() const override {
-
-#endif
-    return "transforms compare functions";
-
-  }
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
@@ -85,7 +76,37 @@ class CompareTransform : public ModulePass {
 
 }  // namespace
 
-char CompareTransform::ID = 0;
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION, "comparetransform", "v0.1",
+    /* lambda to insert our pass into the pass pipeline. */
+    [](PassBuilder &PB) {
+#if 1
+       using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+       PB.registerOptimizerLastEPCallback(
+         [](ModulePassManager &MPM, OptimizationLevel OL) {
+           MPM.addPass(CompareTransform());
+         }
+       );
+/* TODO LTO registration */
+#else
+       using PipelineElement = typename PassBuilder::PipelineElement;
+       PB.registerPipelineParsingCallback(
+         [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
+            if ( Name == "comparetransform" ) {
+              MPM.addPass(CompareTransform);
+              return true;
+            } else {
+              return false;
+            }
+         }
+       );
+#endif
+    }
+  };
+}
+
 
 bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                                      const bool processMemcmp,
@@ -592,7 +613,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
 }
 
-bool CompareTransform::runOnModule(Module &M) {
+PreservedAnalyses CompareTransform::run(Module &M, ModuleAnalysisManager &MAM) {
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     printf(
@@ -601,13 +622,22 @@ bool CompareTransform::runOnModule(Module &M) {
   else
     be_quiet = 1;
 
+  auto PA = PreservedAnalyses::none();
+
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 
-  return true;
+/*  if (modified) {
+    PA.abandon<XX_Manager>();
+  }*/
+
+  return PA;
+
+//  return true;
 
 }
 
+#if 0
 static void registerCompTransPass(const PassManagerBuilder &,
                                   legacy::PassManagerBase &PM) {
 
@@ -625,5 +655,6 @@ static RegisterStandardPasses RegisterCompTransPass0(
 #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerCompTransPass);
+#endif
 #endif
 
