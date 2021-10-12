@@ -31,7 +31,8 @@ AFL_CFLAGS:=-Wno-unused-parameter \
 LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv \
-		 -ldl
+		 -ldl \
+		 -lrt
 
 ifdef DEBUG
 CFLAGS+=-Werror \
