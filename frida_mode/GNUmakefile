@@ -30,9 +30,7 @@ AFL_CFLAGS:=-Wno-unused-parameter \
 
 LDFLAGS+=-shared \
 		 -lpthread \
-		 -lresolv \
-		 -ldl \
-		 -lrt
+		 -lresolv
 
 ifdef DEBUG
 CFLAGS+=-Werror \
@@ -72,7 +70,9 @@ ifdef DEBUG
 endif
 LDFLAGS+=	-z noexecstack \
 			-Wl,--gc-sections \
-			-Wl,--exclude-libs,ALL
+			-Wl,--exclude-libs,ALL \
+		    -ldl \
+		    -lrt
 LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
