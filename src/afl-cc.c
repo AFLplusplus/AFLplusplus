@@ -500,12 +500,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-//        cc_params[cc_par_cnt++] = "-Xclang";
-//        cc_params[cc_par_cnt++] = "-load";
-//        cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/split-compares-pass.so", obj_path);
+//        cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
 
       }
 
@@ -629,10 +627,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+        cc_params[cc_par_cnt++] = alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
 
       }
 
