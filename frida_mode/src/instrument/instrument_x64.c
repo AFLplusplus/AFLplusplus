@@ -1,9 +1,12 @@
 #include <fcntl.h>
 #include <stddef.h>
-#include <asm/prctl.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
 #include <sys/shm.h>
+
+#if defined(__linux__)
+#include <asm/prctl.h>
+#include <sys/syscall.h>
+#endif
 
 #include "frida-gumjs.h"
 
