@@ -1,4 +1,9 @@
+#include <fcntl.h>
 #include <stddef.h>
+#include <asm/prctl.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/shm.h>
 
 #include "frida-gumjs.h"
 
@@ -6,125 +11,9 @@
 #include "debug.h"
 
 #include "instrument.h"
+#include "ranges.h"
 
 #if defined(__x86_64__)
-
-static GumAddress current_log_impl = GUM_ADDRESS(0);
-
-  #pragma pack(push, 1)
-
-typedef struct {
-
-  /*
-   * pushfq
-   * push rdx
-   * mov rdx, [&previouspc] (rip relative addr)
-   * xor rdx, rdi (current_pc)
-   * shr rdi. 1
-   * mov [&previouspc], rdi
-   * lea rsi, [&_afl_area_ptr] (rip relative)
-   * add rdx, rsi
-   * add byte ptr [rdx], 1
-   * adc byte ptr [rdx], 0
-
-   * pop rdx
-   * popfq
-   */
-  uint8_t push_fq;
-  uint8_t push_rdx;
-  uint8_t mov_rdx_rip_off[7];
-  uint8_t xor_rdx_rdi[3];
-  uint8_t shr_rdi[3];
-  uint8_t mov_rip_off_rdi[7];
-
-  uint8_t lea_rdi_rip_off[7];
-  uint8_t add_rdx_rdi[3];
-  uint8_t add_byte_ptr_rdx[3];
-  uint8_t adc_byte_ptr_rdx[3];
-
-  uint8_t pop_rdx;
-  uint8_t pop_fq;
-  uint8_t ret;
-
-} afl_log_code_asm_t;
-
-  #pragma pack(pop)
-
-  #pragma pack(push, 8)
-typedef struct {
-
-  afl_log_code_asm_t assembly;
-  uint64_t           current_pc;
-
-} afl_log_code_t;
-
-  #pragma pack(pop)
-
-typedef union {
-
-  afl_log_code_t data;
-  uint8_t        bytes[0];
-
-} afl_log_code;
-
-static const afl_log_code_asm_t template = {
-
-    .push_fq = 0x9c,
-    .push_rdx = 0x52,
-    .mov_rdx_rip_off =
-        {
-
-            0x48, 0x8b, 0x15,
-            /* TBC */
-
-        },
-
-    .xor_rdx_rdi =
-        {
-
-            0x48,
-            0x31,
-            0xfa,
-
-        },
-
-    .shr_rdi = {0x48, 0xd1, 0xef},
-    .mov_rip_off_rdi = {0x48, 0x89, 0x3d},
-
-    .lea_rdi_rip_off =
-        {
-
-            0x48,
-            0x8d,
-            0x3d,
-
-        },
-
-    .add_rdx_rdi = {0x48, 0x01, 0xfA},
-
-    .add_byte_ptr_rdx =
-        {
-
-            0x80,
-            0x02,
-            0x01,
-
-        },
-
-    .adc_byte_ptr_rdx =
-        {
-
-            0x80,
-            0x12,
-            0x00,
-
-        },
-
-    .pop_rdx = 0x5a,
-    .pop_fq = 0x9d,
-    .ret = 0xc3};
-
-static guint8 align_pad[] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
 
 gboolean instrument_is_coverage_optimize_supported(void) {
 
@@ -138,113 +27,258 @@ static gboolean instrument_coverage_in_range(gssize offset) {
 
 }
 
-static void instrument_coverate_write_function(GumStalkerOutput *output) {
+  #pragma pack(push, 1)
+typedef struct {
 
-  guint64       misalign = 0;
-  GumX86Writer *cw = output->writer.x86;
-  GumAddress    code_addr = 0;
-  afl_log_code  code = {0};
-  /*guint64       instrument_hash_zero = 0;*/
+  // cur_location = (block_address >> 4) ^ (block_address << 8);
+  // shared_mem[cur_location ^ prev_location]++;
+  // prev_location = cur_location >> 1;
 
-  if (current_log_impl == 0 ||
-      !gum_x86_writer_can_branch_directly_between(cw->pc, current_log_impl) ||
-      !gum_x86_writer_can_branch_directly_between(cw->pc + 128,
-                                                  current_log_impl)) {
+  // => 0x7ffff6cfb086:      lea    rsp,[rsp-0x80]
+  //    0x7ffff6cfb08b:      pushf
+  //    0x7ffff6cfb08c:      push   rsi
+  //    0x7ffff6cfb08d:      mov    rsi,0x228
+  //    0x7ffff6cfb094:      xchg   QWORD PTR [rip+0x3136a5],rsi        # 0x7ffff700e740
+  //    0x7ffff6cfb09b:      xor    rsi,0x451
+  //    0x7ffff6cfb0a2:      add    BYTE PTR [rsi+0x10000],0x1
+  //    0x7ffff6cfb0a9:      adc    BYTE PTR [rsi+0x10000],0x0
+  //    0x7ffff6cfb0b0:      pop    rsi
+  //    0x7ffff6cfb0b1:      popf
+  //    0x7ffff6cfb0b2:      lea    rsp,[rsp+0x80]
 
-    gconstpointer after_log_impl = cw->code + 1;
 
-    gum_x86_writer_put_jmp_near_label(cw, after_log_impl);
+  uint8_t lea_rsp_rsp_sub_rz[5];
+  uint8_t push_fq;
+  uint8_t push_rsi;
 
-    misalign = (cw->pc & 0x7);
-    if (misalign != 0) {
+  uint8_t mov_rsi_curr_loc_shr_1[7];
+  uint8_t xchg_rsi_prev_loc_curr_loc[7];
+  uint8_t xor_rsi_curr_loc[7];
 
-      gum_x86_writer_put_bytes(cw, align_pad, 8 - misalign);
+  uint8_t add_rsi_1[7];
+  uint8_t adc_rsi_0[7];
 
-    }
+  uint8_t pop_rsi;
+  uint8_t pop_fq;
+  uint8_t lsa_rsp_rsp_add_rz[8];
 
-    current_log_impl = cw->pc;
-    // gum_x86_writer_put_breakpoint(cw);
-    code_addr = cw->pc;
+} afl_log_code_asm_t;
 
-    code.data.assembly = template;
-    code.data.current_pc = instrument_get_offset_hash(0);
+  #pragma pack(pop)
 
-    gssize current_pc_value1 =
-        GPOINTER_TO_SIZE(&instrument_previous_pc) -
-        (code_addr + offsetof(afl_log_code, data.assembly.mov_rdx_rip_off) +
-         sizeof(code.data.assembly.mov_rdx_rip_off));
-    gssize patch_offset1 =
-        offsetof(afl_log_code, data.assembly.mov_rdx_rip_off) +
-        sizeof(code.data.assembly.mov_rdx_rip_off) - sizeof(gint);
-    if (!instrument_coverage_in_range(current_pc_value1)) {
+typedef union {
 
-      FATAL("Patch out of range (current_pc_value1): 0x%016lX",
-            current_pc_value1);
+  afl_log_code_asm_t code;
+  uint8_t            bytes[0];
 
-    }
+} afl_log_code;
 
-    gint *dst_pc_value = (gint *)&code.bytes[patch_offset1];
-    *dst_pc_value = (gint)current_pc_value1;
+static const afl_log_code_asm_t template =
+    {
 
-    gssize current_pc_value2 =
-        GPOINTER_TO_SIZE(&instrument_previous_pc) -
-        (code_addr + offsetof(afl_log_code, data.assembly.mov_rip_off_rdi) +
-         sizeof(code.data.assembly.mov_rip_off_rdi));
-    gssize patch_offset2 =
-        offsetof(afl_log_code, data.assembly.mov_rip_off_rdi) +
-        sizeof(code.data.assembly.mov_rip_off_rdi) - sizeof(gint);
+        .lea_rsp_rsp_sub_rz = {0x48, 0x8D, 0x64, 0x24, 0x80},
+        .push_fq = 0x9c,
+        .push_rsi = 0x56,
 
-    if (!instrument_coverage_in_range(current_pc_value2)) {
+        .mov_rsi_curr_loc_shr_1 = {0x48, 0xC7, 0xC6},
+        .xchg_rsi_prev_loc_curr_loc = {0x48, 0x87, 0x35},
+        .xor_rsi_curr_loc = {0x48, 0x81, 0xF6},
 
-      FATAL("Patch out of range (current_pc_value2): 0x%016lX",
-            current_pc_value2);
+        .add_rsi_1 = {0x80, 0x86, 0x00, 0x00, 0x00, 0x00, 0x01},
+        .adc_rsi_0 = {0x80, 0x96, 0x00, 0x00, 0x00, 0x00, 0x00},
 
-    }
+        .pop_rsi = 0x5E,
+        .pop_fq = 0x9D,
+        .lsa_rsp_rsp_add_rz = {0x48, 0x8D, 0xA4, 0x24, 0x80, 0x00, 0x00, 0x00},
 
-    dst_pc_value = (gint *)&code.bytes[patch_offset2];
-    *dst_pc_value = (gint)current_pc_value2;
+}
 
-    gsize afl_area_ptr_value =
-        GPOINTER_TO_SIZE(__afl_area_ptr) -
-        (code_addr + offsetof(afl_log_code, data.assembly.lea_rdi_rip_off) +
-         sizeof(code.data.assembly.lea_rdi_rip_off));
-    gssize afl_area_ptr_offset =
-        offsetof(afl_log_code, data.assembly.lea_rdi_rip_off) +
-        sizeof(code.data.assembly.lea_rdi_rip_off) - sizeof(gint);
+;
 
-    if (!instrument_coverage_in_range(afl_area_ptr_value)) {
+static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
+                                             gpointer               user_data) {
 
-      FATAL("Patch out of range (afl_area_ptr_value): 0x%016lX",
-            afl_area_ptr_value);
+  static GumAddress last_limit = (64ULL << 10);
+  gpointer *        address = (gpointer *)user_data;
 
-    }
+  if ((details->range->base_address - last_limit) > __afl_map_size) {
 
-    gint *dst_afl_area_ptr_value = (gint *)&code.bytes[afl_area_ptr_offset];
-    *dst_afl_area_ptr_value = (gint)afl_area_ptr_value;
-
-    gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
-
-    gum_x86_writer_put_label(cw, after_log_impl);
+    *address = GSIZE_TO_POINTER(last_limit);
+    return FALSE;
 
   }
+
+  if (details->range->base_address > ((2ULL << 20) - __afl_map_size)) {
+
+    return FALSE;
+
+  }
+
+  last_limit = details->range->base_address + details->range->size;
+  return TRUE;
+
+}
+
+static void instrument_coverage_optimize_map_mmap_anon(gpointer address) {
+
+  __afl_area_ptr =
+      mmap(address, __afl_map_size, PROT_READ | PROT_WRITE,
+           MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if (__afl_area_ptr != address) {
+
+    FATAL("Failed to map mmap __afl_area_ptr: %d", errno);
+
+  }
+
+}
+
+static void instrument_coverage_optimize_map_mmap(char *   shm_file_path,
+                                                  gpointer address) {
+
+  int shm_fd = -1;
+
+  if (munmap(__afl_area_ptr, __afl_map_size) != 0) {
+
+    FATAL("Failed to unmap previous __afl_area_ptr");
+
+  }
+
+  __afl_area_ptr = NULL;
+
+  shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+  if (shm_fd == -1) { FATAL("shm_open() failed\n"); }
+
+  __afl_area_ptr = mmap(address, __afl_map_size, PROT_READ | PROT_WRITE,
+                        MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
+  if (__afl_area_ptr != address) {
+
+    FATAL("Failed to map mmap __afl_area_ptr: %d", errno);
+
+  }
+
+  if (close(shm_fd) != 0) { FATAL("Failed to close shm_fd"); }
+
+}
+
+static void instrument_coverage_optimize_map_shm(guint64  shm_env_val,
+                                                 gpointer address) {
+
+  if (shmdt(__afl_area_ptr) != 0) {
+
+    FATAL("Failed to detach previous __afl_area_ptr");
+
+  }
+
+  __afl_area_ptr = shmat(shm_env_val, address, 0);
+  if (__afl_area_ptr != address) {
+
+    FATAL("Failed to map shm __afl_area_ptr: %d", errno);
+
+  }
+
+}
+
+void instrument_coverage_optimize_init(void) {
+
+  gpointer low_address = NULL;
+
+  gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, instrument_coverage_find_low,
+                               &low_address);
+
+  OKF("Low address: %p", low_address);
+
+  if (low_address == 0 ||
+      GPOINTER_TO_SIZE(low_address) > ((2UL << 20) - __afl_map_size)) {
+
+    FATAL("Invalid low_address: %p", low_address);
+
+  }
+
+  ranges_print_debug_maps();
+
+  char *shm_env = getenv(SHM_ENV_VAR);
+  OKF("SHM_ENV_VAR: %s", shm_env);
+
+  if (shm_env == NULL) {
+
+    WARNF("SHM_ENV_VAR not set, using anonymous map for debugging purposes");
+
+    instrument_coverage_optimize_map_mmap_anon(low_address);
+
+  } else {
+
+    guint64 shm_env_val = g_ascii_strtoull(shm_env, NULL, 10);
+
+    if (shm_env_val == 0) {
+
+      instrument_coverage_optimize_map_mmap(shm_env, low_address);
+
+    } else {
+
+      instrument_coverage_optimize_map_shm(shm_env_val, low_address);
+
+    }
+
+  }
+
+  OKF("__afl_area_ptr: %p", __afl_area_ptr);
+  OKF("instrument_previous_pc: %p", &instrument_previous_pc);
 
 }
 
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
 
+  afl_log_code  code = {0};
   GumX86Writer *cw = output->writer.x86;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
-  instrument_coverate_write_function(output);
+  GumAddress code_addr = 0;
 
-  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
-                                        -GUM_RED_ZONE_SIZE);
-  gum_x86_writer_put_push_reg(cw, GUM_REG_RDI);
-  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_RDI, area_offset);
-  gum_x86_writer_put_call_address(cw, current_log_impl);
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_RDI);
-  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP,
-                                        GUM_RED_ZONE_SIZE);
+  // gum_x86_writer_put_breakpoint(cw);
+  code_addr = cw->pc;
+  code.code = template;
+
+  gssize curr_loc_shr_1_offset =
+      offsetof(afl_log_code, code.mov_rsi_curr_loc_shr_1) +
+      sizeof(code.code.mov_rsi_curr_loc_shr_1) - sizeof(guint32);
+
+  *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) =
+      (guint32)(area_offset >> 1);
+
+  gssize prev_loc_value =
+      GPOINTER_TO_SIZE(&instrument_previous_pc) -
+      (code_addr + offsetof(afl_log_code, code.xchg_rsi_prev_loc_curr_loc) +
+       sizeof(code.code.xchg_rsi_prev_loc_curr_loc));
+  gssize prev_loc_value_offset =
+      offsetof(afl_log_code, code.xchg_rsi_prev_loc_curr_loc) +
+      sizeof(code.code.xchg_rsi_prev_loc_curr_loc) - sizeof(gint);
+  if (!instrument_coverage_in_range(prev_loc_value)) {
+
+    FATAL("Patch out of range (current_pc_value1): 0x%016lX", prev_loc_value);
+
+  }
+
+  *((gint *)&code.bytes[prev_loc_value_offset]) = (gint)prev_loc_value;
+
+  gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_rsi_curr_loc) +
+                               sizeof(code.code.xor_rsi_curr_loc) -
+                               sizeof(guint32);
+
+  *((guint32 *)&code.bytes[xor_curr_loc_offset]) = (guint32)(area_offset);
+
+  gssize add_rsi_1_offset = offsetof(afl_log_code, code.add_rsi_1) +
+                            sizeof(code.code.add_rsi_1) - sizeof(guint32) - 1;
+
+  *((guint32 *)&code.bytes[add_rsi_1_offset]) =
+      (guint32)GPOINTER_TO_SIZE(__afl_area_ptr);
+
+  gssize adc_rsi_0_ffset = offsetof(afl_log_code, code.adc_rsi_0) +
+                           sizeof(code.code.adc_rsi_0) - sizeof(guint32) - 1;
+
+  *((guint32 *)&code.bytes[adc_rsi_0_ffset]) =
+      (guint32)GPOINTER_TO_SIZE(__afl_area_ptr);
+
+  gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
 
 }
 
