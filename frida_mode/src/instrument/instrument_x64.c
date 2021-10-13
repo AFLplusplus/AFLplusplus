@@ -18,6 +18,14 @@
 
 #if defined(__x86_64__)
 
+#ifndef MAP_FIXED_NOREPLACE
+  #ifdef MAP_EXCL
+    #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
+  #else
+    #define MAP_FIXED_NOREPLACE MAP_FIXED
+  #endif
+#endif
+
 gboolean instrument_is_coverage_optimize_supported(void) {
 
   return true;
