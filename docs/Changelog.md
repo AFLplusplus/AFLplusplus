@@ -16,6 +16,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix a regression introduced in 3.10 that resulted in less
       coverage being detected. thanks to Collin May for reporting!
     - fix -n dumb mode (nobody should use this)
+    - fix stability issue with LTO and cmplog
   - afl-showmap, afl-tmin and afl-analyze now honor persistent mode
     for more speed. thanks to dloffre-snl for reporting!
   - Prevent accidently killing non-afl/fuzz services when aborting
