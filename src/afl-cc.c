@@ -460,10 +460,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
-
+#else
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/split-switches-pass.so", obj_path);
+#endif
       }
 
     }
@@ -478,9 +485,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/compare-transform-pass.so", obj_path);
+#else
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/compare-transform-pass.so", obj_path);
+#endif
 
       }
 
@@ -496,10 +511,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
+#if LLVM_MAJOR >= 7
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/split-compares-pass.so", obj_path);
 //        cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+#else
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/split-compares-pass.so", obj_path);
+#endif
 
       }
 
@@ -529,9 +552,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
             alloc_printf("%s/cmplog-switches-pass.so", obj_path);
 
         // reuse split switches from laf
+#if LLVM_MAJOR >= 7
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
+#else
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/split-switches-pass.so", obj_path);
+#endif
 
       }
 
@@ -541,7 +572,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #if LLVM_MAJOR >= 13
     // fuck you llvm 13
-//    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
 #endif
 
     if (lto_mode && !have_c) {
@@ -621,9 +652,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
+#if LLVM_MAJOR >= 7
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] = alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
-
+#else
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+#endif
       }
 
     }
