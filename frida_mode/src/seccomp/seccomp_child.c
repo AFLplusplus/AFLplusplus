@@ -1,4 +1,4 @@
-#ifndef __APPLE__
+#if defined(__linux__) && !defined(__ANDROID__)
 
   #include <fcntl.h>
   #include <sched.h>

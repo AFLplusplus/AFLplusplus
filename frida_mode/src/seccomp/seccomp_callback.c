@@ -1,4 +1,4 @@
-#ifndef __APPLE__
+#if defined(__linux__) && !defined(__ANDROID__)
 
   #include <execinfo.h>
   #include <fcntl.h>

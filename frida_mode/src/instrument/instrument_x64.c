@@ -4,8 +4,12 @@
 #include <sys/shm.h>
 
 #if defined(__linux__)
+#if !defined(__ANDROID__)
 #include <asm/prctl.h>
 #include <sys/syscall.h>
+#else
+#include <linux/ashmem.h>
+#endif
 #endif
 
 #include "frida-gumjs.h"
@@ -156,8 +160,16 @@ static void instrument_coverage_optimize_map_mmap(char *   shm_file_path,
 
   __afl_area_ptr = NULL;
 
+#if !defined(__ANDROID__)
   shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
   if (shm_fd == -1) { FATAL("shm_open() failed\n"); }
+#else
+  shm_fd = open("/dev/ashmem", O_RDWR);
+  if (shm_fd == -1) { FATAL("open() failed\n"); }
+  if (ioctl(shm_fd, ASHMEM_SET_NAME, shm_file_path) == -1) { FATAL("ioctl(ASHMEM_SET_NAME) failed"); }
+  if (ioctl(shm_fd, ASHMEM_SET_SIZE, __afl_map_size) == -1) { FATAL("ioctl(ASHMEM_SET_SIZE) failed"); }
+
+#endif
 
   __afl_area_ptr = mmap(address, __afl_map_size, PROT_READ | PROT_WRITE,
                         MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
