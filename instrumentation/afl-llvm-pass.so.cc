@@ -76,8 +76,8 @@ namespace {
 
 #if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
 class AFLCoverage : public PassInfoMixin<AFLCoverage> {
-  AFLCoverage() {
  public:
+  AFLCoverage() {
 #else
 class AFLCoverage : public ModulePass {
  public:
