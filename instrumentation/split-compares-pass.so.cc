@@ -30,11 +30,14 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if LLVM_MAJOR >= 7
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
-//#include "llvm/IR/LegacyPassManager.h"
-//#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#else
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Module.h"
 
@@ -58,17 +61,26 @@ using namespace llvm;
 
 namespace {
 
-//class SplitComparesTransform : public ModulePass {
+#if LLVM_MAJOR >= 7
 class SplitComparesTransform : public PassInfoMixin<SplitComparesTransform> {
-
  public:
 //  static char ID;
   SplitComparesTransform() : enableFPSplit(0) {
+#else
+class SplitComparesTransform : public ModulePass {
+ public:
+  static char ID;
+  SplitComparesTransform() : ModulePass(ID), enableFPSplit(0) {
+#endif
 
     initInstrumentList();
   }
 
+#if LLVM_MAJOR >= 7
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#else
+  bool runOnModule(Module &M) override;
+#endif
 
  private:
   int enableFPSplit;
@@ -157,6 +169,7 @@ class SplitComparesTransform : public PassInfoMixin<SplitComparesTransform> {
 
 }  // namespace
 
+#if LLVM_MAJOR >= 7
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {
@@ -187,8 +200,9 @@ llvmGetPassPluginInfo() {
     }
   };
 }
-
-//char SplitComparesTransform::ID = 0;
+#else
+char SplitComparesTransform::ID = 0;
+#endif
 
 /// This function splits FCMP instructions with xGE or xLE predicates into two
 /// FCMP instructions with predicate xGT or xLT and EQ
@@ -1342,7 +1356,11 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
 }
 
+#if LLVM_MAJOR >= 7
 PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &MAM) {
+#else
+bool SplitComparesTransform::runOnModule(Module &M) {
+#endif
 
   char *bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
   if (!bitw_env) bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
@@ -1365,7 +1383,9 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
 
   }
 
+#if LLVM_MAJOR >= 7
   auto PA = PreservedAnalyses::all();
+#endif
 
   if (enableFPSplit) {
 
@@ -1399,7 +1419,13 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
 
           auto op0 = CI->getOperand(0);
           auto op1 = CI->getOperand(1);
-          if (!op0 || !op1) { return PA; }
+          if (!op0 || !op1) {
+#if LLVM_MAJOR >= 7
+            return PA;
+#else
+            return false;
+#endif
+          }
           auto iTy1 = dyn_cast<IntegerType>(op0->getType());
           if (iTy1 && isa<IntegerType>(op1->getType())) {
 
@@ -1453,14 +1479,20 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
     errs() << count << " comparisons found\n";
   }
 
+#if LLVM_MAJOR >= 7
 /*  if (modified) {
     PA.abandon<XX_Manager>();
   }*/
 
   return PA;
+#else
+  return true;
+#endif
 
 }
-#if 0
+
+#if LLVM_MAJOR < 7 /* use old pass manager */
+
 static void registerSplitComparesPass(const PassManagerBuilder &,
                                       legacy::PassManagerBase &PM) {
 

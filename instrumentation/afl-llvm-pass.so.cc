@@ -45,15 +45,18 @@ typedef long double max_align_t;
 #endif
 
 #include "llvm/IR/IRBuilder.h"
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
-//#include "llvm/IR/LegacyPassManager.h"
+#else
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
-//#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -71,18 +74,26 @@ using namespace llvm;
 
 namespace {
 
-//class AFLCoverage : public ModulePass {
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
 class AFLCoverage : public PassInfoMixin<AFLCoverage> {
-
- public:
-//  static char ID;
   AFLCoverage() {
+ public:
+#else
+class AFLCoverage : public ModulePass {
+ public:
+  static char ID;
+  AFLCoverage() : ModulePass(ID) {
+#endif
 
     initInstrumentList();
 
   }
 
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#else
+  bool runOnModule(Module &M) override;
+#endif
 
  protected:
   uint32_t    ngram_size = 0;
@@ -96,6 +107,7 @@ class AFLCoverage : public PassInfoMixin<AFLCoverage> {
 
 }  // namespace
 
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {
@@ -126,8 +138,10 @@ llvmGetPassPluginInfo() {
     }
   };
 }
+#else
 
-//char AFLCoverage::ID = 0;
+char AFLCoverage::ID = 0;
+#endif
 
 /* needed up to 3.9.0 */
 #if LLVM_VERSION_MAJOR == 3 && \
@@ -153,7 +167,13 @@ uint64_t PowerOf2Ceil(unsigned in) {
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
+
+
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
 PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
+#else
+bool AFLCoverage::runOnModule(Module &M) {
+#endif
 
   LLVMContext &C = M.getContext();
 
@@ -168,7 +188,9 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
   u32             rand_seed;
   unsigned int    cur_loc = 0;
 
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
   auto PA = PreservedAnalyses::all();
+#endif
 
   /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
   gettimeofday(&tv, &tz);
@@ -1006,10 +1028,15 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
   }
 
+#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
   return PA;
+#else
+  return true;
+#endif
 
 }
-#if 0
+
+#if LLVM_VERSION_MAJOR < 7 /* use old pass manager */
 static void registerAFLPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
