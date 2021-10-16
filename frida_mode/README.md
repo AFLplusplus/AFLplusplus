@@ -55,6 +55,20 @@ tests in 32-bit mode, run `make ARCH=x86 frida`. When switching between
 architectures it may be necessary to run `make clean` first for a given build
 target to remove previously generated binaries for a different architecture.
 
+### Android
+
+In order to build, you need to download the Android SDK.
+
+```
+https://developer.android.com/ndk/downloads
+```
+
+Then creating locally a standalone chain as follow.
+
+```
+https://developer.android.com/ndk/guides/standalone_toolchain
+```
+
 ## Usage
 
 FRIDA mode added some small modifications to `afl-fuzz` and similar tools
