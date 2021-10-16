@@ -1365,7 +1365,7 @@ PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &
 
   }
 
-  auto PA = PreservedAnalyses::none();
+  auto PA = PreservedAnalyses::all();
 
   if (enableFPSplit) {
 

@@ -115,7 +115,7 @@ llvmGetPassPluginInfo() {
        PB.registerPipelineParsingCallback(
          [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
             if ( Name == "AFLCoverage" ) {
-              MPM.addPass(AFLCoverage);
+              MPM.addPass(AFLCoverage());
               return true;
             } else {
               return false;
@@ -168,7 +168,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
   u32             rand_seed;
   unsigned int    cur_loc = 0;
 
-  auto PA = PreservedAnalyses::none();
+  auto PA = PreservedAnalyses::all();
 
   /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
   gettimeofday(&tv, &tz);
