@@ -95,7 +95,7 @@ llvmGetPassPluginInfo() {
        PB.registerPipelineParsingCallback(
          [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
             if ( Name == "comparetransform" ) {
-              MPM.addPass(CompareTransform);
+              MPM.addPass(CompareTransform());
               return true;
             } else {
               return false;
@@ -622,7 +622,7 @@ PreservedAnalyses CompareTransform::run(Module &M, ModuleAnalysisManager &MAM) {
   else
     be_quiet = 1;
 
-  auto PA = PreservedAnalyses::none();
+  auto PA = PreservedAnalyses::all();
 
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);

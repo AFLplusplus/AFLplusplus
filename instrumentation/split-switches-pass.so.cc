@@ -442,7 +442,7 @@ PreservedAnalyses SplitSwitchesTransform::run(Module &M, ModuleAnalysisManager &
   else
     be_quiet = 1;
 
-  auto PA = PreservedAnalyses::none();
+  auto PA = PreservedAnalyses::all();
 
   splitSwitches(M);
   verifyModule(M);
