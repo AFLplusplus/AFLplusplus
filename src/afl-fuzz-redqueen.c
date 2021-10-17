@@ -45,6 +45,23 @@ enum {
 
 };
 
+// add to dictionary enum
+// DEFAULT = 1, notTXT = 2, FOUND = 4, notSAME = 8
+enum {
+
+  DICT_ADD_NEVER = 0,
+  DICT_ADD_NOTFOUND_SAME_TXT = 1,
+  DICT_ADD_NOTFOUND_SAME = 3,
+  DICT_ADD_FOUND_SAME_TXT = 5,
+  DICT_ADD_FOUND_SAME = 7,
+  DICT_ADD_NOTFOUND_TXT = 9,
+  DICT_ADD_NOTFOUND = 11,
+  DICT_ADD_FOUND_TXT = 13,
+  DICT_ADD_FOUND = 15,
+  DICT_ADD_ANY = DICT_ADD_FOUND
+
+};
+
 // CMPLOG LVL
 enum {
 
@@ -53,6 +70,8 @@ enum {
   LVL3 = 4   // expensive tranformations
 
 };
+
+#define DICT_ADD_STRATEGY DICT_ADD_FOUND_SAME
 
 struct range {
 
@@ -1246,11 +1265,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  if (!(attr & (IS_GREATER | IS_LESSER)) || hshape < 4) {
-
-    return 0;
-
-  }
+  if (!(attr & (IS_GREATER | IS_LESSER)) || hshape < 4) { return 0; }
 
   // transform >= to < and <= to >
   if ((attr & IS_EQUAL) && (attr & (IS_GREATER | IS_LESSER))) {
@@ -1487,9 +1502,9 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
       if (unlikely(cmp_extend_encodingN(
               afl, h, SWAPN(pattern, (hshape << 3)), SWAPN(repl, (hshape << 3)),
-              SWAPN(o_pattern, (hshape << 3)), SWAPN(changed_val, (hshape << 3)),
-              attr, idx, taint_len, orig_buf, buf, cbuf, len, 0, lvl,
-              status))) {
+              SWAPN(o_pattern, (hshape << 3)),
+              SWAPN(changed_val, (hshape << 3)), attr, idx, taint_len, orig_buf,
+              buf, cbuf, len, 0, lvl, status))) {
 
         return 1;
 
@@ -1682,8 +1697,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 #ifdef _DEBUG
     fprintf(stderr, "Handling: %llx->%llx vs %llx->%llx attr=%u shape=%u\n",
-            orig_o->v0, o->v0, orig_o->v1, o->v1, h->attribute,
-            hshape);
+            orig_o->v0, o->v0, orig_o->v1, o->v1, h->attribute, hshape);
 #endif
 
     t = taint;
@@ -1836,26 +1850,39 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
             is_n, hshape);
 #endif
 
-    // If failed, add to dictionary
-    if (!found_one) {
-
-      if (afl->pass_stats[key].total == 0) {
+    u8 same0 = 0, same1 = 0, result = 1 + 2 + (found_one << 2);
+    if (o->v0 != orig_o->v0) { same0 = 8; }
+    if (o->v1 != orig_o->v1) { same1 = 8; }
 
 #ifdef WORD_SIZE_64
-        if (unlikely(is_n)) {
+    if (unlikely(is_n)) {
 
-          try_to_add_to_dictN(afl, s128_v0, hshape);
-          try_to_add_to_dictN(afl, s128_v1, hshape);
+      if (DICT_ADD_STRATEGY >= same0 + result) {
 
-        } else
+        try_to_add_to_dictN(afl, s128_v0, hshape);
+
+      }
+
+      if (DICT_ADD_STRATEGY >= same1 + result) {
+
+        try_to_add_to_dictN(afl, s128_v1, hshape);
+
+      }
+
+    } else
 
 #endif
-        {
+    {
 
-          try_to_add_to_dict(afl, o->v0, hshape);
-          try_to_add_to_dict(afl, o->v1, hshape);
+      if (DICT_ADD_STRATEGY >= same0 + result) {
 
-        }
+        try_to_add_to_dict(afl, o->v0, hshape);
+
+      }
+
+      if (DICT_ADD_STRATEGY >= same1 + result) {
+
+        try_to_add_to_dict(afl, o->v1, hshape);
 
       }
 
@@ -1885,8 +1912,9 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 }
 
-static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
-                              u8 *o_pattern, u8 *changed_val, u8 plen, u32 idx,
+static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
+                              struct cmpfn_operands *o,
+                              struct cmpfn_operands *orig_o, u32 idx,
                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                               u32 len, u8 lvl, u8 *status) {
 
@@ -1897,9 +1925,50 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
   //  (void)(changed_val);
   //#endif
 
+  u8 *pattern, *repl, *o_pattern, *changed_val;
+  u8  l0, l1, ol0, ol1;
+
+  if (entry == 0) {
+
+    pattern = o->v0;
+    repl = o->v1;
+    o_pattern = orig_o->v0;
+    changed_val = orig_o->v1;
+    l0 = o->v0_len;
+    ol0 = orig_o->v0_len;
+    l1 = o->v1_len;
+    ol1 = orig_o->v1_len;
+
+  } else {
+
+    pattern = o->v1;
+    repl = o->v0;
+    o_pattern = orig_o->v1;
+    changed_val = orig_o->v0;
+    l0 = o->v1_len;
+    ol0 = orig_o->v1_len;
+    l1 = o->v0_len;
+    ol1 = orig_o->v0_len;
+
+  }
+
+  if (l0 >= 0x80) {
+
+    l0 -= 0x80;
+    l1 -= 0x80;
+    ol0 -= 0x80;
+    ol1 -= 0x80;
+
+  } else if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0) {
+
+    l0 = l1 = ol0 = ol1 = hshape;
+
+  }
+
+  u8  lmax = MAX(l0, ol0);
   u8  save[40];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
-  u32 its_len = MIN((u32)plen, len - idx);
+  u32 its_len = MIN(MIN(lmax, hshape), len - idx);
   its_len = MIN(its_len, taint_len);
   u32 saved_its_len = its_len;
 
@@ -1915,7 +1984,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
   (void)(j);
 
 #ifdef _DEBUG
-  fprintf(stderr, "RTN T idx=%u lvl=%02x ", idx, lvl);
+  fprintf(stderr, "RTN T idx=%u lvl=%02x is_txt=%u shape=%u/%u ", idx, lvl,
+          o->v0_len >= 0x80 ? 1 : 0, hshape, l0);
   for (j = 0; j < 8; j++)
     fprintf(stderr, "%02x", orig_buf[idx + j]);
   fprintf(stderr, " -> ");
@@ -2405,8 +2475,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 #ifdef _DEBUG
       int w;
-      fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx,
-              hshape);
+      fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx, hshape);
       for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", orig_o->v0[w]);
       fprintf(stderr, " v0=");
@@ -2421,9 +2490,9 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       fprintf(stderr, "\n");
 #endif
 
-      if (unlikely(rtn_extend_encoding(
-              afl, o->v0, o->v1, orig_o->v0, orig_o->v1, hshape,
-              idx, taint_len, orig_buf, buf, cbuf, len, lvl, &status))) {
+      if (unlikely(rtn_extend_encoding(afl, 0, o, orig_o, idx, taint_len,
+                                       orig_buf, buf, cbuf, len, lvl,
+                                       &status))) {
 
         return 1;
 
@@ -2438,9 +2507,9 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       status = 0;
 
-      if (unlikely(rtn_extend_encoding(
-              afl, o->v1, o->v0, orig_o->v1, orig_o->v0, hshape,
-              idx, taint_len, orig_buf, buf, cbuf, len, lvl, &status))) {
+      if (unlikely(rtn_extend_encoding(afl, 1, o, orig_o, idx, taint_len,
+                                       orig_buf, buf, cbuf, len, lvl,
+                                       &status))) {
 
         return 1;
 
@@ -2455,13 +2524,36 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
-    // If failed, add to dictionary
-    if (!found_one && (lvl & LVL1)) {
+    //  if (unlikely(!afl->pass_stats[key].total)) {
 
-      if (unlikely(!afl->pass_stats[key].total)) {
+    if (lvl & LVL1) {
 
-        maybe_add_auto(afl, o->v0, hshape);
-        maybe_add_auto(afl, o->v1, hshape);
+      u8 is_txt = 0, l0 = o->v0_len, ol0 = orig_o->v0_len, l1 = o->v1_len,
+         ol1 = orig_o->v1_len;
+      if (l0 >= 0x80) {
+
+        is_txt = 1;
+        l0 -= 0x80;
+        l1 -= 0x80;
+        ol0 -= 0x80;
+        ol1 -= 0x80;
+
+      }
+
+      u8 same0 = 0, same1 = 0, result = 1 + (found_one << 2);
+      if (!is_txt) result += 2;
+      if (l0 != ol0 || memcmp(o->v0, orig_o->v0, l0) != 0) { same0 = 8; }
+      if (l1 != ol1 || memcmp(o->v1, orig_o->v1, l1) != 0) { same1 = 8; }
+
+      if (DICT_ADD_STRATEGY >= same0 + result) {
+
+        maybe_add_auto(afl, o->v0, l0);
+
+      }
+
+      if (DICT_ADD_STRATEGY >= same1 + result) {
+
+        maybe_add_auto(afl, o->v1, l1);
 
       }
 
