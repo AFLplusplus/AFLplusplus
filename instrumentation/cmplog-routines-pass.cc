@@ -469,7 +469,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
     Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    Value *              v3Pcasted = IRB.CreateZExtOrBitCast(v3P, Int32Ty);
+    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int32Ty);
     args.push_back(v1Pcasted);
     args.push_back(v2Pcasted);
     args.push_back(v3Pcasted);
