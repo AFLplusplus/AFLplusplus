@@ -1880,6 +1880,191 @@ static int area_is_valid(void *ptr, size_t len) {
 
 }
 
+void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u32 len) {
+
+  /*
+    u32 i;
+    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    fprintf(stderr, "rtn_n len=%u arg0=", len);
+    for (i = 0; i < len; i++)
+      fprintf(stderr, "%02x", ptr1[i]);
+    fprintf(stderr, " arg1=");
+    for (i = 0; i < len; i++)
+      fprintf(stderr, "%02x", ptr2[i]);
+    fprintf(stderr, "\n");
+  */
+
+  if (likely(!__afl_cmp_map)) return;
+  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
+  if (unlikely(!len)) return;
+  int l = MIN(31, len);
+
+  // fprintf(stderr, "RTN2 %u\n", l);
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  u32 hits, reset = 1;
+
+  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
+
+    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+    __afl_cmp_map->headers[k].hits = 1;
+    __afl_cmp_map->headers[k].shape = l - 1;
+    reset = hits = 0;
+
+  } else {
+
+    hits = __afl_cmp_map->headers[k].hits++;
+
+    if (__afl_cmp_map->headers[k].shape < l) {
+
+      __afl_cmp_map->headers[k].shape = l - 1;
+
+    }
+
+  }
+
+  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
+  hits &= CMP_MAP_RTN_H - 1;
+  if (unlikely(reset && !hits)) {
+
+    __builtin_memset(cmpfn, 0, sizeof(struct cmpfn_operands));
+
+  }
+
+  cmpfn[hits].v0_len = l;
+  cmpfn[hits].v1_len = l;
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
+  // fprintf(stderr, "RTN3\n");
+
+}
+
+void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u32 len) {
+
+  /*
+    u32 i;
+    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    fprintf(stderr, "rtn_strn len=%u arg0=", len);
+    for (i = 0; i < len; i++)
+      fprintf(stderr, "%02x", ptr1[i]);
+    fprintf(stderr, " arg1=");
+    for (i = 0; i < len; i++)
+      fprintf(stderr, "%02x", ptr2[i]);
+    fprintf(stderr, "\n");
+  */
+
+  if (likely(!__afl_cmp_map)) return;
+  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
+  if (unlikely(!len)) return;
+  int l = MIN(31, len + 1);
+
+  // fprintf(stderr, "RTN2 %u\n", l);
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  u32 hits, reset = 1;
+
+  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
+
+    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+    __afl_cmp_map->headers[k].hits = 1;
+    __afl_cmp_map->headers[k].shape = l - 1;
+    reset = hits = 0;
+
+  } else {
+
+    hits = __afl_cmp_map->headers[k].hits++;
+
+    if (__afl_cmp_map->headers[k].shape < l) {
+
+      __afl_cmp_map->headers[k].shape = l - 1;
+
+    }
+
+  }
+
+  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
+  hits &= CMP_MAP_RTN_H - 1;
+  if (unlikely(reset && !hits)) {
+
+    __builtin_memset(cmpfn, 0, sizeof(struct cmpfn_operands));
+
+  }
+
+  cmpfn[hits].v0_len = 0x80 + l;
+  cmpfn[hits].v1_len = 0x80 + l;
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
+  // fprintf(stderr, "RTN3\n");
+
+}
+
+void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
+
+  /*
+    u32 i;
+    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    fprintf(stderr, "rtn_str arg0=");
+    for (i = 0; i < len; i++)
+      fprintf(stderr, "%02x", ptr1[i]);
+    fprintf(stderr, " arg1=");
+    for (i = 0; i < len; i++)
+      fprintf(stderr, "%02x", ptr2[i]);
+    fprintf(stderr, "\n");
+  */
+
+  if (likely(!__afl_cmp_map)) return;
+  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
+  if (unlikely(!ptr1 || !ptr2)) return;
+  int len1 = MIN(31, strlen(ptr1) + 1);
+  int len2 = MIN(31, strlen(ptr2) + 1);
+  int l = MIN(MAX(len1, len2), 31);
+
+  // fprintf(stderr, "RTN2 %u\n", l);
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  u32 hits, reset = 1;
+
+  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
+
+    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+    __afl_cmp_map->headers[k].hits = 1;
+    __afl_cmp_map->headers[k].shape = l - 1;
+    reset = hits = 0;
+
+  } else {
+
+    hits = __afl_cmp_map->headers[k].hits++;
+
+    if (__afl_cmp_map->headers[k].shape < l) {
+
+      __afl_cmp_map->headers[k].shape = l - 1;
+
+    }
+
+  }
+
+  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
+  hits &= CMP_MAP_RTN_H - 1;
+  if (unlikely(reset && !hits)) {
+
+    __builtin_memset(cmpfn, 0, sizeof(struct cmpfn_operands));
+
+  }
+
+  cmpfn[hits].v0_len = 0x80 + len1;
+  cmpfn[hits].v1_len = 0x80 + len2;
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, len1);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, len2);
+  // fprintf(stderr, "RTN3\n");
+
+}
+
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   /*
@@ -1907,14 +2092,14 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
 
-  u32 hits;
+  u32 hits, reset = 1;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = len - 1;
-    hits = 0;
+    reset = hits = 0;
 
   } else {
 
@@ -1928,11 +2113,16 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   }
 
+  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
-  __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0,
-                   ptr1, len);
-  __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1,
-                   ptr2, len);
+  if (unlikely(reset && !hits)) {
+
+    __builtin_memset(cmpfn, 0, sizeof(struct cmpfn_operands));
+
+  }
+
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
   // fprintf(stderr, "RTN3\n");
 
 }

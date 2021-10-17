@@ -1136,6 +1136,7 @@ void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
 void   write_crash_readme(afl_state_t *afl);
+u8     check_if_text_buf(u8 *buf, u32 len);
 
 /* CmpLog */
 
