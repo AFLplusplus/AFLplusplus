@@ -1455,25 +1455,25 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
   #ifdef _DEBUG
     fprintf(stderr, "TestUN: %u>=%u (len=%u idx=%u attr=%u off=%lu) (%u) ",
-            its_len, shape, len, idx, attr, off, do_reverse);
+            its_len, hshape, len, idx, attr, off, do_reverse);
     u32 i;
     u8 *o_r = (u8 *)&changed_val;
-    for (i = 0; i < shape; i++)
+    for (i = 0; i < hshape; i++)
       fprintf(stderr, "%02x", ptr[i]);
     fprintf(stderr, "==");
-    for (i = 0; i < shape; i++)
+    for (i = 0; i < hshape; i++)
       fprintf(stderr, "%02x", p[off + i]);
     fprintf(stderr, " ");
-    for (i = 0; i < shape; i++)
+    for (i = 0; i < hshape; i++)
       fprintf(stderr, "%02x", o_ptr[i]);
     fprintf(stderr, "==");
-    for (i = 0; i < shape; i++)
+    for (i = 0; i < hshape; i++)
       fprintf(stderr, "%02x", o_p[off + i]);
     fprintf(stderr, " <= ");
-    for (i = 0; i < shape; i++)
+    for (i = 0; i < hshape; i++)
       fprintf(stderr, "%02x", r[off + i]);
     fprintf(stderr, "<-");
-    for (i = 0; i < shape; i++)
+    for (i = 0; i < hshape; i++)
       fprintf(stderr, "%02x", o_r[off + i]);
     fprintf(stderr, "\n");
   #endif
@@ -1850,39 +1850,46 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
             is_n, hshape);
 #endif
 
-    u8 same0 = 0, same1 = 0, result = 1 + 2 + (found_one << 2);
-    if (o->v0 != orig_o->v0) { same0 = 8; }
-    if (o->v1 != orig_o->v1) { same1 = 8; }
+    // we only learn 16 bit +
+    if (hshape > 1) {
+
+      u8 same0 = 0, same1 = 0, result = 1 + 2 + (found_one << 2);
+      if (o->v0 != orig_o->v0) { same0 = 8; }
+      if (o->v1 != orig_o->v1) { same1 = 8; }
 
 #ifdef WORD_SIZE_64
-    if (unlikely(is_n)) {
+      if (unlikely(is_n)) {
 
-      if (DICT_ADD_STRATEGY >= same0 + result) {
+        if (DICT_ADD_STRATEGY >= same0 + result) {
 
-        try_to_add_to_dictN(afl, s128_v0, hshape);
+          try_to_add_to_dictN(afl, s128_v0, hshape);
 
-      }
+        }
 
-      if (DICT_ADD_STRATEGY >= same1 + result) {
+        if (DICT_ADD_STRATEGY >= same1 + result) {
 
-        try_to_add_to_dictN(afl, s128_v1, hshape);
+          try_to_add_to_dictN(afl, s128_v1, hshape);
 
-      }
+        }
 
-    } else
+      } else
 
 #endif
-    {
+      {
 
-      if (DICT_ADD_STRATEGY >= same0 + result) {
+        if (DICT_ADD_STRATEGY >= same0 + result) {
 
-        try_to_add_to_dict(afl, o->v0, hshape);
+          // fprintf(stderr, "add v0 0x%llx\n", o->v0);
+          try_to_add_to_dict(afl, o->v0, hshape);
 
-      }
+        }
 
-      if (DICT_ADD_STRATEGY >= same1 + result) {
+        if (DICT_ADD_STRATEGY >= same1 + result) {
 
-        try_to_add_to_dict(afl, o->v1, hshape);
+          // fprintf(stderr, "add v1 0x%llx\n", o->v1);
+          try_to_add_to_dict(afl, o->v1, hshape);
+
+        }
 
       }
 
@@ -2428,18 +2435,22 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     }
 
     /*
-      struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
-      fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits,
-              h->id, hshape, h->attribute);
-      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", o->v0[j]);
-      fprintf(stderr, " v1=");
-      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", o->v1[j]);
-      fprintf(stderr, "\nRTN O hits=%u id=%u shape=%u attr=%u o0=",
-              hh->hits, hh->id, hshape, hh->attribute);
-      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", orig_o->v0[j]);
-      fprintf(stderr, " o1=");
-      for (j = 0; j < 8; j++) fprintf(stderr, "%02x", orig_o->v1[j]);
-      fprintf(stderr, "\n");
+    struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
+    fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
+            hshape, h->attribute);
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", o->v0[j]);
+    fprintf(stderr, " v1=");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", o->v1[j]);
+    fprintf(stderr, "\nRTN O hits=%u id=%u shape=%u attr=%u o0=", hh->hits,
+            hh->id, hshape, hh->attribute);
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", orig_o->v0[j]);
+    fprintf(stderr, " o1=");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", orig_o->v1[j]);
+    fprintf(stderr, "\n");
     */
 
     t = taint;
@@ -2547,12 +2558,14 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       if (DICT_ADD_STRATEGY >= same0 + result) {
 
+        // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
         maybe_add_auto(afl, o->v0, l0);
 
       }
 
       if (DICT_ADD_STRATEGY >= same1 + result) {
 
+        // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
         maybe_add_auto(afl, o->v1, l1);
 
       }
@@ -2727,11 +2740,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
+      // fprintf(stderr, "INS %u\n", k);
       afl->stage_max +=
           MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_H);
 
     } else {
 
+      // fprintf(stderr, "RTN %u\n", k);
       afl->stage_max +=
           MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_RTN_H);
 
