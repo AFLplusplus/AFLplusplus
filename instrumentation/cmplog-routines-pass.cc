@@ -283,14 +283,21 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                            FT->getParamType(0)->isPointerTy() &&
                            FT->getParamType(2)->isIntegerTy();
           if (isPtrRtnN) {
-            auto intTyOp = dyn_cast<IntegerType>(callInst->getArgOperand(2)->getType());
-            if (intTyOp) {
-              if (intTyOp->getBitWidth() != 32 && intTyOp->getBitWidth() != 64) {
-                isPtrRtnN = false;
-              }
-            }
-          }
 
+            auto intTyOp =
+                dyn_cast<IntegerType>(callInst->getArgOperand(2)->getType());
+            if (intTyOp) {
+
+              if (intTyOp->getBitWidth() != 32 &&
+                  intTyOp->getBitWidth() != 64) {
+
+                isPtrRtnN = false;
+
+              }
+
+            }
+
+          }
 
           bool isMemcmp =
               (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
@@ -478,7 +485,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
     Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int64Ty);
+    Value *              v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
     args.push_back(v1Pcasted);
     args.push_back(v2Pcasted);
     args.push_back(v3Pcasted);
@@ -533,7 +543,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
     Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int64Ty);
+    Value *              v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
     args.push_back(v1Pcasted);
     args.push_back(v2Pcasted);
     args.push_back(v3Pcasted);
