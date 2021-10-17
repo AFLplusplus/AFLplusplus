@@ -1880,7 +1880,7 @@ static int area_is_valid(void *ptr, size_t len) {
 
 }
 
-void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u32 len) {
+void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
   /*
     u32 i;
@@ -1941,7 +1941,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u32 len) {
 
 }
 
-void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u32 len) {
+void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   /*
     if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;

@@ -94,7 +94,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   Type *VoidTy = Type::getVoidTy(C);
   // PointerType *VoidPtrTy = PointerType::get(VoidTy, 0);
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
 #if LLVM_VERSION_MAJOR < 9
@@ -192,7 +192,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   FunctionCallee
 #endif
       c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int32Ty
+                                 i8PtrTy, Int64Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -210,7 +210,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   FunctionCallee
 #endif
       c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int32Ty
+                                 i8PtrTy, Int64Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -282,6 +282,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                            FT->getParamType(0) == FT->getParamType(1) &&
                            FT->getParamType(0)->isPointerTy() &&
                            FT->getParamType(2)->isIntegerTy();
+          if (isPtrRtnN) {
+            auto intTyOp = dyn_cast<IntegerType>(callInst->getArgOperand(2)->getType());
+            if (intTyOp) {
+              if (intTyOp->getBitWidth() != 32 && intTyOp->getBitWidth() != 64) {
+                isPtrRtnN = false;
+              }
+            }
+          }
+
 
           bool isMemcmp =
               (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
@@ -469,7 +478,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
     Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int32Ty);
+    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int64Ty);
     args.push_back(v1Pcasted);
     args.push_back(v2Pcasted);
     args.push_back(v3Pcasted);
@@ -524,7 +533,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     std::vector<Value *> args;
     Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
     Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int32Ty);
+    Value *              v3Pcasted = IRB.CreateTruncOrBitCast(v3P, Int64Ty);
     args.push_back(v1Pcasted);
     args.push_back(v2Pcasted);
     args.push_back(v3Pcasted);
