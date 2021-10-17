@@ -315,7 +315,96 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
 }
 
-/* check if ascii or UTF-8 */
+/* check if pointer is ascii or UTF-8 */
+
+u8 check_if_text_buf(u8 *buf, u32 len) {
+
+  u32 offset = 0, ascii = 0, utf8 = 0;
+
+  while (offset < len) {
+
+    // ASCII: <= 0x7F to allow ASCII control characters
+    if ((buf[offset + 0] == 0x09 || buf[offset + 0] == 0x0A ||
+         buf[offset + 0] == 0x0D ||
+         (0x20 <= buf[offset + 0] && buf[offset + 0] <= 0x7E))) {
+
+      offset++;
+      utf8++;
+      ascii++;
+      continue;
+
+    }
+
+    if (isascii((int)buf[offset]) || isprint((int)buf[offset])) {
+
+      ascii++;
+      // we continue though as it can also be a valid utf8
+
+    }
+
+    // non-overlong 2-byte
+    if (len - offset > 1 &&
+        ((0xC2 <= buf[offset + 0] && buf[offset + 0] <= 0xDF) &&
+         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF))) {
+
+      offset += 2;
+      utf8++;
+      continue;
+
+    }
+
+    // excluding overlongs
+    if ((len - offset > 2) &&
+        ((buf[offset + 0] == 0xE0 &&
+          (0xA0 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] &&
+           buf[offset + 2] <= 0xBF)) ||  // straight 3-byte
+         (((0xE1 <= buf[offset + 0] && buf[offset + 0] <= 0xEC) ||
+           buf[offset + 0] == 0xEE || buf[offset + 0] == 0xEF) &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] &&
+           buf[offset + 2] <= 0xBF)) ||  // excluding surrogates
+         (buf[offset + 0] == 0xED &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x9F) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF)))) {
+
+      offset += 3;
+      utf8++;
+      continue;
+
+    }
+
+    // planes 1-3
+    if ((len - offset > 3) &&
+        ((buf[offset + 0] == 0xF0 &&
+          (0x90 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
+          (0x80 <= buf[offset + 3] &&
+           buf[offset + 3] <= 0xBF)) ||  // planes 4-15
+         ((0xF1 <= buf[offset + 0] && buf[offset + 0] <= 0xF3) &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
+          (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF)) ||  // plane 16
+         (buf[offset + 0] == 0xF4 &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x8F) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
+          (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF)))) {
+
+      offset += 4;
+      utf8++;
+      continue;
+
+    }
+
+    offset++;
+
+  }
+
+  return (utf8 > ascii ? utf8 : ascii);
+
+}
+
+/* check if queue entry is ascii or UTF-8 */
 
 static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 

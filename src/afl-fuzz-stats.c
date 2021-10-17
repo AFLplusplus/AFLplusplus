@@ -278,6 +278,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           "total_edges       : %u\n"
           "var_byte_count    : %u\n"
           "havoc_expansion   : %u\n"
+          "auto_dict_entries : %u\n"
           "testcache_size    : %llu\n"
           "testcache_count   : %u\n"
           "testcache_evict   : %u\n"
@@ -316,7 +317,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           -1,
 #endif
           t_bytes, afl->fsrv.real_map_size, afl->var_byte_count,
-          afl->expand_havoc, afl->q_testcase_cache_size,
+          afl->expand_havoc, afl->a_extras_cnt, afl->q_testcase_cache_size,
           afl->q_testcase_cache_count, afl->q_testcase_evictions,
           afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",

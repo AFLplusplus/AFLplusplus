@@ -33,7 +33,7 @@
 #define CMPLOG_LVL_MAX 3
 
 #define CMP_MAP_W 65536
-#define CMP_MAP_H 32
+#define CMP_MAP_H 64
 #define CMP_MAP_RTN_H (CMP_MAP_H / 4)
 
 #define SHAPE_BYTES(x) (x + 1)
@@ -59,14 +59,16 @@ struct cmp_operands {
   u64 v0_128;
   u64 v1_128;
 
-};
+} __attribute__((packed));
 
 struct cmpfn_operands {
 
-  u8 v0[32];
-  u8 v1[32];
+  u8 v0[31];
+  u8 v0_len;
+  u8 v1[31];
+  u8 v1_len;
 
-};
+} __attribute__((packed));
 
 typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
