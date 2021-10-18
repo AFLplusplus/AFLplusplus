@@ -244,7 +244,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     // the instrument file list check
     AttributeList Attrs = F.getAttributes();
+#if LLVM_VERSION_MAJOR < 14
     if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
+#else
+    if (Attrs.hasFnAttr(StringRef("skipinstrument"))) {
+#endif
 
       if (debug)
         fprintf(stderr,
