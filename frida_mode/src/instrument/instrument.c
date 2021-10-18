@@ -356,6 +356,7 @@ void instrument_init(void) {
       instrument_hash_seed);
   instrument_hash_zero = instrument_get_offset_hash(0);
 
+  instrument_coverage_optimize_init();
   instrument_debug_init();
   instrument_coverage_init();
   asan_init();

@@ -83,6 +83,9 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
+void instrument_coverage_optimize_init(void) {
+}
+
 void instrument_flush(GumStalkerOutput *output) {
 
   gum_x86_writer_flush(output->writer.x86);

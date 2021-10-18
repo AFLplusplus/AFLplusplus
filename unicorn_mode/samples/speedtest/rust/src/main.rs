@@ -12,11 +12,11 @@ use std::{
 
 use unicornafl::{
     unicorn_const::{uc_error, Arch, Mode, Permission},
-    RegisterX86::{self, *},
-    Unicorn, UnicornHandle,
+    RegisterX86::*,
+    Unicorn,
 };
 
-const BINARY: &str = &"../target";
+const BINARY: &str = "../target";
 
 // Memory map for the code to be tested
 // Arbitrary address where code to test will be loaded
@@ -47,7 +47,7 @@ fn read_file(filename: &str) -> Result<Vec<u8>, io::Error> {
 fn parse_locs(loc_name: &str) -> Result<Vec<u64>, io::Error> {
     let contents = &read_file(&format!("../target.offsets.{}", loc_name))?;
     //println!("Read: {:?}", contents);
-    Ok(str_from_u8_unchecked(&contents)
+    Ok(str_from_u8_unchecked(contents)
         .split('\n')
         .map(|x| {
             //println!("Trying to convert {}", &x[2..]);
@@ -87,8 +87,7 @@ fn main() {
 }
 
 fn fuzz(input_file: &str) -> Result<(), uc_error> {
-    let mut unicorn = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
-    let mut uc: UnicornHandle<'_, _> = unicorn.borrow();
+    let mut uc = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
 
     let binary =
         read_file(BINARY).unwrap_or_else(|_| panic!("Could not read modem image: {}", BINARY));
@@ -133,7 +132,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     let already_allocated_malloc = already_allocated.clone();
     // We use a very simple malloc/free stub here,
     // that only works for exactly one allocation at a time.
-    let hook_malloc = move |mut uc: UnicornHandle<'_, _>, addr: u64, size: u32| {
+    let hook_malloc = move |uc: &mut Unicorn<'_, _>, addr: u64, size: u32| {
         if already_allocated_malloc.get() {
             println!("Double malloc, not supported right now!");
             abort();
@@ -154,7 +153,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     let already_allocated_free = already_allocated;
     // No real free, just set the "used"-flag to false.
-    let hook_free = move |mut uc: UnicornHandle<'_, _>, addr, size| {
+    let hook_free = move |uc: &mut Unicorn<'_, _>, addr, size| {
         if already_allocated_free.get() {
             println!("Double free detected. Real bug?");
             abort();
@@ -177,7 +176,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     */
 
     // This is a fancy print function that we're just going to skip for fuzzing.
-    let hook_magicfn = move |mut uc: UnicornHandle<'_, _>, addr, size| {
+    let hook_magicfn = move |uc: &mut Unicorn<'_, _>, addr, size| {
         uc.reg_write(RIP, addr + size as u64).unwrap();
     };
 
@@ -195,7 +194,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     }
 
     let place_input_callback =
-        |uc: &mut UnicornHandle<'_, _>, afl_input: &mut [u8], _persistent_round| {
+        |uc: &mut Unicorn<'_, _>, afl_input: &mut [u8], _persistent_round| {
             // apply constraints to the mutated input
             if afl_input.len() > INPUT_MAX as usize {
                 //println!("Skipping testcase with leng {}", afl_input.len());
@@ -209,9 +208,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     // return true if the last run should be counted as crash
     let crash_validation_callback =
-        |_uc: &mut UnicornHandle<'_, _>, result, _input: &[u8], _persistent_round| {
-            result != uc_error::OK
-        };
+        |_uc: &mut Unicorn<'_, _>, result, _input: &[u8], _persistent_round| result != uc_error::OK;
 
     let end_addrs = parse_locs("main_ends").unwrap();
 

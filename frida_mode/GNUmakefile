@@ -30,8 +30,7 @@ AFL_CFLAGS:=-Wno-unused-parameter \
 
 LDFLAGS+=-shared \
 		 -lpthread \
-		 -lresolv \
-		 -ldl
+		 -lresolv
 
 ifdef DEBUG
 CFLAGS+=-Werror \
@@ -71,12 +70,30 @@ ifdef DEBUG
 endif
 LDFLAGS+=	-z noexecstack \
 			-Wl,--gc-sections \
-			-Wl,--exclude-libs,ALL
+			-Wl,--exclude-libs,ALL \
+		    -ldl \
+		    -lrt
 LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
 ifeq "$(shell uname)" "Linux"
  OS:=linux
+endif
+
+ifneq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
+ OS:=android
+ ifneq "$(findstring aarch64, $(shell $(CC) --version 2>/dev/null))" ""
+   ARCH:=arm64
+ endif
+ ifneq "$(findstring arm, $(shell $(CC) --version 2>/dev/null))" ""
+   ARCH:=arm
+ endif
+ ifneq "$(findstring x86_64, $(shell $(CC) --version 2>/dev/null))" ""
+   ARCH:=x86_64
+ endif
+ ifneq "$(findstring i686, $(shell $(CC) --version 2>/dev/null))" ""
+   ARCH:=x86
+ endif
 endif
 
 ifndef OS
