@@ -447,8 +447,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     dFile.open(ptr, std::ofstream::out | std::ofstream::app);
-    if (dFile.is_open())
-      WARNF("Cannot access document file %s", ptr);
+    if (dFile.is_open()) WARNF("Cannot access document file %s", ptr);
 
   }
 
@@ -1084,7 +1083,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       if (count) {
 
-        auto ptrhld = std::unique_ptr<char []>(new char[memlen + count]);
+        auto ptrhld = std::unique_ptr<char[]>(new char[memlen + count]);
 
         count = 0;
 
@@ -1502,7 +1501,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
       unsigned long long int moduleID =
           (((unsigned long long int)(rand() & 0xffffffff)) << 32) | getpid();
-      dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str() << " edgeID=" << afl_global_id << "\n";
+      dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str()
+            << " edgeID=" << afl_global_id << "\n";
 
     }
 
