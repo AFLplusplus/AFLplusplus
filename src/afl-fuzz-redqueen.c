@@ -1860,18 +1860,18 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       if (o->v0 != o->v1) { same2 = 8; }
       if (orig_o->v0 != orig_o->v1) { same3 = 8; }
 
-      if (!(same0 && same1) && !same2 && !same3) {
+      if (!same2 && !same3) {
 
 #ifdef WORD_SIZE_64
         if (unlikely(is_n)) {
 
-          if (DICT_ADD_STRATEGY >= same0 + result) {
+          if (!(!same0 && same1) && DICT_ADD_STRATEGY >= same0 + result) {
 
             try_to_add_to_dictN(afl, s128_v0, hshape);
 
           }
 
-          if (DICT_ADD_STRATEGY >= same1 + result) {
+          if (!(same0 && !same1) && DICT_ADD_STRATEGY >= same1 + result) {
 
             try_to_add_to_dictN(afl, s128_v1, hshape);
 
@@ -2566,16 +2566,16 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       if (l0 != l1 || memcmp(o->v0, o->v1, l0) != 0) { same2 = 8; }
       if (ol0 != ol1 || memcmp(orig_o->v0, orig_o->v1, l0) != 0) { same3 = 8; }
 
-      if (!(same0 && same1) && !same2 && !same3) {
+      if (!same2 && !same3) {
 
-        if (DICT_ADD_STRATEGY >= same0 + result) {
+        if (!(same0 && !same1) && DICT_ADD_STRATEGY >= same0 + result) {
 
           // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
           maybe_add_auto(afl, o->v0, l0);
 
         }
 
-        if (DICT_ADD_STRATEGY >= same1 + result) {
+        if (!(!same0 && same1) && DICT_ADD_STRATEGY >= same1 + result) {
 
           // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
           maybe_add_auto(afl, o->v1, l1);
