@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       coverage being detected. thanks to Collin May for reporting!
     - fix -n dumb mode (nobody should use this)
     - fix stability issue with LTO and cmplog
+    - better banner
   - frida_mode: David Carlier added Android support :)
   - afl-showmap, afl-tmin and afl-analyze now honor persistent mode
     for more speed. thanks to dloffre-snl for reporting!

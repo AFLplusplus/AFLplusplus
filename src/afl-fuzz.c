@@ -1189,7 +1189,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->sync_id) { fix_up_sync(afl); }
+  if (afl->sync_id) {
+
+    if (strlen(afl->sync_id) > 24) {
+
+      FATAL("sync_id max length is 24 characters");
+
+    }
+
+    fix_up_sync(afl);
+
+  }
 
   if (!strcmp(afl->in_dir, afl->out_dir)) {
 
@@ -1217,6 +1227,8 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (unlikely(afl->afl_env.afl_statsd)) { statsd_setup_format(afl); }
+
+  if (!afl->use_banner) { afl->use_banner = argv[optind]; }
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
@@ -1486,9 +1498,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   save_cmdline(afl, argc, argv);
-
-  fix_up_banner(afl, argv[optind]);
-
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) { afl->not_on_tty = 0; }
 
