@@ -7,4 +7,5 @@ The following branches exist:
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state of AFL++ - bleeding edge and you might catch a checkout which does not compile or has a bug. *We only accept PRs in dev!!*
 * (any other): experimental branches to work on specific features or testing new functionality or changes.
 
-For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab. Also take a look at the list of [major changes in AFL++](important_changes.md).
+For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab.
+Also take a look at the list of [important changes in AFL++](important_changes.md).
