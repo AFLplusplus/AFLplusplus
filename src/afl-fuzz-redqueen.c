@@ -1853,41 +1853,48 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     // we only learn 16 bit +
     if (hshape > 1) {
 
-      u8 same0 = 0, same1 = 0, result = 1 + 2 + (found_one << 2);
+      u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
+         result = 1 + 2 + (found_one << 2);
       if (o->v0 != orig_o->v0) { same0 = 8; }
       if (o->v1 != orig_o->v1) { same1 = 8; }
+      if (o->v0 != o->v1) { same2 = 8; }
+      if (orig_o->v0 != orig_o->v1) { same3 = 8; }
+
+      if (!(same0 && same1) && !same2 && !same3) {
 
 #ifdef WORD_SIZE_64
-      if (unlikely(is_n)) {
+        if (unlikely(is_n)) {
 
-        if (DICT_ADD_STRATEGY >= same0 + result) {
+          if (DICT_ADD_STRATEGY >= same0 + result) {
 
-          try_to_add_to_dictN(afl, s128_v0, hshape);
+            try_to_add_to_dictN(afl, s128_v0, hshape);
 
-        }
+          }
 
-        if (DICT_ADD_STRATEGY >= same1 + result) {
+          if (DICT_ADD_STRATEGY >= same1 + result) {
 
-          try_to_add_to_dictN(afl, s128_v1, hshape);
+            try_to_add_to_dictN(afl, s128_v1, hshape);
 
-        }
+          }
 
-      } else
+        } else
 
 #endif
-      {
+        {
 
-        if (DICT_ADD_STRATEGY >= same0 + result) {
+          if (DICT_ADD_STRATEGY >= same0 + result) {
 
-          // fprintf(stderr, "add v0 0x%llx\n", o->v0);
-          try_to_add_to_dict(afl, o->v0, hshape);
+            // fprintf(stderr, "add v0 0x%llx\n", o->v0);
+            try_to_add_to_dict(afl, o->v0, hshape);
 
-        }
+          }
 
-        if (DICT_ADD_STRATEGY >= same1 + result) {
+          if (DICT_ADD_STRATEGY >= same1 + result) {
 
-          // fprintf(stderr, "add v1 0x%llx\n", o->v1);
-          try_to_add_to_dict(afl, o->v1, hshape);
+            // fprintf(stderr, "add v1 0x%llx\n", o->v1);
+            try_to_add_to_dict(afl, o->v1, hshape);
+
+          }
 
         }
 
@@ -2551,22 +2558,29 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       }
 
-      u8 same0 = 0, same1 = 0, result = 1 + (found_one << 2);
+      u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
+         result = 1 + (found_one << 2);
       if (!is_txt) result += 2;
       if (l0 != ol0 || memcmp(o->v0, orig_o->v0, l0) != 0) { same0 = 8; }
       if (l1 != ol1 || memcmp(o->v1, orig_o->v1, l1) != 0) { same1 = 8; }
+      if (l0 != l1 || memcmp(o->v0, o->v1, l0) != 0) { same2 = 8; }
+      if (ol0 != ol1 || memcmp(orig_o->v0, orig_o->v1, l0) != 0) { same3 = 8; }
 
-      if (DICT_ADD_STRATEGY >= same0 + result) {
+      if (!(same0 && same1) && !same2 && !same3) {
 
-        // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
-        maybe_add_auto(afl, o->v0, l0);
+        if (DICT_ADD_STRATEGY >= same0 + result) {
 
-      }
+          // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
+          maybe_add_auto(afl, o->v0, l0);
 
-      if (DICT_ADD_STRATEGY >= same1 + result) {
+        }
 
-        // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
-        maybe_add_auto(afl, o->v1, l1);
+        if (DICT_ADD_STRATEGY >= same1 + result) {
+
+          // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
+          maybe_add_auto(afl, o->v1, l1);
+
+        }
 
       }
 
