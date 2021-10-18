@@ -24,7 +24,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     afl-showmap and other tools.
   - afl-cc:
     - fix for shared linking on MacOS
-    - llvm and LTO mode verified to work with new llvm 14-dev
+    - llvm and LTO mode modified to work with new llvm 14-dev (again)
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
   - added optimin, a faster and better corpus minimizer by
