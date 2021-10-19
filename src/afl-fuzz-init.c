@@ -1325,8 +1325,8 @@ void pivot_inputs(afl_state_t *afl) {
 
       }
 
-      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", afl->out_dir, id,
-                         use_name);
+      nfn = alloc_printf("%s/queue/id:%06u,time:0,execs:%llu,orig:%s", afl->out_dir, id,
+                         afl->fsrv.total_execs, use_name);
 
 #else
 
