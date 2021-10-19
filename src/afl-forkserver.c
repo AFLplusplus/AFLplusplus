@@ -610,12 +610,24 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!time_ms) {
 
-      if (fsrv->fsrv_pid > 0) { kill(fsrv->fsrv_pid, fsrv->kill_signal); }
+      s32 tmp_pid = fsrv->fsrv_pid;
+      if (tmp_pid > 0) {
+
+        kill(tmp_pid, fsrv->kill_signal);
+        fsrv->fsrv_pid = 1;
+
+      }
 
     } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
-      if (fsrv->fsrv_pid > 0) { kill(fsrv->fsrv_pid, fsrv->kill_signal); }
+      s32 tmp_pid = fsrv->fsrv_pid;
+      if (tmp_pid > 0) {
+
+        kill(tmp_pid, fsrv->kill_signal);
+        fsrv->fsrv_pid = 1;
+
+      }
 
     } else {
 
@@ -1248,7 +1260,14 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
-    if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
+    s32 tmp_pid = srv->child_pid;
+    if (tmp_pid > 0) {
+
+      kill(tmp_pid, fsrv->kill_signal);
+      fsrv->child_pid = -1
+
+    }
+
     fsrv->last_run_timed_out = 1;
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
