@@ -250,7 +250,7 @@ class ModuleSanitizerCoverage {
   Module *                         Mo = NULL;
   GlobalVariable *                 AFLMapPtr = NULL;
   Value *                          MapPtrFixed = NULL;
-  FILE *                           documentFile = NULL;
+  std::ofstream                    dFile;
   size_t                           found = 0;
   // afl++ END
 
@@ -446,8 +446,8 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
-    if ((documentFile = fopen(ptr, "a")) == NULL)
-      WARNF("Cannot access document file %s", ptr);
+    dFile.open(ptr, std::ofstream::out | std::ofstream::app);
+    if (dFile.is_open()) WARNF("Cannot access document file %s", ptr);
 
   }
 
@@ -1003,12 +1003,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
     instrumentFunction(F, DTCallback, PDTCallback);
 
   // afl++ START
-  if (documentFile) {
-
-    fclose(documentFile);
-    documentFile = NULL;
-
-  }
+  if (dFile.is_open()) dFile.close();
 
   if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
 
@@ -1069,7 +1064,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
     if (dictionary.size()) {
 
       size_t memlen = 0, count = 0, offset = 0;
-      char * ptr;
 
       // sort and unique the dictionary
       std::sort(dictionary.begin(), dictionary.end());
@@ -1089,13 +1083,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       if (count) {
 
-        if ((ptr = (char *)malloc(memlen + count)) == NULL) {
-
-          fprintf(stderr, "Error: malloc for %lu bytes failed!\n",
-                  memlen + count);
-          exit(-1);
-
-        }
+        auto ptrhld = std::unique_ptr<char[]>(new char[memlen + count]);
 
         count = 0;
 
@@ -1103,8 +1091,8 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
           if (offset + token.length() < 0xfffff0 && count < MAX_AUTO_EXTRAS) {
 
-            ptr[offset++] = (uint8_t)token.length();
-            memcpy(ptr + offset, token.c_str(), token.length());
+            ptrhld.get()[offset++] = (uint8_t)token.length();
+            memcpy(ptrhld.get() + offset, token.c_str(), token.length());
             offset += token.length();
             count++;
 
@@ -1124,10 +1112,10 @@ bool ModuleSanitizerCoverage::instrumentModule(
         GlobalVariable *AFLInternalDictionary = new GlobalVariable(
             M, ArrayTy, true, GlobalValue::ExternalLinkage,
             ConstantDataArray::get(Ctx,
-                                   *(new ArrayRef<char>((char *)ptr, offset))),
+                                   *(new ArrayRef<char>(ptrhld.get(), offset))),
             "__afl_internal_dictionary");
         AFLInternalDictionary->setInitializer(ConstantDataArray::get(
-            Ctx, *(new ArrayRef<char>((char *)ptr, offset))));
+            Ctx, *(new ArrayRef<char>(ptrhld.get(), offset))));
         AFLInternalDictionary->setConstant(true);
 
         GlobalVariable *AFLDictionary = new GlobalVariable(
@@ -1509,12 +1497,12 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     // afl++ START
     ++afl_global_id;
 
-    if (documentFile) {
+    if (dFile.is_open()) {
 
       unsigned long long int moduleID =
           (((unsigned long long int)(rand() & 0xffffffff)) << 32) | getpid();
-      fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n", moduleID,
-              F.getName().str().c_str(), afl_global_id);
+      dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str()
+            << " edgeID=" << afl_global_id << "\n";
 
     }
 
