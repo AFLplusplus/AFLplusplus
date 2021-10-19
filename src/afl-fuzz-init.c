@@ -2815,43 +2815,6 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 }
 
-/* Trim and possibly create a banner for the run. */
-
-void fix_up_banner(afl_state_t *afl, u8 *name) {
-
-  if (!afl->use_banner) {
-
-    if (afl->sync_id) {
-
-      afl->use_banner = afl->sync_id;
-
-    } else {
-
-      u8 *trim = strrchr(name, '/');
-      if (!trim) {
-
-        afl->use_banner = name;
-
-      } else {
-
-        afl->use_banner = trim + 1;
-
-      }
-
-    }
-
-  }
-
-  if (strlen(afl->use_banner) > 32) {
-
-    u8 *tmp = ck_alloc(36);
-    sprintf(tmp, "%.32s...", afl->use_banner);
-    afl->use_banner = tmp;
-
-  }
-
-}
-
 /* Check if we're on TTY. */
 
 void check_if_tty(afl_state_t *afl) {

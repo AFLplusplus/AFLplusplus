@@ -2,7 +2,7 @@
 
   This document discusses the environment variables used by American Fuzzy Lop++
   to expose various exotic functions that may be (rarely) useful for power
-  users or for some types of custom fuzzing setups. See [README.md](README.md) for the general
+  users or for some types of custom fuzzing setups. See [../README.md](../README.md) for the general
   instruction manual.
 
   Note that most tools will warn on any unknown AFL environment variables.
@@ -422,7 +422,7 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_FORCE_UI` will force painting the UI on the screen even if
     no valid terminal was detected (for virtual consoles)
 
-  - If you are using persistent mode (you should, see [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md))
+  - If you are using persistent mode (you should, see [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md))
     some targets keep inherent state due which a detected crash testcase does
     not crash the target again when the testcase is given. To be able to still
     re-trigger these crashes you can use the `AFL_PERSISTENT_RECORD` variable

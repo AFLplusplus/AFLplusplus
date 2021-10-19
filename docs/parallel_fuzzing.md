@@ -4,7 +4,7 @@ This document talks about synchronizing afl-fuzz jobs on a single machine
 or across a fleet of systems. See README.md for the general instruction manual.
 
 Note that this document is rather outdated. please refer to the main document
-section on multiple core usage [../README.md#Using multiple cores](../README.md#b-using-multiple-coresthreads)
+section on multiple core usage [fuzzing_expert.md#Using multiple cores](fuzzing_expert.md#b-using-multiple-cores)
 for up to date strategies!
 
 ## 1) Introduction

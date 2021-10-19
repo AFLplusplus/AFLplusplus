@@ -881,8 +881,6 @@ void ModuleSanitizerCoverage::InjectCoverageForIndirectCalls(
     Function &F, ArrayRef<Instruction *> IndirCalls) {
 
   if (IndirCalls.empty()) return;
-  assert(Options.TracePC || Options.TracePCGuard ||
-         Options.Inline8bitCounters /*|| Options.InlineBoolFlag*/);
   for (auto I : IndirCalls) {
 
     IRBuilder<> IRB(I);

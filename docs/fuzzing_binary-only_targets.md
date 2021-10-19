@@ -72,7 +72,7 @@ cd unicorn_mode
 If the goal is to fuzz a dynamic library then there are two options available.
 For both you need to write a small harness that loads and calls the library.
 Then you fuzz this with either frida_mode or qemu_mode, and either use
-`AFL_INST_LIBS=1` or `AFL_QEMU/FRIDA_INST_RANGES`
+`AFL_INST_LIBS=1` or `AFL_QEMU/FRIDA_INST_RANGES`.
 
 Another, less precise and slower option is using ptrace with debugger interrupt
 instrumentation: [utils/afl_untracer/README.md](../utils/afl_untracer/README.md).
