@@ -95,13 +95,28 @@
    utils/afl_untracer/, use afl-untracer.c as a template.
    It is slower than AFL FRIDA (see above).
 
+## ZAFL
+  ZAFL is a static rewriting platform for fast, space-efficient, and inlined 
+  binary fuzzing instrumentation. It currently supports x86-64 C and C++, 
+  stripped and unstripped, and PIE and non-PIE binaries of all sizes and complexity. 
+  
+  Beyond conventional instrumentation, ZAFL's API enables transformation passes 
+  for more effective/efficient fuzzing. Some built-in transformations include 
+  laf-Intel-style constraint unrolling, Angora-style context sensitivity, and 
+  InsTrim-style CFG optimizations.
+  
+  ZAFL's baseline instrumentation speed averages about 90-95% that of afl-clang-fast's 
+  conventional LLVM instrumentation (but is even faster when enabling CFG optimizations).
+
+  [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
+
 
 ## DYNINST
 
   Dyninst is a binary instrumentation framework similar to Pintool and
   Dynamorio (see far below). However whereas Pintool and Dynamorio work at
   runtime, dyninst instruments the target at load time, and then let it run -
-  or save the  binary with the changes.
+  or save the binary with the changes.
   This is great for some things, e.g. fuzzing, and not so effective for others,
   e.g. malware analysis.
 
@@ -116,13 +131,10 @@
   The speed decrease is about 15-35%, depending on the optimization options
   used with afl-dyninst.
 
-  So if Dyninst works, it is the best option available. Otherwise it just
-  doesn't work well.
-
   [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
 
 
-## RETROWRITE, ZAFL, ... other binary rewriter
+## RETROWRITE
 
   If you have an x86/x86_64 binary that still has its symbols, is compiled
   with position independant code (PIC/PIE) and does not use most of the C++
@@ -131,7 +143,6 @@
 
   It is at about 80-85% performance.
 
-  [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
   [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
 
