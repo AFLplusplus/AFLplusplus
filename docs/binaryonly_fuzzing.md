@@ -95,18 +95,13 @@
    utils/afl_untracer/, use afl-untracer.c as a template.
    It is slower than AFL FRIDA (see above).
 
+
 ## ZAFL
-  ZAFL is a static rewriting platform for fast, space-efficient, and inlined 
-  binary fuzzing instrumentation. It currently supports x86-64 C and C++, 
-  stripped and unstripped, and PIE and non-PIE binaries of all sizes and complexity. 
-  
-  Beyond conventional instrumentation, ZAFL's API enables transformation passes 
-  for more effective/efficient fuzzing. Some built-in transformations include 
-  laf-Intel-style constraint unrolling, Angora-style context sensitivity, and 
-  InsTrim-style CFG optimizations.
-  
-  ZAFL's baseline instrumentation speed averages about 90-95% that of afl-clang-fast's 
-  conventional LLVM instrumentation (but is even faster when enabling CFG optimizations).
+  ZAFL is a static rewriting platform supporting x86-64 C/C++, stripped/unstripped, 
+  and PIE/non-PIE binaries. Beyond conventional instrumentation, ZAFL's API enables 
+  transformation passes (e.g., laf-Intel, context sensitivity, InsTrim, etc.).
+
+  Its baseline instrumentation speed typically averages 90-95% of afl-clang-fast's.
 
   [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
 
