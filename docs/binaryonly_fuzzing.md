@@ -96,12 +96,22 @@
    It is slower than AFL FRIDA (see above).
 
 
+## ZAFL
+  ZAFL is a static rewriting platform supporting x86-64 C/C++, stripped/unstripped, 
+  and PIE/non-PIE binaries. Beyond conventional instrumentation, ZAFL's API enables 
+  transformation passes (e.g., laf-Intel, context sensitivity, InsTrim, etc.).
+
+  Its baseline instrumentation speed typically averages 90-95% of afl-clang-fast's.
+
+  [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
+
+
 ## DYNINST
 
   Dyninst is a binary instrumentation framework similar to Pintool and
   Dynamorio (see far below). However whereas Pintool and Dynamorio work at
   runtime, dyninst instruments the target at load time, and then let it run -
-  or save the  binary with the changes.
+  or save the binary with the changes.
   This is great for some things, e.g. fuzzing, and not so effective for others,
   e.g. malware analysis.
 
@@ -116,13 +126,10 @@
   The speed decrease is about 15-35%, depending on the optimization options
   used with afl-dyninst.
 
-  So if Dyninst works, it is the best option available. Otherwise it just
-  doesn't work well.
-
   [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
 
 
-## RETROWRITE, ZAFL, ... other binary rewriter
+## RETROWRITE
 
   If you have an x86/x86_64 binary that still has its symbols, is compiled
   with position independant code (PIC/PIE) and does not use most of the C++
@@ -131,7 +138,6 @@
 
   It is at about 80-85% performance.
 
-  [https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
   [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
 
