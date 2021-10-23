@@ -146,6 +146,17 @@ static const u8 count_class_binary[256] = {
 #undef TIMES8
 #undef TIMES4
 
+static void kill_child() {
+
+  if (fsrv->child_pid > 0) {
+
+    kill(fsrv->child_pid, fsrv->kill_signal);
+    fsrv->child_pid = -1;
+
+  }
+
+}
+
 static void classify_counts(afl_forkserver_t *fsrv) {
 
   u8 *      mem = fsrv->trace_bits;
@@ -525,6 +536,8 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
   }
+
+  signal(SIGALRM, kill_child);
 
   setitimer(ITIMER_REAL, &it, NULL);
 
