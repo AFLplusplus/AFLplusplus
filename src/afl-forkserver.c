@@ -1301,7 +1301,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1 ; }
+  if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1; }
 
   fsrv->total_execs++;
 
