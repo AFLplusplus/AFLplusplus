@@ -1007,7 +1007,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   // prevent unnecessary build errors
-  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+  if (compiler_mode != GCC_PLUGIN && compiler_mode != GCC) {
+
+    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+  }
 
   if (preprocessor_only || have_c) {
 
