@@ -1,6 +1,8 @@
 #if defined(__linux__) && !defined(__ANDROID__)
 
+#if !defined(__MUSL__)
   #include <execinfo.h>
+#endif
   #include <fcntl.h>
 
   #include "seccomp.h"
@@ -29,6 +31,7 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
       req->data.args[0], req->data.args[1], req->data.args[2],
       req->data.args[3], req->data.args[4], req->data.args[5]);
 
+#if !defined(__MUSL__)
   seccomp_print("FRAMES: (%u)\n", frames->len);
   char **syms = backtrace_symbols(frames->items, frames->len);
   if (syms == NULL) { FATAL("Failed to get symbols"); }
@@ -49,6 +52,7 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   }
 
   free(syms);
+#endif
 
   resp->error = 0;
   resp->val = 0;
