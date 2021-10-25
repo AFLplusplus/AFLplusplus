@@ -2,7 +2,9 @@
 
   #include <alloca.h>
   #include <errno.h>
+#if !defined(__MUSL__)
   #include <execinfo.h>
+#endif
   #include <linux/filter.h>
   #include <sys/ioctl.h>
   #include <sys/prctl.h>

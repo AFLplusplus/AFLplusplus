@@ -52,6 +52,22 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   }
 
   free(syms);
+#else
+  void **syms = (void **)__builtin_frame_address(0);
+  void *framep = __builtin_frame_address(1);
+  int i = 0;
+
+  syms = framep;
+  while (syms) {
+   
+    framep = *syms;   
+    syms = framep;
+
+    if (!syms) break;
+
+    seccomp_print("\%3d. %s\n", i ++, (char *)framep);
+
+  }
 #endif
 
   resp->error = 0;
