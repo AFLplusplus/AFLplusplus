@@ -28,7 +28,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-#define VARIANT 0
+#define VARIANT 4
 
 //#define _DEBUG
 //#define CMPLOG_INTROSPECTION
@@ -1861,8 +1861,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       if (o->v1 != orig_o->v1) { same1 = 8; }
       if (o->v0 != o->v1) { same2 = 8; }
       if (orig_o->v0 != orig_o->v1) { same3 = 8; }
-      if (check_if_text_buf((u8 *)o->v0, hshape) < hshape) same0 += 2;
-      if (check_if_text_buf((u8 *)o->v1, hshape) < hshape) same1 += 2;
+      if (check_if_text_buf((u8 *)&o->v0, hshape) < hshape) same0 += 2;
+      if (check_if_text_buf((u8 *)&o->v1, hshape) < hshape) same1 += 2;
 
       if (!same2 && !same3) {
 
