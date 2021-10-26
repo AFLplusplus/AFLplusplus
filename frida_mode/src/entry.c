@@ -56,7 +56,7 @@ void entry_on_fork(void) {
 #else
 void entry_on_fork(void) {
 
-  if (set_dumpable) { WARNF("AFL_FRIDA_TRACEABLE unsupported"); }
+  if (traceable) { WARNF("AFL_FRIDA_TRACEABLE unsupported"); }
 
 }
 
