@@ -28,6 +28,8 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
+#define VARIANT 0
+
 //#define _DEBUG
 //#define CMPLOG_INTROSPECTION
 
@@ -461,10 +463,10 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
     fprintf(
         f,
         "Colorization: fname=%s len=%u ms=%llu result=%u execs=%u found=%llu "
-        "taint=%u\n",
+        "taint=%u ascii=%u auto_extra_before=%u\n",
         afl->queue_cur->fname, len, get_cur_time() - start_time,
         afl->queue_cur->colorized, afl->stage_cur, new_hit_cnt - orig_hit_cnt,
-        positions);
+        positions, afl->queue_cur->is_ascii ? 1 : 0, afl->a_extras_cnt);
 
   #ifndef _DEBUG
     if (afl->not_on_tty) { fclose(f); }
@@ -1854,24 +1856,34 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     if (hshape > 1) {
 
       u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
-         result = 1 + 2 + (found_one << 2);
+         result = 1 + (found_one << 2);
       if (o->v0 != orig_o->v0) { same0 = 8; }
       if (o->v1 != orig_o->v1) { same1 = 8; }
       if (o->v0 != o->v1) { same2 = 8; }
       if (orig_o->v0 != orig_o->v1) { same3 = 8; }
+      if (check_if_text_buf((u8 *)o->v0, hshape) < hshape) same0 += 2;
+      if (check_if_text_buf((u8 *)o->v1, hshape) < hshape) same1 += 2;
 
       if (!same2 && !same3) {
 
 #ifdef WORD_SIZE_64
         if (unlikely(is_n)) {
 
-          if (!(!same0 && same1) && DICT_ADD_STRATEGY >= same0 + result) {
+          if (
+  #if VARIANT == 1
+              !(!same0 && same1) &&
+  #endif
+              DICT_ADD_STRATEGY >= same0 + result) {
 
             try_to_add_to_dictN(afl, s128_v0, hshape);
 
           }
 
-          if (!(same0 && !same1) && DICT_ADD_STRATEGY >= same1 + result) {
+          if (
+  #if VARIANT == 1
+              !(same0 && !same1) &&
+  #endif
+              DICT_ADD_STRATEGY >= same1 + result) {
 
             try_to_add_to_dictN(afl, s128_v1, hshape);
 
@@ -1882,14 +1894,22 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 #endif
         {
 
-          if (DICT_ADD_STRATEGY >= same0 + result) {
+          if (
+#if VARIANT == 1
+              !(!same0 && same1) &&
+#endif
+              DICT_ADD_STRATEGY >= same0 + result) {
 
             // fprintf(stderr, "add v0 0x%llx\n", o->v0);
             try_to_add_to_dict(afl, o->v0, hshape);
 
           }
 
-          if (DICT_ADD_STRATEGY >= same1 + result) {
+          if (
+#if VARIANT == 1
+              !(same0 && !same1) &&
+#endif
+              DICT_ADD_STRATEGY >= same1 + result) {
 
             // fprintf(stderr, "add v1 0x%llx\n", o->v1);
             try_to_add_to_dict(afl, o->v1, hshape);
@@ -1966,14 +1986,17 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  if (l0 >= 0x80) {
+  if (l0 >= 0x80 || ol0 >= 0x80) {
 
     l0 -= 0x80;
     l1 -= 0x80;
     ol0 -= 0x80;
     ol1 -= 0x80;
 
-  } else if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0) {
+  }
+
+  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
+      ol0 > 31 || ol1 > 31) {
 
     l0 = l1 = ol0 = ol1 = hshape;
 
@@ -2059,9 +2082,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  //#ifdef CMPLOG_SOLVE_TRANSFORM
-
   if (*status == 1) return 0;
+
+  // transform solving
 
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
 
@@ -2548,7 +2571,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       u8 is_txt = 0, l0 = o->v0_len, ol0 = orig_o->v0_len, l1 = o->v1_len,
          ol1 = orig_o->v1_len;
-      if (l0 >= 0x80) {
+      if (l0 >= 0x80 || ol0 >= 0x80) {
 
         is_txt = 1;
         l0 -= 0x80;
@@ -2558,29 +2581,51 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       }
 
+      if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
+          ol0 > 31 || ol1 > 31) {
+
+        l0 = l1 = ol0 = ol1 = hshape;
+
+      }
+
       u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
          result = 1 + (found_one << 2);
-      if (!is_txt) result += 2;
       if (l0 != ol0 || memcmp(o->v0, orig_o->v0, l0) != 0) { same0 = 8; }
       if (l1 != ol1 || memcmp(o->v1, orig_o->v1, l1) != 0) { same1 = 8; }
       if (l0 != l1 || memcmp(o->v0, o->v1, l0) != 0) { same2 = 8; }
       if (ol0 != ol1 || memcmp(orig_o->v0, orig_o->v1, l0) != 0) { same3 = 8; }
+      if (!is_txt && check_if_text_buf((u8 *)&o->v0, l0) < l0) { same0 += 2; }
+      if (!is_txt && check_if_text_buf((u8 *)&o->v1, l1) < l1) { same1 += 2; }
 
-      if (!same2 && !same3) {
+      if (
+#if VARIANT < 3
+          !(same0 && !same1) &&
+#endif
+#if VARIANT == 4
+          (!same2 && same3)
+#else
+          (DICT_ADD_STRATEGY >= same0 + result)
+#endif
+      ) {
 
-        if (!(same0 && !same1) && DICT_ADD_STRATEGY >= same0 + result) {
+        // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
+        maybe_add_auto(afl, o->v0, l0);
 
-          // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
-          maybe_add_auto(afl, o->v0, l0);
+      }
 
-        }
+      if (
+#if VARIANT < 3
+          !(!same0 && same1) &&
+#endif
+#if VARIANT == 4
+          (same2 && !same3)
+#else
+          (DICT_ADD_STRATEGY >= same1 + result)
+#endif
+      ) {
 
-        if (!(!same0 && same1) && DICT_ADD_STRATEGY >= same1 + result) {
-
-          // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
-          maybe_add_auto(afl, o->v1, l1);
-
-        }
+        // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
+        maybe_add_auto(afl, o->v1, l1);
 
       }
 
