@@ -288,6 +288,12 @@ ucomisd                                 2 ( 0.86%)
 * `AFL_FRIDA_STATS_INTERVAL` - The maximum frequency to output statistics
 information. Stats will be written whenever they are updated if the given
 interval has elapsed since last time they were written.
+* `AFL_FRIDA_TRACEABLE` - Set the child process to be traceable by any process
+to aid debugging and overcome the restrictions imposed by YAMA. Supported on
+Linux only. Permits a non-root user to use `gcore` or similar to collect a core
+dump of the instrumented target. Note that in order to capture the core dump you
+must set a sufficient timeout (using `-t`) to avoid `afl-fuzz` killing the
+process whilst it is being dumped.
 
 ## FASAN - Frida Address Sanitizer Mode
 Frida mode also supports FASAN. The design of this is actually quite simple and
