@@ -28,7 +28,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-#define VARIANT 4
+#define VARIANT 0
 
 //#define _DEBUG
 //#define CMPLOG_INTROSPECTION
