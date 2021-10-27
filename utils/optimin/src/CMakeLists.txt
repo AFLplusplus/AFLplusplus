@@ -1,4 +1,5 @@
 add_executable(optimin OptiMin.cpp)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
 foreach(LIB MaLib EvalMaxSAT glucose)
     target_include_directories(optimin PRIVATE
