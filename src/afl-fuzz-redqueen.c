@@ -28,7 +28,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-#define VARIANT 0
+#define VARIANT 6
 
 //#define _DEBUG
 //#define CMPLOG_INTROSPECTION
@@ -1855,6 +1855,43 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     // we only learn 16 bit +
     if (hshape > 1) {
 
+#if VARIANT == 6
+      if (!found_one || afl->queue_cur->is_ascii) {
+
+  #ifdef WORD_SIZE_64
+        if (unlikely(is_n)) {
+
+          if (!found_one ||
+              check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
+                  SHAPE_BYTES(h->shape))
+            try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
+          if (!found_one ||
+              check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
+                  SHAPE_BYTES(h->shape))
+            try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
+
+        } else
+
+  #endif
+        {
+
+          if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
+              (!found_one ||
+               check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
+                   SHAPE_BYTES(h->shape)))
+            try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
+          if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, SHAPE_BYTES(h->shape)) &&
+              (!found_one ||
+               check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
+                   SHAPE_BYTES(h->shape)))
+            try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+
+        }
+
+      }
+
+#else
+
       u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
          result = 1 + (found_one << 2);
       if (o->v0 != orig_o->v0) { same0 = 8; }
@@ -1866,13 +1903,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       if (!same2 && !same3) {
 
-#ifdef WORD_SIZE_64
+  #ifdef WORD_SIZE_64
         if (unlikely(is_n)) {
 
           if (
-  #if VARIANT == 1
+    #if VARIANT == 1
               !(!same0 && same1) &&
-  #endif
+    #endif
               DICT_ADD_STRATEGY >= same0 + result) {
 
             try_to_add_to_dictN(afl, s128_v0, hshape);
@@ -1880,9 +1917,9 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
           }
 
           if (
-  #if VARIANT == 1
+    #if VARIANT == 1
               !(same0 && !same1) &&
-  #endif
+    #endif
               DICT_ADD_STRATEGY >= same1 + result) {
 
             try_to_add_to_dictN(afl, s128_v1, hshape);
@@ -1891,13 +1928,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
         } else
 
-#endif
+  #endif
         {
 
           if (
-#if VARIANT == 1
+  #if VARIANT == 1
               !(!same0 && same1) &&
-#endif
+  #endif
               DICT_ADD_STRATEGY >= same0 + result) {
 
             // fprintf(stderr, "add v0 0x%llx\n", o->v0);
@@ -1906,9 +1943,9 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
           }
 
           if (
-#if VARIANT == 1
+  #if VARIANT == 1
               !(same0 && !same1) &&
-#endif
+  #endif
               DICT_ADD_STRATEGY >= same1 + result) {
 
             // fprintf(stderr, "add v1 0x%llx\n", o->v1);
@@ -1919,6 +1956,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
         }
 
       }
+
+#endif
 
     }
 
@@ -2567,6 +2606,44 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     //  if (unlikely(!afl->pass_stats[key].total)) {
 
+#if VARIANT == 6
+    if ((!found_one && (lvl & LVL1)) || afl->queue_cur->is_ascii) {
+
+      // if (unlikely(!afl->pass_stats[key].total)) {
+
+      u32 shape_len = SHAPE_BYTES(h->shape);
+      u32 v0_len = shape_len, v1_len = shape_len;
+      if (afl->queue_cur->is_ascii ||
+          check_if_text_buf((u8 *)&o->v0, shape_len) == shape_len) {
+
+        if (strlen(o->v0)) v0_len = strlen(o->v0);
+
+      }
+
+      if (afl->queue_cur->is_ascii ||
+          check_if_text_buf((u8 *)&o->v1, shape_len) == shape_len) {
+
+        if (strlen(o->v1)) v1_len = strlen(o->v1);
+
+      }
+
+      // fprintf(stderr, "SHOULD: found:%u ascii:%u text?%u:%u %u:%s %u:%s \n",
+      // found_one, afl->queue_cur->is_ascii, check_if_text_buf((u8 *)&o->v0,
+      // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
+      // o->v0, v1_len, o->v1);
+
+      if (!memcmp(o->v0, orig_o->v0, v0_len) ||
+          (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
+        maybe_add_auto(afl, o->v0, v0_len);
+      if (!memcmp(o->v1, orig_o->v1, v1_len) ||
+          (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len))
+        maybe_add_auto(afl, o->v1, v1_len);
+
+      //}
+
+    }
+
+#else
     if (lvl & LVL1) {
 
       u8 is_txt = 0, l0 = o->v0_len, ol0 = orig_o->v0_len, l1 = o->v1_len,
@@ -2598,14 +2675,14 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       if (!is_txt && check_if_text_buf((u8 *)&o->v1, l1) < l1) { same1 += 2; }
 
       if (
-#if VARIANT < 3
+  #if VARIANT < 3
           !(same0 && !same1) &&
-#endif
-#if VARIANT == 4
+  #endif
+  #if VARIANT == 4
           (!same2 && same3)
-#else
+  #else
           (DICT_ADD_STRATEGY >= same0 + result)
-#endif
+  #endif
       ) {
 
         // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
@@ -2614,14 +2691,14 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       }
 
       if (
-#if VARIANT < 3
+  #if VARIANT < 3
           !(!same0 && same1) &&
-#endif
-#if VARIANT == 4
+  #endif
+  #if VARIANT == 4
           (same2 && !same3)
-#else
+  #else
           (DICT_ADD_STRATEGY >= same1 + result)
-#endif
+  #endif
       ) {
 
         // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
@@ -2630,6 +2707,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       }
 
     }
+
+#endif
 
   rtn_fuzz_next_iter:
     afl->stage_cur++;
@@ -2966,9 +3045,10 @@ exit_its:
   if (f) {
 
     fprintf(f,
-            "Cmplog: fname=%s len=%u ms=%llu result=%u finds=%llu entries=%u\n",
+            "Cmplog: fname=%s len=%u ms=%llu result=%u finds=%llu entries=%u "
+            "auto_extra_after=%u\n",
             afl->queue_cur->fname, len, get_cur_time() - start_time, r,
-            new_hit_cnt - orig_hit_cnt, cmp_locations);
+            new_hit_cnt - orig_hit_cnt, cmp_locations, afl->a_extras_cnt);
 
   #ifndef _DEBUG
     if (afl->not_on_tty) { fclose(f); }
