@@ -1049,7 +1049,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       uint32_t write_loc = afl_global_id;
 
-      if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
+      write_loc = (((afl_global_id + 8) >> 3) << 3);
 
       GlobalVariable *AFLFinalLoc =
           new GlobalVariable(M, Int32Tyi, true, GlobalValue::ExternalLinkage, 0,
