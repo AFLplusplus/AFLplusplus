@@ -203,7 +203,7 @@ class ModuleSanitizerCoverage {
 
   SanitizerCoverageOptions Options;
 
-  uint32_t        instr = 0;
+  uint32_t        instr = 0, selects = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt *   One = NULL;
   ConstantInt *   Zero = NULL;
@@ -553,8 +553,9 @@ bool ModuleSanitizerCoverage::instrumentModule(
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations with no collisions (%s mode).", instr,
-          modeline);
+      OKF("Instrumented %u locations with no collisions (%s mode) and %u "
+          "selects.",
+          instr, modeline, selects);
 
     }
 
@@ -836,6 +837,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   if (AllBlocks.empty()) return false;
 
   uint32_t special = 0;
+  uint32_t skip_next = 0;
+
   for (auto &BB : F) {
 
     for (auto &IN : BB) {
@@ -853,6 +856,64 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         uint32_t id = 1 + instr + (uint32_t)AllBlocks.size() + special++;
         Value *  val = ConstantInt::get(Int32Ty, id);
         callInst->setOperand(1, val);
+
+      }
+
+      SelectInst *selectInst = nullptr;
+
+      if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
+
+        selects++;
+        uint32_t    id1 = 1 + instr + (uint32_t)AllBlocks.size() + special++;
+        uint32_t    id2 = 1 + instr + (uint32_t)AllBlocks.size() + special++;
+        Value *     val1 = ConstantInt::get(Int32Ty, id1);
+        Value *     val2 = ConstantInt::get(Int32Ty, id2);
+        auto        cond = selectInst->getCondition();
+        IRBuilder<> IRB(selectInst->getNextNode());
+        auto        result = IRB.CreateSelect(cond, val1, val2);
+
+        /* Get CurLoc */
+
+        /* Load SHM pointer */
+
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+
+        /* Load counter for CurLoc */
+
+        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, result);
+
+        if (use_threadsafe_counters) {
+
+          IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                              llvm::MaybeAlign(1),
+#endif
+                              llvm::AtomicOrdering::Monotonic);
+
+        } else {
+
+          LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+          /* Update bitmap */
+
+          Value *Incr = IRB.CreateAdd(Counter, One);
+
+          if (skip_nozero == NULL) {
+
+            auto cf = IRB.CreateICmpEQ(Incr, Zero);
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+
+          }
+
+          IRB.CreateStore(Incr, MapPtrIdx);
+
+        }
+
+        skip_next = 1;
+
+      } else {
+
+        skip_next = 0;
 
       }
 
