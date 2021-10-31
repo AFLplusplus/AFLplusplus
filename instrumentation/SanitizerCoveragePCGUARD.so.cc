@@ -834,10 +834,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
                                              ArrayRef<BasicBlock *> AllBlocks,
                                              bool IsLeafFunc) {
 
-  if (AllBlocks.empty()) return false;
-
-  uint32_t special = 0;
-  uint32_t skip_next = 0;
+  uint32_t cnt_cov = 0, cnt_sel = 0;
 
   for (auto &BB : F) {
 
@@ -853,9 +850,46 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         StringRef FuncName = Callee->getName();
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
-        uint32_t id = 1 + instr + (uint32_t)AllBlocks.size() + special++;
-        Value *  val = ConstantInt::get(Int32Ty, id);
-        callInst->setOperand(1, val);
+        cnt_cov++;
+
+      }
+
+      SelectInst *selectInst = nullptr;
+
+      if ((selectInst = dyn_cast<SelectInst>(&IN))) { cnt_sel++; }
+
+    }
+
+  }
+
+  /* Create PCGUARD array */
+  CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel * 2);
+  selects += cnt_sel;
+
+  uint32_t special = 0, local_selects = 0, skip_next = 0;
+
+  for (auto &BB : F) {
+
+    for (auto &IN : BB) {
+
+      CallInst *callInst = nullptr;
+
+      if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+        Function *Callee = callInst->getCalledFunction();
+        if (!Callee) continue;
+        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        StringRef FuncName = Callee->getName();
+        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+
+        IRBuilder<> IRB(callInst);
+        Value *     GuardPtr = IRB.CreateIntToPtr(
+            IRB.CreateAdd(
+                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
+            Int32PtrTy);
+
+        callInst->setOperand(1, GuardPtr);
 
       }
 
@@ -863,16 +897,32 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
       if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
-        selects++;
-        uint32_t    id1 = 1 + instr + (uint32_t)AllBlocks.size() + special++;
-        uint32_t    id2 = 1 + instr + (uint32_t)AllBlocks.size() + special++;
-        Value *     val1 = ConstantInt::get(Int32Ty, id1);
-        Value *     val2 = ConstantInt::get(Int32Ty, id2);
-        auto        cond = selectInst->getCondition();
         IRBuilder<> IRB(selectInst->getNextNode());
-        auto        result = IRB.CreateSelect(cond, val1, val2);
+
+        Value *GuardPtr1 = IRB.CreateIntToPtr(
+            IRB.CreateAdd(
+                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                ConstantInt::get(
+                    IntptrTy,
+                    (cnt_cov + local_selects * 2 + 1 + AllBlocks.size()) * 4)),
+            Int32PtrTy);
+
+        Value *GuardPtr2 = IRB.CreateIntToPtr(
+            IRB.CreateAdd(
+                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                ConstantInt::get(
+                    IntptrTy,
+                    (cnt_cov + local_selects * 2 + 2 + AllBlocks.size()) * 4)),
+            Int32PtrTy);
+
+        local_selects++;
+
+        auto cond = selectInst->getCondition();
+        auto result = IRB.CreateSelect(cond, GuardPtr1, GuardPtr2);
 
         /* Get CurLoc */
+
+        LoadInst *CurLoc = IRB.CreateLoad(result);
 
         /* Load SHM pointer */
 
@@ -880,7 +930,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         /* Load counter for CurLoc */
 
-        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, result);
+        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
         if (use_threadsafe_counters) {
 
@@ -893,6 +943,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         } else {
 
           LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+
           /* Update bitmap */
 
           Value *Incr = IRB.CreateAdd(Counter, One);
@@ -910,6 +961,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         }
 
         skip_next = 1;
+        instr += 2;
 
       } else {
 
@@ -921,11 +973,11 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
   }
 
-  CreateFunctionLocalArrays(F, AllBlocks, special);
-  for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
-    InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
+  if (AllBlocks.empty() && !special && !local_selects) return false;
 
-  instr += special;
+  if (!AllBlocks.empty())
+    for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
+      InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
 
   return true;
 
