@@ -737,6 +737,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if ((compiler_mode == GCC || compiler_mode == GCC_PLUGIN) &&
+        !strncmp(cur, "-stdlib=", 8)) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
     if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
          !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
         (strncmp(cur, "sanitize-coverage-allow",
