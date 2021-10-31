@@ -48,7 +48,8 @@ struct cmp_header {
   unsigned shape : 5;
   unsigned type : 2;
   unsigned attribute : 4;
-  unsigned reserved : 5;
+  unsigned overflow : 1;
+  unsigned reserved : 4;
 
 } __attribute__((packed));
 
