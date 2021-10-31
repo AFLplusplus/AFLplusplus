@@ -679,7 +679,7 @@ static void __afl_start_snapshots(void) {
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT);
+  status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT | FS_OPT_NEWCMPLOG);
   if (__afl_sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
     status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
@@ -945,7 +945,12 @@ static void __afl_start_forkserver(void) {
   }
 
   if (__afl_sharedmem_fuzzing != 0) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
-  if (status_for_fsrv) { status_for_fsrv |= (FS_OPT_ENABLED); }
+  if (status_for_fsrv) {
+
+    status_for_fsrv |= (FS_OPT_ENABLED | FS_OPT_NEWCMPLOG);
+
+  }
+
   memcpy(tmp, &status_for_fsrv, 4);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,

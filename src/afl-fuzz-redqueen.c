@@ -28,8 +28,6 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-#define VARIANT 6
-
 //#define _DEBUG
 //#define CMPLOG_INTROSPECTION
 
@@ -1855,10 +1853,9 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     // we only learn 16 bit +
     if (hshape > 1) {
 
-#if VARIANT == 6
       if (!found_one || afl->queue_cur->is_ascii) {
 
-  #ifdef WORD_SIZE_64
+#ifdef WORD_SIZE_64
         if (unlikely(is_n)) {
 
           if (!found_one ||
@@ -1872,7 +1869,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
         } else
 
-  #endif
+#endif
         {
 
           if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
@@ -1889,75 +1886,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
         }
 
       }
-
-#else
-
-      u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
-         result = 1 + (found_one << 2);
-      if (o->v0 != orig_o->v0) { same0 = 8; }
-      if (o->v1 != orig_o->v1) { same1 = 8; }
-      if (o->v0 != o->v1) { same2 = 8; }
-      if (orig_o->v0 != orig_o->v1) { same3 = 8; }
-      if (check_if_text_buf((u8 *)&o->v0, hshape) < hshape) same0 += 2;
-      if (check_if_text_buf((u8 *)&o->v1, hshape) < hshape) same1 += 2;
-
-      if (!same2 && !same3) {
-
-  #ifdef WORD_SIZE_64
-        if (unlikely(is_n)) {
-
-          if (
-    #if VARIANT == 1
-              !(!same0 && same1) &&
-    #endif
-              DICT_ADD_STRATEGY >= same0 + result) {
-
-            try_to_add_to_dictN(afl, s128_v0, hshape);
-
-          }
-
-          if (
-    #if VARIANT == 1
-              !(same0 && !same1) &&
-    #endif
-              DICT_ADD_STRATEGY >= same1 + result) {
-
-            try_to_add_to_dictN(afl, s128_v1, hshape);
-
-          }
-
-        } else
-
-  #endif
-        {
-
-          if (
-  #if VARIANT == 1
-              !(!same0 && same1) &&
-  #endif
-              DICT_ADD_STRATEGY >= same0 + result) {
-
-            // fprintf(stderr, "add v0 0x%llx\n", o->v0);
-            try_to_add_to_dict(afl, o->v0, hshape);
-
-          }
-
-          if (
-  #if VARIANT == 1
-              !(same0 && !same1) &&
-  #endif
-              DICT_ADD_STRATEGY >= same1 + result) {
-
-            // fprintf(stderr, "add v1 0x%llx\n", o->v1);
-            try_to_add_to_dict(afl, o->v1, hshape);
-
-          }
-
-        }
-
-      }
-
-#endif
 
     }
 
@@ -2606,7 +2534,6 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     //  if (unlikely(!afl->pass_stats[key].total)) {
 
-#if VARIANT == 6
     if ((!found_one && (lvl & LVL1)) || afl->queue_cur->is_ascii) {
 
       // if (unlikely(!afl->pass_stats[key].total)) {
@@ -2642,73 +2569,6 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       //}
 
     }
-
-#else
-    if (lvl & LVL1) {
-
-      u8 is_txt = 0, l0 = o->v0_len, ol0 = orig_o->v0_len, l1 = o->v1_len,
-         ol1 = orig_o->v1_len;
-      if (l0 >= 0x80 || ol0 >= 0x80) {
-
-        is_txt = 1;
-        l0 -= 0x80;
-        l1 -= 0x80;
-        ol0 -= 0x80;
-        ol1 -= 0x80;
-
-      }
-
-      if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
-          ol0 > 31 || ol1 > 31) {
-
-        l0 = l1 = ol0 = ol1 = hshape;
-
-      }
-
-      u8 same0 = 0, same1 = 0, same2 = 0, same3 = 0,
-         result = 1 + (found_one << 2);
-      if (l0 != ol0 || memcmp(o->v0, orig_o->v0, l0) != 0) { same0 = 8; }
-      if (l1 != ol1 || memcmp(o->v1, orig_o->v1, l1) != 0) { same1 = 8; }
-      if (l0 != l1 || memcmp(o->v0, o->v1, l0) != 0) { same2 = 8; }
-      if (ol0 != ol1 || memcmp(orig_o->v0, orig_o->v1, l0) != 0) { same3 = 8; }
-      if (!is_txt && check_if_text_buf((u8 *)&o->v0, l0) < l0) { same0 += 2; }
-      if (!is_txt && check_if_text_buf((u8 *)&o->v1, l1) < l1) { same1 += 2; }
-
-      if (
-  #if VARIANT < 3
-          !(same0 && !same1) &&
-  #endif
-  #if VARIANT == 4
-          (!same2 && same3)
-  #else
-          (DICT_ADD_STRATEGY >= same0 + result)
-  #endif
-      ) {
-
-        // fprintf(stderr, "add v0 [%u]\"%s\"\n", l0, o->v0);
-        maybe_add_auto(afl, o->v0, l0);
-
-      }
-
-      if (
-  #if VARIANT < 3
-          !(!same0 && same1) &&
-  #endif
-  #if VARIANT == 4
-          (same2 && !same3)
-  #else
-          (DICT_ADD_STRATEGY >= same1 + result)
-  #endif
-      ) {
-
-        // fprintf(stderr, "add v1 [%u]\"%s\"\n", l1, o->v1);
-        maybe_add_auto(afl, o->v1, l1);
-
-      }
-
-    }
-
-#endif
 
   rtn_fuzz_next_iter:
     afl->stage_cur++;
