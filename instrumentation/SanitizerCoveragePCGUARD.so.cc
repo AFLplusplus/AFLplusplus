@@ -203,7 +203,7 @@ class ModuleSanitizerCoverage {
 
   SanitizerCoverageOptions Options;
 
-  uint32_t        instr = 0, selects = 0;
+  uint32_t        instr = 0, selects = 0, unhandled = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt *   One = NULL;
   ConstantInt *   Zero = NULL;
@@ -553,9 +553,9 @@ bool ModuleSanitizerCoverage::instrumentModule(
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations with no collisions (%s mode) and %u "
-          "selects.",
-          instr, modeline, selects);
+      OKF("Instrumented %u locations with no collisions (%s mode) of which are "
+          "%u handled and %u unhandled selects.",
+          instr, modeline, selects, unhandled);
 
     }
 
@@ -856,11 +856,19 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
       SelectInst *selectInst = nullptr;
 
-      if ((selectInst = dyn_cast<SelectInst>(&IN))) { cnt_sel++; }
+      if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+
+        Value *c = selectInst->getCondition();
+        auto   t = c->getType();
+        if (t->getTypeID() == llvm::Type::IntegerTyID) cnt_sel++;
+
+      }
 
     }
 
   }
+
+  fprintf(stderr, "%u selects in %s!\n", cnt_sel, F.getName().str().c_str());
 
   /* Create PCGUARD array */
   CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel * 2);
@@ -897,71 +905,81 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
       if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
-        IRBuilder<> IRB(selectInst->getNextNode());
+        Value *c = selectInst->getCondition();
+        auto   t = c->getType();
+        if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
-        Value *GuardPtr1 = IRB.CreateIntToPtr(
-            IRB.CreateAdd(
-                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                ConstantInt::get(
-                    IntptrTy,
-                    (cnt_cov + local_selects * 2 + 1 + AllBlocks.size()) * 4)),
-            Int32PtrTy);
+          IRBuilder<> IRB(selectInst->getNextNode());
 
-        Value *GuardPtr2 = IRB.CreateIntToPtr(
-            IRB.CreateAdd(
-                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                ConstantInt::get(
-                    IntptrTy,
-                    (cnt_cov + local_selects * 2 + 2 + AllBlocks.size()) * 4)),
-            Int32PtrTy);
+          Value *GuardPtr1 = IRB.CreateIntToPtr(
+              IRB.CreateAdd(
+                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                  ConstantInt::get(IntptrTy, (cnt_cov + local_selects * 2 + 1 +
+                                              AllBlocks.size()) *
+                                                 4)),
+              Int32PtrTy);
 
-        local_selects++;
+          Value *GuardPtr2 = IRB.CreateIntToPtr(
+              IRB.CreateAdd(
+                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                  ConstantInt::get(IntptrTy, (cnt_cov + local_selects * 2 + 2 +
+                                              AllBlocks.size()) *
+                                                 4)),
+              Int32PtrTy);
 
-        auto cond = selectInst->getCondition();
-        auto result = IRB.CreateSelect(cond, GuardPtr1, GuardPtr2);
+          local_selects++;
 
-        /* Get CurLoc */
+          auto cond = selectInst->getCondition();
+          auto result = IRB.CreateSelect(cond, GuardPtr1, GuardPtr2);
 
-        LoadInst *CurLoc = IRB.CreateLoad(result);
+          /* Get CurLoc */
 
-        /* Load SHM pointer */
+          LoadInst *CurLoc = IRB.CreateLoad(result);
 
-        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+          /* Load SHM pointer */
 
-        /* Load counter for CurLoc */
+          LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
 
-        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+          /* Load counter for CurLoc */
 
-        if (use_threadsafe_counters) {
+          Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
-          IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+          if (use_threadsafe_counters) {
+
+            IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
 #if LLVM_VERSION_MAJOR >= 13
-                              llvm::MaybeAlign(1),
+                                llvm::MaybeAlign(1),
 #endif
-                              llvm::AtomicOrdering::Monotonic);
+                                llvm::AtomicOrdering::Monotonic);
 
-        } else {
+          } else {
 
-          LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
 
-          /* Update bitmap */
+            /* Update bitmap */
 
-          Value *Incr = IRB.CreateAdd(Counter, One);
+            Value *Incr = IRB.CreateAdd(Counter, One);
 
-          if (skip_nozero == NULL) {
+            if (skip_nozero == NULL) {
 
-            auto cf = IRB.CreateICmpEQ(Incr, Zero);
-            auto carry = IRB.CreateZExt(cf, Int8Ty);
-            Incr = IRB.CreateAdd(Incr, carry);
+              auto cf = IRB.CreateICmpEQ(Incr, Zero);
+              auto carry = IRB.CreateZExt(cf, Int8Ty);
+              Incr = IRB.CreateAdd(Incr, carry);
+
+            }
+
+            IRB.CreateStore(Incr, MapPtrIdx);
 
           }
 
-          IRB.CreateStore(Incr, MapPtrIdx);
+          skip_next = 1;
+          instr += 2;
+
+        } else {
+
+          unhandled++;
 
         }
-
-        skip_next = 1;
-        instr += 2;
 
       } else {
 
