@@ -868,8 +868,6 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
   }
 
-  fprintf(stderr, "%u selects in %s!\n", cnt_sel, F.getName().str().c_str());
-
   /* Create PCGUARD array */
   CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel * 2);
   selects += cnt_sel;
