@@ -905,6 +905,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         Value *c = selectInst->getCondition();
         auto   t = c->getType();
+
         if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
           IRBuilder<> IRB(selectInst->getNextNode());
