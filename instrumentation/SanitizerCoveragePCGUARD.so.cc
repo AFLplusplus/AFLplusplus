@@ -834,7 +834,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
                                              ArrayRef<BasicBlock *> AllBlocks,
                                              bool IsLeafFunc) {
 
-  uint32_t cnt_cov = 0, cnt_sel = 0;
+  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
 
   for (auto &BB : F) {
 
@@ -860,7 +860,22 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         Value *c = selectInst->getCondition();
         auto   t = c->getType();
-        if (t->getTypeID() == llvm::Type::IntegerTyID) cnt_sel++;
+        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+          cnt_sel++;
+          cnt_sel_inc += 2;
+
+        } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+          if (tt) {
+
+            cnt_sel++;
+            cnt_sel_inc += tt->getElementCount().getFixedValue();
+
+          }
+
+        }
 
       }
 
@@ -869,7 +884,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   }
 
   /* Create PCGUARD array */
-  CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel * 2);
+  CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel_inc);
   selects += cnt_sel;
 
   uint32_t special = 0, local_selects = 0, skip_next = 0;
@@ -889,13 +904,16 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
         IRBuilder<> IRB(callInst);
-        Value *     GuardPtr = IRB.CreateIntToPtr(
+
+        Value *GuardPtr = IRB.CreateIntToPtr(
             IRB.CreateAdd(
                 IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                 ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
             Int32PtrTy);
 
-        callInst->setOperand(1, GuardPtr);
+        LoadInst *Idx = IRB.CreateLoad(GuardPtr);
+
+        callInst->setOperand(1, Idx);
 
       }
 
@@ -903,45 +921,139 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
       if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
-        Value *c = selectInst->getCondition();
-        auto   t = c->getType();
+        uint32_t    vector_cnt = 0;
+        Value *     condition = selectInst->getCondition();
+        Value *     result;
+        auto        t = condition->getType();
+        IRBuilder<> IRB(selectInst->getNextNode());
 
         if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
-          IRBuilder<> IRB(selectInst->getNextNode());
-
-          Value *GuardPtr1 = IRB.CreateIntToPtr(
+          auto GuardPtr1 = IRB.CreateIntToPtr(
               IRB.CreateAdd(
                   IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                  ConstantInt::get(IntptrTy, (cnt_cov + local_selects * 2 + 1 +
-                                              AllBlocks.size()) *
-                                                 4)),
+                  ConstantInt::get(
+                      IntptrTy,
+                      (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
               Int32PtrTy);
 
-          Value *GuardPtr2 = IRB.CreateIntToPtr(
+          auto GuardPtr2 = IRB.CreateIntToPtr(
               IRB.CreateAdd(
                   IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                  ConstantInt::get(IntptrTy, (cnt_cov + local_selects * 2 + 2 +
-                                              AllBlocks.size()) *
-                                                 4)),
+                  ConstantInt::get(
+                      IntptrTy,
+                      (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
               Int32PtrTy);
 
-          local_selects++;
+          result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
 
-          auto cond = selectInst->getCondition();
-          auto result = IRB.CreateSelect(cond, GuardPtr1, GuardPtr2);
+        } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+          if (tt) {
+
+            uint32_t elements = tt->getElementCount().getFixedValue();
+            vector_cnt = elements;
+            if (elements) {
+
+              FixedVectorType *GuardPtr1 =
+                  FixedVectorType::get(Int32PtrTy, elements);
+              FixedVectorType *GuardPtr2 =
+                  FixedVectorType::get(Int32PtrTy, elements);
+              Value *x, *y;
+
+              Value *val1 = IRB.CreateIntToPtr(
+                  IRB.CreateAdd(
+                      IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                      ConstantInt::get(
+                          IntptrTy,
+                          (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                  Int32PtrTy);
+              x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
+
+              Value *val2 = IRB.CreateIntToPtr(
+                  IRB.CreateAdd(
+                      IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                      ConstantInt::get(
+                          IntptrTy,
+                          (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                  Int32PtrTy);
+              y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+              for (uint64_t i = 1; i < elements; i++) {
+
+                val1 = IRB.CreateIntToPtr(
+                    IRB.CreateAdd(
+                        IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                        ConstantInt::get(IntptrTy, (cnt_cov + ++local_selects +
+                                                    AllBlocks.size()) *
+                                                       4)),
+                    Int32PtrTy);
+                x = IRB.CreateInsertElement(x, val1, i);
+
+                val2 = IRB.CreateIntToPtr(
+                    IRB.CreateAdd(
+                        IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                        ConstantInt::get(IntptrTy, (cnt_cov + ++local_selects +
+                                                    AllBlocks.size()) *
+                                                       4)),
+                    Int32PtrTy);
+                y = IRB.CreateInsertElement(y, val2, i);
+
+              }
+
+              /*
+                          std::string errMsg;
+                          raw_string_ostream os(errMsg);
+                      x->print(os);
+                      fprintf(stderr, "X: %s\n", os.str().c_str());
+              */
+              result = IRB.CreateSelect(condition, x, y);
+
+            }
+
+          }
+
+        } else {
+
+          unhandled++;
+
+        }
+
+        local_selects++;
+        uint32_t vector_cur = 0;
+
+        /* Load SHM pointer */
+
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+
+        /*
+            std::string errMsg;
+            raw_string_ostream os(errMsg);
+        result->print(os);
+        fprintf(stderr, "X: %s\n", os.str().c_str());
+        */
+
+        while (1) {
 
           /* Get CurLoc */
-
-          LoadInst *CurLoc = IRB.CreateLoad(result);
-
-          /* Load SHM pointer */
-
-          LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+          LoadInst *CurLoc = nullptr;
+          Value *   MapPtrIdx = nullptr;
 
           /* Load counter for CurLoc */
+          if (!vector_cnt) {
 
-          Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+            CurLoc = IRB.CreateLoad(result);
+            MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+
+          } else {
+
+            auto element = IRB.CreateExtractElement(result, vector_cur++);
+            auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
+            auto elementld = IRB.CreateLoad(elementptr);
+            MapPtrIdx = IRB.CreateGEP(MapPtr, elementld);
+
+          }
 
           if (use_threadsafe_counters) {
 
@@ -971,14 +1083,21 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
           }
 
-          skip_next = 1;
-          instr += 2;
+          if (!vector_cnt) {
 
-        } else {
+            vector_cnt = 2;
+            break;
 
-          unhandled++;
+          } else if (vector_cnt == vector_cur) {
+
+            break;
+
+          }
 
         }
+
+        skip_next = 1;
+        instr += vector_cnt;
 
       } else {
 
