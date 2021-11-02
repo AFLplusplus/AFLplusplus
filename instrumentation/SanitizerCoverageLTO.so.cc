@@ -1042,8 +1042,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
           M, Int64Tyi, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
       ConstantInt *MapAddr = ConstantInt::get(Int64Tyi, map_addr);
       StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
-      StoreMapAddr->setMetadata(M.getMDKindID("nosanitize"),
-                                MDNode::get(Ctx, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreMapAddr);
 
     }
 
@@ -1058,8 +1057,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                              "__afl_final_loc");
       ConstantInt *const_loc = ConstantInt::get(Int32Tyi, write_loc);
       StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-      StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
-                                 MDNode::get(Ctx, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreFinalLoc);
 
     }
 
@@ -1107,8 +1105,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                                0, "__afl_dictionary_len");
         ConstantInt *const_len = ConstantInt::get(Int32Tyi, offset);
         StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
-        StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
-                                  MDNode::get(Ctx, None));
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreDictLen);
 
         ArrayType *ArrayTy = ArrayType::get(IntegerType::get(Ctx, 8), offset);
         GlobalVariable *AFLInternalDictionary = new GlobalVariable(
@@ -1128,8 +1125,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
         Value *AFLDictPtr =
             IRB.CreatePointerCast(AFLDictOff, PointerType::get(Int8Tyi, 0));
         StoreInst *StoreDict = IRB.CreateStore(AFLDictPtr, AFLDictionary);
-        StoreDict->setMetadata(M.getMDKindID("nosanitize"),
-                               MDNode::get(Ctx, None));
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreDict);
 
       }
 
@@ -1370,6 +1366,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
         uint32_t vector_cur = 0;
         /* Load SHM pointer */
         LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
 
         while (1) {
 
@@ -1399,6 +1396,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
           } else {
 
             LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
 
             /* Update bitmap */
 
@@ -1412,7 +1410,8 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
             }
 
-            IRB.CreateStore(Incr, MapPtrIdx);
+            auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(nosan);
 
           }
 
@@ -1655,8 +1654,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(Mo->getMDKindID("nosanitize"),
-                          MDNode::get(*Ct, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
       MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
     }
@@ -1673,8 +1671,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(Mo->getMDKindID("nosanitize"),
-                           MDNode::get(*Ct, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
 
       Value *Incr = IRB.CreateAdd(Counter, One);
 
@@ -1686,8 +1683,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
       }
 
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
+      auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(nosan);
 
     }
 

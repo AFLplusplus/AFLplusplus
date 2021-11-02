@@ -912,6 +912,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
             Int32PtrTy);
 
         LoadInst *Idx = IRB.CreateLoad(GuardPtr);
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(Idx);
 
         callInst->setOperand(1, Idx);
 
@@ -1026,6 +1027,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         /* Load SHM pointer */
 
         LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
 
         /*
             std::string errMsg;
@@ -1044,6 +1046,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
           if (!vector_cnt) {
 
             CurLoc = IRB.CreateLoad(result);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(CurLoc);
             MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
           } else {
@@ -1051,6 +1054,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
             auto element = IRB.CreateExtractElement(result, vector_cur++);
             auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
             auto elementld = IRB.CreateLoad(elementptr);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(elementld);
             MapPtrIdx = IRB.CreateGEP(MapPtr, elementld);
 
           }
@@ -1066,6 +1070,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
           } else {
 
             LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
 
             /* Update bitmap */
 
@@ -1079,7 +1084,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
             }
 
-            IRB.CreateStore(Incr, MapPtrIdx);
+            StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
 
           }
 
@@ -1309,10 +1315,12 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
         Int32PtrTy);
 
     LoadInst *CurLoc = IRB.CreateLoad(GuardPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(CurLoc);
 
     /* Load SHM pointer */
 
     LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
 
     /* Load counter for CurLoc */
 
@@ -1329,6 +1337,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
+
       /* Update bitmap */
 
       Value *Incr = IRB.CreateAdd(Counter, One);
@@ -1341,7 +1351,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
       }
 
-      IRB.CreateStore(Incr, MapPtrIdx);
+      StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
 
     }
 
