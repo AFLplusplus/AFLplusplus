@@ -59,14 +59,14 @@ struct cmp_operands {
   u64 v0_128;
   u64 v1_128;
 
-};
+} __attribute__((packed));
 
 struct cmpfn_operands {
 
   u8 v0[32];
   u8 v1[32];
 
-};
+} __attribute__((packed));
 
 typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
@@ -75,7 +75,7 @@ struct cmp_map {
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
 
-};
+} __attribute__((packed));
 
 /* Execs the child */
 

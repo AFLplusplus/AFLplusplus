@@ -64,6 +64,8 @@ struct range {
 
 };
 
+static u32 hshape;
+
 static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
   struct range *r = ck_alloc_nozero(sizeof(struct range));
@@ -763,7 +765,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //         "Encode: %llx->%llx into %llx(<-%llx) at idx=%u "
   //         "taint_len=%u shape=%u attr=%u\n",
   //         o_pattern, pattern, repl, changed_val, idx, taint_len,
-  //         h->shape + 1, attr);
+  //         hshape, attr);
 
   //#ifdef CMPLOG_SOLVE_TRANSFORM
   // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
@@ -845,7 +847,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       u64 b_val, o_b_val, mask;
       u8  bytes;
 
-      switch (SHAPE_BYTES(h->shape)) {
+      switch (hshape) {
 
         case 0:
         case 1:
@@ -924,7 +926,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       s64 diff = pattern - b_val;
       s64 o_diff = o_pattern - o_b_val;
       /* fprintf(stderr, "DIFF1 idx=%03u shape=%02u %llx-%llx=%lx\n", idx,
-                 h->shape + 1, o_pattern, o_b_val, o_diff);
+                 hshape, o_pattern, o_b_val, o_diff);
          fprintf(stderr, "DIFF1 %016llx %llx-%llx=%lx\n", repl, pattern,
                  b_val, diff); */
       if (diff == o_diff && diff) {
@@ -953,7 +955,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         s64 o_diff = o_pattern ^ o_b_val;
 
         /* fprintf(stderr, "DIFF2 idx=%03u shape=%02u %llx-%llx=%lx\n",
-                   idx, h->shape + 1, o_pattern, o_b_val, o_diff);
+                   idx, hshape, o_pattern, o_b_val, o_diff);
            fprintf(stderr,
                    "DIFF2 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);
         */
@@ -1002,7 +1004,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         }
 
         /* fprintf(stderr, "DIFF3 idx=%03u shape=%02u %llx-%llx=%lx\n",
-                   idx, h->shape + 1, o_pattern, o_b_val, o_diff);
+                   idx, hshape, o_pattern, o_b_val, o_diff);
            fprintf(stderr,
                    "DIFF3 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);
         */
@@ -1051,7 +1053,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         }
 
         /* fprintf(stderr, "DIFF4 idx=%03u shape=%02u %llx-%llx=%lx\n",
-                   idx, h->shape + 1, o_pattern, o_b_val, o_diff);
+                   idx, hshape, o_pattern, o_b_val, o_diff);
            fprintf(stderr,
                    "DIFF4 %016llx %llx-%llx=%lx\n", repl, pattern, b_val, diff);
         */
@@ -1089,7 +1091,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   if ((lvl & LVL1) || attr >= IS_FP_MOD) {
 
-    if (SHAPE_BYTES(h->shape) >= 8 && *status != 1) {
+    if (hshape >= 8 && *status != 1) {
 
       // if (its_len >= 8)
       //   fprintf(stderr,
@@ -1132,7 +1134,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
-    if (SHAPE_BYTES(h->shape) >= 4 && *status != 1) {
+    if (hshape >= 4 && *status != 1) {
 
       // if (its_len >= 4 && (attr <= 1 || attr >= 8))
       //   fprintf(stderr,
@@ -1173,7 +1175,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
-    if (SHAPE_BYTES(h->shape) >= 2 && *status != 1) {
+    if (hshape >= 2 && *status != 1) {
 
       if (its_len >= 2 &&
           ((*buf_16 == (u16)pattern && *o_buf_16 == (u16)o_pattern) ||
@@ -1244,11 +1246,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  if (!(attr & (IS_GREATER | IS_LESSER)) || SHAPE_BYTES(h->shape) < 4) {
-
-    return 0;
-
-  }
+  if (!(attr & (IS_GREATER | IS_LESSER)) || hshape < 4) { return 0; }
 
   // transform >= to < and <= to >
   if ((attr & IS_EQUAL) && (attr & (IS_GREATER | IS_LESSER))) {
@@ -1272,7 +1270,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (attr & IS_GREATER) {
 
-      if (SHAPE_BYTES(h->shape) == 4 && its_len >= 4) {
+      if (hshape == 4 && its_len >= 4) {
 
         float *f = (float *)&repl;
         float  g = *f;
@@ -1280,7 +1278,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u32 *r = (u32 *)&g;
         repl_new = (u32)*r;
 
-      } else if (SHAPE_BYTES(h->shape) == 8 && its_len >= 8) {
+      } else if (hshape == 8 && its_len >= 8) {
 
         double *f = (double *)&repl;
         double  g = *f;
@@ -1307,7 +1305,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     } else {
 
-      if (SHAPE_BYTES(h->shape) == 4) {
+      if (hshape == 4) {
 
         float *f = (float *)&repl;
         float  g = *f;
@@ -1315,7 +1313,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u32 *r = (u32 *)&g;
         repl_new = (u32)*r;
 
-      } else if (SHAPE_BYTES(h->shape) == 8) {
+      } else if (hshape == 8) {
 
         double *f = (double *)&repl;
         double  g = *f;
@@ -1342,7 +1340,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     }
 
     // transform double to float, llvm likes to do that internally ...
-    if (SHAPE_BYTES(h->shape) == 8 && its_len >= 4) {
+    if (hshape == 8 && its_len >= 4) {
 
       double *f = (double *)&repl;
       float   g = (float)*f;
@@ -1353,7 +1351,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       memcpy(((char *)&repl_new) + 4, (char *)&g, 4);
 #endif
       changed_val = repl_new;
-      h->shape = 3;  // modify shape
+      hshape = 4;  // modify shape
 
       // fprintf(stderr, "DOUBLE2FLOAT %llx\n", repl_new);
 
@@ -1361,12 +1359,12 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
               afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
               taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
 
-        h->shape = 7;  // recover shape
+        hshape = 8;  // recover shape
         return 1;
 
       }
 
-      h->shape = 7;  // recover shape
+      hshape = 8;  // recover shape
 
     }
 
@@ -1428,7 +1426,7 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
   u8 *r = (u8 *)&repl;
   u8  backup[16];
   u32 its_len = MIN(len - idx, taint_len);
-  u32 shape = h->shape + 1;
+  u32 shape = hshape;
   #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
   size_t off = 0;
   #else
@@ -1615,6 +1613,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8  s_v0_inc = 1, s_v1_inc = 1;
   u8  s_v0_dec = 1, s_v1_dec = 1;
 
+  hshape = SHAPE_BYTES(h->shape);
+
   if (h->hits > CMP_MAP_H) {
 
     loggeds = CMP_MAP_H;
@@ -1626,7 +1626,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   }
 
 #ifdef WORD_SIZE_64
-  switch (SHAPE_BYTES(h->shape)) {
+  switch (hshape) {
 
     case 1:
     case 2:
@@ -1679,8 +1679,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 #ifdef _DEBUG
     fprintf(stderr, "Handling: %llx->%llx vs %llx->%llx attr=%u shape=%u\n",
-            orig_o->v0, o->v0, orig_o->v1, o->v1, h->attribute,
-            SHAPE_BYTES(h->shape));
+            orig_o->v0, o->v0, orig_o->v1, o->v1, h->attribute, hshape);
 #endif
 
     t = taint;
@@ -1830,7 +1829,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
             "END: %llx->%llx vs %llx->%llx attr=%u i=%u found=%u "
             "isN=%u size=%u\n",
             orig_o->v0, o->v0, orig_o->v1, o->v1, h->attribute, i, found_one,
-            is_n, SHAPE_BYTES(h->shape));
+            is_n, hshape);
 #endif
 
     // If failed, add to dictionary
@@ -1841,30 +1840,22 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 #ifdef WORD_SIZE_64
       if (unlikely(is_n)) {
 
-        if (!found_one ||
-            check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
-                SHAPE_BYTES(h->shape))
-          try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
-        if (!found_one ||
-            check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
-                SHAPE_BYTES(h->shape))
-          try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
+        if (!found_one || check_if_text_buf((u8 *)&s128_v0, hshape) == hshape)
+          try_to_add_to_dictN(afl, s128_v0, hshape);
+        if (!found_one || check_if_text_buf((u8 *)&s128_v1, hshape) == hshape)
+          try_to_add_to_dictN(afl, s128_v1, hshape);
 
       } else
 
 #endif
       {
 
-        if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
-            (!found_one ||
-             check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
-                 SHAPE_BYTES(h->shape)))
-          try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
-        if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, SHAPE_BYTES(h->shape)) &&
-            (!found_one ||
-             check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
-                 SHAPE_BYTES(h->shape)))
-          try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+        if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, hshape) &&
+            (!found_one || check_if_text_buf((u8 *)&o->v0, hshape) == hshape))
+          try_to_add_to_dict(afl, o->v0, hshape);
+        if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, hshape) &&
+            (!found_one || check_if_text_buf((u8 *)&o->v1, hshape) == hshape))
+          try_to_add_to_dict(afl, o->v1, hshape);
 
       }
 
@@ -2336,6 +2327,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u32                i, j, idx, have_taint = 1, taint_len, loggeds;
   u8                 status = 0, found_one = 0;
 
+  hshape = SHAPE_BYTES(h->shape);
+
   if (h->hits > CMP_MAP_RTN_H) {
 
     loggeds = CMP_MAP_RTN_H;
@@ -2414,25 +2407,24 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 #ifdef _DEBUG
       int w;
-      fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx,
-              SHAPE_BYTES(h->shape));
-      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+      fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx, hshape);
+      for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", orig_o->v0[w]);
       fprintf(stderr, " v0=");
-      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+      for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", o->v0[w]);
       fprintf(stderr, " o1=");
-      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+      for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", orig_o->v1[w]);
       fprintf(stderr, " v1=");
-      for (w = 0; w < SHAPE_BYTES(h->shape); ++w)
+      for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", o->v1[w]);
       fprintf(stderr, "\n");
 #endif
 
       if (unlikely(rtn_extend_encoding(
-              afl, o->v0, o->v1, orig_o->v0, orig_o->v1, SHAPE_BYTES(h->shape),
-              idx, taint_len, orig_buf, buf, cbuf, len, lvl, &status))) {
+              afl, o->v0, o->v1, orig_o->v0, orig_o->v1, hshape, idx, taint_len,
+              orig_buf, buf, cbuf, len, lvl, &status))) {
 
         return 1;
 
@@ -2448,8 +2440,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       status = 0;
 
       if (unlikely(rtn_extend_encoding(
-              afl, o->v1, o->v0, orig_o->v1, orig_o->v0, SHAPE_BYTES(h->shape),
-              idx, taint_len, orig_buf, buf, cbuf, len, lvl, &status))) {
+              afl, o->v1, o->v0, orig_o->v1, orig_o->v0, hshape, idx, taint_len,
+              orig_buf, buf, cbuf, len, lvl, &status))) {
 
         return 1;
 
@@ -2469,17 +2461,16 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       // if (unlikely(!afl->pass_stats[key].total)) {
 
-      u32 shape_len = SHAPE_BYTES(h->shape);
-      u32 v0_len = shape_len, v1_len = shape_len;
+      u32 v0_len = hshape, v1_len = hshape;
       if (afl->queue_cur->is_ascii ||
-          check_if_text_buf((u8 *)&o->v0, shape_len) == shape_len) {
+          check_if_text_buf((u8 *)&o->v0, hshape) == hshape) {
 
         if (strlen(o->v0)) v0_len = strlen(o->v0);
 
       }
 
       if (afl->queue_cur->is_ascii ||
-          check_if_text_buf((u8 *)&o->v1, shape_len) == shape_len) {
+          check_if_text_buf((u8 *)&o->v1, hshape) == hshape) {
 
         if (strlen(o->v1)) v1_len = strlen(o->v1);
 
@@ -2487,7 +2478,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       // fprintf(stderr, "SHOULD: found:%u ascii:%u text?%u:%u %u:%s %u:%s \n",
       // found_one, afl->queue_cur->is_ascii, check_if_text_buf((u8 *)&o->v0,
-      // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
+      // hshape), check_if_text_buf((u8 *)&o->v1, hshape), v0_len,
       // o->v0, v1_len, o->v1);
 
       if (!memcmp(o->v0, orig_o->v0, v0_len) ||
