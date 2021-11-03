@@ -377,7 +377,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           vector_cnt = tt->getElementCount().getFixedValue();
           ty1 = ty0 = tt->getElementType();
-          fprintf(stderr, "vec %u\n", vector_cnt);
 
         }
 

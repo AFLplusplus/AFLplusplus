@@ -1313,7 +1313,10 @@ void ModuleSanitizerCoverage::instrumentFunction(
           result = IRB.CreateSelect(condition, val1, val2);
           inst += 2;
 
-        } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+        }
+
+#if LLVM_VERSION_MAJOR > 13
+        else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
           if (tt) {
@@ -1355,7 +1358,10 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
           }
 
-        } else {
+        } else
+
+#endif
+        {
 
           unhandled++;
           continue;
