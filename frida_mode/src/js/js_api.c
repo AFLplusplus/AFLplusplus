@@ -231,3 +231,9 @@ __attribute__((visibility("default"))) void js_api_set_stalker_ic_entries(
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_traceable(void) {
+
+  traceable = TRUE;
+
+}
+

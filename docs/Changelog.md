@@ -17,14 +17,17 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       coverage being detected. thanks to Collin May for reporting!
     - fix -n dumb mode (nobody should use this)
     - fix stability issue with LTO and cmplog
+    - better banner
   - frida_mode: David Carlier added Android support :)
-  - afl-showmap, afl-tmin and afl-analyze now honor persistent mode
-    for more speed. thanks to dloffre-snl for reporting!
+  - afl-showmap, afl-tmin and afl-analyze:
+    - honor persistent mode for more speed. thanks to dloffre-snl for
+      reporting!
+    - fix bug where targets are not killed on timeouts
   - Prevent accidently killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
     - fix for shared linking on MacOS
-    - llvm and LTO mode verified to work with new llvm 14-dev
+    - llvm and LTO mode modified to work with new llvm 14-dev (again)
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
   - added optimin, a faster and better corpus minimizer by

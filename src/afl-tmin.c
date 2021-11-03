@@ -120,6 +120,17 @@ static const u8 count_class_lookup[256] = {
 #undef TIMES8
 #undef TIMES4
 
+static void kill_child() {
+
+  if (fsrv->child_pid > 0) {
+
+    kill(fsrv->child_pid, fsrv->kill_signal);
+    fsrv->child_pid = -1;
+
+  }
+
+}
+
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
                                  sharedmem_t *     shm_fuzz) {
 
@@ -1125,6 +1136,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->target_path = find_binary(argv[optind]);
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
+  signal(SIGALRM, kill_child);
 
   if (fsrv->qemu_mode) {
 

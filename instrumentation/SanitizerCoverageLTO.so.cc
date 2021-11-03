@@ -235,6 +235,8 @@ class ModuleSanitizerCoverage {
   uint32_t                         autodictionary = 1;
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 0;
+  uint32_t                         unhandled = 0;
+  uint32_t                         select_cnt = 0;
   uint64_t                         map_addr = 0;
   const char *                     skip_nozero = NULL;
   const char *                     use_threadsafe_counters = nullptr;
@@ -447,8 +449,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     dFile.open(ptr, std::ofstream::out | std::ofstream::app);
-    if (dFile.is_open())
-      WARNF("Cannot access document file %s", ptr);
+    if (dFile.is_open()) WARNF("Cannot access document file %s", ptr);
 
   }
 
@@ -1041,8 +1042,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
           M, Int64Tyi, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
       ConstantInt *MapAddr = ConstantInt::get(Int64Tyi, map_addr);
       StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
-      StoreMapAddr->setMetadata(M.getMDKindID("nosanitize"),
-                                MDNode::get(Ctx, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreMapAddr);
 
     }
 
@@ -1050,15 +1050,14 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       uint32_t write_loc = afl_global_id;
 
-      if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
+      write_loc = (((afl_global_id + 8) >> 3) << 3);
 
       GlobalVariable *AFLFinalLoc =
           new GlobalVariable(M, Int32Tyi, true, GlobalValue::ExternalLinkage, 0,
                              "__afl_final_loc");
       ConstantInt *const_loc = ConstantInt::get(Int32Tyi, write_loc);
       StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-      StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
-                                 MDNode::get(Ctx, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreFinalLoc);
 
     }
 
@@ -1084,7 +1083,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       if (count) {
 
-        auto ptrhld = std::unique_ptr<char []>(new char[memlen + count]);
+        auto ptrhld = std::unique_ptr<char[]>(new char[memlen + count]);
 
         count = 0;
 
@@ -1106,8 +1105,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                                0, "__afl_dictionary_len");
         ConstantInt *const_len = ConstantInt::get(Int32Tyi, offset);
         StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
-        StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
-                                  MDNode::get(Ctx, None));
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreDictLen);
 
         ArrayType *ArrayTy = ArrayType::get(IntegerType::get(Ctx, 8), offset);
         GlobalVariable *AFLInternalDictionary = new GlobalVariable(
@@ -1127,8 +1125,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
         Value *AFLDictPtr =
             IRB.CreatePointerCast(AFLDictOff, PointerType::get(Int8Tyi, 0));
         StoreInst *StoreDict = IRB.CreateStore(AFLDictPtr, AFLDictionary);
-        StoreDict->setMetadata(M.getMDKindID("nosanitize"),
-                               MDNode::get(Ctx, None));
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreDict);
 
       }
 
@@ -1151,9 +1148,9 @@ bool ModuleSanitizerCoverage::instrumentModule(
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations with no collisions (on average %llu "
-          "collisions would be in afl-gcc/vanilla AFL) (%s mode).",
-          inst, calculateCollisions(inst), modeline);
+      OKF("Instrumented %u locations (%u selects) without collisions (%llu "
+          "collisions have been avoided) (%s mode).",
+          inst, select_cnt, calculateCollisions(inst), modeline);
 
     }
 
@@ -1275,6 +1272,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
   const DominatorTree *    DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
   bool                     IsLeafFunc = true;
+  uint32_t                 skip_next = 0, local_selects = 0;
 
   for (auto &BB : F) {
 
@@ -1292,6 +1290,148 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
         Value *val = ConstantInt::get(Int32Ty, ++afl_global_id);
         callInst->setOperand(1, val);
+        ++inst;
+
+      }
+
+      SelectInst *selectInst = nullptr;
+
+      /*
+            std::string errMsg;
+            raw_string_ostream os(errMsg);
+            IN.print(os);
+            fprintf(stderr, "X(%u): %s\n", skip_next, os.str().c_str());
+      */
+      if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
+
+        uint32_t    vector_cnt = 0;
+        Value *     condition = selectInst->getCondition();
+        Value *     result;
+        auto        t = condition->getType();
+        IRBuilder<> IRB(selectInst->getNextNode());
+
+        ++select_cnt;
+
+        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+          Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
+          Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
+          result = IRB.CreateSelect(condition, val1, val2);
+          skip_next = 1;
+          inst += 2;
+
+        } else
+
+#if LLVM_VERSION_MAJOR > 13
+            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+          if (tt) {
+
+            uint32_t elements = tt->getElementCount().getFixedValue();
+            vector_cnt = elements;
+            inst += vector_cnt * 2;
+            if (elements) {
+
+              FixedVectorType *GuardPtr1 =
+                  FixedVectorType::get(Int32Ty, elements);
+              FixedVectorType *GuardPtr2 =
+                  FixedVectorType::get(Int32Ty, elements);
+              Value *x, *y;
+
+              Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
+              Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
+              x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
+              y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+              for (uint64_t i = 1; i < elements; i++) {
+
+                val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
+                val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
+                x = IRB.CreateInsertElement(GuardPtr1, val1, i);
+                y = IRB.CreateInsertElement(GuardPtr2, val2, i);
+
+              }
+
+              result = IRB.CreateSelect(condition, x, y);
+              skip_next = 1;
+
+            }
+
+          }
+
+        } else
+
+#endif
+        {
+
+          unhandled++;
+          continue;
+
+        }
+
+        local_selects++;
+        uint32_t vector_cur = 0;
+        /* Load SHM pointer */
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
+
+        while (1) {
+
+          /* Get CurLoc */
+          Value *MapPtrIdx = nullptr;
+
+          /* Load counter for CurLoc */
+          if (!vector_cnt) {
+
+            MapPtrIdx = IRB.CreateGEP(MapPtr, result);
+
+          } else {
+
+            auto element = IRB.CreateExtractElement(result, vector_cur++);
+            MapPtrIdx = IRB.CreateGEP(MapPtr, element);
+
+          }
+
+          if (use_threadsafe_counters) {
+
+            IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                                llvm::MaybeAlign(1),
+#endif
+                                llvm::AtomicOrdering::Monotonic);
+
+          } else {
+
+            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
+
+            /* Update bitmap */
+
+            Value *Incr = IRB.CreateAdd(Counter, One);
+
+            if (skip_nozero == NULL) {
+
+              auto cf = IRB.CreateICmpEQ(Incr, Zero);
+              auto carry = IRB.CreateZExt(cf, Int8Ty);
+              Incr = IRB.CreateAdd(Incr, carry);
+
+            }
+
+            auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(nosan);
+
+          }
+
+          if (!vector_cnt || vector_cnt == vector_cur) { break; }
+
+        }
+
+        skip_next = 1;
+
+      } else {
+
+        skip_next = 0;
 
       }
 
@@ -1502,7 +1642,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
       unsigned long long int moduleID =
           (((unsigned long long int)(rand() & 0xffffffff)) << 32) | getpid();
-      dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str() << " edgeID=" << afl_global_id << "\n";
+      dFile << "ModuleID=" << moduleID << " Function=" << F.getName().str()
+            << " edgeID=" << afl_global_id << "\n";
 
     }
 
@@ -1521,8 +1662,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(Mo->getMDKindID("nosanitize"),
-                          MDNode::get(*Ct, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
       MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
 
     }
@@ -1539,8 +1679,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(Mo->getMDKindID("nosanitize"),
-                           MDNode::get(*Ct, None));
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
 
       Value *Incr = IRB.CreateAdd(Counter, One);
 
@@ -1552,8 +1691,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
       }
 
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(Mo->getMDKindID("nosanitize"), MDNode::get(*Ct, None));
+      auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(nosan);
 
     }
 

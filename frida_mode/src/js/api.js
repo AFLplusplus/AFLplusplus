@@ -243,6 +243,12 @@ class Afl {
         const buf = Memory.allocUtf8String(file);
         Afl.jsApiSetStdOut(buf);
     }
+    /**
+     * See `AFL_FRIDA_TRACEABLE`.
+     */
+    static setTraceable() {
+        Afl.jsApiSetTraceable();
+    }
     static jsApiGetFunction(name, retType, argTypes) {
         const addr = Afl.module.getExportByName(name);
         return new NativeFunction(addr, retType, argTypes);
@@ -286,6 +292,7 @@ Afl.jsApiSetStatsFile = Afl.jsApiGetFunction("js_api_set_stats_file", "void", ["
 Afl.jsApiSetStatsInterval = Afl.jsApiGetFunction("js_api_set_stats_interval", "void", ["uint64"]);
 Afl.jsApiSetStdErr = Afl.jsApiGetFunction("js_api_set_stderr", "void", ["pointer"]);
 Afl.jsApiSetStdOut = Afl.jsApiGetFunction("js_api_set_stdout", "void", ["pointer"]);
+Afl.jsApiSetTraceable = Afl.jsApiGetFunction("js_api_set_traceable", "void", []);
 Afl.jsApiWrite = new NativeFunction(
 /* tslint:disable-next-line:no-null-keyword */
 Module.getExportByName(null, "write"), "int", ["int", "pointer", "int"]);
