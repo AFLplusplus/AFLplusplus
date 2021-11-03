@@ -1936,14 +1936,6 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
 
-  if (unlikely(reset && !hits)) { __afl_cmp_map->headers[k].overflow = 1; }
-
-  if (unlikely(__afl_cmp_map->headers[k].overflow)) {
-
-    __builtin_memset((char *)&cmpfn[hits], 0, sizeof(struct cmpfn_operands));
-
-  }
-
   cmpfn[hits].v0_len = l;
   cmpfn[hits].v1_len = l;
   __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
@@ -1991,14 +1983,6 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
-
-  if (unlikely(reset && !hits)) { __afl_cmp_map->headers[k].overflow = 1; }
-
-  if (unlikely(__afl_cmp_map->headers[k].overflow)) {
-
-    __builtin_memset((char *)&cmpfn[hits], 0, sizeof(struct cmpfn_operands));
-
-  }
 
   cmpfn[hits].v0_len = 0x80 + l;
   cmpfn[hits].v1_len = 0x80 + l;
@@ -2049,14 +2033,6 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
-
-  if (unlikely(reset && !hits)) { __afl_cmp_map->headers[k].overflow = 1; }
-
-  if (unlikely(__afl_cmp_map->headers[k].overflow)) {
-
-    __builtin_memset((char *)&cmpfn[hits], 0, sizeof(struct cmpfn_operands));
-
-  }
 
   cmpfn[hits].v0_len = 0x80 + len1;
   cmpfn[hits].v1_len = 0x80 + len2;
@@ -2115,14 +2091,6 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
-
-  if (unlikely(reset && !hits)) { __afl_cmp_map->headers[k].overflow = 1; }
-
-  if (unlikely(__afl_cmp_map->headers[k].overflow)) {
-
-    __builtin_memset((char *)&cmpfn[hits], 0, sizeof(struct cmpfn_operands));
-
-  }
 
   cmpfn[hits].v0_len = len;
   cmpfn[hits].v1_len = len;
