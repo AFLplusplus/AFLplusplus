@@ -284,6 +284,13 @@ class Afl {
     Afl.jsApiSetStdOut(buf);
   }
 
+  /**
+   * See `AFL_FRIDA_TRACEABLE`.
+   */
+  public static setTraceable(): void {
+    Afl.jsApiSetTraceable();
+  }
+
   private static readonly jsApiAddExcludeRange = Afl.jsApiGetFunction(
     "js_api_add_exclude_range",
     "void",
@@ -430,6 +437,11 @@ class Afl {
     "js_api_set_stdout",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetTraceable = Afl.jsApiGetFunction(
+    "js_api_set_traceable",
+    "void",
+    []);
 
   private static readonly jsApiWrite = new NativeFunction(
     /* tslint:disable-next-line:no-null-keyword */

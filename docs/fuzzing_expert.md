@@ -613,7 +613,7 @@ switch or honggfuzz.
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [env_variables.md](env_variables.md)
  * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure) - you can also just run `sudo afl-persistent-config`
  * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
- * Use your cores! [3.b) Using multiple cores/threads](#b-using-multiple-coresthreads)
+ * Use your cores! [b) Using multiple cores](#b-using-multiple-cores)
  * Run `sudo afl-system-config` before starting the first afl-fuzz instance after a reboot
 
 ### The End
@@ -625,4 +625,4 @@ This is basically all you need to know to professionally run fuzzing campaigns.
 If you want to know more, the tons of texts in [docs/](./) will have you covered.
 
 Note that there are also a lot of tools out there that help fuzzing with AFL++
-(some might be deprecated or unsupported), see [links_tools.md](links_tools.md).
+(some might be deprecated or unsupported), see [tools.md](tools.md).

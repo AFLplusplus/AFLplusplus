@@ -578,16 +578,16 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
       /* dependent on the cmp of the high parts go to the end or go on with
        * the comparison */
-      auto        term = bb->getTerminator();
-      BranchInst *br = nullptr;
+      auto term = bb->getTerminator();
+
       if (pred == CmpInst::ICMP_EQ) {
 
-        br = BranchInst::Create(cmp_low_bb, end_bb, icmp_high, bb);
+        BranchInst::Create(cmp_low_bb, end_bb, icmp_high, bb);
 
       } else {
 
-        /* CmpInst::ICMP_NE */
-        br = BranchInst::Create(end_bb, cmp_low_bb, icmp_high, bb);
+        // CmpInst::ICMP_NE
+        BranchInst::Create(end_bb, cmp_low_bb, icmp_high, bb);
 
       }
 

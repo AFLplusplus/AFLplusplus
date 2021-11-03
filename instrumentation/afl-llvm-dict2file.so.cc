@@ -66,6 +66,9 @@ namespace {
 
 class AFLdict2filePass : public ModulePass {
 
+  std::ofstream of;
+  void          dict2file(u8 *, u32);
+
  public:
   static char ID;
 
@@ -81,7 +84,7 @@ class AFLdict2filePass : public ModulePass {
 
 }  // namespace
 
-void dict2file(int fd, u8 *mem, u32 len) {
+void AFLdict2filePass::dict2file(u8 *mem, u32 len) {
 
   u32  i, j, binary = 0;
   char line[MAX_AUTO_EXTRA * 8], tmp[8];
@@ -113,9 +116,8 @@ void dict2file(int fd, u8 *mem, u32 len) {
 
   line[j] = 0;
   strcat(line, "\"\n");
-  if (write(fd, line, strlen(line)) <= 0)
-    PFATAL("Could not write to dictionary file");
-  fsync(fd);
+  of << line;
+  of.flush();
 
   if (!be_quiet) fprintf(stderr, "Found dictionary token: %s", line);
 
@@ -125,7 +127,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
   DenseMap<Value *, std::string *> valueMap;
   char *                           ptr;
-  int                              fd, found = 0;
+  int                              found = 0;
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -146,8 +148,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
   if (!ptr || *ptr != '/')
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
-  if ((fd = open(ptr, O_WRONLY | O_APPEND | O_CREAT | O_DSYNC, 0644)) < 0)
-    PFATAL("Could not open/create %s.", ptr);
+  of.open(ptr, std::ofstream::out | std::ofstream::app);
+  if (!of.is_open()) PFATAL("Could not open/create %s.", ptr);
 
   /* Instrument all the things! */
 
@@ -264,11 +266,11 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               }
 
-              dict2file(fd, (u8 *)&val, len);
+              dict2file((u8 *)&val, len);
               found++;
               if (val2) {
 
-                dict2file(fd, (u8 *)&val2, len);
+                dict2file((u8 *)&val2, len);
                 found++;
 
               }
@@ -630,7 +632,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           ptr = (char *)thestring.c_str();
 
-          dict2file(fd, (u8 *)ptr, optLen);
+          dict2file((u8 *)ptr, optLen);
           found++;
 
         }
@@ -641,7 +643,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
   }
 
-  close(fd);
+  of.close();
 
   /* Say something nice. */
 

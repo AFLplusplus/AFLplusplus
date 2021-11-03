@@ -16,11 +16,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix a regression introduced in 3.10 that resulted in less
       coverage being detected. thanks to Collin May for reporting!
     - fix -n dumb mode (nobody should use this)
-  - afl-showmap, afl-tmin and afl-analyze now honor persistent mode
-    for more speed. thanks to dloffre-snl for reporting!
+    - fix stability issue with LTO and cmplog
+    - better banner
+  - frida_mode: David Carlier added Android support :)
+  - afl-showmap, afl-tmin and afl-analyze:
+    - honor persistent mode for more speed. thanks to dloffre-snl for
+      reporting!
+    - fix bug where targets are not killed on timeouts
+  - Prevent accidently killing non-afl/fuzz services when aborting
+    afl-showmap and other tools.
   - afl-cc:
     - fix for shared linking on MacOS
-    - llvm and LTO mode verified to work with new llvm 14-dev
+    - llvm and LTO mode modified to work with new llvm 14-dev (again)
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
   - added optimin, a faster and better corpus minimizer by
@@ -32,6 +39,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
   - added uninstall target to makefile (todo: update new readme!)
+  - removed indirections in rust callbacks for unicornafl
 
 
 ### Version ++3.14c (release)

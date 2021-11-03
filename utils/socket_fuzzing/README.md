@@ -6,6 +6,6 @@ for sending input to stdin which the target binary will think is coming from
 a network socket.
 
 This is desock_dup.c from the amazing preeny project
-https://github.com/zardus/preeny
+[https://github.com/zardus/preeny](https://github.com/zardus/preeny)
 
 It is packaged in AFL++ to have it at hand if needed

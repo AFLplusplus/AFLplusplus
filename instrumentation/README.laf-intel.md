@@ -3,9 +3,8 @@
 ## Introduction
 
 This originally is the work of an individual nicknamed laf-intel.
-His blog [Circumventing Fuzzing Roadblocks with Compiler Transformations]
-(https://lafintel.wordpress.com/) and gitlab repo [laf-llvm-pass]
-(https://gitlab.com/laf-intel/laf-llvm-pass/)
+His blog [Circumventing Fuzzing Roadblocks with Compiler Transformations](https://lafintel.wordpress.com/)
+and gitlab repo [laf-llvm-pass](https://gitlab.com/laf-intel/laf-llvm-pass/)
 describe some code transformations that
 help AFL++ to enter conditional blocks, where conditions consist of
 comparisons of large values.
