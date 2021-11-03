@@ -442,9 +442,10 @@ void show_stats(afl_state_t *afl) {
   u64 cur_ms;
   u32 t_bytes, t_bits;
 
-  u32 banner_len, banner_pad;
-  u8  tmp[256];
-  u8  time_tmp[64];
+  static u8 banner[128];
+  u32       banner_len, banner_pad;
+  u8        tmp[256];
+  u8        time_tmp[64];
 
   u8 val_buf[8][STRINGIFY_VAL_SIZE_MAX];
 #define IB(i) (val_buf[(i)])
@@ -657,26 +658,34 @@ void show_stats(afl_state_t *afl) {
   }
 
   /* Let's start by drawing a centered banner. */
+  if (unlikely(!banner[0])) {
 
-  banner_len = (afl->crash_mode ? 24 : 22) + strlen(VERSION) +
-               strlen(afl->use_banner) + strlen(afl->power_name) + 3 + 5;
-  banner_pad = (79 - banner_len) / 2;
-  memset(tmp, ' ', banner_pad);
+    char *si = "";
+    if (afl->sync_id) { si = afl->sync_id; }
+    memset(banner, 0, sizeof(banner));
+    banner_len = (afl->crash_mode ? 20 : 18) + strlen(VERSION) + strlen(si) +
+                 strlen(afl->power_name) + 4 + 6;
 
-#ifdef HAVE_AFFINITY
-  sprintf(
-      tmp + banner_pad,
-      "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]" cBLU " {%d}",
-      afl->crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
-      afl->use_banner, afl->power_name, afl->cpu_aff);
-#else
-  sprintf(
-      tmp + banner_pad, "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]",
-      afl->crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
-      afl->use_banner, afl->power_name);
-#endif                                                     /* HAVE_AFFINITY */
+    if (strlen(afl->use_banner) + banner_len > 75) {
 
-  SAYF("\n%s\n", tmp);
+      afl->use_banner += (strlen(afl->use_banner) + banner_len) - 76;
+      memset(afl->use_banner, '.', 3);
+
+    }
+
+    banner_len += strlen(afl->use_banner);
+    banner_pad = (79 - banner_len) / 2;
+    memset(banner, ' ', banner_pad);
+
+    sprintf(banner + banner_pad,
+            "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+            afl->crash_mode ? cPIN "peruvian were-rabbit"
+                            : cYEL "american fuzzy lop",
+            si, afl->use_banner, afl->power_name);
+
+  }
+
+  SAYF("\n%s\n", banner);
 
   /* "Handy" shortcuts for drawing boxes... */
 

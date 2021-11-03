@@ -65,8 +65,10 @@ using namespace llvm;
 namespace {
 
 class AFLdict2filePass : public ModulePass {
+
   std::ofstream of;
-  void dict2file(u8 *, u32);
+  void          dict2file(u8 *, u32);
+
  public:
   static char ID;
 
@@ -147,8 +149,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
   of.open(ptr, std::ofstream::out | std::ofstream::app);
-  if (!of.is_open())
-    PFATAL("Could not open/create %s.", ptr);
+  if (!of.is_open()) PFATAL("Could not open/create %s.", ptr);
 
   /* Instrument all the things! */
 

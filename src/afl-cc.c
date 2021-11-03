@@ -423,6 +423,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     char *fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
     cc_params[cc_par_cnt++] = fplugin_arg;
+    cc_params[cc_par_cnt++] = "-fno-if-conversion";
+    cc_params[cc_par_cnt++] = "-fno-if-conversion2";
 
   }
 
@@ -735,6 +737,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if ((compiler_mode == GCC || compiler_mode == GCC_PLUGIN) &&
+        !strncmp(cur, "-stdlib=", 8)) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
     if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
          !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
         (strncmp(cur, "sanitize-coverage-allow",
@@ -1007,7 +1017,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   // prevent unnecessary build errors
-  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+  if (compiler_mode != GCC_PLUGIN && compiler_mode != GCC) {
+
+    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+  }
 
   if (preprocessor_only || have_c) {
 

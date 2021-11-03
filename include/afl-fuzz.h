@@ -1130,7 +1130,6 @@ void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
-void   fix_up_banner(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);
 void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);

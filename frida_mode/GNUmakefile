@@ -78,6 +78,9 @@ endif
 
 ifeq "$(shell uname)" "Linux"
  OS:=linux
+ ifneq "$(findstring musl, $(shell ldd --version 2>&1 | head -n 1))" ""
+  CFLAGS+=       -D__MUSL__
+ endif
 endif
 
 ifneq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""

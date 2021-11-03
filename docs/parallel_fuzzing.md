@@ -27,9 +27,8 @@ will not be able to use that input to guide their work.
 To help with this problem, afl-fuzz offers a simple way to synchronize test
 cases on the fly.
 
-Note that AFL++ has AFLfast's power schedules implemented.
-It is therefore a good idea to use different power schedules if you run
-several instances in parallel. See [power_schedules.md](power_schedules.md)
+It is a good idea to use different power schedules if you run several instances
+in parallel (`-p` option).
 
 Alternatively running other AFL spinoffs in parallel can be of value,
 e.g. Angora (https://github.com/AngoraFuzzer/Angora/)
@@ -39,7 +38,7 @@ e.g. Angora (https://github.com/AngoraFuzzer/Angora/)
 If you wish to parallelize a single job across multiple cores on a local
 system, simply create a new, empty output directory ("sync dir") that will be
 shared by all the instances of afl-fuzz; and then come up with a naming scheme
-for every instance - say, "fuzzer01", "fuzzer02", etc. 
+for every instance - say, "fuzzer01", "fuzzer02", etc.
 
 Run the first one ("main node", -M) like this:
 
@@ -93,7 +92,7 @@ file name.
 
 There is support for parallelizing the deterministic checks.
 This is only needed where
- 
+
  1. many new paths are found fast over a long time and it looks unlikely that
     main node will ever catch up, and
  2. deterministic fuzzing is actively helping path discovery (you can see this
@@ -195,7 +194,7 @@ to keep in mind:
   - You do not want a "main" instance of afl-fuzz on every system; you should
     run them all with -S, and just designate a single process somewhere within
     the fleet to run with -M.
-    
+
   - Syncing is only necessary for the main nodes on a system. It is possible
     to run main-less with only secondaries. However then you need to find out
     which secondary took over the temporary role to be the main node. Look for
