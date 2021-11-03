@@ -895,6 +895,12 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
       CallInst *callInst = nullptr;
 
+      /*
+                                std::string errMsg;
+                                raw_string_ostream os(errMsg);
+                            IN.print(os);
+                            fprintf(stderr, "X: %s\n", os.str().c_str());
+      */
       if ((callInst = dyn_cast<CallInst>(&IN))) {
 
         Function *Callee = callInst->getCalledFunction();
@@ -948,7 +954,10 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
           result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
 
-        } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+        } else
+
+#if LLVM_VERSION_MAJOR > 13
+            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
           if (tt) {
@@ -1015,9 +1024,13 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
           }
 
-        } else {
+        } else
+
+#endif
+        {
 
           unhandled++;
+          continue;
 
         }
 
