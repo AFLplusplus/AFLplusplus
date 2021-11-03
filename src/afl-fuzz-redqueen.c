@@ -1383,7 +1383,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
       }
 
-      hshape = 7;  // recover shape
+      hshape = 8;  // recover shape
 
     }
 
