@@ -221,7 +221,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
   memcpy(&new_argv[3], &argv[1], (int)(sizeof(char *)) * (argc - 1));
-  new_argv[argc + 3] = NULL;
+  new_argv[argc + 2] = NULL;
 
   new_argv[2] = *target_path_p;
   new_argv[1] = "--";
@@ -241,7 +241,7 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
   memcpy(&new_argv[2], &argv[1], (int)(sizeof(char *)) * (argc - 1));
-  new_argv[argc + 2] = NULL;
+  new_argv[argc + 1] = NULL;
 
   new_argv[1] = *target_path_p;
 
