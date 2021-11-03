@@ -2226,13 +2226,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  write_bitmap(afl);
-  save_auto(afl);
-
 stop_fuzzing:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
+  write_bitmap(afl);
+  save_auto(afl);
 
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
