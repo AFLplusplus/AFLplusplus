@@ -1296,6 +1296,12 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
       SelectInst *selectInst = nullptr;
 
+      /*
+            std::string errMsg;
+            raw_string_ostream os(errMsg);
+            IN.print(os);
+            fprintf(stderr, "X(%u): %s\n", skip_next, os.str().c_str());
+      */
       if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
         uint32_t    vector_cnt = 0;
@@ -1311,12 +1317,13 @@ void ModuleSanitizerCoverage::instrumentFunction(
           Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
           Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
           result = IRB.CreateSelect(condition, val1, val2);
+          skip_next = 1;
           inst += 2;
 
-        }
+        } else
 
 #if LLVM_VERSION_MAJOR > 13
-        else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
           if (tt) {
@@ -1346,13 +1353,8 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
               }
 
-              /*
-                          std::string errMsg;
-                          raw_string_ostream os(errMsg);
-                      x->print(os);
-                      fprintf(stderr, "X: %s\n", os.str().c_str());
-              */
               result = IRB.CreateSelect(condition, x, y);
+              skip_next = 1;
 
             }
 

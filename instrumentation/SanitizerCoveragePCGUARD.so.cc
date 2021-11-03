@@ -865,7 +865,10 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
           cnt_sel++;
           cnt_sel_inc += 2;
 
-        } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+        }
+
+#if LLVM__MAJOR > 11
+        else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
           if (tt) {
@@ -876,6 +879,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
           }
 
         }
+
+#endif
 
       }
 
