@@ -338,8 +338,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           }
 
+#if LLVM_MAJOR > 11
           vector_cnt = tt->getElementCount().getFixedValue();
           ty0 = tt->getElementType();
+#endif
 
         }
 
@@ -357,9 +359,11 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           max_size = 80;
         else if (ty0->isFP128Ty() || ty0->isPPC_FP128Ty())
           max_size = 128;
+#if LLVM_MAJOR > 11
         else if (ty0->getTypeID() != llvm::Type::PointerTyID && !be_quiet)
           fprintf(stderr, "Warning: unsupported cmp type for cmplog: %u!\n",
                   ty0->getTypeID());
+#endif
 
         attr += 8;
 
@@ -367,6 +371,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         if (ty0->isVectorTy()) {
 
+#if LLVM_MAJOR > 11
           VectorType *tt = dyn_cast<VectorType>(ty0);
           if (!tt) {
 
@@ -377,6 +382,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           vector_cnt = tt->getElementCount().getFixedValue();
           ty1 = ty0 = tt->getElementType();
+#endif
 
         }
 
@@ -391,12 +397,15 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         } else {
 
+#if LLVM_MAJOR > 11
           if (ty0->getTypeID() != llvm::Type::PointerTyID && !be_quiet) {
 
-            fprintf(stderr, "Warning: unsupported cmp type for cmplog: %u!\n",
+            fprintf(stderr, "Warning: unsupported cmp type for cmplog: %u\n",
                     ty0->getTypeID());
 
           }
+
+#endif
 
         }
 
