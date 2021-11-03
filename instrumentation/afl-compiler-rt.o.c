@@ -158,11 +158,7 @@ static void at_exit(int signal) {
 
 }
 
-#ifdef WORD_SIZE_64
-  #define default_hash(a, b) XXH64(a, b, HASH_CONST)
-#else
-  #define default_hash(a, b) XXH64(a, b, HASH_CONST)
-#endif
+#define default_hash(a, b) XXH64(a, b, HASH_CONST)
 
 /* Uninspired gcc plugin instrumentation */
 
