@@ -1908,14 +1908,14 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
-  u32 hits, reset = 1;
+  u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = l - 1;
-    reset = hits = 0;
+    hits = 0;
 
   } else {
 
@@ -1956,14 +1956,14 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
-  u32 hits, reset = 1;
+  u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = l - 1;
-    reset = hits = 0;
+    hits = 0;
 
   } else {
 
@@ -2006,14 +2006,14 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
-  u32 hits, reset = 1;
+  u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = l - 1;
-    reset = hits = 0;
+    hits = 0;
 
   } else {
 
@@ -2064,14 +2064,14 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
-  u32 hits, reset = 1;
+  u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = len - 1;
-    reset = hits = 0;
+    hits = 0;
 
   } else {
 
