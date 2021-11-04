@@ -23,7 +23,9 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 }
 
 void instrument_coverage_optimize_init(void) {
+
   WARNF("Optimized coverage not supported on this architecture");
+
 }
 
 void instrument_flush(GumStalkerOutput *output) {

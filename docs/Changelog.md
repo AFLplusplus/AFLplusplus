@@ -26,7 +26,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Prevent accidently killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
+    - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
+    - added AFL_USE_TSAN thread sanitizer support
     - llvm and LTO mode modified to work with new llvm 14-dev (again)
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators

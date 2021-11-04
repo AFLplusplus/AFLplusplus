@@ -1,8 +1,8 @@
 #if defined(__linux__) && !defined(__ANDROID__)
 
-#if !defined(__MUSL__)
-  #include <execinfo.h>
-#endif
+  #if !defined(__MUSL__)
+    #include <execinfo.h>
+  #endif
   #include <fcntl.h>
 
   #include "seccomp.h"
@@ -16,12 +16,13 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   GumDebugSymbolDetails details = {0};
   if (req->data.nr == SYS_OPENAT) {
 
-#if UINTPTR_MAX == 0xffffffffffffffffu
+  #if UINTPTR_MAX == 0xffffffffffffffffu
     seccomp_print("SYS_OPENAT: (%s)\n", (char *)req->data.args[1]);
-#endif
-#if UINTPTR_MAX == 0xffffffff
+  #endif
+  #if UINTPTR_MAX == 0xffffffff
     seccomp_print("SYS_OPENAT: (%s)\n", (char *)(__u32)req->data.args[1]);
-#endif
+  #endif
+
   }
 
   seccomp_print(
@@ -31,7 +32,7 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
       req->data.args[0], req->data.args[1], req->data.args[2],
       req->data.args[3], req->data.args[4], req->data.args[5]);
 
-#if !defined(__MUSL__)
+  #if !defined(__MUSL__)
   seccomp_print("FRAMES: (%u)\n", frames->len);
   char **syms = backtrace_symbols(frames->items, frames->len);
   if (syms == NULL) { FATAL("Failed to get symbols"); }
@@ -52,23 +53,24 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   }
 
   free(syms);
-#else
+  #else
   void **syms = (void **)__builtin_frame_address(0);
-  void *framep = __builtin_frame_address(1);
-  int i = 0;
+  void * framep = __builtin_frame_address(1);
+  int    i = 0;
 
   syms = framep;
   while (syms) {
-   
-    framep = *syms;   
+
+    framep = *syms;
     syms = framep;
 
     if (!syms) break;
 
-    seccomp_print("\%3d. %s\n", i ++, (char *)framep);
+    seccomp_print("\%3d. %s\n", i++, (char *)framep);
 
   }
-#endif
+
+  #endif
 
   resp->error = 0;
   resp->val = 0;

@@ -126,15 +126,16 @@ static void afl_print_cmdline(void) {
   g_free(fname);
   g_free(buffer);
 #elif defined(__APPLE__)
-  int idx;
+  int    idx;
   char **argv = *_NSGetArgv();
-  int nargv = *_NSGetArgc();
+  int    nargv = *_NSGetArgc();
 
-  for (idx = 0; idx < nargv; idx ++) {
+  for (idx = 0; idx < nargv; idx++) {
 
     OKF("AFL - COMMANDLINE: argv[%d] = %s", idx, argv[idx]);
 
   }
+
 #endif
 
 }
