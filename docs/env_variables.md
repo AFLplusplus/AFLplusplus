@@ -95,21 +95,22 @@ fairly broad use of environment variables instead:
   - Setting `AFL_QUIET` will prevent afl-cc and afl-as banners from being
     displayed during compilation, in case you find them distracting.
 
-  - Setting `AFL_USE_ASAN` automatically enables ASAN, provided that your
-    compiler supports it.
-
-    (You can also enable MSAN via `AFL_USE_MSAN`; ASAN and MSAN come with the
-    same gotchas; the modes are mutually exclusive. UBSAN can be enabled
-    similarly by setting the environment variable `AFL_USE_UBSAN=1`. Finally,
-    there is the Control Flow Integrity sanitizer that can be activated by
-    `AFL_USE_CFISAN=1`.)
-
-  - Setting `AFL_USE_LSAN` automatically enables Leak-Sanitizer, provided that
-    your compiler supports it. To perform a leak check within your program at a
-    certain point (such as at the end of an __AFL_LOOP), you can run the macro
-    __AFL_LEAK_CHECK(); which will cause an abort if any memory is leaked (you
-    can combine this with the LSAN_OPTIONS=suppressions option to supress some
-    known leaks).
+  - Setting `AFL_USE_...` automatically enables supported sanitizers -
+    provided that your compiler supports it.
+    Available are:
+    - `AFL_USE_ASAN=1` - activate the address sanitizer (memory corruption
+      detection)
+    - `AFL_USE_MSAN=1` - activate the memory sanitizer (uninitialized memory)
+    - `AFL_USE_UBSAN=1` - activate the undefined behaviour sanitizer
+    - `AFL_USE_TSAN=1` - activate the thread sanitizer to find thread race
+      conditions
+    - `AFL_USE_CFISAN=1` - activate the Control Flow Integrity sanitizer (e.g.
+      type confusion vulnerabilities)
+    - `AFL_USE_LSAN` - activates the leak sanitizer. To perform a leak check
+      within your program at a certain point (such as at the end of an
+      `__AFL_LOOP()`), you can run the macro  `__AFL_LEAK_CHECK();` which will
+      cause an abort if any memory is leaked (you can combine this with the
+      `LSAN_OPTIONS=...` suppression option to supress some known leaks).
 
   - `TMPDIR` is used by afl-as for temporary files; if this variable is not set,
     the tool defaults to /tmp.
