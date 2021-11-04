@@ -149,6 +149,8 @@ The following sanitizers have built-in support in AFL++:
     vulnerabilities - which is however one of the most important and dangerous
     C++ memory corruption classes!
     Enabled with `export AFL_USE_CFISAN=1` before compiling.
+  * TSAN = Thread SANitizer, finds thread race conditions.
+    Enabled with `export AFL_USE_TSAN=1` before compiling.
   * LSAN = Leak SANitizer, finds memory leaks in a program. This is not really
     a security issue, but for developers this can be very valuable.
     Note that unlike the other sanitizers above this needs

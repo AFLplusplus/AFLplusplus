@@ -44,8 +44,8 @@ static void gum_afl_stalker_backpatcher_notify(GumStalkerObserver *self,
       sizeof(prefetch_data->backpatch_data) - prefetch_data->backpatch_size;
   if (sizeof(gsize) + size > remaining) { return; }
 
-  gsize *dst_backpatch_size = (gsize *)
-      &prefetch_data->backpatch_data[prefetch_data->backpatch_size];
+  gsize *dst_backpatch_size =
+      (gsize *)&prefetch_data->backpatch_data[prefetch_data->backpatch_size];
   *dst_backpatch_size = size;
   prefetch_data->backpatch_size += sizeof(gsize);
 
@@ -117,7 +117,7 @@ static void prefetch_read_patches(void) {
        remaining = prefetch_data->backpatch_size - offset) {
 
     gsize *src_backpatch_data = (gsize *)&prefetch_data->backpatch_data[offset];
-    gsize size = *src_backpatch_data;
+    gsize  size = *src_backpatch_data;
     offset += sizeof(gsize);
 
     if (prefetch_data->backpatch_size - offset < size) {

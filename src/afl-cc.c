@@ -857,6 +857,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-fsanitize=undefined";
     cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
     cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
+    cc_params[cc_par_cnt++] = "-fno-omit-frame-pointer";
+
+  }
+
+  if (getenv("AFL_USE_TSAN")) {
+
+    cc_params[cc_par_cnt++] = "-fsanitize=thread";
+    cc_params[cc_par_cnt++] = "-fno-omit-frame-pointer";
 
   }
 
@@ -1814,6 +1822,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+          "  AFL_USE_TSAN: activate thread sanitizer\n"
           "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
 
       if (have_gcc_plugin)

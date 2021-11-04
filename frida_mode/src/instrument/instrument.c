@@ -347,8 +347,8 @@ void instrument_init(void) {
 #else
     tid = syscall(SYS_gettid);
 #endif
-    instrument_hash_seed = g_get_monotonic_time() ^
-                           (((guint64)getpid()) << 32) ^ tid;
+    instrument_hash_seed =
+        g_get_monotonic_time() ^ (((guint64)getpid()) << 32) ^ tid;
 
   }
 

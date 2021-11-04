@@ -4,12 +4,12 @@
 #include <sys/shm.h>
 
 #if defined(__linux__)
-#if !defined(__ANDROID__)
-#include <asm/prctl.h>
-#include <sys/syscall.h>
-#else
-#include <linux/ashmem.h>
-#endif
+  #if !defined(__ANDROID__)
+    #include <asm/prctl.h>
+    #include <sys/syscall.h>
+  #else
+    #include <linux/ashmem.h>
+  #endif
 #endif
 
 #include "frida-gumjs.h"
@@ -22,13 +22,13 @@
 
 #if defined(__x86_64__)
 
-#ifndef MAP_FIXED_NOREPLACE
-  #ifdef MAP_EXCL
-    #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
-  #else
-    #define MAP_FIXED_NOREPLACE MAP_FIXED
+  #ifndef MAP_FIXED_NOREPLACE
+    #ifdef MAP_EXCL
+      #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
+    #else
+      #define MAP_FIXED_NOREPLACE MAP_FIXED
+    #endif
   #endif
-#endif
 
 gboolean instrument_is_coverage_optimize_supported(void) {
 
@@ -53,14 +53,11 @@ typedef struct {
   //    0x7ffff6cfb08b:      pushf
   //    0x7ffff6cfb08c:      push   rsi
   //    0x7ffff6cfb08d:      mov    rsi,0x228
-  //    0x7ffff6cfb094:      xchg   QWORD PTR [rip+0x3136a5],rsi        # 0x7ffff700e740
-  //    0x7ffff6cfb09b:      xor    rsi,0x451
-  //    0x7ffff6cfb0a2:      add    BYTE PTR [rsi+0x10000],0x1
-  //    0x7ffff6cfb0a9:      adc    BYTE PTR [rsi+0x10000],0x0
-  //    0x7ffff6cfb0b0:      pop    rsi
-  //    0x7ffff6cfb0b1:      popf
+  //    0x7ffff6cfb094:      xchg   QWORD PTR [rip+0x3136a5],rsi        #
+  //    0x7ffff700e740 0x7ffff6cfb09b:      xor    rsi,0x451 0x7ffff6cfb0a2: add
+  //    BYTE PTR [rsi+0x10000],0x1 0x7ffff6cfb0a9:      adc    BYTE PTR
+  //    [rsi+0x10000],0x0 0x7ffff6cfb0b0:      pop    rsi 0x7ffff6cfb0b1: popf
   //    0x7ffff6cfb0b2:      lea    rsp,[rsp+0x80]
-
 
   uint8_t lea_rsp_rsp_sub_rz[5];
   uint8_t push_fq;
@@ -160,16 +157,25 @@ static void instrument_coverage_optimize_map_mmap(char *   shm_file_path,
 
   __afl_area_ptr = NULL;
 
-#if !defined(__ANDROID__)
+  #if !defined(__ANDROID__)
   shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
   if (shm_fd == -1) { FATAL("shm_open() failed\n"); }
-#else
+  #else
   shm_fd = open("/dev/ashmem", O_RDWR);
   if (shm_fd == -1) { FATAL("open() failed\n"); }
-  if (ioctl(shm_fd, ASHMEM_SET_NAME, shm_file_path) == -1) { FATAL("ioctl(ASHMEM_SET_NAME) failed"); }
-  if (ioctl(shm_fd, ASHMEM_SET_SIZE, __afl_map_size) == -1) { FATAL("ioctl(ASHMEM_SET_SIZE) failed"); }
+  if (ioctl(shm_fd, ASHMEM_SET_NAME, shm_file_path) == -1) {
 
-#endif
+    FATAL("ioctl(ASHMEM_SET_NAME) failed");
+
+  }
+
+  if (ioctl(shm_fd, ASHMEM_SET_SIZE, __afl_map_size) == -1) {
+
+    FATAL("ioctl(ASHMEM_SET_SIZE) failed");
+
+  }
+
+  #endif
 
   __afl_area_ptr = mmap(address, __afl_map_size, PROT_READ | PROT_WRITE,
                         MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);

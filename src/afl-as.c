@@ -521,6 +521,7 @@ static void add_instrumentation(void) {
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "",
                getenv("AFL_USE_LSAN") ? ", LSAN" : "");
 
