@@ -2057,7 +2057,7 @@ int main(int argc, char **argv, char **envp) {
   if ((isatty(2) && !be_quiet) || debug) {
 
     SAYF(cCYA
-         "afl-cc " VERSION cRST
+         "afl-cc" VERSION cRST
          " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s-%s\n",
          compiler_mode_string[compiler_mode], ptr);
 
