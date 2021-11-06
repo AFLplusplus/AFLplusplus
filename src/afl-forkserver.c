@@ -347,6 +347,11 @@ static void report_error_and_exit(int error) {
           "the -c cmplog target was instrumented with an too old afl++ "
           "version, you need to recompile it.");
       break;
+    case FS_ERROR_OLD_CMPLOG_QEMU:
+      FATAL(
+          "The AFL++ QEMU/FRIDA loaders are from an older version, for -c you "
+          "need to recompile it.\n");
+      break;
     default:
       FATAL("unknown error code %d from fuzzing target!", error);
 
@@ -670,7 +675,15 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
 
-        report_error_and_exit(FS_ERROR_OLD_CMPLOG);
+        if (fsrv->qemu_mode || fsrv->frida_mode) {
+
+          report_error_and_exit(FS_ERROR_OLD_CMPLOG_QEMU);
+
+        } else {
+
+          report_error_and_exit(FS_ERROR_OLD_CMPLOG);
+
+        }
 
       }
 
