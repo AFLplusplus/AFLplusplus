@@ -90,7 +90,8 @@ inline u32 hash32(u8 *key, u32 len, u32 seed) {
 
 #endif
 
-  return (u32)XXH64(key, len, seed);
+  (void)seed;
+  return (u32)XXH3_64bits(key, len);
 
 }
 
@@ -102,7 +103,8 @@ inline u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #endif
 
-  return XXH64(key, len, seed);
+  (void)seed;
+  return XXH3_64bits(key, len);
 
 }
 
