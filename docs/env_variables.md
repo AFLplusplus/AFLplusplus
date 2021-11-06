@@ -18,9 +18,9 @@ To select the different instrumentation modes, use one of the following options:
   - Pass the --afl-MODE command-line option to the compiler. Only this option
     accepts further AFL-specific command-line options.
   - Use a symlink to afl-cc: afl-clang, afl-clang++, afl-clang-fast,
-    afl-clang-fast++, afl-clang-lto, afl-clang-lto++, afl-gcc, afl-g++,
-    afl-gcc-fast, afl-g++-fast. This option does not accept AFL-specific
-    command-line options. Instead, use environment variables.
+    afl-clang-fast++, afl-clang-lto, afl-clang-lto++, afl-g++, afl-g++-fast,
+    afl-gcc, afl-gcc-fast. This option does not accept AFL-specific command-line
+    options. Instead, use environment variables.
   - Use the `AFL_CC_COMPILER` environment variable with `MODE`. To select
     `MODE`, use one of the following values:
 
@@ -45,13 +45,13 @@ fairly broad use of environment variables instead:
           make
     ```
 
+  - Setting `AFL_AS`, `AFL_CC`, and `AFL_CXX` lets you use alternate downstream
+    compilation tools, rather than the default 'as', 'clang', or 'gcc' binaries
+    in your `$PATH`.
+
   - If you are a weird person that wants to compile and instrument asm text
     files, then use the `AFL_AS_FORCE_INSTRUMENT` variable:
     `AFL_AS_FORCE_INSTRUMENT=1 afl-gcc foo.s -o foo`
-
-  - Setting `AFL_CC`, `AFL_CXX`, and `AFL_AS` lets you use alternate downstream
-    compilation tools, rather than the default 'clang', 'gcc', or 'as' binaries
-    in your `$PATH`.
 
   - Most AFL tools do not print any output if stdout/stderr are redirected. If
     you want to get the output into a file, then set the `AFL_DEBUG` environment
@@ -72,7 +72,7 @@ fairly broad use of environment variables instead:
   - Setting `AFL_INST_RATIO` to a percentage between 0 and 100 controls the
     probability of instrumenting every branch. This is (very rarely) useful when
     dealing with exceptionally complex programs that saturate the output bitmap.
-    Examples include v8, ffmpeg, and perl.
+    Examples include ffmpeg, perl, and v8.
 
     (If this ever happens, afl-fuzz will warn you ahead of the time by
     displaying the "bitmap density" field in fiery red.)
@@ -92,25 +92,24 @@ fairly broad use of environment variables instead:
     instrument hand-written assembly when compiling clang code by plugging a
     normalizer into the chain. (There is no equivalent feature for GCC.)
 
-  - Setting `AFL_QUIET` will prevent afl-cc and afl-as banners from being
+  - Setting `AFL_QUIET` will prevent afl-as and afl-cc banners from being
     displayed during compilation, in case you find them distracting.
 
-  - Setting `AFL_USE_...` automatically enables supported sanitizers -
-    provided that your compiler supports it.
-    Available are:
-    - `AFL_USE_ASAN=1` - activate the address sanitizer (memory corruption
+  - Setting `AFL_USE_...` automatically enables supported sanitizers - provided
+    that your compiler supports it. Available are:
+    - `AFL_USE_ASAN=1` - activates the address sanitizer (memory corruption
       detection)
-    - `AFL_USE_MSAN=1` - activate the memory sanitizer (uninitialized memory)
-    - `AFL_USE_UBSAN=1` - activate the undefined behaviour sanitizer
-    - `AFL_USE_TSAN=1` - activate the thread sanitizer to find thread race
-      conditions
-    - `AFL_USE_CFISAN=1` - activate the Control Flow Integrity sanitizer (e.g.
+    - `AFL_USE_CFISAN=1` - activates the Control Flow Integrity sanitizer (e.g.
       type confusion vulnerabilities)
     - `AFL_USE_LSAN` - activates the leak sanitizer. To perform a leak check
       within your program at a certain point (such as at the end of an
       `__AFL_LOOP()`), you can run the macro  `__AFL_LEAK_CHECK();` which will
       cause an abort if any memory is leaked (you can combine this with the
-      `LSAN_OPTIONS=...` suppression option to supress some known leaks).
+      `LSAN_OPTIONS=...` suppression option to suppress some known leaks).
+    - `AFL_USE_MSAN=1` - activates the memory sanitizer (uninitialized memory)
+    - `AFL_USE_TSAN=1` - activates the thread sanitizer to find thread race
+      conditions
+    - `AFL_USE_UBSAN=1` - activates the undefined behaviour sanitizer
 
   - `TMPDIR` is used by afl-as for temporary files; if this variable is not set,
     the tool defaults to /tmp.
@@ -120,17 +119,17 @@ fairly broad use of environment variables instead:
 The native instrumentation helpers (instrumentation and gcc_plugin) accept a
 subset of the settings discussed in section 1, with the exception of:
 
-  - LLVM modes support `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` which will
-    write all constant string comparisons  to this file to be used later with
-    afl-fuzz' `-x` option.
-
-  - `AFL_AS`, since this toolchain does not directly invoke GNU as.
-
-  - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
-    created.
+  - `AFL_AS`, since this toolchain does not directly invoke GNU `as`.
 
   - `AFL_INST_RATIO`, as we use collision free instrumentation by default. Not
     all passes support this option though as it is an outdated feature.
+
+  - LLVM modes support `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` which will
+    write all constant string comparisons to this file to be used later with
+    afl-fuzz' `-x` option.
+
+  - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
+    created.
 
 Then there are a few specific features that are only available in
 instrumentation mode:
@@ -148,12 +147,20 @@ Available options:
     then, e.g.: `AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4`
 
     Note: It is actually not a good idea to use both CTX and NGRAM. :)
-  - CTX - context sensitive instrumentation (see below)
+  - CTX - context sensitive instrumentation
   - GCC - outdated gcc instrumentation
-  - LTO - LTO instrumentation (see below)
+  - LTO - LTO instrumentation
   - NATIVE - clang's original pcguard based instrumentation
   - NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
   - PCGUARD - our own pcgard based instrumentation (default)
+
+#### CMPLOG
+
+Setting `AFL_LLVM_CMPLOG=1` during compilation will tell afl-clang-fast to
+produce a CmpLog binary.
+
+For more information, see
+[instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
 #### CTX
 
@@ -165,6 +172,39 @@ collisions occur.
 
 For more information, see
 [instrumentation/README.ctx.md](../instrumentation/README.ctx.md).
+
+#### INSTRUMENT LIST (selectively instrument files and functions)
+
+This feature allows selective instrumentation of the source.
+
+Setting `AFL_LLVM_ALLOWLIST` or `AFL_LLVM_DENYLIST` with a filenames and/or
+function will only instrument (or skip) those files that match the names listed
+in the specified file.
+
+For more information, see
+[instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
+
+#### LAF-INTEL
+
+This great feature will split compares into series of single byte comparisons to
+allow afl-fuzz to find otherwise rather impossible paths. It is not restricted
+to Intel CPUs. ;-)
+
+  - Setting `AFL_LLVM_LAF_TRANSFORM_COMPARES` will split string compare
+    functions
+
+  - Setting `AFL_LLVM_LAF_SPLIT_SWITCHES` will split all `switch` constructs
+
+  - Setting `AFL_LLVM_LAF_SPLIT_COMPARES` will split all floating point and 64,
+    32 and 16 bit integer CMP instructions
+
+  - Setting `AFL_LLVM_LAF_SPLIT_FLOATS` will split floating points, needs
+    AFL_LLVM_LAF_SPLIT_COMPARES to be set
+
+  - Setting `AFL_LLVM_LAF_ALL` sets all of the above
+
+For more information, see
+[instrumentation/README.laf-intel.md](../instrumentation/README.laf-intel.md).
 
 #### LTO
 
@@ -209,46 +249,7 @@ collisions occur.
 For more information, see
 [instrumentation/README.ngram.md](../instrumentation/README.ngram.md).
 
-### LAF-INTEL
-
-This great feature will split compares into series of single byte comparisons to
-allow afl-fuzz to find otherwise rather impossible paths. It is not restricted
-to Intel CPUs. ;-)
-
-  - Setting `AFL_LLVM_LAF_TRANSFORM_COMPARES` will split string compare
-    functions
-
-  - Setting `AFL_LLVM_LAF_SPLIT_SWITCHES` will split all `switch` constructs
-
-  - Setting `AFL_LLVM_LAF_SPLIT_COMPARES` will split all floating point and 64,
-    32 and 16 bit integer CMP instructions
-
-  - Setting `AFL_LLVM_LAF_SPLIT_FLOATS` will split floating points, needs
-    AFL_LLVM_LAF_SPLIT_COMPARES to be set
-
-  - Setting `AFL_LLVM_LAF_ALL` sets all of the above
-
-For more information, see
-[instrumentation/README.laf-intel.md](../instrumentation/README.laf-intel.md).
-
-### INSTRUMENT LIST (selectively instrument files and functions)
-
-This feature allows selective instrumentation of the source.
-
-Setting `AFL_LLVM_ALLOWLIST` or `AFL_LLVM_DENYLIST` with a filenames and/or
-function will only instrument (or skip) those files that match the names listed
-in the specified file.
-
-For more information, see
-[instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
-
-### Thread safe instrumentation counters (in all modes)
-
-Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread safe
-counters. The overhead is a little bit higher compared to the older non-thread
-safe case. Note that this disables neverzero (see below).
-
-### NOT_ZERO
+#### NOT_ZERO
 
   - Setting `AFL_LLVM_NOT_ZERO=1` during compilation will use counters that skip
     zero on overflow. This is the default for llvm >= 9, however, for llvm
@@ -263,33 +264,33 @@ safe case. Note that this disables neverzero (see below).
 For more information, see
 [instrumentation/README.neverzero.md](../instrumentation/README.neverzero.md).
 
-### CMPLOG
+#### Thread safe instrumentation counters (in all modes)
 
-  - Setting `AFL_LLVM_CMPLOG=1` during compilation will tell afl-clang-fast to
-    produce a CmpLog binary.
-
-For more information, see
-[instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
+Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread safe
+counters. The overhead is a little bit higher compared to the older non-thread
+safe case. Note that this disables neverzero (see NOT_ZERO).
 
 ## 3) Settings for GCC / GCC_PLUGIN modes
 
-Then there are a few specific features that are only available in GCC and
-GCC_PLUGIN mode.
+There are a few specific features that are only available in GCC and GCC_PLUGIN
+mode.
 
-  - Setting `AFL_GCC_INSTRUMENT_FILE` with a filename will only instrument those
-    files that match the names listed in this file (one filename per line). See
-    [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
-    for more information. (GCC_PLUGIN mode only)
+  - GCC mode only: Setting `AFL_KEEP_ASSEMBLY` prevents afl-as from deleting
+    instrumented assembly files. Useful for troubleshooting problems or
+    understanding how the tool works.
 
-  - Setting `AFL_KEEP_ASSEMBLY` prevents afl-as from deleting instrumented
-    assembly files. Useful for troubleshooting problems or understanding how the
-    tool works. (GCC mode only) To get them in a predictable place, try
-    something like:
+    To get them in a predictable place, try something like:
 
     ```
     mkdir assembly_here
     TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
     ```
+
+  - GCC_PLUGIN mode only: Setting `AFL_GCC_INSTRUMENT_FILE` with a filename will
+    only instrument those files that match the names listed in this file (one
+    filename per line). See
+    [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
+    for more information.
 
 ## 4) Settings for afl-fuzz
 
@@ -456,7 +457,7 @@ checks or alter some of the more exotic semantics of the tool:
     enabled in config.h first!
 
   - Note that `AFL_POST_LIBRARY` is deprecated, use `AFL_CUSTOM_MUTATOR_LIBRARY`
-    instead (see below).
+    instead.
 
   - Setting `AFL_PRELOAD` causes AFL++ to set `LD_PRELOAD` for the target binary
     without disrupting the afl-fuzz process itself. This is useful, among other
@@ -527,10 +528,12 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - Setting `AFL_COMPCOV_LEVEL` enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64 and memory comparions functions (e.g. strcmp,
     memcmp, ...) when libcompcov is preloaded using `AFL_PRELOAD`. More info at
-    qemu_mode/libcompcov/README.md. There are two levels at the moment,
-    `AFL_COMPCOV_LEVEL=1` that instruments only comparisons with immediate
-    values / read-only memory and `AFL_COMPCOV_LEVEL=2` that instruments all the
-    comparions. Level 2 is more accurate but may need a larger shared memory.
+    [qemu_mode/libcompcov/README.md](../qemu_mode/libcompcov/README.md).
+
+    There are two levels at the moment, `AFL_COMPCOV_LEVEL=1` that instruments
+    only comparisons with immediate values / read-only memory and
+    `AFL_COMPCOV_LEVEL=2` that instruments all the comparions. Level 2 is more
+    accurate but may need a larger shared memory.
 
   - `AFL_DEBUG` will print the found entrypoint for the binary to stderr. Use
     this if you are unsure if the entrypoint might be wrong - but use it
@@ -538,8 +541,8 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - `AFL_ENTRYPOINT` allows you to specify a specific entrypoint into the binary
     (this can be very good for the performance!). The entrypoint is specified as
-    hex address, e.g. `0x4004110` Note that the address must be the address of a
-    basic block.
+    hex address, e.g. `0x4004110`. Note that the address must be the address of
+    a basic block.
 
   - Setting `AFL_INST_LIBS` causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
@@ -555,12 +558,12 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered signal
     handlers of the target.
 
-  - When the target is i386/x86_64 you can specify the address of the function
+  - When the target is i386/x86_64, you can specify the address of the function
     that has to be the body of the persistent loop using
     `AFL_QEMU_PERSISTENT_ADDR=start addr`.
 
-  - `AFL_QEMU_PERSISTENT_GPR=1` QEMU will save the original value of general
-    purpose registers and restore them in each persistent cycle.
+  - With `AFL_QEMU_PERSISTENT_GPR=1` QEMU will save the original value of
+    general purpose registers and restore them in each persistent cycle.
 
   - Another modality to execute the persistent loop is to specify also the
     `AFL_QEMU_PERSISTENT_RET=end addr` env variable. With this variable
@@ -615,7 +618,7 @@ of decimal.
 
 ## 9) Settings for libdislocator
 
-The library honors these environmental variables:
+The library honors these environment variables:
 
   - `AFL_ALIGNED_ALLOC=1` will force the alignment of the allocation size to
     `max_align_t` to be compliant with the C standard.
@@ -644,10 +647,6 @@ discovered tokens should be written.
 
 Several variables are not directly interpreted by afl-fuzz, but are set to
 optimal values if not already present in the environment:
-
-  - By default, `LD_BIND_NOW` is set to speed up fuzzing by forcing the linker
-    to do all the work before the fork server kicks in. You can override this by
-    setting `LD_BIND_LAZY` beforehand, but it is almost certainly pointless.
 
   - By default, `ASAN_OPTIONS` are set to (among others):
 
@@ -686,3 +685,7 @@ optimal values if not already present in the environment:
     msan_track_origins=0
     allocator_may_return_null=1
     ```
+
+  - By default, `LD_BIND_NOW` is set to speed up fuzzing by forcing the linker
+    to do all the work before the fork server kicks in. You can override this by
+    setting `LD_BIND_LAZY` beforehand, but it is almost certainly pointless.
