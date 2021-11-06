@@ -84,6 +84,8 @@ struct range {
 };
 
 static u32 hshape;
+static u64 screen_update;
+static u64 last_update;
 
 static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
@@ -273,7 +275,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   u64 start_time = get_cur_time();
 #endif
 
-  u32 screen_update;
   u64 orig_hit_cnt, new_hit_cnt, exec_cksum;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -281,24 +282,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   afl->stage_short = "colorization";
   afl->stage_max = (len << 1);
   afl->stage_cur = 0;
-
-  if (likely(afl->queue_cur->exec_us)) {
-
-    if (likely((100000 / 2) >= afl->queue_cur->exec_us)) {
-
-      screen_update = 100000 / afl->queue_cur->exec_us;
-
-    } else {
-
-      screen_update = 1;
-
-    }
-
-  } else {
-
-    screen_update = 100000;
-
-  }
 
   // in colorization we do not classify counts, hence we have to calculate
   // the original checksum.
@@ -369,7 +352,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
     }
 
-    if (++afl->stage_cur % screen_update) { show_stats(afl); };
+    if (++afl->stage_cur % screen_update == 0) { show_stats(afl); };
 
   }
 
@@ -779,6 +762,13 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u8 * o_buf_8 = &orig_buf[idx];
 
   u32 its_len = MIN(len - idx, taint_len);
+
+  if (afl->fsrv.total_execs - last_update > screen_update) {
+
+    show_stats(afl);
+    last_update = afl->fsrv.total_execs;
+
+  }
 
   // fprintf(stderr,
   //         "Encode: %llx->%llx into %llx(<-%llx) at idx=%u "
@@ -1438,6 +1428,13 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                                u32 len, u8 do_reverse, u8 lvl, u8 *status) {
 
+  if (afl->fsrv.total_execs - last_update > screen_update) {
+
+    show_stats(afl);
+    last_update = afl->fsrv.total_execs;
+
+  }
+
   u8 *ptr = (u8 *)&buf[idx];
   u8 *o_ptr = (u8 *)&orig_buf[idx];
   u8 *p = (u8 *)&pattern;
@@ -1925,6 +1922,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   //#ifndef CMPLOG_SOLVE_TRANSFORM
   //  (void)(changed_val);
   //#endif
+
+  if (afl->fsrv.total_execs - last_update > screen_update) {
+
+    show_stats(afl);
+    last_update = afl->fsrv.total_execs;
+
+  }
 
   u8 *pattern, *repl, *o_pattern, *changed_val;
   u8  l0, l1, ol0, ol1;
@@ -2600,6 +2604,23 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   }
 
   struct tainted *taint = NULL;
+  if (likely(afl->queue_cur->exec_us)) {
+
+    if (likely((100000 / 2) >= afl->queue_cur->exec_us)) {
+
+      screen_update = 100000 / afl->queue_cur->exec_us;
+
+    } else {
+
+      screen_update = 1;
+
+    }
+
+  } else {
+
+    screen_update = 100000;
+
+  }
 
   if (!afl->queue_cur->taint || !afl->queue_cur->cmplog_colorinput) {
 
@@ -2700,8 +2721,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
-  u64 screen_update = 100000 / afl->queue_cur->exec_us,
-      execs = afl->fsrv.total_execs;
 
   afl->stage_name = "input-to-state";
   afl->stage_short = "its";
@@ -2780,13 +2799,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         goto exit_its;
 
       }
-
-    }
-
-    if (afl->fsrv.total_execs - execs > screen_update) {
-
-      execs = afl->fsrv.total_execs;
-      show_stats(afl);
 
     }
 
