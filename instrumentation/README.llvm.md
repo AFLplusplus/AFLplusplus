@@ -75,7 +75,7 @@ load modules (you'll see "Service unavailable" when loading afl-llvm-pass.so).
 
 To solve all your problems, you can grab pre-built binaries for your OS from:
 
-  http://llvm.org/releases/download.html
+  https://llvm.org/releases/download.html
 
 ...and then put the bin/ directory from the tarball at the beginning of your
 $PATH when compiling the feature and building packages later on. You don't need

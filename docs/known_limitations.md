@@ -31,6 +31,6 @@ Here are some of the most important caveats for AFL:
     [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)
 
   - Occasionally, sentient machines rise against their creators. If this
-    happens to you, please consult [http://lcamtuf.coredump.cx/prep/](http://lcamtuf.coredump.cx/prep/).
+    happens to you, please consult [https://lcamtuf.coredump.cx/prep/](https://lcamtuf.coredump.cx/prep/).
 
 Beyond this, see [INSTALL.md](INSTALL.md) for platform-specific tips.

@@ -150,4 +150,4 @@ sysctl kern.sysv.shmseg=48
 sysctl kern.sysv.shmall=98304
 ```
 
-See [http://www.spy-hill.com/help/apple/SharedMemory.html](http://www.spy-hill.com/help/apple/SharedMemory.html) for documentation for these settings and how to make them permanent.
+See [https://www.spy-hill.com/help/apple/SharedMemory.html](https://www.spy-hill.com/help/apple/SharedMemory.html) for documentation for these settings and how to make them permanent.

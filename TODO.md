@@ -2,7 +2,6 @@
 
 ## TODO
 
- - AFL_USE_TSAN to docs/env_variables.md after work over
  - screen update during input2stage
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt

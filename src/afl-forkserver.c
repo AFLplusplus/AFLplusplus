@@ -19,7 +19,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    Shared code that implements a forkserver. This is used by the fuzzer
    as well the other components like afl-tmin.
@@ -351,7 +351,7 @@ static void report_error_and_exit(int error) {
 
 /* Spins up fork server. The idea is explained here:
 
-   http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
+   https://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
 
    In essence, the instrumentation allows us to skip execve(), and just keep
    cloning a stopped child. So, we just execute once, and then send commands
@@ -917,7 +917,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            MSG_ULIMIT_USAGE
            " /path/to/fuzzed_app )\n\n"
 
-           "      Tip: you can use http://jwilk.net/software/recidivm to "
+           "      Tip: you can use https://jwilk.net/software/recidivm to "
            "quickly\n"
            "      estimate the required amount of virtual memory for the "
            "binary.\n\n"
@@ -1017,7 +1017,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         MSG_ULIMIT_USAGE
         " /path/to/fuzzed_app )\n\n"
 
-        "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
+        "      Tip: you can use https://jwilk.net/software/recidivm to quickly\n"
         "      estimate the required amount of virtual memory for the "
         "binary.\n\n"
 

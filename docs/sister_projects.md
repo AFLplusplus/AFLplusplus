@@ -15,7 +15,7 @@ instruction manual.
 Allows fuzz-testing of Python programs. Uses custom instrumentation and its
 own forkserver.
 
-http://jwilk.net/software/python-afl
+https://jwilk.net/software/python-afl
 
 ### Go-fuzz (Dmitry Vyukov)
 
@@ -34,7 +34,7 @@ https://github.com/kmcallister/afl.rs
 Adds AFL-compatible instrumentation to OCaml programs.
 
 https://github.com/ocamllabs/opam-repo-dev/pull/23
-http://canopy.mirage.io/Posts/Fuzzing
+https://canopy.mirage.io/Posts/Fuzzing
 
 ### AFL for GCJ Java and other GCC frontends (-)
 
@@ -54,7 +54,7 @@ some programs to be fuzzed without the fork / execve overhead. (Similar
 functionality is now available as the "persistent" feature described in
 [the llvm_mode readme](../instrumentation/README.llvm.md))
 
-http://llvm.org/docs/LibFuzzer.html
+https://llvm.org/docs/LibFuzzer.html
 
 ## TriforceAFL (Tim Newsham and Jesse Hertz)
 
@@ -189,7 +189,7 @@ https://github.com/bshastry/afl-sancov
 
 Makes it easy to estimate memory usage limits when fuzzing with ASAN or MSAN.
 
-http://jwilk.net/software/recidivm
+https://jwilk.net/software/recidivm
 
 ### aflize (Jacek Wielemborek)
 
@@ -274,7 +274,7 @@ https://goo.gl/j9EgFf
 
 A simple SQL shell designed specifically for fuzzing the underlying library.
 
-http://www.sqlite.org/src/artifact/9e7e273da2030371
+https://www.sqlite.org/src/artifact/9e7e273da2030371
 
 ### Support for Python mutation modules (Christian Holler)
 
@@ -292,7 +292,7 @@ A similar guided approach as applied to fuzzing syscalls:
 
 https://github.com/google/syzkaller/wiki/Found-Bugs
 https://github.com/dvyukov/linux/commit/33787098ffaaa83b8a7ccf519913ac5fd6125931
-http://events.linuxfoundation.org/sites/events/files/slides/AFL%20filesystem%20fuzzing%2C%20Vault%202016_0.pdf
+https://events.linuxfoundation.org/sites/events/files/slides/AFL%20filesystem%20fuzzing%2C%20Vault%202016_0.pdf
 
 
 ### Kernel Snapshot Fuzzing using Unicornafl (Security in Telecommunications)

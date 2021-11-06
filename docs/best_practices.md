@@ -108,7 +108,7 @@ Four steps are required to do this and it also requires quite some knowledge of 
 
      Follow this document on how to do this: [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
      If `PCGUARD` is used, then you need to follow this guide (needs llvm 12+!):
-     [http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
+     [https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
 
      Only exclude those functions from instrumentation that provide no value for coverage - that is if it does not process any fuzz data directly or indirectly (e.g. hash maps, thread management etc.).
      If however a function directly or indirectly handles fuzz data, then you should not put the function in a deny instrumentation list and rather live with the instability it comes with.

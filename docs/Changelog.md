@@ -2760,7 +2760,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Updated the documentation and added notes_for_asan.txt. Based on feedback
     from Hanno Boeck, Ben Laurie, and others.
 
-  - Moved the project to http://lcamtuf.coredump.cx/afl/.
+  - Moved the project to https://lcamtuf.coredump.cx/afl/.
 
 ### Version 0.46b:
 

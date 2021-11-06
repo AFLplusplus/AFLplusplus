@@ -20,7 +20,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+#   https://www.apache.org/licenses/LICENSE-2.0
 #
 # This script downloads, patches, and builds a version of Unicorn with
 # minor tweaks to allow Unicorn-emulated binaries to be run under
