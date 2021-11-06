@@ -15,7 +15,7 @@
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at:
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
   The sole purpose of this wrapper is to preprocess clang LTO files when
   linking with lld and performing the instrumentation on the whole program.

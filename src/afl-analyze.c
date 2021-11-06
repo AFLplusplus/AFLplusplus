@@ -15,7 +15,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    A nifty utility that grabs an input file and takes a stab at explaining
    its structure by observing how changes to it affect the execution path.

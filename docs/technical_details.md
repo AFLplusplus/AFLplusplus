@@ -161,8 +161,8 @@ features of the underlying data format, as shown in this image:
 Several practical examples of the results of this algorithm are discussed
 here:
 
-  http://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html
-  http://lcamtuf.blogspot.com/2014/11/afl-fuzz-nobody-expects-cdata-sections.html
+  https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html
+  https://lcamtuf.blogspot.com/2014/11/afl-fuzz-nobody-expects-cdata-sections.html
 
 The synthetic corpus produced by this process is essentially a compact
 collection of "hmm, this does something new!" input files, and can be used to
@@ -323,7 +323,7 @@ value of various fuzzing strategies and optimize their parameters so that they
 work equally well across a wide range of file types. The strategies used by
 afl-fuzz are generally format-agnostic and are discussed in more detail here:
 
-  http://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html
+  https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html
 
 It is somewhat notable that especially early on, most of the work done by
 `afl-fuzz` is actually highly deterministic, and progresses to random stacked
@@ -376,7 +376,7 @@ valid grammar for the tested parser.
 A discussion of how these features are implemented within afl-fuzz can be found
 here:
 
-  http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html
+  https://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html
 
 In essence, when basic, typically easily-obtained syntax tokens are combined
 together in a purely random manner, the instrumentation and the evolutionary
@@ -429,7 +429,7 @@ thrown away.
 
 A detailed discussion of the value of this approach can be found here:
 
-  http://lcamtuf.blogspot.com/2014/11/afl-fuzz-crash-exploration-mode.html
+  https://lcamtuf.blogspot.com/2014/11/afl-fuzz-crash-exploration-mode.html
 
 The method uses instrumentation feedback to explore the state of the crashing
 program to get past the ambiguous faulting condition and then isolate the
@@ -447,7 +447,7 @@ goes through `execve()`, linking, and libc initialization only once, and is then
 cloned from a stopped process image by leveraging copy-on-write. The
 implementation is described in more detail here:
 
-  http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
+  https://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
 
 The fork server is an integral aspect of the injected instrumentation and
 simply stops at the first instrumented function to await commands from
