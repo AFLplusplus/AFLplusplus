@@ -158,7 +158,7 @@ static void at_exit(int signal) {
 
 }
 
-#define default_hash(a, b) XXH64(a, b, HASH_CONST)
+#define default_hash(a, b) XXH3_64bits(a, b)
 
 /* Uninspired gcc plugin instrumentation */
 
