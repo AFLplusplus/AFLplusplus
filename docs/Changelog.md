@@ -18,6 +18,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix -n dumb mode (nobody should use this)
     - fix stability issue with LTO and cmplog
     - better banner
+    - more effective cmplog mode
+    - more often update the UI when in input2stage mode
   - frida_mode: David Carlier added Android support :)
   - afl-showmap, afl-tmin and afl-analyze:
     - honor persistent mode for more speed. thanks to dloffre-snl for
