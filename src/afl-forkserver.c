@@ -1017,7 +1017,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         MSG_ULIMIT_USAGE
         " /path/to/fuzzed_app )\n\n"
 
-        "      Tip: you can use https://jwilk.net/software/recidivm to quickly\n"
+        "      Tip: you can use https://jwilk.net/software/recidivm to "
+        "quickly\n"
         "      estimate the required amount of virtual memory for the "
         "binary.\n\n"
 
