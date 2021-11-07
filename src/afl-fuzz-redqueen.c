@@ -1669,7 +1669,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     for (j = 0; j < i; ++j) {
 
       if (afl->shm.cmp_map->log[key][j].v0 == o->v0 &&
-          afl->shm.cmp_map->log[key][i].v1 == o->v1) {
+          afl->shm.cmp_map->log[key][j].v1 == o->v1) {
 
         goto cmp_fuzz_next_iter;
 
