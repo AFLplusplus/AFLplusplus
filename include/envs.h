@@ -54,6 +54,7 @@ static char *afl_environment_variables[] = {
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
     "AFL_FRIDA_DEBUG_MAPS",
+    "AFL_FRIDA_DRIVER_NO_HOOK",
     "AFL_FRIDA_EXCLUDE_RANGES",
     "AFL_FRIDA_INST_COVERAGE_FILE",
     "AFL_FRIDA_INST_DEBUG_FILE",
