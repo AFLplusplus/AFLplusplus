@@ -196,14 +196,15 @@ exit 1
 fi
 
 mkdir -p "$outputdir/tmp"
+mkfifo "$outputdir/tmp/win_ids"
 afl-plot-ui > "$outputdir/tmp/win_ids" &
 
-sleep 0.5
+W_IDS=$(cat $outputdir/tmp/win_ids)
 
-W_ID1=$(cat $outputdir/tmp/win_ids | head -1)
-W_ID2=$(cat $outputdir/tmp/win_ids | head -2 | tail -1)
-W_ID3=$(cat $outputdir/tmp/win_ids | head -3 | tail -1)
-W_ID4=$(cat $outputdir/tmp/win_ids | tail -1)
+W_ID1=$(echo "$W_IDS" | head -1)
+W_ID2=$(echo "$W_IDS" | head -2 | tail -1)
+W_ID3=$(echo "$W_IDS" | head -3 | tail -1)
+W_ID4=$(echo "$W_IDS" | tail -1)
 
 echo "[*] Generating plots..."
 
