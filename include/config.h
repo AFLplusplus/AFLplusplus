@@ -267,8 +267,8 @@
    (first value), and to keep in memory as candidates. The latter should be much
    higher than the former. */
 
-#define USE_AUTO_EXTRAS 128
-#define MAX_AUTO_EXTRAS (USE_AUTO_EXTRAS * 64)
+#define USE_AUTO_EXTRAS 4096
+#define MAX_AUTO_EXTRAS (USE_AUTO_EXTRAS * 8)
 
 /* Scaling factor for the effector map used to skip some of the more
    expensive deterministic steps. The actual divisor is set to
