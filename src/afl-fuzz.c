@@ -2235,13 +2235,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  write_bitmap(afl);
-  save_auto(afl);
-
 stop_fuzzing:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
+  write_bitmap(afl);
+  save_auto(afl);
 
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
@@ -2267,6 +2266,20 @@ stop_fuzzing:
          "Stopped during the first cycle, results may be incomplete.\n"
          "    (For info on resuming, see %s/README.md)\n",
          doc_path);
+
+  }
+
+  if (afl->not_on_tty) {
+
+    u32 t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+    u8  time_tmp[64];
+    u_stringify_time_diff(time_tmp, get_cur_time(), afl->start_time);
+    ACTF(
+        "Statistics: %u new paths found, %.02f%% coverage achieved, %llu "
+        "crashes found, %llu timeouts found, total runtime %s",
+        afl->queued_discovered,
+        ((double)t_bytes * 100) / afl->fsrv.real_map_size, afl->unique_crashes,
+        afl->unique_hangs, time_tmp);
 
   }
 

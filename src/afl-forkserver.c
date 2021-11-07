@@ -342,6 +342,16 @@ static void report_error_and_exit(int error) {
           "the fuzzing target reports that the mmap() call to the shared "
           "memory failed.");
       break;
+    case FS_ERROR_OLD_CMPLOG:
+      FATAL(
+          "the -c cmplog target was instrumented with an too old afl++ "
+          "version, you need to recompile it.");
+      break;
+    case FS_ERROR_OLD_CMPLOG_QEMU:
+      FATAL(
+          "The AFL++ QEMU/FRIDA loaders are from an older version, for -c you "
+          "need to recompile it.\n");
+      break;
     default:
       FATAL("unknown error code %d from fuzzing target!", error);
 
@@ -662,6 +672,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       // workaround for recent afl++ versions
       if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
         status = (status & 0xf0ffffff);
+
+      if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
+
+        if (fsrv->qemu_mode || fsrv->frida_mode) {
+
+          report_error_and_exit(FS_ERROR_OLD_CMPLOG_QEMU);
+
+        } else {
+
+          report_error_and_exit(FS_ERROR_OLD_CMPLOG);
+
+        }
+
+      }
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
