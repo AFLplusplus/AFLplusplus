@@ -237,3 +237,9 @@ __attribute__((visibility("default"))) void js_api_set_traceable(void) {
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_backpatch_disable(void) {
+
+  backpatch_enable = FALSE;
+
+}
+
