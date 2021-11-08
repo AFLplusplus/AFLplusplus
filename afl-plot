@@ -195,11 +195,17 @@ exit 1
 
 fi
 
-mkdir -p "$outputdir/tmp"
-mkfifo "$outputdir/tmp/win_ids"
-afl-plot-ui > "$outputdir/tmp/win_ids" &
+mkdir -p "$outputdir/.tmp"
+rm -f "$outputdir/.tmp/win_ids"
+mkfifo "$outputdir/.tmp/win_ids" || exit 1
 
-W_IDS=$(cat $outputdir/tmp/win_ids)
+afl-plot-ui > "$outputdir/.tmp/win_ids" &
+W_IDS=$(cat "$outputdir/.tmp/win_ids")
+
+rm -f "$outputdir/.tmp/win_ids"
+if [ -z "$(ls -A $outputdir/.tmp)" ]; then
+	rm -rf "$outputdir/.tmp"
+fi
 
 W_ID1=$(echo "$W_IDS" | head -1)
 W_ID2=$(echo "$W_IDS" | head -2 | tail -1)
@@ -265,12 +271,6 @@ _EOF_
 ) | gnuplot 2> /dev/null &
 
 sleep 1
-
-rm "$outputdir/tmp/win_ids"
-
-if [ -z "$(ls -A $outputdir/tmp)" ]; then
-	rm -r "$outputdir/tmp"
-fi
 
 else
 
