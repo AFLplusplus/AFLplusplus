@@ -5,6 +5,7 @@
 
 #include "ctx.h"
 #include "frida_cmplog.h"
+#include "instrument.h"
 #include "util.h"
 
 #if defined(__x86_64__)
@@ -106,10 +107,7 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
   void *ptr1 = GSIZE_TO_POINTER(rdi);
   void *ptr2 = GSIZE_TO_POINTER(rsi);
 
-  uintptr_t k = address;
-
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  guint64 k = instrument_get_offset_hash(GUM_ADDRESS(address));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
