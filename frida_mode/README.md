@@ -174,6 +174,8 @@ file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
 instrumentation (the default where available). Required to use
 `AFL_FRIDA_INST_TRACE`.
+* `AFL_FRIDA_INST_NO_BACKPATCH` - Disable backpatching. At the end of executing
+each block, control will return to FRIDA to identify the next block to execute.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
 report instrumented blocks back to the parent so that it can also instrument
 them and they be inherited by the next child on fork, implies
