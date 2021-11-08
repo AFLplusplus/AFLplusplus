@@ -19,6 +19,7 @@
 
 #include "instrument.h"
 #include "ranges.h"
+#include "stalker.h"
 
 #if defined(__x86_64__)
 
@@ -29,6 +30,8 @@
       #define MAP_FIXED_NOREPLACE MAP_FIXED
     #endif
   #endif
+
+static GHashTable *coverage_blocks = NULL;
 
 gboolean instrument_is_coverage_optimize_supported(void) {
 
@@ -207,6 +210,50 @@ static void instrument_coverage_optimize_map_shm(guint64  shm_env_val,
 
 }
 
+static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            start_address,
+                                       const cs_insn *     from_insn,
+                                       gpointer *          target) {
+
+  cs_x86 *   x86;
+  cs_x86_op *op;
+  if (from_insn == NULL) { return; }
+
+  x86 = &from_insn->detail->x86;
+  op = x86->operands;
+
+  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
+
+    return;
+
+  }
+
+  switch (from_insn->id) {
+
+    case X86_INS_CALL:
+    case X86_INS_JMP:
+      if (x86->op_count != 1) {
+
+        FATAL("Unexpected operand count: %d", x86->op_count);
+
+      }
+
+      if (op[0].type != X86_OP_IMM) { return; }
+
+      break;
+    case X86_INS_RET:
+      break;
+    default:
+      return;
+
+  }
+
+  // OKF("SKIP: %p %s %s", start_address, from_insn->mnemonic,
+  // from_insn->op_str);
+  *target = *target + sizeof(afl_log_code);
+
+}
+
 void instrument_coverage_optimize_init(void) {
 
   gpointer low_address = NULL;
@@ -255,6 +302,25 @@ void instrument_coverage_optimize_init(void) {
 
 }
 
+static void instrument_coverage_suppress_init(void) {
+
+  static gboolean initialized = false;
+  if (initialized) { return; }
+  initialized = true;
+
+  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
+  iface->switch_callback = instrument_coverage_switch;
+
+  coverage_blocks = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if (coverage_blocks == NULL) {
+
+    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+
+  }
+
+}
+
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
 
@@ -263,8 +329,16 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
   GumAddress code_addr = 0;
 
+  instrument_coverage_suppress_init();
+
   // gum_x86_writer_put_breakpoint(cw);
   code_addr = cw->pc;
+  if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+
+    FATAL("Failed - g_hash_table_add");
+
+  }
+
   code.code = template;
 
   gssize curr_loc_shr_1_offset =
