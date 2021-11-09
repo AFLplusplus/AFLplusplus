@@ -78,6 +78,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_BACKPATCH`.
+   */
+  public static setBackpatchDisable(): void {
+    Afl.jsApiSetBackpatchDisable();
+  }
+
+  /**
    * See `AFL_FRIDA_DEBUG_MAPS`.
    */
   public static setDebugMaps(): void {
@@ -312,6 +319,11 @@ class Afl {
     "js_api_error",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetBackpatchDisable = Afl.jsApiGetFunction(
+    "js_api_set_backpatch_disable",
+    "void",
+    []);
 
   private static readonly jsApiSetDebugMaps = Afl.jsApiGetFunction(
     "js_api_set_debug_maps",

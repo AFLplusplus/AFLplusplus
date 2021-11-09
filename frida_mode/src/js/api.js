@@ -63,6 +63,12 @@ class Afl {
         Afl.jsApiWrite(STDOUT_FILENO, buf, log.length);
     }
     /**
+     * See `AFL_FRIDA_INST_NO_BACKPATCH`.
+     */
+    static setBackpatchDisable() {
+        Afl.jsApiSetBackpatchDisable();
+    }
+    /**
      * See `AFL_FRIDA_DEBUG_MAPS`.
      */
     static setDebugMaps() {
@@ -267,6 +273,7 @@ Afl.jsApiAddIncludeRange = Afl.jsApiGetFunction("js_api_add_include_range", "voi
 Afl.jsApiAflSharedMemFuzzing = Afl.jsApiGetSymbol("__afl_sharedmem_fuzzing");
 Afl.jsApiDone = Afl.jsApiGetFunction("js_api_done", "void", []);
 Afl.jsApiError = Afl.jsApiGetFunction("js_api_error", "void", ["pointer"]);
+Afl.jsApiSetBackpatchDisable = Afl.jsApiGetFunction("js_api_set_backpatch_disable", "void", []);
 Afl.jsApiSetDebugMaps = Afl.jsApiGetFunction("js_api_set_debug_maps", "void", []);
 Afl.jsApiSetEntryPoint = Afl.jsApiGetFunction("js_api_set_entrypoint", "void", ["pointer"]);
 Afl.jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_coverage_file", "void", ["pointer"]);

@@ -3,7 +3,8 @@
 
 #include "frida-gumjs.h"
 
-extern guint stalker_ic_entries;
+extern guint    stalker_ic_entries;
+extern gboolean backpatch_enable;
 
 void        stalker_config(void);
 void        stalker_init(void);
