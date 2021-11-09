@@ -1,4 +1,3 @@
-#include "debug.h"
 
 #include "instrument.h"
 #include "prefetch.h"
@@ -57,7 +56,7 @@ static void gum_afl_stalker_observer_init(GumAflStalkerObserver *self) {
 
 void stalker_config(void) {
 
-  if (!gum_stalker_is_supported()) { FATAL("Failed to initialize embedded"); }
+  if (!gum_stalker_is_supported()) { FFATAL("Failed to initialize embedded"); }
 
   backpatch_enable = (getenv("AFL_FRIDA_INST_NO_BACKPATCH") == NULL);
 
@@ -90,14 +89,14 @@ static gboolean stalker_exclude_self(const GumRangeDetails *details,
 
 void stalker_init(void) {
 
-  OKF("Instrumentation - backpatch [%c]", backpatch_enable ? 'X' : ' ');
+  FOKF("Instrumentation - backpatch [%c]", backpatch_enable ? 'X' : ' ');
 
-  OKF("Stalker - ic_entries [%u]", stalker_ic_entries);
+  FOKF("Stalker - ic_entries [%u]", stalker_ic_entries);
 
 #if !(defined(__x86_64__) || defined(__i386__))
   if (stalker_ic_entries != 0) {
 
-    FATAL("AFL_FRIDA_STALKER_IC_ENTRIES not supported");
+    FFATAL("AFL_FRIDA_STALKER_IC_ENTRIES not supported");
 
   }
 
@@ -112,7 +111,7 @@ void stalker_init(void) {
   stalker = gum_stalker_new();
 #endif
 
-  if (stalker == NULL) { FATAL("Failed to initialize stalker"); }
+  if (stalker == NULL) { FFATAL("Failed to initialize stalker"); }
 
   gum_stalker_set_trust_threshold(stalker, -1);
 
@@ -123,7 +122,7 @@ void stalker_init(void) {
 
 GumStalker *stalker_get(void) {
 
-  if (stalker == NULL) { FATAL("Stalker uninitialized"); }
+  if (stalker == NULL) { FFATAL("Stalker uninitialized"); }
   return stalker;
 
 }
@@ -145,7 +144,7 @@ void stalker_trust(void) {
 
 GumStalkerObserver *stalker_get_observer(void) {
 
-  if (observer == NULL) { FATAL("Stalker not yet initialized"); }
+  if (observer == NULL) { FFATAL("Stalker not yet initialized"); }
   return GUM_STALKER_OBSERVER(observer);
 
 }

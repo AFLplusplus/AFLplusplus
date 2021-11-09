@@ -17,8 +17,6 @@
   #include <string.h>
   #include <unistd.h>
 
-  #include "debug.h"
-
   #include "frida-gumjs.h"
 
   #include "seccomp.h"
@@ -159,7 +157,7 @@ static void seccomp_filter_parent_handler(int sig, siginfo_t *info,
   if (syscall(SYS_tgkill, seccomp_filter_child, seccomp_filter_child, SIGUSR1) <
       0) {
 
-    FATAL("kill");
+    FFATAL("kill");
 
   }
 
@@ -172,7 +170,7 @@ void seccomp_filter_child_install(void) {
 
   const struct sigaction sa = {.sa_sigaction = seccomp_filter_child_handler,
                                .sa_flags = SA_SIGINFO | SA_RESTART};
-  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FATAL("sigaction"); }
+  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FFATAL("sigaction"); }
 
 }
 
@@ -187,17 +185,17 @@ int seccomp_filter_install(pid_t child) {
 
       .len = sizeof(filter) / sizeof(struct sock_filter), .filter = filter};
 
-  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FATAL("sigaction"); }
+  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FFATAL("sigaction"); }
 
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
 
-    FATAL("PR_SET_NO_NEW_PRIVS %d", errno);
+    FFATAL("PR_SET_NO_NEW_PRIVS %d", errno);
 
   }
 
   int fd = syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER,
                    SECCOMP_FILTER_FLAG_NEW_LISTENER, &filter_prog);
-  if (fd < 0) { FATAL("SYS_seccomp %d", fd); }
+  if (fd < 0) { FFATAL("SYS_seccomp %d", fd); }
 
   return fd;
 
@@ -211,19 +209,19 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
 
   if (syscall(SYS_seccomp, SECCOMP_GET_NOTIF_SIZES, 0, &sizes) == -1) {
 
-    FATAL("seccomp-SECCOMP_GET_NOTIF_SIZES");
+    FFATAL("seccomp-SECCOMP_GET_NOTIF_SIZES");
 
   }
 
   if (sizes.seccomp_notif != sizeof(struct seccomp_notif)) {
 
-    FATAL("size - seccomp_notif");
+    FFATAL("size - seccomp_notif");
 
   }
 
   if (sizes.seccomp_notif_resp != sizeof(struct seccomp_notif_resp)) {
 
-    FATAL("size - seccomp_notif");
+    FFATAL("size - seccomp_notif");
 
   }
 
@@ -237,7 +235,7 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
     if (ioctl(fd, SECCOMP_IOCTL_NOTIF_RECV, req) < 0) {
 
       if (errno == EINTR) { continue; }
-      FATAL("SECCOMP_IOCTL_NOTIF_RECV: %d\n", fd);
+      FFATAL("SECCOMP_IOCTL_NOTIF_RECV: %d\n", fd);
 
     }
 
@@ -247,14 +245,14 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
 
     } else {
 
-      if (kill(req->pid, SIGUSR1) < 0) { FATAL("kill"); }
+      if (kill(req->pid, SIGUSR1) < 0) { FFATAL("kill"); }
 
     }
 
     if (ioctl(fd, SECCOMP_IOCTL_NOTIF_SEND, resp) < 0) {
 
       if (errno == ENOENT) { continue; }
-      OKF("SECCOMP_IOCTL_NOTIF_SEND");
+      FOKF("SECCOMP_IOCTL_NOTIF_SEND");
       continue;
 
     }

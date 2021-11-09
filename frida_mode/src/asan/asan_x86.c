@@ -1,8 +1,6 @@
 #include <dlfcn.h>
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "asan.h"
 #include "ctx.h"
 #include "util.h"
@@ -83,7 +81,7 @@ void asan_arch_init(void) {
   asan_storeN = (asan_loadN_t)dlsym(RTLD_DEFAULT, "__asan_storeN");
   if (asan_loadN == NULL || asan_storeN == NULL) {
 
-    FATAL("Frida ASAN failed to find '__asan_loadN' or '__asan_storeN'");
+    FFATAL("Frida ASAN failed to find '__asan_loadN' or '__asan_storeN'");
 
   }
 

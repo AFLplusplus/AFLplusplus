@@ -15,11 +15,11 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "instrument.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "util.h"
 
 #if defined(__x86_64__)
 
@@ -238,6 +238,9 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
                                        const cs_insn *     from_insn,
                                        gpointer *          target) {
 
+  UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(start_address);
+
   cs_x86 *   x86;
   cs_x86_op *op;
   if (from_insn == NULL) { return; }
@@ -271,7 +274,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
 
   }
 
-  *target = *target + sizeof(afl_log_code);
+  *target = (guint8 *)*target + sizeof(afl_log_code);
 
 }
 
@@ -282,7 +285,7 @@ void instrument_coverage_optimize_init(void) {
   gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, instrument_coverage_find_low,
                                &low_address);
 
-  OKF("Low address: %p", low_address);
+  FOKF("Low address: %p", low_address);
 
   if (low_address == 0 ||
       GPOINTER_TO_SIZE(low_address) > ((2UL << 20) - __afl_map_size)) {
@@ -294,11 +297,11 @@ void instrument_coverage_optimize_init(void) {
   ranges_print_debug_maps();
 
   char *shm_env = getenv(SHM_ENV_VAR);
-  OKF("SHM_ENV_VAR: %s", shm_env);
+  FOKF("SHM_ENV_VAR: %s", shm_env);
 
   if (shm_env == NULL) {
 
-    WARNF("SHM_ENV_VAR not set, using anonymous map for debugging purposes");
+    FWARNF("SHM_ENV_VAR not set, using anonymous map for debugging purposes");
 
     instrument_coverage_optimize_map_mmap_anon(low_address);
 
@@ -318,8 +321,8 @@ void instrument_coverage_optimize_init(void) {
 
   }
 
-  OKF("__afl_area_ptr: %p", __afl_area_ptr);
-  OKF("instrument_previous_pc: %p", &instrument_previous_pc);
+  FOKF("__afl_area_ptr: %p", __afl_area_ptr);
+  FOKF("instrument_previous_pc: %p", &instrument_previous_pc);
 
 }
 

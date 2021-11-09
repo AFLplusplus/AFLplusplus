@@ -1,7 +1,5 @@
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "instrument.h"
 #include "util.h"
 

@@ -67,7 +67,7 @@ static gboolean cmplog_read_mem(GumCpuContext *ctx, uint8_t size,
       *val = *((guint64 *)GSIZE_TO_POINTER(address));
       return TRUE;
     default:
-      FATAL("Invalid operand size: %d\n", size);
+      FFATAL("Invalid operand size: %d\n", size);
 
   }
 
@@ -89,7 +89,7 @@ static gboolean cmplog_get_operand_value(GumCpuContext *context,
     case ARM64_OP_MEM:
       return cmplog_read_mem(context, ctx->size, &ctx->mem, val);
     default:
-      FATAL("Invalid operand type: %d\n", ctx->type);
+      FFATAL("Invalid operand type: %d\n", ctx->type);
 
   }
 
@@ -163,7 +163,7 @@ static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
       gum_memcpy(&ctx->mem, &operand->mem, sizeof(arm64_op_mem));
       break;
     default:
-      FATAL("Invalid operand type: %d\n", operand->type);
+      FFATAL("Invalid operand type: %d\n", operand->type);
 
   }
 
