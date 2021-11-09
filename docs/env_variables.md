@@ -177,7 +177,7 @@ For more information, see
 
 This feature allows selective instrumentation of the source.
 
-Setting `AFL_LLVM_ALLOWLIST` or `AFL_LLVM_DENYLIST` with a filenames and/or
+Setting `AFL_LLVM_ALLOWLIST` or `AFL_LLVM_DENYLIST` with a file name and/or
 function will only instrument (or skip) those files that match the names listed
 in the specified file.
 
@@ -191,32 +191,32 @@ allow afl-fuzz to find otherwise rather impossible paths. It is not restricted
 to Intel CPUs. ;-)
 
   - Setting `AFL_LLVM_LAF_TRANSFORM_COMPARES` will split string compare
-    functions
-
-  - Setting `AFL_LLVM_LAF_SPLIT_SWITCHES` will split all `switch` constructs
+    functions.
 
   - Setting `AFL_LLVM_LAF_SPLIT_COMPARES` will split all floating point and 64,
-    32 and 16 bit integer CMP instructions
+    32 and 16 bit integer CMP instructions.
 
   - Setting `AFL_LLVM_LAF_SPLIT_FLOATS` will split floating points, needs
-    AFL_LLVM_LAF_SPLIT_COMPARES to be set
+    `AFL_LLVM_LAF_SPLIT_COMPARES` to be set.
 
-  - Setting `AFL_LLVM_LAF_ALL` sets all of the above
+  - Setting `AFL_LLVM_LAF_SPLIT_SWITCHES` will split all `switch` constructs.
+
+  - Setting `AFL_LLVM_LAF_ALL` sets all of the above.
 
 For more information, see
 [instrumentation/README.laf-intel.md](../instrumentation/README.laf-intel.md).
 
 #### LTO
 
-This is a different kind way of instrumentation: first it compiles all code in
-LTO (link time optimization) and then performs an edge inserting instrumentation
+This is a different way of instrumentation: first it compiles all code in LTO
+(link time optimization) and then performs an edge inserting instrumentation
 which is 100% collision free (collisions are a big issue in AFL and AFL-like
 instrumentations). This is performed by using afl-clang-lto/afl-clang-lto++
 instead of afl-clang-fast, but is only built if LLVM 11 or newer is used.
 
-  - `AFL_LLVM_INSTRUMENT=CFG` will use Control Flow Graph instrumentation. (not
-    recommended for afl-clang-fast, default for afl-clang-lto as there it is a
-    different and better kind of instrumentation.)
+`AFL_LLVM_INSTRUMENT=CFG` will use Control Flow Graph instrumentation. (Not
+recommended for afl-clang-fast, default for afl-clang-lto as there it is a
+different and better kind of instrumentation.)
 
 None of the following options are necessary to be used and are rather for manual
 use (which only ever the author of this LTO implementation will use). These are
@@ -226,22 +226,22 @@ combined.
   - `AFL_LLVM_DOCUMENT_IDS=file` will document to a file which edge ID was given
     to which function. This helps to identify functions with variable bytes or
     which functions were touched by an input.
+  - `AFL_LLVM_LTO_DONTWRITEID` prevents that the highest location ID written
+    into the instrumentation is set in a global variable.
+  - `AFL_LLVM_LTO_STARTID` sets the starting location ID for the
+    instrumentation. This defaults to 1.
   - `AFL_LLVM_MAP_ADDR` sets the fixed map address to a different address than
     the default `0x10000`. A value of 0 or empty sets the map address to be
-    dynamic (the original AFL way, which is slower)
-  - `AFL_LLVM_MAP_DYNAMIC` sets the shared memory address to be dynamic
-  - `AFL_LLVM_LTO_STARTID` sets the starting location ID for the
-    instrumentation. This defaults to 1
-  - `AFL_LLVM_LTO_DONTWRITEID` prevents that the highest location ID written
-    into the instrumentation is set in a global variable
+    dynamic (the original AFL way, which is slower).
+  - `AFL_LLVM_MAP_DYNAMIC` sets the shared memory address to be dynamic.
 
   For more information, see
   [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
 #### NGRAM
 
-Setting `AFL_LLVM_NGRAM_SIZE` or `AFL_LLVM_INSTRUMENT=NGRAM-{value}` activates
-ngram prev_loc coverage, good values are 2, 4 or 8 (any value between 2 and 16
+Setting `AFL_LLVM_INSTRUMENT=NGRAM-{value}` or `AFL_LLVM_NGRAM_SIZE` activates
+ngram prev_loc coverage. Good values are 2, 4, or 8 (any value between 2 and 16
 is valid). It is highly recommended to increase the `MAP_SIZE_POW2` definition
 in config.h to at least 18 and maybe up to 20 for this as otherwise too many map
 collisions occur.
@@ -258,7 +258,7 @@ For more information, see
     discovery by a little bit.
 
   - Setting `AFL_LLVM_SKIP_NEVERZERO=1` will not implement the skip zero test.
-    If the target performs only few loops, then this will give a small
+    If the target performs only a few loops, then this will give a small
     performance boost.
 
 For more information, see
@@ -310,9 +310,9 @@ checks or alter some of the more exotic semantics of the tool:
     in`). This is an important feature to set when resuming a fuzzing session.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL treats as crash. For
-    example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in an
-    `-1` return code (i.e. `exit(-1)` got called), will be treated as if a crash
-    had ocurred. This may be beneficial if you look for higher-level faulty
+    example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
+    return code (i.e. `exit(-1)` got called), will be treated as if a crash had
+    occurred. This may be beneficial if you look for higher-level faulty
     conditions in which your target still exits gracefully.
 
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
@@ -325,7 +325,7 @@ checks or alter some of the more exotic semantics of the tool:
     XML or other highly flexible structured input. Please see
     [custom_mutators.md](custom_mutators.md).
 
-  - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule everytime
+  - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule every time
     a cycle is finished.
 
   - Setting `AFL_DEBUG_CHILD` will not suppress the child output. This lets you
@@ -341,7 +341,7 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behaviour which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
-  - `AFL_EXIT_ON_TIME` Causes afl-fuzz to terminate if no new paths were found
+  - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
     within a specified period of time (in seconds). May be convenient for some
     types of automated jobs.
 
@@ -365,7 +365,7 @@ checks or alter some of the more exotic semantics of the tool:
     to wait for the forkserver to spin up. The default is the `-t` value times
     `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the
     default would wait for `1000` milliseconds. Setting a different time here is
-    useful if the target has a very slow startup time, for example when doing
+    useful if the target has a very slow startup time, for example, when doing
     full-system fuzzing or emulation, but you don't want the actual runs to wait
     too long for timeouts.
 
@@ -394,8 +394,8 @@ checks or alter some of the more exotic semantics of the tool:
     likely don't have to set it. By default, on timeout and on exit, `SIGKILL`
     (`AFL_KILL_SIGNAL=9`) will be delivered to the child.
 
-  - `AFL_MAP_SIZE` sets the size of the shared map that afl-fuzz, afl-showmap,
-    afl-tmin and afl-analyze create to gather instrumentation data from the
+  - `AFL_MAP_SIZE` sets the size of the shared map that afl-analyze, afl-fuzz,
+    afl-showmap, and afl-tmin create to gather instrumentation data from the
     target. This must be equal or larger than the size the target was compiled
     with.
 
@@ -417,14 +417,14 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
     that is compiled into the target.
 
-  - The CPU widget shown at the bottom of the screen is fairly simplistic and
-    may complain of high load prematurely, especially on systems with low core
-    counts. To avoid the alarming red color for very high cpu usages, you can
-    set `AFL_NO_CPU_RED`.
-
   - Setting `AFL_NO_COLOR` or `AFL_NO_COLOUR` will omit control sequences for
     coloring console output when configured with USE_COLOR and not
     ALWAYS_COLORED.
+
+  - The CPU widget shown at the bottom of the screen is fairly simplistic and
+    may complain of high load prematurely, especially on systems with low core
+    counts. To avoid the alarming red color for very high CPU usages, you can
+    set `AFL_NO_CPU_RED`.
 
   - Setting `AFL_NO_FORKSRV` disables the forkserver optimization, reverting to
     fork + execve() call for every tested input. This is useful mostly when
@@ -438,7 +438,7 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_NO_SNAPSHOT` will advice afl-fuzz not to use the snapshot feature if
     the snapshot lkm is loaded.
 
-  - Setting `AFL_NO_UI` inhibits the UI altogether, and just periodically prints
+  - Setting `AFL_NO_UI` inhibits the UI altogether and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
 
@@ -449,7 +449,7 @@ checks or alter some of the more exotic semantics of the tool:
     [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)),
     some targets keep inherent state due which a detected crash testcase does
     not crash the target again when the testcase is given. To be able to still
-    re-trigger these crashes you can use the `AFL_PERSISTENT_RECORD` variable
+    re-trigger these crashes, you can use the `AFL_PERSISTENT_RECORD` variable
     with a value of how many previous fuzz cases to keep prio a crash. If set to
     e.g. 10, then the 9 previous inputs are written to out/default/crashes as
     RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008 and
@@ -490,8 +490,8 @@ checks or alter some of the more exotic semantics of the tool:
     `AFL_STATSD_TAGS_FLAVOR` that matches your StatsD server (see
     `AFL_STATSD_TAGS_FLAVOR`).
 
-  - Setting `AFL_STATSD_TAGS_FLAVOR` to one of `dogstatsd`, `librato`,
-    `signalfx` or `influxdb` allows you to add tags to your fuzzing instances.
+  - Setting `AFL_STATSD_TAGS_FLAVOR` to one of `dogstatsd`, `influxdb`,
+    `librato`, or `signalfx` allows you to add tags to your fuzzing instances.
     This is especially useful when running multiple instances (`-M/-S` for
     example). Applied tags are `banner` and `afl_version`. `banner` corresponds
     to the name of the fuzzer provided through `-M/-S`. `afl_version`
@@ -509,8 +509,8 @@ checks or alter some of the more exotic semantics of the tool:
     TESTCASE_CACHE` in config.h. Recommended values are 50-250MB - or more if
     your fuzzing finds a huge amount of paths for large inputs.
 
-  - `AFL_TMPDIR` is used to write the `.cur_input` file to if exists, and in the
-    normal output directory otherwise. You would use this to point to a
+  - `AFL_TMPDIR` is used to write the `.cur_input` file to if it exists, and in
+    the normal output directory otherwise. You would use this to point to a
     ramdisk/tmpfs. This increases the speed by a small value but also reduces
     the stress on SSDs.
 
@@ -597,8 +597,7 @@ The corpus minimization script offers very little customization:
     afl-qemu-trace (the latter only in `-Q` mode).
 
   - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
-    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts
-    scripting.
+    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts.
 
 ## 7) Settings for afl-tmin
 
