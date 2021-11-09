@@ -4,9 +4,8 @@
 
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "output.h"
+#include "util.h"
 
 char *output_stdout = NULL;
 char *output_stderr = NULL;
@@ -19,18 +18,18 @@ static void output_redirect(int fd, char *filename) {
 
   path = g_canonicalize_filename(filename, g_get_current_dir());
 
-  OKF("Redirect %d -> '%s'", fd, path);
+  FOKF("Redirect %d -> '%s'", fd, path);
 
   int output_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                        S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
   g_free(path);
 
-  if (output_fd < 0) { FATAL("Failed to open fd(%d) error %d", fd, errno); }
+  if (output_fd < 0) { FFATAL("Failed to open fd(%d) error %d", fd, errno); }
 
   if (dup2(output_fd, fd) < 0) {
 
-    FATAL("Failed to set fd(%d) error %d", fd, errno);
+    FFATAL("Failed to set fd(%d) error %d", fd, errno);
 
   }
 
@@ -47,8 +46,8 @@ void output_config(void) {
 
 void output_init(void) {
 
-  OKF("Output - StdOut: %s", output_stdout);
-  OKF("Output - StdErr: %s", output_stderr);
+  FOKF("Output - StdOut: %s", output_stdout);
+  FOKF("Output - StdErr: %s", output_stderr);
 
   output_redirect(STDOUT_FILENO, output_stdout);
   output_redirect(STDERR_FILENO, output_stderr);

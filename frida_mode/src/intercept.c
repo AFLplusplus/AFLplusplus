@@ -1,8 +1,7 @@
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "intercept.h"
+#include "util.h"
 
 void intercept_hook(void *address, gpointer replacement, gpointer user_data) {
 
@@ -10,7 +9,7 @@ void intercept_hook(void *address, gpointer replacement, gpointer user_data) {
   gum_interceptor_begin_transaction(interceptor);
   GumReplaceReturn ret =
       gum_interceptor_replace(interceptor, address, replacement, user_data);
-  if (ret != GUM_REPLACE_OK) { FATAL("gum_interceptor_attach: %d", ret); }
+  if (ret != GUM_REPLACE_OK) { FFATAL("gum_interceptor_attach: %d", ret); }
   gum_interceptor_end_transaction(interceptor);
 
 }

@@ -6,8 +6,6 @@
 
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "entry.h"
 #include "instrument.h"
 #include "persistent.h"
@@ -26,7 +24,7 @@ gboolean entry_run = FALSE;
 
 static void entry_launch(void) {
 
-  OKF("Entry point reached");
+  FOKF("Entry point reached");
   __afl_manual_init();
 
   /* Child here */
@@ -45,7 +43,7 @@ void entry_on_fork(void) {
 
     if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY) < 0) {
 
-      FATAL("Failed to PR_SET_PTRACER");
+      FFATAL("Failed to PR_SET_PTRACER");
 
     }
 
@@ -56,7 +54,7 @@ void entry_on_fork(void) {
 #else
 void entry_on_fork(void) {
 
-  if (traceable) { WARNF("AFL_FRIDA_TRACEABLE unsupported"); }
+  if (traceable) { FWARNF("AFL_FRIDA_TRACEABLE unsupported"); }
 
 }
 
@@ -71,10 +69,10 @@ void entry_config(void) {
 
 void entry_init(void) {
 
-  OKF("entry_point: 0x%016" G_GINT64_MODIFIER "X", entry_point);
-  OKF("dumpable: [%c]", traceable ? 'X' : ' ');
+  FOKF("entry_point: 0x%016" G_GINT64_MODIFIER "X", entry_point);
+  FOKF("dumpable: [%c]", traceable ? 'X' : ' ');
 
-  if (dlopen(NULL, RTLD_NOW) == NULL) { FATAL("Failed to dlopen: %d", errno); }
+  if (dlopen(NULL, RTLD_NOW) == NULL) { FFATAL("Failed to dlopen: %d", errno); }
 
 }
 
@@ -96,7 +94,7 @@ static void entry_callout(GumCpuContext *cpu_context, gpointer user_data) {
 void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(output);
-  OKF("AFL_ENTRYPOINT reached");
+  FOKF("AFL_ENTRYPOINT reached");
 
   if (persistent_start == 0) {
 

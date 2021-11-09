@@ -1,4 +1,3 @@
-#include "debug.h"
 
 #include "entry.h"
 #include "instrument.h"
@@ -20,7 +19,7 @@ __attribute__((visibility("default"))) void js_api_done() {
 
 __attribute__((visibility("default"))) void js_api_error(char *msg) {
 
-  FATAL("%s", msg);
+  FFATAL("%s", msg);
 
 }
 
