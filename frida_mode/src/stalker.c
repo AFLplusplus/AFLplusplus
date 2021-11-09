@@ -6,7 +6,8 @@
 #include "stats.h"
 #include "util.h"
 
-guint stalker_ic_entries = 0;
+guint    stalker_ic_entries = 0;
+gboolean backpatch_enable = TRUE;
 
 static GumStalker *stalker = NULL;
 
@@ -58,6 +59,8 @@ void stalker_config(void) {
 
   if (!gum_stalker_is_supported()) { FATAL("Failed to initialize embedded"); }
 
+  backpatch_enable = (getenv("AFL_FRIDA_INST_NO_BACKPATCH") == NULL);
+
   stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES");
 
   observer = g_object_new(GUM_TYPE_AFL_STALKER_OBSERVER, NULL);
@@ -86,6 +89,8 @@ static gboolean stalker_exclude_self(const GumRangeDetails *details,
 }
 
 void stalker_init(void) {
+
+  OKF("Instrumentation - backpatch [%c]", backpatch_enable ? 'X' : ' ');
 
   OKF("Stalker - ic_entries [%u]", stalker_ic_entries);
 
@@ -134,7 +139,7 @@ void stalker_start(void) {
 
 void stalker_trust(void) {
 
-  gum_stalker_set_trust_threshold(stalker, 0);
+  if (backpatch_enable) { gum_stalker_set_trust_threshold(stalker, 0); }
 
 }
 
