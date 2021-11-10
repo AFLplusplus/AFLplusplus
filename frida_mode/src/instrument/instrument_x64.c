@@ -351,7 +351,8 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   afl_log_code  code = {0};
   GumX86Writer *cw = output->writer.x86;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
-  guint64 area_offset_ror;
+  gsize   map_size_pow2;
+  gsize   area_offset_ror;
   GumAddress code_addr = 0;
 
   instrument_coverage_suppress_init();
@@ -370,8 +371,8 @@ void instrument_coverage_optimize(const cs_insn *   instr,
       offsetof(afl_log_code, code.mov_eax_curr_loc_shr_1) +
       sizeof(code.code.mov_eax_curr_loc_shr_1) - sizeof(guint32);
 
-  area_offset_ror = ((area_offset & (MAP_SIZE - 1) >> 1)) |
-                    ((area_offset & 0x1) << (MAP_SIZE_POW2 - 1));
+  map_size_pow2 = util_log2(__afl_map_size);
+  area_offset_ror = util_rotate(area_offset, 1, map_size_pow2);
 
   *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
 
