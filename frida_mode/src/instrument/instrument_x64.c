@@ -52,42 +52,49 @@ typedef struct {
   // shared_mem[cur_location ^ prev_location]++;
   // prev_location = cur_location >> 1;
 
-  //    0x7ffff6cbca41:      lea    rsp,[rsp-0x80]
+  //  0x7ffff6cbb9b6:      lea    rsp,[rsp-0x80]
   //
-  //    0x7ffff6cbca46:      push   rax
-  //    0x7ffff6cbca47:      lahf
-  //    0x7ffff6cbca48:      push   rax
+  //  0x7ffff6cbb9bb:      push   rax
+  //  0x7ffff6cbb9bc:      lahf
+  //  0x7ffff6cbb9bd:      push   rax
+  //  0x7ffff6cbb9be:      push   rbx
   //
-  //    0x7ffff6cbca49:      mov    eax,DWORD PTR [rip+0x33bcf1]
-  //    0x7ffff6cbca4f:      xor    eax,0x3f77
-  //    0x7ffff6cbca54:      add    eax,0x10000
-  //    0x7ffff6cbca59:      add    BYTE PTR [rax],0x1
-  //    0x7ffff6cbca5c:      adc    BYTE PTR [rax],0x0
+  //  0x7ffff6cbb9bf:      mov    eax,DWORD PTR [rip+0x33bd7b]
+  //  0x7ffff6cbb9c5:      xor    eax,0x3f77
+  //  0x7ffff6cbb9ca:      add    eax,0x10000
+  //  0x7ffff6cbb9cf:      mov    bl,BYTE PTR [rax]
+  //  0x7ffff6cbb9d1:      add    bl,0x1
+  //  0x7ffff6cbb9d4:      adc    bl,0x0
+  //  0x7ffff6cbb9d7:      mov    BYTE PTR [rax],bl
   //
-  //    0x7ffff6cbca5f:      mov    eax,0xbf77
-  //    0x7ffff6cbca64:      mov    DWORD PTR [rip+0x33bcd6],eax
+  //  0x7ffff6cbb9d9:      mov    DWORD PTR [rip+0x33bd5d],0x9fbb
   //
-  //    0x7ffff6cbca6a:      pop    rax
-  //    0x7ffff6cbca6b:      sahf
-  //    0x7ffff6cbca6c:      pop    rax
+  //  0x7ffff6cbb9e3:      pop    rbx
+  //  0x7ffff6cbb9e4:      pop    rax
+  //  0x7ffff6cbb9e5:      sahf
+  //  0x7ffff6cbb9e6:      pop    rax
   //
-  //    0x7ffff6cbca6d:      lea    rsp,[rsp+0x80]
+  //  0x7ffff6cbb9e7:      lea    rsp,[rsp+0x80]
 
   uint8_t lea_rsp_rsp_sub_rz[5];
 
   uint8_t push_rax;
   uint8_t lahf;
   uint8_t push_rax2;
+  uint8_t push_rbx;
 
   uint8_t mov_eax_prev_loc[6];
   uint8_t xor_eax_curr_loc[5];
   uint8_t add_eax_afl_area[5];
-  uint8_t add_rax_1[3];
-  uint8_t adc_rax_0[3];
 
-  uint8_t mov_eax_curr_loc_shr_1[5];
-  uint8_t mov_eax_prev_loc_curr_loc[6];
+  uint8_t mov_rbx_ptr_rax[2];
+  uint8_t add_bl_1[3];
+  uint8_t adc_bl_0[3];
+  uint8_t mov_ptr_rax_rbx[2];
 
+  uint8_t mov_prev_loc_curr_loc_shr1[10];
+
+  uint8_t pop_rbx;
   uint8_t pop_rax2;
   uint8_t sahf;
   uint8_t pop_rax;
@@ -112,17 +119,20 @@ static const afl_log_code_asm_t template =
         .push_rax = 0x50,
         .lahf = 0x9f,
         .push_rax2 = 0x50,
+        .push_rbx = 0x53,
 
         .mov_eax_prev_loc = {0x8b, 0x05},
         .xor_eax_curr_loc = {0x35},
 
         .add_eax_afl_area = {0x05},
-        .add_rax_1 = {0x80, 0x00, 0x01},
-        .adc_rax_0 = {0x80, 0x10, 0x00},
+        .mov_rbx_ptr_rax = {0x8a, 0x18},
+        .add_bl_1 = {0x80, 0xc3, 0x01},
+        .adc_bl_0 = {0x80, 0xd3, 0x00},
+        .mov_ptr_rax_rbx = {0x88, 0x18},
 
-        .mov_eax_curr_loc_shr_1 = {0xb8},
-        .mov_eax_prev_loc_curr_loc = {0x89, 0x05},
+        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x05},
 
+        .pop_rbx = 0x5b,
         .pop_rax2 = 0x58,
         .sahf = 0x9e,
         .pop_rax = 0x58,
@@ -351,7 +361,8 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   afl_log_code  code = {0};
   GumX86Writer *cw = output->writer.x86;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
-  guint64 area_offset_ror;
+  gsize   map_size_pow2;
+  gsize   area_offset_ror;
   GumAddress code_addr = 0;
 
   instrument_coverage_suppress_init();
@@ -367,21 +378,22 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   code.code = template;
 
   gssize curr_loc_shr_1_offset =
-      offsetof(afl_log_code, code.mov_eax_curr_loc_shr_1) +
-      sizeof(code.code.mov_eax_curr_loc_shr_1) - sizeof(guint32);
+      offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
+      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(guint32);
 
-  area_offset_ror = ((area_offset & (MAP_SIZE - 1) >> 1)) |
-                    ((area_offset & 0x1) << (MAP_SIZE_POW2 - 1));
+  map_size_pow2 = util_log2(__afl_map_size);
+  area_offset_ror = util_rotate(area_offset, 1, map_size_pow2);
 
   *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
 
   gssize prev_loc_value =
       GPOINTER_TO_SIZE(&instrument_previous_pc) -
-      (code_addr + offsetof(afl_log_code, code.mov_eax_prev_loc_curr_loc) +
-       sizeof(code.code.mov_eax_prev_loc_curr_loc));
+      (code_addr + offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
+       sizeof(code.code.mov_prev_loc_curr_loc_shr1));
   gssize prev_loc_value_offset =
-      offsetof(afl_log_code, code.mov_eax_prev_loc_curr_loc) +
-      sizeof(code.code.mov_eax_prev_loc_curr_loc) - sizeof(gint);
+      offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
+      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(gint) -
+      sizeof(guint32);
   if (!instrument_coverage_in_range(prev_loc_value)) {
 
     FATAL("Patch out of range (current_pc_value1): 0x%016lX", prev_loc_value);
