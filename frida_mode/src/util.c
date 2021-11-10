@@ -80,3 +80,24 @@ gboolean util_output_enabled(void) {
 
 }
 
+gsize util_rotate(gsize val, gsize shift, gsize size) {
+
+  if (shift == 0) { return val; }
+  gsize result = ((val >> shift) | (val << (size - shift)));
+  result = result & ((1 << size) - 1);
+  return result;
+
+}
+
+gsize util_log2(gsize val) {
+
+  for (gsize i = 0; i < 64; i++) {
+
+    if (((gsize)1 << i) == val) { return i; }
+
+  }
+
+  FFATAL("Not a power of two");
+
+}
+
