@@ -4,8 +4,6 @@
 
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "entry.h"
 #include "intercept.h"
 #include "prefetch.h"
@@ -122,7 +120,7 @@ static void prefetch_read_patches(void) {
 
     if (prefetch_data->backpatch_size - offset < size) {
 
-      FATAL("Incomplete backpatch entry");
+      FFATAL("Incomplete backpatch entry");
 
     }
 
@@ -180,9 +178,9 @@ static void prefetch_hook_fork(void) {
 
 void prefetch_init(void) {
 
-  OKF("Instrumentation - prefetch [%c]", prefetch_enable ? 'X' : ' ');
-  OKF("Instrumentation - prefetch_backpatch [%c]",
-      prefetch_backpatch ? 'X' : ' ');
+  FOKF("Instrumentation - prefetch [%c]", prefetch_enable ? 'X' : ' ');
+  FOKF("Instrumentation - prefetch_backpatch [%c]",
+       prefetch_backpatch ? 'X' : ' ');
 
   if (!prefetch_enable) { return; }
   /*
@@ -194,7 +192,7 @@ void prefetch_init(void) {
       shmget(IPC_PRIVATE, sizeof(prefetch_data_t), IPC_CREAT | IPC_EXCL | 0600);
   if (prefetch_shm_id < 0) {
 
-    FATAL("prefetch_shm_id < 0 - errno: %d\n", errno);
+    FFATAL("prefetch_shm_id < 0 - errno: %d\n", errno);
 
   }
 
@@ -206,7 +204,7 @@ void prefetch_init(void) {
    */
   if (shmctl(prefetch_shm_id, IPC_RMID, NULL) < 0) {
 
-    FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
+    FFATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
 
   }
 

@@ -5,8 +5,6 @@
 
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "instrument.h"
 #include "util.h"
 
@@ -89,24 +87,24 @@ void instrument_debug_config(void) {
 
 void instrument_debug_init(void) {
 
-  OKF("Instrumentation debugging - enabled [%c]",
-      instrument_debug_filename == NULL ? ' ' : 'X');
+  FOKF("Instrumentation debugging - enabled [%c]",
+       instrument_debug_filename == NULL ? ' ' : 'X');
 
   if (instrument_debug_filename == NULL) { return; }
 
-  OKF("Instrumentation debugging - file [%s]", instrument_debug_filename);
+  FOKF("Instrumentation debugging - file [%s]", instrument_debug_filename);
 
   if (instrument_debug_filename == NULL) { return; }
 
   char *path =
       g_canonicalize_filename(instrument_debug_filename, g_get_current_dir());
 
-  OKF("Instrumentation debugging - path [%s]", path);
+  FOKF("Instrumentation debugging - path [%s]", path);
 
   debugging_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                       S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
-  if (debugging_fd < 0) { FATAL("Failed to open stats file '%s'", path); }
+  if (debugging_fd < 0) { FFATAL("Failed to open stats file '%s'", path); }
 
   g_free(path);
 

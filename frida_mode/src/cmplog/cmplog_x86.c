@@ -59,7 +59,7 @@ static gboolean cmplog_read_mem(GumCpuContext *ctx, uint8_t size,
       *val = *((guint32 *)GSIZE_TO_POINTER(address));
       return TRUE;
     default:
-      FATAL("Invalid operand size: %d\n", size);
+      FFATAL("Invalid operand size: %d\n", size);
 
   }
 
@@ -81,7 +81,7 @@ static gboolean cmplog_get_operand_value(GumCpuContext *context,
     case X86_OP_MEM:
       return cmplog_read_mem(context, ctx->size, &ctx->mem, val);
     default:
-      FATAL("Invalid operand type: %d\n", ctx->type);
+      FFATAL("Invalid operand type: %d\n", ctx->type);
 
   }
 
@@ -162,7 +162,7 @@ static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
       gum_memcpy(&ctx->mem, &operand->mem, sizeof(x86_op_mem));
       break;
     default:
-      FATAL("Invalid operand type: %d\n", operand->type);
+      FFATAL("Invalid operand type: %d\n", operand->type);
 
   }
 
@@ -228,7 +228,7 @@ static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
   gsize              operand1;
   gsize              operand2;
 
-  if (ctx->operand1.size != ctx->operand2.size) FATAL("Operand size mismatch");
+  if (ctx->operand1.size != ctx->operand2.size) FFATAL("Operand size mismatch");
 
   if (!cmplog_get_operand_value(context, &ctx->operand1, &operand1)) { return; }
   if (!cmplog_get_operand_value(context, &ctx->operand2, &operand2)) { return; }

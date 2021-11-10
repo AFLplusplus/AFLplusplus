@@ -10,9 +10,8 @@
   #include <sys/types.h>
   #include <unistd.h>
 
-  #include "debug.h"
-
   #include "seccomp.h"
+  #include "util.h"
 
   #define SECCOMP_CHILD_STACK_SIZE (1UL << 20)
 
@@ -51,11 +50,11 @@ void seccomp_child_run(seccomp_child_func_t child_func, void *ctx, pid_t *child,
   char *stack =
       (char *)mmap(NULL, SECCOMP_CHILD_STACK_SIZE, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (stack == MAP_FAILED) { FATAL("mmap"); }
+  if (stack == MAP_FAILED) { FFATAL("mmap"); }
 
   pid_t child_pid = clone(seccomp_child_func, &stack[SECCOMP_CHILD_STACK_SIZE],
                           flags, child_ctx, NULL, NULL, NULL);
-  if (child_pid < 0) { FATAL("clone"); }
+  if (child_pid < 0) { FFATAL("clone"); }
 
   if (child != NULL) { *child = child_pid; }
   if (event_fd != NULL) { *event_fd = fd; }

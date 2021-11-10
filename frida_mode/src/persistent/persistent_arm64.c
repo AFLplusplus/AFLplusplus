@@ -2,7 +2,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "instrument.h"
 #include "persistent.h"
@@ -325,7 +324,7 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  OKF("Persistent loop reached");
+  FOKF("Persistent loop reached");
 
   instrument_persitent_save_regs(cw, &saved_regs);
 

@@ -15,11 +15,11 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "instrument.h"
 #include "ranges.h"
 #include "stalker.h"
+#include "util.h"
 
 #if defined(__x86_64__)
 
@@ -52,29 +52,46 @@ typedef struct {
   // shared_mem[cur_location ^ prev_location]++;
   // prev_location = cur_location >> 1;
 
-  // => 0x7ffff6cfb086:      lea    rsp,[rsp-0x80]
-  //    0x7ffff6cfb08b:      pushf
-  //    0x7ffff6cfb08c:      push   rsi
-  //    0x7ffff6cfb08d:      mov    rsi,0x228
-  //    0x7ffff6cfb094:      xchg   QWORD PTR [rip+0x3136a5],rsi        #
-  //    0x7ffff700e740 0x7ffff6cfb09b:      xor    rsi,0x451 0x7ffff6cfb0a2: add
-  //    BYTE PTR [rsi+0x10000],0x1 0x7ffff6cfb0a9:      adc    BYTE PTR
-  //    [rsi+0x10000],0x0 0x7ffff6cfb0b0:      pop    rsi 0x7ffff6cfb0b1: popf
-  //    0x7ffff6cfb0b2:      lea    rsp,[rsp+0x80]
+  //    0x7ffff6cbca41:      lea    rsp,[rsp-0x80]
+  //
+  //    0x7ffff6cbca46:      push   rax
+  //    0x7ffff6cbca47:      lahf
+  //    0x7ffff6cbca48:      push   rax
+  //
+  //    0x7ffff6cbca49:      mov    eax,DWORD PTR [rip+0x33bcf1]
+  //    0x7ffff6cbca4f:      xor    eax,0x3f77
+  //    0x7ffff6cbca54:      add    eax,0x10000
+  //    0x7ffff6cbca59:      add    BYTE PTR [rax],0x1
+  //    0x7ffff6cbca5c:      adc    BYTE PTR [rax],0x0
+  //
+  //    0x7ffff6cbca5f:      mov    eax,0xbf77
+  //    0x7ffff6cbca64:      mov    DWORD PTR [rip+0x33bcd6],eax
+  //
+  //    0x7ffff6cbca6a:      pop    rax
+  //    0x7ffff6cbca6b:      sahf
+  //    0x7ffff6cbca6c:      pop    rax
+  //
+  //    0x7ffff6cbca6d:      lea    rsp,[rsp+0x80]
 
   uint8_t lea_rsp_rsp_sub_rz[5];
-  uint8_t push_fq;
-  uint8_t push_rsi;
 
-  uint8_t mov_rsi_curr_loc_shr_1[7];
-  uint8_t xchg_rsi_prev_loc_curr_loc[7];
-  uint8_t xor_rsi_curr_loc[7];
+  uint8_t push_rax;
+  uint8_t lahf;
+  uint8_t push_rax2;
 
-  uint8_t add_rsi_1[7];
-  uint8_t adc_rsi_0[7];
+  uint8_t mov_eax_prev_loc[6];
+  uint8_t xor_eax_curr_loc[5];
+  uint8_t add_eax_afl_area[5];
+  uint8_t add_rax_1[3];
+  uint8_t adc_rax_0[3];
 
-  uint8_t pop_rsi;
-  uint8_t pop_fq;
+  uint8_t mov_eax_curr_loc_shr_1[5];
+  uint8_t mov_eax_prev_loc_curr_loc[6];
+
+  uint8_t pop_rax2;
+  uint8_t sahf;
+  uint8_t pop_rax;
+
   uint8_t lsa_rsp_rsp_add_rz[8];
 
 } afl_log_code_asm_t;
@@ -92,18 +109,24 @@ static const afl_log_code_asm_t template =
     {
 
         .lea_rsp_rsp_sub_rz = {0x48, 0x8D, 0x64, 0x24, 0x80},
-        .push_fq = 0x9c,
-        .push_rsi = 0x56,
+        .push_rax = 0x50,
+        .lahf = 0x9f,
+        .push_rax2 = 0x50,
 
-        .mov_rsi_curr_loc_shr_1 = {0x48, 0xC7, 0xC6},
-        .xchg_rsi_prev_loc_curr_loc = {0x48, 0x87, 0x35},
-        .xor_rsi_curr_loc = {0x48, 0x81, 0xF6},
+        .mov_eax_prev_loc = {0x8b, 0x05},
+        .xor_eax_curr_loc = {0x35},
 
-        .add_rsi_1 = {0x80, 0x86, 0x00, 0x00, 0x00, 0x00, 0x01},
-        .adc_rsi_0 = {0x80, 0x96, 0x00, 0x00, 0x00, 0x00, 0x00},
+        .add_eax_afl_area = {0x05},
+        .add_rax_1 = {0x80, 0x00, 0x01},
+        .adc_rax_0 = {0x80, 0x10, 0x00},
 
-        .pop_rsi = 0x5E,
-        .pop_fq = 0x9D,
+        .mov_eax_curr_loc_shr_1 = {0xb8},
+        .mov_eax_prev_loc_curr_loc = {0x89, 0x05},
+
+        .pop_rax2 = 0x58,
+        .sahf = 0x9e,
+        .pop_rax = 0x58,
+
         .lsa_rsp_rsp_add_rz = {0x48, 0x8D, 0xA4, 0x24, 0x80, 0x00, 0x00, 0x00},
 
 }
@@ -123,7 +146,7 @@ static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
 
   }
 
-  if (details->range->base_address > ((2ULL << 20) - __afl_map_size)) {
+  if (details->range->base_address > ((2ULL << 30) - __afl_map_size)) {
 
     return FALSE;
 
@@ -215,6 +238,9 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
                                        const cs_insn *     from_insn,
                                        gpointer *          target) {
 
+  UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(start_address);
+
   cs_x86 *   x86;
   cs_x86_op *op;
   if (from_insn == NULL) { return; }
@@ -248,9 +274,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
 
   }
 
-  // OKF("SKIP: %p %s %s", start_address, from_insn->mnemonic,
-  // from_insn->op_str);
-  *target = *target + sizeof(afl_log_code);
+  *target = (guint8 *)*target + sizeof(afl_log_code);
 
 }
 
@@ -261,7 +285,7 @@ void instrument_coverage_optimize_init(void) {
   gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, instrument_coverage_find_low,
                                &low_address);
 
-  OKF("Low address: %p", low_address);
+  FOKF("Low address: %p", low_address);
 
   if (low_address == 0 ||
       GPOINTER_TO_SIZE(low_address) > ((2UL << 20) - __afl_map_size)) {
@@ -273,11 +297,11 @@ void instrument_coverage_optimize_init(void) {
   ranges_print_debug_maps();
 
   char *shm_env = getenv(SHM_ENV_VAR);
-  OKF("SHM_ENV_VAR: %s", shm_env);
+  FOKF("SHM_ENV_VAR: %s", shm_env);
 
   if (shm_env == NULL) {
 
-    WARNF("SHM_ENV_VAR not set, using anonymous map for debugging purposes");
+    FWARNF("SHM_ENV_VAR not set, using anonymous map for debugging purposes");
 
     instrument_coverage_optimize_map_mmap_anon(low_address);
 
@@ -297,8 +321,8 @@ void instrument_coverage_optimize_init(void) {
 
   }
 
-  OKF("__afl_area_ptr: %p", __afl_area_ptr);
-  OKF("instrument_previous_pc: %p", &instrument_previous_pc);
+  FOKF("__afl_area_ptr: %p", __afl_area_ptr);
+  FOKF("instrument_previous_pc: %p", &instrument_previous_pc);
 
 }
 
@@ -327,6 +351,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   afl_log_code  code = {0};
   GumX86Writer *cw = output->writer.x86;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
+  guint64 area_offset_ror;
   GumAddress code_addr = 0;
 
   instrument_coverage_suppress_init();
@@ -342,19 +367,21 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   code.code = template;
 
   gssize curr_loc_shr_1_offset =
-      offsetof(afl_log_code, code.mov_rsi_curr_loc_shr_1) +
-      sizeof(code.code.mov_rsi_curr_loc_shr_1) - sizeof(guint32);
+      offsetof(afl_log_code, code.mov_eax_curr_loc_shr_1) +
+      sizeof(code.code.mov_eax_curr_loc_shr_1) - sizeof(guint32);
 
-  *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) =
-      (guint32)(area_offset >> 1);
+  area_offset_ror = ((area_offset & (MAP_SIZE - 1) >> 1)) |
+                    ((area_offset & 0x1) << (MAP_SIZE_POW2 - 1));
+
+  *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
 
   gssize prev_loc_value =
       GPOINTER_TO_SIZE(&instrument_previous_pc) -
-      (code_addr + offsetof(afl_log_code, code.xchg_rsi_prev_loc_curr_loc) +
-       sizeof(code.code.xchg_rsi_prev_loc_curr_loc));
+      (code_addr + offsetof(afl_log_code, code.mov_eax_prev_loc_curr_loc) +
+       sizeof(code.code.mov_eax_prev_loc_curr_loc));
   gssize prev_loc_value_offset =
-      offsetof(afl_log_code, code.xchg_rsi_prev_loc_curr_loc) +
-      sizeof(code.code.xchg_rsi_prev_loc_curr_loc) - sizeof(gint);
+      offsetof(afl_log_code, code.mov_eax_prev_loc_curr_loc) +
+      sizeof(code.code.mov_eax_prev_loc_curr_loc) - sizeof(gint);
   if (!instrument_coverage_in_range(prev_loc_value)) {
 
     FATAL("Patch out of range (current_pc_value1): 0x%016lX", prev_loc_value);
@@ -363,22 +390,31 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   *((gint *)&code.bytes[prev_loc_value_offset]) = (gint)prev_loc_value;
 
-  gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_rsi_curr_loc) +
-                               sizeof(code.code.xor_rsi_curr_loc) -
+  gssize prev_loc_value2 =
+      GPOINTER_TO_SIZE(&instrument_previous_pc) -
+      (code_addr + offsetof(afl_log_code, code.mov_eax_prev_loc) +
+       sizeof(code.code.mov_eax_prev_loc));
+  gssize prev_loc_value_offset2 =
+      offsetof(afl_log_code, code.mov_eax_prev_loc) +
+      sizeof(code.code.mov_eax_prev_loc) - sizeof(gint);
+  if (!instrument_coverage_in_range(prev_loc_value)) {
+
+    FATAL("Patch out of range (current_pc_value1): 0x%016lX", prev_loc_value2);
+
+  }
+
+  *((gint *)&code.bytes[prev_loc_value_offset2]) = (gint)prev_loc_value2;
+
+  gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_eax_curr_loc) +
+                               sizeof(code.code.xor_eax_curr_loc) -
                                sizeof(guint32);
 
   *((guint32 *)&code.bytes[xor_curr_loc_offset]) = (guint32)(area_offset);
 
-  gssize add_rsi_1_offset = offsetof(afl_log_code, code.add_rsi_1) +
-                            sizeof(code.code.add_rsi_1) - sizeof(guint32) - 1;
+  gssize lea_rax_offset = offsetof(afl_log_code, code.add_eax_afl_area) +
+                          sizeof(code.code.add_eax_afl_area) - sizeof(guint32);
 
-  *((guint32 *)&code.bytes[add_rsi_1_offset]) =
-      (guint32)GPOINTER_TO_SIZE(__afl_area_ptr);
-
-  gssize adc_rsi_0_ffset = offsetof(afl_log_code, code.adc_rsi_0) +
-                           sizeof(code.code.adc_rsi_0) - sizeof(guint32) - 1;
-
-  *((guint32 *)&code.bytes[adc_rsi_0_ffset]) =
+  *((guint32 *)&code.bytes[lea_rax_offset]) =
       (guint32)GPOINTER_TO_SIZE(__afl_area_ptr);
 
   gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));

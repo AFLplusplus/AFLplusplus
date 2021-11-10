@@ -1,7 +1,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "instrument.h"
 #include "persistent.h"
@@ -210,7 +209,7 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  OKF("Persistent loop reached");
+  FOKF("Persistent loop reached");
 
   /* Pop the return value */
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_ESP, GUM_REG_ESP, 4);

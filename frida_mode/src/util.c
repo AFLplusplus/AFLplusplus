@@ -1,7 +1,5 @@
 #include "util.h"
 
-#include "debug.h"
-
 guint64 util_read_address(char *key) {
 
   char *value_str = getenv(key);
@@ -63,6 +61,22 @@ guint64 util_read_num(char *key) {
   }
 
   return value;
+
+}
+
+gboolean util_output_enabled(void) {
+
+  static gboolean initialized = FALSE;
+  static gboolean enabled = TRUE;
+
+  if (!initialized) {
+
+    initialized = TRUE;
+    if (getenv("AFL_DEBUG_CHILD") == NULL) { enabled = FALSE; }
+
+  }
+
+  return enabled;
 
 }
 
