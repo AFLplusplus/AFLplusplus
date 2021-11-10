@@ -12,6 +12,8 @@ guint64 util_read_address(char *key);
 
 guint64  util_read_num(char *key);
 gboolean util_output_enabled(void);
+gsize    util_rotate(gsize val, gsize shift, gsize size);
+gsize    util_log2(gsize val);
 
 #define FOKF(x...)                         \
   do {                                     \

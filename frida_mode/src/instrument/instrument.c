@@ -68,7 +68,8 @@ guint64 instrument_get_offset_hash(GumAddress current_rip) {
 
   guint64 area_offset = hash64((unsigned char *)&current_rip,
                                sizeof(GumAddress), instrument_hash_seed);
-  return area_offset &= MAP_SIZE - 1;
+  gsize   map_size_pow2 = util_log2(__afl_map_size);
+  return area_offset &= ((1 << map_size_pow2) - 1);
 
 }
 
@@ -134,8 +135,8 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   previous_rip = current_rip;
   previous_end = current_end;
 
-  instrument_previous_pc = ((current_pc & (MAP_SIZE - 1) >> 1)) |
-                           ((current_pc & 0x1) << (MAP_SIZE_POW2 - 1));
+  gsize map_size_pow2 = util_log2(__afl_map_size);
+  instrument_previous_pc = util_rotate(current_pc, 1, map_size_pow2);
 
 }
 
@@ -303,7 +304,8 @@ void instrument_init(void) {
 
   if (instrument_unique) {
 
-    int shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+    int shm_id =
+        shmget(IPC_PRIVATE, __afl_map_size, IPC_CREAT | IPC_EXCL | 0600);
     if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
 
     edges_notified = shmat(shm_id, NULL, 0);
@@ -320,7 +322,7 @@ void instrument_init(void) {
     }
 
     /* Clear it, not sure it's necessary, just seems like good practice */
-    memset(edges_notified, '\0', MAP_SIZE);
+    memset(edges_notified, '\0', __afl_map_size);
 
   }
 
