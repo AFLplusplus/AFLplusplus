@@ -102,7 +102,7 @@ else
     CNT=1
     while [ '!' -d EvalMaxSAT -a "$CNT" -lt 4 ]; do
       echo "Trying to clone EvalMaxSAT (attempt $CNT/3)"
-      git clone "$GRAMMAR_REPO"
+      git clone "$EVALMAXSAT_REPO"
       CNT=`expr "$CNT" + 1`
     done
   }
