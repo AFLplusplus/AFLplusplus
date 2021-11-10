@@ -87,8 +87,8 @@ The following options are available when you instrument with LTO mode (afl-clang
    transform input data before comparison. Therefore this technique is called
    `input to state` or `redqueen`.
    If you want to use this technique, then you have to compile the target
-   twice, once specifically with/for this mode, and pass this binary to afl-fuzz
-   via the `-c` parameter.
+   twice, once specifically with/for this mode by setting `AFL_LLVM_CMPLOG=1`,
+   and pass this binary to afl-fuzz via the `-c` parameter.
    Note that you can compile also just a cmplog binary and use that for both
    however there will be a performance penality.
    You can read more about this in [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md)
