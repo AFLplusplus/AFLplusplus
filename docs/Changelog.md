@@ -9,25 +9,31 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
+  - documentation restructuring, made possible by Google Season of Docs :)
   - afl-fuzz:
+    - cmplog binaries will need to be recompiled for this version
+      (it is better!)
+    - fix a regression introduced in 3.10 that resulted in less
+      coverage being detected. thanks to Collin May for reporting!
     - added AFL_IGNORE_PROBLEMS plus checks to identify and abort on
       incorrect LTO usage setups and enhanced the READMEs for better
       information on how to deal with instrumenting libraries
-    - fix a regression introduced in 3.10 that resulted in less
-      coverage being detected. thanks to Collin May for reporting!
     - fix -n dumb mode (nobody should use this)
     - fix stability issue with LTO and cmplog
     - better banner
     - more effective cmplog mode
     - more often update the UI when in input2stage mode
-  - frida_mode: David Carlier added Android support :)
+  - frida_mode:
+    - better performance, bug fixes
+    - David Carlier added Android support :)
   - afl-showmap, afl-tmin and afl-analyze:
-    - honor persistent mode for more speed. thanks to dloffre-snl for
-      reporting!
+    - honor persistent mode for more speed. thanks to dloffre-snl
+      for reporting!
     - fix bug where targets are not killed on timeouts
   - Prevent accidently killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
+    - new cmplog mode (incompatible with older afl++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
     - added AFL_USE_TSAN thread sanitizer support
@@ -44,7 +50,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - removed utils/afl_frida because frida_mode/ is now so much better
   - added uninstall target to makefile (todo: update new readme!)
   - removed indirections in rust callbacks for unicornafl
-
 
 ### Version ++3.14c (release)
   - afl-fuzz:
