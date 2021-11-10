@@ -6,7 +6,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 #include "hash.h"
 
 #include "asan.h"
@@ -261,14 +260,14 @@ void instrument_init(void) {
 
   if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
 
-  OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
-  OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
-  OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
-  OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
-      instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
-  OKF("Instrumentation - unstable coverage [%c] [%s]",
-      instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
-      instrument_coverage_unstable_filename);
+  FOKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
+  FOKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
+  FOKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
+  FOKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
+       instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
+  FOKF("Instrumentation - unstable coverage [%c] [%s]",
+       instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
+       instrument_coverage_unstable_filename);
 
   if (instrument_tracing && instrument_optimize) {
 
@@ -352,8 +351,8 @@ void instrument_init(void) {
 
   }
 
-  OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
-      instrument_hash_seed);
+  FOKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
+       instrument_hash_seed);
   instrument_hash_zero = instrument_get_offset_hash(0);
 
   instrument_coverage_optimize_init();

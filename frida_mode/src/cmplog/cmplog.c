@@ -7,8 +7,6 @@
 
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "util.h"
 
 #define DEFAULT_MMAP_MIN_ADDR (32UL << 10)
@@ -42,7 +40,7 @@ static gint cmplog_sort(gconstpointer a, gconstpointer b) {
 
 static void cmplog_get_ranges(void) {
 
-  OKF("CMPLOG - Collecting ranges");
+  FOKF("CMPLOG - Collecting ranges");
 
   cmplog_ranges = g_array_sized_new(false, false, sizeof(GumMemoryRange), 100);
   gum_process_enumerate_ranges(GUM_PAGE_READ, cmplog_range, cmplog_ranges);
@@ -56,7 +54,7 @@ void cmplog_config(void) {
 
 void cmplog_init(void) {
 
-  OKF("CMPLOG - Enabled [%c]", __afl_cmp_map == NULL ? ' ' : 'X');
+  FOKF("CMPLOG - Enabled [%c]", __afl_cmp_map == NULL ? ' ' : 'X');
 
   if (__afl_cmp_map == NULL) { return; }
 
@@ -65,9 +63,9 @@ void cmplog_init(void) {
   for (guint i = 0; i < cmplog_ranges->len; i++) {
 
     GumMemoryRange *range = &g_array_index(cmplog_ranges, GumMemoryRange, i);
-    OKF("CMPLOG Range - %3u: 0x%016" G_GINT64_MODIFIER
-        "X - 0x%016" G_GINT64_MODIFIER "X",
-        i, range->base_address, range->base_address + range->size);
+    FOKF("CMPLOG Range - %3u: 0x%016" G_GINT64_MODIFIER
+         "X - 0x%016" G_GINT64_MODIFIER "X",
+         i, range->base_address, range->base_address + range->size);
 
   }
 
@@ -78,14 +76,14 @@ void cmplog_init(void) {
   hash_yes = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (hash_yes == NULL) {
 
-    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+    FFATAL("Failed to g_hash_table_new, errno: %d", errno);
 
   }
 
   hash_no = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (hash_no == NULL) {
 
-    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+    FFATAL("Failed to g_hash_table_new, errno: %d", errno);
 
   }
 
@@ -117,7 +115,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
     if (!g_hash_table_add(hash_no, GSIZE_TO_POINTER(addr))) {
 
-      FATAL("Failed - g_hash_table_add");
+      FFATAL("Failed - g_hash_table_add");
 
     }
 
@@ -127,7 +125,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
     if (!g_hash_table_add(hash_yes, GSIZE_TO_POINTER(addr))) {
 
-      FATAL("Failed - g_hash_table_add");
+      FFATAL("Failed - g_hash_table_add");
 
     }
 
@@ -139,7 +137,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
 gboolean cmplog_is_readable(guint64 addr, size_t size) {
 
-  if (cmplog_ranges == NULL) FATAL("CMPLOG not initialized");
+  if (cmplog_ranges == NULL) FFATAL("CMPLOG not initialized");
 
   /*
    * The Linux kernel prevents mmap from allocating from the very bottom of the

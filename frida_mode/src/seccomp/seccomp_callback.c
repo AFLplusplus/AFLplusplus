@@ -6,8 +6,7 @@
   #include <fcntl.h>
 
   #include "seccomp.h"
-
-  #include "debug.h"
+  #include "util.h"
 
 static void seccomp_callback_filter(struct seccomp_notif *     req,
                                     struct seccomp_notif_resp *resp,
@@ -35,7 +34,7 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   #if !defined(__MUSL__)
   seccomp_print("FRAMES: (%u)\n", frames->len);
   char **syms = backtrace_symbols(frames->items, frames->len);
-  if (syms == NULL) { FATAL("Failed to get symbols"); }
+  if (syms == NULL) { FFATAL("Failed to get symbols"); }
 
   for (guint i = 0; i < frames->len; i++) {
 
@@ -84,7 +83,7 @@ static void seccomp_callback_child(int signal_parent, void *ctx) {
   int sock_fd = *((int *)ctx);
   int fd = seccomp_socket_recv(sock_fd);
 
-  if (close(sock_fd) < 0) { FATAL("child - close"); }
+  if (close(sock_fd) < 0) { FFATAL("child - close"); }
 
   seccomp_event_signal(signal_parent);
   seccomp_filter_child_install();
@@ -101,18 +100,18 @@ void seccomp_callback_parent(void) {
   seccomp_socket_create(sock);
   seccomp_child_run(seccomp_callback_child, sock, &child, &child_fd);
 
-  if (dup2(child_fd, SECCOMP_PARENT_EVENT_FD) < 0) { FATAL("dup2"); }
+  if (dup2(child_fd, SECCOMP_PARENT_EVENT_FD) < 0) { FFATAL("dup2"); }
 
-  if (close(child_fd) < 0) { FATAL("seccomp_on_fork - close (1)"); }
+  if (close(child_fd) < 0) { FFATAL("seccomp_on_fork - close (1)"); }
 
-  if (close(sock[STDIN_FILENO]) < 0) { FATAL("grandparent - close (2)"); }
+  if (close(sock[STDIN_FILENO]) < 0) { FFATAL("grandparent - close (2)"); }
 
   int fd = seccomp_filter_install(child);
   seccomp_socket_send(sock[STDOUT_FILENO], fd);
 
-  if (close(sock[STDOUT_FILENO]) < 0) { FATAL("grandparent - close (3)"); }
+  if (close(sock[STDOUT_FILENO]) < 0) { FFATAL("grandparent - close (3)"); }
 
-  if (close(fd) < 0) { FATAL("grandparent - close (4)"); }
+  if (close(fd) < 0) { FFATAL("grandparent - close (4)"); }
 
   seccomp_child_wait(SECCOMP_PARENT_EVENT_FD);
 
@@ -125,18 +124,18 @@ void seccomp_callback_initialize(void) {
 
   path = g_canonicalize_filename(seccomp_filename, g_get_current_dir());
 
-  OKF("Seccomp - path [%s]", path);
+  FOKF("Seccomp - path [%s]", path);
 
   fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
             S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
   if (dup2(fd, SECCOMP_OUTPUT_FILE_FD) < 0) {
 
-    FATAL("Failed to duplicate seccomp output file");
+    FFATAL("Failed to duplicate seccomp output file");
 
   }
 
-  if (close(fd) < 0) { FATAL("Failed to close seccomp output file fd"); }
+  if (close(fd) < 0) { FFATAL("Failed to close seccomp output file fd"); }
 
   g_free(path);
 

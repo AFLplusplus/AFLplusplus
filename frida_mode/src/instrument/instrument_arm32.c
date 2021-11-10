@@ -1,7 +1,5 @@
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "instrument.h"
 #include "util.h"
 
@@ -18,13 +16,13 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   UNUSED_PARAMETER(instr);
   UNUSED_PARAMETER(output);
-  FATAL("Optimized coverage not supported on this architecture");
+  FFATAL("Optimized coverage not supported on this architecture");
 
 }
 
 void instrument_coverage_optimize_init(void) {
 
-  WARNF("Optimized coverage not supported on this architecture");
+  FWARNF("Optimized coverage not supported on this architecture");
 
 }
 

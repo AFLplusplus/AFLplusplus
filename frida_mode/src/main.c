@@ -15,7 +15,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "entry.h"
 #include "instrument.h"
@@ -63,7 +62,7 @@ static void on_main_os(int argc, char **argv, char **envp) {
   /* Personality doesn't affect the current process, it only takes effect on
    * evec */
   int persona = personality(ADDR_NO_RANDOMIZE);
-  if (persona == -1) { WARNF("Failed to set ADDR_NO_RANDOMIZE: %d", errno); }
+  if (persona == -1) { FWARNF("Failed to set ADDR_NO_RANDOMIZE: %d", errno); }
   if ((persona & ADDR_NO_RANDOMIZE) == 0) { execvpe(argv[0], argv, envp); }
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
@@ -98,7 +97,7 @@ static void afl_print_cmdline(void) {
 
   if (fd < 0) {
 
-    WARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    FWARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
     return;
 
   }
@@ -106,7 +105,7 @@ static void afl_print_cmdline(void) {
   ssize_t bytes_read = read(fd, buffer, PROC_MAX - 1);
   if (bytes_read < 0) {
 
-    FATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
+    FFATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
 
   }
 
@@ -116,7 +115,7 @@ static void afl_print_cmdline(void) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
-      OKF("AFL - COMMANDLINE: argv[%d] = %s", idx++, &buffer[i]);
+      FOKF("AFL - COMMANDLINE: argv[%d] = %s", idx++, &buffer[i]);
 
     }
 
@@ -132,7 +131,7 @@ static void afl_print_cmdline(void) {
 
   for (idx = 0; idx < nargv; idx++) {
 
-    OKF("AFL - COMMANDLINE: argv[%d] = %s", idx, argv[idx]);
+    FOKF("AFL - COMMANDLINE: argv[%d] = %s", idx, argv[idx]);
 
   }
 
@@ -148,7 +147,7 @@ static void afl_print_env(void) {
 
   if (fd < 0) {
 
-    WARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    FWARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
     return;
 
   }
@@ -156,7 +155,7 @@ static void afl_print_env(void) {
   ssize_t bytes_read = read(fd, buffer, PROC_MAX - 1);
   if (bytes_read < 0) {
 
-    FATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
+    FFATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
 
   }
 
@@ -166,7 +165,7 @@ static void afl_print_env(void) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
-      OKF("AFL - ENVIRONMENT %3d: %s", idx++, &buffer[i]);
+      FOKF("AFL - ENVIRONMENT %3d: %s", idx++, &buffer[i]);
 
     }
 
@@ -244,9 +243,9 @@ static void intercept_main(void) {
 static void intercept_main(void) {
 
   mach_port_t task = mach_task_self();
-  OKF("Task Id: %u", task);
+  FOKF("Task Id: %u", task);
   GumAddress entry = gum_darwin_find_entrypoint(task);
-  OKF("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
+  FOKF("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
   void *main = GSIZE_TO_POINTER(entry);
   main_fn = main;
   intercept_hook(main, on_main, NULL);
