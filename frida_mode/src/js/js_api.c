@@ -47,6 +47,14 @@ __attribute__((visibility("default"))) void js_api_set_persistent_address(
 
   persistent_start = GPOINTER_TO_SIZE(address);
 
+  if (getenv("__AFL_PERSISTENT") == NULL) {
+
+    FATAL(
+        "You must set __AFL_PERSISTENT manually if using persistent mode "
+        "configured using JS");
+
+  }
+
 }
 
 __attribute__((visibility("default"))) void js_api_set_persistent_return(
