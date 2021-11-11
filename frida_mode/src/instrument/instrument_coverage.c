@@ -237,7 +237,7 @@ static void instrument_coverage_mark(void *key, void *value, void *user_data) {
 
 }
 
-static void coverage_write(void *data, size_t size) {
+static void coverage_write(int fd, void *data, size_t size) {
 
   ssize_t written;
   size_t  remain = size;
@@ -245,7 +245,7 @@ static void coverage_write(void *data, size_t size) {
   for (char *cursor = (char *)data; remain > 0;
        remain -= written, cursor += written) {
 
-    written = write(normal_coverage_fd, cursor, remain);
+    written = write(fd, cursor, remain);
 
     if (written < 0) {
 
@@ -257,7 +257,7 @@ static void coverage_write(void *data, size_t size) {
 
 }
 
-static void coverage_format(char *format, ...) {
+static void coverage_format(int fd, char *format, ...) {
 
   va_list ap;
   char    buffer[4096] = {0};
@@ -272,11 +272,11 @@ static void coverage_format(char *format, ...) {
 
   len = strnlen(buffer, sizeof(buffer));
 
-  coverage_write(buffer, len);
+  coverage_write(fd, buffer, len);
 
 }
 
-static void coverage_write_modules(GArray *coverage_modules) {
+static void coverage_write_modules(int fd, GArray *coverage_modules) {
 
   guint emitted = 0;
   for (guint i = 0; i < coverage_modules->len; i++) {
@@ -285,16 +285,16 @@ static void coverage_write_modules(GArray *coverage_modules) {
         &g_array_index(coverage_modules, coverage_range_t, i);
     if (module->count == 0) continue;
 
-    coverage_format("%3u, ", emitted);
-    coverage_format("%016" G_GINT64_MODIFIER "X, ", module->base_address);
-    coverage_format("%016" G_GINT64_MODIFIER "X, ", module->limit);
+    coverage_format(fd, "%3u, ", emitted);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", module->base_address);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", module->limit);
     /* entry */
-    coverage_format("%016" G_GINT64_MODIFIER "X, ", 0);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0);
     /* checksum */
-    coverage_format("%016" G_GINT64_MODIFIER "X, ", 0);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0);
     /* timestamp */
-    coverage_format("%08" G_GINT32_MODIFIER "X, ", 0);
-    coverage_format("%s\n", module->path);
+    coverage_format(fd, "%08" G_GINT32_MODIFIER "X, ", 0);
+    coverage_format(fd, "%s\n", module->path);
     emitted++;
 
   }
@@ -304,7 +304,7 @@ static void coverage_write_modules(GArray *coverage_modules) {
 static void coverage_write_events(void *key, void *value, void *user_data) {
 
   UNUSED_PARAMETER(key);
-  UNUSED_PARAMETER(user_data);
+  int                     fd = *((int *)user_data);
   normal_coverage_data_t *val = (normal_coverage_data_t *)value;
 
   if (val->module == NULL) { return; }
@@ -317,20 +317,20 @@ static void coverage_write_events(void *key, void *value, void *user_data) {
 
   };
 
-  coverage_write(&evt, sizeof(coverage_event_t));
+  coverage_write(fd, &evt, sizeof(coverage_event_t));
 
 }
 
-static void coverage_write_header(guint coverage_marked_modules) {
+static void coverage_write_header(int fd, guint coverage_marked_modules) {
 
   char version[] = "DRCOV VERSION: 2\n";
   char flavour[] = "DRCOV FLAVOR: frida\n";
   char columns[] = "Columns: id, base, end, entry, checksum, timestamp, path\n";
-  coverage_write(version, sizeof(version) - 1);
-  coverage_write(flavour, sizeof(flavour) - 1);
-  coverage_format("Module Table: version 2, count %u\n",
+  coverage_write(fd, version, sizeof(version) - 1);
+  coverage_write(fd, flavour, sizeof(flavour) - 1);
+  coverage_format(fd, "Module Table: version 2, count %u\n",
                   coverage_marked_modules);
-  coverage_write(columns, sizeof(columns) - 1);
+  coverage_write(fd, columns, sizeof(columns) - 1);
 
 }
 
@@ -412,10 +412,11 @@ static void instrument_coverage_normal_run() {
   instrument_coverage_print("Coverage - Marked Modules: %u\n",
                             coverage_marked_modules);
 
-  coverage_write_header(coverage_marked_modules);
-  coverage_write_modules(coverage_modules);
-  coverage_format("BB Table: %u bbs\n", ctx.count);
-  g_hash_table_foreach(coverage_hash, coverage_write_events, NULL);
+  coverage_write_header(normal_coverage_fd, coverage_marked_modules);
+  coverage_write_modules(normal_coverage_fd, coverage_modules);
+  coverage_format(normal_coverage_fd, "BB Table: %u bbs\n", ctx.count);
+  g_hash_table_foreach(coverage_hash, coverage_write_events,
+                       &normal_coverage_fd);
 
   g_hash_table_unref(coverage_hash);
 
@@ -636,10 +637,11 @@ static void instrument_coverage_unstable_run(void) {
   instrument_coverage_print("Coverage - Marked Modules: %u\n",
                             coverage_marked_modules);
 
-  coverage_write_header(coverage_marked_modules);
-  coverage_write_modules(coverage_modules);
-  coverage_format("BB Table: %u bbs\n", ctx.count);
-  g_hash_table_foreach(unstable_blocks, coverage_write_events, NULL);
+  coverage_write_header(unstable_coverage_fd, coverage_marked_modules);
+  coverage_write_modules(unstable_coverage_fd, coverage_modules);
+  coverage_format(unstable_coverage_fd, "BB Table: %u bbs\n", ctx.count);
+  g_hash_table_foreach(unstable_blocks, coverage_write_events,
+                       &unstable_coverage_fd);
 
   g_hash_table_unref(unstable_blocks);
   g_array_free(unstable_edge_ids, TRUE);

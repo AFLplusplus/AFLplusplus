@@ -36,7 +36,7 @@ static void entry_launch(void) {
 
 }
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if defined(__linux__) && defined(PR_SET_PTRACER) && !defined(__ANDROID__)
 void entry_on_fork(void) {
 
   if (traceable) {
