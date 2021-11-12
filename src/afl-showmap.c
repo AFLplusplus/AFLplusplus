@@ -845,7 +845,7 @@ static void usage(u8 *argv0) {
       "  -t msec    - timeout for each run (none)\n"
       "  -m megs    - memory limit for child process (%u MB)\n"
       "  -O         - use binary-only instrumentation (FRIDA mode)\n"
-      "  -P         - use binary-only instrumentation (CoreSight mode)\n"
+      "  -P         - use binary-only instrumentation (ARM CoreSight mode)\n"
       "  -Q         - use binary-only instrumentation (QEMU mode)\n"
       "  -U         - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"

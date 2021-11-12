@@ -113,7 +113,7 @@ static void usage(u8 *argv0, int more_help) {
       "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
-      "  -A            - use binary-only instrumentation (CoreSight mode)\n"
+      "  -A            - use binary-only instrumentation (ARM CoreSight mode)\n"
       "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
