@@ -1069,6 +1069,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (fsrv->cs_mode) { FATAL("Multiple -P options not supported"); }
 
+        if (!(__aarch64__ && __linux__)) {
+
+          FATAL("-P option is not supported on this platform");
+
+        }
+
         fsrv->cs_mode = true;
         break;
 
