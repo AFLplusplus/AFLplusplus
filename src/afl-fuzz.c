@@ -830,6 +830,13 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'A':                                           /* CoreSight mode */
 
         if (afl->fsrv.cs_mode) { FATAL("Multiple -A options not supported"); }
+
+        if (!(__aarch64__ && __linux__)) {
+
+          FATAL("-A option is not supported on this platform");
+
+        }
+
         afl->fsrv.cs_mode = 1;
 
         break;

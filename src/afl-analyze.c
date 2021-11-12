@@ -997,6 +997,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (cs_mode) { FATAL("Multiple -A options not supported"); }
 
+        if (!(__aarch64__ && __linux__)) {
+
+          FATAL("-A option is not supported on this platform");
+
+        }
+
         cs_mode = 1;
         fsrv.cs_mode = cs_mode;
         break;
