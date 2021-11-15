@@ -241,6 +241,13 @@ class Afl {
     Afl.jsApiSetSeccompFile(buf);
   }
 
+  /**
+   * See `AFL_FRIDA_STALKER_ADJACENT_BLOCKS`.
+   */
+  public static setStalkerAdjacentBlocks(val: number): void {
+    Afl.jsApiSetStalkerAdjacentBlocks(val);
+  }
+
   /*
    * Set a function to be called for each instruction which is instrumented
    * by AFL FRIDA mode.
@@ -424,6 +431,11 @@ class Afl {
     "js_api_set_stalker_callback",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetStalkerAdjacentBlocks = Afl.jsApiGetFunction(
+    "js_api_set_stalker_adjacent_blocks",
+    "void",
+    ["uint32"]);
 
   private static readonly jsApiSetStalkerIcEntries = Afl.jsApiGetFunction(
     "js_api_set_stalker_ic_entries",

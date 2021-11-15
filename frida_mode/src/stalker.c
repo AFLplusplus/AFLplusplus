@@ -7,6 +7,7 @@
 
 guint    stalker_ic_entries = 0;
 gboolean backpatch_enable = TRUE;
+guint    stalker_adjacent_blocks = 0;
 
 static GumStalker *stalker = NULL;
 
@@ -60,7 +61,9 @@ void stalker_config(void) {
 
   backpatch_enable = (getenv("AFL_FRIDA_INST_NO_BACKPATCH") == NULL);
 
-  stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES");
+  stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_ADJACENT_BLOCKS");
+
+  stalker_adjacent_blocks = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES");
 
   observer = g_object_new(GUM_TYPE_AFL_STALKER_OBSERVER, NULL);
 
@@ -92,6 +95,7 @@ void stalker_init(void) {
   FOKF("Instrumentation - backpatch [%c]", backpatch_enable ? 'X' : ' ');
 
   FOKF("Stalker - ic_entries [%u]", stalker_ic_entries);
+  FOKF("Stalker - adjacent_blocks [%u]", stalker_adjacent_blocks);
 
 #if !(defined(__x86_64__) || defined(__i386__))
   if (stalker_ic_entries != 0) {
@@ -100,13 +104,21 @@ void stalker_init(void) {
 
   }
 
+  if (stalker_adjacent_blocks != 0) {
+
+    FFATAL("AFL_FRIDA_STALKER_ADJACENT_BLOCKS not supported");
+
+  }
+
 #endif
 
   if (stalker_ic_entries == 0) { stalker_ic_entries = 32; }
 
+  if (stalker_adjacent_blocks == 0) { stalker_adjacent_blocks = 32; }
+
 #if defined(__x86_64__) || defined(__i386__)
-  stalker =
-      g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries, NULL);
+  stalker = g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries,
+                         "adjacent-blocks", stalker_adjacent_blocks, NULL);
 #else
   stalker = gum_stalker_new();
 #endif

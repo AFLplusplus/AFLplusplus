@@ -5,6 +5,7 @@
 
 extern guint    stalker_ic_entries;
 extern gboolean backpatch_enable;
+extern guint    stalker_adjacent_blocks;
 
 void        stalker_config(void);
 void        stalker_init(void);
