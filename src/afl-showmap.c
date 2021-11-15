@@ -1067,13 +1067,11 @@ int main(int argc, char **argv_orig, char **envp) {
        * undocumenetd feature "Another afl-cmin specific feature." */
       case 'P':                                           /* CoreSight mode */
 
+#if !defined(__aarch64__) || !defined(__linux__)
+        FATAL("-P option is not supported on this platform");
+#endif
+
         if (fsrv->cs_mode) { FATAL("Multiple -P options not supported"); }
-
-        if (!(__aarch64__ && __linux__)) {
-
-          FATAL("-P option is not supported on this platform");
-
-        }
 
         fsrv->cs_mode = true;
         break;
