@@ -1889,7 +1889,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
   /*
     u32 i;
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    if (area_is_valid(ptr1, 31) <= 0 || area_is_valid(ptr2, 31) <= 0) return;
     fprintf(stderr, "rtn_n len=%u arg0=", len);
     for (i = 0; i < len; i++)
       fprintf(stderr, "%02x", ptr1[i]);
@@ -1903,6 +1903,10 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (unlikely(!len)) return;
   int l = MIN(31, len);
+
+  if ((l = area_is_valid(ptr1, l)) <= 0 ||
+      (l = area_is_valid(ptr2, l)) <= 0)
+    return;
 
   // fprintf(stderr, "RTN2 %u\n", l);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -1943,7 +1947,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   /*
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    if (area_is_valid(ptr1, 31) <= 0 || area_is_valid(ptr2, 31) <= 0) return;
     fprintf(stderr, "rtn_strn len=%u arg0=%s arg1=%s\n", len, ptr1, ptr2);
   */
 
@@ -1991,7 +1995,7 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   /*
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    if (area_is_valid(ptr1, 31) <= 0 || area_is_valid(ptr2, 31) <= 0) return;
     fprintf(stderr, "rtn_str arg0=%s arg1=%s\n", ptr1, ptr2);
   */
 
@@ -2042,7 +2046,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   /*
     u32 i;
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
+    if (area_is_valid(ptr1, 31) <= 0 || area_is_valid(ptr2, 31) <= 0) return;
     fprintf(stderr, "rtn arg0=");
     for (i = 0; i < 32; i++)
       fprintf(stderr, "%02x", ptr1[i]);
@@ -2055,8 +2059,8 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   if (likely(!__afl_cmp_map)) return;
   // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   int l1, l2;
-  if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
-      (l2 = area_is_valid(ptr2, 32)) <= 0)
+  if ((l1 = area_is_valid(ptr1, 31)) <= 0 ||
+      (l2 = area_is_valid(ptr2, 31)) <= 0)
     return;
   int len = MIN(31, MIN(l1, l2));
 
