@@ -34,8 +34,8 @@ if [ "$PLATFORM" = "Linux" ] ; then
   sysctl -w kernel.randomize_va_space=0
   sysctl -w kernel.sched_child_runs_first=1
   sysctl -w kernel.sched_autogroup_enabled=1
-  sysctl -w kernel.sched_migration_cost_ns=50000000
-  sysctl -w kernel.sched_latency_ns=250000000
+  sysctl -w kernel.sched_migration_cost_ns=50000000 2>/dev/null
+  sysctl -w kernel.sched_latency_ns=250000000 2>/dev/null
   echo never > /sys/kernel/mm/transparent_hugepage/enabled
   test -e /sys/devices/system/cpu/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/scaling_governor
   test -e /sys/devices/system/cpu/cpufreq/policy0/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor
