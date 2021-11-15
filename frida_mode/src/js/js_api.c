@@ -250,7 +250,6 @@ __attribute__((visibility("default"))) void js_api_set_backpatch_disable(void) {
 
 }
 
-
 __attribute__((visibility("default"))) void js_api_set_stalker_adjacent_blocks(
     guint val) {
 
