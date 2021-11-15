@@ -565,6 +565,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        if (afl->fsrv.cs_mode) {
+
+          FATAL("-M is not supported in ARM CoreSight mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
 
         /* sanity check for argument: should not begin with '-' (possible
@@ -608,6 +614,12 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->non_instrumented_mode) {
 
           FATAL("-S is not supported in non-instrumented mode");
+
+        }
+
+        if (afl->fsrv.cs_mode) {
+
+          FATAL("-S is not supported in ARM CoreSight mode");
 
         }
 
@@ -832,6 +844,12 @@ int main(int argc, char **argv_orig, char **envp) {
   #if !defined(__aarch64__) || !defined(__linux__)
         FATAL("-A option is not supported on this platform");
   #endif
+
+        if (afl->is_main_node || afl->is_secondary_node) {
+
+          FATAL("ARM CoreSight mode is not supported with -M / -S");
+
+        }
 
         if (afl->fsrv.cs_mode) { FATAL("Multiple -A options not supported"); }
 
