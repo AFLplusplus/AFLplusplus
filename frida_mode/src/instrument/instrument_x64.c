@@ -52,54 +52,41 @@ typedef struct {
   // shared_mem[cur_location ^ prev_location]++;
   // prev_location = cur_location >> 1;
 
-  //  0x7ffff6cbb9b6:      lea    rsp,[rsp-0x80]
-  //
-  //  0x7ffff6cbb9bb:      push   rax
-  //  0x7ffff6cbb9bc:      lahf
-  //  0x7ffff6cbb9bd:      push   rax
-  //  0x7ffff6cbb9be:      push   rbx
-  //
-  //  0x7ffff6cbb9bf:      mov    eax,DWORD PTR [rip+0x33bd7b]
-  //  0x7ffff6cbb9c5:      xor    eax,0x3f77
-  //  0x7ffff6cbb9ca:      add    eax,0x10000
-  //  0x7ffff6cbb9cf:      mov    bl,BYTE PTR [rax]
-  //  0x7ffff6cbb9d1:      add    bl,0x1
-  //  0x7ffff6cbb9d4:      adc    bl,0x0
-  //  0x7ffff6cbb9d7:      mov    BYTE PTR [rax],bl
-  //
-  //  0x7ffff6cbb9d9:      mov    DWORD PTR [rip+0x33bd5d],0x9fbb
-  //
-  //  0x7ffff6cbb9e3:      pop    rbx
-  //  0x7ffff6cbb9e4:      pop    rax
-  //  0x7ffff6cbb9e5:      sahf
-  //  0x7ffff6cbb9e6:      pop    rax
-  //
-  //  0x7ffff6cbb9e7:      lea    rsp,[rsp+0x80]
+  //  mov    QWORD PTR [rsp-0x80],rax
+  //  lahf
+  //  mov    QWORD PTR [rsp-0x88],rax
+  //  mov    QWORD PTR [rsp-0x90],rbx
+  //  mov    eax,DWORD PTR [rip+0x333d5a]        # 0x7ffff6ff2740
+  //  mov    DWORD PTR [rip+0x333d3c],0x9fbb        # 0x7ffff6ff2740
+  //  xor    eax,0x103f77
+  //  mov    bl,BYTE PTR [rax]
+  //  add    bl,0x1
+  //  adc    bl,0x0
+  //  mov    BYTE PTR [rax],bl
+  //  mov    rbx,QWORD PTR [rsp-0x90]
+  //  mov    rax,QWORD PTR [rsp-0x88]
+  //  sahf
+  //  mov    rax,QWORD PTR [rsp-0x80]
 
-  uint8_t lea_rsp_rsp_sub_rz[5];
-
-  uint8_t push_rax;
+  uint8_t mov_rax_rsp_80[5];
   uint8_t lahf;
-  uint8_t push_rax2;
-  uint8_t push_rbx;
+  uint8_t mov_rax_rsp_88[8];
+  uint8_t mov_rbx_rsp_90[8];
 
   uint8_t mov_eax_prev_loc[6];
+  uint8_t mov_prev_loc_curr_loc_shr1[10];
+
   uint8_t xor_eax_curr_loc[5];
-  uint8_t add_eax_afl_area[5];
 
   uint8_t mov_rbx_ptr_rax[2];
   uint8_t add_bl_1[3];
   uint8_t adc_bl_0[3];
   uint8_t mov_ptr_rax_rbx[2];
 
-  uint8_t mov_prev_loc_curr_loc_shr1[10];
-
-  uint8_t pop_rbx;
-  uint8_t pop_rax2;
+  uint8_t mov_rsp_90_rbx[8];
+  uint8_t mov_rsp_88_rax[8];
   uint8_t sahf;
-  uint8_t pop_rax;
-
-  uint8_t lsa_rsp_rsp_add_rz[8];
+  uint8_t mov_rsp_80_rax[5];
 
 } afl_log_code_asm_t;
 
@@ -115,29 +102,24 @@ typedef union {
 static const afl_log_code_asm_t template =
     {
 
-        .lea_rsp_rsp_sub_rz = {0x48, 0x8D, 0x64, 0x24, 0x80},
-        .push_rax = 0x50,
+        .mov_rax_rsp_80 = {0x48, 0x89, 0x44, 0x24, 0x80},
         .lahf = 0x9f,
-        .push_rax2 = 0x50,
-        .push_rbx = 0x53,
+        .mov_rax_rsp_88 = {0x48, 0x89, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
+        .mov_rbx_rsp_90 = {0x48, 0x89, 0x9C, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
 
         .mov_eax_prev_loc = {0x8b, 0x05},
-        .xor_eax_curr_loc = {0x35},
+        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x05},
 
-        .add_eax_afl_area = {0x05},
+        .xor_eax_curr_loc = {0x35},
         .mov_rbx_ptr_rax = {0x8a, 0x18},
         .add_bl_1 = {0x80, 0xc3, 0x01},
         .adc_bl_0 = {0x80, 0xd3, 0x00},
         .mov_ptr_rax_rbx = {0x88, 0x18},
 
-        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x05},
-
-        .pop_rbx = 0x5b,
-        .pop_rax2 = 0x58,
+        .mov_rsp_90_rbx = {0x48, 0x8B, 0x9C, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
+        .mov_rsp_88_rax = {0x48, 0x8B, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
         .sahf = 0x9e,
-        .pop_rax = 0x58,
-
-        .lsa_rsp_rsp_add_rz = {0x48, 0x8D, 0xA4, 0x24, 0x80, 0x00, 0x00, 0x00},
+        .mov_rsp_80_rax = {0x48, 0x8B, 0x44, 0x24, 0x80},
 
 }
 
@@ -162,7 +144,13 @@ static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
 
   }
 
-  last_limit = details->range->base_address + details->range->size;
+  /*
+   * Align our buffer on a 64k boundary so that the low 16-bits of the address
+   * are zero, then we can just XOR the base address in, when we XOR with the
+   * current block ID.
+   */
+  last_limit = GUM_ALIGN_SIZE(
+      details->range->base_address + details->range->size, (64ULL << 10));
   return TRUE;
 
 }
@@ -421,13 +409,8 @@ void instrument_coverage_optimize(const cs_insn *   instr,
                                sizeof(code.code.xor_eax_curr_loc) -
                                sizeof(guint32);
 
-  *((guint32 *)&code.bytes[xor_curr_loc_offset]) = (guint32)(area_offset);
-
-  gssize lea_rax_offset = offsetof(afl_log_code, code.add_eax_afl_area) +
-                          sizeof(code.code.add_eax_afl_area) - sizeof(guint32);
-
-  *((guint32 *)&code.bytes[lea_rax_offset]) =
-      (guint32)GPOINTER_TO_SIZE(__afl_area_ptr);
+  *((guint32 *)&code.bytes[xor_curr_loc_offset]) =
+      (guint32)(GPOINTER_TO_SIZE(__afl_area_ptr) | area_offset);
 
   gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
 

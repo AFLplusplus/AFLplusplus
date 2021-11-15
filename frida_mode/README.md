@@ -215,6 +215,11 @@ gdb \
 ```
 * `AFL_FRIDA_SECCOMP_FILE` - Write a log of any syscalls made by the target to
 the specified file.
+* `AFL_FRIDA_STALKER_ADJACENT_BLOCKS` - Configure the number of adjacent blocks
+ to fetch when generating instrumented code. By fetching blocks in the same
+ order they appear in the original program, rather than the order of execution
+ should help reduce locallity and adjacency. This includes allowing us to vector
+ between adjancent blocks using a NOP slide rather than an immediate branch.
 * `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
 stored along-side branch instructions which provide a cache to avoid having to
 call back into FRIDA to find the next block. Default is 32.
