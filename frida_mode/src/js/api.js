@@ -205,6 +205,12 @@ class Afl {
         const buf = Memory.allocUtf8String(file);
         Afl.jsApiSetSeccompFile(buf);
     }
+    /**
+     * See `AFL_FRIDA_STALKER_ADJACENT_BLOCKS`.
+     */
+    static setStalkerAdjacentBlocks(val) {
+        Afl.jsApiSetStalkerAdjacentBlocks(val);
+    }
     /*
      * Set a function to be called for each instruction which is instrumented
      * by AFL FRIDA mode.
@@ -294,6 +300,7 @@ Afl.jsApiSetPrefetchBackpatchDisable = Afl.jsApiGetFunction("js_api_set_prefetch
 Afl.jsApiSetPrefetchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_disable", "void", []);
 Afl.jsApiSetSeccompFile = Afl.jsApiGetFunction("js_api_set_seccomp_file", "void", ["pointer"]);
 Afl.jsApiSetStalkerCallback = Afl.jsApiGetFunction("js_api_set_stalker_callback", "void", ["pointer"]);
+Afl.jsApiSetStalkerAdjacentBlocks = Afl.jsApiGetFunction("js_api_set_stalker_adjacent_blocks", "void", ["uint32"]);
 Afl.jsApiSetStalkerIcEntries = Afl.jsApiGetFunction("js_api_set_stalker_ic_entries", "void", ["uint32"]);
 Afl.jsApiSetStatsFile = Afl.jsApiGetFunction("js_api_set_stats_file", "void", ["pointer"]);
 Afl.jsApiSetStatsInterval = Afl.jsApiGetFunction("js_api_set_stats_interval", "void", ["uint64"]);
