@@ -10,12 +10,14 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
   - documentation restructuring, made possible by Google Season of Docs :)
+  - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
+    thanks to RICSecLab submitting!
   - afl-fuzz:
     - cmplog binaries will need to be recompiled for this version
       (it is better!)
     - fix a regression introduced in 3.10 that resulted in less
       coverage being detected. thanks to Collin May for reporting!
-    - added AFL_IGNORE_PROBLEMS plus checks to identify and abort on
+    - added AFL_IGNORE_PROBLEMS, plus checks to identify and abort on
       incorrect LTO usage setups and enhanced the READMEs for better
       information on how to deal with instrumenting libraries
     - fix -n dumb mode (nobody should use this)
@@ -30,6 +32,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - honor persistent mode for more speed. thanks to dloffre-snl
       for reporting!
     - fix bug where targets are not killed on timeouts
+    - moved hidden afl-showmap -A option to -H to be used for
+      coresight_mode
   - Prevent accidently killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:

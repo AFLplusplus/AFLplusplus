@@ -866,14 +866,19 @@ static void usage(u8 *argv0) {
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%u ms)\n"
       "  -m megs       - memory limit for child process (%u MB)\n"
+#if defined(__linux__) && defined(__aarch64__)
       "  -A            - use binary-only instrumentation (ARM CoreSight mode)\n"
+#endif
       "  -O            - use binary-only instrumentation (FRIDA mode)\n"
+#if defined(__linux__)
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
-      "tools)\n\n"
+      "tools)\n"
+#endif
+      "\n"
 
       "Minimization settings:\n"
 

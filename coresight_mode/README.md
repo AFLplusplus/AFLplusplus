@@ -55,7 +55,6 @@ There are AFL++ CoreSight mode-specific environment variables for run-time confi
 
 ## TODO List
 
-* Change `afl-showmap` ARM CoreSight mode option to `-A` without conflict
 * Eliminate modified glibc dependency
 * Support parallel fuzzing
 

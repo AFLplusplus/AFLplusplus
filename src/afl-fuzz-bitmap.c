@@ -452,13 +452,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(len == 0)) { return 0; }
 
+  u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = '\0';
+  u8  new_bits = 0, keeping = 0, res, classified = 0;
   s32 fd;
-  u8  keeping = 0, res, classified = 0;
   u64 cksum = 0;
-
-  u8 fn[PATH_MAX];
 
   /* Update path frequency. */
 

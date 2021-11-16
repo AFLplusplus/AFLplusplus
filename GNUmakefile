@@ -346,7 +346,7 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
-	@echo "binary-only: everything for binary-only fuzzing: coresight_mode, qemu_mode, unicorn_mode, libdislocator, libtokencap"
+	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: gcc_plugin, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"

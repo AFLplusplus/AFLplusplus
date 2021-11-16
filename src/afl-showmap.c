@@ -844,13 +844,18 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
       "  -t msec    - timeout for each run (none)\n"
       "  -m megs    - memory limit for child process (%u MB)\n"
+#if defined(__linux__) && defined(__aarch64__)
+      "  -A         - use binary-only instrumentation (ARM CoreSight mode)\n"
+#endif
       "  -O         - use binary-only instrumentation (FRIDA mode)\n"
-      "  -P         - use binary-only instrumentation (ARM CoreSight mode)\n"
+#if defined(__linux__)
       "  -Q         - use binary-only instrumentation (QEMU mode)\n"
       "  -U         - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
       "               (Not necessary, here for consistency with other afl-* "
-      "tools)\n\n"
+      "tools)\n"
+#endif
+      "\n"
       "Other settings:\n"
       "  -i dir     - process all files below this directory, must be combined "
       "with -o.\n"
@@ -920,7 +925,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOPQUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOHQUWbcrsh")) > 0) {
 
     switch (opt) {
 
@@ -1049,7 +1054,7 @@ int main(int argc, char **argv_orig, char **envp) {
         quiet_mode = true;
         break;
 
-      case 'A':
+      case 'H':
         /* Another afl-cmin specific feature. */
         at_file = optarg;
         break;
@@ -1065,13 +1070,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       /* FIXME: We want to use -P for consistency, but it is already unsed for
        * undocumenetd feature "Another afl-cmin specific feature." */
-      case 'P':                                           /* CoreSight mode */
+      case 'A':                                           /* CoreSight mode */
 
 #if !defined(__aarch64__) || !defined(__linux__)
-        FATAL("-P option is not supported on this platform");
+        FATAL("-A option is not supported on this platform");
 #endif
 
-        if (fsrv->cs_mode) { FATAL("Multiple -P options not supported"); }
+        if (fsrv->cs_mode) { FATAL("Multiple -A options not supported"); }
 
         fsrv->cs_mode = true;
         break;
