@@ -9,10 +9,11 @@ CS_TRACE:=coresight-trace
 
 PATCHELF?=$(PREFIX)/bin/patchelf
 
+PATCH_DIR:=patches
+
 GLIBC_VER:=2.33
 GLIBC_NAME:=glibc-$(GLIBC_VER)
 GLIBC_URL_BASE:=http://ftp.gnu.org/gnu/glibc
-GLIBC_PATCH:=patches/0002-glibc-Add-AFL-forkserver.patch
 GLIBC_LDSO?=$(PREFIX)/lib/ld-linux-aarch64.so.1
 
 OUTPUT?="$(TARGET).patched"
@@ -43,7 +44,9 @@ $(PATCHELF): patchelf
 
 $(GLIBC_LDSO): | $(GLIBC_NAME).tar.xz
 	tar -xf $(GLIBC_NAME).tar.xz
-	patch -p1 < $(GLIBC_PATCH)
+	for file in $(shell find $(PATCH_DIR) -maxdepth 1 -type f); do \
+	  patch -p1 < $$file ; \
+	done
 	mkdir -p $(GLIBC_NAME)/build
 	cd $(GLIBC_NAME)/build && \
 	  ../configure --prefix=$(PREFIX) && \
