@@ -53,6 +53,12 @@ There are AFL++ CoreSight mode-specific environment variables for run-time confi
 * `AFLCS_COV` specifies coverage type on CoreSight trace decoding. `edge` and `path` is supported. The default value is `edge`.
 * `AFLCS_UDMABUF` is the u-dma-buf device number used to store trace data in the DMA region. The default value is `0`.
 
+## TODO List
+
+* Change `afl-showmap` ARM CoreSight mode option to `-A` without conflict
+* Eliminate modified glibc dependency
+* Support parallel fuzzing
+
 ## Acknowledgements
 
 This project has received funding from the Acquisition, Technology & Logistics Agency (ATLA) under the National Security Technology Research Promotion Fund 2021 (JPJ004596).
