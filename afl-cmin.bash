@@ -310,7 +310,7 @@ if [ "$STDIN_FILE" = "" ]; then
 else
 
   cp "$IN_DIR/$FIRST_FILE" "$STDIN_FILE"
-  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
+  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" </dev/null
 
 fi
 
@@ -360,7 +360,7 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
       cp "$IN_DIR/$fn" "$STDIN_FILE"
 
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
+      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" </dev/null
 
     done
 
