@@ -82,6 +82,8 @@ typedef struct afl_forkserver {
 
   bool frida_asan;                    /* if running with asan in frida mode */
 
+  bool cs_mode;                      /* if running in CoreSight mode or not */
+
   bool use_stdin;                       /* use stdin for sending data       */
 
   bool no_unlink;                       /* do not unlink cur_input          */

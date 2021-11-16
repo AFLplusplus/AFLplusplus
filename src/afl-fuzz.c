@@ -113,6 +113,7 @@ static void usage(u8 *argv0, int more_help) {
       "maximum.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
+      "  -A            - use binary-only instrumentation (ARM CoreSight mode)\n"
       "  -O            - use binary-only instrumentation (FRIDA mode)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
@@ -434,7 +435,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
+              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) >
+         0) {
 
     switch (opt) {
 
@@ -563,6 +565,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        if (afl->fsrv.cs_mode) {
+
+          FATAL("-M is not supported in ARM CoreSight mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
 
         /* sanity check for argument: should not begin with '-' (possible
@@ -606,6 +614,12 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->non_instrumented_mode) {
 
           FATAL("-S is not supported in non-instrumented mode");
+
+        }
+
+        if (afl->fsrv.cs_mode) {
+
+          FATAL("-S is not supported in ARM CoreSight mode");
 
         }
 
@@ -823,6 +837,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->use_banner) { FATAL("Multiple -T options not supported"); }
         afl->use_banner = optarg;
+        break;
+
+      case 'A':                                           /* CoreSight mode */
+
+  #if !defined(__aarch64__) || !defined(__linux__)
+        FATAL("-A option is not supported on this platform");
+  #endif
+
+        if (afl->is_main_node || afl->is_secondary_node) {
+
+          FATAL("ARM CoreSight mode is not supported with -M / -S");
+
+        }
+
+        if (afl->fsrv.cs_mode) { FATAL("Multiple -A options not supported"); }
+
+        afl->fsrv.cs_mode = 1;
+
         break;
 
       case 'O':                                               /* FRIDA mode */
@@ -1212,6 +1244,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
     if (afl->fsrv.frida_mode) { FATAL("-O and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
+    if (afl->fsrv.cs_mode) { FATAL("-A and -n are mutually exclusive"); }
     if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
 
   }
@@ -1458,6 +1491,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } else {
 
+      /* CoreSight mode uses the default behavior. */
+
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
 
@@ -1651,7 +1686,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode &&
+    if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
         !afl->non_instrumented_mode) {
 
       check_binary(afl, afl->cmplog_binary);
@@ -1697,6 +1732,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+  } else if (afl->fsrv.cs_mode) {
+
+    use_argv = get_cs_argv(argv[0], &afl->fsrv.target_path, argc - optind,
+                           argv + optind);
+
   } else {
 
     use_argv = argv + optind;
@@ -1704,7 +1744,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
-      afl->fsrv.frida_mode || afl->unicorn_mode) {
+      afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
 
     map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
     afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
@@ -1724,7 +1764,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-      !afl->unicorn_mode && !afl->fsrv.frida_mode &&
+      !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
       !afl->afl_env.afl_skip_bin_check) {
 
     if (map_size <= DEFAULT_SHMEM_SIZE) {
@@ -1777,6 +1817,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
     // TODO: this is semi-nice
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+    afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
@@ -1785,7 +1826,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-        !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+        !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
         !afl->afl_env.afl_skip_bin_check) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
