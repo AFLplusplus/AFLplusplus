@@ -2645,6 +2645,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode ||
       (afl->fsrv.qemu_mode && getenv("AFL_QEMU_CUSTOM_BIN")) ||
+      (afl->fsrv.cs_mode && getenv("AFL_CS_CUSTOM_BIN")) ||
       afl->non_instrumented_mode) {
 
     return;
@@ -2721,7 +2722,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 #endif                                                       /* ^!__APPLE__ */
 
   if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
-      !afl->non_instrumented_mode &&
+      !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2752,7 +2753,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if ((afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
+  if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
