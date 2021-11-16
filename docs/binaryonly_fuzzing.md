@@ -175,13 +175,9 @@
 ## CORESIGHT
 
   Coresight is ARM's answer to Intel's PT.
-  There is no implementation so far which handles coresight and getting
-  it working on an ARM Linux is very difficult due to custom kernel building
-  on embedded systems is difficult. And finding one that has coresight in
-  the ARM chip is difficult too.
-  My guess is that it is slower than Qemu, but faster than Intel PT.
-
-  If anyone finds any coresight implementation for AFL please ping me: vh@thc.org
+  With afl++ v3.15 there is a coresight tracer implementation available in
+  `coresight_mode/` which is faster than QEMU, however can not run in parallel.
+  Currently only one process can be traced, it is WIP.
 
 
 ## PIN & DYNAMORIO

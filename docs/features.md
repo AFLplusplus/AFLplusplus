@@ -4,20 +4,20 @@
   with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full *BSD,
   Mac OS, Solaris and Android support and much, much, much more.
 
-  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode       | qemu_mode        |unicorn_mode      |
-  | -------------------------|:-------:|:---------:|:----------:|:----------------:|:----------------:|:----------------:|
-  | Threadsafe counters      |         |     x(3)  |            |                  |                  |                  |
-  | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |         x        |         x        |
-  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm64   | x86[_64]/arm[64] |         x        |
-  | LAF-Intel / CompCov      |         |     x     |            |                  | x86[_64]/arm[64] | x86[_64]/arm[64] |
-  | CmpLog                   |         |     x     |            | x86[_64]/arm64   | x86[_64]/arm[64] |                  |
-  | Selective Instrumentation|         |     x     |     x      |         x        |         x        |                  |
-  | Non-Colliding Coverage   |         |     x(4)  |            |                  |        (x)(5)    |                  |
-  | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |                  |                  |
-  | Context Coverage         |         |     x(6)  |            |                  |                  |                  |
-  | Auto Dictionary          |         |     x(7)  |            |                  |                  |                  |
-  | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |                  |        (x)(5)    |                  |
-  | Shared Memory Testcases  |         |     x     |     x      | x86[_64]/arm64   |         x        |         x        |
+  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode(9)    | qemu_mode(10)    |unicorn_mode(10)  |coresight_mode(11)|
+  | -------------------------|:-------:|:---------:|:----------:|:----------------:|:----------------:|:----------------:|:----------------:|
+  | Threadsafe counters      |         |     x(3)  |            |                  |                  |                  |                  |
+  | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |         x        |         x        |                  |
+  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm64   | x86[_64]/arm[64] |         x        |                  |
+  | LAF-Intel / CompCov      |         |     x     |            |                  | x86[_64]/arm[64] | x86[_64]/arm[64] |                  |
+  | CmpLog                   |         |     x     |            | x86[_64]/arm64   | x86[_64]/arm[64] |                  |                  |
+  | Selective Instrumentation|         |     x     |     x      |         x        |         x        |                  |                  |
+  | Non-Colliding Coverage   |         |     x(4)  |            |                  |        (x)(5)    |                  |                  |
+  | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |                  |                  |                  |
+  | Context Coverage         |         |     x(6)  |            |                  |                  |                  |                  |
+  | Auto Dictionary          |         |     x(7)  |            |                  |                  |                  |                  |
+  | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |                  |        (x)(5)    |                  |                  |
+  | Shared Memory Testcases  |         |     x     |     x      | x86[_64]/arm64   |         x        |         x        |                  |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in previous llvm versions
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
@@ -27,6 +27,9 @@
   6. not compatible with LTO instrumentation and needs at least LLVM v4.1
   7. automatic in LTO mode with LLVM 11 and newer, an extra pass for all LLVM versions that write to a file to use with afl-fuzz' `-x`
   8. the snapshot LKM is currently unmaintained due to too many kernel changes coming too fast :-(
+  9. frida mode is supported on Linux and MacOS for Intel and ARM
+ 10. QEMU/Unicorn is only supported on Linux
+ 11. Coresight mode is only available on AARCH64 Linux with a CPU with Coresight extension
 
   Among others, the following features and patches have been integrated:
 
