@@ -11,6 +11,10 @@
 #include "stats.h"
 #include "util.h"
 
+typedef uint8_t u8;
+
+extern void __afl_set_persistent_mode(u8 mode);
+
 __attribute__((visibility("default"))) void js_api_done() {
 
   js_done = TRUE;
@@ -47,13 +51,7 @@ __attribute__((visibility("default"))) void js_api_set_persistent_address(
 
   persistent_start = GPOINTER_TO_SIZE(address);
 
-  if (getenv("__AFL_PERSISTENT") == NULL) {
-
-    FATAL(
-        "You must set __AFL_PERSISTENT manually if using persistent mode "
-        "configured using JS");
-
-  }
+  __afl_set_persistent_mode(1);
 
 }
 
