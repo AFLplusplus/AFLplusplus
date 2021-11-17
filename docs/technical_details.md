@@ -1,7 +1,7 @@
 # Technical "whitepaper" for afl-fuzz
 
 
-NOTE: this document is rather outdated!
+NOTE: this document is mostly outdated!
 
 
 This document provides a quick overview of the guts of American Fuzzy Lop.
