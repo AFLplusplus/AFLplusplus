@@ -166,8 +166,22 @@ static void convert_token(gchar *token, GumMemoryRange *range) {
 
 gint range_sort(gconstpointer a, gconstpointer b) {
 
-  return ((GumMemoryRange *)a)->base_address -
-         ((GumMemoryRange *)b)->base_address;
+  GumMemoryRange *ra = (GumMemoryRange *)a;
+  GumMemoryRange *rb = (GumMemoryRange *)b;
+
+  if (ra->base_address < rb->base_address) {
+
+    return -1;
+
+  } else if (ra->base_address > rb->base_address) {
+
+    return 1;
+
+  } else {
+
+    return 0;
+
+  }
 
 }
 
@@ -249,7 +263,7 @@ static void check_for_overlaps(GArray *array) {
     GumAddress      curr_limit = curr->base_address + curr->size;
     if (prev_limit > curr->base_address) {
 
-      FFATAL("OVerlapping ranges 0x%016" G_GINT64_MODIFIER
+      FFATAL("Overlapping ranges 0x%016" G_GINT64_MODIFIER
              "x-0x%016" G_GINT64_MODIFIER "x 0x%016" G_GINT64_MODIFIER
              "x-0x%016" G_GINT64_MODIFIER "x",
              prev->base_address, prev_limit, curr->base_address, curr_limit);
