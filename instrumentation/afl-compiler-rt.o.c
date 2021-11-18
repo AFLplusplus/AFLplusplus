@@ -670,7 +670,8 @@ static void __afl_start_snapshots(void) {
 
   u8 child_stopped = 0;
 
-  void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
+  signal(SIGCHLD, SIG_DFL);
+  void (*old_sigchld_handler)(int) = 0;
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -926,7 +927,8 @@ static void __afl_start_forkserver(void) {
 
   u8 child_stopped = 0;
 
-  void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
+  signal(SIGCHLD, SIG_DFL);
+  void (*old_sigchld_handler)(int) = 0;
 
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE) {
 
