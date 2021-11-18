@@ -255,3 +255,10 @@ __attribute__((visibility("default"))) void js_api_set_stalker_adjacent_blocks(
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_js_main_hook(
+    const js_main_hook_t hook) {
+
+  js_main_hook = hook;
+
+}
+
