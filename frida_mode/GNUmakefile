@@ -103,7 +103,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=15.1.10
+GUM_DEVKIT_VERSION=15.1.11
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
