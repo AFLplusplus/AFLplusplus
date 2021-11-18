@@ -10,6 +10,7 @@ TESTINSTSRC:=$(PWD)test.c
 TESTINSTBIN2:=$(BUILD_DIR)test2
 TESTINSTSRC2:=$(PWD)test2.c
 
+AFLPP_DRIVER_DUMMY_INPUT:=$(BUILD_DIR)dummy
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
@@ -40,8 +41,23 @@ $(TESTINSTBIN): $(TESTINSTSRC) | $(BUILD_DIR)
 $(TESTINSTBIN2): $(TESTINSTSRC2) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
+$(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
+	dd if=/dev/zero bs=1048576 count=1 of=$@
+
 clean:
 	rm -rf $(BUILD_DIR)
+
+frida_js_fuzz: $(TESTINSTBIN) $(TEST_DATA_FILE) $(AFLPP_DRIVER_DUMMY_INPUT)
+	AFL_PRELOAD=$(AFL_PRELOAD) \
+	AFL_FRIDA_JS_SCRIPT=fuzz.js \
+	$(ROOT)afl-fuzz \
+		-D \
+		-O \
+		-i $(TEST_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-t 10000+ \
+		-- \
+			$(TESTINSTBIN) $(AFLPP_DRIVER_DUMMY_INPUT)
 
 frida_js_entry: $(TESTINSTBIN) $(TEST_DATA_FILE)
 	AFL_PRELOAD=$(AFL_PRELOAD) \
