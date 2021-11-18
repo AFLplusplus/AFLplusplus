@@ -33,8 +33,22 @@ static gboolean cmplog_range(const GumRangeDetails *details,
 
 static gint cmplog_sort(gconstpointer a, gconstpointer b) {
 
-  return ((GumMemoryRange *)b)->base_address -
-         ((GumMemoryRange *)a)->base_address;
+  GumMemoryRange *ra = (GumMemoryRange *)a;
+  GumMemoryRange *rb = (GumMemoryRange *)b;
+
+  if (ra->base_address < rb->base_address) {
+
+    return -1;
+
+  } else if (ra->base_address > rb->base_address) {
+
+    return 1;
+
+  } else {
+
+    return 0;
+
+  }
 
 }
 
