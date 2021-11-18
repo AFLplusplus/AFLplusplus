@@ -111,10 +111,23 @@ void stalker_init(void) {
   }
 
 #endif
-
   if (stalker_ic_entries == 0) { stalker_ic_entries = 32; }
 
-  if (stalker_adjacent_blocks == 0) { stalker_adjacent_blocks = 32; }
+  if (instrument_coverage_filename == NULL) {
+
+    if (stalker_adjacent_blocks == 0) { stalker_adjacent_blocks = 32; }
+
+  } else {
+
+    if (stalker_adjacent_blocks != 0) {
+
+      FFATAL(
+          "AFL_FRIDA_STALKER_ADJACENT_BLOCKS and AFL_FRIDA_INST_COVERAGE_FILE "
+          "are incompatible");
+
+    }
+
+  }
 
 #if defined(__x86_64__) || defined(__i386__)
   stalker = g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries,

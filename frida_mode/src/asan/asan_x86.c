@@ -85,6 +85,8 @@ void asan_arch_init(void) {
 
   }
 
+  asan_exclude_module_by_symbol("__asan_loadN");
+
 }
 
 #endif

@@ -1904,8 +1904,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   if (unlikely(!len)) return;
   int l = MIN(31, len);
 
-  if ((l = area_is_valid(ptr1, l)) <= 0 ||
-      (l = area_is_valid(ptr2, l)) <= 0)
+  if ((l = area_is_valid(ptr1, l)) <= 0 || (l = area_is_valid(ptr2, l)) <= 0)
     return;
 
   // fprintf(stderr, "RTN2 %u\n", l);
@@ -2244,6 +2243,12 @@ void __afl_coverage_skip() {
 void __afl_coverage_interesting(u8 val, u32 id) {
 
   __afl_area_ptr[id] = val;
+
+}
+
+void __afl_set_persistent_mode(u8 mode) {
+
+  is_persistent = mode;
 
 }
 
