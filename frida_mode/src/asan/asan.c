@@ -49,7 +49,7 @@ static gboolean asan_exclude_module(const GumModuleDetails *details,
 
 void asan_exclude_module_by_symbol(gchar *symbol_name) {
 
-  gum_process_enumerate_modules(asan_exclude_module, "__asan_loadN");
+  gum_process_enumerate_modules(asan_exclude_module, symbol_name);
 
 }
 
