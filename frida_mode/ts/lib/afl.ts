@@ -179,6 +179,14 @@ class Afl {
     Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
   }
 
+  /*
+   * Set a callback to be called in place of the usual `main` function. This see
+   * `Scripting.md` for details.
+   */
+  public static setJsMainHook(address: NativePointer): void {
+    Afl.jsApiSetJsMainHook(address);
+  }
+
   /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
    * `NativePointer` should be provided as it's argument.
@@ -387,6 +395,11 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetJsMainHook = Afl.jsApiGetFunction(
+    "js_api_set_js_main_hook",
+    "void",
+    ["pointer"]);
+
   private static readonly jsApiSetPersistentAddress = Afl.jsApiGetFunction(
     "js_api_set_persistent_address",
     "void",
@@ -427,15 +440,15 @@ class Afl {
     "void",
     ["pointer"]);
 
-  private static readonly jsApiSetStalkerCallback = Afl.jsApiGetFunction(
-    "js_api_set_stalker_callback",
-    "void",
-    ["pointer"]);
-
   private static readonly jsApiSetStalkerAdjacentBlocks = Afl.jsApiGetFunction(
     "js_api_set_stalker_adjacent_blocks",
     "void",
     ["uint32"]);
+
+  private static readonly jsApiSetStalkerCallback = Afl.jsApiGetFunction(
+    "js_api_set_stalker_callback",
+    "void",
+    ["pointer"]);
 
   private static readonly jsApiSetStalkerIcEntries = Afl.jsApiGetFunction(
     "js_api_set_stalker_ic_entries",
