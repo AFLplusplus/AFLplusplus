@@ -72,7 +72,13 @@ static struct sock_filter filter[] = {
 
     /* Allow us to make anonymous maps */
     BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (offsetof(struct seccomp_data, nr))),
+#ifdef __NR_mmap
     BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_mmap, 0, 3),
+#else
+# ifdef __NR_mmap2
+    BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_mmap2, 0, 3),
+# endif
+#endif
     BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
              (offsetof(struct seccomp_data, args[4]))),
     BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, -1, 0, 1),
