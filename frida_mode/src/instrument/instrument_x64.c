@@ -5,7 +5,7 @@
 
 #if defined(__linux__)
   #if !defined(__ANDROID__)
-    #include <asm/prctl.h>
+    #include <sys/prctl.h>
     #include <sys/syscall.h>
   #else
     #include <linux/ashmem.h>
