@@ -1950,8 +1950,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
     fprintf(stderr, "rtn_strn len=%u arg0=%s arg1=%s\n", len, ptr1, ptr2);
   */
 
-  if (likely(!__afl_cmp_map)) return;
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
+  if (likely(!__afl_cmp_map)) return;
   if (unlikely(!len)) return;
   int l = MIN(31, len + 1);
 
@@ -1985,8 +1985,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   cmpfn[hits].v0_len = 0x80 + l;
   cmpfn[hits].v1_len = 0x80 + l;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, MIN(strlen(ptr1) + 1, l));
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, MIN(strlen(ptr2) + 1, l));
   // fprintf(stderr, "RTN3\n");
 
 }
@@ -2035,8 +2035,8 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   cmpfn[hits].v0_len = 0x80 + len1;
   cmpfn[hits].v1_len = 0x80 + len2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len1);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len2);
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, MIN(strlen(ptr1) + 1, l));
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, MIN(strlen(ptr2) + 1, l));
   // fprintf(stderr, "RTN3\n");
 
 }
