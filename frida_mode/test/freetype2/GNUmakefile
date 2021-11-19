@@ -84,7 +84,7 @@ all: $(TEST_BIN)
 	make -C $(ROOT)frida_mode/
 
 32:
-	CXXFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
+	CFLAGS="-m32" CXXFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -126,7 +126,7 @@ $(HARNESS_SRC):
 	wget -O $@ $(HARNESS_URL)
 
 $(HARNESS_OBJ): $(HARNESS_SRC)
-	$(CC) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 ########## TEST #######
 
