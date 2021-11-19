@@ -3,10 +3,11 @@
 #include "js.h"
 #include "util.h"
 
-static char *             js_script = NULL;
 gboolean                  js_done = FALSE;
 js_api_stalker_callback_t js_user_callback = NULL;
+js_main_hook_t            js_main_hook = NULL;
 
+static char *              js_script = NULL;
 static gchar *             filename = "afl.js";
 static gchar *             contents;
 static GumScriptBackend *  backend;

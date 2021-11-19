@@ -151,6 +151,13 @@ class Afl {
         const buf = Memory.allocUtf8String(file);
         Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
     }
+    /*
+     * Set a callback to be called in place of the usual `main` function. This see
+     * `Scripting.md` for details.
+     */
+    static setJsMainHook(address) {
+        Afl.jsApiSetJsMainHook(address);
+    }
     /**
      * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
      * `NativePointer` should be provided as it's argument.
@@ -291,6 +298,7 @@ Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", 
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
 Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);
 Afl.jsApiSetInstrumentUnstableCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_unstable_coverage_file", "void", ["pointer"]);
+Afl.jsApiSetJsMainHook = Afl.jsApiGetFunction("js_api_set_js_main_hook", "void", ["pointer"]);
 Afl.jsApiSetPersistentAddress = Afl.jsApiGetFunction("js_api_set_persistent_address", "void", ["pointer"]);
 Afl.jsApiSetPersistentCount = Afl.jsApiGetFunction("js_api_set_persistent_count", "void", ["uint64"]);
 Afl.jsApiSetPersistentDebug = Afl.jsApiGetFunction("js_api_set_persistent_debug", "void", []);
@@ -299,8 +307,8 @@ Afl.jsApiSetPersistentReturn = Afl.jsApiGetFunction("js_api_set_persistent_retur
 Afl.jsApiSetPrefetchBackpatchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_backpatch_disable", "void", []);
 Afl.jsApiSetPrefetchDisable = Afl.jsApiGetFunction("js_api_set_prefetch_disable", "void", []);
 Afl.jsApiSetSeccompFile = Afl.jsApiGetFunction("js_api_set_seccomp_file", "void", ["pointer"]);
-Afl.jsApiSetStalkerCallback = Afl.jsApiGetFunction("js_api_set_stalker_callback", "void", ["pointer"]);
 Afl.jsApiSetStalkerAdjacentBlocks = Afl.jsApiGetFunction("js_api_set_stalker_adjacent_blocks", "void", ["uint32"]);
+Afl.jsApiSetStalkerCallback = Afl.jsApiGetFunction("js_api_set_stalker_callback", "void", ["pointer"]);
 Afl.jsApiSetStalkerIcEntries = Afl.jsApiGetFunction("js_api_set_stalker_ic_entries", "void", ["uint32"]);
 Afl.jsApiSetStatsFile = Afl.jsApiGetFunction("js_api_set_stats_file", "void", ["pointer"]);
 Afl.jsApiSetStatsInterval = Afl.jsApiGetFunction("js_api_set_stats_interval", "void", ["uint64"]);

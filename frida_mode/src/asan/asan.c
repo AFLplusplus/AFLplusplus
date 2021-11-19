@@ -33,18 +33,6 @@ void asan_init(void) {
 
 }
 
-gboolean asan_exclude_range(const GumRangeDetails *details,
-                            gpointer               user_data) {
-
-  UNUSED_PARAMETER(user_data);
-
-  FOKF("Exclude ASAN: 0x%016lx-0x%016lx", details->range->base_address,
-       details->range->base_address + details->range->size);
-
-  ranges_add_exclude((GumMemoryRange *)details->range);
-
-}
-
 static gboolean asan_exclude_module(const GumModuleDetails *details,
                                     gpointer                user_data) {
 
@@ -54,7 +42,8 @@ static gboolean asan_exclude_module(const GumModuleDetails *details,
   address = gum_module_find_export_by_name(details->name, symbol_name);
   if (address == 0) { return TRUE; }
 
-  gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, asan_exclude_range, NULL);
+  ranges_add_exclude((GumMemoryRange *)details->range);
+  return FALSE;
 
 }
 

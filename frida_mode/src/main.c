@@ -36,13 +36,13 @@
 extern mach_port_t mach_task_self();
 extern GumAddress  gum_darwin_find_entrypoint(mach_port_t task);
 #else
-extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
+extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
                               void (*fini)(void), void (*rtld_fini)(void),
                               void(*stack_end));
 #endif
 
-typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
+typedef int (*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
 
@@ -217,7 +217,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
 
 }
 
-static int *on_main(int argc, char **argv, char **envp) {
+static int on_main(int argc, char **argv, char **envp) {
 
   on_main_os(argc, argv, envp);
 
@@ -225,12 +225,20 @@ static int *on_main(int argc, char **argv, char **envp) {
 
   afl_frida_start();
 
-  return main_fn(argc, argv, envp);
+  if (js_main_hook != NULL) {
+
+    return js_main_hook(argc, argv, envp);
+
+  } else {
+
+    return main_fn(argc, argv, envp);
+
+  }
 
 }
 
 #if defined(EMBEDDED)
-extern int *main(int argc, char **argv, char **envp);
+extern int main(int argc, char **argv, char **envp);
 
 static void intercept_main(void) {
 
@@ -253,7 +261,7 @@ static void intercept_main(void) {
 }
 
 #else
-static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
+static int on_libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
                               void (*fini)(void), void (*rtld_fini)(void),
                               void(*stack_end)) {
