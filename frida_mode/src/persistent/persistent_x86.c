@@ -4,6 +4,7 @@
 
 #include "instrument.h"
 #include "persistent.h"
+#include "util.h"
 
 #if defined(__i386__)
 
