@@ -339,7 +339,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           }
 
 #if LLVM_MAJOR > 11
-          vector_cnt = tt->getElementCount().getFixedValue();
+          vector_cnt = tt->getElementCount().getKnownMinValue();
           ty0 = tt->getElementType();
 #endif
 
@@ -380,7 +380,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           }
 
-          vector_cnt = tt->getElementCount().getFixedValue();
+          vector_cnt = tt->getElementCount().getKnownMinValue();
           ty1 = ty0 = tt->getElementType();
 #endif
 
