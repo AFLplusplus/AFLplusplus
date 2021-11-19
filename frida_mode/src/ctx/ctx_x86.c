@@ -1,6 +1,7 @@
 #include "frida-gumjs.h"
 
 #include "ctx.h"
+#include "util.h"
 
 #if defined(__i386__)
 
