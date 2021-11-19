@@ -5,39 +5,71 @@
 
 #if defined(__i386__)
 
-static GumAddress current_log_impl = GUM_ADDRESS(0);
+  #pragma pack(push, 1)
+typedef struct {
 
-static void instrument_coverage_function(GumX86Writer *cw) {
+  // cur_location = (block_address >> 4) ^ (block_address << 8);
+  // shared_mem[cur_location ^ prev_location]++;
+  // prev_location = cur_location >> 1;
 
-  gum_x86_writer_put_pushfx(cw);
-  gum_x86_writer_put_push_reg(cw, GUM_REG_ECX);
-  gum_x86_writer_put_push_reg(cw, GUM_REG_EDX);
+  uint8_t mov_eax_esp_4[4];
+  uint8_t lahf;
+  uint8_t mov_eax_esp_8[4];
+  uint8_t mov_ebx_esp_c[4];
 
-  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_ECX,
-                                     GUM_ADDRESS(&instrument_previous_pc));
-  gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_REG_EDX, GUM_REG_ECX);
-  gum_x86_writer_put_xor_reg_reg(cw, GUM_REG_EDX, GUM_REG_EDI);
+  uint8_t mov_eax_prev_loc[5];
+  uint8_t mov_prev_loc_curr_loc_shr1[10];
 
-  gum_x86_writer_put_add_reg_imm(cw, GUM_REG_EDX, GUM_ADDRESS(__afl_area_ptr));
+  uint8_t xor_eax_curr_loc[5];
+  uint8_t add_eax_area_ptr[5];
 
-  /* add byte ptr [edx], 1 */
-  uint8_t add_byte_ptr_edx_1[] = {0x80, 0x02, 0x01};
-  gum_x86_writer_put_bytes(cw, add_byte_ptr_edx_1, sizeof(add_byte_ptr_edx_1));
+  uint8_t mov_ebx_ptr_eax[2];
+  uint8_t add_bl_1[3];
+  uint8_t adc_bl_0[3];
+  uint8_t mov_ptr_eax_ebx[2];
 
-  /* adc byte ptr [edx], 0 */
-  uint8_t adc_byte_ptr_edx_0[] = {0x80, 0x12, 0x00};
-  gum_x86_writer_put_bytes(cw, adc_byte_ptr_edx_0, sizeof(adc_byte_ptr_edx_0));
+  uint8_t mov_esp_c_ebx[4];
+  uint8_t mov_esp_8_eax[4];
+  uint8_t sahf;
+  uint8_t mov_esp_4_eax[4];
 
-  uint8_t ror_di_1[] = {0x66, 0xd1, 0xcf};
-  gum_x86_writer_put_bytes(cw, ror_di_1, sizeof(ror_di_1));
-  gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_REG_ECX, GUM_REG_EDI);
+} afl_log_code_asm_t;
 
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_EDX);
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_ECX);
-  gum_x86_writer_put_popfx(cw);
-  gum_x86_writer_put_ret(cw);
+  #pragma pack(pop)
+
+typedef union {
+
+  afl_log_code_asm_t code;
+  uint8_t            bytes[0];
+
+} afl_log_code;
+
+static const afl_log_code_asm_t template =
+    {
+
+        .mov_eax_esp_4 = {0x89, 0x44, 0x24, 0xFC},
+        .lahf = 0x9f,
+        .mov_eax_esp_8 = {0x89, 0x44, 0x24, 0xF8},
+        .mov_ebx_esp_c = {0x89, 0x5C, 0x24, 0xF4},
+
+        .mov_eax_prev_loc = {0xA1},
+        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x05},
+
+        .xor_eax_curr_loc = {0x35},
+        .add_eax_area_ptr = {0x05},
+        .mov_ebx_ptr_eax = {0x8a, 0x18},
+        .add_bl_1 = {0x80, 0xc3, 0x01},
+        .adc_bl_0 = {0x80, 0xd3, 0x00},
+        .mov_ptr_eax_ebx = {0x88, 0x18},
+
+        .mov_esp_c_ebx = {0x8B, 0x5C, 0x24, 0xF4},
+        .mov_esp_8_eax = {0x8B, 0x44, 0x24, 0xF8},
+        .sahf = 0x9e,
+        .mov_esp_4_eax = {0x8B, 0x44, 0x24, 0xFC},
 
 }
+
+;
 
 gboolean instrument_is_coverage_optimize_supported(void) {
 
@@ -45,39 +77,56 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
-static void instrument_coverate_write_function(GumStalkerOutput *output) {
-
-  GumX86Writer *cw = output->writer.x86;
-
-  if (current_log_impl == 0 ||
-      !gum_x86_writer_can_branch_directly_between(cw->pc, current_log_impl) ||
-      !gum_x86_writer_can_branch_directly_between(cw->pc + 128,
-                                                  current_log_impl)) {
-
-    gconstpointer after_log_impl = cw->code + 1;
-
-    gum_x86_writer_put_jmp_near_label(cw, after_log_impl);
-
-    current_log_impl = cw->pc;
-    instrument_coverage_function(cw);
-
-    gum_x86_writer_put_label(cw, after_log_impl);
-
-  }
-
-}
-
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
 
+  afl_log_code  code = {0};
   GumX86Writer *cw = output->writer.x86;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
-  instrument_coverate_write_function(output);
+  gsize   map_size_pow2;
+  gsize   area_offset_ror;
 
-  gum_x86_writer_put_push_reg(cw, GUM_REG_EDI);
-  gum_x86_writer_put_mov_reg_address(cw, GUM_REG_EDI, area_offset);
-  gum_x86_writer_put_call_address(cw, current_log_impl);
-  gum_x86_writer_put_pop_reg(cw, GUM_REG_EDI);
+  code.code = template;
+
+  // gum_x86_writer_put_breakpoint(cw);
+
+  gssize prev_loc_value_offset2 =
+      offsetof(afl_log_code, code.mov_eax_prev_loc) +
+      sizeof(code.code.mov_eax_prev_loc) - sizeof(gint);
+
+  *((gint *)&code.bytes[prev_loc_value_offset2]) =
+      (gint)GPOINTER_TO_SIZE(&instrument_previous_pc);
+
+  gssize curr_loc_shr_1_offset =
+      offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
+      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(guint32);
+
+  map_size_pow2 = util_log2(__afl_map_size);
+  area_offset_ror = util_rotate(area_offset, 1, map_size_pow2);
+
+  *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
+
+  gssize prev_loc_value_offset =
+      offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
+      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(gint) -
+      sizeof(guint32);
+
+  *((gint *)&code.bytes[prev_loc_value_offset]) =
+      (gint)GPOINTER_TO_SIZE(&instrument_previous_pc);
+
+  gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_eax_curr_loc) +
+                               sizeof(code.code.xor_eax_curr_loc) -
+                               sizeof(guint32);
+
+  *((guint32 *)&code.bytes[xor_curr_loc_offset]) = (guint32)area_offset;
+
+  gssize add_area_ptr_offset = offsetof(afl_log_code, code.add_eax_area_ptr) +
+                               sizeof(code.code.add_eax_area_ptr) -
+                               sizeof(guint32);
+
+  *((guint32 *)&code.bytes[add_area_ptr_offset]) = (guint32)__afl_area_ptr;
+
+  gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
 
 }
 
