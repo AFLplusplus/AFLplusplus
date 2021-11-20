@@ -247,7 +247,7 @@ For meson you have to set the AFL++ compiler with the very first command!
 
 Sometimes cmake and configure do not pick up the AFL++ compiler, or the
 ranlib/ar that is needed - because this was just not foreseen by the developer
-of the target. Or they have non-standard options. Figure out if there is a 
+of the target. Or they have non-standard options. Figure out if there is a
 non-standard way to set this, otherwise set up the build normally and edit the
 generated build environment afterwards manually to point it to the right compiler
 (and/or ranlib and ar).
@@ -337,7 +337,7 @@ Note that this step is rather optional though.
 
 #### Done!
 
-The INPUTS_UNIQUE/ directory from step b) - or even better the directory input/ 
+The INPUTS_UNIQUE/ directory from step b) - or even better the directory input/
 if you minimized the corpus in step c) - is the resulting input corpus directory
 to be used in fuzzing! :-)
 
@@ -627,4 +627,4 @@ This is basically all you need to know to professionally run fuzzing campaigns.
 If you want to know more, the tons of texts in [docs/](./) will have you covered.
 
 Note that there are also a lot of tools out there that help fuzzing with AFL++
-(some might be deprecated or unsupported), see [tools.md](tools.md).
+(some might be deprecated or unsupported), see [third_party_tools.md](third_party_tools.md).
