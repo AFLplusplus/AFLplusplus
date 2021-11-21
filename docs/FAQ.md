@@ -83,7 +83,8 @@ If you find an interesting or important question missing, submit it via
 
   However, if there is only the binary program and no source code available, then the standard non-instrumented mode is not effective.
 
-  To learn how these binaries can be fuzzed, read [binaryonly_fuzzing.md](binaryonly_fuzzing.md).
+  To learn how these binaries can be fuzzed, read
+  [fuzzing_binary-only_targets.md](fuzzing_binary-only_targets.md).
 </p></details>
 
 <details>
@@ -143,7 +144,7 @@ If you find an interesting or important question missing, submit it via
   Target: x86_64-unknown-linux-gnu
   Thread model: posix
   InstalledDir: /prg/tmp/llvm-project/build/bin
-  clang-13: note: diagnostic msg: 
+  clang-13: note: diagnostic msg:
   ********************
   ```
 

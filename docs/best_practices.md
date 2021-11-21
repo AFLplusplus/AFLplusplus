@@ -4,20 +4,26 @@
 
 ### Targets
 
-  * [Fuzzing a binary-only target](#fuzzing-a-binary-only-target)
-  * [Fuzzing a GUI program](#fuzzing-a-gui-program)
-  * [Fuzzing a network service](#fuzzing-a-network-service)
+* [Fuzzing a target with source code available](#fuzzing-a-target-with-source-code-available)
+* [Fuzzing a binary-only target](#fuzzing-a-binary-only-target)
+* [Fuzzing a GUI program](#fuzzing-a-gui-program)
+* [Fuzzing a network service](#fuzzing-a-network-service)
 
 ### Improvements
 
-  * [Improving speed](#improving-speed)
-  * [Improving stability](#improving-stability)
+* [Improving speed](#improving-speed)
+* [Improving stability](#improving-stability)
 
 ## Targets
 
+### Fuzzing a target with source code available
+
+To learn how to fuzz a target if source code is available, see [fuzzing_in_depth.md](fuzzing_in_depth.md).
+
 ### Fuzzing a binary-only target
 
-For a comprehensive guide, see [binaryonly_fuzzing.md](binaryonly_fuzzing.md).
+For a comprehensive guide, see
+[fuzzing_binary-only_targets.md](fuzzing_binary-only_targets.md).
 
 ### Fuzzing a GUI program
 
