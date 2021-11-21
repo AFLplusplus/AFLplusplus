@@ -1,12 +1,12 @@
 # Tools that help fuzzing with AFL++
 
 Speeding up fuzzing:
- * [libfiowrapper](https://github.com/marekzmyslowski/libfiowrapper) - if the function you want to fuzz requires loading a file, this allows using the shared memory testcase feature :-) - recommended.
+ * [libfiowrapper](https://github.com/marekzmyslowski/libfiowrapper) - if the function you want to fuzz requires loading a file, this allows using the shared memory test case feature :-) - recommended.
 
 Minimization of test cases:
  * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin that tries to speed up the process of minimization of a single test case by using many CPU cores.
- * [afl-ddmin-mod](https://github.com/MarkusTeufelberger/afl-ddmin-mod) - a variation of afl-tmin based on the ddmin algorithm. 
- * [halfempty](https://github.com/googleprojectzero/halfempty) -  is a fast utility for minimizing test cases by Tavis Ormandy based on parallelization. 
+ * [afl-ddmin-mod](https://github.com/MarkusTeufelberger/afl-ddmin-mod) - a variation of afl-tmin based on the ddmin algorithm.
+ * [halfempty](https://github.com/googleprojectzero/halfempty) -  is a fast utility for minimizing test cases by Tavis Ormandy based on parallelization.
 
 Distributed execution:
  * [disfuzz-afl](https://github.com/MartijnB/disfuzz-afl) - distributed fuzzing for AFL.

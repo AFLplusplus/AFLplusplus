@@ -19,7 +19,7 @@ finding capabilities during fuzzing) is WIP.
 ### When should I use QASan?
 
 If your target binary is PIC x86_64, you should also give a try to
-[retrowrite](https://github.com/HexHive/retrowrite) for static rewriting.
+[RetroWrite](https://github.com/HexHive/retrowrite) for static rewriting.
 
 If it fails, or if your binary is for another architecture, or you want to use
 persistent and snapshot mode, AFL++ QASan mode is what you want/have to use.

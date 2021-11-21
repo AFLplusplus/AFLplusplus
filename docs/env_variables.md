@@ -306,8 +306,9 @@ checks or alter some of the more exotic semantics of the tool:
     exit soon after the first crash is found.
 
   - `AFL_CMPLOG_ONLY_NEW` will only perform the expensive cmplog feature for
-    newly found testcases and not for testcases that are loaded on startup (`-i
-    in`). This is an important feature to set when resuming a fuzzing session.
+    newly found test cases and not for test cases that are loaded on startup
+    (`-i in`). This is an important feature to set when resuming a fuzzing
+    session.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL treats as crash. For
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
@@ -447,8 +448,8 @@ checks or alter some of the more exotic semantics of the tool:
 
   - If you are using persistent mode (you should, see
     [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)),
-    some targets keep inherent state due which a detected crash testcase does
-    not crash the target again when the testcase is given. To be able to still
+    some targets keep inherent state due which a detected crash test case does
+    not crash the target again when the test case is given. To be able to still
     re-trigger these crashes, you can use the `AFL_PERSISTENT_RECORD` variable
     with a value of how many previous fuzz cases to keep prio a crash. If set to
     e.g. 10, then the 9 previous inputs are written to out/default/crashes as

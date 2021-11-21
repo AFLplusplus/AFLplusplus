@@ -80,8 +80,10 @@ Step-by-step quick start:
 1. Compile the program or library to be fuzzed using `afl-cc`. A common way to
    do this would be:
 
-        CC=/path/to/afl-cc CXX=/path/to/afl-c++ ./configure --disable-shared
-        make clean all
+   ```
+   CC=/path/to/afl-cc CXX=/path/to/afl-c++ ./configure --disable-shared
+   make clean all
+   ```
 
 2. Get a small but valid input file that makes sense to the program. When
    fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in
@@ -89,10 +91,10 @@ Step-by-step quick start:
 
 3. If the program reads from stdin, run `afl-fuzz` like so:
 
-```
+   ```
    ./afl-fuzz -i seeds_dir -o output_dir -- \
-     /path/to/tested/program [...program's cmdline...]
-```
+   /path/to/tested/program [...program's cmdline...]
+   ```
 
    To add a dictionary, add `-x /path/to/dictionary.txt` to afl-fuzz.
 
@@ -100,13 +102,20 @@ Step-by-step quick start:
    command line; AFL will put an auto-generated file name in there for you.
 
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting
-   [docs/status_screen.md](docs/status_screen.md).
+   [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen).
 
-5. You will find found crashes and hangs in the subdirectories `crashes/` and
+5. Interpret the output, see
+   [docs/afl-fuzz_approach.md#interpreting-output](docs/afl-fuzz_approach.md#interpreting-output).
+
+6. You will find found crashes and hangs in the subdirectories `crashes/` and
    `hangs/` in the `-o output_dir` directory. You can replay the crashes by
-   feeding them to the target, e.g.: `cat output_dir/crashes/id:000000,* |
-   /path/to/tested/program [...program's cmdline...]` You can generate cores or
-   use gdb directly to follow up the crashes.
+   feeding them to the target, e.g.:
+
+   ```
+   cat output_dir/crashes/id:000000,* | /path/to/tested/program [...program's cmdline...]
+   ```
+
+   You can generate cores or use gdb directly to follow up the crashes.
 
 ## Contact
 
