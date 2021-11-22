@@ -37,9 +37,10 @@ superior to blind fuzzing or coverage-only tools.
 
 ## Understanding the status screen
 
-This document provides an overview of the status screen - plus tips for
-troubleshooting any warnings and red text shown in the UI. See
-[README.md](../README.md) for the general instruction manual.
+This chapter provides an overview of the status screen - plus tips for
+troubleshooting any warnings and red text shown in the UI.
+
+For the general instruction manual, see [README.md](../README.md).
 
 ### A note about colors
 
@@ -47,7 +48,7 @@ The status screen and error messages use colors to keep things readable and
 attract your attention to the most important details. For example, red almost
 always means "consult this doc" :-)
 
-Unfortunately, the UI will render correctly only if your terminal is using
+Unfortunately, the UI will only render correctly if your terminal is using
 traditional un*x palette (white text on black background) or something close to
 that.
 
@@ -61,7 +62,7 @@ If you are using inverse video, you may want to change your settings, say:
 Alternatively, if you really like your current colors, you can edit config.h to
 comment out USE_COLORS, then do `make clean all`.
 
-I'm not aware of any other simple way to make this work without causing other
+We are not aware of any other simple way to make this work without causing other
 side effects - sorry about that.
 
 With that out of the way, let's talk about what's actually on the screen...
@@ -103,8 +104,8 @@ will be allowed to run for months.
 There's one important thing to watch out for: if the tool is not finding new
 paths within several minutes of starting, you're probably not invoking the
 target binary correctly and it never gets to parse the input files we're
-throwing at it; another possible explanations are that the default memory limit
-(`-m`) is too restrictive, and the program exits after failing to allocate a
+throwing at it; other possible explanations are that the default memory limit
+(`-m`) is too restrictive and the program exits after failing to allocate a
 buffer very early on; or that the input files are patently invalid and always
 fail a basic header check.
 
@@ -124,9 +125,9 @@ red warning in this section, too :-)
 
 The first field in this section gives you the count of queue passes done so far
 - that is, the number of times the fuzzer went over all the interesting test
-cases discovered so far, fuzzed them, and looped back to the very beginning.
-Every fuzzing session should be allowed to complete at least one cycle; and
-ideally, should run much longer than that.
+  cases discovered so far, fuzzed them, and looped back to the very beginning.
+  Every fuzzing session should be allowed to complete at least one cycle; and
+  ideally, should run much longer than that.
 
 As noted earlier, the first pass can take a day or longer, so sit back and
 relax.
@@ -140,7 +141,8 @@ while.
 The remaining fields in this part of the screen should be pretty obvious:
 there's the number of test cases ("paths") discovered so far, and the number of
 unique faults. The test cases, crashes, and hangs can be explored in real-time
-by browsing the output directory, as discussed in [README.md](../README.md).
+by browsing the output directory, see
+[#interpreting-output](#interpreting-output).
 
 ### Cycle progress
 
