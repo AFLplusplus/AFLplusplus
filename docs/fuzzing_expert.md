@@ -112,12 +112,8 @@ are interested in:
 
 There are many more options and modes available however these are most of the
 time less effective. See:
- * [instrumentation/README.ctx.md](../instrumentation/README.ctx.md)
- * [instrumentation/README.ngram.md](../instrumentation/README.ngram.md)
-
-AFL++ performs "never zero" counting in its bitmap. You can read more about this
-here:
- * [instrumentation/README.neverzero.md](../instrumentation/README.neverzero.md)
+ * [instrumentation/README.llvm.md#6) AFL Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
+ * [instrumentation/README.llvm.md#7) AFL N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage)
 
 #### c) Sanitizers
 
@@ -247,7 +243,7 @@ For meson you have to set the AFL++ compiler with the very first command!
 
 Sometimes cmake and configure do not pick up the AFL++ compiler, or the
 ranlib/ar that is needed - because this was just not foreseen by the developer
-of the target. Or they have non-standard options. Figure out if there is a 
+of the target. Or they have non-standard options. Figure out if there is a
 non-standard way to set this, otherwise set up the build normally and edit the
 generated build environment afterwards manually to point it to the right compiler
 (and/or ranlib and ar).
@@ -337,7 +333,7 @@ Note that this step is rather optional though.
 
 #### Done!
 
-The INPUTS_UNIQUE/ directory from step b) - or even better the directory input/ 
+The INPUTS_UNIQUE/ directory from step b) - or even better the directory input/
 if you minimized the corpus in step c) - is the resulting input corpus directory
 to be used in fuzzing! :-)
 
