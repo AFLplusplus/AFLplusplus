@@ -84,6 +84,8 @@ Wine, python3, and the pefile python package installed.
 
 It is included in AFL++.
 
+For more information, see [qemu_mode/README.wine.md](../qemu_mode/README.wine.md).
+
 ### Frida_mode
 
 In frida_mode, you can fuzz binary-only targets as easily as with QEMU.
@@ -99,11 +101,13 @@ make
 ```
 
 For additional instructions and caveats, see
-[frida_mode/README.md](../frida_mode/README.md). If possible, you should use the
-persistent mode, see [qemu_frida/README.md](../qemu_frida/README.md). The mode
-is approximately 2-5x slower than compile-time instrumentation, and is less
-conducive to parallelization. But for binary-only fuzzing, it gives a huge speed
-improvement if it is possible to use.
+[frida_mode/README.md](../frida_mode/README.md).
+
+If possible, you should use the persistent mode, see
+[qemu_frida/README.md](../qemu_frida/README.md). The mode is approximately 2-5x
+slower than compile-time instrumentation, and is less conducive to
+parallelization. But for binary-only fuzzing, it gives a huge speed improvement
+if it is possible to use.
 
 If you want to fuzz a binary-only library, then you can fuzz it with frida-gum
 via frida_mode/. You will have to write a harness to call the target function in
@@ -154,14 +158,41 @@ and use afl-untracer.c as a template. It is slower than frida_mode.
 For more information, see
 [utils/afl_untracer/README.md](../utils/afl_untracer/README.md).
 
-## Binary rewriters
-
 ### Coresight
 
 Coresight is ARM's answer to Intel's PT. With AFL++ v3.15, there is a coresight
 tracer implementation available in `coresight_mode/` which is faster than QEMU,
 however, cannot run in parallel. Currently, only one process can be traced, it
 is WIP.
+
+Fore more information, see
+[coresight_mode/README.md](../coresight_mode/README.md).
+
+## Binary rewriters
+
+An alternative solution are binary rewriters. They are faster then the solutions native to AFL++ but don't always work.
+
+### ZAFL
+ZAFL is a static rewriting platform supporting x86-64 C/C++,
+stripped/unstripped, and PIE/non-PIE binaries. Beyond conventional
+instrumentation, ZAFL's API enables transformation passes (e.g., laf-Intel,
+context sensitivity, InsTrim, etc.).
+
+Its baseline instrumentation speed typically averages 90-95% of
+afl-clang-fast's.
+
+[https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
+
+### RetroWrite
+
+If you have an x86/x86_64 binary that still has its symbols, is compiled with
+position independent code (PIC/PIE), and does not use most of the C++ features,
+then the RetroWrite solution might be for you. It decompiles to ASM files which
+can then be instrumented with afl-gcc.
+
+It is at about 80-85% performance.
+
+[https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
 ### Dyninst
 
@@ -183,33 +214,14 @@ with afl-dyninst.
 
 [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
 
-### Intel PT
-
-If you have a newer Intel CPU, you can make use of Intel's processor trace. The
-big issue with Intel's PT is the small buffer size and the complex encoding of
-the debug information collected through PT. This makes the decoding very CPU
-intensive and hence slow. As a result, the overall speed decrease is about
-70-90% (depending on the implementation and other factors).
-
-There are two AFL intel-pt implementations:
-
-1. [https://github.com/junxzm1990/afl-pt](https://github.com/junxzm1990/afl-pt)
-    => This needs Ubuntu 14.04.05 without any updates and the 4.4 kernel.
-
-2. [https://github.com/hunter-ht-2018/ptfuzzer](https://github.com/hunter-ht-2018/ptfuzzer)
-    => This needs a 4.14 or 4.15 kernel. The "nopti" kernel boot option must be
-    used. This one is faster than the other.
-
-Note that there is also honggfuzz:
-[https://github.com/google/honggfuzz](https://github.com/google/honggfuzz). But
-its IPT performance is just 6%!
-
 ### Mcsema
 
 Theoretically, you can also decompile to llvm IR with mcsema, and then use
 llvm_mode to instrument the binary. Good luck with that.
 
 [https://github.com/lifting-bits/mcsema](https://github.com/lifting-bits/mcsema)
+
+## Binary tracers
 
 ### Pintool & DynamoRIO
 
@@ -236,27 +248,26 @@ Pintool solutions:
 * [https://github.com/spinpx/afl_pin_mode](https://github.com/spinpx/afl_pin_mode)
   <= only old Pintool version supported
 
-### RetroWrite
+### Intel PT
 
-If you have an x86/x86_64 binary that still has its symbols, is compiled with
-position independent code (PIC/PIE), and does not use most of the C++ features,
-then the RetroWrite solution might be for you. It decompiles to ASM files which
-can then be instrumented with afl-gcc.
+If you have a newer Intel CPU, you can make use of Intel's processor trace. The
+big issue with Intel's PT is the small buffer size and the complex encoding of
+the debug information collected through PT. This makes the decoding very CPU
+intensive and hence slow. As a result, the overall speed decrease is about
+70-90% (depending on the implementation and other factors).
 
-It is at about 80-85% performance.
+There are two AFL intel-pt implementations:
 
-[https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
+1. [https://github.com/junxzm1990/afl-pt](https://github.com/junxzm1990/afl-pt)
+    => This needs Ubuntu 14.04.05 without any updates and the 4.4 kernel.
 
-### ZAFL
-ZAFL is a static rewriting platform supporting x86-64 C/C++,
-stripped/unstripped, and PIE/non-PIE binaries. Beyond conventional
-instrumentation, ZAFL's API enables transformation passes (e.g., laf-Intel,
-context sensitivity, InsTrim, etc.).
+2. [https://github.com/hunter-ht-2018/ptfuzzer](https://github.com/hunter-ht-2018/ptfuzzer)
+    => This needs a 4.14 or 4.15 kernel. The "nopti" kernel boot option must be
+    used. This one is faster than the other.
 
-Its baseline instrumentation speed typically averages 90-95% of
-afl-clang-fast's.
-
-[https://git.zephyr-software.com/opensrc/zafl](https://git.zephyr-software.com/opensrc/zafl)
+Note that there is also honggfuzz:
+[https://github.com/google/honggfuzz](https://github.com/google/honggfuzz). But
+its IPT performance is just 6%!
 
 ## Non-AFL++ solutions
 
