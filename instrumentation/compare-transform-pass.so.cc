@@ -26,13 +26,13 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_MAJOR >= 7 /* use new pass manager */
-#include "llvm/Passes/PassPlugin.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/IR/PassManager.h"
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
 #else
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+  #include "llvm/IR/LegacyPassManager.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
@@ -58,24 +58,26 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_MAJOR >= 7 /* use new pass manager */
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
 class CompareTransform : public PassInfoMixin<CompareTransform> {
 
  public:
   CompareTransform() {
+
 #else
 class CompareTransform : public ModulePass {
 
  public:
   static char ID;
   CompareTransform() : ModulePass(ID) {
+
 #endif
 
     initInstrumentList();
 
   }
 
-#if LLVM_MAJOR >= 7 /* use new pass manager */
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 #else
   bool runOnModule(Module &M) override;
@@ -91,37 +93,49 @@ class CompareTransform : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR >= 7 /* use new pass manager */
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
-  return {
-    LLVM_PLUGIN_API_VERSION, "comparetransform", "v0.1",
-    /* lambda to insert our pass into the pass pipeline. */
-    [](PassBuilder &PB) {
-#if 1
-       using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-       PB.registerOptimizerLastEPCallback(
-         [](ModulePassManager &MPM, OptimizationLevel OL) {
-           MPM.addPass(CompareTransform());
-         }
-       );
-/* TODO LTO registration */
-#else
-       using PipelineElement = typename PassBuilder::PipelineElement;
-       PB.registerPipelineParsingCallback(
-         [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
-            if ( Name == "comparetransform" ) {
-              MPM.addPass(CompareTransform());
-              return true;
-            } else {
-              return false;
-            }
-         }
-       );
-#endif
-    }
-  };
+
+  return {LLVM_PLUGIN_API_VERSION, "comparetransform", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if 1
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(CompareTransform());
+
+                });
+
+  /* TODO LTO registration */
+  #else
+            using PipelineElement = typename PassBuilder::PipelineElement;
+            PB.registerPipelineParsingCallback([](StringRef          Name,
+                                                  ModulePassManager &MPM,
+                                                  ArrayRef<PipelineElement>) {
+
+              if (Name == "comparetransform") {
+
+                MPM.addPass(CompareTransform());
+                return true;
+
+              } else {
+
+                return false;
+
+              }
+
+            });
+
+  #endif
+
+          }};
+
 }
+
 #else
 char CompareTransform::ID = 0;
 #endif
@@ -484,12 +498,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
-    // add null termination character implicit in c strings
-    if (!isMemcmp && TmpConstStr[TmpConstStr.length() - 1]) {
+    // the following is in general OK, but strncmp is sometimes used in binary
+    // data structures and this can result in crashes :( so it is commented out
+    /*
+        // add null termination character implicit in c strings
+        if (!isMemcmp && TmpConstStr[TmpConstStr.length() - 1]) {
 
-      TmpConstStr.append("\0", 1);
+          TmpConstStr.append("\0", 1);
 
-    }
+        }
+
+    */
 
     // in the unusual case the const str has embedded null
     // characters, the string comparison functions should terminate
@@ -631,10 +650,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
 }
 
-#if LLVM_MAJOR >= 7 /* use new pass manager */
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
 PreservedAnalyses CompareTransform::run(Module &M, ModuleAnalysisManager &MAM) {
+
 #else
 bool CompareTransform::runOnModule(Module &M) {
+
 #endif
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
@@ -644,17 +665,19 @@ bool CompareTransform::runOnModule(Module &M) {
   else
     be_quiet = 1;
 
-#if LLVM_MAJOR >= 7 /* use new pass manager */
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
   auto PA = PreservedAnalyses::all();
 #endif
 
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 
-#if LLVM_MAJOR >= 7 /* use new pass manager */
-/*  if (modified) {
-    PA.abandon<XX_Manager>();
-  }*/
+#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+                    /*  if (modified) {
+
+                        PA.abandon<XX_Manager>();
+
+                      }*/
 
   return PA;
 #else
@@ -663,7 +686,7 @@ bool CompareTransform::runOnModule(Module &M) {
 
 }
 
-#if LLVM_MAJOR < 7 /* use old pass manager */
+#if LLVM_MAJOR < 7                                  /* use old pass manager */
 static void registerCompTransPass(const PassManagerBuilder &,
                                   legacy::PassManagerBase &PM) {
 
@@ -678,9 +701,9 @@ static RegisterStandardPasses RegisterCompTransPass(
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCompTransPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerCompTransPass);
-#endif
+  #endif
 #endif
 
