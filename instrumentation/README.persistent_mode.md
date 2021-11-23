@@ -132,7 +132,7 @@ and you should be all set!
 Some libraries provide APIs that are stateless, or whose state can be reset in
 between processing different input files. When such a reset is performed, a
 single long-lived process can be reused to try out multiple test cases,
-eliminating the need for repeated fork() calls and the associated OS overhead.
+eliminating the need for repeated `fork()` calls and the associated OS overhead.
 
 The basic structure of the program that does this would be:
 
