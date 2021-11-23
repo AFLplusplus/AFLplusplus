@@ -442,6 +442,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        isSizedcmp = false;
     bool        isCaseInsensitive = false;
     Function *  Callee = callInst->getCalledFunction();
+
     if (Callee) {
 
       isMemcmp = Callee->getName().compare("memcmp") == 0;
