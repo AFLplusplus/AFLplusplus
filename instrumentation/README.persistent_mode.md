@@ -155,14 +155,14 @@ and going much higher increases the likelihood of hiccups without giving you any
 real performance benefits.
 
 A more detailed template is shown in
-[utils/persistent_mode](../utils/persistent_mode). Similarly to the previous
-mode, the feature works only with afl-clang-fast; `#ifdef` guards can be used to
-suppress it when using other compilers.
+[utils/persistent_mode](../utils/persistent_mode). Similarly to the deferred
+initialization, the feature works only with afl-clang-fast; `#ifdef` guards can
+be used to suppress it when using other compilers.
 
-Note that as with the previous mode, the feature is easy to misuse; if you do
-not fully reset the critical state, you may end up with false positives or waste
-a whole lot of CPU power doing nothing useful at all. Be particularly wary of
-memory leaks and of the state of file descriptors.
+Note that as with the deferred initialization, the feature is easy to misuse; if
+you do not fully reset the critical state, you may end up with false positives
+or waste a whole lot of CPU power doing nothing useful at all. Be particularly
+wary of memory leaks and of the state of file descriptors.
 
 PS. Because there are task switches still involved, the mode isn't as fast as
 "pure" in-process fuzzing offered, say, by LLVM's LibFuzzer; but it is a lot
