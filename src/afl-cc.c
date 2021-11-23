@@ -573,10 +573,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-#if LLVM_MAJOR >= 13
-    // fuck you llvm 13
-    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
-#endif
 
     if (lto_mode && !have_c) {
 
@@ -616,6 +612,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         } else {
 
+    cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
           cc_params[cc_par_cnt++] = "-Xclang";
           cc_params[cc_par_cnt++] = "-load";
           cc_params[cc_par_cnt++] = "-Xclang";
@@ -674,11 +671,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
+#if LLVM_MAJOR >= 11
+        cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("-fpass-plugin=%s/cmplog-instructions-pass.so", obj_path);
+#else
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+#endif
 
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
