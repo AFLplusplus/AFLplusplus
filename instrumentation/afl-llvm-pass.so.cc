@@ -45,18 +45,21 @@ typedef long double max_align_t;
 #endif
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
-#include "llvm/Passes/PassPlugin.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/IR/PassManager.h"
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
 #else
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+  #include "llvm/IR/LegacyPassManager.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
+#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+  #include "llvm/Passes/OptimizationLevel.h"
+#endif
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -74,22 +77,26 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class AFLCoverage : public PassInfoMixin<AFLCoverage> {
+
  public:
   AFLCoverage() {
+
 #else
 class AFLCoverage : public ModulePass {
+
  public:
   static char ID;
   AFLCoverage() : ModulePass(ID) {
+
 #endif
 
     initInstrumentList();
 
   }
 
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 #else
   bool runOnModule(Module &M) override;
@@ -107,37 +114,51 @@ class AFLCoverage : public ModulePass {
 
 }  // namespace
 
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
-  return {
-    LLVM_PLUGIN_API_VERSION, "AFLCoverage", "v0.1",
-    /* lambda to insert our pass into the pass pipeline. */
-    [](PassBuilder &PB) {
-#if 1
-       using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-       PB.registerOptimizerLastEPCallback(
-         [](ModulePassManager &MPM, OptimizationLevel OL) {
-           MPM.addPass(AFLCoverage());
-         }
-       );
-/* TODO LTO registration */
-#else
-       using PipelineElement = typename PassBuilder::PipelineElement;
-       PB.registerPipelineParsingCallback(
-         [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
-            if ( Name == "AFLCoverage" ) {
-              MPM.addPass(AFLCoverage());
-              return true;
-            } else {
-              return false;
-            }
-         }
-       );
-#endif
-    }
-  };
+
+  return {LLVM_PLUGIN_API_VERSION, "AFLCoverage", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if 1
+    #if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+    #endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(AFLCoverage());
+
+                });
+
+  /* TODO LTO registration */
+  #else
+            using PipelineElement = typename PassBuilder::PipelineElement;
+            PB.registerPipelineParsingCallback([](StringRef          Name,
+                                                  ModulePassManager &MPM,
+                                                  ArrayRef<PipelineElement>) {
+
+              if (Name == "AFLCoverage") {
+
+                MPM.addPass(AFLCoverage());
+                return true;
+
+              } else {
+
+                return false;
+
+              }
+
+            });
+
+  #endif
+
+          }};
+
 }
+
 #else
 
 char AFLCoverage::ID = 0;
@@ -168,11 +189,12 @@ uint64_t PowerOf2Ceil(unsigned in) {
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
 
-
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
+
 #else
 bool AFLCoverage::runOnModule(Module &M) {
+
 #endif
 
   LLVMContext &C = M.getContext();
@@ -188,7 +210,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   u32             rand_seed;
   unsigned int    cur_loc = 0;
 
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   auto PA = PreservedAnalyses::all();
 #endif
 
@@ -1029,7 +1051,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   }
 
-#if LLVM_VERSION_MAJOR >= 7 /* use new pass manager */
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   return PA;
 #else
   return true;
@@ -1037,7 +1059,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 }
 
-#if LLVM_VERSION_MAJOR < 7 /* use old pass manager */
+#if LLVM_VERSION_MAJOR < 11                         /* use old pass manager */
 static void registerAFLPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
@@ -1051,3 +1073,4 @@ static RegisterStandardPasses RegisterAFLPass(
 static RegisterStandardPasses RegisterAFLPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerAFLPass);
 #endif
+

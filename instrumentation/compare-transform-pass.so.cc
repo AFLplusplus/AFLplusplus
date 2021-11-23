@@ -26,7 +26,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
   #include "llvm/Passes/PassPlugin.h"
   #include "llvm/Passes/PassBuilder.h"
   #include "llvm/IR/PassManager.h"
@@ -40,6 +40,9 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+  #include "llvm/Passes/OptimizationLevel.h"
+#endif
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -58,7 +61,7 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
 class CompareTransform : public PassInfoMixin<CompareTransform> {
 
  public:
@@ -77,7 +80,7 @@ class CompareTransform : public ModulePass {
 
   }
 
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 #else
   bool runOnModule(Module &M) override;
@@ -93,7 +96,7 @@ class CompareTransform : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
@@ -102,7 +105,9 @@ llvmGetPassPluginInfo() {
           [](PassBuilder &PB) {
 
   #if 1
+    #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+    #endif
             PB.registerOptimizerLastEPCallback(
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
@@ -650,7 +655,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
 }
 
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
 PreservedAnalyses CompareTransform::run(Module &M, ModuleAnalysisManager &MAM) {
 
 #else
@@ -665,19 +670,19 @@ bool CompareTransform::runOnModule(Module &M) {
   else
     be_quiet = 1;
 
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
   auto PA = PreservedAnalyses::all();
 #endif
 
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 
-#if LLVM_MAJOR >= 7                                 /* use new pass manager */
-                    /*  if (modified) {
-
-                        PA.abandon<XX_Manager>();
-
-                      }*/
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+                     /*  if (modified) {
+                   
+                         PA.abandon<XX_Manager>();
+                   
+                       }*/
 
   return PA;
 #else
@@ -686,7 +691,7 @@ bool CompareTransform::runOnModule(Module &M) {
 
 }
 
-#if LLVM_MAJOR < 7                                  /* use old pass manager */
+#if LLVM_MAJOR < 11                                 /* use old pass manager */
 static void registerCompTransPass(const PassManagerBuilder &,
                                   legacy::PassManagerBase &PM) {
 

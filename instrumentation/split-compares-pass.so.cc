@@ -30,16 +30,19 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
-#if LLVM_MAJOR >= 7
-#include "llvm/Passes/PassPlugin.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/IR/PassManager.h"
+#if LLVM_MAJOR >= 11
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
 #else
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+  #include "llvm/IR/LegacyPassManager.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Module.h"
+#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+  #include "llvm/Passes/OptimizationLevel.h"
+#endif
 
 #include "llvm/IR/IRBuilder.h"
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -61,22 +64,27 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_MAJOR >= 7
+#if LLVM_MAJOR >= 11
 class SplitComparesTransform : public PassInfoMixin<SplitComparesTransform> {
+
  public:
-//  static char ID;
+  //  static char ID;
   SplitComparesTransform() : enableFPSplit(0) {
+
 #else
 class SplitComparesTransform : public ModulePass {
+
  public:
   static char ID;
   SplitComparesTransform() : ModulePass(ID), enableFPSplit(0) {
+
 #endif
 
     initInstrumentList();
+
   }
 
-#if LLVM_MAJOR >= 7
+#if LLVM_MAJOR >= 11
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 #else
   bool runOnModule(Module &M) override;
@@ -169,37 +177,51 @@ class SplitComparesTransform : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR >= 7
+#if LLVM_MAJOR >= 11
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
-  return {
-    LLVM_PLUGIN_API_VERSION, "splitcompares", "v0.1",
-    /* lambda to insert our pass into the pass pipeline. */
-    [](PassBuilder &PB) {
-#if 1
-       using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-       PB.registerOptimizerLastEPCallback(
-         [](ModulePassManager &MPM, OptimizationLevel OL) {
-           MPM.addPass(SplitComparesTransform());
-         }
-       );
-/* TODO LTO registration */
-#else
-       using PipelineElement = typename PassBuilder::PipelineElement;
-       PB.registerPipelineParsingCallback(
-         [](StringRef Name, ModulePassManager &MPM, ArrayRef<PipelineElement>) {
-            if ( Name == "splitcompares" ) {
-              MPM.addPass(SplitComparesTransform());
-              return true;
-            } else {
-              return false;
-            }
-         }
-       );
-#endif
-    }
-  };
+
+  return {LLVM_PLUGIN_API_VERSION, "splitcompares", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if 1
+    #if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+    #endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(SplitComparesTransform());
+
+                });
+
+  /* TODO LTO registration */
+  #else
+            using PipelineElement = typename PassBuilder::PipelineElement;
+            PB.registerPipelineParsingCallback([](StringRef          Name,
+                                                  ModulePassManager &MPM,
+                                                  ArrayRef<PipelineElement>) {
+
+              if (Name == "splitcompares") {
+
+                MPM.addPass(SplitComparesTransform());
+                return true;
+
+              } else {
+
+                return false;
+
+              }
+
+            });
+
+  #endif
+
+          }};
+
 }
+
 #else
 char SplitComparesTransform::ID = 0;
 #endif
@@ -1356,10 +1378,13 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
 }
 
-#if LLVM_MAJOR >= 7
-PreservedAnalyses SplitComparesTransform::run(Module &M, ModuleAnalysisManager &MAM) {
+#if LLVM_MAJOR >= 11
+PreservedAnalyses SplitComparesTransform::run(Module &               M,
+                                              ModuleAnalysisManager &MAM) {
+
 #else
 bool SplitComparesTransform::runOnModule(Module &M) {
+
 #endif
 
   char *bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
@@ -1383,7 +1408,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   }
 
-#if LLVM_MAJOR >= 7
+#if LLVM_MAJOR >= 11
   auto PA = PreservedAnalyses::all();
 #endif
 
@@ -1420,12 +1445,15 @@ bool SplitComparesTransform::runOnModule(Module &M) {
           auto op0 = CI->getOperand(0);
           auto op1 = CI->getOperand(1);
           if (!op0 || !op1) {
-#if LLVM_MAJOR >= 7
+
+#if LLVM_MAJOR >= 11
             return PA;
 #else
             return false;
 #endif
+
           }
+
           auto iTy1 = dyn_cast<IntegerType>(op0->getType());
           if (iTy1 && isa<IntegerType>(op1->getType())) {
 
@@ -1476,13 +1504,17 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
       getenv("AFL_DEBUG") != NULL) {
+
     errs() << count << " comparisons found\n";
+
   }
 
-#if LLVM_MAJOR >= 7
-/*  if (modified) {
-    PA.abandon<XX_Manager>();
-  }*/
+#if LLVM_MAJOR >= 11
+  /*  if (modified) {
+
+      PA.abandon<XX_Manager>();
+
+    }*/
 
   return PA;
 #else
@@ -1491,7 +1523,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
 }
 
-#if LLVM_MAJOR < 7 /* use old pass manager */
+#if LLVM_MAJOR < 11                                 /* use old pass manager */
 
 static void registerSplitComparesPass(const PassManagerBuilder &,
                                       legacy::PassManagerBase &PM) {
@@ -1506,14 +1538,15 @@ static RegisterStandardPasses RegisterSplitComparesPass(
 static RegisterStandardPasses RegisterSplitComparesTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerSplitComparesPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterSplitComparesTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerSplitComparesPass);
-#endif
+  #endif
 
 static RegisterPass<SplitComparesTransform> X("splitcompares",
                                               "AFL++ split compares",
                                               true /* Only looks at CFG */,
                                               true /* Analysis Pass */);
 #endif
+
