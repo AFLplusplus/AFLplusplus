@@ -621,7 +621,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
             bool   isStrncasecmp = true;
             bool   isIntMemcpy = true;
             bool   isStdString = true;
-            bool   addedNull = false;
             size_t optLen = 0;
 
             Function *Callee = callInst->getCalledFunction();
@@ -801,7 +800,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
                   if (literalLength + 1 == optLength) {
 
                     Str2.append("\0", 1);  // add null byte
-                    // addedNull = true;
 
                   }
 
@@ -909,8 +907,8 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
                 if (optLen < 2) { continue; }
                 if (literalLength + 1 == optLen) {  // add null byte
+
                   thestring.append("\0", 1);
-                  addedNull = true;
 
                 }
 
