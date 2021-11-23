@@ -922,13 +922,16 @@ bool ModuleSanitizerCoverage::instrumentModule(
             // was not already added
             if (!isMemcmp) {
 
-              if (addedNull == false && thestring[optLen - 1] != '\0') {
+              /*
+                            if (addedNull == false && thestring[optLen - 1] !=
+                 '\0') {
 
-                thestring.append("\0", 1);  // add null byte
-                optLen++;
+                              thestring.append("\0", 1);  // add null byte
+                              optLen++;
 
-              }
+                            }
 
+              */
               if (!isStdString) {
 
                 // ensure we do not have garbage

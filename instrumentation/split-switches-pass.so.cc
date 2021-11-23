@@ -507,9 +507,9 @@ bool SplitSwitchesTransform::runOnModule(Module &M) {
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
                              /*  if (modified) {
-
+                           
                                  PA.abandon<XX_Manager>();
-
+                           
                                }*/
 
   return PA;
