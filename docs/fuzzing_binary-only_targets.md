@@ -74,7 +74,7 @@ Note that there is also honggfuzz:
 now has a qemu_mode, but its performance is just 1.5% ...
 
 If you like to code a customized fuzzer without much work, we highly recommend
-to check out our sister project libafl which will support QEMU, too:
+to check out our sister project libafl which supports QEMU, too:
 [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL)
 
 ### WINE+QEMU
