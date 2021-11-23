@@ -519,7 +519,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     // in the unusual case the const str has embedded null
     // characters, the string comparison functions should terminate
     // at the first null
-    if (!isMemcmp) {
+    if (!isMemcmp && TmpConstStr.find('\0') != std::string::npos) {
 
       TmpConstStr.assign(TmpConstStr, 0, TmpConstStr.find('\0') + 1);
 

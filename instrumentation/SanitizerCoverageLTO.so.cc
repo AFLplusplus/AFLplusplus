@@ -930,7 +930,8 @@ bool ModuleSanitizerCoverage::instrumentModule(
                             }
 
               */
-              if (!isStdString) {
+              if (!isStdString &&
+                  thestring.find('\0', 0) != std::string::npos) {
 
                 // ensure we do not have garbage
                 size_t offset = thestring.find('\0', 0);
