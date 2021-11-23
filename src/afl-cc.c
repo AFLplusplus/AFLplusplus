@@ -462,7 +462,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+#if LLVM_MAJOR >= 11                        /* use new pass manager */
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
@@ -488,7 +488,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+#if LLVM_MAJOR >= 11                        /* use new pass manager */
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] = alloc_printf(
             "-fpass-plugin=%s/compare-transform-pass.so", obj_path);
