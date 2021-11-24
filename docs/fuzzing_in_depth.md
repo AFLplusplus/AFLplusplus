@@ -13,7 +13,7 @@ Fuzzing source code is a three-step process:
 3. Perform the fuzzing of the target by randomly mutating input and assessing if
    a generated input was processed in a new path in the target binary.
 
-### 1. Instrumenting that target
+### 1. Instrumenting the target
 
 #### a) Selecting the best AFL++ compiler for instrumenting the target
 
@@ -123,7 +123,7 @@ AFL++ performs "never zero" counting in its bitmap. You can read more about this
 here:
 * [instrumentation/README.neverzero.md](../instrumentation/README.neverzero.md)
 
-#### c) Sanitizers
+#### c) Selecting sanitizers
 
 It is possible to use sanitizers when instrumenting targets for fuzzing, which
 allows you to find bugs that would not necessarily result in a crash.
@@ -171,7 +171,7 @@ CFISAN. You might need to experiment which sanitizers you can combine in a
 target (which means more instances can be run without a sanitized target, which
 is more effective).
 
-#### d) Modify the target
+#### d) Modifying the target
 
 If the target has features that make fuzzing more difficult, e.g. checksums,
 HMAC, etc. then modify the source code so that checks for these values are
@@ -188,7 +188,7 @@ products by eliminating these checks within these AFL specific blocks:
 
 All AFL++ compilers will set this preprocessor definition automatically.
 
-#### e) Instrument the target
+#### e) Instrumenting the target
 
 In this step the target source code is compiled so that it can be fuzzed.
 
@@ -272,6 +272,7 @@ it for a hobby and not professionally :-).
 
 libfuzzer `LLVMFuzzerTestOneInput()` harnesses are the defacto standard
 for fuzzing, and they can be used with AFL++ (and honggfuzz) as well!
+
 Compiling them is as simple as:
 
 ```
@@ -294,15 +295,25 @@ For more information, see
 As you fuzz the target with mutated input, having as diverse inputs for the
 target as possible improves the efficiency a lot.
 
-#### a) Collect inputs
+#### a) Collecting inputs
 
-Try to gather valid inputs for the target from wherever you can. E.g. if it is
-the PNG picture format try to find as many png files as possible, e.g. from
-reported bugs, test suites, random downloads from the internet, unit test case
-data - from all kind of PNG software.
+To operate correctly, the fuzzer requires one or more starting files that
+contain a good example of the input data normally expected by the targeted
+application. There are two basic rules:
 
-If the input format is not known, you can also modify a target program to write
-normal data it receives and processes to a file and use these.
+- Keep the files small. Under 1 kB is ideal, although not strictly necessary.
+  For a discussion of why size matters, see [perf_tips.md](perf_tips.md).
+
+- Use multiple test cases only if they are functionally different from each
+  other. There is no point in using fifty different vacation photos to fuzz an
+  image library.
+
+You can find many good examples of starting files in the
+[testcases/](../testcases) subdirectory that comes with this tool.
+
+PS. If a large corpus of data is available for screening, you may want to use
+the afl-cmin utility to identify a subset of functionally distinct files that
+exercise different code paths in the target binary.
 
 #### b) Making the input corpus unique
 
@@ -535,10 +546,10 @@ complex and configurable script in `utils/distributed_fuzzing`.
 AFL++ comes with the `afl-whatsup` script to show the status of the fuzzing
 campaign.
 
-Just supply the directory that afl-fuzz is given with the -o option and you will
-see a detailed status of every fuzzer in that campaign plus a summary.
+Just supply the directory that afl-fuzz is given with the `-o` option and you
+will see a detailed status of every fuzzer in that campaign plus a summary.
 
-To have only the summary, use the `-s` switch, e.g. `afl-whatsup -s out/`.
+To have only the summary, use the `-s` switch, e.g., `afl-whatsup -s out/`.
 
 If you have multiple servers, then use the command after a sync or you have to
 execute this script per server.
@@ -546,7 +557,7 @@ execute this script per server.
 Another tool to inspect the current state and history of a specific instance is
 afl-plot, which generates an index.html file and a graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,
-e.g. `afl-plot out/default /srv/www/htdocs/plot`.
+e.g., `afl-plot out/default /srv/www/htdocs/plot`.
 
 #### e) Stopping fuzzing, restarting fuzzing, adding new seeds
 
@@ -599,7 +610,7 @@ AFL_TRY_AFFINITY=1` if you have no free core.
 
 Note that in nearly all cases you can never reach full coverage. A lot of
 functionality is usually dependent on exclusive options that would need
-individual fuzzing campaigns each with one of these options set. E.g. if you
+individual fuzzing campaigns each with one of these options set. E.g., if you
 fuzz a library to convert image formats and your target is the png to tiff API
 then you will not touch any of the other library APIs and features.
 
@@ -633,6 +644,114 @@ or honggfuzz.
 * Use your cores! [b) Using multiple cores](#b-using-multiple-cores)
 * Run `sudo afl-system-config` before starting the first afl-fuzz instance after
   a reboot
+
+#### i) Going beyond crashes
+
+Fuzzing is a wonderful and underutilized technique for discovering non-crashing
+design and implementation errors, too. Quite a few interesting bugs have been
+found by modifying the target programs to call `abort()` when say:
+
+- Two bignum libraries produce different outputs when given the same
+  fuzzer-generated input.
+
+- An image library produces different outputs when asked to decode the same
+  input image several times in a row.
+
+- A serialization/deserialization library fails to produce stable outputs when
+  iteratively serializing and deserializing fuzzer-supplied data.
+
+- A compression library produces an output inconsistent with the input file when
+  asked to compress and then decompress a particular blob.
+
+Implementing these or similar sanity checks usually takes very little time; if
+you are the maintainer of a particular package, you can make this code
+conditional with `#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION` (a flag also
+shared with libfuzzer and honggfuzz) or `#ifdef __AFL_COMPILER` (this one is
+just for AFL++).
+
+#### j) Known limitations & areas for improvement
+
+Here are some of the most important caveats for AFL++:
+
+- AFL++ detects faults by checking for the first spawned process dying due to a
+  signal (SIGSEGV, SIGABRT, etc). Programs that install custom handlers for
+  these signals may need to have the relevant code commented out. In the same
+  vein, faults in child processes spawned by the fuzzed target may evade
+  detection unless you manually add some code to catch that.
+
+- As with any other brute-force tool, the fuzzer offers limited coverage if
+  encryption, checksums, cryptographic signatures, or compression are used to
+  wholly wrap the actual data format to be tested.
+
+  To work around this, you can comment out the relevant checks (see
+  utils/libpng_no_checksum/ for inspiration); if this is not possible, you can
+  also write a postprocessor, one of the hooks of custom mutators. See
+  [custom_mutators.md](custom_mutators.md) on how to use
+  `AFL_CUSTOM_MUTATOR_LIBRARY`.
+
+- There are some unfortunate trade-offs with ASAN and 64-bit binaries. This
+  isn't due to any specific fault of afl-fuzz.
+
+- There is no direct support for fuzzing network services, background daemons,
+  or interactive apps that require UI interaction to work. You may need to make
+  simple code changes to make them behave in a more traditional way. Preeny may
+  offer a relatively simple option, too - see:
+  [https://github.com/zardus/preeny](https://github.com/zardus/preeny)
+
+  Some useful tips for modifying network-based services can be also found at:
+  [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)
+
+- Occasionally, sentient machines rise against their creators. If this happens
+  to you, please consult
+  [https://lcamtuf.coredump.cx/prep/](https://lcamtuf.coredump.cx/prep/).
+
+Beyond this, see [INSTALL.md](INSTALL.md) for platform-specific tips.
+
+### 4. Triaging crashes
+
+The coverage-based grouping of crashes usually produces a small data set that
+can be quickly triaged manually or with a very simple GDB or Valgrind script.
+Every crash is also traceable to its parent non-crashing test case in the queue,
+making it easier to diagnose faults.
+
+Having said that, it's important to acknowledge that some fuzzing crashes can be
+difficult to quickly evaluate for exploitability without a lot of debugging and
+code analysis work. To assist with this task, afl-fuzz supports a very unique
+"crash exploration" mode enabled with the -C flag.
+
+In this mode, the fuzzer takes one or more crashing test cases as the input and
+uses its feedback-driven fuzzing strategies to very quickly enumerate all code
+paths that can be reached in the program while keeping it in the crashing state.
+
+Mutations that do not result in a crash are rejected; so are any changes that do
+not affect the execution path.
+
+The output is a small corpus of files that can be very rapidly examined to see
+what degree of control the attacker has over the faulting address, or whether it
+is possible to get past an initial out-of-bounds read - and see what lies
+beneath.
+
+Oh, one more thing: for test case minimization, give afl-tmin a try. The tool
+can be operated in a very simple way:
+
+```shell
+./afl-tmin -i test_case -o minimized_result -- /path/to/program [...]
+```
+
+The tool works with crashing and non-crashing test cases alike. In the crash
+mode, it will happily accept instrumented and non-instrumented binaries. In the
+non-crashing mode, the minimizer relies on standard AFL++ instrumentation to
+make the file simpler without altering the execution path.
+
+The minimizer accepts the -m, -t, -f and @@ syntax in a manner compatible with
+afl-fuzz.
+
+Another tool in AFL++ is the afl-analyze tool. It takes an input file, attempts
+to sequentially flip bytes, and observes the behavior of the tested program. It
+then color-codes the input based on which sections appear to be critical, and
+which are not; while not bulletproof, it can often offer quick insights into
+complex file formats. More info about its operation can be found near the end of
+[technical_details.md](technical_details.md).
 
 ### The End
 
