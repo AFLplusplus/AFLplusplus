@@ -60,8 +60,8 @@ To build AFL++ yourself, continue at [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Quick start: Fuzzing with AFL++
 
-*NOTE: Before you start, please read about the [common sense risks of
-fuzzing](docs/common_sense_risks.md).*
+*NOTE: Before you start, please read about the
+[common sense risks of fuzzing](docs/fuzzing_in_depth.md#0-common-sense-risks).*
 
 This is a quick start for fuzzing targets with the source code available. To
 read about the process in detail, see
