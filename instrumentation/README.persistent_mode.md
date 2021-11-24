@@ -164,10 +164,9 @@ you do not fully reset the critical state, you may end up with false positives
 or waste a whole lot of CPU power doing nothing useful at all. Be particularly
 wary of memory leaks and of the state of file descriptors.
 
-PS. Because there are task switches still involved, the mode isn't as fast as
-"pure" in-process fuzzing offered, say, by LLVM's LibFuzzer; but it is a lot
-faster than the normal `fork()` model, and compared to in-process fuzzing,
-should be a lot more robust.
+When running in this mode, the execution paths will inherently vary a bit
+depending on whether the input loop is being entered for the first time or
+executed again.
 
 ## 5) Shared memory fuzzing
 
