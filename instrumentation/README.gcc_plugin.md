@@ -87,89 +87,13 @@ reports to afl@aflplus.plus.
 
 ## 4) Bonus feature #1: deferred initialization
 
-AFL++ tries to optimize performance by executing the targeted binary just once,
-stopping it just before `main()`, and then cloning this "main" process to get a
-steady supply of targets to fuzz.
-
-Although this approach eliminates much of the OS-, linker- and libc-level costs
-of executing the program, it does not always help with binaries that perform
-other time-consuming initialization steps - say, parsing a large config file
-before getting to the fuzzed data.
-
-In such cases, it's beneficial to initialize the forkserver a bit later, once
-most of the initialization work is already done, but before the binary attempts
-to read the fuzzed input and parse it; in some cases, this can offer a 10x+
-performance gain. You can implement delayed initialization in GCC mode in a
-fairly simple way:
-
-First, locate a suitable location in the code where the delayed cloning can take
-place. This needs to be done with *extreme* care to avoid breaking the binary.
-In particular, the program will probably malfunction if you select a location
-after:
-
-- The creation of any vital threads or child processes - since the forkserver
-  can't clone them easily.
-
-- The initialization of timers via `setitimer()` or equivalent calls.
-
-- The creation of temporary files, network sockets, offset-sensitive file
-  descriptors, and similar shared-state resources - but only provided that their
-  state meaningfully influences the behavior of the program later on.
-
-- Any access to the fuzzed input, including reading the metadata about its size.
-
-With the location selected, add this code in the appropriate spot:
-
-```c
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-  __AFL_INIT();
-#endif
-```
-
-You don't need the #ifdef guards, but they will make the program still work as
-usual when compiled with a compiler other than afl-gcc-fast/afl-clang-fast.
-
-Finally, recompile the program with afl-gcc-fast (afl-gcc or afl-clang will
-*not* generate a deferred-initialization binary) - and you should be all set!
+See
+[README.persistent_mode.md#3) Deferred initialization](README.persistent_mode.md#3-deferred-initialization).
 
 ## 5) Bonus feature #2: persistent mode
 
-Some libraries provide APIs that are stateless or whose state can be reset in
-between processing different input files. When such a reset is performed, a
-single long-lived process can be reused to try out multiple test cases,
-eliminating the need for repeated `fork()` calls and the associated OS overhead.
-
-The basic structure of the program that does this would be:
-
-```c
-  while (__AFL_LOOP(1000)) {
-
-    /* Read input data. */
-    /* Call library code to be fuzzed. */
-    /* Reset state. */
-
-  }
-
-  /* Exit normally. */
-```
-
-The numerical value specified within the loop controls the maximum number of
-iterations before AFL++ will restart the process from scratch. This minimizes
-the impact of memory leaks and similar glitches; 1000 is a good starting point.
-
-A more detailed template is shown in ../utils/persistent_mode/. Similarly to the
-previous mode, the feature works only with afl-gcc-fast or afl-clang-fast;
-#ifdef guards can be used to suppress it when using other compilers.
-
-Note that as with the previous mode, the feature is easy to misuse; if you do
-not reset the critical state fully, you may end up with false positives or waste
-a whole lot of CPU power doing nothing useful at all. Be particularly wary of
-memory leaks and the state of file descriptors.
-
-When running in this mode, the execution paths will inherently vary a bit
-depending on whether the input loop is being entered for the first time or
-executed again. To avoid spurious warnings, the feature implies
-`AFL_NO_VAR_CHECK` and hides the "variable path" warnings in the UI.
+See
+[README.persistent_mode.md#4) Persistent mode](README.persistent_mode.md#4-persistent-mode).
 
 ## 6) Bonus feature #3: selective instrumentation
 
