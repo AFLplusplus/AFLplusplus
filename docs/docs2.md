@@ -66,9 +66,9 @@ structuring documentation.
 Few fit that profile and we sent out messages to 6 people.
 We finally decided on Jana because she had a strong background in technical
 documentation and structuring information.
-She had no technical experience in fuzzing whatsoever, but this was a plus - 
-of course this made the whole process longer to explain details, but overall
-ensured that the documentation can be read by (mostly) everyone.
+She had no technical experience in fuzzing whatsoever, but we saw that as
+a plus - of course this made the whole process longer to explain details,
+but overall ensured that the documentation can be read by (mostly) everyone.
 
 The project was off to a good start, but then Jana got pregnant with serious
 side effects that made working impossible for her for a longer time, hence
@@ -80,13 +80,12 @@ basically a full restart of the project and a large impact on our own time.
 So we agreed on - after discussion with the Google GSoD team - that she
 continues the project after the GSoD completion deadline as best as she can.
 
+End of November she took one week off from work and fully dedicated her time
+for the documenation which brought the project a big step forward.
+
 Originally the project should have been ended begin of October, but now - at
-mid of November, we are at about 65% completion, with a completion hopefully
-in January or February next year.
-The most important parts of the documentation have been restructured and
-rewritten (the user how-to parts) with some smaller todos left, the in-depth
-documentation on the inner workings as well as the workflow diagrams are still
-to be done.
+nearing the end of November, we are at about 85% completion, with the end
+being expected around mid of December.
 
 ## Metrics
 
@@ -94,6 +93,8 @@ We merged most of the changes in our development branch and are getting
 close to a state where the user documentation part is completed and we
 can create a new release. Only then the new documentatin is actually visible
 to users. Therefore no metrics could be collected so far.
+
+We plan on a user-assisted QA review end of November/begin of December.
 
 The documentation was reviewed by a few test users so far however who gave
 it a thumbs up.
