@@ -336,21 +336,18 @@ target as possible improves the efficiency a lot.
 
 To operate correctly, the fuzzer requires one or more starting files that
 contain a good example of the input data normally expected by the targeted
-application. There are two basic rules:
+application.
 
-- Keep the files small. Under 1 kB is ideal, although not strictly necessary.
-  For a discussion of why size matters, see [perf_tips.md](perf_tips.md).
+Try to gather valid inputs for the target from wherever you can. E.g., if it is
+the PNG picture format, try to find as many PNG files as possible, e.g., from
+reported bugs, test suites, random downloads from the internet, unit test case
+data - from all kind of PNG software.
 
-- Use multiple test cases only if they are functionally different from each
-  other. There is no point in using fifty different vacation photos to fuzz an
-  image library.
+If the input format is not known, you can also modify a target program to write
+normal data it receives and processes to a file and use these.
 
 You can find many good examples of starting files in the
 [testcases/](../testcases) subdirectory that comes with this tool.
-
-PS. If a large corpus of data is available for screening, you may want to use
-the afl-cmin utility to identify a subset of functionally distinct files that
-exercise different code paths in the target binary.
 
 #### b) Making the input corpus unique
 
@@ -787,8 +784,7 @@ Another tool in AFL++ is the afl-analyze tool. It takes an input file, attempts
 to sequentially flip bytes, and observes the behavior of the tested program. It
 then color-codes the input based on which sections appear to be critical, and
 which are not; while not bulletproof, it can often offer quick insights into
-complex file formats. More info about its operation can be found near the end of
-[technical_details.md](technical_details.md).
+complex file formats.
 
 ### The End
 
