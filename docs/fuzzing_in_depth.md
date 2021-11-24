@@ -419,7 +419,7 @@ as test data in there.
 
 If you do not want anything special, the defaults are already usually best,
 hence all you need is to specify the seed input directory with the result of
-step [2a. Collect inputs](#a-collect-inputs):
+step [2a) Collect inputs](#a-collect-inputs):
 `afl-fuzz -i input -o output -- bin/target -d @@`
 Note that the directory specified with -o will be created if it does not exist.
 
@@ -437,11 +437,6 @@ If you need to stop and re-start the fuzzing, use the same command line options
 (or even change them by selecting a different power schedule or another mutation
 mode!) and switch the input directory with a dash (`-`):
 `afl-fuzz -i - -o output -- bin/target -d @@`
-
-Memory limits are not enforced by afl-fuzz by default and the system may run out
-of memory. You can decrease the memory with the `-m` option, the value is in MB.
-If this is too small for the target, you can usually see this by afl-fuzz
-bailing with the message that it could not connect to the forkserver.
 
 Adding a dictionary is helpful. See the directory
 [dictionaries/](../dictionaries/) if something is already included for your data
@@ -472,7 +467,26 @@ is:
 
 All labels are explained in [status_screen.md](status_screen.md).
 
-#### b) Using multiple cores
+#### b) Keeping memory use and timeouts in check
+
+Memory limits are not enforced by afl-fuzz by default and the system may run out
+of memory. You can decrease the memory with the `-m` option, the value is in MB.
+If this is too small for the target, you can usually see this by afl-fuzz
+bailing with the message that it could not connect to the forkserver.
+
+Consider setting low values for `-m` and `-t`.
+
+For programs that are nominally very fast, but get sluggish for some inputs, you
+can also try setting `-t` values that are more punishing than what `afl-fuzz`
+dares to use on its own. On fast and idle machines, going down to `-t 5` may be
+a viable plan.
+
+The `-m` parameter is worth looking at, too. Some programs can end up spending a
+fair amount of time allocating and initializing megabytes of memory when
+presented with pathological inputs. Low `-m` values can make them give up sooner
+and not waste CPU time.
+
+#### c) Using multiple cores
 
 If you want to seriously fuzz then use as many cores/threads as possible to fuzz
 your target.
@@ -537,7 +551,7 @@ directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`. Using
 honggfuzz (with `-n 1` or `-n 2`) and libfuzzer in parallel is highly
 recommended!
 
-#### c) Using multiple machines for fuzzing
+#### d) Using multiple machines for fuzzing
 
 Maybe you have more than one machine you want to fuzz the same target on.
 Simply start the `afl-fuzz` (and perhaps libfuzzer, honggfuzz, ...)
@@ -575,7 +589,7 @@ done
 You can run this manually, per cron job - as you need it. There is a more
 complex and configurable script in `utils/distributed_fuzzing`.
 
-#### d) The status of the fuzz campaign
+#### e) The status of the fuzz campaign
 
 AFL++ comes with the `afl-whatsup` script to show the status of the fuzzing
 campaign.
@@ -593,7 +607,7 @@ afl-plot, which generates an index.html file and a graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,
 e.g., `afl-plot out/default /srv/www/htdocs/plot`.
 
-#### e) Stopping fuzzing, restarting fuzzing, adding new seeds
+#### f) Stopping fuzzing, restarting fuzzing, adding new seeds
 
 To stop an afl-fuzz run, simply press Control-C.
 
@@ -608,7 +622,7 @@ are in `newseeds/` directory:
 AFL_BENCH_JUST_ONE=1 AFL_FAST_CAL=1 afl-fuzz -i newseeds -o out -S newseeds -- ./target
 ```
 
-#### f) Checking the coverage of the fuzzing
+#### g) Checking the coverage of the fuzzing
 
 The `paths found` value is a bad indicator for checking how good the coverage
 is.
@@ -648,7 +662,7 @@ individual fuzzing campaigns each with one of these options set. E.g., if you
 fuzz a library to convert image formats and your target is the png to tiff API
 then you will not touch any of the other library APIs and features.
 
-#### g) How long to fuzz a target?
+#### h) How long to fuzz a target?
 
 This is a difficult question. Basically if no new path is found for a long time
 (e.g. for a day or a week) then you can expect that your fuzzing won't be
@@ -660,7 +674,7 @@ Keep the queue/ directory (for future fuzzings of the same or similar targets)
 and use them to seed other good fuzzers like libfuzzer with the -entropic switch
 or honggfuzz.
 
-#### h) Improve the speed!
+#### i) Improve the speed!
 
 * Use [persistent mode](../instrumentation/README.persistent_mode.md) (x2-x20
   speed increase)
@@ -675,11 +689,11 @@ or honggfuzz.
   also just run `sudo afl-persistent-config`
 * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a
   bit faster than on any other journaling filesystem
-* Use your cores! [b) Using multiple cores](#b-using-multiple-cores)
+* Use your cores! [3c) Using multiple cores](#c-using-multiple-cores)
 * Run `sudo afl-system-config` before starting the first afl-fuzz instance after
   a reboot
 
-#### i) Going beyond crashes
+#### j) Going beyond crashes
 
 Fuzzing is a wonderful and underutilized technique for discovering non-crashing
 design and implementation errors, too. Quite a few interesting bugs have been
@@ -703,7 +717,7 @@ conditional with `#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION` (a flag also
 shared with libfuzzer and honggfuzz) or `#ifdef __AFL_COMPILER` (this one is
 just for AFL++).
 
-#### j) Known limitations & areas for improvement
+#### k) Known limitations & areas for improvement
 
 Here are some of the most important caveats for AFL++:
 
