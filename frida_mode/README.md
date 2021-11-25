@@ -5,13 +5,7 @@ AFL++ just like that provided by QEMU mode. The intention is to provide a very
 similar user experience, right down to the options provided through environment
 variables.
 
-Whilst AFL++ already has some support for running on FRIDA
-[here](https://github.com/AFLplusplus/AFLplusplus/tree/stable/utils/afl_frida),
-this requires the code to be fuzzed to be provided as a shared library, it
-cannot be used to fuzz executables. Additionally, it requires the user to write
-a small harness around their target code of interest. FRIDA mode instead takes a
-different approach to avoid these limitations. In FRIDA mode, binary programs
-are instrumented, similarly to QEMU mode.
+In FRIDA mode, binary programs are instrumented, similarly to QEMU mode.
 
 ## Current progress
 
@@ -19,19 +13,19 @@ As FRIDA mode is new, it is missing a lot of features. The design is such that
 it should be possible to add these features in a similar manner to QEMU mode and
 perhaps leverage some of its design and implementation.
 
-| Feature/Instrumentation  | frida-mode | Notes                                        |
-| -------------------------|:----------:|:--------------------------------------------:|
-| NeverZero                |     x      |                                              |
-| Persistent Mode          |     x      | (x86/x64/aarch64 only)                       |
-| LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)           |
-| CMPLOG                   |     x      | (x86/x64/aarch64 only)                       |
-| Selective Instrumentation|     x      |                                              |
+| Feature/Instrumentation  | FRIDA mode | Notes                                         |
+| -------------------------|:----------:|:---------------------------------------------:|
+| NeverZero                |     x      |                                               |
+| Persistent Mode          |     x      | (x86/x64/aarch64 only)                        |
+| LAF-Intel / CompCov      |     -      | (CMPLOG is better 90% of the time)            |
+| CMPLOG                   |     x      | (x86/x64/aarch64 only)                        |
+| Selective Instrumentation|     x      |                                               |
 | Non-Colliding Coverage   |     -      | (not possible in binary-only instrumentation) |
-| Ngram prev_loc Coverage  |     -      |                                              |
-| Context Coverage         |     -      |                                              |
-| Auto Dictionary          |     -      |                                              |
-| Snapshot LKM Support     |     -      |                                              |
-| In-Memory Test Cases     |     x      | (x86/x64/aarch64 only)                       |
+| Ngram prev_loc Coverage  |     -      |                                               |
+| Context Coverage         |     -      |                                               |
+| Auto Dictionary          |     -      |                                               |
+| Snapshot LKM Support     |     -      |                                               |
+| In-Memory Test Cases     |     x      | (x86/x64/aarch64 only)                        |
 
 ## Compatibility
 
@@ -47,7 +41,7 @@ system does not support cross compilation.
 
 To build everything, run `make`. To build for x86, run `make 32`. Note that in
 x86 bit mode, it is not necessary for afl-fuzz to be built for 32-bit. However,
-the shared library for frida_mode must be since it is injected into the target
+the shared library for FRIDA mode must be since it is injected into the target
 process.
 
 Various tests can be found in subfolders within the `test/` directory. To use
