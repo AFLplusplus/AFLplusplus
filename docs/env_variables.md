@@ -171,7 +171,7 @@ config.h to at least 18 and maybe up to 20 for this as otherwise too many map
 collisions occur.
 
 For more information, see
-[instrumentation/README.llvm.md#6) AFL Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
+[instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
 
 #### INSTRUMENT LIST (selectively instrument files and functions)
 
@@ -247,7 +247,7 @@ in config.h to at least 18 and maybe up to 20 for this as otherwise too many map
 collisions occur.
 
 For more information, see
-[instrumentation/README.llvm.md#7) AFL N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
+[instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
 
 #### NOT_ZERO
 
