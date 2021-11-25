@@ -112,8 +112,8 @@ are interested in:
 
 There are many more options and modes available however these are most of the
 time less effective. See:
- * [instrumentation/README.llvm.md#6) AFL Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
- * [instrumentation/README.llvm.md#7) AFL N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage)
+ * [instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
+ * [instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage)
 
 #### c) Sanitizers
 

@@ -9,8 +9,8 @@ For the GCC-based instrumentation, see
 
 ! llvm_mode works with llvm versions 3.8 up to 13 !
 
-The code in this directory allows you to instrument programs for AFL using true
-compiler-level instrumentation, instead of the more crude assembly-level
+The code in this directory allows you to instrument programs for AFL++ using
+true compiler-level instrumentation, instead of the more crude assembly-level
 rewriting approach taken by afl-gcc and afl-clang. This has several interesting
 properties:
 
@@ -134,11 +134,11 @@ Then there are different ways of instrumenting the target:
 2a. N-GRAM coverage - which combines the previous visited edges with the current
     one. This explodes the map but on the other hand has proven to be effective
     for fuzzing. See
-    [7) AFL N-Gram Branch Coverage](#7-afl-n-gram-branch-coverage).
+    [7) AFL++ N-Gram Branch Coverage](#7-afl-n-gram-branch-coverage).
 
 2b. Context sensitive coverage - which combines the visited edges with an
     individual caller ID (the function that called the current one). See
-    [6) AFL Context Sensitive Branch Coverage](#6-afl-context-sensitive-branch-coverage).
+    [6) AFL++ Context Sensitive Branch Coverage](#6-afl-context-sensitive-branch-coverage).
 
 Then - additionally to one of the instrumentation options above - there is a
 very effective new instrumentation option called CmpLog as an alternative to
@@ -166,7 +166,7 @@ Just specify `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` and during compilation
 all constant string compare parameters will be written to this file to be used
 with afl-fuzz' `-x` option.
 
-## 6) AFL Context Sensitive Branch Coverage
+## 6) AFL++ Context Sensitive Branch Coverage
 
 ### What is this?
 
@@ -206,7 +206,7 @@ previous_location_ID >> 1 ^ previous_callee_ID] += 1`
 Set the `AFL_LLVM_INSTRUMENT=CALLER` or `AFL_LLVM_CALLER=1` environment
 variable.
 
-## 7) AFL N-Gram Branch Coverage
+## 7) AFL++ N-Gram Branch Coverage
 
 ### Source
 
