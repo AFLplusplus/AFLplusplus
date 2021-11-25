@@ -70,6 +70,10 @@ She had no technical experience in fuzzing whatsoever, but we saw that as
 a plus - of course this made the whole process longer to explain details,
 but overall ensured that the documentation can be read by (mostly) everyone.
 
+We communicated via video calls every few weeks and she kept a public kanban
+board about her todos, additional we used a Signal channel.
+Her changes were imported via PRs where we discussed details.
+
 The project was off to a good start, but then Jana got pregnant with serious
 side effects that made working impossible for her for a longer time, hence
 the schedule was thrown back.
