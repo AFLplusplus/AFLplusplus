@@ -516,7 +516,7 @@ For every secondary fuzzer there should be a variation, e.g.:
 * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV (see
   above). Important note: If you run more than one laf-intel/COMPCOV fuzzer and
   you want them to share their intermediate results, the main fuzzer (`-M`) must
-  be one of the them! (Although this is not really recommended.)
+  be one of them! (Although this is not really recommended.)
 
 All other secondaries should be used like this:
 * a quarter to a third with the MOpt mutator enabled: `-L 0`
