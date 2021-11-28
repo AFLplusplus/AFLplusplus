@@ -16,6 +16,8 @@ env NO_ARCH_OPT 1
 RUN apt-get update && \
     apt-get -y install --no-install-suggests --no-install-recommends \
     automake \
+    cmake \
+    meson \
     ninja-build \
     bison flex \
     build-essential \
