@@ -104,10 +104,7 @@ Step-by-step quick start:
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting
    [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen).
 
-5. Interpret the output, see
-   [docs/afl-fuzz_approach.md#interpreting-output](docs/afl-fuzz_approach.md#interpreting-output).
-
-6. You will find found crashes and hangs in the subdirectories `crashes/` and
+5. You will find found crashes and hangs in the subdirectories `crashes/` and
    `hangs/` in the `-o output_dir` directory. You can replay the crashes by
    feeding them to the target, e.g.:
 
