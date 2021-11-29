@@ -1892,9 +1892,13 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!len)) return;
-  int len1 = MIN(31, strlen(ptr1) + 1);
-  int len2 = MIN(31, strlen(ptr2) + 1);
-  int l = MIN(MAX(len1, len2), 31);
+  int len0 = MIN(len, 31);
+  int len1 = strnlen(ptr1, len0);
+  if (len1 < 31) len1 = area_is_valid(ptr1, len1 + 1);
+  int len2 = strnlen(ptr2, len0);
+  if (len2 < 31) len2 = area_is_valid(ptr1, len2 + 1);
+  int l = MAX(len1, len2);
+  if (l < 2) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -1937,9 +1941,10 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!ptr1 || !ptr2)) return;
-  int len1 = MIN(31, strlen(ptr1) + 1);
-  int len2 = MIN(31, strlen(ptr2) + 1);
-  int l = MIN(MAX(len1, len2), 31);
+  int len1 = strnlen(ptr1, 30) + 1;
+  int len2 = strnlen(ptr2, 30) + 1;
+  int l = MAX(len1, len2);
+  if (l < 3) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
