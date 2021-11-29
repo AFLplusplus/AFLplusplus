@@ -246,7 +246,7 @@ void instrument_config(void) {
   instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
   instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
   instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
-  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
+  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED", 0);
   instrument_coverage_unstable_filename =
       (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
 

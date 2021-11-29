@@ -1,11 +1,11 @@
 #include "util.h"
 
-guint64 util_read_address(char *key) {
+guint64 util_read_address(char *key, guint64 default_value) {
 
   char *value_str = getenv(key);
   char *end_ptr;
 
-  if (value_str == NULL) { return 0; }
+  if (value_str == NULL) { return default_value; }
 
   if (!g_str_has_prefix(value_str, "0x")) {
 
@@ -46,12 +46,12 @@ guint64 util_read_address(char *key) {
 
 }
 
-guint64 util_read_num(char *key) {
+guint64 util_read_num(char *key, guint64 default_value) {
 
   char *value_str = getenv(key);
   char *end_ptr;
 
-  if (value_str == NULL) { return 0; }
+  if (value_str == NULL) { return default_value; }
 
   for (char *c = value_str; *c != '\0'; c++) {
 
