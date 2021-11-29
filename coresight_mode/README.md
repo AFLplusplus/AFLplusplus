@@ -1,12 +1,16 @@
 # AFL++ CoreSight mode
 
-CoreSight mode enables binary-only fuzzing on ARM64 Linux using CoreSight.
+CoreSight mode enables binary-only fuzzing on ARM64 Linux using CoreSight (ARM's hardware tracing technology).
 
 NOTE: CoreSight mode is in the early development stage. Not applicable for production use.
+Currently the following hardware boards are supported: 
+* NVIDIA Jetson TX2 (NVIDIA Parker)
+* NVIDIA Jetson Nano (NVIDIA Tegra X1)
+* GIGABYTE R181-T90 (Marvell ThunderX2 CN99XX)
 
 ## Getting started
 
-Please read the [RICSec/coresight-trace README](https://github.com/RICSecLab/coresight-trace/blob/master/README.md) and check the prerequisites before getting started.
+Please read the [RICSec/coresight-trace README](https://github.com/RICSecLab/coresight-trace/blob/master/README.md) and check the prerequisites (capstone) before getting started.
 
 CoreSight mode supports the AFL fork server mode to reduce `exec` system call overhead. To support it for binary-only fuzzing, it needs to modify the target ELF binary to re-link to the patched glibc. We employ this design from [PTrix](https://github.com/junxzm1990/afl-pt).
 
