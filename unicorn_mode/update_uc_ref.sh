@@ -21,10 +21,10 @@ fi
 
 git submodule init && git submodule update unicornafl || exit 1
 cd ./unicornafl || exit 1
-git fetch origin dev 1>/dev/null || exit 1
+git fetch origin main 1>/dev/null || exit 1
 git stash 1>/dev/null 2>/dev/null
 git stash drop 1>/dev/null 2>/dev/null
-git checkout dev
+git checkout main
 
 if [ -z "$NEW_VERSION" ]; then
   # No version provided, take HEAD.
