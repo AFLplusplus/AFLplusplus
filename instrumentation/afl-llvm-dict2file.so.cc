@@ -291,7 +291,6 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           bool   isIntMemcpy = true;
           bool   isStdString = true;
           bool   isStrstr = true;
-          bool   addedNull = false;
           size_t optLen = 0;
 
           Function *Callee = callInst->getCalledFunction();
@@ -590,8 +589,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               if (optLen < 2) { continue; }
               if (literalLength + 1 == optLen) {  // add null byte
+
                 thestring.append("\0", 1);
-                addedNull = true;
 
               }
 
@@ -603,14 +602,17 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           // was not already added
           if (!isMemcmp) {
 
-            if (addedNull == false && thestring[optLen - 1] != '\0') {
+            /*
+                        if (addedNull == false && thestring[optLen - 1] != '\0')
+               {
 
-              thestring.append("\0", 1);  // add null byte
-              optLen++;
+                          thestring.append("\0", 1);  // add null byte
+                          optLen++;
 
-            }
+                        }
 
-            if (!isStdString) {
+            */
+            if (!isStdString && thestring.find('\0', 0) != std::string::npos) {
 
               // ensure we do not have garbage
               size_t offset = thestring.find('\0', 0);
