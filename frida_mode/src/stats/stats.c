@@ -323,7 +323,7 @@ static void stats_observer_init(GumStalkerObserver *observer) {
 void stats_config(void) {
 
   stats_filename = getenv("AFL_FRIDA_STATS_FILE");
-  stats_interval = util_read_num("AFL_FRIDA_STATS_INTERVAL");
+  stats_interval = util_read_num("AFL_FRIDA_STATS_INTERVAL", 10);
 
 }
 
@@ -332,7 +332,8 @@ void stats_init(void) {
   FOKF("Stats - file [%s]", stats_filename);
   FOKF("Stats - interval [%" G_GINT64_MODIFIER "u]", stats_interval);
 
-  if (stats_interval != 0 && stats_filename == NULL) {
+  if (getenv("AFL_FRIDA_STATS_INTERVAL") != NULL &&
+      getenv("AFL_FRIDA_STATS_FILE") == NULL) {
 
     FFATAL(
         "AFL_FRIDA_STATS_FILE must be specified if "
@@ -340,7 +341,6 @@ void stats_init(void) {
 
   }
 
-  if (stats_interval == 0) { stats_interval = 10; }
   stats_interval_us = stats_interval * MICRO_TO_SEC;
 
   if (stats_filename == NULL) { return; }
