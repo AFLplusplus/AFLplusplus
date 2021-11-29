@@ -171,7 +171,7 @@ config.h to at least 18 and maybe up to 20 for this as otherwise too many map
 collisions occur.
 
 For more information, see
-[instrumentation/README.ctx.md](../instrumentation/README.ctx.md).
+[instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
 
 #### INSTRUMENT LIST (selectively instrument files and functions)
 
@@ -247,7 +247,7 @@ in config.h to at least 18 and maybe up to 20 for this as otherwise too many map
 collisions occur.
 
 For more information, see
-[instrumentation/README.ngram.md](../instrumentation/README.ngram.md).
+[instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
 
 #### NOT_ZERO
 
@@ -260,9 +260,6 @@ For more information, see
   - Setting `AFL_LLVM_SKIP_NEVERZERO=1` will not implement the skip zero test.
     If the target performs only a few loops, then this will give a small
     performance boost.
-
-For more information, see
-[instrumentation/README.neverzero.md](../instrumentation/README.neverzero.md).
 
 #### Thread safe instrumentation counters (in all modes)
 
