@@ -61,9 +61,9 @@ void stalker_config(void) {
 
   backpatch_enable = (getenv("AFL_FRIDA_INST_NO_BACKPATCH") == NULL);
 
-  stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_ADJACENT_BLOCKS");
+  stalker_adjacent_blocks = util_read_num("AFL_FRIDA_STALKER_ADJACENT_BLOCKS");
 
-  stalker_adjacent_blocks = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES");
+  stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES");
 
   observer = g_object_new(GUM_TYPE_AFL_STALKER_OBSERVER, NULL);
 
