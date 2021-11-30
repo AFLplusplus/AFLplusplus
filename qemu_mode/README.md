@@ -217,5 +217,6 @@ them at run time, can be a faster alternative. That said, static rewriting is
 fraught with peril, because it depends on being able to properly and fully model
 program control flow without actually executing each and every code path.
 
-Checkout the "Fuzzing binary-only targets" section in our main README.md and
-the docs/binaryonly_fuzzing.md document for more information and hints.
+Check out
+[docs/fuzzing_binary-only_targets.md](../docs/fuzzing_binary-only_targets.md)
+for more information and hints.

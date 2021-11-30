@@ -7,15 +7,15 @@ targets.
 
 Just do `afl-clang-fast++ -o fuzz fuzzer_harness.cc libAFLDriver.a [plus required linking]`.
 
-You can also sneakily do this little trick: 
+You can also sneakily do this little trick:
 If this is the clang compile command to build for libfuzzer:
   `clang++ -o fuzz -fsanitize=fuzzer fuzzer_harness.cc -lfoo`
 then just switch `clang++` with `afl-clang-fast++` and our compiler will
 magically insert libAFLDriver.a :)
 
-To use shared-memory testcases, you need nothing to do.
-To use stdin testcases give `-` as the only command line parameter.
-To use file input testcases give `@@` as the only command line parameter.
+To use shared-memory test cases, you need nothing to do.
+To use stdin test cases, give `-` as the only command line parameter.
+To use file input test cases, give `@@` as the only command line parameter.
 
 IMPORTANT: if you use `afl-cmin` or `afl-cmin.bash` then either pass `-`
 or `@@` as command line parameters.
@@ -30,8 +30,8 @@ are to be fuzzed in qemu_mode. So we compile them with clang/clang++, without
 
 `clang++ -o fuzz fuzzer_harness.cc libAFLQemuDriver.a [plus required linking]`.
 
-
 Then just do (where the name of the binary is `fuzz`):
+
 ```
 AFL_QEMU_PERSISTENT_ADDR=0x$(nm fuzz | grep "T LLVMFuzzerTestOneInput" | awk '{print $1}')
 AFL_QEMU_PERSISTENT_HOOK=/path/to/aflpp_qemu_driver_hook.so afl-fuzz -Q ... -- ./fuzz`

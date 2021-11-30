@@ -143,7 +143,7 @@ Available options:
   - CLANG - outdated clang instrumentation
   - CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
 
-    You can also specify CTX and/or NGRAM, seperate the options with a comma ","
+    You can also specify CTX and/or NGRAM, separate the options with a comma ","
     then, e.g.: `AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4`
 
     Note: It is actually not a good idea to use both CTX and NGRAM. :)
@@ -303,8 +303,9 @@ checks or alter some of the more exotic semantics of the tool:
     exit soon after the first crash is found.
 
   - `AFL_CMPLOG_ONLY_NEW` will only perform the expensive cmplog feature for
-    newly found testcases and not for testcases that are loaded on startup (`-i
-    in`). This is an important feature to set when resuming a fuzzing session.
+    newly found test cases and not for test cases that are loaded on startup
+    (`-i in`). This is an important feature to set when resuming a fuzzing
+    session.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL treats as crash. For
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
@@ -444,8 +445,8 @@ checks or alter some of the more exotic semantics of the tool:
 
   - If you are using persistent mode (you should, see
     [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)),
-    some targets keep inherent state due which a detected crash testcase does
-    not crash the target again when the testcase is given. To be able to still
+    some targets keep inherent state due which a detected crash test case does
+    not crash the target again when the test case is given. To be able to still
     re-trigger these crashes, you can use the `AFL_PERSISTENT_RECORD` variable
     with a value of how many previous fuzz cases to keep prio a crash. If set to
     e.g. 10, then the 9 previous inputs are written to out/default/crashes as
@@ -523,23 +524,23 @@ checks or alter some of the more exotic semantics of the tool:
 The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - Setting `AFL_COMPCOV_LEVEL` enables the CompareCoverage tracing of all cmp
-    and sub in x86 and x86_64 and memory comparions functions (e.g. strcmp,
+    and sub in x86 and x86_64 and memory comparison functions (e.g., strcmp,
     memcmp, ...) when libcompcov is preloaded using `AFL_PRELOAD`. More info at
     [qemu_mode/libcompcov/README.md](../qemu_mode/libcompcov/README.md).
 
     There are two levels at the moment, `AFL_COMPCOV_LEVEL=1` that instruments
     only comparisons with immediate values / read-only memory and
-    `AFL_COMPCOV_LEVEL=2` that instruments all the comparions. Level 2 is more
+    `AFL_COMPCOV_LEVEL=2` that instruments all the comparisons. Level 2 is more
     accurate but may need a larger shared memory.
 
-  - `AFL_DEBUG` will print the found entrypoint for the binary to stderr. Use
-    this if you are unsure if the entrypoint might be wrong - but use it
+  - `AFL_DEBUG` will print the found entry point for the binary to stderr. Use
+    this if you are unsure if the entry point might be wrong - but use it
     directly, e.g. `afl-qemu-trace ./program`.
 
-  - `AFL_ENTRYPOINT` allows you to specify a specific entrypoint into the binary
-    (this can be very good for the performance!). The entrypoint is specified as
-    hex address, e.g. `0x4004110`. Note that the address must be the address of
-    a basic block.
+  - `AFL_ENTRYPOINT` allows you to specify a specific entry point into the
+    binary (this can be very good for the performance!). The entry point is
+    specified as hex address, e.g. `0x4004110`. Note that the address must be
+    the address of a basic block.
 
   - Setting `AFL_INST_LIBS` causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
