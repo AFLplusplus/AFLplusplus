@@ -8,7 +8,7 @@ The code in this directory allows you to build a standalone feature that
 leverages the QEMU "user emulation" mode and allows callers to obtain
 instrumentation output for black-box, closed-source binaries. This mechanism can
 be then used by afl-fuzz to stress-test targets that couldn't be built with
-afl-gcc.
+afl-cc.
 
 The usual performance cost is 2-5x, which is considerably better than seen so
 far in experiments with tools such as DynamoRIO and PIN.
@@ -180,10 +180,10 @@ and instrument every basic block encountered.
 ## 11) Benchmarking
 
 If you want to compare the performance of the QEMU instrumentation with that of
-afl-gcc compiled code against the same target, you need to build the
+afl-clang-fast compiled code against the same target, you need to build the
 non-instrumented binary with the same optimization flags that are normally
-injected by afl-gcc, and make sure that the bits to be tested are statically
-linked into the binary. A common way to do this would be:
+injected by afl-clang-fast, and make sure that the bits to be tested are
+statically linked into the binary. A common way to do this would be:
 
 ```
 CFLAGS="-O3 -funroll-loops" ./configure --disable-shared
