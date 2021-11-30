@@ -10,13 +10,13 @@
 
 int seccomp_event_create(void) {
 
-#ifdef SYS_eventfd
+  #ifdef SYS_eventfd
   int fd = syscall(SYS_eventfd, 0, 0);
-#else
-# ifdef SYS_eventfd2
+  #else
+    #ifdef SYS_eventfd2
   int fd = syscall(SYS_eventfd2, 0, 0);
-# endif
-#endif
+    #endif
+  #endif
   if (fd < 0) { FFATAL("seccomp_event_create"); }
   return fd;
 

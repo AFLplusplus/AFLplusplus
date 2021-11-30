@@ -62,7 +62,7 @@ void entry_on_fork(void) {
 
 void entry_config(void) {
 
-  entry_point = util_read_address("AFL_ENTRYPOINT");
+  entry_point = util_read_address("AFL_ENTRYPOINT", 0);
   if (getenv("AFL_FRIDA_TRACEABLE") != NULL) { traceable = TRUE; }
 
 }

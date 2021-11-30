@@ -22,9 +22,9 @@ gboolean               persistent_debug = FALSE;
 void persistent_config(void) {
 
   hook_name = getenv("AFL_FRIDA_PERSISTENT_HOOK");
-  persistent_start = util_read_address("AFL_FRIDA_PERSISTENT_ADDR");
-  persistent_count = util_read_num("AFL_FRIDA_PERSISTENT_CNT");
-  persistent_ret = util_read_address("AFL_FRIDA_PERSISTENT_RET");
+  persistent_start = util_read_address("AFL_FRIDA_PERSISTENT_ADDR", 0);
+  persistent_count = util_read_num("AFL_FRIDA_PERSISTENT_CNT", 0);
+  persistent_ret = util_read_address("AFL_FRIDA_PERSISTENT_RET", 0);
 
   if (getenv("AFL_FRIDA_PERSISTENT_DEBUG") != NULL) { persistent_debug = TRUE; }
 

@@ -579,7 +579,92 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     emulation" variables (e.g., `QEMU_STACK_SIZE`), but there should be no
     reason to touch them.
 
-## 6) Settings for afl-cmin
+## 7) Settings for afl-frida-trace
+
+The FRIDA wrapper used to instrument binary-only code supports many of the same
+options as `afl-qemu-trace`, but also has a number of additional advanced
+options. These are listed in brief below (see [here](../frida_mode/README.md)
+for more details). These settings are provided for compatibiltiy with QEMU mode,
+the preferred way to configure FRIDA mode is through its
+[scripting](../frida_mode/Scripting.md) support.
+
+* `AFL_FRIDA_DEBUG_MAPS` - See `AFL_QEMU_DEBUG_MAPS`
+* `AFL_FRIDA_DRIVER_NO_HOOK` - See `AFL_QEMU_DRIVER_NO_HOOK`. When using the
+QEMU driver to provide a `main` loop for a user provided
+`LLVMFuzzerTestOneInput`, this option configures the driver to read input from
+`stdin` rather than using in-memory test cases.
+* `AFL_FRIDA_EXCLUDE_RANGES` - See `AFL_QEMU_EXCLUDE_RANGES`
+* `AFL_FRIDA_INST_COVERAGE_FILE` - File to write DynamoRio format coverage
+information (e.g. to be loaded within IDA lighthouse).
+* `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
+and their instrumented counterparts during block compilation.
+* `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
+code. Code is considered to be JIT if the executable segment is not backed by a
+file.
+* `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
+instrumentation (the default where available). Required to use
+`AFL_FRIDA_INST_TRACE`.
+* `AFL_FRIDA_INST_NO_BACKPATCH` - Disable backpatching. At the end of executing
+each block, control will return to FRIDA to identify the next block to execute.
+* `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
+report instrumented blocks back to the parent so that it can also instrument
+them and they be inherited by the next child on fork, implies
+`AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH`.
+* `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH` - Disable prefetching of stalker
+backpatching information. By default the child will report applied backpatches
+to the parent so that they can be applied and then be inherited by the next
+child on fork.
+* `AFL_FRIDA_INST_RANGES` - See `AFL_QEMU_INST_RANGES`
+* `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
+generate block (and hence edge) IDs. Setting this to a constant value may be
+useful for debugging purposes, e.g. investigating unstable edges.
+* `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
+implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
+is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
+* `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE` - File to write DynamoRio format
+coverage information for unstable edges (e.g. to be loaded within IDA
+lighthouse).
+* `AFL_FRIDA_JS_SCRIPT` - Set the script to be loaded by the FRIDA scripting
+engine. See [here](Scripting.md) for details.
+* `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
+application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
+* `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target
+application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
+* `AFL_FRIDA_PERSISTENT_ADDR` - See `AFL_QEMU_PERSISTENT_ADDR`
+* `AFL_FRIDA_PERSISTENT_CNT` - See `AFL_QEMU_PERSISTENT_CNT`
+* `AFL_FRIDA_PERSISTENT_DEBUG` - Insert a Breakpoint into the instrumented code
+at `AFL_FRIDA_PERSISTENT_HOOK` and `AFL_FRIDA_PERSISTENT_RET` to allow the user
+to detect issues in the persistent loop using a debugger.
+* `AFL_FRIDA_PERSISTENT_HOOK` - See `AFL_QEMU_PERSISTENT_HOOK`
+* `AFL_FRIDA_PERSISTENT_RET` - See `AFL_QEMU_PERSISTENT_RET`
+* `AFL_FRIDA_SECCOMP_FILE` - Write a log of any syscalls made by the target to
+the specified file.
+* `AFL_FRIDA_STALKER_ADJACENT_BLOCKS` - Configure the number of adjacent blocks
+ to fetch when generating instrumented code. By fetching blocks in the same
+ order they appear in the original program, rather than the order of execution
+ should help reduce locallity and adjacency. This includes allowing us to vector
+ between adjancent blocks using a NOP slide rather than an immediate branch.
+* `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
+stored along-side branch instructions which provide a cache to avoid having to
+call back into FRIDA to find the next block. Default is 32.
+* `AFL_FRIDA_STATS_FILE` - Write statistics information about the code being
+instrumented to the given file name. The statistics are written only for the
+child process when new block is instrumented (when the
+`AFL_FRIDA_STATS_INTERVAL` has expired). Note that simply because a new path is
+found does not mean a new block needs to be compiled. It could simply be that
+the existing blocks instrumented have been executed in a different order.
+* `AFL_FRIDA_STATS_INTERVAL` - The maximum frequency to output statistics
+information. Stats will be written whenever they are updated if the given
+interval has elapsed since last time they were written.
+* `AFL_FRIDA_TRACEABLE` - Set the child process to be traceable by any process
+to aid debugging and overcome the restrictions imposed by YAMA. Supported on
+Linux only. Permits a non-root user to use `gcore` or similar to collect a core
+dump of the instrumented target. Note that in order to capture the core dump you
+must set a sufficient timeout (using `-t`) to avoid `afl-fuzz` killing the
+process whilst it is being dumped.
+
+## 8) Settings for afl-cmin
 
 The corpus minimization script offers very little customization:
 
@@ -597,7 +682,7 @@ The corpus minimization script offers very little customization:
   - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
     This can help when embedding `afl-cmin` or `afl-showmap` in other scripts.
 
-## 7) Settings for afl-tmin
+## 9) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (`-Q`), `AFL_PATH` will be
 searched for afl-qemu-trace. In addition to this, `TMPDIR` may be used if a
@@ -608,12 +693,12 @@ to match when minimizing crashes. This will make minimization less useful, but
 may prevent the tool from "jumping" from one crashing condition to another in
 very buggy software. You probably want to combine it with the `-e` flag.
 
-## 8) Settings for afl-analyze
+## 10) Settings for afl-analyze
 
 You can set `AFL_ANALYZE_HEX` to get file offsets printed as hexadecimal instead
 of decimal.
 
-## 9) Settings for libdislocator
+## 11) Settings for libdislocator
 
 The library honors these environment variables:
 
@@ -635,12 +720,12 @@ The library honors these environment variables:
   - `AFL_LD_VERBOSE` causes the library to output some diagnostic messages that
     may be useful for pinpointing the cause of any observed issues.
 
-## 10) Settings for libtokencap
+## 11) Settings for libtokencap
 
 This library accepts `AFL_TOKEN_FILE` to indicate the location to which the
 discovered tokens should be written.
 
-## 11) Third-party variables set by afl-fuzz & other tools
+## 12) Third-party variables set by afl-fuzz & other tools
 
 Several variables are not directly interpreted by afl-fuzz, but are set to
 optimal values if not already present in the environment:

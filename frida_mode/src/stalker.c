@@ -61,9 +61,10 @@ void stalker_config(void) {
 
   backpatch_enable = (getenv("AFL_FRIDA_INST_NO_BACKPATCH") == NULL);
 
-  stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_ADJACENT_BLOCKS");
+  stalker_ic_entries = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES", 32);
 
-  stalker_adjacent_blocks = util_read_num("AFL_FRIDA_STALKER_IC_ENTRIES");
+  stalker_adjacent_blocks =
+      util_read_num("AFL_FRIDA_STALKER_ADJACENT_BLOCKS", 32);
 
   observer = g_object_new(GUM_TYPE_AFL_STALKER_OBSERVER, NULL);
 
@@ -98,32 +99,31 @@ void stalker_init(void) {
   FOKF("Stalker - adjacent_blocks [%u]", stalker_adjacent_blocks);
 
 #if !(defined(__x86_64__) || defined(__i386__))
-  if (stalker_ic_entries != 0) {
+  if (getenv("AFL_FRIDA_STALKER_IC_ENTRIES") != NULL) {
 
     FFATAL("AFL_FRIDA_STALKER_IC_ENTRIES not supported");
 
   }
 
-  if (stalker_adjacent_blocks != 0) {
+  if (getenv("AFL_FRIDA_STALKER_ADJACENT_BLOCKS") != NULL) {
 
     FFATAL("AFL_FRIDA_STALKER_ADJACENT_BLOCKS not supported");
 
   }
 
 #endif
-  if (stalker_ic_entries == 0) { stalker_ic_entries = 32; }
 
-  if (instrument_coverage_filename == NULL) {
+  if (instrument_coverage_filename != NULL) {
 
-    if (stalker_adjacent_blocks == 0) { stalker_adjacent_blocks = 32; }
-
-  } else {
-
-    if (stalker_adjacent_blocks != 0) {
+    if (getenv("AFL_FRIDA_STALKER_ADJACENT_BLOCKS") != NULL) {
 
       FFATAL(
           "AFL_FRIDA_STALKER_ADJACENT_BLOCKS and AFL_FRIDA_INST_COVERAGE_FILE "
           "are incompatible");
+
+    } else {
+
+      stalker_adjacent_blocks = 0;
 
     }
 
