@@ -8,9 +8,8 @@
 #define UNUSED_PARAMETER(x) (void)(x)
 #define IGNORED_RETURN(x) (void)!(x)
 
-guint64 util_read_address(char *key);
-
-guint64  util_read_num(char *key);
+guint64  util_read_address(char *key, guint64 default_value);
+guint64  util_read_num(char *key, guint64 default_value);
 gboolean util_output_enabled(void);
 gsize    util_rotate(gsize val, gsize shift, gsize size);
 gsize    util_log2(gsize val);
