@@ -1,10 +1,11 @@
 #include "util.h"
 
-guint64 util_read_address(char *key) {
+guint64 util_read_address(char *key, guint64 default_value) {
 
   char *value_str = getenv(key);
+  char *end_ptr;
 
-  if (value_str == NULL) { return 0; }
+  if (value_str == NULL) { return default_value; }
 
   if (!g_str_has_prefix(value_str, "0x")) {
 
@@ -25,8 +26,17 @@ guint64 util_read_address(char *key) {
 
   }
 
-  guint64 value = g_ascii_strtoull(value_str2, NULL, 16);
-  if (value == 0) {
+  errno = 0;
+
+  guint64 value = g_ascii_strtoull(value_str2, &end_ptr, 16);
+
+  if (errno != 0) {
+
+    FATAL("Error (%d) during conversion: %s", errno, value_str);
+
+  }
+
+  if (value == 0 && end_ptr == value_str2) {
 
     FATAL("Invalid address failed hex conversion: %s=%s\n", key, value_str2);
 
@@ -36,11 +46,12 @@ guint64 util_read_address(char *key) {
 
 }
 
-guint64 util_read_num(char *key) {
+guint64 util_read_num(char *key, guint64 default_value) {
 
   char *value_str = getenv(key);
+  char *end_ptr;
 
-  if (value_str == NULL) { return 0; }
+  if (value_str == NULL) { return default_value; }
 
   for (char *c = value_str; *c != '\0'; c++) {
 
@@ -53,8 +64,17 @@ guint64 util_read_num(char *key) {
 
   }
 
+  errno = 0;
+
   guint64 value = g_ascii_strtoull(value_str, NULL, 10);
-  if (value == 0) {
+
+  if (errno != 0) {
+
+    FATAL("Error (%d) during conversion: %s", errno, value_str);
+
+  }
+
+  if (value == 0 && end_ptr == value_str) {
 
     FATAL("Invalid address failed numeric conversion: %s=%s\n", key, value_str);
 
