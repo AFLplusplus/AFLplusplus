@@ -36,7 +36,7 @@ behaviours and defaults:
     shared libraries, etc. Additionally QEMU 5.1 supports more CPU targets so
     this is really worth it.
   * When instrumenting targets, afl-cc will not supersede optimizations anymore
-    if any were given. This allows to fuzz targets build regularly like those  
+    if any were given. This allows to fuzz targets build regularly like those
     for debug or release versions.
   * afl-fuzz:
     * if neither -M or -S is specified, `-S default` is assumed, so more
@@ -47,7 +47,7 @@ behaviours and defaults:
     * -m none is now default, set memory limits (in MB) with e.g. -m 250
     * deterministic fuzzing is now disabled by default (unless using -M) and
       can be enabled with -D
-    * a caching of testcases can now be performed and can be modified by
+    * a caching of test cases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the env variable
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
     * -M mains do not perform trimming

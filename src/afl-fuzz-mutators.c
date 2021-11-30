@@ -255,6 +255,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
   if (!mutator->afl_custom_init_trim) {
 
+    notrim = 1;
     ACTF("optional symbol 'afl_custom_init_trim' not found.");
 
   }
@@ -263,6 +264,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
   if (!mutator->afl_custom_trim) {
 
+    notrim = 1;
     ACTF("optional symbol 'afl_custom_trim' not found.");
 
   }
@@ -271,6 +273,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
   if (!mutator->afl_custom_post_trim) {
 
+    notrim = 1;
     ACTF("optional symbol 'afl_custom_post_trim' not found.");
 
   }

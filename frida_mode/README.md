@@ -141,31 +141,33 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 (only on CMP, SUB and CALL instructions) performance is not quite so critical.
 
 ## Advanced configuration options
-
+* `AFL_FRIDA_DRIVER_NO_HOOK` - See `AFL_QEMU_DRIVER_NO_HOOK`. When using the
+  QEMU driver to provide a `main` loop for a user provided
+  `LLVMFuzzerTestOneInput`, this option configures the driver to read input from
+  `stdin` rather than using in-memory test cases.
 * `AFL_FRIDA_INST_COVERAGE_FILE` - File to write DynamoRIO format coverage
   information (e.g., to be loaded within IDA lighthouse).
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
   and their instrumented counterparts during block compilation.
 
-```
-***
+  ```
+  ***
 
-Creating block for 0x7ffff7953313:
-        0x7ffff7953313  mov qword ptr [rax], 0
-        0x7ffff795331a  add rsp, 8
-        0x7ffff795331e  ret
+  Creating block for 0x7ffff7953313:
+          0x7ffff7953313  mov qword ptr [rax], 0
+          0x7ffff795331a  add rsp, 8
+          0x7ffff795331e  ret
 
-Generated block 0x7ffff75e98e2
-        0x7ffff75e98e2  mov qword ptr [rax], 0
-        0x7ffff75e98e9  add rsp, 8
-        0x7ffff75e98ed  lea rsp, [rsp - 0x80]
-        0x7ffff75e98f5  push rcx
-        0x7ffff75e98f6  movabs rcx, 0x7ffff795331e
-        0x7ffff75e9900  jmp 0x7ffff75e9384
+  Generated block 0x7ffff75e98e2
+          0x7ffff75e98e2  mov qword ptr [rax], 0
+          0x7ffff75e98e9  add rsp, 8
+          0x7ffff75e98ed  lea rsp, [rsp - 0x80]
+          0x7ffff75e98f5  push rcx
+          0x7ffff75e98f6  movabs rcx, 0x7ffff795331e
+          0x7ffff75e9900  jmp 0x7ffff75e9384
 
-
-***
-```
+  ***
+  ```
 
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
@@ -194,6 +196,8 @@ Generated block 0x7ffff75e98e2
 * `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE` - File to write DynamoRIO format
   coverage information for unstable edges (e.g., to be loaded within IDA
   lighthouse).
+* `AFL_FRIDA_JS_SCRIPT` - Set the script to be loaded by the FRIDA scripting
+  engine. See [Scipting.md](Scripting.md) for details.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
   application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`).
 * `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target
