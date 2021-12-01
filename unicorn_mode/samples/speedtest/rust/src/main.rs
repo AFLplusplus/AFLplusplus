@@ -11,6 +11,7 @@ use std::{
 };
 
 use unicornafl::{
+    afl::afl_fuzz,
     unicorn_const::{uc_error, Arch, Mode, Permission},
     RegisterX86::*,
     Unicorn,
@@ -87,7 +88,7 @@ fn main() {
 }
 
 fn fuzz(input_file: &str) -> Result<(), uc_error> {
-    let mut uc = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
+    let mut uc = Unicorn::new(Arch::X86, Mode::MODE_64)?;
 
     let binary =
         read_file(BINARY).unwrap_or_else(|_| panic!("Could not read modem image: {}", BINARY));
@@ -212,7 +213,8 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     let end_addrs = parse_locs("main_ends").unwrap();
 
-    let ret = uc.afl_fuzz(
+    let ret = afl_fuzz(
+        &mut uc,
         input_file,
         place_input_callback,
         &end_addrs,
