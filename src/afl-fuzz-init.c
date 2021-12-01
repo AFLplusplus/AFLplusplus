@@ -974,8 +974,7 @@ void perform_dry_run(afl_state_t *afl) {
                MSG_ULIMIT_USAGE
                " /path/to/binary [...] <testcase )\n\n"
 
-               "      Tip: you can use https://jwilk.net/software/recidivm to "
-               "quickly\n"
+               "      Tip: you can use https://jwilk.net/software/recidivm to\n"
                "      estimate the required amount of virtual memory for the "
                "binary. Also,\n"
                "      if you are using ASAN, set '-m 0'.\n\n"
