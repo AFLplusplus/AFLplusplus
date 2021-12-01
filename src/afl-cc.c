@@ -574,7 +574,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_MAJOR >= 11 || (LLVM_MAJOR == 10 && LLVM_MINOR >= 1)
   #if defined __ANDROID__ || ANDROID
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
         instrument_mode = INSTRUMENT_LLVMNATIVE;
@@ -1167,7 +1167,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-#if (LLVM_MAJOR > 2)
+#if (LLVM_MAJOR >= 3)
 
   if ((ptr = find_object("SanitizerCoverageLTO.so", argv[0])) != NULL) {
 
@@ -1196,7 +1196,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-#if (LLVM_MAJOR > 2)
+#if (LLVM_MAJOR >= 3)
 
   if (strncmp(callname, "afl-clang-fast", 14) == 0) {
 
@@ -1724,8 +1724,8 @@ int main(int argc, char **argv, char **envp) {
         compiler_mode == LTO ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
-        LLVM_MAJOR > 6 ? "DEFAULT" : "       ",
-        LLVM_MAJOR > 6 ? "       " : "DEFAULT",
+        LLVM_MAJOR >= 7 ? "DEFAULT" : "       ",
+        LLVM_MAJOR >= 7 ? "       " : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
         have_gcc ? "AVAILABLE" : "unavailable!",
@@ -1826,12 +1826,12 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
             "filename\n");
 
-#if LLVM_MAJOR < 9
-  #define COUNTER_BEHAVIOUR \
-    "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
+#if LLVM_MAJOR >= 9
   #define COUNTER_BEHAVIOUR \
     "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#else
+  #define COUNTER_BEHAVIOUR \
+    "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
 #endif
       if (have_llvm)
         SAYF(
@@ -1905,7 +1905,7 @@ int main(int argc, char **argv, char **envp) {
         "consult the README.md, especially section 3.1 about instrumenting "
         "targets.\n\n");
 
-#if (LLVM_MAJOR > 2)
+#if (LLVM_MAJOR >= 3)
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
@@ -1967,9 +1967,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == 0 && compiler_mode < GCC_PLUGIN) {
 
-#if LLVM_MAJOR <= 6
-    instrument_mode = INSTRUMENT_AFL;
-#else
+#if LLVM_MAJOR >= 7
   #if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
     if (have_instr_env) {
 
@@ -1984,6 +1982,8 @@ int main(int argc, char **argv, char **envp) {
   #endif
       instrument_mode = INSTRUMENT_PCGUARD;
 
+#else
+    instrument_mode = INSTRUMENT_AFL;
 #endif
 
   }

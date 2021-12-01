@@ -34,7 +34,7 @@
 #include "llvm/IR/Module.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -796,7 +796,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
   LLVMContext &C = M.getContext();
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 7)
   const DataLayout &dl = M.getDataLayout();
 
@@ -1398,7 +1398,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   bool brokenDebug = false;
   if (verifyModule(M, &errs()
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
                           ,
                    &brokenDebug  // 9th May 2016

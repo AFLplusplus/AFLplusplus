@@ -36,7 +36,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -65,11 +65,11 @@ class CmpLogRoutines : public ModulePass {
 
   bool runOnModule(Module &M) override;
 
-#if LLVM_VERSION_MAJOR < 4
-  const char *getPassName() const override {
+#if LLVM_VERSION_MAJOR >= 4
+  StringRef getPassName() const override {
 
 #else
-  StringRef getPassName() const override {
+  const char *getPassName() const override {
 
 #endif
     return "cmplog routines";
@@ -97,10 +97,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
@@ -108,16 +108,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                 NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookFn = cast<Function>(c);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookFn = c;
+#else
+  Function *cmplogHookFn = cast<Function>(c);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c1 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_stdstring",
                                  VoidTy, i8PtrTy, i8PtrTy
@@ -126,16 +126,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogLlvmStdStd = cast<Function>(c1);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogLlvmStdStd = c1;
+#else
+  Function *cmplogLlvmStdStd = cast<Function>(c1);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c2 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_cstring", VoidTy,
                                  i8PtrTy, i8PtrTy
@@ -144,16 +144,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogLlvmStdC = cast<Function>(c2);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogLlvmStdC = c2;
+#else
+  Function *cmplogLlvmStdC = cast<Function>(c2);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c3 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_stdstring", VoidTy,
                                  i8PtrTy, i8PtrTy
@@ -162,16 +162,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogGccStdStd = cast<Function>(c3);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogGccStdStd = c3;
+#else
+  Function *cmplogGccStdStd = cast<Function>(c3);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c4 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_cstring", VoidTy,
                                  i8PtrTy, i8PtrTy
@@ -180,16 +180,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogGccStdC = cast<Function>(c4);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogGccStdC = c4;
+#else
+  Function *cmplogGccStdC = cast<Function>(c4);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy, i8PtrTy,
                                  i8PtrTy, Int64Ty
@@ -198,16 +198,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookFnN = cast<Function>(c5);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookFnN = c5;
+#else
+  Function *cmplogHookFnN = cast<Function>(c5);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy, i8PtrTy,
                                  i8PtrTy, Int64Ty
@@ -216,16 +216,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookFnStrN = cast<Function>(c6);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookFnStrN = c6;
+#else
+  Function *cmplogHookFnStrN = cast<Function>(c6);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c7 = M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy,
                                  i8PtrTy
@@ -234,10 +234,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookFnStr = cast<Function>(c7);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookFnStr = c7;
+#else
+  Function *cmplogHookFnStr = cast<Function>(c7);
 #endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");

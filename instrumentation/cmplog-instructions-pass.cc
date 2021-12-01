@@ -37,7 +37,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -66,11 +66,11 @@ class CmpLogInstructions : public ModulePass {
 
   bool runOnModule(Module &M) override;
 
-#if LLVM_VERSION_MAJOR < 4
-  const char *getPassName() const override {
+#if LLVM_VERSION_MAJOR >= 4
+  StringRef getPassName() const override {
 
 #else
-  StringRef getPassName() const override {
+  const char *getPassName() const override {
 
 #endif
     return "cmplog instructions";
@@ -113,10 +113,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
                                  Int8Ty
@@ -125,16 +125,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns1 = cast<Function>(c1);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns1 = c1;
+#else
+  Function *cmplogHookIns1 = cast<Function>(c1);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty,
                                  Int8Ty
@@ -143,16 +143,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns2 = cast<Function>(c2);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns2 = c2;
+#else
+  Function *cmplogHookIns2 = cast<Function>(c2);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty,
                                  Int8Ty
@@ -161,16 +161,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns4 = cast<Function>(c4);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns4 = c4;
+#else
+  Function *cmplogHookIns4 = cast<Function>(c4);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty,
                                  Int8Ty
@@ -179,16 +179,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns8 = cast<Function>(c8);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns8 = c8;
+#else
+  Function *cmplogHookIns8 = cast<Function>(c8);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy, Int128Ty,
                                   Int128Ty, Int8Ty
@@ -203,10 +203,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   FunctionCallee cmplogHookIns16 = c16;
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy, Int128Ty,
                                  Int128Ty, Int8Ty, Int8Ty
@@ -215,10 +215,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookInsN = cast<Function>(cN);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookInsN = cN;
+#else
+  Function *cmplogHookInsN = cast<Function>(cN);
 #endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
@@ -338,7 +338,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           }
 
-#if LLVM_MAJOR > 11
+#if (LLVM_VERSION_MAJOR >= 12)
           vector_cnt = tt->getElementCount().getKnownMinValue();
           ty0 = tt->getElementType();
 #endif
@@ -359,7 +359,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           max_size = 80;
         else if (ty0->isFP128Ty() || ty0->isPPC_FP128Ty())
           max_size = 128;
-#if LLVM_MAJOR > 11
+#if (LLVM_VERSION_MAJOR >= 12)
         else if (ty0->getTypeID() != llvm::Type::PointerTyID && !be_quiet)
           fprintf(stderr, "Warning: unsupported cmp type for cmplog: %u!\n",
                   ty0->getTypeID());
@@ -371,7 +371,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         if (ty0->isVectorTy()) {
 
-#if LLVM_MAJOR > 11
+#if (LLVM_VERSION_MAJOR >= 12)
           VectorType *tt = dyn_cast<VectorType>(ty0);
           if (!tt) {
 
@@ -397,7 +397,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         } else {
 
-#if LLVM_MAJOR > 11
+#if (LLVM_VERSION_MAJOR >= 12)
           if (ty0->getTypeID() != llvm::Type::PointerTyID && !be_quiet) {
 
             fprintf(stderr, "Warning: unsupported cmp type for cmplog: %u\n",
