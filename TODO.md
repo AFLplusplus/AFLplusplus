@@ -1,6 +1,6 @@
 # TODO list for AFL++
 
-## TODO
+## Should
 
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt
@@ -8,7 +8,7 @@
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
 
-## Perhaps
+## Maybe
 
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
