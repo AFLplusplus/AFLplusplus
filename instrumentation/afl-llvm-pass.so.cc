@@ -52,7 +52,7 @@ typedef long double max_align_t;
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/DebugInfo.h"
   #include "llvm/IR/CFG.h"
@@ -114,7 +114,7 @@ uint64_t PowerOf2Ceil(unsigned in) {
 #endif
 
 /* #if LLVM_VERSION_STRING >= "4.0.1" */
-#if LLVM_VERSION_MAJOR > 4 || \
+#if LLVM_VERSION_MAJOR >= 5 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
@@ -662,22 +662,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       /* Update bitmap */
 
       if (use_threadsafe_counters) {                              /* Atomic */
-                                     /*
-                                     #if LLVM_VERSION_MAJOR < 9
-                                             if (neverZero_counters_str !=
-                                                 NULL) {  // with llvm 9 we make this the default as the bug
-                                     in llvm
-                                                          // is then fixed
-                                     #else
-                                             if (!skip_nozero) {
-                             
-                                     #endif
-                                               // register MapPtrIdx in a todo list
-                                               todo.push_back(MapPtrIdx);
-                             
-                                             } else {
-                             
-                                     */
+
         IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
 #if LLVM_VERSION_MAJOR >= 13
                             llvm::MaybeAlign(1),
@@ -696,12 +681,11 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         Value *Incr = IRB.CreateAdd(Counter, One);
 
-#if LLVM_VERSION_MAJOR < 9
-        if (neverZero_counters_str !=
-            NULL) {  // with llvm 9 we make this the default as the bug in llvm
-                     // is then fixed
-#else
+#if LLVM_VERSION_MAJOR >= 9
         if (!skip_nozero) {
+
+#else
+        if (neverZero_counters_str != NULL) {
 
 #endif
           /* hexcoder: Realize a counter that skips zero during overflow.

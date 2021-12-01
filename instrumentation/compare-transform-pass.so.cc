@@ -35,7 +35,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -64,11 +64,11 @@ class CompareTransform : public ModulePass {
 
   bool runOnModule(Module &M) override;
 
-#if LLVM_VERSION_MAJOR < 4
-  const char *getPassName() const override {
+#if LLVM_VERSION_MAJOR >= 4
+  StringRef getPassName() const override {
 
 #else
-  StringRef      getPassName() const override {
+  const char *getPassName() const override {
 
 #endif
     return "transforms compare functions";
@@ -100,17 +100,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   IntegerType *                    Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *                    Int64Ty = IntegerType::getInt64Ty(C);
 
-#if LLVM_VERSION_MAJOR < 9
-  Function *tolowerFn;
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee tolowerFn;
+#else
+  Function *  tolowerFn;
 #endif
   {
 
-#if LLVM_VERSION_MAJOR < 9
-    Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
     FunctionCallee
+#else
+    Constant *
 #endif
         c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
@@ -118,10 +118,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                                   NULL
 #endif
         );
-#if LLVM_VERSION_MAJOR < 9
-    tolowerFn = cast<Function>(c);
-#else
+#if LLVM_VERSION_MAJOR >= 9
     tolowerFn = c;
+#else
+    tolowerFn = cast<Function>(c);
 #endif
 
   }
@@ -496,10 +496,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     PHINode *PN = PHINode::Create(
         Int32Ty, (next_lenchk_bb ? 2 : 1) * unrollLen + 1, "cmp_phi");
 
-#if LLVM_VERSION_MAJOR < 8
-    TerminatorInst *term = bb->getTerminator();
-#else
+#if LLVM_VERSION_MAJOR >= 8
     Instruction *term = bb->getTerminator();
+#else
+    TerminatorInst *term = bb->getTerminator();
 #endif
     BranchInst::Create(next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, bb);
     term->eraseFromParent();

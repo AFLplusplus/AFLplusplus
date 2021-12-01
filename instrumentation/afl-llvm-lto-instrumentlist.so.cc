@@ -116,14 +116,14 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
 
       auto &        Ctx = F.getContext();
       AttributeList Attrs = F.getAttributes();
-#if LLVM_VERSION_MAJOR < 14
+#if LLVM_VERSION_MAJOR >= 14
+      AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");
+      F.setAttributes(NewAttrs);
+#else
       AttrBuilder NewAttrs;
       NewAttrs.addAttribute("skipinstrument");
       F.setAttributes(
           Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
-#else
-      AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");
-      F.setAttributes(NewAttrs);
 #endif
 
     }

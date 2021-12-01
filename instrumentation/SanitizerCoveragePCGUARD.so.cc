@@ -36,7 +36,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SpecialCaseList.h"
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_VERSION_MAJOR >= 11 || \
+    (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
   #include "llvm/Support/VirtualFileSystem.h"
 #endif
 #include "llvm/Support/raw_ostream.h"
@@ -127,7 +128,7 @@ class ModuleSanitizerCoverage {
  public:
   ModuleSanitizerCoverage(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
           ,
       const SpecialCaseList *Allowlist = nullptr,
       const SpecialCaseList *Blocklist = nullptr
@@ -215,7 +216,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
  public:
   ModuleSanitizerCoverageLegacyPass(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
           ,
       const std::vector<std::string> &AllowlistFiles =
           std::vector<std::string>(),
@@ -233,7 +234,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
   bool runOnModule(Module &M) override {
 
     ModuleSanitizerCoverage ModuleSancov(Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
                                          ,
                                          Allowlist.get(), Blocklist.get()
 #endif
@@ -283,7 +284,7 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
                                                    ModuleAnalysisManager &MAM) {
 
   ModuleSanitizerCoverage ModuleSancov(Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
                                        ,
                                        Allowlist.get(), Blocklist.get()
 #endif
@@ -749,7 +750,7 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
       Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
-#if LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR >= 13
   if (TargetTriple.supportsCOMDAT() &&
       (TargetTriple.isOSBinFormatELF() || !F.isInterposable()))
     if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
@@ -762,7 +763,8 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
 #endif
 
   Array->setSection(getSectionName(Section));
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if (LLVM_VERSION_MAJOR >= 11) || \
+    (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
 #else
   Array->setAlignment(Align(4));  // cheating
@@ -868,7 +870,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         }
 
-#if LLVM__MAJOR > 11
+#if (LLVM_VERSION_MAJOR >= 12)
         else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
@@ -962,7 +964,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         } else
 
-#if LLVM_VERSION_MAJOR > 13
+#if LLVM_VERSION_MAJOR >= 14
             if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
@@ -1484,7 +1486,7 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
 
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
     const SanitizerCoverageOptions &Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
     ,
     const std::vector<std::string> &AllowlistFiles,
     const std::vector<std::string> &BlocklistFiles
@@ -1492,7 +1494,7 @@ ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
 ) {
 
   return new ModuleSanitizerCoverageLegacyPass(Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
                                                ,
                                                AllowlistFiles, BlocklistFiles
 #endif

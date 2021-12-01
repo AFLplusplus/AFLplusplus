@@ -1325,7 +1325,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
         } else
 
-#if LLVM_VERSION_MAJOR > 13
+#if LLVM_VERSION_MAJOR >= 14
             if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
           FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
@@ -1468,7 +1468,7 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
       Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
-#if LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR >= 13
   if (TargetTriple.supportsCOMDAT() &&
       (TargetTriple.isOSBinFormatELF() || !F.isInterposable()))
     if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
@@ -1628,10 +1628,10 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   if (Options.TracePC) {
 
     IRB.CreateCall(SanCovTracePC)
-#if LLVM_VERSION_MAJOR < 12
-        ->cannotMerge();  // gets the PC using GET_CALLER_PC.
-#else
+#if LLVM_VERSION_MAJOR >= 12
         ->setCannotMerge();  // gets the PC using GET_CALLER_PC.
+#else
+        ->cannotMerge();  // gets the PC using GET_CALLER_PC.
 #endif
 
   }
