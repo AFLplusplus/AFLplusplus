@@ -40,6 +40,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - new cmplog mode (incompatible with older afl++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
+    - fixed a potential crash in targets for LAF string handling
     - added AFL_USE_TSAN thread sanitizer support
     - llvm and LTO mode modified to work with new llvm 14-dev (again)
   - added the very good grammar mutator "GramaTron" to the
