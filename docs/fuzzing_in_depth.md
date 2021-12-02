@@ -175,7 +175,7 @@ The following sanitizers have built-in support in AFL++:
 * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
   use-after-free, NULL pointer dereference, buffer overruns, etc. Enabled with
   `export AFL_USE_ASAN=1` before compiling.
-* MSAN = Memory SANitizer, finds read access to uninitialized memory, eg. a
+* MSAN = Memory SANitizer, finds read access to uninitialized memory, e.g., a
   local variable that is defined and read before it is even set. Enabled with
   `export AFL_USE_MSAN=1` before compiling.
 * UBSAN = Undefined Behavior SANitizer, finds instances where - by the C and C++
