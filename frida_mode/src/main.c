@@ -219,6 +219,8 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
 
 static int on_main(int argc, char **argv, char **envp) {
 
+  int ret;
+
   on_main_os(argc, argv, envp);
 
   intercept_unhook_self();
@@ -227,13 +229,15 @@ static int on_main(int argc, char **argv, char **envp) {
 
   if (js_main_hook != NULL) {
 
-    return js_main_hook(argc, argv, envp);
+    ret = js_main_hook(argc, argv, envp);
 
   } else {
 
-    return main_fn(argc, argv, envp);
+    ret = main_fn(argc, argv, envp);
 
   }
+
+  return ret;
 
 }
 

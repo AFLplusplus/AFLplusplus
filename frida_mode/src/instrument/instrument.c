@@ -193,7 +193,20 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       instrument_debug_start(instr->address, output);
       instrument_coverage_start(instr->address);
 
+#if defined(__arm__)
+      if (output->encoding == GUM_INSTRUCTION_SPECIAL) {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address + 1));
+
+      } else {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address));
+
+      }
+
+#else
       prefetch_write(GSIZE_TO_POINTER(instr->address));
+#endif
 
       if (likely(!excluded)) {
 
@@ -213,7 +226,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     }
 
-    instrument_debug_instruction(instr->address, instr->size);
+    instrument_debug_instruction(instr->address, instr->size, output);
 
     if (likely(!excluded)) {
 
