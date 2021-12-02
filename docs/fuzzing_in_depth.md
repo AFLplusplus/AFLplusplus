@@ -131,7 +131,7 @@ The following options are available when you instrument with LTO mode
   have to compile the target twice, once specifically with/for this mode by
   setting `AFL_LLVM_CMPLOG=1`, and pass this binary to afl-fuzz via the `-c`
   parameter. Note that you can compile also just a cmplog binary and use that
-  for both, however, there will be a performance penality. You can read more
+  for both, however, there will be a performance penalty. You can read more
   about this in
   [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 

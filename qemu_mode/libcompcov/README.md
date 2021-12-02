@@ -31,7 +31,7 @@ The AFL_COMPCOV_LEVEL tells to QEMU and libcompcov how to log comaprisons.
 Level 1 logs just comparison with immediates / read-only memory and level 2
 logs all the comparisons.
 
-The library make use of https://github.com/ouadev/proc_maps_parser and so it is
+The library makes use of https://github.com/ouadev/proc_maps_parser and so it is
 Linux specific. However, this is not a strict dependency, other UNIX operating
 systems can be supported by replacing the code related to the /proc/self/maps
 parsing.
