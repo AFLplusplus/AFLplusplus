@@ -34,7 +34,9 @@ For x86 standalone-toolchain
 ./build/tools/make_standalone_toolchain.py --arch x86 --api 21 --install-dir ../android-standalone-toolchain-x86
 ```
 
-In alternative you can also use the prebuilt toolchain, in that case make sure to set the proper CC and CXX env variables because there are many different compilers for each API version in the prebuilt toolchain.
+In alternative you can also use the prebuilt toolchain, in that case make sure
+to set the proper CC and CXX environment variables because there are many
+different compilers for each API version in the prebuilt toolchain.
 
 For example:
 
@@ -64,7 +66,7 @@ cd android-qbdi-sdk-x86_64/
 tar xvf QBDI-0.7.0-android-X86_64.tar.gz
 ```
 
-Now set the `STANDALONE_TOOLCHAIN_PATH` to the path of standalone-toolchain 
+Now set the `STANDALONE_TOOLCHAIN_PATH` to the path of standalone-toolchain
 
 ```
 export STANDALONE_TOOLCHAIN_PATH=/home/hac425/workspace/android-standalone-toolchain-x86_64

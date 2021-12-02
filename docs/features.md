@@ -19,8 +19,8 @@ QEMU 5.1 with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full
 | Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |                  |        (x)(5)    |                  |                  |
 | Shared Memory Test cases |         |     x     |     x      | x86[_64]/arm64   |         x        |         x        |                  |
 
-1. default for LLVM >= 9.0, env var for older version due an efficiency bug in
-   previous llvm versions
+1. default for LLVM >= 9.0, environment variable for older version due an
+   efficiency bug in previous llvm versions
 2. GCC creates non-performant code, hence it is disabled in gcc_plugin
 3. with `AFL_LLVM_THREADSAFE_INST`, disables NeverZero
 4. with pcguard mode and LTO mode for LLVM 11 and newer

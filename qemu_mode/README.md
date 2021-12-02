@@ -83,8 +83,9 @@ For more information, see [README.persistent.md](README.persistent.md).
 As an extension to persistent mode, qemuafl can snapshot and restore the memory
 state and brk(). For details, see [README.persistent.md](README.persistent.md).
 
-The env var that enables the ready to use snapshot mode is `AFL_QEMU_SNAPSHOT`
-and takes a hex address as a value that is the snapshot entry point.
+The environment variable that enables the ready to use snapshot mode is
+`AFL_QEMU_SNAPSHOT` and takes a hex address as a value that is the snapshot
+entry point.
 
 Snapshot mode can work restoring all the writeable pages, that is typically
 slower than fork() mode but, on the other hand, it can scale better with
