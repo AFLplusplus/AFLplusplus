@@ -120,9 +120,9 @@ x86 and x64 architectures. Implementation details can be found
 
 Dynamic instrumentation is used to augment the target application with similar
 coverage information to that inserted by `afl-gcc` or `afl-clang`. The shared
-library is also linked to the `compiler-rt` component of AFLplusplus to feedback
-this coverage information to AFL++ and also provide a fork server. It also makes
-use of the FRIDA
+library is also linked to the `compiler-rt` component of AFL++ to feedback this
+coverage information to AFL++ and also provide a fork server. It also makes use
+of the FRIDA
 [prefetch](https://github.com/frida/frida-gum/blob/56dd9ba3ee9a5511b4b0c629394bf122775f1ab7/gum/gumstalker.h#L115)
 support to feedback instrumented blocks from the child to the parent using a
 shared memory region to avoid the need to regenerate instrumented blocks on each
