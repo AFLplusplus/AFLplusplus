@@ -109,7 +109,7 @@ fairly broad use of environment variables instead:
     - `AFL_USE_MSAN=1` - activates the memory sanitizer (uninitialized memory)
     - `AFL_USE_TSAN=1` - activates the thread sanitizer to find thread race
       conditions
-    - `AFL_USE_UBSAN=1` - activates the undefined behaviour sanitizer
+    - `AFL_USE_UBSAN=1` - activates the undefined behavior sanitizer
 
   - `TMPDIR` is used by afl-as for temporary files; if this variable is not set,
     the tool defaults to /tmp.
@@ -336,7 +336,7 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_DISABLE_TRIM` tells afl-fuzz not to trim test cases. This is
     usually a bad idea!
 
-  - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behaviour which
+  - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
   - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
