@@ -48,7 +48,7 @@ this with persistent mode [instrumentation/README.persistent_mode.md](../instrum
 and you have a performance gain of x10 instead of a performance loss of over
 x10 - that is a x100 difference!).
 
-If modifying the source is not an option (e.g. because you only have a binary
+If modifying the source is not an option (e.g., because you only have a binary
 and perform binary fuzzing) you can also use a shared library with AFL_PRELOAD
 to emulate the network. This is also much faster than the real network would be.
 See [utils/socket_fuzzing/](../utils/socket_fuzzing/).
@@ -123,7 +123,7 @@ Four steps are required to do this and it also requires quite some knowledge of 
 
      Only exclude those functions from instrumentation that provide no value for
      coverage - that is if it does not process any fuzz data directly or
-     indirectly (e.g. hash maps, thread management etc.). If, however, a
+     indirectly (e.g., hash maps, thread management etc.). If, however, a
      function directly or indirectly handles fuzz data, then you should not put
      the function in a deny instrumentation list and rather live with the
      instability it comes with.

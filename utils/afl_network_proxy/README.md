@@ -6,7 +6,8 @@ Note that the impact on fuzzing speed will be huge, expect a loss of 90%.
 ## When to use this
 
 1. when you have to fuzz a target that has to run on a system that cannot
-   contain the fuzzing output (e.g. /tmp too small and file system is read-only)
+   contain the fuzzing output (e.g., /tmp too small and file system is
+   read-only)
 2. when the target instantly reboots on crashes
 3. ... any other reason you would need this
 
@@ -28,6 +29,7 @@ For most targets this hurts performance though so it is disabled by default.
 Run `afl-network-server` with your target with the -m and -t values you need.
 Important is the -i parameter which is the TCP port to listen on.
 e.g.:
+
 ```
 afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
 ```
@@ -50,7 +52,7 @@ value itself should be 500-1000 higher than the one on afl-network-server.
 
 The TARGET can be an IPv4 or IPv6 address, or a host name that resolves to
 either. Note that also the outgoing interface can be specified with a '%' for
-`afl-network-client`, e.g. `fe80::1234%eth0`.
+`afl-network-client`, e.g., `fe80::1234%eth0`.
 
 Also make sure your default TCP window size is larger than your MAP_SIZE
 (130kb is a good value).

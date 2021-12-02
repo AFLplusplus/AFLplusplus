@@ -13,7 +13,7 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - afl_proxy            - skeleton file example to show how to fuzz
                            something where you gather coverage data via
-                           different means, e.g. hw debugger
+                           different means, e.g., hw debugger
 
   - afl_untracer         - fuzz binary-only libraries much faster but with
                            less coverage than qemu_mode

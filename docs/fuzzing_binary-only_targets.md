@@ -113,7 +113,7 @@ If you want to fuzz a binary-only library, then you can fuzz it with frida-gum
 via frida_mode/. You will have to write a harness to call the target function in
 the library, use afl-frida.c as a template.
 
-You can also perform remote fuzzing with frida, e.g. if you want to fuzz on
+You can also perform remote fuzzing with frida, e.g., if you want to fuzz on
 iPhone or Android devices, for this you can use
 [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/) as
 an intermediate that uses AFL++ for fuzzing.
@@ -198,8 +198,8 @@ It is at about 80-85% performance.
 Dyninst is a binary instrumentation framework similar to Pintool and DynamoRIO.
 However, whereas Pintool and DynamoRIO work at runtime, Dyninst instruments the
 target at load time and then let it run - or save the binary with the changes.
-This is great for some things, e.g. fuzzing, and not so effective for others,
-e.g. malware analysis.
+This is great for some things, e.g., fuzzing, and not so effective for others,
+e.g., malware analysis.
 
 So, what you can do with Dyninst is taking every basic block and putting AFL++'s
 instrumentation code in there - and then save the binary. Afterwards, just fuzz

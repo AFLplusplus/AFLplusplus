@@ -21,7 +21,7 @@ If you find an interesting or important question missing, submit it via
   This already resulted in a much advanced AFL.
 
   Until the end of 2019, the AFL++ team had grown to four active developers which then implemented their own research and features, making it now by far the most flexible and feature rich guided fuzzer available as open source.
-  And in independent fuzzing benchmarks it is one of the best fuzzers available, e.g. [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html).
+  And in independent fuzzing benchmarks it is one of the best fuzzers available, e.g., [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html).
 </p></details>
 
 <details>
@@ -123,7 +123,7 @@ If you find an interesting or important question missing, submit it via
   Sending the same input again and again should take the exact same path through the target every time.
   If that is the case, the stability is 100%.
 
-  If, however, randomness happens, e.g. a thread reading other external data,
+  If, however, randomness happens, e.g., a thread reading other external data,
   reaction to timing, etc., then in some of the re-executions with the same data
   the edge coverage result will be different accross runs. Those edges that
   change are then flagged "unstable".

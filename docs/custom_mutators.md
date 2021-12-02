@@ -124,7 +124,7 @@ def deinit():  # optional for Python
     additional test case.
     Note that this function is optional - but it makes sense to use it.
     You would only skip this if `post_process` is used to fix checksums etc.
-    so if you are using it e.g. as a post processing library.
+    so if you are using it, e.g., as a post processing library.
     Note that a length > 0 *must* be returned!
 
 - `describe` (optional):
@@ -191,8 +191,9 @@ trimmed input. Here's a quick API description:
 
     This method is called at the start of each trimming operation and receives
     the initial buffer. It should return the amount of iteration steps possible
-    on this input (e.g. if your input has n elements and you want to remove them
-    one by one, return n, if you do a binary search, return log(n), and so on).
+    on this input (e.g., if your input has n elements and you want to remove
+    them one by one, return n, if you do a binary search, return log(n), and so
+    on).
 
     If your trimming algorithm doesn't allow to determine the amount of
     (remaining) steps easily (esp. while running), then you can alternatively
