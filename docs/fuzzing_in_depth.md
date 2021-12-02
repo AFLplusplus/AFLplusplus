@@ -131,8 +131,8 @@ The following options are available when you instrument with LTO mode
   have to compile the target twice, once specifically with/for this mode by
   setting `AFL_LLVM_CMPLOG=1`, and pass this binary to afl-fuzz via the `-c`
   parameter. Note that you can compile also just a cmplog binary and use that
-  for both however there will be a performance penality. You can read more about
-  this in
+  for both, however, there will be a performance penality. You can read more
+  about this in
   [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
 If you use LTO, LLVM or GCC_PLUGIN mode
@@ -151,7 +151,7 @@ only instrument parts of the target that you are interested in:
   inlined and then would not match! See
   [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
 
-There are many more options and modes available however these are most of the
+There are many more options and modes available, however, these are most of the
 time less effective. See:
 * [instrumentation/README.ctx.md](../instrumentation/README.ctx.md)
 * [instrumentation/README.ngram.md](../instrumentation/README.ngram.md)
@@ -369,8 +369,8 @@ This step is highly recommended!
 ### c) Minimizing all corpus files
 
 The shorter the input files that still traverse the same path within the target,
-the better the fuzzing will be. This minimization is done with `afl-tmin`
-however it is a long process as this has to be done for every file:
+the better the fuzzing will be. This minimization is done with `afl-tmin`,
+however, it is a long process as this has to be done for every file:
 
 ```
 mkdir input

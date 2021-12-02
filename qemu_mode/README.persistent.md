@@ -17,10 +17,10 @@ The start of the persistent loop has to be set with environment variable
 `AFL_QEMU_PERSISTENT_ADDR`.
 
 This address can be the address of whatever instruction. Setting this address to
-the start of a function makes the usage simple. If the address is however within
-a function, either RET, OFFSET, or EXITS (see below in 2.2, 2.3, 2.6) have to be
-set. This address (as well as the RET address, see below) has to be defined in
-hexadecimal with the 0x prefix or as a decimal value.
+the start of a function makes the usage simple. If the address is, however,
+within a function, either RET, OFFSET, or EXITS (see below in 2.2, 2.3, 2.6)
+have to be set. This address (as well as the RET address, see below) has to be
+defined in hexadecimal with the 0x prefix or as a decimal value.
 
 If both RET and EXITS are not set, QEMU will assume that START points to a
 function and will patch the return address (on stack or in the link register) to

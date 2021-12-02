@@ -15,8 +15,8 @@ With AFL++ 3.15 we introduced the following changes from previous behaviors:
 
 With AFL++ 3.14 we introduced the following changes from previous behaviors:
   * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
-  * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash
-    however does not)
+  * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash,
+    however, does not)
 
 With AFL++ 3.10 we introduced the following changes from previous behaviors:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout

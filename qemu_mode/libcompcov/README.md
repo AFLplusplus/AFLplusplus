@@ -18,7 +18,7 @@ and this module is not capable to log the coverage in this case.
 If you have the source code of the fuzzing target you should nto use this
 library and QEMU but build it with afl-clang-fast and the laf-intel options.
 
-To use this library make sure to preload it with AFL_PRELOAD.
+To use this library, make sure to preload it with AFL_PRELOAD.
 
 ```
   export AFL_PRELOAD=/path/to/libcompcov.so
@@ -32,6 +32,6 @@ Level 1 logs just comparison with immediates / read-only memory and level 2
 logs all the comparisons.
 
 The library make use of https://github.com/ouadev/proc_maps_parser and so it is
-Linux specific. However this is not a strict dependency, other UNIX operating
-systems can be supported by replacing the code related to the
-/proc/self/maps parsing.
+Linux specific. However, this is not a strict dependency, other UNIX operating
+systems can be supported by replacing the code related to the /proc/self/maps
+parsing.
