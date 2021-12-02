@@ -40,10 +40,10 @@ when using afl-gcc. This setting specifically adds the following flags:
   -fno-builtin-strcasestr
 ```
 
-The next step is simply loading this library via LD_PRELOAD. The optimal usage
-pattern is to allow afl-fuzz to fuzz normally for a while and build up a corpus,
-and then fire off the target binary, with libtokencap.so loaded, on every file
-found by AFL in that earlier run. This demonstrates the basic principle:
+The next step is to load this library via LD_PRELOAD. The optimal usage pattern
+is to allow afl-fuzz to fuzz normally for a while and build up a corpus, and
+then fire off the target binary, with libtokencap.so loaded, on every file found
+by AFL in that earlier run. This demonstrates the basic principle:
 
 ```
   export AFL_TOKEN_FILE=$PWD/temp_output.txt

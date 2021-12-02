@@ -59,9 +59,9 @@ fairly broad use of environment variables instead:
     otherwise.
 
   - By default, the wrapper appends `-O3` to optimize builds. Very rarely, this
-    will cause problems in programs built with -Werror, simply because `-O3`
-    enables more thorough code analysis and can spew out additional warnings. To
-    disable optimizations, set `AFL_DONT_OPTIMIZE`. However, if `-O...` and/or
+    will cause problems in programs built with -Werror, because `-O3` enables
+    more thorough code analysis and can spew out additional warnings. To disable
+    optimizations, set `AFL_DONT_OPTIMIZE`. However, if `-O...` and/or
     `-fno-unroll-loops` are set, these are not overridden.
 
   - Setting `AFL_HARDEN` automatically adds code hardening options when invoking
@@ -651,8 +651,8 @@ call back into FRIDA to find the next block. Default is 32.
 * `AFL_FRIDA_STATS_FILE` - Write statistics information about the code being
 instrumented to the given file name. The statistics are written only for the
 child process when new block is instrumented (when the
-`AFL_FRIDA_STATS_INTERVAL` has expired). Note that simply because a new path is
-found does not mean a new block needs to be compiled. It could simply be that
+`AFL_FRIDA_STATS_INTERVAL` has expired). Note that just because a new path is
+found does not mean a new block needs to be compiled. It could be that
 the existing blocks instrumented have been executed in a different order.
 * `AFL_FRIDA_STATS_INTERVAL` - The maximum frequency to output statistics
 information. Stats will be written whenever they are updated if the given

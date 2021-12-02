@@ -129,8 +129,7 @@ Unicorn is a fork of QEMU. The instrumentation is, therefore, very similar. In
 contrast to QEMU, Unicorn does not offer a full system or even userland
 emulation. Runtime environment and/or loaders have to be written from scratch,
 if needed. On top, block chaining has been removed. This means the speed boost
-introduced in the patched QEMU Mode of AFL++ cannot simply be ported over to
-Unicorn.
+introduced in the patched QEMU Mode of AFL++ cannot be ported over to Unicorn.
 
 For non-Linux binaries, you can use AFL++'s unicorn_mode which can emulate
 anything you want - for the price of speed and user written scripts.

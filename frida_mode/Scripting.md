@@ -511,7 +511,7 @@ int main(int argc, char **argv) {
 ```
 
 There are a couple of obstacles with our target application. Unlike when fuzzing
-source code, though, we can't simply edit it and recompile it. The following
+source code, though, we can't just edit it and recompile it. The following
 script shows how we can use the normal functionality of FRIDA to modify any
 troublesome behavior.
 

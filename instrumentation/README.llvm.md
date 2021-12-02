@@ -126,8 +126,8 @@ Then there are different ways of instrumenting the target:
 
 1. An better instrumentation strategy uses LTO and link time instrumentation.
    Note that not all targets can compile in this mode, however if it works it is
-   the best option you can use. Simply use afl-clang-lto/afl-clang-lto++ to use
-   this option. See [README.lto.md](README.lto.md).
+   the best option you can use. To go with this option, use
+   afl-clang-lto/afl-clang-lto++. See [README.lto.md](README.lto.md).
 
 2. Alternatively you can choose a completely different coverage method:
 

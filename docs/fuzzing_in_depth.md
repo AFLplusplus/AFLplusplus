@@ -427,8 +427,8 @@ It can be valuable to run afl-fuzz in a screen or tmux shell so you can log off,
 or afl-fuzz is not aborted if you are running it in a remote ssh session where
 the connection fails in between.
 Only do that though once you have verified that your fuzzing setup works!
-Simply run it like `screen -dmS afl-main -- afl-fuzz -M main-$HOSTNAME -i ...`
-and it will start away in a screen session. To enter this session simply type
+Run it like `screen -dmS afl-main -- afl-fuzz -M main-$HOSTNAME -i ...`
+and it will start away in a screen session. To enter this session, type
 `screen -r afl-main`. You see - it makes sense to name the screen session
 same as the afl-fuzz -M/-S naming :-)
 For more information on screen or tmux please check their documentation.
@@ -457,7 +457,7 @@ handling in the target. Play around with various -m values until you find one
 that safely works for all your input seeds (if you have good ones and then
 double or quadruple that.
 
-By default afl-fuzz never stops fuzzing. To terminate AFL++ simply press
+By default afl-fuzz never stops fuzzing. To terminate AFL++, press
 Control-C or send a signal SIGINT. You can limit the number of executions or
 approximate runtime in seconds with options also.
 
@@ -554,7 +554,7 @@ recommended!
 ### d) Using multiple machines for fuzzing
 
 Maybe you have more than one machine you want to fuzz the same target on.
-Simply start the `afl-fuzz` (and perhaps libfuzzer, honggfuzz, ...)
+Start the `afl-fuzz` (and perhaps libfuzzer, honggfuzz, ...)
 orchestra as you like, just ensure that your have one and only one `-M`
 instance per server, and that its name is unique, hence the recommendation
 for `-M main-$HOSTNAME`.
@@ -609,7 +609,7 @@ e.g., `afl-plot out/default /srv/www/htdocs/plot`.
 
 ### f) Stopping fuzzing, restarting fuzzing, adding new seeds
 
-To stop an afl-fuzz run, simply press Control-C.
+To stop an afl-fuzz run, press Control-C.
 
 To restart an afl-fuzz run, just reuse the same command line but replace the `-i
 directory` with `-i -` or set `AFL_AUTORESUME=1`.

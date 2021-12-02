@@ -23,7 +23,7 @@ To use this library make sure to preload it with AFL_PRELOAD.
 ```
   export AFL_PRELOAD=/path/to/libcompcov.so
   export AFL_COMPCOV_LEVEL=1
-  
+
   afl-fuzz -Q -i input -o output <your options> -- <target args>
 ```
 
@@ -33,5 +33,5 @@ logs all the comparisons.
 
 The library make use of https://github.com/ouadev/proc_maps_parser and so it is
 Linux specific. However this is not a strict dependency, other UNIX operating
-systems can be supported simply replacing the code related to the
+systems can be supported by replacing the code related to the
 /proc/self/maps parsing.
