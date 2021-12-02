@@ -34,9 +34,9 @@ For x86 standalone-toolchain
 ./build/tools/make_standalone_toolchain.py --arch x86 --api 21 --install-dir ../android-standalone-toolchain-x86
 ```
 
-In alternative you can also use the prebuilt toolchain, in that case make sure
+In alternative you can also use the pre-built toolchain, in that case make sure
 to set the proper CC and CXX environment variables because there are many
-different compilers for each API version in the prebuilt toolchain.
+different compilers for each API version in the pre-built toolchain.
 
 For example:
 
@@ -129,7 +129,7 @@ int target_func(char *buf, int size) {
 }
 ```
 
-This could be build to `libdemo.so`.
+This could be built to `libdemo.so`.
 
 Then we should load the library in template.cpp and find the `target` function address.
 ```c

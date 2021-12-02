@@ -218,7 +218,7 @@ trimmed input. Here's a quick API description:
     to the maximum amount of steps you returned in `init_trim`).
 
 Omitting any of three trimming methods will cause the trimming to be disabled
-and trigger a fallback to the builtin default trimming routine.
+and trigger a fallback to the built-in default trimming routine.
 
 ### Environment Variables
 
