@@ -45,6 +45,11 @@ FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
 FRIDA_TRACE_EMBEDDED:=$(BUILD_DIR)afl-frida-trace-embedded
 
+TARGET_CC?=$(CC)
+TARGET_CXX?=$(CXX)
+HOST_CC?=$(CC)
+HOST_CXX?=$(CXX)
+
 ifndef ARCH
 
 ARCH=$(shell uname -m)
@@ -97,6 +102,11 @@ ifneq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
  ifneq "$(findstring i686, $(shell $(CC) --version 2>/dev/null))" ""
    ARCH:=x86
  endif
+endif
+
+ifeq "$(ARCH)" "armhf"
+ TARGET_CC:=arm-linux-gnueabihf-gcc
+ TARGET_CXX:=arm-linux-gnueabihf-g++
 endif
 
 ifndef OS
@@ -188,7 +198,7 @@ $(GUM_DEVIT_HEADER): $(GUM_DEVKIT_TARBALL)
 
 ############################## AFL #############################################
 $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
-	$(CC) \
+	$(TARGET_CC) \
 		$(CFLAGS) \
 		$(AFL_CFLAGS) \
 		-I $(ROOT) \
@@ -197,7 +207,7 @@ $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
 		-c $<
 
 $(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
-	$(CC) \
+	$(TARGET_CC) \
 		$(CFLAGS) \
 		$(AFL_CFLAGS) \
 		-I $(ROOT) \
@@ -208,13 +218,13 @@ $(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
 ############################### JS #############################################
 
 $(BIN2C): $(BIN2C_SRC)
-	$(CC) -D_GNU_SOURCE -o $@ $<
+	$(HOST_CC) -D_GNU_SOURCE -o $@ $<
 
 $(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
 	cd $(JS_DIR) && $(BIN2C) api_js $(JS) $@
 
 $(JS_OBJ): $(JS_SRC) GNUmakefile
-	$(CC) \
+	$(TARGET_CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
 		-I $(FRIDA_BUILD_DIR) \
@@ -226,7 +236,7 @@ $(JS_OBJ): $(JS_SRC) GNUmakefile
 
 define BUILD_SOURCE
 $(2): $(1) $(INCLUDES) GNUmakefile | $(OBJ_DIR)
-	$(CC) \
+	$(TARGET_CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
 		-I $(FRIDA_BUILD_DIR) \
@@ -240,7 +250,7 @@ $(foreach src,$(SOURCES),$(eval $(call BUILD_SOURCE,$(src),$(OBJ_DIR)$(notdir $(
 ######################## AFL-FRIDA-TRACE #######################################
 
 $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) $(AFL_PERFORMANCE_OBJ) GNUmakefile | $(BUILD_DIR)
-	$(CXX) \
+	$(TARGET_CXX) \
 		$(OBJS) \
 		$(JS_OBJ) \
 		$(GUM_DEVIT_LIBRARY) \
@@ -255,10 +265,10 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 ############################# HOOK #############################################
 
 $(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(GUM_DEVIT_HEADER) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
+	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
 
 $(AFLPP_QEMU_DRIVER_HOOK_OBJ): $(AFLPP_QEMU_DRIVER_HOOK_SRC) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) $< -o $@
 
 hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
