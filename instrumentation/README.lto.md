@@ -202,7 +202,7 @@ bytes or which functions were touched by an input.
 ## Solving difficult targets
 
 Some targets are difficult because the configure script does unusual stuff that
-is unexpected for afl. See the next chapter `Potential issues` for how to solve
+is unexpected for afl. See the next section `Potential issues` for how to solve
 these.
 
 ### Example: ffmpeg
