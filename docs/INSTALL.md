@@ -20,7 +20,7 @@ The easiest choice is to build and install everything:
 sudo apt-get update
 sudo apt-get install -y build-essential python3-dev automake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
 # try to install llvm 11 and install the distro default if that fails
-sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang 
+sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
 sudo apt-get install -y ninja-build # for qemu_mode
 git clone https://github.com/AFLplusplus/AFLplusplus
@@ -114,8 +114,8 @@ This means two things:
   - Fuzzing will be probably slower than on Linux. In fact, some folks report
     considerable performance gains by running the jobs inside a Linux VM on
     MacOS X.
-  - Some non-portable, platform-specific code may be incompatible with the
-    AFL forkserver. If you run into any problems, set `AFL_NO_FORKSRV=1` in the
+  - Some non-portable, platform-specific code may be incompatible with the AFL++
+    forkserver. If you run into any problems, set `AFL_NO_FORKSRV=1` in the
     environment before starting afl-fuzz.
 
 User emulation mode of QEMU does not appear to be supported on MacOS X, so black-box instrumentation mode (`-Q`) will not work.

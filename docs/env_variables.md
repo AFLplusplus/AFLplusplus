@@ -307,7 +307,7 @@ checks or alter some of the more exotic semantics of the tool:
     (`-i in`). This is an important feature to set when resuming a fuzzing
     session.
 
-  - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL treats as crash. For
+  - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL++ treats as crash. For
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
     return code (i.e. `exit(-1)` got called), will be treated as if a crash had
     occurred. This may be beneficial if you look for higher-level faulty
@@ -493,7 +493,7 @@ checks or alter some of the more exotic semantics of the tool:
     This is especially useful when running multiple instances (`-M/-S` for
     example). Applied tags are `banner` and `afl_version`. `banner` corresponds
     to the name of the fuzzer provided through `-M/-S`. `afl_version`
-    corresponds to the currently running AFL version (e.g. `++3.0c`). Default
+    corresponds to the currently running AFL++ version (e.g. `++3.0c`). Default
     (empty/non present) will add no tags to the metrics. For more information,
     see [rpc_statsd.md](rpc_statsd.md).
 

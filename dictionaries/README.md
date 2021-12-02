@@ -1,4 +1,4 @@
-# AFL dictionaries
+# AFL++ dictionaries
 
 (See [../README.md](../README.md) for the general instruction manual.)
 

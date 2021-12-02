@@ -348,7 +348,7 @@ That last bit is actually fairly interesting: it measures the consistency of
 observed traces. If a program always behaves the same for the same input data,
 it will earn a score of 100%. When the value is lower but still shown in purple,
 the fuzzing process is unlikely to be negatively affected. If it goes into red,
-you may be in trouble, since AFL will have difficulty discerning between
+you may be in trouble, since AFL++ will have difficulty discerning between
 meaningful and "phantom" effects of tweaking the input file.
 
 Now, most targets will just get a 100% score, but when you see lower figures,
@@ -506,7 +506,7 @@ directory. This includes:
 - `edges_found`       - how many edges have been found
 - `var_byte_count`    - how many edges are non-deterministic
 - `afl_banner`        - banner text (e.g. the target name)
-- `afl_version`       - the version of AFL used
+- `afl_version`       - the version of AFL++ used
 - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented
 - `command_line`      - full command line used for the fuzzing session
 

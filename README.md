@@ -99,7 +99,7 @@ Step-by-step quick start:
    To add a dictionary, add `-x /path/to/dictionary.txt` to afl-fuzz.
 
    If the program takes input from a file, you can put `@@` in the program's
-   command line; AFL will put an auto-generated file name in there for you.
+   command line; AFL++ will put an auto-generated file name in there for you.
 
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting
    [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen).

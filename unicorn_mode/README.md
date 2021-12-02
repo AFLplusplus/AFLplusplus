@@ -8,7 +8,8 @@ The CompareCoverage and NeverZero counters features are by Andrea Fioraldi <andr
 
 ## 1) Introduction
 
-The code in ./unicorn_mode allows you to build the (Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with AFL support.
+The code in ./unicorn_mode allows you to build the
+(Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with AFL++ support.
 This means, you can run anything that can be emulated in unicorn and obtain instrumentation
 output for black-box, closed-source binary code snippets. This mechanism
 can be then used by afl-fuzz to stress-test targets that couldn't be built
@@ -46,7 +47,7 @@ To use unicorn-mode effectively you need to prepare the following:
 	* Relevant binary code to be fuzzed
 	* Knowledge of the memory map and good starting state
 	* Folder containing sample inputs to start fuzzing with
-		+ Same ideas as any other AFL inputs
+		+ Same ideas as any other AFL++ inputs
 		+ Quality/speed of results will depend greatly on the quality of starting
 		  samples
 		+ See AFL's guidance on how to create a sample corpus
@@ -55,13 +56,12 @@ To use unicorn-mode effectively you need to prepare the following:
 		+ Loads binary code into memory
 		+ Calls uc.afl_fuzz() / uc.afl_start_forkserver
 		+ Loads and verifies data to fuzz from a command-line specified file
-			+ AFL will provide mutated inputs by changing the file passed to
+			+ AFL++ will provide mutated inputs by changing the file passed to
 			  the test harness
 			+ Presumably the data to be fuzzed is at a fixed buffer address
 			+ If input constraints (size, invalid bytes, etc.) are known they
 			  should be checked in the place_input handler. If a constraint
-			  fails, just return false from the handler. AFL will treat the input as
-			  'uninteresting' and move on.
+			  fails, just return false from the handler. AFL++ will treat the input as 'uninteresting' and move on.
 		+ Sets up registers and memory state for beginning of test
 		+ Emulates the interesting code from beginning to end
 		+ If a crash is detected, the test harness must 'crash' by
