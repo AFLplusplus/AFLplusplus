@@ -80,9 +80,9 @@ fairly broad use of environment variables instead:
     Setting `AFL_INST_RATIO` to 0 is a valid choice. This will instrument only
     the transitions between function entry points, but not individual branches.
 
-    Note that this is an outdated variable. A few instances (e.g. afl-gcc) still
-    support these, but state-of-the-art (e.g. LLVM LTO and LLVM PCGUARD) do not
-    need this.
+    Note that this is an outdated variable. A few instances (e.g., afl-gcc)
+    still support these, but state-of-the-art (e.g., LLVM LTO and LLVM PCGUARD)
+    do not need this.
 
   - `AFL_NO_BUILTIN` causes the compiler to generate code suitable for use with
     libtokencap.so (but perhaps running a bit slower than without the flag).
@@ -319,7 +319,7 @@ checks or alter some of the more exotic semantics of the tool:
     afl-fuzz), setting `AFL_PYTHON_MODULE` to a Python module can also provide
     additional mutations. If `AFL_CUSTOM_MUTATOR_ONLY` is also set, all
     mutations will solely be performed with the custom mutator. This feature
-    allows to configure custom mutators which can be very helpful, e.g. fuzzing
+    allows to configure custom mutators which can be very helpful, e.g., fuzzing
     XML or other highly flexible structured input. For details, see
     [custom_mutators.md](custom_mutators.md).
 
@@ -449,7 +449,7 @@ checks or alter some of the more exotic semantics of the tool:
     not crash the target again when the test case is given. To be able to still
     re-trigger these crashes, you can use the `AFL_PERSISTENT_RECORD` variable
     with a value of how many previous fuzz cases to keep prio a crash. If set to
-    e.g. 10, then the 9 previous inputs are written to out/default/crashes as
+    e.g., 10, then the 9 previous inputs are written to out/default/crashes as
     RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008 and
     RECORD:000000,cnt:000009 being the crash case. NOTE: This option needs to be
     enabled in config.h first!
@@ -493,7 +493,7 @@ checks or alter some of the more exotic semantics of the tool:
     This is especially useful when running multiple instances (`-M/-S` for
     example). Applied tags are `banner` and `afl_version`. `banner` corresponds
     to the name of the fuzzer provided through `-M/-S`. `afl_version`
-    corresponds to the currently running AFL++ version (e.g. `++3.0c`). Default
+    corresponds to the currently running AFL++ version (e.g., `++3.0c`). Default
     (empty/non present) will add no tags to the metrics. For more information,
     see [rpc_statsd.md](rpc_statsd.md).
 
@@ -535,11 +535,11 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - `AFL_DEBUG` will print the found entry point for the binary to stderr. Use
     this if you are unsure if the entry point might be wrong - but use it
-    directly, e.g. `afl-qemu-trace ./program`.
+    directly, e.g., `afl-qemu-trace ./program`.
 
   - `AFL_ENTRYPOINT` allows you to specify a specific entry point into the
     binary (this can be very good for the performance!). The entry point is
-    specified as hex address, e.g. `0x4004110`. Note that the address must be
+    specified as hex address, e.g., `0x4004110`. Note that the address must be
     the address of a basic block.
 
   - Setting `AFL_INST_LIBS` causes the translator to also instrument the code
@@ -595,7 +595,7 @@ QEMU driver to provide a `main` loop for a user provided
 `stdin` rather than using in-memory test cases.
 * `AFL_FRIDA_EXCLUDE_RANGES` - See `AFL_QEMU_EXCLUDE_RANGES`
 * `AFL_FRIDA_INST_COVERAGE_FILE` - File to write DynamoRio format coverage
-information (e.g. to be loaded within IDA lighthouse).
+information (e.g., to be loaded within IDA lighthouse).
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
 and their instrumented counterparts during block compilation.
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
@@ -617,13 +617,13 @@ child on fork.
 * `AFL_FRIDA_INST_RANGES` - See `AFL_QEMU_INST_RANGES`
 * `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
 generate block (and hence edge) IDs. Setting this to a constant value may be
-useful for debugging purposes, e.g. investigating unstable edges.
+useful for debugging purposes, e.g., investigating unstable edges.
 * `AFL_FRIDA_INST_TRACE` - Log to stdout the address of executed blocks,
 implies `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_INST_TRACE_UNIQUE` - As per `AFL_FRIDA_INST_TRACE`, but each edge
 is logged only once, requires `AFL_FRIDA_INST_NO_OPTIMIZE`.
 * `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE` - File to write DynamoRio format
-coverage information for unstable edges (e.g. to be loaded within IDA
+coverage information for unstable edges (e.g., to be loaded within IDA
 lighthouse).
 * `AFL_FRIDA_JS_SCRIPT` - Set the script to be loaded by the FRIDA scripting
 engine. See [here](Scripting.md) for details.

@@ -167,7 +167,7 @@ allows you to find bugs that would not necessarily result in a crash.
 
 Note that sanitizers have a huge impact on CPU (= less executions per second)
 and RAM usage. Also you should only run one afl-fuzz instance per sanitizer
-type. This is enough because a use-after-free bug will be picked up, e.g. by
+type. This is enough because a use-after-free bug will be picked up, e.g., by
 ASAN (address sanitizer) anyway when syncing to other fuzzing instances, so not
 all fuzzing instances need to be instrumented with ASAN.
 
@@ -179,7 +179,7 @@ The following sanitizers have built-in support in AFL++:
   local variable that is defined and read before it is even set. Enabled with
   `export AFL_USE_MSAN=1` before compiling.
 * UBSAN = Undefined Behavior SANitizer, finds instances where - by the C and C++
-  standards - undefined behavior happens, e.g. adding two signed integers
+  standards - undefined behavior happens, e.g., adding two signed integers
   together where the result is larger than a signed integer can hold. Enabled
   with `export AFL_USE_UBSAN=1` before compiling.
 * CFISAN = Control Flow Integrity SANitizer, finds instances where the control
@@ -202,15 +202,15 @@ be looked up in the sanitizer documentation of llvm/clang. afl-fuzz, however,
 requires some specific parameters important for fuzzing to be set. If you want
 to set your own, it might bail and report what it is missing.
 
-Note that some sanitizers cannot be used together, e.g. ASAN and MSAN, and
-others often cannot work together because of target weirdness, e.g. ASAN and
+Note that some sanitizers cannot be used together, e.g., ASAN and MSAN, and
+others often cannot work together because of target weirdness, e.g., ASAN and
 CFISAN. You might need to experiment which sanitizers you can combine in a
 target (which means more instances can be run without a sanitized target, which
 is more effective).
 
 ### d) Modifying the target
 
-If the target has features that make fuzzing more difficult, e.g. checksums,
+If the target has features that make fuzzing more difficult, e.g., checksums,
 HMAC, etc. then modify the source code so that checks for these values are
 removed. This can even be done safely for source code used in operational
 products by eliminating these checks within these AFL++ specific blocks:
@@ -250,7 +250,7 @@ Then build the target. (Usually with `make`)
    reporting via `export AFL_QUIET=1`.
 
 2. sometimes configure and build systems error on warnings - these should be
-   disabled (e.g. `--disable-werror` for some configure scripts).
+   disabled (e.g., `--disable-werror` for some configure scripts).
 
 3. in case the configure/build system complains about AFL++'s compiler and
    aborts then set `export AFL_NOOPT=1` which will then just behave like the
@@ -354,7 +354,7 @@ You can find many good examples of starting files in the
 Use the AFL++ tool `afl-cmin` to remove inputs from the corpus that do not
 produce a new path in the target.
 
-Put all files from step a) into one directory, e.g. INPUTS.
+Put all files from step a) into one directory, e.g., INPUTS.
 
 If the target program is to be called by fuzzing as `bin/target -d INPUTFILE`
 the run afl-cmin like this:
@@ -380,8 +380,8 @@ for i in *; do
 done
 ```
 
-This step can also be parallelized, e.g. with `parallel`. Note that this step is
-rather optional though.
+This step can also be parallelized, e.g., with `parallel`. Note that this step
+is rather optional though.
 
 ### Done!
 
@@ -503,7 +503,7 @@ can set the cache size (in MB) by setting the environment variable
 `AFL_TESTCACHE_SIZE`.
 
 There should be one main fuzzer (`-M main-$HOSTNAME` option) and as many
-secondary fuzzers (e.g. `-S variant1`) as you have cores that you use. Every
+secondary fuzzers (e.g., `-S variant1`) as you have cores that you use. Every
 -M/-S entry needs a unique name (that can be whatever), however, the same -o
 output directory location has to be used for all instances.
 
@@ -522,7 +522,7 @@ All other secondaries should be used like this:
 * a quarter to a third with the MOpt mutator enabled: `-L 0`
 * run with a different power schedule, recommended are:
   `fast (default), explore, coe, lin, quad, exploit and rare` which you can set
-  with e.g. `-p explore`
+  with, e.g., `-p explore`
 * a few instances should use the old queue cycling with `-Z`
 
 Also, it is recommended to set `export AFL_IMPORT_FIRST=1` to load test cases
@@ -547,7 +547,7 @@ A long list can be found at
 
 However, you can also sync AFL++ with honggfuzz, libfuzzer with `-entropic=1`,
 etc. Just show the main fuzzer (-M) with the `-F` option where the queue/work
-directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`. Using
+directory of a different fuzzer is, e.g., `-F /src/target/honggfuzz`. Using
 honggfuzz (with `-n 1` or `-n 2`) and libfuzzer in parallel is highly
 recommended!
 
@@ -615,8 +615,8 @@ To restart an afl-fuzz run, just reuse the same command line but replace the `-i
 directory` with `-i -` or set `AFL_AUTORESUME=1`.
 
 If you want to add new seeds to a fuzzing campaign you can run a temporary
-fuzzing instance, e.g. when your main fuzzer is using `-o out` and the new seeds
-are in `newseeds/` directory:
+fuzzing instance, e.g., when your main fuzzer is using `-o out` and the new
+seeds are in `newseeds/` directory:
 
 ```
 AFL_BENCH_JUST_ONE=1 AFL_FAST_CAL=1 afl-fuzz -i newseeds -o out -S newseeds -- ./target
@@ -665,9 +665,9 @@ then you will not touch any of the other library APIs and features.
 ### h) How long to fuzz a target?
 
 This is a difficult question. Basically if no new path is found for a long time
-(e.g. for a day or a week) then you can expect that your fuzzing won't be
+(e.g., for a day or a week) then you can expect that your fuzzing won't be
 fruitful anymore. However, often this just means that you should switch out
-secondaries for others, e.g. custom mutator modules, sync to very different
+secondaries for others, e.g., custom mutator modules, sync to very different
 fuzzers, etc.
 
 Keep the queue/ directory (for future fuzzings of the same or similar targets)

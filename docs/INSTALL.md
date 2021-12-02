@@ -69,7 +69,8 @@ These build options exist:
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
-* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
+* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
+  (e.g., Debian)
 
 e.g.: `make ASAN_BUILD=1`
 

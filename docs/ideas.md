@@ -32,7 +32,7 @@ Mentor: any
 ## Support other programming languages
 
 Other programming languages also use llvm hence they could (easily?) supported
-for fuzzing, e.g. mono, swift, go, kotlin native, fortran, ...
+for fuzzing, e.g., mono, swift, go, kotlin native, fortran, ...
 
 GCC also supports: Objective-C, Fortran, Ada, Go, and D
 (according to [Gcc homepage](https://gcc.gnu.org/))

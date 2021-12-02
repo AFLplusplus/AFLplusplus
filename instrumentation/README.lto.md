@@ -71,7 +71,7 @@ use an outdated Linux distribution, read the next section.
 Installing the llvm snapshot builds is easy and mostly painless:
 
 In the following line, change `NAME` for your Debian or Ubuntu release name
-(e.g. buster, focal, eon, etc.):
+(e.g., buster, focal, eon, etc.):
 
 ```
 echo deb http://apt.llvm.org/NAME/ llvm-toolchain-NAME NAME >> /etc/apt/sources.list

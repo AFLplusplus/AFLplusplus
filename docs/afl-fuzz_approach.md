@@ -504,7 +504,7 @@ directory. This includes:
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
 - `edges_found`       - how many edges have been found
 - `var_byte_count`    - how many edges are non-deterministic
-- `afl_banner`        - banner text (e.g. the target name)
+- `afl_banner`        - banner text (e.g., the target name)
 - `afl_version`       - the version of AFL++ used
 - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented
 - `command_line`      - full command line used for the fuzzing session

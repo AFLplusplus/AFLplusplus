@@ -40,7 +40,7 @@ The idea and much of the initial implementation came from Laszlo Szekeres.
 
 ## 2a) How to use this - short
 
-Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.
+Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.:
 
 ```
 LLVM_CONFIG=llvm-config-9 make
