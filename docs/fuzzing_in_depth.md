@@ -178,8 +178,8 @@ The following sanitizers have built-in support in AFL++:
 * MSAN = Memory SANitizer, finds read access to uninitialized memory, eg. a
   local variable that is defined and read before it is even set. Enabled with
   `export AFL_USE_MSAN=1` before compiling.
-* UBSAN = Undefined Behaviour SANitizer, finds instances where - by the C and
-  C++ standards - undefined behaviour happens, e.g. adding two signed integers
+* UBSAN = Undefined Behavior SANitizer, finds instances where - by the C and C++
+  standards - undefined behavior happens, e.g. adding two signed integers
   together where the result is larger than a signed integer can hold. Enabled
   with `export AFL_USE_UBSAN=1` before compiling.
 * CFISAN = Control Flow Integrity SANitizer, finds instances where the control
@@ -196,7 +196,7 @@ The following sanitizers have built-in support in AFL++:
   of the target source code where you find a leak check necessary! Enabled with
   `export AFL_USE_LSAN=1` before compiling.
 
-It is possible to further modify the behaviour of the sanitizers at run-time by
+It is possible to further modify the behavior of the sanitizers at run-time by
 setting `ASAN_OPTIONS=...`, `LSAN_OPTIONS` etc. - the available parameters can
 be looked up in the sanitizer documentation of llvm/clang. afl-fuzz, however,
 requires some specific parameters important for fuzzing to be set. If you want
