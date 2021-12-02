@@ -1435,9 +1435,9 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!quiet_mode || collect_coverage) {
 
     if (!tcnt && !have_coverage) { FATAL("No instrumentation detected" cRST); }
-    OKF("Captured %u tuples (highest value %u, total values %llu) in "
-        "'%s'." cRST,
-        tcnt, highest, total, out_file);
+    OKF("Captured %u tuples (map size %u, highest value %u, total values %llu) "
+        "in '%s'." cRST,
+        tcnt, fsrv->real_map_size, highest, total, out_file);
     if (collect_coverage)
       OKF("A coverage of %u edges were achieved out of %u existing (%.02f%%) "
           "with %llu input files.",

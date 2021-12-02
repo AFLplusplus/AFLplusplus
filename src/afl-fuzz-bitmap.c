@@ -58,7 +58,7 @@ void write_bitmap(afl_state_t *afl) {
 u32 count_bits(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (afl->fsrv.map_size >> 2);
+  u32  i = ((afl->fsrv.real_map_size + 3) >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -68,7 +68,7 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
     /* This gets called on the inverse, virgin bitmap; optimize for sparse
        data. */
 
-    if (v == 0xffffffff) {
+    if (likely(v == 0xffffffff)) {
 
       ret += 32;
       continue;
@@ -92,14 +92,14 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
 u32 count_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (afl->fsrv.map_size >> 2);
+  u32  i = ((afl->fsrv.real_map_size + 3) >> 2);
   u32  ret = 0;
 
   while (i--) {
 
     u32 v = *(ptr++);
 
-    if (!v) { continue; }
+    if (likely(!v)) { continue; }
     if (v & 0x000000ffU) { ++ret; }
     if (v & 0x0000ff00U) { ++ret; }
     if (v & 0x00ff0000U) { ++ret; }
@@ -117,7 +117,7 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
 u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (afl->fsrv.map_size >> 2);
+  u32  i = ((afl->fsrv.real_map_size + 3) >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -127,7 +127,7 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
     /* This is called on the virgin bitmap, so optimize for the most likely
        case. */
 
-    if (v == 0xffffffffU) { continue; }
+    if (likely(v == 0xffffffffU)) { continue; }
     if ((v & 0x000000ffU) != 0x000000ffU) { ++ret; }
     if ((v & 0x0000ff00U) != 0x0000ff00U) { ++ret; }
     if ((v & 0x00ff0000U) != 0x00ff0000U) { ++ret; }
@@ -216,14 +216,14 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   u64 *current = (u64 *)afl->fsrv.trace_bits;
   u64 *virgin = (u64 *)virgin_map;
 
-  u32 i = (afl->fsrv.map_size >> 3);
+  u32 i = ((afl->fsrv.real_map_size + 7) >> 3);
 
 #else
 
   u32 *current = (u32 *)afl->fsrv.trace_bits;
   u32 *virgin = (u32 *)virgin_map;
 
-  u32 i = (afl->fsrv.map_size >> 2);
+  u32 i = ((afl->fsrv.real_map_size + 3) >> 2);
 
 #endif                                                     /* ^WORD_SIZE_64 */
 
