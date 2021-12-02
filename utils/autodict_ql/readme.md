@@ -43,7 +43,7 @@ Do the following :
 # chmod +x codeql-build.sh
 # ./codeql-build.sh
 # source ~/.bashrc
-# codeql 
+# codeql
 ```
 Then you should get:
 
@@ -84,12 +84,12 @@ Commands:
 	- `python3 autodict-ql.py [CURRECT_DIR] [CODEQL_DATABASE_PATH] [TOKEN_PATH]`
 		- example : `python3 /home/user/AFLplusplus/utils/autodict_ql/autodict-ql.py $PWD /home/user/libxml/libxml-db tokens`
 			- This will create the final `tokens` dir for you and you are done, then pass the tokens path to AFL++'s `-x` flag.
-5. Done! 
+5. Done!
 
 
 ## More on dictionaries and tokens
 Core developer of the AFL++ project Marc Heuse also developed a similar tool named `dict2file` which is a LLVM pass which can automatically extract useful tokens, in addition with LTO instrumentation mode, this dict2file is automatically generates token extraction. `Autodict-QL` plugin gives you scripting capability and you can do whatever you want to extract from the Codebase and it's up to you. In addition it's independent from LLVM system.
-On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file formats and specifications. For example, for testing binutils and ELF file format or AVI in FFMPEG, there are no prebuilt dictionaries, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generate dictionaries based on the target.
+On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file formats and specifications. For example, for testing binutils and ELF file format or AVI in FFMPEG, there are no pre-built dictionaries, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generate dictionaries based on the target.
 
 I've personally prefered to use `Autodict-QL` or `dict2file` rather than Google dictionaries or any other manually generated dictionaries as `Autodict-QL` and `dict2file` are working based on the target.
 In overall, fuzzing with dictionaries and well-generated tokens will give better results.

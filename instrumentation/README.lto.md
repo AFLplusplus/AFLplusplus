@@ -328,7 +328,7 @@ and `CXXFLAGS=-flto=full`).
 If this succeeds, then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226).
 
-Even some targets where clang-12 fails can be build if the fail is just in
+Even some targets where clang-12 fails can be built if the fail is just in
 `./configure`, see `Solving difficult targets` above.
 
 ## History
