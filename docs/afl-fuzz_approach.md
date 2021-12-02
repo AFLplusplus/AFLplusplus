@@ -37,7 +37,7 @@ superior to blind fuzzing or coverage-only tools.
 
 ## Understanding the status screen
 
-This chapter provides an overview of the status screen - plus tips for
+This section provides an overview of the status screen - plus tips for
 troubleshooting any warnings and red text shown in the UI.
 
 For the general instruction manual, see [README.md](../README.md).
