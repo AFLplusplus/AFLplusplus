@@ -160,9 +160,9 @@ Lastly, if your defect only occurs when using `afl-fuzz` (e.g., when using
 shared memory mapping being created for it to record its data), it is possible
 to enable the creation of a core dump for post-mortem analysis.
 
-Firstly, check if your `/proc/sys/kernel/core_pattern` configuration is simply
-set to a filename (AFL++ encourages you to set it to the value `core` in any
-case since it doesn't want any handler applications getting in the way).
+Firstly, check if your `/proc/sys/kernel/core_pattern` configuration is set to a
+filename (AFL++ encourages you to set it to the value `core` in any case since
+it doesn't want any handler applications getting in the way).
 
 Next, set `ulimit -c unlimited` to remove any size limitations for core files.
 

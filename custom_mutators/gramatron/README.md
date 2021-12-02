@@ -5,11 +5,11 @@ grammar-aware fuzzing.  Technical details about our framework are available
 in the [ISSTA'21 paper](https://nebelwelt.net/files/21ISSTA.pdf).
 The artifact to reproduce the experiments presented in the paper are present
 in `artifact/`. Instructions to run a sample campaign and incorporate new
-grammars is presented below: 
+grammars is presented below:
 
 # Compiling
 
-Simply execute `./build_gramatron_mutator.sh`
+Execute `./build_gramatron_mutator.sh`
 
 # Running
 
@@ -25,7 +25,7 @@ afl-fuzz -i in -o out -- ./target
 
 # Adding and testing a new grammar
 
-- Specify in a JSON format for CFG. Examples are correspond `source.json` files 
+- Specify in a JSON format for CFG. Examples are correspond `source.json` files
 - Run the automaton generation script (in `src/gramfuzz-mutator/preprocess`)
   which will place the generated automaton in the same folder.
 ```

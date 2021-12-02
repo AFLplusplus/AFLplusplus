@@ -229,9 +229,9 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_STATS_FILE` - Write statistics information about the code being
   instrumented to the given file name. The statistics are written only for the
   child process when new block is instrumented (when the
-  `AFL_FRIDA_STATS_INTERVAL` has expired). Note that simply because a new path
-  is found does not mean a new block needs to be compiled. It could simply be
-  that the existing blocks instrumented have been executed in a different order.
+  `AFL_FRIDA_STATS_INTERVAL` has expired). Note that just because a new path is
+  found does not mean a new block needs to be compiled. It could be that the
+  existing blocks instrumented have been executed in a different order.
 
   ```
   stats
@@ -359,8 +359,8 @@ An example of how to fuzz a dynamic library on OSX is included, see
 [test/osx-lib](test/osx-lib). This requires the use of a simple test harness
 executable which will load the library and call a target function within it. The
 dependent library can either be loaded in using `dlopen` and `dlsym` in a
-function marked `__attribute__((constructor()))` or the test harness can simply
-be linked against it. It is important that the target library is loaded before
+function marked `__attribute__((constructor()))` or the test harness can be
+linked against it. It is important that the target library is loaded before
 execution of `main`, since this is the point where FRIDA mode is initialized.
 Otherwise, it will not be possible to configure coverage for the test library
 using `AFL_FRIDA_INST_RANGES` or similar.

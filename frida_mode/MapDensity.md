@@ -77,13 +77,13 @@ evenly distributed.
 We start with a large address and need to discard a large number of the bits to
 generate a block ID which is within range. But how do we choose the unique bits
 of the address versus those which are the same for every block? The high bits of
-the address may simply be all `0s` or all `1s` to make the address canonical,
-the middle portion of the address may be the same for all blocks (since if they
-are all within the same binary, then they will all be adjacent in memory), and
-on some systems, even the low bits may have poor entropy as some use fixed
-length aligned instructions. Then we need to consider that a portion of each
-binary may contain the `.data` or `.bss` sections and so may not contain any
-blocks of code at all.
+the address may be all `0s` or all `1s` to make the address canonical, the
+middle portion of the address may be the same for all blocks (since if they are
+all within the same binary, then they will all be adjacent in memory), and on
+some systems, even the low bits may have poor entropy as some use fixed length
+aligned instructions. Then we need to consider that a portion of each binary may
+contain the `.data` or `.bss` sections and so may not contain any blocks of code
+at all.
 
 ### Edge IDs
 
