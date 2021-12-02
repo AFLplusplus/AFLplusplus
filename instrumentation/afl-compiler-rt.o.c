@@ -275,6 +275,8 @@ static void __afl_map_shm(void) {
 
   char *id_str = getenv(SHM_ENV_VAR);
 
+  if (__afl_final_loc) { ++__afl_final_loc; }  // as we count starting 0
+
   if (__afl_final_loc) {
 
     __afl_map_size = __afl_final_loc;

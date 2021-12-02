@@ -543,9 +543,11 @@ void show_stats(afl_state_t *afl) {
 
       FATAL(
           "Incorrect fuzzing setup detected. Your target seems to have loaded "
-          "incorrectly instrumented shared libraries. If you use LTO mode "
+          "incorrectly instrumented shared libraries (%u of %u/%u). If you use "
+          "LTO mode "
           "please see instrumentation/README.lto.md. To ignore this problem "
-          "and continue fuzzing just set 'AFL_IGNORE_PROBLEMS=1'.\n");
+          "and continue fuzzing just set 'AFL_IGNORE_PROBLEMS=1'.\n",
+          t_bytes, afl->fsrv.real_map_size, afl->fsrv.map_size);
 
     }
 
