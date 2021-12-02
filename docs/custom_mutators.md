@@ -5,7 +5,7 @@ For now, we support C/C++ library and Python module, collectivelly named as the
 custom mutator.
 
 There is also experimental support for Rust in `custom_mutators/rust`.
-Please refer to that directory for documentation.
+For documentation, refer to that directory.
 Run ```cargo doc -p custom_mutator --open``` in that directory to view the
 documentation in your web browser.
 
@@ -25,7 +25,8 @@ Now AFL also supports multiple custom mutators which can be specified in the sam
 ```bash
 export AFL_CUSTOM_MUTATOR_LIBRARY="full/path/to/mutator_first.so;full/path/to/mutator_second.so"
 ```
-Please see [APIs](#2-apis) and [Usage](#3-usage) for detail.
+
+For details, see [APIs](#2-apis) and [Usage](#3-usage).
 
 The custom mutation stage is set to be the first non-deterministic stage (right before the havoc stage).
 
@@ -288,8 +289,8 @@ afl-fuzz /path/to/program
 
 ## 4) Example
 
-Please see [example.c](../custom_mutators/examples/example.c) and
-[example.py](../custom_mutators/examples/example.py)
+See [example.c](../custom_mutators/examples/example.c) and
+[example.py](../custom_mutators/examples/example.py).
 
 ## 5) Other Resources
 

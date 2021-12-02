@@ -367,8 +367,8 @@ using `AFL_FRIDA_INST_RANGES` or similar.
 
 ## Debugging
 
-Please refer to [DEBUGGING.md](DEBUGGING.md) for assistance should you encounter
-problems with FRIDA mode.
+Should you encounter problems with FRIDA mode, refer to
+[DEBUGGING.md](DEBUGGING.md) for assistance.
 
 ## To do
 

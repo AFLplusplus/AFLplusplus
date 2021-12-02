@@ -28,7 +28,7 @@ terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
 Here is some information to get you started:
 
-* For releases, please see the
+* For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
   [branches](#branches). Also take a look at the list of
   [important changes in AFL++](docs/important_changes.md).

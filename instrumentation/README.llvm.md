@@ -119,8 +119,8 @@ If you need just to instrument specific parts of the code, you can the
 instrument file list which C/C++ files to actually instrument. See
 [README.instrument_list.md](README.instrument_list.md)
 
-For splitting memcmp, strncmp, etc. please see
-[README.laf-intel.md](README.laf-intel.md)
+For splitting memcmp, strncmp, etc., see
+[README.laf-intel.md](README.laf-intel.md).
 
 Then there are different ways of instrumenting the target:
 
@@ -157,8 +157,8 @@ nozero counter default for performance reasons.
 
 ## 4) deferred initialization, persistent mode, shared memory fuzzing
 
-This is the most powerful and effective fuzzing you can do. Please see
-[README.persistent_mode.md](README.persistent_mode.md) for a full explanation.
+This is the most powerful and effective fuzzing you can do. For a full
+explanation, see [README.persistent_mode.md](README.persistent_mode.md).
 
 ## 5) Bonus feature: 'dict2file' pass
 
