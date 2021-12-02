@@ -42,9 +42,9 @@ comparisons.
 A new experimental feature is splitting floating point comparisons into a series
 of sign, exponent and mantissa comparisons followed by splitting each of them
 into 8 bit comparisons when necessary. It is activated with the
-`AFL_LLVM_LAF_SPLIT_FLOATS` setting. Please note that full IEEE 754
-functionality is not preserved, that is values of nan and infinity will probably
-behave differently.
+`AFL_LLVM_LAF_SPLIT_FLOATS` setting. Note that full IEEE 754 functionality is
+not preserved, that is values of nan and infinity will probably behave
+differently.
 
 Note that setting this automatically activates `AFL_LLVM_LAF_SPLIT_COMPARES`.
 

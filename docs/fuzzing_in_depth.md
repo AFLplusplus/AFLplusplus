@@ -1,7 +1,7 @@
 # Fuzzing with AFL++
 
 The following describes how to fuzz with a target if source code is available.
-If you have a binary-only target, please go to
+If you have a binary-only target, go to
 [fuzzing_binary-only_targets.md](fuzzing_binary-only_targets.md).
 
 Fuzzing source code is a three-step process:
@@ -431,7 +431,7 @@ Run it like `screen -dmS afl-main -- afl-fuzz -M main-$HOSTNAME -i ...`
 and it will start away in a screen session. To enter this session, type
 `screen -r afl-main`. You see - it makes sense to name the screen session
 same as the afl-fuzz -M/-S naming :-)
-For more information on screen or tmux please check their documentation.
+For more information on screen or tmux, check their documentation.
 
 If you need to stop and re-start the fuzzing, use the same command line options
 (or even change them by selecting a different power schedule or another mutation

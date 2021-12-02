@@ -320,7 +320,7 @@ checks or alter some of the more exotic semantics of the tool:
     additional mutations. If `AFL_CUSTOM_MUTATOR_ONLY` is also set, all
     mutations will solely be performed with the custom mutator. This feature
     allows to configure custom mutators which can be very helpful, e.g. fuzzing
-    XML or other highly flexible structured input. Please see
+    XML or other highly flexible structured input. For details, see
     [custom_mutators.md](custom_mutators.md).
 
   - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule every time
