@@ -131,7 +131,8 @@ int target_func(char *buf, int size) {
 
 This could be built to `libdemo.so`.
 
-Then we should load the library in template.cpp and find the `target` function address.
+Then load the library in template.cpp and find the `target` function address:
+
 ```c
     void *handle = dlopen(lib_path, RTLD_LAZY);
 	..........................................
@@ -140,7 +141,7 @@ Then we should load the library in template.cpp and find the `target` function a
     p_target_func = (target_func)dlsym(handle, "target_func");
 ```
 
-then we read the data from file and call the function in `fuzz_func`
+Then read the data from file and call the function in `fuzz_func`:
 
 ```c
 QBDI_NOINLINE int fuzz_func() {

@@ -25,7 +25,7 @@ or `@@` as command line parameters.
 Note that you can use the driver too for frida_mode (`-O`).
 
 aflpp_qemu_driver is used for libfuzzer `LLVMFuzzerTestOneInput()` targets that
-are to be fuzzed in qemu_mode. So we compile them with clang/clang++, without
+are to be fuzzed in qemu_mode. So compile them with clang/clang++, without
 -fsantize=fuzzer or afl-clang-fast, and link in libAFLQemuDriver.a:
 
 `clang++ -o fuzz fuzzer_harness.cc libAFLQemuDriver.a [plus required linking]`.

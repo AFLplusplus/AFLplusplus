@@ -95,7 +95,7 @@ gdb \
 ```
 
 Note:
-- We have to manually set the `__AFL_PERSISTENT` environment variable which is
+- You have to manually set the `__AFL_PERSISTENT` environment variable which is
   usually passed by `afl-fuzz`.
 - Setting breakpoints etc. is likely to interfere with FRIDA and cause spurious
   errors.

@@ -204,8 +204,8 @@ trimmed input. Here's a quick API description:
 - `trim` (optional)
 
     This method is called for each trimming operation. It doesn't have any
-    arguments because we already have the initial buffer from `init_trim` and we
-    can memorize the current state in the data variables. This can also save
+    arguments because there is already the initial buffer from `init_trim` and
+    we can memorize the current state in the data variables. This can also save
     reparsing steps for each iteration. It should return the trimmed input
     buffer.
 

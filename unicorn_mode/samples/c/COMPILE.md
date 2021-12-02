@@ -19,4 +19,4 @@ was built in case you want to rebuild it or recompile it for any reason.
 
 The pre-built binary (persistent_target_x86_64) was built using -g -O0 in gcc.
 
-We then load the binary and execute the main function directly.
+Then load the binary and execute the main function directly.

@@ -201,10 +201,10 @@ target at load time and then let it run - or save the binary with the changes.
 This is great for some things, e.g. fuzzing, and not so effective for others,
 e.g. malware analysis.
 
-So, what we can do with Dyninst is taking every basic block and put AFL++'s
-instrumentation code in there - and then save the binary. Afterwards, we can
-just fuzz the newly saved target binary with afl-fuzz. Sounds great? It is. The
-issue though - it is a non-trivial problem to insert instructions, which change
+So, what you can do with Dyninst is taking every basic block and putting AFL++'s
+instrumentation code in there - and then save the binary. Afterwards, just fuzz
+the newly saved target binary with afl-fuzz. Sounds great? It is. The issue
+though - it is a non-trivial problem to insert instructions, which change
 addresses in the process space, so that everything is still working afterwards.
 Hence, more often than not binaries crash when they are run.
 

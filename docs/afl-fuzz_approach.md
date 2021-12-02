@@ -103,8 +103,8 @@ will be allowed to run for months.
 
 There's one important thing to watch out for: if the tool is not finding new
 paths within several minutes of starting, you're probably not invoking the
-target binary correctly and it never gets to parse the input files we're
-throwing at it; other possible explanations are that the default memory limit
+target binary correctly and it never gets to parse the input files that are
+thrown at it; other possible explanations are that the default memory limit
 (`-m`) is too restrictive and the program exits after failing to allocate a
 buffer very early on; or that the input files are patently invalid and always
 fail a basic header check.
@@ -172,10 +172,9 @@ processed path is not "favored" (a property discussed later on).
 The section provides some trivia about the coverage observed by the
 instrumentation embedded in the target binary.
 
-The first line in the box tells you how many branch tuples we have already hit,
-in proportion to how much the bitmap can hold. The number on the left describes
-the current input; the one on the right is the value for the entire input
-corpus.
+The first line in the box tells you how many branch tuples already were hit, in
+proportion to how much the bitmap can hold. The number on the left describes the
+current input; the one on the right is the value for the entire input corpus.
 
 Be wary of extremes:
 
@@ -194,7 +193,7 @@ Be wary of extremes:
 
 The other line deals with the variability in tuple hit counts seen in the
 binary. In essence, if every taken branch is always taken a fixed number of
-times for all the inputs we have tried, this will read `1.00`. As we manage to
+times for all the inputs that were tried, this will read `1.00`. As we manage to
 trigger other hit counts for every branch, the needle will start to move toward
 `8.00` (every bit in the 8-bit map hit), but will probably never reach that
 extreme.
@@ -295,9 +294,9 @@ exceed it by a margin sufficient to be classified as hangs.
   +-----------------------------------------------------+
 ```
 
-This is just another nerd-targeted section keeping track of how many paths we
-have netted, in proportion to the number of execs attempted, for each of the
-fuzzing strategies discussed earlier on. This serves to convincingly validate
+This is just another nerd-targeted section keeping track of how many paths were
+netted, in proportion to the number of execs attempted, for each of the fuzzing
+strategies discussed earlier on. This serves to convincingly validate
 assumptions about the usefulness of the various approaches taken by afl-fuzz.
 
 The trim strategy stats in this section are a bit different than the rest. The
@@ -339,10 +338,10 @@ fuzzing yet. The same stat is also given for "favored" entries that the fuzzer
 really wants to get to in this queue cycle (the non-favored entries may have to
 wait a couple of cycles to get their chance).
 
-Next, we have the number of new paths found during this fuzzing section and
-imported from other fuzzer instances when doing parallelized fuzzing; and the
-extent to which identical inputs appear to sometimes produce variable behavior
-in the tested binary.
+Next is the number of new paths found during this fuzzing section and imported
+from other fuzzer instances when doing parallelized fuzzing; and the extent to
+which identical inputs appear to sometimes produce variable behavior in the
+tested binary.
 
 That last bit is actually fairly interesting: it measures the consistency of
 observed traces. If a program always behaves the same for the same input data,
