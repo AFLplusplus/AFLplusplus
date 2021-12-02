@@ -106,9 +106,9 @@ You can select the mode for the afl-cc compiler by:
 MODE can be one of: LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
 (afl-g*-fast) or GCC (afl-gcc/afl-g++) or CLANG(afl-clang/afl-clang++).
 
-Because no AFL specific command-line options are accepted (beside the --afl-MODE
-command), the compile-time tools make fairly broad use of environment variables,
-which can be listed with `afl-cc -hh` or by reading
+Because no AFL++ specific command-line options are accepted (beside the
+--afl-MODE command), the compile-time tools make fairly broad use of environment
+variables, which can be listed with `afl-cc -hh` or by reading
 [env_variables.md](env_variables.md).
 
 ### b) Selecting instrumentation options
@@ -213,7 +213,7 @@ is more effective).
 If the target has features that make fuzzing more difficult, e.g. checksums,
 HMAC, etc. then modify the source code so that checks for these values are
 removed. This can even be done safely for source code used in operational
-products by eliminating these checks within these AFL specific blocks:
+products by eliminating these checks within these AFL++ specific blocks:
 
 ```
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION

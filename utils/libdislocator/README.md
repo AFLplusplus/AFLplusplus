@@ -28,7 +28,7 @@ heap-related security bugs in several ways:
 
   - Optionally, in platforms supporting it, huge pages can be used by passing
     USEHUGEPAGE=1 to make.
-  
+
   - Size alignment to `max_align_t` can be enforced with AFL_ALIGNED_ALLOC=1.
     In this case, a tail canary is inserted in the padding bytes at the end
     of the allocated zone. This reduce the ability of libdislocator to detect
@@ -49,7 +49,7 @@ The allocator is slow and memory-intensive (even the tiniest allocation uses up
 for "production" uses; but it can be faster and more hassle-free than ASAN / MSAN
 when fuzzing small, self-contained binaries.
 
-To use this library, run AFL like so:
+To use this library, run AFL++ like so:
 
 ```
 AFL_PRELOAD=/path/to/libdislocator.so ./afl-fuzz [...other params...]
@@ -62,7 +62,7 @@ Similarly to afl-tmin, the library is not "proprietary" and can be used with
 other fuzzers or testing tools without the need for any code tweaks. It does not
 require AFL-instrumented binaries to work.
 
-Note that the AFL_PRELOAD approach (which AFL internally maps to LD_PRELOAD or
+Note that the AFL_PRELOAD approach (which AFL++ internally maps to LD_PRELOAD or
 DYLD_INSERT_LIBRARIES, depending on the OS) works only if the target binary is
 dynamically linked. Otherwise, attempting to use the library will have no
 effect.
