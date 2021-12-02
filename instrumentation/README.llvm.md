@@ -106,9 +106,10 @@ either setting `AFL_CC_COMPILER=LLVM` or pass the parameter `--afl-llvm` via
 CFLAGS/CXXFLAGS/CPPFLAGS.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-[docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
-AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored as it
-does not serve a good purpose with the more effective PCGUARD analysis.
+[docs/env_variables.md](../docs/env_variables.md)). This includes
+`AFL_USE_ASAN`, `AFL_HARDEN`, and `AFL_DONT_OPTIMIZE`. However, `AFL_INST_RATIO`
+is not honored as it does not serve a good purpose with the more effective
+PCGUARD analysis.
 
 ## 3) Options
 
@@ -125,8 +126,8 @@ For splitting memcmp, strncmp, etc., see
 Then there are different ways of instrumenting the target:
 
 1. An better instrumentation strategy uses LTO and link time instrumentation.
-   Note that not all targets can compile in this mode, however if it works it is
-   the best option you can use. To go with this option, use
+   Note that not all targets can compile in this mode, however, if it works it
+   is the best option you can use. To go with this option, use
    afl-clang-lto/afl-clang-lto++. See [README.lto.md](README.lto.md).
 
 2. Alternatively you can choose a completely different coverage method:

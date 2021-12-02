@@ -12,7 +12,9 @@ If you find an interesting or important question missing, submit it via
 
   American Fuzzy Lop (AFL) was developed by Michał "lcamtuf" Zalewski starting in 2013/2014, and when he left Google end of 2017 he stopped developing it.
 
-  At the end of 2019, the Google fuzzing team took over maintenance of AFL, however it is only accepting PRs from the community and is not developing enhancements anymore.
+  At the end of 2019, the Google fuzzing team took over maintenance of AFL,
+  however, it is only accepting PRs from the community and is not developing
+  enhancements anymore.
 
   In the second quarter of 2019, 1 1/2 years later, when no further development of AFL had happened and it became clear there would none be coming, AFL++ was born, where initially community patches were collected and applied for bug fixes and enhancements.
   Then from various AFL spin-offs - mostly academic research - features were integrated.
@@ -121,8 +123,10 @@ If you find an interesting or important question missing, submit it via
   Sending the same input again and again should take the exact same path through the target every time.
   If that is the case, the stability is 100%.
 
-  If however randomness happens, e.g. a thread reading other external data, reaction to timing, etc., then in some of the re-executions with the same data the edge coverage result will be different accross runs.
-  Those edges that change are then flagged "unstable".
+  If, however, randomness happens, e.g. a thread reading other external data,
+  reaction to timing, etc., then in some of the re-executions with the same data
+  the edge coverage result will be different accross runs. Those edges that
+  change are then flagged "unstable".
 
   The more "unstable" edges, the more difficult for AFL++ to identify valid new paths.
 

@@ -54,9 +54,11 @@ to emulate the network. This is also much faster than the real network would be.
 See [utils/socket_fuzzing/](../utils/socket_fuzzing/).
 
 There is an outdated AFL++ branch that implements networking if you are
-desperate though: [https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking) -
-however a better option is AFLnet ([https://github.com/aflnet/aflnet](https://github.com/aflnet/aflnet))
-which allows you to define network state with different type of data packets.
+desperate though:
+[https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking)
+- however, a better option is AFLnet
+([https://github.com/aflnet/aflnet](https://github.com/aflnet/aflnet)) which
+allows you to define network state with different type of data packets.
 
 ## Improvements
 
@@ -72,13 +74,16 @@ which allows you to define network state with different type of data packets.
 
 ### Improving stability
 
-For fuzzing a 100% stable target that covers all edges is the best case.
-A 90% stable target that covers all edges is however better than a 100% stable target that ignores 10% of the edges.
+For fuzzing a 100% stable target that covers all edges is the best case. A 90%
+stable target that covers all edges is, however, better than a 100% stable
+target that ignores 10% of the edges.
 
 With instability, you basically have a partial coverage loss on an edge, with ignored functions you have a full loss on that edges.
 
-There are functions that are unstable, but also provide value to coverage, e.g., init functions that use fuzz data as input.
-If however a function that has nothing to do with the input data is the source of instability, e.g., checking jitter, or is a hash map function etc., then it should not be instrumented.
+There are functions that are unstable, but also provide value to coverage, e.g.,
+init functions that use fuzz data as input. If, however, a function that has
+nothing to do with the input data is the source of instability, e.g., checking
+jitter, or is a hash map function etc., then it should not be instrumented.
 
 To be able to exclude these functions (based on AFL++'s measured stability), the following process will allow to identify functions with variable edges.
 
@@ -116,8 +121,12 @@ Four steps are required to do this and it also requires quite some knowledge of 
      If `PCGUARD` is used, then you need to follow this guide (needs llvm 12+!):
      [https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
 
-     Only exclude those functions from instrumentation that provide no value for coverage - that is if it does not process any fuzz data directly or indirectly (e.g. hash maps, thread management etc.).
-     If however a function directly or indirectly handles fuzz data, then you should not put the function in a deny instrumentation list and rather live with the instability it comes with.
+     Only exclude those functions from instrumentation that provide no value for
+     coverage - that is if it does not process any fuzz data directly or
+     indirectly (e.g. hash maps, thread management etc.). If, however, a
+     function directly or indirectly handles fuzz data, then you should not put
+     the function in a deny instrumentation list and rather live with the
+     instability it comes with.
 
   4. Recompile the target
 

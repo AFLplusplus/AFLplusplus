@@ -112,11 +112,11 @@ def deinit():  # optional for Python
 
 - `fuzz_count` (optional):
 
-    When a queue entry is selected to be fuzzed, afl-fuzz selects the number
-    of fuzzing attempts with this input based on a few factors.
-    If however the custom mutator wants to set this number instead on how often
-    it is called for a specific queue entry, use this function.
-    This function is most useful if `AFL_CUSTOM_MUTATOR_ONLY` is **not** used.
+    When a queue entry is selected to be fuzzed, afl-fuzz selects the number of
+    fuzzing attempts with this input based on a few factors. If, however, the
+    custom mutator wants to set this number instead on how often it is called
+    for a specific queue entry, use this function. This function is most useful
+    if `AFL_CUSTOM_MUTATOR_ONLY` is **not** used.
 
 - `fuzz` (optional):
 
