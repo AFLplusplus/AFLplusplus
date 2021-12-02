@@ -28,7 +28,15 @@ void instrument_coverage_optimize_init(void) {
 
 void instrument_flush(GumStalkerOutput *output) {
 
-  gum_arm_writer_flush(output->writer.arm);
+  if (output->encoding == GUM_INSTRUCTION_SPECIAL) {
+
+    gum_thumb_writer_flush(output->writer.thumb);
+
+  } else {
+
+    gum_arm_writer_flush(output->writer.arm);
+
+  }
 
 }
 
