@@ -564,7 +564,7 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     general purpose registers and restore them in each persistent cycle.
 
   - Another modality to execute the persistent loop is to specify also the
-    `AFL_QEMU_PERSISTENT_RET=end addr` env variable. With this variable
+    `AFL_QEMU_PERSISTENT_RET=end addr` environment variable. With this variable
     assigned, instead of patching the return address, the specified instruction
     is transformed to a jump towards `start addr`.
 

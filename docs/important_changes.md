@@ -48,8 +48,9 @@ behaviors and defaults:
     * deterministic fuzzing is now disabled by default (unless using -M) and
       can be enabled with -D
     * a caching of test cases can now be performed and can be modified by
-      editing config.h for TESTCASE_CACHE or by specifying the env variable
-      `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
+      editing config.h for TESTCASE_CACHE or by specifying the environment
+      variable `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500
+      (default: 50).
     * -M mains do not perform trimming
   * examples/ got renamed to utils/
   * libtokencap/ libdislocator/ and qdbi_mode/ were moved to utils/
