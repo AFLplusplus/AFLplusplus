@@ -125,7 +125,7 @@ If you find an interesting or important question missing, submit it via
 
   If, however, randomness happens, e.g., a thread reading other external data,
   reaction to timing, etc., then in some of the re-executions with the same data
-  the edge coverage result will be different accross runs. Those edges that
+  the edge coverage result will be different across runs. Those edges that
   change are then flagged "unstable".
 
   The more "unstable" edges, the more difficult for AFL++ to identify valid new paths.

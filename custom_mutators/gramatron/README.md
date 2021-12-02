@@ -1,6 +1,6 @@
 # GramaTron
 
-Gramatron is a coverage-guided fuzzer that uses grammar automatons to perform
+GramaTron is a coverage-guided fuzzer that uses grammar automatons to perform
 grammar-aware fuzzing.  Technical details about our framework are available
 in the [ISSTA'21 paper](https://nebelwelt.net/files/21ISSTA.pdf).
 The artifact to reproduce the experiments presented in the paper are present
@@ -9,11 +9,11 @@ grammars is presented below:
 
 # Compiling
 
-Execute `./build_gramatron_mutator.sh`
+Execute `./build_gramatron_mutator.sh`.
 
 # Running
 
-You have to set the grammar file to use with `GRAMMATRON_AUTOMATION`:
+You have to set the grammar file to use with `GRAMATRON_AUTOMATION`:
 
 ```
 export AFL_DISABLE_TRIM=1

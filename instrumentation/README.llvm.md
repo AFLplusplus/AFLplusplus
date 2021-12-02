@@ -125,7 +125,7 @@ For splitting memcmp, strncmp, etc., see
 
 Then there are different ways of instrumenting the target:
 
-1. An better instrumentation strategy uses LTO and link time instrumentation.
+1. A better instrumentation strategy uses LTO and link time instrumentation.
    Note that not all targets can compile in this mode, however, if it works it
    is the best option you can use. To go with this option, use
    afl-clang-lto/afl-clang-lto++. See [README.lto.md](README.lto.md).
