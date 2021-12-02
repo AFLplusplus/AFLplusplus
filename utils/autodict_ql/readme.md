@@ -37,7 +37,7 @@ sudo apt install build-essential libtool-bin python3-dev python3 automake git vi
 ```
 The usage of Autodict-QL is pretty easy. But let's describe it as:
 
-1. First of all, you need to have CodeQL installed on the system. we make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system.
+1. First of all, you need to have CodeQL installed on the system. We make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system.
 Do the following :
 ```shell
 # chmod +x codeql-build.sh

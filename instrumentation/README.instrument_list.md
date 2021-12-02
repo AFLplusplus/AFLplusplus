@@ -128,4 +128,4 @@ Note that whitespace is ignored and comments (`# foo`) are supported.
 ### 3b) UNIX-style pattern matching
 
 You can add UNIX-style pattern matching in the "instrument file list" entries.
-See `man fnmatch` for the syntax. We do not set any of the `fnmatch` flags.
+See `man fnmatch` for the syntax. Do not set any of the `fnmatch` flags.

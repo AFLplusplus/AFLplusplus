@@ -391,7 +391,7 @@ to be used in fuzzing! :-)
 
 ## 3. Fuzzing the target
 
-In this final step we fuzz the target. There are not that many important options
+In this final step, fuzz the target. There are not that many important options
 to run the target - unless you want to use many CPU cores/threads for the
 fuzzing, which will make the fuzzing much more useful.
 
