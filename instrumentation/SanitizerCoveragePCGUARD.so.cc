@@ -851,6 +851,18 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
         StringRef FuncName = Callee->getName();
+        if (!FuncName.compare(StringRef("dlopen")) ||
+            !FuncName.compare(StringRef("_dlopen"))) {
+
+          fprintf(stderr,
+                  "WARNING: dlopen() detected. To have coverage for a library "
+                  "that your target dlopen()'s this must either happen before "
+                  "__AFL_INIT() or you must use AFL_PRELOAD to preload all "
+                  "dlopen()'ed libraries!\n");
+          continue;
+
+        }
+
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
         cnt_cov++;
