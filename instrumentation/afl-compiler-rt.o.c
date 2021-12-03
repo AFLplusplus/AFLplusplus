@@ -1418,16 +1418,14 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   if (start == stop || *start) return;
 
   // If a dlopen of an instrumented library happens after the forkserver then
-  // we have a problem.
-  // Should we abort()? This way a user would/could find out.
-  // Currently we just do not instrument that lib, which is invisible.
+  // we have a problem as we cannot increase the coverage map anymore.
   if (__afl_already_initialized_forkserver) {
 
     fprintf(stderr,
-            "[-] ERROR: forkserver is already up, but an instrumented dlopen() "
-            "library loaded afterwards. You must LD_PRELOAD such libraries to "
-            "be able to fuzz them.\n");
-    return;  // or should be abort()?
+            "[-] FATAL: forkserver is already up, but an instrumented dlopen() "
+            "library loaded afterwards. You must AFL_PRELOAD such libraries to "
+            "be able to fuzz them or LD_PRELOAD to run outside of afl-fuzz.\n");
+    abort();
 
   }
 
@@ -1443,6 +1441,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   /* instrumented code is loaded *after* our forkserver is up. this is a
      problem. We cannot prevent collisions then :( */
+  /*
   if (__afl_already_initialized_forkserver &&
       __afl_final_loc + 1 + stop - start > __afl_map_size) {
 
@@ -1474,6 +1473,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     }
 
   }
+
+  */
 
   /* Make sure that the first element in the range is always set - we use that
      to avoid duplicate calls (which can happen as an artifact of the underlying

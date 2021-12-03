@@ -5,6 +5,7 @@
 ### Targets
 
 * [Fuzzing a target with source code available](#fuzzing-a-target-with-source-code-available)
+* [Fuzzing a target with dlopen() instrumented libraries](#fuzzing-a-target-with-dlopen-instrumented-libraries)
 * [Fuzzing a binary-only target](#fuzzing-a-binary-only-target)
 * [Fuzzing a GUI program](#fuzzing-a-gui-program)
 * [Fuzzing a network service](#fuzzing-a-network-service)
@@ -19,6 +20,26 @@
 ### Fuzzing a target with source code available
 
 To learn how to fuzz a target if source code is available, see [fuzzing_in_depth.md](fuzzing_in_depth.md).
+
+### Fuzzing a target with dlopen instrumented libraries
+
+If a source code based fuzzing target loads instrumented libraries with
+dlopen() after the forkserver has been activated and non-colliding coverage
+instrumentation is used (PCGUARD (which is the default), or LTO), then this
+an issue, because this would enlarge the coverage map, but afl-fuzz doesn't
+know about it.
+
+The solution is to use `AFL_PRELOAD` for all dlopen()'ed libraries to
+ensure that all coverage targets are present on startup in the target,
+even if accessed only later with dlopen().
+
+For PCGUARD instrumentation `abort()` is called if this is detected, for LTO
+there will either be no coverage for the instrumented dlopen()'ed libraries or
+you will see lots of crashes in the UI.
+
+Note that this is not an issue if you use the inferiour `afl-gcc-fast`,
+`afl-gcc` or`AFL_LLVM_INSTRUMENT=CLASSIC/NGRAM/CTX afl-clang-fast`
+instrumentation.
 
 ### Fuzzing a binary-only target
 

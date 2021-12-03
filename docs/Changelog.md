@@ -9,9 +9,14 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
-  - documentation restructuring, made possible by Google Season of Docs :)
+  - documentation restructuring, made possible by Google Season of Docs
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
+  - if instrumented libaries are dlopen()'ed after the forkserver you
+    will now see crashes. before you would have colliding coverage.
+    we changed this to force fixing a broken setup rather then allowing
+    ineffective fuzzing.
+    See docs/best_practices.md how to fix such setups.
   - afl-fuzz:
     - cmplog binaries will need to be recompiled for this version
       (it is better!)
