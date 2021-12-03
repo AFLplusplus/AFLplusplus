@@ -1417,6 +1417,20 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (start == stop || *start) return;
 
+  // If a dlopen of an instrumented library happens after the forkserver then
+  // we have a problem.
+  // Should we abort()? This way a user would/could find out.
+  // Currently we just do not instrument that lib, which is invisible.
+  if (__afl_already_initialized_forkserver) {
+
+    fprintf(stderr,
+            "[-] ERROR: forkserver is already up, but an instrumented dlopen() "
+            "library loaded afterwards. You must LD_PRELOAD such libraries to "
+            "be able to fuzz them.\n");
+    return;  // or should be abort()?
+
+  }
+
   x = getenv("AFL_INST_RATIO");
   if (x) inst_ratio = (u32)atoi(x);
 
