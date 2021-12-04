@@ -1,7 +1,7 @@
 # Custom Mutators in AFL++
 
 This file describes how you can implement custom mutations to be used in AFL.
-For now, we support C/C++ library and Python module, collectivelly named as the
+For now, we support C/C++ library and Python module, collectively named as the
 custom mutator.
 
 There is also experimental support for Rust in `custom_mutators/rust`. For
@@ -272,7 +272,7 @@ For C/C++ mutators, the source code must be compiled as a shared object:
 gcc -shared -Wall -O3 example.c -o example.so
 ```
 Note that if you specify multiple custom mutators, the corresponding functions
-will be called in the order in which they are specified. e.g first
+will be called in the order in which they are specified. e.g. first
 `post_process` function of `example_first.so` will be called and then that of
 `example_second.so`.
 
