@@ -334,8 +334,8 @@ Interceptor.replace(LLVMFuzzerTestOneInput, cm.My_LLVMFuzzerTestOneInput);
 
 ### Hooking `main`
 
-Lastly, it should be noted that using FRIDA mode's scripting support to hook
-the `main` function is a special case. This is because the `main` function is
+Lastly, it should be noted that using FRIDA mode's scripting support to hook the
+`main` function is a special case. This is because the `main` function is
 already hooked by the FRIDA mode engine itself and hence the function `main` (or
 at least the first basic block already been compiled by Stalker ready for
 execution). Hence any attempt to use `Interceptor.replace` like in the example
@@ -405,22 +405,22 @@ Consider the [following](test/js/test2.c) test code...
 #include <unistd.h>
 
 const uint32_t crc32_tab[] = {
-	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
+    0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
 
   ...
 
-	0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
+    0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
 uint32_t
 crc32(const void *buf, size_t size)
 {
-	const uint8_t *p = buf;
-	uint32_t crc;
- 	crc = ~0U;
-	while (size--)
-		crc = crc32_tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
-	return crc ^ ~0U;
+    const uint8_t *p = buf;
+    uint32_t crc;
+    crc = ~0U;
+    while (size--)
+        crc = crc32_tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
+    return crc ^ ~0U;
 }
 
 /*

@@ -1,7 +1,7 @@
 # GCC-based instrumentation for afl-fuzz
 
-For the general instruction manual, see [../README.md](../README.md).
-For the LLVM-based instrumentation, see [README.llvm.md](README.llvm.md).
+For the general instruction manual, see [../README.md](../README.md). For the
+LLVM-based instrumentation, see [README.llvm.md](README.llvm.md).
 
 This document describes how to build and use `afl-gcc-fast` and `afl-g++-fast`,
 which instrument the target with the help of gcc plugins.

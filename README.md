@@ -44,8 +44,8 @@ Here is some information to get you started:
 
 ## Building and installing AFL++
 
-To have AFL++ easily available with everything compiled, pull the image
-directly from the Docker Hub:
+To have AFL++ easily available with everything compiled, pull the image directly
+from the Docker Hub:
 
 ```shell
 docker pull aflplusplus/aflplusplus
@@ -53,8 +53,8 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
 This image is automatically generated when a push to the stable repo happens
-(see [branches](#branches)). You will find your target source
-code in `/src` in the container.
+(see [branches](#branches)). You will find your target source code in `/src` in
+the container.
 
 To build AFL++ yourself, continue at [docs/INSTALL.md](docs/INSTALL.md).
 
@@ -120,8 +120,8 @@ Questions? Concerns? Bug reports?
 
 * The contributors can be reached via
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
-* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or
-  important question missing, submit it via
+* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
+  question missing, submit it via
   [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
 * There is a mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
@@ -133,10 +133,16 @@ Questions? Concerns? Bug reports?
 
 The following branches exist:
 
-* [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest release
-* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of AFL++ - it is synced from dev from time to time when we are satisfied with its stability
-* [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state of AFL++ - bleeding edge and you might catch a checkout which does not compile or has a bug. *We only accept PRs in dev!!*
-* (any other): experimental branches to work on specific features or testing new functionality or changes.
+* [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest
+  release
+* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of
+  AFL++ - it is synced from dev from time to time when we are satisfied with its
+  stability
+* [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
+  of AFL++ - bleeding edge and you might catch a checkout which does not compile
+  or has a bug. *We only accept PRs in dev!!*
+* (any other): experimental branches to work on specific features or testing new
+  functionality or changes.
 
 ## Help wanted
 

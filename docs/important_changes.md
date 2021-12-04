@@ -1,6 +1,7 @@
 # Important changes in AFL++
 
-This document lists important changes in AFL++, for example, major behavior changes.
+This document lists important changes in AFL++, for example, major behavior
+changes.
 
 ## From version 3.00 onwards
 
@@ -10,8 +11,8 @@ iOS etc.
 
 With AFL++ 3.15 we introduced the following changes from previous behaviors:
   * Also -M main mode does not do deterministic fuzzing by default anymore
-  * afl-cmin and afl-showmap -Ci now descent into subdirectories like
-    afl-fuzz -i does (but note that afl-cmin.bash does not)
+  * afl-cmin and afl-showmap -Ci now descent into subdirectories like afl-fuzz
+    -i does (but note that afl-cmin.bash does not)
 
 With AFL++ 3.14 we introduced the following changes from previous behaviors:
   * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
@@ -31,22 +32,22 @@ behaviors and defaults:
   * The gcc_plugin was replaced with a new version submitted by AdaCore that
     supports more features. Thank you!
   * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
-    ninja build tool version and python3 setuptools are required.
-    qemu_mode also got new options like snapshotting, instrumenting specific
-    shared libraries, etc. Additionally QEMU 5.1 supports more CPU targets so
-    this is really worth it.
+    ninja build tool version and python3 setuptools are required. qemu_mode also
+    got new options like snapshotting, instrumenting specific shared libraries,
+    etc. Additionally QEMU 5.1 supports more CPU targets so this is really worth
+    it.
   * When instrumenting targets, afl-cc will not supersede optimizations anymore
     if any were given. This allows to fuzz targets build regularly like those
     for debug or release versions.
   * afl-fuzz:
-    * if neither -M or -S is specified, `-S default` is assumed, so more
-      fuzzers can easily be added later
-    * `-i` input directory option now descends into subdirectories. It also
-      does not fatal on crashes and too large files, instead it skips them
-      and uses them for splicing mutations
+    * if neither -M or -S is specified, `-S default` is assumed, so more fuzzers
+      can easily be added later
+    * `-i` input directory option now descends into subdirectories. It also does
+      not fatal on crashes and too large files, instead it skips them and uses
+      them for splicing mutations
     * -m none is now default, set memory limits (in MB) with, e.g., -m 250
-    * deterministic fuzzing is now disabled by default (unless using -M) and
-      can be enabled with -D
+    * deterministic fuzzing is now disabled by default (unless using -M) and can
+      be enabled with -D
     * a caching of test cases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the environment
       variable `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500
