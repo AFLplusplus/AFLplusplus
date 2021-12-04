@@ -4,9 +4,7 @@
 
 This subdirectory contains a set of dictionaries that can be used in
 conjunction with the -x option to allow the fuzzer to effortlessly explore the
-grammar of some of the more verbose data formats or languages. The basic
-principle behind the operation of fuzzer dictionaries is outlined in section 10
-of the "main" README.md for the project.
+grammar of some of the more verbose data formats or languages.
 
 These sets were done by Michal Zalewski, various contributors, and imported
 from oss-fuzz, go-fuzz and libfuzzer.
