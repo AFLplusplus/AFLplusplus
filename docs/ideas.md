@@ -9,7 +9,7 @@ Currently analysis is done by using afl-plot, which is rather outdated. A GTK or
 browser tool to create run-time analysis based on fuzzer_stats, queue/id*
 information and plot_data that allows for zooming in and out, changing min/max
 display values etc. and doing that for a single run, different runs and
-campaigns vs campaigns. Interesting values are execs, and execs/s, edges
+campaigns vs. campaigns. Interesting values are execs, and execs/s, edges
 discovered (total, when each edge was discovered and which other fuzzer share
 finding that edge), test cases executed. It should be clickable which value is X
 and Y axis, zoom factor, log scaling on-off, etc.
@@ -45,7 +45,7 @@ Mentor: vanhauser-thc
 
 Something with machine learning, better than
 [NEUZZ](https://github.com/dongdongshe/neuzz) :-) Either improve a single
-mutator thorugh learning of many different bugs (a bug class) or gather deep
+mutator through learning of many different bugs (a bug class) or gather deep
 insights about a single target beforehand (CFG, DFG, VFG, ...?) and improve
 performance for a single target.
 
