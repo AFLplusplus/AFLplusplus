@@ -6,12 +6,12 @@
 
 Tokens are useful when you perform fuzzing on different parsers. The AFL++ `-x` switch enables the usage of dictionaries through your fuzzing campaign. If you are not familiar with Dictionaries in fuzzing, take a look [here](https://github.com/AFLplusplus/AFLplusplus/tree/stable/dictionaries) .
 
-
 ## Why CodeQL ?
+
 We basically developed this plugin on top of the CodeQL engine because it gives the user scripting features, it's easier and it's independent of the LLVM system. This means that a user can write his CodeQL scripts or modify the current scripts to improve or change the token generation algorithms based on different program analysis concepts.
 
-
 ## CodeQL scripts
+
 Currently, we pushed some scripts as defaults for Token generation. In addition, we provide every CodeQL script as an standalone script because it's easier to modify or test.
 
 Currently we provided the following CodeQL scripts :
@@ -28,23 +28,26 @@ Currently we provided the following CodeQL scripts :
 
 You can write other CodeQL scripts to extract possible effective tokens if you think they can be useful.
 
-
 ## Usage
 
-Before you proceed to installation make sure that you have the following packages by installing them :
+Before you proceed to installation make sure that you have the following packages by installing them:
+
 ```shell
 sudo apt install build-essential libtool-bin python3-dev python3 automake git vim wget -y
 ```
+
 The usage of Autodict-QL is pretty easy. But let's describe it as:
 
 1. First of all, you need to have CodeQL installed on the system. We make this possible with `build-codeql.sh` bash script. This script will install CodeQL completety and will set the required environment variables for your system.
-Do the following :
+Do the following:
+
 ```shell
 # chmod +x codeql-build.sh
 # ./codeql-build.sh
 # source ~/.bashrc
 # codeql
 ```
+
 Then you should get:
 
 ```shell
@@ -86,8 +89,8 @@ Commands:
 			- This will create the final `tokens` dir for you and you are done, then pass the tokens path to AFL++'s `-x` flag.
 5. Done!
 
-
 ## More on dictionaries and tokens
+
 Core developer of the AFL++ project Marc Heuse also developed a similar tool named `dict2file` which is a LLVM pass which can automatically extract useful tokens, in addition with LTO instrumentation mode, this dict2file is automatically generates token extraction. `Autodict-QL` plugin gives you scripting capability and you can do whatever you want to extract from the Codebase and it's up to you. In addition it's independent from LLVM system.
 On the other hand, you can also use Google dictionaries which have been made public in May 2020, but the problem of using Google dictionaries is that they are limited to specific file formats and specifications. For example, for testing binutils and ELF file format or AVI in FFMPEG, there are no pre-built dictionaries, so it is highly recommended to use `Autodict-QL` or `Dict2File` features to automatically generate dictionaries based on the target.
 

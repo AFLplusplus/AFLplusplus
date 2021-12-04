@@ -83,7 +83,6 @@ uses slightly older concepts, but describes the general ideas, at:
 
 [https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf)
 
-
 The ['helper_scripts'](./helper_scripts) directory also contains several helper scripts that allow you
 to dump context from a running process, load it, and hook heap allocations. For details
 on how to use this check out the follow-up blog post to the one linked above.

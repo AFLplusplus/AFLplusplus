@@ -34,6 +34,7 @@ afl-fuzz -i in -o out -- ./target
 
 E.g., ./preprocess/prep_automaton.sh ~/grammars/ruby/source.json PROGRAM
 ```
+
 - If the grammar has no self-embedding rules then you do not need to pass the
   stack limit parameter. However, if it does have self-embedding rules then you
   need to pass the stack limit parameter. We recommend starting with `5` and

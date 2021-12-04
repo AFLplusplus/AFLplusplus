@@ -9,7 +9,6 @@ Try FRIDA mode or fpicker [https://github.com/ttdennis/fpicker/](https://github.
 The code in ./qbdi_mode allows you to build a standalone feature that
 using the QBDI framework to fuzz android native library.
 
-
 ## 2) Build
 
 First download the Android NDK
@@ -53,6 +52,7 @@ https://qbdi.quarkslab.com/
 ```
 
 For Android x86_64
+
 ```
 https://github.com/QBDI/QBDI/releases/download/v0.7.0/QBDI-0.7.0-android-X86_64.tar.gz
 ```
@@ -85,7 +85,6 @@ Then run the build.sh
 ```
 
 this could build the afl-fuzz and also the qbdi template for android x86_64
-
 
 ### Example
 
@@ -160,6 +159,7 @@ QBDI_NOINLINE int fuzz_func() {
 ```
 
 Just compile it
+
 ```
 ./build.sh x86_64
 ```
@@ -176,6 +176,7 @@ adb push ../../android-standalone-toolchain-x86_64/sysroot/usr/lib/x86_64-linux-
 ```
 
 In android adb shell, run the loader to test if it runs
+
 ```
 cd /data/local/tmp
 export LD_LIBRARY_PATH=/data/local/tmp
@@ -203,4 +204,3 @@ Now run `afl-fuzz` to fuzz the demo library
 ```
 
 ![screen1](assets/screen1.png)
-

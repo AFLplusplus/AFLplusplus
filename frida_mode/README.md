@@ -141,6 +141,7 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 (only on CMP, SUB and CALL instructions) performance is not quite so critical.
 
 ## Advanced configuration options
+
 * `AFL_FRIDA_DRIVER_NO_HOOK` - See `AFL_QEMU_DRIVER_NO_HOOK`. When using the
   QEMU driver to provide a `main` loop for a user provided
   `LLVMFuzzerTestOneInput`, this option configures the driver to read input from
