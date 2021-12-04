@@ -12,18 +12,18 @@ fuzzed with AFL++.
 
 ## TL;DR:
 
-Qemu_mode in persistent mode is the fastest - if the stability is high enough.
+QEMU mode in persistent mode is the fastest - if the stability is high enough.
 Otherwise, try RetroWrite, Dyninst, and if these fail, too, then try standard
-qemu_mode with AFL_ENTRYPOINT to where you need it.
+QEMU mode with `AFL_ENTRYPOINT` to where you need it.
 
-If your target is a library, then use frida_mode.
+If your target is a library, then use FRIDA mode.
 
 If your target is non-linux, then use unicorn_mode.
 
 ## Fuzzing binary-only targets with AFL++
-### Qemu_mode
+### QEMU mode
 
-Qemu_mode is the "native" solution to the program. It is available in the
+QEMU mode is the "native" solution to the program. It is available in the
 ./qemu_mode/ directory and, once compiled, it can be accessed by the afl-fuzz -Q
 command line option. It is the easiest to use alternative and even works for
 cross-platform binaries.
@@ -37,11 +37,12 @@ cd qemu_mode
 ./build_qemu_support.sh
 ```
 
-The following setup to use qemu_mode is recommended:
+The following setup to use QEMU mode is recommended:
+
 * run 1 afl-fuzz -Q instance with CMPLOG (`-c 0` + `AFL_COMPCOV_LEVEL=2`)
 * run 1 afl-fuzz -Q instance with QASAN (`AFL_USE_QASAN=1`)
 * run 1 afl-fuzz -Q instance with LAF (`AFL_PRELOAD=libcmpcov.so` +
-  `AFL_COMPCOV_LEVEL=2`), alternatively you can use frida_mode, just switch `-Q`
+  `AFL_COMPCOV_LEVEL=2`), alternatively you can use FRIDA mode, just switch `-Q`
   with `-O` and remove the LAF instance
 
 Then run as many instances as you have cores left with either -Q mode or - even
@@ -49,16 +50,16 @@ better - use a binary rewriter like Dyninst, RetroWrite, ZAFL, etc.
 
 If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for your
 binary, then you can use afl-fuzz normally and it will have twice the speed
-compared to qemu_mode (but slower than qemu persistent mode). Note that several
+compared to QEMU mode (but slower than QEMU persistent mode). Note that several
 other binary rewriters exist, all with their advantages and caveats.
 
-The speed decrease of qemu_mode is at about 50%. However, various options exist
+The speed decrease of QEMU mode is at about 50%. However, various options exist
 to increase the speed:
 - using AFL_ENTRYPOINT to move the forkserver entry to a later basic block in
   the binary (+5-10% speed)
 - using persistent mode
   [qemu_mode/README.persistent.md](../qemu_mode/README.persistent.md) this will
-  result in a 150-300% overall speed increase - so 3-8x the original qemu_mode
+  result in a 150-300% overall speed increase - so 3-8x the original QEMU mode
   speed!
 - using AFL_CODE_START/AFL_CODE_END to only instrument specific parts
 
@@ -71,7 +72,7 @@ conducive to parallelization.
 
 Note that there is also honggfuzz:
 [https://github.com/google/honggfuzz](https://github.com/google/honggfuzz) which
-now has a qemu_mode, but its performance is just 1.5% ...
+now has a QEMU mode, but its performance is just 1.5% ...
 
 If you like to code a customized fuzzer without much work, we highly recommend
 to check out our sister project libafl which supports QEMU, too:
@@ -87,14 +88,14 @@ It is included in AFL++.
 For more information, see
 [qemu_mode/README.wine.md](../qemu_mode/README.wine.md).
 
-### Frida_mode
+### FRIDA mode
 
-In frida_mode, you can fuzz binary-only targets as easily as with QEMU.
-Frida_mode is sometimes faster and sometimes slower than Qemu_mode. It is also
+In FRIDA mode, you can fuzz binary-only targets as easily as with QEMU mode.
+FRIDA mode is sometimes faster and sometimes slower than QEMU mode. It is also
 newer, lacks COMPCOV, and has the advantage that it works on MacOS (both intel
 and M1).
 
-To build frida_mode:
+To build FRIDA mode:
 
 ```shell
 cd frida_mode
@@ -149,11 +150,11 @@ For further information, check out
 
 If the goal is to fuzz a dynamic library, then there are two options available.
 For both, you need to write a small harness that loads and calls the library.
-Then you fuzz this with either frida_mode or qemu_mode and either use
+Then you fuzz this with either FRIDA mode or QEMU mode and either use
 `AFL_INST_LIBS=1` or `AFL_QEMU/FRIDA_INST_RANGES`.
 
 Another, less precise and slower option is to fuzz it with utils/afl_untracer/
-and use afl-untracer.c as a template. It is slower than frida_mode.
+and use afl-untracer.c as a template. It is slower than FRIDA mode.
 
 For more information, see
 [utils/afl_untracer/README.md](../utils/afl_untracer/README.md).

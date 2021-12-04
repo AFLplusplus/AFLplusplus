@@ -5,8 +5,8 @@ changes.
 
 ## From version 3.00 onwards
 
-With AFL++ 3.13-3.20, we introduce frida_mode (-O) to have an alternative for
-binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
+With AFL++ 3.13-3.20, we introduce FRIDA mode (`-O`) to have an alternative for
+binary-only fuzzing. It is slower than QEMU mode but works on MacOS, Android,
 iOS etc.
 
 With AFL++ 3.15, we introduced the following changes from previous behaviors:
@@ -31,8 +31,8 @@ behaviors and defaults:
     All instrumentation source code is now in the `instrumentation/` folder.
   * The gcc_plugin was replaced with a new version submitted by AdaCore that
     supports more features. Thank you!
-  * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
-    ninja build tool version and python3 setuptools are required. qemu_mode also
+  * QEMU mode got upgraded to QEMU 5.1, but to be able to build this a current
+    ninja build tool version and python3 setuptools are required. QEMU mode also
     got new options like snapshotting, instrumenting specific shared libraries,
     etc. Additionally QEMU 5.1 supports more CPU targets so this is really worth
     it.

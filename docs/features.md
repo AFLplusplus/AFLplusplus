@@ -4,7 +4,7 @@ AFL++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with
 QEMU 5.1 with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full
 *BSD, Mac OS, Solaris and Android support and much, much, much more.
 
-| Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | frida_mode(9)    | qemu_mode(10)    |unicorn_mode(10)  |coresight_mode(11)|
+| Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | FRIDA mode(9)    | QEMU mode(10)    |unicorn_mode(10)  |coresight_mode(11)|
 | -------------------------|:-------:|:---------:|:----------:|:----------------:|:----------------:|:----------------:|:----------------:|
 | Threadsafe counters      |         |     x(3)  |            |                  |                  |                  |                  |
 | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |         x        |         x        |                  |
@@ -37,9 +37,9 @@ QEMU 5.1 with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full
 
 Among others, the following features and patches have been integrated:
 
-* NeverZero patch for afl-gcc, instrumentation, qemu_mode and unicorn_mode which
+* NeverZero patch for afl-gcc, instrumentation, QEMU mode and unicorn_mode which
   prevents a wrapping map value to zero, increases coverage
-* Persistent mode, deferred forkserver and in-memory fuzzing for qemu_mode
+* Persistent mode, deferred forkserver and in-memory fuzzing for QEMU mode
 * Unicorn mode which allows fuzzing of binaries from completely different
   platforms (integration provided by domenukk)
 * The new CmpLog instrumentation for LLVM and QEMU inspired by
@@ -51,7 +51,7 @@ Among others, the following features and patches have been integrated:
   [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
 * LLVM mode Ngram coverage by Adrian Herrera
   [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-* LAF-Intel/CompCov support for instrumentation, qemu_mode and unicorn_mode
+* LAF-Intel/CompCov support for instrumentation, QEMU mode and unicorn_mode
   (with enhanced capabilities)
 * Radamsa and honggfuzz mutators (as custom mutators).
 * QBDI mode to fuzz android native libraries via Quarkslab's

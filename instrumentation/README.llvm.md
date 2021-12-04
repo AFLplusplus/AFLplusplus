@@ -218,7 +218,7 @@ by Jinghan Wang, et. al.
 
 Note that the original implementation (available
 [here](https://github.com/bitsecurerlab/afl-sensitive)) is built on top of AFL's
-qemu_mode. This is essentially a port that uses LLVM vectorized instructions
+QEMU mode. This is essentially a port that uses LLVM vectorized instructions
 (available from llvm versions 4.0.1 and higher) to achieve the same results when
 compiling source code.
 

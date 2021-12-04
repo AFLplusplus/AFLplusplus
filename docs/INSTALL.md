@@ -23,7 +23,7 @@ sudo apt-get install -y build-essential python3-dev automake git flex bison libg
 # try to install llvm 11 and install the distro default if that fails
 sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
-sudo apt-get install -y ninja-build # for qemu_mode
+sudo apt-get install -y ninja-build # for QEMU mode
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
 make distrib
@@ -33,7 +33,7 @@ sudo make install
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
-Note that "make distrib" also builds instrumentation, qemu_mode, unicorn_mode
+Note that "make distrib" also builds instrumentation, QEMU mode, unicorn_mode
 and more. If you just want plain AFL++, then do "make all". However, compiling
 and using at least instrumentation is highly recommended for much better results
 - hence in this case choose:

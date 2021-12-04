@@ -16,7 +16,7 @@
 
 ## Further down the road
 
-qemu_mode/frida_mode:
+QEMU mode/FRIDA mode:
  - non colliding instrumentation
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
    AFL_COMPCOV_LEVEL?)

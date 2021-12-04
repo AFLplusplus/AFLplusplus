@@ -9,7 +9,7 @@ and this runtime is injected via LD_PRELOAD (so works just for dynamically
 linked binaries).
 
 The usage is super simple, just set the env var `AFL_USE_QASAN=1` when fuzzing
-in qemu mode (-Q). afl-fuzz will automatically set AFL_PRELOAD to load this
+in QEMU mode (-Q). afl-fuzz will automatically set AFL_PRELOAD to load this
 library and enable the QASan instrumentation in afl-qemu-trace.
 
 For debugging purposes, we still suggest to run the original QASan as the
