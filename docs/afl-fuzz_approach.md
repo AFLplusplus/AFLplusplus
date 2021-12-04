@@ -523,7 +523,7 @@ into each of them or deploy scripts to read the fuzzer statistics. Using
 to your favorite StatsD server. Depending on your StatsD server, you will be
 able to monitor, trigger alerts, or perform actions based on these metrics (e.g:
 alert on slow exec/s for a new build, threshold of crashes, time since last
-crash > X, etc).
+crash > X, etc.).
 
 The selected metrics are a subset of all the metrics found in the status and in
 the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,

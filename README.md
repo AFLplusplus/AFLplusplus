@@ -86,7 +86,7 @@ Step-by-step quick start:
    ```
 
 2. Get a small but valid input file that makes sense to the program. When
-   fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in
+   fuzzing verbose syntax (SQL, HTTP, etc.), create a dictionary as described in
    [dictionaries/README.md](dictionaries/README.md), too.
 
 3. If the program reads from stdin, run `afl-fuzz` like so:
