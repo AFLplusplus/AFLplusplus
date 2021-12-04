@@ -889,7 +889,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
           if (tt) {
 
             cnt_sel++;
-            cnt_sel_inc += tt->getElementCount().getFixedValue();
+            cnt_sel_inc += tt->getElementCount().getKnownMinValue();
 
           }
 
