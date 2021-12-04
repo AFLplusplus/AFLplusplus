@@ -31,7 +31,8 @@ Here is some information to get you started:
 * For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
   [branches](#branches). Also take a look at the list of
-  [important changes in AFL++](docs/important_changes.md).
+  [important changes in AFL++](docs/important_changes.md) and the list of
+  [features](docs/features.md).
 * If you want to use AFL++ for your academic work, check the
   [papers page](https://aflplus.plus/papers/) on the website.
 * To cite our work, look at the [Cite](#cite) section.

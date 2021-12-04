@@ -466,6 +466,7 @@ cd ../../
 sudo make install
 ```
 
+To learn more about remote monitoring and metrics visualization with StatsD, see [rpc_statsd.md](rpc_statsd.md).
 
 ### Addendum: status and plot files
 
