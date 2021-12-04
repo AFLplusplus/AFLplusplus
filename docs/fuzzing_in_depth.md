@@ -449,7 +449,7 @@ mode!) and switch the input directory with a dash (`-`):
 Adding a dictionary is helpful. See the directory
 [dictionaries/](../dictionaries/) if something is already included for your data
 format, and tell afl-fuzz to load that dictionary by adding `-x
-dictionaries/FORMAT.dict`. With afl-clang-lto you have an autodictionary
+dictionaries/FORMAT.dict`. With afl-clang-lto, you have an autodictionary
 generation for which you need to do nothing except to use afl-clang-lto as the
 compiler. You also have the option to generate a dictionary yourself, see
 [utils/libtokencap/README.md](../utils/libtokencap/README.md).
