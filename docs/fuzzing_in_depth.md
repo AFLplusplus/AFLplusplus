@@ -808,7 +808,6 @@ then color-codes the input based on which sections appear to be critical, and
 which are not; while not bulletproof, it can often offer quick insights into
 complex file formats.
 
-
 ## 5. CI fuzzing
 
 Some notes on CI fuzzing - this fuzzing is different to normal fuzzing campaigns

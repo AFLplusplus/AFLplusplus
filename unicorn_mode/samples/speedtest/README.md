@@ -35,7 +35,6 @@ cd python
 
 TODO: add results here.
 
-
 ## Compiling speedtest_target.c
 
 You shouldn't need to compile simple_target.c since a X86_64 binary version is
@@ -46,20 +45,28 @@ The pre-built binary (simple_target_x86_64.bin) was built using -g -O0 in gcc.
 
 Then load the binary and execute the main function directly.
 
-## Addresses for the harness:
+## Addresses for the harness
+
 To find the address (in hex) of main, run:
+
 ```bash
 objdump -M intel -D target | grep '<main>:' | cut -d" " -f1
 ```
+
 To find all call sites to magicfn, run:
+
 ```bash
 objdump -M intel -D target | grep '<magicfn>$' | cut -d":" -f1
 ```
+
 For malloc callsites:
+
 ```bash
 objdump -M intel -D target | grep '<malloc@plt>$' | cut -d":" -f1
 ```
+
 And free callsites:
+
 ```bash
 objdump -M intel -D target | grep '<free@plt>$' | cut -d":" -f1
 ```

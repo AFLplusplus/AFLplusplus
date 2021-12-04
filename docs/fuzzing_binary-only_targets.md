@@ -21,6 +21,7 @@ If your target is a library, then use FRIDA mode.
 If your target is non-linux, then use unicorn_mode.
 
 ## Fuzzing binary-only targets with AFL++
+
 ### QEMU mode
 
 QEMU mode is the "native" solution to the program. It is available in the
@@ -175,6 +176,7 @@ An alternative solution are binary rewriters. They are faster then the solutions
 native to AFL++ but don't always work.
 
 ### ZAFL
+
 ZAFL is a static rewriting platform supporting x86-64 C/C++,
 stripped/unstripped, and PIE/non-PIE binaries. Beyond conventional
 instrumentation, ZAFL's API enables transformation passes (e.g., laf-Intel,
@@ -276,7 +278,6 @@ its IPT performance is just 6%!
 There are many binary-only fuzzing frameworks. Some are great for CTFs but don't
 work with large binaries, others are very slow but have good path discovery,
 some are very hard to set-up...
-
 
 * Jackalope:
   [https://github.com/googleprojectzero/Jackalope](https://github.com/googleprojectzero/Jackalope)

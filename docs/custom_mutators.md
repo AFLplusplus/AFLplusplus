@@ -23,6 +23,7 @@ The custom mutator is passed to `afl-fuzz` via the `AFL_CUSTOM_MUTATOR_LIBRARY`
 or `AFL_PYTHON_MODULE` environment variable, and must export a fuzz function.
 Now AFL++ also supports multiple custom mutators which can be specified in the
 same `AFL_CUSTOM_MUTATOR_LIBRARY` environment variable like this.
+
 ```bash
 export AFL_CUSTOM_MUTATOR_LIBRARY="full/path/to/mutator_first.so;full/path/to/mutator_second.so"
 ```
@@ -38,6 +39,7 @@ performed with the custom mutator.
 ## 2) APIs
 
 C/C++:
+
 ```c
 void *afl_custom_init(afl_state_t *afl, unsigned int seed);
 unsigned int afl_custom_fuzz_count(void *data, const unsigned char *buf, size_t buf_size);
@@ -56,6 +58,7 @@ void afl_custom_deinit(void *data);
 ```
 
 Python:
+
 ```python
 def init(seed):
     pass
@@ -233,7 +236,6 @@ Optionally, the following environment variables are supported:
     combined with a custom trimming routine (see below) because trimming can
     cause the same test breakage like havoc and splice.
 
-
 - `AFL_PYTHON_ONLY`
 
     Deprecated and removed, use `AFL_CUSTOM_MUTATOR_ONLY` instead.
@@ -268,9 +270,11 @@ In case your setup is different, set the necessary variables like this:
 ### Custom Mutator Preparation
 
 For C/C++ mutators, the source code must be compiled as a shared object:
+
 ```bash
 gcc -shared -Wall -O3 example.c -o example.so
 ```
+
 Note that if you specify multiple custom mutators, the corresponding functions
 will be called in the order in which they are specified. e.g. first
 `post_process` function of `example_first.so` will be called and then that of
@@ -279,12 +283,14 @@ will be called in the order in which they are specified. e.g. first
 ### Run
 
 C/C++
+
 ```bash
 export AFL_CUSTOM_MUTATOR_LIBRARY="/full/path/to/example_first.so;/full/path/to/example_second.so"
 afl-fuzz /path/to/program
 ```
 
 Python
+
 ```bash
 export PYTHONPATH=`dirname /full/path/to/example.py`
 export AFL_PYTHON_MODULE=example
