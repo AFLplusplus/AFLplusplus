@@ -5,26 +5,26 @@ changes.
 
 ## From version 3.00 onwards
 
-With AFL++ 3.13-3.20 we introduce frida_mode (-O) to have an alternative for
+With AFL++ 3.13-3.20, we introduce frida_mode (-O) to have an alternative for
 binary-only fuzzing. It is slower than Qemu mode but works on MacOS, Android,
 iOS etc.
 
-With AFL++ 3.15 we introduced the following changes from previous behaviors:
+With AFL++ 3.15, we introduced the following changes from previous behaviors:
   * Also -M main mode does not do deterministic fuzzing by default anymore
   * afl-cmin and afl-showmap -Ci now descent into subdirectories like afl-fuzz
     -i does (but note that afl-cmin.bash does not)
 
-With AFL++ 3.14 we introduced the following changes from previous behaviors:
+With AFL++ 3.14, we introduced the following changes from previous behaviors:
   * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
   * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash,
     however, does not)
 
-With AFL++ 3.10 we introduced the following changes from previous behaviors:
+With AFL++ 3.10, we introduced the following changes from previous behaviors:
   * The '+' feature of the '-t' option now means to  auto-calculate the timeout
     with the value given being the maximum timeout. The original meaning of
     "skipping timeouts instead of abort" is now inherent to the -t option.
 
-With AFL++ 3.00 we introduced changes that break some previous AFL and AFL++
+With AFL++ 3.00, we introduced changes that break some previous AFL and AFL++
 behaviors and defaults:
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
     only one compiler: afl-cc. All previous compilers now symlink to this one.

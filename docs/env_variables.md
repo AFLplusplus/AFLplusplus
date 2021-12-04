@@ -553,14 +553,14 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     and sub in x86 and x86_64. This is an alias of `AFL_COMPCOV_LEVEL=1` when
     `AFL_COMPCOV_LEVEL` is not specified.
 
-  - With `AFL_QEMU_FORCE_DFL` you force QEMU to ignore the registered signal
+  - With `AFL_QEMU_FORCE_DFL`, you force QEMU to ignore the registered signal
     handlers of the target.
 
   - When the target is i386/x86_64, you can specify the address of the function
     that has to be the body of the persistent loop using
     `AFL_QEMU_PERSISTENT_ADDR=start addr`.
 
-  - With `AFL_QEMU_PERSISTENT_GPR=1` QEMU will save the original value of
+  - With `AFL_QEMU_PERSISTENT_GPR=1`, QEMU will save the original value of
     general purpose registers and restore them in each persistent cycle.
 
   - Another modality to execute the persistent loop is to specify also the
@@ -568,11 +568,11 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     assigned, instead of patching the return address, the specified instruction
     is transformed to a jump towards `start addr`.
 
-  - With `AFL_QEMU_PERSISTENT_RETADDR_OFFSET` you can specify the offset from
+  - With `AFL_QEMU_PERSISTENT_RETADDR_OFFSET`, you can specify the offset from
     the stack pointer in which QEMU can find the return address when `start
     addr` is hit.
 
-  - With `AFL_USE_QASAN` you can enable QEMU AddressSanitizer for dynamically
+  - With `AFL_USE_QASAN`, you can enable QEMU AddressSanitizer for dynamically
     linked binaries.
 
   - The underlying QEMU binary will recognize any standard "user space
