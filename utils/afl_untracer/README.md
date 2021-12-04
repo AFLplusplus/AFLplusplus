@@ -5,7 +5,7 @@
 afl-untracer is an example skeleton file which can easily be used to fuzz
 a closed source library.
 
-It requires less memory and is x3-5 faster than qemu_mode, however, it is way
+It requires less memory and is x3-5 faster than QEMU mode, however, it is way
 more course grained and does not provide interesting features like compcov or
 cmplog.
 

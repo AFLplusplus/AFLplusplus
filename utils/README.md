@@ -16,7 +16,7 @@ Here's a quick overview of the stuff you can find in this directory:
                            different means, e.g., hw debugger
 
   - afl_untracer         - fuzz binary-only libraries much faster but with
-                           less coverage than qemu_mode
+                           less coverage than QEMU mode
 
   - analysis_scripts     - random -o out analysis scripts
 
