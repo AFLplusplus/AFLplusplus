@@ -722,7 +722,7 @@ just for AFL++).
 Here are some of the most important caveats for AFL++:
 
 - AFL++ detects faults by checking for the first spawned process dying due to a
-  signal (SIGSEGV, SIGABRT, etc). Programs that install custom handlers for
+  signal (SIGSEGV, SIGABRT, etc.). Programs that install custom handlers for
   these signals may need to have the relevant code commented out. In the same
   vein, faults in child processes spawned by the fuzzed target may evade
   detection unless you manually add some code to catch that.
