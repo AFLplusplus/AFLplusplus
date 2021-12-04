@@ -465,7 +465,7 @@ handling in the target. Play around with various -m values until you find one
 that safely works for all your input seeds (if you have good ones and then
 double or quadruple that.
 
-By default afl-fuzz never stops fuzzing. To terminate AFL++, press Control-C or
+By default, afl-fuzz never stops fuzzing. To terminate AFL++, press Control-C or
 send a signal SIGINT. You can limit the number of executions or approximate
 runtime in seconds with options also.
 

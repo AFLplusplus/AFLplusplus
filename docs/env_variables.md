@@ -607,14 +607,14 @@ the preferred way to configure FRIDA mode is through its
 * `AFL_FRIDA_INST_NO_BACKPATCH` - Disable backpatching. At the end of executing
   each block, control will return to FRIDA to identify the next block to
   execute.
-* `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default the child will
+* `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default, the child will
   report instrumented blocks back to the parent so that it can also instrument
   them and they be inherited by the next child on fork, implies
   `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH`.
 * `AFL_FRIDA_INST_NO_PREFETCH_BACKPATCH` - Disable prefetching of stalker
-  backpatching information. By default the child will report applied backpatches
-  to the parent so that they can be applied and then be inherited by the next
-  child on fork.
+  backpatching information. By default, the child will report applied
+  backpatches to the parent so that they can be applied and then be inherited by
+  the next child on fork.
 * `AFL_FRIDA_INST_RANGES` - See `AFL_QEMU_INST_RANGES`
 * `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
   generate block (and hence edge) IDs. Setting this to a constant value may be
