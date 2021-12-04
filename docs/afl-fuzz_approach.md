@@ -445,8 +445,8 @@ involve any state transitions not seen in previously-recorded faults. If a
 single bug can be reached in multiple ways, there will be some count inflation
 early in the process, but this should quickly taper off.
 
-The file names for crashes and hangs are correlated with the parent, non-faulting
-queue entries. This should help with debugging.
+The file names for crashes and hangs are correlated with the parent,
+non-faulting queue entries. This should help with debugging.
 
 ## Visualizing
 

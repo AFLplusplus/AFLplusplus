@@ -259,6 +259,7 @@ Then build the target. (Usually with `make`)
 #### configure
 
 For `configure` build systems this is usually done by:
+
 `CC=afl-clang-fast CXX=afl-clang-fast++ ./configure --disable-shared`
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
@@ -268,6 +269,7 @@ described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 #### cmake
 
 For `cmake` build systems this is usually done by:
+
 `mkdir build; cd build; cmake -DCMAKE_C_COMPILER=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..`
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
@@ -307,8 +309,8 @@ it for a hobby and not professionally :-).
 
 ### g) libfuzzer fuzzer harnesses with LLVMFuzzerTestOneInput()
 
-libfuzzer `LLVMFuzzerTestOneInput()` harnesses are the defacto standard
-for fuzzing, and they can be used with AFL++ (and honggfuzz) as well!
+libfuzzer `LLVMFuzzerTestOneInput()` harnesses are the defacto standard for
+fuzzing, and they can be used with AFL++ (and honggfuzz) as well!
 
 Compiling them is as simple as:
 
@@ -358,8 +360,11 @@ Put all files from step a) into one directory, e.g., INPUTS.
 
 If the target program is to be called by fuzzing as `bin/target -d INPUTFILE`
 the run afl-cmin like this:
+
 `afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d @@`
-Note that the INPUTFILE argument that the target program would read from has to be set as `@@`.
+
+Note that the INPUTFILE argument that the target program would read from has to
+be set as `@@`.
 
 If the target reads from stdin instead, just omit the `@@` as this is the
 default.
@@ -420,22 +425,25 @@ as test data in there.
 If you do not want anything special, the defaults are already usually best,
 hence all you need is to specify the seed input directory with the result of
 step [2a) Collect inputs](#a-collect-inputs):
+
 `afl-fuzz -i input -o output -- bin/target -d @@`
-Note that the directory specified with -o will be created if it does not exist.
+
+Note that the directory specified with `-o` will be created if it does not
+exist.
 
 It can be valuable to run afl-fuzz in a screen or tmux shell so you can log off,
 or afl-fuzz is not aborted if you are running it in a remote ssh session where
-the connection fails in between.
-Only do that though once you have verified that your fuzzing setup works!
-Run it like `screen -dmS afl-main -- afl-fuzz -M main-$HOSTNAME -i ...`
-and it will start away in a screen session. To enter this session, type
-`screen -r afl-main`. You see - it makes sense to name the screen session
-same as the afl-fuzz -M/-S naming :-)
-For more information on screen or tmux, check their documentation.
+the connection fails in between. Only do that though once you have verified that
+your fuzzing setup works! Run it like `screen -dmS afl-main -- afl-fuzz -M
+main-$HOSTNAME -i ...` and it will start away in a screen session. To enter this
+session, type `screen -r afl-main`. You see - it makes sense to name the screen
+session same as the afl-fuzz -M/-S naming :-) For more information on screen or
+tmux, check their documentation.
 
 If you need to stop and re-start the fuzzing, use the same command line options
 (or even change them by selecting a different power schedule or another mutation
 mode!) and switch the input directory with a dash (`-`):
+
 `afl-fuzz -i - -o output -- bin/target -d @@`
 
 Adding a dictionary is helpful. See the directory
@@ -457,12 +465,13 @@ handling in the target. Play around with various -m values until you find one
 that safely works for all your input seeds (if you have good ones and then
 double or quadruple that.
 
-By default afl-fuzz never stops fuzzing. To terminate AFL++, press
-Control-C or send a signal SIGINT. You can limit the number of executions or
-approximate runtime in seconds with options also.
+By default afl-fuzz never stops fuzzing. To terminate AFL++, press Control-C or
+send a signal SIGINT. You can limit the number of executions or approximate
+runtime in seconds with options also.
 
 When you start afl-fuzz you will see a user interface that shows what the status
 is:
+
 ![resources/screenshot.png](resources/screenshot.png)
 
 All labels are explained in [status_screen.md](status_screen.md).
@@ -528,8 +537,8 @@ All other secondaries should be used like this:
 Also, it is recommended to set `export AFL_IMPORT_FIRST=1` to load test cases
 from other fuzzers in the campaign first.
 
-If you have a large corpus, a corpus from a previous run or are fuzzing in
-a CI, then also set `export AFL_CMPLOG_ONLY_NEW=1` and `export AFL_FAST_CAL=1`.
+If you have a large corpus, a corpus from a previous run or are fuzzing in a CI,
+then also set `export AFL_CMPLOG_ONLY_NEW=1` and `export AFL_FAST_CAL=1`.
 
 You can also use different fuzzers. If you are using AFL spinoffs or AFL
 conforming fuzzers, then just use the same -o directory and give it a unique
@@ -553,11 +562,10 @@ recommended!
 
 ### d) Using multiple machines for fuzzing
 
-Maybe you have more than one machine you want to fuzz the same target on.
-Start the `afl-fuzz` (and perhaps libfuzzer, honggfuzz, ...)
-orchestra as you like, just ensure that your have one and only one `-M`
-instance per server, and that its name is unique, hence the recommendation
-for `-M main-$HOSTNAME`.
+Maybe you have more than one machine you want to fuzz the same target on. Start
+the `afl-fuzz` (and perhaps libfuzzer, honggfuzz, ...) orchestra as you like,
+just ensure that your have one and only one `-M` instance per server, and that
+its name is unique, hence the recommendation for `-M main-$HOSTNAME`.
 
 Now there are three strategies on how you can sync between the servers:
 * never: sounds weird, but this makes every server an island and has the chance

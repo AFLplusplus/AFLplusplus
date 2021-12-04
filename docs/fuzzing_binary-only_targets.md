@@ -84,7 +84,8 @@ Wine, python3, and the pefile python package installed.
 
 It is included in AFL++.
 
-For more information, see [qemu_mode/README.wine.md](../qemu_mode/README.wine.md).
+For more information, see
+[qemu_mode/README.wine.md](../qemu_mode/README.wine.md).
 
 ### Frida_mode
 
@@ -169,7 +170,8 @@ Fore more information, see
 
 ## Binary rewriters
 
-An alternative solution are binary rewriters. They are faster then the solutions native to AFL++ but don't always work.
+An alternative solution are binary rewriters. They are faster then the solutions
+native to AFL++ but don't always work.
 
 ### ZAFL
 ZAFL is a static rewriting platform supporting x86-64 C/C++,
