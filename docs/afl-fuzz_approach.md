@@ -424,8 +424,7 @@ There are three subdirectories created within the output directory and updated
 in real-time:
 
 - queue/   - test cases for every distinctive execution path, plus all the
-             starting files given by the user. This is the synthesized corpus
-             mentioned in section 2.
+             starting files given by the user. This is the synthesized corpus.
 
              Before using this corpus for any other purposes, you can shrink
              it to a smaller size using the afl-cmin tool. The tool will find
