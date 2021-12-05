@@ -153,12 +153,12 @@ only instrument parts of the target that you are interested in:
 
 There are many more options and modes available, however, these are most of the
 time less effective. See:
-* [instrumentation/README.ctx.md](../instrumentation/README.ctx.md)
-* [instrumentation/README.ngram.md](../instrumentation/README.ngram.md)
+* [instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage)
+* [instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage)
 
 AFL++ performs "never zero" counting in its bitmap. You can read more about this
 here:
-* [instrumentation/README.neverzero.md](../instrumentation/README.neverzero.md)
+* [instrumentation/README.llvm.md#8-neverzero-counters](../instrumentation/README.llvm.md#8-neverzero-counters)
 
 ### c) Selecting sanitizers
 
@@ -474,7 +474,8 @@ is:
 
 ![resources/screenshot.png](resources/screenshot.png)
 
-All labels are explained in [status_screen.md](status_screen.md).
+All labels are explained in
+[afl-fuzz_approach.md#understanding-the-status-screen](afl-fuzz_approach.md#understanding-the-status-screen).
 
 ### b) Keeping memory use and timeouts in check
 

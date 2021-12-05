@@ -107,10 +107,10 @@ For additional instructions and caveats, see
 [frida_mode/README.md](../frida_mode/README.md).
 
 If possible, you should use the persistent mode, see
-[qemu_frida/README.md](../qemu_frida/README.md). The mode is approximately 2-5x
-slower than compile-time instrumentation, and is less conducive to
-parallelization. But for binary-only fuzzing, it gives a huge speed improvement
-if it is possible to use.
+[instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md).
+The mode is approximately 2-5x slower than compile-time instrumentation, and is
+less conducive to parallelization. But for binary-only fuzzing, it gives a huge
+speed improvement if it is possible to use.
 
 If you want to fuzz a binary-only library, then you can fuzz it with frida-gum
 via frida_mode/. You will have to write a harness to call the target function in

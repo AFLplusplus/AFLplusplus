@@ -109,8 +109,8 @@ Afl.setPersistentAddress(address);
 
 A persistent hook can be implemented using a conventional shared object, sample
 source code for a hook suitable for the prototype of `LLVMFuzzerTestOneInput`
-can be found in [hook/hook.c](hook/hook.c). This can be configured using code
-similar to the following.
+can be found in [hook/](hook/). This can be configured using code similar to the
+following.
 
 ```js
 const path = Afl.module.path;

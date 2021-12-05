@@ -60,10 +60,9 @@ These build targets exist:
 * unit: perform unit tests (based on cmocka)
 * help: shows these build options
 
-[Unless you are on Mac OS
-X](https://developer.apple.com/library/archive/qa/qa1118/_index.html), you can
-also build statically linked versions of the AFL++ binaries by passing the
-`STATIC=1` argument to make:
+[Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html),
+you can also build statically linked versions of the AFL++ binaries by passing
+the `STATIC=1` argument to make:
 
 ```shell
 make STATIC=1
@@ -169,5 +168,5 @@ sysctl kern.sysv.shmall=98304
 ```
 
 See
-[https://www.spy-hill.com/help/apple/SharedMemory.html](https://www.spy-hill.com/help/apple/SharedMemory.html)
+[http://www.spy-hill.com/help/apple/SharedMemory.html](http://www.spy-hill.com/help/apple/SharedMemory.html)
 for documentation for these settings and how to make them permanent.
