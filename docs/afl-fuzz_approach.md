@@ -468,7 +468,8 @@ cd ../../
 sudo make install
 ```
 
-To learn more about remote monitoring and metrics visualization with StatsD, see [rpc_statsd.md](rpc_statsd.md).
+To learn more about remote monitoring and metrics visualization with StatsD, see
+[rpc_statsd.md](rpc_statsd.md).
 
 ### Addendum: status and plot files
 
@@ -524,9 +525,9 @@ into each of them or deploy scripts to read the fuzzer statistics. Using
 `AFL_STATSD` (and the other related environment variables `AFL_STATSD_HOST`,
 `AFL_STATSD_PORT`, `AFL_STATSD_TAGS_FLAVOR`) you can automatically send metrics
 to your favorite StatsD server. Depending on your StatsD server, you will be
-able to monitor, trigger alerts, or perform actions based on these metrics (e.g:
-alert on slow exec/s for a new build, threshold of crashes, time since last
-crash > X, etc.).
+able to monitor, trigger alerts, or perform actions based on these metrics
+(e.g.: alert on slow exec/s for a new build, threshold of crashes, time since
+last crash > X, etc.).
 
 The selected metrics are a subset of all the metrics found in the status and in
 the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
@@ -537,6 +538,6 @@ the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
 definitions can be found in the addendum above.
 
 When using multiple fuzzer instances with StatsD, it is *strongly* recommended
-to setup the flavor (AFL_STATSD_TAGS_FLAVOR) to match your StatsD server. This
+to setup the flavor (`AFL_STATSD_TAGS_FLAVOR`) to match your StatsD server. This
 will allow you to see individual fuzzer performance, detect bad ones, see the
 progress of each strategy...
