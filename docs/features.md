@@ -1,7 +1,7 @@
 # Important features of AFL++
 
 AFL++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with
-QEMU 5.1 with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full
+QEMU 5.1 with laf-intel and redqueen, FRIDA mode, unicorn mode, gcc plugin, full
 *BSD, Mac OS, Solaris and Android support and much, much, much more.
 
 | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | FRIDA mode(9)    | QEMU mode(10)    |unicorn_mode(10)  |coresight_mode(11)|
@@ -30,7 +30,7 @@ QEMU 5.1 with laf-intel and redqueen, frida mode, unicorn mode, gcc plugin, full
    versions that write to a file to use with afl-fuzz' `-x`
 8. the snapshot LKM is currently unmaintained due to too many kernel changes
    coming too fast :-(
-9. frida mode is supported on Linux and MacOS for Intel and ARM
+9. FRIDA mode is supported on Linux and MacOS for Intel and ARM
 10. QEMU/Unicorn is only supported on Linux
 11. Coresight mode is only available on AARCH64 Linux with a CPU with Coresight
     extension

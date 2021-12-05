@@ -276,7 +276,7 @@ gcc -shared -Wall -O3 example.c -o example.so
 ```
 
 Note that if you specify multiple custom mutators, the corresponding functions
-will be called in the order in which they are specified. e.g. first
+will be called in the order in which they are specified. E.g., the first
 `post_process` function of `example_first.so` will be called and then that of
 `example_second.so`.
 

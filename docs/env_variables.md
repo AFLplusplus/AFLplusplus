@@ -585,7 +585,7 @@ The FRIDA wrapper used to instrument binary-only code supports many of the same
 options as `afl-qemu-trace`, but also has a number of additional advanced
 options. These are listed in brief below (see
 [frida_mode/README.md](../frida_mode/README.md) for more details). These
-settings are provided for compatibiltiy with QEMU mode, the preferred way to
+settings are provided for compatibility with QEMU mode, the preferred way to
 configure FRIDA mode is through its [scripting](../frida_mode/Scripting.md)
 support.
 
