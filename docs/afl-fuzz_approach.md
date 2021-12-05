@@ -243,9 +243,10 @@ now. It tells you about the current stage, which can be any of:
   together two random inputs from the queue at some arbitrarily selected
   midpoint.
 - sync - a stage used only when `-M` or `-S` is set (see
-  [parallel_fuzzing.md](parallel_fuzzing.md)). No real fuzzing is involved, but
-  the tool scans the output from other fuzzers and imports test cases as
-  necessary. The first time this is done, it may take several minutes or so.
+  [fuzzing_in_depth.md:3c) Using multiple cores](fuzzing_in_depth.md#c-using-multiple-cores)).
+  No real fuzzing is involved, but the tool scans the output from other fuzzers
+  and imports test cases as necessary. The first time this is done, it may take
+  several minutes or so.
 
 The remaining fields should be fairly self-evident: there's the exec count
 progress indicator for the current stage, a global exec counter, and a benchmark
@@ -254,8 +255,8 @@ to another, but the benchmark should be ideally over 500 execs/sec most of the
 time - and if it stays below 100, the job will probably take very long.
 
 The fuzzer will explicitly warn you about slow targets, too. If this happens,
-see the [perf_tips.md](perf_tips.md) file included with the fuzzer for ideas on
-how to speed things up.
+see the [best_practices.md#improving-speed](best_practices.md#improving-speed)
+for ideas on how to speed things up.
 
 ### Findings in depth
 
@@ -396,7 +397,8 @@ comparing it to the number of logical cores on the system.
 
 If the value is shown in green, you are using fewer CPU cores than available on
 your system and can probably parallelize to improve performance; for tips on how
-to do that, see [parallel_fuzzing.md](parallel_fuzzing.md).
+to do that, see
+[fuzzing_in_depth.md:3c) Using multiple cores](fuzzing_in_depth.md#c-using-multiple-cores).
 
 If the value is shown in red, your CPU is *possibly* oversubscribed, and running
 additional fuzzers may not give you any benefits.

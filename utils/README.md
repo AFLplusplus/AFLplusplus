@@ -48,7 +48,7 @@ Here's a quick overview of the stuff you can find in this directory:
   - defork               - intercept fork() in targets
 
   - distributed_fuzzing  - a sample script for synchronizing fuzzer instances
-                           across multiple machines (see parallel_fuzzing.md).
+                           across multiple machines.
 
   - libdislocator        - like ASAN but lightweight.
 

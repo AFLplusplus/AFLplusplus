@@ -583,10 +583,11 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
 The FRIDA wrapper used to instrument binary-only code supports many of the same
 options as `afl-qemu-trace`, but also has a number of additional advanced
-options. These are listed in brief below (see [here](../frida_mode/README.md)
-for more details). These settings are provided for compatibiltiy with QEMU mode,
-the preferred way to configure FRIDA mode is through its
-[scripting](../frida_mode/Scripting.md) support.
+options. These are listed in brief below (see
+[frida_mode/README.md](../frida_mode/README.md) for more details). These
+settings are provided for compatibiltiy with QEMU mode, the preferred way to
+configure FRIDA mode is through its [scripting](../frida_mode/Scripting.md)
+support.
 
 * `AFL_FRIDA_DEBUG_MAPS` - See `AFL_QEMU_DEBUG_MAPS`
 * `AFL_FRIDA_DRIVER_NO_HOOK` - See `AFL_QEMU_DRIVER_NO_HOOK`. When using the
@@ -627,7 +628,7 @@ the preferred way to configure FRIDA mode is through its
   coverage information for unstable edges (e.g., to be loaded within IDA
   lighthouse).
 * `AFL_FRIDA_JS_SCRIPT` - Set the script to be loaded by the FRIDA scripting
-  engine. See [here](Scripting.md) for details.
+  engine. See [frida_mode/Scripting.md](../frida_mode/Scripting.md) for details.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
   application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`)
 * `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target
