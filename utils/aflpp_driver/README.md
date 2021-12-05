@@ -5,20 +5,20 @@
 aflpp_driver is used to compile directly libfuzzer `LLVMFuzzerTestOneInput()`
 targets.
 
-Just do `afl-clang-fast++ -o fuzz fuzzer_harness.cc libAFLDriver.a [plus required linking]`.
+Just do `afl-clang-fast++ -o fuzz fuzzer_harness.cc libAFLDriver.a [plus
+required linking]`.
 
-You can also sneakily do this little trick:
-If this is the clang compile command to build for libfuzzer:
-  `clang++ -o fuzz -fsanitize=fuzzer fuzzer_harness.cc -lfoo`
-then just switch `clang++` with `afl-clang-fast++` and our compiler will
+You can also sneakily do this little trick: If this is the clang compile command
+to build for libfuzzer: `clang++ -o fuzz -fsanitize=fuzzer fuzzer_harness.cc
+-lfoo`, then just switch `clang++` with `afl-clang-fast++` and our compiler will
 magically insert libAFLDriver.a :)
 
-To use shared-memory test cases, you need nothing to do.
-To use stdin test cases, give `-` as the only command line parameter.
-To use file input test cases, give `@@` as the only command line parameter.
+To use shared-memory test cases, you need nothing to do. To use stdin test
+cases, give `-` as the only command line parameter. To use file input test
+cases, give `@@` as the only command line parameter.
 
-IMPORTANT: if you use `afl-cmin` or `afl-cmin.bash` then either pass `-`
-or `@@` as command line parameters.
+IMPORTANT: if you use `afl-cmin` or `afl-cmin.bash`, then either pass `-` or
+`@@` as command line parameters.
 
 ## aflpp_qemu_driver
 
@@ -38,6 +38,6 @@ AFL_QEMU_PERSISTENT_HOOK=/path/to/aflpp_qemu_driver_hook.so afl-fuzz -Q ... -- .
 ```
 
 if you use afl-cmin or `afl-showmap -C` with the aflpp_qemu_driver you need to
-set the set same AFL_QEMU_... (or AFL_FRIDA_...) environment variables.
-If you want to use afl-showmap (without -C) or afl-cmin.bash then you may not
-set these environment variables and rather set `AFL_QEMU_DRIVER_NO_HOOK=1`.
+set the set same AFL_QEMU_... (or AFL_FRIDA_...) environment variables. If you
+want to use afl-showmap (without -C) or afl-cmin.bash, then you may not set
+these environment variables and rather set `AFL_QEMU_DRIVER_NO_HOOK=1`.
