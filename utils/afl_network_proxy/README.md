@@ -1,6 +1,6 @@
 # afl-network-proxy
 
-If you want to run afl-fuzz over the network than this is what you need :)
+If you want to run afl-fuzz over the network, then this is what you need. :)
 Note that the impact on fuzzing speed will be huge, expect a loss of 90%.
 
 ## When to use this

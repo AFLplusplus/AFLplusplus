@@ -211,7 +211,7 @@ is more effective).
 ### d) Modifying the target
 
 If the target has features that make fuzzing more difficult, e.g., checksums,
-HMAC, etc. then modify the source code so that checks for these values are
+HMAC, etc., then modify the source code so that checks for these values are
 removed. This can even be done safely for source code used in operational
 products by eliminating these checks within these AFL++ specific blocks:
 
@@ -244,16 +244,16 @@ Then build the target. (Usually with `make`)
 
 **NOTES**
 
-1. sometimes configure and build systems are fickle and do not like stderr
+1. Sometimes configure and build systems are fickle and do not like stderr
    output (and think this means a test failure) - which is something AFL++ likes
    to do to show statistics. It is recommended to disable AFL++ instrumentation
    reporting via `export AFL_QUIET=1`.
 
-2. sometimes configure and build systems error on warnings - these should be
+2. Sometimes configure and build systems error on warnings - these should be
    disabled (e.g., `--disable-werror` for some configure scripts).
 
-3. in case the configure/build system complains about AFL++'s compiler and
-   aborts then set `export AFL_NOOPT=1` which will then just behave like the
+3. In case the configure/build system complains about AFL++'s compiler and
+   aborts, then set `export AFL_NOOPT=1` which will then just behave like the
    real compiler. This option has to be unset again before building the target!
 
 #### configure
@@ -304,8 +304,8 @@ that you want to fuzz, plus a few specific AFL++ functions around it. See
 [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)
 for details.
 
-Basically if you do not fuzz a target in persistent mode then you are just doing
-it for a hobby and not professionally :-).
+Basically if you do not fuzz a target in persistent mode, then you are just
+doing it for a hobby and not professionally :-).
 
 ### g) libfuzzer fuzzer harnesses with LLVMFuzzerTestOneInput()
 
@@ -418,9 +418,9 @@ Note that both scripts improve your fuzzing performance but also decrease your
 system protection against attacks! So set strong firewall rules and only expose
 SSH as a network service if you use these (which is highly recommended).
 
-If you have an input corpus from step 2 then specify this directory with the
-`-i` option. Otherwise create a new directory and create a file with any content
-as test data in there.
+If you have an input corpus from step 2, then specify this directory with the
+`-i` option. Otherwise, create a new directory and create a file with any
+content as test data in there.
 
 If you do not want anything special, the defaults are already usually best,
 hence all you need is to specify the seed input directory with the result of
@@ -498,8 +498,8 @@ and not waste CPU time.
 
 ### c) Using multiple cores
 
-If you want to seriously fuzz then use as many cores/threads as possible to fuzz
-your target.
+If you want to seriously fuzz, then use as many cores/threads as possible to
+fuzz your target.
 
 On the same machine - due to the design of how AFL++ works - there is a maximum
 number of CPU cores/threads that are useful, use more and the overall
@@ -658,7 +658,7 @@ An "easy" helper script for this is
 [https://github.com/vanhauser-thc/afl-cov](https://github.com/vanhauser-thc/afl-cov),
 just follow the README of that separate project.
 
-If you see that an important area or a feature has not been covered so far then
+If you see that an important area or a feature has not been covered so far, then
 try to find an input that is able to reach that and start a new secondary in
 that fuzzing campaign with that seed as input, let it run for a few minutes,
 then terminate it. The main node will pick it up and make it available to the
@@ -668,13 +668,13 @@ AFL_TRY_AFFINITY=1` if you have no free core.
 Note that in nearly all cases you can never reach full coverage. A lot of
 functionality is usually dependent on exclusive options that would need
 individual fuzzing campaigns each with one of these options set. E.g., if you
-fuzz a library to convert image formats and your target is the png to tiff API
+fuzz a library to convert image formats and your target is the png to tiff API,
 then you will not touch any of the other library APIs and features.
 
 ### h) How long to fuzz a target?
 
-This is a difficult question. Basically if no new path is found for a long time
-(e.g., for a day or a week) then you can expect that your fuzzing won't be
+This is a difficult question. Basically, if no new path is found for a long time
+(e.g., for a day or a week), then you can expect that your fuzzing won't be
 fruitful anymore. However, often this just means that you should switch out
 secondaries for others, e.g., custom mutator modules, sync to very different
 fuzzers, etc.

@@ -172,7 +172,7 @@ Fore more information, see
 
 ## Binary rewriters
 
-An alternative solution are binary rewriters. They are faster then the solutions
+An alternative solution are binary rewriters. They are faster than the solutions
 native to AFL++ but don't always work.
 
 ### ZAFL

@@ -15,7 +15,7 @@ Supported is so far Intel (i386/x86_64) and AARCH64.
 
 ### Modify afl-untracer.c
 
-Read and modify afl-untracer.c then `make`.
+Read and modify afl-untracer.c, then `make`.
 To adapt afl-untracer.c to your needs, read the header of the file and then
 search and edit the `STEP 1`, `STEP 2` and `STEP 3` locations.
 
