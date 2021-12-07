@@ -37,7 +37,7 @@ superior to blind fuzzing or coverage-only tools.
 
 ## Understanding the status screen
 
-This chapter provides an overview of the status screen - plus tips for
+This section provides an overview of the status screen - plus tips for
 troubleshooting any warnings and red text shown in the UI.
 
 For the general instruction manual, see [README.md](../README.md).
@@ -103,8 +103,8 @@ will be allowed to run for months.
 
 There's one important thing to watch out for: if the tool is not finding new
 paths within several minutes of starting, you're probably not invoking the
-target binary correctly and it never gets to parse the input files we're
-throwing at it; other possible explanations are that the default memory limit
+target binary correctly and it never gets to parse the input files that are
+thrown at it; other possible explanations are that the default memory limit
 (`-m`) is too restrictive and the program exits after failing to allocate a
 buffer very early on; or that the input files are patently invalid and always
 fail a basic header check.
@@ -172,10 +172,9 @@ processed path is not "favored" (a property discussed later on).
 The section provides some trivia about the coverage observed by the
 instrumentation embedded in the target binary.
 
-The first line in the box tells you how many branch tuples we have already hit,
-in proportion to how much the bitmap can hold. The number on the left describes
-the current input; the one on the right is the value for the entire input
-corpus.
+The first line in the box tells you how many branch tuples already were hit, in
+proportion to how much the bitmap can hold. The number on the left describes the
+current input; the one on the right is the value for the entire input corpus.
 
 Be wary of extremes:
 
@@ -194,7 +193,7 @@ Be wary of extremes:
 
 The other line deals with the variability in tuple hit counts seen in the
 binary. In essence, if every taken branch is always taken a fixed number of
-times for all the inputs we have tried, this will read `1.00`. As we manage to
+times for all the inputs that were tried, this will read `1.00`. As we manage to
 trigger other hit counts for every branch, the needle will start to move toward
 `8.00` (every bit in the 8-bit map hit), but will probably never reach that
 extreme.
@@ -244,9 +243,10 @@ now. It tells you about the current stage, which can be any of:
   together two random inputs from the queue at some arbitrarily selected
   midpoint.
 - sync - a stage used only when `-M` or `-S` is set (see
-  [parallel_fuzzing.md](parallel_fuzzing.md)). No real fuzzing is involved, but
-  the tool scans the output from other fuzzers and imports test cases as
-  necessary. The first time this is done, it may take several minutes or so.
+  [fuzzing_in_depth.md:3c) Using multiple cores](fuzzing_in_depth.md#c-using-multiple-cores)).
+  No real fuzzing is involved, but the tool scans the output from other fuzzers
+  and imports test cases as necessary. The first time this is done, it may take
+  several minutes or so.
 
 The remaining fields should be fairly self-evident: there's the exec count
 progress indicator for the current stage, a global exec counter, and a benchmark
@@ -255,8 +255,8 @@ to another, but the benchmark should be ideally over 500 execs/sec most of the
 time - and if it stays below 100, the job will probably take very long.
 
 The fuzzer will explicitly warn you about slow targets, too. If this happens,
-see the [perf_tips.md](perf_tips.md) file included with the fuzzer for ideas on
-how to speed things up.
+see the [best_practices.md#improving-speed](best_practices.md#improving-speed)
+for ideas on how to speed things up.
 
 ### Findings in depth
 
@@ -295,9 +295,9 @@ exceed it by a margin sufficient to be classified as hangs.
   +-----------------------------------------------------+
 ```
 
-This is just another nerd-targeted section keeping track of how many paths we
-have netted, in proportion to the number of execs attempted, for each of the
-fuzzing strategies discussed earlier on. This serves to convincingly validate
+This is just another nerd-targeted section keeping track of how many paths were
+netted, in proportion to the number of execs attempted, for each of the fuzzing
+strategies discussed earlier on. This serves to convincingly validate
 assumptions about the usefulness of the various approaches taken by afl-fuzz.
 
 The trim strategy stats in this section are a bit different than the rest. The
@@ -339,16 +339,16 @@ fuzzing yet. The same stat is also given for "favored" entries that the fuzzer
 really wants to get to in this queue cycle (the non-favored entries may have to
 wait a couple of cycles to get their chance).
 
-Next, we have the number of new paths found during this fuzzing section and
-imported from other fuzzer instances when doing parallelized fuzzing; and the
-extent to which identical inputs appear to sometimes produce variable behavior
-in the tested binary.
+Next is the number of new paths found during this fuzzing section and imported
+from other fuzzer instances when doing parallelized fuzzing; and the extent to
+which identical inputs appear to sometimes produce variable behavior in the
+tested binary.
 
 That last bit is actually fairly interesting: it measures the consistency of
 observed traces. If a program always behaves the same for the same input data,
 it will earn a score of 100%. When the value is lower but still shown in purple,
 the fuzzing process is unlikely to be negatively affected. If it goes into red,
-you may be in trouble, since AFL will have difficulty discerning between
+you may be in trouble, since AFL++ will have difficulty discerning between
 meaningful and "phantom" effects of tweaking the input file.
 
 Now, most targets will just get a 100% score, but when you see lower figures,
@@ -397,7 +397,8 @@ comparing it to the number of logical cores on the system.
 
 If the value is shown in green, you are using fewer CPU cores than available on
 your system and can probably parallelize to improve performance; for tips on how
-to do that, see [parallel_fuzzing.md](parallel_fuzzing.md).
+to do that, see
+[fuzzing_in_depth.md:3c) Using multiple cores](fuzzing_in_depth.md#c-using-multiple-cores).
 
 If the value is shown in red, your CPU is *possibly* oversubscribed, and running
 additional fuzzers may not give you any benefits.
@@ -425,8 +426,7 @@ There are three subdirectories created within the output directory and updated
 in real-time:
 
 - queue/   - test cases for every distinctive execution path, plus all the
-             starting files given by the user. This is the synthesized corpus
-             mentioned in section 2.
+             starting files given by the user. This is the synthesized corpus.
 
              Before using this corpus for any other purposes, you can shrink
              it to a smaller size using the afl-cmin tool. The tool will find
@@ -447,8 +447,8 @@ involve any state transitions not seen in previously-recorded faults. If a
 single bug can be reached in multiple ways, there will be some count inflation
 early in the process, but this should quickly taper off.
 
-The file names for crashes and hangs are correlated with the parent, non-faulting
-queue entries. This should help with debugging.
+The file names for crashes and hangs are correlated with the parent,
+non-faulting queue entries. This should help with debugging.
 
 ## Visualizing
 
@@ -468,6 +468,8 @@ cd ../../
 sudo make install
 ```
 
+To learn more about remote monitoring and metrics visualization with StatsD, see
+[rpc_statsd.md](rpc_statsd.md).
 
 ### Addendum: status and plot files
 
@@ -505,8 +507,8 @@ directory. This includes:
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
 - `edges_found`       - how many edges have been found
 - `var_byte_count`    - how many edges are non-deterministic
-- `afl_banner`        - banner text (e.g. the target name)
-- `afl_version`       - the version of AFL used
+- `afl_banner`        - banner text (e.g., the target name)
+- `afl_version`       - the version of AFL++ used
 - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented
 - `command_line`      - full command line used for the fuzzing session
 
@@ -523,9 +525,9 @@ into each of them or deploy scripts to read the fuzzer statistics. Using
 `AFL_STATSD` (and the other related environment variables `AFL_STATSD_HOST`,
 `AFL_STATSD_PORT`, `AFL_STATSD_TAGS_FLAVOR`) you can automatically send metrics
 to your favorite StatsD server. Depending on your StatsD server, you will be
-able to monitor, trigger alerts, or perform actions based on these metrics (e.g:
-alert on slow exec/s for a new build, threshold of crashes, time since last
-crash > X, etc).
+able to monitor, trigger alerts, or perform actions based on these metrics
+(e.g.: alert on slow exec/s for a new build, threshold of crashes, time since
+last crash > X, etc.).
 
 The selected metrics are a subset of all the metrics found in the status and in
 the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
@@ -536,6 +538,6 @@ the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
 definitions can be found in the addendum above.
 
 When using multiple fuzzer instances with StatsD, it is *strongly* recommended
-to setup the flavor (AFL_STATSD_TAGS_FLAVOR) to match your StatsD server. This
+to setup the flavor (`AFL_STATSD_TAGS_FLAVOR`) to match your StatsD server. This
 will allow you to see individual fuzzer performance, detect bad ones, see the
 progress of each strategy...

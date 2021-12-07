@@ -8,10 +8,11 @@ The CompareCoverage and NeverZero counters features are by Andrea Fioraldi <andr
 
 ## 1) Introduction
 
-The code in ./unicorn_mode allows you to build the (Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with AFL support.
+The code in ./unicorn_mode allows you to build the
+(Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with AFL++ support.
 This means, you can run anything that can be emulated in unicorn and obtain instrumentation
-output for black-box, closed-source binary code snippets. This mechanism 
-can be then used by afl-fuzz to stress-test targets that couldn't be built 
+output for black-box, closed-source binary code snippets. This mechanism
+can be then used by afl-fuzz to stress-test targets that couldn't be built
 with afl-cc or used in QEMU mode.
 
 There is a significant performance penalty compared to native AFL,
@@ -25,7 +26,7 @@ For some pointers for more advanced emulation, take a look at [BaseSAFE](https:/
 ### Building AFL++'s Unicorn Mode
 
 First, make AFL++ as usual.
-Once that completes successfully you need to build and add in the Unicorn Mode 
+Once that completes successfully you need to build and add in the Unicorn Mode
 features:
 
 ```
@@ -33,10 +34,10 @@ cd unicorn_mode
 ./build_unicorn_support.sh
 ```
 
-NOTE: This script checks out a Unicorn Engine fork as submodule that has been tested 
-and is stable-ish, based on the unicorn engine `next` branch. 
+NOTE: This script checks out a Unicorn Engine fork as submodule that has been tested
+and is stable-ish, based on the unicorn engine `next` branch.
 
-Building Unicorn will take a little bit (~5-10 minutes). Once it completes 
+Building Unicorn will take a little bit (~5-10 minutes). Once it completes
 it automatically compiles a sample application and verifies that it works.
 
 ### Fuzzing with Unicorn Mode
@@ -46,25 +47,24 @@ To use unicorn-mode effectively you need to prepare the following:
 	* Relevant binary code to be fuzzed
 	* Knowledge of the memory map and good starting state
 	* Folder containing sample inputs to start fuzzing with
-		+ Same ideas as any other AFL inputs
-		+ Quality/speed of results will depend greatly on the quality of starting 
+		+ Same ideas as any other AFL++ inputs
+		+ Quality/speed of results will depend greatly on the quality of starting
 		  samples
 		+ See AFL's guidance on how to create a sample corpus
 	* Unicornafl-based test harness in Rust, C, or Python, which:
 		+ Adds memory map regions
-		+ Loads binary code into memory		
+		+ Loads binary code into memory
 		+ Calls uc.afl_fuzz() / uc.afl_start_forkserver
 		+ Loads and verifies data to fuzz from a command-line specified file
-			+ AFL will provide mutated inputs by changing the file passed to 
+			+ AFL++ will provide mutated inputs by changing the file passed to
 			  the test harness
 			+ Presumably the data to be fuzzed is at a fixed buffer address
-			+ If input constraints (size, invalid bytes, etc.) are known they 
-			  should be checked in the place_input handler. If a constraint 
-			  fails, just return false from the handler. AFL will treat the input as 
-			  'uninteresting' and move on.
+			+ If input constraints (size, invalid bytes, etc.) are known they
+			  should be checked in the place_input handler. If a constraint
+			  fails, just return false from the handler. AFL++ will treat the input as 'uninteresting' and move on.
 		+ Sets up registers and memory state for beginning of test
 		+ Emulates the interesting code from beginning to end
-		+ If a crash is detected, the test harness must 'crash' by 
+		+ If a crash is detected, the test harness must 'crash' by
 		  throwing a signal (SIGSEGV, SIGKILL, SIGABORT, etc.), or indicate a crash in the crash validation callback.
 
 Once you have all those things ready to go you just need to run afl-fuzz in
@@ -77,14 +77,13 @@ afl-fuzz -U -m none -i /path/to/inputs -o /path/to/results -- ./test_harness @@
 The normal afl-fuzz command line format applies to everything here. Refer to
 AFL's main documentation for more info about how to use afl-fuzz effectively.
 
-For a much clearer vision of what all of this looks like, please refer to the
-sample provided in the 'unicorn_mode/samples' directory. There is also a blog
-post that uses slightly older concepts, but describes the general ideas, at:
+For a much clearer vision of what all of this looks like, refer to the sample
+provided in the 'unicorn_mode/samples' directory. There is also a blog post that
+uses slightly older concepts, but describes the general ideas, at:
 
 [https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf)
 
-
-The ['helper_scripts'](./helper_scripts) directory also contains several helper scripts that allow you 
+The ['helper_scripts'](./helper_scripts) directory also contains several helper scripts that allow you
 to dump context from a running process, load it, and hook heap allocations. For details
 on how to use this check out the follow-up blog post to the one linked above.
 
@@ -105,8 +104,8 @@ Comparison instructions are currently instrumented only for the x86, x86_64 and 
 
 ## 4) Gotchas, feedback, bugs
 
-Running the build script builds Unicornafl and its python bindings and installs 
-them on your system. 
+Running the build script builds Unicornafl and its python bindings and installs
+them on your system.
 This installation will leave any existing Unicorn installations untouched.
 If you want to use unicornafl instead of unicorn in a script,
 replace all `unicorn` imports with `unicornafl` inputs, everything else should "just work".

@@ -40,7 +40,7 @@ The idea and much of the initial implementation came from Laszlo Szekeres.
 
 ## 2a) How to use this - short
 
-Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.
+Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.:
 
 ```
 LLVM_CONFIG=llvm-config-9 make
@@ -106,9 +106,10 @@ either setting `AFL_CC_COMPILER=LLVM` or pass the parameter `--afl-llvm` via
 CFLAGS/CXXFLAGS/CPPFLAGS.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-[docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
-AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored as it
-does not serve a good purpose with the more effective PCGUARD analysis.
+[docs/env_variables.md](../docs/env_variables.md)). This includes
+`AFL_USE_ASAN`, `AFL_HARDEN`, and `AFL_DONT_OPTIMIZE`. However, `AFL_INST_RATIO`
+is not honored as it does not serve a good purpose with the more effective
+PCGUARD analysis.
 
 ## 3) Options
 
@@ -119,15 +120,15 @@ If you need just to instrument specific parts of the code, you can the
 instrument file list which C/C++ files to actually instrument. See
 [README.instrument_list.md](README.instrument_list.md)
 
-For splitting memcmp, strncmp, etc. please see
-[README.laf-intel.md](README.laf-intel.md)
+For splitting memcmp, strncmp, etc., see
+[README.laf-intel.md](README.laf-intel.md).
 
 Then there are different ways of instrumenting the target:
 
-1. An better instrumentation strategy uses LTO and link time instrumentation.
-   Note that not all targets can compile in this mode, however if it works it is
-   the best option you can use. Simply use afl-clang-lto/afl-clang-lto++ to use
-   this option. See [README.lto.md](README.lto.md).
+1. A better instrumentation strategy uses LTO and link time instrumentation.
+   Note that not all targets can compile in this mode, however, if it works it
+   is the best option you can use. To go with this option, use
+   afl-clang-lto/afl-clang-lto++. See [README.lto.md](README.lto.md).
 
 2. Alternatively you can choose a completely different coverage method:
 
@@ -157,8 +158,8 @@ nozero counter default for performance reasons.
 
 ## 4) deferred initialization, persistent mode, shared memory fuzzing
 
-This is the most powerful and effective fuzzing you can do. Please see
-[README.persistent_mode.md](README.persistent_mode.md) for a full explanation.
+This is the most powerful and effective fuzzing you can do. For a full
+explanation, see [README.persistent_mode.md](README.persistent_mode.md).
 
 ## 5) Bonus feature: 'dict2file' pass
 
@@ -217,7 +218,7 @@ by Jinghan Wang, et. al.
 
 Note that the original implementation (available
 [here](https://github.com/bitsecurerlab/afl-sensitive)) is built on top of AFL's
-qemu_mode. This is essentially a port that uses LLVM vectorized instructions
+QEMU mode. This is essentially a port that uses LLVM vectorized instructions
 (available from llvm versions 4.0.1 and higher) to achieve the same results when
 compiling source code.
 
@@ -234,3 +235,44 @@ are 2-16.
 It is highly recommended to increase the MAP_SIZE_POW2 definition in config.h to
 at least 18 and maybe up to 20 for this as otherwise too many map collisions
 occur.
+
+## 8) NeverZero counters
+
+In larger, complex, or reiterative programs, the byte sized counters that
+collect the edge coverage can easily fill up and wrap around. This is not that
+much of an issue - unless, by chance, it wraps just to a value of zero when the
+program execution ends. In this case, afl-fuzz is not able to see that the edge
+has been accessed and will ignore it.
+
+NeverZero prevents this behavior. If a counter wraps, it jumps over the value 0
+directly to a 1. This improves path discovery (by a very small amount) at a very
+low cost (one instruction per edge).
+
+(The alternative of saturated counters has been tested also and proved to be
+inferior in terms of path discovery.)
+
+This is implemented in afl-gcc and afl-gcc-fast, however, for llvm_mode this is
+optional if multithread safe counters are selected or the llvm version is below
+9 - as there are severe performance costs in these cases.
+
+If you want to enable this for llvm versions below 9 or thread safe counters,
+then set
+
+```
+export AFL_LLVM_NOT_ZERO=1
+```
+
+In case you are on llvm 9 or greater and you do not want this behavior, then you
+can set:
+
+```
+AFL_LLVM_SKIP_NEVERZERO=1
+```
+
+If the target does not have extensive loops or functions that are called a lot,
+then this can give a small performance boost.
+
+Please note that the default counter implementations are not thread safe!
+
+Support for thread safe counters in mode LLVM CLASSIC can be activated with
+setting `AFL_LLVM_THREADSAFE_INST=1`.

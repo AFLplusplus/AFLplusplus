@@ -1,4 +1,4 @@
-# AFL starting test cases
+# AFL++ starting test cases
 
   (See [../README.md](../README.md) for the general instruction manual.)
 
