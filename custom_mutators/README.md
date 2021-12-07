@@ -15,6 +15,7 @@ In `./rust`, you will find rust bindings, including a simple example in `./rust/
 
 If you use git to clone AFL++, then the following will incorporate our
 excellent grammar custom mutator:
+
 ```sh
 git submodule update --init
 ```

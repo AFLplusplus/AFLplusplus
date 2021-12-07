@@ -11,9 +11,11 @@ Note that this is currently a simple implementation and it is missing two featur
   * Dictionary support
 
 To update the source, all that is needed is that FuzzerDriver.cpp has to receive
+
 ```
 #include "libfuzzer.inc"
 ```
+
 before the closing namespace bracket.
 
 It is also libfuzzer.inc where the configuration of the libfuzzer mutations

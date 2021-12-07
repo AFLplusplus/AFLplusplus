@@ -2,13 +2,12 @@
 
 NOTE: this code is outdated and first would need to be adapted to the current
 AFL++ versions.
-Try frida_mode or fpicker [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/) first, maybe they suite your need.
+Try FRIDA mode or fpicker [https://github.com/ttdennis/fpicker/](https://github.com/ttdennis/fpicker/) first, maybe they suite your need.
 
 ## 1) Introduction
 
 The code in ./qbdi_mode allows you to build a standalone feature that
 using the QBDI framework to fuzz android native library.
-
 
 ## 2) Build
 
@@ -34,7 +33,9 @@ For x86 standalone-toolchain
 ./build/tools/make_standalone_toolchain.py --arch x86 --api 21 --install-dir ../android-standalone-toolchain-x86
 ```
 
-In alternative you can also use the prebuilt toolchain, in that case make sure to set the proper CC and CXX env variables because there are many different compilers for each API version in the prebuilt toolchain.
+In alternative you can also use the pre-built toolchain, in that case make sure
+to set the proper CC and CXX environment variables because there are many
+different compilers for each API version in the pre-built toolchain.
 
 For example:
 
@@ -51,6 +52,7 @@ https://qbdi.quarkslab.com/
 ```
 
 For Android x86_64
+
 ```
 https://github.com/QBDI/QBDI/releases/download/v0.7.0/QBDI-0.7.0-android-X86_64.tar.gz
 ```
@@ -64,7 +66,7 @@ cd android-qbdi-sdk-x86_64/
 tar xvf QBDI-0.7.0-android-X86_64.tar.gz
 ```
 
-Now set the `STANDALONE_TOOLCHAIN_PATH` to the path of standalone-toolchain 
+Now set the `STANDALONE_TOOLCHAIN_PATH` to the path of standalone-toolchain
 
 ```
 export STANDALONE_TOOLCHAIN_PATH=/home/hac425/workspace/android-standalone-toolchain-x86_64
@@ -83,7 +85,6 @@ Then run the build.sh
 ```
 
 this could build the afl-fuzz and also the qbdi template for android x86_64
-
 
 ### Example
 
@@ -127,9 +128,10 @@ int target_func(char *buf, int size) {
 }
 ```
 
-This could be build to `libdemo.so`.
+This could be built to `libdemo.so`.
 
-Then we should load the library in template.cpp and find the `target` function address.
+Then load the library in template.cpp and find the `target` function address:
+
 ```c
     void *handle = dlopen(lib_path, RTLD_LAZY);
 	..........................................
@@ -138,7 +140,7 @@ Then we should load the library in template.cpp and find the `target` function a
     p_target_func = (target_func)dlsym(handle, "target_func");
 ```
 
-then we read the data from file and call the function in `fuzz_func`
+Then read the data from file and call the function in `fuzz_func`:
 
 ```c
 QBDI_NOINLINE int fuzz_func() {
@@ -157,6 +159,7 @@ QBDI_NOINLINE int fuzz_func() {
 ```
 
 Just compile it
+
 ```
 ./build.sh x86_64
 ```
@@ -173,6 +176,7 @@ adb push ../../android-standalone-toolchain-x86_64/sysroot/usr/lib/x86_64-linux-
 ```
 
 In android adb shell, run the loader to test if it runs
+
 ```
 cd /data/local/tmp
 export LD_LIBRARY_PATH=/data/local/tmp
@@ -200,4 +204,3 @@ Now run `afl-fuzz` to fuzz the demo library
 ```
 
 ![screen1](assets/screen1.png)
-

@@ -120,9 +120,9 @@ x86 and x64 architectures. Implementation details can be found
 
 Dynamic instrumentation is used to augment the target application with similar
 coverage information to that inserted by `afl-gcc` or `afl-clang`. The shared
-library is also linked to the `compiler-rt` component of AFLplusplus to feedback
-this coverage information to AFL++ and also provide a fork server. It also makes
-use of the FRIDA
+library is also linked to the `compiler-rt` component of AFL++ to feedback this
+coverage information to AFL++ and also provide a fork server. It also makes use
+of the FRIDA
 [prefetch](https://github.com/frida/frida-gum/blob/56dd9ba3ee9a5511b4b0c629394bf122775f1ab7/gum/gumstalker.h#L115)
 support to feedback instrumented blocks from the child to the parent using a
 shared memory region to avoid the need to regenerate instrumented blocks on each
@@ -141,6 +141,7 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 (only on CMP, SUB and CALL instructions) performance is not quite so critical.
 
 ## Advanced configuration options
+
 * `AFL_FRIDA_DRIVER_NO_HOOK` - See `AFL_QEMU_DRIVER_NO_HOOK`. When using the
   QEMU driver to provide a `main` loop for a user provided
   `LLVMFuzzerTestOneInput`, this option configures the driver to read input from
@@ -229,9 +230,9 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_STATS_FILE` - Write statistics information about the code being
   instrumented to the given file name. The statistics are written only for the
   child process when new block is instrumented (when the
-  `AFL_FRIDA_STATS_INTERVAL` has expired). Note that simply because a new path
-  is found does not mean a new block needs to be compiled. It could simply be
-  that the existing blocks instrumented have been executed in a different order.
+  `AFL_FRIDA_STATS_INTERVAL` has expired). Note that just because a new path is
+  found does not mean a new block needs to be compiled. It could be that the
+  existing blocks instrumented have been executed in a different order.
 
   ```
   stats
@@ -359,16 +360,16 @@ An example of how to fuzz a dynamic library on OSX is included, see
 [test/osx-lib](test/osx-lib). This requires the use of a simple test harness
 executable which will load the library and call a target function within it. The
 dependent library can either be loaded in using `dlopen` and `dlsym` in a
-function marked `__attribute__((constructor()))` or the test harness can simply
-be linked against it. It is important that the target library is loaded before
+function marked `__attribute__((constructor()))` or the test harness can be
+linked against it. It is important that the target library is loaded before
 execution of `main`, since this is the point where FRIDA mode is initialized.
 Otherwise, it will not be possible to configure coverage for the test library
 using `AFL_FRIDA_INST_RANGES` or similar.
 
 ## Debugging
 
-Please refer to [DEBUGGING.md](DEBUGGING.md) for assistance should you encounter
-problems with FRIDA mode.
+Should you encounter problems with FRIDA mode, refer to
+[DEBUGGING.md](DEBUGGING.md) for assistance.
 
 ## To do
 

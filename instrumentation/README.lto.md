@@ -71,7 +71,7 @@ use an outdated Linux distribution, read the next section.
 Installing the llvm snapshot builds is easy and mostly painless:
 
 In the following line, change `NAME` for your Debian or Ubuntu release name
-(e.g. buster, focal, eon, etc.):
+(e.g., buster, focal, eon, etc.):
 
 ```
 echo deb http://apt.llvm.org/NAME/ llvm-toolchain-NAME NAME >> /etc/apt/sources.list
@@ -202,7 +202,7 @@ bytes or which functions were touched by an input.
 ## Solving difficult targets
 
 Some targets are difficult because the configure script does unusual stuff that
-is unexpected for afl. See the next chapter `Potential issues` for how to solve
+is unexpected for afl. See the next section `Potential issues` for how to solve
 these.
 
 ### Example: ffmpeg
@@ -328,7 +328,7 @@ and `CXXFLAGS=-flto=full`).
 If this succeeds, then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226).
 
-Even some targets where clang-12 fails can be build if the fail is just in
+Even some targets where clang-12 fails can be built if the fail is just in
 `./configure`, see `Solving difficult targets` above.
 
 ## History

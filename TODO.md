@@ -16,18 +16,17 @@
 
 ## Further down the road
 
-qemu_mode/frida_mode:
+QEMU mode/FRIDA mode:
  - non colliding instrumentation
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
    AFL_COMPCOV_LEVEL?)
- - add AFL_QEMU_EXITPOINT (maybe multiple?), maybe pointless as we have
+ - add AFL_QEMU_EXITPOINT (maybe multiple?), maybe pointless as there is
    persistent mode
-
 
 ## Ideas
 
  - LTO/sancov: write current edge to prev_loc and use that information when
-   using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow
-   up edge numbers that both following cmp paths have been found and then
-   disable working on this edge id -> cmplog_intelligence branch
+   using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow up
+   edge numbers that both following cmp paths have been found and then disable
+   working on this edge id -> cmplog_intelligence branch
  - use cmplog colorization taint result for havoc locations?

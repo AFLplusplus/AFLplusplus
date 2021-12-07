@@ -28,10 +28,11 @@ terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
 Here is some information to get you started:
 
-* For releases, please see the
+* For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
   [branches](#branches). Also take a look at the list of
-  [important changes in AFL++](docs/important_changes.md).
+  [important changes in AFL++](docs/important_changes.md) and the list of
+  [features](docs/features.md).
 * If you want to use AFL++ for your academic work, check the
   [papers page](https://aflplus.plus/papers/) on the website.
 * To cite our work, look at the [Cite](#cite) section.
@@ -44,8 +45,8 @@ Here is some information to get you started:
 
 ## Building and installing AFL++
 
-To have AFL++ easily available with everything compiled, pull the image
-directly from the Docker Hub:
+To have AFL++ easily available with everything compiled, pull the image directly
+from the Docker Hub:
 
 ```shell
 docker pull aflplusplus/aflplusplus
@@ -53,8 +54,8 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
 This image is automatically generated when a push to the stable repo happens
-(see [branches](#branches)). You will find your target source
-code in `/src` in the container.
+(see [branches](#branches)). You will find your target source code in `/src` in
+the container.
 
 To build AFL++ yourself, continue at [docs/INSTALL.md](docs/INSTALL.md).
 
@@ -86,7 +87,7 @@ Step-by-step quick start:
    ```
 
 2. Get a small but valid input file that makes sense to the program. When
-   fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in
+   fuzzing verbose syntax (SQL, HTTP, etc.), create a dictionary as described in
    [dictionaries/README.md](dictionaries/README.md), too.
 
 3. If the program reads from stdin, run `afl-fuzz` like so:
@@ -99,7 +100,7 @@ Step-by-step quick start:
    To add a dictionary, add `-x /path/to/dictionary.txt` to afl-fuzz.
 
    If the program takes input from a file, you can put `@@` in the program's
-   command line; AFL will put an auto-generated file name in there for you.
+   command line; AFL++ will put an auto-generated file name in there for you.
 
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting
    [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen).
@@ -120,8 +121,8 @@ Questions? Concerns? Bug reports?
 
 * The contributors can be reached via
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
-* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or
-  important question missing, submit it via
+* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
+  question missing, submit it via
   [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
 * There is a mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
@@ -133,10 +134,16 @@ Questions? Concerns? Bug reports?
 
 The following branches exist:
 
-* [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest release
-* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of AFL++ - it is synced from dev from time to time when we are satisfied with its stability
-* [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state of AFL++ - bleeding edge and you might catch a checkout which does not compile or has a bug. *We only accept PRs in dev!!*
-* (any other): experimental branches to work on specific features or testing new functionality or changes.
+* [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest
+  release
+* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of
+  AFL++ - it is synced from dev from time to time when we are satisfied with its
+  stability
+* [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
+  of AFL++ - bleeding edge and you might catch a checkout which does not compile
+  or has a bug. *We only accept PRs in dev!!*
+* (any other): experimental branches to work on specific features or testing new
+  functionality or changes.
 
 ## Help wanted
 
