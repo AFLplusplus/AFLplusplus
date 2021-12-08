@@ -48,6 +48,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed a potential crash in targets for LAF string handling
     - added AFL_USE_TSAN thread sanitizer support
     - llvm and LTO mode modified to work with new llvm 14-dev (again)
+    - fix for AFL_REAL_LD
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
   - added optimin, a faster and better corpus minimizer by
