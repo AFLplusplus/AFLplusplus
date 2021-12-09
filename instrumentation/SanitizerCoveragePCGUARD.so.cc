@@ -937,7 +937,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
                 ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
             Int32PtrTy);
 
-        LoadInst *Idx = IRB.CreateLoad(GuardPtr);
+        LoadInst *Idx = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
         ModuleSanitizerCoverage::SetNoSanitizeMetadata(Idx);
 
         callInst->setOperand(1, Idx);
@@ -1059,7 +1059,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         /* Load SHM pointer */
 
-        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        LoadInst *MapPtr =
+            IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
         ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
 
         /*
@@ -1078,17 +1079,17 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
           /* Load counter for CurLoc */
           if (!vector_cnt) {
 
-            CurLoc = IRB.CreateLoad(result);
+            CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), result);
             ModuleSanitizerCoverage::SetNoSanitizeMetadata(CurLoc);
-            MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+            MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CurLoc);
 
           } else {
 
             auto element = IRB.CreateExtractElement(result, vector_cur++);
             auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
-            auto elementld = IRB.CreateLoad(elementptr);
+            auto elementld = IRB.CreateLoad(IRB.getInt32Ty(), elementptr);
             ModuleSanitizerCoverage::SetNoSanitizeMetadata(elementld);
-            MapPtrIdx = IRB.CreateGEP(MapPtr, elementld);
+            MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, elementld);
 
           }
 
@@ -1102,7 +1103,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
           } else {
 
-            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
             ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
 
             /* Update bitmap */
@@ -1347,17 +1348,17 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
                       ConstantInt::get(IntptrTy, Idx * 4)),
         Int32PtrTy);
 
-    LoadInst *CurLoc = IRB.CreateLoad(GuardPtr);
+    LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(CurLoc);
 
     /* Load SHM pointer */
 
-    LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+    LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
 
     /* Load counter for CurLoc */
 
-    Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+    Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CurLoc);
 
     if (use_threadsafe_counters) {
 
@@ -1369,7 +1370,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
     } else {
 
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
       ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
 
       /* Update bitmap */

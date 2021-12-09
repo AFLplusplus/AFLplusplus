@@ -529,8 +529,16 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       IRBuilder<> cur_cmp_IRB(&*(cur_cmp_bb->getFirstInsertionPt()));
 
       Value *v = ConstantInt::get(Int64Ty, i);
-      Value *ele = cur_cmp_IRB.CreateInBoundsGEP(VarStr, v, "empty");
-      Value *load = cur_cmp_IRB.CreateLoad(ele);
+      Value *ele = cur_cmp_IRB.CreateInBoundsGEP(
+#if LLVM_VERSION_MAJOR >= 14
+          Int8Ty,
+#endif
+          VarStr, v, "empty");
+      Value *load = cur_cmp_IRB.CreateLoad(
+#if LLVM_VERSION_MAJOR >= 14
+          Int8Ty,
+#endif
+          ele);
 
       if (isCaseInsensitive) {
 
