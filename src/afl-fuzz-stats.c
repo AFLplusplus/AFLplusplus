@@ -15,7 +15,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -278,13 +278,14 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           "total_edges       : %u\n"
           "var_byte_count    : %u\n"
           "havoc_expansion   : %u\n"
+          "auto_dict_entries : %u\n"
           "testcache_size    : %llu\n"
           "testcache_count   : %u\n"
           "testcache_evict   : %u\n"
           "afl_banner        : %s\n"
           "afl_version       : " VERSION
           "\n"
-          "target_mode       : %s%s%s%s%s%s%s%s%s\n"
+          "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
           "command_line      : %s\n",
           (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
           (afl->prev_run_time + cur_time - afl->start_time) / 1000,
@@ -316,16 +317,17 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           -1,
 #endif
           t_bytes, afl->fsrv.real_map_size, afl->var_byte_count,
-          afl->expand_havoc, afl->q_testcase_cache_size,
+          afl->expand_havoc, afl->a_extras_cnt, afl->q_testcase_cache_size,
           afl->q_testcase_cache_count, afl->q_testcase_evictions,
           afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",
+          afl->fsrv.cs_mode ? "coresight" : "",
           afl->non_instrumented_mode ? " non_instrumented " : "",
           afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
           afl->persistent_mode ? "persistent " : "",
           afl->shmem_testcase_mode ? "shmem_testcase " : "",
           afl->deferred_mode ? "deferred " : "",
-          (afl->unicorn_mode || afl->fsrv.qemu_mode ||
+          (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.cs_mode ||
            afl->non_instrumented_mode || afl->no_forkserver ||
            afl->crash_mode || afl->persistent_mode || afl->deferred_mode)
               ? ""
@@ -441,9 +443,10 @@ void show_stats(afl_state_t *afl) {
   u64 cur_ms;
   u32 t_bytes, t_bits;
 
-  u32 banner_len, banner_pad;
-  u8  tmp[256];
-  u8  time_tmp[64];
+  static u8 banner[128];
+  u32       banner_len, banner_pad;
+  u8        tmp[256];
+  u8        time_tmp[64];
 
   u8 val_buf[8][STRINGIFY_VAL_SIZE_MAX];
 #define IB(i) (val_buf[(i)])
@@ -540,9 +543,11 @@ void show_stats(afl_state_t *afl) {
 
       FATAL(
           "Incorrect fuzzing setup detected. Your target seems to have loaded "
-          "incorrectly instrumented shared libraries. If you use LTO mode "
+          "incorrectly instrumented shared libraries (%u of %u/%u). If you use "
+          "LTO mode "
           "please see instrumentation/README.lto.md. To ignore this problem "
-          "and continue fuzzing just set 'AFL_IGNORE_PROBLEMS=1'.\n");
+          "and continue fuzzing just set 'AFL_IGNORE_PROBLEMS=1'.\n",
+          t_bytes, afl->fsrv.real_map_size, afl->fsrv.map_size);
 
     }
 
@@ -560,8 +565,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (unlikely(afl->force_ui_update ||
-               cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
+  if (unlikely(!afl->non_instrumented_mode &&
+               (afl->force_ui_update ||
+                cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000))) {
 
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
@@ -655,26 +661,34 @@ void show_stats(afl_state_t *afl) {
   }
 
   /* Let's start by drawing a centered banner. */
+  if (unlikely(!banner[0])) {
 
-  banner_len = (afl->crash_mode ? 24 : 22) + strlen(VERSION) +
-               strlen(afl->use_banner) + strlen(afl->power_name) + 3 + 5;
-  banner_pad = (79 - banner_len) / 2;
-  memset(tmp, ' ', banner_pad);
+    char *si = "";
+    if (afl->sync_id) { si = afl->sync_id; }
+    memset(banner, 0, sizeof(banner));
+    banner_len = (afl->crash_mode ? 20 : 18) + strlen(VERSION) + strlen(si) +
+                 strlen(afl->power_name) + 4 + 6;
 
-#ifdef HAVE_AFFINITY
-  sprintf(
-      tmp + banner_pad,
-      "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]" cBLU " {%d}",
-      afl->crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
-      afl->use_banner, afl->power_name, afl->cpu_aff);
-#else
-  sprintf(
-      tmp + banner_pad, "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]",
-      afl->crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
-      afl->use_banner, afl->power_name);
-#endif                                                     /* HAVE_AFFINITY */
+    if (strlen(afl->use_banner) + banner_len > 75) {
 
-  SAYF("\n%s\n", tmp);
+      afl->use_banner += (strlen(afl->use_banner) + banner_len) - 76;
+      memset(afl->use_banner, '.', 3);
+
+    }
+
+    banner_len += strlen(afl->use_banner);
+    banner_pad = (79 - banner_len) / 2;
+    memset(banner, ' ', banner_pad);
+
+    sprintf(banner + banner_pad,
+            "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+            afl->crash_mode ? cPIN "peruvian were-rabbit"
+                            : cYEL "american fuzzy lop",
+            si, afl->use_banner, afl->power_name);
+
+  }
+
+  SAYF("\n%s\n", banner);
 
   /* "Handy" shortcuts for drawing boxes... */
 
@@ -1227,7 +1241,9 @@ void show_init_stats(afl_state_t *afl) {
 
   // SAYF("\n");
 
-  if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000)) {
+  if (avg_us > ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->unicorn_mode)
+                    ? 50000
+                    : 10000)) {
 
     WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
           doc_path);

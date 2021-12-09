@@ -15,7 +15,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -974,8 +974,7 @@ void perform_dry_run(afl_state_t *afl) {
                MSG_ULIMIT_USAGE
                " /path/to/binary [...] <testcase )\n\n"
 
-               "      Tip: you can use http://jwilk.net/software/recidivm to "
-               "quickly\n"
+               "      Tip: you can use https://jwilk.net/software/recidivm to\n"
                "      estimate the required amount of virtual memory for the "
                "binary. Also,\n"
                "      if you are using ASAN, set '-m 0'.\n\n"
@@ -1325,8 +1324,8 @@ void pivot_inputs(afl_state_t *afl) {
 
       }
 
-      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", afl->out_dir, id,
-                         use_name);
+      nfn = alloc_printf("%s/queue/id:%06u,time:0,execs:%llu,orig:%s",
+                         afl->out_dir, id, afl->fsrv.total_execs, use_name);
 
 #else
 
@@ -2645,6 +2644,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode ||
       (afl->fsrv.qemu_mode && getenv("AFL_QEMU_CUSTOM_BIN")) ||
+      (afl->fsrv.cs_mode && getenv("AFL_CS_CUSTOM_BIN")) ||
       afl->non_instrumented_mode) {
 
     return;
@@ -2721,7 +2721,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 #endif                                                       /* ^!__APPLE__ */
 
   if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
-      !afl->non_instrumented_mode &&
+      !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2752,7 +2752,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if ((afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
+  if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2812,43 +2812,6 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
-
-}
-
-/* Trim and possibly create a banner for the run. */
-
-void fix_up_banner(afl_state_t *afl, u8 *name) {
-
-  if (!afl->use_banner) {
-
-    if (afl->sync_id) {
-
-      afl->use_banner = afl->sync_id;
-
-    } else {
-
-      u8 *trim = strrchr(name, '/');
-      if (!trim) {
-
-        afl->use_banner = name;
-
-      } else {
-
-        afl->use_banner = trim + 1;
-
-      }
-
-    }
-
-  }
-
-  if (strlen(afl->use_banner) > 32) {
-
-    u8 *tmp = ck_alloc(36);
-    sprintf(tmp, "%.32s...", afl->use_banner);
-    afl->use_banner = tmp;
-
-  }
 
 }
 

@@ -16,7 +16,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
  */
 
@@ -46,6 +46,8 @@ typedef uint128_t         u128;
 #define FS_ERROR_SHM_OPEN 4
 #define FS_ERROR_SHMAT 8
 #define FS_ERROR_MMAP 16
+#define FS_ERROR_OLD_CMPLOG 32
+#define FS_ERROR_OLD_CMPLOG_QEMU 64
 
 /* Reporting options */
 #define FS_OPT_ENABLED 0x80000001
@@ -53,6 +55,7 @@ typedef uint128_t         u128;
 #define FS_OPT_SNAPSHOT 0x20000000
 #define FS_OPT_AUTODICT 0x10000000
 #define FS_OPT_SHDMEM_FUZZ 0x01000000
+#define FS_OPT_NEWCMPLOG 0x02000000
 #define FS_OPT_OLD_AFLPP_WORKAROUND 0x0f000000
 // FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 22
 #define FS_OPT_MAX_MAPSIZE ((0x00fffffeU >> 1) + 1)

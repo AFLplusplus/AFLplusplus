@@ -15,7 +15,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    This library is plugged into LLVM when invoking clang through afl-clang-fast.
    It tells the compiler to add code roughly equivalent to the bits discussed
@@ -116,10 +116,15 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
 
       auto &        Ctx = F.getContext();
       AttributeList Attrs = F.getAttributes();
-      AttrBuilder   NewAttrs;
+#if LLVM_VERSION_MAJOR >= 14
+      AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");
+      F.setAttributes(NewAttrs);
+#else
+      AttrBuilder NewAttrs;
       NewAttrs.addAttribute("skipinstrument");
       F.setAttributes(
           Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
+#endif
 
     }
 

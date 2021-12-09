@@ -11,7 +11,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
  */
 
@@ -423,6 +423,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     char *fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
     cc_params[cc_par_cnt++] = fplugin_arg;
+    cc_params[cc_par_cnt++] = "-fno-if-conversion";
+    cc_params[cc_par_cnt++] = "-fno-if-conversion2";
 
   }
 
@@ -553,7 +555,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (lto_mode && !have_c) {
 
-      u8 *ld_path = strdup(AFL_REAL_LD);
+      u8 *ld_path = NULL;
+      if (getenv("AFL_REAL_LD")) { ld_path = strdup(getenv("AFL_REAL_LD")); }
       if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
       if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
@@ -564,22 +567,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       free(ld_path);
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-
-      if (instrument_mode == INSTRUMENT_CFG ||
-          instrument_mode == INSTRUMENT_PCGUARD)
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
-      else
-
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       cc_params[cc_par_cnt++] = lto_flag;
 
     } else {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_MAJOR >= 11 || (LLVM_MAJOR == 10 && LLVM_MINOR >= 1)
   #if defined __ANDROID__ || ANDROID
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
         instrument_mode = INSTRUMENT_LLVMNATIVE;
@@ -735,6 +731,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if ((compiler_mode == GCC || compiler_mode == GCC_PLUGIN) &&
+        !strncmp(cur, "-stdlib=", 8)) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
     if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
          !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
         (strncmp(cur, "sanitize-coverage-allow",
@@ -847,6 +851,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-fsanitize=undefined";
     cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
     cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
+    cc_params[cc_par_cnt++] = "-fno-omit-frame-pointer";
+
+  }
+
+  if (getenv("AFL_USE_TSAN")) {
+
+    cc_params[cc_par_cnt++] = "-fsanitize=thread";
+    cc_params[cc_par_cnt++] = "-fno-omit-frame-pointer";
 
   }
 
@@ -1007,7 +1019,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   // prevent unnecessary build errors
-  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+  if (compiler_mode != GCC_PLUGIN && compiler_mode != GCC) {
+
+    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+  }
 
   if (preprocessor_only || have_c) {
 
@@ -1152,7 +1168,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-#if (LLVM_MAJOR > 2)
+#if (LLVM_MAJOR >= 3)
 
   if ((ptr = find_object("SanitizerCoverageLTO.so", argv[0])) != NULL) {
 
@@ -1181,7 +1197,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-#if (LLVM_MAJOR > 2)
+#if (LLVM_MAJOR >= 3)
 
   if (strncmp(callname, "afl-clang-fast", 14) == 0) {
 
@@ -1709,8 +1725,8 @@ int main(int argc, char **argv, char **envp) {
         compiler_mode == LTO ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
-        LLVM_MAJOR > 6 ? "DEFAULT" : "       ",
-        LLVM_MAJOR > 6 ? "       " : "DEFAULT",
+        LLVM_MAJOR >= 7 ? "DEFAULT" : "       ",
+        LLVM_MAJOR >= 7 ? "       " : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
         have_gcc ? "AVAILABLE" : "unavailable!",
@@ -1800,6 +1816,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+          "  AFL_USE_TSAN: activate thread sanitizer\n"
           "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
 
       if (have_gcc_plugin)
@@ -1810,12 +1827,12 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
             "filename\n");
 
-#if LLVM_MAJOR < 9
-  #define COUNTER_BEHAVIOUR \
-    "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
+#if LLVM_MAJOR >= 9
   #define COUNTER_BEHAVIOUR \
     "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#else
+  #define COUNTER_BEHAVIOUR \
+    "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
 #endif
       if (have_llvm)
         SAYF(
@@ -1889,7 +1906,7 @@ int main(int argc, char **argv, char **envp) {
         "consult the README.md, especially section 3.1 about instrumenting "
         "targets.\n\n");
 
-#if (LLVM_MAJOR > 2)
+#if (LLVM_MAJOR >= 3)
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
@@ -1951,9 +1968,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == 0 && compiler_mode < GCC_PLUGIN) {
 
-#if LLVM_MAJOR <= 6
-    instrument_mode = INSTRUMENT_AFL;
-#else
+#if LLVM_MAJOR >= 7
   #if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
     if (have_instr_env) {
 
@@ -1968,6 +1983,8 @@ int main(int argc, char **argv, char **envp) {
   #endif
       instrument_mode = INSTRUMENT_PCGUARD;
 
+#else
+    instrument_mode = INSTRUMENT_AFL;
 #endif
 
   }
@@ -2034,7 +2051,7 @@ int main(int argc, char **argv, char **envp) {
   if ((isatty(2) && !be_quiet) || debug) {
 
     SAYF(cCYA
-         "afl-cc " VERSION cRST
+         "afl-cc" VERSION cRST
          " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s-%s\n",
          compiler_mode_string[compiler_mode], ptr);
 

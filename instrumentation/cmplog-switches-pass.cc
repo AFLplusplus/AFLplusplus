@@ -11,7 +11,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
 */
 
@@ -37,7 +37,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -112,10 +112,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
                                  Int8Ty
@@ -124,16 +124,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns1 = cast<Function>(c1);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns1 = c1;
+#else
+  Function *cmplogHookIns1 = cast<Function>(c1);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty,
                                  Int8Ty
@@ -142,16 +142,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns2 = cast<Function>(c2);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns2 = c2;
+#else
+  Function *cmplogHookIns2 = cast<Function>(c2);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty,
                                  Int8Ty
@@ -160,16 +160,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns4 = cast<Function>(c4);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns4 = c4;
+#else
+  Function *cmplogHookIns4 = cast<Function>(c4);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty,
                                  Int8Ty
@@ -178,10 +178,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookIns8 = cast<Function>(c8);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookIns8 = c8;
+#else
+  Function *cmplogHookIns8 = cast<Function>(c8);
 #endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");

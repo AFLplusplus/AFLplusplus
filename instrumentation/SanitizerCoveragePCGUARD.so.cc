@@ -36,7 +36,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SpecialCaseList.h"
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_VERSION_MAJOR >= 11 || \
+    (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
   #include "llvm/Support/VirtualFileSystem.h"
 #endif
 #include "llvm/Support/raw_ostream.h"
@@ -127,7 +128,7 @@ class ModuleSanitizerCoverage {
  public:
   ModuleSanitizerCoverage(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
           ,
       const SpecialCaseList *Allowlist = nullptr,
       const SpecialCaseList *Blocklist = nullptr
@@ -203,7 +204,7 @@ class ModuleSanitizerCoverage {
 
   SanitizerCoverageOptions Options;
 
-  uint32_t        instr = 0;
+  uint32_t        instr = 0, selects = 0, unhandled = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt *   One = NULL;
   ConstantInt *   Zero = NULL;
@@ -215,7 +216,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
  public:
   ModuleSanitizerCoverageLegacyPass(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
           ,
       const std::vector<std::string> &AllowlistFiles =
           std::vector<std::string>(),
@@ -233,7 +234,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
   bool runOnModule(Module &M) override {
 
     ModuleSanitizerCoverage ModuleSancov(Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
                                          ,
                                          Allowlist.get(), Blocklist.get()
 #endif
@@ -283,7 +284,7 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
                                                    ModuleAnalysisManager &MAM) {
 
   ModuleSanitizerCoverage ModuleSancov(Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
                                        ,
                                        Allowlist.get(), Blocklist.get()
 #endif
@@ -547,14 +548,16 @@ bool ModuleSanitizerCoverage::instrumentModule(
     else {
 
       char modeline[100];
-      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s",
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s%s",
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations with no collisions (%s mode).", instr,
-          modeline);
+      OKF("Instrumented %u locations with no collisions (%s mode) of which are "
+          "%u handled and %u unhandled selects.",
+          instr, modeline, selects, unhandled);
 
     }
 
@@ -747,7 +750,7 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
       Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
-#if LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR >= 13
   if (TargetTriple.supportsCOMDAT() &&
       (TargetTriple.isOSBinFormatELF() || !F.isInterposable()))
     if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
@@ -760,7 +763,8 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
 #endif
 
   Array->setSection(getSectionName(Section));
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if (LLVM_VERSION_MAJOR >= 11) || \
+    (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
 #else
   Array->setAlignment(Align(4));  // cheating
@@ -833,9 +837,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
                                              ArrayRef<BasicBlock *> AllBlocks,
                                              bool IsLeafFunc) {
 
-  if (AllBlocks.empty()) return false;
+  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
 
-  uint32_t special = 0;
   for (auto &BB : F) {
 
     for (auto &IN : BB) {
@@ -848,11 +851,51 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
         StringRef FuncName = Callee->getName();
+        if (!FuncName.compare(StringRef("dlopen")) ||
+            !FuncName.compare(StringRef("_dlopen"))) {
+
+          fprintf(stderr,
+                  "WARNING: dlopen() detected. To have coverage for a library "
+                  "that your target dlopen()'s this must either happen before "
+                  "__AFL_INIT() or you must use AFL_PRELOAD to preload all "
+                  "dlopen()'ed libraries!\n");
+          continue;
+
+        }
+
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
-        uint32_t id = 1 + instr + (uint32_t)AllBlocks.size() + special++;
-        Value *  val = ConstantInt::get(Int32Ty, id);
-        callInst->setOperand(1, val);
+        cnt_cov++;
+
+      }
+
+      SelectInst *selectInst = nullptr;
+
+      if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+
+        Value *c = selectInst->getCondition();
+        auto   t = c->getType();
+        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+          cnt_sel++;
+          cnt_sel_inc += 2;
+
+        }
+
+#if (LLVM_VERSION_MAJOR >= 12)
+        else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+          if (tt) {
+
+            cnt_sel++;
+            cnt_sel_inc += tt->getElementCount().getKnownMinValue();
+
+          }
+
+        }
+
+#endif
 
       }
 
@@ -860,11 +903,256 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
   }
 
-  CreateFunctionLocalArrays(F, AllBlocks, special);
-  for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
-    InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
+  /* Create PCGUARD array */
+  CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel_inc);
+  selects += cnt_sel;
 
-  instr += special;
+  uint32_t special = 0, local_selects = 0, skip_next = 0;
+
+  for (auto &BB : F) {
+
+    for (auto &IN : BB) {
+
+      CallInst *callInst = nullptr;
+
+      /*
+                                std::string errMsg;
+                                raw_string_ostream os(errMsg);
+                            IN.print(os);
+                            fprintf(stderr, "X: %s\n", os.str().c_str());
+      */
+      if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+        Function *Callee = callInst->getCalledFunction();
+        if (!Callee) continue;
+        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        StringRef FuncName = Callee->getName();
+        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+
+        IRBuilder<> IRB(callInst);
+
+        Value *GuardPtr = IRB.CreateIntToPtr(
+            IRB.CreateAdd(
+                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
+            Int32PtrTy);
+
+        LoadInst *Idx = IRB.CreateLoad(GuardPtr);
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(Idx);
+
+        callInst->setOperand(1, Idx);
+
+      }
+
+      SelectInst *selectInst = nullptr;
+
+      if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
+
+        uint32_t    vector_cnt = 0;
+        Value *     condition = selectInst->getCondition();
+        Value *     result;
+        auto        t = condition->getType();
+        IRBuilder<> IRB(selectInst->getNextNode());
+
+        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+          auto GuardPtr1 = IRB.CreateIntToPtr(
+              IRB.CreateAdd(
+                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                  ConstantInt::get(
+                      IntptrTy,
+                      (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+              Int32PtrTy);
+
+          auto GuardPtr2 = IRB.CreateIntToPtr(
+              IRB.CreateAdd(
+                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                  ConstantInt::get(
+                      IntptrTy,
+                      (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+              Int32PtrTy);
+
+          result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
+
+        } else
+
+#if LLVM_VERSION_MAJOR >= 14
+            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+          if (tt) {
+
+            uint32_t elements = tt->getElementCount().getFixedValue();
+            vector_cnt = elements;
+            if (elements) {
+
+              FixedVectorType *GuardPtr1 =
+                  FixedVectorType::get(Int32PtrTy, elements);
+              FixedVectorType *GuardPtr2 =
+                  FixedVectorType::get(Int32PtrTy, elements);
+              Value *x, *y;
+
+              Value *val1 = IRB.CreateIntToPtr(
+                  IRB.CreateAdd(
+                      IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                      ConstantInt::get(
+                          IntptrTy,
+                          (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                  Int32PtrTy);
+              x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
+
+              Value *val2 = IRB.CreateIntToPtr(
+                  IRB.CreateAdd(
+                      IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                      ConstantInt::get(
+                          IntptrTy,
+                          (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                  Int32PtrTy);
+              y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+              for (uint64_t i = 1; i < elements; i++) {
+
+                val1 = IRB.CreateIntToPtr(
+                    IRB.CreateAdd(
+                        IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                        ConstantInt::get(IntptrTy, (cnt_cov + ++local_selects +
+                                                    AllBlocks.size()) *
+                                                       4)),
+                    Int32PtrTy);
+                x = IRB.CreateInsertElement(x, val1, i);
+
+                val2 = IRB.CreateIntToPtr(
+                    IRB.CreateAdd(
+                        IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                        ConstantInt::get(IntptrTy, (cnt_cov + ++local_selects +
+                                                    AllBlocks.size()) *
+                                                       4)),
+                    Int32PtrTy);
+                y = IRB.CreateInsertElement(y, val2, i);
+
+              }
+
+              /*
+                          std::string errMsg;
+                          raw_string_ostream os(errMsg);
+                      x->print(os);
+                      fprintf(stderr, "X: %s\n", os.str().c_str());
+              */
+              result = IRB.CreateSelect(condition, x, y);
+
+            }
+
+          }
+
+        } else
+
+#endif
+        {
+
+          unhandled++;
+          continue;
+
+        }
+
+        local_selects++;
+        uint32_t vector_cur = 0;
+
+        /* Load SHM pointer */
+
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
+
+        /*
+            std::string errMsg;
+            raw_string_ostream os(errMsg);
+        result->print(os);
+        fprintf(stderr, "X: %s\n", os.str().c_str());
+        */
+
+        while (1) {
+
+          /* Get CurLoc */
+          LoadInst *CurLoc = nullptr;
+          Value *   MapPtrIdx = nullptr;
+
+          /* Load counter for CurLoc */
+          if (!vector_cnt) {
+
+            CurLoc = IRB.CreateLoad(result);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(CurLoc);
+            MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+
+          } else {
+
+            auto element = IRB.CreateExtractElement(result, vector_cur++);
+            auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
+            auto elementld = IRB.CreateLoad(elementptr);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(elementld);
+            MapPtrIdx = IRB.CreateGEP(MapPtr, elementld);
+
+          }
+
+          if (use_threadsafe_counters) {
+
+            IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                                llvm::MaybeAlign(1),
+#endif
+                                llvm::AtomicOrdering::Monotonic);
+
+          } else {
+
+            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
+
+            /* Update bitmap */
+
+            Value *Incr = IRB.CreateAdd(Counter, One);
+
+            if (skip_nozero == NULL) {
+
+              auto cf = IRB.CreateICmpEQ(Incr, Zero);
+              auto carry = IRB.CreateZExt(cf, Int8Ty);
+              Incr = IRB.CreateAdd(Incr, carry);
+
+            }
+
+            StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
+            ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
+
+          }
+
+          if (!vector_cnt) {
+
+            vector_cnt = 2;
+            break;
+
+          } else if (vector_cnt == vector_cur) {
+
+            break;
+
+          }
+
+        }
+
+        skip_next = 1;
+        instr += vector_cnt;
+
+      } else {
+
+        skip_next = 0;
+
+      }
+
+    }
+
+  }
+
+  if (AllBlocks.empty() && !special && !local_selects) return false;
+
+  if (!AllBlocks.empty())
+    for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
+      InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
 
   return true;
 
@@ -881,8 +1169,6 @@ void ModuleSanitizerCoverage::InjectCoverageForIndirectCalls(
     Function &F, ArrayRef<Instruction *> IndirCalls) {
 
   if (IndirCalls.empty()) return;
-  assert(Options.TracePC || Options.TracePCGuard ||
-         Options.Inline8bitCounters /*|| Options.InlineBoolFlag*/);
   for (auto I : IndirCalls) {
 
     IRBuilder<> IRB(I);
@@ -1062,10 +1348,12 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
         Int32PtrTy);
 
     LoadInst *CurLoc = IRB.CreateLoad(GuardPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(CurLoc);
 
     /* Load SHM pointer */
 
     LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
 
     /* Load counter for CurLoc */
 
@@ -1082,6 +1370,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
+
       /* Update bitmap */
 
       Value *Incr = IRB.CreateAdd(Counter, One);
@@ -1094,7 +1384,8 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
       }
 
-      IRB.CreateStore(Incr, MapPtrIdx);
+      StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
+      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
 
     }
 
@@ -1207,7 +1498,7 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
 
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
     const SanitizerCoverageOptions &Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
     ,
     const std::vector<std::string> &AllowlistFiles,
     const std::vector<std::string> &BlocklistFiles
@@ -1215,7 +1506,7 @@ ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
 ) {
 
   return new ModuleSanitizerCoverageLegacyPass(Options
-#if LLVM_MAJOR > 10
+#if (LLVM_VERSION_MAJOR >= 11)
                                                ,
                                                AllowlistFiles, BlocklistFiles
 #endif

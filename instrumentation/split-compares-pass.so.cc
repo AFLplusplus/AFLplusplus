@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +34,7 @@
 #include "llvm/IR/Module.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -578,16 +578,16 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
       /* dependent on the cmp of the high parts go to the end or go on with
        * the comparison */
-      auto        term = bb->getTerminator();
-      BranchInst *br = nullptr;
+      auto term = bb->getTerminator();
+
       if (pred == CmpInst::ICMP_EQ) {
 
-        br = BranchInst::Create(cmp_low_bb, end_bb, icmp_high, bb);
+        BranchInst::Create(cmp_low_bb, end_bb, icmp_high, bb);
 
       } else {
 
-        /* CmpInst::ICMP_NE */
-        br = BranchInst::Create(end_bb, cmp_low_bb, icmp_high, bb);
+        // CmpInst::ICMP_NE
+        BranchInst::Create(end_bb, cmp_low_bb, icmp_high, bb);
 
       }
 
@@ -675,7 +675,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
   ReplaceInstWithInst(cmp_inst->getParent()->getInstList(), ii, PN);
 
   // We split the comparison into low and high. If this isn't our target
-  // bitwidth we recursivly split the low and high parts again until we have
+  // bitwidth we recursively split the low and high parts again until we have
   // target bitwidth.
   if ((bitw / 2) > target_bitwidth) {
 
@@ -796,7 +796,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
   LLVMContext &C = M.getContext();
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 7)
   const DataLayout &dl = M.getDataLayout();
 
@@ -1398,7 +1398,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   bool brokenDebug = false;
   if (verifyModule(M, &errs()
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
                           ,
                    &brokenDebug  // 9th May 2016

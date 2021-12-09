@@ -1,9 +1,10 @@
-#include <limits.h>
-#include <stdio.h>
+#if defined(__linux__) && !defined(__ANDROID__)
 
-#include "debug.h"
+  #include <limits.h>
+  #include <stdio.h>
 
-#include "seccomp.h"
+  #include "seccomp.h"
+  #include "util.h"
 
 typedef struct {
 
@@ -322,14 +323,16 @@ static syscall_entry_t seccomp_syscall_table[] = {
 
 char *seccomp_syscall_lookup(int id) {
 
-  if (id < 0) { FATAL("Invalid id: %d", id); }
+  if (id < 0) { FFATAL("Invalid id: %d", id); }
   if ((uint32_t)id >= sizeof(seccomp_syscall_table) / sizeof(syscall_entry_t)) {
 
-    FATAL("Invalid id: %d", id);
+    FFATAL("Invalid id: %d", id);
 
   }
 
   return seccomp_syscall_table[id].name;
 
 }
+
+#endif
 

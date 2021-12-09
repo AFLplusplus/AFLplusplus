@@ -78,6 +78,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_BACKPATCH`.
+   */
+  public static setBackpatchDisable(): void {
+    Afl.jsApiSetBackpatchDisable();
+  }
+
+  /**
    * See `AFL_FRIDA_DEBUG_MAPS`.
    */
   public static setDebugMaps(): void {
@@ -172,6 +179,14 @@ class Afl {
     Afl.jsApiSetInstrumentUnstableCoverageFile(buf);
   }
 
+  /*
+   * Set a callback to be called in place of the usual `main` function. This see
+   * `Scripting.md` for details.
+   */
+  public static setJsMainHook(address: NativePointer): void {
+    Afl.jsApiSetJsMainHook(address);
+  }
+
   /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
    * `NativePointer` should be provided as it's argument.
@@ -234,6 +249,13 @@ class Afl {
     Afl.jsApiSetSeccompFile(buf);
   }
 
+  /**
+   * See `AFL_FRIDA_STALKER_ADJACENT_BLOCKS`.
+   */
+  public static setStalkerAdjacentBlocks(val: number): void {
+    Afl.jsApiSetStalkerAdjacentBlocks(val);
+  }
+
   /*
    * Set a function to be called for each instruction which is instrumented
    * by AFL FRIDA mode.
@@ -284,6 +306,13 @@ class Afl {
     Afl.jsApiSetStdOut(buf);
   }
 
+  /**
+   * See `AFL_FRIDA_TRACEABLE`.
+   */
+  public static setTraceable(): void {
+    Afl.jsApiSetTraceable();
+  }
+
   private static readonly jsApiAddExcludeRange = Afl.jsApiGetFunction(
     "js_api_add_exclude_range",
     "void",
@@ -305,6 +334,11 @@ class Afl {
     "js_api_error",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetBackpatchDisable = Afl.jsApiGetFunction(
+    "js_api_set_backpatch_disable",
+    "void",
+    []);
 
   private static readonly jsApiSetDebugMaps = Afl.jsApiGetFunction(
     "js_api_set_debug_maps",
@@ -361,6 +395,11 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetJsMainHook = Afl.jsApiGetFunction(
+    "js_api_set_js_main_hook",
+    "void",
+    ["pointer"]);
+
   private static readonly jsApiSetPersistentAddress = Afl.jsApiGetFunction(
     "js_api_set_persistent_address",
     "void",
@@ -401,6 +440,11 @@ class Afl {
     "void",
     ["pointer"]);
 
+  private static readonly jsApiSetStalkerAdjacentBlocks = Afl.jsApiGetFunction(
+    "js_api_set_stalker_adjacent_blocks",
+    "void",
+    ["uint32"]);
+
   private static readonly jsApiSetStalkerCallback = Afl.jsApiGetFunction(
     "js_api_set_stalker_callback",
     "void",
@@ -430,6 +474,11 @@ class Afl {
     "js_api_set_stdout",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetTraceable = Afl.jsApiGetFunction(
+    "js_api_set_traceable",
+    "void",
+    []);
 
   private static readonly jsApiWrite = new NativeFunction(
     /* tslint:disable-next-line:no-null-keyword */

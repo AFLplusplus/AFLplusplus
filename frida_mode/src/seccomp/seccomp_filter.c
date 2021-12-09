@@ -1,27 +1,28 @@
-#include <alloca.h>
-#include <errno.h>
-#include <execinfo.h>
-#include <linux/filter.h>
-#include <linux/seccomp.h>
-#include <sys/ioctl.h>
-#include <sys/prctl.h>
-#include <sys/syscall.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#if defined(__linux__) && !defined(__ANDROID__)
 
-#include "debug.h"
+  #include <alloca.h>
+  #include <errno.h>
+  #if !defined(__MUSL__)
+    #include <execinfo.h>
+  #endif
+  #include <linux/filter.h>
+  #include <sys/ioctl.h>
+  #include <sys/prctl.h>
+  #include <sys/syscall.h>
+  #include <signal.h>
+  #include <stdbool.h>
+  #include <stddef.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <unistd.h>
 
-#include "frida-gumjs.h"
+  #include "frida-gumjs.h"
 
-#include "seccomp.h"
-#include "util.h"
+  #include "seccomp.h"
+  #include "util.h"
 
-#define SECCOMP_FILTER_NUM_FRAMES 512
+  #define SECCOMP_FILTER_NUM_FRAMES 512
 
 extern void gum_linux_parse_ucontext(const ucontext_t *uc, GumCpuContext *ctx);
 
@@ -71,7 +72,13 @@ static struct sock_filter filter[] = {
 
     /* Allow us to make anonymous maps */
     BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (offsetof(struct seccomp_data, nr))),
+  #ifdef __NR_mmap
     BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_mmap, 0, 3),
+  #else
+    #ifdef __NR_mmap2
+    BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_mmap2, 0, 3),
+    #endif
+  #endif
     BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
              (offsetof(struct seccomp_data, args[4]))),
     BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, -1, 0, 1),
@@ -127,7 +134,10 @@ static GumBacktracer *       seccomp_filter_backtracer = NULL;
 static void seccomp_filter_child_handler(int sig, siginfo_t *info,
                                          void *ucontext) {
 
-  GumCpuContext cpu_context;
+  UNUSED_PARAMETER(sig);
+  UNUSED_PARAMETER(info);
+  UNUSED_PARAMETER(ucontext);
+
   if (seccomp_filter_backtracer == NULL) {
 
     seccomp_filter_backtracer = gum_backtracer_make_fuzzy();
@@ -150,9 +160,10 @@ static void seccomp_filter_parent_handler(int sig, siginfo_t *info,
   ucontext_t *uc = (ucontext_t *)ucontext;
   gum_linux_parse_ucontext(uc, &seccomp_filter_cpu_context);
 
-  if (tgkill(seccomp_filter_child, seccomp_filter_child, SIGUSR1) < 0) {
+  if (syscall(SYS_tgkill, seccomp_filter_child, seccomp_filter_child, SIGUSR1) <
+      0) {
 
-    FATAL("kill");
+    FFATAL("kill");
 
   }
 
@@ -165,7 +176,7 @@ void seccomp_filter_child_install(void) {
 
   const struct sigaction sa = {.sa_sigaction = seccomp_filter_child_handler,
                                .sa_flags = SA_SIGINFO | SA_RESTART};
-  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FATAL("sigaction"); }
+  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FFATAL("sigaction"); }
 
 }
 
@@ -180,17 +191,17 @@ int seccomp_filter_install(pid_t child) {
 
       .len = sizeof(filter) / sizeof(struct sock_filter), .filter = filter};
 
-  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FATAL("sigaction"); }
+  if (sigaction(SIGUSR1, &sa, NULL) < 0) { FFATAL("sigaction"); }
 
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
 
-    FATAL("PR_SET_NO_NEW_PRIVS %d", errno);
+    FFATAL("PR_SET_NO_NEW_PRIVS %d", errno);
 
   }
 
   int fd = syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER,
                    SECCOMP_FILTER_FLAG_NEW_LISTENER, &filter_prog);
-  if (fd < 0) { FATAL("SYS_seccomp %d", fd); }
+  if (fd < 0) { FFATAL("SYS_seccomp %d", fd); }
 
   return fd;
 
@@ -204,19 +215,19 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
 
   if (syscall(SYS_seccomp, SECCOMP_GET_NOTIF_SIZES, 0, &sizes) == -1) {
 
-    FATAL("seccomp-SECCOMP_GET_NOTIF_SIZES");
+    FFATAL("seccomp-SECCOMP_GET_NOTIF_SIZES");
 
   }
 
   if (sizes.seccomp_notif != sizeof(struct seccomp_notif)) {
 
-    FATAL("size - seccomp_notif");
+    FFATAL("size - seccomp_notif");
 
   }
 
   if (sizes.seccomp_notif_resp != sizeof(struct seccomp_notif_resp)) {
 
-    FATAL("size - seccomp_notif");
+    FFATAL("size - seccomp_notif");
 
   }
 
@@ -230,7 +241,7 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
     if (ioctl(fd, SECCOMP_IOCTL_NOTIF_RECV, req) < 0) {
 
       if (errno == EINTR) { continue; }
-      FATAL("SECCOMP_IOCTL_NOTIF_RECV: %d\n", fd);
+      FFATAL("SECCOMP_IOCTL_NOTIF_RECV: %d\n", fd);
 
     }
 
@@ -240,14 +251,14 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
 
     } else {
 
-      if (kill(req->pid, SIGUSR1) < 0) { FATAL("kill"); }
+      if (kill(req->pid, SIGUSR1) < 0) { FFATAL("kill"); }
 
     }
 
     if (ioctl(fd, SECCOMP_IOCTL_NOTIF_SEND, resp) < 0) {
 
       if (errno == ENOENT) { continue; }
-      OKF("SECCOMP_IOCTL_NOTIF_SEND");
+      FOKF("SECCOMP_IOCTL_NOTIF_SEND");
       continue;
 
     }
@@ -255,4 +266,6 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
   }
 
 }
+
+#endif
 

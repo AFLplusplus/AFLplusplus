@@ -11,7 +11,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
 */
 
@@ -36,7 +36,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -65,11 +65,11 @@ class CmpLogRoutines : public ModulePass {
 
   bool runOnModule(Module &M) override;
 
-#if LLVM_VERSION_MAJOR < 4
-  const char *getPassName() const override {
+#if LLVM_VERSION_MAJOR >= 4
+  StringRef getPassName() const override {
 
 #else
-  StringRef getPassName() const override {
+  const char *getPassName() const override {
 
 #endif
     return "cmplog routines";
@@ -87,18 +87,20 @@ char CmpLogRoutines::ID = 0;
 
 bool CmpLogRoutines::hookRtns(Module &M) {
 
-  std::vector<CallInst *> calls, llvmStdStd, llvmStdC, gccStdStd, gccStdC;
-  LLVMContext &           C = M.getContext();
+  std::vector<CallInst *> calls, llvmStdStd, llvmStdC, gccStdStd, gccStdC,
+      Memcmp, Strcmp, Strncmp;
+  LLVMContext &C = M.getContext();
 
   Type *VoidTy = Type::getVoidTy(C);
   // PointerType *VoidPtrTy = PointerType::get(VoidTy, 0);
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
@@ -106,16 +108,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                 NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogHookFn = cast<Function>(c);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogHookFn = c;
+#else
+  Function *cmplogHookFn = cast<Function>(c);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c1 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_stdstring",
                                  VoidTy, i8PtrTy, i8PtrTy
@@ -124,16 +126,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogLlvmStdStd = cast<Function>(c1);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogLlvmStdStd = c1;
+#else
+  Function *cmplogLlvmStdStd = cast<Function>(c1);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c2 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_cstring", VoidTy,
                                  i8PtrTy, i8PtrTy
@@ -142,16 +144,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogLlvmStdC = cast<Function>(c2);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogLlvmStdC = c2;
+#else
+  Function *cmplogLlvmStdC = cast<Function>(c2);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c3 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_stdstring", VoidTy,
                                  i8PtrTy, i8PtrTy
@@ -160,16 +162,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogGccStdStd = cast<Function>(c3);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogGccStdStd = c3;
+#else
+  Function *cmplogGccStdStd = cast<Function>(c3);
 #endif
 
-#if LLVM_VERSION_MAJOR < 9
-  Constant *
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
+#else
+  Constant *
 #endif
       c4 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_cstring", VoidTy,
                                  i8PtrTy, i8PtrTy
@@ -178,10 +180,64 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                  NULL
 #endif
       );
-#if LLVM_VERSION_MAJOR < 9
-  Function *cmplogGccStdC = cast<Function>(c4);
-#else
+#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee cmplogGccStdC = c4;
+#else
+  Function *cmplogGccStdC = cast<Function>(c4);
+#endif
+
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee
+#else
+  Constant *
+#endif
+      c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy, i8PtrTy,
+                                 i8PtrTy, Int64Ty
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee cmplogHookFnN = c5;
+#else
+  Function *cmplogHookFnN = cast<Function>(c5);
+#endif
+
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee
+#else
+  Constant *
+#endif
+      c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy, i8PtrTy,
+                                 i8PtrTy, Int64Ty
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee cmplogHookFnStrN = c6;
+#else
+  Function *cmplogHookFnStrN = cast<Function>(c6);
+#endif
+
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee
+#else
+  Constant *
+#endif
+      c7 = M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy,
+                                 i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee cmplogHookFnStr = c7;
+#else
+  Function *cmplogHookFnStr = cast<Function>(c7);
 #endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
@@ -214,11 +270,92 @@ bool CmpLogRoutines::hookRtns(Module &M) {
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
 
           FunctionType *FT = Callee->getFunctionType();
+          std::string   FuncName = Callee->getName().str();
 
           bool isPtrRtn = FT->getNumParams() >= 2 &&
                           !FT->getReturnType()->isVoidTy() &&
                           FT->getParamType(0) == FT->getParamType(1) &&
                           FT->getParamType(0)->isPointerTy();
+
+          bool isPtrRtnN = FT->getNumParams() >= 3 &&
+                           !FT->getReturnType()->isVoidTy() &&
+                           FT->getParamType(0) == FT->getParamType(1) &&
+                           FT->getParamType(0)->isPointerTy() &&
+                           FT->getParamType(2)->isIntegerTy();
+          if (isPtrRtnN) {
+
+            auto intTyOp =
+                dyn_cast<IntegerType>(callInst->getArgOperand(2)->getType());
+            if (intTyOp) {
+
+              if (intTyOp->getBitWidth() != 32 &&
+                  intTyOp->getBitWidth() != 64) {
+
+                isPtrRtnN = false;
+
+              }
+
+            }
+
+          }
+
+          bool isMemcmp =
+              (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
+               !FuncName.compare("CRYPTO_memcmp") ||
+               !FuncName.compare("OPENSSL_memcmp") ||
+               !FuncName.compare("memcmp_const_time") ||
+               !FuncName.compare("memcmpct"));
+          isMemcmp &= FT->getNumParams() == 3 &&
+                      FT->getReturnType()->isIntegerTy(32) &&
+                      FT->getParamType(0)->isPointerTy() &&
+                      FT->getParamType(1)->isPointerTy() &&
+                      FT->getParamType(2)->isIntegerTy();
+
+          bool isStrcmp =
+              (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
+               !FuncName.compare("xmlStrEqual") ||
+               !FuncName.compare("g_strcmp0") ||
+               !FuncName.compare("curl_strequal") ||
+               !FuncName.compare("strcsequal") ||
+               !FuncName.compare("strcasecmp") ||
+               !FuncName.compare("stricmp") ||
+               !FuncName.compare("ap_cstr_casecmp") ||
+               !FuncName.compare("OPENSSL_strcasecmp") ||
+               !FuncName.compare("xmlStrcasecmp") ||
+               !FuncName.compare("g_strcasecmp") ||
+               !FuncName.compare("g_ascii_strcasecmp") ||
+               !FuncName.compare("Curl_strcasecompare") ||
+               !FuncName.compare("Curl_safe_strcasecompare") ||
+               !FuncName.compare("cmsstrcasecmp") ||
+               !FuncName.compare("strstr") ||
+               !FuncName.compare("g_strstr_len") ||
+               !FuncName.compare("ap_strcasestr") ||
+               !FuncName.compare("xmlStrstr") ||
+               !FuncName.compare("xmlStrcasestr") ||
+               !FuncName.compare("g_str_has_prefix") ||
+               !FuncName.compare("g_str_has_suffix"));
+          isStrcmp &=
+              FT->getNumParams() == 2 && FT->getReturnType()->isIntegerTy(32) &&
+              FT->getParamType(0) == FT->getParamType(1) &&
+              FT->getParamType(0) == IntegerType::getInt8PtrTy(M.getContext());
+
+          bool isStrncmp = (!FuncName.compare("strncmp") ||
+                            !FuncName.compare("xmlStrncmp") ||
+                            !FuncName.compare("curl_strnequal") ||
+                            !FuncName.compare("strncasecmp") ||
+                            !FuncName.compare("strnicmp") ||
+                            !FuncName.compare("ap_cstr_casecmpn") ||
+                            !FuncName.compare("OPENSSL_strncasecmp") ||
+                            !FuncName.compare("xmlStrncasecmp") ||
+                            !FuncName.compare("g_ascii_strncasecmp") ||
+                            !FuncName.compare("Curl_strncasecompare") ||
+                            !FuncName.compare("g_strncasecmp"));
+          isStrncmp &= FT->getNumParams() == 3 &&
+                       FT->getReturnType()->isIntegerTy(32) &&
+                       FT->getParamType(0) == FT->getParamType(1) &&
+                       FT->getParamType(0) ==
+                           IntegerType::getInt8PtrTy(M.getContext()) &&
+                       FT->getParamType(2)->isIntegerTy();
 
           bool isGccStdStringStdString =
               Callee->getName().find("__is_charIT_EE7__value") !=
@@ -267,13 +404,19 @@ bool CmpLogRoutines::hookRtns(Module &M) {
           */
 
           if (isGccStdStringCString || isGccStdStringStdString ||
-              isLlvmStdStringStdString || isLlvmStdStringCString) {
+              isLlvmStdStringStdString || isLlvmStdStringCString || isMemcmp ||
+              isStrcmp || isStrncmp) {
 
-            isPtrRtn = false;
+            isPtrRtnN = isPtrRtn = false;
 
           }
 
+          if (isPtrRtnN) { isPtrRtn = false; }
+
           if (isPtrRtn) { calls.push_back(callInst); }
+          if (isMemcmp || isPtrRtnN) { Memcmp.push_back(callInst); }
+          if (isStrcmp) { Strcmp.push_back(callInst); }
+          if (isStrncmp) { Strncmp.push_back(callInst); }
           if (isGccStdStringStdString) { gccStdStd.push_back(callInst); }
           if (isGccStdStringCString) { gccStdC.push_back(callInst); }
           if (isLlvmStdStringStdString) { llvmStdStd.push_back(callInst); }
@@ -288,7 +431,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   }
 
   if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
-      !llvmStdStd.size() && !llvmStdC.size())
+      !llvmStdStd.size() && !llvmStdC.size() && !Memcmp.size() &&
+      Strcmp.size() && Strncmp.size())
     return false;
 
   /*
@@ -318,6 +462,96 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     args.push_back(v2Pcasted);
 
     IRB.CreateCall(cmplogHookFn, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : Memcmp) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1),
+          *v3P = callInst->getArgOperand(2);
+
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    Value *              v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(v3Pcasted);
+
+    IRB.CreateCall(cmplogHookFnN, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : Strcmp) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+
+    IRB.CreateCall(cmplogHookFnStr, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : Strncmp) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1),
+          *v3P = callInst->getArgOperand(2);
+
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr = IRB2.CreateLoad(AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    Value *              v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(v3Pcasted);
+
+    IRB.CreateCall(cmplogHookFnStrN, args);
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
 

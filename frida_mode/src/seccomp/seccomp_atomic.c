@@ -1,13 +1,15 @@
-#include <stdbool.h>
-#include <stdio.h>
+#if defined(__linux__) && !defined(__ANDROID__)
 
-#include "debug.h"
+  #include <stdbool.h>
+  #include <stdio.h>
+
+  #include "util.h"
 
 void seccomp_atomic_set(volatile bool *ptr, bool val) {
 
   if (!__sync_bool_compare_and_swap(ptr, !val, val)) {
 
-    FATAL("Failed to set event");
+    FFATAL("Failed to set event");
 
   }
 
@@ -25,4 +27,6 @@ void seccomp_atomic_wait(volatile bool *ptr, bool val) {
     ;
 
 }
+
+#endif
 

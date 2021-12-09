@@ -34,8 +34,8 @@ if [ "$PLATFORM" = "Linux" ] ; then
   sysctl -w kernel.randomize_va_space=0
   sysctl -w kernel.sched_child_runs_first=1
   sysctl -w kernel.sched_autogroup_enabled=1
-  sysctl -w kernel.sched_migration_cost_ns=50000000
-  sysctl -w kernel.sched_latency_ns=250000000
+  sysctl -w kernel.sched_migration_cost_ns=50000000 2>/dev/null
+  sysctl -w kernel.sched_latency_ns=250000000 2>/dev/null
   echo never > /sys/kernel/mm/transparent_hugepage/enabled
   test -e /sys/devices/system/cpu/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/scaling_governor
   test -e /sys/devices/system/cpu/cpufreq/policy0/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor
@@ -52,7 +52,7 @@ if [ "$PLATFORM" = "Linux" ] ; then
     echo '  /etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=0 l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx_async_abort=off arm64.nopauth audit=0 hardened_usercopy=off ssbd=force-off"'
     echo
   }
-  echo If you run fuzzing instances in docker, run them with \"--security-opt seccomp=unconfined\" for more speed
+  echo If you run fuzzing instances in docker, run them with \"--security-opt seccomp=unconfined\" for more speed.
   echo
   DONE=1
 fi

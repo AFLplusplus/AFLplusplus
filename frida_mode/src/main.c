@@ -6,6 +6,7 @@
 #ifdef __APPLE__
   #include <mach/mach.h>
   #include <mach-o/dyld_images.h>
+  #include <crt_externs.h>
 #else
   #include <sys/wait.h>
   #include <sys/personality.h>
@@ -14,7 +15,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "entry.h"
 #include "instrument.h"
@@ -36,13 +36,13 @@
 extern mach_port_t mach_task_self();
 extern GumAddress  gum_darwin_find_entrypoint(mach_port_t task);
 #else
-extern int  __libc_start_main(int *(main)(int, char **, char **), int argc,
+extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
                               void (*fini)(void), void (*rtld_fini)(void),
                               void(*stack_end));
 #endif
 
-typedef int *(*main_fn_t)(int argc, char **argv, char **envp);
+typedef int (*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
 
@@ -62,7 +62,7 @@ static void on_main_os(int argc, char **argv, char **envp) {
   /* Personality doesn't affect the current process, it only takes effect on
    * evec */
   int persona = personality(ADDR_NO_RANDOMIZE);
-  if (persona == -1) { WARNF("Failed to set ADDR_NO_RANDOMIZE: %d", errno); }
+  if (persona == -1) { FWARNF("Failed to set ADDR_NO_RANDOMIZE: %d", errno); }
   if ((persona & ADDR_NO_RANDOMIZE) == 0) { execvpe(argv[0], argv, envp); }
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
@@ -90,13 +90,14 @@ static void embedded_init(void) {
 
 static void afl_print_cmdline(void) {
 
+#if defined(__linux__)
   char * buffer = g_malloc0(PROC_MAX);
   gchar *fname = g_strdup_printf("/proc/%d/cmdline", getppid());
   int    fd = open(fname, O_RDONLY);
 
   if (fd < 0) {
 
-    WARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    FWARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
     return;
 
   }
@@ -104,7 +105,7 @@ static void afl_print_cmdline(void) {
   ssize_t bytes_read = read(fd, buffer, PROC_MAX - 1);
   if (bytes_read < 0) {
 
-    FATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
+    FFATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
 
   }
 
@@ -114,7 +115,7 @@ static void afl_print_cmdline(void) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
-      OKF("AFL - COMMANDLINE: argv[%d] = %s", idx++, &buffer[i]);
+      FOKF("AFL - COMMANDLINE: argv[%d] = %s", idx++, &buffer[i]);
 
     }
 
@@ -123,6 +124,18 @@ static void afl_print_cmdline(void) {
   close(fd);
   g_free(fname);
   g_free(buffer);
+#elif defined(__APPLE__)
+  int    idx;
+  char **argv = *_NSGetArgv();
+  int    nargv = *_NSGetArgc();
+
+  for (idx = 0; idx < nargv; idx++) {
+
+    FOKF("AFL - COMMANDLINE: argv[%d] = %s", idx, argv[idx]);
+
+  }
+
+#endif
 
 }
 
@@ -134,7 +147,7 @@ static void afl_print_env(void) {
 
   if (fd < 0) {
 
-    WARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    FWARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
     return;
 
   }
@@ -142,7 +155,7 @@ static void afl_print_env(void) {
   ssize_t bytes_read = read(fd, buffer, PROC_MAX - 1);
   if (bytes_read < 0) {
 
-    FATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
+    FFATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
 
   }
 
@@ -152,7 +165,7 @@ static void afl_print_env(void) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
-      OKF("AFL - ENVIRONMENT %3d: %s", idx++, &buffer[i]);
+      FOKF("AFL - ENVIRONMENT %3d: %s", idx++, &buffer[i]);
 
     }
 
@@ -204,7 +217,9 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
 
 }
 
-static int *on_main(int argc, char **argv, char **envp) {
+static int on_main(int argc, char **argv, char **envp) {
+
+  int ret;
 
   on_main_os(argc, argv, envp);
 
@@ -212,12 +227,22 @@ static int *on_main(int argc, char **argv, char **envp) {
 
   afl_frida_start();
 
-  return main_fn(argc, argv, envp);
+  if (js_main_hook != NULL) {
+
+    ret = js_main_hook(argc, argv, envp);
+
+  } else {
+
+    ret = main_fn(argc, argv, envp);
+
+  }
+
+  return ret;
 
 }
 
 #if defined(EMBEDDED)
-extern int *main(int argc, char **argv, char **envp);
+extern int main(int argc, char **argv, char **envp);
 
 static void intercept_main(void) {
 
@@ -230,9 +255,9 @@ static void intercept_main(void) {
 static void intercept_main(void) {
 
   mach_port_t task = mach_task_self();
-  OKF("Task Id: %u", task);
+  FOKF("Task Id: %u", task);
   GumAddress entry = gum_darwin_find_entrypoint(task);
-  OKF("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
+  FOKF("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
   void *main = GSIZE_TO_POINTER(entry);
   main_fn = main;
   intercept_hook(main, on_main, NULL);
@@ -240,7 +265,7 @@ static void intercept_main(void) {
 }
 
 #else
-static int on_libc_start_main(int *(main)(int, char **, char **), int argc,
+static int on_libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
                               void (*fini)(void), void (*rtld_fini)(void),
                               void(*stack_end)) {

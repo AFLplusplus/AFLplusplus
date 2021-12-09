@@ -18,7 +18,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    A simple test case minimizer that takes an input file and tries to remove
    as much data as possible while keeping the binary in a crashing state
@@ -119,6 +119,17 @@ static const u8 count_class_lookup[256] = {
 #undef TIMES16
 #undef TIMES8
 #undef TIMES4
+
+static void kill_child() {
+
+  if (fsrv->child_pid > 0) {
+
+    kill(fsrv->child_pid, fsrv->kill_signal);
+    fsrv->child_pid = -1;
+
+  }
+
+}
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
                                  sharedmem_t *     shm_fuzz) {
@@ -221,7 +232,7 @@ static void read_initial_file(void) {
 
   if (st.st_size >= TMIN_MAX_FILE) {
 
-    FATAL("Input file is too large (%u MB max)", TMIN_MAX_FILE / 1024 / 1024);
+    FATAL("Input file is too large (%ld MB max)", TMIN_MAX_FILE / 1024 / 1024);
 
   }
 
@@ -797,6 +808,8 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
     } else {
 
+      /* CoreSight mode uses the default behavior. */
+
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
 
@@ -853,13 +866,19 @@ static void usage(u8 *argv0) {
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%u ms)\n"
       "  -m megs       - memory limit for child process (%u MB)\n"
+#if defined(__linux__) && defined(__aarch64__)
+      "  -A            - use binary-only instrumentation (ARM CoreSight mode)\n"
+#endif
       "  -O            - use binary-only instrumentation (FRIDA mode)\n"
+#if defined(__linux__)
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
-      "tools)\n\n"
+      "tools)\n"
+#endif
+      "\n"
 
       "Minimization settings:\n"
 
@@ -910,7 +929,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeOQUWHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeAOQUWHh")) > 0) {
 
     switch (opt) {
 
@@ -1022,12 +1041,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'A':                                           /* CoreSight mode */
+
+#if !defined(__aarch64__) || !defined(__linux__)
+        FATAL("-A option is not supported on this platform");
+#endif
+
+        if (fsrv->cs_mode) { FATAL("Multiple -A options not supported"); }
+
+        fsrv->cs_mode = 1;
+        break;
+
       case 'O':                                               /* FRIDA mode */
 
         if (fsrv->frida_mode) { FATAL("Multiple -O options not supported"); }
 
         fsrv->frida_mode = 1;
-        setenv("AFL_FRIDA_INST_SEED", "0x0", 1);
+        setenv("AFL_FRIDA_INST_SEED", "1", 1);
 
         break;
 
@@ -1125,6 +1155,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->target_path = find_binary(argv[optind]);
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
+  signal(SIGALRM, kill_child);
 
   if (fsrv->qemu_mode) {
 
@@ -1139,6 +1170,11 @@ int main(int argc, char **argv_orig, char **envp) {
                                argv + optind);
 
     }
+
+  } else if (fsrv->cs_mode) {
+
+    use_argv =
+        get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
   } else {
 
@@ -1209,6 +1245,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   read_initial_file();
+  (void)check_binary_signatures(fsrv->target_path);
 
   if (!fsrv->qemu_mode && !unicorn_mode) {
 

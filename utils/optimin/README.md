@@ -73,11 +73,11 @@ and `WEIGHT_N` is an integer weight.
 
 ## Further Details and Citation
 
-For more details, please see the paper [Seed Selection for Successful
-Fuzzing](https://dl.acm.org/doi/10.1145/3460319.3464795). If you use OptiMin in
-your research, please cite this paper.
+For more details, see the paper
+[Seed Selection for Successful Fuzzing](https://dl.acm.org/doi/10.1145/3460319.3464795).
+If you use OptiMin in your research, please cite this paper.
 
-Bibtex:
+BibTeX:
 
 ```bibtex
 @inproceedings{Herrera:2021:FuzzSeedSelection,

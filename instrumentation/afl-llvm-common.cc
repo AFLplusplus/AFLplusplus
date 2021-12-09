@@ -281,7 +281,7 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
   if (!M) return;
 
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
 
   for (GlobalIFunc &IF : M->ifuncs()) {

@@ -16,7 +16,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -255,6 +255,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
   if (!mutator->afl_custom_init_trim) {
 
+    notrim = 1;
     ACTF("optional symbol 'afl_custom_init_trim' not found.");
 
   }
@@ -263,6 +264,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
   if (!mutator->afl_custom_trim) {
 
+    notrim = 1;
     ACTF("optional symbol 'afl_custom_trim' not found.");
 
   }
@@ -271,6 +273,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
   if (!mutator->afl_custom_post_trim) {
 
+    notrim = 1;
     ACTF("optional symbol 'afl_custom_post_trim' not found.");
 
   }

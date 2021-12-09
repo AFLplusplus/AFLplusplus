@@ -12,7 +12,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+#   https://www.apache.org/licenses/LICENSE-2.0
 #
 
 # For Heiko:
@@ -308,7 +308,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o 
-PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./afl-llvm-lto-instrumentation.so ./SanitizerCoverageLTO.so
+PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -410,11 +410,6 @@ endif
 ./SanitizerCoverageLTO.so: instrumentation/SanitizerCoverageLTO.so.cc
 ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
-endif
-
-./afl-llvm-lto-instrumentation.so: instrumentation/afl-llvm-lto-instrumentation.so.cc instrumentation/afl-llvm-common.o
-ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 	$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto.o
 	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
@@ -480,7 +475,7 @@ install: all
 	@if [ -f ./afl-cc ]; then set -e; install -m 755 ./afl-cc $${DESTDIR}$(BIN_PATH); ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-c++; fi
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt*.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt*.o
 	@if [ -f ./afl-compiler-rt.o ]; then set -e; install -m 755 ./afl-compiler-rt.o $${DESTDIR}$(HELPER_PATH); ln -sf afl-compiler-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o ;fi
-	@if [ -f ./afl-lto ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-lto; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-lto++; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ./afl-llvm-lto-instrumentation.so ./afl-llvm-rt-lto*.o ./afl-llvm-lto-instrumentlist.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f ./afl-lto ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-lto; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-lto++; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ./afl-llvm-rt-lto*.o ./afl-llvm-lto-instrumentlist.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f ./afl-ld-lto ]; then set -e; install -m 755 ./afl-ld-lto $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f ./afl-compiler-rt-32.o ]; then set -e; install -m 755 ./afl-compiler-rt-32.o $${DESTDIR}$(HELPER_PATH); ln -sf afl-compiler-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o ;fi
 	@if [ -f ./afl-compiler-rt-64.o ]; then set -e; install -m 755 ./afl-compiler-rt-64.o $${DESTDIR}$(HELPER_PATH); ln -sf afl-compiler-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o ; fi
