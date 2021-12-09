@@ -832,7 +832,7 @@ void show_stats(afl_state_t *afl) {
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->cur_skipped_items),
           ((double)afl->cur_skipped_items * 100) / afl->queued_items);
 
-  SAYF(bV bSTOP " items timed out : " cRST "%-18s " bSTG bV, tmp);
+  SAYF(bV bSTOP "  runs timed out : " cRST "%-18s " bSTG bV, tmp);
 
   sprintf(tmp, "%0.02f bits/tuple", t_bytes ? (((double)t_bits) / t_bytes) : 0);
 
@@ -870,7 +870,7 @@ void show_stats(afl_state_t *afl) {
 
   SAYF("  new edges on : " cRST "%-20s" bSTG bV "\n", tmp);
 
-  sprintf(tmp, "%s (%s%s unique)", u_stringify_int(IB(0), afl->total_crashes),
+  sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_crashes),
           u_stringify_int(IB(1), afl->saved_crashes),
           (afl->saved_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
@@ -904,7 +904,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  sprintf(tmp, "%s (%s%s unique)", u_stringify_int(IB(0), afl->total_tmouts),
+  sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
           (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
