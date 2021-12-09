@@ -570,7 +570,7 @@ its name is unique, hence the recommendation for `-M main-$HOSTNAME`.
 
 Now there are three strategies on how you can sync between the servers:
 * never: sounds weird, but this makes every server an island and has the chance
-  the each follow different paths into the target. You can make this even more
+  that each follow different paths into the target. You can make this even more
   interesting by even giving different seeds to each server.
 * regularly (~4h): this ensures that all fuzzing campaigns on the servers "see"
   the same thing. It is like fuzzing on a huge server.
