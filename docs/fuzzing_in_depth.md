@@ -11,7 +11,7 @@ Fuzzing source code is a three-step process:
 2. Prepare the fuzzing by selecting and optimizing the input corpus for the
    target.
 3. Perform the fuzzing of the target by randomly mutating input and assessing if
-   a generated input was processed in a new path in the target binary.
+   that input was processed on a new path in the target binary.
 
 ## 0. Common sense risks
 
@@ -354,7 +354,7 @@ You can find many good examples of starting files in the
 ### b) Making the input corpus unique
 
 Use the AFL++ tool `afl-cmin` to remove inputs from the corpus that do not
-produce a new path in the target.
+produce a new path/coverage in the target.
 
 Put all files from step a) into one directory, e.g., INPUTS.
 
@@ -633,7 +633,7 @@ AFL_BENCH_JUST_ONE=1 AFL_FAST_CAL=1 afl-fuzz -i newseeds -o out -S newseeds -- .
 
 ### g) Checking the coverage of the fuzzing
 
-The `paths found` value is a bad indicator for checking how good the coverage
+The `corpus count` value is a bad indicator for checking how good the coverage
 is.
 
 A better indicator - if you use default llvm instrumentation with at least
@@ -822,7 +822,7 @@ as these are much shorter runnings.
       will impact the speed by ~15% though.
     * `AFL_FAST_CAL` - Enable fast calibration, this halves the time the
       saturated corpus needs to be loaded.
-    * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new found paths, not the
+    * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new finds, not the
       initial corpus as this very likely has been done for them already.
     * Keep the generated corpus, use afl-cmin and reuse it every time!
 
