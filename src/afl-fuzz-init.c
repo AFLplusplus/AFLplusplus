@@ -638,8 +638,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
   if (first) {
 
-    afl->last_path_time = 0;
-    afl->queued_at_start = afl->queued_paths;
+    afl->last_find_time = 0;
+    afl->queued_at_start = afl->queued_items;
 
   }
 
@@ -812,7 +812,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   free(nl);                                                  /* not tracked */
 
-  if (!afl->queued_paths && directory == NULL) {
+  if (!afl->queued_items && directory == NULL) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like there are no valid test cases in the input directory! The "
@@ -841,8 +841,8 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   }
 
-  afl->last_path_time = 0;
-  afl->queued_at_start = afl->queued_paths;
+  afl->last_find_time = 0;
+  afl->queued_at_start = afl->queued_items;
 
 }
 
@@ -855,7 +855,7 @@ void perform_dry_run(afl_state_t *afl) {
   u32                 cal_failures = 0, idx;
   u8 *                use_mem;
 
-  for (idx = 0; idx < afl->queued_paths; idx++) {
+  for (idx = 0; idx < afl->queued_items; idx++) {
 
     q = afl->queue_buf[idx];
     if (unlikely(!q || q->disabled)) { continue; }
@@ -1059,14 +1059,14 @@ void perform_dry_run(afl_state_t *afl) {
         q->perf_score = 0;
 
         u32 i = 0;
-        while (unlikely(i < afl->queued_paths && afl->queue_buf[i] &&
+        while (unlikely(i < afl->queued_items && afl->queue_buf[i] &&
                         afl->queue_buf[i]->disabled)) {
 
           ++i;
 
         }
 
-        if (i < afl->queued_paths && afl->queue_buf[i]) {
+        if (i < afl->queued_items && afl->queue_buf[i]) {
 
           afl->queue = afl->queue_buf[i];
 
@@ -1077,7 +1077,7 @@ void perform_dry_run(afl_state_t *afl) {
         }
 
         afl->max_depth = 0;
-        for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
+        for (i = 0; i < afl->queued_items && likely(afl->queue_buf[i]); i++) {
 
           if (!afl->queue_buf[i]->disabled &&
               afl->queue_buf[i]->depth > afl->max_depth)
@@ -1118,16 +1118,16 @@ void perform_dry_run(afl_state_t *afl) {
 
   if (cal_failures) {
 
-    if (cal_failures == afl->queued_paths) {
+    if (cal_failures == afl->queued_items) {
 
       FATAL("All test cases time out or crash, giving up!");
 
     }
 
     WARNF("Skipped %u test cases (%0.02f%%) due to timeouts or crashes.",
-          cal_failures, ((double)cal_failures) * 100 / afl->queued_paths);
+          cal_failures, ((double)cal_failures) * 100 / afl->queued_items);
 
-    if (cal_failures * 5 > afl->queued_paths) {
+    if (cal_failures * 5 > afl->queued_items) {
 
       WARNF(cLRD "High percentage of rejected test cases, check settings!");
 
@@ -1139,14 +1139,14 @@ void perform_dry_run(afl_state_t *afl) {
 
   u32 duplicates = 0, i;
 
-  for (idx = 0; idx < afl->queued_paths; idx++) {
+  for (idx = 0; idx < afl->queued_items; idx++) {
 
     q = afl->queue_buf[idx];
     if (!q || q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
 
     u32 done = 0;
     for (i = idx + 1;
-         i < afl->queued_paths && !done && likely(afl->queue_buf[i]); i++) {
+         i < afl->queued_items && !done && likely(afl->queue_buf[i]); i++) {
 
       struct queue_entry *p = afl->queue_buf[i];
       if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
@@ -1196,7 +1196,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     afl->max_depth = 0;
 
-    for (idx = 0; idx < afl->queued_paths; idx++) {
+    for (idx = 0; idx < afl->queued_items; idx++) {
 
       if (afl->queue_buf[idx] && !afl->queue_buf[idx]->disabled &&
           afl->queue_buf[idx]->depth > afl->max_depth)
@@ -1254,7 +1254,7 @@ void pivot_inputs(afl_state_t *afl) {
 
   ACTF("Creating hard links for all input files...");
 
-  for (i = 0; i < afl->queued_paths && likely(afl->queue_buf[i]); i++) {
+  for (i = 0; i < afl->queued_items && likely(afl->queue_buf[i]); i++) {
 
     q = afl->queue_buf[i];
 
@@ -1293,7 +1293,7 @@ void pivot_inputs(afl_state_t *afl) {
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        if (src_id < afl->queued_paths) {
+        if (src_id < afl->queued_items) {
 
           struct queue_entry *s = afl->queue_buf[src_id];
 
@@ -1391,11 +1391,11 @@ u32 find_start_position(afl_state_t *afl) {
   (void)i;                                                 /* Ignore errors */
   close(fd);
 
-  off = strstr(tmp, "cur_path          : ");
+  off = strstr(tmp, "cur_item          : ");
   if (!off) { return 0; }
 
   ret = atoi(off + 20);
-  if (ret >= afl->queued_paths) { ret = 0; }
+  if (ret >= afl->queued_items) { ret = 0; }
   return ret;
 
 }
@@ -2040,9 +2040,9 @@ void setup_dirs_fds(afl_state_t *afl) {
 
     fprintf(
         afl->fsrv.plot_file,
-        "# relative_time, cycles_done, cur_path, paths_total, "
-        "pending_total, pending_favs, map_size, unique_crashes, "
-        "unique_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
+        "# relative_time, cycles_done, cur_item, corpus_count, "
+        "pending_total, pending_favs, map_size, saved_crashes, "
+        "saved_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
 
   } else {
 

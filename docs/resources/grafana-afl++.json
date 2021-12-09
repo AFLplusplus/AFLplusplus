@@ -926,7 +926,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "fuzzing{type=\"cur_path\"}",
+          "expr": "fuzzing{type=\"cur_item\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -936,7 +936,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Curent path",
+      "title": "Current fuzz item",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1116,7 +1116,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "fuzzing{type=\"paths_favored\"}",
+          "expr": "fuzzing{type=\"corpus_favored\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1135,7 +1135,7 @@
         }
       ],
       "timeShift": null,
-      "title": "Path Favored",
+      "title": "Corpus Favored",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1428,7 +1428,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "fuzzing{type=\"paths_imported\"}",
+          "expr": "fuzzing{type=\"corpus_imported\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1447,7 +1447,7 @@
         }
       ],
       "timeShift": null,
-      "title": "Path Imported",
+      "title": "Corpus Imported",
       "tooltip": {
         "shared": true,
         "sort": 0,
