@@ -3,7 +3,7 @@
 . ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: LTO llvm_mode"
-test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
+test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
