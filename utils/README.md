@@ -13,10 +13,10 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - afl_proxy            - skeleton file example to show how to fuzz
                            something where you gather coverage data via
-                           different means, e.g. hw debugger
+                           different means, e.g., hw debugger
 
   - afl_untracer         - fuzz binary-only libraries much faster but with
-                           less coverage than qemu_mode
+                           less coverage than QEMU mode
 
   - analysis_scripts     - random -o out analysis scripts
 
@@ -48,7 +48,7 @@ Here's a quick overview of the stuff you can find in this directory:
   - defork               - intercept fork() in targets
 
   - distributed_fuzzing  - a sample script for synchronizing fuzzer instances
-                           across multiple machines (see parallel_fuzzing.md).
+                           across multiple machines.
 
   - libdislocator        - like ASAN but lightweight.
 

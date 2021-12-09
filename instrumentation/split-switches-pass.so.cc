@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,7 +37,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR > 3 || \
+#if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
@@ -369,10 +369,10 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
     CaseVector Cases;
     for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
          ++i)
-#if LLVM_VERSION_MAJOR < 5
-      Cases.push_back(CaseExpr(i.getCaseValue(), i.getCaseSuccessor()));
-#else
+#if LLVM_VERSION_MAJOR >= 5
       Cases.push_back(CaseExpr(i->getCaseValue(), i->getCaseSuccessor()));
+#else
+      Cases.push_back(CaseExpr(i.getCaseValue(), i.getCaseSuccessor()));
 #endif
     /* bugfix thanks to pbst
      * round up bytesChecked (in case getBitWidth() % 8 != 0) */

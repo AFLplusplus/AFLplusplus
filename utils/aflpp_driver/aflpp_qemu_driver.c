@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   if (LLVMFuzzerInitialize) LLVMFuzzerInitialize(&argc, &argv);
   // Do any other expensive one-time initialization here.
 
-  if (getenv("AFL_QEMU_DRIVER_NO_HOOK")) {
+  if (getenv("AFL_QEMU_DRIVER_NO_HOOK") || getenv("AFL_FRIDA_DRIVER_NO_HOOK")) {
 
     afl_qemu_driver_stdin_input();
 

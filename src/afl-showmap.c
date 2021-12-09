@@ -18,7 +18,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    A very simple tool that runs the targeted binary and displays
    the contents of the trace bitmap in a human-readable form. Useful in
@@ -77,7 +77,7 @@ static u32 tcnt, highest;              /* tuple content information         */
 
 static u32 in_len;                     /* Input data length                 */
 
-static u32 map_size = MAP_SIZE;
+static u32 map_size = MAP_SIZE, timed_out = 0;
 
 static bool quiet_mode,                /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -145,6 +145,18 @@ static const u8 count_class_binary[256] = {
 #undef TIMES16
 #undef TIMES8
 #undef TIMES4
+
+static void kill_child() {
+
+  timed_out = 1;
+  if (fsrv->child_pid > 0) {
+
+    kill(fsrv->child_pid, fsrv->kill_signal);
+    fsrv->child_pid = -1;
+
+  }
+
+}
 
 static void classify_counts(afl_forkserver_t *fsrv) {
 
@@ -242,9 +254,14 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   if (cmin_mode &&
       (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
 
-    // create empty file to prevent error messages in afl-cmin
-    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
-    close(fd);
+    if (strcmp(outfile, "-")) {
+
+      // create empty file to prevent error messages in afl-cmin
+      fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      close(fd);
+
+    }
+
     return ret;
 
   }
@@ -357,9 +374,10 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   if (!quiet_mode) {
 
-    if (fsrv->last_run_timed_out) {
+    if (timed_out || fsrv->last_run_timed_out) {
 
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
+      timed_out = 0;
 
     } else if (stop_soon) {
 
@@ -413,7 +431,7 @@ static u32 read_file(u8 *in_file) {
 
     if (!be_quiet && !quiet_mode) {
 
-      WARNF("Input file '%s' is too large, only reading %u bytes.", in_file,
+      WARNF("Input file '%s' is too large, only reading %ld bytes.", in_file,
             MAX_FILE);
 
     }
@@ -521,6 +539,8 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
+  signal(SIGALRM, kill_child);
+
   setitimer(ITIMER_REAL, &it, NULL);
 
   if (waitpid(fsrv->child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
@@ -563,9 +583,10 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!quiet_mode) {
 
-    if (fsrv->last_run_timed_out) {
+    if (timed_out || fsrv->last_run_timed_out) {
 
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
+      timed_out = 0;
 
     } else if (stop_soon) {
 
@@ -668,6 +689,8 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
       setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 
     } else {
+
+      /* CoreSight mode uses the default behavior. */
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
@@ -821,12 +844,18 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
       "  -t msec    - timeout for each run (none)\n"
       "  -m megs    - memory limit for child process (%u MB)\n"
+#if defined(__linux__) && defined(__aarch64__)
+      "  -A         - use binary-only instrumentation (ARM CoreSight mode)\n"
+#endif
       "  -O         - use binary-only instrumentation (FRIDA mode)\n"
+#if defined(__linux__)
       "  -Q         - use binary-only instrumentation (QEMU mode)\n"
       "  -U         - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
       "               (Not necessary, here for consistency with other afl-* "
-      "tools)\n\n"
+      "tools)\n"
+#endif
+      "\n"
       "Other settings:\n"
       "  -i dir     - process all files below this directory, must be combined "
       "with -o.\n"
@@ -896,7 +925,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZOQUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrsh")) > 0) {
 
     switch (opt) {
 
@@ -1025,7 +1054,7 @@ int main(int argc, char **argv_orig, char **envp) {
         quiet_mode = true;
         break;
 
-      case 'A':
+      case 'H':
         /* Another afl-cmin specific feature. */
         at_file = optarg;
         break;
@@ -1035,8 +1064,21 @@ int main(int argc, char **argv_orig, char **envp) {
         if (fsrv->frida_mode) { FATAL("Multiple -O options not supported"); }
 
         fsrv->frida_mode = true;
-        setenv("AFL_FRIDA_INST_SEED", "0x0", 1);
+        setenv("AFL_FRIDA_INST_SEED", "1", 1);
 
+        break;
+
+      /* FIXME: We want to use -P for consistency, but it is already unsed for
+       * undocumenetd feature "Another afl-cmin specific feature." */
+      case 'A':                                           /* CoreSight mode */
+
+#if !defined(__aarch64__) || !defined(__linux__)
+        FATAL("-A option is not supported on this platform");
+#endif
+
+        if (fsrv->cs_mode) { FATAL("Multiple -A options not supported"); }
+
+        fsrv->cs_mode = true;
         break;
 
       case 'Q':
@@ -1183,11 +1225,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+  } else if (fsrv->cs_mode) {
+
+    use_argv =
+        get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+
   } else {
 
     use_argv = argv + optind;
 
   }
+
+  if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
@@ -1207,7 +1256,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
-  if (!fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;
@@ -1386,9 +1435,9 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!quiet_mode || collect_coverage) {
 
     if (!tcnt && !have_coverage) { FATAL("No instrumentation detected" cRST); }
-    OKF("Captured %u tuples (highest value %u, total values %llu) in "
-        "'%s'." cRST,
-        tcnt, highest, total, out_file);
+    OKF("Captured %u tuples (map size %u, highest value %u, total values %llu) "
+        "in '%s'." cRST,
+        tcnt, fsrv->real_map_size, highest, total, out_file);
     if (collect_coverage)
       OKF("A coverage of %u edges were achieved out of %u existing (%.02f%%) "
           "with %llu input files.",

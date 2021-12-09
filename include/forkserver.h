@@ -18,7 +18,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    Shared code that implements a forkserver. This is used by the fuzzer
    as well the other components like afl-tmin.
@@ -81,6 +81,8 @@ typedef struct afl_forkserver {
   bool frida_mode;                     /* if running in frida mode or not   */
 
   bool frida_asan;                    /* if running with asan in frida mode */
+
+  bool cs_mode;                      /* if running in CoreSight mode or not */
 
   bool use_stdin;                       /* use stdin for sending data       */
 

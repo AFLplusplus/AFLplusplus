@@ -41,6 +41,13 @@
   #error "Sorry, this library is Linux-specific for now!"
 #endif                                                        /* !__linux__ */
 
+#ifndef likely
+  #define likely(x) __builtin_expect((!!(x)), 1)
+#endif
+#ifndef unlikely
+  #define unlikely(x) __builtin_expect((!!(x)), 0)
+#endif
+
 /* Change this value to tune the compare coverage */
 
 #define MAX_CMP_LENGTH 32
@@ -199,6 +206,7 @@ static u8 __compcov_is_in_bound(const void *ptr) {
 
 int strcmp(const char *str1, const char *str2) {
 
+  if (unlikely(!__libc_strcmp)) { __libc_strcmp = dlsym(RTLD_NEXT, "strcmp"); }
   void *retaddr = __builtin_return_address(0);
 
   if (__compcov_is_in_bound(retaddr) &&
@@ -226,6 +234,12 @@ int strcmp(const char *str1, const char *str2) {
 #undef strncmp
 
 int strncmp(const char *str1, const char *str2, size_t len) {
+
+  if (unlikely(!__libc_strncmp)) {
+
+    __libc_strncmp = dlsym(RTLD_NEXT, "strncmp");
+
+  }
 
   void *retaddr = __builtin_return_address(0);
 
@@ -256,6 +270,12 @@ int strncmp(const char *str1, const char *str2, size_t len) {
 
 int strcasecmp(const char *str1, const char *str2) {
 
+  if (unlikely(!__libc_strcasecmp)) {
+
+    __libc_strncasecmp = dlsym(RTLD_NEXT, "strcasecmp");
+
+  }
+
   void *retaddr = __builtin_return_address(0);
 
   if (__compcov_is_in_bound(retaddr) &&
@@ -285,6 +305,12 @@ int strcasecmp(const char *str1, const char *str2) {
 #undef strncasecmp
 
 int strncasecmp(const char *str1, const char *str2, size_t len) {
+
+  if (unlikely(!__libc_strncasecmp)) {
+
+    __libc_strncasecmp = dlsym(RTLD_NEXT, "strncasecmp");
+
+  }
 
   void *retaddr = __builtin_return_address(0);
 
@@ -317,6 +343,7 @@ int strncasecmp(const char *str1, const char *str2, size_t len) {
 
 int memcmp(const void *mem1, const void *mem2, size_t len) {
 
+  if (unlikely(!__libc_memcmp)) { __libc_memcmp = dlsym(RTLD_NEXT, "memcmp"); }
   void *retaddr = __builtin_return_address(0);
 
   if (__compcov_is_in_bound(retaddr) &&

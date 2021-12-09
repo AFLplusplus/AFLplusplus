@@ -5,8 +5,6 @@
 
 #include "frida-gumjs.h"
 
-#include "debug.h"
-
 #include "instrument.h"
 #include "util.h"
 
@@ -34,18 +32,27 @@ static void instrument_debug(char *format, ...) {
 
 }
 
-static void instrument_disasm(guint8 *start, guint8 *end) {
+static void instrument_disasm(guint8 *start, guint8 *end,
+                              GumStalkerOutput *output) {
 
   csh      capstone;
   cs_err   err;
+  cs_mode  mode;
   uint16_t size;
   cs_insn *insn;
   size_t   count = 0;
   size_t   i;
   uint16_t len;
 
+  mode = GUM_DEFAULT_CS_MODE | GUM_DEFAULT_CS_ENDIAN;
+
+#if defined(__arm__)
+  if (output->encoding == GUM_INSTRUCTION_SPECIAL) { mode |= CS_MODE_THUMB; }
+#endif
+
   err = cs_open(GUM_DEFAULT_CS_ARCH,
-                GUM_DEFAULT_CS_MODE | GUM_DEFAULT_CS_ENDIAN, &capstone);
+                CS_MODE_THUMB | GUM_DEFAULT_CS_MODE | GUM_DEFAULT_CS_ENDIAN,
+                &capstone);
   g_assert(err == CS_ERR_OK);
 
   size = GPOINTER_TO_SIZE(end) - GPOINTER_TO_SIZE(start);
@@ -89,24 +96,24 @@ void instrument_debug_config(void) {
 
 void instrument_debug_init(void) {
 
-  OKF("Instrumentation debugging - enabled [%c]",
-      instrument_debug_filename == NULL ? ' ' : 'X');
+  FOKF("Instrumentation debugging - enabled [%c]",
+       instrument_debug_filename == NULL ? ' ' : 'X');
 
   if (instrument_debug_filename == NULL) { return; }
 
-  OKF("Instrumentation debugging - file [%s]", instrument_debug_filename);
+  FOKF("Instrumentation debugging - file [%s]", instrument_debug_filename);
 
   if (instrument_debug_filename == NULL) { return; }
 
   char *path =
       g_canonicalize_filename(instrument_debug_filename, g_get_current_dir());
 
-  OKF("Instrumentation debugging - path [%s]", path);
+  FOKF("Instrumentation debugging - path [%s]", path);
 
   debugging_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                       S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
-  if (debugging_fd < 0) { FATAL("Failed to open stats file '%s'", path); }
+  if (debugging_fd < 0) { FFATAL("Failed to open stats file '%s'", path); }
 
   g_free(path);
 
@@ -123,11 +130,12 @@ void instrument_debug_start(uint64_t address, GumStalkerOutput *output) {
 
 }
 
-void instrument_debug_instruction(uint64_t address, uint16_t size) {
+void instrument_debug_instruction(uint64_t address, uint16_t size,
+                                  GumStalkerOutput *output) {
 
   if (likely(debugging_fd < 0)) { return; }
   uint8_t *start = (uint8_t *)GSIZE_TO_POINTER(address);
-  instrument_disasm(start, start + size);
+  instrument_disasm(start, start + size, output);
 
 }
 
@@ -138,7 +146,7 @@ void instrument_debug_end(GumStalkerOutput *output) {
 
   instrument_debug("\nGenerated block %p-%p\n", instrument_gen_start,
                    instrument_gen_end);
-  instrument_disasm(instrument_gen_start, instrument_gen_end);
+  instrument_disasm(instrument_gen_start, instrument_gen_end, output);
 
 }
 

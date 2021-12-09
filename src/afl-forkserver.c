@@ -19,7 +19,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    Shared code that implements a forkserver. This is used by the fuzzer
    as well the other components like afl-tmin.
@@ -342,6 +342,16 @@ static void report_error_and_exit(int error) {
           "the fuzzing target reports that the mmap() call to the shared "
           "memory failed.");
       break;
+    case FS_ERROR_OLD_CMPLOG:
+      FATAL(
+          "the -c cmplog target was instrumented with an too old afl++ "
+          "version, you need to recompile it.");
+      break;
+    case FS_ERROR_OLD_CMPLOG_QEMU:
+      FATAL(
+          "The AFL++ QEMU/FRIDA loaders are from an older version, for -c you "
+          "need to recompile it.\n");
+      break;
     default:
       FATAL("unknown error code %d from fuzzing target!", error);
 
@@ -351,7 +361,7 @@ static void report_error_and_exit(int error) {
 
 /* Spins up fork server. The idea is explained here:
 
-   http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
+   https://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
 
    In essence, the instrumentation allows us to skip execve(), and just keep
    cloning a stopped child. So, we just execute once, and then send commands
@@ -603,19 +613,31 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   /* Wait for the fork server to come up, but don't wait too long. */
 
   rlen = 0;
-  if (fsrv->exec_tmout) {
+  if (fsrv->init_tmout) {
 
     u32 time_ms = read_s32_timed(fsrv->fsrv_st_fd, &status, fsrv->init_tmout,
                                  stop_soon_p);
 
     if (!time_ms) {
 
-      kill(fsrv->fsrv_pid, fsrv->kill_signal);
+      s32 tmp_pid = fsrv->fsrv_pid;
+      if (tmp_pid > 0) {
+
+        kill(tmp_pid, fsrv->kill_signal);
+        fsrv->fsrv_pid = -1;
+
+      }
 
     } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
-      kill(fsrv->fsrv_pid, fsrv->kill_signal);
+      s32 tmp_pid = fsrv->fsrv_pid;
+      if (tmp_pid > 0) {
+
+        kill(tmp_pid, fsrv->kill_signal);
+        fsrv->fsrv_pid = -1;
+
+      }
 
     } else {
 
@@ -650,6 +672,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       // workaround for recent afl++ versions
       if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
         status = (status & 0xf0ffffff);
+
+      if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
+
+        if (fsrv->qemu_mode || fsrv->frida_mode) {
+
+          report_error_and_exit(FS_ERROR_OLD_CMPLOG_QEMU);
+
+        } else {
+
+          report_error_and_exit(FS_ERROR_OLD_CMPLOG);
+
+        }
+
+      }
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
@@ -905,8 +941,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            MSG_ULIMIT_USAGE
            " /path/to/fuzzed_app )\n\n"
 
-           "      Tip: you can use http://jwilk.net/software/recidivm to "
-           "quickly\n"
+           "      Tip: you can use https://jwilk.net/software/recidivm to\n"
            "      estimate the required amount of virtual memory for the "
            "binary.\n\n"
 
@@ -1005,7 +1040,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         MSG_ULIMIT_USAGE
         " /path/to/fuzzed_app )\n\n"
 
-        "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
+        "      Tip: you can use https://jwilk.net/software/recidivm to\n"
         "      estimate the required amount of virtual memory for the "
         "binary.\n\n"
 
@@ -1248,7 +1283,14 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    s32 tmp_pid = fsrv->child_pid;
+    if (tmp_pid > 0) {
+
+      kill(tmp_pid, fsrv->kill_signal);
+      fsrv->child_pid = -1;
+
+    }
+
     fsrv->last_run_timed_out = 1;
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
@@ -1282,7 +1324,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = 0; }
+  if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1; }
 
   fsrv->total_execs++;
 

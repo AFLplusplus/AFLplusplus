@@ -1,7 +1,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 
 #include "instrument.h"
 
@@ -92,6 +91,10 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_LR, ARM64_REG_X0, ARM64_REG_SP, 16 + GUM_RED_ZONE_SIZE,
       GUM_INDEX_POST_ADJUST);
+
+}
+
+void instrument_coverage_optimize_init(void) {
 
 }
 

@@ -6,7 +6,6 @@
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "debug.h"
 #include "hash.h"
 
 #include "asan.h"
@@ -69,7 +68,8 @@ guint64 instrument_get_offset_hash(GumAddress current_rip) {
 
   guint64 area_offset = hash64((unsigned char *)&current_rip,
                                sizeof(GumAddress), instrument_hash_seed);
-  return area_offset &= MAP_SIZE - 1;
+  gsize   map_size_pow2 = util_log2(__afl_map_size);
+  return area_offset &= ((1 << map_size_pow2) - 1);
 
 }
 
@@ -135,8 +135,8 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   previous_rip = current_rip;
   previous_end = current_end;
 
-  instrument_previous_pc = ((current_pc & (MAP_SIZE - 1) >> 1)) |
-                           ((current_pc & 0x1) << (MAP_SIZE_POW2 - 1));
+  gsize map_size_pow2 = util_log2(__afl_map_size);
+  instrument_previous_pc = util_rotate(current_pc, 1, map_size_pow2);
 
 }
 
@@ -193,7 +193,20 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       instrument_debug_start(instr->address, output);
       instrument_coverage_start(instr->address);
 
+#if defined(__arm__)
+      if (output->encoding == GUM_INSTRUCTION_SPECIAL) {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address + 1));
+
+      } else {
+
+        prefetch_write(GSIZE_TO_POINTER(instr->address));
+
+      }
+
+#else
       prefetch_write(GSIZE_TO_POINTER(instr->address));
+#endif
 
       if (likely(!excluded)) {
 
@@ -213,7 +226,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     }
 
-    instrument_debug_instruction(instr->address, instr->size);
+    instrument_debug_instruction(instr->address, instr->size, output);
 
     if (likely(!excluded)) {
 
@@ -246,7 +259,7 @@ void instrument_config(void) {
   instrument_tracing = (getenv("AFL_FRIDA_INST_TRACE") != NULL);
   instrument_unique = (getenv("AFL_FRIDA_INST_TRACE_UNIQUE") != NULL);
   instrument_use_fixed_seed = (getenv("AFL_FRIDA_INST_SEED") != NULL);
-  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED");
+  instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED", 0);
   instrument_coverage_unstable_filename =
       (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
 
@@ -261,14 +274,14 @@ void instrument_init(void) {
 
   if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
 
-  OKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
-  OKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
-  OKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
-  OKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
-      instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
-  OKF("Instrumentation - unstable coverage [%c] [%s]",
-      instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
-      instrument_coverage_unstable_filename);
+  FOKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
+  FOKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
+  FOKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
+  FOKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
+       instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
+  FOKF("Instrumentation - unstable coverage [%c] [%s]",
+       instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
+       instrument_coverage_unstable_filename);
 
   if (instrument_tracing && instrument_optimize) {
 
@@ -304,7 +317,8 @@ void instrument_init(void) {
 
   if (instrument_unique) {
 
-    int shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+    int shm_id =
+        shmget(IPC_PRIVATE, __afl_map_size, IPC_CREAT | IPC_EXCL | 0600);
     if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
 
     edges_notified = shmat(shm_id, NULL, 0);
@@ -321,7 +335,7 @@ void instrument_init(void) {
     }
 
     /* Clear it, not sure it's necessary, just seems like good practice */
-    memset(edges_notified, '\0', MAP_SIZE);
+    memset(edges_notified, '\0', __afl_map_size);
 
   }
 
@@ -341,15 +355,22 @@ void instrument_init(void) {
      * parallel fuzzing. The seed itself, doesn't have to be random, it
      * just needs to be different for each instance.
      */
-    instrument_hash_seed = g_get_monotonic_time() ^
-                           (((guint64)getpid()) << 32) ^ syscall(SYS_gettid);
+    guint64 tid;
+#if defined(__APPLE__)
+    pthread_threadid_np(NULL, &tid);
+#else
+    tid = syscall(SYS_gettid);
+#endif
+    instrument_hash_seed =
+        g_get_monotonic_time() ^ (((guint64)getpid()) << 32) ^ tid;
 
   }
 
-  OKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
-      instrument_hash_seed);
+  FOKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
+       instrument_hash_seed);
   instrument_hash_zero = instrument_get_offset_hash(0);
 
+  instrument_coverage_optimize_init();
   instrument_debug_init();
   instrument_coverage_init();
   asan_init();

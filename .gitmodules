@@ -13,3 +13,9 @@
 [submodule "utils/optimin/EvalMaxSAT"]
 	path = utils/optimin/EvalMaxSAT
 	url = https://github.com/FlorentAvellaneda/EvalMaxSAT
+[submodule "coresight_mode/patchelf"]
+	path = coresight_mode/patchelf
+	url = https://github.com/NixOS/patchelf.git
+[submodule "coresight_mode/coresight-trace"]
+	path = coresight_mode/coresight-trace
+	url = https://github.com/RICSecLab/coresight-trace.git

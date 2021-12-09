@@ -1,4 +1,3 @@
-#include "debug.h"
 
 #include "entry.h"
 #include "instrument.h"
@@ -12,6 +11,10 @@
 #include "stats.h"
 #include "util.h"
 
+typedef uint8_t u8;
+
+extern void __afl_set_persistent_mode(u8 mode);
+
 __attribute__((visibility("default"))) void js_api_done() {
 
   js_done = TRUE;
@@ -20,7 +23,7 @@ __attribute__((visibility("default"))) void js_api_done() {
 
 __attribute__((visibility("default"))) void js_api_error(char *msg) {
 
-  FATAL("%s", msg);
+  FFATAL("%s", msg);
 
 }
 
@@ -47,6 +50,8 @@ __attribute__((visibility("default"))) void js_api_set_persistent_address(
   }
 
   persistent_start = GPOINTER_TO_SIZE(address);
+
+  __afl_set_persistent_mode(1);
 
 }
 
@@ -228,6 +233,32 @@ __attribute__((visibility("default"))) void js_api_set_stalker_ic_entries(
     guint val) {
 
   stalker_ic_entries = val;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_traceable(void) {
+
+  traceable = TRUE;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_backpatch_disable(void) {
+
+  backpatch_enable = FALSE;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_stalker_adjacent_blocks(
+    guint val) {
+
+  stalker_adjacent_blocks = val;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_js_main_hook(
+    const js_main_hook_t hook) {
+
+  js_main_hook = hook;
 
 }
 

@@ -12,7 +12,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+#   https://www.apache.org/licenses/LICENSE-2.0
 #
 
 get_abs_path() {
@@ -195,15 +195,19 @@ exit 1
 
 fi
 
-mkdir -p "$outputdir/tmp"
-afl-plot-ui > "$outputdir/tmp/win_ids" &
+rm -rf "$outputdir/.tmp"
+mkdir -p "$outputdir/.tmp"
+mkfifo "$outputdir/.tmp/win_ids" || exit 1
 
-sleep 0.5
+afl-plot-ui > "$outputdir/.tmp/win_ids" &
+W_IDS=$(cat "$outputdir/.tmp/win_ids")
 
-W_ID1=$(cat $outputdir/tmp/win_ids | head -1)
-W_ID2=$(cat $outputdir/tmp/win_ids | head -2 | tail -1)
-W_ID3=$(cat $outputdir/tmp/win_ids | head -3 | tail -1)
-W_ID4=$(cat $outputdir/tmp/win_ids | tail -1)
+rm -rf "$outputdir/.tmp"
+
+W_ID1=$(echo "$W_IDS" | head -n 1)
+W_ID2=$(echo "$W_IDS" | head -n 2 | tail -n 1)
+W_ID3=$(echo "$W_IDS" | head -n 3 | tail -n 1)
+W_ID4=$(echo "$W_IDS" | tail -n 1)
 
 echo "[*] Generating plots..."
 
@@ -264,12 +268,6 @@ _EOF_
 ) | gnuplot 2> /dev/null &
 
 sleep 1
-
-rm "$outputdir/tmp/win_ids"
-
-if [ -z "$(ls -A $outputdir/tmp)" ]; then
-	rm -r "$outputdir/tmp"
-fi
 
 else
 

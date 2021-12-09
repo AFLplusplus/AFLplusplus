@@ -15,7 +15,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    Gather some functions common to multiple executables
 
@@ -25,8 +25,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#define _GNU_SOURCE
+#define __USE_GNU
+#include <string.h>
 #include <strings.h>
 #include <math.h>
+#include <sys/mman.h>
 
 #include "debug.h"
 #include "alloc-inl.h"
@@ -50,6 +54,66 @@ u8  last_intr = 0;
 #ifndef AFL_PATH
   #define AFL_PATH "/usr/local/lib/afl/"
 #endif
+
+u32 check_binary_signatures(u8 *fn) {
+
+  int ret = 0, fd = open(fn, O_RDONLY);
+  if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
+  struct stat st;
+  if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
+  u32 f_len = st.st_size;
+  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
+  close(fd);
+
+  if (memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+
+    if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    ret = 1;
+
+  } else if (getenv("AFL_PERSISTENT")) {
+
+    if (!be_quiet) {
+
+      WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
+
+    }
+
+  } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
+
+    if (!be_quiet) {
+
+      OKF("FRIDA Persistent mode configuration options detected.");
+
+    }
+
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    ret = 1;
+
+  }
+
+  if (memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+
+    if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
+    setenv(DEFER_ENV_VAR, "1", 1);
+    ret += 2;
+
+  } else if (getenv("AFL_DEFER_FORKSRV")) {
+
+    if (!be_quiet) {
+
+      WARNF("AFL_DEFER_FORKSRV is no longer supported and may misbehave!");
+
+    }
+
+  }
+
+  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+
+  return ret;
+
+}
 
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
@@ -140,6 +204,35 @@ void argv_cpy_free(char **argv) {
 
 }
 
+/* Rewrite argv for CoreSight process tracer. */
+
+char **get_cs_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
+
+  if (unlikely(getenv("AFL_CS_CUSTOM_BIN"))) {
+
+    WARNF(
+        "AFL_CS_CUSTOM_BIN is enabled. "
+        "You must run your target under afl-cs-proxy on your own!");
+    return argv;
+
+  }
+
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
+  if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
+
+  memcpy(&new_argv[3], &argv[1], (int)(sizeof(char *)) * (argc - 1));
+  new_argv[argc + 3] = NULL;
+
+  new_argv[2] = *target_path_p;
+  new_argv[1] = "--";
+
+  /* Now we need to actually find the cs-proxy binary to put in argv[0]. */
+
+  *target_path_p = new_argv[0] = find_afl_binary(own_loc, "afl-cs-proxy");
+  return new_argv;
+
+}
+
 /* Rewrite argv for QEMU. */
 
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
@@ -153,11 +246,10 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   }
 
-  char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
   memcpy(&new_argv[3], &argv[1], (int)(sizeof(char *)) * (argc - 1));
-  new_argv[argc + 3] = NULL;
 
   new_argv[2] = *target_path_p;
   new_argv[1] = "--";
@@ -173,11 +265,10 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
-  char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 2));
   if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
   memcpy(&new_argv[2], &argv[1], (int)(sizeof(char *)) * (argc - 1));
-  new_argv[argc + 2] = NULL;
 
   new_argv[1] = *target_path_p;
 

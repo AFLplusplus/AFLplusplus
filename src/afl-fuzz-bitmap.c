@@ -15,7 +15,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+     https://www.apache.org/licenses/LICENSE-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -58,7 +58,7 @@ void write_bitmap(afl_state_t *afl) {
 u32 count_bits(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (afl->fsrv.map_size >> 2);
+  u32  i = ((afl->fsrv.real_map_size + 3) >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -68,7 +68,7 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
     /* This gets called on the inverse, virgin bitmap; optimize for sparse
        data. */
 
-    if (v == 0xffffffff) {
+    if (likely(v == 0xffffffff)) {
 
       ret += 32;
       continue;
@@ -92,14 +92,14 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
 u32 count_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (afl->fsrv.map_size >> 2);
+  u32  i = ((afl->fsrv.real_map_size + 3) >> 2);
   u32  ret = 0;
 
   while (i--) {
 
     u32 v = *(ptr++);
 
-    if (!v) { continue; }
+    if (likely(!v)) { continue; }
     if (v & 0x000000ffU) { ++ret; }
     if (v & 0x0000ff00U) { ++ret; }
     if (v & 0x00ff0000U) { ++ret; }
@@ -117,7 +117,7 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
 u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (afl->fsrv.map_size >> 2);
+  u32  i = ((afl->fsrv.real_map_size + 3) >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -127,7 +127,7 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
     /* This is called on the virgin bitmap, so optimize for the most likely
        case. */
 
-    if (v == 0xffffffffU) { continue; }
+    if (likely(v == 0xffffffffU)) { continue; }
     if ((v & 0x000000ffU) != 0x000000ffU) { ++ret; }
     if ((v & 0x0000ff00U) != 0x0000ff00U) { ++ret; }
     if ((v & 0x00ff0000U) != 0x00ff0000U) { ++ret; }
@@ -216,14 +216,14 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   u64 *current = (u64 *)afl->fsrv.trace_bits;
   u64 *virgin = (u64 *)virgin_map;
 
-  u32 i = (afl->fsrv.map_size >> 3);
+  u32 i = ((afl->fsrv.real_map_size + 7) >> 3);
 
 #else
 
   u32 *current = (u32 *)afl->fsrv.trace_bits;
   u32 *virgin = (u32 *)virgin_map;
 
-  u32 i = (afl->fsrv.map_size >> 2);
+  u32 i = ((afl->fsrv.real_map_size + 3) >> 2);
 
 #endif                                                     /* ^WORD_SIZE_64 */
 
@@ -317,8 +317,9 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
     }
 
-    sprintf(ret + strlen(ret), ",time:%llu",
-            get_cur_time() + afl->prev_run_time - afl->start_time);
+    sprintf(ret + strlen(ret), ",time:%llu,execs:%llu",
+            get_cur_time() + afl->prev_run_time - afl->start_time,
+            afl->fsrv.total_execs);
 
     if (afl->current_custom_fuzz &&
         afl->current_custom_fuzz->afl_custom_describe) {
@@ -451,13 +452,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(len == 0)) { return 0; }
 
+  u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = '\0';
+  u8  new_bits = 0, keeping = 0, res, classified = 0;
   s32 fd;
-  u8  keeping = 0, res, classified = 0;
   u64 cksum = 0;
-
-  u8 fn[PATH_MAX];
 
   /* Update path frequency. */
 
