@@ -447,7 +447,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   if (unlikely(afl->not_on_tty)) {
 
     ACTF(
-        "Fuzzing test case #%u (%u total, %llu uniq crashes found, "
+        "Fuzzing test case #%u (%u total, %llu crashes saved, "
         "perf_score=%0.0f, exec_us=%llu, hits=%u, map=%u, ascii=%u)...",
         afl->current_entry, afl->queued_items, afl->saved_crashes,
         afl->queue_cur->perf_score, afl->queue_cur->exec_us,
@@ -2968,7 +2968,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (afl->not_on_tty) {
 
-    ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found)...",
+    ACTF("Fuzzing test case #%u (%u total, %llu crashes saved)...",
          afl->current_entry, afl->queued_items, afl->saved_crashes);
     fflush(stdout);
 
