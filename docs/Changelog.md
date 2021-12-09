@@ -1566,7 +1566,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Fixed a bug with installed copies of AFL trying to use QEMU mode. Spotted
     by G.M. Lime.
 
-  - Added last path / crash / hang times to fuzzer_stats, suggested by
+  - Added last find / crash / hang times to fuzzer_stats, suggested by
     Richard Hipp.
 
   - Fixed a typo, thanks to Jakub Wilk.
