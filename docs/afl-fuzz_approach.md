@@ -85,7 +85,7 @@ for parallel fuzzing. Second to last is the power schedule mode being run
 ```
   +----------------------------------------------------+
   |        run time : 0 days, 8 hrs, 32 min, 43 sec    |
-  |   last new path : 0 days, 0 hrs, 6 min, 40 sec     |
+  |   last new find : 0 days, 0 hrs, 6 min, 40 sec     |
   | last uniq crash : none seen yet                    |
   |  last uniq hang : 0 days, 1 hrs, 24 min, 32 sec    |
   +----------------------------------------------------+
@@ -485,20 +485,20 @@ directory. This includes:
 - `cycles_wo_finds`   - number of cycles without any new paths found
 - `execs_done`        - number of execve() calls attempted
 - `execs_per_sec`     - overall number of execs per second
-- `paths_total`       - total number of entries in the queue
-- `paths_favored`     - number of queue entries that are favored
-- `paths_found`       - number of entries discovered through local fuzzing
-- `paths_imported`    - number of entries imported from other instances
+- `corpus_count`      - total number of entries in the queue
+- `corpus_favored`    - number of queue entries that are favored
+- `corpus_found`      - number of entries discovered through local fuzzing
+- `corpus_imported`   - number of entries imported from other instances
 - `max_depth`         - number of levels in the generated data set
-- `cur_path`          - currently processed entry number
+- `cur_item`          - currently processed entry number
 - `pending_favs`      - number of favored entries still waiting to be fuzzed
 - `pending_total`     - number of all entries waiting to be fuzzed
-- `variable_paths`    - number of test cases showing variable behavior
+- `corpus_variable`   - number of test cases showing variable behavior
 - `stability`         - percentage of bitmap bytes that behave consistently
 - `bitmap_cvg`        - percentage of edge coverage found in the map so far
-- `unique_crashes`    - number of unique crashes recorded
-- `unique_hangs`      - number of unique hangs encountered
-- `last_path`         - seconds since the last path was found
+- `saved_crashes`     - number of unique crashes recorded
+- `saved_hangs`       - number of unique hangs encountered
+- `last_find`         - seconds since the last find was found
 - `last_crash`        - seconds since the last crash was found
 - `last_hang`         - seconds since the last hang was found
 - `execs_since_crash` - execs since the last crash was found
@@ -531,9 +531,9 @@ last crash > X, etc.).
 
 The selected metrics are a subset of all the metrics found in the status and in
 the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
-`execs_done`,`execs_per_sec`, `paths_total`, `paths_favored`, `paths_found`,
-`paths_imported`, `max_depth`, `cur_path`, `pending_favs`, `pending_total`,
-`variable_paths`, `unique_crashes`, `unique_hangs`, `total_crashes`,
+`execs_done`,`execs_per_sec`, `corpus_count`, `corpus_favored`, `corpus_found`,
+`corpus_imported`, `max_depth`, `cur_item`, `pending_favs`, `pending_total`,
+`corpus_variable`, `saved_crashes`, `saved_hangs`, `total_crashes`,
 `slowest_exec_ms`, `edges_found`, `var_byte_count`, `havoc_expansion`. Their
 definitions can be found in the addendum above.
 

@@ -42,46 +42,48 @@
 
 // For DogstatsD
 #define STATSD_TAGS_TYPE_SUFFIX 1
-#define STATSD_TAGS_SUFFIX_METRICS                                             \
-  METRIC_PREFIX                                                                \
-  ".cycle_done:%llu|g%s\n" METRIC_PREFIX                                       \
-  ".cycles_wo_finds:%llu|g%s\n" METRIC_PREFIX                                  \
-  ".execs_done:%llu|g%s\n" METRIC_PREFIX                                       \
-  ".execs_per_sec:%0.02f|g%s\n" METRIC_PREFIX                                  \
-  ".paths_total:%u|g%s\n" METRIC_PREFIX                                        \
-  ".paths_favored:%u|g%s\n" METRIC_PREFIX                                      \
-  ".paths_found:%u|g%s\n" METRIC_PREFIX                                        \
-  ".paths_imported:%u|g%s\n" METRIC_PREFIX ".max_depth:%u|g%s\n" METRIC_PREFIX \
-  ".cur_path:%u|g%s\n" METRIC_PREFIX ".pending_favs:%u|g%s\n" METRIC_PREFIX    \
-  ".pending_total:%u|g%s\n" METRIC_PREFIX                                      \
-  ".variable_paths:%u|g%s\n" METRIC_PREFIX                                     \
-  ".unique_crashes:%llu|g%s\n" METRIC_PREFIX                                   \
-  ".unique_hangs:%llu|g%s\n" METRIC_PREFIX                                     \
-  ".total_crashes:%llu|g%s\n" METRIC_PREFIX                                    \
-  ".slowest_exec_ms:%u|g%s\n" METRIC_PREFIX                                    \
-  ".edges_found:%u|g%s\n" METRIC_PREFIX                                        \
+#define STATSD_TAGS_SUFFIX_METRICS                                       \
+  METRIC_PREFIX                                                          \
+  ".cycle_done:%llu|g%s\n" METRIC_PREFIX                                 \
+  ".cycles_wo_finds:%llu|g%s\n" METRIC_PREFIX                            \
+  ".execs_done:%llu|g%s\n" METRIC_PREFIX                                 \
+  ".execs_per_sec:%0.02f|g%s\n" METRIC_PREFIX                            \
+  ".corpus_count:%u|g%s\n" METRIC_PREFIX                                 \
+  ".corpus_favored:%u|g%s\n" METRIC_PREFIX                               \
+  ".corpus_found:%u|g%s\n" METRIC_PREFIX                                 \
+  ".corpus_imported:%u|g%s\n" METRIC_PREFIX                              \
+  ".max_depth:%u|g%s\n" METRIC_PREFIX ".cur_item:%u|g%s\n" METRIC_PREFIX \
+  ".pending_favs:%u|g%s\n" METRIC_PREFIX                                 \
+  ".pending_total:%u|g%s\n" METRIC_PREFIX                                \
+  ".corpus_variable:%u|g%s\n" METRIC_PREFIX                              \
+  ".saved_crashes:%llu|g%s\n" METRIC_PREFIX                              \
+  ".saved_hangs:%llu|g%s\n" METRIC_PREFIX                                \
+  ".total_crashes:%llu|g%s\n" METRIC_PREFIX                              \
+  ".slowest_exec_ms:%u|g%s\n" METRIC_PREFIX                              \
+  ".edges_found:%u|g%s\n" METRIC_PREFIX                                  \
   ".var_byte_count:%u|g%s\n" METRIC_PREFIX ".havoc_expansion:%u|g%s\n"
 
 // For Librato, InfluxDB, SignalFX
 #define STATSD_TAGS_TYPE_MID 2
-#define STATSD_TAGS_MID_METRICS                                                \
-  METRIC_PREFIX                                                                \
-  ".cycle_done%s:%llu|g\n" METRIC_PREFIX                                       \
-  ".cycles_wo_finds%s:%llu|g\n" METRIC_PREFIX                                  \
-  ".execs_done%s:%llu|g\n" METRIC_PREFIX                                       \
-  ".execs_per_sec%s:%0.02f|g\n" METRIC_PREFIX                                  \
-  ".paths_total%s:%u|g\n" METRIC_PREFIX                                        \
-  ".paths_favored%s:%u|g\n" METRIC_PREFIX                                      \
-  ".paths_found%s:%u|g\n" METRIC_PREFIX                                        \
-  ".paths_imported%s:%u|g\n" METRIC_PREFIX ".max_depth%s:%u|g\n" METRIC_PREFIX \
-  ".cur_path%s:%u|g\n" METRIC_PREFIX ".pending_favs%s:%u|g\n" METRIC_PREFIX    \
-  ".pending_total%s:%u|g\n" METRIC_PREFIX                                      \
-  ".variable_paths%s:%u|g\n" METRIC_PREFIX                                     \
-  ".unique_crashes%s:%llu|g\n" METRIC_PREFIX                                   \
-  ".unique_hangs%s:%llu|g\n" METRIC_PREFIX                                     \
-  ".total_crashes%s:%llu|g\n" METRIC_PREFIX                                    \
-  ".slowest_exec_ms%s:%u|g\n" METRIC_PREFIX                                    \
-  ".edges_found%s:%u|g\n" METRIC_PREFIX                                        \
+#define STATSD_TAGS_MID_METRICS                                          \
+  METRIC_PREFIX                                                          \
+  ".cycle_done%s:%llu|g\n" METRIC_PREFIX                                 \
+  ".cycles_wo_finds%s:%llu|g\n" METRIC_PREFIX                            \
+  ".execs_done%s:%llu|g\n" METRIC_PREFIX                                 \
+  ".execs_per_sec%s:%0.02f|g\n" METRIC_PREFIX                            \
+  ".corpus_count%s:%u|g\n" METRIC_PREFIX                                 \
+  ".corpus_favored%s:%u|g\n" METRIC_PREFIX                               \
+  ".corpus_found%s:%u|g\n" METRIC_PREFIX                                 \
+  ".corpus_imported%s:%u|g\n" METRIC_PREFIX                              \
+  ".max_depth%s:%u|g\n" METRIC_PREFIX ".cur_item%s:%u|g\n" METRIC_PREFIX \
+  ".pending_favs%s:%u|g\n" METRIC_PREFIX                                 \
+  ".pending_total%s:%u|g\n" METRIC_PREFIX                                \
+  ".corpus_variable%s:%u|g\n" METRIC_PREFIX                              \
+  ".saved_crashes%s:%llu|g\n" METRIC_PREFIX                              \
+  ".saved_hangs%s:%llu|g\n" METRIC_PREFIX                                \
+  ".total_crashes%s:%llu|g\n" METRIC_PREFIX                              \
+  ".slowest_exec_ms%s:%u|g\n" METRIC_PREFIX                              \
+  ".edges_found%s:%u|g\n" METRIC_PREFIX                                  \
   ".var_byte_count%s:%u|g\n" METRIC_PREFIX ".havoc_expansion%s:%u|g\n"
 
 void statsd_setup_format(afl_state_t *afl) {
@@ -238,11 +240,11 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
         afl->fsrv.total_execs /
             ((double)(get_cur_time() + afl->prev_run_time - afl->start_time) /
              1000),
-        tags, afl->queued_paths, tags, afl->queued_favored, tags,
+        tags, afl->queued_items, tags, afl->queued_favored, tags,
         afl->queued_discovered, tags, afl->queued_imported, tags,
         afl->max_depth, tags, afl->current_entry, tags, afl->pending_favored,
         tags, afl->pending_not_fuzzed, tags, afl->queued_variable, tags,
-        afl->unique_crashes, tags, afl->unique_hangs, tags, afl->total_crashes,
+        afl->saved_crashes, tags, afl->saved_hangs, tags, afl->total_crashes,
         tags, afl->slowest_exec_ms, tags,
         count_non_255_bytes(afl, afl->virgin_bits), tags, afl->var_byte_count,
         tags, afl->expand_havoc, tags);
@@ -256,11 +258,11 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
         afl->fsrv.total_execs /
             ((double)(get_cur_time() + afl->prev_run_time - afl->start_time) /
              1000),
-        tags, afl->queued_paths, tags, afl->queued_favored, tags,
+        tags, afl->queued_items, tags, afl->queued_favored, tags,
         afl->queued_discovered, tags, afl->queued_imported, tags,
         afl->max_depth, tags, afl->current_entry, tags, afl->pending_favored,
         tags, afl->pending_not_fuzzed, tags, afl->queued_variable, tags,
-        afl->unique_crashes, tags, afl->unique_hangs, tags, afl->total_crashes,
+        afl->saved_crashes, tags, afl->saved_hangs, tags, afl->total_crashes,
         tags, afl->slowest_exec_ms, tags,
         count_non_255_bytes(afl, afl->virgin_bits), tags, afl->var_byte_count,
         tags, afl->expand_havoc);

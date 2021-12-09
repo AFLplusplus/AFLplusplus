@@ -26,7 +26,7 @@ StatsD allows you to receive and aggregate metrics from a wide range of
 applications and retransmit them to a backend of your choice.
 
 From AFL++, StatsD can receive the following metrics:
-- cur_path
+- cur_item
 - cycle_done
 - cycles_wo_finds
 - edges_found
@@ -34,18 +34,18 @@ From AFL++, StatsD can receive the following metrics:
 - execs_per_sec
 - havoc_expansion
 - max_depth
-- paths_favored
-- paths_found
-- paths_imported
-- paths_total
+- corpus_favored
+- corpus_found
+- corpus_imported
+- corpus_count
 - pending_favs
 - pending_total
 - slowest_exec_ms
 - total_crashes
-- unique_crashes
-- unique_hangs
+- saved_crashes
+- saved_hangs
 - var_byte_count
-- variable_paths
+- corpus_variable
 
 Depending on your StatsD server, you will be able to monitor, trigger alerts, or
 perform actions based on these metrics (for example: alert on slow exec/s for a
