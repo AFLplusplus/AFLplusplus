@@ -45,7 +45,83 @@ static gboolean instrument_coverage_in_range(gssize offset) {
 
 }
 
-  #pragma pack(push, 1)
+  #ifdef __APPLE__
+    #pragma pack(push, 1)
+
+typedef struct {
+
+  // cur_location = (block_address >> 4) ^ (block_address << 8);
+  // shared_mem[cur_location ^ prev_location]++;
+  // prev_location = cur_location >> 1;
+
+  //  mov    QWORD PTR [rsp-0x80],rax
+  //  lahf
+  //  mov    QWORD PTR [rsp-0x88],rax
+  //  mov    QWORD PTR [rsp-0x90],rbx
+  //  mov    eax,DWORD PTR [rip+0x333d5a]        # 0x7ffff6ff2740
+  //  mov    DWORD PTR [rip+0x333d3c],0x9fbb        # 0x7ffff6ff2740
+  //  lea    rax,[rip + 0x103f77]
+  //  mov    bl,BYTE PTR [rax]
+  //  add    bl,0x1
+  //  adc    bl,0x0
+  //  mov    BYTE PTR [rax],bl
+  //  mov    rbx,QWORD PTR [rsp-0x90]
+  //  mov    rax,QWORD PTR [rsp-0x88]
+  //  sahf
+  //  mov    rax,QWORD PTR [rsp-0x80]
+
+  uint8_t mov_rax_rsp_88[8];
+  uint8_t lahf;
+  uint8_t mov_rax_rsp_90[8];
+  uint8_t mov_rbx_rsp_98[8];
+
+  uint8_t mov_eax_prev_loc[6];
+  uint8_t mov_prev_loc_curr_loc_shr1[10];
+
+  uint8_t leax_eax_curr_loc[7];
+
+  uint8_t mov_rbx_ptr_rax[2];
+  uint8_t add_bl_1[3];
+  uint8_t adc_bl_0[3];
+  uint8_t mov_ptr_rax_rbx[2];
+
+  uint8_t mov_rsp_98_rbx[8];
+  uint8_t mov_rsp_90_rax[8];
+  uint8_t sahf;
+  uint8_t mov_rsp_88_rax[8];
+
+} afl_log_code_asm_t;
+
+    #pragma pack(pop)
+
+static const afl_log_code_asm_t template =
+    {
+
+        .mov_rax_rsp_88 = {0x48, 0x89, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
+        .lahf = 0x9f,
+        .mov_rax_rsp_90 = {0x48, 0x89, 0x84, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
+        .mov_rbx_rsp_98 = {0x48, 0x89, 0x9C, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
+
+        .mov_eax_prev_loc = {0x8b, 0x05},
+        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x05},
+
+        .leax_eax_curr_loc = {0x48, 0x8d, 0x05},
+        .mov_rbx_ptr_rax = {0x8a, 0x18},
+        .add_bl_1 = {0x80, 0xc3, 0x01},
+        .adc_bl_0 = {0x80, 0xd3, 0x00},
+        .mov_ptr_rax_rbx = {0x88, 0x18},
+
+        .mov_rsp_98_rbx = {0x48, 0x8B, 0x9C, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
+        .mov_rsp_90_rax = {0x48, 0x8B, 0x84, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
+        .sahf = 0x9e,
+        .mov_rsp_88_rax = {0x48, 0x8B, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
+
+}
+
+;
+
+  #else
+    #pragma pack(push, 1)
 typedef struct {
 
   // cur_location = (block_address >> 4) ^ (block_address << 8);
@@ -90,14 +166,7 @@ typedef struct {
 
 } afl_log_code_asm_t;
 
-  #pragma pack(pop)
-
-typedef union {
-
-  afl_log_code_asm_t code;
-  uint8_t            bytes[0];
-
-} afl_log_code;
+    #pragma pack(pop)
 
 static const afl_log_code_asm_t template =
     {
@@ -124,6 +193,22 @@ static const afl_log_code_asm_t template =
 }
 
 ;
+  #endif
+
+typedef union {
+
+  afl_log_code_asm_t code;
+  uint8_t            bytes[0];
+
+} afl_log_code;
+
+  #ifdef __APPLE__
+
+void instrument_coverage_optimize_init(void) {
+
+}
+
+  #else
 
 static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
                                              gpointer               user_data) {
@@ -181,10 +266,10 @@ static void instrument_coverage_optimize_map_mmap(char *   shm_file_path,
 
   __afl_area_ptr = NULL;
 
-  #if !defined(__ANDROID__)
+    #if !defined(__ANDROID__)
   shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
   if (shm_fd == -1) { FATAL("shm_open() failed\n"); }
-  #else
+    #else
   shm_fd = open("/dev/ashmem", O_RDWR);
   if (shm_fd == -1) { FATAL("open() failed\n"); }
   if (ioctl(shm_fd, ASHMEM_SET_NAME, shm_file_path) == -1) {
@@ -199,7 +284,7 @@ static void instrument_coverage_optimize_map_mmap(char *   shm_file_path,
 
   }
 
-  #endif
+    #endif
 
   __afl_area_ptr = mmap(address, __afl_map_size, PROT_READ | PROT_WRITE,
                         MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
@@ -228,51 +313,6 @@ static void instrument_coverage_optimize_map_shm(guint64  shm_env_val,
     FATAL("Failed to map shm __afl_area_ptr: %d", errno);
 
   }
-
-}
-
-static void instrument_coverage_switch(GumStalkerObserver *self,
-                                       gpointer            start_address,
-                                       const cs_insn *     from_insn,
-                                       gpointer *          target) {
-
-  UNUSED_PARAMETER(self);
-  UNUSED_PARAMETER(start_address);
-
-  cs_x86 *   x86;
-  cs_x86_op *op;
-  if (from_insn == NULL) { return; }
-
-  x86 = &from_insn->detail->x86;
-  op = x86->operands;
-
-  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
-
-    return;
-
-  }
-
-  switch (from_insn->id) {
-
-    case X86_INS_CALL:
-    case X86_INS_JMP:
-      if (x86->op_count != 1) {
-
-        FATAL("Unexpected operand count: %d", x86->op_count);
-
-      }
-
-      if (op[0].type != X86_OP_IMM) { return; }
-
-      break;
-    case X86_INS_RET:
-      break;
-    default:
-      return;
-
-  }
-
-  *target = (guint8 *)*target + sizeof(afl_log_code);
 
 }
 
@@ -321,6 +361,53 @@ void instrument_coverage_optimize_init(void) {
 
   FOKF("__afl_area_ptr: %p", __afl_area_ptr);
   FOKF("instrument_previous_pc: %p", &instrument_previous_pc);
+
+}
+
+  #endif
+
+static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            start_address,
+                                       const cs_insn *     from_insn,
+                                       gpointer *          target) {
+
+  UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(start_address);
+
+  cs_x86 *   x86;
+  cs_x86_op *op;
+  if (from_insn == NULL) { return; }
+
+  x86 = &from_insn->detail->x86;
+  op = x86->operands;
+
+  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
+
+    return;
+
+  }
+
+  switch (from_insn->id) {
+
+    case X86_INS_CALL:
+    case X86_INS_JMP:
+      if (x86->op_count != 1) {
+
+        FATAL("Unexpected operand count: %d", x86->op_count);
+
+      }
+
+      if (op[0].type != X86_OP_IMM) { return; }
+
+      break;
+    case X86_INS_RET:
+      break;
+    default:
+      return;
+
+  }
+
+  *target = (guint8 *)*target + sizeof(afl_log_code);
 
 }
 
@@ -405,12 +492,35 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   *((gint *)&code.bytes[prev_loc_value_offset2]) = (gint)prev_loc_value2;
 
+  #ifdef __APPLE__
+
+  gssize xor_curr_loc_offset = offsetof(afl_log_code, code.leax_eax_curr_loc) +
+                               sizeof(code.code.leax_eax_curr_loc) -
+                               sizeof(guint32);
+
+  gssize xor_curr_loc_value =
+      ((GPOINTER_TO_SIZE(__afl_area_ptr) | area_offset) -
+       (code_addr + offsetof(afl_log_code, code.mov_eax_prev_loc) +
+        sizeof(code.code.mov_eax_prev_loc)));
+
+  if (!instrument_coverage_in_range(xor_curr_loc_value)) {
+
+    FATAL("Patch out of range (xor_curr_loc_value): 0x%016lX",
+          xor_curr_loc_value);
+
+  }
+
+  *((guint32 *)&code.bytes[xor_curr_loc_offset]) = xor_curr_loc_value;
+
+  #else
+
   gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_eax_curr_loc) +
                                sizeof(code.code.xor_eax_curr_loc) -
                                sizeof(guint32);
 
   *((guint32 *)&code.bytes[xor_curr_loc_offset]) =
       (guint32)(GPOINTER_TO_SIZE(__afl_area_ptr) | area_offset);
+  #endif
 
   gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
 
