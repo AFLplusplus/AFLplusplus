@@ -1,6 +1,6 @@
 # libdislocator, an abusive allocator
 
-  (See ../../README.md for the general instruction manual.)
+For the general instruction manual, see [docs/README.md](../../docs/README.md).
 
 This is a companion library that can be used as a drop-in replacement for the
 libc allocator in the fuzzed binaries. It improves the odds of bumping into
