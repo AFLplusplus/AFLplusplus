@@ -10,6 +10,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
   - documentation restructuring, made possible by Google Season of Docs
+  - we renamed several UI and fuzzer_stat entries to be more precise,
+    e.g. "unique crashes" -> "saved crashes", "total paths" ->
+    "corpus count", "current path" -> "current item".
+    This might need changing custom scripting!
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
   - if instrumented libaries are dlopen()'ed after the forkserver you
