@@ -1834,7 +1834,7 @@ static int XXH_isLittleEndian(void) {
 
 }
 
-#define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
+      #define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
     #endif
   #endif
 
@@ -2082,6 +2082,23 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32) {
 
   #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
+  #define XXH_PROCESS1                           \
+    do {                                         \
+                                                 \
+      h32 += (*ptr++) * XXH_PRIME32_5;           \
+      h32 = XXH_rotl32(h32, 11) * XXH_PRIME32_1; \
+                                                 \
+    } while (0)
+
+  #define XXH_PROCESS4                           \
+    do {                                         \
+                                                 \
+      h32 += XXH_get32bits(ptr) * XXH_PRIME32_3; \
+      ptr += 4;                                  \
+      h32 = XXH_rotl32(h32, 17) * XXH_PRIME32_4; \
+                                                 \
+    } while (0)
+
 /*!
  * @internal
  * @brief Processes the last 0-15 bytes of @p ptr.
@@ -2098,109 +2115,91 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32) {
  */
 static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
                               XXH_alignment align) {
-\
-  #define XXH_PROCESS1 do {
 
-    h32 += (*ptr++) * XXH_PRIME32_5;
-    h32 = XXH_rotl32(h32, 11) * XXH_PRIME32_1;
+  /* Compact rerolled version */
+  if (XXH_REROLL) {
 
-  }
+    len &= 15;
+    while (len >= 4) {
 
-  while (0)
-
-  #define XXH_PROCESS4                           \
-    do {                                         \
-                                                 \
-      h32 += XXH_get32bits(ptr) * XXH_PRIME32_3; \
-      ptr += 4;                                  \
-      h32 = XXH_rotl32(h32, 17) * XXH_PRIME32_4; \
-                                                 \
-    } while (0)
-
-    /* Compact rerolled version */
-    if (XXH_REROLL) {
-
-      len &= 15;
-      while (len >= 4) {
-
-        XXH_PROCESS4;
-        len -= 4;
-
-      }
-
-      while (len > 0) {
-
-        XXH_PROCESS1;
-        --len;
-
-      }
-
-      return XXH32_avalanche(h32);
-
-    } else {
-
-      switch (len & 15) /* or switch(bEnd - p) */ {
-
-        case 12:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 8:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 4:
-          XXH_PROCESS4;
-          return XXH32_avalanche(h32);
-
-        case 13:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 9:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 5:
-          XXH_PROCESS4;
-          XXH_PROCESS1;
-          return XXH32_avalanche(h32);
-
-        case 14:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 10:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 6:
-          XXH_PROCESS4;
-          XXH_PROCESS1;
-          XXH_PROCESS1;
-          return XXH32_avalanche(h32);
-
-        case 15:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 11:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 7:
-          XXH_PROCESS4;
-          XXH_FALLTHROUGH;
-        case 3:
-          XXH_PROCESS1;
-          XXH_FALLTHROUGH;
-        case 2:
-          XXH_PROCESS1;
-          XXH_FALLTHROUGH;
-        case 1:
-          XXH_PROCESS1;
-          XXH_FALLTHROUGH;
-        case 0:
-          return XXH32_avalanche(h32);
-
-      }
-
-      XXH_ASSERT(0);
-      return h32;               /* reaching this point is deemed impossible */
+      XXH_PROCESS4;
+      len -= 4;
 
     }
+
+    while (len > 0) {
+
+      XXH_PROCESS1;
+      --len;
+
+    }
+
+    return XXH32_avalanche(h32);
+
+  } else {
+
+    switch (len & 15) /* or switch(bEnd - p) */ {
+
+      case 12:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 8:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 4:
+        XXH_PROCESS4;
+        return XXH32_avalanche(h32);
+
+      case 13:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 9:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 5:
+        XXH_PROCESS4;
+        XXH_PROCESS1;
+        return XXH32_avalanche(h32);
+
+      case 14:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 10:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 6:
+        XXH_PROCESS4;
+        XXH_PROCESS1;
+        XXH_PROCESS1;
+        return XXH32_avalanche(h32);
+
+      case 15:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 11:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 7:
+        XXH_PROCESS4;
+        XXH_FALLTHROUGH;
+      case 3:
+        XXH_PROCESS1;
+        XXH_FALLTHROUGH;
+      case 2:
+        XXH_PROCESS1;
+        XXH_FALLTHROUGH;
+      case 1:
+        XXH_PROCESS1;
+        XXH_FALLTHROUGH;
+      case 0:
+        return XXH32_avalanche(h32);
+
+    }
+
+    XXH_ASSERT(0);
+    return h32;                 /* reaching this point is deemed impossible */
+
+  }
 
 }
 
