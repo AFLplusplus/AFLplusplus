@@ -1,6 +1,6 @@
 # AFL++ dictionaries
 
-(See [../README.md](../README.md) for the general instruction manual.)
+For the general instruction manual, see [docs/README.md](../docs/README.md).
 
 This subdirectory contains a set of dictionaries that can be used in conjunction
 with the -x option to allow the fuzzer to effortlessly explore the grammar of
