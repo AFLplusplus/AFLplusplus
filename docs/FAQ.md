@@ -146,7 +146,6 @@ If you find an interesting or important question missing, submit it via
   be influenced by various factors, for example, speed (finding lots of paths
   quickly) or thoroughness (working with decreased speed, but finding better
   mutations).
-
 </p></details>
 
 <details>
