@@ -211,7 +211,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   } else if (data->mut_idx == 2) {  // Perform splice mutation
 
     // we cannot use the supplied splice data so choose a new random file
-    u32                 tid = rand_below(global_afl, data->afl->queued_paths);
+    u32                 tid = rand_below(global_afl, data->afl->queued_items);
     struct queue_entry *q = data->afl->queue_buf[tid];
 
     // Read the input representation for the splice candidate
