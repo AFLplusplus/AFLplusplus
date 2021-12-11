@@ -34,6 +34,19 @@ If you find an interesting or important question missing, submit it via
 </p></details>
 
 <details>
+  <summary id="is-afl-a-whitebox-graybox-or-blackbox-fuzzer">Is AFL++ a whitebox, graybox, or blackbox fuzzer?</summary><p>
+
+  The definition of the terms whitebox, graybox, and blackbox fuzzing varies
+  from one source to another. For example, "graybox fuzzing" could mean
+  binary-only or source code fuzzing, or something completely different.
+  Therefore, we try to avoid them.
+
+  [The Fuzzing Book](https://www.fuzzingbook.org/html/GreyboxFuzzer.html#AFL:-An-Effective-Greybox-Fuzzer)
+  describes the original AFL to be a graybox fuzzer. In that sense, AFL++ is
+  also a graybox fuzzer.
+</p></details>
+
+<details>
   <summary id="where-can-i-find-tutorials">Where can I find tutorials?</summary><p>
 
   We compiled a list of tutorials and exercises, see
@@ -127,6 +140,15 @@ If you find an interesting or important question missing, submit it via
 ## Performance
 
 <details>
+  <summary id="what-makes-a-good-performance">What makes a good performance?</summary><p>
+
+  Good performance generally means "making the fuzzing results better". This can
+  be influenced by various factors, for example, speed (finding lots of paths
+  quickly) or thoroughness (working with decreased speed, but finding better
+  mutations).
+</p></details>
+
+<details>
   <summary id="how-can-i-improve-the-fuzzing-speed">How can I improve the fuzzing speed?</summary><p>
 
   There are a few things you can do to improve the fuzzing speed, see
@@ -146,8 +168,8 @@ If you find an interesting or important question missing, submit it via
   the edge coverage result will be different across runs. Those edges that
   change are then flagged "unstable".
 
-  The more "unstable" edges, the more difficult for AFL++ to identify valid new
-  paths.
+  The more "unstable" edges there are, the harder it is for AFL++ to identify
+  valid new paths.
 
   A value above 90% is usually fine and a value above 80% is also still ok, and
   even a value above 20% can still result in successful finds of bugs. However,
