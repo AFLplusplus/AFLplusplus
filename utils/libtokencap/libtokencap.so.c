@@ -171,7 +171,7 @@ static void __tokencap_load_mappings(void) {
   int mib[] = {CTL_VM, VM_PROC, VM_PROC_MAP, __tokencap_pid,
                sizeof(struct kinfo_vmentry)};
   #endif
-  char *buf, *low, *high;
+  char * buf, *low, *high;
   size_t miblen = sizeof(mib) / sizeof(mib[0]);
   size_t len;
 
@@ -345,11 +345,7 @@ static void __tokencap_dump(const u8 *ptr, size_t len, u8 is_text) {
   wrt_ok &= (pos == write(__tokencap_out_file, buf, pos));
   wrt_ok &= (2 == write(__tokencap_out_file, "\"\n", 2));
 
-  if (!wrt_ok) {
-
-    DEBUGF("%s", "writing to the token file failed\n");
-
-  }
+  if (!wrt_ok) { DEBUGF("%s", "writing to the token file failed\n"); }
 
 }
 

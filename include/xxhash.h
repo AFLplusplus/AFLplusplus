@@ -1010,7 +1010,7 @@ XXH128_hashFromCanonical(const XXH128_canonical_t *src);
  * These declarations should only be used with static linking.
  * Never use them in association with dynamic linking!
  *****************************************************************************
-*/
+ */
 
 /*
  * These definitions are only present to allow static allocation
@@ -1435,9 +1435,9 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void *data, size_t len,
     #define XXH_OLD_NAMES
     #undef XXH_OLD_NAMES                 /* don't actually use, it is ugly. */
   #endif                                                     /* XXH_DOXYGEN */
-/*!
- * @}
- */
+                         /*!
+                          * @}
+                          */
 
   #ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command \
                                      line for example */
@@ -1601,6 +1601,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           static_assert((c), m);                   \
                                                    \
         } while (0)
+
     #elif defined(__cplusplus) && (__cplusplus >= 201103L)         /* C++11 */
       #define XXH_STATIC_ASSERT_WITH_MESSAGE(c, m) \
         do {                                       \
@@ -1608,6 +1609,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           static_assert((c), m);                   \
                                                    \
         } while (0)
+
     #else
       #define XXH_STATIC_ASSERT_WITH_MESSAGE(c, m) \
         do {                                       \
@@ -1619,6 +1621,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           };                                       \
                                                    \
         } while (0)
+
     #endif
     #define XXH_STATIC_ASSERT(c) XXH_STATIC_ASSERT_WITH_MESSAGE((c), #c)
   #endif
@@ -1830,8 +1833,8 @@ static int XXH_isLittleEndian(void) {
   return one.c[0];
 
 }
-\
-      #define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
+
+#define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
     #endif
   #endif
 
@@ -2096,13 +2099,14 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32) {
 static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
                               XXH_alignment align) {
 \
-  #define XXH_PROCESS1                           \
-    do {                                         \
-                                                 \
-      h32 += (*ptr++) * XXH_PRIME32_5;           \
-      h32 = XXH_rotl32(h32, 11) * XXH_PRIME32_1; \
-                                                 \
-    } while (0)
+  #define XXH_PROCESS1 do {
+
+    h32 += (*ptr++) * XXH_PRIME32_5;
+    h32 = XXH_rotl32(h32, 11) * XXH_PRIME32_1;
+
+  }
+
+  while (0)
 
   #define XXH_PROCESS4                           \
     do {                                         \
@@ -2113,90 +2117,90 @@ static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
                                                  \
     } while (0)
 
-  /* Compact rerolled version */
-  if (XXH_REROLL) {
+    /* Compact rerolled version */
+    if (XXH_REROLL) {
 
-    len &= 15;
-    while (len >= 4) {
+      len &= 15;
+      while (len >= 4) {
 
-      XXH_PROCESS4;
-      len -= 4;
+        XXH_PROCESS4;
+        len -= 4;
+
+      }
+
+      while (len > 0) {
+
+        XXH_PROCESS1;
+        --len;
+
+      }
+
+      return XXH32_avalanche(h32);
+
+    } else {
+
+      switch (len & 15) /* or switch(bEnd - p) */ {
+
+        case 12:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 8:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 4:
+          XXH_PROCESS4;
+          return XXH32_avalanche(h32);
+
+        case 13:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 9:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 5:
+          XXH_PROCESS4;
+          XXH_PROCESS1;
+          return XXH32_avalanche(h32);
+
+        case 14:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 10:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 6:
+          XXH_PROCESS4;
+          XXH_PROCESS1;
+          XXH_PROCESS1;
+          return XXH32_avalanche(h32);
+
+        case 15:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 11:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 7:
+          XXH_PROCESS4;
+          XXH_FALLTHROUGH;
+        case 3:
+          XXH_PROCESS1;
+          XXH_FALLTHROUGH;
+        case 2:
+          XXH_PROCESS1;
+          XXH_FALLTHROUGH;
+        case 1:
+          XXH_PROCESS1;
+          XXH_FALLTHROUGH;
+        case 0:
+          return XXH32_avalanche(h32);
+
+      }
+
+      XXH_ASSERT(0);
+      return h32;               /* reaching this point is deemed impossible */
 
     }
-
-    while (len > 0) {
-
-      XXH_PROCESS1;
-      --len;
-
-    }
-
-    return XXH32_avalanche(h32);
-
-  } else {
-
-    switch (len & 15) /* or switch(bEnd - p) */ {
-
-      case 12:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 8:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 4:
-        XXH_PROCESS4;
-        return XXH32_avalanche(h32);
-
-      case 13:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 9:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 5:
-        XXH_PROCESS4;
-        XXH_PROCESS1;
-        return XXH32_avalanche(h32);
-
-      case 14:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 10:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 6:
-        XXH_PROCESS4;
-        XXH_PROCESS1;
-        XXH_PROCESS1;
-        return XXH32_avalanche(h32);
-
-      case 15:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 11:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 7:
-        XXH_PROCESS4;
-        XXH_FALLTHROUGH;
-      case 3:
-        XXH_PROCESS1;
-        XXH_FALLTHROUGH;
-      case 2:
-        XXH_PROCESS1;
-        XXH_FALLTHROUGH;
-      case 1:
-        XXH_PROCESS1;
-        XXH_FALLTHROUGH;
-      case 0:
-        return XXH32_avalanche(h32);
-
-    }
-
-    XXH_ASSERT(0);
-    return h32;                 /* reaching this point is deemed impossible */
-
-  }
 
 }
 
@@ -3385,6 +3389,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
               (outHi) = vget_high_u32(vreinterpretq_u32_u64(in));                                        \
                                                                                                          \
             } while (0)
+
         #else
           #define XXH_SPLIT_IN_PLACE(in, outLo, outHi) \
             do {                                       \
@@ -3393,6 +3398,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
               (outHi) = vshrn_n_u64((in), 32);         \
                                                        \
             } while (0)
+
         #endif
       #endif                                      /* XXH_VECTOR == XXH_NEON */
 
