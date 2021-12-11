@@ -920,7 +920,7 @@ void perform_dry_run(afl_state_t *afl) {
 
             q->was_fuzzed = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_paths;
+            --afl->active_items;
 
           }
 
@@ -1051,7 +1051,7 @@ void perform_dry_run(afl_state_t *afl) {
 
           q->was_fuzzed = 1;
           --afl->pending_not_fuzzed;
-          --afl->active_paths;
+          --afl->active_items;
 
         }
 
@@ -1162,7 +1162,7 @@ void perform_dry_run(afl_state_t *afl) {
 
             p->was_fuzzed = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_paths;
+            --afl->active_items;
 
           }
 
@@ -1175,7 +1175,7 @@ void perform_dry_run(afl_state_t *afl) {
 
             q->was_fuzzed = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_paths;
+            --afl->active_items;
 
           }
 

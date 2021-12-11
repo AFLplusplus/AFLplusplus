@@ -1010,7 +1010,7 @@ XXH128_hashFromCanonical(const XXH128_canonical_t *src);
  * These declarations should only be used with static linking.
  * Never use them in association with dynamic linking!
  *****************************************************************************
-*/
+ */
 
 /*
  * These definitions are only present to allow static allocation
@@ -1435,9 +1435,9 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void *data, size_t len,
     #define XXH_OLD_NAMES
     #undef XXH_OLD_NAMES                 /* don't actually use, it is ugly. */
   #endif                                                     /* XXH_DOXYGEN */
-/*!
- * @}
- */
+                         /*!
+                          * @}
+                          */
 
   #ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command \
                                      line for example */
@@ -1601,6 +1601,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           static_assert((c), m);                   \
                                                    \
         } while (0)
+
     #elif defined(__cplusplus) && (__cplusplus >= 201103L)         /* C++11 */
       #define XXH_STATIC_ASSERT_WITH_MESSAGE(c, m) \
         do {                                       \
@@ -1608,6 +1609,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           static_assert((c), m);                   \
                                                    \
         } while (0)
+
     #else
       #define XXH_STATIC_ASSERT_WITH_MESSAGE(c, m) \
         do {                                       \
@@ -1619,6 +1621,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           };                                       \
                                                    \
         } while (0)
+
     #endif
     #define XXH_STATIC_ASSERT(c) XXH_STATIC_ASSERT_WITH_MESSAGE((c), #c)
   #endif
@@ -1830,7 +1833,7 @@ static int XXH_isLittleEndian(void) {
   return one.c[0];
 
 }
-\
+
       #define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
     #endif
   #endif
@@ -2079,23 +2082,6 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32) {
 
   #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
-/*!
- * @internal
- * @brief Processes the last 0-15 bytes of @p ptr.
- *
- * There may be up to 15 bytes remaining to consume from the input.
- * This final stage will digest them to ensure that all input bytes are present
- * in the final mix.
- *
- * @param h32 The hash to finalize.
- * @param ptr The pointer to the remaining input.
- * @param len The remaining length, modulo 16.
- * @param align Whether @p ptr is aligned.
- * @return The finalized hash.
- */
-static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
-                              XXH_alignment align) {
-\
   #define XXH_PROCESS1                           \
     do {                                         \
                                                  \
@@ -2112,6 +2098,23 @@ static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
       h32 = XXH_rotl32(h32, 17) * XXH_PRIME32_4; \
                                                  \
     } while (0)
+
+/*!
+ * @internal
+ * @brief Processes the last 0-15 bytes of @p ptr.
+ *
+ * There may be up to 15 bytes remaining to consume from the input.
+ * This final stage will digest them to ensure that all input bytes are present
+ * in the final mix.
+ *
+ * @param h32 The hash to finalize.
+ * @param ptr The pointer to the remaining input.
+ * @param len The remaining length, modulo 16.
+ * @param align Whether @p ptr is aligned.
+ * @return The finalized hash.
+ */
+static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
+                              XXH_alignment align) {
 
   /* Compact rerolled version */
   if (XXH_REROLL) {
@@ -3385,6 +3388,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
               (outHi) = vget_high_u32(vreinterpretq_u32_u64(in));                                        \
                                                                                                          \
             } while (0)
+
         #else
           #define XXH_SPLIT_IN_PLACE(in, outLo, outHi) \
             do {                                       \
@@ -3393,6 +3397,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
               (outHi) = vshrn_n_u64((in), 32);         \
                                                        \
             } while (0)
+
         #endif
       #endif                                      /* XXH_VECTOR == XXH_NEON */
 

@@ -527,7 +527,7 @@ typedef struct afl_state {
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32 *   alias_table;                /* alias weighted random lookup table */
-  u32     active_paths;                 /* enabled entries in the queue     */
+  u32     active_items;                 /* enabled entries in the queue     */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
