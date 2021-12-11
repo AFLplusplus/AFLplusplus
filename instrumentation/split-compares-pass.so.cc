@@ -882,7 +882,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     // BUG FIXME TODO: u64 does not work for > 64 bit ... e.g. 80 and 128 bit
     if (sizeInBits > 64) { continue; }
 
-    IntegerType *intType = IntegerType::get(C, op_size);
+    IntegerType *      intType = IntegerType::get(C, op_size);
     const unsigned int precision = sizeInBits == 32    ? 24
                                    : sizeInBits == 64  ? 53
                                    : sizeInBits == 128 ? 113
@@ -916,13 +916,14 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /* create the integers from floats directly */
     Instruction *bpre_op0, *bpre_op1;
     bpre_op0 = CastInst::Create(Instruction::BitCast, op0,
-                             IntegerType::get(C, op_size));
-    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), bpre_op0);
+                                IntegerType::get(C, op_size));
+    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
+                             bpre_op0);
 
     bpre_op1 = CastInst::Create(Instruction::BitCast, op1,
-                             IntegerType::get(C, op_size));
-    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), bpre_op1);
-
+                                IntegerType::get(C, op_size));
+    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
+                             bpre_op1);
 
     /* Check if any operand is NaN.
      * If so, all comparisons except unequal (which yields true) yield false */
@@ -940,41 +941,41 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /* Check op0 for NaN */
     /* Shift left 1 Bit, ignore sign bit */
     Instruction *nan_op0, *nan_op1;
-    nan_op0 = BinaryOperator::Create(
-        Instruction::Shl, bpre_op0,
-        ConstantInt::get(bpre_op0->getType(), 1));
-    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), nan_op0);
+    nan_op0 = BinaryOperator::Create(Instruction::Shl, bpre_op0,
+                                     ConstantInt::get(bpre_op0->getType(), 1));
+    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
+                             nan_op0);
 
     /* compare to NaN interval */
     Instruction *is_op0_nan =
-        CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, nan_op0, ConstantInt::get(intType, NaN_lowend) );
+        CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, nan_op0,
+                        ConstantInt::get(intType, NaN_lowend));
     bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
                              is_op0_nan);
 
     /* Check op1 for NaN */
     /* Shift right 1 Bit, ignore sign bit */
-    nan_op1 = BinaryOperator::Create(
-        Instruction::Shl, bpre_op1,
-        ConstantInt::get(bpre_op1->getType(), 1));
-    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), nan_op1);
+    nan_op1 = BinaryOperator::Create(Instruction::Shl, bpre_op1,
+                                     ConstantInt::get(bpre_op1->getType(), 1));
+    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
+                             nan_op1);
 
     /* compare to NaN interval */
     Instruction *is_op1_nan =
-        CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, nan_op1, ConstantInt::get(intType, NaN_lowend) );
+        CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, nan_op1,
+                        ConstantInt::get(intType, NaN_lowend));
     bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
                              is_op1_nan);
 
     /* combine checks */
-    Instruction *is_nan = BinaryOperator::Create(
-        Instruction::Or, is_op0_nan, is_op1_nan);
-    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
-                             is_nan);
+    Instruction *is_nan =
+        BinaryOperator::Create(Instruction::Or, is_op0_nan, is_op1_nan);
+    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), is_nan);
 
     /* the result of the comparison, when at least one op is NaN
        is true only for the "NOT EQUAL" predicates. */
-    bool NaNcmp_result =
-        FcmpInst->getPredicate() == CmpInst::FCMP_ONE ||
-        FcmpInst->getPredicate() == CmpInst::FCMP_UNE;
+    bool NaNcmp_result = FcmpInst->getPredicate() == CmpInst::FCMP_ONE ||
+                         FcmpInst->getPredicate() == CmpInst::FCMP_UNE;
 
     BasicBlock *nonan_bb =
         BasicBlock::Create(C, "noNaN", end_bb->getParent(), end_bb);
@@ -989,24 +990,30 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /*** now working in nonan_bb ***/
 
     /* Treat -0.0 as equal to +0.0, that is for -0.0 make it +0.0 */
-    Instruction *b_op0, *b_op1;
-    Instruction *isMzero_op0, *isMzero_op1;
+    Instruction *            b_op0, *b_op1;
+    Instruction *            isMzero_op0, *isMzero_op1;
     const unsigned long long MinusZero = 1UL << (sizeInBits - 1U);
     const unsigned long long PlusZero = 0;
 
-    isMzero_op0 =
-        CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, bpre_op0, ConstantInt::get(intType, MinusZero));
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), isMzero_op0);
+    isMzero_op0 = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, bpre_op0,
+                                  ConstantInt::get(intType, MinusZero));
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), isMzero_op0);
 
-    isMzero_op1 =
-        CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, bpre_op1, ConstantInt::get(intType, MinusZero));
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), isMzero_op1);
+    isMzero_op1 = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, bpre_op1,
+                                  ConstantInt::get(intType, MinusZero));
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), isMzero_op1);
 
-    b_op0 = SelectInst::Create(isMzero_op0, ConstantInt::get(intType, PlusZero), bpre_op0);
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), b_op0);
+    b_op0 = SelectInst::Create(isMzero_op0, ConstantInt::get(intType, PlusZero),
+                               bpre_op0);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), b_op0);
 
-    b_op1 = SelectInst::Create(isMzero_op1, ConstantInt::get(intType, PlusZero), bpre_op1);
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), b_op1);
+    b_op1 = SelectInst::Create(isMzero_op1, ConstantInt::get(intType, PlusZero),
+                               bpre_op1);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), b_op1);
 
     /* isolate signs of value of floating point type */
 
@@ -1017,22 +1024,26 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     s_s0 =
         BinaryOperator::Create(Instruction::LShr, b_op0,
                                ConstantInt::get(b_op0->getType(), op_size - 1));
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), s_s0);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), s_s0);
     t_s0 = new TruncInst(s_s0, Int1Ty);
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), t_s0);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), t_s0);
 
     s_s1 =
         BinaryOperator::Create(Instruction::LShr, b_op1,
                                ConstantInt::get(b_op1->getType(), op_size - 1));
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), s_s1);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), s_s1);
     t_s1 = new TruncInst(s_s1, Int1Ty);
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()), t_s1);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), t_s1);
 
     /* compare of the sign bits */
     icmp_sign_bit =
         CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, t_s0, t_s1);
-    nonan_bb->getInstList().insert(BasicBlock::iterator(nonan_bb->getTerminator()),
-                             icmp_sign_bit);
+    nonan_bb->getInstList().insert(
+        BasicBlock::iterator(nonan_bb->getTerminator()), icmp_sign_bit);
 
     /* create a new basic block which is executed if the signedness bits are
      * equal */
@@ -1440,8 +1451,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
     if (!be_quiet && !debug) {
 
-          errs() << "Split-floatingpoint-compare-pass: " << count
-                 << " FP comparisons splitted\n";
+      errs() << "Split-floatingpoint-compare-pass: " << count
+             << " FP comparisons splitted\n";
 
     }
 
