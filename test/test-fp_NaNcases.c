@@ -6,7 +6,7 @@
 
 #include <assert.h>
 #define _GNU_SOURCE
-#include <math.h> /* for NaNs and infinity values */
+#include <math.h>                           /* for NaNs and infinity values */
 
 int main() {
 
@@ -14,14 +14,14 @@ int main() {
 
   /* NaN */
 #ifdef NAN
-  a = (FLOAT_TYPE) NAN; /* produces NaN */
+  a = (FLOAT_TYPE)NAN;                                      /* produces NaN */
 #else
-  a = 0.0 / 0.0; /* produces NaN */
+  a = 0.0 / 0.0;                                            /* produces NaN */
 #endif
 #ifdef INFINITY
-  FLOAT_TYPE inf = (FLOAT_TYPE) INFINITY;
+  FLOAT_TYPE inf = (FLOAT_TYPE)INFINITY;
 #else
-  FLOAT_TYPE inf = 1.0 / 0.0; /* produces infinity */
+  FLOAT_TYPE inf = 1.0 / 0.0;                          /* produces infinity */
 #endif
   FLOAT_TYPE negZero = 1.0 / -inf;
   FLOAT_TYPE posZero = 0.0;
@@ -42,7 +42,7 @@ int main() {
   assert((a != b));
   assert(!(a == b));
 
-  b = 1.0 / -(1.0 / 0.0);	/* negative 0 */
+  b = 1.0 / -(1.0 / 0.0);                                     /* negative 0 */
   assert(!(a < b));
   assert(!(a <= b));
   assert(!(a > b));
@@ -66,7 +66,7 @@ int main() {
   assert((a != b));
   assert(!(a == b));
 
-  b = (1.0 / 0.0);	/* positive infinity */
+  b = (1.0 / 0.0);                                     /* positive infinity */
   assert(!(a < b));
   assert(!(a <= b));
   assert(!(a > b));
@@ -74,7 +74,7 @@ int main() {
   assert((a != b));
   assert(!(a == b));
 
-  b = -(1.0 / 0.0);	/* negative infinity */
+  b = -(1.0 / 0.0);                                    /* negative infinity */
   assert(!(a < b));
   assert(!(a <= b));
   assert(!(a > b));
