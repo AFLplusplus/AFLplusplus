@@ -272,12 +272,12 @@ CC=afl-clang-fast CXX=afl-clang-fast++ ./configure --disable-shared
 ```
 
 Note that if you are using the (better) afl-clang-lto compiler, you also have to
-set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
+set `AR` to llvm-ar[-VERSION] and `RANLIB` to llvm-ranlib[-VERSION] - as is
 described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
-#### cmake
+#### CMake
 
-For `cmake` build systems, this is usually done by:
+For CMake build systems, this is usually done by:
 
 ```
 mkdir build; cd build; cmake -DCMAKE_C_COMPILER=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..
@@ -287,9 +287,10 @@ Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
 described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
-#### meson
+#### Meson Build System
 
-For meson, you have to set the AFL++ compiler with the very first command!
+For the Meson Build System, you have to set the AFL++ compiler with the very
+first command!
 
 ```
 CC=afl-cc CXX=afl-c++ meson
@@ -297,12 +298,12 @@ CC=afl-cc CXX=afl-c++ meson
 
 #### Other build systems or if configure/cmake didn't work
 
-Sometimes cmake and configure do not pick up the AFL++ compiler or the ranlib/ar
-that is needed - because this was just not foreseen by the developer of the
-target. Or they have non-standard options. Figure out if there is a non-standard
-way to set this, otherwise set up the build normally and edit the generated
-build environment afterwards manually to point it to the right compiler (and/or
-ranlib and ar).
+Sometimes `cmake` and `configure` do not pick up the AFL++ compiler or the
+`RANLIB`/`AR` that is needed - because this was just not foreseen by the
+developer of the target. Or they have non-standard options. Figure out if there
+is a non-standard way to set this, otherwise set up the build normally and edit
+the generated build environment afterwards manually to point it to the right
+compiler (and/or `RANLIB` and `AR`).
 
 ### f) Better instrumentation
 
@@ -621,7 +622,8 @@ done
 ```
 
 You can run this manually, per cron job - as you need it. There is a more
-complex and configurable script in `utils/distributed_fuzzing`.
+complex and configurable script in
+[utils/distributed_fuzzing](../utils/distributed_fuzzing).
 
 ### e) The status of the fuzz campaign
 
