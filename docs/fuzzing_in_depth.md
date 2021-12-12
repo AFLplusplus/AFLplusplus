@@ -637,7 +637,7 @@ If you have multiple servers, then use the command after a sync or you have to
 execute this script per server.
 
 Another tool to inspect the current state and history of a specific instance is
-afl-plot, which generates an index.html file and a graphs that show how the
+afl-plot, which generates an index.html file and graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,
 e.g., `afl-plot out/default /srv/www/htdocs/plot`.
 
@@ -799,7 +799,7 @@ making it easier to diagnose faults.
 Having said that, it's important to acknowledge that some fuzzing crashes can be
 difficult to quickly evaluate for exploitability without a lot of debugging and
 code analysis work. To assist with this task, afl-fuzz supports a very unique
-"crash exploration" mode enabled with the -C flag.
+"crash exploration" mode enabled with the `-C` flag.
 
 In this mode, the fuzzer takes one or more crashing test cases as the input and
 uses its feedback-driven fuzzing strategies to very quickly enumerate all code
@@ -845,7 +845,7 @@ normal fuzzing campaigns as these are much shorter runnings.
     * If you compile with CMPLOG, then you can save fuzzing time and reuse that
       compiled target for both the `-c` option and the main fuzz target. This
       will impact the speed by ~15% though.
-    * `AFL_FAST_CAL` - Enable fast calibration, this halves the time the
+    * `AFL_FAST_CAL` - enables fast calibration, this halves the time the
       saturated corpus needs to be loaded.
     * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new finds, not the initial
       corpus as this very likely has been done for them already.
