@@ -31,6 +31,11 @@ BUILD_DATE  ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/nul
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
 
 SYS = $(shell uname -s)
+OS = $(shell uname -o)
+ifeq "$(OS)" "Cygwin"
+  SYS=Cygwin
+endif
+
 
 ifeq "$(SYS)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
@@ -244,7 +249,12 @@ else
         AFL_CLANG_DEBUG_PREFIX =
 endif
 
-CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+ifeq "$(SYS)" "Cygwin"
+  override CFLAGS :=
+  override CXXFLAGS :=
+endif
+
+CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
@@ -257,14 +267,21 @@ CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sig
                    $(AFL_CLANG_DEBUG_PREFIX)
 override CFLAGS += $(CFLAGS_SAFE)
 
+
 ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CXXFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CXXFLAGS += -Wall -g -I ./include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
+
+ifneq "$(SYS)" "Cygwin"
+  override CFLAGS += "-fPIC"
+  override CFLAGS_SAFE += "-fPIC"
+  override CXXFLAGS += "-fPIC"
+endif
 
 ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""
   CLANG_CFL  = -I$(shell $(LLVM_CONFIG) --includedir)
@@ -272,7 +289,7 @@ endif
 ifneq "$(LLVM_CONFIG)" ""
   CLANG_CFL += -I$(shell dirname $(LLVM_CONFIG))/../include
 endif
-CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
+CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti $(CXXFLAGS) -Wno-deprecated-declarations
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 
@@ -384,22 +401,22 @@ endif
 endif
 
 instrumentation/afl-llvm-common.o: instrumentation/afl-llvm-common.cc instrumentation/afl-llvm-common.h
-	$(CXX) $(CFLAGS) $(CPPFLAGS) `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC -std=$(LLVM_STDCXX) -c $< -o $@ 
+	$(CXX) $(CFLAGS) $(CPPFLAGS) `$(LLVM_CONFIG) --cxxflags` -fno-rtti -std=$(LLVM_STDCXX) -c $< -o $@ 
 
 ./afl-llvm-pass.so: instrumentation/afl-llvm-pass.so.cc instrumentation/afl-llvm-common.o | test_deps
 ifeq "$(LLVM_MIN_4_0_1)" "0"
 	$(info [!] N-gram branch coverage instrumentation is not available for llvm version $(LLVMVER))
 endif
-	$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./SanitizerCoveragePCGUARD.so: instrumentation/SanitizerCoveragePCGUARD.so.cc instrumentation/afl-llvm-common.o | test_deps
 ifeq "$(LLVM_10_OK)" "1"
-	-$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	-$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 endif
 
 ./afl-llvm-lto-instrumentlist.so: instrumentation/afl-llvm-lto-instrumentlist.so.cc instrumentation/afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CPPFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	$(CXX) $(CLANG_CPPFL) -fno-rtti -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 endif
 
 ./afl-ld-lto: src/afl-ld-lto.c
@@ -409,10 +426,10 @@ endif
 
 ./SanitizerCoverageLTO.so: instrumentation/SanitizerCoverageLTO.so.cc
 ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
-	$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto.o
-	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
-	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto.o
+	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 endif
 
 # laf
@@ -438,20 +455,20 @@ afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/
 
 .PHONY: document
 document:
-	$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt.o
-	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m32 -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-32.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
-	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m64 -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-64.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt.o
+	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m32 -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-32.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m64 -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-64.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ./afl-compiler-rt.o: instrumentation/afl-compiler-rt.o.c
-	$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
+	$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -c $< -o $@
 
 ./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-32.o afl-llvm-rt-32.o; else echo "failed (that's fine)"; fi
+	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-32.o afl-llvm-rt-32.o; else echo "failed (that's fine)"; fi
 
 ./afl-compiler-rt-64.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-64.o afl-llvm-rt-64.o; else echo "failed (that's fine)"; fi
+	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-64.o afl-llvm-rt-64.o; else echo "failed (that's fine)"; fi
 
 .PHONY: test_build
 test_build: $(PROGS)

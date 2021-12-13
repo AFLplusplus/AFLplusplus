@@ -2701,7 +2701,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__CYGWIN__)
 
   if (f_data[0] != 0x7f || memcmp(f_data + 1, "ELF", 3)) {
 
@@ -2709,16 +2709,17 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-#else
-
-  #if !defined(__arm__) && !defined(__arm64__)
+#elif defined(__APPLE__)
   if ((f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED) &&
       (f_data[0] != 0xCA || f_data[1] != 0xFE || f_data[2] != 0xBA))
     FATAL("Program '%s' is not a 64-bit or universal Mach-O binary",
           afl->fsrv.target_path);
-  #endif
+#else
 
-#endif                                                       /* ^!__APPLE__ */
+  if (f_data[0] != 'M' || f_data[1] != 'Z')
+    FATAL("Program '%s' is an DOS/WINDOWS program", afl->fsrv.target_path);
+
+#endif
 
   if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&

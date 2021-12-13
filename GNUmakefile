@@ -36,8 +36,13 @@ SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config afl-
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
+OS = $(shell uname -o)
 SYS = $(shell uname -s)
 ARCH = $(shell uname -m)
+
+ifeq "$(OS)" "Cygwin"
+  SYS=Cygwin
+endif
 
 $(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
 
@@ -310,13 +315,18 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 
 .PHONY: llvm
 llvm:
+ifneq "$(SYS)" "Cygwin"
 	-$(MAKE) -j4 -f GNUmakefile.llvm
+endif
+	@test -e afl-cc ||  -$(MAKE) -f GNUmakefile.llvm afl-cc
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 .PHONY: gcc_plugin
 gcc_plugin:
 ifneq "$(SYS)" "Darwin"
+ifneq "$(SYS)" "Cygwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
+endif
 endif
 
 .PHONY: man
@@ -565,8 +575,10 @@ all_done: test_build
 .PHONY: clean
 clean:
 	rm -rf $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM
+ifneq "$(SYS)" "Cygwin"
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
+endif
 	$(MAKE) -C utils/libdislocator clean
 	$(MAKE) -C utils/libtokencap clean
 	$(MAKE) -C utils/aflpp_driver clean
@@ -602,9 +614,11 @@ endif
 
 .PHONY: distrib
 distrib: all
+ifneq "$(SYS)" "Cygwin"
 	-$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
+endif
 endif
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
@@ -640,9 +654,11 @@ endif
 
 .PHONY: source-only
 source-only: all
+ifneq "$(SYS)" "Cygwin"
 	-$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
+endif
 endif
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
@@ -687,9 +703,11 @@ install: all $(MANPAGES)
 	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
 	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
+ifneq "$(SYS)" "Cygwin"
 	-$(MAKE) -f GNUmakefile.llvm install
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
+endif
 endif
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++

@@ -418,6 +418,17 @@ static const u8 *main_payload_64 =
   ".att_syntax\n"
   ".code64\n"
   ".align 8\n"
+#if defined(__CYGWIN__) || defined(__MSYS__)
+  ".globl getenv\n"
+  ".globl fork\n"
+  ".globl atoi\n"
+  ".globl shmat\n"
+  ".globl write\n"
+  ".globl waitpid\n"
+  ".globl close\n"
+  ".globl _exit\n"
+  ".globl __afl_global_area_ptr\n"
+#endif
   "\n"
   "__afl_maybe_log:\n"
   "\n"
@@ -472,7 +483,7 @@ static const u8 *main_payload_64 =
   "\n"
   "  /* Check out if we have a global pointer on file. */\n"
   "\n"
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__CYGWIN__) && !defined(__MSYS__)
   "  movq  __afl_global_area_ptr@GOTPCREL(%rip), %rdx\n"
   "  movq  (%rdx), %rdx\n"
 #else
@@ -572,7 +583,7 @@ static const u8 *main_payload_64 =
   "  movq %rax, %rdx\n"
   "  movq %rax, __afl_area_ptr(%rip)\n"
   "\n"
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__CYGWIN__) || defined(__MSYS__)
   "  movq %rax, __afl_global_area_ptr(%rip)\n"
 #else
   "  movq __afl_global_area_ptr@GOTPCREL(%rip), %rdx\n"

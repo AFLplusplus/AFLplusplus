@@ -27,6 +27,10 @@
 #include <stdio.h>
 #define _GNU_SOURCE
 #define __USE_GNU
+#ifdef __GNU_VISIBLE
+  #undef __GNU_VISIBLE
+#endif
+#define __GNU_VISIBLE 1
 #include <string.h>
 #include <strings.h>
 #include <math.h>

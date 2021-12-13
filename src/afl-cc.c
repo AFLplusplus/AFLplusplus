@@ -2057,6 +2057,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+#ifndef __CYGWIN__
   if (!be_quiet && (compiler_mode == GCC || compiler_mode == CLANG)) {
 
     WARNF(
@@ -2065,6 +2066,8 @@ int main(int argc, char **argv, char **envp) {
         "instead!");
 
   }
+
+#endif
 
   if (debug) {
 
