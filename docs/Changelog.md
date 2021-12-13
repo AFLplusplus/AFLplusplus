@@ -34,6 +34,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better banner
     - more effective cmplog mode
     - more often update the UI when in input2stage mode
+  - qemu_mode/unicorn_mode: fixed OOB write when using libcompcov,
+      thanks to kotee4ko for reporting!
   - frida_mode:
     - better performance, bug fixes
     - David Carlier added Android support :)

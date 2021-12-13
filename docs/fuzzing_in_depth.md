@@ -95,38 +95,43 @@ Clickable README links for the chosen compiler:
 * GCC/CLANG modes (afl-gcc/afl-clang) have no README as they have no own
   features
 
-You can select the mode for the afl-cc compiler by:
-1. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
-   afl-clang-fast, afl-clang-fast++, afl-clang-lto, afl-clang-lto++,
-   afl-gcc-fast, afl-g++-fast (recommended!)
-2. using the environment variable AFL_CC_COMPILER with MODE
-3. passing --afl-MODE command line options to the compiler via
-   CFLAGS/CXXFLAGS/CPPFLAGS
+You can select the mode for the afl-cc compiler by one of the following methods:
 
-MODE can be one of: LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
-(afl-g*-fast) or GCC (afl-gcc/afl-g++) or CLANG(afl-clang/afl-clang++).
+* Using a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
+   afl-clang-fast, afl-clang-fast++, afl-clang-lto, afl-clang-lto++,
+   afl-gcc-fast, afl-g++-fast (recommended!).
+* Using the environment variable `AFL_CC_COMPILER` with `MODE`.
+* Passing --afl-MODE command line options to the compiler via
+   `CFLAGS`/`CXXFLAGS`/`CPPFLAGS`.
+
+`MODE` can be one of the following:
+
+* LTO (afl-clang-lto*)
+* LLVM (afl-clang-fast*)
+* GCC_PLUGIN (afl-g*-fast) or GCC (afl-gcc/afl-g++)
+* CLANG(afl-clang/afl-clang++)
 
 Because no AFL++ specific command-line options are accepted (beside the
 --afl-MODE command), the compile-time tools make fairly broad use of environment
-variables, which can be listed with `afl-cc -hh` or by reading
+variables, which can be listed with `afl-cc -hh` or looked up in
 [env_variables.md](env_variables.md).
 
 ### b) Selecting instrumentation options
 
-The following options are available when you instrument with LTO mode
-(afl-clang-fast/afl-clang-lto):
+If you instrument with LTO mode (afl-clang-fast/afl-clang-lto), the following
+options are available:
 
-* Splitting integer, string, float and switch comparisons so AFL++ can easier
+* Splitting integer, string, float, and switch comparisons so AFL++ can easier
   solve these. This is an important option if you do not have a very good and
-  large input corpus. This technique is called laf-intel or COMPCOV. To use this
-  set the following environment variable before compiling the target: `export
-  AFL_LLVM_LAF_ALL=1` You can read more about this in
+  large input corpus. This technique is called laf-intel or COMPCOV. To use
+  this, set the following environment variable before compiling the target:
+  `export AFL_LLVM_LAF_ALL=1`. You can read more about this in
   [instrumentation/README.laf-intel.md](../instrumentation/README.laf-intel.md).
 * A different technique (and usually a better one than laf-intel) is to
   instrument the target so that any compare values in the target are sent to
   AFL++ which then tries to put these values into the fuzzing data at different
   locations. This technique is very fast and good - if the target does not
-  transform input data before comparison. Therefore this technique is called
+  transform input data before comparison. Therefore, this technique is called
   `input to state` or `redqueen`. If you want to use this technique, then you
   have to compile the target twice, once specifically with/for this mode by
   setting `AFL_LLVM_CMPLOG=1`, and pass this binary to afl-fuzz via the `-c`
@@ -135,24 +140,25 @@ The following options are available when you instrument with LTO mode
   about this in
   [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
-If you use LTO, LLVM or GCC_PLUGIN mode
-(afl-clang-fast/afl-clang-lto/afl-gcc-fast) you have the option to selectively
+If you use LTO, LLVM, or GCC_PLUGIN mode
+(afl-clang-fast/afl-clang-lto/afl-gcc-fast), you have the option to selectively
 only instrument parts of the target that you are interested in:
 
-* To instrument only those parts of the target that you are interested in create
-  a file with all the filenames of the source code that should be instrumented.
-  For afl-clang-lto and afl-gcc-fast - or afl-clang-fast if a mode other than
-  DEFAULT/PCGUARD is used or you have llvm > 10.0.0 - just put one filename or
-  function per line (no directory information necessary for filenames9, and
-  either set `export AFL_LLVM_ALLOWLIST=allowlist.txt` **or** `export
-  AFL_LLVM_DENYLIST=denylist.txt` - depending on if you want per default to
-  instrument unless noted (DENYLIST) or not perform instrumentation unless
+* To instrument only those parts of the target that you are interested in,
+  create a file with all the filenames of the source code that should be
+  instrumented. For afl-clang-lto and afl-gcc-fast - or afl-clang-fast if a mode
+  other than DEFAULT/PCGUARD is used or you have llvm > 10.0.0 - just put one
+  filename or function per line (no directory information necessary for
+  filenames), and either set `export AFL_LLVM_ALLOWLIST=allowlist.txt` **or**
+  `export AFL_LLVM_DENYLIST=denylist.txt` - depending on if you want per default
+  to instrument unless noted (DENYLIST) or not perform instrumentation unless
   requested (ALLOWLIST). **NOTE:** During optimization functions might be
   inlined and then would not match! See
-  [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
+  [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
 
 There are many more options and modes available, however, these are most of the
 time less effective. See:
+
 * [instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage)
 * [instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage)
 
@@ -166,12 +172,13 @@ It is possible to use sanitizers when instrumenting targets for fuzzing, which
 allows you to find bugs that would not necessarily result in a crash.
 
 Note that sanitizers have a huge impact on CPU (= less executions per second)
-and RAM usage. Also you should only run one afl-fuzz instance per sanitizer
+and RAM usage. Also, you should only run one afl-fuzz instance per sanitizer
 type. This is enough because a use-after-free bug will be picked up, e.g., by
 ASAN (address sanitizer) anyway when syncing to other fuzzing instances, so not
 all fuzzing instances need to be instrumented with ASAN.
 
 The following sanitizers have built-in support in AFL++:
+
 * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
   use-after-free, NULL pointer dereference, buffer overruns, etc. Enabled with
   `export AFL_USE_ASAN=1` before compiling.
@@ -184,7 +191,7 @@ The following sanitizers have built-in support in AFL++:
   with `export AFL_USE_UBSAN=1` before compiling.
 * CFISAN = Control Flow Integrity SANitizer, finds instances where the control
   flow is found to be illegal. Originally this was rather to prevent return
-  oriented programming exploit chains from functioning, in fuzzing this is
+  oriented programming exploit chains from functioning. In fuzzing, this is
   mostly reduced to detecting type confusion vulnerabilities - which is,
   however, one of the most important and dangerous C++ memory corruption
   classes! Enabled with `export AFL_USE_CFISAN=1` before compiling.
@@ -227,20 +234,20 @@ All AFL++ compilers will set this preprocessor definition automatically.
 
 ### e) Instrumenting the target
 
-In this step the target source code is compiled so that it can be fuzzed.
+In this step, the target source code is compiled so that it can be fuzzed.
 
-Basically you have to tell the target build system that the selected AFL++
+Basically, you have to tell the target build system that the selected AFL++
 compiler is used. Also - if possible - you should always configure the build
-system such that the target is compiled statically and not dynamically. How to
-do this is described below.
+system in such way that the target is compiled statically and not dynamically.
+How to do this is described below.
 
 The #1 rule when instrumenting a target is: avoid instrumenting shared libraries
-at all cost. You would need to set LD_LIBRARY_PATH to point to these, you could
-accidentally type "make install" and install them system wide - so don't. Really
-don't. **Always compile libraries you want to have instrumented as static and
-link these to the target program!**
+at all cost. You would need to set `LD_LIBRARY_PATH` to point to these, you
+could accidentally type "make install" and install them system wide - so don't.
+Really don't. **Always compile libraries you want to have instrumented as static
+and link these to the target program!**
 
-Then build the target. (Usually with `make`)
+Then build the target. (Usually with `make`.)
 
 **NOTES**
 
@@ -258,41 +265,49 @@ Then build the target. (Usually with `make`)
 
 #### configure
 
-For `configure` build systems this is usually done by:
+For `configure` build systems, this is usually done by:
 
-`CC=afl-clang-fast CXX=afl-clang-fast++ ./configure --disable-shared`
+```
+CC=afl-clang-fast CXX=afl-clang-fast++ ./configure --disable-shared
+```
+
+Note that if you are using the (better) afl-clang-lto compiler, you also have to
+set `AR` to llvm-ar[-VERSION] and `RANLIB` to llvm-ranlib[-VERSION] - as is
+described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
+
+#### CMake
+
+For CMake build systems, this is usually done by:
+
+```
+mkdir build; cd build; cmake -DCMAKE_C_COMPILER=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..
+```
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
 described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
-#### cmake
+#### Meson Build System
 
-For `cmake` build systems this is usually done by:
+For the Meson Build System, you have to set the AFL++ compiler with the very
+first command!
 
-`mkdir build; cd build; cmake -DCMAKE_C_COMPILER=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..`
+```
+CC=afl-cc CXX=afl-c++ meson
+```
 
-Note that if you are using the (better) afl-clang-lto compiler you also have to
-set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
-described in [instrumentation/README.lto.md](../instrumentation/README.lto.md).
+#### Other build systems or if configure/cmake didn't work
 
-#### meson
-
-For meson you have to set the AFL++ compiler with the very first command!
-`CC=afl-cc CXX=afl-c++ meson`
-
-#### other build systems or if configure/cmake didn't work
-
-Sometimes cmake and configure do not pick up the AFL++ compiler, or the
-ranlib/ar that is needed - because this was just not foreseen by the developer
-of the target. Or they have non-standard options. Figure out if there is a
-non-standard way to set this, otherwise set up the build normally and edit the
-generated build environment afterwards manually to point it to the right
-compiler (and/or ranlib and ar).
+Sometimes `cmake` and `configure` do not pick up the AFL++ compiler or the
+`RANLIB`/`AR` that is needed - because this was just not foreseen by the
+developer of the target. Or they have non-standard options. Figure out if there
+is a non-standard way to set this, otherwise set up the build normally and edit
+the generated build environment afterwards manually to point it to the right
+compiler (and/or `RANLIB` and `AR`).
 
 ### f) Better instrumentation
 
-If you just fuzz a target program as-is you are wasting a great opportunity for
+If you just fuzz a target program as-is, you are wasting a great opportunity for
 much more fuzzing speed.
 
 This variant requires the usage of afl-clang-lto, afl-clang-fast or
@@ -304,7 +319,7 @@ that you want to fuzz, plus a few specific AFL++ functions around it. See
 [instrumentation/README.persistent_mode.md](../instrumentation/README.persistent_mode.md)
 for details.
 
-Basically if you do not fuzz a target in persistent mode, then you are just
+Basically, if you do not fuzz a target in persistent mode, then you are just
 doing it for a hobby and not professionally :-).
 
 ### g) libfuzzer fuzzer harnesses with LLVMFuzzerTestOneInput()
@@ -354,20 +369,24 @@ You can find many good examples of starting files in the
 ### b) Making the input corpus unique
 
 Use the AFL++ tool `afl-cmin` to remove inputs from the corpus that do not
-produce a new path/coverage in the target.
+produce a new path/coverage in the target:
 
-Put all files from step a) into one directory, e.g., INPUTS.
+1. Put all files from [step a](#a-collecting-inputs) into one directory, e.g., INPUTS.
+2. Run afl-cmin:
+   * If the target program is to be called by fuzzing as `bin/target -d
+     INPUTFILE`, set the INPUTFILE argument that the target program would read
+     from as `@@`:
 
-If the target program is to be called by fuzzing as `bin/target -d INPUTFILE`
-the run afl-cmin like this:
+     ```
+     afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d @@
+     ```
 
-`afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d @@`
+   * If the target reads from stdin instead, just omit the `@@` as this is the
+     default:
 
-Note that the INPUTFILE argument that the target program would read from has to
-be set as `@@`.
-
-If the target reads from stdin instead, just omit the `@@` as this is the
-default.
+     ```
+     afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d
+     ```
 
 This step is highly recommended!
 
@@ -385,14 +404,16 @@ for i in *; do
 done
 ```
 
-This step can also be parallelized, e.g., with `parallel`. Note that this step
-is rather optional though.
+This step can also be parallelized, e.g., with `parallel`.
+
+Note that this step is rather optional though.
 
 ### Done!
 
-The INPUTS_UNIQUE/ directory from step b) - or even better the directory input/
-if you minimized the corpus in step c) - is the resulting input corpus directory
-to be used in fuzzing! :-)
+The INPUTS_UNIQUE/ directory from [step b](#b-making-the-input-corpus-unique) -
+or even better the directory input/ if you minimized the corpus in
+[step c](#c-minimizing-all-corpus-files) - is the resulting input corpus
+directory to be used in fuzzing! :-)
 
 ## 3. Fuzzing the target
 
@@ -405,28 +426,31 @@ seriously :-)
 
 ### a) Running afl-fuzz
 
-Before you do even a test run of afl-fuzz execute `sudo afl-system-config` (on
-the host if you execute afl-fuzz in a docker container). This reconfigures the
+Before you do even a test run of afl-fuzz, execute `sudo afl-system-config` (on
+the host if you execute afl-fuzz in a Docker container). This reconfigures the
 system for optimal speed - which afl-fuzz checks and bails otherwise. Set
 `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot run
 afl-system-config with root privileges on the host for whatever reason.
 
-Note there is also `sudo afl-persistent-config` which sets additional permanent
-boot options for a much better fuzzing performance.
+Note:
 
-Note that both scripts improve your fuzzing performance but also decrease your
-system protection against attacks! So set strong firewall rules and only expose
-SSH as a network service if you use these (which is highly recommended).
+* There is also `sudo afl-persistent-config` which sets additional permanent
+  boot options for a much better fuzzing performance.
+* Both scripts improve your fuzzing performance but also decrease your system
+  protection against attacks! So set strong firewall rules and only expose SSH
+  as a network service if you use these (which is highly recommended).
 
-If you have an input corpus from step 2, then specify this directory with the
-`-i` option. Otherwise, create a new directory and create a file with any
-content as test data in there.
+If you have an input corpus from [step 2](#2-preparing-the-fuzzing-campaign),
+then specify this directory with the `-i` option. Otherwise, create a new
+directory and create a file with any content as test data in there.
 
 If you do not want anything special, the defaults are already usually best,
 hence all you need is to specify the seed input directory with the result of
-step [2a) Collect inputs](#a-collect-inputs):
+step [2a) Collecting inputs](#a-collecting-inputs):
 
-`afl-fuzz -i input -o output -- bin/target -d @@`
+```
+afl-fuzz -i input -o output -- bin/target -d @@
+```
 
 Note that the directory specified with `-o` will be created if it does not
 exist.
@@ -444,7 +468,9 @@ If you need to stop and re-start the fuzzing, use the same command line options
 (or even change them by selecting a different power schedule or another mutation
 mode!) and switch the input directory with a dash (`-`):
 
-`afl-fuzz -i - -o output -- bin/target -d @@`
+```
+afl-fuzz -i - -o output -- bin/target -d @@
+```
 
 Adding a dictionary is helpful. See the directory
 [dictionaries/](../dictionaries/) if something is already included for your data
@@ -461,7 +487,7 @@ specific locations for the input file (`-f`), performing deterministic fuzzing
 We highly recommend that you set a memory limit for running the target with `-m`
 which defines the maximum memory in MB. This prevents a potential out-of-memory
 problem for your system plus helps you detect missing `malloc()` failure
-handling in the target. Play around with various -m values until you find one
+handling in the target. Play around with various `-m` values until you find one
 that safely works for all your input seeds (if you have good ones and then
 double or quadruple that.
 
@@ -469,8 +495,8 @@ By default, afl-fuzz never stops fuzzing. To terminate AFL++, press Control-C or
 send a signal SIGINT. You can limit the number of executions or approximate
 runtime in seconds with options also.
 
-When you start afl-fuzz you will see a user interface that shows what the status
-is:
+When you start afl-fuzz, you will see a user interface that shows what the
+status is:
 
 ![resources/screenshot.png](resources/screenshot.png)
 
@@ -596,7 +622,8 @@ done
 ```
 
 You can run this manually, per cron job - as you need it. There is a more
-complex and configurable script in `utils/distributed_fuzzing`.
+complex and configurable script in
+[utils/distributed_fuzzing](../utils/distributed_fuzzing).
 
 ### e) The status of the fuzz campaign
 
@@ -612,7 +639,7 @@ If you have multiple servers, then use the command after a sync or you have to
 execute this script per server.
 
 Another tool to inspect the current state and history of a specific instance is
-afl-plot, which generates an index.html file and a graphs that show how the
+afl-plot, which generates an index.html file and graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,
 e.g., `afl-plot out/default /srv/www/htdocs/plot`.
 
@@ -623,7 +650,7 @@ To stop an afl-fuzz run, press Control-C.
 To restart an afl-fuzz run, just reuse the same command line but replace the `-i
 directory` with `-i -` or set `AFL_AUTORESUME=1`.
 
-If you want to add new seeds to a fuzzing campaign you can run a temporary
+If you want to add new seeds to a fuzzing campaign, you can run a temporary
 fuzzing instance, e.g., when your main fuzzer is using `-o out` and the new
 seeds are in `newseeds/` directory:
 
@@ -686,21 +713,21 @@ or honggfuzz.
 ### i) Improve the speed!
 
 * Use [persistent mode](../instrumentation/README.persistent_mode.md) (x2-x20
-  speed increase)
+  speed increase).
 * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input
-  file on a tempfs location, see [env_variables.md](env_variables.md)
+  file on a tempfs location, see [env_variables.md](env_variables.md).
 * Linux: Improve kernel performance: modify `/etc/default/grub`, set
   `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off
   mitigations=off no_stf_barrier noibpb noibrs nopcid nopti
   nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off
   spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then
   `update-grub` and `reboot` (warning: makes the system more insecure) - you can
-  also just run `sudo afl-persistent-config`
+  also just run `sudo afl-persistent-config`.
 * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a
-  bit faster than on any other journaling filesystem
-* Use your cores! [3c) Using multiple cores](#c-using-multiple-cores)
+  bit faster than on any other journaling filesystem.
+* Use your cores! See [3c) Using multiple cores](#c-using-multiple-cores).
 * Run `sudo afl-system-config` before starting the first afl-fuzz instance after
-  a reboot
+  a reboot.
 
 ### j) Going beyond crashes
 
@@ -774,7 +801,7 @@ making it easier to diagnose faults.
 Having said that, it's important to acknowledge that some fuzzing crashes can be
 difficult to quickly evaluate for exploitability without a lot of debugging and
 code analysis work. To assist with this task, afl-fuzz supports a very unique
-"crash exploration" mode enabled with the -C flag.
+"crash exploration" mode enabled with the `-C` flag.
 
 In this mode, the fuzzer takes one or more crashing test cases as the input and
 uses its feedback-driven fuzzing strategies to very quickly enumerate all code
@@ -800,19 +827,19 @@ mode, it will happily accept instrumented and non-instrumented binaries. In the
 non-crashing mode, the minimizer relies on standard AFL++ instrumentation to
 make the file simpler without altering the execution path.
 
-The minimizer accepts the -m, -t, -f and @@ syntax in a manner compatible with
-afl-fuzz.
+The minimizer accepts the `-m`, `-t`, `-f`, and `@@` syntax in a manner
+compatible with afl-fuzz.
 
 Another tool in AFL++ is the afl-analyze tool. It takes an input file, attempts
-to sequentially flip bytes, and observes the behavior of the tested program. It
-then color-codes the input based on which sections appear to be critical, and
+to sequentially flip bytes and observes the behavior of the tested program. It
+then color-codes the input based on which sections appear to be critical and
 which are not; while not bulletproof, it can often offer quick insights into
 complex file formats.
 
 ## 5. CI fuzzing
 
-Some notes on CI fuzzing - this fuzzing is different to normal fuzzing campaigns
-as these are much shorter runnings.
+Some notes on continuous integration (CI) fuzzing - this fuzzing is different to
+normal fuzzing campaigns as these are much shorter runnings.
 
 1. Always:
     * LTO has a much longer compile time which is diametrical to short fuzzing -
@@ -820,10 +847,10 @@ as these are much shorter runnings.
     * If you compile with CMPLOG, then you can save fuzzing time and reuse that
       compiled target for both the `-c` option and the main fuzz target. This
       will impact the speed by ~15% though.
-    * `AFL_FAST_CAL` - Enable fast calibration, this halves the time the
+    * `AFL_FAST_CAL` - enables fast calibration, this halves the time the
       saturated corpus needs to be loaded.
-    * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new finds, not the
-      initial corpus as this very likely has been done for them already.
+    * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new finds, not the initial
+      corpus as this very likely has been done for them already.
     * Keep the generated corpus, use afl-cmin and reuse it every time!
 
 2. Additionally randomize the AFL++ compilation options, e.g.:
