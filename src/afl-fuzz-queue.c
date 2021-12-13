@@ -31,7 +31,7 @@
 
 inline u32 select_next_queue_entry(afl_state_t *afl) {
 
-  u32    s = rand_below(afl, afl->queued_paths);
+  u32    s = rand_below(afl, afl->queued_items);
   double p = rand_next_percent(afl);
   /*
   fprintf(stderr, "select: p=%f s=%u ... p < prob[s]=%f ? s=%u : alias[%u]=%u"
@@ -69,7 +69,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
 
 void create_alias_table(afl_state_t *afl) {
 
-  u32    n = afl->queued_paths, i = 0, a, g;
+  u32    n = afl->queued_items, i = 0, a, g;
   double sum = 0;
 
   afl->alias_table =
@@ -547,19 +547,19 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   if (likely(q->len > 4)) afl->ready_for_splicing_count++;
 
-  ++afl->queued_paths;
-  ++afl->active_paths;
+  ++afl->queued_items;
+  ++afl->active_items;
   ++afl->pending_not_fuzzed;
 
   afl->cycles_wo_finds = 0;
 
   struct queue_entry **queue_buf = afl_realloc(
-      AFL_BUF_PARAM(queue), afl->queued_paths * sizeof(struct queue_entry *));
+      AFL_BUF_PARAM(queue), afl->queued_items * sizeof(struct queue_entry *));
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
-  queue_buf[afl->queued_paths - 1] = q;
-  q->id = afl->queued_paths - 1;
+  queue_buf[afl->queued_items - 1] = q;
+  q->id = afl->queued_items - 1;
 
-  afl->last_path_time = get_cur_time();
+  afl->last_find_time = get_cur_time();
 
   if (afl->custom_mutators_count) {
 
@@ -583,7 +583,7 @@ void destroy_queue(afl_state_t *afl) {
 
   u32 i;
 
-  for (i = 0; i < afl->queued_paths; i++) {
+  for (i = 0; i < afl->queued_items; i++) {
 
     struct queue_entry *q;
 
@@ -737,7 +737,7 @@ void cull_queue(afl_state_t *afl) {
   afl->queued_favored = 0;
   afl->pending_favored = 0;
 
-  for (i = 0; i < afl->queued_paths; i++) {
+  for (i = 0; i < afl->queued_items; i++) {
 
     afl->queue_buf[i]->favored = 0;
 
@@ -782,7 +782,7 @@ void cull_queue(afl_state_t *afl) {
 
   }
 
-  for (i = 0; i < afl->queued_paths; i++) {
+  for (i = 0; i < afl->queued_items; i++) {
 
     if (likely(!afl->queue_buf[i]->disabled)) {
 
@@ -915,7 +915,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  u32         n_paths;
+  u32         n_items;
   double      factor = 1.0;
   long double fuzz_mu;
 
@@ -933,26 +933,26 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
     case COE:
       fuzz_mu = 0.0;
-      n_paths = 0;
+      n_items = 0;
 
       // Don't modify perf_score for unfuzzed seeds
       if (q->fuzz_level == 0) break;
 
       u32 i;
-      for (i = 0; i < afl->queued_paths; i++) {
+      for (i = 0; i < afl->queued_items; i++) {
 
         if (likely(!afl->queue_buf[i]->disabled)) {
 
           fuzz_mu += log2(afl->n_fuzz[afl->queue_buf[i]->n_fuzz_entry]);
-          n_paths++;
+          n_items++;
 
         }
 
       }
 
-      if (unlikely(!n_paths)) { FATAL("Queue state corrupt"); }
+      if (unlikely(!n_items)) { FATAL("Queue state corrupt"); }
 
-      fuzz_mu = fuzz_mu / n_paths;
+      fuzz_mu = fuzz_mu / n_items;
 
       if (log2(afl->n_fuzz[q->n_fuzz_entry]) > fuzz_mu) {
 
@@ -1018,7 +1018,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
          -- rare. the simpler algo however is good when rare is not.
         // the newer the entry, the higher the pref_score
         perf_score *= (1 + (double)((double)q->depth /
-        (double)afl->queued_paths));
+        (double)afl->queued_items));
         // with special focus on the last 8 entries
         if (afl->max_depth - q->depth < 8) perf_score *= (1 + ((8 -
         (afl->max_depth - q->depth)) / 5));

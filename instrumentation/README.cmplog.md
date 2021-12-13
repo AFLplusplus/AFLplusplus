@@ -11,12 +11,11 @@ see
 ## Build
 
 To use CmpLog, you have to build two versions of the instrumented target
-program.
+program:
 
-The first version is built using the regular AFL++ instrumentation.
-
-The second one, the CmpLog binary, is built with setting AFL_LLVM_CMPLOG during
-the compilation.
+* The first version is built using the regular AFL++ instrumentation.
+* The second one, the CmpLog binary, is built with setting `AFL_LLVM_CMPLOG`
+  during the compilation.
 
 For example:
 

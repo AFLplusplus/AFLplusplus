@@ -39,12 +39,10 @@ AFL_LLVM_LAF_SPLIT_COMPARES_BITW=<bit_width>`, where bit_width may be 64, 32, or
 16. For example, a bit_width of 16 would split larger comparisons down to 16 bit
 comparisons.
 
-A new experimental feature is splitting floating point comparisons into a series
+A new unique feature is splitting floating point comparisons into a series
 of sign, exponent and mantissa comparisons followed by splitting each of them
 into 8 bit comparisons when necessary. It is activated with the
-`AFL_LLVM_LAF_SPLIT_FLOATS` setting. Note that full IEEE 754 functionality is
-not preserved, that is values of nan and infinity will probably behave
-differently.
+`AFL_LLVM_LAF_SPLIT_FLOATS` setting.
 
 Note that setting this automatically activates `AFL_LLVM_LAF_SPLIT_COMPARES`.
 

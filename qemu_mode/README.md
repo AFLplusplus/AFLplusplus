@@ -1,6 +1,6 @@
 # High-performance binary-only instrumentation for afl-fuzz
 
-For the general instruction manual, see [README.md](../README.md).
+For the general instruction manual, see [docs/README.md](../docs/README.md).
 
 ## 1) Introduction
 

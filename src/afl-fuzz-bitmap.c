@@ -491,13 +491,13 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
     queue_fn = alloc_printf(
-        "%s/queue/id:%06u,%s", afl->out_dir, afl->queued_paths,
+        "%s/queue/id:%06u,%s", afl->out_dir, afl->queued_items,
         describe_op(afl, new_bits, NAME_MAX - strlen("id:000000,")));
 
 #else
 
     queue_fn =
-        alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_paths);
+        alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_items);
 
 #endif                                                    /* ^!SIMPLE_FILES */
     fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
@@ -586,7 +586,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->total_tmouts;
 
-      if (afl->unique_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
+      if (afl->saved_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
 
       if (likely(!afl->non_instrumented_mode)) {
 
@@ -603,7 +603,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       }
 
-      ++afl->unique_tmouts;
+      ++afl->saved_tmouts;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
@@ -661,17 +661,17 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
       snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s", afl->out_dir,
-               afl->unique_hangs,
+               afl->saved_hangs,
                describe_op(afl, 0, NAME_MAX - strlen("id:000000,")));
 
 #else
 
       snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu", afl->out_dir,
-               afl->unique_hangs);
+               afl->saved_hangs);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
-      ++afl->unique_hangs;
+      ++afl->saved_hangs;
 
       afl->last_hang_time = get_cur_time();
 
@@ -687,7 +687,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->total_crashes;
 
-      if (afl->unique_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
+      if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
       if (likely(!afl->non_instrumented_mode)) {
 
@@ -699,22 +699,22 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       }
 
-      if (unlikely(!afl->unique_crashes)) { write_crash_readme(afl); }
+      if (unlikely(!afl->saved_crashes)) { write_crash_readme(afl); }
 
 #ifndef SIMPLE_FILES
 
       snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
-               afl->unique_crashes, afl->fsrv.last_kill_signal,
+               afl->saved_crashes, afl->fsrv.last_kill_signal,
                describe_op(afl, 0, NAME_MAX - strlen("id:000000,sig:00,")));
 
 #else
 
       snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir,
-               afl->unique_crashes, afl->last_kill_signal);
+               afl->saved_crashes, afl->last_kill_signal);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
-      ++afl->unique_crashes;
+      ++afl->saved_crashes;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
