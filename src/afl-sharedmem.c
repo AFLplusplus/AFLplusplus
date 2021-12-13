@@ -246,7 +246,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
   if (shm->shm_id < 0) {
 
+  #ifdef __CYGWIN__
+    PFATAL(
+        "shmget() failed, try installing cygserver (running 'cygserver-config' "
+        "in an elevated cygwin terminal)");
+  #else
     PFATAL("shmget() failed, try running afl-system-config");
+  #endif
 
   }
 

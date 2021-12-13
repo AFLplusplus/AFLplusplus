@@ -1876,7 +1876,7 @@ static int area_is_valid(void *ptr, size_t len) {
 #elif !(WIN32 || __CYGWIN__)
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 #else
-  #warning "not sure how we do this on windows yewt!"
+  #warning "not sure how we do this on windows yet!"
   size_t r = len;
 #endif  // HAIKU
 
