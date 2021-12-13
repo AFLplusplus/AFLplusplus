@@ -390,11 +390,11 @@ instrumentation/afl-llvm-common.o: instrumentation/afl-llvm-common.cc instrument
 ifeq "$(LLVM_MIN_4_0_1)" "0"
 	$(info [!] N-gram branch coverage instrumentation is not available for llvm version $(LLVMVER))
 endif
-	$(CXX) $(CLANG_CPPFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./SanitizerCoveragePCGUARD.so: instrumentation/SanitizerCoveragePCGUARD.so.cc instrumentation/afl-llvm-common.o | test_deps
 ifeq "$(LLVM_10_OK)" "1"
-	-$(CXX) $(CLANG_CPPFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	-$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 endif
 
 ./afl-llvm-lto-instrumentlist.so: instrumentation/afl-llvm-lto-instrumentlist.so.cc instrumentation/afl-llvm-common.o

@@ -527,7 +527,7 @@ typedef struct afl_state {
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32 *   alias_table;                /* alias weighted random lookup table */
-  u32     active_paths;                 /* enabled entries in the queue     */
+  u32     active_items;                 /* enabled entries in the queue     */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
@@ -537,7 +537,7 @@ typedef struct afl_state {
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
 
-  u32 queued_paths,                     /* Total number of queued testcases */
+  u32 queued_items,                     /* Total number of queued testcases */
       queued_variable,                  /* Testcases with variable behavior */
       queued_at_start,                  /* Total number of initial inputs   */
       queued_discovered,                /* Items discovered during this run */
@@ -546,7 +546,7 @@ typedef struct afl_state {
       queued_with_cov,                  /* Paths with new coverage bytes    */
       pending_not_fuzzed,               /* Queued but not done yet          */
       pending_favored,                  /* Pending favored paths            */
-      cur_skipped_paths,                /* Abandoned inputs in cur cycle    */
+      cur_skipped_items,                /* Abandoned inputs in cur cycle    */
       cur_depth,                        /* Current path depth               */
       max_depth,                        /* Max path depth                   */
       useless_at_start,                 /* Number of useless starting paths */
@@ -556,10 +556,10 @@ typedef struct afl_state {
       max_det_extras;                   /* deterministic extra count (dicts)*/
 
   u64 total_crashes,                    /* Total number of crashes          */
-      unique_crashes,                   /* Crashes with unique signatures   */
+      saved_crashes,                    /* Crashes with unique signatures   */
       total_tmouts,                     /* Total number of timeouts         */
-      unique_tmouts,                    /* Timeouts with unique signatures  */
-      unique_hangs,                     /* Hangs with unique signatures     */
+      saved_tmouts,                     /* Timeouts with unique signatures  */
+      saved_hangs,                      /* Hangs with unique signatures     */
       last_crash_execs,                 /* Exec counter at last crash       */
       queue_cycle,                      /* Queue round counter              */
       cycles_wo_finds,                  /* Cycles without any new paths     */
@@ -571,7 +571,7 @@ typedef struct afl_state {
       start_time,                       /* Unix start time (ms)             */
       last_sync_time,                   /* Time of last sync                */
       last_sync_cycle,                  /* Cycle no. of the last sync       */
-      last_path_time,                   /* Time for most recent path (ms)   */
+      last_find_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
       exit_on_time;                     /* Delay to exit if no new paths    */

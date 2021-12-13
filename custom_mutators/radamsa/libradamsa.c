@@ -4473,6 +4473,10 @@ static word prim_sys(word op, word a, word b, word c) {
         FD_CLOEXEC,
         F_DUPFD,
         F_DUPFD_CLOEXEC,
+#if defined(F_DUP2FD)
+        F_DUP2FD,
+        F_DUP2FD_CLOEXEC,
+#endif
         F_GETFD,
         F_SETFD,
         F_GETFL,

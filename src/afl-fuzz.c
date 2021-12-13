@@ -129,7 +129,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
-      "                  pacemaker mode (minutes of no new paths). 0 = "
+      "                  pacemaker mode (minutes of no new finds). 0 = "
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
       "                  See docs/README.MOpt.md\n"
@@ -214,7 +214,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_EXIT_ON_TIME: exit when no new paths are found within the specified time period\n"
+      "AFL_EXIT_ON_TIME: exit when no new coverage finds are made within the specified time period\n"
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
@@ -1607,7 +1607,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_testcases(afl, NULL);
   // read_foreign_testcases(afl, 1); for the moment dont do this
-  OKF("Loaded a total of %u seeds.", afl->queued_paths);
+  OKF("Loaded a total of %u seeds.", afl->queued_items);
 
   pivot_inputs(afl);
 
@@ -1929,7 +1929,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // ensure we have at least one seed that is not disabled.
   u32 entry, valid_seeds = 0;
-  for (entry = 0; entry < afl->queued_paths; ++entry)
+  for (entry = 0; entry < afl->queued_items; ++entry)
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
   if (!afl->pending_not_fuzzed || !valid_seeds) {
@@ -1951,7 +1951,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       u64 max_ms = 0;
 
-      for (entry = 0; entry < afl->queued_paths; ++entry)
+      for (entry = 0; entry < afl->queued_items; ++entry)
         if (!afl->queue_buf[entry]->disabled)
           if (afl->queue_buf[entry]->exec_us > max_ms)
             max_ms = afl->queue_buf[entry]->exec_us;
@@ -1993,7 +1993,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->start_time = get_cur_time();
 
   u32 runs_in_current_cycle = (u32)-1;
-  u32 prev_queued_paths = 0;
+  u32 prev_queued_items = 0;
   u8  skipped_fuzz;
 
   #ifdef INTROSPECTION
@@ -2014,7 +2014,7 @@ int main(int argc, char **argv_orig, char **envp) {
     cull_queue(afl);
 
     if (unlikely((!afl->old_seed_selection &&
-                  runs_in_current_cycle > afl->queued_paths) ||
+                  runs_in_current_cycle > afl->queued_items) ||
                  (afl->old_seed_selection && !afl->queue_cur))) {
 
       if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
@@ -2027,25 +2027,25 @@ int main(int argc, char **argv_orig, char **envp) {
 
       ++afl->queue_cycle;
       runs_in_current_cycle = (u32)-1;
-      afl->cur_skipped_paths = 0;
+      afl->cur_skipped_items = 0;
 
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;
-        while (unlikely(afl->current_entry < afl->queued_paths &&
+        while (unlikely(afl->current_entry < afl->queued_items &&
                         afl->queue_buf[afl->current_entry]->disabled)) {
 
           ++afl->current_entry;
 
         }
 
-        if (afl->current_entry >= afl->queued_paths) { afl->current_entry = 0; }
+        if (afl->current_entry >= afl->queued_items) { afl->current_entry = 0; }
 
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
         if (unlikely(seek_to)) {
 
-          if (unlikely(seek_to >= afl->queued_paths)) {
+          if (unlikely(seek_to >= afl->queued_items)) {
 
             // This should never happen.
             FATAL("BUG: seek_to location out of bounds!\n");
@@ -2070,7 +2070,7 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (unlikely(afl->queued_paths == prev_queued
+      if (unlikely(afl->queued_items == prev_queued
                    /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
                       3600 */
                    )) {
@@ -2148,7 +2148,7 @@ int main(int argc, char **argv_orig, char **envp) {
       fprintf(afl->introspection_file,
               "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
               afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
-              afl->queued_paths);
+              afl->queued_items);
   #endif
 
       if (afl->cycle_schedules) {
@@ -2188,7 +2188,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (u32 i = 0; i < afl->queued_paths; i++) {
+        for (u32 i = 0; i < afl->queued_items; i++) {
 
           if (likely(!afl->queue_buf[i]->disabled)) {
 
@@ -2200,7 +2200,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      prev_queued = afl->queued_paths;
+      prev_queued = afl->queued_items;
 
     }
 
@@ -2210,11 +2210,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (unlikely(prev_queued_paths < afl->queued_paths ||
+        if (unlikely(prev_queued_items < afl->queued_items ||
                      afl->reinit_table)) {
 
           // we have new queue entries since the last run, recreate alias table
-          prev_queued_paths = afl->queued_paths;
+          prev_queued_items = afl->queued_items;
           create_alias_table(afl);
 
         }
@@ -2230,10 +2230,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(afl->old_seed_selection)) {
 
-        while (++afl->current_entry < afl->queued_paths &&
+        while (++afl->current_entry < afl->queued_items &&
                afl->queue_buf[afl->current_entry]->disabled)
           ;
-        if (unlikely(afl->current_entry >= afl->queued_paths ||
+        if (unlikely(afl->current_entry >= afl->queued_items ||
                      afl->queue_buf[afl->current_entry] == NULL ||
                      afl->queue_buf[afl->current_entry]->disabled))
           afl->queue_cur = NULL;
@@ -2321,11 +2321,11 @@ stop_fuzzing:
     u8  time_tmp[64];
     u_stringify_time_diff(time_tmp, get_cur_time(), afl->start_time);
     ACTF(
-        "Statistics: %u new paths found, %.02f%% coverage achieved, %llu "
-        "crashes found, %llu timeouts found, total runtime %s",
+        "Statistics: %u new corpus items found, %.02f%% coverage achieved, "
+        "%llu crashes saved, %llu timeouts saved, total runtime %s",
         afl->queued_discovered,
-        ((double)t_bytes * 100) / afl->fsrv.real_map_size, afl->unique_crashes,
-        afl->unique_hangs, time_tmp);
+        ((double)t_bytes * 100) / afl->fsrv.real_map_size, afl->saved_crashes,
+        afl->saved_hangs, time_tmp);
 
   }
 

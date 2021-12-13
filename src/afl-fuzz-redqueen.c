@@ -276,7 +276,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 #endif
 
   u64 orig_hit_cnt, new_hit_cnt, exec_cksum;
-  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
   afl->stage_name = "colorization";
   afl->stage_short = "colorization";
@@ -424,7 +424,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   }
 
-  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   FILE *f = stderr;
@@ -461,7 +461,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
     if (afl->colorize_success && afl->cmplog_lvl < 3 &&
         (positions > CMPLOG_POSITIONS_MAX && len / positions == 1 &&
-         afl->active_paths / afl->colorize_success > CMPLOG_CORPUS_PERCENT)) {
+         afl->active_items / afl->colorize_success > CMPLOG_CORPUS_PERCENT)) {
 
 #ifdef _DEBUG
       fprintf(stderr, "Colorization unsatisfactory\n");
@@ -517,7 +517,7 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
-  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
 #ifdef _DEBUG
   dump("DATA", buf, len);
@@ -525,7 +525,7 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
 
-  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
   if (unlikely(new_hit_cnt != orig_hit_cnt)) {
 
@@ -2720,7 +2720,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
-  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
   afl->stage_name = "input-to-state";
   afl->stage_short = "its";
@@ -2845,7 +2845,7 @@ exit_its:
   }
 
 #ifdef CMPLOG_COMBINE
-  if (afl->queued_paths + afl->unique_crashes > orig_hit_cnt + 1) {
+  if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
 
     // copy the current virgin bits so we can recover the information
     u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
@@ -2897,7 +2897,7 @@ exit_its:
 
 #endif
 
-  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
 

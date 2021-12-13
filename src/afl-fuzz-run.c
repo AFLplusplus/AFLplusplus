@@ -953,7 +953,7 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
     if (afl->subseq_tmouts++ > TMOUT_LIMIT) {
 
-      ++afl->cur_skipped_paths;
+      ++afl->cur_skipped_items;
       return 1;
 
     }
@@ -970,7 +970,7 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   if (afl->skip_requested) {
 
     afl->skip_requested = 0;
-    ++afl->cur_skipped_paths;
+    ++afl->cur_skipped_items;
     return 1;
 
   }

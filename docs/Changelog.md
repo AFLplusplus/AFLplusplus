@@ -10,6 +10,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
   - documentation restructuring, made possible by Google Season of Docs
+  - we renamed several UI and fuzzer_stat entries to be more precise,
+    e.g. "unique crashes" -> "saved crashes", "total paths" ->
+    "corpus count", "current path" -> "current item".
+    This might need changing custom scripting!
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
   - if instrumented libaries are dlopen()'ed after the forkserver you
@@ -30,6 +34,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better banner
     - more effective cmplog mode
     - more often update the UI when in input2stage mode
+  - qemu_mode/unicorn_mode: fixed OOB write when using libcompcov,
+      thanks to kotee4ko for reporting!
   - frida_mode:
     - better performance, bug fixes
     - David Carlier added Android support :)
@@ -47,7 +53,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix for shared linking on MacOS
     - fixed a potential crash in targets for LAF string handling
     - added AFL_USE_TSAN thread sanitizer support
-    - llvm and LTO mode modified to work with new llvm 14-dev (again)
+    - llvm and LTO mode modified to work with new llvm 14-dev (again. again.)
     - fix for AFL_REAL_LD
   - added the very good grammar mutator "GramaTron" to the
     custom_mutators
@@ -1566,7 +1572,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Fixed a bug with installed copies of AFL trying to use QEMU mode. Spotted
     by G.M. Lime.
 
-  - Added last path / crash / hang times to fuzzer_stats, suggested by
+  - Added last find / crash / hang times to fuzzer_stats, suggested by
     Richard Hipp.
 
   - Fixed a typo, thanks to Jakub Wilk.
