@@ -91,9 +91,9 @@ TOTAL_CRASHES=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
 
-# Time since last path / crash / hang, formatted as string
+# Time since last find / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
-FMT_PATH="${RED}none seen yet${NC}"
+FMT_FIND="${RED}none seen yet${NC}"
 FMT_CRASH="none seen yet"
 FMT_HANG="none seen yet"
 
@@ -135,7 +135,7 @@ fmt_duration()
 
 FIRST=true
 TOTAL_WCOP=
-TOTAL_LAST_PATH=0
+TOTAL_LAST_FIND=0
 
 for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
@@ -169,7 +169,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     fi
 
     DEAD_CNT=$((DEAD_CNT + 1))
-    last_path=0
+    last_find=0
 
     if [ "$PROCESS_DEAD" = "" ]; then
 
@@ -183,17 +183,17 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   EXEC_SEC=0
   test -z "$RUN_UNIX" -o "$RUN_UNIX" = 0 || EXEC_SEC=$((execs_done / RUN_UNIX))
-  PATH_PERC=$((cur_path * 100 / paths_total))
+  PATH_PERC=$((cur_item * 100 / corpus_count))
 
   TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
   TOTAL_EPS=$((TOTAL_EPS + EXEC_SEC))
   TOTAL_EXECS=$((TOTAL_EXECS + execs_done))
-  TOTAL_CRASHES=$((TOTAL_CRASHES + unique_crashes))
+  TOTAL_CRASHES=$((TOTAL_CRASHES + saved_crashes))
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
 
-  if [ "$last_path" -gt "$TOTAL_LAST_PATH" ]; then
-    TOTAL_LAST_PATH=$last_path
+  if [ "$last_find" -gt "$TOTAL_LAST_FIND" ]; then
+    TOTAL_LAST_FIND=$last_find
   fi
 
   if [ "$SUMMARY_ONLY" = "" ]; then
@@ -210,7 +210,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
     fi
 
-    fmt_duration $last_path && FMT_PATH=$DUR_STRING
+    fmt_duration $last_find && FMT_FIND=$DUR_STRING
     fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
     fmt_duration $last_hang && FMT_HANG=$DUR_STRING
     FMT_CWOP="not available"
@@ -220,7 +220,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       test "$cycles_wo_finds" -gt 50 && FMT_CWOP="${RED}$cycles_wo_finds${NC}"
     }
 
-    echo "  last_path       : $FMT_PATH"
+    echo "  last_find       : $FMT_FIND"
     echo "  last_crash      : $FMT_CRASH"
     echo "  last_hang       : $FMT_HANG"
     echo "  cycles_wo_finds : $FMT_CWOP"
@@ -229,12 +229,12 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
 
     echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
-    echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_path/$paths_total (${PATH_PERC}%)"
+    echo "  cycles $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, items $cur_item/$corpus_count (${PATH_PERC}%)"
 
-    if [ "$unique_crashes" = "0" ]; then
+    if [ "$saved_crashes" = "0" ]; then
       echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, no crashes yet"
     else
-      echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, crash count $unique_crashes (!)"
+      echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, crashes saved $saved_crashes (!)"
     fi
 
     echo
@@ -243,7 +243,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
 done
 
-# Formatting for total time, time since last path, crash, and hang
+# Formatting for total time, time since last find, crash, and hang
 fmt_duration $((CUR_TIME - TOTAL_TIME)) && FMT_TIME=$DUR_STRING
 # Formatting for total execution
 FMT_EXECS="0 millions"
@@ -263,7 +263,7 @@ TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
 
 test -z "$TOTAL_WCOP" && TOTAL_WCOP="not available"
-fmt_duration $TOTAL_LAST_PATH && TOTAL_LAST_PATH=$DUR_STRING
+fmt_duration $TOTAL_LAST_FIND && TOTAL_LAST_FIND=$DUR_STRING
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
@@ -293,15 +293,15 @@ echo "    Cumulative speed : $TOTAL_EPS execs/sec"
 if [ "$ALIVE_CNT" -gt "0" ]; then
   echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
 fi
-echo "       Pending paths : $TOTAL_PFAV faves, $TOTAL_PENDING total"
+echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 
 if [ "$ALIVE_CNT" -gt "1" ]; then
   echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
 fi
 
-echo "       Crashes found : $TOTAL_CRASHES locally unique"
+echo "       Crashes saved : $TOTAL_CRASHES"
 echo "Cycles without finds : $TOTAL_WCOP"
-echo "  Time without finds : $TOTAL_LAST_PATH"
+echo "  Time without finds : $TOTAL_LAST_FIND"
 echo
 
 exit 0
