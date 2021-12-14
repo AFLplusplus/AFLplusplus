@@ -660,7 +660,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (F.empty()) return;
-  if (!isInInstrumentList(&F)) return;
+  if (!isInInstrumentList(&F, FMNAME)) return;
 
   if (F.getName().find(".module_ctor") != std::string::npos)
     return;  // Should not instrument sanitizer init functions.

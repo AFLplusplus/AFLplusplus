@@ -386,10 +386,10 @@ bool ModuleSanitizerCoverage::instrumentModule(
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
   /*
     if (Allowlist &&
-        !Allowlist->inSection("coverage", "src", M.getSourceFileName()))
+        !Allowlist->inSection("coverage", "src", MNAME))
       return false;
     if (Blocklist &&
-        Blocklist->inSection("coverage", "src", M.getSourceFileName()))
+        Blocklist->inSection("coverage", "src", MNAME))
       return false;
   */
   BlockList.clear();
@@ -518,7 +518,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
     for (auto &F : M) {
 
-      if (!isInInstrumentList(&F) || !F.size()) { continue; }
+      if (!isInInstrumentList(&F, MNAME) || !F.size()) { continue; }
 
       for (auto &BB : F) {
 
@@ -1263,7 +1263,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
   // afl++ START
   if (!F.size()) return;
-  if (!isInInstrumentList(&F)) return;
+  if (!isInInstrumentList(&F, FMNAME)) return;
   // afl++ END
 
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)

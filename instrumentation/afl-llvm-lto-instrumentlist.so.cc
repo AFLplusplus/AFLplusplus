@@ -102,7 +102,7 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
 
     // fprintf(stderr, "F:%s\n", F.getName().str().c_str());
 
-    if (isInInstrumentList(&F)) {
+    if (isInInstrumentList(&F, MNAME)) {
 
       if (debug)
         DEBUGF("function %s is in the instrument file list\n",
