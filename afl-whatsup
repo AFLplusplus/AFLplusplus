@@ -93,7 +93,7 @@ TOTAL_PENDING=0
 
 # Time since last find / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
-FMT_PATH="${RED}none seen yet${NC}"
+FMT_FIND="${RED}none seen yet${NC}"
 FMT_CRASH="none seen yet"
 FMT_HANG="none seen yet"
 
@@ -135,7 +135,7 @@ fmt_duration()
 
 FIRST=true
 TOTAL_WCOP=
-TOTAL_LAST_PATH=0
+TOTAL_LAST_FIND=0
 
 for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
@@ -192,8 +192,8 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
 
-  if [ "$last_find" -gt "$TOTAL_LAST_PATH" ]; then
-    TOTAL_LAST_PATH=$last_find
+  if [ "$last_find" -gt "$TOTAL_LAST_FIND" ]; then
+    TOTAL_LAST_FIND=$last_find
   fi
 
   if [ "$SUMMARY_ONLY" = "" ]; then
@@ -210,7 +210,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
     fi
 
-    fmt_duration $last_find && FMT_PATH=$DUR_STRING
+    fmt_duration $last_find && FMT_FIND=$DUR_STRING
     fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
     fmt_duration $last_hang && FMT_HANG=$DUR_STRING
     FMT_CWOP="not available"
@@ -220,7 +220,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       test "$cycles_wo_finds" -gt 50 && FMT_CWOP="${RED}$cycles_wo_finds${NC}"
     }
 
-    echo "  last_find       : $FMT_PATH"
+    echo "  last_find       : $FMT_FIND"
     echo "  last_crash      : $FMT_CRASH"
     echo "  last_hang       : $FMT_HANG"
     echo "  cycles_wo_finds : $FMT_CWOP"
@@ -263,7 +263,7 @@ TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
 
 test -z "$TOTAL_WCOP" && TOTAL_WCOP="not available"
-fmt_duration $TOTAL_LAST_PATH && TOTAL_LAST_PATH=$DUR_STRING
+fmt_duration $TOTAL_LAST_FIND && TOTAL_LAST_FIND=$DUR_STRING
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
@@ -301,7 +301,7 @@ fi
 
 echo "       Crashes saved : $TOTAL_CRASHES locally unique"
 echo "Cycles without finds : $TOTAL_WCOP"
-echo "  Time without finds : $TOTAL_LAST_PATH"
+echo "  Time without finds : $TOTAL_LAST_FIND"
 echo
 
 exit 0
