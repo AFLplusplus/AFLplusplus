@@ -130,7 +130,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
    * strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
   for (auto &F : M) {
 
-    if (!isInInstrumentList(&F)) continue;
+    if (!isInInstrumentList(&F, MNAME)) continue;
 
     for (auto &BB : F) {
 

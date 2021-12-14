@@ -176,7 +176,7 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
    * all integer comparisons with >= and <= predicates to the icomps vector */
   for (auto &F : M) {
 
-    if (!isInInstrumentList(&F)) continue;
+    if (!isInInstrumentList(&F, MNAME)) continue;
 
     for (auto &BB : F) {
 
@@ -820,7 +820,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
    * functions were executed only these four predicates should exist */
   for (auto &F : M) {
 
-    if (!isInInstrumentList(&F)) continue;
+    if (!isInInstrumentList(&F, MNAME)) continue;
 
     for (auto &BB : F) {
 
@@ -1463,7 +1463,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
    * compare instructions. Save them into the worklist for later. */
   for (auto &F : M) {
 
-    if (!isInInstrumentList(&F)) continue;
+    if (!isInInstrumentList(&F, MNAME)) continue;
 
     for (auto &BB : F) {
 

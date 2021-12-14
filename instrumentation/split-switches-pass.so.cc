@@ -309,7 +309,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
    * all switches to switches vector for later processing */
   for (auto &F : M) {
 
-    if (!isInInstrumentList(&F)) continue;
+    if (!isInInstrumentList(&F, MNAME)) continue;
 
     for (auto &BB : F) {
 
