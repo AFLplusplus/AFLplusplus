@@ -229,7 +229,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
 
     echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
-    echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, item $cur_item/$corpus_count (${PATH_PERC}%)"
+    echo "  cycles $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, items $cur_item/$corpus_count (${PATH_PERC}%)"
 
     if [ "$saved_crashes" = "0" ]; then
       echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, no crashes yet"
