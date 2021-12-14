@@ -91,7 +91,7 @@ TOTAL_CRASHES=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
 
-# Time since last path / crash / hang, formatted as string
+# Time since last find / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
 FMT_PATH="${RED}none seen yet${NC}"
 FMT_CRASH="none seen yet"
@@ -243,7 +243,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
 done
 
-# Formatting for total time, time since last path, crash, and hang
+# Formatting for total time, time since last find, crash, and hang
 fmt_duration $((CUR_TIME - TOTAL_TIME)) && FMT_TIME=$DUR_STRING
 # Formatting for total execution
 FMT_EXECS="0 millions"
