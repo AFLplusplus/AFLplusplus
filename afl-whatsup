@@ -229,12 +229,12 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
 
     echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
-    echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_item/$corpus_count (${PATH_PERC}%)"
+    echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, item $cur_item/$corpus_count (${PATH_PERC}%)"
 
     if [ "$saved_crashes" = "0" ]; then
       echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, no crashes yet"
     else
-      echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, crash count $saved_crashes (!)"
+      echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, crashes saved $saved_crashes (!)"
     fi
 
     echo
@@ -293,13 +293,13 @@ echo "    Cumulative speed : $TOTAL_EPS execs/sec"
 if [ "$ALIVE_CNT" -gt "0" ]; then
   echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
 fi
-echo "       Pending paths : $TOTAL_PFAV faves, $TOTAL_PENDING total"
+echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 
 if [ "$ALIVE_CNT" -gt "1" ]; then
   echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
 fi
 
-echo "       Crashes found : $TOTAL_CRASHES locally unique"
+echo "       Crashes saved : $TOTAL_CRASHES locally unique"
 echo "Cycles without finds : $TOTAL_WCOP"
 echo "  Time without finds : $TOTAL_LAST_PATH"
 echo
