@@ -169,7 +169,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     fi
 
     DEAD_CNT=$((DEAD_CNT + 1))
-    last_path=0
+    last_find=0
 
     if [ "$PROCESS_DEAD" = "" ]; then
 
@@ -183,7 +183,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   EXEC_SEC=0
   test -z "$RUN_UNIX" -o "$RUN_UNIX" = 0 || EXEC_SEC=$((execs_done / RUN_UNIX))
-  PATH_PERC=$((cur_path * 100 / paths_total))
+  PATH_PERC=$((cur_item * 100 / corpus_count))
 
   TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
   TOTAL_EPS=$((TOTAL_EPS + EXEC_SEC))
@@ -192,8 +192,8 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
 
-  if [ "$last_path" -gt "$TOTAL_LAST_PATH" ]; then
-    TOTAL_LAST_PATH=$last_path
+  if [ "$last_find" -gt "$TOTAL_LAST_PATH" ]; then
+    TOTAL_LAST_PATH=$last_find
   fi
 
   if [ "$SUMMARY_ONLY" = "" ]; then
@@ -210,7 +210,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
     fi
 
-    fmt_duration $last_path && FMT_PATH=$DUR_STRING
+    fmt_duration $last_find && FMT_PATH=$DUR_STRING
     fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
     fmt_duration $last_hang && FMT_HANG=$DUR_STRING
     FMT_CWOP="not available"
@@ -220,7 +220,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       test "$cycles_wo_finds" -gt 50 && FMT_CWOP="${RED}$cycles_wo_finds${NC}"
     }
 
-    echo "  last_path       : $FMT_PATH"
+    echo "  last_find       : $FMT_PATH"
     echo "  last_crash      : $FMT_CRASH"
     echo "  last_hang       : $FMT_HANG"
     echo "  cycles_wo_finds : $FMT_CWOP"
@@ -229,7 +229,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
 
     echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
-    echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_path/$paths_total (${PATH_PERC}%)"
+    echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_item/$corpus_count (${PATH_PERC}%)"
 
     if [ "$unique_crashes" = "0" ]; then
       echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, no crashes yet"
