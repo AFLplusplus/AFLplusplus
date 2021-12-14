@@ -401,7 +401,7 @@ static std::string getSourceName(llvm::Function *F) {
 
 }
 
-bool isInInstrumentList(llvm::Function *F) {
+bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 
   bool return_default = true;
 
@@ -448,6 +448,8 @@ bool isInInstrumentList(llvm::Function *F) {
 
       std::string source_file = getSourceName(F);
 
+      if (source_file.empty()) { source_file = Filename; }
+
       if (!source_file.empty()) {
 
         for (std::list<std::string>::iterator it = denyListFiles.begin();
@@ -478,7 +480,7 @@ bool isInInstrumentList(llvm::Function *F) {
         if (!be_quiet)
           WARNF(
               "No debug information found for function %s, will be "
-              "instrumented (recompile with -g -O[1-3]).",
+              "instrumented (recompile with -g -O[1-3] and use a modern llvm).",
               F->getName().str().c_str());
 
       }
@@ -528,6 +530,8 @@ bool isInInstrumentList(llvm::Function *F) {
 
       std::string source_file = getSourceName(F);
 
+      if (source_file.empty()) { source_file = Filename; }
+
       if (!source_file.empty()) {
 
         for (std::list<std::string>::iterator it = allowListFiles.begin();
@@ -563,7 +567,7 @@ bool isInInstrumentList(llvm::Function *F) {
         if (!be_quiet)
           WARNF(
               "No debug information found for function %s, will not be "
-              "instrumented (recompile with -g -O[1-3]).",
+              "instrumented (recompile with -g -O[1-3] and use a modern llvm).",
               F->getName().str().c_str());
         return false;
 

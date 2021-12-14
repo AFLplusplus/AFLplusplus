@@ -51,6 +51,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - new cmplog mode (incompatible with older afl++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
+    - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST
+      on filename matching (requires llvm 11 or newer)
     - fixed a potential crash in targets for LAF string handling
     - added AFL_USE_TSAN thread sanitizer support
     - llvm and LTO mode modified to work with new llvm 14-dev (again. again.)
