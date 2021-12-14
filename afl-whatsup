@@ -299,7 +299,7 @@ if [ "$ALIVE_CNT" -gt "1" ]; then
   echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
 fi
 
-echo "       Crashes saved : $TOTAL_CRASHES locally unique"
+echo "       Crashes saved : $TOTAL_CRASHES"
 echo "Cycles without finds : $TOTAL_WCOP"
 echo "  Time without finds : $TOTAL_LAST_FIND"
 echo
