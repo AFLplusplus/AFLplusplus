@@ -167,13 +167,6 @@ const u8 count_class_lookup8[256] = {
 
 };
 
-#undef TIMES255
-#undef TIMES64
-#undef TIMES32
-#undef TIMES16
-#undef TIMES8
-#undef TIMES4
-
 u16 count_class_lookup16[65536];
 
 void init_count_class16(void) {
