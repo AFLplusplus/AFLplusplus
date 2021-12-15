@@ -397,7 +397,7 @@ checks or alter some of the more exotic semantics of the tool:
     target. This must be equal or larger than the size the target was compiled
     with.
 
-  - Setting `AFL_MAX_DET_EXRAS` will change the threshold at what number of
+  - Setting `AFL_MAX_DET_EXTRAS` will change the threshold at what number of
     elements in the `-x` dictionary and LTO autodict (combined) the
     probabilistic mode will kick off. In probabilistic mode, not all dictionary
     entries will be used all of the time for fuzzing mutations to not slow down
