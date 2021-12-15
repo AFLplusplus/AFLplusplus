@@ -45,6 +45,8 @@ Deployment, management, monitoring, reporting
   parallelize afl-tmin, startup, and data collection.
 
 Crash processing
+* [AFLTriage](https://github.com/quic/AFLTriage) -
+  triage crashing input files using gdb.
 * [afl-crash-analyzer](https://github.com/floyd-fuh/afl-crash-analyzer) -
   another crash analyzer for AFL.
 * [fuzzer-utils](https://github.com/ThePatrickStar/fuzzer-utils) - a set of
