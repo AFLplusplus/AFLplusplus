@@ -104,7 +104,7 @@ The usage of Autodict-QL is pretty easy. But let's describe it as:
      we want to compile `libxml` with codeql. Go to libxml and issue the
      following commands:
      - `./configure --disable-shared`
-     - `codeql create database libxml-db --language=cpp --command=make`
+     - `codeql database create libxml-db --language=cpp --command="make -j$(nproc)"`
        - Now you have the CodeQL database of the project :-)
 3. The final step is to update the CodeQL database you created in step 2
    (Suppose we are in `aflplusplus/utils/autodict_ql/` directory):
