@@ -103,24 +103,17 @@ static sharedmem_t *     shm_fuzz;
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
 
-#define TIMES4(x) x, x, x, x
-#define TIMES8(x) TIMES4(x), TIMES4(x)
-#define TIMES16(x) TIMES8(x), TIMES8(x)
-#define TIMES32(x) TIMES16(x), TIMES16(x)
-#define TIMES64(x) TIMES32(x), TIMES32(x)
-#define TIMES96(x) TIMES64(x), TIMES32(x)
-#define TIMES128(x) TIMES64(x), TIMES64(x)
 static const u8 count_class_human[256] = {
 
     [0] = 0,
     [1] = 1,
     [2] = 2,
     [3] = 3,
-    [4] = TIMES4(4),
-    [8] = TIMES8(5),
-    [16] = TIMES16(6),
-    [32] = TIMES96(7),
-    [128] = TIMES128(8)
+    [4] = 4,
+    [8] = 5,
+    [16] = 6,
+    [32] = 7,
+    [128] = 8
 
 };
 
@@ -130,21 +123,13 @@ static const u8 count_class_binary[256] = {
     [1] = 1,
     [2] = 2,
     [3] = 4,
-    [4] = TIMES4(8),
-    [8] = TIMES8(16),
-    [16] = TIMES16(32),
-    [32] = TIMES32(64),
-    [128] = TIMES64(128)
+    [4 ... 7] = 8,
+    [8 ... 15] = 16,
+    [16 ... 31] = 32,
+    [32 ... 127] = 64,
+    [128 ... 255] = 128
 
 };
-
-#undef TIMES128
-#undef TIMES96
-#undef TIMES64
-#undef TIMES32
-#undef TIMES16
-#undef TIMES8
-#undef TIMES4
 
 static void kill_child() {
 
