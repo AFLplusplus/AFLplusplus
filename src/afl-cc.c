@@ -695,7 +695,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
-  u8 skip_next = 0;
+  u8 skip_next = 0, non_dash = 0;
   while (--argc) {
 
     u8 *cur = *(++argv);
@@ -707,6 +707,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (cur[0] != '-') { non_dash = 1; }
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
@@ -1025,7 +1026,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (preprocessor_only || have_c) {
+  if (preprocessor_only || have_c || !non_dash) {
 
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
