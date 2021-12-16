@@ -720,10 +720,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if (!strcmp(cur, "-z")) {
+    if (!strcmp(cur, "-z") || !strcmp(cur, "-Wl,-z")) {
 
       u8 *param = *(argv + 1);
-      if (!strcmp(param, "defs")) {
+      if (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs")) {
 
         skip_next = 1;
         continue;
