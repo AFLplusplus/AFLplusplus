@@ -478,6 +478,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           */
           if (is_fp) {
 
+/*
             ConstantFP *i0 = dyn_cast<ConstantFP>(op0);
             ConstantFP *i1 = dyn_cast<ConstantFP>(op1);
             // BUG FIXME TODO: this is null ... but why?
@@ -497,6 +498,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
               last_val1 = cur_val;
 
             }
+*/
 
           } else {
 
