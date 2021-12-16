@@ -41,6 +41,7 @@
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
+  #include "llvm/Support/raw_ostream.h"
 #else
   #include "llvm/Analysis/Verifier.h"
   #include "llvm/DebugInfo.h"
@@ -285,7 +286,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       IntegerType *intTyOp0 = NULL;
       IntegerType *intTyOp1 = NULL;
       unsigned     max_size = 0, cast_size = 0;
-      unsigned     attr = 0, vector_cnt = 0;
+      unsigned     attr = 0, vector_cnt = 0, is_fp = 0;
       CmpInst *    cmpInst = dyn_cast<CmpInst>(selectcmpInst);
 
       if (!cmpInst) { continue; }
@@ -370,6 +371,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 #endif
 
         attr += 8;
+        is_fp = 1;
+        // fprintf(stderr, "HAVE FP %u!\n", vector_cnt);
 
       } else {
 
@@ -453,6 +456,9 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       }
 
+      // XXX FIXME BUG TODO
+      if (is_fp && vector_cnt) { continue; }
+
       uint64_t cur = 0, last_val0 = 0, last_val1 = 0, cur_val;
 
       while (1) {
@@ -464,21 +470,55 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           op0 = IRB.CreateExtractElement(op0_saved, cur);
           op1 = IRB.CreateExtractElement(op1_saved, cur);
-          ConstantInt *i0 = dyn_cast<ConstantInt>(op0);
-          ConstantInt *i1 = dyn_cast<ConstantInt>(op1);
-          if (i0 && i0->uge(0xffffffffffffffff) == false) {
+          /*
+          std::string errMsg;
+          raw_string_ostream os(errMsg);
+          op0_saved->print(os);
+          fprintf(stderr, "X: %s\n", os.str().c_str());
+          */
+          if (is_fp) {
 
-            cur_val = i0->getZExtValue();
-            if (last_val0 && last_val0 == cur_val) { skip = 1; }
-            last_val0 = cur_val;
+/*
+            ConstantFP *i0 = dyn_cast<ConstantFP>(op0);
+            ConstantFP *i1 = dyn_cast<ConstantFP>(op1);
+            // BUG FIXME TODO: this is null ... but why?
+            // fprintf(stderr, "%p %p\n", i0, i1);
+            if (i0) {
 
-          }
+              cur_val = (uint64_t)i0->getValue().convertToDouble();
+              if (last_val0 && last_val0 == cur_val) { skip = 1; }
+              last_val0 = cur_val;
 
-          if (i1 && i1->uge(0xffffffffffffffff) == false) {
+            }
 
-            cur_val = i1->getZExtValue();
-            if (last_val1 && last_val1 == cur_val) { skip = 1; }
-            last_val1 = cur_val;
+            if (i1) {
+
+              cur_val = (uint64_t)i1->getValue().convertToDouble();
+              if (last_val1 && last_val1 == cur_val) { skip = 1; }
+              last_val1 = cur_val;
+
+            }
+*/
+
+          } else {
+
+            ConstantInt *i0 = dyn_cast<ConstantInt>(op0);
+            ConstantInt *i1 = dyn_cast<ConstantInt>(op1);
+            if (i0 && i0->uge(0xffffffffffffffff) == false) {
+
+              cur_val = i0->getZExtValue();
+              if (last_val0 && last_val0 == cur_val) { skip = 1; }
+              last_val0 = cur_val;
+
+            }
+
+            if (i1 && i1->uge(0xffffffffffffffff) == false) {
+
+              cur_val = i1->getZExtValue();
+              if (last_val1 && last_val1 == cur_val) { skip = 1; }
+              last_val1 = cur_val;
+
+            }
 
           }
 
@@ -557,6 +597,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         ++cur;
         if (cur >= vector_cnt) { break; }
+        skip = 0;
 
       }
 
