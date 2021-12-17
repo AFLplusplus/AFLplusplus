@@ -141,14 +141,18 @@ AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(BUILD_DIR)frida_hook.so
 AFLPP_QEMU_DRIVER_HOOK_SRC:=$(HOOK_DIR)qemu_hook.c
 AFLPP_QEMU_DRIVER_HOOK_OBJ:=$(BUILD_DIR)qemu_hook.so
 
+ADDR_DIR:=$(PWD)addr/
+ADDR_SRC:=$(ADDR_DIR)addr.c
+ADDR_BIN:=$(BUILD_DIR)addr
+
 BIN2C:=$(BUILD_DIR)bin2c
 BIN2C_SRC:=$(PWD)util/bin2c.c
 
-.PHONY: all 32 clean format hook $(FRIDA_GUM)
+.PHONY: all 32 clean format hook addr $(FRIDA_GUM)
 
 ############################## ALL #############################################
 
-all: $(FRIDA_TRACE) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
+all: $(FRIDA_TRACE) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ) $(ADDR_BIN)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
@@ -329,13 +333,30 @@ $(AFLPP_QEMU_DRIVER_HOOK_OBJ): $(AFLPP_QEMU_DRIVER_HOOK_SRC) | $(BUILD_DIR)
 
 hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
+############################# ADDR #############################################
+$(ADDR_BIN): $(ADDR_SRC) | $(BUILD_DIR)
+	$(TARGET_CC) \
+		$(CFLAGS) \
+		-Werror \
+		-Wall \
+		-Wextra \
+		-Wpointer-arith \
+		-z noexecstack \
+		-Wl,--gc-sections \
+		-Wl,--exclude-libs,ALL \
+		-ldl \
+		-lrt \
+		$< -o $@
+
+addr: $(ADDR_BIN)
+
 ############################# CLEAN ############################################
 clean:
 	rm -rf $(BUILD_DIR)
 
 ############################# FORMAT ###########################################
 format:
-	cd $(ROOT) && echo $(SOURCES) $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(BIN2C_SRC) | xargs -L1 ./.custom-format.py -i
+	cd $(ROOT) && echo $(SOURCES) $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(BIN2C_SRC) $(ADDR_BIN ) | xargs -L1 ./.custom-format.py -i
 	cd $(ROOT) && echo $(INCLUDES) | xargs -L1 ./.custom-format.py -i
 
 ############################# RUN #############################################
