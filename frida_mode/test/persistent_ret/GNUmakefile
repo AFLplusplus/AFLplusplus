@@ -22,27 +22,16 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
+ADDR_BIN:=$(ROOT)frida_mode/build/addr
 GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
 
 ifeq "$(shell uname)" "Darwin"
 TEST_BIN_LDFLAGS:=-Wl,-no_pie
 endif
 
-ARCH=$(shell uname -m)
-ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main 0x0000aaaaaaaaa000)
- AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow 0x0000aaaaaaaaa000)
-endif
-
-ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main 0x0000555555554000)
- AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow 0x0000555555554000)
-endif
-
-ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main 0x56555000)
- AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow 0x56555000)
-endif
+AFL_FRIDA_BASE_ADDR:=$(shell $(ADDR_BIN))
+AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) main $(AFL_FRIDA_BASE_ADDR))
+AFL_FRIDA_PERSISTENT_RET=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) slow $(AFL_FRIDA_BASE_ADDR))
 
 ifeq "$(shell uname)" "Darwin"
 AFL_PRELOAD=/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation

@@ -46,19 +46,11 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
+ADDR_BIN:=$(ROOT)frida_mode/build/addr
 GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
 
-ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000aaaaaaaaa000)
-endif
-
-ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000555555554000)
-endif
-
-ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x56555000)
-endif
+AFL_FRIDA_BASE_ADDR:=$(shell $(ADDR_BIN))
+AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput $(AFL_FRIDA_BASE_ADDR))
 
 .PHONY: all clean frida hook
 
