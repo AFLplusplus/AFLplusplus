@@ -50,9 +50,7 @@ static void instrument_disasm(guint8 *start, guint8 *end,
   if (output->encoding == GUM_INSTRUCTION_SPECIAL) { mode |= CS_MODE_THUMB; }
 #endif
 
-  err = cs_open(GUM_DEFAULT_CS_ARCH,
-                CS_MODE_THUMB | GUM_DEFAULT_CS_MODE | GUM_DEFAULT_CS_ENDIAN,
-                &capstone);
+  err = cs_open(GUM_DEFAULT_CS_ARCH, mode, &capstone);
   g_assert(err == CS_ERR_OK);
 
   size = GPOINTER_TO_SIZE(end) - GPOINTER_TO_SIZE(start);
