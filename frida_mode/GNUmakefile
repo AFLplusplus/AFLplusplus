@@ -118,16 +118,15 @@ GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.x
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
 GUM_DEVKIT_TARBALL:=$(FRIDA_BUILD_DIR)$(GUM_DEVKIT_FILENAME)
+ifdef FRIDA_SOURCE
+GUM_DEVIT_LIBRARY=$(FRIDA_DIR)build/frida-linux-$(ARCH)/lib/libfrida-gumjs-1.0.a
+else
 GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gumjs.a
+endif
 GUM_DEVIT_HEADER=$(FRIDA_BUILD_DIR)frida-gumjs.h
 
 FRIDA_DIR:=$(PWD)build/frida-source/
 FRIDA_MAKEFILE:=$(FRIDA_DIR)Makefile
-FRIDA_GUM:=$(FRIDA_DIR)build/frida-linux-x86_64/lib/libfrida-gumjs-1.0.a
-FRIDA_GUM_DEVKIT_DIR:=$(FRIDA_DIR)build/gum-devkit/
-FRIDA_GUM_DEVKIT_HEADER:=$(FRIDA_GUM_DEVKIT_DIR)frida-gumjs.h
-FRIDA_GUM_DEVKIT_TARBALL:=$(FRIDA_DIR)build/frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar
-FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL:=$(FRIDA_DIR)build/$(GUM_DEVKIT_FILENAME)
 
 AFL_COMPILER_RT_SRC:=$(ROOT)instrumentation/afl-compiler-rt.o.c
 AFL_COMPILER_RT_OBJ:=$(OBJ_DIR)afl-compiler-rt.o
@@ -160,41 +159,98 @@ $(BUILD_DIR):
 $(OBJ_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
-############################# FRIDA ############################################
-
-$(FRIDA_MAKEFILE): | $(BUILD_DIR)
-	git clone --recursive https://github.com/frida/frida.git $(FRIDA_DIR)
-
-$(FRIDA_GUM): $(FRIDA_MAKEFILE)
-	cd $(FRIDA_DIR) && make gum-linux-$(ARCH)
-
-$(FRIDA_GUM_DEVKIT_HEADER): $(FRIDA_GUM)
-	$(FRIDA_DIR)releng/devkit.py frida-gumjs linux-$(ARCH) $(FRIDA_DIR)build/gum-devkit/
-
-$(FRIDA_GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_HEADER)
-	cd $(FRIDA_GUM_DEVKIT_DIR) && tar cvf $(FRIDA_GUM_DEVKIT_TARBALL) .
-
-$(FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL): $(FRIDA_GUM_DEVKIT_TARBALL)
-	xz -k -f -0 $(FRIDA_GUM_DEVKIT_TARBALL)
-
 ############################# DEVKIT ###########################################
 
 $(FRIDA_BUILD_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 ifdef FRIDA_SOURCE
-$(GUM_DEVKIT_TARBALL): $(FRIDA_GUM_DEVKIT_COMPRESSED_TARBALL)| $(FRIDA_BUILD_DIR)
-	cp -v $< $@
+$(FRIDA_MAKEFILE): | $(BUILD_DIR)
+	git clone --recursive https://github.com/frida/frida.git $(FRIDA_DIR)
+
+.PHONY: $(GUM_DEVIT_LIBRARY)
+
+$(GUM_DEVIT_LIBRARY): $(FRIDA_MAKEFILE)
+	cd $(FRIDA_DIR) && make gum-linux-$(ARCH)
+
+$(GUM_DEVIT_HEADER): $(FRIDA_MAKEFILE) | $(FRIDA_BUILD_DIR)
+	echo "#include <stdio.h>" > $@
+	echo "#include <unistd.h>" >> $@
+	echo "#include <gum/gumreturnaddress.h>" >> $@
+	echo "#include <gum/gumbacktracer.h>" >> $@
+	echo "#include <gum/gumsymbolutil.h>" >> $@
+	echo "#include <gum/gumstalker.h>" >> $@
+	echo "#include <gum/gumlibc.h>" >> $@
+	echo "#include <gumjs/gumscriptbackend.h>" >> $@
+
+ifeq "$(ARCH)" "arm64"
+
+CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-linux-$(ARCH)/include/frida-1.0 \
+	    -I $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/include/glib-2.0/ \
+		-I $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/glib-2.0/include/ \
+		-I $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/include/capstone/ \
+		-I $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/include/json-glib-1.0/ \
+
+TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-linux-$(ARCH)/lib/libfrida-gum-1.0.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libsoup-2.4.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libsqlite3.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libtcc.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libjson-glib-1.0.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libquickjs.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libcapstone.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libunwind-*.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libunwind.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libffi.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libdwarf.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libelf.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libgio-2.0.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libgobject-2.0.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libglib-2.0.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/liblzma.a \
+			   $(FRIDA_DIR)build/frida_thin-sdk-linux-$(ARCH)/lib/libz.a \
+
+else
+
+CFLAGS+=-I $(FRIDA_DIR)build/frida-linux-$(ARCH)/include/frida-1.0 \
+	    -I $(FRIDA_DIR)build/sdk-linux-$(ARCH)/include/glib-2.0/ \
+		-I $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/glib-2.0/include/ \
+		-I $(FRIDA_DIR)build/sdk-linux-$(ARCH)/include/capstone/ \
+		-I $(FRIDA_DIR)build/sdk-linux-$(ARCH)/include/json-glib-1.0/ \
+
+TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-linux-$(ARCH)/lib/libfrida-gum-1.0.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libsoup-2.4.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libsqlite3.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libtcc.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libjson-glib-1.0.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libquickjs.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libcapstone.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libunwind-*.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libunwind.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libffi.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libdwarf.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libelf.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libgio-2.0.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libgobject-2.0.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libglib-2.0.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/liblzma.a \
+			   $(FRIDA_DIR)build/sdk-linux-$(ARCH)/lib/libz.a \
+
+endif
+
+
+
 else
 $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
 	wget -O $@ $(GUM_DEVKIT_URL) || curl -L -o $@ $(GUM_DEVKIT_URL)
-endif
 
 $(GUM_DEVIT_LIBRARY): $(GUM_DEVKIT_TARBALL)
 	tar Jxvfm $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
 
 $(GUM_DEVIT_HEADER): $(GUM_DEVKIT_TARBALL)
 	tar Jxvfm $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
+endif
+
+
 
 ############################## AFL #############################################
 $(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
@@ -235,7 +291,7 @@ $(JS_OBJ): $(JS_SRC) GNUmakefile
 ############################# SOURCE ###########################################
 
 define BUILD_SOURCE
-$(2): $(1) $(INCLUDES) GNUmakefile | $(OBJ_DIR)
+$(2): $(1) $(INCLUDES) $(GUM_DEVIT_HEADER) | $(OBJ_DIR)
 	$(TARGET_CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
@@ -256,6 +312,7 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 		$(GUM_DEVIT_LIBRARY) \
 		$(AFL_COMPILER_RT_OBJ) \
 		$(AFL_PERFORMANCE_OBJ) \
+		$(TRACE_LDFLAGS) \
 		$(LDFLAGS) \
 		$(LDSCRIPT) \
 		-o $@ \
