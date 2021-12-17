@@ -47,20 +47,22 @@ ifeq "$(ARCH)" "i686"
 endif
 endif
 
+ADDR_BIN:=$(ROOT)frida_mode/build/addr
 GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
 
-AFL_QEMU_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x4000000000)
+AFL_FRIDA_BASE_ADDR:=$(shell $(ADDR_BIN))
+AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput $(AFL_FRIDA_BASE_ADDR))
 
-ifeq "$(ARCH)" "aarch64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000aaaaaaaaa000)
+ifeq "$(ARCH)" "arm64"
+ AFL_QEMU_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x5500000000)
 endif
 
 ifeq "$(ARCH)" "x86_64"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x0000555555554000)
+ AFL_QEMU_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x4000000000)
 endif
 
 ifeq "$(ARCH)" "x86"
- AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x56555000)
+ AFL_QEMU_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput 0x4000000000)
 endif
 
 .PHONY: all clean qemu frida hook
