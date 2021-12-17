@@ -1421,11 +1421,25 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   // we have a problem as we cannot increase the coverage map anymore.
   if (__afl_already_initialized_forkserver) {
 
-    fprintf(stderr,
-            "[-] FATAL: forkserver is already up, but an instrumented dlopen() "
-            "library loaded afterwards. You must AFL_PRELOAD such libraries to "
-            "be able to fuzz them or LD_PRELOAD to run outside of afl-fuzz.\n");
-    abort();
+    if (!getenv("AFL_IGNORE_PROBLEMS")) {
+
+      fprintf(
+          stderr,
+          "[-] FATAL: forkserver is already up, but an instrumented dlopen() "
+          "library loaded afterwards. You must AFL_PRELOAD such libraries to "
+          "be able to fuzz them or LD_PRELOAD to run outside of afl-fuzz.\n"
+          "To ignore this set AFL_IGNORE_PROBLEMS=1.\n");
+      abort();
+
+    } else {
+
+      while (start < stop) {
+
+        *(start++) = 4;
+
+      }
+
+    }
 
   }
 
@@ -1462,7 +1476,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
         if (R(100) < inst_ratio)
           *start = ++__afl_final_loc % __afl_map_size;
         else
-          *start = 0;
+          *start = 4;
 
         start++;
 
@@ -1487,7 +1501,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     if (R(100) < inst_ratio)
       *start = ++__afl_final_loc;
     else
-      *start = 0;
+      *start = 4;
 
     start++;
 
