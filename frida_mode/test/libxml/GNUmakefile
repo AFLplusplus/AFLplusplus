@@ -134,7 +134,7 @@ $(TEST_DATA_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
 $(TEST_DATA_FILE): | $(TEST_DATA_DIR)
-	dd if=/dev/zero bs=1048576 count=1 of=$@
+	echo "hi" > $@
 
 ######           #######
 
