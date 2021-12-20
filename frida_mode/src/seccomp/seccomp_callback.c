@@ -124,7 +124,7 @@ void seccomp_callback_initialize(void) {
 
   path = g_canonicalize_filename(seccomp_filename, g_get_current_dir());
 
-  FOKF("Seccomp - path [%s]", path);
+  FVERBOSE("Seccomp - path [%s]", path);
 
   fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
             S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);

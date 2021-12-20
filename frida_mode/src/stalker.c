@@ -93,10 +93,12 @@ static gboolean stalker_exclude_self(const GumRangeDetails *details,
 
 void stalker_init(void) {
 
-  FOKF("Instrumentation - backpatch [%c]", backpatch_enable ? 'X' : ' ');
-
-  FOKF("Stalker - ic_entries [%u]", stalker_ic_entries);
-  FOKF("Stalker - adjacent_blocks [%u]", stalker_adjacent_blocks);
+  FOKF(cBLU "Stalker" cRST " - " cGRN "backpatch:" cYEL " [%c]",
+       backpatch_enable ? 'X' : ' ');
+  FOKF(cBLU "Stalker" cRST " - " cGRN "ic_entries:" cYEL " [%u]",
+       stalker_ic_entries);
+  FOKF(cBLU "Stalker" cRST " - " cGRN "adjacent_blocks:" cYEL " [%u]",
+       stalker_adjacent_blocks);
 
 #if !(defined(__x86_64__) || defined(__i386__))
   if (getenv("AFL_FRIDA_STALKER_IC_ENTRIES") != NULL) {

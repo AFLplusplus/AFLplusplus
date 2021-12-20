@@ -20,7 +20,7 @@ static gboolean lib_get_main_module(const GumModuleDetails *details,
       details->path, mach_task_self(), details->range->base_address,
       GUM_DARWIN_MODULE_FLAGS_NONE, NULL);
 
-  FOKF("Found main module: %s", module->name);
+  FVERBOSE("Found main module: %s", module->name);
 
   *ret = module;
 
@@ -35,20 +35,22 @@ gboolean lib_get_text_section(const GumDarwinSectionDetails *details,
   static size_t idx = 0;
   char          text_name[] = "__text";
 
-  FOKF("Section: %2lu - base: 0x%016" G_GINT64_MODIFIER
-       "X size: 0x%016" G_GINT64_MODIFIER "X %s",
-       idx++, details->vm_address, details->vm_address + details->size,
-       details->section_name);
+  FVERBOSE("\t%2lu - base: 0x%016" G_GINT64_MODIFIER
+           "X size: 0x%016" G_GINT64_MODIFIER "X %s",
+           idx++, details->vm_address, details->vm_address + details->size,
+           details->section_name);
 
   if (memcmp(details->section_name, text_name, sizeof(text_name)) == 0 &&
       text_base == 0) {
 
     text_base = details->vm_address;
     text_limit = details->vm_address + details->size;
-    FOKF("> text_addr: 0x%016" G_GINT64_MODIFIER "X", text_base);
-    FOKF("> text_limit: 0x%016" G_GINT64_MODIFIER "X", text_limit);
 
   }
+
+  FVERBOSE(".text\n");
+  FVERBOSE("\taddr: 0x%016" G_GINT64_MODIFIER "X", text_base);
+  FVERBOSE("\tlimit: 0x%016" G_GINT64_MODIFIER "X", text_limit);
 
   return TRUE;
 
@@ -62,6 +64,8 @@ void lib_init(void) {
 
   GumDarwinModule *module = NULL;
   gum_darwin_enumerate_modules(mach_task_self(), lib_get_main_module, &module);
+
+  FVERBOSE("Sections:");
   gum_darwin_module_enumerate_sections(module, lib_get_text_section, NULL);
 
 }

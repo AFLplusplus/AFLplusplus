@@ -258,7 +258,7 @@ void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
     if (ioctl(fd, SECCOMP_IOCTL_NOTIF_SEND, resp) < 0) {
 
       if (errno == ENOENT) { continue; }
-      FOKF("SECCOMP_IOCTL_NOTIF_SEND");
+      FVERBOSE("SECCOMP_IOCTL_NOTIF_SEND");
       continue;
 
     }
