@@ -72,13 +72,16 @@ void persistent_config(void) {
 
 void persistent_init(void) {
 
-  FOKF("Instrumentation - persistent mode [%c] (0x%016" G_GINT64_MODIFIER "X)",
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "persistent mode:" cYEL
+            " [%c] (0x%016" G_GINT64_MODIFIER "X)",
        persistent_start == 0 ? ' ' : 'X', persistent_start);
-  FOKF("Instrumentation - persistent count [%c] (%" G_GINT64_MODIFIER "d)",
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "persistent count:" cYEL
+            " [%c] (%" G_GINT64_MODIFIER "d)",
        persistent_start == 0 ? ' ' : 'X', persistent_count);
-  FOKF("Instrumentation - hook [%s]", hook_name);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "hook:" cYEL " [%s]", hook_name);
 
-  FOKF("Instrumentation - persistent ret [%c] (0x%016" G_GINT64_MODIFIER "X)",
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "persistent ret:" cYEL
+            " [%c] (0x%016" G_GINT64_MODIFIER "X)",
        persistent_ret == 0 ? ' ' : 'X', persistent_ret);
 
   if (persistent_hook != NULL) { __afl_sharedmem_fuzzing = 1; }
@@ -87,7 +90,7 @@ void persistent_init(void) {
 
 void persistent_prologue(GumStalkerOutput *output) {
 
-  FOKF("AFL_FRIDA_PERSISTENT_ADDR reached");
+  FVERBOSE("AFL_FRIDA_PERSISTENT_ADDR reached");
   entry_compiled = TRUE;
   ranges_exclude();
   stalker_trust();
@@ -97,7 +100,7 @@ void persistent_prologue(GumStalkerOutput *output) {
 
 void persistent_epilogue(GumStalkerOutput *output) {
 
-  FOKF("AFL_FRIDA_PERSISTENT_RET reached");
+  FVERBOSE("AFL_FRIDA_PERSISTENT_RET reached");
   persistent_epilogue_arch(output);
 
 }

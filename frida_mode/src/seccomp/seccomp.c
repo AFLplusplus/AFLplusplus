@@ -25,7 +25,8 @@ void seccomp_config(void) {
 
 void seccomp_init(void) {
 
-  FOKF("Seccomp - file [%s]", seccomp_filename);
+  FOKF(cBLU "Seccomp" cRST " - " cGRN "file:" cYEL " [%s]",
+       seccomp_filename == NULL ? " " : seccomp_filename);
 
   if (seccomp_filename == NULL) { return; }
 

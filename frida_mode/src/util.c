@@ -1,5 +1,7 @@
 #include "util.h"
 
+gboolean util_verbose = FALSE;
+
 guint64 util_read_address(char *key, guint64 default_value) {
 
   char *value_str = getenv(key);
@@ -87,16 +89,32 @@ guint64 util_read_num(char *key, guint64 default_value) {
 gboolean util_output_enabled(void) {
 
   static gboolean initialized = FALSE;
-  static gboolean enabled = TRUE;
+  static gboolean enabled = FALSE;
 
   if (!initialized) {
 
     initialized = TRUE;
-    if (getenv("AFL_DEBUG_CHILD") == NULL) { enabled = FALSE; }
+    if (getenv("AFL_DEBUG_CHILD") != NULL) { enabled = TRUE; }
+    if (util_verbose_enabled()) { enabled = TRUE; }
 
   }
 
   return enabled;
+
+}
+
+gboolean util_verbose_enabled(void) {
+
+  static gboolean initialized = FALSE;
+
+  if (!initialized) {
+
+    initialized = TRUE;
+    if (getenv("AFL_FRIDA_VERBOSE") != NULL) { util_verbose = TRUE; }
+
+  }
+
+  return util_verbose;
 
 }
 

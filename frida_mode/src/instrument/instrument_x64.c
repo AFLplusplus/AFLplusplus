@@ -323,7 +323,7 @@ void instrument_coverage_optimize_init(void) {
   gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, instrument_coverage_find_low,
                                &low_address);
 
-  FOKF("Low address: %p", low_address);
+  FVERBOSE("Low address: %p", low_address);
 
   if (low_address == 0 ||
       GPOINTER_TO_SIZE(low_address) > ((2UL << 20) - __afl_map_size)) {
@@ -335,7 +335,7 @@ void instrument_coverage_optimize_init(void) {
   ranges_print_debug_maps();
 
   char *shm_env = getenv(SHM_ENV_VAR);
-  FOKF("SHM_ENV_VAR: %s", shm_env);
+  FVERBOSE("SHM_ENV_VAR: %s", shm_env);
 
   if (shm_env == NULL) {
 
@@ -359,8 +359,8 @@ void instrument_coverage_optimize_init(void) {
 
   }
 
-  FOKF("__afl_area_ptr: %p", __afl_area_ptr);
-  FOKF("instrument_previous_pc: %p", &instrument_previous_pc);
+  FVERBOSE("__afl_area_ptr: %p", __afl_area_ptr);
+  FVERBOSE("instrument_previous_pc: %p", &instrument_previous_pc);
 
 }
 

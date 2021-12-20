@@ -18,7 +18,7 @@ static void output_redirect(int fd, char *filename) {
 
   path = g_canonicalize_filename(filename, g_get_current_dir());
 
-  FOKF("Redirect %d -> '%s'", fd, path);
+  FVERBOSE("Redirect %d -> '%s'", fd, path);
 
   int output_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                        S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
@@ -46,8 +46,10 @@ void output_config(void) {
 
 void output_init(void) {
 
-  FOKF("Output - StdOut: %s", output_stdout);
-  FOKF("Output - StdErr: %s", output_stderr);
+  FOKF(cBLU "Output" cRST " - " cGRN "stdout:" cYEL " [%s]",
+       output_stdout == NULL ? " " : output_stdout);
+  FOKF(cBLU "Output" cRST " - " cGRN "stderr:" cYEL " [%s]",
+       output_stderr == NULL ? " " : output_stderr);
 
   output_redirect(STDOUT_FILENO, output_stdout);
   output_redirect(STDERR_FILENO, output_stderr);
