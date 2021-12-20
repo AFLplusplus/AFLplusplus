@@ -782,7 +782,7 @@ class Afl {
       Afl.jsApiWrite(STDOUT_FILENO, buf, log.length);
   }
   /**
-   * See `AFL_FRIDA_INST_NO_BACKPATCH`.
+   * See `AFL_FRIDA_STALKER_NO_BACKPATCH`.
    */
   static setBackpatchDisable() {
       Afl.jsApiSetBackpatchDisable();

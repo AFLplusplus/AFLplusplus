@@ -262,3 +262,9 @@ __attribute__((visibility("default"))) void js_api_set_js_main_hook(
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_verbose(void) {
+
+  util_verbose = TRUE;
+
+}
+

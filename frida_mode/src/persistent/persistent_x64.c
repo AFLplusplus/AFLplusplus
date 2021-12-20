@@ -269,7 +269,7 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  FOKF("Persistent loop reached");
+  FVERBOSE("Persistent loop reached");
 
   /* Pop the return value */
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP, 8);
