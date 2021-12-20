@@ -329,8 +329,11 @@ void stats_config(void) {
 
 void stats_init(void) {
 
-  FOKF("Stats - file [%s]", stats_filename);
-  FOKF("Stats - interval [%" G_GINT64_MODIFIER "u]", stats_interval);
+  FOKF(cBLU "Stats" cRST " - " cGRN "file:" cYEL " [%s]",
+       stats_filename == NULL ? " " : stats_filename);
+  FOKF(cBLU "Stats" cRST " - " cGRN "interval:" cYEL " [%" G_GINT64_MODIFIER
+            "u]",
+       stats_interval);
 
   if (getenv("AFL_FRIDA_STATS_INTERVAL") != NULL &&
       getenv("AFL_FRIDA_STATS_FILE") == NULL) {
@@ -347,7 +350,8 @@ void stats_init(void) {
 
   char *path = g_canonicalize_filename(stats_filename, g_get_current_dir());
 
-  FOKF("Stats - path [%s]", path);
+  FOKF(cBLU "Stats" cRST " - " cGRN "path:" cYEL " [%s]",
+       path == NULL ? " " : path);
 
   stats_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                   S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);

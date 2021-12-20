@@ -78,7 +78,7 @@ class Afl {
   }
 
   /**
-   * See `AFL_FRIDA_INST_NO_BACKPATCH`.
+   * See `AFL_FRIDA_STALKER_NO_BACKPATCH`.
    */
   public static setBackpatchDisable(): void {
     Afl.jsApiSetBackpatchDisable();
@@ -313,6 +313,13 @@ class Afl {
     Afl.jsApiSetTraceable();
   }
 
+  /**
+   * See `AFL_FRIDA_VERBOSE`
+   */
+  public static setVerbose(): void {
+    Afl.jsApiSetVerbose();
+  }
+
   private static readonly jsApiAddExcludeRange = Afl.jsApiGetFunction(
     "js_api_add_exclude_range",
     "void",
@@ -477,6 +484,11 @@ class Afl {
 
   private static readonly jsApiSetTraceable = Afl.jsApiGetFunction(
     "js_api_set_traceable",
+    "void",
+    []);
+
+  private static readonly jsApiSetVerbose = Afl.jsApiGetFunction(
+    "js_api_set_verbose",
     "void",
     []);
 

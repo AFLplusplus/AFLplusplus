@@ -111,11 +111,13 @@ static void afl_print_cmdline(void) {
 
   int idx = 0;
 
+  FVERBOSE("Command Line");
+
   for (ssize_t i = 0; i < bytes_read; i++) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
-      FOKF("AFL - COMMANDLINE: argv[%d] = %s", idx++, &buffer[i]);
+      FVERBOSE("\targv[%d] = %s", idx++, &buffer[i]);
 
     }
 
@@ -131,7 +133,7 @@ static void afl_print_cmdline(void) {
 
   for (idx = 0; idx < nargv; idx++) {
 
-    FOKF("AFL - COMMANDLINE: argv[%d] = %s", idx, argv[idx]);
+    FVERBOSE("\targv[%d] = %s", idx, argv[idx]);
 
   }
 
@@ -161,11 +163,12 @@ static void afl_print_env(void) {
 
   int idx = 0;
 
+  FVERBOSE("ENVIRONMENT");
   for (ssize_t i = 0; i < bytes_read; i++) {
 
     if (i == 0 || buffer[i - 1] == '\0') {
 
-      FOKF("AFL - ENVIRONMENT %3d: %s", idx++, &buffer[i]);
+      FVERBOSE("\t%3d: %s", idx++, &buffer[i]);
 
     }
 
@@ -179,6 +182,13 @@ static void afl_print_env(void) {
 
 __attribute__((visibility("default"))) void afl_frida_start(void) {
 
+  FOKF(cRED "**********************");
+  FOKF(cRED "* " cYEL "******************" cRED " *");
+  FOKF(cRED "* " cYEL "* " cGRN "**************" cYEL " *" cRED " *");
+  FOKF(cRED "* " cYEL "* " cGRN "* FRIDA MODE *" cYEL " *" cRED " *");
+  FOKF(cRED "* " cYEL "* " cGRN "**************" cYEL " *" cRED " *");
+  FOKF(cRED "* " cYEL "******************" cRED " *");
+  FOKF(cRED "**********************");
   afl_print_cmdline();
   afl_print_env();
 
@@ -255,9 +265,9 @@ static void intercept_main(void) {
 static void intercept_main(void) {
 
   mach_port_t task = mach_task_self();
-  FOKF("Task Id: %u", task);
+  FVERBOSE("Task Id: %u", task);
   GumAddress entry = gum_darwin_find_entrypoint(task);
-  FOKF("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
+  FVERBOSE("Entry Point: 0x%016" G_GINT64_MODIFIER "x", entry);
   void *main = GSIZE_TO_POINTER(entry);
   main_fn = main;
   intercept_hook(main, on_main, NULL);

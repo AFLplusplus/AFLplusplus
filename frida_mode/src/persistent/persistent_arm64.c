@@ -324,7 +324,7 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  FOKF("Persistent loop reached");
+  FVERBOSE("Persistent loop reached");
 
   instrument_persitent_save_regs(cw, &saved_regs);
 

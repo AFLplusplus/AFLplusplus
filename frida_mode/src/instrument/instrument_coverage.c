@@ -659,17 +659,17 @@ void instrument_coverage_config(void) {
 
 void instrument_coverage_normal_init(void) {
 
-  FOKF("Coverage - enabled [%c]",
-       instrument_coverage_filename == NULL ? ' ' : 'X');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "coverage:" cYEL " [%s]",
+       instrument_coverage_filename == NULL ? " "
+                                            : instrument_coverage_filename);
 
   if (instrument_coverage_filename == NULL) { return; }
-
-  FOKF("Coverage - file [%s]", instrument_coverage_filename);
 
   char *path = g_canonicalize_filename(instrument_coverage_filename,
                                        g_get_current_dir());
 
-  FOKF("Coverage - path [%s]", path);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "coverage path:" cYEL " [%s]",
+       path);
 
   normal_coverage_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                             S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
@@ -718,7 +718,7 @@ void instrument_coverage_unstable_find_output(void) {
 
   GDir *dir = g_dir_open(fds_name, 0, NULL);
 
-  FOKF("Coverage Unstable - fds: %s", fds_name);
+  FVERBOSE("Coverage Unstable - fds: %s", fds_name);
 
   for (const gchar *filename = g_dir_read_name(dir); filename != NULL;
        filename = g_dir_read_name(dir)) {
@@ -782,18 +782,24 @@ void instrument_coverage_unstable_find_output(void) {
 
   }
 
-  FOKF("Fuzzer stats: %s", unstable_coverage_fuzzer_stats);
+  FVERBOSE("Fuzzer stats: %s", unstable_coverage_fuzzer_stats);
 
 }
 
 void instrument_coverage_unstable_init(void) {
 
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "unstable coverage:" cYEL " [%s]",
+       instrument_coverage_unstable_filename == NULL
+           ? " "
+           : instrument_coverage_unstable_filename);
   if (instrument_coverage_unstable_filename == NULL) { return; }
 
   char *path = g_canonicalize_filename(instrument_coverage_unstable_filename,
                                        g_get_current_dir());
 
-  FOKF("Coverage - unstable path [%s]", instrument_coverage_unstable_filename);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "unstable coverage path:" cYEL
+            " [%s]",
+       path == NULL ? " " : path);
 
   unstable_coverage_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                               S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);

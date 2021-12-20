@@ -178,8 +178,10 @@ static void prefetch_hook_fork(void) {
 
 void prefetch_init(void) {
 
-  FOKF("Instrumentation - prefetch [%c]", prefetch_enable ? 'X' : ' ');
-  FOKF("Instrumentation - prefetch_backpatch [%c]",
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "prefetch:" cYEL " [%c]",
+       prefetch_enable ? 'X' : ' ');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "prefetch_backpatch:" cYEL
+            " [%c]",
        prefetch_backpatch ? 'X' : ' ');
 
   if (!prefetch_enable) { return; }
