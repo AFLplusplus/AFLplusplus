@@ -52,8 +52,7 @@ git checkout "$NEW_VERSION" || exit 1
 
 cd ..
 
-rm "$
-"
+rm "$VERSION_FILE"
 echo "$NEW_VERSION" > "$VERSION_FILE"
 
 echo "Done. New $TOOL version is $NEW_VERSION."
