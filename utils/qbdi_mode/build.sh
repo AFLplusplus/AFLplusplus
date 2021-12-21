@@ -52,6 +52,6 @@ ${compiler_prefix}${CC} -shared -o libdemo.so demo-so.c -w -g
 echo "[+] Building afl-fuzz for Android"
 # build afl-fuzz
 cd ../..
-${compiler_prefix}${CC} -DANDROID_DISABLE_FANCY=1 -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ -DAFL_PATH=\"/usr/local/lib/afl\" -DBIN_PATH=\"/usr/local/bin\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -Wno-unused-function src/afl-fuzz-*.c src/afl-fuzz.c src/afl-common.c src/afl-sharedmem.c src/afl-forkserver.c -o utils/qbdi_mode/afl-fuzz  -ldl -w
+${compiler_prefix}${CC} -DANDROID_DISABLE_FANCY=1 -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ -DAFL_PATH=\"/usr/local/lib/afl\" -DBIN_PATH=\"/usr/local/bin\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -Wno-unused-function src/afl-fuzz*.c src/afl-common.c src/afl-sharedmem.c src/afl-forkserver.c src/afl-performance.c -o utils/qbdi_mode/afl-fuzz -ldl -lm -w
 
 echo "[+] All done. Enjoy!"
