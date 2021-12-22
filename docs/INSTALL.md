@@ -93,20 +93,20 @@ depend mostly on user feedback.
 To build AFL, install llvm (and perhaps gcc) from brew and follow the general
 instructions for Linux. If possible, avoid Xcode at all cost.
 
-`brew install wget git make cmake llvm gdb`
+`brew install wget git make cmake llvm gdb coreutils`
 
 Be sure to setup `PATH` to point to the correct clang binaries and use the
-freshly installed clang, clang++ and gmake, e.g.:
+freshly installed clang, clang++, gmake and coreutils, e.g.:
 
 ```
-export PATH="/usr/local/Cellar/llvm/12.0.1/bin/:$PATH"
+export PATH="/usr/local/Cellar/llvm/12.0.1/bin/:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
 export CC=clang
 export CXX=clang++
 gmake
 cd frida_mode
 gmake
 cd ..
-gmake install
+sudo gmake install
 ```
 
 `afl-gcc` will fail unless you have GCC installed, but that is using outdated
