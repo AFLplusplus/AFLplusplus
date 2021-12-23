@@ -68,7 +68,7 @@ guint64 util_read_num(char *key, guint64 default_value) {
 
   errno = 0;
 
-  guint64 value = g_ascii_strtoull(value_str, NULL, 10);
+  guint64 value = g_ascii_strtoull(value_str, &end_ptr, 10);
 
   if (errno != 0) {
 

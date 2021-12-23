@@ -89,7 +89,7 @@ static void instrument_persitent_save_regs(GumArm64Writer *  cw,
 
   /* LR (x30) */
   gum_arm64_writer_put_str_reg_reg_offset(cw, ARM64_REG_X30, ARM64_REG_X0,
-                                          offsetof(GumCpuContext, x[30]));
+                                          offsetof(GumCpuContext, lr));
 
   /* PC & Adjusted SP (31) */
   gum_arm64_writer_put_ldr_reg_address(cw, ARM64_REG_X2,
@@ -189,7 +189,7 @@ static void instrument_persitent_restore_regs(GumArm64Writer *  cw,
 
   /* LR (x30) */
   gum_arm64_writer_put_ldr_reg_reg_offset(cw, ARM64_REG_X30, ARM64_REG_X0,
-                                          offsetof(GumCpuContext, x[30]));
+                                          offsetof(GumCpuContext, lr));
 
   /* Adjusted SP (31) (use x1 as clobber)*/
   gum_arm64_writer_put_ldr_reg_reg_offset(cw, ARM64_REG_X1, ARM64_REG_X0,
@@ -264,8 +264,7 @@ static void persistent_prologue_hook(GumArm64Writer *  cw,
   gum_arm64_writer_put_ldr_reg_reg_offset(cw, ARM64_REG_X2, ARM64_REG_X2, 0);
   gum_arm64_writer_put_ldr_reg_reg_offset(cw, ARM64_REG_X2, ARM64_REG_X2, 0);
 
-  gum_arm64_writer_put_and_reg_reg_imm(cw, ARM64_REG_X2, ARM64_REG_X2,
-                                       G_MAXULONG);
+  gum_arm64_writer_put_mov_reg_reg(cw, ARM64_REG_W2, ARM64_REG_W2);
 
   gum_arm64_writer_put_ldr_reg_address(cw, ARM64_REG_X1,
                                        GUM_ADDRESS(&__afl_fuzz_ptr));

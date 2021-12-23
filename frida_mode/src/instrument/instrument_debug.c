@@ -35,6 +35,10 @@ static void instrument_debug(char *format, ...) {
 static void instrument_disasm(guint8 *start, guint8 *end,
                               GumStalkerOutput *output) {
 
+#if !defined(__arm__)
+  UNUSED_PARAMETER(output);
+#endif
+
   csh      capstone;
   cs_err   err;
   cs_mode  mode;
