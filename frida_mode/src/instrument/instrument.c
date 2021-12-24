@@ -32,7 +32,7 @@ char *   instrument_coverage_unstable_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
-__thread guint64 instrument_previous_pc = 0;
+__attribute__((aligned(0x1000))) __thread guint64 instrument_previous_pc = 0;
 
 static GumAddress previous_rip = 0;
 static GumAddress previous_end = 0;
