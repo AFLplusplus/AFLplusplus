@@ -51,7 +51,7 @@ void instrument_coverage_unstable(guint64 edge, guint64 previous_rip,
                                   guint64 previous_end, guint64 current_rip,
                                   guint64 current_end);
 
-void instrument_on_fork();
+void instrument_on_fork(void);
 
 guint64 instrument_get_offset_hash(GumAddress current_rip);
 
