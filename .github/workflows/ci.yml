@@ -32,11 +32,11 @@ jobs:
     runs-on: macOS-latest
     steps:
       - uses: actions/checkout@v2
-      - name: install
-        run: brew help; brew install wget make llvm
+#      - name: install
+#        run: brew help; brew install wget make llvm 
       - name: build
-        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; make ASAN_BUILD=1
+        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; gmake ASAN_BUILD=1
       - name: frida
-        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; make
+        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
       - name: run tests
-        run: sudo -E ./afl-system-config ; export AFL_SKIP_CPUFREQ=1 ; make tests
+        run: sudo -E ./afl-system-config ; export AFL_SKIP_CPUFREQ=1 ; gmake tests
