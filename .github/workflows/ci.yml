@@ -30,8 +30,13 @@ jobs:
         run: sudo -E ./afl-system-config ; export AFL_SKIP_CPUFREQ=1 ; make tests
   macos:
     runs-on: macOS-latest
+    env:
+      AFL_MAP_SIZE=4000
+      AFL_SKIP_CPUFREQ=1
     steps:
       - uses: actions/checkout@v2
+      - name: debug
+        run: echo AFL_MAP_SIZE=$AFL_MAP_SIZE
       - name: install
         run: brew install make
       - name: build
@@ -39,4 +44,4 @@ jobs:
       - name: frida
         run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
       - name: run tests
-        run: sudo -E ./afl-system-config ; export AFL_SKIP_CPUFREQ=1 ; gmake tests
+        run: sudo -E ./afl-system-config ; gmake tests
