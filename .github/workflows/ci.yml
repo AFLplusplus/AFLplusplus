@@ -35,7 +35,7 @@ jobs:
       - name: install
         run: brew install make
       - name: build
-        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; gmake ASAN_BUILD=1
+        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; gmake ASAN_BUILD=1
       - name: frida
         run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
       - name: run tests
