@@ -335,7 +335,7 @@ hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
 ############################# ADDR #############################################
 $(ADDR_BIN): $(ADDR_SRC) | $(BUILD_DIR)
-	$(TARGET_CC) \
+	-$(TARGET_CC) \
 		$(CFLAGS) \
 		-Werror \
 		-Wall \
