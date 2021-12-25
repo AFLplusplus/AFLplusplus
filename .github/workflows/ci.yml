@@ -31,8 +31,8 @@ jobs:
   macos:
     runs-on: macOS-latest
     env:
-      AFL_MAP_SIZE=4000
-      AFL_SKIP_CPUFREQ=1
+      AFL_MAP_SIZE: 4000
+      AFL_SKIP_CPUFREQ: 1
     steps:
       - uses: actions/checkout@v2
       - name: debug
