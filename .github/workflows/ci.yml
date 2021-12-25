@@ -32,8 +32,8 @@ jobs:
     runs-on: macOS-latest
     steps:
       - uses: actions/checkout@v2
-#      - name: install
-#        run: brew help; brew install wget make llvm 
+      - name: install
+        run: brew install make
       - name: build
         run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; gmake ASAN_BUILD=1
       - name: frida
