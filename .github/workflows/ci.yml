@@ -7,7 +7,7 @@ on:
     branches: [ stable, dev ]
 
 jobs:
-  build:
+  linux:
     runs-on: '${{ matrix.os }}'
     strategy:
       matrix:
@@ -26,5 +26,17 @@ jobs:
         run: sudo apt-get install -y -m -f --install-suggests $(readlink /usr/bin/gcc)-plugin-dev
       - name: build afl++
         run: make distrib ASAN_BUILD=1
+      - name: run tests
+        run: sudo -E ./afl-system-config ; export AFL_SKIP_CPUFREQ=1 ; make tests
+  macos:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: brew help; brew install wget make llvm
+      - name: build
+        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; make ASAN_BUILD=1
+      - name: frida
+        run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; make
       - name: run tests
         run: sudo -E ./afl-system-config ; export AFL_SKIP_CPUFREQ=1 ; make tests
