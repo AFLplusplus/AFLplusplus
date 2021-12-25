@@ -38,13 +38,10 @@
 #include "common.h"
 
 /* Detect @@ in args. */
-#ifndef __glibc__
-  #include <unistd.h>
-#endif
+#include <unistd.h>
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <fcntl.h>
 
 u8  be_quiet = 0;
