@@ -30,7 +30,8 @@ Here is some information to get you started:
 
 * For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
-  [branches](#branches). Also take a look at the list of
+  [branches](#branches). The best branches to use are however `stable` or
+  `dev` - depending on your risk appetite. Also take a look at the list of
   [important changes in AFL++](docs/important_changes.md) and the list of
   [features](docs/features.md).
 * If you want to use AFL++ for your academic work, check the
@@ -115,11 +116,14 @@ Step-by-step quick start:
 
    You can generate cores or use gdb directly to follow up the crashes.
 
+6. We cannot stress this enough - if you want to fuzz effectively, read the
+   [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md) document!
+
 ## Contact
 
 Questions? Concerns? Bug reports?
 
-* The contributors can be reached via
+* The contributors can be reached via (e.g. by creating an issue):
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
 * Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
   question missing, submit it via
@@ -127,8 +131,9 @@ Questions? Concerns? Bug reports?
 * There is a mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
   notes with other users or to get notified about major new features, send an
-  email to <afl-users+subscribe@googlegroups.com>.
-* Or join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
+  email to <afl-users+subscribe@googlegroups.com>, but note that this is not
+  managed by us.
+* Best: join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
 
 ## Branches
 
@@ -141,7 +146,7 @@ The following branches exist:
   stability
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
-  or has a bug. *We only accept PRs in dev!!*
+  or has a bug. **We only accept PRs to dev!**
 * (any other): experimental branches to work on specific features or testing new
   functionality or changes.
 
