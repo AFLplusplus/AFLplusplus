@@ -44,4 +44,4 @@ jobs:
       - name: frida
         run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
       - name: run tests
-        run: sudo -E ./afl-system-config; export PATH=/usr/local/Cellar/llvm/*/":/usr/local/bin:$PATH"; gmake tests
+        run: sudo -E ./afl-system-config; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export PATH=/usr/local/Cellar/llvm/*/":/usr/local/bin:$PATH"; gmake tests
