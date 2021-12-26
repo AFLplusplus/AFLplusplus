@@ -110,7 +110,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   test -e test-compcov.harden && test_compcov_binary_functionality ./test-compcov.harden && {
-    grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    nm test-compcov.harden | grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] llvm_mode hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] llvm_mode hardened mode is not hardened"
