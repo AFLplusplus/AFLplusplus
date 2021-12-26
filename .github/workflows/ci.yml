@@ -37,8 +37,6 @@ jobs:
       - uses: actions/checkout@v2
       - name: install
         run: brew install make gcc
-      - name: debug
-        run: ls -l /usr/local/bin/g* 
       - name: fix install
         run: cd /usr/local/bin; ln -s gcc-11 gcc; ln -s g++-11 g++; which gcc; gcc -v
       - name: build
