@@ -40,7 +40,7 @@ jobs:
       - name: debug
         run: ls -l /usr/local/bin/g* 
       - name: fix install
-        run: cd /usr/local/bin; ln -s gcc-* gcc; ln -s g++-* g++; which gcc; gcc -v
+        run: cd /usr/local/bin; ln -s gcc-11 gcc; ln -s g++-11 g++; which gcc; gcc -v
       - name: build
         run: export PATH=/usr/local/Cellar/llvm/*/":$PATH"; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; sudo -E ./afl-system-config; gmake ASAN_BUILD=1
       - name: frida
