@@ -334,7 +334,7 @@ afl-clang-fast++ -fsanitize=fuzzer -o harness harness.cpp targetlib.a
 ```
 
 You can even use advanced libfuzzer features like `FuzzedDataProvider`,
-`LLVMFuzzerMutate()` etc. and they will work!
+`LLVMFuzzerInitialize()` etc. and they will work!
 
 The generated binary is fuzzed with afl-fuzz like any other fuzz target.
 
@@ -373,19 +373,19 @@ produce a new path/coverage in the target:
 
 1. Put all files from [step a](#a-collecting-inputs) into one directory, e.g., INPUTS.
 2. Run afl-cmin:
-   * If the target program is to be called by fuzzing as `bin/target -d
+   * If the target program is to be called by fuzzing as `bin/target
      INPUTFILE`, set the INPUTFILE argument that the target program would read
      from as `@@`:
 
      ```
-     afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d @@
+     afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -someopt @@
      ```
 
    * If the target reads from stdin instead, just omit the `@@` as this is the
      default:
 
      ```
-     afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d
+     afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -someopt
      ```
 
 This step is highly recommended!
@@ -400,7 +400,7 @@ however, it is a long process as this has to be done for every file:
 mkdir input
 cd INPUTS_UNIQUE
 for i in *; do
-  afl-tmin -i "$i" -o "../input/$i" -- bin/target -d @@
+  afl-tmin -i "$i" -o "../input/$i" -- bin/target -someopt @@
 done
 ```
 
@@ -449,7 +449,7 @@ hence all you need is to specify the seed input directory with the result of
 step [2a) Collecting inputs](#a-collecting-inputs):
 
 ```
-afl-fuzz -i input -o output -- bin/target -d @@
+afl-fuzz -i input -o output -- bin/target -someopt @@
 ```
 
 Note that the directory specified with `-o` will be created if it does not
@@ -469,15 +469,19 @@ If you need to stop and re-start the fuzzing, use the same command line options
 mode!) and switch the input directory with a dash (`-`):
 
 ```
-afl-fuzz -i - -o output -- bin/target -d @@
+afl-fuzz -i - -o output -- bin/target -someopt @@
 ```
 
 Adding a dictionary is helpful. See the directory
 [dictionaries/](../dictionaries/) if something is already included for your data
 format, and tell afl-fuzz to load that dictionary by adding `-x
-dictionaries/FORMAT.dict`. With afl-clang-lto, you have an autodictionary
-generation for which you need to do nothing except to use afl-clang-lto as the
-compiler. You also have the option to generate a dictionary yourself, see
+dictionaries/FORMAT.dict`.
+With `afl-clang-lto`, you have an autodictionary generation for which you need
+to do nothing except to use afl-clang-lto as the compiler.
+With `afl-clang-fast` you can set
+`AFL_LLVM_DICT2FILE=/full/path/to/new/file.dic` to automatically generate a
+dictionary during target compilation.
+You also have the option to generate a dictionary yourself, see
 [utils/libtokencap/README.md](../utils/libtokencap/README.md).
 
 afl-fuzz has a variety of options that help to workaround target quirks like

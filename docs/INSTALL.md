@@ -33,10 +33,10 @@ sudo make install
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
-Note that "make distrib" also builds instrumentation, QEMU mode, unicorn_mode
-and more. If you just want plain AFL++, then do "make all". However, compiling
-and using at least instrumentation is highly recommended for much better results
-- hence in this case choose:
+Note that "make distrib" also builds FRIDA mode, QEMU mode, unicorn_mode
+and more. If you just want plain AFL++, then do "make all". If you want
+some assisting tooling compiled but are not interested in binary-only targets
+then instead choose:
 
 ```shell
 make source-only
@@ -44,11 +44,10 @@ make source-only
 
 These build targets exist:
 
-* all: just the main AFL++ binaries
-* binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode,
-  libdislocator, libtokencap
-* source-only: everything for source code fuzzing: instrumentation,
-  libdislocator, libtokencap
+* all: the main afl++ binaries and llvm/gcc instrumentation
+* binary-only: everything for binary-only fuzzing: frida_mode, qemu_mode,
+  unicorn_mode, libdislocator, libtokencap
+* source-only: everything for source code fuzzing: libdislocator, libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
@@ -86,19 +85,19 @@ e.g.: `make ASAN_BUILD=1`
 
 ## MacOS X on x86 and arm64 (M1)
 
-MacOS X should work, but there are some gotchas due to the idiosyncrasies of the
-platform. On top of this, we have limited release testing capabilities and
-depend mostly on user feedback.
+MacOS has some gotchas due to the idiosyncrasies of the platform.
 
 To build AFL, install llvm (and perhaps gcc) from brew and follow the general
 instructions for Linux. If possible, avoid Xcode at all cost.
 
-`brew install wget git make cmake llvm gdb coreutils`
+```shell
+brew install wget git make cmake llvm gdb coreutils
+```
 
 Be sure to setup `PATH` to point to the correct clang binaries and use the
 freshly installed clang, clang++, gmake and coreutils, e.g.:
 
-```
+```shell
 export
 PATH="/usr/local/Cellar/llvm/13.0.0_2/bin/:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 export CC=clang
@@ -111,8 +110,10 @@ sudo gmake install
 ```
 
 `afl-gcc` will fail unless you have GCC installed, but that is using outdated
-instrumentation anyway. You don't want that. Note that `afl-clang-lto`,
-`afl-gcc-fast` and `qemu_mode` are not working on MacOS.
+instrumentation anyway. `afl-clang` might fail too depending on your PATH
+setup. But you don't want neither, you want `afl-clang-fast` anyway :)
+Note that `afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on
+MacOS.
 
 The crash reporting daemon that comes by default with MacOS X will cause
 problems with fuzzing. You need to turn it off:
@@ -134,7 +135,7 @@ and definitely don't look POSIX-compliant. This means two things:
 
 User emulation mode of QEMU does not appear to be supported on MacOS X, so
 black-box instrumentation mode (`-Q`) will not work. However, Frida mode (`-O`)
-should work on x86 and arm64 MacOS boxes.
+works on both x86 and arm64 MacOS boxes.
 
 MacOS X supports SYSV shared memory used by AFL's instrumentation, but the
 default settings aren't usable with AFL++. The default settings on 10.14 seem to

@@ -18,13 +18,13 @@ training, then we can highly recommend the following:
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
 
-* Superion for AFL++:
-  [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 * libprotobuf for AFL++:
   [https://github.com/P1umer/AFLplusplus-protobuf-mutator](https://github.com/P1umer/AFLplusplus-protobuf-mutator)
 * libprotobuf raw:
   [https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
 * libprotobuf for old AFL++ API:
   [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
+* Superion for AFL++:
+  [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
 If you find other good ones, please send them to us :-)

@@ -12,11 +12,10 @@ fuzzed with AFL++.
 
 ## TL;DR:
 
-QEMU mode in persistent mode is the fastest - if the stability is high enough.
-Otherwise, try RetroWrite, Dyninst, and if these fail, too, then try standard
-QEMU mode with `AFL_ENTRYPOINT` to where you need it.
-
-If your target is a library, then use FRIDA mode.
+FRIDA mode and QEMU mode in persistent mode are the fastest - if persistent mode
+is possible and the stability is high enough.
+Otherwise, try Zafl, RetroWrite, Dyninst, and if these fail, too, then try
+standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` to where you need it.
 
 If your target is non-linux, then use unicorn_mode.
 
@@ -92,7 +91,7 @@ For more information, see
 ### FRIDA mode
 
 In FRIDA mode, you can fuzz binary-only targets as easily as with QEMU mode.
-FRIDA mode is sometimes faster and sometimes slower than QEMU mode. It is also
+FRIDA mode is most of the times slightly faster than QEMU mode. It is also
 newer, lacks COMPCOV, and has the advantage that it works on MacOS (both intel
 and M1).
 
@@ -100,7 +99,7 @@ To build FRIDA mode:
 
 ```shell
 cd frida_mode
-make
+gmake
 ```
 
 For additional instructions and caveats, see
