@@ -99,7 +99,8 @@ Be sure to setup `PATH` to point to the correct clang binaries and use the
 freshly installed clang, clang++, gmake and coreutils, e.g.:
 
 ```
-export PATH="/usr/local/Cellar/llvm/13.0.0_2/bin/:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+export
+PATH="/usr/local/Cellar/llvm/13.0.0_2/bin/:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 export CC=clang
 export CXX=clang++
 gmake
