@@ -50,6 +50,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
       env | egrep 'AFL|PATH|LLVM'
       AFL_DEBUG=1 AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c
+      grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden && echo found
       CODE=1
     }
     rm -f test-compcov.harden
