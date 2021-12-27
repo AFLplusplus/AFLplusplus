@@ -395,15 +395,18 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   size_t cpu_start = 0;
 
-  #if !defined(__ANDROID__)
+  /*
+   * Convention on big-little systems seems to be that the little cores occur
+   * first in the /proc/ file-systems. By iterating in reverse order we cause
+   * AFL++ to favour the "big" cores where available.
+   */
+  #if defined(__ANDROID__) || defined(__linux__)
 
-  for (i = cpu_start; i < afl->cpu_core_count; i++) {
+  for (i = afl->cpu_core_count - 1; i > -1; i--) {
 
   #else
 
-  /* for some reason Android goes backwards */
-
-  for (i = afl->cpu_core_count - 1; i > -1; i--) {
+  for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
   #endif
 
