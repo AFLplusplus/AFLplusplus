@@ -393,15 +393,14 @@ void bind_to_free_cpu(afl_state_t *afl) {
         "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
   #endif
 
-  size_t cpu_start = 0;
+  #if !defined(__aarch64__) && !defined(__arm__) && !defined(__arm64__)
 
-  #if !defined(__ANDROID__)
-
-  for (i = cpu_start; i < afl->cpu_core_count; i++) {
+  for (i = 0; i < afl->cpu_core_count; i++) {
 
   #else
 
-  /* for some reason Android goes backwards */
+  /* many ARM devices have performance and efficiency cores, the slower
+     efficiency cores seem to always come first */
 
   for (i = afl->cpu_core_count - 1; i > -1; i--) {
 
@@ -419,7 +418,6 @@ void bind_to_free_cpu(afl_state_t *afl) {
     }
 
     WARNF("setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
 
   }
 
