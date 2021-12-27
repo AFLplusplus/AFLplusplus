@@ -5,20 +5,21 @@
 
 #include "config.h"
 
-extern char *           instrument_debug_filename;
-extern char *           instrument_coverage_filename;
-extern gboolean         instrument_tracing;
-extern gboolean         instrument_optimize;
-extern gboolean         instrument_unique;
-extern __thread guint64 instrument_previous_pc;
-extern guint64          instrument_hash_zero;
-extern char *           instrument_coverage_unstable_filename;
+extern char *   instrument_debug_filename;
+extern char *   instrument_coverage_filename;
+extern gboolean instrument_tracing;
+extern gboolean instrument_optimize;
+extern gboolean instrument_unique;
+extern guint64  instrument_hash_zero;
+extern char *   instrument_coverage_unstable_filename;
 
 extern gboolean instrument_use_fixed_seed;
 extern guint64  instrument_fixed_seed;
 
 extern uint8_t *__afl_area_ptr;
 extern uint32_t __afl_map_size;
+
+extern __thread guint64 *instrument_previous_pc_addr;
 
 void instrument_config(void);
 
