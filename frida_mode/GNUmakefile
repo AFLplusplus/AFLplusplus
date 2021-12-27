@@ -141,9 +141,11 @@ AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(BUILD_DIR)frida_hook.so
 AFLPP_QEMU_DRIVER_HOOK_SRC:=$(HOOK_DIR)qemu_hook.c
 AFLPP_QEMU_DRIVER_HOOK_OBJ:=$(BUILD_DIR)qemu_hook.so
 
+ifneq "$(shell uname)" "Darwin"
 ADDR_DIR:=$(PWD)addr/
 ADDR_SRC:=$(ADDR_DIR)addr.c
 ADDR_BIN:=$(BUILD_DIR)addr
+endif
 
 BIN2C:=$(BUILD_DIR)bin2c
 BIN2C_SRC:=$(PWD)util/bin2c.c
