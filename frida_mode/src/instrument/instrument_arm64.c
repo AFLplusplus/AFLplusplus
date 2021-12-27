@@ -27,7 +27,7 @@ typedef struct {
   // prev_location = cur_location >> 1;
 
   // stp     x0, x1, [sp, #-160]
-  // adrp    x0, 0x7fb7ff4000
+  // adrp    x0, 0x7fb7738000
   // ldr     x1, [x0]
   // mov     x0, #0x18b8
   // eor     x0, x1, x0
@@ -35,10 +35,10 @@ typedef struct {
   // add     x0, x1, x0
   // ldrb    w1, [x0]
   // add     w1, w1, #0x1
-  // tbz     w1, #8, 0x7fb6f0dec8
-  // mov     w1, #0x1
+  // add     x1, x1, x1, lsr #8
+  // uxtb    w1, w1
   // strb    w1, [x0]
-  // adrp    x0, 0x7fb7ff4000
+  // adrp    x0, 0x7fb7738000
   // mov     x1, #0xc5c
   // str     x1, [x0]
   // ldp     x0, x1, [sp, #-160]
@@ -57,8 +57,8 @@ typedef struct {
 
   uint32_t ldrb_w1_x0;                                     /* ldrb w1, [x0] */
   uint32_t add_w1_w1_1;                                   /* add w1, w1, #1 */
-  uint32_t tbz_w1_8_8;                                    /* tbz w1, #8, #8 */
-  uint32_t mov_w1_1;                                          /* mov w1, #1 */
+  uint32_t add_w1_w1_w1_lsr_8;                    /* add x1, x1, x1, lsr #8 */
+  uint32_t uxtb_w1_w1;                                       /* uxtb w1, w1 */
 
   uint32_t strb_w1_ptr_x0;                                 /* strb w1, [x0] */
 
@@ -99,8 +99,8 @@ static const afl_log_code_asm_t template =
         .ldrb_w1_x0 = 0x39400001,
 
         .add_w1_w1_1 = 0x11000421,
-        .tbz_w1_8_8 = 0x36400041,
-        .mov_w1_1 = 0x52800021,
+        .add_w1_w1_w1_lsr_8 = 0x8b412021,
+        .uxtb_w1_w1 = 0x53001c21,
 
         .strb_w1_ptr_x0 = 0x39000001,
 
