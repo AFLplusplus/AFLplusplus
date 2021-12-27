@@ -37,6 +37,7 @@
 
 #ifdef __APPLE__
   #include <sys/qos.h>
+  #include <pthread/qos.h>
 #endif
 
 #ifdef PROFILING
