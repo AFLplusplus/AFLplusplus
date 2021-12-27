@@ -87,7 +87,7 @@ static const afl_log_code_asm_t template =
 
         .stp_x0_x1 = 0xa93607e0,
 
-        .adrp_x0_prev_loc1 = 0xb0000000,
+        .adrp_x0_prev_loc1 = 0x90000000,
         .ldr_x1_ptr_x0 = 0xf9400001,
 
         .mov_x0_curr_loc = 0xd2800000,
@@ -104,7 +104,7 @@ static const afl_log_code_asm_t template =
 
         .strb_w1_ptr_x0 = 0x39000001,
 
-        .adrp_x0_prev_loc2 = 0xb0000000,
+        .adrp_x0_prev_loc2 = 0x90000000,
         .mov_x1_curr_loc_shr_1 = 0xd2800001,
         .str_x1_ptr_x0 = 0xf9000001,
 
