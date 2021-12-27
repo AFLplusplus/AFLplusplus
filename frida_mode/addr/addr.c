@@ -32,7 +32,7 @@ int main (int argc, char** argv, char** envp) {
 
     dl_iterate_phdr(phdr_callback, &base);
 
-    printf("0x%016lx\n", base);
+    printf("%p\n", (void *)base);
     if (base == 0) { return 1; }
 
     return 0;

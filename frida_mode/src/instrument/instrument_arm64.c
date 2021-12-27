@@ -87,7 +87,7 @@ static const afl_log_code_asm_t template =
 
         .stp_x0_x1 = 0xa93607e0,
 
-        .adrp_x0_prev_loc1 = 0xb0000000,
+        .adrp_x0_prev_loc1 = 0x90000000,
         .ldr_x1_ptr_x0 = 0xf9400001,
 
         .mov_x0_curr_loc = 0xd2800000,
@@ -104,7 +104,7 @@ static const afl_log_code_asm_t template =
 
         .strb_w1_ptr_x0 = 0x39000001,
 
-        .adrp_x0_prev_loc2 = 0xb0000000,
+        .adrp_x0_prev_loc2 = 0x90000000,
         .mov_x1_curr_loc_shr_1 = 0xd2800001,
         .str_x1_ptr_x0 = 0xf9000001,
 
@@ -155,9 +155,22 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   afl_log_code    code = {0};
   GumArm64Writer *cw = output->writer.arm64;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
-  gsize      map_size_pow2;
-  gsize      area_offset_ror;
+  gsize   map_size_pow2;
+  gsize   area_offset_ror;
   GumAddress code_addr = 0;
+
+  if (instrument_previous_pc_addr == NULL) {
+
+    GumAddressSpec spec = {.near_address = cw->code,
+                           .max_distance = 1ULL << 30};
+
+    instrument_previous_pc_addr = gum_memory_allocate_near(
+        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+    *instrument_previous_pc_addr = instrument_hash_zero;
+    FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
+    FVERBOSE("code_addr: %p", cw->code);
+
+  }
 
   // gum_arm64_writer_put_brk_imm(cw, 0x0);
 
@@ -170,13 +183,13 @@ void instrument_coverage_optimize(const cs_insn *   instr,
    * 64KB in size, then it should also end on a 64 KB boundary. It is followed
    * by our previous_pc, so this too should be 64KB aligned.
    */
-  g_assert(PAGE_ALIGNED(&instrument_previous_pc));
+  g_assert(PAGE_ALIGNED(instrument_previous_pc_addr));
   g_assert(PAGE_ALIGNED(__afl_area_ptr));
 
   instrument_patch_ardp(
       &code.code.adrp_x0_prev_loc1,
       code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc1),
-      GUM_ADDRESS(&instrument_previous_pc));
+      GUM_ADDRESS(instrument_previous_pc_addr));
 
   code.code.mov_x0_curr_loc |= area_offset << 5;
 
@@ -191,7 +204,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   instrument_patch_ardp(
       &code.code.adrp_x0_prev_loc2,
       code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc2),
-      GUM_ADDRESS(&instrument_previous_pc));
+      GUM_ADDRESS(instrument_previous_pc_addr));
 
   code.code.mov_x1_curr_loc_shr_1 |= (area_offset_ror << 5);
 
@@ -214,7 +227,6 @@ void instrument_coverage_optimize_init(void) {
   }
 
   FVERBOSE("__afl_area_ptr: %p", __afl_area_ptr);
-  FVERBOSE("instrument_previous_pc: %p", &instrument_previous_pc);
 
 }
 
