@@ -36,7 +36,6 @@ typedef struct {
   // ldrb    w1, [x0]
   // add     w1, w1, #0x1
   // add     x1, x1, x1, lsr #8
-  // uxtb    w1, w1
   // strb    w1, [x0]
   // adrp    x0, 0x7fb7738000
   // mov     x1, #0xc5c
@@ -58,7 +57,6 @@ typedef struct {
   uint32_t ldrb_w1_x0;                                     /* ldrb w1, [x0] */
   uint32_t add_w1_w1_1;                                   /* add w1, w1, #1 */
   uint32_t add_w1_w1_w1_lsr_8;                    /* add x1, x1, x1, lsr #8 */
-  uint32_t uxtb_w1_w1;                                       /* uxtb w1, w1 */
 
   uint32_t strb_w1_ptr_x0;                                 /* strb w1, [x0] */
 
@@ -100,7 +98,6 @@ static const afl_log_code_asm_t template =
 
         .add_w1_w1_1 = 0x11000421,
         .add_w1_w1_w1_lsr_8 = 0x8b412021,
-        .uxtb_w1_w1 = 0x53001c21,
 
         .strb_w1_ptr_x0 = 0x39000001,
 
