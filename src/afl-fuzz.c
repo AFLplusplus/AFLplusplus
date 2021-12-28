@@ -124,8 +124,10 @@ static void usage(u8 *argv0, int more_help) {
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n"
 #endif
-      "  -X            - use VM fuzzing (NYX mode)\n"
-      "  -Y            - use VM fuzzing (NYX mode - Multiprocessing)\n"
+#if defined(__linux__)
+      "  -X            - use VM fuzzing (NYX mode - standalone mode)\n"
+      "  -Y            - use VM fuzzing (NYX mode - multiple instances mode)\n"
+#endif
       "\n"
 
       "Mutator settings:\n"
@@ -934,7 +936,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'Y':                                               /* NYX distributed mode */
         if (afl->fsrv.nyx_mode) {
 
-          FATAL("Multiple -X options not supported");
+          FATAL("Multiple -Y options not supported");
 
         }
         afl->fsrv.nyx_mode = 1;
@@ -1345,7 +1347,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (!afl->fsrv.nyx_standalone){
       if (afl->is_main_node){
         if(strncmp("0", afl->sync_id, strlen("0") != 0)){
-          FATAL("afl->sync_id has to be 0 in Nyx mode (-M 0)");
+          FATAL("for Nyx -Y mode, the Main (-M) parameter has to be set to 0 (-M 0)");
         }
         afl->fsrv.nyx_id = 0;
       }
@@ -1354,7 +1356,7 @@ int main(int argc, char **argv_orig, char **envp) {
         long nyx_id = strtol(afl->sync_id, NULL, 10);
 
         if (nyx_id == 0 || nyx_id == LONG_MAX){
-          FATAL("afl->sync_id has to be numberic and >= 1 (-S id)");
+          FATAL("for Nyx -Y mode, the Secondary (-S) parameter has to be a numeric value and >= 1 (e.g. -S 1)");
         }
         afl->fsrv.nyx_id = nyx_id;
       }
