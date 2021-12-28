@@ -411,11 +411,10 @@ void bind_to_free_cpu(afl_state_t *afl) {
     OKF("Found a free CPU core, try binding to #%u.", i);
 
     if (bind_cpu(afl, i)) {
-#ifdef __linux__
-      if(afl->fsrv.nyx_mode){
-        afl->fsrv.nyx_bind_cpu_id = i;
-      }
-#endif
+
+  #ifdef __linux__
+      if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = i; }
+  #endif
       /* Success :) */
       break;
 
@@ -1095,9 +1094,12 @@ void perform_dry_run(afl_state_t *afl) {
 
       case FSRV_RUN_NOINST:
 #ifdef __linux__
-        if(afl->fsrv.nyx_mode && afl->fsrv.nyx_runner != NULL){
+        if (afl->fsrv.nyx_mode && afl->fsrv.nyx_runner != NULL) {
+
           afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
+
         }
+
 #endif
         FATAL("No instrumentation detected");
 
@@ -2453,9 +2455,7 @@ void fix_up_sync(afl_state_t *afl) {
   x = alloc_printf("%s/%s", afl->out_dir, afl->sync_id);
 
 #ifdef __linux__
-  if(afl->fsrv.nyx_mode){
-    afl->fsrv.out_dir_path = afl->out_dir;
-  }
+  if (afl->fsrv.nyx_mode) { afl->fsrv.out_dir_path = afl->out_dir; }
 #endif
   afl->sync_dir = afl->out_dir;
   afl->out_dir = x;
@@ -2595,17 +2595,26 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
     afl->fsrv.target_path = ck_strdup(fname);
 #ifdef __linux__
-    if(afl->fsrv.nyx_mode){
+    if (afl->fsrv.nyx_mode) {
+
       /* check if target_path is a nyx sharedir */
-      if (stat(afl->fsrv.target_path, &st) || S_ISDIR(st.st_mode)){
-        char* tmp = alloc_printf("%s/config.ron", afl->fsrv.target_path);
-        if (stat(tmp, &st) || S_ISREG(st.st_mode)){
+      if (stat(afl->fsrv.target_path, &st) || S_ISDIR(st.st_mode)) {
+
+        char *tmp = alloc_printf("%s/config.ron", afl->fsrv.target_path);
+        if (stat(tmp, &st) || S_ISREG(st.st_mode)) {
+
           free(tmp);
           return;
+
         }
+
       }
-      FATAL("Directory '%s' not found or is not a nyx share directory", afl->fsrv.target_path);
+
+      FATAL("Directory '%s' not found or is not a nyx share directory",
+            afl->fsrv.target_path);
+
     }
+
 #endif
     if (stat(afl->fsrv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4) {

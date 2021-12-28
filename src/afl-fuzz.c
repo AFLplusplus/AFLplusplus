@@ -389,74 +389,59 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 }
 
-#ifdef __linux__
-#include <dlfcn.h>
+  #ifdef __linux__
+    #include <dlfcn.h>
 
-nyx_plugin_handler_t*  afl_load_libnyx_plugin(u8* libnyx_binary){
-    void *handle;
-    nyx_plugin_handler_t* plugin = calloc(1, sizeof(nyx_plugin_handler_t));
+nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
-    ACTF("Trying to load libnyx.so plugin...");
-    handle = dlopen((char*) libnyx_binary, RTLD_NOW);
-    if (!handle) {
-        goto fail;
-    }
+  void *                handle;
+  nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
 
-    plugin->nyx_new = dlsym(handle, "nyx_new");
-    if (plugin->nyx_new == NULL){
-        goto fail;
-    }
-    
-    plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
-    if (plugin->nyx_shutdown == NULL){
-        goto fail;
-    }
-    
-    plugin->nyx_option_set_reload_mode = dlsym(handle, "nyx_option_set_reload_mode");
-    if (plugin->nyx_option_set_reload_mode == NULL){
-        goto fail;
-    }
-    
-    plugin->nyx_option_set_timeout = dlsym(handle, "nyx_option_set_timeout");
-    if (plugin->nyx_option_set_timeout == NULL){
-        goto fail;
-    }
-    
-    plugin->nyx_option_apply = dlsym(handle, "nyx_option_apply");
-    if (plugin->nyx_option_apply == NULL){
-        goto fail;
-    }
-    
-    plugin->nyx_set_afl_input = dlsym(handle, "nyx_set_afl_input");
-    if (plugin->nyx_set_afl_input == NULL){
-        goto fail;
-    }
+  ACTF("Trying to load libnyx.so plugin...");
+  handle = dlopen((char *)libnyx_binary, RTLD_NOW);
+  if (!handle) { goto fail; }
 
-    plugin->nyx_exec = dlsym(handle, "nyx_exec");
-    if (plugin->nyx_exec == NULL){
-        goto fail;
-    }
+  plugin->nyx_new = dlsym(handle, "nyx_new");
+  if (plugin->nyx_new == NULL) { goto fail; }
 
-    plugin->nyx_get_bitmap_buffer = dlsym(handle, "nyx_get_bitmap_buffer");
-    if (plugin->nyx_get_bitmap_buffer == NULL){
-        goto fail;
-    }
+  plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
+  if (plugin->nyx_shutdown == NULL) { goto fail; }
 
-    plugin->nyx_get_bitmap_buffer_size = dlsym(handle, "nyx_get_bitmap_buffer_size");
-    if (plugin->nyx_get_bitmap_buffer_size == NULL){
-        goto fail;
-    }
-    
-    OKF("libnyx plugin is ready!");
-    return plugin;
+  plugin->nyx_option_set_reload_mode =
+      dlsym(handle, "nyx_option_set_reload_mode");
+  if (plugin->nyx_option_set_reload_mode == NULL) { goto fail; }
 
-    fail:
+  plugin->nyx_option_set_timeout = dlsym(handle, "nyx_option_set_timeout");
+  if (plugin->nyx_option_set_timeout == NULL) { goto fail; }
 
-    FATAL("failed to load libnyx: %s\n", dlerror());
-    free(plugin);
-    return NULL;
+  plugin->nyx_option_apply = dlsym(handle, "nyx_option_apply");
+  if (plugin->nyx_option_apply == NULL) { goto fail; }
+
+  plugin->nyx_set_afl_input = dlsym(handle, "nyx_set_afl_input");
+  if (plugin->nyx_set_afl_input == NULL) { goto fail; }
+
+  plugin->nyx_exec = dlsym(handle, "nyx_exec");
+  if (plugin->nyx_exec == NULL) { goto fail; }
+
+  plugin->nyx_get_bitmap_buffer = dlsym(handle, "nyx_get_bitmap_buffer");
+  if (plugin->nyx_get_bitmap_buffer == NULL) { goto fail; }
+
+  plugin->nyx_get_bitmap_buffer_size =
+      dlsym(handle, "nyx_get_bitmap_buffer_size");
+  if (plugin->nyx_get_bitmap_buffer_size == NULL) { goto fail; }
+
+  OKF("libnyx plugin is ready!");
+  return plugin;
+
+fail:
+
+  FATAL("failed to load libnyx: %s\n", dlerror());
+  free(plugin);
+  return NULL;
+
 }
-#endif
+
+  #endif
 
 /* Main entry point */
 
@@ -918,13 +903,10 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->use_banner = optarg;
         break;
 
-#ifdef __linux__
-      case 'X':                                               /* NYX mode */
+  #ifdef __linux__
+      case 'X':                                                 /* NYX mode */
 
-        if (afl->fsrv.nyx_mode) {
-          FATAL("Multiple -X options not supported");
-
-        }
+        if (afl->fsrv.nyx_mode) { FATAL("Multiple -X options not supported"); }
 
         afl->fsrv.nyx_parent = true;
         afl->fsrv.nyx_standalone = true;
@@ -933,21 +915,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      case 'Y':                                               /* NYX distributed mode */
-        if (afl->fsrv.nyx_mode) {
-
-          FATAL("Multiple -Y options not supported");
-
-        }
+      case 'Y':                                     /* NYX distributed mode */
+        if (afl->fsrv.nyx_mode) { FATAL("Multiple -Y options not supported"); }
         afl->fsrv.nyx_mode = 1;
 
         break;
-#else
+  #else
       case 'X':
       case 'Y':
         FATAL("Nyx mode is only availabe on linux...");
         break;
-#endif
+  #endif
       case 'A':                                           /* CoreSight mode */
 
   #if !defined(__aarch64__) || !defined(__linux__)
@@ -1288,13 +1266,16 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
       "README.md");
 
-#ifdef __linux__
-  if (afl->fsrv.nyx_mode){
+  #ifdef __linux__
+  if (afl->fsrv.nyx_mode) {
+
     OKF("afl++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
     OKF("Nyx is open source, get it at "
-      "https://github.com/Nyx-Fuzz");
+        "https://github.com/Nyx-Fuzz");
+
   }
-#endif
+
+  #endif
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
 
@@ -1337,32 +1318,55 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-#ifdef __linux__
+  #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
-    if (afl->fsrv.nyx_standalone && strncmp(afl->sync_id, "default", strlen("default")) != 0){
-      FATAL("distributed fuzzing is not supported in this Nyx mode (use -Y instead)");
+    if (afl->fsrv.nyx_standalone &&
+        strncmp(afl->sync_id, "default", strlen("default")) != 0) {
+
+      FATAL(
+          "distributed fuzzing is not supported in this Nyx mode (use -Y "
+          "instead)");
+
     }
 
-    if (!afl->fsrv.nyx_standalone){
-      if (afl->is_main_node){
-        if(strncmp("0", afl->sync_id, strlen("0") != 0)){
-          FATAL("for Nyx -Y mode, the Main (-M) parameter has to be set to 0 (-M 0)");
+    if (!afl->fsrv.nyx_standalone) {
+
+      if (afl->is_main_node) {
+
+        if (strncmp("0", afl->sync_id, strlen("0") != 0)) {
+
+          FATAL(
+              "for Nyx -Y mode, the Main (-M) parameter has to be set to 0 (-M "
+              "0)");
+
         }
+
         afl->fsrv.nyx_id = 0;
+
       }
 
-      if (afl->is_secondary_node){
+      if (afl->is_secondary_node) {
+
         long nyx_id = strtol(afl->sync_id, NULL, 10);
 
-        if (nyx_id == 0 || nyx_id == LONG_MAX){
-          FATAL("for Nyx -Y mode, the Secondary (-S) parameter has to be a numeric value and >= 1 (e.g. -S 1)");
+        if (nyx_id == 0 || nyx_id == LONG_MAX) {
+
+          FATAL(
+              "for Nyx -Y mode, the Secondary (-S) parameter has to be a "
+              "numeric value and >= 1 (e.g. -S 1)");
+
         }
+
         afl->fsrv.nyx_id = nyx_id;
+
       }
+
     }
+
   }
-#endif
+
+  #endif
 
   if (afl->sync_id) {
 
@@ -1587,22 +1591,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 
-#ifdef __linux__
-  if (!afl->fsrv.nyx_mode){
+  #ifdef __linux__
+  if (!afl->fsrv.nyx_mode) {
+
     check_crash_handling();
     check_cpu_governor(afl);
-  }
-  else{
-    u8* libnyx_binary = find_afl_binary(argv[0], "nyx_mode/libnyx.so");    
+
+  } else {
+
+    u8 *libnyx_binary = find_afl_binary(argv[0], "nyx_mode/libnyx.so");
     afl->fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
-    if(afl->fsrv.nyx_handlers == NULL){
+    if (afl->fsrv.nyx_handlers == NULL) {
+
       FATAL("failed to initialize libnyx.so...");
+
     }
+
   }
-#else
+
+  #else
   check_crash_handling();
   check_cpu_governor(afl);
-#endif
+  #endif
 
   if (getenv("LD_PRELOAD")) {
 
@@ -2085,11 +2095,15 @@ int main(int argc, char **argv_orig, char **envp) {
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
   if (!afl->pending_not_fuzzed || !valid_seeds) {
-#ifdef __linux__
-    if(afl->fsrv.nyx_mode){
+
+  #ifdef __linux__
+    if (afl->fsrv.nyx_mode) {
+
       afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
+
     }
-#endif
+
+  #endif
     FATAL("We need at least one valid input seed that does not crash!");
 
   }
