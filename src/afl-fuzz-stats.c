@@ -679,12 +679,25 @@ void show_stats(afl_state_t *afl) {
     banner_pad = (79 - banner_len) / 2;
     memset(banner, ' ', banner_pad);
 
-    sprintf(banner + banner_pad,
-            "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-            afl->crash_mode ? cPIN "peruvian were-rabbit"
-                            : cYEL "american fuzzy lop",
-            si, afl->use_banner, afl->power_name);
+#ifdef __linux__
+    if(afl->fsrv.nyx_mode){
+      sprintf(banner + banner_pad,
+              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
+              afl->crash_mode ? cPIN "peruvian were-rabbit"
+                              : cYEL "american fuzzy lop",
+              si, afl->use_banner, afl->power_name);
+    }
+    else{
+#endif
+      sprintf(banner + banner_pad,
+              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+              afl->crash_mode ? cPIN "peruvian were-rabbit"
+                              : cYEL "american fuzzy lop",
+              si, afl->use_banner, afl->power_name);
 
+#ifdef __linux__
+    }
+#endif
   }
 
   SAYF("\n%s\n", banner);
