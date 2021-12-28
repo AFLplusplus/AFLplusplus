@@ -347,7 +347,7 @@ help:
 	@echo "=========================================="
 	@echo "all: the main afl++ binaries and llvm/gcc instrumentation"
 	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
-	@echo "source-only: everything for source code fuzzing: libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
@@ -564,7 +564,7 @@ all_done: test_build
 
 .PHONY: clean
 clean:
-	rm -rf $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM
+	rm -rf $(PROGS) afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C utils/libdislocator clean
@@ -617,6 +617,9 @@ ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
+ifeq "$(SYS)" "Linux"
+	-cd nyx_mode && ./build_nyx_support.sh
+endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 endif
@@ -634,9 +637,11 @@ ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
+ifeq "$(SYS)" "Linux"
+	-cd nyx_mode && ./build_nyx_support.sh
+endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-	-cd nyx_mode && sh ./build_nyx_support.sh
 endif
 
 .PHONY: source-only
@@ -648,6 +653,9 @@ endif
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
 	# -$(MAKE) -C utils/plot_ui
+ifeq "$(SYS)" "Linux"
+	-cd nyx_mode && ./build_nyx_support.sh
+endif
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
@@ -685,6 +693,7 @@ install: all $(MANPAGES)
 	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C utils/socket_fuzzing install; fi
 	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C utils/argv_fuzzing install; fi
 	@if [ -f afl-frida-trace.so ]; then install -m 755 afl-frida-trace.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f libnyx.so ]; then install -m 755 libnyx.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
 	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
@@ -707,7 +716,7 @@ endif
 .PHONY: uninstall
 uninstall:
 	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-cs-proxy afl-qemu-trace afl-plot-ui afl-fuzz-document afl-network-server afl-g* afl-plot.sh afl-as afl-ld-lto afl-c* afl-lto*
-	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as afl-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt
+	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so libnyx.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as afl-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt
 	-rm -rf $${DESTDIR}$(MISC_PATH)/testcases $${DESTDIR}$(MISC_PATH)/dictionaries
 	-sh -c "ls docs/*.md | sed 's|^docs/|$${DESTDIR}$(DOC_PATH)/|' | xargs rm -f"
 	-cd $${DESTDIR}$(MAN_PATH) && rm -f $(MANPAGES)
