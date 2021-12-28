@@ -59,8 +59,7 @@ fi
 
 echo "[*] Checking libnyx.so ..."
 if [ -f "libnyx/libnyx/target/release/liblibnyx.so" ]; then
-  cp libnyx/libnyx/target/release/liblibnyx.so libnyx.so
-  cp libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so
+  cp -v libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so
 else
   echo "[ ] libnyx.so not found..."
   exit 1
