@@ -1354,11 +1354,12 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 #ifdef __linux__
   if(!fsrv->nyx_mode){
     memset(fsrv->trace_bits, 0, fsrv->map_size);
+    MEM_BARRIER();
   }
 #else
   memset(fsrv->trace_bits, 0, fsrv->map_size);
-#endif
   MEM_BARRIER();
+#endif
 
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
