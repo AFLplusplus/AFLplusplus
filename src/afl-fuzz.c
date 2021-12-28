@@ -1599,7 +1599,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    u8 *libnyx_binary = find_afl_binary(argv[0], "nyx_mode/libnyx.so");
+    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
     afl->fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
     if (afl->fsrv.nyx_handlers == NULL) {
 
