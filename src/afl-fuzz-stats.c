@@ -680,14 +680,16 @@ void show_stats(afl_state_t *afl) {
     memset(banner, ' ', banner_pad);
 
 #ifdef __linux__
-    if(afl->fsrv.nyx_mode){
+    if (afl->fsrv.nyx_mode) {
+
       sprintf(banner + banner_pad,
               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
               afl->crash_mode ? cPIN "peruvian were-rabbit"
                               : cYEL "american fuzzy lop",
               si, afl->use_banner, afl->power_name);
-    }
-    else{
+
+    } else {
+
 #endif
       sprintf(banner + banner_pad,
               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
@@ -696,8 +698,11 @@ void show_stats(afl_state_t *afl) {
               si, afl->use_banner, afl->power_name);
 
 #ifdef __linux__
+
     }
+
 #endif
+
   }
 
   SAYF("\n%s\n", banner);

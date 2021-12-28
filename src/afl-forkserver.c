@@ -389,43 +389,47 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 #ifdef __linux__
   if (fsrv->nyx_mode) {
 
-    if(fsrv->nyx_runner != NULL){
-      return;
-    }
+    if (fsrv->nyx_runner != NULL) { return; }
 
     if (!be_quiet) { ACTF("Spinning up the NYX backend..."); }
 
-    if(fsrv->out_dir_path == NULL){
-        FATAL("Nyx workdir path not found...");
-    }
+    if (fsrv->out_dir_path == NULL) { FATAL("Nyx workdir path not found..."); }
 
     char *x = alloc_printf("%s/workdir", fsrv->out_dir_path);
 
-    if(fsrv->nyx_id == 0xFFFFFFFF){
-        FATAL("Nyx ID is not set..."); 
+    if (fsrv->nyx_id == 0xFFFFFFFF) { FATAL("Nyx ID is not set..."); }
+
+    if (fsrv->nyx_bind_cpu_id == 0xFFFFFFFF) {
+
+      FATAL("Nyx CPU ID is not set...");
+
     }
 
-    if(fsrv->nyx_bind_cpu_id == 0xFFFFFFFF){
-      FATAL("Nyx CPU ID is not set..."); 
+    if (fsrv->nyx_parent) {
+
+      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
+          fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id,
+          !fsrv->nyx_standalone);
+
+    } else {
+
+      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
+          fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id, true);
+
     }
 
-    if (fsrv->nyx_parent){
-      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id, !fsrv->nyx_standalone);
-    }
-    else{
-      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id, true);
-    }
+    if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
 
-    if(fsrv->nyx_runner == NULL){
-      FATAL("Something went wrong ...");
-    }
-
-    fsrv->map_size = fsrv->nyx_handlers->nyx_get_bitmap_buffer_size(fsrv->nyx_runner);;
+    fsrv->map_size =
+        fsrv->nyx_handlers->nyx_get_bitmap_buffer_size(fsrv->nyx_runner);
+    ;
     fsrv->real_map_size = fsrv->map_size;
 
-    fsrv->trace_bits = fsrv->nyx_handlers->nyx_get_bitmap_buffer(fsrv->nyx_runner);
+    fsrv->trace_bits =
+        fsrv->nyx_handlers->nyx_get_bitmap_buffer(fsrv->nyx_runner);
 
-    fsrv->nyx_handlers->nyx_option_set_reload_mode(fsrv->nyx_runner, getenv("NYX_DISABLE_SNAPSHOT_MODE") == NULL);
+    fsrv->nyx_handlers->nyx_option_set_reload_mode(
+        fsrv->nyx_runner, getenv("NYX_DISABLE_SNAPSHOT_MODE") == NULL);
     fsrv->nyx_handlers->nyx_option_apply(fsrv->nyx_runner);
 
     fsrv->nyx_handlers->nyx_option_set_timeout(fsrv->nyx_runner, 2, 0);
@@ -433,7 +437,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* dry run */
     fsrv->nyx_handlers->nyx_set_afl_input(fsrv->nyx_runner, "INIT", 4);
-    switch(fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner)){
+    switch (fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner)) {
+
       case Abort:
         fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
         FATAL("Error: Nyx abort occured...");
@@ -447,9 +452,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         break;
       default:
         break;
+
     }
+
     return;
+
   }
+
 #endif
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
@@ -1163,10 +1172,9 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   fsrv->child_pid = -1;
 
 #ifdef __linux__
-  if(fsrv->nyx_mode){
-    fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
-  }
+  if (fsrv->nyx_mode) { fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner); }
 #endif
+
 }
 
 /* Get the map size from the target forkserver */
@@ -1184,10 +1192,13 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #ifdef __linux__
-  if(fsrv->nyx_mode){
+  if (fsrv->nyx_mode) {
+
     fsrv->nyx_handlers->nyx_set_afl_input(fsrv->nyx_runner, buf, len);
     return;
+
   }
+
 #endif
 #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(fsrv->persistent_record)) {
@@ -1303,21 +1314,26 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   u32 write_value = fsrv->last_run_timed_out;
 
 #ifdef __linux__
-  if(fsrv->nyx_mode){
+  if (fsrv->nyx_mode) {
 
     static uint32_t last_timeout_value = 0;
 
-    if (last_timeout_value != timeout){
-      fsrv->nyx_handlers->nyx_option_set_timeout(fsrv->nyx_runner, timeout/1000, (timeout%1000) * 1000);
+    if (last_timeout_value != timeout) {
+
+      fsrv->nyx_handlers->nyx_option_set_timeout(
+          fsrv->nyx_runner, timeout / 1000, (timeout % 1000) * 1000);
       fsrv->nyx_handlers->nyx_option_apply(fsrv->nyx_runner);
       last_timeout_value = timeout;
+
     }
 
-    enum NyxReturnValue ret_val = fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner);
+    enum NyxReturnValue ret_val =
+        fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner);
 
     fsrv->total_execs++;
 
-    switch(ret_val){
+    switch (ret_val) {
+
       case Normal:
         return FSRV_RUN_OK;
       case Crash:
@@ -1333,29 +1349,40 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
         fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
         FATAL("Error: Nyx abort occured...");
       case IoError:
-        if (*stop_soon_p){
+        if (*stop_soon_p) {
+
           return 0;
-        }
-        else{
+
+        } else {
+
           FATAL("Error: QEMU-Nyx has died...");
+
         }
+
         break;
       case Error:
         FATAL("Error: Nyx runtime error has occured...");
         break;
+
     }
+
     return FSRV_RUN_OK;
-  }                           
+
+  }
+
 #endif
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
      territory. */
 
 #ifdef __linux__
-  if(!fsrv->nyx_mode){
+  if (!fsrv->nyx_mode) {
+
     memset(fsrv->trace_bits, 0, fsrv->map_size);
     MEM_BARRIER();
+
   }
+
 #else
   memset(fsrv->trace_bits, 0, fsrv->map_size);
   MEM_BARRIER();
