@@ -14,6 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     e.g. "unique crashes" -> "saved crashes", "total paths" ->
     "corpus count", "current path" -> "current item".
     This might need changing custom scripting!
+  - Nyx mode (full system emulation with snapshot capability) has been
+    added - thanks to @schumilo and @eqv!
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
   - if instrumented libaries are dlopen()'ed after the forkserver you
