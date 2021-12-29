@@ -422,7 +422,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     fsrv->map_size =
         fsrv->nyx_handlers->nyx_get_bitmap_buffer_size(fsrv->nyx_runner);
-    ;
     fsrv->real_map_size = fsrv->map_size;
 
     fsrv->trace_bits =
@@ -1192,7 +1191,7 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #ifdef __linux__
-  if (fsrv->nyx_mode) {
+  if (unlikely(fsrv->nyx_mode)) {
 
     fsrv->nyx_handlers->nyx_set_afl_input(fsrv->nyx_runner, buf, len);
     return;
@@ -1200,6 +1199,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
   }
 
 #endif
+
 #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(fsrv->persistent_record)) {
 

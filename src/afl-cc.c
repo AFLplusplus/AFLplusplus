@@ -556,7 +556,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !have_c) {
 
       u8 *ld_path = NULL;
-      if (getenv("AFL_REAL_LD")) { ld_path = strdup(getenv("AFL_REAL_LD")); }
+      if (getenv("AFL_REAL_LD")) {
+
+        ld_path = strdup(getenv("AFL_REAL_LD"));
+
+      } else {
+
+        ld_path = strdup(AFL_REAL_LD);
+
+      }
+
       if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
       if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
