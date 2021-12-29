@@ -1,34 +1,138 @@
+# Nyx Mode
+
+Nyx is a full system emulation fuzzing mode that supports snapshotting and
+can be used for both source code based instrumentation and binary-only targets.
+
+It is recommended to be used if the target cannot be fuzzed in persistent mode
+(so default fork mode fuzzing is used).
+
+It is only available on Linux and is currently restricted to x86_x64 however
+aarch64 support is in the works (but the host must then run on aarch64 too).
+
+Underneath it is built upon KVM and QEMU and requires a modern Linux kernel
+(5.11+) for fuzzing source code based instrumented targets (e.g.
+`afl-clang-fast`). To fuzz binary-only targets, this is done via Intel PT
+and requires an Intel processor (6th generation onwards) and a special
+5.10 kernel (see [KVM-Nyx](https://github.com/nyx-fuzz/KVM-Nyx)).
+
+## Building Nyx mode
+
+1. Install all the packages from [docs/INSTALL.md](../docs/INSTALL.md).
+
+2. Additionally install the follow packages:
+
+```shell
+apt-get install -y libgtk-3-dev pax-utils python3-msgpack python3-jinja2
+```
+
+3. As Nyx is written in Rust, install the newest rust compiler (rust packages
+   in the Linux distribution are usually too old to be able to build Nyx):
+
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+4. Finally build Nyx mode:
+
+```shell
+./build_nyx_support.sh
+```
+
+5. Optional, for binary-only fuzzing: setup the required 5.10 kernel, see
+   [KVM-Nyx](https://github.com/nyx-fuzz/KVM-Nyx). 
+
+## Preparing to fuzz a target with Nyx mode
+
+Nyx uses full system emulation hence your fuzzing targets have to be especially
+packaged.
+
+**For source code based instrumentation with `afl-clang-fast` for the time
+being these must be instrumented to `AFL_LLVM_INSTRUMENT=AFL` to work!**
+
+With your target ready at hand execute the following command
+(note that for binary-only fuzzing with the special 5.10 kernel switch the
+option `instrumentation` below with `process_trace`):
+
+```shell
+python3 nyx_mode/packer/packer/nyx_packer.py \
+	/PATH/TO/TARGET \
+	PACKAGE-DIRECTORY \
+	afl \
+	instrumentation \
+	--fast_reload_mode \
+	--purge 
+```
+
+This will create a directory with all necessary files and the Nyx configuration.
+The name of the directory will be whatever you choose for PACKAGE-DIRECTORY
+above.
+
+In the final step for the packaging we generate the Nyx configuration:
+```shell
+python3 nyx_mode/packer/packer/nyx_config_gen.py PACKAGE-DIRECTORY Kernel
+```
+
+## Fuzzing with Nyx mode
+
+All the hard parts are done, fuzzing with Nyx mode is easy - just supply
+the PACKAGE-DIRECTORY as fuzzing target and specify the `-X` option to afl-fuzz:
+
+```shell
+afl-fuzz -i in -o out -X -- ./PACKAGE-DIRECTORY
+```
+
+Most likely your first run will fail because the Linux modules have to be
+specially set up, but afl-fuzz will tell you this on startup and how to
+rectify the situation:
+```
+sudo modprobe -r kvm-intel # or kvm-amd for AMD processors
+sudo modprobe -r kvm
+sudo modprobe kvm enable_vmware_backdoor=y
+sudo modprobe kvm-intel # or kvm-amd for AMD processors
+```
+
+If you want to fuzz in parallel (and you should!), then this has to be done in a
+special way:
+
+  * Instead of `-X` (standalone mode) you specify `-Y` (multi processor mode).
+  * First a Main afl-fuzz instance has to be started with `-M 0`
+  * Only afterwards can you start Secondary afl-fuzz instances, which must have
+    an increasing number value, starting at 1, e.g. `-S 1`
+
+```shell
+afl-fuzz -i in -o out -Y -M 0 -- ./PACKAGE-DIRECTORY
+```
+
+```shell
+afl-fuzz -i in -o out -Y -S 1 -- ./PACKAGE-DIRECTORY
+```
+
+```shell
+afl-fuzz -i in -o out -Y -S 2 -- ./PACKAGE-DIRECTORY
+```
+
+## Real-world examples
+
 ### Fuzzing libxml2 with AFL++ in Nyx-mode
 
 This tutorial is based on the [Fuzzing libxml2 with AFL++](https://aflplus.plus/docs/tutorials/libxml2_tutorial/) tutorial.
 
-#### Initial Setup
-
-Setting up our fork of AFL++ and its Nyx backend is rather simple. But there are some requirements: first, Nyx expects either a recent linux kernel (`>= 5.11`) with KVM or KVM-Nyx to be installed. In both cases, access to the `/dev/kvm` device is required. So, make sure that the permissions are fine. 
-
-To get started, check out our repository and run our setup script to install `libnyx`, Nyx's packer utilities and QEMU-Nyx:
-
-```
-git clone https://github.com/nyx-fuzz/AFLplusplus-Nyx.git
-cd AFLplusplus-Nyx
-compile_nyx_mode.sh
-```
-
 ### Preparing libxml2 
 
-This part is basically the same as described in the original tutorial. First, get the latest libxml2 source files by using `git`: 
+First, get the latest libxml2 source files by using `git`: 
 
 ```
-git clone https://gitlab.gnome.org/GNOME/libxml2.git
+git clone https://gitlab.gnome.org/GNOME/libxml2
 cd libxml2
 ```
 
-From there on, you have to use -- at least for now -- our AFL-compiler instead of the AFL++ provided compiler. The reason for this is that we currently don't support all of AFL++'s features. Basically, we don't have full support for collision-free bitmaps yet. So, to continue run the following commands and adjust the path to our compiler (our compiler is located in the `packer` repository):
+Remember that currently only classic AFL instrumented is supported!
 
 ``` 
+export AFL_LLVM_INSTRUMENT=AFL
 ./autogen.sh
 ./configure --enable-shared=no
-make CC=~/AFLplusplus-Nyx/packer/packer/compiler/afl-clang-fast CXX=~/AFLplusplus-Nyx/packer/packer/compiler/afl-clang-fast++ LD=~/AFLplusplus-Nyx/packer/packer/compiler/afl-clang-fast
+make CC=afl-clang-fast CXX=afl-clang-fast++ LD=afl-clang-fast
 ```
 
 #### Nyx share directories
@@ -48,13 +152,13 @@ Those tools are all using hypercalls which are defined in `packer/nyx.h`. We wil
 To turn a given linux target into the Nyx  format, you can simply use `nyx_packer.py`. To do so, move to the following directory:
 
 ```
-cd ~/AFLplusplus-Nyx/packer/packer
+cd nyx_mode/packer/packer
 ```
 
  And run the tool with the following options to  pack `libxml2`:
 
 ```.
-./nyx_packer.py \
+python3 ./nyx_packer.py \
 	~/libxml2/xmllint \
 	/tmp/nyx_libxml2 \
 	afl \
@@ -74,17 +178,17 @@ In case you want to fuzz the target only with fast snapshots enabled, you can al
 Finally, we need to generate a Nyx configuration file. Simply run the following command and you're good to proceed:
 
 ```
-./nyx_config_gen.py /tmp/nyx_libxml2/ Kernel
+python3 ./nyx_config_gen.py /tmp/nyx_libxml2/ Kernel
 ```
 
-### Run AFL++Nyx
+### Run Nyx mode
 
-From here on, we are almost done. Move to the AFL++Nyx folder and start the fuzzer with the following arguments:
+From here on, we are almost done. Move to the AFL++ top directory and start the fuzzer with the following arguments:
 
-```
-mkdir /tmp/in/ 						# to create an input folder
-echo "AA" >> /tmp/in/A 		# create an input file to make the fuzzer happy for now
- ./afl-fuzz -i /tmp/in/ -o /tmp/out -d -X /tmp/nyx_libxml2/
+```shell
+mkdir /tmp/in/ 			# create an input folder
+echo "AAAA" >> /tmp/in/A 	# create a dummy input file
+ ./afl-fuzz -i /tmp/in/ -o /tmp/out -X /tmp/nyx_libxml2/
 ```
 
 If everything has been successfully set up to this point, you will now be welcomed by the following AFL++ screen:
@@ -145,7 +249,7 @@ mkdir /tmp/nyx_custom_agent/
  To compile this example, run the following command (remove the `-DNO_PT_NYX` option if you are using KVM-Nyx ): 
 
 ``` 
-gcc example.c -DNO_PT_NYX -static -I AFLplusplus/packer/ -o /tmp/nyx_custom_agent/target
+gcc example.c -DNO_PT_NYX -static -I ./packer/ -o /tmp/nyx_custom_agent/target
 ```
 
 Copy both bootstrap scripts into the sharedir: 
@@ -158,7 +262,7 @@ cp fuzz_no_pt.sh /tmp/nyx_custom_agent
 Copy all `htools` executable into the sharedir: 
 
 ```
-cd ~/AFLplusplus-Nyx/packer/packer/linux_x86_64-userspace/
+cd ~/AFLplusplus/packer/packer/linux_x86_64-userspace/
 sh compile_64.sh
 cp bin64/h* /tmp/nyx_custom_agent/
 ```
@@ -166,7 +270,6 @@ cp bin64/h* /tmp/nyx_custom_agent/
 And finally, generate a Nyx configuration: 
 
 ```
-cd ~/AFLplusplus-Nyx/packer/packer
-./nyx_config_gen.py /tmp/nyx_custom_agent/ Kernel
+cd ~/AFLplusplus/packer/packer
+python3 ./nyx_config_gen.py /tmp/nyx_custom_agent/ Kernel
 ```
-
