@@ -19,7 +19,7 @@ and requires an Intel processor (6th generation onwards) and a special
 
 1. Install all the packages from [docs/INSTALL.md](../docs/INSTALL.md).
 
-2. Additionally install the follow packages:
+2. Additionally install the following packages:
 
 ```shell
 apt-get install -y libgtk-3-dev pax-utils python3-msgpack python3-jinja2
