@@ -562,7 +562,8 @@ All other secondaries should be used like this:
 * a quarter to a third with the MOpt mutator enabled: `-L 0`
 * run with a different power schedule, recommended are:
   `fast (default), explore, coe, lin, quad, exploit and rare` which you can set
-  with, e.g., `-p explore`
+  with the `-p` option, e.g., `-p explore`. See the [FAQ](FAQ.md#what-are-power-schedules)
+  for details.
 * a few instances should use the old queue cycling with `-Z`
 
 Also, it is recommended to set `export AFL_IMPORT_FIRST=1` to load test cases
