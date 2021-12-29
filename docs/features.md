@@ -4,20 +4,20 @@ AFL++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with
 QEMU 5.1 with laf-intel and redqueen, FRIDA mode, unicorn mode, gcc plugin, full
 *BSD, Mac OS, Solaris and Android support and much, much, much more.
 
-| Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | FRIDA mode(9)    | QEMU mode(10)    |unicorn_mode(10)  |coresight_mode(11)|
-| -------------------------|:-------:|:---------:|:----------:|:----------------:|:----------------:|:----------------:|:----------------:|
-| Threadsafe counters      |         |     x(3)  |            |                  |                  |                  |                  |
-| NeverZero                | x86[_64]|     x(1)  |     x      |         x        |         x        |         x        |                  |
-| Persistent Mode          |         |     x     |     x      | x86[_64]/arm64   | x86[_64]/arm[64] |         x        |                  |
-| LAF-Intel / CompCov      |         |     x     |            |                  | x86[_64]/arm[64] | x86[_64]/arm[64] |                  |
-| CmpLog                   |         |     x     |            | x86[_64]/arm64   | x86[_64]/arm[64] |                  |                  |
-| Selective Instrumentation|         |     x     |     x      |         x        |         x        |                  |                  |
-| Non-Colliding Coverage   |         |     x(4)  |            |                  |        (x)(5)    |                  |                  |
-| Ngram prev_loc Coverage  |         |     x(6)  |            |                  |                  |                  |                  |
-| Context Coverage         |         |     x(6)  |            |                  |                  |                  |                  |
-| Auto Dictionary          |         |     x(7)  |            |                  |                  |                  |                  |
-| Snapshot LKM Support     |         |    (x)(8) |    (x)(8)  |                  |        (x)(5)    |                  |                  |
-| Shared Memory Test cases |         |     x     |     x      | x86[_64]/arm64   |         x        |         x        |                  |
+| Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | FRIDA mode(9)    | QEMU mode(10)    |unicorn_mode(10)  |nyx_mode(12)|coresight_mode(11)|
+| -------------------------|:-------:|:---------:|:----------:|:----------------:|:----------------:|:----------------:|:----------:|:----------------:|
+| Threadsafe counters      |         |     x(3)  |            |                  |                  |                  |     x      |                  |
+| NeverZero                | x86[_64]|     x(1)  |     x      |         x        |         x        |         x        |            |                  |
+| Persistent Mode          |         |     x     |     x      | x86[_64]/arm64   | x86[_64]/arm[64] |         x        |            |                  |
+| LAF-Intel / CompCov      |         |     x     |            |                  | x86[_64]/arm[64] | x86[_64]/arm[64] | x86[_64]   |                  |
+| CmpLog                   |         |     x     |            | x86[_64]/arm64   | x86[_64]/arm[64] |                  |            |                  |
+| Selective Instrumentation|         |     x     |     x      |         x        |         x        |                  |            |                  |
+| Non-Colliding Coverage   |         |     x(4)  |            |                  |        (x)(5)    |                  |            |                  |
+| Ngram prev_loc Coverage  |         |     x(6)  |            |                  |                  |                  |            |                  |
+| Context Coverage         |         |     x(6)  |            |                  |                  |                  |            |                  |
+| Auto Dictionary          |         |     x(7)  |            |                  |                  |                  |            |                  |
+| Snapshot Support         |         |    (x)(8) |    (x)(8)  |                  |        (x)(5)    |                  |     x      |                  |
+| Shared Memory Test cases |         |     x     |     x      | x86[_64]/arm64   |         x        |         x        |     x      |                  |
 
 1. default for LLVM >= 9.0, environment variable for older version due an
    efficiency bug in previous llvm versions
@@ -34,6 +34,7 @@ QEMU 5.1 with laf-intel and redqueen, FRIDA mode, unicorn mode, gcc plugin, full
 10. QEMU/Unicorn is only supported on Linux
 11. Coresight mode is only available on AARCH64 Linux with a CPU with Coresight
     extension
+12. Nyx mode is only supported on Linux and currently restricted to x86_x64
 
 Among others, the following features and patches have been integrated:
 

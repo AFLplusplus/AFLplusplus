@@ -125,6 +125,16 @@ to check out our sister project libafl which supports Frida, too:
 [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL).
 Working examples already exist :-)
 
+### Nyx mode
+
+Nyx is a full system emulation fuzzing environment with snapshot support that
+is built upon KVM and QEMU.
+It is only available on Linux and currently restricted to x86_x64.
+
+For binary-only fuzzing a special 5.10 kernel is required.
+
+See [nyx_mode/README.md](../nyx_mode/README.md)
+
 ### Unicorn
 
 Unicorn is a fork of QEMU. The instrumentation is, therefore, very similar. In
