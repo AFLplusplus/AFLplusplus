@@ -105,7 +105,8 @@ fairly broad use of environment variables instead:
       within your program at a certain point (such as at the end of an
       `__AFL_LOOP()`), you can run the macro  `__AFL_LEAK_CHECK();` which will
       cause an abort if any memory is leaked (you can combine this with the
-      `LSAN_OPTIONS=...` suppression option to suppress some known leaks).
+      `__AFL_LSAN_OFF();` and `__AFL_LSAN_ON();` macros to avoid checking for
+      memory leaks from memory allocated between these two calls.
     - `AFL_USE_MSAN=1` - activates the memory sanitizer (uninitialized memory)
     - `AFL_USE_TSAN=1` - activates the thread sanitizer to find thread race
       conditions
