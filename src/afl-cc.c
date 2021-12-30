@@ -876,7 +876,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = "-fsanitize=leak";
     cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
-    cc_params[cc_par_cnt++] = "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
+    cc_params[cc_par_cnt++] = "-D__AFL_LEAK_CHECK()={if(__lsan_do_recoverable_leak_check() > 0) _exit(23); }";
+    cc_params[cc_par_cnt++] = "-D__AFL_LSAN_OFF()=__lsan_disable();";
+    cc_params[cc_par_cnt++] = "-D__AFL_LSAN_ON()=__lsan_enable();";
+
 
   }
 
