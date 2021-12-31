@@ -39,27 +39,27 @@ test -d libnyx || { echo "[-] Not checked out, please install git or check your 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then
     cd packer/linux_initramfs/
-    sh pack.sh
+    sh pack.sh || exit 1
     cd ../../
 fi
 
 echo "[*] Checking libnyx ..."
 if [ ! -f "libnyx/libnyx/target/release/liblibnyx.a" ]; then
     cd libnyx/libnyx
-    cargo build --release
+    cargo build --release || exit 1
     cd ../../
 fi
 
 echo "[*] Checking QEMU-Nyx ..."
 if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
     cd QEMU-Nyx/
-    ./compile_qemu_nyx.sh
+    ./compile_qemu_nyx.sh || exit 1
     cd ..
 fi
 
 echo "[*] Checking libnyx.so ..."
 if [ -f "libnyx/libnyx/target/release/liblibnyx.so" ]; then
-  cp -v libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so
+  cp -v libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so || exit 1
 else
   echo "[ ] libnyx.so not found..."
   exit 1
