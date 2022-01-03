@@ -6,7 +6,7 @@ changes.
 ## From version 3.00 onwards
 
 With AFL++ 4.00, we introduced the following changes from previous behaviors:
-  * the complete documenation was overhauled and restructured thanks to @llzmb!
+  * the complete documentation was overhauled and restructured thanks to @llzmb!
   * a new CMPLOG target format requires recompiling CMPLOG targets for use
     with afl++ 4.0 onwards
   * better naming for several fields in the UI
