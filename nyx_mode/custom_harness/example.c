@@ -83,7 +83,7 @@ int main(int argc, char** argv){
 		kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
 
 		/* This shouldn't happen if you have enabled the reload mode */ 
-		hprintf("Das sollte niemals passieren :)\n");
+		hprintf("This should never happen :)\n");
 	}
 
 
