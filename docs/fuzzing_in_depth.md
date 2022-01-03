@@ -203,7 +203,7 @@ The following sanitizers have built-in support in AFL++:
   of the target source code where you find a leak check necessary! Enabled with
   `export AFL_USE_LSAN=1` before compiling. To ignore the memory-leaking check
   for certain allocations, `__AFL_LSAN_OFF();` can be used before memory is 
-  allocated, and `__AFL_LSAN_OFF;` afterwards. Memory allocated between these
+  allocated, and `__AFL_LSAN_ON();` afterwards. Memory allocated between these
   two macros will not be checked for memory leaks.
 
 It is possible to further modify the behavior of the sanitizers at run-time by
