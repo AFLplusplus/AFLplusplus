@@ -284,11 +284,23 @@ mode.
     TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
     ```
 
-  - GCC_PLUGIN mode only: Setting `AFL_GCC_INSTRUMENT_FILE` with a filename will
-    only instrument those files that match the names listed in this file (one
-    filename per line). See
+  - GCC_PLUGIN mode only: Setting `AFL_GCC_INSTRUMENT_FILE` or
+    `AFL_GCC_ALLOWLIST` with a filename will only instrument those files
+    that match the names listed in this file (one filename per line).
+    
+    Setting `AFL_GCC_DENYLIST` or `AFL_GCC_BLOCKLIST`
+    with a file name and/or function will only skip those files that match
+    the names listed in the specified file. See
     [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
     for more information.
+
+    Setting `AFL_GCC_OUT_OF_LINE=1` will instruct afl-gcc-fast to instrument the
+    code with calls to an injected subroutine instead of the much more efficient
+    inline instrumentation.
+
+    Setting `AFL_GCC_SKIP_NEVERZERO=1` will not implement the skip zero test.
+    If the target performs only a few loops, then this will give a small
+    performance boost.
 
 ## 4) Settings for afl-fuzz
 
