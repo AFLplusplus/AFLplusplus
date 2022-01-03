@@ -989,10 +989,10 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
       }
 
-      // test for to lowercase, eg. "new_val = (user_val | 0x2022) ..."
+      // test for to lowercase, eg. "new_val = (user_val | 0x2020) ..."
       if (*status != 1) {
 
-        if ((b_val | (0x2022202020202020 & mask)) == (pattern & mask)) {
+        if ((b_val | (0x2020202020202020 & mask)) == (pattern & mask)) {
 
           diff = 1;
 
@@ -1002,7 +1002,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         }
 
-        if ((o_b_val | (0x2022202020202020 & mask)) == (o_pattern & mask)) {
+        if ((o_b_val | (0x2020202020202020 & mask)) == (o_pattern & mask)) {
 
           o_diff = 1;
 
@@ -1070,7 +1070,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
           // this could be a lower to upper
 
-          u64 new_repl = (repl | (0x2022202020202020 & mask));
+          u64 new_repl = (repl | (0x2020202020202020 & mask));
           // fprintf(stderr, "SAME DIFF %llx->%llx\n", repl, new_repl);
 
           if (unlikely(cmp_extend_encoding(
