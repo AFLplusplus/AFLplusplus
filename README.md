@@ -146,7 +146,7 @@ The following branches exist:
   stability
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
-  or has a bug. **We only accept PRs to dev!**
+  or has a bug. **We only accept PRs (push requests) for the 'dev' branch!**
 * (any other): experimental branches to work on specific features or testing new
   functionality or changes.
 
