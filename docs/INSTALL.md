@@ -45,9 +45,10 @@ make source-only
 These build targets exist:
 
 * all: the main afl++ binaries and llvm/gcc instrumentation
-* binary-only: everything for binary-only fuzzing: frida_mode, qemu_mode,
-  unicorn_mode, libdislocator, libtokencap
-* source-only: everything for source code fuzzing: libdislocator, libtokencap
+* binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode,
+  qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap
+* source-only: everything for source code fuzzing: nyx_mode, libdislocator,
+  libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
