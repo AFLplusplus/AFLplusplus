@@ -141,31 +141,38 @@ options are available:
   [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
 If you use LTO, LLVM, or GCC_PLUGIN mode
-(afl-clang-fast/afl-clang-lto/afl-gcc-fast), you might have the option to 
+(afl-clang-fast/afl-clang-lto/afl-gcc-fast), you have the option to
 selectively instrument _parts_ of the target that you are interested in.
-For afl-clang-fast you have to use an llvm version > 10.0.0 or a mode
+For afl-clang-fast you have to use an llvm version newer than 10.0.0 or a mode
 other than DEFAULT/PCGUARD.
 
 This step can be done either by explicitly including parts to be instrumented
 or by explicitly excluding parts from instrumentation.
 
 * To instrument _only specified parts_
-  create a file (eg `allowlist.txt`) with all the filenames of the source code
-  that should be instrumented and then 
+  create a file (eg `allowlist.txt`) with all the filenames and/or functions of
+  the source code that should be instrumented and then:
 
-  1. just put one filename or function per line (no directory information necessary for
-  filenames) in the file `allowlist.txt`, and
+  1. just put one filename or function (prefixing with `fun: `)  per line (no
+  directory information necessary for filenames) in the file `allowlist.txt`.
+  Example:
+```
+foo.cpp        # will match foo/foo.cpp, bar/foo.cpp, barfoo.cpp etc.
+fun: foo_func  # will match the function foo_func
+```
 
-  2. set `export AFL_LLVM_ALLOWLIST=allowlist.txt` to enable selective instrumentation.
+  2. set `export AFL_LLVM_ALLOWLIST=allowlist.txt` to enable selective positive
+     instrumentation.
 
 * Similarly to _exclude_ specified parts from instrumentation
   create a file (eg `denylist.txt`) with all the filenames of the source code
   that should be skipped during instrumentation and then
 
-  1. just put one filename or function per line (no directory information necessary for
-  filenames) in the file `denylist.txt`, and
+  1. same as above just put one filename or function per line in the file
+     `denylist.txt`
 
-  2. set `export AFL_LLVM_DENYLIST=denylist.txt` to enable selective instrumentation.
+  2. set `export AFL_LLVM_DENYLIST=denylist.txt` to enable selective negative
+     instrumentation.
 
 **NOTE:** During optimization functions might be
 inlined and then would not match the list! See
@@ -187,7 +194,7 @@ It is possible to use sanitizers when instrumenting targets for fuzzing, which
 allows you to find bugs that would not necessarily result in a crash.
 
 Note that sanitizers have a huge impact on CPU (= less executions per second)
-and RAM usage. Also, you should only run one afl-fuzz target per sanitizer
+and RAM usage. Also, you should only run one afl-fuzz instance per sanitizer
 type. This is enough because e.g. a use-after-free bug will be picked up by
 ASAN (address sanitizer) anyway after syncing test cases from other fuzzing
 instances, so running more than one address sanitized target would be a waste.
@@ -206,8 +213,8 @@ The following sanitizers have built-in support in AFL++:
   with `export AFL_USE_UBSAN=1` before compiling.
 * CFISAN = Control Flow Integrity SANitizer, finds instances where the control
   flow is found to be illegal. Originally this was rather to prevent return
-  oriented programming (rop) exploit chains from functioning. In fuzzing, this is
-  mostly reduced to detecting type confusion vulnerabilities - which is,
+  oriented programming (ROP) exploit chains from functioning. In fuzzing, this
+  is mostly reduced to detecting type confusion vulnerabilities - which is,
   however, one of the most important and dangerous C++ memory corruption
   classes! Enabled with `export AFL_USE_CFISAN=1` before compiling.
 * TSAN = Thread SANitizer, finds thread race conditions. Enabled with `export
@@ -280,7 +287,7 @@ Then build the target. (Usually with `make`.)
 3. In case the configure/build system complains about AFL++'s compiler and
    aborts, then set `export AFL_NOOPT=1` which will then just behave like the
    real compiler and run the configure step separately.
-   For building the target afterwards this option should be unset again!
+   For building the target afterwards this option has to be unset again!
 
 #### configure
 
@@ -501,12 +508,12 @@ to do nothing except to use afl-clang-lto as the compiler.
 With `afl-clang-fast` you can set
 `AFL_LLVM_DICT2FILE=/full/path/to/new/file.dic` to automatically generate a
 dictionary during target compilation.
-You also have the option to generate a dictionary yourself during a run of the
-target, see [utils/libtokencap/README.md](../utils/libtokencap/README.md).
+You also have the option to generate a dictionary yourself during an independant
+run of the target, see [utils/libtokencap/README.md](../utils/libtokencap/README.md).
 Finally you can also write a dictionary file manually, of course.
 
 afl-fuzz has a variety of options that help to workaround target quirks like
-specific names/locations for the input file (`-f`), performing deterministic
+very specific locations for the input file (`-f`), performing deterministic
 fuzzing (`-D`) and many more. Check out `afl-fuzz -h`.
 
 We highly recommend that you set a memory limit for running the target with `-m`
