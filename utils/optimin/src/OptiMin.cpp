@@ -260,7 +260,7 @@ static Error runShowmap(AFLCoverageMap &CovMap, const StringRef Input,
 
   if (TargetArgsHasAtAt) {
 
-    ShowmapArgs.append({"-A", StdinFile});
+    ShowmapArgs.append({"-H", StdinFile});
     Redirects[/* stdin */ 0] = "/dev/null";
 
   } else if (InputIsFile) {
