@@ -424,7 +424,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "fuzzing{type=\"unique_crashes\"}",
+          "expr": "fuzzing{type=\"saved_crashes\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -519,7 +519,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "fuzzing{type=\"unique_hangs\"}",
+          "expr": "fuzzing{type=\"saved_hangs\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
