@@ -9,6 +9,7 @@ Here are some good write-ups to show how to effectively use AFL++:
 * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
 * [https://securitylab.github.com/research/fuzzing-sockets-FreeRDP](https://securitylab.github.com/research/fuzzing-sockets-FreeRDP)
 * [https://securitylab.github.com/research/fuzzing-apache-1](https://securitylab.github.com/research/fuzzing-apache-1)
+* [https://mmmds.pl/fuzzing-map-parser-part-1-teeworlds/](https://mmmds.pl/fuzzing-map-parser-part-1-teeworlds/)
 
 If you do not want to follow a tutorial but rather try an exercise type of
 training, then we can highly recommend the following:
