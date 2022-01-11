@@ -12,11 +12,11 @@ With AFL++ 4.00, we introduced the following changes from previous behaviors:
   * better naming for several fields in the UI
 
 With AFL++ 3.15, we introduced the following changes from previous behaviors:
-  * afl-cmin and afl-showmap -Ci now descent into subdirectories like afl-fuzz
+  * afl-cmin and afl-showmap -Ci now descend into subdirectories like afl-fuzz
     -i does (but note that afl-cmin.bash does not)
 
 With AFL++ 3.14, we introduced the following changes from previous behaviors:
-  * afl-fuzz: deterministic fuzzing it not a default for -M main anymore
+  * afl-fuzz: deterministic fuzzing is not a default for -M main anymore
   * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash,
     however, does not)
 
@@ -44,9 +44,9 @@ behaviors and defaults:
     * if neither -M or -S is specified, `-S default` is assumed, so more fuzzers
       can easily be added later
     * `-i` input directory option now descends into subdirectories. It also does
-      not fatal on crashes and too large files, instead it skips them and uses
+      not fail on crashes and too large files, instead it skips them and uses
       them for splicing mutations
-    * -m none is now default, set memory limits (in MB) with, e.g., -m 250
+    * -m none is now the default, set memory limits (in MB) with, e.g., -m 250
     * deterministic fuzzing is now disabled by default (unless using -M) and can
       be enabled with -D
     * a caching of test cases can now be performed and can be modified by
