@@ -44,10 +44,13 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    nm test-compcov.harden | grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
+      env | egrep 'AFL|PATH|LLVM'
+      AFL_DEBUG=1 AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c
+      nm test-compcov.harden
       CODE=1
     }
     rm -f test-compcov.harden
@@ -159,7 +162,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    nm test-compcov.harden | grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"

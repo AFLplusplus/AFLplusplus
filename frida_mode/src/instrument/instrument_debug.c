@@ -35,6 +35,10 @@ static void instrument_debug(char *format, ...) {
 static void instrument_disasm(guint8 *start, guint8 *end,
                               GumStalkerOutput *output) {
 
+#if !defined(__arm__)
+  UNUSED_PARAMETER(output);
+#endif
+
   csh      capstone;
   cs_err   err;
   cs_mode  mode;
@@ -50,9 +54,7 @@ static void instrument_disasm(guint8 *start, guint8 *end,
   if (output->encoding == GUM_INSTRUCTION_SPECIAL) { mode |= CS_MODE_THUMB; }
 #endif
 
-  err = cs_open(GUM_DEFAULT_CS_ARCH,
-                CS_MODE_THUMB | GUM_DEFAULT_CS_MODE | GUM_DEFAULT_CS_ENDIAN,
-                &capstone);
+  err = cs_open(GUM_DEFAULT_CS_ARCH, mode, &capstone);
   g_assert(err == CS_ERR_OK);
 
   size = GPOINTER_TO_SIZE(end) - GPOINTER_TO_SIZE(start);
@@ -96,19 +98,15 @@ void instrument_debug_config(void) {
 
 void instrument_debug_init(void) {
 
-  FOKF("Instrumentation debugging - enabled [%c]",
-       instrument_debug_filename == NULL ? ' ' : 'X');
-
-  if (instrument_debug_filename == NULL) { return; }
-
-  FOKF("Instrumentation debugging - file [%s]", instrument_debug_filename);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "debugging:" cYEL " [%s]",
+       instrument_debug_filename == NULL ? " " : instrument_debug_filename);
 
   if (instrument_debug_filename == NULL) { return; }
 
   char *path =
       g_canonicalize_filename(instrument_debug_filename, g_get_current_dir());
 
-  FOKF("Instrumentation debugging - path [%s]", path);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "path:" cYEL " [%s]", path);
 
   debugging_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
                       S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);

@@ -28,9 +28,14 @@ terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
 Here is some information to get you started:
 
+* For an overview of the AFL++ documentation and a very helpful graphical
+  guide please visit [docs/README.md](docs/README.md)
+* To get you started with tutorials, go to
+  [docs/tutorials.md](docs/tutorials.md).
 * For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
-  [branches](#branches). Also take a look at the list of
+  [branches](#branches). The best branches to use are however `stable` or
+  `dev` - depending on your risk appetite. Also take a look at the list of
   [important changes in AFL++](docs/important_changes.md) and the list of
   [features](docs/features.md).
 * If you want to use AFL++ for your academic work, check the
@@ -40,8 +45,6 @@ Here is some information to get you started:
   `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`. You can find the `aflplusplus`
   default configuration on Google's
   [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
-* To get you started with tutorials, go to
-  [docs/tutorials.md](docs/tutorials.md).
 
 ## Building and installing AFL++
 
@@ -57,7 +60,8 @@ This image is automatically generated when a push to the stable repo happens
 (see [branches](#branches)). You will find your target source code in `/src` in
 the container.
 
-To build AFL++ yourself, continue at [docs/INSTALL.md](docs/INSTALL.md).
+To build AFL++ yourself - which we recommend - continue at
+[docs/INSTALL.md](docs/INSTALL.md).
 
 ## Quick start: Fuzzing with AFL++
 
@@ -115,20 +119,24 @@ Step-by-step quick start:
 
    You can generate cores or use gdb directly to follow up the crashes.
 
+6. We cannot stress this enough - if you want to fuzz effectively, read the
+   [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md) document!
+
 ## Contact
 
 Questions? Concerns? Bug reports?
 
-* The contributors can be reached via
+* The contributors can be reached via (e.g. by creating an issue):
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
 * Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
   question missing, submit it via
   [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
-* There is a mailing list for the AFL/AFL++ project
+* Best: join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
+* There is a (not really used)  mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
   notes with other users or to get notified about major new features, send an
-  email to <afl-users+subscribe@googlegroups.com>.
-* Or join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
+  email to <afl-users+subscribe@googlegroups.com>, but note that this is not
+  managed by us.
 
 ## Branches
 
@@ -141,7 +149,7 @@ The following branches exist:
   stability
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
-  or has a bug. *We only accept PRs in dev!!*
+  or has a bug. **We only accept PRs (push requests) for the 'dev' branch!**
 * (any other): experimental branches to work on specific features or testing new
   functionality or changes.
 

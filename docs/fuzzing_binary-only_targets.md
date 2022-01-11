@@ -12,11 +12,10 @@ fuzzed with AFL++.
 
 ## TL;DR:
 
-QEMU mode in persistent mode is the fastest - if the stability is high enough.
-Otherwise, try RetroWrite, Dyninst, and if these fail, too, then try standard
-QEMU mode with `AFL_ENTRYPOINT` to where you need it.
-
-If your target is a library, then use FRIDA mode.
+FRIDA mode and QEMU mode in persistent mode are the fastest - if persistent mode
+is possible and the stability is high enough.
+Otherwise, try Zafl, RetroWrite, Dyninst, and if these fail, too, then try
+standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` to where you need it.
 
 If your target is non-linux, then use unicorn_mode.
 
@@ -92,7 +91,7 @@ For more information, see
 ### FRIDA mode
 
 In FRIDA mode, you can fuzz binary-only targets as easily as with QEMU mode.
-FRIDA mode is sometimes faster and sometimes slower than QEMU mode. It is also
+FRIDA mode is most of the times slightly faster than QEMU mode. It is also
 newer, lacks COMPCOV, and has the advantage that it works on MacOS (both intel
 and M1).
 
@@ -100,7 +99,7 @@ To build FRIDA mode:
 
 ```shell
 cd frida_mode
-make
+gmake
 ```
 
 For additional instructions and caveats, see
@@ -125,6 +124,16 @@ If you like to code a customized fuzzer without much work, we highly recommend
 to check out our sister project libafl which supports Frida, too:
 [https://github.com/AFLplusplus/LibAFL](https://github.com/AFLplusplus/LibAFL).
 Working examples already exist :-)
+
+### Nyx mode
+
+Nyx is a full system emulation fuzzing environment with snapshot support that
+is built upon KVM and QEMU.
+It is only available on Linux and currently restricted to x86_x64.
+
+For binary-only fuzzing a special 5.10 kernel is required.
+
+See [nyx_mode/README.md](../nyx_mode/README.md)
 
 ### Unicorn
 

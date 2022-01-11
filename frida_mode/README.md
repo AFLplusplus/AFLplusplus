@@ -176,9 +176,6 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
   `AFL_FRIDA_INST_TRACE`.
-* `AFL_FRIDA_INST_NO_BACKPATCH` - Disable backpatching. At the end of executing
-  each block, control will return to FRIDA to identify the next block to
-  execute.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default, the child will
   report instrumented blocks back to the parent so that it can also instrument
   them and they be inherited by the next child on fork, implies
@@ -227,6 +224,9 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
   stored along-side branch instructions which provide a cache to avoid having to
   call back into FRIDA to find the next block. Default is 32.
+* `AFL_FRIDA_STALKER_NO_BACKPATCH` - Disable backpatching. At the end of executing
+  each block, control will return to FRIDA to identify the next block to
+  execute.
 * `AFL_FRIDA_STATS_FILE` - Write statistics information about the code being
   instrumented to the given file name. The statistics are written only for the
   child process when new block is instrumented (when the
@@ -307,6 +307,7 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
   core dump of the instrumented target. Note that in order to capture the core
   dump you must set a sufficient timeout (using `-t`) to avoid `afl-fuzz`
   killing the process whilst it is being dumped.
+* `AFL_FRIDA_VERBOSE` - Enable verbose output from FRIDA mode.
 
 ## FASAN - FRIDA Address Sanitizer mode
 

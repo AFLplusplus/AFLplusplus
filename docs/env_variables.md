@@ -105,7 +105,8 @@ fairly broad use of environment variables instead:
       within your program at a certain point (such as at the end of an
       `__AFL_LOOP()`), you can run the macro  `__AFL_LEAK_CHECK();` which will
       cause an abort if any memory is leaked (you can combine this with the
-      `LSAN_OPTIONS=...` suppression option to suppress some known leaks).
+      `__AFL_LSAN_OFF();` and `__AFL_LSAN_ON();` macros to avoid checking for
+      memory leaks from memory allocated between these two calls.
     - `AFL_USE_MSAN=1` - activates the memory sanitizer (uninitialized memory)
     - `AFL_USE_TSAN=1` - activates the thread sanitizer to find thread race
       conditions
@@ -283,11 +284,23 @@ mode.
     TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
     ```
 
-  - GCC_PLUGIN mode only: Setting `AFL_GCC_INSTRUMENT_FILE` with a filename will
-    only instrument those files that match the names listed in this file (one
-    filename per line). See
+  - GCC_PLUGIN mode only: Setting `AFL_GCC_INSTRUMENT_FILE` or
+    `AFL_GCC_ALLOWLIST` with a filename will only instrument those files
+    that match the names listed in this file (one filename per line).
+    
+    Setting `AFL_GCC_DENYLIST` or `AFL_GCC_BLOCKLIST`
+    with a file name and/or function will only skip those files that match
+    the names listed in the specified file. See
     [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
     for more information.
+
+    Setting `AFL_GCC_OUT_OF_LINE=1` will instruct afl-gcc-fast to instrument the
+    code with calls to an injected subroutine instead of the much more efficient
+    inline instrumentation.
+
+    Setting `AFL_GCC_SKIP_NEVERZERO=1` will not implement the skip zero test.
+    If the target performs only a few loops, then this will give a small
+    performance boost.
 
 ## 4) Settings for afl-fuzz
 

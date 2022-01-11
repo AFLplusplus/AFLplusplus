@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -393,15 +393,14 @@ void bind_to_free_cpu(afl_state_t *afl) {
         "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
   #endif
 
-  size_t cpu_start = 0;
+  #if !defined(__aarch64__) && !defined(__arm__) && !defined(__arm64__)
 
-  #if !defined(__ANDROID__)
-
-  for (i = cpu_start; i < afl->cpu_core_count; i++) {
+  for (i = 0; i < afl->cpu_core_count; i++) {
 
   #else
 
-  /* for some reason Android goes backwards */
+  /* many ARM devices have performance and efficiency cores, the slower
+     efficiency cores seem to always come first */
 
   for (i = afl->cpu_core_count - 1; i > -1; i--) {
 
@@ -413,13 +412,15 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (bind_cpu(afl, i)) {
 
+  #ifdef __linux__
+      if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = i; }
+  #endif
       /* Success :) */
       break;
 
     }
 
     WARNF("setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
 
   }
 
@@ -1092,6 +1093,14 @@ void perform_dry_run(afl_state_t *afl) {
         FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
       case FSRV_RUN_NOINST:
+#ifdef __linux__
+        if (afl->fsrv.nyx_mode && afl->fsrv.nyx_runner != NULL) {
+
+          afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
+
+        }
+
+#endif
         FATAL("No instrumentation detected");
 
       case FSRV_RUN_NOBITS:
@@ -2445,6 +2454,9 @@ void fix_up_sync(afl_state_t *afl) {
 
   x = alloc_printf("%s/%s", afl->out_dir, afl->sync_id);
 
+#ifdef __linux__
+  if (afl->fsrv.nyx_mode) { afl->fsrv.out_dir_path = afl->out_dir; }
+#endif
   afl->sync_dir = afl->out_dir;
   afl->out_dir = x;
 
@@ -2582,6 +2594,28 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
     afl->fsrv.target_path = ck_strdup(fname);
+#ifdef __linux__
+    if (afl->fsrv.nyx_mode) {
+
+      /* check if target_path is a nyx sharedir */
+      if (stat(afl->fsrv.target_path, &st) || S_ISDIR(st.st_mode)) {
+
+        char *tmp = alloc_printf("%s/config.ron", afl->fsrv.target_path);
+        if (stat(tmp, &st) || S_ISREG(st.st_mode)) {
+
+          free(tmp);
+          return;
+
+        }
+
+      }
+
+      FATAL("Directory '%s' not found or is not a nyx share directory",
+            afl->fsrv.target_path);
+
+    }
+
+#endif
     if (stat(afl->fsrv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4) {
 
@@ -2721,6 +2755,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 #endif                                                       /* ^!__APPLE__ */
 
   if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+#ifdef __linux__
+      !afl->fsrv.nyx_mode &&
+#endif
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 

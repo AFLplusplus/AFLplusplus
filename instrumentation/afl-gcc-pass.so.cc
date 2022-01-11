@@ -2,7 +2,7 @@
 
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2020 AdaCore
+   Copyright 2019-2022 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL
    LLVM pass by Laszlo Szekeres <lszekeres@google.com> and Michal
@@ -901,7 +901,7 @@ struct afl_pass : gimple_opt_pass {
 
 static struct plugin_info afl_plugin = {
 
-    .version = "20200907",
+    .version = "20220907",
     .help = G_("AFL gcc plugin\n\
 \n\
 Set AFL_QUIET in the environment to silence it.\n\

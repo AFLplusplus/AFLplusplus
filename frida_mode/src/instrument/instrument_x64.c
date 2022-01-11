@@ -323,7 +323,7 @@ void instrument_coverage_optimize_init(void) {
   gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, instrument_coverage_find_low,
                                &low_address);
 
-  FOKF("Low address: %p", low_address);
+  FVERBOSE("Low address: %p", low_address);
 
   if (low_address == 0 ||
       GPOINTER_TO_SIZE(low_address) > ((2UL << 20) - __afl_map_size)) {
@@ -335,7 +335,7 @@ void instrument_coverage_optimize_init(void) {
   ranges_print_debug_maps();
 
   char *shm_env = getenv(SHM_ENV_VAR);
-  FOKF("SHM_ENV_VAR: %s", shm_env);
+  FVERBOSE("SHM_ENV_VAR: %s", shm_env);
 
   if (shm_env == NULL) {
 
@@ -359,8 +359,7 @@ void instrument_coverage_optimize_init(void) {
 
   }
 
-  FOKF("__afl_area_ptr: %p", __afl_area_ptr);
-  FOKF("instrument_previous_pc: %p", &instrument_previous_pc);
+  FVERBOSE("__afl_area_ptr: %p", __afl_area_ptr);
 
 }
 
@@ -439,6 +438,18 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   gsize   map_size_pow2;
   gsize   area_offset_ror;
   GumAddress code_addr = 0;
+  if (instrument_previous_pc_addr == NULL) {
+
+    GumAddressSpec spec = {.near_address = cw->code,
+                           .max_distance = 1ULL << 30};
+
+    instrument_previous_pc_addr = gum_memory_allocate_near(
+        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+    *instrument_previous_pc_addr = instrument_hash_zero;
+    FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
+    FVERBOSE("code_addr: %p", cw->code);
+
+  }
 
   instrument_coverage_suppress_init();
 
@@ -462,7 +473,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
 
   gssize prev_loc_value =
-      GPOINTER_TO_SIZE(&instrument_previous_pc) -
+      GPOINTER_TO_SIZE(instrument_previous_pc_addr) -
       (code_addr + offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
        sizeof(code.code.mov_prev_loc_curr_loc_shr1));
   gssize prev_loc_value_offset =
@@ -478,7 +489,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   *((gint *)&code.bytes[prev_loc_value_offset]) = (gint)prev_loc_value;
 
   gssize prev_loc_value2 =
-      GPOINTER_TO_SIZE(&instrument_previous_pc) -
+      GPOINTER_TO_SIZE(instrument_previous_pc_addr) -
       (code_addr + offsetof(afl_log_code, code.mov_eax_prev_loc) +
        sizeof(code.code.mov_eax_prev_loc));
   gssize prev_loc_value_offset2 =

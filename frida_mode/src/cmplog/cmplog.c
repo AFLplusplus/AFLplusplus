@@ -54,7 +54,7 @@ static gint cmplog_sort(gconstpointer a, gconstpointer b) {
 
 static void cmplog_get_ranges(void) {
 
-  FOKF("CMPLOG - Collecting ranges");
+  FVERBOSE("CMPLOG - Collecting ranges");
 
   cmplog_ranges = g_array_sized_new(false, false, sizeof(GumMemoryRange), 100);
   gum_process_enumerate_ranges(GUM_PAGE_READ, cmplog_range, cmplog_ranges);
@@ -68,18 +68,21 @@ void cmplog_config(void) {
 
 void cmplog_init(void) {
 
-  FOKF("CMPLOG - Enabled [%c]", __afl_cmp_map == NULL ? ' ' : 'X');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "cmplog:" cYEL " [%c]",
+       __afl_cmp_map == NULL ? ' ' : 'X');
 
   if (__afl_cmp_map == NULL) { return; }
 
   cmplog_get_ranges();
 
+  FVERBOSE("Cmplog Ranges");
+
   for (guint i = 0; i < cmplog_ranges->len; i++) {
 
     GumMemoryRange *range = &g_array_index(cmplog_ranges, GumMemoryRange, i);
-    FOKF("CMPLOG Range - %3u: 0x%016" G_GINT64_MODIFIER
-         "X - 0x%016" G_GINT64_MODIFIER "X",
-         i, range->base_address, range->base_address + range->size);
+    FVERBOSE("\t%3u: 0x%016" G_GINT64_MODIFIER "X - 0x%016" G_GINT64_MODIFIER
+             "X",
+             i, range->base_address, range->base_address + range->size);
 
   }
 

@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -2002,7 +2002,7 @@ havoc_stage:
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
-#define MAX_HAVOC_ENTRY 59                                      /* 55 to 60 */
+#define MAX_HAVOC_ENTRY 64
 #define MUTATE_ASCII_DICT 64
 
   u32 r_max, r;
@@ -2506,12 +2506,101 @@ havoc_stage:
 
         }
 
-        // increase from 4 up to 8?
-        case 52 ... MAX_HAVOC_ENTRY: {
+        case 52: {
 
-          /* Delete bytes. We're making this a bit more likely
-             than insertion (the next option) in hopes of keeping
-             files reasonably small. */
+          /* Increase byte by 1. */
+
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ADDBYTE_");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          out_buf[rand_below(afl, temp_len)]++;
+          break;
+
+        }
+
+        case 53: {
+
+          /* Decrease byte by 1. */
+
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SUBBYTE_");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          out_buf[rand_below(afl, temp_len)]++;
+          break;
+
+        }
+
+        case 54: {
+
+          /* Flip byte. */
+
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP8_");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          out_buf[rand_below(afl, temp_len)] ^= 0xff;
+          break;
+
+        }
+
+        case 55 ... 56: {
+
+          if (temp_len < 4) { break; }
+
+          /* Switch bytes. */
+
+          u32 to_end, switch_to, switch_len, switch_from;
+          switch_from = rand_below(afl, temp_len);
+          do {
+
+            switch_to = rand_below(afl, temp_len);
+
+          } while (switch_from == switch_to);
+
+          if (switch_from < switch_to) {
+
+            switch_len = switch_to - switch_from;
+            to_end = temp_len - switch_to;
+
+          } else {
+
+            switch_len = switch_from - switch_to;
+            to_end = temp_len - switch_from;
+
+          }
+
+          switch_len = choose_block_len(afl, MIN(switch_len, to_end));
+
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SWITCH-%s-%u-%u-%u",
+                   "switch", switch_from, switch_to, switch_len);
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), switch_len);
+          if (unlikely(!new_buf)) { PFATAL("alloc"); }
+
+          /* Backup */
+
+          memcpy(new_buf, out_buf + switch_from, switch_len);
+
+          /* Switch 1 */
+
+          memcpy(out_buf + switch_from, out_buf + switch_to, switch_len);
+
+          /* Switch 2 */
+
+          memcpy(out_buf + switch_to, new_buf, switch_len);
+
+          break;
+
+        }
+
+        // MAX_HAVOC_ENTRY = 64
+        case 57 ... MAX_HAVOC_ENTRY: {
+
+          /* Delete bytes. */
 
           if (temp_len < 2) { break; }
 

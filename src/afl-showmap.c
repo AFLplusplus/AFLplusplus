@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,15 +105,8 @@ static sharedmem_t *     shm_fuzz;
 
 static const u8 count_class_human[256] = {
 
-    [0] = 0,
-    [1] = 1,
-    [2] = 2,
-    [3] = 3,
-    [4] = 4,
-    [8] = 5,
-    [16] = 6,
-    [32] = 7,
-    [128] = 8
+    [0] = 0, [1] = 1,  [2] = 2,  [3] = 3,  [4] = 4,
+    [8] = 5, [16] = 6, [32] = 7, [128] = 8
 
 };
 

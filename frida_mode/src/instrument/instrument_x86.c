@@ -153,6 +153,19 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   gsize   map_size_pow2;
   gsize   area_offset_ror;
 
+  if (instrument_previous_pc_addr == NULL) {
+
+    GumAddressSpec spec = {.near_address = cw->code,
+                           .max_distance = 1ULL << 30};
+
+    instrument_previous_pc_addr = gum_memory_allocate_near(
+        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+    *instrument_previous_pc_addr = instrument_hash_zero;
+    FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
+    FVERBOSE("code_addr: %p", cw->code);
+
+  }
+
   code.code = template;
 
   instrument_coverage_suppress_init();
@@ -170,7 +183,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
       sizeof(code.code.mov_eax_prev_loc) - sizeof(gint);
 
   *((gint *)&code.bytes[prev_loc_value_offset2]) =
-      (gint)GPOINTER_TO_SIZE(&instrument_previous_pc);
+      (gint)GPOINTER_TO_SIZE(instrument_previous_pc_addr);
 
   gssize curr_loc_shr_1_offset =
       offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
@@ -187,7 +200,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
       sizeof(guint32);
 
   *((gint *)&code.bytes[prev_loc_value_offset]) =
-      (gint)GPOINTER_TO_SIZE(&instrument_previous_pc);
+      (gint)GPOINTER_TO_SIZE(instrument_previous_pc_addr);
 
   gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_eax_curr_loc) +
                                sizeof(code.code.xor_eax_curr_loc) -

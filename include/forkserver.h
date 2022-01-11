@@ -12,7 +12,7 @@
                      Dominik Maier <mail@dmnk.co>>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,6 +32,42 @@
 #include <stdbool.h>
 
 #include "types.h"
+
+#ifdef __linux__
+/**
+ * Nyx related typedefs taken from libnyx.h
+ */
+
+typedef enum NyxReturnValue {
+
+  Normal,
+  Crash,
+  Asan,
+  Timout,
+  InvalidWriteToPayload,
+  Error,
+  IoError,
+  Abort,
+
+} NyxReturnValue;
+
+typedef struct {
+
+  void *(*nyx_new)(const char *sharedir, const char *workdir,
+                   uint32_t worker_id, uint32_t cpu_id, bool create_snapshot);
+  void (*nyx_shutdown)(void *qemu_process);
+  void (*nyx_option_set_reload_mode)(void *qemu_process, bool enable);
+  void (*nyx_option_set_timeout)(void *qemu_process, uint8_t timeout_sec,
+                                 uint32_t timeout_usec);
+  void (*nyx_option_apply)(void *qemu_process);
+  void (*nyx_set_afl_input)(void *qemu_process, uint8_t *buffer, uint32_t size);
+  enum NyxReturnValue (*nyx_exec)(void *qemu_process);
+  uint8_t *(*nyx_get_bitmap_buffer)(void *qemu_process);
+  size_t (*nyx_get_bitmap_buffer_size)(void *qemu_process);
+
+} nyx_plugin_handler_t;
+
+#endif
 
 typedef struct afl_forkserver {
 
@@ -120,6 +156,17 @@ typedef struct afl_forkserver {
   void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
 
   u8 kill_signal;
+
+#ifdef __linux__
+  nyx_plugin_handler_t *nyx_handlers;
+  char *                out_dir_path;    /* path to the output directory     */
+  u8                    nyx_mode;        /* if running in nyx mode or not    */
+  bool                  nyx_parent;      /* create initial snapshot          */
+  bool                  nyx_standalone;  /* don't serialize the snapshot     */
+  void *                nyx_runner;      /* nyx runner object                */
+  u32                   nyx_id;          /* nyx runner id (0 -> master)      */
+  u32                   nyx_bind_cpu_id; /* nyx runner cpu id                */
+#endif
 
 } afl_forkserver_t;
 

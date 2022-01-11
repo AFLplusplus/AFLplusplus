@@ -63,7 +63,7 @@ class Afl {
         Afl.jsApiWrite(STDOUT_FILENO, buf, log.length);
     }
     /**
-     * See `AFL_FRIDA_INST_NO_BACKPATCH`.
+     * See `AFL_FRIDA_STALKER_NO_BACKPATCH`.
      */
     static setBackpatchDisable() {
         Afl.jsApiSetBackpatchDisable();
@@ -268,6 +268,12 @@ class Afl {
     static setTraceable() {
         Afl.jsApiSetTraceable();
     }
+    /**
+     * See `AFL_FRIDA_VERBOSE`
+     */
+    static setVerbose() {
+        Afl.jsApiSetVerbose();
+    }
     static jsApiGetFunction(name, retType, argTypes) {
         const addr = Afl.module.getExportByName(name);
         return new NativeFunction(addr, retType, argTypes);
@@ -315,6 +321,7 @@ Afl.jsApiSetStatsInterval = Afl.jsApiGetFunction("js_api_set_stats_interval", "v
 Afl.jsApiSetStdErr = Afl.jsApiGetFunction("js_api_set_stderr", "void", ["pointer"]);
 Afl.jsApiSetStdOut = Afl.jsApiGetFunction("js_api_set_stdout", "void", ["pointer"]);
 Afl.jsApiSetTraceable = Afl.jsApiGetFunction("js_api_set_traceable", "void", []);
+Afl.jsApiSetVerbose = Afl.jsApiGetFunction("js_api_set_verbose", "void", []);
 Afl.jsApiWrite = new NativeFunction(
 /* tslint:disable-next-line:no-null-keyword */
 Module.getExportByName(null, "write"), "int", ["int", "pointer", "int"]);
