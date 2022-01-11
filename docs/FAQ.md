@@ -191,7 +191,7 @@ If you find an interesting or important question missing, submit it via
   AFL++ comes with several power schedules, initially ported from [AFLFast](https://github.com/mboehme/aflfast)
   however modified to be more effective and several more modes added.
 
-  The most effective modes are '-p fast` (default) and `-p explore`.
+  The most effective modes are `-p fast` (default) and `-p explore`.
 
   If you fuzz with several parallel afl-fuzz instances, then it is beneficial
   to assign a different schedule to each instance, however the majority should
