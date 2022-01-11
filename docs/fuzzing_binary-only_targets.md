@@ -198,8 +198,8 @@ afl-clang-fast's.
 
 ### RetroWrite
 
-If you have an x86/x86_64 binary that still has its symbols, is compiled with
-position independent code (PIC/PIE), and does not use most of the C++ features,
+If you have an x86_64 binary that still has its symbols (i.e., not stripped binary), is compiled with
+position independent code (PIC/PIE), and does not contain C++ exceptions,
 then the RetroWrite solution might be for you. It decompiles to ASM files which
 can then be instrumented with afl-gcc.
 
