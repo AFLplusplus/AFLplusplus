@@ -96,11 +96,13 @@ brew install wget git make cmake llvm gdb coreutils
 ```
 
 Be sure to setup `PATH` to point to the correct clang binaries and use the
-freshly installed clang, clang++, gmake and coreutils, e.g.:
+freshly installed clang, clang++, llvm-config, gmake and coreutils, e.g.:
 
 ```shell
 export
 PATH="/usr/local/Cellar/llvm/13.0.0_2/bin/:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+# M1 homebrew default llvm-config path
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export CC=clang
 export CXX=clang++
 gmake
