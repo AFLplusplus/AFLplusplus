@@ -58,10 +58,10 @@ If you find an interesting or important question missing, submit it via
 
   A program contains `functions`, `functions` contain the compiled machine code.
   The compiled machine code in a `function` can be in a single or many `basic
-  blocks`. A `basic block` is the largest possible number of subsequent machine
-  code instructions that has exactly one entry point (which can be be entered by
-  multiple other basic blocks) and runs linearly without branching or jumping to
-  other addresses (except at the end).
+  blocks`. A `basic block` is the **largest possible number of subsequent machine
+  code instructions** that has **exactly one entry point** (which can be be entered by
+  multiple other basic blocks) and runs linearly **without branching or jumping to
+  other addresses** (except at the end).
 
   ```
   function() {
