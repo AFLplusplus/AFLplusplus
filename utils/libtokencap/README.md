@@ -31,7 +31,7 @@ require AFL-instrumented binaries to work.
 
 To use the library, you *need* to make sure that your fuzzing target is compiled
 with -fno-builtin and is linked dynamically. If you wish to automate the first
-part without mucking with CFLAGS in Makefiles, you can set AFL_NO_BUILTIN=1
+part without mucking with CFLAGS in Makefiles, you can set `AFL_NO_BUILTIN=1`
 when using afl-gcc. This setting specifically adds the following flags:
 
 ```
