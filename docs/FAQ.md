@@ -180,6 +180,27 @@ If you find an interesting or important question missing, submit it via
   [best_practices.md#improving-stability](best_practices.md#improving-stability).
 </p></details>
 
+<details>
+  <summary id="what-are-power-schedules">What are power schedules?</summary><p>
+
+  Not every item in our queue/corpus is the same, some are more interesting,
+  others provide little value.
+  A power schedule measures how "interesting" a value is, and depending on
+  the calculated value spends more or less time mutating it.
+
+  AFL++ comes with several power schedules, initially ported from [AFLFast](https://github.com/mboehme/aflfast)
+  however modified to be more effective and several more modes added.
+
+  The most effective modes are '-p fast` (default) and `-p explore`.
+
+  If you fuzz with several parallel afl-fuzz instances, then it is beneficial
+  to assign a different schedule to each instance, however the majority should
+  be `fast` and `explore`.
+
+  It does not make sense to explain the details of the calculation and
+  reasoning behind all of the schedules. If you are interested, read the source
+  code and the AFLFast paper.
+
 ## Troubleshooting
 
 <details>

@@ -173,7 +173,13 @@ static void instrument_exit(GumX86Writer *cw) {
 static int instrument_afl_persistent_loop_func(void) {
 
   int ret = __afl_persistent_loop(persistent_count);
-  instrument_previous_pc = instrument_hash_zero;
+  if (instrument_previous_pc_addr == NULL) {
+
+    FATAL("instrument_previous_pc_addr uninitialized");
+
+  }
+
+  *instrument_previous_pc_addr = instrument_hash_zero;
   return ret;
 
 }
@@ -269,7 +275,7 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   gconstpointer loop = cw->code + 1;
 
-  FOKF("Persistent loop reached");
+  FVERBOSE("Persistent loop reached");
 
   /* Pop the return value */
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_RSP, GUM_REG_RSP, 8);

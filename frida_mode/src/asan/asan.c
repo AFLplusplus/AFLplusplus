@@ -9,20 +9,14 @@ gboolean        asan_initialized = FALSE;
 
 void asan_config(void) {
 
-  if (getenv("AFL_USE_FASAN") != NULL) {
-
-    FOKF("Frida ASAN mode enabled");
-    asan_enabled = TRUE;
-
-  } else {
-
-    FOKF("Frida ASAN mode disabled");
-
-  }
+  if (getenv("AFL_USE_FASAN") != NULL) { asan_enabled = TRUE; }
 
 }
 
 void asan_init(void) {
+
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "asan:" cYEL " [%c]",
+       asan_enabled ? 'X' : ' ');
 
   if (asan_enabled) {
 

@@ -5,12 +5,13 @@ changes.
 
 ## From version 3.00 onwards
 
-With AFL++ 3.13-3.20, we introduce FRIDA mode (`-O`) to have an alternative for
-binary-only fuzzing. It is slower than QEMU mode but works on MacOS, Android,
-iOS etc.
+With AFL++ 4.00, we introduced the following changes from previous behaviors:
+  * the complete documentation was overhauled and restructured thanks to @llzmb!
+  * a new CMPLOG target format requires recompiling CMPLOG targets for use
+    with afl++ 4.0 onwards
+  * better naming for several fields in the UI
 
 With AFL++ 3.15, we introduced the following changes from previous behaviors:
-  * Also -M main mode does not do deterministic fuzzing by default anymore
   * afl-cmin and afl-showmap -Ci now descent into subdirectories like afl-fuzz
     -i does (but note that afl-cmin.bash does not)
 
@@ -20,7 +21,7 @@ With AFL++ 3.14, we introduced the following changes from previous behaviors:
     however, does not)
 
 With AFL++ 3.10, we introduced the following changes from previous behaviors:
-  * The '+' feature of the '-t' option now means to  auto-calculate the timeout
+  * The '+' feature of the '-t' option now means to auto-calculate the timeout
     with the value given being the maximum timeout. The original meaning of
     "skipping timeouts instead of abort" is now inherent to the -t option.
 

@@ -55,7 +55,10 @@ static gchar *js_get_script() {
 
   } else {
 
-    FOKF("Loaded AFL script: %s, %" G_GSIZE_MODIFIER "d bytes", filename,
+    FOKF(cBLU "Javascript" cRST " - " cGRN "script:" cYEL " [%s]",
+         filename == NULL ? " " : filename);
+    FOKF(cBLU "Javascript" cRST " - " cGRN "size: " cYEL "%" G_GSIZE_MODIFIER
+              "d bytes",
          length);
 
     gchar *source = g_malloc0(api_js_len + length + 1);
@@ -74,7 +77,7 @@ static void js_print_script(gchar *source) {
 
   for (size_t i = 0; split[i] != NULL; i++) {
 
-    FOKF("%3" G_GSIZE_MODIFIER "d. %s", i + 1, split[i]);
+    FVERBOSE("%3" G_GSIZE_MODIFIER "d. %s", i + 1, split[i]);
 
   }
 

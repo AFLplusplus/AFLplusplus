@@ -24,7 +24,7 @@ gboolean entry_run = FALSE;
 
 static void entry_launch(void) {
 
-  FOKF("Entry point reached");
+  FVERBOSE("Entry point reached");
   __afl_manual_init();
 
   /* Child here */
@@ -69,8 +69,8 @@ void entry_config(void) {
 
 void entry_init(void) {
 
-  FOKF("entry_point: 0x%016" G_GINT64_MODIFIER "X", entry_point);
-  FOKF("dumpable: [%c]", traceable ? 'X' : ' ');
+  FVERBOSE("Entry Point: 0x%016" G_GINT64_MODIFIER "X", entry_point);
+  FVERBOSE("Dumpable: [%c]", traceable ? 'X' : ' ');
 
   if (dlopen(NULL, RTLD_NOW) == NULL) { FFATAL("Failed to dlopen: %d", errno); }
 
@@ -94,7 +94,7 @@ static void entry_callout(GumCpuContext *cpu_context, gpointer user_data) {
 void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(output);
-  FOKF("AFL_ENTRYPOINT reached");
+  FVERBOSE("AFL_ENTRYPOINT reached");
 
   if (persistent_start == 0) {
 

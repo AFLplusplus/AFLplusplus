@@ -5,7 +5,7 @@
    Written by Michal Zalewski, Laszlo Szekeres and Marc Heuse
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -556,7 +556,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !have_c) {
 
       u8 *ld_path = NULL;
-      if (getenv("AFL_REAL_LD")) { ld_path = strdup(getenv("AFL_REAL_LD")); }
+      if (getenv("AFL_REAL_LD")) {
+
+        ld_path = strdup(getenv("AFL_REAL_LD"));
+
+      } else {
+
+        ld_path = strdup(AFL_REAL_LD);
+
+      }
+
       if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
       if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
@@ -720,10 +729,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if (!strcmp(cur, "-z")) {
+    if (!strcmp(cur, "-z") || !strcmp(cur, "-Wl,-z")) {
 
       u8 *param = *(argv + 1);
-      if (!strcmp(param, "defs")) {
+      if (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs")) {
 
         skip_next = 1;
         continue;
@@ -867,7 +876,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = "-fsanitize=leak";
     cc_params[cc_par_cnt++] = "-includesanitizer/lsan_interface.h";
-    cc_params[cc_par_cnt++] = "-D__AFL_LEAK_CHECK()=__lsan_do_leak_check()";
+    cc_params[cc_par_cnt++] = "-D__AFL_LEAK_CHECK()={if(__lsan_do_recoverable_leak_check() > 0) _exit(23); }";
+    cc_params[cc_par_cnt++] = "-D__AFL_LSAN_OFF()=__lsan_disable();";
+    cc_params[cc_par_cnt++] = "-D__AFL_LSAN_ON()=__lsan_enable();";
+
 
   }
 

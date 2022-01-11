@@ -32,11 +32,12 @@ char *   instrument_coverage_unstable_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
-__thread guint64 instrument_previous_pc = 0;
-
 static GumAddress previous_rip = 0;
 static GumAddress previous_end = 0;
 static u8 *       edges_notified = NULL;
+
+__thread guint64  instrument_previous_pc;
+__thread guint64 *instrument_previous_pc_addr = NULL;
 
 typedef struct {
 
@@ -105,8 +106,14 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   guint16      current_end = ctx->end;
   guint64      current_pc = instrument_get_offset_hash(current_rip);
   guint64      edge;
+  if (instrument_previous_pc_addr == NULL) {
 
-  edge = current_pc ^ instrument_previous_pc;
+    instrument_previous_pc_addr = &instrument_previous_pc;
+    *instrument_previous_pc_addr = instrument_hash_zero;
+
+  }
+
+  edge = current_pc ^ *instrument_previous_pc_addr;
 
   instrument_increment_map(edge);
 
@@ -136,7 +143,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
   previous_end = current_end;
 
   gsize map_size_pow2 = util_log2(__afl_map_size);
-  instrument_previous_pc = util_rotate(current_pc, 1, map_size_pow2);
+  *instrument_previous_pc_addr = util_rotate(current_pc, 1, map_size_pow2);
 
 }
 
@@ -274,14 +281,19 @@ void instrument_init(void) {
 
   if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
 
-  FOKF("Instrumentation - optimize [%c]", instrument_optimize ? 'X' : ' ');
-  FOKF("Instrumentation - tracing [%c]", instrument_tracing ? 'X' : ' ');
-  FOKF("Instrumentation - unique [%c]", instrument_unique ? 'X' : ' ');
-  FOKF("Instrumentation - fixed seed [%c] [0x%016" G_GINT64_MODIFIER "x]",
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "optimize:" cYEL " [%c]",
+       instrument_optimize ? 'X' : ' ');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "tracing:" cYEL " [%c]",
+       instrument_tracing ? 'X' : ' ');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "unique:" cYEL " [%c]",
+       instrument_unique ? 'X' : ' ');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "fixed seed:" cYEL
+            " [%c] [0x%016" G_GINT64_MODIFIER "x]",
        instrument_use_fixed_seed ? 'X' : ' ', instrument_fixed_seed);
-  FOKF("Instrumentation - unstable coverage [%c] [%s]",
-       instrument_coverage_unstable_filename == NULL ? ' ' : 'X',
-       instrument_coverage_unstable_filename);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "unstable coverage:" cYEL " [%s]",
+       instrument_coverage_unstable_filename == NULL
+           ? " "
+           : instrument_coverage_unstable_filename);
 
   if (instrument_tracing && instrument_optimize) {
 
@@ -366,15 +378,16 @@ void instrument_init(void) {
 
   }
 
-  FOKF("Instrumentation - seed [0x%016" G_GINT64_MODIFIER "x]",
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "seed:" cYEL
+            " [0x%016" G_GINT64_MODIFIER "x]",
        instrument_hash_seed);
   instrument_hash_zero = instrument_get_offset_hash(0);
 
-  instrument_coverage_optimize_init();
-  instrument_debug_init();
-  instrument_coverage_init();
   asan_init();
   cmplog_init();
+  instrument_coverage_init();
+  instrument_coverage_optimize_init();
+  instrument_debug_init();
 
 }
 
@@ -387,7 +400,11 @@ GumStalkerTransformer *instrument_get_transformer(void) {
 
 void instrument_on_fork() {
 
-  instrument_previous_pc = instrument_hash_zero;
+  if (instrument_previous_pc_addr != NULL) {
+
+    *instrument_previous_pc_addr = instrument_hash_zero;
+
+  }
 
 }
 
