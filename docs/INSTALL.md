@@ -12,7 +12,7 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
 This image is automatically generated when a push to the stable repo happens.
-You will find your target source code in /src in the container.
+You will find your target source code in `/src` in the container.
 
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
@@ -33,8 +33,8 @@ sudo make install
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
-Note that "make distrib" also builds FRIDA mode, QEMU mode, unicorn_mode
-and more. If you just want plain AFL++, then do "make all". If you want
+Note that `make distrib` also builds FRIDA mode, QEMU mode, unicorn_mode
+and more. If you just want plain AFL++, then do `make all`. If you want
 some assisting tooling compiled but are not interested in binary-only targets
 then instead choose:
 
