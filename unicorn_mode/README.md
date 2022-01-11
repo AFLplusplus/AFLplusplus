@@ -96,9 +96,9 @@ As for the QEMU-based instrumentation, unicornafl comes with a sub-instruction b
 
 The options that enable Unicorn CompareCoverage are the same used for QEMU.
 This will split up each multi-byte compare to give feedback for each correct byte.
-AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate values.
+`AFL_COMPCOV_LEVEL=1` is to instrument comparisons with only immediate values.
 
-AFL_COMPCOV_LEVEL=2 instruments all comparison instructions.
+`AFL_COMPCOV_LEVEL=2` instruments all comparison instructions.
 
 Comparison instructions are currently instrumented only for the x86, x86_64 and ARM targets.
 
