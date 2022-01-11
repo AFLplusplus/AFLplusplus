@@ -28,6 +28,8 @@ terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
 Here is some information to get you started:
 
+* To get you started with tutorials, go to
+  [docs/tutorials.md](docs/tutorials.md).
 * For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
   [branches](#branches). The best branches to use are however `stable` or
@@ -41,8 +43,6 @@ Here is some information to get you started:
   `afl-clang-fast` with `AFL_LLVM_CMPLOG=1`. You can find the `aflplusplus`
   default configuration on Google's
   [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
-* To get you started with tutorials, go to
-  [docs/tutorials.md](docs/tutorials.md).
 
 ## Building and installing AFL++
 
@@ -58,7 +58,8 @@ This image is automatically generated when a push to the stable repo happens
 (see [branches](#branches)). You will find your target source code in `/src` in
 the container.
 
-To build AFL++ yourself, continue at [docs/INSTALL.md](docs/INSTALL.md).
+To build AFL++ yourself - which we recommend - continue at
+[docs/INSTALL.md](docs/INSTALL.md).
 
 ## Quick start: Fuzzing with AFL++
 
@@ -128,12 +129,12 @@ Questions? Concerns? Bug reports?
 * Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
   question missing, submit it via
   [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
-* There is a mailing list for the AFL/AFL++ project
+* Best: join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
+* There is a (not really used)  mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
   notes with other users or to get notified about major new features, send an
   email to <afl-users+subscribe@googlegroups.com>, but note that this is not
   managed by us.
-* Best: join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
 
 ## Branches
 

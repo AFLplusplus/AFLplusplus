@@ -42,4 +42,4 @@ For example:
 afl-fuzz -i input -o output -c ./program.cmplog -m none -- ./program.afl @@
 ```
 
-Be sure to use `-m none` because CmpLog can map a lot of pages.
+Be careful with the usage of `-m` because CmpLog can map a lot of pages.
