@@ -28,6 +28,8 @@ terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
 Here is some information to get you started:
 
+* For an overview of the AFL++ documentation and a very helpful graphical
+  guide please visit [docs/README.md](docs/README.md)
 * To get you started with tutorials, go to
   [docs/tutorials.md](docs/tutorials.md).
 * For releases, see the
