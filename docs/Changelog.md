@@ -56,6 +56,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST
       on filename matching (requires llvm 11 or newer)
     - fixed a potential crash in targets for LAF string handling
+    - fixed a bad assert in LAF split switches
     - added AFL_USE_TSAN thread sanitizer support
     - llvm and LTO mode modified to work with new llvm 14-dev (again. again.)
     - fix for AFL_REAL_LD
