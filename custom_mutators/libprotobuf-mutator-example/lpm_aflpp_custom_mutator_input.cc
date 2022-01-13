@@ -100,8 +100,8 @@ extern "C" size_t afl_custom_fuzz(MyMutator *mutator, // return value from afl_c
     // Copy to a new buffer ( mutated_out )
     size_t mutated_size = s.size() <= max_size ? s.size() : max_size; // check if raw data's size is larger than max_size
 
-    delete mutator->mutated_out;
-    mutator->mutated_out = new uint8_t[mutated_size+1];
+    delete[] mutator->mutated_out;
+    mutator->mutated_out = new uint8_t[mutated_size];
     memcpy(mutator->mutated_out, s.c_str(), mutated_size); // copy the mutated data
     // Assign the mutated data and return mutated_size
     *out_buf = mutator->mutated_out;
