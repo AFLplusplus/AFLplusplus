@@ -204,9 +204,9 @@ is compiled with position independent code (PIC/PIE), and does not contain C++ e
 then the RetroWrite solution might be for you. It decompiles to ASM files which
 can then be instrumented with afl-gcc.
 
-Binaries that are statically instrumented for fuzzing using RetroWrite are identical
+Binaries that are statically instrumented for fuzzing using RetroWrite are close
 in performance to compiler-instrumented binaries and outperform 
-the QEMU-based instrumentation by 4.5x.
+the QEMU-based instrumentation.
 
 [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
