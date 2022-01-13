@@ -198,12 +198,15 @@ afl-clang-fast's.
 
 ### RetroWrite
 
-If you have an x86/x86_64 binary that still has its symbols, is compiled with
-position independent code (PIC/PIE), and does not use most of the C++ features,
+RetroWrite is a static binary rewriter that can be combined with AFL++. 
+If you have an x86_64 binary that still has its symbols (i.e., not stripped binary), 
+is compiled with position independent code (PIC/PIE), and does not contain C++ exceptions,
 then the RetroWrite solution might be for you. It decompiles to ASM files which
 can then be instrumented with afl-gcc.
 
-It is at about 80-85% performance.
+Binaries that are statically instrumented for fuzzing using RetroWrite are close
+in performance to compiler-instrumented binaries and outperform 
+the QEMU-based instrumentation.
 
 [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
