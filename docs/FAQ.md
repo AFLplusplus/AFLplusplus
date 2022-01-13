@@ -204,6 +204,31 @@ If you find an interesting or important question missing, submit it via
 ## Troubleshooting
 
 <details>
+  <summary id="fatal-forkserver-is-already-up-but-an-instrumented-dlopen-library-loaded-afterwards">FATAL: forkserver is already up but an instrumented dlopen library loaded afterwards</summary><p>
+
+  It can happen that you see this error on startup when fuzzing a target:
+
+  ```
+  [-] FATAL: forkserver is already up, but an instrumented dlopen() library
+             loaded afterwards. You must AFL_PRELOAD such libraries to be able
+             to fuzz them or LD_PRELOAD to run outside of afl-fuzz.
+             To ignore this set AFL_IGNORE_PROBLEMS=1.
+  ```
+
+  As the error describes, a dlopen() call is happening in the target that is loading an instrumented library after the forkserver is already in place,
+  This is a problem for afl-fuzz because when the forkserver is started we must know the map size already and it can't be changed later.
+
+  The best solution is to simply set `AFL_PRELOAD=foo.so` the libraries that
+  are dlopen'ed (e.g. use `strace` to see which), or to set a manual forkserver
+  after the final dlopen().
+
+  If this is not a viable option you can set `AFL_IGNORE_PROBLEMS=1` but then
+  the existing map will be used also for the newly loaded libraries, which
+  allows it to work, however the efficiency of the fuzzing will be partially
+  degraded.
+</p></details>
+
+<details>
   <summary id="i-got-a-weird-compile-error-from-clang">I got a weird compile error from clang.</summary><p>
 
   If you see this kind of error when trying to instrument a target with
