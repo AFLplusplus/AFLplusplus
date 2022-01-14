@@ -769,8 +769,7 @@ void cull_queue(afl_state_t *afl) {
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;
 
-        if (afl->top_rated[i]->fuzz_level == 0 ||
-            !afl->top_rated[i]->was_fuzzed) {
+        if (!afl->top_rated[i]->was_fuzzed) {
 
           ++afl->pending_favored;
 
@@ -936,7 +935,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       n_items = 0;
 
       // Don't modify perf_score for unfuzzed seeds
-      if (q->fuzz_level == 0) break;
+      if (!q->fuzz_level) break;
 
       u32 i;
       for (i = 0; i < afl->queued_items; i++) {
@@ -967,7 +966,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     case FAST:
 
       // Don't modify unfuzzed seeds
-      if (q->fuzz_level == 0) break;
+      if (!q->fuzz_level) break;
 
       switch ((u32)log2(afl->n_fuzz[q->n_fuzz_entry])) {
 
