@@ -15,7 +15,7 @@ AFL++ is maintained by:
 * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
 * Andrea Fioraldi <andreafioraldi@gmail.com> and
 * Dominik Maier <mail@dmnk.co>.
-* Documentation: Jana Aydinbas
+* Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michał "lcamtuf" Zalewski.
 
