@@ -5,7 +5,7 @@ to show the raw speed of C, Rust, and Python harnesses.
 
 ## Compiling...
 
-Make sure, you built unicornafl first (`../../build_unicorn_support.sh`).
+Make sure you built unicornafl first (`../../build_unicorn_support.sh`).
 Then, follow these individual steps:
 
 ### Rust
@@ -13,7 +13,7 @@ Then, follow these individual steps:
 ```bash
 cd rust
 cargo build --release
-../../../afl-fuzz -i ../sample_inputs -o out -- ./target/release/harness @@
+../../../../afl-fuzz -i ../sample_inputs -o out -U -- ./target/release/harness @@
 ```
 
 ### C
@@ -21,14 +21,14 @@ cargo build --release
 ```bash
 cd c
 make
-../../../afl-fuzz -i ../sample_inputs -o out -- ./harness @@
+../../../../afl-fuzz -i ../sample_inputs -o out -U -- ./harness @@
 ```
 
 ### python
 
 ```bash
 cd python
-../../../afl-fuzz -i ../sample_inputs -o out -U -- python3 ./harness.py @@
+../../../../afl-fuzz -i ../sample_inputs -o out -U -- python3 ./harness.py @@
 ```
 
 ## Results

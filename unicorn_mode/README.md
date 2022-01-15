@@ -9,7 +9,7 @@ The CompareCoverage and NeverZero counters features are by Andrea Fioraldi <andr
 ## 1) Introduction
 
 The code in ./unicorn_mode allows you to build the
-(Unicorn Engine)[https://github.com/unicorn-engine/unicorn] with AFL++ support.
+[Unicorn Engine](https://github.com/unicorn-engine/unicorn) with AFL++ support.
 This means, you can run anything that can be emulated in unicorn and obtain instrumentation
 output for black-box, closed-source binary code snippets. This mechanism
 can be then used by afl-fuzz to stress-test targets that couldn't be built
@@ -62,7 +62,7 @@ To use unicorn-mode effectively you need to prepare the following:
 			+ If input constraints (size, invalid bytes, etc.) are known they
 			  should be checked in the place_input handler. If a constraint
 			  fails, just return false from the handler. AFL++ will treat the input as 'uninteresting' and move on.
-		+ Sets up registers and memory state for beginning of test
+		+ Sets up registers and memory state to start testing
 		+ Emulates the interesting code from beginning to end
 		+ If a crash is detected, the test harness must 'crash' by
 		  throwing a signal (SIGSEGV, SIGKILL, SIGABORT, etc.), or indicate a crash in the crash validation callback.
@@ -104,7 +104,7 @@ Comparison instructions are currently instrumented only for the x86, x86_64 and 
 
 ## 4) Gotchas, feedback, bugs
 
-Running the build script builds Unicornafl and its python bindings and installs
+Running the build script builds unicornafl and its Python bindings and installs
 them on your system.
 This installation will leave any existing Unicorn installations untouched.
 If you want to use unicornafl instead of unicorn in a script,
@@ -119,18 +119,18 @@ unicornafl.monkeypatch()
 
 This will replace all unicorn imports with unicornafl inputs.
 
-5) Examples
+## 5) Examples
 
-Apart from reading the documentation in `afl.c` and the python bindings of unicornafl, the best documentation are the [samples/](./samples).
+Apart from reading the documentation in `afl.c` and the Python bindings of unicornafl, the best documentation are the [samples/](./samples).
 The following examples exist at the time of writing:
 
-- c: A simple example how to use the c bindings
-- compcov_x64: A python example that uses compcov to traverse hard-to-reach blocks
-- persistent: A c example using persistent mode for maximum speed, and resetting the target state between each iteration
-- simple: A simple python example
-- speedtest/c: The c harness for an example target, used to compare c, python, and rust bindings and fix speed issues
-- speedtest/python: Fuzzing the same target in python
-- speedtest/rust: Fuzzing the same target using a rust harness
+- c: A simple example on how to use the C bindings
+- compcov_x64: A Python example that uses compcov to traverse hard-to-reach blocks
+- persistent: A C example using persistent mode for maximum speed, and resetting the target state between each iteration
+- simple: A simple Python example
+- speedtest/c: The C harness for an example target, used to compare C, Python, and Rust bindings and fix speed issues
+- speedtest/python: Fuzzing the same target in Python
+- speedtest/rust: Fuzzing the same target using a Rust harness
 
 Usually, the place to look at is the `harness` in each folder. The source code in each harness is pretty well documented.
 Most harnesses also have the `afl-fuzz` commandline, or even offer a `make fuzz` Makefile target.
