@@ -1046,6 +1046,7 @@ u32  count_bytes(afl_state_t *, u8 *);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 void simplify_trace(afl_state_t *, u8 *);
 void classify_counts(afl_forkserver_t *);
+void classify_counts_off(afl_forkserver_t *, u32);
 #ifdef WORD_SIZE_64
 void discover_word(u8 *ret, u64 *current, u64 *virgin);
 #else
