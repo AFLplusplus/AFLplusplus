@@ -631,18 +631,23 @@ bool AFLCoverage::runOnModule(Module &M) {
       LoadInst *PrevLoc;
 
       if (ngram_size) {
+
         PrevLoc = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-          PrevLocTy,
+            PrevLocTy,
 #endif
-          AFLPrevLoc);
+            AFLPrevLoc);
+
       } else {
+
         PrevLoc = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-          IRB.getInt32Ty(),
+            IRB.getInt32Ty(),
 #endif
-          AFLPrevLoc);
+            AFLPrevLoc);
+
       }
+
       PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *PrevLocTrans;
 
