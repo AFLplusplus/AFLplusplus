@@ -1,5 +1,5 @@
 [package]
-name = "unicornafl_harness"
+name = "unicornafl"
 version = "0.1.0"
 authors = ["Dominik Maier <domenukk@gmail.com>"]
 edition = "2018"
