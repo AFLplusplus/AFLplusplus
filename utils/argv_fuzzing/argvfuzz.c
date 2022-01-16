@@ -2,7 +2,7 @@
    american fuzzy lop++ - LD_PRELOAD for fuzzing argv in binaries
    ------------------------------------------------------------
 
-   Copyright 2019-2020 Kjell Braden <afflux@pentabarf.de>
+   Copyright 2019-2022 Kjell Braden <afflux@pentabarf.de>
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
