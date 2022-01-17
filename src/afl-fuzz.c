@@ -1322,7 +1322,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fsrv.nyx_mode) {
 
     if (afl->fsrv.nyx_standalone &&
-        strncmp(afl->sync_id, "default", strlen("default")) != 0) {
+        strcmp(afl->sync_id, "default") != 0) {
 
       FATAL(
           "distributed fuzzing is not supported in this Nyx mode (use -Y "
@@ -1334,7 +1334,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (afl->is_main_node) {
 
-        if (strncmp("0", afl->sync_id, strlen("0") != 0)) {
+        if (strcmp("0", afl->sync_id) != 0) {
 
           FATAL(
               "for Nyx -Y mode, the Main (-M) parameter has to be set to 0 (-M "
