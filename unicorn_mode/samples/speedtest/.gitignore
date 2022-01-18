@@ -1,6 +1,0 @@
-output
-harness
-harness-debug
-target
-target.o
-target.offsets.*
