@@ -16,7 +16,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     This might need changing custom scripting!
   - Nyx mode (full system emulation with snapshot capability) has been
     added - thanks to @schumilo and @eqv!
-  - unicorn_mode got upgraded to Unicorn 2! More speed!
+  - unicorn_mode:
+    - Moved to unicorn2! By Ziqiao Kong (@lazymio)
+    - Faster, more accurate emulation (newer QEMU base), riscv support
+    - removed indirections in rust callbacks
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
   - if instrumented libaries are dlopen()'ed after the forkserver you
@@ -74,7 +77,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
   - added uninstall target to makefile (todo: update new readme!)
-  - removed indirections in rust callbacks for unicornafl
 
 ### Version ++3.14c (release)
   - afl-fuzz:
@@ -102,9 +104,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - less coverage collision
     - feature parity of aarch64 with intel now (persistent, cmplog,
       in-memory testcases, asan)
-  - unicorn_mode:
-    - Moved to unicorn2! By Ziqiao Kong (@lazymio)
-    - Faster, more accurate emulation (newer QEMU base), riscv support
   - afl-cmin and afl-showmap -i do now descend into subdirectories
     (like afl-fuzz does) - note that afl-cmin.bash does not!
   - afl_analyze:
