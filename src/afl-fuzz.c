@@ -1321,8 +1321,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
-    if (afl->fsrv.nyx_standalone &&
-        strcmp(afl->sync_id, "default") != 0) {
+    if (afl->fsrv.nyx_standalone && strcmp(afl->sync_id, "default") != 0) {
 
       FATAL(
           "distributed fuzzing is not supported in this Nyx mode (use -Y "

@@ -33,17 +33,17 @@ typedef long double max_align_t;
 #endif
 
 #if LLVM_VERSION_MAJOR >= 11
- #define MNAME M.getSourceFileName()
- #define FMNAME F.getParent()->getSourceFileName()
+  #define MNAME M.getSourceFileName()
+  #define FMNAME F.getParent()->getSourceFileName()
 #else
- #define MNAME std::string("")
- #define FMNAME std::string("")
+  #define MNAME std::string("")
+  #define FMNAME std::string("")
 #endif
 
-char *                 getBBName(const llvm::BasicBlock *BB);
-bool                   isIgnoreFunction(const llvm::Function *F);
-void                   initInstrumentList();
-bool                   isInInstrumentList(llvm::Function *F, std::string Filename);
+char *getBBName(const llvm::BasicBlock *BB);
+bool  isIgnoreFunction(const llvm::Function *F);
+void  initInstrumentList();
+bool  isInInstrumentList(llvm::Function *F, std::string Filename);
 unsigned long long int calculateCollisions(uint32_t edges);
 void                   scanForDangerousFunctions(llvm::Module *M);
 
