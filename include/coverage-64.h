@@ -72,23 +72,6 @@ inline void classify_counts(afl_forkserver_t *fsrv) {
 
 }
 
-inline void classify_counts_off(afl_forkserver_t *fsrv, u32 off) {
-
-  u64 *mem = (u64 *)(fsrv->trace_bits + off);
-  u32  i = ((fsrv->map_size - off) >> 3);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) { *mem = classify_word(*mem); }
-
-    mem++;
-
-  }
-
-}
-
 /* Updates the virgin bits, then reflects whether a new count or a new tuple is
  * seen in ret. */
 inline void discover_word(u8 *ret, u64 *current, u64 *virgin) {
@@ -127,20 +110,17 @@ inline void discover_word(u8 *ret, u64 *current, u64 *virgin) {
   #define PACK_SIZE 64
 inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
 
-  u64 *save = (u64*) current;
-
   for (; current != current_end; virgin += 8, current += 8) {
 
     __m512i  value = *(__m512i *)current;
     __mmask8 mask = _mm512_testn_epi64_mask(value, value);
 
     /* All bytes are zero. */
-    if (likely(mask == 0xff)) continue;
+    if (mask == 0xff) continue;
 
       /* Look for nonzero bytes and check for new bits. */
-  #define UNROLL(x)                                                            \
-    if (unlikely(!(mask & (1 << x)) && classify_word(current[x]) & virgin[x])) \
-    return (u32)(&current[x + 1] - save)
+  #define UNROLL(x) \
+    if (!(mask & (1 << x)) && classify_word(current[x]) & virgin[x]) return 1
     UNROLL(0);
     UNROLL(1);
     UNROLL(2);
@@ -163,7 +143,6 @@ inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
   #define PACK_SIZE 32
 inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
 
-  u64 *save = (u64*) current;
   __m256i zeroes = _mm256_setzero_si256();
 
   for (; current < current_end; virgin += 4, current += 4) {
@@ -173,17 +152,13 @@ inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
     u32     mask = _mm256_movemask_epi8(cmp);
 
     /* All bytes are zero. */
-    if (likely(mask == (u32)-1)) continue;
+    if (mask == (u32)-1) continue;
 
     /* Look for nonzero bytes and check for new bits. */
-    if (unlikely(!(mask & 0xff) && classify_word(current[0]) & virgin[0]))
-      return (u32)(&current[1] - save);
-    if (unlikely(!(mask & 0xff00) && classify_word(current[1]) & virgin[1]))
-      return (u32)(&current[2] - save);
-    if (unlikely(!(mask & 0xff0000) && classify_word(current[2]) & virgin[2]))
-      return (u32)(&current[3] - save);
-    if (unlikely(!(mask & 0xff000000) && classify_word(current[3]) & virgin[3]))
-      return (u32)(&current[4] - save);
+    if (!(mask & 0xff) && classify_word(current[0]) & virgin[0]) return 1;
+    if (!(mask & 0xff00) && classify_word(current[1]) & virgin[1]) return 1;
+    if (!(mask & 0xff0000) && classify_word(current[2]) & virgin[2]) return 1;
+    if (!(mask & 0xff000000) && classify_word(current[3]) & virgin[3]) return 1;
 
   }
 
@@ -197,14 +172,12 @@ inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
   #define PACK_SIZE 32
 inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
 
-  u64 *save = (u64*) current;
-
   for (; current < current_end; virgin += 4, current += 4) {
 
-    if (unlikely(current[0] && classify_word(current[0]) & virgin[0])) return (u32)(&current[1] - save);
-    if (unlikely(current[1] && classify_word(current[1]) & virgin[1])) return (u32)(&current[2] - save);
-    if (unlikely(current[2] && classify_word(current[2]) & virgin[2])) return (u32)(&current[3] - save);
-    if (unlikely(current[3] && classify_word(current[3]) & virgin[3])) return (u32)(&current[4] - save);
+    if (current[0] && classify_word(current[0]) & virgin[0]) return 1;
+    if (current[1] && classify_word(current[1]) & virgin[1]) return 1;
+    if (current[2] && classify_word(current[2]) & virgin[2]) return 1;
+    if (current[3] && classify_word(current[3]) & virgin[3]) return 1;
 
   }
 

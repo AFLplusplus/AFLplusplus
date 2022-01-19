@@ -62,23 +62,6 @@ inline void classify_counts(afl_forkserver_t *fsrv) {
 
 }
 
-inline void classify_counts_off(afl_forkserver_t *fsrv, u32 off) {
-
-  u32 *mem = (u32 *)(fsrv->trace_bits + off);
-  u32  i = ((fsrv->map_size - off) >> 2);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) { *mem = classify_word(*mem); }
-
-    mem++;
-
-  }
-
-}
-
 /* Updates the virgin bits, then reflects whether a new count or a new tuple is
  * seen in ret. */
 inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
@@ -87,7 +70,7 @@ inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
      that have not been already cleared from the virgin map - since this will
      almost always be the case. */
 
-  if (unlikely(*current & *virgin)) {
+  if (*current & *virgin) {
 
     if (likely(*ret < 2)) {
 
@@ -97,8 +80,8 @@ inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
       /* Looks like we have not found any new bytes yet; see if any non-zero
          bytes in current[] are pristine in virgin[]. */
 
-      if (unlikely((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-                   (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)))
+      if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+          (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
         *ret = 2;
       else
         *ret = 1;
@@ -114,14 +97,12 @@ inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
 #define PACK_SIZE 16
 inline u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end) {
 
-  u32 *save = (u32*) current;
-
   for (; current < current_end; virgin += 4, current += 4) {
 
-    if (unlikely(current[0] && classify_word(current[0]) & virgin[0])) return (u32)(&current[1] - save);
-    if (unlikely(current[1] && classify_word(current[1]) & virgin[1])) return (u32)(&current[2] - save);
-    if (unlikely(current[2] && classify_word(current[2]) & virgin[2])) return (u32)(&current[3] - save);
-    if (unlikely(current[3] && classify_word(current[3]) & virgin[3])) return (u32)(&current[4] - save);
+    if (current[0] && classify_word(current[0]) & virgin[0]) return 1;
+    if (current[1] && classify_word(current[1]) & virgin[1]) return 1;
+    if (current[2] && classify_word(current[2]) & virgin[2]) return 1;
+    if (current[3] && classify_word(current[3]) & virgin[3]) return 1;
 
   }
 

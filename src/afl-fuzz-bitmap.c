@@ -250,21 +250,20 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 inline u8 has_new_bits_unclassified(afl_state_t *afl, u8 *virgin_map) {
 
   /* Handle the hot path first: no new coverage */
-  u32 off;
   u8 *end = afl->fsrv.trace_bits + afl->fsrv.map_size;
 
 #ifdef WORD_SIZE_64
 
-  if (!(off = skim((u64 *)virgin_map, (u64 *)afl->fsrv.trace_bits, (u64 *)end)))
+  if (!skim((u64 *)virgin_map, (u64 *)afl->fsrv.trace_bits, (u64 *)end))
     return 0;
 
 #else
 
-  if (!(off = skim((u32 *)virgin_map, (u32 *)afl->fsrv.trace_bits, (u32 *)end)))
+  if (!skim((u32 *)virgin_map, (u32 *)afl->fsrv.trace_bits, (u32 *)end))
     return 0;
 
 #endif                                                     /* ^WORD_SIZE_64 */
-  classify_counts_off(&afl->fsrv, off);
+  classify_counts(&afl->fsrv);
   return has_new_bits(afl, virgin_map);
 
 }
