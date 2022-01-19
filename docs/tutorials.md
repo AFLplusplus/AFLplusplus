@@ -29,12 +29,12 @@ structure is), these links have you covered:
   [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
 # Video Tutorials
-* [How Fuzzing with AFL works!](https://www.youtube.com/watch?v=COHUWuLTbdk)
-* [WOOT '20 - AFL++ : Combining Incremental Steps of Fuzzing Research](https://www.youtube.com/watch?v=cZidm6I7KWU) 
+* [Install AFL++ Ubuntu](https://www.youtube.com/watch?v=5dCvhkbi3RA)
 * [[Fuzzing with AFLplusplus] Installing AFLPlusplus and fuzzing a simple C program](https://www.youtube.com/watch?v=9wRVo0kYSlc)
 * [[Fuzzing with AFLplusplus] How to fuzz a binary with no source code on Linux in persistent mode](https://www.youtube.com/watch?v=LGPJdEO02p4)
 * [Blackbox Fuzzing #1: Start Binary-Only Fuzzing using AFL++ QEMU mode](https://www.youtube.com/watch?v=sjLFf9q2NRc)
-* [Install AFL++ Ubuntu](https://www.youtube.com/watch?v=5dCvhkbi3RA)
 * [HOPE 2020 (2020): Hunting Bugs in Your Sleep - How to Fuzz (Almost) Anything With AFL/AFL++](https://www.youtube.com/watch?v=A8ex1hqaQ7E)
+* [How Fuzzing with AFL works!](https://www.youtube.com/watch?v=COHUWuLTbdk)
+* [WOOT '20 - AFL++ : Combining Incremental Steps of Fuzzing Research](https://www.youtube.com/watch?v=cZidm6I7KWU)
 
 If you find other good ones, please send them to us :-)
