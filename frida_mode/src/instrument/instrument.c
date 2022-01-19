@@ -318,12 +318,6 @@ void instrument_init(void) {
 
   if (instrument_unique) { instrument_tracing = TRUE; }
 
-  if (__afl_map_size != 0x10000) {
-
-    FATAL("Bad map size: 0x%08x", __afl_map_size);
-
-  }
-
   transformer = gum_stalker_transformer_make_from_callback(
       instrument_basic_block, NULL, NULL);
 
