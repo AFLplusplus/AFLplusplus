@@ -70,7 +70,7 @@ inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
      that have not been already cleared from the virgin map - since this will
      almost always be the case. */
 
-  if (*current & *virgin) {
+  if (unlikely(*current & *virgin)) {
 
     if (likely(*ret < 2)) {
 
@@ -80,8 +80,8 @@ inline void discover_word(u8 *ret, u32 *current, u32 *virgin) {
       /* Looks like we have not found any new bytes yet; see if any non-zero
          bytes in current[] are pristine in virgin[]. */
 
-      if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-          (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
+      if (unlikely((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+                   (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)))
         *ret = 2;
       else
         *ret = 1;
@@ -99,10 +99,10 @@ inline u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end) {
 
   for (; current < current_end; virgin += 4, current += 4) {
 
-    if (current[0] && classify_word(current[0]) & virgin[0]) return 1;
-    if (current[1] && classify_word(current[1]) & virgin[1]) return 1;
-    if (current[2] && classify_word(current[2]) & virgin[2]) return 1;
-    if (current[3] && classify_word(current[3]) & virgin[3]) return 1;
+    if (unlikely(current[0] && classify_word(current[0]) & virgin[0])) return 1;
+    if (unlikely(current[1] && classify_word(current[1]) & virgin[1])) return 1;
+    if (unlikely(current[2] && classify_word(current[2]) & virgin[2])) return 1;
+    if (unlikely(current[3] && classify_word(current[3]) & virgin[3])) return 1;
 
   }
 
