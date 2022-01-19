@@ -478,28 +478,27 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           */
           if (is_fp) {
 
-            /*
-                        ConstantFP *i0 = dyn_cast<ConstantFP>(op0);
-                        ConstantFP *i1 = dyn_cast<ConstantFP>(op1);
-                        // BUG FIXME TODO: this is null ... but why?
-                        // fprintf(stderr, "%p %p\n", i0, i1);
-                        if (i0) {
+/*
+            ConstantFP *i0 = dyn_cast<ConstantFP>(op0);
+            ConstantFP *i1 = dyn_cast<ConstantFP>(op1);
+            // BUG FIXME TODO: this is null ... but why?
+            // fprintf(stderr, "%p %p\n", i0, i1);
+            if (i0) {
 
-                          cur_val = (uint64_t)i0->getValue().convertToDouble();
-                          if (last_val0 && last_val0 == cur_val) { skip = 1; }
-                          last_val0 = cur_val;
+              cur_val = (uint64_t)i0->getValue().convertToDouble();
+              if (last_val0 && last_val0 == cur_val) { skip = 1; }
+              last_val0 = cur_val;
 
-                        }
+            }
 
-                        if (i1) {
+            if (i1) {
 
-                          cur_val = (uint64_t)i1->getValue().convertToDouble();
-                          if (last_val1 && last_val1 == cur_val) { skip = 1; }
-                          last_val1 = cur_val;
+              cur_val = (uint64_t)i1->getValue().convertToDouble();
+              if (last_val1 && last_val1 == cur_val) { skip = 1; }
+              last_val1 = cur_val;
 
-                        }
-
-            */
+            }
+*/
 
           } else {
 
