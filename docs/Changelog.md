@@ -47,7 +47,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix bug where targets are not killed on timeouts
     - moved hidden afl-showmap -A option to -H to be used for
       coresight_mode
-  - Prevent accidently killing non-afl/fuzz services when aborting
+  - Prevent accidentaly killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
     - new cmplog mode (incompatible with older afl++ versions)
@@ -101,6 +101,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - less coverage collision
     - feature parity of aarch64 with intel now (persistent, cmplog,
       in-memory testcases, asan)
+  - unicorn_mode:
+    - Moved to unicorn2! By Ziqiao Kong (@lazymio)
+    - Faster, more accurate emulation (newer QEMU base), riscv support
   - afl-cmin and afl-showmap -i do now descend into subdirectories
     (like afl-fuzz does) - note that afl-cmin.bash does not!
   - afl_analyze:

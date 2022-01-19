@@ -24,7 +24,7 @@ cd ./unicornafl || exit 1
 git fetch origin uc1 1>/dev/null || exit 1
 git stash 1>/dev/null 2>/dev/null
 git stash drop 1>/dev/null 2>/dev/null
-git checkout uc1
+git checkout main
 
 if [ -z "$NEW_VERSION" ]; then
   # No version provided, take HEAD.
