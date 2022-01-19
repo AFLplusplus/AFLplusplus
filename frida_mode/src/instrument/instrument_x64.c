@@ -216,7 +216,7 @@ static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
   static GumAddress last_limit = (64ULL << 10);
   gpointer *        address = (gpointer *)user_data;
 
-  last_limit = GUM_ALIGN_SIZE (last_limit, __afl_map_size);
+  last_limit = GUM_ALIGN_SIZE(last_limit, __afl_map_size);
 
   if ((details->range->base_address - last_limit) > __afl_map_size) {
 
