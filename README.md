@@ -127,7 +127,7 @@ Step-by-step quick start:
 
 Questions? Concerns? Bug reports?
 
-* The contributors can be reached via (e.g. by creating an issue):
+* The contributors can be reached via (e.g., by creating an issue):
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
 * Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
   question missing, submit it via
