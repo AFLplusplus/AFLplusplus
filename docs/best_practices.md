@@ -116,7 +116,7 @@ allows you to define network state with different type of data packets.
 
 ### Improving stability
 
-For fuzzing a 100% stable target that covers all edges is the best case. A 90%
+For fuzzing, a 100% stable target that covers all edges is the best case. A 90%
 stable target that covers all edges is, however, better than a 100% stable
 target that ignores 10% of the edges.
 

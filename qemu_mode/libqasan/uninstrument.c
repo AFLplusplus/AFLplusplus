@@ -7,7 +7,7 @@ for some strange reason.
 */
 
 /*******************************************************************************
-Copyright (c) 2019-2020, Andrea Fioraldi
+Copyright (c) 2019-2022, Andrea Fioraldi
 
 
 Redistribution and use in source and binary forms, with or without

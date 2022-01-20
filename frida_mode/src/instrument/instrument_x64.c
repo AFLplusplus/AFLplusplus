@@ -216,6 +216,8 @@ static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
   static GumAddress last_limit = (64ULL << 10);
   gpointer *        address = (gpointer *)user_data;
 
+  last_limit = GUM_ALIGN_SIZE(last_limit, __afl_map_size);
+
   if ((details->range->base_address - last_limit) > __afl_map_size) {
 
     *address = GSIZE_TO_POINTER(last_limit);
@@ -235,7 +237,7 @@ static gboolean instrument_coverage_find_low(const GumRangeDetails *details,
    * current block ID.
    */
   last_limit = GUM_ALIGN_SIZE(
-      details->range->base_address + details->range->size, (64ULL << 10));
+      details->range->base_address + details->range->size, __afl_map_size);
   return TRUE;
 
 }
@@ -326,7 +328,7 @@ void instrument_coverage_optimize_init(void) {
   FVERBOSE("Low address: %p", low_address);
 
   if (low_address == 0 ||
-      GPOINTER_TO_SIZE(low_address) > ((2UL << 20) - __afl_map_size)) {
+      GPOINTER_TO_SIZE(low_address) > ((2UL << 30) - __afl_map_size)) {
 
     FATAL("Invalid low_address: %p", low_address);
 

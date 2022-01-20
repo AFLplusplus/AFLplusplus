@@ -65,6 +65,7 @@
 #elif defined(__FreeBSD__)
   #include <sys/sysctl.h>
   #include <sys/user.h>
+  #include <sys/procctl.h>
 #else
   #error "Unsupported platform"
 #endif
@@ -685,6 +686,9 @@ int main(int argc, char *argv[]) {
 
 #if defined(__linux__)
   (void)personality(ADDR_NO_RANDOMIZE);  // disable ASLR
+#elif defined(__FreeBSD__) && __FreeBSD_version >= 1200000
+  int no_randomize = PROC_ASLR_FORCE_DISABLE;
+  (void)procctl(P_PID, 0, PROC_ASLR_CTL, &no_randomize);
 #endif
 
   pid = getpid();

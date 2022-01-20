@@ -15,6 +15,7 @@ AFL++ is maintained by:
 * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
 * Andrea Fioraldi <andreafioraldi@gmail.com> and
 * Dominik Maier <mail@dmnk.co>.
+* Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michał "lcamtuf" Zalewski.
 
@@ -149,7 +150,7 @@ The following branches exist:
   stability
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
-  or has a bug. **We only accept PRs (push requests) for the 'dev' branch!**
+  or has a bug. **We only accept PRs (pull requests) for the 'dev' branch!**
 * (any other): experimental branches to work on specific features or testing new
   functionality or changes.
 
@@ -163,7 +164,7 @@ This can be your way to support and contribute to AFL++ - extend it to do
 something cool.
 
 For everyone who wants to contribute (and send pull requests), please read our
-[contributing guidelines](CONTRIBUTING.md) before your submit.
+[contributing guidelines](CONTRIBUTING.md) before you submit.
 
 ## Special thanks
 
@@ -223,7 +224,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Josephine Calliotte                   Konrad Welc
     Thomas Rooijakkers                    David Carlier
     Ruben ten Hove                        Joey Jiao
-    fuzzah
+    fuzzah                                @intrigus-lgtm
   ```
 
 </details>

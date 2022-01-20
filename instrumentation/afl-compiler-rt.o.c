@@ -1433,9 +1433,12 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
     } else {
 
+      static u32 offset = 4;
+
       while (start < stop) {
 
-        *(start++) = 4;
+        *(start++) = offset;
+        if (unlikely(++offset >= __afl_final_loc)) { offset = 4; }
 
       }
 
@@ -1444,7 +1447,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   }
 
   x = getenv("AFL_INST_RATIO");
-  if (x) inst_ratio = (u32)atoi(x);
+  if (x) { inst_ratio = (u32)atoi(x); }
 
   if (!inst_ratio || inst_ratio > 100) {
 

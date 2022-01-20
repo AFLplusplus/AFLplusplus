@@ -118,8 +118,6 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
   std::vector<uint8_t> setSizes;
   std::vector<std::set<uint8_t> > byteSets(BytesInValue, std::set<uint8_t>());
 
-  assert(ValTypeBitWidth >= 8 && ValTypeBitWidth <= 64);
-
   /* for each of the possible cases we iterate over all bytes of the values
    * build a set of possible values at each byte position in byteSets */
   for (CaseExpr &Case : Cases) {
@@ -350,9 +348,9 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
     /* If there is only the default destination or the condition checks 8 bit or
      * less, don't bother with the code below. */
-    if (!SI->getNumCases() || bitw <= 8) {
+    if (SI->getNumCases() < 2 || bitw % 8 || bitw > 64) {
 
-      // if (!be_quiet) errs() << "skip trivial switch..\n";
+      // if (!be_quiet) errs() << "skip switch..\n";
       continue;
 
     }

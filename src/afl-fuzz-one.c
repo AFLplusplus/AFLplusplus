@@ -413,8 +413,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
        possibly skip to them at the expense of already-fuzzed or non-favored
        cases. */
 
-    if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
-         !afl->queue_cur->favored) &&
+    if ((afl->queue_cur->fuzz_level || !afl->queue_cur->favored) &&
         likely(rand_below(afl, 100) < SKIP_TO_NEW_PROB)) {
 
       return 1;
@@ -429,8 +428,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
        The odds of skipping stuff are higher for already-fuzzed inputs and
        lower for never-fuzzed entries. */
 
-    if (afl->queue_cycle > 1 &&
-        (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
+    if (afl->queue_cycle > 1 && !afl->queue_cur->fuzz_level) {
 
       if (likely(rand_below(afl, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
 
@@ -2961,17 +2959,12 @@ abandon_entry:
      cycle and have not seen this entry before. */
 
   if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
-      (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0) &&
-      !afl->queue_cur->disabled) {
+      !afl->queue_cur->was_fuzzed && !afl->queue_cur->disabled) {
 
-    if (!afl->queue_cur->was_fuzzed) {
-
-      --afl->pending_not_fuzzed;
-      afl->queue_cur->was_fuzzed = 1;
-      afl->reinit_table = 1;
-      if (afl->queue_cur->favored) { --afl->pending_favored; }
-
-    }
+    --afl->pending_not_fuzzed;
+    afl->queue_cur->was_fuzzed = 1;
+    afl->reinit_table = 1;
+    if (afl->queue_cur->favored) { --afl->pending_favored; }
 
   }
 
@@ -3024,8 +3017,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
        possibly skip to them at the expense of already-fuzzed or non-favored
        cases. */
 
-    if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
-         !afl->queue_cur->favored) &&
+    if ((afl->queue_cur->fuzz_level || !afl->queue_cur->favored) &&
         rand_below(afl, 100) < SKIP_TO_NEW_PROB) {
 
       return 1;
@@ -3040,8 +3032,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
        The odds of skipping stuff are higher for already-fuzzed inputs and
        lower for never-fuzzed entries. */
 
-    if (afl->queue_cycle > 1 &&
-        (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
+    if (afl->queue_cycle > 1 && !afl->queue_cur->fuzz_level) {
 
       if (likely(rand_below(afl, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
 
