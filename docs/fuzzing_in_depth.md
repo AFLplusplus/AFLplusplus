@@ -141,37 +141,39 @@ options are available:
   [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
 If you use LTO, LLVM, or GCC_PLUGIN mode
-(afl-clang-fast/afl-clang-lto/afl-gcc-fast), you have the option to
-selectively instrument _parts_ of the target that you are interested in.
-For afl-clang-fast you have to use an llvm version newer than 10.0.0 or a mode
-other than DEFAULT/PCGUARD.
+(afl-clang-fast/afl-clang-lto/afl-gcc-fast), you have the option to selectively
+instrument _parts_ of the target that you are interested in. For afl-clang-fast,
+you have to use an llvm version newer than 10.0.0 or a mode other than
+DEFAULT/PCGUARD.
 
-This step can be done either by explicitly including parts to be instrumented
-or by explicitly excluding parts from instrumentation.
+This step can be done either by explicitly including parts to be instrumented or
+by explicitly excluding parts from instrumentation.
 
-* To instrument _only specified parts_
-  create a file (eg `allowlist.txt`) with all the filenames and/or functions of
-  the source code that should be instrumented and then:
+* To instrument _only specified parts_, create a file (e.g., `allowlist.txt`)
+  with all the filenames and/or functions of the source code that should be
+  instrumented and then:
 
-  1. just put one filename or function (prefixing with `fun: `)  per line (no
-  directory information necessary for filenames) in the file `allowlist.txt`.
-  Example:
-```
-foo.cpp        # will match foo/foo.cpp, bar/foo.cpp, barfoo.cpp etc.
-fun: foo_func  # will match the function foo_func
-```
+  1. Just put one filename or function (prefixing with `fun: `) per line (no
+     directory information necessary for filenames) in the file `allowlist.txt`.
 
-  2. set `export AFL_LLVM_ALLOWLIST=allowlist.txt` to enable selective positive
+     Example:
+
+     ```
+     foo.cpp        # will match foo/foo.cpp, bar/foo.cpp, barfoo.cpp etc.
+     fun: foo_func  # will match the function foo_func
+     ```
+
+  2. Set `export AFL_LLVM_ALLOWLIST=allowlist.txt` to enable selective positive
      instrumentation.
 
-* Similarly to _exclude_ specified parts from instrumentation
-  create a file (eg `denylist.txt`) with all the filenames of the source code
-  that should be skipped during instrumentation and then
+* Similarly to _exclude_ specified parts from instrumentation, create a file
+  (e.g., `denylist.txt`) with all the filenames of the source code that should
+  be skipped during instrumentation and then:
 
-  1. same as above just put one filename or function per line in the file
-     `denylist.txt`
+  1. Same as above. Just put one filename or function per line in the file
+     `denylist.txt`.
 
-  2. set `export AFL_LLVM_DENYLIST=denylist.txt` to enable selective negative
+  2. Set `export AFL_LLVM_DENYLIST=denylist.txt` to enable selective negative
      instrumentation.
 
 **NOTE:** During optimization functions might be
@@ -195,8 +197,8 @@ allows you to find bugs that would not necessarily result in a crash.
 
 Note that sanitizers have a huge impact on CPU (= less executions per second)
 and RAM usage. Also, you should only run one afl-fuzz instance per sanitizer
-type. This is enough because e.g. a use-after-free bug will be picked up by
-ASAN (address sanitizer) anyway after syncing test cases from other fuzzing
+type. This is enough because e.g. a use-after-free bug will be picked up by ASAN
+(address sanitizer) anyway after syncing test cases from other fuzzing
 instances, so running more than one address sanitized target would be a waste.
 
 The following sanitizers have built-in support in AFL++:
@@ -208,9 +210,9 @@ The following sanitizers have built-in support in AFL++:
   local variable that is defined and read before it is even set. Enabled with
   `export AFL_USE_MSAN=1` before compiling.
 * UBSAN = Undefined Behavior SANitizer, finds instances where - by the C and C++
-  standards - undefined behavior happens, e.g., adding two signed integers
-  where the result is larger than what a signed integer can hold. Enabled
-  with `export AFL_USE_UBSAN=1` before compiling.
+  standards - undefined behavior happens, e.g., adding two signed integers where
+  the result is larger than what a signed integer can hold. Enabled with `export
+  AFL_USE_UBSAN=1` before compiling.
 * CFISAN = Control Flow Integrity SANitizer, finds instances where the control
   flow is found to be illegal. Originally this was rather to prevent return
   oriented programming (ROP) exploit chains from functioning. In fuzzing, this
@@ -224,7 +226,7 @@ The following sanitizers have built-in support in AFL++:
   the other sanitizers above this needs `__AFL_LEAK_CHECK();` added to all areas
   of the target source code where you find a leak check necessary! Enabled with
   `export AFL_USE_LSAN=1` before compiling. To ignore the memory-leaking check
-  for certain allocations, `__AFL_LSAN_OFF();` can be used before memory is 
+  for certain allocations, `__AFL_LSAN_OFF();` can be used before memory is
   allocated, and `__AFL_LSAN_ON();` afterwards. Memory allocated between these
   two macros will not be checked for memory leaks.
 
@@ -286,8 +288,8 @@ Then build the target. (Usually with `make`.)
 
 3. In case the configure/build system complains about AFL++'s compiler and
    aborts, then set `export AFL_NOOPT=1` which will then just behave like the
-   real compiler and run the configure step separately.
-   For building the target afterwards this option has to be unset again!
+   real compiler and run the configure step separately. For building the target
+   afterwards this option has to be unset again!
 
 #### configure
 
@@ -397,11 +399,12 @@ You can find many good examples of starting files in the
 Use the AFL++ tool `afl-cmin` to remove inputs from the corpus that do not
 produce a new path/coverage in the target:
 
-1. Put all files from [step a](#a-collecting-inputs) into one directory, e.g., INPUTS.
+1. Put all files from [step a](#a-collecting-inputs) into one directory, e.g.,
+   `INPUTS`.
 2. Run afl-cmin:
-   * If the target program is to be called by fuzzing as `bin/target
-     INPUTFILE`, replace the INPUTFILE argument that the target program would read
-     from with `@@`:
+   * If the target program is to be called by fuzzing as `bin/target INPUTFILE`,
+     replace the INPUTFILE argument that the target program would read from with
+     `@@`:
 
      ```
      afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -someopt @@
@@ -448,8 +451,8 @@ In this final step, fuzz the target. There are not that many important options
 to run the target - unless you want to use many CPU cores/threads for the
 fuzzing, which will make the fuzzing much more useful.
 
-If you just use one instance for fuzzing, then you are fuzzing just for fun and not
-seriously :-)
+If you just use one instance for fuzzing, then you are fuzzing just for fun and
+not seriously :-)
 
 ### a) Running afl-fuzz
 
@@ -482,14 +485,14 @@ afl-fuzz -i input -o output -- bin/target -someopt @@
 Note that the directory specified with `-o` will be created if it does not
 exist.
 
-It can be valuable to run afl-fuzz in a `screen` or `tmux` shell so you can log off,
-or afl-fuzz is not aborted if you are running it in a remote ssh session where
-the connection fails in between. Only do that though once you have verified that
-your fuzzing setup works! Run it like `screen -dmS afl-main -- afl-fuzz -M
-main-$HOSTNAME -i ...` and it will start away in a screen session. To enter this
-session, type `screen -r afl-main`. You see - it makes sense to name the screen
-session same as the afl-fuzz -M/-S naming :-) For more information on screen or
-tmux, check their documentation.
+It can be valuable to run afl-fuzz in a `screen` or `tmux` shell so you can log
+off, or afl-fuzz is not aborted if you are running it in a remote ssh session
+where the connection fails in between. Only do that though once you have
+verified that your fuzzing setup works! Run it like `screen -dmS afl-main --
+afl-fuzz -M main-$HOSTNAME -i ...` and it will start away in a screen session.
+To enter this session, type `screen -r afl-main`. You see - it makes sense to
+name the screen session same as the afl-fuzz `-M`/`-S` naming :-) For more
+information on screen or tmux, check their documentation.
 
 If you need to stop and re-start the fuzzing, use the same command line options
 (or even change them by selecting a different power schedule or another mutation
@@ -499,18 +502,21 @@ mode!) and switch the input directory with a dash (`-`):
 afl-fuzz -i - -o output -- bin/target -someopt @@
 ```
 
-Adding a dictionary is helpful. See the directory
-[dictionaries/](../dictionaries/) if something is already included for your data
-format, and tell afl-fuzz to load that dictionary by adding `-x
+Adding a dictionary is helpful. You have to following options:
+
+* See the directory
+[dictionaries/](../dictionaries/), if something is already included for your
+data format, and tell afl-fuzz to load that dictionary by adding `-x
 dictionaries/FORMAT.dict`.
-With `afl-clang-lto`, you have an autodictionary generation for which you need
-to do nothing except to use afl-clang-lto as the compiler.
-With `afl-clang-fast` you can set
-`AFL_LLVM_DICT2FILE=/full/path/to/new/file.dic` to automatically generate a
-dictionary during target compilation.
-You also have the option to generate a dictionary yourself during an independant
-run of the target, see [utils/libtokencap/README.md](../utils/libtokencap/README.md).
-Finally you can also write a dictionary file manually, of course.
+* With `afl-clang-lto`, you have an autodictionary generation for which you need
+  to do nothing except to use afl-clang-lto as the compiler.
+* With `afl-clang-fast`, you can set
+  `AFL_LLVM_DICT2FILE=/full/path/to/new/file.dic` to automatically generate a
+  dictionary during target compilation.
+* You also have the option to generate a dictionary yourself during an
+  independent run of the target, see
+  [utils/libtokencap/README.md](../utils/libtokencap/README.md).
+* Finally, you can also write a dictionary file manually, of course.
 
 afl-fuzz has a variety of options that help to workaround target quirks like
 very specific locations for the input file (`-f`), performing deterministic
@@ -572,8 +578,8 @@ can set the cache size (in MB) by setting the environment variable
 
 There should be one main fuzzer (`-M main-$HOSTNAME` option) and as many
 secondary fuzzers (e.g., `-S variant1`) as you have cores that you use. Every
--M/-S entry needs a unique name (that can be whatever), however, the same -o
-output directory location has to be used for all instances.
+`-M`/`-S` entry needs a unique name (that can be whatever), however, the same
+`-o` output directory location has to be used for all instances.
 
 For every secondary fuzzer there should be a variation, e.g.:
 * one should fuzz the target that was compiled differently: with sanitizers
@@ -588,10 +594,10 @@ For every secondary fuzzer there should be a variation, e.g.:
 
 All other secondaries should be used like this:
 * a quarter to a third with the MOpt mutator enabled: `-L 0`
-* run with a different power schedule, recommended are:
-  `fast (default), explore, coe, lin, quad, exploit and rare` which you can set
-  with the `-p` option, e.g., `-p explore`. See the [FAQ](FAQ.md#what-are-power-schedules)
-  for details.
+* run with a different power schedule, recommended are: `fast` (default),
+  `explore`, `coe`, `lin`, `quad`, `exploit`, and `rare` which you can set with
+  the `-p` option, e.g., `-p explore`. See the
+  [FAQ](FAQ.md#what-are-power-schedules) for details.
 * a few instances should use the old queue cycling with `-Z`
 
 Also, it is recommended to set `export AFL_IMPORT_FIRST=1` to load test cases
@@ -615,7 +621,7 @@ A long list can be found at
 [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL).
 
 However, you can also sync AFL++ with honggfuzz, libfuzzer with `-entropic=1`,
-etc. Just show the main fuzzer (-M) with the `-F` option where the queue/work
+etc. Just show the main fuzzer (`-M`) with the `-F` option where the queue/work
 directory of a different fuzzer is, e.g., `-F /src/target/honggfuzz`. Using
 honggfuzz (with `-n 1` or `-n 2`) and libfuzzer in parallel is highly
 recommended!
@@ -877,9 +883,9 @@ normal fuzzing campaigns as these are much shorter runnings.
 1. Always:
     * LTO has a much longer compile time which is diametrical to short fuzzing -
       hence use afl-clang-fast instead.
-    * If you compile with CMPLOG, then you can save compilation time and reuse that
-      compiled target with the `-c` option and as the main fuzz target. This
-      will impact the speed by ~15% though.
+    * If you compile with CMPLOG, then you can save compilation time and reuse
+      that compiled target with the `-c` option and as the main fuzz target.
+      This will impact the speed by ~15% though.
     * `AFL_FAST_CAL` - enables fast calibration, this halves the time the
       saturated corpus needs to be loaded.
     * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new finds, not the initial
@@ -909,8 +915,8 @@ and
 
 ## The End
 
-Check out the [FAQ](FAQ.md). Maybe it answers your question (that you might
-not even have known you had ;-) ).
+Check out the [FAQ](FAQ.md). Maybe it answers your question (that you might not
+even have known you had ;-) ).
 
 This is basically all you need to know to professionally run fuzzing campaigns.
 If you want to know more, the tons of texts in [docs/](./) will have you
