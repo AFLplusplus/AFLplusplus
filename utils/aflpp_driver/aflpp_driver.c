@@ -45,6 +45,9 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#ifndef __HAIKU__
+  #include <sys/syscall.h>
+#endif
 
 #include "config.h"
 #include "types.h"
@@ -205,7 +208,11 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
     if (fd == -1) { continue; }
 
-    ssize_t length = read(fd, buf, MAX_FILE);
+#ifndef __HAIKU__
+    ssize_t length = syscall(SYS_read, fd, buf, MAX_FILE);
+#else
+    ssize_t length = _kern_read(fd, buf, MAX_FILE);
+#endif  // HAIKU
 
     if (length > 0) {
 
