@@ -259,7 +259,7 @@ endif
 
 
 ############################## AFL #############################################
-$(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC)
+$(AFL_COMPILER_RT_OBJ): $(AFL_COMPILER_RT_SRC) $(ROOT)include/config.h
 	$(TARGET_CC) \
 		$(CFLAGS) \
 		$(AFL_CFLAGS) \

@@ -1054,7 +1054,6 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
         }
 
-        local_selects++;
         uint32_t vector_cur = 0;
 
         /* Load SHM pointer */

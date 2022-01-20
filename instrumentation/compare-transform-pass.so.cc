@@ -383,16 +383,55 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        isMemcmp = false;
     bool        isSizedcmp = false;
     bool        isCaseInsensitive = false;
+    bool        needs_null = false;
     Function *  Callee = callInst->getCalledFunction();
     if (Callee) {
 
-      isMemcmp = Callee->getName().compare("memcmp") == 0;
-      isSizedcmp = isMemcmp || Callee->getName().compare("strncmp") == 0 ||
-                   Callee->getName().compare("strncasecmp") == 0;
-      isCaseInsensitive = Callee->getName().compare("strcasecmp") == 0 ||
-                          Callee->getName().compare("strncasecmp") == 0;
+      if (!Callee->getName().compare("memcmp") ||
+          !Callee->getName().compare("bcmp") ||
+          !Callee->getName().compare("CRYPTO_memcmp") ||
+          !Callee->getName().compare("OPENSSL_memcmp") ||
+          !Callee->getName().compare("memcmp_const_time") ||
+          !Callee->getName().compare("memcmpct") ||
+          !Callee->getName().compare("llvm.memcpy.p0i8.p0i8.i64"))
+        isMemcmp = true;
+
+      if (isMemcmp || !Callee->getName().compare("strncmp") ||
+          !Callee->getName().compare("xmlStrncmp") ||
+          !Callee->getName().compare("curl_strnequal") ||
+          !Callee->getName().compare("strncasecmp") ||
+          !Callee->getName().compare("strnicmp") ||
+          !Callee->getName().compare("ap_cstr_casecmpn") ||
+          !Callee->getName().compare("OPENSSL_strncasecmp") ||
+          !Callee->getName().compare("xmlStrncasecmp") ||
+          !Callee->getName().compare("g_ascii_strncasecmp") ||
+          !Callee->getName().compare("Curl_strncasecompare") ||
+          !Callee->getName().compare("g_strncasecmp"))
+        isSizedcmp = true;
+
+      if (!Callee->getName().compare("strcasecmp") ||
+          !Callee->getName().compare("stricmp") ||
+          !Callee->getName().compare("ap_cstr_casecmp") ||
+          !Callee->getName().compare("OPENSSL_strcasecmp") ||
+          !Callee->getName().compare("xmlStrcasecmp") ||
+          !Callee->getName().compare("g_strcasecmp") ||
+          !Callee->getName().compare("g_ascii_strcasecmp") ||
+          !Callee->getName().compare("Curl_strcasecompare") ||
+          !Callee->getName().compare("Curl_safe_strcasecompare") ||
+          !Callee->getName().compare("cmsstrcasecmp") ||
+          !Callee->getName().compare("strncasecmp") ||
+          !Callee->getName().compare("strnicmp") ||
+          !Callee->getName().compare("ap_cstr_casecmpn") ||
+          !Callee->getName().compare("OPENSSL_strncasecmp") ||
+          !Callee->getName().compare("xmlStrncasecmp") ||
+          !Callee->getName().compare("g_ascii_strncasecmp") ||
+          !Callee->getName().compare("Curl_strncasecompare") ||
+          !Callee->getName().compare("g_strncasecmp"))
+        isCaseInsensitive = true;
 
     }
+
+    if (!isSizedcmp) needs_null = true;
 
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
     bool   isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
@@ -447,16 +486,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     // the following is in general OK, but strncmp is sometimes used in binary
     // data structures and this can result in crashes :( so it is commented out
-    /*
 
     // add null termination character implicit in c strings
-    if (!isMemcmp && TmpConstStr[TmpConstStr.length() - 1]) {
+    if (needs_null && TmpConstStr[TmpConstStr.length() - 1] != 0) {
 
       TmpConstStr.append("\0", 1);
 
     }
-
-    */
 
     // in the unusual case the const str has embedded null
     // characters, the string comparison functions should terminate

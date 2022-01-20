@@ -1275,7 +1275,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
   const DominatorTree *    DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
   bool                     IsLeafFunc = true;
-  uint32_t                 skip_next = 0, local_selects = 0;
+  uint32_t                 skip_next = 0;
 
   for (auto &BB : F) {
 
@@ -1385,7 +1385,6 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
         }
 
-        local_selects++;
         uint32_t vector_cur = 0;
         /* Load SHM pointer */
         LoadInst *MapPtr =

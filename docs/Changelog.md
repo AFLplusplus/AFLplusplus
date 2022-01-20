@@ -16,6 +16,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     This might need changing custom scripting!
   - Nyx mode (full system emulation with snapshot capability) has been
     added - thanks to @schumilo and @eqv!
+  - unicorn_mode:
+    - Moved to unicorn2! By Ziqiao Kong (@lazymio)
+    - Faster, more accurate emulation (newer QEMU base), riscv support
+    - removed indirections in rust callbacks
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
   - if instrumented libaries are dlopen()'ed after the forkserver you
@@ -47,7 +51,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix bug where targets are not killed on timeouts
     - moved hidden afl-showmap -A option to -H to be used for
       coresight_mode
-  - Prevent accidently killing non-afl/fuzz services when aborting
+  - Prevent accidentaly killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
     - new cmplog mode (incompatible with older afl++ versions)
@@ -56,6 +60,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST
       on filename matching (requires llvm 11 or newer)
     - fixed a potential crash in targets for LAF string handling
+    - fixed a bad assert in LAF split switches
     - added AFL_USE_TSAN thread sanitizer support
     - llvm and LTO mode modified to work with new llvm 14-dev (again. again.)
     - fix for AFL_REAL_LD
@@ -72,7 +77,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
   - added uninstall target to makefile (todo: update new readme!)
-  - removed indirections in rust callbacks for unicornafl
 
 ### Version ++3.14c (release)
   - afl-fuzz:
