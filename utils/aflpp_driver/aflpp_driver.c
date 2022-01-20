@@ -62,6 +62,25 @@ extern unsigned char *__afl_fuzz_ptr;
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
 
+// Default nop ASan hooks for manual posisoning when not linking the ASan
+// runtime
+// https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
+__attribute__((weak)) void __asan_poison_memory_region(
+    void const volatile *addr, size_t size) {
+
+  (void)addr;
+  (void)size;
+
+}
+
+__attribute__((weak)) void __asan_unpoison_memory_region(
+    void const volatile *addr, size_t size) {
+
+  (void)addr;
+  (void)size;
+
+}
+
 // Notify AFL about persistent mode.
 static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
 int                  __afl_persistent_loop(unsigned int);
@@ -175,6 +194,9 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
   unsigned char *buf = (unsigned char *)malloc(MAX_FILE);
 
+  __asan_poison_memory_region(buf, MAX_FILE);
+  ssize_t prev_length = 0;
+
   for (int i = 1; i < argc; i++) {
 
     int fd = 0;
@@ -186,6 +208,18 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
     ssize_t length = read(fd, buf, MAX_FILE);
 
     if (length > 0) {
+
+      if (length < prev_length) {
+
+        __asan_poison_memory_region(buf + length, prev_length - length);
+
+      } else {
+
+        __asan_unpoison_memory_region(buf + prev_length, length - prev_length);
+
+      }
+
+      prev_length = length;
 
       printf("Reading %zu bytes from %s\n", length, argv[i]);
       LLVMFuzzerTestOneInput(buf, length);
@@ -284,8 +318,13 @@ int main(int argc, char **argv) {
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
   LLVMFuzzerTestOneInput(dummy_input, 1);
 
+  __asan_poison_memory_region(__afl_fuzz_ptr, MAX_FILE);
+  size_t prev_length = 0;
+
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
+
+    size_t length = *__afl_fuzz_len;
 
 #ifdef _DEBUG
     fprintf(stderr, "CLIENT crc: %016llx len: %u\n",
@@ -297,10 +336,24 @@ int main(int argc, char **argv) {
     fprintf(stderr, "\n");
 #endif
 
-    if (*__afl_fuzz_len) {
+    if (length) {
+
+      if (length < prev_length) {
+
+        __asan_poison_memory_region(__afl_fuzz_ptr + length,
+                                    prev_length - length);
+
+      } else {
+
+        __asan_unpoison_memory_region(__afl_fuzz_ptr + prev_length,
+                                      length - prev_length);
+
+      }
+
+      prev_length = length;
 
       num_runs++;
-      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
+      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, length);
 
     }
 
