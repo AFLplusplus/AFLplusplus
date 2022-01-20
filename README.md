@@ -11,10 +11,10 @@ Repository:
 
 AFL++ is maintained by:
 
-* Marc "van Hauser" Heuse <mh@mh-sec.de>,
-* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
-* Andrea Fioraldi <andreafioraldi@gmail.com> and
-* Dominik Maier <mail@dmnk.co>.
+* Marc "van Hauser" Heuse <mh@mh-sec.de>
+* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
+* Andrea Fioraldi <andreafioraldi@gmail.com>
+* Dominik Maier <mail@dmnk.co>
 * Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michał "lcamtuf" Zalewski.
@@ -29,13 +29,13 @@ terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
 
 Here is some information to get you started:
 
-* For an overview of the AFL++ documentation and a very helpful graphical
-  guide please visit [docs/README.md](docs/README.md)
+* For an overview of the AFL++ documentation and a very helpful graphical guide,
+  please visit [docs/README.md](docs/README.md).
 * To get you started with tutorials, go to
   [docs/tutorials.md](docs/tutorials.md).
 * For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
-  [branches](#branches). The best branches to use are however `stable` or
+  [branches](#branches). The best branches to use are, however, `stable` or
   `dev` - depending on your risk appetite. Also take a look at the list of
   [important changes in AFL++](docs/important_changes.md) and the list of
   [features](docs/features.md).
@@ -133,7 +133,7 @@ Questions? Concerns? Bug reports?
   question missing, submit it via
   [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
 * Best: join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
-* There is a (not really used)  mailing list for the AFL/AFL++ project
+* There is a (not really used) mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
   notes with other users or to get notified about major new features, send an
   email to <afl-users+subscribe@googlegroups.com>, but note that this is not
