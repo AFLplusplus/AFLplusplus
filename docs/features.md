@@ -1,7 +1,7 @@
 # Important features of AFL++
 
 AFL++ supports llvm from 3.8 up to version 12, very fast binary fuzzing with
-QEMU 5.1 with laf-intel and redqueen, FRIDA mode, unicorn mode, gcc plugin, full
+QEMU 5.1 with laf-intel and Redqueen, FRIDA mode, unicorn mode, gcc plugin, full
 *BSD, Mac OS, Solaris and Android support and much, much, much more.
 
 ## Features and instrumentation
@@ -100,7 +100,7 @@ Among others, the following features and patches have been integrated:
 * Unicorn mode which allows fuzzing of binaries from completely different
   platforms (integration provided by domenukk)
 * The new CmpLog instrumentation for LLVM and QEMU inspired by
-  [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
+  [Redqueen](https://github.com/RUB-SysSec/redqueen)
 * Win32 PE binary-only fuzzing with QEMU and Wine
 * AFLfast's power schedules by Marcel Böhme:
   [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
