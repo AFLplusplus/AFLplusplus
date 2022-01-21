@@ -188,8 +188,9 @@ If you find an interesting or important question missing, submit it via
   A power schedule measures how "interesting" a value is, and depending on
   the calculated value spends more or less time mutating it.
 
-  AFL++ comes with several power schedules, initially ported from [AFLFast](https://github.com/mboehme/aflfast)
-  however modified to be more effective and several more modes added.
+  AFL++ comes with several power schedules, initially ported from
+  [AFLFast](https://github.com/mboehme/aflfast), however, modified to be more
+  effective and several more modes added.
 
   The most effective modes are `-p fast` (default) and `-p explore`.
 
@@ -200,6 +201,7 @@ If you find an interesting or important question missing, submit it via
   It does not make sense to explain the details of the calculation and
   reasoning behind all of the schedules. If you are interested, read the source
   code and the AFLFast paper.
+</p></details>
 
 ## Troubleshooting
 
@@ -215,16 +217,18 @@ If you find an interesting or important question missing, submit it via
              To ignore this set AFL_IGNORE_PROBLEMS=1.
   ```
 
-  As the error describes, a dlopen() call is happening in the target that is loading an instrumented library after the forkserver is already in place,
-  This is a problem for afl-fuzz because when the forkserver is started we must know the map size already and it can't be changed later.
+  As the error describes, a dlopen() call is happening in the target that is
+  loading an instrumented library after the forkserver is already in place. This
+  is a problem for afl-fuzz because when the forkserver is started, we must know
+  the map size already and it can't be changed later.
 
-  The best solution is to simply set `AFL_PRELOAD=foo.so` the libraries that
-  are dlopen'ed (e.g. use `strace` to see which), or to set a manual forkserver
+  The best solution is to simply set `AFL_PRELOAD=foo.so` to the libraries that
+  are dlopen'ed (e.g., use `strace` to see which), or to set a manual forkserver
   after the final dlopen().
 
-  If this is not a viable option you can set `AFL_IGNORE_PROBLEMS=1` but then
+  If this is not a viable option, you can set `AFL_IGNORE_PROBLEMS=1` but then
   the existing map will be used also for the newly loaded libraries, which
-  allows it to work, however the efficiency of the fuzzing will be partially
+  allows it to work, however, the efficiency of the fuzzing will be partially
   degraded.
 </p></details>
 

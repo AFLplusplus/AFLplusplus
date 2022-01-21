@@ -135,7 +135,7 @@ Recommended, but not as good as CMPLOG mode (see below).
 
 ## 8) CMPLOG mode
 
-Another new feature is CMPLOG, which is based on the redqueen project. Here all
+Another new feature is CMPLOG, which is based on the Redqueen project. Here all
 immediates in CMP instructions are learned and put into a dynamic dictionary and
 applied to all locations in the input that reached that CMP, trying to solve and
 pass it. This is a very effective feature and it is available for x86, x86_64,

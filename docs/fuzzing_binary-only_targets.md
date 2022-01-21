@@ -14,6 +14,7 @@ fuzzed with AFL++.
 
 FRIDA mode and QEMU mode in persistent mode are the fastest - if persistent mode
 is possible and the stability is high enough.
+
 Otherwise, try Zafl, RetroWrite, Dyninst, and if these fail, too, then try
 standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` to where you need it.
 
@@ -127,13 +128,13 @@ Working examples already exist :-)
 
 ### Nyx mode
 
-Nyx is a full system emulation fuzzing environment with snapshot support that
-is built upon KVM and QEMU.
-It is only available on Linux and currently restricted to x86_x64.
+Nyx is a full system emulation fuzzing environment with snapshot support that is
+built upon KVM and QEMU. It is only available on Linux and currently restricted
+to x86_x64.
 
 For binary-only fuzzing a special 5.10 kernel is required.
 
-See [nyx_mode/README.md](../nyx_mode/README.md)
+See [nyx_mode/README.md](../nyx_mode/README.md).
 
 ### Unicorn
 
@@ -198,15 +199,15 @@ afl-clang-fast's.
 
 ### RetroWrite
 
-RetroWrite is a static binary rewriter that can be combined with AFL++. 
-If you have an x86_64 binary that still has its symbols (i.e., not stripped binary), 
-is compiled with position independent code (PIC/PIE), and does not contain C++ exceptions,
-then the RetroWrite solution might be for you. It decompiles to ASM files which
-can then be instrumented with afl-gcc.
+RetroWrite is a static binary rewriter that can be combined with AFL++. If you
+have an x86_64 binary that still has its symbols (i.e., not stripped binary), is
+compiled with position independent code (PIC/PIE), and does not contain C++
+exceptions, then the RetroWrite solution might be for you. It decompiles to ASM
+files which can then be instrumented with afl-gcc.
 
 Binaries that are statically instrumented for fuzzing using RetroWrite are close
-in performance to compiler-instrumented binaries and outperform 
-the QEMU-based instrumentation.
+in performance to compiler-instrumented binaries and outperform the QEMU-based
+instrumentation.
 
 [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
 
