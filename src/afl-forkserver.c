@@ -405,24 +405,27 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    if (fsrv->nyx_parent) {
-
+    if (fsrv->nyx_standalone){
       fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
-          fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id,
-          !fsrv->nyx_standalone);
+          fsrv->target_path, x, fsrv->nyx_bind_cpu_id, 0x10000, true);
+    }
+    else{
+      if (fsrv->nyx_parent) {
+        fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_parent(
+            fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
 
-    } else {
+      } else {
+        fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_child(
+            fsrv->target_path, x, fsrv->nyx_bind_cpu_id, fsrv->nyx_id);
 
-      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
-          fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id, true);
-
+      }
     }
 
     if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
 
     u32 tmp_map_size =
         fsrv->nyx_handlers->nyx_get_bitmap_buffer_size(fsrv->nyx_runner);
-    fsrv->real_map_size = fsrv->map_size;
+    fsrv->real_map_size = tmp_map_size;
     fsrv->map_size = (((tmp_map_size + 63) >> 6) << 6);
     if (!be_quiet) { ACTF("Target map size: %u", fsrv->real_map_size); }
 
