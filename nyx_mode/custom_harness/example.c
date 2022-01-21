@@ -4,8 +4,7 @@
 #include <inttypes.h>
 #include "nyx.h"
 
-/* this is our "bitmap" that is later shared with the fuzzer (you can also pass the pointer of the bitmap used by compile-time instrumentations in your target) */ 
-uint8_t* trace_buffer[64*1024] = {0};
+#define TRACE_BUFFER_SIZE (1024*64)
 
 int main(int argc, char** argv){
 	/* if you want to debug code running in Nyx, hprintf() is the way to go. 
@@ -20,21 +19,27 @@ int main(int argc, char** argv){
     hprintf("[capablities] host_config.ijon_bitmap_size: 0x%"PRIx64"\n", host_config.ijon_bitmap_size);
     hprintf("[capablities] host_config.payload_buffer_size: 0x%"PRIx64"x\n", host_config.payload_buffer_size);
 	
+	/* this is our "bitmap" that is later shared with the fuzzer (you can also pass the pointer of the bitmap used by compile-time instrumentations in your target) */ 
+	uint8_t* trace_buffer =  mmap(NULL, TRACE_BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	memset(trace_buffer, 0, TRACE_BUFFER_SIZE); // makes sure that the bitmap buffer is already mapped into the guest's memory (alternatively you can use mlock) */
+
 	/* Submit agent configuration */
-	memset(trace_buffer, 0, 64*1024); // makes sure that the bitmap buffer is already mapped into the guest's memory (alternatively you can use mlock) */
 	agent_config_t agent_config = {0};
+	agent_config.agent_magic = NYX_AGENT_MAGIC;
+    agent_config.agent_version = NYX_AGENT_VERSION;
 	agent_config.agent_timeout_detection = 0; 								/* timeout detection is implemented by the agent (currently not used) */
 	agent_config.agent_tracing = 1;											/* set this flag to propagade that instrumentation-based fuzzing is availabe */
 	agent_config.agent_ijon_tracing = 0; 									/* set this flag to propagade that IJON extension is implmented agent-wise */
 	agent_config.trace_buffer_vaddr = (uintptr_t)trace_buffer;				/* trace "bitmap" pointer - required for instrumentation-only fuzzing */
 	agent_config.ijon_trace_buffer_vaddr = (uintptr_t)NULL;					/* "IJON" buffer pointer */
     agent_config.agent_non_reload_mode = 1;									/* non-reload mode is supported (usually because the agent implements a fork-server; currently not used) */
+	agent_config.coverage_bitmap_size = TRACE_BUFFER_SIZE;
     kAFL_hypercall(HYPERCALL_KAFL_SET_AGENT_CONFIG, (uintptr_t)&agent_config);
 
 	/* Tell hypervisor the virtual address of the payload (input) buffer (call mlock to ensure that this buffer stays in the guest's memory)*/
-	kAFL_payload* payload_buffer = mmap((void*)0x4000000ULL, PAYLOAD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-	mlock(payload_buffer, (size_t)PAYLOAD_SIZE);
-	memset(payload_buffer, 0, PAYLOAD_SIZE);
+	kAFL_payload* payload_buffer = mmap(NULL, host_config.payload_buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	mlock(payload_buffer, (size_t)host_config.payload_buffer_size);
+	memset(payload_buffer, 0, host_config.payload_buffer_size);
 	kAFL_hypercall(HYPERCALL_KAFL_GET_PAYLOAD, (uintptr_t)payload_buffer);
 	hprintf("[init] payload buffer is mapped at %p\n", payload_buffer);
 
