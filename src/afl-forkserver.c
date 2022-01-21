@@ -407,7 +407,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (fsrv->nyx_standalone){
       fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
-          fsrv->target_path, x, fsrv->nyx_bind_cpu_id, 0x10000, true);
+          fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
     }
     else{
       if (fsrv->nyx_parent) {
