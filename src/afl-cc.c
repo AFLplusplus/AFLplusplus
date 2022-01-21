@@ -767,15 +767,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       u8 *afllib = find_object("libAFLDriver.a", argv[0]);
 
       if (!be_quiet)
-        WARNF(
-            "Found erroneous '-fsanitize=fuzzer', trying to replace with "
-            "libAFLDriver.a");
+        OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
 
       if (!afllib) {
 
         WARNF(
-            "Cannot find 'libAFLDriver.a' to replace a wrong "
-            "'-fsanitize=fuzzer' in the flags - this will fail!");
+            "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
+            "the flags - this will fail!");
 
       } else {
 
