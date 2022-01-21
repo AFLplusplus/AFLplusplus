@@ -85,18 +85,19 @@ The normal afl-fuzz command line format applies to everything here. Refer to
 AFL's main documentation for more info about how to use afl-fuzz effectively.
 
 For a much clearer vision of what all of this looks like, refer to the sample
-provided in the [samples/](./samples/) directory. There is also a
-blog post that uses slightly older concepts, but describes the general ideas,
-at:
+provided in the [samples/](./samples/) directory. There is also a blog post that
+uses slightly older concepts, but describes the general ideas, at:
 
 [https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf)
 
 The [helper_scripts/](./helper_scripts/) directory also contains several helper
 scripts that allow you to dump context from a running process, load it, and hook
 heap allocations. For details on how to use this, check out the follow-up blog
-post to the one linked above.
+post to the one linked above:
 
-A example use of AFL-Unicorn mode is discussed in the paper Unicorefuzz:
+[https://hackernoon.com/afl-unicorn-part-2-fuzzing-the-unfuzzable-bea8de3540a5](https://hackernoon.com/afl-unicorn-part-2-fuzzing-the-unfuzzable-bea8de3540a5)
+
+An example use of AFL-Unicorn mode is discussed in the paper Unicorefuzz:
 [https://www.usenix.org/conference/woot19/presentation/maier](https://www.usenix.org/conference/woot19/presentation/maier)
 
 ## 3) Options
