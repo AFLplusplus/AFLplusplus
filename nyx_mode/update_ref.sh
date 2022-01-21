@@ -71,7 +71,7 @@ echo "$NEW_VERSION" > "$UC_VERSION_FILE"
 echo "Done. New XXX version is $NEW_VERSION."
 
 
-UC_VERSION_FILE='./QEMU_NXY_VERSION'
+UC_VERSION_FILE='./QEMU_NYX_VERSION'
 NEW_VERSION=""
 
 cd ./QEMU-Nyx || exit 1

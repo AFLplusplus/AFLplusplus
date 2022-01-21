@@ -1,3 +1,11 @@
+//
+// NOTE: This file is outdated. None of the AFL++ team uses Android hence
+//       we need users to keep this updated.
+//       In the current state it will likely fail, please send fixes!
+//       Also, this should build frida_mode.
+//
+
+
 cc_defaults {
   name: "afl-defaults",
 
@@ -175,7 +183,7 @@ cc_binary_host {
 }
 
 cc_library_static {
-  name: "afl-llvm-rt",
+  name: "afl-compiler-rt",
   compile_multilib: "64",
   vendor_available: true,
   host_supported: true,
@@ -225,6 +233,7 @@ cc_library_headers {
   ],
 }
 
+/*
 cc_prebuilt_library_static {
   name: "libfrida-gum",
   compile_multilib: "64",
@@ -272,7 +281,7 @@ cc_binary {
   ],
 
   static_libs: [
-    "afl-llvm-rt",
+    "afl-compiler-rt",
     "libfrida-gum",
   ],
 
@@ -290,6 +299,7 @@ cc_binary {
     "utils/afl_frida/android",
   ],
 }
+*/
 
 cc_binary {
   name: "afl-fuzz-32",
@@ -346,7 +356,7 @@ cc_binary_host {
 }
 
 cc_library_static {
-  name: "afl-llvm-rt-32",
+  name: "afl-compiler-rt-32",
   compile_multilib: "32",
   vendor_available: true,
   host_supported: true,
@@ -385,6 +395,7 @@ cc_library_static {
   ],
 }
 
+/*
 cc_prebuilt_library_static {
   name: "libfrida-gum-32",
   compile_multilib: "32",
@@ -400,6 +411,7 @@ cc_prebuilt_library_static {
     "utils/afl_frida/android/arm",
   ],
 }
+*/
 
 subdirs = [
   "custom_mutators",

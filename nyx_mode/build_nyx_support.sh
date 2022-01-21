@@ -53,7 +53,7 @@ fi
 echo "[*] Checking QEMU-Nyx ..."
 if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
     cd QEMU-Nyx/
-    ./compile_qemu_nyx.sh || exit 1
+    ./compile_qemu_nyx.sh static || exit 1
     cd ..
 fi
 
