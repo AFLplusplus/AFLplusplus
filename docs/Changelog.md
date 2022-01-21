@@ -54,6 +54,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Prevent accidentaly killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
+    - detect overflow reads on initial input buffer for asan
     - new cmplog mode (incompatible with older afl++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
