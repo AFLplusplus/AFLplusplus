@@ -8,9 +8,9 @@
 
    Run under AFL as follows:
 
-   $ cd <afl_path>/unicorn_mode/samples/simple/
+   $ cd <afl_path>/unicorn_mode/samples/speedtest/c
    $ make
-   $ ../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
+   $ ../../../../afl-fuzz -i ../sample_inputs -o out -U -- ./harness @@
 */
 
 // This is not your everyday Unicorn.
