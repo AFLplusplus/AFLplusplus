@@ -46,12 +46,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 Nyx uses full system emulation hence your fuzzing targets have to be especially
 packaged.
 
-**For source code based instrumentation with `afl-clang-fast` for the time
-being these must be instrumented to `AFL_LLVM_INSTRUMENT=AFL` to work!**
-
 With your target ready at hand execute the following command
 (note that for binary-only fuzzing with the special 5.10 kernel switch the
-option `instrumentation` below with `process_trace`):
+option `instrumentation` below with `processor_trace`):
 
 ```shell
 python3 nyx_mode/packer/packer/nyx_packer.py \
@@ -126,10 +123,9 @@ git clone https://gitlab.gnome.org/GNOME/libxml2
 cd libxml2
 ```
 
-Remember that currently only classic AFL instrumentation is supported!
+Next, compile libxml2:
 
 ``` 
-export AFL_LLVM_INSTRUMENT=AFL
 ./autogen.sh
 ./configure --enable-shared=no
 make CC=afl-clang-fast CXX=afl-clang-fast++ LD=afl-clang-fast
@@ -249,7 +245,7 @@ mkdir /tmp/nyx_custom_agent/
  To compile this example, run the following command (remove the `-DNO_PT_NYX` option if you are using KVM-Nyx ): 
 
 ``` 
-gcc example.c -DNO_PT_NYX -static -I ./packer/ -o /tmp/nyx_custom_agent/target
+gcc example.c -DNO_PT_NYX -static -I ../packer/ -o /tmp/nyx_custom_agent/target
 ```
 
 Copy both bootstrap scripts into the sharedir: 
