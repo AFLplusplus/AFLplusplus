@@ -4,9 +4,8 @@ The CmpLog instrumentation enables logging of comparison operands in a shared
 memory.
 
 These values can be used by various mutators built on top of it. At the moment,
-we support the RedQueen mutator (input-2-state instructions only), for details
-see
-[the RedQueen paper](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf).
+we support the Redqueen mutator (input-2-state instructions only), for details
+see [the Redqueen paper](https://github.com/RUB-SysSec/redqueen).
 
 ## Build
 

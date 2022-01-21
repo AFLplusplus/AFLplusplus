@@ -7,23 +7,23 @@ changes.
 
 With AFL++ 4.00, we introduced the following changes from previous behaviors:
   * the complete documentation was overhauled and restructured thanks to @llzmb!
-  * a new CMPLOG target format requires recompiling CMPLOG targets for use
-    with afl++ 4.0 onwards
+  * a new CMPLOG target format requires recompiling CMPLOG targets for use with
+    AFL++ 4.0 onwards
   * better naming for several fields in the UI
 
 With AFL++ 3.15, we introduced the following changes from previous behaviors:
-  * afl-cmin and afl-showmap -Ci now descend into subdirectories like afl-fuzz
-    -i does (but note that afl-cmin.bash does not)
+  * afl-cmin and afl-showmap `-Ci` now descend into subdirectories like afl-fuzz
+    `-i` does (but note that afl-cmin.bash does not)
 
 With AFL++ 3.14, we introduced the following changes from previous behaviors:
-  * afl-fuzz: deterministic fuzzing is not a default for -M main anymore
+  * afl-fuzz: deterministic fuzzing is not a default for `-M main` anymore
   * afl-cmin/afl-showmap -i now descends into subdirectories (afl-cmin.bash,
     however, does not)
 
 With AFL++ 3.10, we introduced the following changes from previous behaviors:
-  * The '+' feature of the '-t' option now means to auto-calculate the timeout
+  * The '+' feature of the `-t` option now means to auto-calculate the timeout
     with the value given being the maximum timeout. The original meaning of
-    "skipping timeouts instead of abort" is now inherent to the -t option.
+    "skipping timeouts instead of abort" is now inherent to the `-t` option.
 
 With AFL++ 3.00, we introduced changes that break some previous AFL and AFL++
 behaviors and defaults:
@@ -41,19 +41,20 @@ behaviors and defaults:
     if any were given. This allows to fuzz targets build regularly like those
     for debug or release versions.
   * afl-fuzz:
-    * if neither -M or -S is specified, `-S default` is assumed, so more fuzzers
-      can easily be added later
+    * if neither `-M` or `-S` is specified, `-S default` is assumed, so more
+      fuzzers can easily be added later
     * `-i` input directory option now descends into subdirectories. It also does
       not fail on crashes and too large files, instead it skips them and uses
       them for splicing mutations
-    * -m none is now the default, set memory limits (in MB) with, e.g., -m 250
-    * deterministic fuzzing is now disabled by default (unless using -M) and can
-      be enabled with -D
+    * `-m` none is now the default, set memory limits (in MB) with, e.g., `-m
+      250`
+    * deterministic fuzzing is now disabled by default (unless using `-M`) and
+      can be enabled with `-D`
     * a caching of test cases can now be performed and can be modified by
-      editing config.h for TESTCASE_CACHE or by specifying the environment
+      editing config.h for `TESTCASE_CACHE` or by specifying the environment
       variable `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500
       (default: 50).
-    * -M mains do not perform trimming
-  * examples/ got renamed to utils/
-  * libtokencap/ libdislocator/ and qdbi_mode/ were moved to utils/
-  * afl-cmin/afl-cmin.bash now search first in PATH and last in AFL_PATH
+    * `-M` mains do not perform trimming
+  * `examples/` got renamed to `utils/`
+  * `libtokencap/`, `libdislocator/`, and `qdbi_mode/` were moved to `utils/`
+  * afl-cmin/afl-cmin.bash now search first in `PATH` and last in `AFL_PATH`
