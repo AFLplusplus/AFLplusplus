@@ -84,6 +84,8 @@ __attribute__((weak)) void __asan_unpoison_memory_region(
 
 }
 
+__attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
+
 // Notify AFL about persistent mode.
 static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
 int                  __afl_persistent_loop(unsigned int);
@@ -328,45 +330,45 @@ int main(int argc, char **argv) {
   __asan_poison_memory_region(__afl_fuzz_ptr, MAX_FILE);
   size_t prev_length = 0;
 
-  int num_runs = 0;
-  while (__afl_persistent_loop(N)) {
+  // for speed only insert asan functions if the target is linked with asan
+  if (__asan_region_is_poisoned) {
 
-    size_t length = *__afl_fuzz_len;
+    while (__afl_persistent_loop(N)) {
 
-#ifdef _DEBUG
-    fprintf(stderr, "CLIENT crc: %016llx len: %u\n",
-            hash64(__afl_fuzz_ptr, *__afl_fuzz_len, 0xa5b35705),
-            *__afl_fuzz_len);
-    fprintf(stderr, "RECV:");
-    for (int i = 0; i < *__afl_fuzz_len; i++)
-      fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
-    fprintf(stderr, "\n");
-#endif
+      size_t length = *__afl_fuzz_len;
 
-    if (length) {
+      if (likely(length)) {
 
-      if (length < prev_length) {
+        if (length < prev_length) {
 
-        __asan_poison_memory_region(__afl_fuzz_ptr + length,
-                                    prev_length - length);
+          __asan_poison_memory_region(__afl_fuzz_ptr + length,
+                                      prev_length - length);
 
-      } else {
+        } else if (length > prev_length) {
 
-        __asan_unpoison_memory_region(__afl_fuzz_ptr + prev_length,
-                                      length - prev_length);
+          __asan_unpoison_memory_region(__afl_fuzz_ptr + prev_length,
+                                        length - prev_length);
+
+        }
+
+        prev_length = length;
+        LLVMFuzzerTestOneInput(__afl_fuzz_ptr, length);
 
       }
 
-      prev_length = length;
+    }
 
-      num_runs++;
-      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, length);
+  } else {
+
+    while (__afl_persistent_loop(N)) {
+
+      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
 
     }
 
   }
 
-  printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);
+  return 0;
 
 }
 
