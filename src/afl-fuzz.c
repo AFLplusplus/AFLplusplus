@@ -404,6 +404,12 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   plugin->nyx_new = dlsym(handle, "nyx_new");
   if (plugin->nyx_new == NULL) { goto fail; }
 
+  plugin->nyx_new_parent = dlsym(handle, "nyx_new_parent");
+  if (plugin->nyx_new_parent == NULL) { goto fail; }
+
+  plugin->nyx_new_child = dlsym(handle, "nyx_new_child");
+  if (plugin->nyx_new_child == NULL) { goto fail; }
+
   plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
   if (plugin->nyx_shutdown == NULL) { goto fail; }
 
@@ -1340,7 +1346,8 @@ int main(int argc, char **argv_orig, char **envp) {
               "0)");
 
         }
-
+        
+        afl->fsrv.nyx_parent = true;
         afl->fsrv.nyx_id = 0;
 
       }
