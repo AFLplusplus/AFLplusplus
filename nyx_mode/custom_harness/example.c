@@ -4,7 +4,10 @@
 #include <inttypes.h>
 #include "nyx.h"
 
-#define TRACE_BUFFER_SIZE (1024 * 64)
+#define TRACE_BUFFER_SIZE (64)
+
+#define PAGE_SIZE 0x1000
+#define MMAP_SIZE(x) ((x & ~(PAGE_SIZE-1)) + PAGE_SIZE)
 
 int main(int argc, char **argv) {
 
@@ -27,8 +30,8 @@ int main(int argc, char **argv) {
   /* this is our "bitmap" that is later shared with the fuzzer (you can also
    * pass the pointer of the bitmap used by compile-time instrumentations in
    * your target) */
-  uint8_t *trace_buffer = mmap(NULL, TRACE_BUFFER_SIZE, PROT_READ | PROT_WRITE,
-                               MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  uint8_t *trace_buffer = mmap(NULL, MMAP_SIZE(TRACE_BUFFER_SIZE), PROT_READ | 
+                               PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   memset(trace_buffer, 0,
          TRACE_BUFFER_SIZE);  // makes sure that the bitmap buffer is already
                               // mapped into the guest's memory (alternatively
