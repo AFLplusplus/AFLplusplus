@@ -4,28 +4,27 @@
 .POSIX:
 UNAME_S =$(shell uname -s)# GNU make
 UNAME_S:sh=uname -s       # BSD make
-_UNIQ=_QINU_
 
-LIBDIR = ../../unicornafl
+UNICORNAFL_LIB = ../../unicornafl/build
+UNICORN_LIB = ../../unicornafl/unicorn/build
 BIN_EXT =
 AR_EXT = a
 
 # Verbose output?
 V ?= 0
 
-CFLAGS += -Wall -Werror -I../../unicornafl/include
+CFLAGS += -Wall -Werror -I../../unicornafl/unicorn/include -I../../unicornafl/include
 
-LDFLAGS += -L$(LIBDIR) -lpthread -lm
+LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lpthread -lm -lunicornafl -lunicorn -lc++
 
-_LRT = $(_UNIQ)$(UNAME_S)
-__LRT = $(_LRT:$(_UNIQ)Linux=-lrt)
-LRT = $(__LRT:$(_UNIQ)$(UNAME_S)=)
+ifeq ($(UNAME), Linux)
+# do something Linux-y
+LRT = -lrt
+else
+LRT = 
+endif
 
 LDFLAGS += $(LRT)
-
-_CC = $(_UNIQ)$(CROSS)
-__CC = $(_CC:$(_UNIQ)=$(CC))
-MYCC = $(__CC:$(_UNIQ)$(CROSS)=$(CROSS)gcc)
 
 .PHONY: all clean
 
@@ -34,20 +33,23 @@ all: harness
 clean:
 	rm -rf *.o harness harness-debug
 
-harness.o: harness.c ../../unicornafl/include/unicorn/*.h
-	${MYCC} ${CFLAGS} -O3 -c harness.c
+harness.o: harness.c ../../unicornafl/unicorn/include/unicorn/*.h
+	${CC} ${CFLAGS} -O3 -c harness.c
 
-harness-debug.o: harness.c ../../unicornafl/include/unicorn/*.h
-	${MYCC} ${CFLAGS} -DAFL_DEBUG=1 -g -c harness.c -o $@
+harness-debug.o: harness.c ../../unicornafl/unicorn/include/unicorn/*.h
+	${CC} ${CFLAGS} -DAFL_DEBUG=1 -g -c harness.c -o $@
 
 harness: harness.o
-	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o $@
+	${CC} harness.o ../../unicornafl/build/libunicornafl.a $(LDFLAGS) -o $@
 
 debug: harness-debug.o
-	${MYCC} -L${LIBDIR} harness-debug.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
+	${CC} harness-debug.o ../../unicornafl/build/libunicornafl.a $(LDFLAGS) -o harness-debug
+
+../../unicornafl/build/libunicornafl.a:
+	cd ../.. && ./build_unicorn_support.sh
 
 fuzz: harness
-	../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
+	DYLD_FALLBACK_LIBRARY_PATH="../../unicornafl/unicorn/build" LD_LIBRARY_PATH="../../unicornafl/unicorn/build" ../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
 
 debugmake:
 	@echo UNAME_S=$(UNAME_S), _LRT=$(_LRT), __LRT=$(__LRT), LRT=$(LRT)
