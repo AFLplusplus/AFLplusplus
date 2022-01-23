@@ -3,7 +3,6 @@ message: "If you use this software, please cite it as below."
 authors:
   - given-names: Heuse
     family-names: Marc
-    name-particle: van Hauser
     email: mh@mh-sec.de
   - given-names: Eißfeldt
     family-names: Heiko
