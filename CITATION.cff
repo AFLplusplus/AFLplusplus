@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - given-names: Fioraldi
+    family-names: Andrea
+    email: andreafioraldi@gmail.com
+  - given-names: Maier
+    family-names: Dominik
+    email: mail@dmnk.co
+  - given-names: Eißfeldt
+    family-names: Heiko
+    email: heiko.eissfeldt@hexco.de
+  - given-names: Heuse
+    family-names: Marc
+    name-particle: van Hauser
+    email: vh@thc.org
+    affiliation: The Hacker's Choice
+title: "AFL++"
+version: 3.14
+type: software
+date-released: 2021-07-19
+url: "https://github.com/AFLplusplus/AFLplusplus"
+keywords:
+  - fuzzing
+  - fuzzer
+  - fuzz-testing
+  - instrumentation
+  - afl-fuzz
+  - qemu
+  - llvm
+  - unicorn-emulator
+  - securiy
+license: AGPL-3.0-or-later
