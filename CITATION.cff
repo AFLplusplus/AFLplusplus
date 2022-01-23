@@ -1,20 +1,19 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
+  - given-names: Heuse
+    family-names: Marc
+    name-particle: van Hauser
+    email: mh@mh-sec.de
+  - given-names: Eißfeldt
+    family-names: Heiko
+    email: heiko.eissfeldt@hexco.de
   - given-names: Fioraldi
     family-names: Andrea
     email: andreafioraldi@gmail.com
   - given-names: Maier
     family-names: Dominik
     email: mail@dmnk.co
-  - given-names: Eißfeldt
-    family-names: Heiko
-    email: heiko.eissfeldt@hexco.de
-  - given-names: Heuse
-    family-names: Marc
-    name-particle: van Hauser
-    email: vh@thc.org
-    affiliation: The Hacker's Choice
 title: "AFL++"
 version: 3.14
 type: software
