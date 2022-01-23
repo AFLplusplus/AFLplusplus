@@ -1346,7 +1346,7 @@ int main(int argc, char **argv_orig, char **envp) {
               "0)");
 
         }
-        
+
         afl->fsrv.nyx_parent = true;
         afl->fsrv.nyx_id = 0;
 
