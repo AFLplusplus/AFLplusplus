@@ -1,7 +1,7 @@
 # Changelog
 
-  This is the list of all noteworthy changes made in every public release of
-  the tool. See README.md for the general instruction manual.
+  This is the list of all noteworthy changes made in every public
+  release of the tool. See README.md for the general instruction manual.
 
 ## Staying informed
 
@@ -9,7 +9,8 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.15a (dev)
-  - documentation restructuring, made possible by Google Season of Docs
+  - complete documentation restructuring, made possible by Google Season
+    of Docs :) thank you Jana!
   - we renamed several UI and fuzzer_stat entries to be more precise,
     e.g. "unique crashes" -> "saved crashes", "total paths" ->
     "corpus count", "current path" -> "current item".
@@ -17,14 +18,14 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Nyx mode (full system emulation with snapshot capability) has been
     added - thanks to @schumilo and @eqv!
   - unicorn_mode:
-    - Moved to unicorn2! By Ziqiao Kong (@lazymio)
-    - Faster, more accurate emulation (newer QEMU base), riscv support
+    - Moved to unicorn2! by Ziqiao Kong (@lazymio)
+    - Faster, more accurate emulation (newer QEMU base), risc-v support
     - removed indirections in rust callbacks
   - new binary-only fuzzing mode: coresight_mode for aarch64 CPUs :)
     thanks to RICSecLab submitting!
   - if instrumented libaries are dlopen()'ed after the forkserver you
-    will now see crashes. before you would have colliding coverage.
-    we changed this to force fixing a broken setup rather then allowing
+    will now see a crash. Before you would have colliding coverage.
+    We changed this to force fixing a broken setup rather then allowing
     ineffective fuzzing.
     See docs/best_practices.md how to fix such setups.
   - afl-fuzz:
@@ -35,7 +36,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_IGNORE_PROBLEMS, plus checks to identify and abort on
       incorrect LTO usage setups and enhanced the READMEs for better
       information on how to deal with instrumenting libraries
-    - fix -n dumb mode (nobody should use this)
+    - fix -n dumb mode (nobody should use this mode though)
     - fix stability issue with LTO and cmplog
     - better banner
     - more effective cmplog mode
@@ -63,7 +64,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed a potential crash in targets for LAF string handling
     - fixed a bad assert in LAF split switches
     - added AFL_USE_TSAN thread sanitizer support
-    - llvm and LTO mode modified to work with new llvm 14-dev (again. again.)
+    - llvm and LTO mode modified to work with new llvm 14-dev (again.)
     - fix for AFL_REAL_LD
     - more -z defs filtering
     - make -v without options work
@@ -74,7 +75,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added afl-persistent-config script to set perform permanent system
     configuration settings for fuzzing, for Linux and Macos.
     thanks to jhertz!
-  - added xml, curl and exotic string functions to llvm dictionary features
+  - added xml, curl & exotic string functions to llvm dictionary feature
   - fix AFL_PRELOAD issues on MacOS
   - removed utils/afl_frida because frida_mode/ is now so much better
   - added uninstall target to makefile (todo: update new readme!)
@@ -97,7 +98,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Fix to instrument global namespace functions in c++
     - Fix for llvm 13
     - support partial linking
-    - do honor AFL_LLVM_{ALLOW/DENY}LIST for LTO autodictionary and DICT2FILE
+    - do honor AFL_LLVM_{ALLOW/DENY}LIST for LTO autodictionary andDICT2FILE
     - We do support llvm versions from 3.8 to 5.0 again
   - frida_mode:
     - several fixes for cmplog

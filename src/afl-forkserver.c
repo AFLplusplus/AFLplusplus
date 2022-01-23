@@ -405,20 +405,25 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    if (fsrv->nyx_standalone){
+    if (fsrv->nyx_standalone) {
+
       fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
           fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
-    }
-    else{
+
+    } else {
+
       if (fsrv->nyx_parent) {
+
         fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_parent(
             fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
 
       } else {
+
         fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_child(
             fsrv->target_path, x, fsrv->nyx_bind_cpu_id, fsrv->nyx_id);
 
       }
+
     }
 
     if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
