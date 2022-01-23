@@ -1,17 +1,17 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-  - given-names: Heuse
-    family-names: Marc
+  - given-names: Marc
+    family-names: Heuse
     email: mh@mh-sec.de
-  - given-names: Eißfeldt
-    family-names: Heiko
+  - given-names: Heiko
+    family-names: Eißfeldt
     email: heiko.eissfeldt@hexco.de
-  - given-names: Fioraldi
-    family-names: Andrea
+  - given-names: Andrea
+    family-names: Fioraldi
     email: andreafioraldi@gmail.com
-  - given-names: Maier
-    family-names: Dominik
+  - given-names: Dominik
+    family-names: Meier
     email: mail@dmnk.co
 title: "AFL++"
 version: 3.14
