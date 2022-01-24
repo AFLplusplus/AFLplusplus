@@ -50,14 +50,14 @@ static void at_exit() {
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr;
 
-  ptr = getenv(CPU_AFFINITY_ENV_VAR);
-  if (ptr && *ptr) unlink(ptr);
+  ptr = getenv("__AFL_TARGET_PID2");
+  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
 
   ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) kill(pid1, SIGTERM);
 
-  ptr = getenv("__AFL_TARGET_PID2");
-  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
+  ptr = getenv(CPU_AFFINITY_ENV_VAR);
+  if (ptr && *ptr) unlink(ptr);
 
   i = 0;
   while (list[i] != NULL) {
