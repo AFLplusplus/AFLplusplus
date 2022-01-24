@@ -72,8 +72,6 @@ __attribute__((constructor)) void __libqasan_init() {
 
   if (getenv("AFL_INST_LIBS") || getenv("QASAN_HOTPACH")) __libqasan_hotpatch();
 
-  if (getenv("AFL_INST_LIBS") || getenv("QASAN_HOTPACH")) __libqasan_hotpatch();
-
 #ifdef DEBUG
   __qasan_debug = getenv("QASAN_DEBUG") != NULL;
 #endif
