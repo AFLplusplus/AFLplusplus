@@ -33,6 +33,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       (it is better!)
     - fix a regression introduced in 3.10 that resulted in less
       coverage being detected. thanks to Collin May for reporting!
+    - ensure all spawned targets are killed on exit
     - added AFL_IGNORE_PROBLEMS, plus checks to identify and abort on
       incorrect LTO usage setups and enhanced the READMEs for better
       information on how to deal with instrumenting libraries
