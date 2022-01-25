@@ -251,17 +251,17 @@ int main(int argc, char **argv) {
     printf(
         "============================== INFO ================================\n"
         "This binary is built for afl++.\n"
-        "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
-        "option\n"
-        "To run the target function on individual input(s) execute this:\n"
+        "To run the target function on individual input(s) execute:\n"
         "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
-        "To fuzz with afl-fuzz execute this:\n"
+        "To fuzz with afl-fuzz execute:\n"
         "  afl-fuzz [afl-flags] -- %s [-N]\n"
         "afl-fuzz will run N iterations before re-spawning the process "
         "(default: "
         "INT_MAX)\n"
         "For stdin input processing, pass '-' as single command line option.\n"
         "For file input processing, pass '@@' as single command line option.\n"
+        "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
+        "option\n"
         "===================================================================\n",
         argv[0], argv[0]);
 
@@ -325,7 +325,7 @@ int main(int argc, char **argv) {
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  LLVMFuzzerTestOneInput(dummy_input, 1);
+  LLVMFuzzerTestOneInput(dummy_input, 4);
 
   __asan_poison_memory_region(__afl_fuzz_ptr, MAX_FILE);
   size_t prev_length = 0;
