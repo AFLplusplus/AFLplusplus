@@ -500,7 +500,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
             }
 
           }
-          close(nyx_autodict_fd);
           
           offset = 0;
           while (offset < (u32)f_len &&
@@ -517,6 +516,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           ck_free(dict);
 
         }
+        close(nyx_autodict_fd);
       }
     }
   
