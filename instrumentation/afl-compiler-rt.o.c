@@ -155,6 +155,7 @@ static int __afl_dummy_fd[2] = {2, 2};
 static void at_exit(int signal) {
 
   if (child_pid > 0) { kill(child_pid, SIGKILL); }
+  _exit(0);
 
 }
 
