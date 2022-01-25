@@ -567,16 +567,16 @@ clean:
 	rm -rf $(PROGS) afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
-	$(MAKE) -C utils/libdislocator clean
-	$(MAKE) -C utils/libtokencap clean
+	-$(MAKE) -C utils/libdislocator clean
+	-$(MAKE) -C utils/libtokencap clean
 	$(MAKE) -C utils/aflpp_driver clean
-	$(MAKE) -C utils/afl_network_proxy clean
-	$(MAKE) -C utils/socket_fuzzing clean
-	$(MAKE) -C utils/argv_fuzzing clean
+	-$(MAKE) -C utils/afl_network_proxy clean
+	-$(MAKE) -C utils/socket_fuzzing clean
+	-$(MAKE) -C utils/argv_fuzzing clean
 	-$(MAKE) -C utils/plot_ui clean
-	$(MAKE) -C qemu_mode/unsigaction clean
-	$(MAKE) -C qemu_mode/libcompcov clean
-	$(MAKE) -C qemu_mode/libqasan clean
+	-$(MAKE) -C qemu_mode/unsigaction clean
+	-$(MAKE) -C qemu_mode/libcompcov clean
+	-$(MAKE) -C qemu_mode/libqasan clean
 	-$(MAKE) -C frida_mode clean
 	rm -rf nyx_mode/packer/linux_initramfs/init.cpio.gz nyx_mode/libnyx/libnyx/target/release/* nyx_mode/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
 ifeq "$(IN_REPO)" "1"
@@ -611,11 +611,11 @@ distrib: all
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
-	$(MAKE) -C utils/libdislocator
-	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/afl_network_proxy
-	$(MAKE) -C utils/socket_fuzzing
-	$(MAKE) -C utils/argv_fuzzing
+	-$(MAKE) -C utils/libdislocator
+	-$(MAKE) -C utils/libtokencap
+	-$(MAKE) -C utils/afl_network_proxy
+	-$(MAKE) -C utils/socket_fuzzing
+	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
@@ -631,11 +631,11 @@ endif
 
 .PHONY: binary-only
 binary-only: test_shm test_python ready $(PROGS)
-	$(MAKE) -C utils/libdislocator
-	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/afl_network_proxy
-	$(MAKE) -C utils/socket_fuzzing
-	$(MAKE) -C utils/argv_fuzzing
+	-$(MAKE) -C utils/libdislocator
+	-$(MAKE) -C utils/libtokencap
+	-$(MAKE) -C utils/afl_network_proxy
+	-$(MAKE) -C utils/socket_fuzzing
+	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
@@ -655,8 +655,8 @@ source-only: all
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
-	$(MAKE) -C utils/libdislocator
-	$(MAKE) -C utils/libtokencap
+	-$(MAKE) -C utils/libdislocator
+	-$(MAKE) -C utils/libtokencap
 	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
 	-cd nyx_mode && ./build_nyx_support.sh
