@@ -212,7 +212,7 @@ echo "[*] Unicornafl bindings installed successfully."
 # Compile the sample, run it, verify that it works!
 echo "[*] Testing unicornafl python functionality by running a sample test harness"
 
-cd ../samples/simple || echo "Cannot cd"
+cd ../samples/python_simple || echo "Cannot cd"
 
 # Run afl-showmap on the sample application. If anything comes out then it must have worked!
 unset AFL_INST_RATIO

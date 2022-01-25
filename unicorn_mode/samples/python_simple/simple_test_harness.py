@@ -10,7 +10,7 @@
 
    Run under AFL as follows:
 
-   $ cd <afl_path>/unicorn_mode/samples/simple/
+   $ cd <afl_path>/unicorn_mode/samples/python_simple
    $ ../../../afl-fuzz -U -m none -i ./sample_inputs -o ./output -- python simple_test_harness.py @@ 
 """
 
