@@ -425,6 +425,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       }
 
     }
+
     ck_free(x);
 
     if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
@@ -467,17 +468,23 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* autodict in Nyx mode */
     if (!ignore_autodict) {
+
       x = alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
       int nyx_autodict_fd = open(x, O_RDONLY);
       ck_free(x);
 
-      if (nyx_autodict_fd >= 0) { 
+      if (nyx_autodict_fd >= 0) {
+
         struct stat st;
-        if (fstat(nyx_autodict_fd, &st) >= 0) { 
+        if (fstat(nyx_autodict_fd, &st) >= 0) {
+
           u32 f_len = st.st_size;
           u8 *dict = ck_alloc(f_len);
           if (dict == NULL) {
-            FATAL("Could not allocate %u bytes of autodictionary memory", f_len);
+
+            FATAL("Could not allocate %u bytes of autodictionary memory",
+                  f_len);
+
           }
 
           u32 offset = 0, count = 0;
@@ -497,16 +504,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                   "Reading autodictionary fail at position %u with %u bytes "
                   "left.",
                   offset, len);
+
             }
 
           }
-          
+
           offset = 0;
           while (offset < (u32)f_len &&
-                  (u8)dict[offset] + offset < (u32)f_len) {
+                 (u8)dict[offset] + offset < (u32)f_len) {
 
             fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
-                                  (u8)dict[offset]);
+                                 (u8)dict[offset]);
             offset += (1 + dict[offset]);
             count++;
 
@@ -516,10 +524,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           ck_free(dict);
 
         }
+
         close(nyx_autodict_fd);
+
       }
+
     }
-  
+
     return;
 
   }

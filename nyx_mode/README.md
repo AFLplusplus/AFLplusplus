@@ -43,6 +43,10 @@ requires an Intel processor (6th generation onwards) and a special 5.10 kernel
 
 ## Preparing to fuzz a target with Nyx mode
 
+For source instrumented fuzzing you can use any afl-cc mode, with LTO even
+auto-dictionary is supported.
+Note the CMPLOG is currently not supported (yet).
+
 Nyx uses full system emulation hence your fuzzing targets have to be especially
 packaged.
 
