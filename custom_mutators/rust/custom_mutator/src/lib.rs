@@ -358,6 +358,36 @@ pub mod wrappers {
     }
 }
 
+/// An exported macro to defined afl_custom_init meant for insternal usage
+#[cfg(feature = "afl_internals")]
+#[macro_export]
+macro_rules! _define_afl_custom_init {
+    ($mutator_type:ty) => {
+        #[no_mangle]
+        pub extern "C" fn afl_custom_init(
+            afl: ::std::option::Option<&'static $crate::afl_state>,
+            seed: ::std::os::raw::c_uint,
+        ) -> *const ::std::os::raw::c_void {
+            $crate::wrappers::afl_custom_init_::<$mutator_type>(afl, seed as u32)
+        }
+    }
+}
+
+/// An exported macro to defined afl_custom_init meant for insternal usage
+#[cfg(not(feature = "afl_internals"))]
+#[macro_export]
+macro_rules! _define_afl_custom_init {
+    ($mutator_type:ty) => {
+        #[no_mangle]
+        pub extern "C" fn afl_custom_init(
+            _afl: *const ::std::os::raw::c_void,
+            seed: ::std::os::raw::c_uint,
+        ) -> *const ::std::os::raw::c_void {
+            $crate::wrappers::afl_custom_init_::<$mutator_type>(seed as u32)
+        }
+    }
+}
+
 /// exports the given Mutator as a custom mutator as the C interface that AFL++ expects.
 /// It is not possible to call this macro multiple times, because it would define the custom mutator symbols multiple times.
 /// # Example
@@ -381,23 +411,7 @@ pub mod wrappers {
 #[macro_export]
 macro_rules! export_mutator {
     ($mutator_type:ty) => {
-        #[cfg(feature = "afl_internals")]
-        #[no_mangle]
-        pub extern "C" fn afl_custom_init(
-            afl: ::std::option::Option<&'static $crate::afl_state>,
-            seed: ::std::os::raw::c_uint,
-        ) -> *const ::std::os::raw::c_void {
-            $crate::wrappers::afl_custom_init_::<$mutator_type>(afl, seed as u32)
-        }
-
-        #[cfg(not(feature = "afl_internals"))]
-        #[no_mangle]
-        pub extern "C" fn afl_custom_init(
-            _afl: *const ::std::os::raw::c_void,
-            seed: ::std::os::raw::c_uint,
-        ) -> *const ::std::os::raw::c_void {
-            $crate::wrappers::afl_custom_init_::<$mutator_type>(seed as u32)
-        }
+        $crate::_define_afl_custom_init!($mutator_type);
 
         #[no_mangle]
         pub unsafe extern "C" fn afl_custom_fuzz_count(
