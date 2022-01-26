@@ -1,6 +1,6 @@
 # American Fuzzy Lop plus plus (AFL++)
 
-<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/AFLplusplus-website/master/static/aflpp_logo_256x256.png" alt="AFL++ logo">
+<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/master/static/aflpp_bg.svg" alt="AFL++ logo">
 
 Release version: [3.14c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
