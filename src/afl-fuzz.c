@@ -315,7 +315,7 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char *)PYTHON_VERSION);
 #else
-  SAYF("Compiled without python module support.\n");
+  SAYF("Compiled without Python module support.\n");
 #endif
 
 #ifdef AFL_PERSISTENT_RECORD
