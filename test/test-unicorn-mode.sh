@@ -4,7 +4,7 @@
 
 $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/samples/shellcode && {
-  test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
+  test -e ../unicorn_mode/samples/python_simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # We want to see python errors etc. in logs, in case something doesn't work
       export AFL_DEBUG_CHILD=1
@@ -61,7 +61,7 @@ test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/samples/shel
       {
         $ECHO "$GREY[*] running afl-fuzz for unicorn_mode in python, this will take approx 25 seconds"
         {
-          ../afl-fuzz -m ${MEM_LIMIT} -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
+          ../afl-fuzz -m ${MEM_LIMIT} -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/python_simple/simple_test_harness.py @@ >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
