@@ -370,7 +370,7 @@ macro_rules! _define_afl_custom_init {
         ) -> *const ::std::os::raw::c_void {
             $crate::wrappers::afl_custom_init_::<$mutator_type>(afl, seed as u32)
         }
-    }
+    };
 }
 
 /// An exported macro to defined afl_custom_init meant for insternal usage
@@ -385,7 +385,7 @@ macro_rules! _define_afl_custom_init {
         ) -> *const ::std::os::raw::c_void {
             $crate::wrappers::afl_custom_init_::<$mutator_type>(seed as u32)
         }
-    }
+    };
 }
 
 /// exports the given Mutator as a custom mutator as the C interface that AFL++ expects.

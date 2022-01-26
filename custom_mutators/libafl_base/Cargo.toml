@@ -1,0 +1,14 @@
+[package]
+name = "libafl_base"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libafl = { git = "https://github.com/AFLplusplus/LibAFL.git", rev = "62614ce1016c86e3f00f35b56399292ceabd486b" }
+custom_mutator = { path = "../rust/custom_mutator", features = ["afl_internals"] }
+serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
+
+[lib]
+crate-type = ["cdylib"]
