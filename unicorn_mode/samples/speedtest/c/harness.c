@@ -8,9 +8,9 @@
 
    Run under AFL as follows:
 
-   $ cd <afl_path>/unicorn_mode/samples/simple/
+   $ cd <afl_path>/unicorn_mode/samples/speedtest/c
    $ make
-   $ ../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
+   $ ../../../../afl-fuzz -i ../sample_inputs -o out -U -- ./harness @@
 */
 
 // This is not your everyday Unicorn.
@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 
 #include <unicorn/unicorn.h>
+#include <unicornafl/unicornafl.h>
 
 // Path to the file containing the binary to emulate
 #define BINARY_FILE ("../target")
@@ -124,7 +125,7 @@ static void mem_map_checked(uc_engine *uc, uint64_t addr, size_t size, uint32_t 
     //printf("SIZE %llx, align: %llx\n", size, ALIGNMENT);
     uc_err err = uc_mem_map(uc, addr, size, mode);
     if (err != UC_ERR_OK) {
-        printf("Error mapping %ld bytes at 0x%lx: %s (mode: %d)\n", size, addr, uc_strerror(err), mode);
+        printf("Error mapping %ld bytes at 0x%llx: %s (mode: %d)\n", (unsigned long) size, (unsigned long long) addr, uc_strerror(err), (int) mode);
         exit(1);
     }
 }
@@ -306,7 +307,7 @@ int main(int argc, char **argv, char **envp) {
         exit(-1);
     }
     uint64_t start_address;
-    if(fscanf(f, "%lx", &start_address) == EOF) {
+    if(fscanf(f, "%llx", (unsigned long long) &start_address) == EOF) {
         puts("Start address not found in target.offests.main");
         exit(-1);
     }

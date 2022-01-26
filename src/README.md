@@ -18,7 +18,7 @@ Quick explanation about the files here:
 - `afl-fuzz-performance.c`	- hash64 and rand functions
 - `afl-fuzz-python.c`	- afl-fuzz the python mutator extension
 - `afl-fuzz-queue.c`	- afl-fuzz handling the queue
-- `afl-fuzz-redqueen.c`	- afl-fuzz redqueen implemention
+- `afl-fuzz-redqueen.c`	- afl-fuzz redqueen implementation
 - `afl-fuzz-run.c`	- afl-fuzz running the target
 - `afl-fuzz-state.c`	- afl-fuzz state and globals
 - `afl-fuzz-stats.c`	- afl-fuzz writing the statistics file

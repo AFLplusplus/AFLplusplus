@@ -46,18 +46,34 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  s32   i, pid1 = 0, pid2 = 0;
+  s32   i, pid1 = 0, pid2 = 0, pgrp = -1;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr;
 
-  ptr = getenv(CPU_AFFINITY_ENV_VAR);
-  if (ptr && *ptr) unlink(ptr);
+  ptr = getenv("__AFL_TARGET_PID2");
+  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) {
+
+#if defined(__linux__)
+    pgrp = getpgid(pid2);
+#endif
+    if (pgrp > 0) { killpg(pgrp, SIGTERM); }
+    kill(pid2, SIGTERM);
+
+  }
 
   ptr = getenv("__AFL_TARGET_PID1");
-  if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) kill(pid1, SIGTERM);
+  if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) {
 
-  ptr = getenv("__AFL_TARGET_PID2");
-  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
+#if defined(__linux__)
+    pgrp = getpgid(pid1);
+#endif
+    if (pgrp > 0) { killpg(pgrp, SIGTERM); }
+    kill(pid1, SIGTERM);
+
+  }
+
+  ptr = getenv(CPU_AFFINITY_ENV_VAR);
+  if (ptr && *ptr) unlink(ptr);
 
   i = 0;
   while (list[i] != NULL) {
@@ -85,8 +101,25 @@ static void at_exit() {
   /* AFL_KILL_SIGNAL should already be a valid int at this point */
   if ((ptr = getenv("AFL_KILL_SIGNAL"))) { kill_signal = atoi(ptr); }
 
-  if (pid1 > 0) { kill(pid1, kill_signal); }
-  if (pid2 > 0) { kill(pid2, kill_signal); }
+  if (pid1 > 0) {
+
+#if defined(__linux__)
+    pgrp = getpgid(pid1);
+#endif
+    if (pgrp > 0) { killpg(pgrp, kill_signal); }
+    kill(pid1, kill_signal);
+
+  }
+
+  if (pid2 > 0) {
+
+#if defined(__linux__)
+    pgrp = getpgid(pid1);
+#endif
+    if (pgrp > 0) { killpg(pgrp, kill_signal); }
+    kill(pid2, kill_signal);
+
+  }
 
 }
 
@@ -121,8 +154,7 @@ static void usage(u8 *argv0, int more_help) {
 #if defined(__linux__)
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W            - use qemu-based instrumentation with Wine (Wine "
-      "mode)\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
 #endif
 #if defined(__linux__)
       "  -X            - use VM fuzzing (NYX mode - standalone mode)\n"
@@ -173,8 +205,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
-      //"  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap
-      //" "file\n"
+      //"  -B bitmap.txt - mutate a specific test case, use the
+      //out/default/fuzz_bitmap file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
@@ -283,7 +315,7 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char *)PYTHON_VERSION);
 #else
-  SAYF("Compiled without python module support.\n");
+  SAYF("Compiled without Python module support.\n");
 #endif
 
 #ifdef AFL_PERSISTENT_RECORD
@@ -403,6 +435,12 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
   plugin->nyx_new = dlsym(handle, "nyx_new");
   if (plugin->nyx_new == NULL) { goto fail; }
+
+  plugin->nyx_new_parent = dlsym(handle, "nyx_new_parent");
+  if (plugin->nyx_new_parent == NULL) { goto fail; }
+
+  plugin->nyx_new_child = dlsym(handle, "nyx_new_child");
+  if (plugin->nyx_new_child == NULL) { goto fail; }
 
   plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
   if (plugin->nyx_shutdown == NULL) { goto fail; }
@@ -738,6 +776,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'f':                                              /* target file */
 
         if (afl->fsrv.out_file) { FATAL("Multiple -f options not supported"); }
+
         afl->fsrv.out_file = ck_strdup(optarg);
         afl->fsrv.use_stdin = 0;
         break;
@@ -917,6 +956,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Y':                                     /* NYX distributed mode */
         if (afl->fsrv.nyx_mode) { FATAL("Multiple -Y options not supported"); }
+
         afl->fsrv.nyx_mode = 1;
 
         break;
@@ -960,6 +1000,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'Q':                                                /* QEMU mode */
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
+
         afl->fsrv.qemu_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
@@ -1070,6 +1111,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'L': {                                              /* MOpt mode */
 
         if (afl->limit_time_sig) { FATAL("Multiple -L options not supported"); }
+
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
         if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1) {
@@ -1270,8 +1312,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fsrv.nyx_mode) {
 
     OKF("afl++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
-    OKF("Nyx is open source, get it at "
-        "https://github.com/Nyx-Fuzz");
+    OKF("Nyx is open source, get it at https://github.com/Nyx-Fuzz");
 
   }
 
@@ -1341,6 +1382,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        afl->fsrv.nyx_parent = true;
         afl->fsrv.nyx_id = 0;
 
       }

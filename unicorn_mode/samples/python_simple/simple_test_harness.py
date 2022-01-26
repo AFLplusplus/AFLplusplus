@@ -10,7 +10,7 @@
 
    Run under AFL as follows:
 
-   $ cd <afl_path>/unicorn_mode/samples/simple/
+   $ cd <afl_path>/unicorn_mode/samples/python_simple
    $ ../../../afl-fuzz -U -m none -i ./sample_inputs -o ./output -- python simple_test_harness.py @@ 
 """
 
@@ -19,7 +19,7 @@ import os
 import signal
 
 from unicornafl import *
-from unicornafl.mips_const import *
+from unicorn.mips_const import *
 
 # Path to the file containing the binary to emulate
 BINARY_FILE = os.path.join(
@@ -156,7 +156,7 @@ def main():
         uc.mem_write(DATA_ADDRESS, input)
 
     # Start the fuzzer.
-    uc.afl_fuzz(args.input_file, place_input_callback, [end_address])
+    uc_afl_fuzz(uc=uc, input_file=args.input_file, place_input_callback=place_input_callback, exits=[end_address])
 
 
 if __name__ == "__main__":
