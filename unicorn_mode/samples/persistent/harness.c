@@ -30,6 +30,7 @@
 #include <sys/mman.h>
 
 #include <unicorn/unicorn.h>
+#include <unicornafl/unicornafl.h>
 
 // Path to the file containing the binary to emulate
 #define BINARY_FILE ("persistent_target_x86_64")

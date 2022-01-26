@@ -53,8 +53,14 @@ typedef enum NyxReturnValue {
 
 typedef struct {
 
-  void *(*nyx_new)(const char *sharedir, const char *workdir,
-                   uint32_t worker_id, uint32_t cpu_id, bool create_snapshot);
+  void *(*nyx_new)(const char *sharedir, const char *workdir, uint32_t cpu_id,
+                   uint32_t input_buffer_size,
+                   bool     input_buffer_write_protection);
+  void *(*nyx_new_parent)(const char *sharedir, const char *workdir,
+                          uint32_t cpu_id, uint32_t input_buffer_size,
+                          bool input_buffer_write_protection);
+  void *(*nyx_new_child)(const char *sharedir, const char *workdir,
+                         uint32_t cpu_id, uint32_t worker_id);
   void (*nyx_shutdown)(void *qemu_process);
   void (*nyx_option_set_reload_mode)(void *qemu_process, bool enable);
   void (*nyx_option_set_timeout)(void *qemu_process, uint8_t timeout_sec,

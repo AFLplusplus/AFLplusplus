@@ -33,10 +33,10 @@ sudo make install
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
-Note that `make distrib` also builds FRIDA mode, QEMU mode, unicorn_mode
-and more. If you just want plain AFL++, then do `make all`. If you want
-some assisting tooling compiled but are not interested in binary-only targets
-then instead choose:
+Note that `make distrib` also builds FRIDA mode, QEMU mode, unicorn_mode, and
+more. If you just want plain AFL++, then do `make all`. If you want some
+assisting tooling compiled but are not interested in binary-only targets, then
+instead choose:
 
 ```shell
 make source-only
@@ -46,7 +46,8 @@ These build targets exist:
 
 * all: the main afl++ binaries and llvm/gcc instrumentation
 * binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode,
-  qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap
+  qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator,
+  libtokencap
 * source-only: everything for source code fuzzing: nyx_mode, libdislocator,
   libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
@@ -116,10 +117,9 @@ sudo gmake install
 ```
 
 `afl-gcc` will fail unless you have GCC installed, but that is using outdated
-instrumentation anyway. `afl-clang` might fail too depending on your PATH
-setup. But you don't want neither, you want `afl-clang-fast` anyway :)
-Note that `afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on
-MacOS.
+instrumentation anyway. `afl-clang` might fail too depending on your PATH setup.
+But you don't want neither, you want `afl-clang-fast` anyway :) Note that
+`afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on MacOS.
 
 The crash reporting daemon that comes by default with MacOS X will cause
 problems with fuzzing. You need to turn it off:

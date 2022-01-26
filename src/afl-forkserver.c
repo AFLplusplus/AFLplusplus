@@ -405,24 +405,34 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    if (fsrv->nyx_parent) {
+    if (fsrv->nyx_standalone) {
 
       fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
-          fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id,
-          !fsrv->nyx_standalone);
+          fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
 
     } else {
 
-      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
-          fsrv->target_path, x, fsrv->nyx_id, fsrv->nyx_bind_cpu_id, true);
+      if (fsrv->nyx_parent) {
+
+        fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_parent(
+            fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
+
+      } else {
+
+        fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_child(
+            fsrv->target_path, x, fsrv->nyx_bind_cpu_id, fsrv->nyx_id);
+
+      }
 
     }
+
+    ck_free(x);
 
     if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
 
     u32 tmp_map_size =
         fsrv->nyx_handlers->nyx_get_bitmap_buffer_size(fsrv->nyx_runner);
-    fsrv->real_map_size = fsrv->map_size;
+    fsrv->real_map_size = tmp_map_size;
     fsrv->map_size = (((tmp_map_size + 63) >> 6) << 6);
     if (!be_quiet) { ACTF("Target map size: %u", fsrv->real_map_size); }
 
@@ -453,6 +463,71 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         break;
       default:
         break;
+
+    }
+
+    /* autodict in Nyx mode */
+    if (!ignore_autodict) {
+
+      x = alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
+      int nyx_autodict_fd = open(x, O_RDONLY);
+      ck_free(x);
+
+      if (nyx_autodict_fd >= 0) {
+
+        struct stat st;
+        if (fstat(nyx_autodict_fd, &st) >= 0) {
+
+          u32 f_len = st.st_size;
+          u8 *dict = ck_alloc(f_len);
+          if (dict == NULL) {
+
+            FATAL("Could not allocate %u bytes of autodictionary memory",
+                  f_len);
+
+          }
+
+          u32 offset = 0, count = 0;
+          u32 len = f_len;
+
+          while (len != 0) {
+
+            rlen = read(nyx_autodict_fd, dict + offset, len);
+            if (rlen > 0) {
+
+              len -= rlen;
+              offset += rlen;
+
+            } else {
+
+              FATAL(
+                  "Reading autodictionary fail at position %u with %u bytes "
+                  "left.",
+                  offset, len);
+
+            }
+
+          }
+
+          offset = 0;
+          while (offset < (u32)f_len &&
+                 (u8)dict[offset] + offset < (u32)f_len) {
+
+            fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                                 (u8)dict[offset]);
+            offset += (1 + dict[offset]);
+            count++;
+
+          }
+
+          if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
+          ck_free(dict);
+
+        }
+
+        close(nyx_autodict_fd);
+
+      }
 
     }
 
