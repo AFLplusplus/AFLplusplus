@@ -9,7 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++4.01a (dev)
-  - upcoming new cool stuff :)
+  - fix */build_...sh scripts to work outside of git
+  - new custom_mutator: libafl with token fuzzing :)
+    (still needs README)
+
 
 ### Version ++4.00c (release)
   - complete documentation restructuring, made possible by Google Season
