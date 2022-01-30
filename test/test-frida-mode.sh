@@ -61,11 +61,14 @@ test -e ../afl-frida-trace.so && {
           #if file test-instr | grep -q "32-bit"; then
           #else
           #fi
-          export AFL_FRIDA_PERSISTENT_ADDR=0x`nm test-instr | grep "T main" | awk '{print $1}'`
+          export AFL_FRIDA_PERSISTENT_ADDR=0x`nm test-instr | grep -Ei "T _main|T main" | awk '{print $1}'`
           $ECHO "Info: AFL_FRIDA_PERSISTENT_ADDR=$AFL_FRIDA_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           env|grep AFL_|sort
           file test-instr
+          export AFL_DEBUG_CHILD=1
+          export AFL_FRIDA_VERBOSE=1
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -O -i in -o out -- ./test-instr
+          nm test-instr | grep -i "main"
           unset AFL_FRIDA_PERSISTENT_ADDR
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {

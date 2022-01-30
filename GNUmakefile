@@ -142,7 +142,7 @@ else
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
-			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
+			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
 ifeq "$(SYS)" "FreeBSD"
@@ -167,7 +167,7 @@ endif
 
 ifeq "$(SYS)" "Haiku"
   SHMAT_OK=0
-  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
+  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format
   override LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif

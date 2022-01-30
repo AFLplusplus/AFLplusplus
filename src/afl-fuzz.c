@@ -53,9 +53,7 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID2");
   if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid2);
-#endif
     if (pgrp > 0) { killpg(pgrp, SIGTERM); }
     kill(pid2, SIGTERM);
 
@@ -64,9 +62,7 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid1);
-#endif
     if (pgrp > 0) { killpg(pgrp, SIGTERM); }
     kill(pid1, SIGTERM);
 
@@ -103,9 +99,7 @@ static void at_exit() {
 
   if (pid1 > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid1);
-#endif
     if (pgrp > 0) { killpg(pgrp, kill_signal); }
     kill(pid1, kill_signal);
 
@@ -113,9 +107,7 @@ static void at_exit() {
 
   if (pid2 > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid1);
-#endif
     if (pgrp > 0) { killpg(pgrp, kill_signal); }
     kill(pid2, kill_signal);
 
