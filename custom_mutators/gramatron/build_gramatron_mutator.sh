@@ -115,9 +115,9 @@ if [ $? -eq 0 ]; then
   git submodule update ./json-c 2>/dev/null # ignore errors
 else
   echo "[*] cloning json-c"
-  test -d json-c || {
+  test -d json-c/.git || {
     CNT=1
-    while [ '!' -d json-c -a "$CNT" -lt 4 ]; do
+    while [ '!' -d json-c/.git -a "$CNT" -lt 4 ]; do
       echo "Trying to clone json-c (attempt $CNT/3)"
       git clone "$JSONC_REPO" 
       CNT=`expr "$CNT" + 1`
@@ -125,7 +125,7 @@ else
   }
 fi
 
-test -d json-c || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -d json-c/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got json-c."
 
 test -e json-c/.libs/libjson-c.a || {
