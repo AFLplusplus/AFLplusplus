@@ -161,9 +161,9 @@ if [ $? -eq 0 ]; then
   git submodule sync ./unicornafl 2>/dev/null # ignore errors
 else
   echo "[*] cloning unicornafl"
-  test -d unicornafl || {
+  test -d unicornafl/.git || {
     CNT=1
-    while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
+    while [ '!' -d unicornafl/.git -a "$CNT" -lt 4 ]; do
       echo "Trying to clone unicornafl (attempt $CNT/3)"
       git clone https://github.com/AFLplusplus/unicornafl
       CNT=`expr "$CNT" + 1`
@@ -171,11 +171,12 @@ else
   }
 fi
 
-test -d unicornafl || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -d unicornafl/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 
 cd "unicornafl" || exit 1
 echo "[*] Checking out $UNICORNAFL_VERSION"
+git pull
 sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$UNICORNAFL_VERSION" || exit 1
 
