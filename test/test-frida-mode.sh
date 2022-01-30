@@ -68,6 +68,7 @@ test -e ../afl-frida-trace.so && {
           export AFL_DEBUG_CHILD=1
           export AFL_FRIDA_VERBOSE=1
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -O -i in -o out -- ./test-instr
+          nm test-instr | grep -i "main"
           unset AFL_FRIDA_PERSISTENT_ADDR
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
