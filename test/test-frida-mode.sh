@@ -65,6 +65,8 @@ test -e ../afl-frida-trace.so && {
           $ECHO "Info: AFL_FRIDA_PERSISTENT_ADDR=$AFL_FRIDA_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           env|grep AFL_|sort
           file test-instr
+          export AFL_DEBUG_CHILD=1
+          export AFL_FRIDA_VERBOSE=1
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -O -i in -o out -- ./test-instr
           unset AFL_FRIDA_PERSISTENT_ADDR
         } >>errors 2>&1
