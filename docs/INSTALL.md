@@ -3,8 +3,9 @@
 ## Linux on x86
 
 An easy way to install AFL++ with everything compiled is available via docker:
-You can use the [Dockerfile](../Dockerfile) (which has gcc-10 and clang-11 -
-hence afl-clang-lto is available!) or just pull directly from the Docker Hub:
+You can use the [Dockerfile](../Dockerfile) (which has gcc-10 and clang-12 -
+hence afl-clang-lto is available) or just pull directly from the Docker Hub
+(for x86_64 and arm64):
 
 ```shell
 docker pull aflplusplus/aflplusplus
