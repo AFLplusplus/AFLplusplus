@@ -1,8 +1,6 @@
 #
 # This Dockerfile for AFLplusplus uses Ubuntu 20.04 focal and
 # installs LLVM 11 from llvm.org for afl-clang-lto support :-)
-# It also installs gcc/g++ 10 from the Ubuntu development platform
-# since focal has gcc-10 but not g++-10 ...
 #
 
 FROM ubuntu:20.04 AS aflplusplus
@@ -77,6 +75,6 @@ RUN echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc
 RUN echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc
 ENV IS_DOCKER="1"
 
-# Disabled until we have the container ready
+# Disabled as there are now better alternatives
 #COPY --from=aflplusplus/afl-dyninst /usr/local/lib/libdyninstAPI_RT.so /usr/local/lib/libdyninstAPI_RT.so
 #COPY --from=aflplusplus/afl-dyninst /afl-dyninst/libAflDyninst.so /usr/local/lib/libAflDyninst.so
