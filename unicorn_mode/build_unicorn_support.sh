@@ -171,7 +171,7 @@ else
   }
 fi
 
-test -d unicornafl/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e unicornafl/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 
 cd "unicornafl" || exit 1

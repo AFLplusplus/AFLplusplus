@@ -41,9 +41,9 @@ else
 
 fi
 
-test -d packer/.git || { echo "[-] packer not checked out, please install git or check your internet connection." ; exit 1 ; }
-test -d libnyx/.git || { echo "[-] libnyx not checked out, please install git or check your internet connection." ; exit 1 ; }
-test -d QEMU-Nyx/.git || { echo "[-] QEMU-Nyx not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e packer/.git || { echo "[-] packer not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e libnyx/.git || { echo "[-] libnyx not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e QEMU-Nyx/.git || { echo "[-] QEMU-Nyx not checked out, please install git or check your internet connection." ; exit 1 ; }
 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then
