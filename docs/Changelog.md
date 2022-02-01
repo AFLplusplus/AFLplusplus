@@ -11,7 +11,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++4.01a (dev)
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
-    (still needs README)
+  - frida_mode:
+    - update to new frida release, handles now c++ throw/catch
 
 
 ### Version ++4.00c (release)
