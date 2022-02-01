@@ -47,6 +47,9 @@ typedef struct {
   // b       0x7fb6f0dee4
   // ldp     x16, x17, [sp], #144
 
+  uint32_t b_imm8;                                                /* br #68 */
+  uint32_t restoration_prolog;                 /* ldp x16, x17, [sp], #0x90 */
+
   uint32_t stp_x0_x1;                           /* stp x0, x1, [sp, #-0xa0] */
 
   uint32_t adrp_x0_prev_loc1;                           /* adrp x0, #0xXXXX */
@@ -69,9 +72,6 @@ typedef struct {
 
   uint32_t ldp_x0_x1;                           /* ldp x0, x1, [sp, #-0xa0] */
 
-  uint32_t b_imm8;                                                 /* br #8 */
-  uint32_t restoration_prolog;                 /* ldp x16, x17, [sp], #0x90 */
-
 } afl_log_code_asm_t;
 
   #pragma pack(pop)
@@ -86,6 +86,9 @@ typedef union {
 static const afl_log_code_asm_t template =
     {
 
+        .b_imm8 = 0x14000011,
+
+        .restoration_prolog = 0xa8c947f0,
         .stp_x0_x1 = 0xa93607e0,
 
         .adrp_x0_prev_loc1 = 0x90000000,
@@ -110,9 +113,6 @@ static const afl_log_code_asm_t template =
 
         .ldp_x0_x1 = 0xa97607e0,
 
-        .b_imm8 = 0x14000002,
-        .restoration_prolog = 0xa8c947f0,
-
 }
 
 ;
@@ -120,6 +120,37 @@ static const afl_log_code_asm_t template =
 gboolean instrument_is_coverage_optimize_supported(void) {
 
   return true;
+
+}
+
+static gboolean instrument_is_deterministic(const cs_insn *from_insn) {
+
+  cs_arm64 *arm64;
+  arm64_cc  cc;
+
+  if (from_insn == NULL) { return FALSE; }
+
+  arm64 = &from_insn->detail->arm64;
+  cc = arm64->cc;
+
+  switch (from_insn->id) {
+
+    case ARM64_INS_B:
+    case ARM64_INS_BL:
+      if (cc == ARM64_CC_INVALID) { return TRUE; }
+      break;
+
+    case ARM64_INS_RET:
+    case ARM64_INS_RETAA:
+    case ARM64_INS_RETAB:
+      if (arm64->op_count == 0) { return TRUE; }
+      break;
+    default:
+      return FALSE;
+
+  }
+
+  return FALSE;
 
 }
 
@@ -131,37 +162,16 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(start_address);
 
-  cs_arm64 *   arm64;
-  arm64_cc     cc;
-  gsize        fixup_offset;
+  gsize fixup_offset;
 
-  if (from_insn == NULL) { return; }
-
-  arm64 = &from_insn->detail->arm64;
-  cc = arm64->cc;
-
-  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
+  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target)) &&
+      !g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target + 4))) {
 
     return;
 
   }
 
-  switch (from_insn->id) {
-
-    case ARM64_INS_B:
-    case ARM64_INS_BL:
-      if (cc != ARM64_CC_INVALID) { return; }
-      break;
-
-    case ARM64_INS_RET:
-    case ARM64_INS_RETAA:
-    case ARM64_INS_RETAB:
-      if (arm64->op_count != 0) { return; }
-      break;
-    default:
-      return;
-
-  }
+  if (instrument_is_deterministic(from_insn)) { return; }
 
   /*
    * Since each block is prefixed with a restoration prologue, we need to be
@@ -169,29 +179,28 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
    * restoration prologue and the instrumented block without the coverage code.
    * We therefore layout our block as follows:
    *
-   *  +-----+--------------------------+------------------+-----+-------------+
-   *  | LDP | COVERAGE INSTRUMENTATION | BR <TARGET CODE> | LDP | TARGET CODE |
-   *  +-----+--------------------------+------------------+-----+-------------+
+   *  +-----+------------------+-----+--------------------------+-------------+
+   *  | LDP | BR <TARGET CODE> | LDP | COVERAGE INSTRUMENTATION | TARGET CODE |
+   *  +-----+------------------+-----+--------------------------+-------------+
    *
-   *  ^     ^                                             ^     ^
-   *  |     |                                             |     |
-   *  A     B                                             C     D
+   *  ^     ^                  ^     ^
+   *  |     |                  |     |
+   *  A     B                  C     D
    *
    * Without instrumentation suppression, the block is either executed at point
-   * (A) if it is reached by an indirect branch (and registers need to be
-   * restored) or point (B) if it is reached by an direct branch (and hence the
+   * (C) if it is reached by an indirect branch (and registers need to be
+   * restored) or point (D) if it is reached by an direct branch (and hence the
    * registers don't need restoration). Similarly, we can start execution of the
-   * block at points (C) or (D) to achieve the same functionality, but without
+   * block at points (A) or (B) to achieve the same functionality, but without
    * executing the coverage instrumentation.
    *
    * In either case, Stalker will call us back with the address of the target
-   * block to be executed as the destination. It is not until later that Stalker
-   * will determine which branch type is required given the location of its
-   * instrumented code and add the `GUM_RESTORATION_PROLOG_SIZE` to the target
-   * address. Therefore, we need to map the address of point (A) to that of
-   * point (C) and also ensure that the offset between (A)->(B) and (C)->(D) is
-   * identical so that if Stalker can use an immediate call, it still branches
-   * to a valid offset.
+   * block to be executed as the destination. We can then check if the branch is
+   * a deterministic one and if so branch to point (C) or (D) rather than (A)
+   * or (B). We lay the code out in this fashion so that in the event we can't
+   * suppress coverage (the most likely), we can vector directly to the coverage
+   * instrumentation code and execute entirely without any branches. If we
+   * suppress the coverage, we simply branch beyond it instead.
    */
   fixup_offset = GUM_RESTORATION_PROLOG_SIZE +
                  G_STRUCT_OFFSET(afl_log_code_asm_t, restoration_prolog);
@@ -249,7 +258,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   afl_log_code    code = {0};
   GumArm64Writer *cw = output->writer.arm64;
-  gpointer   block_start;
+  gpointer        block_start;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
   gsize   map_size_pow2;
   gsize   area_offset_ror;
