@@ -16,12 +16,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifdef __APPLE__
-  #define MAIN_SECTION
-#else
-  #define MAIN_SECTION __attribute__((section(".main")))
-#endif
-
 void LLVMFuzzerTestOneInput(char *buf, int len) {
 
   printf (">>> LLVMFuzzerTestOneInput >>>\n");
@@ -44,7 +38,7 @@ void slow() {
 
 }
 
-MAIN_SECTION int main(int argc, char **argv) {
+int main(int argc, char **argv) {
 
   char * file;
   int    fd = -1;
