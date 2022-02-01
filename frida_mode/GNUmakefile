@@ -232,7 +232,6 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libunwind-*.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libunwind.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libffi.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libdwarf.a \
@@ -258,7 +257,6 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libunwind-*.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libunwind.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libffi.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libdwarf.a \
