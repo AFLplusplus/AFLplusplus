@@ -1900,7 +1900,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (getenv(PERSIST_ENV_VAR) && !afl->persistent_mode) {
 
     WARNF(
-        "Persistent mode environment variable detected, forcing persitent "
+        "Persistent mode environment variable detected, forcing persistent "
         "mode!");
     afl->persistent_mode = 1;
     afl->fsrv.persistent_mode = 1;
