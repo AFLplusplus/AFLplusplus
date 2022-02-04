@@ -59,7 +59,11 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
+  if (fsrv->qemu_mode || fsrv->frida_mode || fsrv->cs_mode) {
+
+    setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+
+  }
 
   execv(fsrv->target_path, argv);
 
@@ -281,13 +285,13 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
       sigaction(SIGPIPE, &sa, NULL);
 
       signal(SIGCHLD, old_sigchld_handler);
+
       // FORKSRV_FD is for communication with AFL, we don't need it in the
-      // child.
+      // child
       close(FORKSRV_FD);
       close(FORKSRV_FD + 1);
 
-      // TODO: exec...
-
+      // finally: exec...
       execv(fsrv->target_path, argv);
 
       /* Use a distinctive bitmap signature to tell the parent about execv()
@@ -567,6 +571,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
+    if (!be_quiet) { ACTF("Using AFL++ faux forkserver..."); }
     fsrv->init_child_func = afl_fauxsrv_execv;
 
   }
