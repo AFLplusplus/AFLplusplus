@@ -1908,6 +1908,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (getenv(DEFER_ENV_VAR) && !afl->deferred_mode) {
+
+    WARNF(
+        "Deferred forkserver mode environment variable detected, forcing "
+        "defered forkserver!");
+    afl->deferred_mode = 1;
+
+  }
+
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
 
