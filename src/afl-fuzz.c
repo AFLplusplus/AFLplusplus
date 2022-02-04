@@ -198,7 +198,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       //"  -B bitmap.txt - mutate a specific test case, use the
-      //out/default/fuzz_bitmap file\n"
+      // out/default/fuzz_bitmap file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
@@ -1896,6 +1896,17 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   check_binary(afl, argv[optind]);
+
+  if (getenv(PERSIST_ENV_VAR) && !afl->persistent_mode) {
+
+    WARNF(
+        "Persistent mode environment variable detected, forcing persitent "
+        "mode!");
+    afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
+    afl->shmem_testcase_mode = 1;
+
+  }
 
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
