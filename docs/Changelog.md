@@ -60,7 +60,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix bug where targets are not killed on timeouts
     - moved hidden afl-showmap -A option to -H to be used for
       coresight_mode
-  - Prevent accidentaly killing non-afl/fuzz services when aborting
+  - Prevent accidentally killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan
