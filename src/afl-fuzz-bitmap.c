@@ -633,7 +633,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       if (afl->fsrv.exec_tmout < afl->hang_tmout) {
 
         u8 new_fault;
-        write_to_testcase(afl, mem, len);
+        len = write_to_testcase(afl, mem, len, 0);
         new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
         classify_counts(&afl->fsrv);
 

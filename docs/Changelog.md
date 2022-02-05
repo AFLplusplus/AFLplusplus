@@ -11,6 +11,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++4.01a (dev)
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
+  - afl-fuzz:
+    - new commandline option -y to set min and max length of generated
+      fuzz inputs
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
 
