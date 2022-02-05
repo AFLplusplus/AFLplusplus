@@ -22,7 +22,7 @@ test -e ../afl-frida-trace.so && {
       echo 00000 > in/in
       $ECHO "$GREY[*] running afl-fuzz for frida_mode, this will take approx 10 seconds"
       {
-        ../afl-fuzz -m ${MEM_LIMIT} -V10 -O -i in -o out -- ./test-instr >>errors 2>&1
+        AFL_DEBUG=1 AFL_FRIDA_VERBOSE=1 ../afl-fuzz -m ${MEM_LIMIT} -V10 -O -i in -o out -- ./test-instr >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with frida_mode"
