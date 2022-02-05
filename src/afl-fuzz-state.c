@@ -482,6 +482,20 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_target_env =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
+          } else if (!strncmp(env, "AFL_INPUT_LEN_MIN",
+
+                              afl_environment_variable_len)) {
+
+            afl->min_length = atoi(
+                (u8 *)get_afl_env(afl_environment_variables[i]));
+
+          } else if (!strncmp(env, "AFL_INPUT_LEN_MAX",
+
+                              afl_environment_variable_len)) {
+
+            afl->max_length = atoi(
+                (u8 *)get_afl_env(afl_environment_variables[i]));
+
           }
 
         } else {

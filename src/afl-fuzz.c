@@ -155,9 +155,9 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
-      "  -y [min-]max  - set minimum and maximum length of generated fuzzing "
-      "input.\n"
-      "                  default: 1-%lu\n"
+      "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
+      "  -G minlength  - set max length of generated fuzz input (default: "
+      "%lu)\n"
       "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
@@ -256,6 +256,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
@@ -530,37 +531,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while ((opt = getopt(
-              argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:Yy:Z")) >
-         0) {
+  while (
+      (opt = getopt(
+           argc, argv,
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
+      0) {
 
     switch (opt) {
 
-      case 'y': {
-
-        u8 *sep;
-        if (!(sep = strchr(optarg, '-')) && !(sep = strchr(optarg, ':'))) {
-
-          afl->max_length = atoi(optarg);
-
-        } else {
-
-          afl->min_length = atoi(optarg);
-          afl->max_length = atoi(sep + 1);
-
-        }
-
-        if (afl->min_length < 1 || afl->max_length > MAX_FILE ||
-            afl->min_length > afl->max_length) {
-
-          FATAL("Illegal min/max length values: %s", optarg);
-
-        }
-
+      case 'g':
+        afl->min_length = atoi(optarg);
         break;
 
-      }
+      case 'G':
+        afl->max_length = atoi(optarg);
+        break;
 
       case 'Z':
         afl->old_seed_selection = 1;
