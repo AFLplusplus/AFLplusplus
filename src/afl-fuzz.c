@@ -155,6 +155,9 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
+      "  -y [min-]max  - set minimum and maximum length of generated fuzzing "
+      "input.\n"
+      "                  default: 1-%lu\n"
       "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
@@ -204,7 +207,7 @@ static void usage(u8 *argv0, int more_help) {
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, FOREIGN_SYNCS_MAX);
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -529,10 +532,35 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOXYo:p:RQs:S:t:T:UV:Wx:Z")) >
+              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:Yy:Z")) >
          0) {
 
     switch (opt) {
+
+      case 'y': {
+
+        u8 *sep;
+        if (!(sep = strchr(optarg, '-')) && !(sep = strchr(optarg, ':'))) {
+
+          afl->max_length = atoi(optarg);
+
+        } else {
+
+          afl->min_length = atoi(optarg);
+          afl->max_length = atoi(sep + 1);
+
+        }
+
+        if (afl->min_length < 1 || afl->max_length > MAX_FILE ||
+            afl->min_length > afl->max_length) {
+
+          FATAL("Illegal min/max length values: %s", optarg);
+
+        }
+
+        break;
+
+      }
 
       case 'Z':
         afl->old_seed_selection = 1;
@@ -1621,6 +1649,16 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
 
   }
+
+  OKF("Generating fuzz data with a a length of min=%u max=%u", afl->min_length,
+      afl->max_length);
+  u32 min_alloc = MAX(64U, afl->min_length);
+  afl_realloc(AFL_BUF_PARAM(in_scratch), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(in), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(out_scratch), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(out), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(eff), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(ex), min_alloc);
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 

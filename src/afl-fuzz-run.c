@@ -73,8 +73,8 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
    old file is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is
    rewound and truncated. */
 
-void __attribute__((hot))
-write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
+u32 __attribute__((hot))
+write_to_testcase(afl_state_t *afl, void *mem, u32 len, u32 fix) {
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
@@ -120,15 +120,38 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     });
 
+    if (unlikely(new_size < afl->min_length && !fix)) {
+
+      new_size = afl->min_length;
+
+    } else if (unlikely(new_size > afl->max_length)) {
+
+      new_size = afl->max_length;
+
+    }
+
     /* everything as planned. use the potentially new data. */
     afl_fsrv_write_to_testcase(&afl->fsrv, new_mem, new_size);
+    len = new_size;
 
   } else {
+
+    if (unlikely(len < afl->min_length && !fix)) {
+
+      len = afl->min_length;
+
+    } else if (unlikely(len > afl->max_length)) {
+
+      len = afl->max_length;
+
+    }
 
     /* boring uncustom. */
     afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
 
   }
+
+  return len;
 
 }
 
@@ -346,7 +369,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   /* we need a dummy run if this is LTO + cmplog */
   if (unlikely(afl->shm.cmplog_mode)) {
 
-    write_to_testcase(afl, use_mem, q->len);
+    (void)write_to_testcase(afl, use_mem, q->len, 1);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
@@ -389,7 +412,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     u64 cksum;
 
-    write_to_testcase(afl, use_mem, q->len);
+    (void)write_to_testcase(afl, use_mem, q->len, 1);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
@@ -700,7 +723,7 @@ void sync_fuzzers(afl_state_t *afl) {
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
-        write_to_testcase(afl, mem, st.st_size);
+        (void)write_to_testcase(afl, mem, st.st_size, 1);
 
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
@@ -943,7 +966,7 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  write_to_testcase(afl, out_buf, len);
+  len = write_to_testcase(afl, out_buf, len, 0);
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
