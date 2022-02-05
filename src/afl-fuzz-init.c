@@ -2830,6 +2830,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     OKF("FRIDA Persistent mode configuration options detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
     afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
     afl->shmem_testcase_mode = 1;
 
   }
