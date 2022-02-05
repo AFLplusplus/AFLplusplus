@@ -1912,7 +1912,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     WARNF(
         "Deferred forkserver mode environment variable detected, forcing "
-        "defered forkserver!");
+        "deferred forkserver!");
     afl->deferred_mode = 1;
 
   }
