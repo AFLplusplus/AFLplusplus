@@ -98,6 +98,8 @@ static char *afl_environment_variables[] = {
     "AFL_IGNORE_PROBLEMS",
     "AFL_IGNORE_UNKNOWN_ENVS",
     "AFL_IMPORT_FIRST",
+    "AFL_INPUT_LEN_MIN",
+    "AFL_INPUT_LEN_MAX",
     "AFL_INST_LIBS",
     "AFL_INST_RATIO",
     "AFL_KILL_SIGNAL",

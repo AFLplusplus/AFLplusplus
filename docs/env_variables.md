@@ -400,6 +400,10 @@ checks or alter some of the more exotic semantics of the tool:
     This makes the "own finds" counter in the UI more accurate. Beyond counter
     aesthetics, not much else should change.
 
+  - Setting `AFL_INPUT_LEN_MIN` and `AFL_INPUT_LEN_MAX` are an alternative to
+    the afl-fuzz -g/-G command line option to control the minimum/maximum
+    of fuzzing input generated.
+
   - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes on
     timeout. Unless you implement your own targets or instrumentation, you
     likely don't have to set it. By default, on timeout and on exit, `SIGKILL`
