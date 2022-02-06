@@ -1270,7 +1270,8 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 /* Delete the current testcase and write the buf to the testcase file */
 
-void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
+void __attribute__((hot))
+afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #ifdef __linux__
   if (unlikely(fsrv->nyx_mode)) {
@@ -1388,7 +1389,8 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+fsrv_run_result_t __attribute__((hot))
+afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
                     volatile u8 *stop_soon_p) {
 
   s32 res;
