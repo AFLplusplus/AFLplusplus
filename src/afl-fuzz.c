@@ -156,7 +156,7 @@ static void usage(u8 *argv0, int more_help) {
 
       "Mutator settings:\n"
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
-      "  -G minlength  - set max length of generated fuzz input (default: "
+      "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
       "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
