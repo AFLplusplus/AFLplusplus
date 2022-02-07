@@ -12,7 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
   - afl-fuzz:
-    - new commandline option -y to set min and max length of generated
+    - new commandline options -g/G to set min/max length of generated
       fuzz inputs
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
