@@ -540,6 +540,10 @@ checks or alter some of the more exotic semantics of the tool:
     - `AFL_PERSISTENT` enforces persistent mode even if none was detected
       in the target binary
 
+  - If you need an early forkserver in your target because of early
+    constructors in your target you can set `AFL_EARLY_FORKSERVER`.
+    Note that is is not a compile time option but a runtime option :-)
+
 ## 5) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:

@@ -68,6 +68,7 @@
 #endif
 
 #define CTOR_PRIO 3
+#define EARLY_FS_PRIO 5
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -145,6 +146,7 @@ u32 __afl_already_initialized_shm;
 u32 __afl_already_initialized_forkserver;
 u32 __afl_already_initialized_first;
 u32 __afl_already_initialized_second;
+u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
 
@@ -1253,6 +1255,8 @@ void __afl_manual_init(void) {
 
 __attribute__((constructor())) void __afl_auto_init(void) {
 
+  if (__afl_already_initialized_init) { return; }
+
 #ifdef __ANDROID__
   // Disable handlers in linker/debuggerd, check include/debuggerd/handler.h
   signal(SIGABRT, SIG_DFL);
@@ -1265,11 +1269,21 @@ __attribute__((constructor())) void __afl_auto_init(void) {
   signal(SIGTRAP, SIG_DFL);
 #endif
 
+  __afl_already_initialized_init = 1;
+
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   if (getenv(DEFER_ENV_VAR)) return;
 
   __afl_manual_init();
+
+}
+
+/* Optionally run an early forkserver */
+
+__attribute__((constructor(EARLY_FS_PRIO))) void __early_forkserver(void) {
+
+  if (getenv("AFL_EARLY_FORKSERVER")) { __afl_auto_init(); }
 
 }
 

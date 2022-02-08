@@ -17,6 +17,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow
       persistent mode and manual forkserver support if these are not
       in the target binary (e.g. are in a shared library)
+    - add AFL_EARY_FORKSERVER to install the forkserver as earliest as
+      possible in the target (for afl-gcc-fast/afl-clang-fast/
+      afl-clang-lto)
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
 
