@@ -294,8 +294,8 @@ static void usage(u8 *argv0, int more_help) {
       "                        'signalfx' and 'influxdb'\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
-      //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
-      //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
+      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so\n"
       "\n"
     );
 
@@ -1919,26 +1919,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   check_binary(afl, argv[optind]);
-
-  if (getenv(PERSIST_ENV_VAR) && !afl->persistent_mode) {
-
-    WARNF(
-        "Persistent mode environment variable detected, forcing persistent "
-        "mode!");
-    afl->persistent_mode = 1;
-    afl->fsrv.persistent_mode = 1;
-    afl->shmem_testcase_mode = 1;
-
-  }
-
-  if (getenv(DEFER_ENV_VAR) && !afl->deferred_mode) {
-
-    WARNF(
-        "Deferred forkserver mode environment variable detected, forcing "
-        "deferred forkserver!");
-    afl->deferred_mode = 1;
-
-  }
 
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {

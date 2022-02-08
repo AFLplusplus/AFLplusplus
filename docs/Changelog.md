@@ -14,6 +14,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - new commandline options -g/G to set min/max length of generated
       fuzz inputs
+    - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow
+      persistent mode and manual forkserver support if these are not
+      in the target binary (e.g. are in a shared library)
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
 

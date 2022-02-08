@@ -532,9 +532,13 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
     on Linux systems, but will not terminate if that fails.
 
-  - Outdated environment variables that are not supported anymore:
-    - `AFL_DEFER_FORKSRV`
-    - `AFL_PERSISTENT`
+  - The following environment variables are only needed if you implemented
+    your own forkserver or persistent mode, or if __AFL_LOOP or __AFL_INIT
+    are in a shared library and not the main binary:
+    - `AFL_DEFER_FORKSRV` enforces a deferred forkserver even if none was
+      detected in the target binary
+    - `AFL_PERSISTENT` enforces persistent mode even if none was detected
+      in the target binary
 
 ## 5) Settings for afl-qemu-trace
 
