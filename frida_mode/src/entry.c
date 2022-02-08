@@ -78,6 +78,12 @@ void entry_init(void) {
 
 void entry_start(void) {
 
+  if (persistent_start == 0) {
+
+    ranges_exclude();
+    stalker_trust();
+
+  }
   if (entry_point == 0) { entry_launch(); }
 
 }
