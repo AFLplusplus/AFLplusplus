@@ -2822,7 +2822,11 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   } else if (getenv("AFL_PERSISTENT")) {
 
-    WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
+    OKF(cPIN "Persistent mode enforced.");
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
+    afl->shmem_testcase_mode = 1;
 
   } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
 
@@ -2843,7 +2847,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   } else if (getenv("AFL_DEFER_FORKSRV")) {
 
-    WARNF("AFL_DEFER_FORKSRV is no longer supported and may misbehave!");
+    OKF(cPIN "Deferred forkserver enforced.");
+    setenv(DEFER_ENV_VAR, "1", 1);
+    afl->deferred_mode = 1;
 
   }
 

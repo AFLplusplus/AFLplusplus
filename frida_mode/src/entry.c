@@ -84,6 +84,7 @@ void entry_start(void) {
     stalker_trust();
 
   }
+
   if (entry_point == 0) { entry_launch(); }
 
 }
