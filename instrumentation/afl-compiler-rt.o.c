@@ -282,11 +282,9 @@ static void __afl_map_shm(void) {
 
   char *id_str = getenv(SHM_ENV_VAR);
 
-  if (__afl_final_loc) { ++__afl_final_loc; }  // as we count starting 0
-
   if (__afl_final_loc) {
 
-    __afl_map_size = __afl_final_loc;
+    __afl_map_size = ++__afl_final_loc;  // as we count starting 0
 
     if (__afl_final_loc > MAP_SIZE) {
 
@@ -333,14 +331,14 @@ static void __afl_map_shm(void) {
 
   if (__afl_debug) {
 
-    fprintf(stderr,
-            "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
-            "__afl_final_loc %u, "
-            "max_size_forkserver %u/0x%x\n",
-            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
-            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+    fprintf(
+        stderr,
+        "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+        "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+        "__afl_final_loc %u, __afl_map_size %u, max_size_forkserver %u/0x%x\n",
+        id_str == NULL ? "<null>" : id_str, __afl_area_ptr, __afl_area_initial,
+        __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE, __afl_final_loc,
+        __afl_map_size, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   }
 
@@ -487,11 +485,12 @@ static void __afl_map_shm(void) {
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
-            "%u, __afl_final_loc %u, "
+            "%u, __afl_final_loc %u, __afl_map_size %u,"
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
             __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            __afl_final_loc, __afl_map_size, FS_OPT_MAX_MAPSIZE,
+            FS_OPT_MAX_MAPSIZE);
 
   }
 

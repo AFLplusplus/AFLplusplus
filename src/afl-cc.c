@@ -315,7 +315,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
-     have_c = 0, partial_linking = 0;
+     have_c = 0, partial_linking = 0, wasm_linking = 0;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
@@ -671,22 +671,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
-    // in case LLVM is installed not via a package manager or "make install"
-    // e.g. compiled download or compiled from github then its ./lib directory
-    // might not be in the search path. Add it if so.
-    u8 *libdir = strdup(LLVM_LIBDIR);
-    if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
-        strncmp(libdir, "/lib", 4)) {
-
-      cc_params[cc_par_cnt++] = "-rpath";
-      cc_params[cc_par_cnt++] = libdir;
-
-    } else {
-
-      free(libdir);
-
-    }
-
     if (lto_mode && argc > 1) {
 
       u32 idx;
@@ -766,14 +750,21 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       u8 *afllib = find_object("libAFLDriver.a", argv[0]);
 
-      if (!be_quiet)
+      if (!be_quiet) {
+
         OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
+
+      }
 
       if (!afllib) {
 
-        WARNF(
-            "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
-            "the flags - this will fail!");
+        if (!be_quiet) {
+
+          WARNF(
+              "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
+              "the flags - this will fail!");
+
+        }
 
       } else {
 
@@ -805,6 +796,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "--target=wasm32-wasi")) {
+
+      if (!be_quiet) { WARNF("Found '%s'!", cur); }
+      wasm_linking = 1;
+
+    }
+
     if (!strcmp(cur, "-dynamiclib")) shared_linking = 1;
     if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
     if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
@@ -817,6 +815,22 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strncmp(cur, "-funroll-loop", 13)) have_unroll = 1;
 
     cc_params[cc_par_cnt++] = cur;
+
+  }
+
+  // in case LLVM is installed not via a package manager or "make install"
+  // e.g. compiled download or compiled from github then its ./lib directory
+  // might not be in the search path. Add it if so.
+  u8 *libdir = strdup(LLVM_LIBDIR);
+  if (plusplus_mode && !wasm_linking && strlen(libdir) &&
+      strncmp(libdir, "/usr", 4) && strncmp(libdir, "/lib", 4)) {
+
+    cc_params[cc_par_cnt++] = "-rpath";
+    cc_params[cc_par_cnt++] = libdir;
+
+  } else {
+
+    free(libdir);
 
   }
 
@@ -1056,7 +1070,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        if (!shared_linking && !partial_linking)
+        if (!shared_linking && !partial_linking && !wasm_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
         if (lto_mode)
@@ -1065,7 +1079,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 32:
-        if (!shared_linking && !partial_linking) {
+        if (!shared_linking && !partial_linking && !wasm_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
@@ -1086,7 +1100,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        if (!shared_linking && !partial_linking) {
+        if (!shared_linking && !partial_linking && !wasm_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
@@ -1109,7 +1123,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking && !partial_linking)
+    if (!shared_linking && !partial_linking && !wasm_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
@@ -1248,10 +1262,14 @@ int main(int argc, char **argv, char **envp) {
 
     if (compiler_mode) {
 
-      WARNF(
-          "\"AFL_CC_COMPILER\" is set but a specific compiler was already "
-          "selected by command line parameter or symlink, ignoring the "
-          "environment variable!");
+      if (!be_quiet) {
+
+        WARNF(
+            "\"AFL_CC_COMPILER\" is set but a specific compiler was already "
+            "selected by command line parameter or symlink, ignoring the "
+            "environment variable!");
+
+      }
 
     } else {
 
@@ -1304,10 +1322,13 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (compiler_mode)
+      if (compiler_mode && !be_quiet) {
+
         WARNF(
             "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
             "symlink compiler selection!");
+
+      }
 
       ptr = argv[i];
       ptr += 5;
@@ -1390,7 +1411,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (have_instr_env && getenv("AFL_DONT_OPTIMIZE")) {
+  if (have_instr_env && getenv("AFL_DONT_OPTIMIZE") && !be_quiet) {
 
     WARNF(
         "AFL_LLVM_ALLOWLIST/DENYLIST and AFL_DONT_OPTIMIZE cannot be combined "
@@ -1970,9 +1991,12 @@ int main(int argc, char **argv, char **envp) {
 
     } else {
 
-      if (!be_quiet)
+      if (!be_quiet) {
+
         WARNF("afl-clang-lto called with mode %s, using that mode instead",
               instrument_mode_string[instrument_mode]);
+
+      }
 
     }
 
@@ -1985,10 +2009,13 @@ int main(int argc, char **argv, char **envp) {
     if (have_instr_env) {
 
       instrument_mode = INSTRUMENT_AFL;
-      if (!be_quiet)
+      if (!be_quiet) {
+
         WARNF(
             "Switching to classic instrumentation because "
             "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD < 10.0.1.");
+
+      }
 
     } else
 
