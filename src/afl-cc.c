@@ -796,14 +796,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
-    if (!strcmp(cur, "--target=wasm32-wasi")) {
-
-      if (!be_quiet) { WARNF("Found '%s'!", cur); }
-      wasm_linking = 1;
-
-    }
-
     if (!strcmp(cur, "-dynamiclib")) shared_linking = 1;
+    if (!strcmp(cur, "--target=wasm32-wasi")) wasm_linking = 1;
     if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
     if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
     if (!strcmp(cur, "-Wl,--relocatable")) partial_linking = 1;
