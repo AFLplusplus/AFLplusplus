@@ -931,7 +931,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#if defined(USEMMAP) && !defined(__HAIKU__)
+#if defined(USEMMAP) && !defined(__HAIKU__) && !__APPLE__
   if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
@@ -1136,7 +1136,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  #if defined(USEMMAP) && !defined(__HAIKU__)
+  #if defined(USEMMAP) && !defined(__HAIKU__) && !__APPLE__
   cc_params[cc_par_cnt++] = "-lrt";
   #endif
 
