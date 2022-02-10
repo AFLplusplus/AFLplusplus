@@ -76,6 +76,9 @@ EOF
   DONE=1
 fi
 if [ "$PLATFORM" = "OpenBSD" ] ; then
+  doas sysctl vm.malloc_conf=
+  echo 'Freecheck on allocation in particular can be detrimental to performance.'
+  echo 'Also we might not want necessarily to abort at any allocation failure.'
   echo 'System security features cannot be disabled on OpenBSD.'
   echo
   DONE=1

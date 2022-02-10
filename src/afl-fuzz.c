@@ -155,6 +155,9 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
+      "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
+      "  -G maxlength  - set max length of generated fuzz input (default: "
+      "%lu)\n"
       "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
@@ -198,13 +201,13 @@ static void usage(u8 *argv0, int more_help) {
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       //"  -B bitmap.txt - mutate a specific test case, use the
-      //out/default/fuzz_bitmap file\n"
+      // out/default/fuzz_bitmap file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, FOREIGN_SYNCS_MAX);
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -253,6 +256,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
@@ -290,8 +294,10 @@ static void usage(u8 *argv0, int more_help) {
       "                        'signalfx' and 'influxdb'\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
-      //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
-      //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
+      "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
+      "                      afl-clang-lto/afl-gcc-fast target\n"
+      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so\n"
       "\n"
     );
 
@@ -527,12 +533,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while ((opt = getopt(
-              argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOXYo:p:RQs:S:t:T:UV:Wx:Z")) >
-         0) {
+  while (
+      (opt = getopt(
+           argc, argv,
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
+      0) {
 
     switch (opt) {
+
+      case 'g':
+        afl->min_length = atoi(optarg);
+        break;
+
+      case 'G':
+        afl->max_length = atoi(optarg);
+        break;
 
       case 'Z':
         afl->old_seed_selection = 1;
@@ -1621,6 +1636,16 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
 
   }
+
+  OKF("Generating fuzz data with a a length of min=%u max=%u", afl->min_length,
+      afl->max_length);
+  u32 min_alloc = MAX(64U, afl->min_length);
+  afl_realloc(AFL_BUF_PARAM(in_scratch), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(in), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(out_scratch), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(out), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(eff), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(ex), min_alloc);
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 
