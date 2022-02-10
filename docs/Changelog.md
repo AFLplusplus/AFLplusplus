@@ -11,7 +11,17 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++4.01a (dev)
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
-    (still needs README)
+  - afl-fuzz:
+    - new commandline options -g/G to set min/max length of generated
+      fuzz inputs
+    - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow
+      persistent mode and manual forkserver support if these are not
+      in the target binary (e.g. are in a shared library)
+    - add AFL_EARY_FORKSERVER to install the forkserver as earliest as
+      possible in the target (for afl-gcc-fast/afl-clang-fast/
+      afl-clang-lto)
+  - frida_mode:
+    - update to new frida release, handles now c++ throw/catch
 
 
 ### Version ++4.00c (release)
@@ -59,7 +69,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix bug where targets are not killed on timeouts
     - moved hidden afl-showmap -A option to -H to be used for
       coresight_mode
-  - Prevent accidentaly killing non-afl/fuzz services when aborting
+  - Prevent accidentally killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan

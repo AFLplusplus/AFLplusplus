@@ -400,6 +400,10 @@ checks or alter some of the more exotic semantics of the tool:
     This makes the "own finds" counter in the UI more accurate. Beyond counter
     aesthetics, not much else should change.
 
+  - Setting `AFL_INPUT_LEN_MIN` and `AFL_INPUT_LEN_MAX` are an alternative to
+    the afl-fuzz -g/-G command line option to control the minimum/maximum
+    of fuzzing input generated.
+
   - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes on
     timeout. Unless you implement your own targets or instrumentation, you
     likely don't have to set it. By default, on timeout and on exit, `SIGKILL`
@@ -528,9 +532,17 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
     on Linux systems, but will not terminate if that fails.
 
-  - Outdated environment variables that are not supported anymore:
-    - `AFL_DEFER_FORKSRV`
-    - `AFL_PERSISTENT`
+  - The following environment variables are only needed if you implemented
+    your own forkserver or persistent mode, or if __AFL_LOOP or __AFL_INIT
+    are in a shared library and not the main binary:
+    - `AFL_DEFER_FORKSRV` enforces a deferred forkserver even if none was
+      detected in the target binary
+    - `AFL_PERSISTENT` enforces persistent mode even if none was detected
+      in the target binary
+
+  - If you need an early forkserver in your target because of early
+    constructors in your target you can set `AFL_EARLY_FORKSERVER`.
+    Note that this is not a compile time option but a runtime option :-)
 
 ## 5) Settings for afl-qemu-trace
 

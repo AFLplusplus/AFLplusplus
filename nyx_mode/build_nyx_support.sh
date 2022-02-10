@@ -13,6 +13,13 @@ if [ ! "`uname -s`" = "Linux" ]; then
 
 fi
 
+if [ ! "`uname -m`" = "x86_64" ]; then
+
+  echo "[-] Error: Nyx mode is only available on x86_64 (yet)."
+  exit 0
+
+fi
+
 echo "[*] Making sure all Nyx is checked out"
 
 git status 1>/dev/null 2>/dev/null
@@ -34,9 +41,9 @@ else
 
 fi
 
-test -d QEMU-Nyx/.git || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
-test -d packer/.git || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
-test -d libnyx/.git || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e packer/.git || { echo "[-] packer not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e libnyx/.git || { echo "[-] libnyx not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e QEMU-Nyx/.git || { echo "[-] QEMU-Nyx not checked out, please install git or check your internet connection." ; exit 1 ; }
 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then

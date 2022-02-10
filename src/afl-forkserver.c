@@ -59,7 +59,11 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
+  if (fsrv->qemu_mode || fsrv->cs_mode) {
+
+    setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+
+  }
 
   execv(fsrv->target_path, argv);
 
@@ -281,13 +285,13 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
       sigaction(SIGPIPE, &sa, NULL);
 
       signal(SIGCHLD, old_sigchld_handler);
+
       // FORKSRV_FD is for communication with AFL, we don't need it in the
-      // child.
+      // child
       close(FORKSRV_FD);
       close(FORKSRV_FD + 1);
 
-      // TODO: exec...
-
+      // finally: exec...
       execv(fsrv->target_path, argv);
 
       /* Use a distinctive bitmap signature to tell the parent about execv()
@@ -567,6 +571,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
+    if (!be_quiet) { ACTF("Using AFL++ faux forkserver..."); }
     fsrv->init_child_func = afl_fauxsrv_execv;
 
   }
@@ -1265,7 +1270,8 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 /* Delete the current testcase and write the buf to the testcase file */
 
-void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
+void __attribute__((hot))
+afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #ifdef __linux__
   if (unlikely(fsrv->nyx_mode)) {
@@ -1383,8 +1389,9 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
-                                      volatile u8 *stop_soon_p) {
+fsrv_run_result_t __attribute__((hot))
+afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+                    volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;

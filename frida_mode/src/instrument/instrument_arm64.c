@@ -14,8 +14,11 @@
 
 #define PAGE_MASK (~(GUM_ADDRESS(0xfff)))
 #define PAGE_ALIGNED(x) ((GUM_ADDRESS(x) & PAGE_MASK) == GUM_ADDRESS(x))
+#define GUM_RESTORATION_PROLOG_SIZE 4
 
 #if defined(__aarch64__)
+
+static GHashTable *coverage_blocks = NULL;
 
 __attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_SIZE];
 
@@ -44,6 +47,9 @@ typedef struct {
   // b       0x7fb6f0dee4
   // ldp     x16, x17, [sp], #144
 
+  uint32_t b_imm8;                                                /* br #68 */
+  uint32_t restoration_prolog;                 /* ldp x16, x17, [sp], #0x90 */
+
   uint32_t stp_x0_x1;                           /* stp x0, x1, [sp, #-0xa0] */
 
   uint32_t adrp_x0_prev_loc1;                           /* adrp x0, #0xXXXX */
@@ -66,9 +72,6 @@ typedef struct {
 
   uint32_t ldp_x0_x1;                           /* ldp x0, x1, [sp, #-0xa0] */
 
-  uint32_t b_imm8;                                                 /* br #8 */
-  uint32_t restoration_prolog;                 /* ldp x16, x17, [sp], #0x90 */
-
 } afl_log_code_asm_t;
 
   #pragma pack(pop)
@@ -83,6 +86,9 @@ typedef union {
 static const afl_log_code_asm_t template =
     {
 
+        .b_imm8 = 0x14000011,
+
+        .restoration_prolog = 0xa8c947f0,
         .stp_x0_x1 = 0xa93607e0,
 
         .adrp_x0_prev_loc1 = 0x90000000,
@@ -107,9 +113,6 @@ static const afl_log_code_asm_t template =
 
         .ldp_x0_x1 = 0xa97607e0,
 
-        .b_imm8 = 0x14000002,
-        .restoration_prolog = 0xa8c947f0,
-
 }
 
 ;
@@ -117,6 +120,110 @@ static const afl_log_code_asm_t template =
 gboolean instrument_is_coverage_optimize_supported(void) {
 
   return true;
+
+}
+
+static gboolean instrument_is_deterministic(const cs_insn *from_insn) {
+
+  cs_arm64 *arm64;
+  arm64_cc  cc;
+
+  if (from_insn == NULL) { return FALSE; }
+
+  arm64 = &from_insn->detail->arm64;
+  cc = arm64->cc;
+
+  switch (from_insn->id) {
+
+    case ARM64_INS_B:
+    case ARM64_INS_BL:
+      if (cc == ARM64_CC_INVALID) { return TRUE; }
+      break;
+
+    case ARM64_INS_RET:
+    case ARM64_INS_RETAA:
+    case ARM64_INS_RETAB:
+      if (arm64->op_count == 0) { return TRUE; }
+      break;
+    default:
+      return FALSE;
+
+  }
+
+  return FALSE;
+
+}
+
+static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            start_address,
+                                       const cs_insn *     from_insn,
+                                       gpointer *          target) {
+
+  UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(start_address);
+
+  gsize fixup_offset;
+
+  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target)) &&
+      !g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target + 4))) {
+
+    return;
+
+  }
+
+  if (instrument_is_deterministic(from_insn)) { return; }
+
+  /*
+   * Since each block is prefixed with a restoration prologue, we need to be
+   * able to begin execution at an offset into the block and execute both this
+   * restoration prologue and the instrumented block without the coverage code.
+   * We therefore layout our block as follows:
+   *
+   *  +-----+------------------+-----+--------------------------+-------------+
+   *  | LDP | BR <TARGET CODE> | LDP | COVERAGE INSTRUMENTATION | TARGET CODE |
+   *  +-----+------------------+-----+--------------------------+-------------+
+   *
+   *  ^     ^                  ^     ^
+   *  |     |                  |     |
+   *  A     B                  C     D
+   *
+   * Without instrumentation suppression, the block is either executed at point
+   * (C) if it is reached by an indirect branch (and registers need to be
+   * restored) or point (D) if it is reached by an direct branch (and hence the
+   * registers don't need restoration). Similarly, we can start execution of the
+   * block at points (A) or (B) to achieve the same functionality, but without
+   * executing the coverage instrumentation.
+   *
+   * In either case, Stalker will call us back with the address of the target
+   * block to be executed as the destination. We can then check if the branch is
+   * a deterministic one and if so branch to point (C) or (D) rather than (A)
+   * or (B). We lay the code out in this fashion so that in the event we can't
+   * suppress coverage (the most likely), we can vector directly to the coverage
+   * instrumentation code and execute entirely without any branches. If we
+   * suppress the coverage, we simply branch beyond it instead.
+   */
+  fixup_offset = GUM_RESTORATION_PROLOG_SIZE +
+                 G_STRUCT_OFFSET(afl_log_code_asm_t, restoration_prolog);
+  *target += fixup_offset;
+
+}
+
+static void instrument_coverage_suppress_init(void) {
+
+  static gboolean initialized = false;
+  if (initialized) { return; }
+  initialized = true;
+
+  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
+  iface->switch_callback = instrument_coverage_switch;
+
+  coverage_blocks = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if (coverage_blocks == NULL) {
+
+    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+
+  }
 
 }
 
@@ -151,6 +258,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   afl_log_code    code = {0};
   GumArm64Writer *cw = output->writer.arm64;
+  gpointer        block_start;
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
   gsize   map_size_pow2;
   gsize   area_offset_ror;
@@ -171,7 +279,31 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
   // gum_arm64_writer_put_brk_imm(cw, 0x0);
 
+  instrument_coverage_suppress_init();
+
   code_addr = cw->pc;
+
+  /*
+   * On AARCH64, immediate branches can only be encoded with a 28-bit offset. To
+   * make a longer branch, it is necessary to load a register with the target
+   * address, this register must be saved beyond the red-zone before the branch
+   * is taken. To restore this register each block is prefixed by Stalker with
+   * an instruction to load x16,x17 from beyond the red-zone on the stack. A
+   * pair of registers are saved/restored because on AARCH64, the stack pointer
+   * must be 16 byte aligned. This instruction is emitted into the block before
+   * the tranformer (from which we are called) is executed. If is is possible
+   * for Stalker to make a direct branch (the target block is close enough), it
+   * can forego pushing the registers and instead branch at an offset into the
+   * block to skip this restoration prolog.
+   */
+  block_start =
+      GSIZE_TO_POINTER(GUM_ADDRESS(cw->code) - GUM_RESTORATION_PROLOG_SIZE);
+
+  if (!g_hash_table_add(coverage_blocks, block_start)) {
+
+    FATAL("Failed - g_hash_table_add");
+
+  }
 
   code.code = template;
 

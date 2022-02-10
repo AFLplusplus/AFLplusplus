@@ -68,6 +68,7 @@
 #endif
 
 #define CTOR_PRIO 3
+#define EARLY_FS_PRIO 5
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -145,6 +146,7 @@ u32 __afl_already_initialized_shm;
 u32 __afl_already_initialized_forkserver;
 u32 __afl_already_initialized_first;
 u32 __afl_already_initialized_second;
+u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
 
@@ -282,11 +284,9 @@ static void __afl_map_shm(void) {
 
   char *id_str = getenv(SHM_ENV_VAR);
 
-  if (__afl_final_loc) { ++__afl_final_loc; }  // as we count starting 0
-
   if (__afl_final_loc) {
 
-    __afl_map_size = __afl_final_loc;
+    __afl_map_size = ++__afl_final_loc;  // as we count starting 0
 
     if (__afl_final_loc > MAP_SIZE) {
 
@@ -333,14 +333,14 @@ static void __afl_map_shm(void) {
 
   if (__afl_debug) {
 
-    fprintf(stderr,
-            "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
-            "__afl_final_loc %u, "
-            "max_size_forkserver %u/0x%x\n",
-            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
-            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+    fprintf(
+        stderr,
+        "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+        "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+        "__afl_final_loc %u, __afl_map_size %u, max_size_forkserver %u/0x%x\n",
+        id_str == NULL ? "<null>" : id_str, __afl_area_ptr, __afl_area_initial,
+        __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE, __afl_final_loc,
+        __afl_map_size, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   }
 
@@ -487,11 +487,12 @@ static void __afl_map_shm(void) {
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
-            "%u, __afl_final_loc %u, "
+            "%u, __afl_final_loc %u, __afl_map_size %u,"
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
             __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            __afl_final_loc, __afl_map_size, FS_OPT_MAX_MAPSIZE,
+            FS_OPT_MAX_MAPSIZE);
 
   }
 
@@ -1254,6 +1255,8 @@ void __afl_manual_init(void) {
 
 __attribute__((constructor())) void __afl_auto_init(void) {
 
+  if (__afl_already_initialized_init) { return; }
+
 #ifdef __ANDROID__
   // Disable handlers in linker/debuggerd, check include/debuggerd/handler.h
   signal(SIGABRT, SIG_DFL);
@@ -1266,11 +1269,21 @@ __attribute__((constructor())) void __afl_auto_init(void) {
   signal(SIGTRAP, SIG_DFL);
 #endif
 
+  __afl_already_initialized_init = 1;
+
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   if (getenv(DEFER_ENV_VAR)) return;
 
   __afl_manual_init();
+
+}
+
+/* Optionally run an early forkserver */
+
+__attribute__((constructor(EARLY_FS_PRIO))) void __early_forkserver(void) {
+
+  if (getenv("AFL_EARLY_FORKSERVER")) { __afl_auto_init(); }
 
 }
 

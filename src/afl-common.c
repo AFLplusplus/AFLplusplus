@@ -71,11 +71,9 @@ u32 check_binary_signatures(u8 *fn) {
 
   } else if (getenv("AFL_PERSISTENT")) {
 
-    if (!be_quiet) {
-
-      WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
-
-    }
+    if (!be_quiet) { OKF(cPIN "Persistent mode enforced."); }
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    ret = 1;
 
   } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
 
@@ -98,11 +96,9 @@ u32 check_binary_signatures(u8 *fn) {
 
   } else if (getenv("AFL_DEFER_FORKSRV")) {
 
-    if (!be_quiet) {
-
-      WARNF("AFL_DEFER_FORKSRV is no longer supported and may misbehave!");
-
-    }
+    if (!be_quiet) { OKF(cPIN "Deferred forkserver enforced."); }
+    setenv(DEFER_ENV_VAR, "1", 1);
+    ret += 2;
 
   }
 

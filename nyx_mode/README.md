@@ -114,6 +114,14 @@ afl-fuzz -i in -o out -Y -S 1 -- ./PACKAGE-DIRECTORY
 afl-fuzz -i in -o out -Y -S 2 -- ./PACKAGE-DIRECTORY
 ```
 
+## AFL++ companion tools (afl-showmap etc.)
+
+Please note that AFL++ companion tools like afl-cmin, afl-showmap, etc. are
+not supported with Nyx mode, only afl-fuzz.
+
+For source based instrumentation just use these tools normally, for
+binary-only targets use with -Q for qemu_mode.
+
 ## Real-world examples
 
 ### Fuzzing libxml2 with AFL++ in Nyx-mode

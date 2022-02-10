@@ -102,6 +102,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
   afl->cmplog_lvl = 2;
+  afl->min_length = 1;
+  afl->max_length = MAX_FILE;
 #ifndef NO_SPLICING
   afl->use_splicing = 1;
 #endif
@@ -479,6 +481,20 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_target_env =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_INPUT_LEN_MIN",
+
+                              afl_environment_variable_len)) {
+
+            afl->min_length =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+          } else if (!strncmp(env, "AFL_INPUT_LEN_MAX",
+
+                              afl_environment_variable_len)) {
+
+            afl->max_length =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
           }
 

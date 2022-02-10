@@ -87,7 +87,7 @@ else
   }
 fi
 
-test -d qemuafl/.git || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e qemuafl/.git || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got qemuafl."
 
 cd "qemuafl" || exit 1
