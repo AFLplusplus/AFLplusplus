@@ -19,6 +19,9 @@ import os
 import signal
 
 from unicornafl import *
+
+monkeypatch()
+
 from unicorn.x86_const import *
 
 # Path to the file containing the binary to emulate
@@ -160,7 +163,7 @@ def main():
     # Emulate the code, allowing it to process the mutated input
 
     print("Starting the AFL fuzz")
-    uc_afl_fuzz(uc,
+    uc.afl_fuzz(
         input_file=args.input_file,
         place_input_callback=place_input_callback,
         exits=[end_address],
