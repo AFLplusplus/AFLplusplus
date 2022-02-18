@@ -12,6 +12,7 @@ extern gboolean instrument_optimize;
 extern gboolean instrument_unique;
 extern guint64  instrument_hash_zero;
 extern char *   instrument_coverage_unstable_filename;
+extern gboolean instrument_coverage_insn;
 
 extern gboolean instrument_use_fixed_seed;
 extern guint64  instrument_fixed_seed;
@@ -33,6 +34,8 @@ gboolean instrument_is_coverage_optimize_supported(void);
 void instrument_coverage_optimize_init(void);
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output);
+void instrument_coverage_optimize_insn(const cs_insn *   instr,
+                                       GumStalkerOutput *output);
 
 void     instrument_debug_config(void);
 void     instrument_debug_init(void);

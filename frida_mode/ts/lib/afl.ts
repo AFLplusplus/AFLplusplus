@@ -136,6 +136,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_INSN`
+   */
+  public static setInstrumentInstructions(): void {
+    Afl.jsApiSetInstrumentInstructions();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_JIT`.
    */
   public static setInstrumentJit(): void {
@@ -366,6 +373,11 @@ class Afl {
     "js_api_set_instrument_debug_file",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetInstrumentInstructions = Afl.jsApiGetFunction(
+    "js_api_set_instrument_instructions",
+    "void",
+    []);
 
   private static readonly jsApiSetInstrumentJit = Afl.jsApiGetFunction(
     "js_api_set_instrument_jit",

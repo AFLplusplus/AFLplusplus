@@ -21,6 +21,7 @@
 #include "intercept.h"
 #include "js.h"
 #include "lib.h"
+#include "module.h"
 #include "output.h"
 #include "persistent.h"
 #include "prefetch.h"
@@ -197,6 +198,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   instrument_config();
   js_config();
   lib_config();
+  module_config();
   output_config();
   persistent_config();
   prefetch_config();
@@ -214,6 +216,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   entry_init();
   instrument_init();
   lib_init();
+  module_init();
   persistent_init();
   prefetch_init();
   seccomp_init();
