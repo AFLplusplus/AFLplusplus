@@ -126,6 +126,12 @@ class Afl {
         Afl.jsApiSetInstrumentLibraries();
     }
     /**
+     * See `AFL_FRIDA_INST_NO_INSN`
+     */
+    static setInstrumentNoInstructions() {
+        Afl.jsApiSetInstrumentNoInstructions();
+    }
+    /**
      * See `AFL_FRIDA_INST_NO_OPTIMIZE`
      */
     static setInstrumentNoOptimize() {
@@ -299,6 +305,7 @@ Afl.jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument
 Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_debug_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentJit = Afl.jsApiGetFunction("js_api_set_instrument_jit", "void", []);
 Afl.jsApiSetInstrumentLibraries = Afl.jsApiGetFunction("js_api_set_instrument_libraries", "void", []);
+Afl.jsApiSetInstrumentNoInstructions = Afl.jsApiGetFunction("js_api_set_instrument_no_instructions", "void", []);
 Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_no_optimize", "void", []);
 Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", "void", ["uint64"]);
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);

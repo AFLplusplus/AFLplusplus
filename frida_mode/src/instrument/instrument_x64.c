@@ -23,6 +23,40 @@
 
 #if defined(__x86_64__)
 
+enum jcc_opcodes {
+
+  OPC_JO = 0x70,
+  OPC_JNO = 0x71,
+  OPC_JB = 0x72,
+  OPC_JAE = 0x73,
+  OPC_JE = 0x74,
+  OPC_JNE = 0x75,
+  OPC_JBE = 0x76,
+  OPC_JA = 0x77,
+  OPC_JS = 0x78,
+  OPC_JNS = 0x79,
+  OPC_JP = 0x7a,
+  OPC_JNP = 0x7b,
+  OPC_JL = 0x7c,
+  OPC_JGE = 0x7d,
+  OPC_JLE = 0x7e,
+  OPC_JG = 0x7f,
+
+};
+
+typedef union {
+
+  struct {
+
+    uint8_t opcode;
+    uint8_t distance;
+
+  };
+
+  uint8_t bytes[0];
+
+} jcc_insn;
+
 static GHashTable *coverage_blocks = NULL;
 
 gboolean instrument_is_coverage_optimize_supported(void) {
@@ -201,37 +235,15 @@ static void instrument_coverage_suppress_init(void) {
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
-                                  GumStalkerOutput *output) {
+static void instrument_coverage_write(GumAddress        address,
+                                      GumStalkerOutput *output) {
 
   afl_log_code  code = {0};
   GumX86Writer *cw = output->writer.x86;
-  guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
-  gsize   map_size_pow2;
-  gsize   area_offset_ror;
-  GumAddress code_addr = 0;
-  if (instrument_previous_pc_addr == NULL) {
-
-    GumAddressSpec spec = {.near_address = cw->code,
-                           .max_distance = 1ULL << 30};
-
-    instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
-    *instrument_previous_pc_addr = instrument_hash_zero;
-    FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
-    FVERBOSE("code_addr: %p", cw->code);
-
-  }
-
-  instrument_coverage_suppress_init();
-
-  // gum_x86_writer_put_breakpoint(cw);
-  code_addr = cw->pc;
-  if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
-
-    FATAL("Failed - g_hash_table_add");
-
-  }
+  guint64       area_offset = instrument_get_offset_hash(address);
+  gsize         map_size_pow2;
+  gsize         area_offset_ror;
+  GumAddress    code_addr = cw->pc;
 
   code.code = template;
 
@@ -310,6 +322,129 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
 
   gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+
+}
+
+void instrument_coverage_optimize(const cs_insn *   instr,
+                                  GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+  guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
+  if (instrument_previous_pc_addr == NULL) {
+
+    GumAddressSpec spec = {.near_address = cw->code,
+                           .max_distance = 1ULL << 30};
+
+    instrument_previous_pc_addr = gum_memory_allocate_near(
+        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+    *instrument_previous_pc_addr = instrument_hash_zero;
+    FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
+    FVERBOSE("code_addr: %p", cw->code);
+
+  }
+
+  instrument_coverage_suppress_init();
+
+  if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+
+    FATAL("Failed - g_hash_table_add");
+
+  }
+
+  instrument_coverage_write(GUM_ADDRESS(instr->address), output);
+
+}
+
+void instrument_coverage_optimize_insn(const cs_insn *   instr,
+                                       GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+  jcc_insn      taken, not_taken;
+
+  switch (instr->id) {
+
+    case X86_INS_CMOVA:
+      taken.opcode = OPC_JA;
+      not_taken.opcode = OPC_JBE;
+      break;
+    case X86_INS_CMOVAE:
+      taken.opcode = OPC_JAE;
+      not_taken.opcode = OPC_JB;
+      break;
+    case X86_INS_CMOVB:
+      taken.opcode = OPC_JB;
+      not_taken.opcode = OPC_JAE;
+      break;
+    case X86_INS_CMOVBE:
+      taken.opcode = OPC_JBE;
+      not_taken.opcode = OPC_JA;
+      break;
+    case X86_INS_CMOVE:
+      taken.opcode = OPC_JE;
+      not_taken.opcode = OPC_JNE;
+      break;
+    case X86_INS_CMOVG:
+      taken.opcode = OPC_JG;
+      not_taken.opcode = OPC_JLE;
+      break;
+    case X86_INS_CMOVGE:
+      taken.opcode = OPC_JGE;
+      not_taken.opcode = OPC_JL;
+      break;
+    case X86_INS_CMOVL:
+      taken.opcode = OPC_JL;
+      not_taken.opcode = OPC_JGE;
+      break;
+    case X86_INS_CMOVLE:
+      taken.opcode = OPC_JLE;
+      not_taken.opcode = OPC_JG;
+      break;
+    case X86_INS_CMOVNE:
+      taken.opcode = OPC_JNE;
+      not_taken.opcode = OPC_JE;
+      break;
+    case X86_INS_CMOVNO:
+      taken.opcode = OPC_JNO;
+      not_taken.opcode = OPC_JO;
+      break;
+    case X86_INS_CMOVNP:
+      taken.opcode = OPC_JNP;
+      not_taken.opcode = OPC_JP;
+      break;
+    case X86_INS_CMOVNS:
+      taken.opcode = OPC_JNS;
+      not_taken.opcode = OPC_JS;
+      break;
+    case X86_INS_CMOVO:
+      taken.opcode = OPC_JO;
+      not_taken.opcode = OPC_JNO;
+      break;
+    case X86_INS_CMOVP:
+      taken.opcode = OPC_JP;
+      not_taken.opcode = OPC_JNP;
+      break;
+    case X86_INS_CMOVS:
+      taken.opcode = OPC_JS;
+      not_taken.opcode = OPC_JNS;
+      break;
+    default:
+      return;
+
+  }
+
+  taken.distance = sizeof(afl_log_code);
+  not_taken.distance = sizeof(afl_log_code);
+
+  // gum_x86_writer_put_breakpoint(cw);
+
+  gum_x86_writer_put_bytes(cw, taken.bytes, sizeof(jcc_insn));
+  instrument_coverage_write(GUM_ADDRESS(instr->address), output);
+
+  gum_x86_writer_put_bytes(cw, not_taken.bytes, sizeof(jcc_insn));
+  instrument_coverage_write(GUM_ADDRESS(instr->address + instr->size), output);
+
+  FVERBOSE("Instrument - 0x%016lx: %s %s", instr->address, instr->mnemonic,
+           instr->op_str);
 
 }
 

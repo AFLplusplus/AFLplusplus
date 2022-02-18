@@ -173,6 +173,8 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
   a file.
+* `AFL_FRIDA_INST_NO_INSN` - Don't generate instrumentation for conditional
+  instructions (e.g. `CMOV` instructions on x64).
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
   `AFL_FRIDA_INST_TRACE`.
