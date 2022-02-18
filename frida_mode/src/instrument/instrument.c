@@ -276,7 +276,7 @@ void instrument_config(void) {
   instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED", 0);
   instrument_coverage_unstable_filename =
       (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
-  instrument_coverage_insn = (getenv("AFL_FRIDA_INST_NO_INSN") == NULL);
+  instrument_coverage_insn = (getenv("AFL_FRIDA_INST_INSN") != NULL);
 
   instrument_debug_config();
   instrument_coverage_config();
@@ -302,6 +302,8 @@ void instrument_init(void) {
        instrument_coverage_unstable_filename == NULL
            ? " "
            : instrument_coverage_unstable_filename);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "instructions:" cYEL " [%c]",
+       instrument_coverage_insn ? 'X' : ' ');
 
   if (instrument_tracing && instrument_optimize) {
 
