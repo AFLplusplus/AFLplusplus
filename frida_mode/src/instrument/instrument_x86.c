@@ -218,6 +218,14 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
+void instrument_coverage_optimize_insn(const cs_insn *   instr,
+                                       GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(output);
+
+}
+
 void instrument_coverage_optimize_init(void) {
 
 }
