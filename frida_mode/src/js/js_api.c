@@ -142,10 +142,10 @@ js_api_set_prefetch_backpatch_disable(void) {
 
 }
 
-__attribute__((visibility("default"))) void
-js_api_set_instrument_no_instructions(void) {
+__attribute__((visibility("default"))) void js_api_set_instrument_instructions(
+    void) {
 
-  instrument_coverage_insn = FALSE;
+  instrument_coverage_insn = TRUE;
 
 }
 
