@@ -379,5 +379,27 @@ gpointer instrument_cur(GumStalkerOutput *output) {
 
 }
 
+void instrument_cache_config(void) {
+
+}
+
+void instrument_cache_init(void) {
+
+}
+
+void instrument_cache_insert(gpointer real_address, gpointer code_address) {
+
+  UNUSED_PARAMETER(real_address);
+  UNUSED_PARAMETER(code_address);
+
+}
+
+void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(output);
+
+}
+
 #endif
 

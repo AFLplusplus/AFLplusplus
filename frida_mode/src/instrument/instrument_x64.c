@@ -202,10 +202,17 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
 
       }
 
-      if (op[0].type != X86_OP_IMM) { return; }
+      if (op[0].type != X86_OP_IMM) {
+
+        instrument_cache_insert(start_address, *target);
+        return;
+
+      }
 
       break;
     case X86_INS_RET:
+      instrument_cache_insert(start_address,
+                              (guint8 *)*target + sizeof(afl_log_code));
       break;
     default:
       return;
