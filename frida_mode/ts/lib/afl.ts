@@ -150,6 +150,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_INSN`
+   */
+  public static setInstrumentNoInstructions(): void {
+    Afl.jsApiSetInstrumentNoInstructions();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_NO_OPTIMIZE`
    */
   public static setInstrumentNoOptimize(): void {
@@ -374,6 +381,11 @@ class Afl {
 
   private static readonly jsApiSetInstrumentLibraries = Afl.jsApiGetFunction(
     "js_api_set_instrument_libraries",
+    "void",
+    []);
+
+  private static readonly jsApiSetInstrumentNoInstructions = Afl.jsApiGetFunction(
+    "js_api_set_instrument_no_instructions",
     "void",
     []);
 
