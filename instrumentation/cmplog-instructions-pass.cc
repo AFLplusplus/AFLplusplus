@@ -28,11 +28,16 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#if LLVM_MAJOR >= 11
+//  #include "llvm/Passes/PassPlugin.h"
+//  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
+#else
+  #include "llvm/IR/LegacyPassManager.h"
+#endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -55,6 +60,15 @@ using namespace llvm;
 
 namespace {
 
+#if LLVM_MAJOR >= 11           /* use new pass manager */
+class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
+ public:
+  CmpLogInstructions() {
+
+    initInstrumentList();
+
+  }
+#else
 class CmpLogInstructions : public ModulePass {
 
  public:
@@ -64,7 +78,11 @@ class CmpLogInstructions : public ModulePass {
     initInstrumentList();
 
   }
+#endif
 
+#if LLVM_MAJOR >= 11           /* use new pass manager */
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#else
   bool runOnModule(Module &M) override;
 
 #if LLVM_VERSION_MAJOR >= 4
@@ -77,6 +95,7 @@ class CmpLogInstructions : public ModulePass {
     return "cmplog instructions";
 
   }
+#endif
 
  private:
   bool hookInstrs(Module &M);
@@ -85,7 +104,9 @@ class CmpLogInstructions : public ModulePass {
 
 }  // namespace
 
+#if LLVM_MAJOR <= 10           /* use old pass manager */
 char CmpLogInstructions::ID = 0;
+#endif
 
 template <class Iterator>
 Iterator Unique(Iterator first, Iterator last) {
@@ -613,7 +634,12 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
 }
 
+#if LLVM_MAJOR >= 11           /* use new pass manager */
+PreservedAnalyses CmpLogInstructions::run(Module &               M,
+                                              ModuleAnalysisManager &MAM) {
+#else
 bool CmpLogInstructions::runOnModule(Module &M) {
+#endif
 
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
@@ -622,10 +648,15 @@ bool CmpLogInstructions::runOnModule(Module &M) {
   hookInstrs(M);
   verifyModule(M);
 
+#if LLVM_MAJOR >= 11           /* use new pass manager */
+  return PreservedAnalyses::all();
+#else
   return true;
+#endif
 
 }
 
+#if LLVM_MAJOR < 11                                 /* use old pass manager */
 static void registerCmpLogInstructionsPass(const PassManagerBuilder &,
                                            legacy::PassManagerBase &PM) {
 
@@ -645,4 +676,4 @@ static RegisterStandardPasses RegisterCmpLogInstructionsPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerCmpLogInstructionsPass);
 #endif
-
+#endif
