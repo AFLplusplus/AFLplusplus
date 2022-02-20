@@ -589,7 +589,6 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               if (optLen < 2) { continue; }
               if (literalLength + 1 == optLen) {  // add null byte
-
                 thestring.append("\0", 1);
 
               }
@@ -612,11 +611,17 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                         }
 
             */
-            if (!isStdString && thestring.find('\0', 0) != std::string::npos) {
+
+            if (!isStdString) {
 
               // ensure we do not have garbage
               size_t offset = thestring.find('\0', 0);
-              if (offset + 1 < optLen) optLen = offset + 1;
+              if (offset && offset < optLen && offset + 1 < optLen) {
+
+                optLen = offset + 1;
+
+              }
+
               thestring = thestring.substr(0, optLen);
 
             }
