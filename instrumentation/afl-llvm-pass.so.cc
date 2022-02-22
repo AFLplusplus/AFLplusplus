@@ -45,6 +45,7 @@ typedef long double max_align_t;
 #endif
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Pass.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
