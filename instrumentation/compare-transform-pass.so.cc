@@ -246,7 +246,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (!(HasStr1 || HasStr2)) {
 
             auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
-            if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+            if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
               if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -271,7 +271,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
             if (!HasStr2) {
 
               Ptr = dyn_cast<ConstantExpr>(Str1P);
-              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+              if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
