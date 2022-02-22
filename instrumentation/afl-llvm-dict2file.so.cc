@@ -435,7 +435,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           if (!HasStr2) {
 
             auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
-            if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+            if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
               if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -519,7 +519,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
             auto Ptr = dyn_cast<ConstantExpr>(Str1P);
 
-            if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+            if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
               if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 

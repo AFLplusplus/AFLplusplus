@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -757,7 +758,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
             if (!HasStr2) {
 
               auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
-              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+              if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -838,7 +839,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
               auto Ptr = dyn_cast<ConstantExpr>(Str1P);
 
-              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+              if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
