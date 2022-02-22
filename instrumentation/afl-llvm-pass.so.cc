@@ -45,6 +45,7 @@ typedef long double max_align_t;
 #endif
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Pass.h"
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   #include "llvm/Passes/PassPlugin.h"
   #include "llvm/Passes/PassBuilder.h"
