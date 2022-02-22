@@ -1,0 +1,10 @@
+with LLVM 14: only new pass manager
+up to LLVM 13: only old pass manager
+
+These do not work yet with the new pass manager:
+cmplog-instructions-pass.so
+compare-transform-pass.so
+afl-llvm-dict2file.so
+afl-llvm-lto-instrumentlist.so
+SanitizerCoverageLTO.so
+SanitizerCoveragePCGUARD.so
