@@ -518,7 +518,12 @@ checks or alter some of the more exotic semantics of the tool:
     the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz
     ... `. This exists mostly for things like `LD_LIBRARY_PATH` but it would
     theoretically allow fuzzing of AFL++ itself (with 'target' AFL++ using some
-    AFL_ vars that would disrupt work of 'fuzzer' AFL++).
+    AFL_ vars that would disrupt work of 'fuzzer' AFL++). Note that when using
+    QEMU mode, the `AFL_TARGET_ENV` environment variables will apply to QEMU,
+    as well as the target binary. Therefore, in this case, you might want to
+    use QEMU's `QEMU_SET_ENV` environment variable (see QEMU's documentation
+    because the format is different from `AFL_TARGET_ENV`) to apply the
+    environment variables to the target and not QEMU.
 
   - `AFL_TESTCACHE_SIZE` allows you to override the size of `#define
     TESTCASE_CACHE` in config.h. Recommended values are 50-250MB - or more if
