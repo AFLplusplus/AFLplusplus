@@ -80,11 +80,13 @@ class CompareTransform : public ModulePass {
 
   }
 
+#if LLVM_MAJOR < 11
 #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
 
 #else
   const char *getPassName() const override {
+#endif
 #endif
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
