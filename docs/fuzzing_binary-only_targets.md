@@ -48,11 +48,12 @@ The following setup to use QEMU mode is recommended:
 
 Then run as many instances as you have cores left with either -Q mode or - even
 better - use a binary rewriter like Dyninst, RetroWrite, ZAFL, etc.
+The binary rewriters all have their own advantages and caveats.
+ZAFL is the best but cannot be used in a business/commercial context.
 
-If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for your
-binary, then you can use afl-fuzz normally and it will have twice the speed
-compared to QEMU mode (but slower than QEMU persistent mode). Note that several
-other binary rewriters exist, all with their advantages and caveats.
+If a binary rewriter works for your target then you can use afl-fuzz normally
+and it will have twice the speed compared to QEMU mode (but slower than QEMU
+persistent mode).
 
 The speed decrease of QEMU mode is at about 50%. However, various options exist
 to increase the speed:
