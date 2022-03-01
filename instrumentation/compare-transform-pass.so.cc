@@ -63,20 +63,25 @@ class CompareTransform : public ModulePass {
   }
 
 #if LLVM_MAJOR < 11
-#if LLVM_VERSION_MAJOR >= 4
+  #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
-#else
+
+  #else
   const char *getPassName() const override {
-#endif
+
+  #endif
     return "transforms compare functions";
+
   }
+
 #endif
 
-//#if LLVM_MAJOR >= 11                                /* use new pass manager */
-//  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-//#else
+  //#if LLVM_MAJOR >= 11                                /* use new pass manager
+  /                                                                        /*/
+  //  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+  //#else
   bool runOnModule(Module &M) override;
-//#endif
+  //#endif
 
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
@@ -106,7 +111,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee tolowerFn;
 #else
-  Function *  tolowerFn;
+  Function *tolowerFn;
 #endif
   {
 
