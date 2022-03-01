@@ -81,27 +81,28 @@ class CompareTransform : public ModulePass {
   }
 
 #if LLVM_MAJOR < 11
-#if LLVM_VERSION_MAJOR >= 4
+  #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
 
-#else
+  #else
   const char *getPassName() const override {
-#endif
+
+  #endif
 #endif
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+    PreservedAnalyses run(Module & M, ModuleAnalysisManager & MAM);
 #else
   bool runOnModule(Module &M) override;
 #endif
 
- private:
-  bool transformCmps(Module &M, const bool processStrcmp,
-                     const bool processMemcmp, const bool processStrncmp,
-                     const bool processStrcasecmp,
-                     const bool processStrncasecmp);
+   private:
+    bool transformCmps(Module & M, const bool processStrcmp,
+                       const bool processMemcmp, const bool processStrncmp,
+                       const bool processStrcasecmp,
+                       const bool processStrncasecmp);
 
-};
+  };
 
 }  // namespace
 
@@ -170,7 +171,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee tolowerFn;
 #else
-  Function *  tolowerFn;
+  Function *tolowerFn;
 #endif
   {
 
