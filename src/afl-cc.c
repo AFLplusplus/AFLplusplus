@@ -462,7 +462,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-#if LLVM_MAJOR >= 11                        /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
@@ -488,7 +488,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       } else {
 
-#if LLVM_MAJOR >= 11                        /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
         cc_params[cc_par_cnt++] = alloc_printf(
             "-fpass-plugin=%s/compare-transform-pass.so", obj_path);
@@ -571,7 +571,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-#if LLVM_MAJOR == 13 // TODO: set to 14 when done FIXME 
+#if LLVM_MAJOR == 13  // TODO: set to 14 when done FIXME
     // Use the old pass manager in LLVM 13 which the afl++ passes still use.
     cc_params[cc_par_cnt++] = "-flegacy-pass-manager";
 #endif
@@ -684,8 +684,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #if LLVM_MAJOR >= 11
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("-fpass-plugin=%s/cmplog-instructions-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-fpass-plugin=%s/cmplog-instructions-pass.so", obj_path);
 #else
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";

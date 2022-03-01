@@ -60,14 +60,16 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_MAJOR >= 11           /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
+
  public:
   CmpLogInstructions() {
 
     initInstrumentList();
 
   }
+
 #else
 class CmpLogInstructions : public ModulePass {
 
@@ -78,23 +80,25 @@ class CmpLogInstructions : public ModulePass {
     initInstrumentList();
 
   }
+
 #endif
 
-#if LLVM_MAJOR >= 11           /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 #else
-  bool runOnModule(Module &M) override;
+  bool      runOnModule(Module &M) override;
 
-#if LLVM_VERSION_MAJOR >= 4
+  #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
 
-#else
+  #else
   const char *getPassName() const override {
 
-#endif
+  #endif
     return "cmplog instructions";
 
   }
+
 #endif
 
  private:
@@ -104,7 +108,7 @@ class CmpLogInstructions : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR <= 10           /* use old pass manager */
+#if LLVM_MAJOR <= 10                                /* use old pass manager */
 char CmpLogInstructions::ID = 0;
 #endif
 
@@ -634,11 +638,13 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
 }
 
-#if LLVM_MAJOR >= 11           /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
 PreservedAnalyses CmpLogInstructions::run(Module &               M,
-                                              ModuleAnalysisManager &MAM) {
+                                          ModuleAnalysisManager &MAM) {
+
 #else
 bool CmpLogInstructions::runOnModule(Module &M) {
+
 #endif
 
   if (getenv("AFL_QUIET") == NULL)
@@ -648,7 +654,7 @@ bool CmpLogInstructions::runOnModule(Module &M) {
   hookInstrs(M);
   verifyModule(M);
 
-#if LLVM_MAJOR >= 11           /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
   return PreservedAnalyses::all();
 #else
   return true;
@@ -671,9 +677,10 @@ static RegisterStandardPasses RegisterCmpLogInstructionsPass(
 static RegisterStandardPasses RegisterCmpLogInstructionsPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCmpLogInstructionsPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCmpLogInstructionsPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerCmpLogInstructionsPass);
+  #endif
 #endif
-#endif
+
