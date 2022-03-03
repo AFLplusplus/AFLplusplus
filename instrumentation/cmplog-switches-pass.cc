@@ -84,7 +84,28 @@ class CmpLogInstructions : public ModulePass {
 
 }  // namespace
 
+#if LLVM_MAJOR >= 11 && 1 == 0
+llvmGetPassPluginInfo() {
+
+  return {LLVM_PLUGIN_API_VERSION, "cmplogswitches", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+#if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+#endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(SplitComparesTransform());
+
+                });
+          }};
+
+}
+#else
 char CmpLogInstructions::ID = 0;
+#endif
 
 template <class Iterator>
 Iterator Unique(Iterator first, Iterator last) {

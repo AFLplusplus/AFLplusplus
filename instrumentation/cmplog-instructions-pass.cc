@@ -32,8 +32,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #if LLVM_MAJOR >= 11
-//  #include "llvm/Passes/PassPlugin.h"
-//  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
   #include "llvm/IR/PassManager.h"
 #else
   #include "llvm/IR/LegacyPassManager.h"
@@ -41,6 +41,9 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+  #include "llvm/Passes/OptimizationLevel.h"
+#endif
 
 #if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -108,7 +111,27 @@ class CmpLogInstructions : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR <= 10                                /* use old pass manager */
+#if LLVM_MAJOR >= 11
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+
+  return {LLVM_PLUGIN_API_VERSION, "cmploginstructions", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+#if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+#endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(CmpLogInstructions());
+
+                });
+          }};
+
+}
+#else
 char CmpLogInstructions::ID = 0;
 #endif
 
