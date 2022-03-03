@@ -39,7 +39,14 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
+#else
+  #include "llvm/IR/LegacyPassManager.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
@@ -60,31 +67,9 @@
   #define O_DSYNC O_SYNC
 #endif
 
-using namespace llvm;
+std::ofstream of;
 
-namespace {
-
-class AFLdict2filePass : public ModulePass {
-
-  std::ofstream of;
-  void          dict2file(u8 *, u32);
-
- public:
-  static char ID;
-
-  AFLdict2filePass() : ModulePass(ID) {
-
-    if (getenv("AFL_DEBUG")) debug = 1;
-
-  }
-
-  bool runOnModule(Module &M) override;
-
-};
-
-}  // namespace
-
-void AFLdict2filePass::dict2file(u8 *mem, u32 len) {
+void dict2file(u8 *mem, u32 len) {
 
   u32  i, j, binary = 0;
   char line[MAX_AUTO_EXTRA * 8], tmp[8];
@@ -123,7 +108,73 @@ void AFLdict2filePass::dict2file(u8 *mem, u32 len) {
 
 }
 
+using namespace llvm;
+
+namespace {
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+class AFLdict2filePass : public PassInfoMixin<AFLdict2filePass> {
+
+ public:
+  AFLdict2filePass() {
+
+#else
+class AFLdict2filePass : public ModulePass {
+
+ public:
+  bool runOnModule(Module &M) override;
+  AFLdict2filePass() : ModulePass(ID) {
+
+#endif
+
+    if (getenv("AFL_DEBUG")) debug = 1;
+
+  }
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#endif
+
+};
+
+}  // namespace
+
+#if LLVM_MAJOR >= 11
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+
+  return {LLVM_PLUGIN_API_VERSION, "dict2file", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+  #endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(AFLdict2filePass());
+
+                });
+
+          }};
+
+}
+
+#else
+
+char AFLdict2filePass::ID = 0;
+
+#endif
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
+
+#else
+
 bool AFLdict2filePass::runOnModule(Module &M) {
+
+#endif
 
   DenseMap<Value *, std::string *> valueMap;
   char *                           ptr;
@@ -663,12 +714,18 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
   }
 
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  auto PA = PreservedAnalyses::all();
+#endif
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  return PA;
+#else
   return true;
+#endif
 
 }
 
-char AFLdict2filePass::ID = 0;
-
+#if LLVM_VERSION_MAJOR < 11                         /* use old pass manager */
 static void registerAFLdict2filePass(const PassManagerBuilder &,
                                      legacy::PassManagerBase &PM) {
 
@@ -685,4 +742,6 @@ static RegisterStandardPasses RegisterAFLdict2filePass(
 
 static RegisterStandardPasses RegisterAFLdict2filePass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerAFLdict2filePass);
+
+#endif
 
