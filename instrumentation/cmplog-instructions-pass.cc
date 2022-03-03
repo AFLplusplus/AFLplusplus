@@ -119,18 +119,20 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
+  #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
+  #endif
             PB.registerOptimizerLastEPCallback(
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(CmpLogInstructions());
 
                 });
+
           }};
 
 }
+
 #else
 char CmpLogInstructions::ID = 0;
 #endif
