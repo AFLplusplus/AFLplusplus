@@ -90,6 +90,8 @@ u32 __afl_map_size = MAP_SIZE;
 u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 
+u8 * __afl_ctx_area_ptr = __afl_area_initial;
+
 // for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
 int __afl_selective_coverage __attribute__((weak));
 int __afl_selective_coverage_start_off __attribute__((weak));
@@ -276,6 +278,10 @@ static void __afl_map_shm(void) {
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
   char *id_str = getenv(SHM_ENV_VAR);
+
+  if (getenv("AFL_COLLFREE_CTX")) {
+      __afl_final_loc += 65536;
+  }
 
   if (__afl_final_loc) {
 
@@ -500,6 +506,12 @@ static void __afl_map_shm(void) {
 
     }
 
+  }
+  
+  if (getenv("AFL_COLLFREE_CTX")) {
+      __afl_ctx_area_ptr = __afl_area_ptr + (__afl_final_loc - 65536);
+  } else {
+      __afl_ctx_area_ptr = __afl_area_ptr;
   }
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);

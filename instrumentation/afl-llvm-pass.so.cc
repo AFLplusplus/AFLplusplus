@@ -255,6 +255,9 @@ bool AFLCoverage::runOnModule(Module &M) {
   GlobalVariable *AFLMapPtr =
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+  GlobalVariable *AFLCtxMapPtr =
+      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                         GlobalValue::ExternalLinkage, 0, "__afl_ctx_area_ptr");
   GlobalVariable *AFLPrevLoc;
   GlobalVariable *AFLContext = NULL;
   GlobalVariable *AFLContext2 = NULL;
@@ -356,6 +359,35 @@ bool AFLCoverage::runOnModule(Module &M) {
         PrevCtx2->setMetadata(M.getMDKindID("nosanitize"),
                               MDNode::get(C, None));
 
+        int newctx = AFL_R(map_size);
+        int newctx2 = AFL_R(map_size);
+
+        if (getenv("AFL_COLLFREE_CTX")) {
+            Value *NewCtx = IRB.CreateXor(
+                  PrevCtx, ConstantInt::get(Int32Ty, newctx));
+
+            Value* NewCtx2 = IRB.CreateXor(PrevCtx2,
+                                   ConstantInt::get(Int32Ty, newctx2));
+
+            std::vector<Value *> coll_args;
+            coll_args.push_back(Zero);
+            coll_args.push_back(Zero);
+            coll_args.push_back(NewCtx);
+            coll_args.push_back(NewCtx2);
+            IRB.CreateCall(aflLogCollision, coll_args);
+
+            LoadInst *MapPtr = IRB.CreateLoad(AFLCtxMapPtr);
+            MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+            
+            Value* MapPtrIdx = IRB.CreateGEP(MapPtr, NewCtx);
+            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+            Value *Incr = IRB.CreateAdd(Counter, One);
+            IRB.CreateStore(Incr, MapPtrIdx)
+                ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        }
+
         // does the function have calls? and is any of the calls larger than one
         // basic block?
         for (auto &BB_2 : F) {
@@ -386,13 +418,13 @@ bool AFLCoverage::runOnModule(Module &M) {
         if (has_calls) {
 
           Value *NewCtx = IRB.CreateXor(
-              PrevCtx, ConstantInt::get(Int32Ty, AFL_R(map_size)));
+              PrevCtx, ConstantInt::get(Int32Ty, newctx));
           StoreInst *StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
           StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                 MDNode::get(C, None));
 
           NewCtx = IRB.CreateXor(PrevCtx2,
-                                 ConstantInt::get(Int32Ty, AFL_R(map_size)));
+                                 ConstantInt::get(Int32Ty, newctx2));
           StoreCtx = IRB.CreateStore(NewCtx, AFLContext2);
           StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                 MDNode::get(C, None));
@@ -402,6 +434,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       }
 
       if (AFL_R(100) >= inst_ratio) continue;
+
+      if (getenv("AFL_COLLFREE_CTX")) continue;
 
       /* Make up cur_loc */
 
