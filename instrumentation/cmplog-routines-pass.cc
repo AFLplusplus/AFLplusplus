@@ -83,7 +83,31 @@ class CmpLogRoutines : public ModulePass {
 
 }  // namespace
 
+
+#if LLVM_MAJOR >= 11 && 1 == 0
+llvmGetPassPluginInfo() {
+
+  return {LLVM_PLUGIN_API_VERSION, "cmplogroutines", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+#if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+#endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(SplitComparesTransform());
+
+                });
+          }};
+
+}
+#else
 char CmpLogRoutines::ID = 0;
+#endif
+
+
 
 bool CmpLogRoutines::hookRtns(Module &M) {
 
