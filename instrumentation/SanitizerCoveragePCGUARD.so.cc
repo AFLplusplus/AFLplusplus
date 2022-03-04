@@ -37,10 +37,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SpecialCaseList.h"
-#if LLVM_VERSION_MAJOR >= 11 || \
-    (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
-  #include "llvm/Support/VirtualFileSystem.h"
-#endif
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -1487,7 +1484,6 @@ std::string ModuleSanitizerCoverage::getSectionEnd(
 }
 
 char ModuleSanitizerCoverageLegacyPass::ID = 0;
-
 INITIALIZE_PASS_BEGIN(ModuleSanitizerCoverageLegacyPass, "sancov",
                       "Pass for instrumenting coverage on functions", false,
                       false)
@@ -1496,36 +1492,13 @@ INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
                     "Pass for instrumenting coverage on functions", false,
                     false)
-
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options
-#if (LLVM_VERSION_MAJOR >= 11)
-    ,
+    const SanitizerCoverageOptions &Options,
     const std::vector<std::string> &AllowlistFiles,
-    const std::vector<std::string> &BlocklistFiles
-#endif
-) {
+    const std::vector<std::string> &BlocklistFiles) {
 
-  return new ModuleSanitizerCoverageLegacyPass(Options
-#if (LLVM_VERSION_MAJOR >= 11)
-                                               ,
-                                               AllowlistFiles, BlocklistFiles
-#endif
-  );
+  return new ModuleSanitizerCoverageLegacyPass(Options, AllowlistFiles,
+                                               BlocklistFiles);
 
 }
-
-void registerPCGUARDPass(const PassManagerBuilder &,
-                         legacy::PassManagerBase &PM) {
-
-  auto p = new ModuleSanitizerCoverageLegacyPass();
-  PM.add(p);
-
-}
-
-RegisterStandardPasses RegisterCompTransPass(
-    PassManagerBuilder::EP_OptimizerLast, registerPCGUARDPass);
-
-RegisterStandardPasses RegisterCompTransPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerPCGUARDPass);
 
