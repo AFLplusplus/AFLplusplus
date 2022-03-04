@@ -1257,9 +1257,12 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 #ifdef __linux__
   if (fsrv->nyx_mode) {
+
     free(fsrv->nyx_aux_string);
-    fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner); 
+    fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+
   }
+
 #endif
 
 }
