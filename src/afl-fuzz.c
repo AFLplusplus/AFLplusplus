@@ -468,6 +468,10 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
       dlsym(handle, "nyx_get_bitmap_buffer_size");
   if (plugin->nyx_get_bitmap_buffer_size == NULL) { goto fail; }
 
+  plugin->nyx_get_aux_string =
+      dlsym(handle, "nyx_get_aux_string");
+  if (plugin->nyx_get_aux_string == NULL) { goto fail; }
+
   OKF("libnyx plugin is ready!");
   return plugin;
 
