@@ -771,6 +771,22 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   ck_write(fd, mem, len, fn);
   close(fd);
 
+#ifdef __linux__
+  if(afl->fsrv.nyx_mode && fault == FSRV_RUN_CRASH) {
+    u8  fn_log[PATH_MAX];
+
+    snprintf(fn_log, PATH_MAX, "%s.log", fn);
+
+    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
+
+    u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string, 0x1000);
+
+    ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len, fn_log);
+    close(fd);
+  }
+#endif
+
   return keeping;
 
 }
