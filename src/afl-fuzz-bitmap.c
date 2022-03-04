@@ -771,6 +771,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   ck_write(fd, mem, len, fn);
   close(fd);
 
+#ifdef __linux__
   if(afl->fsrv.nyx_mode && fault == FSRV_RUN_CRASH) {
     u8  fn_log[PATH_MAX];
 
@@ -784,6 +785,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len, fn_log);
     close(fd);
   }
+#endif
 
   return keeping;
 
