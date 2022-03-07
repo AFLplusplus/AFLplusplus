@@ -423,10 +423,10 @@ void write_crash_readme(afl_state_t *afl) {
       "them to a vendor? Check out the afl-tmin that comes with the fuzzer!\n\n"
 
       "Found any cool bugs in open-source tools using afl-fuzz? If yes, please "
-      "drop\n"
-      "an mail at <afl-users@googlegroups.com> once the issues are fixed\n\n"
-
-      "  https://github.com/AFLplusplus/AFLplusplus\n\n",
+      "post\n"
+      "to https://github.com/AFLplusplus/AFLplusplus/issues/286 once the "
+      "issues\n"
+      " are fixed :)\n\n",
 
       afl->orig_cmdline,
       stringify_mem_size(val_buf, sizeof(val_buf),
