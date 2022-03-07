@@ -2136,7 +2136,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       if ((i % 2)) {
 
-        if (len > idx + i && is_hex(orig_buf + idx + i)) {
+        if (len > idx + i + 1 && is_hex(orig_buf + idx + i)) {
 
           fromhex += 2;
 
