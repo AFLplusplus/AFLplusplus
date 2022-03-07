@@ -2323,7 +2323,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
         // fprintf(stderr, "RTN ATTEMPT fromhex %u result %u\n", fromhex,
         // *status);
-        memcpy(buf + idx + i, save + i, i + 1 + off);
+        memcpy(buf + idx, save, i + 1 + off);
 
       }
 
