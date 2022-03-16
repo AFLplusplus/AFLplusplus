@@ -97,8 +97,8 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len, u32 fix) {
   if (unlikely(afl->custom_mutators_count)) {
 
     ssize_t new_size = len;
-    u8 *    new_mem = mem;
-    u8 *    new_buf = NULL;
+    u8     *new_mem = mem;
+    u8     *new_buf = NULL;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -171,7 +171,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
   if (unlikely(!mem_trimmed)) { PFATAL("alloc"); }
 
   ssize_t new_size = len - skip_len;
-  u8 *    new_mem = mem;
+  u8     *new_mem = mem;
 
   bool post_process_skipped = true;
 
@@ -205,14 +205,17 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf || new_size <= 0)) {
+        if (unlikely(!new_buf)) { FATAL("Custom_post_process failed"); }
 
-          FATAL("Custom_post_process failed (ret: %lu)",
-                (long unsigned)new_size);
+        if (unlikely(new_size <= 0)) {
+
+          LIST_REMOVE_CURRENT_EL_IN_FOREACH()
+
+        } else {
+
+          new_mem = new_buf;
 
         }
-
-        new_mem = new_buf;
 
       }
 
@@ -570,7 +573,7 @@ abort_calibration:
 
 void sync_fuzzers(afl_state_t *afl) {
 
-  DIR *          sd;
+  DIR           *sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0, synced = 0, entries = 0;
   u8             path[PATH_MAX + 1 + NAME_MAX];
