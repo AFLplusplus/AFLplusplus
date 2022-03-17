@@ -28,7 +28,6 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -138,7 +137,7 @@ llvmGetPassPluginInfo() {
 #else
 char CmpLogInstructions::ID = 0;
 #endif
-  
+
 template <class Iterator>
 Iterator Unique(Iterator first, Iterator last) {
 
@@ -686,10 +685,10 @@ bool CmpLogInstructions::runOnModule(Module &M) {
 #else
   return true;
 #endif
-  
+
 }
 
-#if LLVM_MAJOR < 11                                /* use old pass manager */
+#if LLVM_MAJOR < 11                                 /* use old pass manager */
 static void registerCmpLogInstructionsPass(const PassManagerBuilder &,
                                            legacy::PassManagerBase &PM) {
 
@@ -710,3 +709,4 @@ static RegisterStandardPasses RegisterCmpLogInstructionsPassLTO(
     registerCmpLogInstructionsPass);
   #endif
 #endif
+
