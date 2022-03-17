@@ -1687,7 +1687,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (getenv("LD_PRELOAD")) {
 
     WARNF(
-        "LD_PRELOAD is set, are you sure that is what to you want to do "
+        "LD_PRELOAD is set, are you sure that is what you want to do "
         "instead of using AFL_PRELOAD?");
 
   }
