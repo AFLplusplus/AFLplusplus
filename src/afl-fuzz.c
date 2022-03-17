@@ -167,7 +167,9 @@ static void usage(u8 *argv0, int more_help) {
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
-      "                  if using QEMU, just use -c 0.\n"
+      "                  if using QEMU/FRIDA or if you the fuzzing target is "
+      "compiled"
+      "                  for CmpLog then just use -c 0.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
@@ -465,6 +467,9 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   plugin->nyx_get_bitmap_buffer_size =
       dlsym(handle, "nyx_get_bitmap_buffer_size");
   if (plugin->nyx_get_bitmap_buffer_size == NULL) { goto fail; }
+
+  plugin->nyx_get_aux_string = dlsym(handle, "nyx_get_aux_string");
+  if (plugin->nyx_get_aux_string == NULL) { goto fail; }
 
   OKF("libnyx plugin is ready!");
   return plugin;
@@ -1458,6 +1463,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->use_banner) { afl->use_banner = argv[optind]; }
 
+  if (afl->shm.cmplog_mode &&
+      (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
+
+    afl->cmplog_binary = argv[optind];
+
+  }
+
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
     WARNF(cLRD
@@ -1675,7 +1687,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (getenv("LD_PRELOAD")) {
 
     WARNF(
-        "LD_PRELOAD is set, are you sure that is what to you want to do "
+        "LD_PRELOAD is set, are you sure that is what you want to do "
         "instead of using AFL_PRELOAD?");
 
   }

@@ -85,6 +85,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_CACHE`.
+   */
+  public static setCacheDisable(): void {
+    Afl.jsApiSetCacheDisable();
+  }
+
+  /**
    * See `AFL_FRIDA_DEBUG_MAPS`.
    */
   public static setDebugMaps(): void {
@@ -108,6 +115,14 @@ class Afl {
    */
   public static setInMemoryFuzzing(): void {
     Afl.jsApiAflSharedMemFuzzing.writeInt(1);
+  }
+
+  /**
+   * See `AFL_FRIDA_INST_CACHE_SIZE`. This function takes a single `number`
+   * as an argument.
+   */
+  public static setInstrumentCacheSize(size: number): void {
+    Afl.jsApiSetInstrumentCacheSize(size);
   }
 
   /**
@@ -354,6 +369,11 @@ class Afl {
     "void",
     []);
 
+  private static readonly jsApiSetCacheDisable = Afl.jsApiGetFunction(
+    "js_api_set_cache_disable",
+    "void",
+    []);
+
   private static readonly jsApiSetDebugMaps = Afl.jsApiGetFunction(
     "js_api_set_debug_maps",
     "void",
@@ -363,6 +383,11 @@ class Afl {
     "js_api_set_entrypoint",
     "void",
     ["pointer"]);
+
+  private static readonly jsApiSetInstrumentCacheSize = Afl.jsApiGetFunction(
+    "js_api_set_instrument_cache_size",
+    "void",
+    ["size_t"]);
 
   private static readonly jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction(
     "js_api_set_instrument_coverage_file",

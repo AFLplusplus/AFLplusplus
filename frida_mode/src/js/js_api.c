@@ -262,6 +262,19 @@ __attribute__((visibility("default"))) void js_api_set_stalker_adjacent_blocks(
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_cache_disable(void) {
+
+  instrument_cache_enabled = FALSE;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_instrument_cache_size(
+    gsize size) {
+
+  instrument_cache_size = size;
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_js_main_hook(
     const js_main_hook_t hook) {
 

@@ -69,6 +69,12 @@ class Afl {
         Afl.jsApiSetBackpatchDisable();
     }
     /**
+     * See `AFL_FRIDA_INST_NO_CACHE`.
+     */
+    static setCacheDisable() {
+        Afl.jsApiSetCacheDisable();
+    }
+    /**
      * See `AFL_FRIDA_DEBUG_MAPS`.
      */
     static setDebugMaps() {
@@ -90,6 +96,13 @@ class Afl {
      */
     static setInMemoryFuzzing() {
         Afl.jsApiAflSharedMemFuzzing.writeInt(1);
+    }
+    /**
+     * See `AFL_FRIDA_INST_CACHE_SIZE`. This function takes a single `number`
+     * as an argument.
+     */
+    static setInstrumentCacheSize(size) {
+        Afl.jsApiSetInstrumentCacheSize(size);
     }
     /**
      * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
@@ -299,8 +312,10 @@ Afl.jsApiAflSharedMemFuzzing = Afl.jsApiGetSymbol("__afl_sharedmem_fuzzing");
 Afl.jsApiDone = Afl.jsApiGetFunction("js_api_done", "void", []);
 Afl.jsApiError = Afl.jsApiGetFunction("js_api_error", "void", ["pointer"]);
 Afl.jsApiSetBackpatchDisable = Afl.jsApiGetFunction("js_api_set_backpatch_disable", "void", []);
+Afl.jsApiSetCacheDisable = Afl.jsApiGetFunction("js_api_set_cache_disable", "void", []);
 Afl.jsApiSetDebugMaps = Afl.jsApiGetFunction("js_api_set_debug_maps", "void", []);
 Afl.jsApiSetEntryPoint = Afl.jsApiGetFunction("js_api_set_entrypoint", "void", ["pointer"]);
+Afl.jsApiSetInstrumentCacheSize = Afl.jsApiGetFunction("js_api_set_instrument_cache_size", "void", ["size_t"]);
 Afl.jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_coverage_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_debug_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentInstructions = Afl.jsApiGetFunction("js_api_set_instrument_instructions", "void", []);

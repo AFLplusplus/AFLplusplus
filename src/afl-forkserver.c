@@ -450,6 +450,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     fsrv->nyx_handlers->nyx_option_set_timeout(fsrv->nyx_runner, 2, 0);
     fsrv->nyx_handlers->nyx_option_apply(fsrv->nyx_runner);
 
+    fsrv->nyx_aux_string = malloc(0x1000);
+    memset(fsrv->nyx_aux_string, 0, 0x1000);
+
     /* dry run */
     fsrv->nyx_handlers->nyx_set_afl_input(fsrv->nyx_runner, "INIT", 4);
     switch (fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner)) {
@@ -1253,7 +1256,13 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   fsrv->child_pid = -1;
 
 #ifdef __linux__
-  if (fsrv->nyx_mode) { fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner); }
+  if (fsrv->nyx_mode) {
+
+    free(fsrv->nyx_aux_string);
+    fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+
+  }
+
 #endif
 
 }

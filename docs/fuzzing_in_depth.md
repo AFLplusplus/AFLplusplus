@@ -817,9 +817,9 @@ Here are some of the most important caveats for AFL++:
 
 - There is no direct support for fuzzing network services, background daemons,
   or interactive apps that require UI interaction to work. You may need to make
-  simple code changes to make them behave in a more traditional way. Preeny may
+  simple code changes to make them behave in a more traditional way. Preeny or libdesock may
   offer a relatively simple option, too - see:
-  [https://github.com/zardus/preeny](https://github.com/zardus/preeny)
+  [https://github.com/zardus/preeny](https://github.com/zardus/preeny) or [https://github.com/fkie-cad/libdesock](https://github.com/fkie-cad/libdesock)
 
   Some useful tips for modifying network-based services can be also found at:
   [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)

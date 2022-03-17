@@ -22,6 +22,9 @@ extern uint32_t __afl_map_size;
 
 extern __thread guint64 *instrument_previous_pc_addr;
 
+extern gboolean instrument_cache_enabled;
+extern gsize    instrument_cache_size;
+
 void instrument_config(void);
 
 void instrument_init(void);
@@ -58,6 +61,11 @@ void instrument_coverage_unstable(guint64 edge, guint64 previous_rip,
 void instrument_on_fork(void);
 
 guint64 instrument_get_offset_hash(GumAddress current_rip);
+
+void instrument_cache_config(void);
+void instrument_cache_init(void);
+void instrument_cache_insert(gpointer real_address, gpointer code_address);
+void instrument_cache(const cs_insn *instr, GumStalkerOutput *output);
 
 #endif
 
