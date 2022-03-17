@@ -32,10 +32,20 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#if LLVM_MAJOR >= 11
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
+#else
+  #include "llvm/IR/LegacyPassManager.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+  #include "llvm/Passes/OptimizationLevel.h"
+#endif
 
 #if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -55,6 +65,17 @@ using namespace llvm;
 
 namespace {
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
+
+ public:
+  CmpLogInstructions() {
+
+    initInstrumentList();
+
+  }
+
+#else
 class CmpLogInstructions : public ModulePass {
 
  public:
@@ -65,18 +86,25 @@ class CmpLogInstructions : public ModulePass {
 
   }
 
-  bool runOnModule(Module &M) override;
+#endif
 
-#if LLVM_VERSION_MAJOR >= 4
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#else
+  bool      runOnModule(Module &M) override;
+
+  #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
 
-#else
+  #else
   const char *getPassName() const override {
 
-#endif
+  #endif
     return "cmplog instructions";
 
   }
+
+#endif
 
  private:
   bool hookInstrs(Module &M);
@@ -85,8 +113,32 @@ class CmpLogInstructions : public ModulePass {
 
 }  // namespace
 
-char CmpLogInstructions::ID = 0;
+#if LLVM_MAJOR >= 11
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
 
+  return {LLVM_PLUGIN_API_VERSION, "cmploginstructions", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+  #endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(CmpLogInstructions());
+
+                });
+
+          }};
+
+}
+
+#else
+char CmpLogInstructions::ID = 0;
+#endif
+  
 template <class Iterator>
 Iterator Unique(Iterator first, Iterator last) {
 
@@ -613,7 +665,14 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
 }
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+PreservedAnalyses CmpLogInstructions::run(Module &               M,
+                                          ModuleAnalysisManager &MAM) {
+
+#else
 bool CmpLogInstructions::runOnModule(Module &M) {
+
+#endif
 
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
@@ -622,10 +681,15 @@ bool CmpLogInstructions::runOnModule(Module &M) {
   hookInstrs(M);
   verifyModule(M);
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+  return PreservedAnalyses::all();
+#else
   return true;
-
+#endif
+  
 }
 
+#if LLVM_MAJOR < 11                                /* use old pass manager */
 static void registerCmpLogInstructionsPass(const PassManagerBuilder &,
                                            legacy::PassManagerBase &PM) {
 
@@ -640,9 +704,9 @@ static RegisterStandardPasses RegisterCmpLogInstructionsPass(
 static RegisterStandardPasses RegisterCmpLogInstructionsPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCmpLogInstructionsPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCmpLogInstructionsPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerCmpLogInstructionsPass);
+  #endif
 #endif
-
