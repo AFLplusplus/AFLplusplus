@@ -624,11 +624,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         } else {
 
+    #if LLVM_MAJOR >= 11                            /* use new pass manager */
+          cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+          cc_params[cc_par_cnt++] = alloc_printf(
+              "-fpass-plugin=%s/SanitizerCoveragePCGUARD.so", obj_path);
+    #else
           cc_params[cc_par_cnt++] = "-Xclang";
           cc_params[cc_par_cnt++] = "-load";
           cc_params[cc_par_cnt++] = "-Xclang";
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
+    #endif
 
         }
 
