@@ -23,6 +23,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add AFL_EARY_FORKSERVER to install the forkserver as earliest as
       possible in the target (for afl-gcc-fast/afl-clang-fast/
       afl-clang-lto)
+  - afl-cc:
+    - converted all passed to use the new llvm pass manager for llvm 11+
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
 
