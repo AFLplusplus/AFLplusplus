@@ -241,7 +241,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
   }
 
-  static char ID;  // Pass identification, replacement for typeid
+  /*static*/ char ID;  // Pass identification, replacement for typeid
   StringRef   getPassName() const override {
 
     return "ModuleSanitizerCoverage";

@@ -599,6 +599,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       free(ld_path);
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
+#if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 15
+      cc_params[cc_par_cnt++] = "-Wl,--lto-legacy-pass-manager";
+#endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       cc_params[cc_par_cnt++] = lto_flag;
