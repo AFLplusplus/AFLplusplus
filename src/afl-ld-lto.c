@@ -237,7 +237,8 @@ static void edit_params(int argc, char **argv) {
       }
 
       if (!rt_present)
-        ld_params[ld_param_cnt++] = alloc_printf("%s/afl-compiler-rt.o", afl_path);
+        ld_params[ld_param_cnt++] =
+            alloc_printf("%s/afl-compiler-rt.o", afl_path);
       if (!rt_lto_present)
         ld_params[ld_param_cnt++] =
             alloc_printf("%s/afl-llvm-rt-lto.o", afl_path);

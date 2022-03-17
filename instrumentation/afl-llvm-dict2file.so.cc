@@ -45,7 +45,6 @@
   #include "llvm/IR/PassManager.h"
 #else
   #include "llvm/IR/LegacyPassManager.h"
-  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
@@ -67,9 +66,74 @@
   #define O_DSYNC O_SYNC
 #endif
 
-std::ofstream of;
+using namespace llvm;
 
-void dict2file(u8 *mem, u32 len) {
+namespace {
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+class AFLdict2filePass : public PassInfoMixin<AFLdict2filePass> {
+
+  std::ofstream of;
+  void          dict2file(u8 *, u32);
+
+ public:
+  AFLdict2filePass() {
+
+#else
+
+class AFLdict2filePass : public ModulePass {
+
+  std::ofstream of;
+  void          dict2file(u8 *, u32);
+
+ public:
+  static char ID;
+
+  AFLdict2filePass() : ModulePass(ID) {
+
+#endif
+
+    if (getenv("AFL_DEBUG")) debug = 1;
+
+  }
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#else
+  bool runOnModule(Module &M) override;
+#endif
+
+};
+
+}  // namespace
+
+#if LLVM_MAJOR >= 11
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+
+  return {LLVM_PLUGIN_API_VERSION, "AFLdict2filePass", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+  #endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(AFLdict2filePass());
+
+                });
+
+          }};
+
+}
+
+#else
+char AFLdict2filePass::ID = 0;
+#endif
+
+void AFLdict2filePass::dict2file(u8 *mem, u32 len) {
 
   u32  i, j, binary = 0;
   char line[MAX_AUTO_EXTRA * 8], tmp[8];
@@ -108,70 +172,10 @@ void dict2file(u8 *mem, u32 len) {
 
 }
 
-using namespace llvm;
-
-namespace {
-
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-class AFLdict2filePass : public PassInfoMixin<AFLdict2filePass> {
-
- public:
-  AFLdict2filePass() {
-
-#else
-class AFLdict2filePass : public ModulePass {
-
- public:
-  bool runOnModule(Module &M) override;
-  AFLdict2filePass() : ModulePass(ID) {
-
-#endif
-
-    if (getenv("AFL_DEBUG")) debug = 1;
-
-  }
-
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-#endif
-
-};
-
-}  // namespace
-
-#if LLVM_MAJOR >= 11
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-
-  return {LLVM_PLUGIN_API_VERSION, "dict2file", "v0.1",
-          /* lambda to insert our pass into the pass pipeline. */
-          [](PassBuilder &PB) {
-
-  #if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-  #endif
-            PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
-
-                  MPM.addPass(AFLdict2filePass());
-
-                });
-
-          }};
-
-}
-
-#else
-
-char AFLdict2filePass::ID = 0;
-
-#endif
-
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
 #else
-
 bool AFLdict2filePass::runOnModule(Module &M) {
 
 #endif
@@ -640,6 +644,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               if (optLen < 2) { continue; }
               if (literalLength + 1 == optLen) {  // add null byte
+
                 thestring.append("\0", 1);
 
               }
@@ -662,17 +667,11 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                         }
 
             */
-
-            if (!isStdString) {
+            if (!isStdString && thestring.find('\0', 0) != std::string::npos) {
 
               // ensure we do not have garbage
               size_t offset = thestring.find('\0', 0);
-              if (offset && offset < optLen && offset + 1 < optLen) {
-
-                optLen = offset + 1;
-
-              }
-
+              if (offset + 1 < optLen) optLen = offset + 1;
               thestring = thestring.substr(0, optLen);
 
             }
@@ -716,8 +715,6 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   auto PA = PreservedAnalyses::all();
-#endif
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   return PA;
 #else
   return true;
