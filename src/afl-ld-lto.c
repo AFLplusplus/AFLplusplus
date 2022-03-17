@@ -86,7 +86,7 @@ static void edit_params(int argc, char **argv) {
     for (i = 1; i < (u32)argc; i++) {
 
       if (strstr(argv[i], "/afl-llvm-rt-lto.o") != NULL) rt_lto_present = 1;
-      if (strstr(argv[i], "/afl-llvm-rt.o") != NULL) rt_present = 1;
+      if (strstr(argv[i], "/afl-compiler-rt.o") != NULL) rt_present = 1;
       if (strstr(argv[i], "/afl-llvm-lto-instr") != NULL) inst_present = 1;
 
     }
@@ -237,7 +237,8 @@ static void edit_params(int argc, char **argv) {
       }
 
       if (!rt_present)
-        ld_params[ld_param_cnt++] = alloc_printf("%s/afl-llvm-rt.o", afl_path);
+        ld_params[ld_param_cnt++] =
+            alloc_printf("%s/afl-compiler-rt.o", afl_path);
       if (!rt_lto_present)
         ld_params[ld_param_cnt++] =
             alloc_printf("%s/afl-llvm-rt-lto.o", afl_path);
