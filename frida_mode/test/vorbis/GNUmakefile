@@ -125,7 +125,7 @@ vorbis: $(VORBIS_LIB)
 ########## HARNESS #######
 
 $(DECODE_SRC):
-	wget -O $@ $(DECODE_URL)
+	wget -O $@ $(DECODE_URL) || curl -L -o $@ $(DECODE_URL)
 
 $(DECODE_OBJ): $(DECODE_SRC)
 	$(CXX) -o $@ -c $< -I$(VORBIS_DIR)include/ -I$(OGG_DIR)include/
@@ -135,7 +135,7 @@ decode: $(DECODE_OBJ)
 ########## HARNESS #######
 
 $(HARNESS_SRC):
-	wget -O $@ $(HARNESS_URL)
+	wget -O $@ $(HARNESS_URL) || curl -L -o $@ $(HARNESS_URL)
 
 $(HARNESS_OBJ): $(HARNESS_SRC)
 	$(CC) -o $@ -c $<
@@ -165,8 +165,8 @@ $(AFLPP_DRIVER_DUMMY_INPUT): | $(BUILD_DIR)
 
 ###### TEST DATA #######
 
-$(TEST_DATA_FILE): $(TEST_DATA_DIR)
-	wget -O $@ $(TEST_DATA_SRC)
+$(TEST_DATA_FILE): | $(TEST_DATA_DIR)
+	wget -O $@ $(TEST_DATA_SRC) || curl -L -o $@ $(TEST_DATA_SRC)
 
 clean:
 	rm -rf $(BUILD_DIR)

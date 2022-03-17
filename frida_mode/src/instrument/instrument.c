@@ -249,6 +249,8 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     }
 
+    instrument_cache(instr, output);
+
     if (js_stalker_callback(instr, begin, excluded, output)) {
 
       gum_stalker_iterator_keep(iterator);
@@ -282,6 +284,7 @@ void instrument_config(void) {
   instrument_coverage_config();
   asan_config();
   cmplog_config();
+  instrument_cache_config();
 
 }
 
@@ -392,6 +395,7 @@ void instrument_init(void) {
   instrument_coverage_init();
   instrument_coverage_optimize_init();
   instrument_debug_init();
+  instrument_cache_init();
 
 }
 

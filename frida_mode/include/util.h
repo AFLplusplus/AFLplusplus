@@ -5,6 +5,14 @@
 
 #include "debug.h"
 
+#ifndef MAP_FIXED_NOREPLACE
+  #ifdef MAP_EXCL
+    #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
+  #else
+    #define MAP_FIXED_NOREPLACE MAP_FIXED
+  #endif
+#endif
+
 #define UNUSED_PARAMETER(x) (void)(x)
 #define IGNORED_RETURN(x) (void)!(x)
 

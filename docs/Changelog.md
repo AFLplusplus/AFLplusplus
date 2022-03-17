@@ -12,6 +12,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
   - afl-fuzz:
+    - when you just want to compile once and set CMPLOG, then just
+      set -c 0 to tell afl-fuzz that the fuzzing binary is also for
+      CMPLOG.
     - new commandline options -g/G to set min/max length of generated
       fuzz inputs
     - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow

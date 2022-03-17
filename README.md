@@ -112,7 +112,7 @@ Step-by-step quick start:
 
 5. You will find found crashes and hangs in the subdirectories `crashes/` and
    `hangs/` in the `-o output_dir` directory. You can replay the crashes by
-   feeding them to the target, e.g.:
+   feeding them to the target, e.g. if your target is using stdin:
 
    ```
    cat output_dir/crashes/id:000000,* | /path/to/tested/program [...program's cmdline...]
