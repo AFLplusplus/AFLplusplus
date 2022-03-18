@@ -626,7 +626,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 11 || (LLVM_MAJOR == 10 && LLVM_MINOR >= 1)
+#if LLVM_MAJOR >= 11
   #if defined __ANDROID__ || ANDROID
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
         instrument_mode = INSTRUMENT_LLVMNATIVE;
