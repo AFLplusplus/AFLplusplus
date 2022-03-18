@@ -24,8 +24,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       possible in the target (for afl-gcc-fast/afl-clang-fast/
       afl-clang-lto)
   - afl-cc:
-    ! llvm15-dev with LTO and extra features (LAF/CMPLOG etc.) might have
-      issues at the moment
     - converted all passed to use the new llvm pass manager for llvm 11+
     - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
   - frida_mode:
