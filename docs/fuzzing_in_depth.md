@@ -333,6 +333,24 @@ is a non-standard way to set this, otherwise set up the build normally and edit
 the generated build environment afterwards manually to point it to the right
 compiler (and/or `RANLIB` and `AR`).
 
+#### Linker scripts
+
+If the project uses linker scripts to hide the symbols exported by the
+binary, then you may see errors such as:
+
+```
+undefined symbol: __afl_area_ptr
+```
+
+The solution is to modify the linker script to add:
+
+```
+{
+  global:
+    __afl_*;
+}
+```
+
 ### f) Better instrumentation
 
 If you just fuzz a target program as-is, you are wasting a great opportunity for
