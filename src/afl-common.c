@@ -805,10 +805,7 @@ bool extract_and_set_env(u8 *env_str) {
     *rest = '\0';  // done with variable value
 
     rest += 1;
-    if (rest < end && *rest != ' ') { goto free_and_return; }
-
     num_pairs++;
-
     setenv(key, val, 1);
 
   }
