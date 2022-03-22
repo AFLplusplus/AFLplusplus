@@ -745,6 +745,7 @@ static void __afl_start_snapshots(void) {
 
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+        __afl_prev_ctx = __afl_prev_ctx2 = 0;
 
         return;
 
@@ -1018,6 +1019,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       memset(__afl_area_ptr, 0, __afl_map_size);
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+      __afl_prev_ctx = __afl_prev_ctx2 = 0;
 
     }
 
@@ -1038,6 +1040,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
       __afl_selective_coverage_temp = 1;
+      __afl_prev_ctx = __afl_prev_ctx2 = 0;
 
       return 1;
 

@@ -205,6 +205,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
   ctx_str = getenv("AFL_LLVM_CTX");
+  if (!ctx_str) ctx_str = getenv("AFL_COLLFREE_CTX");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Decide previous location vector size (must be a power of two) */

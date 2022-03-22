@@ -424,6 +424,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = fplugin_arg;
 
   }
+  
+  if (getenv("AFL_COLLFREE_CTX")) cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
 
   if (compiler_mode == LLVM || compiler_mode == LTO) {
 
@@ -1273,6 +1275,8 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_LLVM_CTX")) instrument_opt_mode |= INSTRUMENT_OPT_CTX;
+
+  if (getenv("AFL_COLLFREE_CTX")) instrument_opt_mode |= INSTRUMENT_CLASSIC;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
 
