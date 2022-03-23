@@ -1,4 +1,4 @@
-# Building and installing AFL++
+
 
 ## Linux on x86
 
@@ -16,11 +16,8 @@ This image is automatically generated when a push to the stable repo happens.
 You will find your target source code in `/src` in the container.
 
 If you want to build AFL++ yourself, you have many options. The easiest choice
-is to build and install everything.
+is to build and install everything:
 
-First install the required packages:
-
-On Debian 10: 
 ```shell
 sudo apt-get update
 sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
@@ -28,21 +25,6 @@ sudo apt-get install -y build-essential python3-dev automake cmake git flex biso
 sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 sudo apt-get install -y ninja-build # for QEMU mode
-```
-
-On other systems: 
-
-```shell
-sudo apt-get update
-sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
-# try to install llvm 11 and install the distro default if that fails
-sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang
-sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
-sudo apt-get install -y ninja-build # for QEMU mode
-```
-
-Then install AFLplusplus:
-```shell
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
 make distrib
