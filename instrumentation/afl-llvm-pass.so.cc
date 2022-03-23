@@ -434,9 +434,30 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       }
 
-      if (AFL_R(100) >= inst_ratio) continue;
+      if (getenv("AFL_COLLFREE_CTX")) {
+      
+        if (ctx_str && has_calls) {
 
-      if (getenv("AFL_COLLFREE_CTX")) continue;
+            Instruction *Inst = BB.getTerminator();
+            if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+              IRBuilder<> Post_IRB(Inst);
+              StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+              RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                      MDNode::get(C, None));
+              RestoreCtx = Post_IRB.CreateStore(PrevCtx2, AFLContext2);
+              RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                      MDNode::get(C, None));
+
+            }
+
+          }
+
+          continue;
+      
+      }
+      
+      if (AFL_R(100) >= inst_ratio) continue;
 
       /* Make up cur_loc */
 
@@ -493,6 +514,9 @@ bool AFLCoverage::runOnModule(Module &M) {
             StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
             RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                     MDNode::get(C, None));
+            RestoreCtx = Post_IRB.CreateStore(PrevCtx2, AFLContext2);
+            RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
 
           }
 
@@ -632,6 +656,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
           IRBuilder<> Post_IRB(Inst);
           StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+          RestoreCtx = Post_IRB.CreateStore(PrevCtx2, AFLContext2);
           RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                   MDNode::get(C, None));
 

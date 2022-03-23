@@ -138,12 +138,12 @@ void __afl_log_collision(u32 cur, u32 prev, u32 ctx, u32 ctx2) {
   if (!collision_map) return;
 
   u32 idx = (cur ^ prev ^ ctx) & (MAP_SIZE - 1);
-
+//fprintf(stderr, "log %u %u\n", ctx, ctx2);
   if (collision_map[idx].touched) {
 
     if (collision_map[idx].cur != cur || collision_map[idx].prev != prev ||
         collision_map[idx].ctx != ctx2) {
-
+      //if (!collision_map[idx].is_colliding) fprintf(stderr, "new colliding %u\n", idx);
       collision_map[idx].is_colliding = 1;
 
     }
@@ -280,7 +280,7 @@ static void __afl_map_shm(void) {
   char *id_str = getenv(SHM_ENV_VAR);
 
   if (getenv("AFL_COLLFREE_CTX")) {
-      __afl_final_loc += 65536;
+      __afl_final_loc += MAP_SIZE;
   }
 
   if (__afl_final_loc) {
@@ -446,7 +446,7 @@ static void __afl_map_shm(void) {
 
     __afl_area_ptr[0] = 1;
 
-    collision_map = (struct collision_entry *)(__afl_area_ptr + MAP_SIZE);
+    collision_map = (struct collision_entry *)(__afl_area_ptr + __afl_map_size);
 
   } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
 
@@ -509,10 +509,12 @@ static void __afl_map_shm(void) {
   }
   
   if (getenv("AFL_COLLFREE_CTX")) {
-      __afl_ctx_area_ptr = __afl_area_ptr + (__afl_final_loc - 65536);
+      __afl_ctx_area_ptr = __afl_area_ptr + (__afl_final_loc - MAP_SIZE);
   } else {
       __afl_ctx_area_ptr = __afl_area_ptr;
   }
+
+  fprintf(stderr, "__afl_area_ptr: 0x%llx,__afl_ctx_area_ptr: 0x%llx, collision_map: 0x%llx\n", __afl_area_ptr, __afl_ctx_area_ptr, collision_map);
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
@@ -1205,14 +1207,18 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   */
 
+  uint32_t idx = *guard;
+
+  
+
 #if (LLVM_VERSION_MAJOR < 9)
 
-  __afl_area_ptr[*guard]++;
+  __afl_area_ptr[idx]++;
 
 #else
 
-  __afl_area_ptr[*guard] =
-      __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
+  __afl_area_ptr[idx] =
+      __afl_area_ptr[idx] + 1 + (__afl_area_ptr[idx] == 255 ? 1 : 0);
 
 #endif
 
