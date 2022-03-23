@@ -66,10 +66,12 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
   u32 coll_idx;
   for (coll_idx = 0; coll_idx < MAP_SIZE; ++coll_idx) {
 
+    if (afl->shm.collisions_map[coll_idx].touched) {
+        afl->touched_bits[coll_idx] = 1;
+    }
+
     if (afl->shm.collisions_map[coll_idx].is_colliding) {
-
       afl->colliding_bits[coll_idx] = 1;
-
     }
 
   }

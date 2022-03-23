@@ -205,25 +205,6 @@ u32 count_bytes_scozzo(afl_state_t *afl, u8 *mem) {
 
 }
 
-u32 count_scozzo(afl_state_t *afl) {
-
-  u32  ret = 0;
-
-  u32 coll_idx;
-  for (coll_idx = 0; coll_idx < MAP_SIZE; ++coll_idx) {
-
-    if (afl->shm.collisions_map[coll_idx].touched) {
-
-      ret++;
-
-    }
-
-  }
-
-  return ret;
-
-}
-
 /* Update stats file for unattended monitoring. */
 
 void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
@@ -345,7 +326,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #else
           -1,
 #endif
-          t_bytes, count_bytes_scozzo(afl, afl->colliding_bits), count_scozzo(afl), afl->var_byte_count,
+          t_bytes, count_bytes_scozzo(afl, afl->colliding_bits), count_bytes_scozzo(afl, afl->touched_bits), afl->var_byte_count,
           afl->expand_havoc, afl->q_testcase_cache_size,
           afl->q_testcase_cache_count, afl->q_testcase_evictions,
           afl->use_banner, afl->unicorn_mode ? "unicorn" : "",

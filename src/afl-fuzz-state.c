@@ -115,6 +115,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->virgin_bits = ck_alloc(map_size);
   afl->colliding_bits = ck_alloc(MAP_SIZE);
+  afl->touched_bits = ck_alloc(MAP_SIZE);
   afl->virgin_tmout = ck_alloc(map_size);
   afl->virgin_crash = ck_alloc(map_size);
   afl->var_bytes = ck_alloc(map_size);

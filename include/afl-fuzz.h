@@ -526,7 +526,7 @@ typedef struct afl_state {
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
-  u8 *colliding_bits;
+  u8 *colliding_bits;u8 *touched_bits;
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32 *   alias_table;                /* alias weighted random lookup table */
