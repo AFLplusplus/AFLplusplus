@@ -1,4 +1,4 @@
-
+# Building and installing AFL++
 
 ## Linux on x86
 
