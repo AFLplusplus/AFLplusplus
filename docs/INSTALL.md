@@ -41,7 +41,7 @@ sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//
 sudo apt-get install -y ninja-build # for QEMU mode
 ```
 
-Then install AFLplusplus
+Then install AFLplusplus:
 ```shell
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
