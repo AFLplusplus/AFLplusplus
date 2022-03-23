@@ -30,7 +30,7 @@ sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //
 sudo apt-get install -y ninja-build # for QEMU mode
 ```
 
-On other distributions and versions of Debian: 
+On other systems: 
 
 ```shell
 sudo apt-get update
