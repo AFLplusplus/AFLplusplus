@@ -99,11 +99,13 @@ int __afl_selective_coverage_temp = 1;
 
 #if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
+PREV_LOC_T __afl_prev_loc2[NGRAM_SIZE_MAX];
 u32        __afl_prev_ctx;
 u32        __afl_prev_ctx2;
 u32        __afl_cmp_counter;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
+__thread PREV_LOC_T __afl_prev_loc2[NGRAM_SIZE_MAX];
 __thread u32        __afl_prev_ctx;
 __thread u32        __afl_prev_ctx2;
 __thread u32        __afl_cmp_counter;
@@ -133,17 +135,17 @@ static int __afl_dummy_fd[2] = {2, 2};
 
 struct collision_entry *collision_map;
 
-void __afl_log_collision(u32 cur, u32 prev, u32 ctx, u32 ctx2) {
+void __afl_log_collision(u32 cur, u32 prev, u32 ctx, u32 cur2, u32 prev2, u32 ctx2) {
 
   if (!collision_map) return;
 
   u32 idx = (cur ^ prev ^ ctx) & (MAP_SIZE - 1);
-//fprintf(stderr, "log %u %u\n", ctx, ctx2);
+
   if (collision_map[idx].touched) {
 
-    if (collision_map[idx].cur != cur || collision_map[idx].prev != prev ||
+    if (collision_map[idx].cur != cur2 || collision_map[idx].prev != prev2 ||
         collision_map[idx].ctx != ctx2) {
-      //if (!collision_map[idx].is_colliding) fprintf(stderr, "new colliding %u\n", idx);
+
       collision_map[idx].is_colliding = 1;
 
     }
@@ -151,8 +153,8 @@ void __afl_log_collision(u32 cur, u32 prev, u32 ctx, u32 ctx2) {
   } else {
 
     collision_map[idx].touched = 1;
-    collision_map[idx].cur = cur;
-    collision_map[idx].prev = prev;
+    collision_map[idx].cur = cur2;
+    collision_map[idx].prev = prev2;
     collision_map[idx].ctx = ctx2;
 
   }

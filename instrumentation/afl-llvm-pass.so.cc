@@ -137,7 +137,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #else
   FunctionCallee
 #endif
-      c1 = M.getOrInsertFunction("__afl_log_collision", VoidTy, Int32Ty, Int32Ty
+      c1 = M.getOrInsertFunction("__afl_log_collision", VoidTy, Int32Ty, Int32Ty, Int32Ty, Int32Ty, Int32Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -260,6 +260,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_ctx_area_ptr");
   GlobalVariable *AFLPrevLoc;
+  GlobalVariable *AFLPrevLoc2;
   GlobalVariable *AFLContext = NULL;
   GlobalVariable *AFLContext2 = NULL;
 
@@ -302,6 +303,30 @@ bool AFLCoverage::runOnModule(Module &M) {
 #else
   AFLPrevLoc = new GlobalVariable(
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+      GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+  if (ngram_size)
+  #if defined(__ANDROID__) || defined(__HAIKU__)
+    AFLPrevLoc2 = new GlobalVariable(
+        M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
+        /* Initializer */ nullptr, "__afl_prev_loc2");
+  #else
+    AFLPrevLoc2 = new GlobalVariable(
+        M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
+        /* Initializer */ nullptr, "__afl_prev_loc2",
+        /* InsertBefore */ nullptr, GlobalVariable::GeneralDynamicTLSModel,
+        /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
+  #endif
+  else
+#endif
+#if defined(__ANDROID__) || defined(__HAIKU__)
+    AFLPrevLoc2 = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc2");
+#else
+  AFLPrevLoc2 = new GlobalVariable(
+      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc2", 0,
       GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
 
@@ -374,6 +399,8 @@ bool AFLCoverage::runOnModule(Module &M) {
             coll_args.push_back(Zero);
             coll_args.push_back(Zero);
             coll_args.push_back(NewCtx);
+            coll_args.push_back(Zero);
+            coll_args.push_back(Zero);
             coll_args.push_back(NewCtx2);
             IRB.CreateCall(aflLogCollision, coll_args);
 
@@ -463,6 +490,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       // cur_loc++;
       cur_loc = AFL_R(map_size);
+      uint32_t cur_loc2 = AFL_R(map_size);
 
 /* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
    The inline function successors() is not inlined and also not found at runtime
@@ -537,11 +565,16 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
         CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
+      ConstantInt *CurLoc2 = ConstantInt::get(Int32Ty, cur_loc2);
+
       /* Load prev_loc */
 
       LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
       PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *PrevLocTrans;
+
+      LoadInst *PrevLoc2 = IRB.CreateLoad(AFLPrevLoc2);
+      PrevLoc2->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
       /* "For efficiency, we propose to hash the tuple as a key into the
@@ -559,6 +592,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       coll_args.push_back(CurLoc);
       coll_args.push_back(PrevLocTrans);
       coll_args.push_back(PrevCtx);
+      coll_args.push_back(CurLoc2);
+      coll_args.push_back(PrevLoc2);
       coll_args.push_back(PrevCtx2);
       IRB.CreateCall(aflLogCollision, coll_args);
 
@@ -642,6 +677,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
+        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc2 >> 1),
+                                AFLPrevLoc2);
         Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       }
