@@ -165,11 +165,8 @@ test -e ../afl-qemu-trace && {
             CODE=1
           }
         } || {
-          echo CUT------------------------------------------------------------------CUT
-          cat errors
-          echo CUT------------------------------------------------------------------CUT
-	  $ECHO "$RED[!] cannot compile test program (32 bit) for unsigaction library"
-          CODE=1
+	  $ECHO "$YELLOW[-] cannot compile test program (32 bit) for unsigaction library"
+          INCOMPLETE=1
         }
       } || {
         $ECHO "$YELLOW[-] we cannot test qemu_mode unsigaction library (32 bit) because it is not present"
@@ -194,11 +191,8 @@ test -e ../afl-qemu-trace && {
           }
           unset LD_PRELOAD
         } || {
-          echo CUT------------------------------------------------------------------CUT
-          cat errors
-          echo CUT------------------------------------------------------------------CUT
-	  $ECHO "$RED[!] cannot compile test program (64 bit) for unsigaction library"
-          CODE=1
+	  $ECHO "$YELLOW[-] cannot compile test program (64 bit) for unsigaction library"
+          INCOMPLETE=1
         }
       } || {
         $ECHO "$YELLOW[-] we cannot test qemu_mode unsigaction library (64 bit) because it is not present"
