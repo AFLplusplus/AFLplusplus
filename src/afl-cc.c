@@ -316,7 +316,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
      have_c = 0, partial_linking = 0, wasm_linking = 0;
-
+  
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
   if (lto_mode) {
@@ -945,6 +945,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  if (getenv("AST_CC_ARGS")) {
+    OKF("Using AST_CC_ARGS: '%s'", getenv("AST_CC_ARGS"));
+    char *e = getenv("AST_CC_ARGS");
+    char *token;
+    token = strtok(e, " ");
+    while(token != NULL) {
+      cc_params[cc_par_cnt++] = token;
+      token = strtok(NULL, " ");
+    }
+  }
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
       getenv("LAF_TRANSFORM_COMPARES") || getenv("AFL_LLVM_LAF_ALL") ||
       lto_mode) {
@@ -1173,6 +1183,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   cc_params[cc_par_cnt] = NULL;
 
+  OKF("All CC params:");
+  for(int i = 0; i < cc_par_cnt; i ++) {
+    printf("%s ", cc_params[i]);
+  }
+  printf("\n");
 }
 
 /* Main entry point */
