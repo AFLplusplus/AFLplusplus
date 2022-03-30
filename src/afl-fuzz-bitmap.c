@@ -776,7 +776,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     u8 fn_log[PATH_MAX];
 
-    snprintf(fn_log, PATH_MAX, "%s.log", fn);
+    (void)(snprintf(fn_log, PATH_MAX, "%s.log", fn) + 1);
     fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
 
