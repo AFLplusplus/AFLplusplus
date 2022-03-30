@@ -16,6 +16,7 @@ static char *afl_environment_deprecated[] = {
 
 static char *afl_environment_variables[] = {
 
+    "AFL_COLLFREE_CTX",
     "AFL_ALIGNED_ALLOC",
     "AFL_ALLOW_TMP",
     "AFL_ANALYZE_HEX",
