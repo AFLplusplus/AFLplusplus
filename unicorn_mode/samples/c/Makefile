@@ -15,7 +15,7 @@ V ?= 0
 
 CFLAGS += -Wall -Werror -I../../unicornafl/unicorn/include -I../../unicornafl/include
 
-LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lpthread -lm -lunicornafl -lunicorn -lc++
+LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB)  -lunicorn -laarch64-softmmu -larm-softmmu -lm68k-softmmu -lmips-softmmu -lmips64-softmmu -lmips64el-softmmu -lmipsel-softmmu -lppc-softmmu -lppc64-softmmu -lriscv32-softmmu -lriscv64-softmmu -ls390x-softmmu -lsparc-softmmu -lsparc64-softmmu -lx86_64-softmmu -lm -lpthread -lunicornafl -lunicorn-common -lc++ -lstdc++
 
 ifeq ($(UNAME), Linux)
 # do something Linux-y
