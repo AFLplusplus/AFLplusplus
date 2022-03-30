@@ -577,6 +577,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
       cc_params[cc_par_cnt++] = "-Wl,--lto-legacy-pass-manager";
+#else
+      cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
 #endif
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
