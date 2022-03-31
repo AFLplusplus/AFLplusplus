@@ -932,6 +932,15 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         IRBuilder<> IRB(callInst);
 
+        if (!FunctionGuardArray) {
+
+          fprintf(stderr,
+                  "SANCOV: FunctionGuardArray is NULL, failed to emit "
+                  "instrumentation.");
+          continue;
+
+        }
+
         Value *GuardPtr = IRB.CreateIntToPtr(
             IRB.CreateAdd(
                 IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
@@ -956,6 +965,15 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         IRBuilder<> IRB(selectInst->getNextNode());
 
         if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+          if (!FunctionGuardArray) {
+
+            fprintf(stderr,
+                    "SANCOV: FunctionGuardArray is NULL, failed to emit "
+                    "instrumentation.");
+            continue;
+
+          }
 
           auto GuardPtr1 = IRB.CreateIntToPtr(
               IRB.CreateAdd(
@@ -992,6 +1010,15 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               FixedVectorType *GuardPtr2 =
                   FixedVectorType::get(Int32PtrTy, elements);
               Value *x, *y;
+
+              if (!FunctionGuardArray) {
+
+                fprintf(stderr,
+                        "SANCOV: FunctionGuardArray is NULL, failed to emit "
+                        "instrumentation.");
+                continue;
+
+              }
 
               Value *val1 = IRB.CreateIntToPtr(
                   IRB.CreateAdd(
