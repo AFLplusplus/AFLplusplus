@@ -566,7 +566,19 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       }
 
-      if (!ld_path || !*ld_path) { ld_path = strdup("ld.lld"); }
+      if (!ld_path || !*ld_path) {
+
+        if (ld_path) {
+
+          // Freeing empty string
+          free(ld_path);
+
+        }
+
+        ld_path = strdup("ld.lld");
+
+      }
+
       if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
       cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);

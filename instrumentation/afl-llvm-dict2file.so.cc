@@ -536,15 +536,17 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
                 }
 
-                if (optLength > Str2.length()) { optLength = Str2.length(); }
-
               }
 
               valueMap[Str1P] = new std::string(Str2);
 
-              if (debug)
+              if (debug) {
+
                 fprintf(stderr, "Saved: %s for %p\n", Str2.c_str(),
                         (void *)Str1P);
+
+              }
+
               continue;
 
             }

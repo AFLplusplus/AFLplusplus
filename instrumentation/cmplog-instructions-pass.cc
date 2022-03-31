@@ -515,7 +515,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       while (1) {
 
         std::vector<Value *> args;
-        uint32_t             skip = 0;
+        bool                 skip = true;
 
         if (vector_cnt) {
 
@@ -537,16 +537,18 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                         if (i0) {
 
                           cur_val = (uint64_t)i0->getValue().convertToDouble();
-                          if (last_val0 && last_val0 == cur_val) { skip = 1; }
-                          last_val0 = cur_val;
+                          if (last_val0 && last_val0 == cur_val) { skip = true;
+
+               } last_val0 = cur_val;
 
                         }
 
                         if (i1) {
 
                           cur_val = (uint64_t)i1->getValue().convertToDouble();
-                          if (last_val1 && last_val1 == cur_val) { skip = 1; }
-                          last_val1 = cur_val;
+                          if (last_val1 && last_val1 == cur_val) { skip = true;
+
+               } last_val1 = cur_val;
 
                         }
 
@@ -559,7 +561,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
             if (i0 && i0->uge(0xffffffffffffffff) == false) {
 
               cur_val = i0->getZExtValue();
-              if (last_val0 && last_val0 == cur_val) { skip = 1; }
+              if (last_val0 && last_val0 == cur_val) { skip = true; }
               last_val0 = cur_val;
 
             }
@@ -567,7 +569,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
             if (i1 && i1->uge(0xffffffffffffffff) == false) {
 
               cur_val = i1->getZExtValue();
-              if (last_val1 && last_val1 == cur_val) { skip = 1; }
+              if (last_val1 && last_val1 == cur_val) { skip = true; }
               last_val1 = cur_val;
 
             }
@@ -649,7 +651,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         ++cur;
         if (cur >= vector_cnt) { break; }
-        skip = 0;
 
       }
 

@@ -1969,7 +1969,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
       ol0 > 31 || ol1 > 31) {
 
-    l0 = l1 = ol0 = ol1 = hshape;
+    l0 = ol0 = hshape;
 
   }
 
