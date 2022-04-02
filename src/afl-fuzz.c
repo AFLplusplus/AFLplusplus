@@ -2516,8 +2516,17 @@ stop_fuzzing:
   write_bitmap(afl);
   save_auto(afl);
 
-  SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
-       afl->stop_soon == 2 ? "programmatically" : "by user");
+  if (afl->afl_env.afl_pizza_mode) {
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
+         afl->stop_soon == 2 ? "programmatically" : "by the chef");
+
+  } else {
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
+         afl->stop_soon == 2 ? "programmatically" : "by user");
+
+  }
 
   if (afl->most_time_key == 2) {
 
