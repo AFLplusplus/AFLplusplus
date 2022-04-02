@@ -496,7 +496,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->max_length =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
-          }else if (!strncmp(env, "AFL_PIZZA_MODE",
+          } else if (!strncmp(env, "AFL_PIZZA_MODE",
 
                               afl_environment_variable_len)) {
 
