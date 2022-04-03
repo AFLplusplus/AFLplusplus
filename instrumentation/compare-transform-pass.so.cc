@@ -26,14 +26,23 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #include "llvm/Passes/PassPlugin.h"
+  #include "llvm/Passes/PassBuilder.h"
+  #include "llvm/IR/PassManager.h"
+#else
+  #include "llvm/IR/LegacyPassManager.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+  #include "llvm/Passes/OptimizationLevel.h"
+#endif
 
 #if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
@@ -52,28 +61,45 @@ using namespace llvm;
 
 namespace {
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+class CompareTransform : public PassInfoMixin<CompareTransform> {
+
+ public:
+  CompareTransform() {
+
+#else
 class CompareTransform : public ModulePass {
 
  public:
   static char ID;
   CompareTransform() : ModulePass(ID) {
 
+#endif
+
     initInstrumentList();
 
   }
 
-  bool runOnModule(Module &M) override;
-
-#if LLVM_VERSION_MAJOR >= 4
+#if LLVM_MAJOR < 11
+  #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
 
-#else
+  #else
   const char *getPassName() const override {
 
-#endif
-    return "transforms compare functions";
+  #endif
+
+    return "cmplog transform";
 
   }
+
+#endif
+
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+#else
+  bool runOnModule(Module &M) override;
+#endif
 
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
@@ -85,7 +111,54 @@ class CompareTransform : public ModulePass {
 
 }  // namespace
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+
+  return {LLVM_PLUGIN_API_VERSION, "comparetransform", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+  #if 1
+    #if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+    #endif
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(CompareTransform());
+
+                });
+
+  /* TODO LTO registration */
+  #else
+            using PipelineElement = typename PassBuilder::PipelineElement;
+            PB.registerPipelineParsingCallback([](StringRef          Name,
+                                                  ModulePassManager &MPM,
+                                                  ArrayRef<PipelineElement>) {
+
+              if (Name == "comparetransform") {
+
+                MPM.addPass(CompareTransform());
+                return true;
+
+              } else {
+
+                return false;
+
+              }
+
+            });
+
+  #endif
+
+          }};
+
+}
+
+#else
 char CompareTransform::ID = 0;
+#endif
 
 bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                                      const bool processMemcmp,
@@ -103,7 +176,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee tolowerFn;
 #else
-  Function *  tolowerFn;
+  Function *tolowerFn;
 #endif
   {
 
@@ -246,7 +319,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (!(HasStr1 || HasStr2)) {
 
             auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
-            if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+            if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
               if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -271,7 +344,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
             if (!HasStr2) {
 
               Ptr = dyn_cast<ConstantExpr>(Str1P);
-              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+              if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -385,6 +458,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        isCaseInsensitive = false;
     bool        needs_null = false;
     Function *  Callee = callInst->getCalledFunction();
+
     if (Callee) {
 
       if (!Callee->getName().compare("memcmp") ||
@@ -642,7 +716,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
 }
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+PreservedAnalyses CompareTransform::run(Module &M, ModuleAnalysisManager &MAM) {
+
+#else
 bool CompareTransform::runOnModule(Module &M) {
+
+#endif
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     printf(
@@ -651,13 +731,28 @@ bool CompareTransform::runOnModule(Module &M) {
   else
     be_quiet = 1;
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+  auto PA = PreservedAnalyses::all();
+#endif
+
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
+                     /*  if (modified) {
+                   
+                         PA.abandon<XX_Manager>();
+                   
+                       }*/
+
+  return PA;
+#else
   return true;
+#endif
 
 }
 
+#if LLVM_MAJOR < 11                                 /* use old pass manager */
 static void registerCompTransPass(const PassManagerBuilder &,
                                   legacy::PassManagerBase &PM) {
 
@@ -672,8 +767,9 @@ static RegisterStandardPasses RegisterCompTransPass(
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCompTransPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerCompTransPass);
+  #endif
 #endif
 

@@ -12,6 +12,7 @@ extern gboolean instrument_optimize;
 extern gboolean instrument_unique;
 extern guint64  instrument_hash_zero;
 extern char *   instrument_coverage_unstable_filename;
+extern gboolean instrument_coverage_insn;
 
 extern gboolean instrument_use_fixed_seed;
 extern guint64  instrument_fixed_seed;
@@ -20,6 +21,9 @@ extern uint8_t *__afl_area_ptr;
 extern uint32_t __afl_map_size;
 
 extern __thread guint64 *instrument_previous_pc_addr;
+
+extern gboolean instrument_cache_enabled;
+extern gsize    instrument_cache_size;
 
 void instrument_config(void);
 
@@ -33,6 +37,8 @@ gboolean instrument_is_coverage_optimize_supported(void);
 void instrument_coverage_optimize_init(void);
 void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output);
+void instrument_coverage_optimize_insn(const cs_insn *   instr,
+                                       GumStalkerOutput *output);
 
 void     instrument_debug_config(void);
 void     instrument_debug_init(void);
@@ -55,6 +61,11 @@ void instrument_coverage_unstable(guint64 edge, guint64 previous_rip,
 void instrument_on_fork(void);
 
 guint64 instrument_get_offset_hash(GumAddress current_rip);
+
+void instrument_cache_config(void);
+void instrument_cache_init(void);
+void instrument_cache_insert(gpointer real_address, gpointer code_address);
+void instrument_cache(const cs_insn *instr, GumStalkerOutput *output);
 
 #endif
 

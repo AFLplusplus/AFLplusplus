@@ -142,6 +142,13 @@ js_api_set_prefetch_backpatch_disable(void) {
 
 }
 
+__attribute__((visibility("default"))) void js_api_set_instrument_instructions(
+    void) {
+
+  instrument_coverage_insn = TRUE;
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_instrument_no_optimize(
     void) {
 
@@ -252,6 +259,19 @@ __attribute__((visibility("default"))) void js_api_set_stalker_adjacent_blocks(
     guint val) {
 
   stalker_adjacent_blocks = val;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_cache_disable(void) {
+
+  instrument_cache_enabled = FALSE;
+
+}
+
+__attribute__((visibility("default"))) void js_api_set_instrument_cache_size(
+    gsize size) {
+
+  instrument_cache_size = size;
 
 }
 

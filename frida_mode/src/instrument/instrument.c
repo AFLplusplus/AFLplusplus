@@ -29,6 +29,7 @@ guint64  instrument_hash_seed = 0;
 gboolean instrument_use_fixed_seed = FALSE;
 guint64  instrument_fixed_seed = 0;
 char *   instrument_coverage_unstable_filename = NULL;
+gboolean instrument_coverage_insn = FALSE;
 
 static GumStalkerTransformer *transformer = NULL;
 
@@ -233,6 +234,12 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     }
 
+    if (instrument_coverage_insn) {
+
+      instrument_coverage_optimize_insn(instr, output);
+
+    }
+
     instrument_debug_instruction(instr->address, instr->size, output);
 
     if (likely(!excluded)) {
@@ -241,6 +248,8 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       cmplog_instrument(instr, iterator);
 
     }
+
+    instrument_cache(instr, output);
 
     if (js_stalker_callback(instr, begin, excluded, output)) {
 
@@ -269,11 +278,13 @@ void instrument_config(void) {
   instrument_fixed_seed = util_read_num("AFL_FRIDA_INST_SEED", 0);
   instrument_coverage_unstable_filename =
       (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
+  instrument_coverage_insn = (getenv("AFL_FRIDA_INST_INSN") != NULL);
 
   instrument_debug_config();
   instrument_coverage_config();
   asan_config();
   cmplog_config();
+  instrument_cache_config();
 
 }
 
@@ -294,6 +305,8 @@ void instrument_init(void) {
        instrument_coverage_unstable_filename == NULL
            ? " "
            : instrument_coverage_unstable_filename);
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "instructions:" cYEL " [%c]",
+       instrument_coverage_insn ? 'X' : ' ');
 
   if (instrument_tracing && instrument_optimize) {
 
@@ -382,6 +395,7 @@ void instrument_init(void) {
   instrument_coverage_init();
   instrument_coverage_optimize_init();
   instrument_debug_init();
+  instrument_cache_init();
 
 }
 

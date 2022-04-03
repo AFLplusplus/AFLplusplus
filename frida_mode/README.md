@@ -151,31 +151,35 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
   and their instrumented counterparts during block compilation.
 
-  ```
-  ***
+Creating block for 0x7ffff7953313:
+        0x7ffff7953313  mov qword ptr [rax], 0
+        0x7ffff795331a  add rsp, 8
+        0x7ffff795331e  ret
 
-  Creating block for 0x7ffff7953313:
-          0x7ffff7953313  mov qword ptr [rax], 0
-          0x7ffff795331a  add rsp, 8
-          0x7ffff795331e  ret
+Generated block 0x7ffff75e98e2
+        0x7ffff75e98e2  mov qword ptr [rax], 0
+        0x7ffff75e98e9  add rsp, 8
+        0x7ffff75e98ed  lea rsp, [rsp - 0x80]
+        0x7ffff75e98f5  push rcx
+        0x7ffff75e98f6  movabs rcx, 0x7ffff795331e
+        0x7ffff75e9900  jmp 0x7ffff75e9384
 
-  Generated block 0x7ffff75e98e2
-          0x7ffff75e98e2  mov qword ptr [rax], 0
-          0x7ffff75e98e9  add rsp, 8
-          0x7ffff75e98ed  lea rsp, [rsp - 0x80]
-          0x7ffff75e98f5  push rcx
-          0x7ffff75e98f6  movabs rcx, 0x7ffff795331e
-          0x7ffff75e9900  jmp 0x7ffff75e9384
 
   ***
   ```
-
+* `AFL_FRIDA_INST_CACHE_SIZE` - Set the size of the instrumentation cache used
+as a look-up table to cache real to instrumented address block translations.
+Default is 256Mb.
+* `AFL_FRIDA_INST_INSN` - Generate instrumentation for conditional
+  instructions (e.g. `CMOV` instructions on x64).
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
   a file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
   `AFL_FRIDA_INST_TRACE`.
+* `AFL_FRIDA_INST_NO_CACHE` - Don't use a look-up table to cache real to
+instrumented address block translations.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default, the child will
   report instrumented blocks back to the parent so that it can also instrument
   them and they be inherited by the next child on fork, implies

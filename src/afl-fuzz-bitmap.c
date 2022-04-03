@@ -423,10 +423,10 @@ void write_crash_readme(afl_state_t *afl) {
       "them to a vendor? Check out the afl-tmin that comes with the fuzzer!\n\n"
 
       "Found any cool bugs in open-source tools using afl-fuzz? If yes, please "
-      "drop\n"
-      "an mail at <afl-users@googlegroups.com> once the issues are fixed\n\n"
-
-      "  https://github.com/AFLplusplus/AFLplusplus\n\n",
+      "post\n"
+      "to https://github.com/AFLplusplus/AFLplusplus/issues/286 once the "
+      "issues\n"
+      " are fixed :)\n\n",
 
       afl->orig_cmdline,
       stringify_mem_size(val_buf, sizeof(val_buf),
@@ -770,6 +770,25 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn); }
   ck_write(fd, mem, len, fn);
   close(fd);
+
+#ifdef __linux__
+  if (afl->fsrv.nyx_mode && fault == FSRV_RUN_CRASH) {
+
+    u8 fn_log[PATH_MAX];
+
+    (void)(snprintf(fn_log, PATH_MAX, "%s.log", fn) + 1);
+    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
+
+    u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
+        afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string, 0x1000);
+
+    ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len, fn_log);
+    close(fd);
+
+  }
+
+#endif
 
   return keeping;
 

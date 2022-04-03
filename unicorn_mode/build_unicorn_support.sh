@@ -217,7 +217,8 @@ cd ../samples/python_simple || echo "Cannot cd"
 
 # Run afl-showmap on the sample application. If anything comes out then it must have worked!
 unset AFL_INST_RATIO
-echo 0 | ../../../afl-showmap -U -m none -t 2000 -q -o ./.test-instr0 -- $PYTHONBIN ./simple_test_harness.py ./sample_inputs/sample1.bin || echo "Showmap"
+# pwd; echo "echo 0 | ../../../afl-showmap -U -m none -t 2000 -o ./.test-instr0 -- $PYTHONBIN ./simple_test_harness.py ./sample_inputs/sample1.bin"
+echo 0 | ../../../afl-showmap -U -m none -t 2000 -o ./.test-instr0 -- $PYTHONBIN ./simple_test_harness.py ./sample_inputs/sample1.bin >/dev/null 2>&1 || echo "Showmap"
 
 if [ -s ./.test-instr0 ]
 then

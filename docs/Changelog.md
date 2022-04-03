@@ -12,6 +12,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
   - afl-fuzz:
+    - when you just want to compile once and set CMPLOG, then just
+      set -c 0 to tell afl-fuzz that the fuzzing binary is also for
+      CMPLOG.
     - new commandline options -g/G to set min/max length of generated
       fuzz inputs
     - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow
@@ -20,6 +23,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add AFL_EARY_FORKSERVER to install the forkserver as earliest as
       possible in the target (for afl-gcc-fast/afl-clang-fast/
       afl-clang-lto)
+  - afl-cc:
+    - converted all passed to use the new llvm pass manager for llvm 11+
+    - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
 

@@ -18,6 +18,8 @@
 
 #if defined(__aarch64__)
 
+gboolean instrument_cache_enabled = FALSE;
+gsize    instrument_cache_size = 0;
 static GHashTable *coverage_blocks = NULL;
 
 __attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_SIZE];
@@ -341,6 +343,14 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
+void instrument_coverage_optimize_insn(const cs_insn *   instr,
+                                       GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(output);
+
+}
+
 void instrument_coverage_optimize_init(void) {
 
   char *shm_env = getenv(SHM_ENV_VAR);
@@ -368,6 +378,28 @@ void instrument_flush(GumStalkerOutput *output) {
 gpointer instrument_cur(GumStalkerOutput *output) {
 
   return gum_arm64_writer_cur(output->writer.arm64);
+
+}
+
+void instrument_cache_config(void) {
+
+}
+
+void instrument_cache_init(void) {
+
+}
+
+void instrument_cache_insert(gpointer real_address, gpointer code_address) {
+
+  UNUSED_PARAMETER(real_address);
+  UNUSED_PARAMETER(code_address);
+
+}
+
+void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(output);
 
 }
 

@@ -49,6 +49,9 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
     grep -q "No instrumentation targets found" test.out && {
       $ECHO "$GREEN[+] llvm_mode LTO instrumentlist feature works correctly"
     } || {
+	echo CUT------------------------------------------------------------------CUT
+        cat test.out
+        echo CUT------------------------------------------------------------------CUT
       $ECHO "$RED[!] llvm_mode LTO instrumentlist feature failed"
       CODE=1
     }
