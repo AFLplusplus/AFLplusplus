@@ -333,6 +333,24 @@ is a non-standard way to set this, otherwise set up the build normally and edit
 the generated build environment afterwards manually to point it to the right
 compiler (and/or `RANLIB` and `AR`).
 
+#### Linker scripts
+
+If the project uses linker scripts to hide the symbols exported by the
+binary, then you may see errors such as:
+
+```
+undefined symbol: __afl_area_ptr
+```
+
+The solution is to modify the linker script to add:
+
+```
+{
+  global:
+    __afl_*;
+}
+```
+
 ### f) Better instrumentation
 
 If you just fuzz a target program as-is, you are wasting a great opportunity for
@@ -817,9 +835,9 @@ Here are some of the most important caveats for AFL++:
 
 - There is no direct support for fuzzing network services, background daemons,
   or interactive apps that require UI interaction to work. You may need to make
-  simple code changes to make them behave in a more traditional way. Preeny may
+  simple code changes to make them behave in a more traditional way. Preeny or libdesock may
   offer a relatively simple option, too - see:
-  [https://github.com/zardus/preeny](https://github.com/zardus/preeny)
+  [https://github.com/zardus/preeny](https://github.com/zardus/preeny) or [https://github.com/fkie-cad/libdesock](https://github.com/fkie-cad/libdesock)
 
   Some useful tips for modifying network-based services can be also found at:
   [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)

@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -33,7 +34,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Mangler.h"
@@ -51,6 +51,9 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
 
 #include "config.h"
 #include "debug.h"
@@ -161,26 +164,20 @@ using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
 using PostDomTreeCallback =
     function_ref<const PostDominatorTree *(Function &F)>;
 
-class ModuleSanitizerCoverage {
+class ModuleSanitizerCoverageLTO
+    : public PassInfoMixin<ModuleSanitizerCoverageLTO> {
 
  public:
-  ModuleSanitizerCoverage(
+  ModuleSanitizerCoverageLTO(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
       : Options(OverrideFromCL(Options)) {
-
-    /* ,
-    const SpecialCaseList *         Allowlist = nullptr,
-    const SpecialCaseList *         Blocklist = nullptr)
-      ,
-      Allowlist(Allowlist),
-      Blocklist(Blocklist) {
-
-    */
 
   }
 
   bool instrumentModule(Module &M, DomTreeCallback DTCallback,
                         PostDomTreeCallback PDTCallback);
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
   void            instrumentFunction(Function &F, DomTreeCallback DTCallback,
@@ -279,18 +276,6 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
       : ModulePass(ID), Options(Options) {
 
-    /* ,
-          const std::vector<std::string> &AllowlistFiles =
-              std::vector<std::string>(),
-          const std::vector<std::string> &BlocklistFiles =
-              std::vector<std::string>())
-        if (AllowlistFiles.size() > 0)
-          Allowlist = SpecialCaseList::createOrDie(AllowlistFiles,
-                                                   *vfs::getRealFileSystem());
-        if (BlocklistFiles.size() > 0)
-          Blocklist = SpecialCaseList::createOrDie(BlocklistFiles,
-                                                   *vfs::getRealFileSystem());
-    */
     initializeModuleSanitizerCoverageLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
@@ -298,8 +283,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
   bool runOnModule(Module &M) override {
 
-    ModuleSanitizerCoverage ModuleSancov(Options);
-    // , Allowlist.get(), Blocklist.get());
+    ModuleSanitizerCoverageLTO ModuleSancov(Options);
     auto DTCallback = [this](Function &F) -> const DominatorTree * {
 
       return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -320,18 +304,36 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
  private:
   SanitizerCoverageOptions Options;
 
-  // std::unique_ptr<SpecialCaseList> Allowlist;
-  // std::unique_ptr<SpecialCaseList> Blocklist;
-
 };
 
 }  // namespace
 
-PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
-                                                   ModuleAnalysisManager &MAM) {
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
 
-  ModuleSanitizerCoverage ModuleSancov(Options);
-  // Allowlist.get(), Blocklist.get());
+  return {LLVM_PLUGIN_API_VERSION, "SanitizerCoverageLTO", "v0.1",
+          /* lambda to insert our pass into the pass pipeline. */
+          [](PassBuilder &PB) {
+
+#if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+#endif
+            //            PB.registerFullLinkTimeOptimizationLastEPCallback(
+            PB.registerOptimizerLastEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel OL) {
+
+                  MPM.addPass(ModuleSanitizerCoverageLTO());
+
+                });
+
+          }};
+
+}
+
+PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module &               M,
+                                                  ModuleAnalysisManager &MAM) {
+
+  ModuleSanitizerCoverageLTO ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
@@ -352,35 +354,7 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
 
 }
 
-/*
-std::pair<Value *, Value *> ModuleSanitizerCoverage::CreateSecStartEnd(
-    Module &M, const char *Section, Type *Ty) {
-
-  GlobalVariable *SecStart =
-      new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, nullptr,
-                         getSectionStart(Section));
-  SecStart->setVisibility(GlobalValue::HiddenVisibility);
-  GlobalVariable *SecEnd =
-      new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, nullptr,
-                         getSectionEnd(Section));
-  SecEnd->setVisibility(GlobalValue::HiddenVisibility);
-  IRBuilder<> IRB(M.getContext());
-  Value *     SecEndPtr = IRB.CreatePointerCast(SecEnd, Ty);
-  if (!TargetTriple.isOSBinFormatCOFF())
-    return std::make_pair(IRB.CreatePointerCast(SecStart, Ty), SecEndPtr);
-
-  // Account for the fact that on windows-msvc __start_* symbols actually
-  // point to a uint64_t before the start of the array.
-  auto SecStartI8Ptr = IRB.CreatePointerCast(SecStart, Int8PtrTy);
-  auto GEP = IRB.CreateGEP(Int8Ty, SecStartI8Ptr,
-                           ConstantInt::get(IntptrTy, sizeof(uint64_t)));
-  return std::make_pair(IRB.CreatePointerCast(GEP, Ty), SecEndPtr);
-
-}
-
-*/
-
-bool ModuleSanitizerCoverage::instrumentModule(
+bool ModuleSanitizerCoverageLTO::instrumentModule(
     Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
@@ -757,7 +731,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
             if (!HasStr2) {
 
               auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
-              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+              if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -838,7 +812,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
               auto Ptr = dyn_cast<ConstantExpr>(Str1P);
 
-              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+              if (Ptr && Ptr->getOpcode() == Instruction::GetElementPtr) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
@@ -1044,7 +1018,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
           M, Int64Tyi, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
       ConstantInt *MapAddr = ConstantInt::get(Int64Tyi, map_addr);
       StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
-      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreMapAddr);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreMapAddr);
 
     }
 
@@ -1059,7 +1033,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                              "__afl_final_loc");
       ConstantInt *const_loc = ConstantInt::get(Int32Tyi, write_loc);
       StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-      ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreFinalLoc);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreFinalLoc);
 
     }
 
@@ -1107,7 +1081,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                                0, "__afl_dictionary_len");
         ConstantInt *const_len = ConstantInt::get(Int32Tyi, offset);
         StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
-        ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreDictLen);
+        ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreDictLen);
 
         ArrayType *ArrayTy = ArrayType::get(IntegerType::get(Ctx, 8), offset);
         GlobalVariable *AFLInternalDictionary = new GlobalVariable(
@@ -1127,7 +1101,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
         Value *AFLDictPtr =
             IRB.CreatePointerCast(AFLDictOff, PointerType::get(Int8Tyi, 0));
         StoreInst *StoreDict = IRB.CreateStore(AFLDictPtr, AFLDictionary);
-        ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreDict);
+        ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreDict);
 
       }
 
@@ -1234,7 +1208,7 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
 
 }
 
-void ModuleSanitizerCoverage::instrumentFunction(
+void ModuleSanitizerCoverageLTO::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (F.empty()) return;
@@ -1389,7 +1363,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
         /* Load SHM pointer */
         LoadInst *MapPtr =
             IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
-        ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
+        ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
 
         while (1) {
 
@@ -1419,7 +1393,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
           } else {
 
             LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
-            ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
+            ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(Counter);
 
             /* Update bitmap */
 
@@ -1434,7 +1408,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
             }
 
             auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
-            ModuleSanitizerCoverage::SetNoSanitizeMetadata(nosan);
+            ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(nosan);
 
           }
 
@@ -1472,7 +1446,7 @@ void ModuleSanitizerCoverage::instrumentFunction(
 
 }
 
-GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
+GlobalVariable *ModuleSanitizerCoverageLTO::CreateFunctionLocalArrayInSection(
     size_t NumElements, Function &F, Type *Ty, const char *Section) {
 
   ArrayType *ArrayTy = ArrayType::get(Ty, NumElements);
@@ -1502,7 +1476,7 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
 
 }
 
-GlobalVariable *ModuleSanitizerCoverage::CreatePCArray(
+GlobalVariable *ModuleSanitizerCoverageLTO::CreatePCArray(
     Function &F, ArrayRef<BasicBlock *> AllBlocks) {
 
   size_t N = AllBlocks.size();
@@ -1538,7 +1512,7 @@ GlobalVariable *ModuleSanitizerCoverage::CreatePCArray(
 
 }
 
-void ModuleSanitizerCoverage::CreateFunctionLocalArrays(
+void ModuleSanitizerCoverageLTO::CreateFunctionLocalArrays(
     Function &F, ArrayRef<BasicBlock *> AllBlocks) {
 
   if (Options.TracePCGuard)
@@ -1554,9 +1528,8 @@ void ModuleSanitizerCoverage::CreateFunctionLocalArrays(
 
 }
 
-bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
-                                             ArrayRef<BasicBlock *> AllBlocks,
-                                             bool IsLeafFunc) {
+bool ModuleSanitizerCoverageLTO::InjectCoverage(
+    Function &F, ArrayRef<BasicBlock *> AllBlocks, bool IsLeafFunc) {
 
   if (AllBlocks.empty()) return false;
   CreateFunctionLocalArrays(F, AllBlocks);
@@ -1602,7 +1575,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 //     The cache is used to speed up recording the caller-callee pairs.
 // The address of the caller is passed implicitly via caller PC.
 // CacheSize is encoded in the name of the run-time function.
-void ModuleSanitizerCoverage::InjectCoverageForIndirectCalls(
+void ModuleSanitizerCoverageLTO::InjectCoverageForIndirectCalls(
     Function &F, ArrayRef<Instruction *> IndirCalls) {
 
   if (IndirCalls.empty()) return;
@@ -1620,9 +1593,10 @@ void ModuleSanitizerCoverage::InjectCoverageForIndirectCalls(
 
 }
 
-void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
-                                                    size_t Idx,
-                                                    bool   IsLeafFunc) {
+void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function &  F,
+                                                       BasicBlock &BB,
+                                                       size_t      Idx,
+                                                       bool        IsLeafFunc) {
 
   BasicBlock::iterator IP = BB.getFirstInsertionPt();
   bool                 IsEntryBB = &BB == &F.getEntryBlock();
@@ -1677,7 +1651,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
-      ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapPtr);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
       MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CurLoc);
 
     }
@@ -1694,7 +1668,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     } else {
 
       LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
-      ModuleSanitizerCoverage::SetNoSanitizeMetadata(Counter);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(Counter);
 
       Value *Incr = IRB.CreateAdd(Counter, One);
 
@@ -1707,7 +1681,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
       }
 
       auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
-      ModuleSanitizerCoverage::SetNoSanitizeMetadata(nosan);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(nosan);
 
     }
 
@@ -1759,7 +1733,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
 }
 
-std::string ModuleSanitizerCoverage::getSectionName(
+std::string ModuleSanitizerCoverageLTO::getSectionName(
     const std::string &Section) const {
 
   if (TargetTriple.isOSBinFormatCOFF()) {
@@ -1775,27 +1749,6 @@ std::string ModuleSanitizerCoverage::getSectionName(
   return "__" + Section;
 
 }
-
-/*
-std::string ModuleSanitizerCoverage::getSectionStart(
-    const std::string &Section) const {
-
-  if (TargetTriple.isOSBinFormatMachO())
-    return "\1section$start$__DATA$__" + Section;
-  return "__start___" + Section;
-
-}
-
-std::string ModuleSanitizerCoverage::getSectionEnd(
-    const std::string &Section) const {
-
-  if (TargetTriple.isOSBinFormatMachO())
-    return "\1section$end$__DATA$__" + Section;
-  return "__stop___" + Section;
-
-}
-
-*/
 
 char ModuleSanitizerCoverageLegacyPass::ID = 0;
 
@@ -1814,7 +1767,6 @@ ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
     const std::vector<std::string> &BlocklistFiles) {
 
   return new ModuleSanitizerCoverageLegacyPass(Options);
-  //, AllowlistFiles, BlocklistFiles);
 
 }
 
