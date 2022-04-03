@@ -259,6 +259,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
+      "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
@@ -2274,13 +2275,17 @@ int main(int argc, char **argv_orig, char **envp) {
       // queue is fully cycled.
       time_t     cursec = time(NULL);
       struct tm *curdate = localtime(&cursec);
-      if (curdate->tm_mon == 3 && curdate->tm_mday == 1) {
+      if (likely(!afl->afl_env.afl_pizza_mode)) {
 
-        afl->afl_env.afl_pizza_mode = 1;
+        if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
 
-      } else {
+          afl->pizza_is_served = 1;
 
-        afl->afl_env.afl_pizza_mode = 0;
+        } else {
+
+          afl->pizza_is_served = 0;
+
+        }
 
       }
 
