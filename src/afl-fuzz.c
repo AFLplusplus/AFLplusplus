@@ -2269,6 +2269,21 @@ int main(int argc, char **argv_orig, char **envp) {
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_items = 0;
 
+      // 1st april fool joke - enable pizza mode
+      // to not waste time on checking the date we only do this when the
+      // queue is fully cycled.
+      time_t     cursec = time(NULL);
+      struct tm *curdate = localtime(&cursec);
+      if (curdate->tm_mon == 3 && curdate->tm_mday == 1) {
+
+        afl->afl_env.afl_pizza_mode = 1;
+
+      } else {
+
+        afl->afl_env.afl_pizza_mode = 0;
+
+      }
+
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;

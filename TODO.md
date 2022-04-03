@@ -10,6 +10,8 @@
 
 ## Maybe
 
+ - forkserver tells afl-fuzz if cmplog is supported and if so enable
+   it by default, with AFL_CMPLOG_NO=1 (?) set to skip?
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
  - cmdline option from-to range for mutations
