@@ -1583,7 +1583,7 @@ void show_stats_pizza(afl_state_t *afl) {
        afl->in_bitmap || afl->crash_mode)) {
 
     u_stringify_time_diff(time_tmp, cur_ms, afl->last_find_time);
-    SAYF(bV bSTOP "                  last pizza baked : " cRST "%-33s ",
+    SAYF(bV bSTOP "                  last pizza baked : " cRST "%-37s ",
          time_tmp);
 
   } else {
@@ -1629,9 +1629,9 @@ void show_stats_pizza(afl_state_t *afl) {
        "\n",
        time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP                                        cCYA
+  SAYF(bVR bH bSTOP                                           cCYA
        " Baking progress  " bSTG bH30 bH20 bH5 bH bX bH bSTOP cCYA
-       " Pizzeria busyness" bSTG bH30 bH5 bH bH            bVL "\n");
+       " Pizzeria busyness" bSTG bH30 bH5 bH bH               bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -1754,8 +1754,8 @@ void show_stats_pizza(afl_state_t *afl) {
   /* Aaaalmost there... hold on! */
 
   SAYF(bVR bH cCYA bSTOP " Promotional campaign on TikTok yields " bSTG bH30 bH2
-           bH bH2 bX bH bSTOP cCYA " Customer type " bSTG bH5 bH2 bH30 bH2 bH bVL
-                         "\n");
+           bH bH2 bX bH bSTOP                                       cCYA
+                         " Customer type " bSTG bH5 bH2 bH30 bH2 bH bVL "\n");
 
   if (unlikely(afl->custom_only)) {
 
@@ -1999,7 +1999,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10, snap[24] = " " cLGN "Pizzaioli's busyness " cRST " ";
+    char *spacing = SP10, snap[80] = " " cLGN "Pizzaioli's busyness " cRST " ";
 
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
