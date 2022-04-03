@@ -437,7 +437,7 @@ static void check_term_size(afl_state_t *afl) {
 
 void show_stats(afl_state_t *afl) {
 
-  if (afl->afl_env.afl_pizza_mode) {
+  if (afl->pizza_is_served) {
 
     show_stats_pizza(afl);
 
