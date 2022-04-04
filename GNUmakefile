@@ -625,7 +625,9 @@ ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -645,7 +647,9 @@ ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -661,7 +665,9 @@ endif
 	-$(MAKE) -C utils/libtokencap
 	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 
 %.8:	%
