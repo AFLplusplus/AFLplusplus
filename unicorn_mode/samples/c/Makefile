@@ -15,7 +15,7 @@ V ?= 0
 
 CFLAGS += -Wall -Werror -I../../unicornafl/unicorn/include -I../../unicornafl/include
 
-LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lpthread -lm -lunicornafl -lunicorn -lc++
+LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lunicorn-static -lunicornafl -lm -lpthread -lstdc++
 
 ifeq ($(UNAME), Linux)
 # do something Linux-y
