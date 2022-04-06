@@ -407,7 +407,9 @@ int main(int argc, char *argv[]) {
 #ifdef USE_DEFLATE
   libdeflate_free_compressor(compressor);
   libdeflate_free_decompressor(decompressor);
+  free(buf2);
 #endif
+  free(buf);
 
   return 0;
 
