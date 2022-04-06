@@ -549,6 +549,9 @@ checks or alter some of the more exotic semantics of the tool:
     constructors in your target you can set `AFL_EARLY_FORKSERVER`.
     Note that this is not a compile time option but a runtime option :-)
 
+  - set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
+    to disable although it is 1st of April.
+
 ## 5) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:

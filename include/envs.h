@@ -224,6 +224,7 @@ static char *afl_environment_variables[] = {
     "AFL_USE_FASAN",
     "AFL_USE_QASAN",
     "AFL_PRINT_FILENAMES",
+    "AFL_PIZZA_MODE",
     NULL
 
 };

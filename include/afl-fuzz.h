@@ -384,7 +384,8 @@ typedef struct afl_env_vars {
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
-      afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems;
+      afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
+      afl_pizza_mode;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -482,7 +483,8 @@ typedef struct afl_state {
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
       is_main_node,                     /* if this is the main node         */
-      is_secondary_node;                /* if this is a secondary instance  */
+      is_secondary_node,                /* if this is a secondary instance  */
+      pizza_is_served;                  /* pizza mode                       */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -1082,6 +1084,8 @@ void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void show_stats(afl_state_t *);
+void show_stats_normal(afl_state_t *);
+void show_stats_pizza(afl_state_t *);
 void show_init_stats(afl_state_t *);
 
 /* StatsD */

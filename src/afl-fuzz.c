@@ -259,6 +259,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
+      "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
@@ -2269,6 +2270,25 @@ int main(int argc, char **argv_orig, char **envp) {
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_items = 0;
 
+      // 1st april fool joke - enable pizza mode
+      // to not waste time on checking the date we only do this when the
+      // queue is fully cycled.
+      time_t     cursec = time(NULL);
+      struct tm *curdate = localtime(&cursec);
+      if (likely(!afl->afl_env.afl_pizza_mode)) {
+
+        if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
+
+          afl->pizza_is_served = 1;
+
+        } else {
+
+          afl->pizza_is_served = 0;
+
+        }
+
+      }
+
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;
@@ -2528,8 +2548,17 @@ stop_fuzzing:
   write_bitmap(afl);
   save_auto(afl);
 
-  SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
-       afl->stop_soon == 2 ? "programmatically" : "by user");
+  if (afl->afl_env.afl_pizza_mode) {
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
+         afl->stop_soon == 2 ? "programmatically" : "by the chef");
+
+  } else {
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
+         afl->stop_soon == 2 ? "programmatically" : "by user");
+
+  }
 
   if (afl->most_time_key == 2) {
 

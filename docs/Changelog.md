@@ -23,6 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add AFL_EARY_FORKSERVER to install the forkserver as earliest as
       possible in the target (for afl-gcc-fast/afl-clang-fast/
       afl-clang-lto)
+    - document and auto-activate pizza mode on condition
   - afl-cc:
     - converted all passed to use the new llvm pass manager for llvm 11+
     - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
