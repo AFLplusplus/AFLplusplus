@@ -373,6 +373,7 @@ help:
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
+	@echo NO_NYX - disable building nyx mode dependencies
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
