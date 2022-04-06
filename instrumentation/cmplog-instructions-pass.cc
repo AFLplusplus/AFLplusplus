@@ -515,7 +515,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       while (1) {
 
         std::vector<Value *> args;
-        bool                 skip = true;
+        bool                 skip = false;
 
         if (vector_cnt) {
 
