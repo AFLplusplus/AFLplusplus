@@ -292,6 +292,15 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
 u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
+  u8 is_timeout = 0;
+
+  if (new_bits & 0xf0) {
+
+    new_bits -= 0x80;
+    is_timeout = 1;
+
+  }
+
   size_t real_max_len =
       MIN(max_description_len, sizeof(afl->describe_op_buf_256));
   u8 *ret = afl->describe_op_buf_256;
@@ -325,6 +334,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current] = '\0';
 
       ssize_t size_left = real_max_len - len_current - strlen(",+cov") - 2;
+      if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
       const char *custom_description =
@@ -369,6 +379,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
     }
 
   }
+
+  if (is_timeout) { strcat(ret, ",+tout"); }
 
   if (new_bits == 2) { strcat(ret, ",+cov"); }
 
@@ -447,7 +459,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, classified = 0;
+  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0;
   s32 fd;
   u64 cksum = 0;
 
@@ -481,11 +493,14 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     classified = new_bits;
 
+  save_to_queue:
+
 #ifndef SIMPLE_FILES
 
-    queue_fn = alloc_printf(
-        "%s/queue/id:%06u,%s", afl->out_dir, afl->queued_items,
-        describe_op(afl, new_bits, NAME_MAX - strlen("id:000000,")));
+    queue_fn =
+        alloc_printf("%s/queue/id:%06u,%s", afl->out_dir, afl->queued_items,
+                     describe_op(afl, new_bits + is_timeout,
+                                 NAME_MAX - strlen("id:000000,")));
 
 #else
 
@@ -597,6 +612,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       }
 
       ++afl->saved_tmouts;
+      is_timeout = 0x80;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
@@ -647,7 +663,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         }
 
-        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) { return keeping; }
+        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
+
+          goto save_to_queue;
+
+        }
 
       }
 
