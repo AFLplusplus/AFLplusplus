@@ -333,6 +333,9 @@ is a non-standard way to set this, otherwise set up the build normally and edit
 the generated build environment afterwards manually to point it to the right
 compiler (and/or `RANLIB` and `AR`).
 
+In complex, weird, alien build systems you can try this neat project:
+[https://github.com/fuzzah/exeptor](https://github.com/fuzzah/exeptor)
+
 #### Linker scripts
 
 If the project uses linker scripts to hide the symbols exported by the
