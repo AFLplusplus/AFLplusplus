@@ -664,8 +664,16 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
 
-          ++afl->saved_tmouts;
-          goto save_to_queue;
+          if (afl->afl_env.afl_keep_timeouts) {
+
+            ++afl->saved_tmouts;
+            goto save_to_queue;
+
+          } else {
+
+            return keeping;
+
+          }
 
         }
 
