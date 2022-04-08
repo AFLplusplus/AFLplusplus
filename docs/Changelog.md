@@ -23,6 +23,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - add AFL_EARLY_FORKSERVER to install the forkserver as earliest as
       possible in the target (for afl-gcc-fast/afl-clang-fast/
       afl-clang-lto)
+    - "saved timeouts" was wrong information, timeouts are still thrown
+      away by default even if they have new coverage (hangs are always
+      kept), unless AFL_KEEP_TIMEOUTS are set
     - document and auto-activate pizza mode on condition
   - afl-cc:
     - converted all passed to use the new llvm pass manager for llvm 11+
