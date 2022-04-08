@@ -611,7 +611,6 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       }
 
-      ++afl->saved_tmouts;
       is_timeout = 0x80;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
@@ -665,6 +664,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
 
+          ++afl->saved_tmouts;
           goto save_to_queue;
 
         }
