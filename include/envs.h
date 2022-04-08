@@ -106,6 +106,7 @@ static char *afl_environment_variables[] = {
     "AFL_INPUT_LEN_MAX",
     "AFL_INST_LIBS",
     "AFL_INST_RATIO",
+    "AFL_KEEP_TIMEOUTS",
     "AFL_KILL_SIGNAL",
     "AFL_KEEP_TRACES",
     "AFL_KEEP_ASSEMBLY",
