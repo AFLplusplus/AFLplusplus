@@ -349,6 +349,9 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_DISABLE_TRIM` tells afl-fuzz not to trim test cases. This is
     usually a bad idea!
 
+  - Setting `AFL_KEEP_TIMEOUTS` will keep longer running inputs if they reach
+    new coverage
+
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
