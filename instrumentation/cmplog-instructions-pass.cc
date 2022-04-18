@@ -116,7 +116,7 @@ class CmpLogInstructions : public ModulePass {
 #endif
 
  private:
-  bool hookInstrs(Module &M, LoopInfoCallback LCallback);
+  bool         hookInstrs(Module &M, LoopInfoCallback LCallback);
   unsigned int instrumented = 0;
 
 };
@@ -305,6 +305,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LCallback) {
     const LoopInfo *          LI = LCallback(F);
 #if 0
     for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
+
       Loop *      L = *I;
       BasicBlock *In, *Out;
       bool        ok = false ; L->getIncomingAndBackEdge(In, Out);
@@ -333,9 +334,10 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LCallback) {
         }
 
       }
-    }
-#endif
 
+    }
+
+#endif
 
     //    fprintf(stderr, "Loops in %s: %zu\n", F.getName().str().c_str(),
     //    lcomps.size());
@@ -703,7 +705,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LCallback) {
               break;
 
           }
-          
+
           ++instrumented;
 
         }
@@ -718,7 +720,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LCallback) {
     }
 
   }
-  
+
   fprintf(stderr, "instrumented: %u (%zu)\n", instrumented, icomps.size());
 
   if (icomps.size())

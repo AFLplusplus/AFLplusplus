@@ -257,16 +257,17 @@ static void *__dislocator_alloc(size_t len) {
   }
 
 #if defined(USENAMEDPAGE)
-#if defined(__linux__)
+  #if defined(__linux__)
   // in the /proc/<pid>/maps file, the anonymous page appears as
   // `<start>-<end> ---p 00000000 00:00 0 [anon:libdislocator]`
-  if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME,
-    (unsigned long)ret, tlen, (unsigned long)"libdislocator") < 0) {
+  if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, (unsigned long)ret, tlen,
+            (unsigned long)"libdislocator") < 0) {
 
     DEBUGF("prctl() failed");
 
   }
-#endif
+
+  #endif
 #endif
 
   /* Set PROT_NONE on the last page. */
