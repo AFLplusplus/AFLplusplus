@@ -761,6 +761,8 @@ bool CmpLogRoutines::runOnModule(Module &M) {
 #endif
   verifyModule(M);
 
+  fprintf(stderr, "done cmplog-routines-pass\n");
+
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   return PA;
 #else

@@ -32,9 +32,15 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #if LLVM_MAJOR >= 11
+  #include "llvm/Pass.h"
+  #include "llvm/InitializePasses.h"
   #include "llvm/Passes/PassPlugin.h"
   #include "llvm/Passes/PassBuilder.h"
   #include "llvm/IR/PassManager.h"
+  #include "llvm/Analysis/EHPersonalities.h"
+  #include "llvm/Analysis/PostDominators.h"
+  #include "llvm/Analysis/LoopInfo.h"
+  #include "llvm/Analysis/LoopPass.h"
 #else
   #include "llvm/IR/LegacyPassManager.h"
   #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -64,7 +70,10 @@ using namespace llvm;
 
 namespace {
 
+using LoopInfoCallback = function_ref<const LoopInfo *(Function &F)>;
+
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
 
  public:
@@ -88,6 +97,7 @@ class CmpLogInstructions : public ModulePass {
 #endif
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 #else
   bool      runOnModule(Module &M) override;
@@ -106,7 +116,8 @@ class CmpLogInstructions : public ModulePass {
 #endif
 
  private:
-  bool hookInstrs(Module &M);
+  bool hookInstrs(Module &M, LoopInfoCallback LCallback);
+  unsigned int instrumented = 0;
 
 };
 
@@ -153,7 +164,7 @@ Iterator Unique(Iterator first, Iterator last) {
 
 }
 
-bool CmpLogInstructions::hookInstrs(Module &M) {
+bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LCallback) {
 
   std::vector<Instruction *> icomps;
   LLVMContext &              C = M.getContext();
@@ -290,7 +301,54 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
     if (!isInInstrumentList(&F, MNAME)) continue;
 
+    std::vector<BasicBlock *> lcomps;
+    const LoopInfo *          LI = LCallback(F);
+#if 0
+    for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
+      Loop *      L = *I;
+      BasicBlock *In, *Out;
+      bool        ok = false ; L->getIncomingAndBackEdge(In, Out);
+      if (ok) {
+
+        BasicBlock *decisionBB = In->getSingleSuccessor();
+
+        if (decisionBB) {
+
+          /*
+                    std::string errMsg1;
+                    raw_string_ostream os1(errMsg1);
+                    In->print(os1);
+                    fprintf(stderr, "In: %s\n", os1.str().c_str());
+                    std::string errMsg2;
+                    raw_string_ostream os2(errMsg2);
+                    Out->print(os2);
+                    fprintf(stderr, "Out: %s\n", os2.str().c_str());
+                    std::string errMsg3;
+                    raw_string_ostream os3(errMsg3);
+                    decisionBB->print(os3);
+                    fprintf(stderr, "Dec: %s\n", os3.str().c_str());
+          */
+          lcomps.push_back(decisionBB);
+
+        }
+
+      }
+    }
+#endif
+
+
+    //    fprintf(stderr, "Loops in %s: %zu\n", F.getName().str().c_str(),
+    //    lcomps.size());
+
     for (auto &BB : F) {
+
+      if (std::find(lcomps.begin(), lcomps.end(), &BB) != lcomps.end()) {
+
+        fprintf(stderr, "skipping: %p %s\n", &BB, BB.getName().str().c_str());
+
+        continue;
+
+      }
 
       for (auto &IN : BB) {
 
@@ -298,6 +356,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
           icomps.push_back(selectcmpInst);
+          fprintf(stderr, "Found icomp %p in %p\n", selectcmpInst, &BB);
 
         }
 
@@ -644,6 +703,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
               break;
 
           }
+          
+          ++instrumented;
 
         }
 
@@ -657,6 +718,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
     }
 
   }
+  
+  fprintf(stderr, "instrumented: %u (%zu)\n", instrumented, icomps.size());
 
   if (icomps.size())
     return true;
@@ -678,8 +741,18 @@ bool CmpLogInstructions::runOnModule(Module &M) {
     printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
   else
     be_quiet = 1;
-  hookInstrs(M);
+
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto  LoopCallback = [&FAM](Function &F) -> const LoopInfo * {
+
+    return &FAM.getResult<LoopAnalysis>(F);
+
+  };
+
+  hookInstrs(M, LoopCallback);
   verifyModule(M);
+
+  fprintf(stderr, "done cmplog-instructions-pass\n");
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
   return PreservedAnalyses::all();
