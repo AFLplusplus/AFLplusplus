@@ -14,9 +14,9 @@ authors:
     family-names: Meier
     email: mail@dmnk.co
 title: "AFL++"
-version: 3.14
+version: 4.00c
 type: software
-date-released: 2021-07-19
+date-released: 2022-01-26
 url: "https://github.com/AFLplusplus/AFLplusplus"
 keywords:
   - fuzzing
