@@ -714,9 +714,11 @@ struct afl_pass : gimple_opt_pass {
 
   }
 
+  /* Returns the source file name attached to the function declaration F. If
+     there is no source location information, returns an empty string.  */
   std::string getSourceName(function *F) {
 
-    return DECL_SOURCE_FILE(F->decl);
+    return DECL_SOURCE_FILE(F->decl) ? DECL_SOURCE_FILE(F->decl) : "";
 
   }
 
