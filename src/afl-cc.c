@@ -58,6 +58,7 @@ static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin;                                             /* dummy */
+static int  passthrough;
 // static u8 *march_opt = CFLAGS_OPT;
 
 enum {
@@ -315,7 +316,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
      preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
-     have_c = 0, partial_linking = 0, wasm_linking = 0;
+     have_c = 0, partial_linking = 0;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
@@ -826,7 +827,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
     if (!strcmp(cur, "-dynamiclib")) shared_linking = 1;
-    if (!strcmp(cur, "--target=wasm32-wasi")) wasm_linking = 1;
+    if (!strcmp(cur, "--target=wasm32-wasi")) passthrough = 1;
     if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
     if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
     if (!strcmp(cur, "-Wl,--relocatable")) partial_linking = 1;
@@ -845,7 +846,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   // e.g. compiled download or compiled from github then its ./lib directory
   // might not be in the search path. Add it if so.
   u8 *libdir = strdup(LLVM_LIBDIR);
-  if (plusplus_mode && !wasm_linking && strlen(libdir) &&
+  if (plusplus_mode && strlen(libdir) &&
       strncmp(libdir, "/usr", 4) && strncmp(libdir, "/lib", 4)) {
 
     cc_params[cc_par_cnt++] = "-rpath";
@@ -1093,7 +1094,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     switch (bit_mode) {
 
       case 0:
-        if (!shared_linking && !partial_linking && !wasm_linking)
+        if (!shared_linking && !partial_linking)
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt.o", obj_path);
         if (lto_mode)
@@ -1102,7 +1103,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 32:
-        if (!shared_linking && !partial_linking && !wasm_linking) {
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
@@ -1123,7 +1124,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         break;
 
       case 64:
-        if (!shared_linking && !partial_linking && !wasm_linking) {
+        if (!shared_linking && !partial_linking) {
 
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
@@ -1146,7 +1147,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
   #if !defined(__APPLE__) && !defined(__sun)
-    if (!shared_linking && !partial_linking && !wasm_linking)
+    if (!shared_linking && !partial_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
@@ -1179,7 +1180,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 int main(int argc, char **argv, char **envp) {
 
-  int   i, passthrough = 0;
+  int   i;
   char *callname = argv[0], *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
