@@ -19,9 +19,10 @@ HELPER_PATH  = $(PREFIX)/lib/afl
 VERSION     = $(shell grep '^\#define VERSION ' ../../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
-override CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
+CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
 
 CFLAGS_ADD=$(USEHUGEPAGE:1=-DUSEHUGEPAGE)
+CFLAGS_ADD += $(USENAMEDPAGE:1=-DUSENAMEDPAGE)
 CFLAGS += $(CFLAGS_ADD)
 
 all: libdislocator.so
