@@ -32,6 +32,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
+  - unicorn_mode:
+    - update unicorn engine, fix C example
 
 
 ### Version ++4.00c (release)
