@@ -336,7 +336,8 @@ void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
-  /* guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address)); */
+  /* guint64 area_offset =
+   * instrument_get_offset_hash(GUM_ADDRESS(instr->address)); */
   if (instrument_previous_pc_addr == NULL) {
 
     GumAddressSpec spec = {.near_address = cw->code,

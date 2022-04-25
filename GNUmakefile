@@ -145,7 +145,7 @@ else
   CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
 endif
 
-override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
+override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
 			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
@@ -373,6 +373,7 @@ help:
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
+	@echo NO_NYX - disable building nyx mode dependencies
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
@@ -625,7 +626,9 @@ ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -645,7 +648,9 @@ ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -661,7 +666,9 @@ endif
 	-$(MAKE) -C utils/libtokencap
 	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 
 %.8:	%
