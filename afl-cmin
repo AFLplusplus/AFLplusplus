@@ -217,7 +217,7 @@ BEGIN {
   for (; Optind < ARGC; Optind++) {
     prog_args[i++] = ARGV[Optind]
     if (i > 1)
-      prog_args_string = prog_args_string" "ARGV[Optind]
+      prog_args_string = prog_args_string" '"ARGV[Optind]"'"
   }
 
   # sanity checks
