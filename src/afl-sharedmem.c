@@ -107,7 +107,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
     if (shm->cmp_map != NULL) {
 
       munmap(shm->cmp_map, shm->map_size);
-      shm->map = NULL;
+      shm->cmp_map = NULL;
 
     }
 
