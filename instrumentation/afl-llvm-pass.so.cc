@@ -588,14 +588,16 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
         PrevLocTrans = PrevLoc;
 
+      if (ctx_str) {
       std::vector<Value *> coll_args;
       coll_args.push_back(CurLoc);
       coll_args.push_back(PrevLocTrans);
-      coll_args.push_back(PrevCtx ? (Value*)PrevCtx : (Value*)Zero);
+      coll_args.push_back(PrevCtx ? (Value*)PrevCtx : (Value*)ConstantInt::get(Int32Ty, 0));
       coll_args.push_back(CurLoc2);
       coll_args.push_back(PrevLoc2);
-      coll_args.push_back(PrevCtx2 ? (Value*)PrevCtx2 : (Value*)Zero);
+      coll_args.push_back(PrevCtx2 ? (Value*)PrevCtx2 : (Value*)ConstantInt::get(Int32Ty, 0));
       IRB.CreateCall(aflLogCollision, coll_args);
+      }
 
       if (ctx_str)
         PrevLocTrans =
