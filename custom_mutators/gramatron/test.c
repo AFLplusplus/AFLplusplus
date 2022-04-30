@@ -118,6 +118,17 @@ void SanityCheck(char *automaton_path) {
 int main(int argc, char *argv[]) {
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   char * pda = create_pda(automaton_path);
+  char program_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example";
+  FILE* ptr;
+  ptr = fopen(program_path, "r");
+  if (NULL == ptr) {
+    printf("file can't be opened \n");
+  }
+  char ch;
+  do {
+    ch = fgetc(ptr);
+    printf("%c", ch);
+  } while (ch != EOF);
   free(pda);
   return 0;
   // char *         mode;
