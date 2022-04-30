@@ -116,39 +116,42 @@ void SanityCheck(char *automaton_path) {
 }
 
 int main(int argc, char *argv[]) {
-
-  char *         mode;
-  char *         automaton_path;
-  char *         output_dir = NULL;
-  struct timeval tv;
-  struct timeval tz;
-  // gettimeofday(&tv, &tz);
-  srand(1337);
-  if (argc == 3) {
-
-    mode = argv[1];
-    automaton_path = strdup(argv[2]);
-    printf("\nMode:%s Path:%s", mode, automaton_path);
-
-  } else {
-
-    printf("\nUsage: ./test <mode> <automaton_path>");
-    return -1;
-
-  }
-
-  if (!strcmp(mode, "SanityCheck")) {
-
-    SanityCheck(automaton_path);
-
-  } else {
-
-    printf("\nUnrecognized mode");
-    return -1;
-
-  }
-
+  char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
+  char * pda = create_pda(automaton_path);
+  free(pda);
   return 0;
+  // char *         mode;
+  // char *         automaton_path;
+  // char *         output_dir = NULL;
+  // struct timeval tv;
+  // struct timeval tz;
+  // // gettimeofday(&tv, &tz);
+  // srand(1337);
+  // if (argc == 3) {
+
+  //   mode = argv[1];
+  //   automaton_path = strdup(argv[2]);
+  //   printf("\nMode:%s Path:%s", mode, automaton_path);
+
+  // } else {
+
+  //   printf("\nUsage: ./test <mode> <automaton_path>");
+  //   return -1;
+
+  // }
+
+  // if (!strcmp(mode, "SanityCheck")) {
+
+  //   SanityCheck(automaton_path);
+
+  // } else {
+
+  //   printf("\nUnrecognized mode");
+  //   return -1;
+
+  // }
+
+  // return 0;
 
 }
 
