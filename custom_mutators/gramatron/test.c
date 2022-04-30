@@ -4,6 +4,8 @@
 #include "gramfuzz.h"
 
 #define NUMINPUTS 50
+#define MAX_PROGRAM_LENGTH 2000
+#define MAX_WALK_LENGTH 1000 // maximum length of terminals in a walk
 
 state *create_pda(u8 *automaton_file) {
 
@@ -115,6 +117,38 @@ void SanityCheck(char *automaton_path) {
 
 }
 
+// TODO: implement this
+void find_automaton_walk(char *state_curr, state *pda) {
+
+}
+
+typedef struct {
+
+  size_t t;
+
+} test;
+
+// TODO: generate a map
+// map a symbol to (state, trigger_idx)
+void create_pda_hashmap() {
+  // tryout hashmap
+  map_t m = hashmap_new();
+  char k[100] = "key";
+  test* vptr = (test *)malloc(sizeof(test));
+  vptr->t = 9;
+  any_t v = vptr;
+  any_t grptr;
+  int r = hashmap_put(m, k, v);
+  if (!r) {
+    printf("add elements to hashmap succeed\n");
+    int gr = hashmap_get(m, k, vptr);
+    printf("%d\n", gr);
+  }
+  else {printf("fail\n");}
+  free(vptr);
+}
+
+
 int main(int argc, char *argv[]) {
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   char * pda = create_pda(automaton_path);
@@ -125,10 +159,19 @@ int main(int argc, char *argv[]) {
     printf("file can't be opened \n");
   }
   char ch;
+  char program[MAX_PROGRAM_LENGTH];
+  int i = 0;
   do {
     ch = fgetc(ptr);
+    program[i] = ch;
     printf("%c", ch);
+    i ++;
   } while (ch != EOF);
+  Array * res;
+  res = (Array *)calloc(1, sizeof(Array));
+  initArray(res, INIT_SIZE);
+  create_pda_hashmap();
+  free(res);
   free(pda);
   return 0;
   // char *         mode;
