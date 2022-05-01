@@ -5,8 +5,6 @@
 
 #define NUMINPUTS 50
 #define MAX_PROGRAM_LENGTH 2000
-#define MAX_WALK_LENGTH 1000 // maximum length of terminals in a walk
-#define MAX_TERMINAL_STATES 50
 
 state *create_pda(u8 *automaton_file) {
 
@@ -231,6 +229,20 @@ map_t create_pda_hashmap(state* pda) {
   // TODO: deallocate the hashmap (not here)
 }
 
+int test_get_hashmap(map_t m) {
+  char k[100] = "continue";
+  struct terminal_arr* ta;
+  int r = hashmap_get(m, k, &ta);
+  if (!r) {
+    printf("------ In testing, the terminal is included in %zu edges ------\n", ta->len);
+    size_t i;
+    for (i = 0; i < ta->len; i++) {
+      printf("state_name = %d\n", (ta->start + i)->state_name);
+      printf("trigger_idx = %zu\n", (ta->start + i)->trigger_idx);
+      printf("dest = %d\n", (ta->start + i)->dest);
+    }
+  }
+}
 
 int main(int argc, char *argv[]) {
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
@@ -254,6 +266,7 @@ int main(int argc, char *argv[]) {
   // res = (Array *)calloc(1, sizeof(Array));
   // initArray(res, INIT_SIZE);
   map_t m = create_pda_hashmap((struct state*)pda);
+  test_get_hashmap(m);
   free_hashmap(m);
   // free(res);
   free(pda);
