@@ -5,6 +5,9 @@
 
 #define NUMINPUTS 50
 #define MAX_PROGRAM_LENGTH 2000
+#define MAX_PROGRAM_WALK_LENGTH 2000
+#define MAX_TERMINAL_NUMS 1000
+#define MAX_TERMINAL_LENGTH 100
 
 state *create_pda(u8 *automaton_file) {
 
@@ -136,6 +139,11 @@ struct terminal_arr {
 
 } ;
 
+struct symbols_arr {
+  char** symbols_arr;
+  size_t len;
+} ; // essentially a 2d array of strings
+
 // TODO: delete
 void output_hashmap(any_t placeholder, any_t item) {
   struct terminal_meta* tmp = item;
@@ -149,15 +157,15 @@ int free_terminal_arr(any_t placeholder, any_t item) {
   return MAP_OK;
 }
 
-void free_hashmap(map_t m) {
-  int r = hashmap_iterate(m, &free_terminal_arr, NULL);
+void free_hashmap(map_t m, int (*f)(any_t, any_t)) {
+  int r = hashmap_iterate(m, f, NULL);
   if (!r) printf("free hashmap items successfully!\n");
   else printf("free hashmap items failed");
   hashmap_free(m);
 }
 
 // map a symbol to a list of (state, trigger_idx)
-map_t create_pda_hashmap(state* pda) {
+map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
   int state_idx, trigger_idx, r; // r is the return result for hashmap operation 
   map_t m = hashmap_new();
   // iterate over pda
@@ -169,6 +177,7 @@ map_t create_pda_hashmap(state* pda) {
       printf("------ The trigger idx is %d ------\n", trigger_idx);
       trigger* trigger_curr = state_curr->ptr + trigger_idx;
       char* symbol_curr = trigger_curr->term;
+      size_t symbol_len = trigger_curr->term_len;
       struct terminal_arr* terminal_arr_curr;
       r = hashmap_get(m, symbol_curr, (any_t*)&terminal_arr_curr);
       if (r) {
@@ -189,6 +198,10 @@ map_t create_pda_hashmap(state* pda) {
         else {
           printf("hashmap put succeeded\n");
         }
+        // if symbol not already in map, it's not in symbol_dict, simply add the symbol to the array
+        // TODO: need to initialize symbol dict (calloc)
+        strncpy(symbols_arr->symbols_arr[symbols_arr->len], symbol_curr, symbol_len+1);
+        symbols_arr->len++;
       }
       else {
         // the symbol is already in map
@@ -201,6 +214,7 @@ map_t create_pda_hashmap(state* pda) {
         modify->dest = trigger_curr->dest;
         terminal_arr_curr->len++;
         printf("Symbol %s is included in %zu edges\n", symbol_curr, terminal_arr_curr->len);
+        // if symbol already in map, it's already in symbol_dict as well, no work needs to be done
       }
 
     }
@@ -232,7 +246,7 @@ map_t create_pda_hashmap(state* pda) {
 int test_get_hashmap(map_t m) {
   char k[100] = "continue";
   struct terminal_arr* ta;
-  int r = hashmap_get(m, k, &ta);
+  int r = hashmap_get(m, k, (void **)&ta);
   if (!r) {
     printf("------ In testing, the terminal is included in %zu edges ------\n", ta->len);
     size_t i;
@@ -244,7 +258,100 @@ int test_get_hashmap(map_t m) {
   }
 }
 
+struct symbols_arr* create_array_of_chars() {
+  struct symbols_arr* ret = (struct symbols_arr*)malloc(sizeof(struct symbols_arr));
+  ret->len = 0; 
+  ret->symbols_arr = (char **)malloc(MAX_TERMINAL_NUMS * sizeof(char*));
+  size_t i;
+  for (i = 0; i < MAX_TERMINAL_NUMS; i++) {
+    ret->symbols_arr[i] = (char *)calloc(MAX_TERMINAL_LENGTH, sizeof(char));
+  }
+  return ret;
+}
+
+int free_array_of_chars(any_t placeholder, any_t item) {
+  struct symbols_arr* arr = item;
+  size_t i;
+  for (i = 0; i < MAX_TERMINAL_NUMS; i++) {
+    free(arr->symbols_arr[i]);
+  }
+  free(arr->symbols_arr);
+  free(arr);
+  return MAP_OK;
+}
+
+
+int compare_two_symbols(const void * a, const void * b) {
+    char* a_char = *(char **)a;
+    char* b_char = *(char **)b;
+    size_t fa = strlen(a_char);
+    size_t fb = strlen(b_char);
+    if (fa > fb) return -1;
+    else if (fa == fb) return 0;
+    else return 1;
+
+}
+
+void print_symbols_arr(struct symbols_arr* arr) {
+  size_t i;
+  printf("(");
+  for (i = 0; i < arr->len; i++) {
+    printf("%s", arr->symbols_arr[i]);
+    if (i != arr->len - 1) printf(",");
+  }
+  printf(")\n");
+}
+
+// TODO: create a map
+// key: first character of a symbol, value: a list of symbols that starts with key, the list is sorted in descending order of the symbol lengths
+map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols) {
+  map_t char_to_symbols = hashmap_new();
+  // TODO: free the allocated map
+  // sort the symbol_dict in descending order of the symbol lengths
+  qsort(symbols->symbols_arr, symbols->len, sizeof(char*), compare_two_symbols);
+  printf("------ print after sort ------\n");
+  print_symbols_arr(symbols);
+  size_t i;
+  int r; // response from hashmap get and put
+  for (i = 0; i < symbols->len; i++) {
+    char* symbol_curr = symbols->symbols_arr[i];
+    // get first character from symbol_curr
+    char first_character[2];
+    first_character[0] = symbol_curr[0];
+    first_character[1] = '\0';
+    // key would be the first character of symbol_curr
+    // the value would be an array of chars
+    struct symbols_arr* associated_symbols;
+    r = hashmap_get(char_to_symbols, first_character, (any_t*)&associated_symbols);
+    if (!r) {
+      // append current symbol to existing array
+      strncpy(associated_symbols->symbols_arr[associated_symbols->len], symbol_curr, strlen(symbol_curr) + 1);
+      associated_symbols->len++;
+    }
+    else {
+      // start a new symbols_arr
+      struct symbols_arr* new_associated_symbols = create_array_of_chars();
+      strncpy(new_associated_symbols->symbols_arr[0], symbol_curr, strlen(symbol_curr) + 1);
+      new_associated_symbols->len = 1;
+      r = hashmap_put(char_to_symbols, first_character, new_associated_symbols);
+      if (r) {
+        printf("hashmap put failed\n");
+      }
+      else {
+        printf("hashmap put succeeded\n");
+      }
+    }
+  }
+  return char_to_symbols;
+}
+
+
+int dfs(map_t m, struct terminal_arr* ta, char* str, size_t str_size) {
+
+}
+
 int main(int argc, char *argv[]) {
+
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   state * pda = create_pda((u8 *)automaton_path);
   // char program_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example";
@@ -262,14 +369,19 @@ int main(int argc, char *argv[]) {
   //   printf("%c", ch);
   //   i ++;
   // } while (ch != EOF);
-  // Array * res;
-  // res = (Array *)calloc(1, sizeof(Array));
-  // initArray(res, INIT_SIZE);
-  map_t m = create_pda_hashmap((struct state*)pda);
-  test_get_hashmap(m);
-  free_hashmap(m);
-  // free(res);
+  Array * res;
+  res = (Array *)calloc(1, sizeof(Array));
+  initArray(res, INIT_SIZE);
+  map_t char_to_symbol = hashmap_new();
+  struct symbols_arr* symbols = create_array_of_chars();
+  map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
+  // print all the symbols
+  print_symbols_arr(symbols);
+  map_t first_char_to_symbols_map = create_first_char_to_symbols_hashmap(symbols);
+  free_hashmap(pda_map, &free_terminal_arr);
+  free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
   free(pda);
+  free_array_of_chars(NULL, symbols); // free the array of symbols
   return 0;
   // char *         mode;
   // char *         automaton_path;
