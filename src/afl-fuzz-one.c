@@ -4578,7 +4578,7 @@ pacemaker_fuzzing:
 
       u32 r_max, r;
 
-      r_max = 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+      r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
 
       if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
@@ -5033,7 +5033,7 @@ pacemaker_fuzzing:
               /* Values 16 and 17 can be selected only if there are any extras
                  present in the dictionaries. */
 
-              r -= 16;
+              r -= 15;
 
               if (r == 0 && (afl->extras_cnt || afl->a_extras_cnt)) {
 
