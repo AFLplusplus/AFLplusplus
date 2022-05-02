@@ -5028,12 +5028,10 @@ pacemaker_fuzzing:
 
             default: {
 
-            }
-
               /* Values 16 and 17 can be selected only if there are any extras
                  present in the dictionaries. */
 
-              r -= 15;
+              r -= 16;
 
               if (r == 0 && (afl->extras_cnt || afl->a_extras_cnt)) {
 
@@ -5217,7 +5215,9 @@ pacemaker_fuzzing:
                 MOpt_globals.cycles_v2[STAGE_Splice]++;
                 break;
 
-              }  // end of default:
+              }
+
+            }  // end of default:
 
           }                                    /* switch select_algorithm() */
 
