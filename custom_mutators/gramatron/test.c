@@ -263,6 +263,15 @@ map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
   // TODO: deallocate the hashmap (not here)
 }
 
+void print_terminal_arr(struct terminal_arr* ta) {
+  size_t i;
+  for (i = 0; i < ta->len; i++) {
+    printf("state_name = %d, ", (ta->start + i)->state_name);
+    printf("trigger_idx = %zu, ", (ta->start + i)->trigger_idx);
+    printf("dest = %d.\n", (ta->start + i)->dest);
+  }
+}
+
 int test_get_hashmap(map_t m) {
   char k[100] = "continue";
   struct terminal_arr* ta;
@@ -388,35 +397,107 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct s
 }
 
 
-int dfs(map_t m, struct terminal_arr* ta, char* str, size_t str_size) {
+int dfs(const map_t pda_map, const map_t char_to_symbols, struct terminal_arr** tmp, const char* program, const size_t program_length, struct terminal_arr** res, size_t idx, int curr_state) {
+  if (*res) return 1; // 1 means successfully found a path
+  if (idx == program_length) {
+    // test if the last terminal points to the final state
+    if (curr_state != final_state) return 0;
+    *res = *tmp;
+    return 1;
+  }
+  char first_char[2];
+  first_char[0] = program[idx]; // first character of program
+  first_char[1] = '\0';
+  int r;
+  struct symbols_arr* matching_symbols;
+  r = hashmap_get(char_to_symbols, first_char, (any_t *)&matching_symbols);
+  if (r) {
+    printf("No symbols match the current character, abort!"); // hopefully won't reach this state
+    return 0;
+  }
+  size_t i;
+  bool matched = false;
+  for (i = 0; i < matching_symbols->len; i++) {
+    if (matched) break;
+    char *matching_symbol = matching_symbols->symbols_arr[i];
+    if (!strncmp(matching_symbol, program + idx, strlen(matching_symbol))) {
+      // there is a match
+      matched = true;
+      // find the possible paths of that symbol
+      struct terminal_arr* ta;
+      int r2 = hashmap_get(pda_map, matching_symbol, (any_t *)&ta);
+      if (!r2) {
+        // the terminal is found in the dictionary
+        size_t j;
+        for (j = 0; j < ta->len; j++) {
+          int state_name = (ta->start + j)->state_name;
+          if (state_name != curr_state) continue;
+          size_t trigger_idx = (ta->start + j)->trigger_idx;
+          int dest = (ta->start + j)->dest;
+          (*tmp)->start[(*tmp)->len].state_name = state_name;
+          (*tmp)->start[(*tmp)->len].trigger_idx = trigger_idx;
+          (*tmp)->start[(*tmp)->len].dest = dest;
+          (*tmp)->len++;
+          if (dfs(pda_map, char_to_symbols, tmp, program, program_length, res, idx + strlen(matching_symbol), dest)) return 1;
+          (*tmp)->len--;
+        }
+      }
+      else {
+        printf("No path goes out of this symbol, abort!"); // hopefully won't reach this state
+        return 0;
+      }
+    }
+  }
+  return 0;
+  /*
+  1. First extract the first character of the current program
+  2. Match the possible symbols of that program
+  3. Find the possible paths of that symbol
+  4. Add to temporary terminal array
+  5. Recursion
+  6. Pop the path from the terminal array
+  7. - If idx reaches end of program, set tmp to res
+     - If idx is not at the end and nothing matches, the current path is not working, simply return 0
+  */
+}
 
+void printArray(Array *arr) {
+  printf("****** Start printing Array ****** \n");
+  size_t i;
+  for (i = 0; i < arr->used; i++) {
+    printf("state_name = %d, trigger_idx = %d\n", arr->start[i].state,arr->start[i].trigger_idx);
+  }
 }
 
 int main(int argc, char *argv[]) {
 
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   state * pda = create_pda((u8 *)automaton_path);
-  // char program_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example";
-  // FILE* ptr;
-  // ptr = fopen(program_path, "r");
-  // if (NULL == ptr) {
-  //   printf("file can't be opened \n");
-  // }
-  // char ch;
-  // char program[MAX_PROGRAM_LENGTH];
-  // int i = 0;
-  // do {
-  //   ch = fgetc(ptr);
-  //   program[i] = ch;
-  //   printf("%c", ch);
-  //   i ++;
-  // } while (ch != EOF);
+  char program_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example";
+  char program_aut_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example.aut";
+  FILE* ptr;
+  ptr = fopen(program_path, "r");
+  if (NULL == ptr) {
+    printf("file can't be opened \n");
+  }
+  char ch;
+  char program[MAX_PROGRAM_LENGTH];
+  int i = 0;
+  do {
+    ch = fgetc(ptr);
+    program[i] = ch;
+    printf("%c", ch);
+    i ++;
+  } while (ch != EOF);
   Array * res;
-  res = (Array *)calloc(1, sizeof(Array));
-  initArray(res, INIT_SIZE);
+  // res = (Array *)calloc(1, sizeof(Array));
+
+  // initArray(res, INIT_SIZE);
   map_t char_to_symbol = hashmap_new();
   struct symbols_arr* symbols = create_array_of_chars();
   map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
+  res = read_input(pda, program_aut_path);
+  printArray(res);
   // print all the symbols
   #ifdef DEBUG
   print_symbols_arr(symbols);
@@ -432,7 +513,17 @@ int main(int argc, char *argv[]) {
   // if (!t)
   //   print_symbols_arr(tmp_arr);
   
-  
+  // testing
+  struct terminal_arr* tmp;
+  struct terminal_arr* dfs_res = NULL;
+  tmp = (struct terminal_arr*)malloc(sizeof(struct terminal_arr));
+  tmp->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
+  // char str[] = "return a\n";
+  // size_t str_len = strlen(str);
+  printf("*** return value %d *** \n", dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state));
+  print_terminal_arr(dfs_res);
+  free(tmp->start);
+  free(tmp);
   
   free_hashmap(pda_map, &free_terminal_arr);
   free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
