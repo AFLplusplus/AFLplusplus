@@ -304,7 +304,7 @@ void print_symbols_arr(struct symbols_arr* arr) {
 
 // TODO: create a map
 // key: first character of a symbol, value: a list of symbols that starts with key, the list is sorted in descending order of the symbol lengths
-map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols) {
+map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct symbols_arr *first_chars) {
   map_t char_to_symbols = hashmap_new();
   // TODO: free the allocated map
   // sort the symbol_dict in descending order of the symbol lengths
@@ -319,21 +319,26 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols) {
     char first_character[2];
     first_character[0] = symbol_curr[0];
     first_character[1] = '\0';
+    printf("****** Current symbol is %s, its first character is %s ******\n", symbol_curr, first_character);
     // key would be the first character of symbol_curr
     // the value would be an array of chars
     struct symbols_arr* associated_symbols;
     r = hashmap_get(char_to_symbols, first_character, (any_t*)&associated_symbols);
     if (!r) {
       // append current symbol to existing array
+      printf("****** First character %s is already in hashmap ******\n", first_character);
       strncpy(associated_symbols->symbols_arr[associated_symbols->len], symbol_curr, strlen(symbol_curr) + 1);
       associated_symbols->len++;
     }
     else {
       // start a new symbols_arr
+      printf("****** First character %s is not in hashmap ******\n", first_character);
       struct symbols_arr* new_associated_symbols = create_array_of_chars();
+      strncpy(first_chars->symbols_arr[first_chars->len], first_character, 2); // 2 because one character plus the NULL byte
       strncpy(new_associated_symbols->symbols_arr[0], symbol_curr, strlen(symbol_curr) + 1);
       new_associated_symbols->len = 1;
-      r = hashmap_put(char_to_symbols, first_character, new_associated_symbols);
+      r = hashmap_put(char_to_symbols, first_chars->symbols_arr[first_chars->len], new_associated_symbols);
+      first_chars->len++;
       if (r) {
         printf("hashmap put failed\n");
       }
@@ -342,6 +347,13 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols) {
       }
     }
   }
+  // testing
+  // printf("****** Testing ******\n");
+  // struct symbols_arr* tmp_arr;
+  // char str[] = "i";
+  // int t = hashmap_get(char_to_symbols, str, (any_t *)&tmp_arr);
+  // if (!t)
+  //   print_symbols_arr(tmp_arr);
   return char_to_symbols;
 }
 
@@ -377,11 +389,24 @@ int main(int argc, char *argv[]) {
   map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
   // print all the symbols
   print_symbols_arr(symbols);
-  map_t first_char_to_symbols_map = create_first_char_to_symbols_hashmap(symbols);
+  struct symbols_arr* first_chars = create_array_of_chars();
+  map_t first_char_to_symbols_map = create_first_char_to_symbols_hashmap(symbols, first_chars);
+
+  // testing
+  printf("****** Testing ******\n");
+  struct symbols_arr* tmp_arr;
+  char str[] = "c";
+  int t = hashmap_get(first_char_to_symbols_map, str, (any_t *)&tmp_arr);
+  if (!t)
+    print_symbols_arr(tmp_arr);
+  
+  
+  
   free_hashmap(pda_map, &free_terminal_arr);
   free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
   free(pda);
   free_array_of_chars(NULL, symbols); // free the array of symbols
+  free_array_of_chars(NULL, first_chars);
   return 0;
   // char *         mode;
   // char *         automaton_path;
