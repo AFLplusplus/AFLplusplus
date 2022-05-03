@@ -9,6 +9,8 @@
 #define MAX_TERMINAL_NUMS 1000
 #define MAX_TERMINAL_LENGTH 100
 
+// #define DEBUG
+
 state *create_pda(u8 *automaton_file) {
 
   struct json_object *parsed_json;
@@ -159,8 +161,10 @@ int free_terminal_arr(any_t placeholder, any_t item) {
 
 void free_hashmap(map_t m, int (*f)(any_t, any_t)) {
   int r = hashmap_iterate(m, f, NULL);
+  #ifdef DEBUG
   if (!r) printf("free hashmap items successfully!\n");
   else printf("free hashmap items failed");
+  #endif
   hashmap_free(m);
 }
 
@@ -170,11 +174,15 @@ map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
   map_t m = hashmap_new();
   // iterate over pda
   for (state_idx = 0; state_idx < numstates; state_idx++) {
+    #ifdef DEBUG
     printf("------ The state idx is %d ------\n", state_idx);
+    #endif
     if (state_idx == final_state) continue;
     state* state_curr = pda + state_idx;
     for (trigger_idx = 0; trigger_idx < state_curr->trigger_len; trigger_idx++) {
+      #ifdef DEBUG
       printf("------ The trigger idx is %d ------\n", trigger_idx);
+      #endif
       trigger* trigger_curr = state_curr->ptr + trigger_idx;
       char* symbol_curr = trigger_curr->term;
       size_t symbol_len = trigger_curr->term_len;
@@ -182,22 +190,30 @@ map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
       r = hashmap_get(m, symbol_curr, (any_t*)&terminal_arr_curr);
       if (r) {
         // the symbol is not in the map
+        #ifdef DEBUG
         printf("Symbol %s is not in map\n", symbol_curr);
+        #endif
         struct terminal_arr* new_terminal_arr = (struct terminal_arr*)malloc(sizeof(struct terminal_arr));
         new_terminal_arr->start = (struct terminal_meta*)calloc(numstates, sizeof(struct terminal_meta));
+        #ifdef DEBUG
         printf("allocate new memory address %p\n", new_terminal_arr->start);
+        #endif
         new_terminal_arr->start->state_name = state_idx;
         new_terminal_arr->start->dest = trigger_curr->dest;
         new_terminal_arr->start->trigger_idx = trigger_idx;
         new_terminal_arr->len = 1;
+        #ifdef DEBUG
         printf("Symbol %s is included in %zu edges\n", symbol_curr, new_terminal_arr->len);
+        #endif
         r = hashmap_put(m, symbol_curr, new_terminal_arr);
+        #ifdef DEBUG
         if (r) {
           printf("hashmap put failed\n");
         }
         else {
           printf("hashmap put succeeded\n");
         }
+        #endif
         // if symbol not already in map, it's not in symbol_dict, simply add the symbol to the array
         // TODO: need to initialize symbol dict (calloc)
         strncpy(symbols_arr->symbols_arr[symbols_arr->len], symbol_curr, symbol_len+1);
@@ -207,13 +223,17 @@ map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
         // the symbol is already in map
         // append to terminal array
         // no need to touch start
+        #ifdef DEBUG
         printf("Symbol %s is in map\n", symbol_curr);
+        #endif
         struct terminal_meta* modify = terminal_arr_curr->start + terminal_arr_curr->len;
         modify->state_name = state_idx;
         modify->trigger_idx = trigger_idx;
         modify->dest = trigger_curr->dest;
         terminal_arr_curr->len++;
+        #ifdef DEBUG
         printf("Symbol %s is included in %zu edges\n", symbol_curr, terminal_arr_curr->len);
+        #endif
         // if symbol already in map, it's already in symbol_dict as well, no work needs to be done
       }
 
@@ -309,8 +329,10 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct s
   // TODO: free the allocated map
   // sort the symbol_dict in descending order of the symbol lengths
   qsort(symbols->symbols_arr, symbols->len, sizeof(char*), compare_two_symbols);
+  #ifdef DEBUG
   printf("------ print after sort ------\n");
   print_symbols_arr(symbols);
+  #endif
   size_t i;
   int r; // response from hashmap get and put
   for (i = 0; i < symbols->len; i++) {
@@ -319,32 +341,40 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct s
     char first_character[2];
     first_character[0] = symbol_curr[0];
     first_character[1] = '\0';
+    #ifdef DEBUG
     printf("****** Current symbol is %s, its first character is %s ******\n", symbol_curr, first_character);
+    #endif
     // key would be the first character of symbol_curr
     // the value would be an array of chars
     struct symbols_arr* associated_symbols;
     r = hashmap_get(char_to_symbols, first_character, (any_t*)&associated_symbols);
     if (!r) {
       // append current symbol to existing array
+      #ifdef DEBUG
       printf("****** First character %s is already in hashmap ******\n", first_character);
+      #endif
       strncpy(associated_symbols->symbols_arr[associated_symbols->len], symbol_curr, strlen(symbol_curr) + 1);
       associated_symbols->len++;
     }
     else {
       // start a new symbols_arr
+      #ifdef DEBUG
       printf("****** First character %s is not in hashmap ******\n", first_character);
+      #endif
       struct symbols_arr* new_associated_symbols = create_array_of_chars();
       strncpy(first_chars->symbols_arr[first_chars->len], first_character, 2); // 2 because one character plus the NULL byte
       strncpy(new_associated_symbols->symbols_arr[0], symbol_curr, strlen(symbol_curr) + 1);
       new_associated_symbols->len = 1;
       r = hashmap_put(char_to_symbols, first_chars->symbols_arr[first_chars->len], new_associated_symbols);
       first_chars->len++;
+      #ifdef DEBUG
       if (r) {
         printf("hashmap put failed\n");
       }
       else {
         printf("hashmap put succeeded\n");
       }
+      #endif
     }
   }
   // testing
@@ -388,17 +418,19 @@ int main(int argc, char *argv[]) {
   struct symbols_arr* symbols = create_array_of_chars();
   map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
   // print all the symbols
+  #ifdef DEBUG
   print_symbols_arr(symbols);
+  #endif
   struct symbols_arr* first_chars = create_array_of_chars();
   map_t first_char_to_symbols_map = create_first_char_to_symbols_hashmap(symbols, first_chars);
 
   // testing
-  printf("****** Testing ******\n");
-  struct symbols_arr* tmp_arr;
-  char str[] = "c";
-  int t = hashmap_get(first_char_to_symbols_map, str, (any_t *)&tmp_arr);
-  if (!t)
-    print_symbols_arr(tmp_arr);
+  // printf("****** Testing ******\n");
+  // struct symbols_arr* tmp_arr;
+  // char str[] = "c";
+  // int t = hashmap_get(first_char_to_symbols_map, str, (any_t *)&tmp_arr);
+  // if (!t)
+  //   print_symbols_arr(tmp_arr);
   
   
   
