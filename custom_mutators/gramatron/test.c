@@ -548,12 +548,30 @@ bool if_array_equivalent(Array* a1, Array* a2) {
 
 }
 
+// print all file names in a directory
+void print_filenames_in_dir(char* dirname) {
+  printf("test printing all filenames in a directory\n");
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir(dirname)) != NULL) {
+  /* print all the files and directories within directory */
+  while ((ent = readdir (dir)) != NULL) {
+    printf ("%s\n", ent->d_name);
+  }
+  closedir (dir);
+} else {
+  /* could not open directory */
+  perror ("");
+  return EXIT_FAILURE;
+}
+}
+
 int main(int argc, char *argv[]) {
 
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   state * pda = create_pda((u8 *)automaton_path);
-  char program_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example";
-  char program_aut_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example.aut";
+  char program_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:000000,time:0,execs:0,orig:100";
+  char program_aut_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:000000,time:0,execs:0,orig:100.aut";
   char program_aut_path_derived[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example_derived.aut";
   FILE* ptr;
   ptr = fopen(program_path, "r");
@@ -602,14 +620,14 @@ int main(int argc, char *argv[]) {
   printf("*** return value %d *** \n", dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state));
   Array* parsed_res = constructArray(dfs_res, pda);
   printArray(parsed_res);
-  write_input(parsed_res, program_aut_path_derived);
+  // write_input(parsed_res, program_aut_path_derived);
   printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, parsed_res));
 
-  Array* read_in_parsed = read_input(pda, program_aut_path_derived);
-  printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
+  // Array* read_in_parsed = read_input(pda, program_aut_path_derived);
+  // printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
 
-  free(read_in_parsed->start);
-  free(read_in_parsed);
+  // free(read_in_parsed->start);
+  // free(read_in_parsed);
 
   free(parsed_res->start);
   free(parsed_res);
@@ -624,6 +642,7 @@ int main(int argc, char *argv[]) {
   fclose(ptr);
   free_array_of_chars(NULL, symbols); // free the array of symbols
   free_array_of_chars(NULL, first_chars);
+  print_filenames_in_dir("/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue");
   return 0;
   // char *         mode;
   // char *         automaton_path;
