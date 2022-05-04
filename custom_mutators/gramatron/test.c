@@ -129,7 +129,7 @@ void find_automaton_walk(char *state_curr, state *pda) {
 struct terminal_meta {
 
   int state_name;
-  size_t trigger_idx;
+  int trigger_idx;
   int dest;
 
 } ;
@@ -267,7 +267,7 @@ void print_terminal_arr(struct terminal_arr* ta) {
   size_t i;
   for (i = 0; i < ta->len; i++) {
     printf("state_name = %d, ", (ta->start + i)->state_name);
-    printf("trigger_idx = %zu, ", (ta->start + i)->trigger_idx);
+    printf("trigger_idx = %d, ", (ta->start + i)->trigger_idx);
     printf("dest = %d.\n", (ta->start + i)->dest);
   }
 }
@@ -281,7 +281,7 @@ int test_get_hashmap(map_t m) {
     size_t i;
     for (i = 0; i < ta->len; i++) {
       printf("state_name = %d\n", (ta->start + i)->state_name);
-      printf("trigger_idx = %zu\n", (ta->start + i)->trigger_idx);
+      printf("trigger_idx = %d\n", (ta->start + i)->trigger_idx);
       printf("dest = %d\n", (ta->start + i)->dest);
     }
   }
@@ -469,6 +469,38 @@ void printArray(Array *arr) {
   }
 }
 
+Array* constructArray(struct terminal_arr* terminal_arr, state* pda) {
+  Array * res = (Array *)calloc(1, sizeof(Array));
+  initArray(res, INIT_SIZE);
+  size_t i;
+  for (i = 0; i < terminal_arr->len; i ++) {
+    struct terminal_meta* curr = terminal_arr->start + i;
+    int state_name = curr->state_name;
+    int trigger_idx = curr->trigger_idx;
+    // get the symbol from pda
+    state* state_curr = pda + state_name;
+    trigger* trigger_curr = state_curr->ptr + trigger_idx;
+    char *symbol_curr = trigger_curr->term;
+    size_t symbol_curr_len = trigger_curr->term_len;
+    insertArray(res, state_name, symbol_curr, symbol_curr_len, trigger_idx);
+  }
+  return res;
+}
+
+void free_pda(state* pda) {
+  size_t i, j;
+  for (i = 0; i < numstates; i++) {
+    state* state_curr = pda + i;
+    for (j = 0; j < state_curr->trigger_len; j++) {
+      trigger* trigger_curr = state_curr->ptr + j;
+      free(trigger_curr->id);
+      free(trigger_curr->term);
+    }
+    free(state_curr->ptr);
+  }
+  free(pda);
+}
+
 int main(int argc, char *argv[]) {
 
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
@@ -493,7 +525,6 @@ int main(int argc, char *argv[]) {
   // res = (Array *)calloc(1, sizeof(Array));
 
   // initArray(res, INIT_SIZE);
-  map_t char_to_symbol = hashmap_new();
   struct symbols_arr* symbols = create_array_of_chars();
   map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
   res = read_input(pda, program_aut_path);
@@ -516,18 +547,24 @@ int main(int argc, char *argv[]) {
   // testing
   struct terminal_arr* tmp;
   struct terminal_arr* dfs_res = NULL;
-  tmp = (struct terminal_arr*)malloc(sizeof(struct terminal_arr));
+  tmp = (struct terminal_arr*)calloc(1, sizeof(struct terminal_arr));
   tmp->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
   // char str[] = "return a\n";
   // size_t str_len = strlen(str);
   printf("*** return value %d *** \n", dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state));
-  print_terminal_arr(dfs_res);
+  Array* parsed_res = constructArray(dfs_res, pda);
+  printArray(parsed_res);
+  free(parsed_res->start);
+  free(parsed_res);
   free(tmp->start);
   free(tmp);
-  
+  free(res->start);
+  free(res);
   free_hashmap(pda_map, &free_terminal_arr);
   free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
-  free(pda);
+
+  free_pda(pda);
+  fclose(ptr);
   free_array_of_chars(NULL, symbols); // free the array of symbols
   free_array_of_chars(NULL, first_chars);
   return 0;
