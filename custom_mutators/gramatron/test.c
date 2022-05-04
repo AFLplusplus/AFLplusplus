@@ -501,12 +501,60 @@ void free_pda(state* pda) {
   free(pda);
 }
 
+bool if_terminal_equivalent(terminal* t1, terminal* t2) {
+  if (t1->state != t2->state) {
+    printf("t1->state = %d, t2->state = %d\n", t1->state, t2->state);
+    return false;
+  }
+  if (t1->symbol_len != t2->symbol_len) {
+    printf("t1->symbol_len = %d, t2->symbol_len = %d\n", t1->symbol_len, t2->symbol_len);
+    return false;
+  }
+  if (t1->trigger_idx != t2->trigger_idx) {
+    printf("t1->trigger_idx = %d, t2->trigger_idx = %d\n", t1->trigger_idx, t2->trigger_idx);
+    return false;
+  }
+  if (!t1->symbol) {
+    if (t2->symbol) return false;
+    return true;
+  }
+  if (strcmp(t1->symbol, t2->symbol)) {
+    printf("t1->symbol = %s, t2->symbol = %s\n", t1->symbol, t2->symbol);
+    return false;
+  }
+  return true;
+}
+
+bool if_array_equivalent(Array* a1, Array* a2) {
+  if (a1->used != a2->used) {
+    printf("a1->used = %d, a2->used = %d\n", a1->used, a2->used);
+    return false;
+  }
+  if (a1->size != a2->size) {
+    printf("a1->size = %d, a2->size = %d\n", a1->size, a2->size);
+    return false;
+  }
+  if (a1->inputlen != a2->inputlen) {
+    printf("a1->inputlen = %d, a2->inputlen = %d\n", a1->inputlen, a2->inputlen);
+    return false;
+  }
+  size_t i;
+  for (i = 0; i < a1->size; i++) {
+    terminal* t1 = a1->start + i;
+    terminal* t2 = a2->start + i;
+    if (!if_terminal_equivalent(t1, t2)) return false;
+  }
+  return true;
+
+}
+
 int main(int argc, char *argv[]) {
 
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   state * pda = create_pda((u8 *)automaton_path);
   char program_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example";
   char program_aut_path[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example.aut";
+  char program_aut_path_derived[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example_derived.aut";
   FILE* ptr;
   ptr = fopen(program_path, "r");
   if (NULL == ptr) {
@@ -554,6 +602,15 @@ int main(int argc, char *argv[]) {
   printf("*** return value %d *** \n", dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state));
   Array* parsed_res = constructArray(dfs_res, pda);
   printArray(parsed_res);
+  write_input(parsed_res, program_aut_path_derived);
+  printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, parsed_res));
+
+  Array* read_in_parsed = read_input(pda, program_aut_path_derived);
+  printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
+
+  free(read_in_parsed->start);
+  free(read_in_parsed);
+
   free(parsed_res->start);
   free(parsed_res);
   free(tmp->start);
