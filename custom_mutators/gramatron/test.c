@@ -5,7 +5,7 @@
 
 #define NUMINPUTS 500
 #define MAX_PROGRAM_LENGTH 20000
-#define MAX_PROGRAM_WALK_LENGTH 50000
+#define MAX_PROGRAM_WALK_LENGTH 5000
 #define MAX_TERMINAL_NUMS 10000
 #define MAX_TERMINAL_LENGTH 1000
 #define MAX_PROGRAM_NAME_LENGTH 5000
@@ -405,6 +405,10 @@ int dfs(const map_t pda_map, const map_t char_to_symbols, struct terminal_arr** 
     if (curr_state != final_state) return 0;
     *res = *tmp;
     return 1;
+  }
+  if ((*tmp)->len == MAX_PROGRAM_WALK_LENGTH) {
+    printf("Reached maximum program walk length\n");
+    return 0;
   }
   char first_char[2];
   first_char[0] = program[idx]; // first character of program
