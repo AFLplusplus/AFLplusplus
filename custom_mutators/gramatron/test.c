@@ -580,15 +580,23 @@ void test_automata_generation(char* dirname, const map_t pda_map, const map_t fi
     char ch;
     char program[MAX_PROGRAM_LENGTH];
     int i = 0;
+    bool program_too_long = false;
     do {
+      if (i == MAX_PROGRAM_LENGTH) {
+        // the maximum program length is reached
+        // give up the current program, change to a different one
+        printf("maximum program length is reached, go on to next program\n");
+        program_too_long = true;
+        break;
+      }
       ch = fgetc(ptr);
       program[i] = ch;
-      printf("%c", ch);
+      // printf("%c", ch);
       i ++;
     } while (ch != EOF);
     program[i-1] = '\0';
     fclose(ptr);
-    if (i == 1) continue;
+    if ((i == 1 && program[0] == '\0') || program_too_long) continue;
     struct terminal_arr* arr_holder;
     struct terminal_arr* dfs_res = NULL;
     arr_holder = (struct terminal_arr*)calloc(1, sizeof(struct terminal_arr));
@@ -629,33 +637,34 @@ int main(int argc, char *argv[]) {
 
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   state * pda = create_pda((u8 *)automaton_path);
-  char program_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:001108,src:000644+000437,time:7130101,execs:543031,op:gramatron.so,pos:0";
-  char program_aut_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:001108,src:000644+000437,time:7130101,execs:543031,op:gramatron.so,pos:0.aut";
-  char program_aut_path_derived[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example_derived.aut";
-  FILE* ptr;
-  ptr = fopen(program_path, "r");
-  if (NULL == ptr) {
-    printf("file can't be opened \n");
-  }
-  char ch;
-  char program[MAX_PROGRAM_LENGTH];
-  int i = 0;
-  do {
-    ch = fgetc(ptr);
-    program[i] = ch;
-    printf("%c", ch);
-    i ++;
-  } while (ch != EOF);
-  program[i-1] = '\0';
-  Array * res;
+  // char program_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:001108,src:000644+000437,time:7130101,execs:543031,op:gramatron.so,pos:0";
+  // char program_aut_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:001108,src:000644+000437,time:7130101,execs:543031,op:gramatron.so,pos:0.aut";
+  // char program_aut_path_derived[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example_derived.aut";
+  // FILE* ptr;
+  // ptr = fopen(program_path, "r");
+  // if (NULL == ptr) {
+  //   printf("file can't be opened \n");
+  // }
+  // char ch;
+  // char program[MAX_PROGRAM_LENGTH];
+  // int i = 0;
+  // do {
+  //   ch = fgetc(ptr);
+  //   program[i] = ch;
+  //   printf("%c", ch);
+  //   i ++;
+  // } while (ch != EOF);
+  // fclose(ptr);
+  // program[i-1] = '\0';
+  // Array * res;
   // res = (Array *)calloc(1, sizeof(Array));
 
   // initArray(res, INIT_SIZE);
   struct symbols_arr* symbols = create_array_of_chars();
   map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
-  res = read_input(pda, program_aut_path);
-  printf("print read in array\n");
-  printArray(res);
+  // res = read_input(pda, program_aut_path);
+  // printf("print read in array\n");
+  // printArray(res);
   // print all the symbols
   #ifdef DEBUG
   print_symbols_arr(symbols);
@@ -672,41 +681,41 @@ int main(int argc, char *argv[]) {
   //   print_symbols_arr(tmp_arr);
   
   // testing
-  struct terminal_arr* tmp;
-  struct terminal_arr* dfs_res = NULL;
-  tmp = (struct terminal_arr*)calloc(1, sizeof(struct terminal_arr));
-  tmp->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
+  // struct terminal_arr* tmp;
+  // struct terminal_arr* dfs_res = NULL;
+  // tmp = (struct terminal_arr*)calloc(1, sizeof(struct terminal_arr));
+  // tmp->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
   // char str[] = "return a\n";
   // size_t str_len = strlen(str);
-  int dfs_success = dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state);
-  printf("*** return value %d *** \n", dfs_success);
-  if (dfs_success) {
-    Array* parsed_res = constructArray(dfs_res, pda);
-    printf("print parsed res\n");
-    printArray(parsed_res);
-    // write_input(parsed_res, program_aut_path_derived);
-    printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, parsed_res));
+  // int dfs_success = dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state);
+  // printf("*** return value %d *** \n", dfs_success);
+  // if (dfs_success) {
+  //   Array* parsed_res = constructArray(dfs_res, pda);
+  //   printf("print parsed res\n");
+  //   printArray(parsed_res);
+  //   // write_input(parsed_res, program_aut_path_derived);
+  //   printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, parsed_res));
 
-    // Array* read_in_parsed = read_input(pda, program_aut_path_derived);
-    // printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
+  //   // Array* read_in_parsed = read_input(pda, program_aut_path_derived);
+  //   // printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
 
-    // free(read_in_parsed->start);
-    // free(read_in_parsed);
+  //   // free(read_in_parsed->start);
+  //   // free(read_in_parsed);
 
-    free(parsed_res->start);
-    free(parsed_res);
-  }
+  //   free(parsed_res->start);
+  //   free(parsed_res);
+  // }
 
-  free(tmp->start);
-  free(tmp);
-  free(res->start);
-  free(res);
+  // free(tmp->start);
+  // free(tmp);
+  // free(res->start);
+  // free(res);
   test_automata_generation("/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue", pda_map, first_char_to_symbols_map, pda);
   free_hashmap(pda_map, &free_terminal_arr);
   free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
 
   free_pda(pda);
-  fclose(ptr);
+
   free_array_of_chars(NULL, symbols); // free the array of symbols
   free_array_of_chars(NULL, first_chars);
   return 0;
