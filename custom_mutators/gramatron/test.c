@@ -3,11 +3,12 @@
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
 
-#define NUMINPUTS 50
-#define MAX_PROGRAM_LENGTH 2000
-#define MAX_PROGRAM_WALK_LENGTH 2000
-#define MAX_TERMINAL_NUMS 1000
-#define MAX_TERMINAL_LENGTH 100
+#define NUMINPUTS 500
+#define MAX_PROGRAM_LENGTH 20000
+#define MAX_PROGRAM_WALK_LENGTH 50000
+#define MAX_TERMINAL_NUMS 10000
+#define MAX_TERMINAL_LENGTH 1000
+#define MAX_PROGRAM_NAME_LENGTH 5000
 
 // #define DEBUG
 
@@ -530,48 +531,106 @@ bool if_array_equivalent(Array* a1, Array* a2) {
     printf("a1->used = %d, a2->used = %d\n", a1->used, a2->used);
     return false;
   }
-  if (a1->size != a2->size) {
-    printf("a1->size = %d, a2->size = %d\n", a1->size, a2->size);
+  if (a1->size < a1->used || a2->size < a2->used) {
+    printf("size is smaller than used\n");
     return false;
   }
+  // if (a1->size != a2->size) {
+  //   printf("a1->size = %d, a2->size = %d\n", a1->size, a2->size);
+  //   return false;
+  // }
   if (a1->inputlen != a2->inputlen) {
     printf("a1->inputlen = %d, a2->inputlen = %d\n", a1->inputlen, a2->inputlen);
     return false;
   }
   size_t i;
-  for (i = 0; i < a1->size; i++) {
+  for (i = 0; i < a1->used; i++) {
     terminal* t1 = a1->start + i;
     terminal* t2 = a2->start + i;
-    if (!if_terminal_equivalent(t1, t2)) return false;
+    if (!if_terminal_equivalent(t1, t2)) 
+      return false;
   }
   return true;
 
 }
 
 // print all file names in a directory
-void print_filenames_in_dir(char* dirname) {
+void test_automata_generation(char* dirname, const map_t pda_map, const map_t first_char_to_symbols_map, const state* pda) {
   printf("test printing all filenames in a directory\n");
   DIR *dir;
   struct dirent *ent;
   if ((dir = opendir(dirname)) != NULL) {
   /* print all the files and directories within directory */
   while ((ent = readdir (dir)) != NULL) {
-    printf ("%s\n", ent->d_name);
+    char *aut = strstr(ent->d_name, ".aut");
+    if (aut) continue;
+    char tmp[MAX_PROGRAM_NAME_LENGTH];
+    memcpy(tmp, dirname, strlen(dirname));
+    memcpy(tmp+strlen(dirname), "/", 1);
+    memcpy(tmp+strlen(dirname)+1, ent->d_name, sizeof(ent->d_name));
+    // tmp now has name of files that contain the original program
+    printf("filename now is %s\n", tmp);
+    FILE* ptr;
+    ptr = fopen(tmp, "r");
+    if (NULL == ptr) {
+      printf("file can't be opened \n");
+      fclose(ptr);
+      continue;
+    }
+    char ch;
+    char program[MAX_PROGRAM_LENGTH];
+    int i = 0;
+    do {
+      ch = fgetc(ptr);
+      program[i] = ch;
+      printf("%c", ch);
+      i ++;
+    } while (ch != EOF);
+    program[i-1] = '\0';
+    fclose(ptr);
+    if (i == 1) continue;
+    struct terminal_arr* arr_holder;
+    struct terminal_arr* dfs_res = NULL;
+    arr_holder = (struct terminal_arr*)calloc(1, sizeof(struct terminal_arr));
+    arr_holder->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
+    int dfs_success = dfs(pda_map, first_char_to_symbols_map, &arr_holder, program, strlen(program), &dfs_res, 0, init_state);
+    printf("*** return value %d *** \n", dfs_success);
+    if (dfs_success) {
+      Array* parsed_res = constructArray(dfs_res, pda);
+      memcpy(tmp+strlen(dirname)+strlen(ent->d_name)+1, ".aut", sizeof(".aut"));
+      Array * res;
+      res = read_input(pda, tmp);
+      bool if_equivalent = if_array_equivalent(res, parsed_res);
+      printf("The two arrays are equivalent? %d\n", if_equivalent);
+      free(parsed_res->start);
+      free(parsed_res);
+      free(res->start);
+      free(res);
+      if (!if_equivalent) {
+        free(arr_holder->start);
+        free(arr_holder);
+        return;
+      }
+    }
+    free(arr_holder->start);
+    free(arr_holder);
+    // printf ("%s\n", tmp);
+
   }
   closedir (dir);
-} else {
-  /* could not open directory */
-  perror ("");
-  return EXIT_FAILURE;
-}
+  } else {
+    /* could not open directory */
+    perror ("");
+    return EXIT_FAILURE;
+  }
 }
 
 int main(int argc, char *argv[]) {
 
   char automaton_path[] = "/root/gramatron-artifact/grammars/gt_bugs/mruby-1/source_automata.json";
   state * pda = create_pda((u8 *)automaton_path);
-  char program_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:000000,time:0,execs:0,orig:100";
-  char program_aut_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:000000,time:0,execs:0,orig:100.aut";
+  char program_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:001108,src:000644+000437,time:7130101,execs:543031,op:gramatron.so,pos:0";
+  char program_aut_path[] = "/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue/id:001108,src:000644+000437,time:7130101,execs:543031,op:gramatron.so,pos:0.aut";
   char program_aut_path_derived[] = "/root/gramatron-artifact/fuzzers/AFLplusplus/custom_mutators/gramatron/example_derived.aut";
   FILE* ptr;
   ptr = fopen(program_path, "r");
@@ -587,6 +646,7 @@ int main(int argc, char *argv[]) {
     printf("%c", ch);
     i ++;
   } while (ch != EOF);
+  program[i-1] = '\0';
   Array * res;
   // res = (Array *)calloc(1, sizeof(Array));
 
@@ -594,6 +654,7 @@ int main(int argc, char *argv[]) {
   struct symbols_arr* symbols = create_array_of_chars();
   map_t pda_map = create_pda_hashmap((struct state*)pda, symbols);
   res = read_input(pda, program_aut_path);
+  printf("print read in array\n");
   printArray(res);
   // print all the symbols
   #ifdef DEBUG
@@ -617,24 +678,30 @@ int main(int argc, char *argv[]) {
   tmp->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
   // char str[] = "return a\n";
   // size_t str_len = strlen(str);
-  printf("*** return value %d *** \n", dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state));
-  Array* parsed_res = constructArray(dfs_res, pda);
-  printArray(parsed_res);
-  // write_input(parsed_res, program_aut_path_derived);
-  printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, parsed_res));
+  int dfs_success = dfs(pda_map, first_char_to_symbols_map, &tmp, program, strlen(program), &dfs_res, 0, init_state);
+  printf("*** return value %d *** \n", dfs_success);
+  if (dfs_success) {
+    Array* parsed_res = constructArray(dfs_res, pda);
+    printf("print parsed res\n");
+    printArray(parsed_res);
+    // write_input(parsed_res, program_aut_path_derived);
+    printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, parsed_res));
 
-  // Array* read_in_parsed = read_input(pda, program_aut_path_derived);
-  // printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
+    // Array* read_in_parsed = read_input(pda, program_aut_path_derived);
+    // printf("The two arrays are equivalent? %d\n", if_array_equivalent(res, read_in_parsed));
 
-  // free(read_in_parsed->start);
-  // free(read_in_parsed);
+    // free(read_in_parsed->start);
+    // free(read_in_parsed);
 
-  free(parsed_res->start);
-  free(parsed_res);
+    free(parsed_res->start);
+    free(parsed_res);
+  }
+
   free(tmp->start);
   free(tmp);
   free(res->start);
   free(res);
+  test_automata_generation("/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue", pda_map, first_char_to_symbols_map, pda);
   free_hashmap(pda_map, &free_terminal_arr);
   free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
 
@@ -642,7 +709,6 @@ int main(int argc, char *argv[]) {
   fclose(ptr);
   free_array_of_chars(NULL, symbols); // free the array of symbols
   free_array_of_chars(NULL, first_chars);
-  print_filenames_in_dir("/root/gramatron-artifact/results-13/gt_bugs/mruby-1/Gramatron/output_001/default/queue");
   return 0;
   // char *         mode;
   // char *         automaton_path;
