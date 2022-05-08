@@ -42,7 +42,7 @@ gboolean found_range(const GumRangeDetails *details, gpointer user_data) {
 
 }
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
 static int on_dlclose(void *handle) {
 
   GArray *         ranges = NULL;
@@ -95,7 +95,7 @@ void module_init(void) {
 
   FOKF(cBLU "Module" cRST " - " cYEL " [%c]", handle_dlclose ? 'X' : ' ');
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
   if (!handle_dlclose) { return; }
 
   page_size = gum_query_page_size();
