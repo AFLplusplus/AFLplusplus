@@ -460,6 +460,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
       }
 
       out_len = retlen;
+      // TODO are we sure that retbuf fits into out_buf if retbuf can actually
+      // increase in size?
       memcpy(out_buf, retbuf, retlen);
 
       /* Tell the custom mutator that the trimming was successful */

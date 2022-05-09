@@ -132,8 +132,7 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     if (new_mem != *mem) {
 
-      *mem = afl_realloc(mem, new_size);
-      memcpy(*mem, new_mem, new_size);
+      *mem = new_mem;
 
     }
 
