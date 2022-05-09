@@ -49,7 +49,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  write_to_testcase(afl, out_buf, len, 0);
+  write_to_testcase(afl, (void **)&out_buf, len, 0);
 
   fault = fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
 
