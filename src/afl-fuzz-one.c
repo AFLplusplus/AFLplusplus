@@ -373,7 +373,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u32 j;
   u32 i;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum;
+  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum, _prev_cksum;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
 
   u8 ret_val = 1, doing_det = 0;
@@ -630,7 +630,14 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  prev_cksum = afl->queue_cur->exec_cksum;
+  /* Get a clean cksum. */
+
+  if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
+
+  prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+  _prev_cksum = prev_cksum;
+
+  /* Now flip bits. */
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
@@ -716,7 +723,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
       /* Continue collecting string, but only if the bit flip actually made
          any difference - we don't want no-op tokens. */
 
-      if (cksum != afl->queue_cur->exec_cksum) {
+      if (cksum != _prev_cksum) {
 
         if (a_len < MAX_AUTO_EXTRA) {
 
@@ -839,6 +846,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_max = len;
 
   orig_hit_cnt = new_hit_cnt;
+  prev_cksum = _prev_cksum;
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
@@ -871,11 +879,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       } else {
 
-        cksum = ~afl->queue_cur->exec_cksum;
+        cksum = ~prev_cksum;
 
       }
 
-      if (cksum != afl->queue_cur->exec_cksum) {
+      if (cksum != prev_cksum) {
 
         eff_map[EFF_APOS(afl->stage_cur)] = 1;
         ++eff_cnt;
@@ -3046,7 +3054,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   u32 i;
   u32 j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, cur_ms_lv, prev_cksum;
+  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, cur_ms_lv, prev_cksum,
+      _prev_cksum;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
 
   u8 ret_val = 1, doing_det = 0;
@@ -3290,7 +3299,14 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  prev_cksum = afl->queue_cur->exec_cksum;
+  /* Get a clean cksum. */
+
+  if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
+
+  prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+  _prev_cksum = prev_cksum;
+
+  /* Now flip bits. */
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
@@ -3375,7 +3391,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
       /* Continue collecting string, but only if the bit flip actually made
          any difference - we don't want no-op tokens. */
 
-      if (cksum != afl->queue_cur->exec_cksum) {
+      if (cksum != _prev_cksum) {
 
         if (a_len < MAX_AUTO_EXTRA) {
 
@@ -3496,6 +3512,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   afl->stage_max = len;
 
   orig_hit_cnt = new_hit_cnt;
+  prev_cksum = _prev_cksum;
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
@@ -3527,11 +3544,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       } else {
 
-        cksum = ~afl->queue_cur->exec_cksum;
+        cksum = ~prev_cksum;
 
       }
 
-      if (cksum != afl->queue_cur->exec_cksum) {
+      if (cksum != prev_cksum) {
 
         eff_map[EFF_APOS(afl->stage_cur)] = 1;
         ++eff_cnt;
