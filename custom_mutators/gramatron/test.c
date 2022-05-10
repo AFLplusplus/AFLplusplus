@@ -6,7 +6,7 @@
 #define NUMINPUTS 500
 #define MAX_PROGRAM_LENGTH 20000
 #define MAX_PROGRAM_WALK_LENGTH 5000
-#define MAX_TERMINAL_NUMS 10000
+#define MAX_TERMINAL_NUMS 5000
 #define MAX_TERMINAL_LENGTH 1000
 #define MAX_PROGRAM_NAME_LENGTH 5000
 
@@ -161,6 +161,10 @@ int free_terminal_arr(any_t placeholder, any_t item) {
 }
 
 void free_hashmap(map_t m, int (*f)(any_t, any_t)) {
+  if (!m) {
+    printf("m map is empty\n");
+    return;
+  }
   int r = hashmap_iterate(m, f, NULL);
   #ifdef DEBUG
   if (!r) printf("free hashmap items successfully!\n");
@@ -191,6 +195,11 @@ map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
       r = hashmap_get(m, symbol_curr, (any_t*)&terminal_arr_curr);
       if (r) {
         // the symbol is not in the map
+        if (!add_element_to_symbols_arr(symbols_arr, symbol_curr, symbol_len+1)) {
+          // the number of symbols exceed maximual number
+          free_hashmap(m, &free_terminal_arr);
+          return NULL;
+        }
         #ifdef DEBUG
         printf("Symbol %s is not in map\n", symbol_curr);
         #endif
@@ -217,8 +226,6 @@ map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr) {
         #endif
         // if symbol not already in map, it's not in symbol_dict, simply add the symbol to the array
         // TODO: need to initialize symbol dict (calloc)
-        strncpy(symbols_arr->symbols_arr[symbols_arr->len], symbol_curr, symbol_len+1);
-        symbols_arr->len++;
       }
       else {
         // the symbol is already in map
@@ -300,6 +307,10 @@ struct symbols_arr* create_array_of_chars() {
 }
 
 int free_array_of_chars(any_t placeholder, any_t item) {
+  if (!item) {
+    printf("item is empty\n");
+    return;
+  }
   struct symbols_arr* arr = item;
   size_t i;
   for (i = 0; i < MAX_TERMINAL_NUMS; i++) {
@@ -332,6 +343,18 @@ void print_symbols_arr(struct symbols_arr* arr) {
   printf(")\n");
 }
 
+// return 0 if fails
+// return 1 if succeeds
+int add_element_to_symbols_arr(struct symbols_arr* symbols_arr, char* symbol, size_t symbol_len) {
+  if (symbols_arr->len >= MAX_TERMINAL_NUMS || symbol_len >= MAX_TERMINAL_LENGTH) {
+    return 0;
+  }
+  strncpy(symbols_arr->symbols_arr[symbols_arr->len], symbol, symbol_len);
+  symbols_arr->len++;
+  return 1;
+}
+
+
 // TODO: create a map
 // key: first character of a symbol, value: a list of symbols that starts with key, the list is sorted in descending order of the symbol lengths
 map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct symbols_arr *first_chars) {
@@ -363,8 +386,10 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct s
       #ifdef DEBUG
       printf("****** First character %s is already in hashmap ******\n", first_character);
       #endif
-      strncpy(associated_symbols->symbols_arr[associated_symbols->len], symbol_curr, strlen(symbol_curr) + 1);
-      associated_symbols->len++;
+      if(!add_element_to_symbols_arr(associated_symbols, symbol_curr, strlen(symbol_curr) + 1)) {
+        free_hashmap(char_to_symbols, &free_array_of_chars);
+        return NULL;
+      }
     }
     else {
       // start a new symbols_arr
@@ -373,8 +398,7 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct s
       #endif
       struct symbols_arr* new_associated_symbols = create_array_of_chars();
       strncpy(first_chars->symbols_arr[first_chars->len], first_character, 2); // 2 because one character plus the NULL byte
-      strncpy(new_associated_symbols->symbols_arr[0], symbol_curr, strlen(symbol_curr) + 1);
-      new_associated_symbols->len = 1;
+      add_element_to_symbols_arr(new_associated_symbols, symbol_curr, strlen(symbol_curr) + 1);
       r = hashmap_put(char_to_symbols, first_chars->symbols_arr[first_chars->len], new_associated_symbols);
       first_chars->len++;
       #ifdef DEBUG
@@ -387,13 +411,12 @@ map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct s
       #endif
     }
   }
-  // testing
-  // printf("****** Testing ******\n");
-  // struct symbols_arr* tmp_arr;
-  // char str[] = "i";
-  // int t = hashmap_get(char_to_symbols, str, (any_t *)&tmp_arr);
-  // if (!t)
-  //   print_symbols_arr(tmp_arr);
+  printf("****** Testing ******\n");
+  struct symbols_arr* tmp_arr;
+  char str[] = "i";
+  int t = hashmap_get(char_to_symbols, str, (any_t *)&tmp_arr);
+  if (!t)
+    print_symbols_arr(tmp_arr);
   return char_to_symbols;
 }
 
@@ -493,6 +516,10 @@ Array* constructArray(struct terminal_arr* terminal_arr, state* pda) {
 }
 
 void free_pda(state* pda) {
+  if (!pda) {
+    printf("pda is null\n");
+    return;
+  }
   size_t i, j;
   for (i = 0; i < numstates; i++) {
     state* state_curr = pda + i;
@@ -561,6 +588,10 @@ bool if_array_equivalent(Array* a1, Array* a2) {
 // print all file names in a directory
 void test_automata_generation(char* dirname, const map_t pda_map, const map_t first_char_to_symbols_map, const state* pda) {
   printf("test printing all filenames in a directory\n");
+  if (!dirname || !pda_map || !first_char_to_symbols_map || !pda) {
+    printf("Something is null\n");
+    return;
+  }
   DIR *dir;
   struct dirent *ent;
   if ((dir = opendir(dirname)) != NULL) {
@@ -569,6 +600,9 @@ void test_automata_generation(char* dirname, const map_t pda_map, const map_t fi
     char *aut = strstr(ent->d_name, ".aut");
     if (aut) continue;
     char tmp[MAX_PROGRAM_NAME_LENGTH];
+    if (strlen(dirname) + 1 + sizeof(ent->d_name) >= MAX_PROGRAM_NAME_LENGTH) {
+      return;
+    }
     memcpy(tmp, dirname, strlen(dirname));
     memcpy(tmp+strlen(dirname), "/", 1);
     memcpy(tmp+strlen(dirname)+1, ent->d_name, sizeof(ent->d_name));
