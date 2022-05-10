@@ -12,9 +12,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
   - afl-fuzz:
-    - AFL never implemented auto token inserts (but user token inserts,
-      user token overwrite and auto token overwrite), added now!
-    - Mopt fix to always select the correct algorithm
     - when you just want to compile once and set CMPLOG, then just
       set -c 0 to tell afl-fuzz that the fuzzing binary is also for
       CMPLOG.
@@ -29,6 +26,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - "saved timeouts" was wrong information, timeouts are still thrown
       away by default even if they have new coverage (hangs are always
       kept), unless AFL_KEEP_TIMEOUTS are set
+    - AFL never implemented auto token inserts (but user token inserts,
+      user token overwrite and auto token overwrite), added now!
+    - Mopt fix to always select the correct algorithm
+    - fix effector map calculation (deterministic mode)
+    - fix custom mutator post_process functionality
     - document and auto-activate pizza mode on condition
   - afl-cc:
     - converted all passed to use the new llvm pass manager for llvm 11+
