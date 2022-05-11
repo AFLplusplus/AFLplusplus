@@ -1,6 +1,6 @@
 #
 # This Dockerfile for AFLplusplus uses Ubuntu 20.04 focal and
-# installs LLVM 11 from llvm.org for afl-clang-lto support :-)
+# installs LLVM 12 from llvm.org for afl-clang-lto support :-)
 #
 
 FROM ubuntu:20.04 AS aflplusplus
