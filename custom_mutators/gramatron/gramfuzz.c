@@ -9,6 +9,7 @@
 
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
+#include "automaton-parser.h"
 
 #define MUTATORS 4  // Specify the total number of mutators
 
@@ -163,6 +164,11 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   if (automaton_file) {
 
     pda = create_pda(automaton_file);
+    symbols = create_array_of_chars();
+    pda_map = create_pda_hashmap((struct state*)pda, symbols);
+    print_symbols_arr(symbols);
+    first_chars = create_array_of_chars();
+    first_char_to_symbols_map = create_first_char_to_symbols_hashmap(symbols, first_chars);
 
   } else {
 
@@ -286,7 +292,12 @@ u8 afl_custom_queue_new_entry(my_mutator_t * data,
 
   } else {
 
-    new_input = gen_input(pda, NULL);
+    // TODO: try to parse the input seeds here, if they can be parsed, then generate the corresponding automaton file
+    // if not, then generate a new input
+    new_input = automaton_parser(filename_new_queue, automaton_fn);
+    if (new_input == NULL) {
+      new_input = gen_input(pda, NULL);
+    }
     write_input(new_input, automaton_fn);
 
     // Update the placeholder file
@@ -424,6 +435,10 @@ void afl_custom_deinit(my_mutator_t *data) {
 
   free(data->mutator_buf);
   free(data);
-
+  free_hashmap(pda_map, &free_terminal_arr);
+  free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
+  free_pda(pda);
+  free_array_of_chars(NULL, symbols); // free the array of symbols
+  free_array_of_chars(NULL, first_chars);
 }
 
