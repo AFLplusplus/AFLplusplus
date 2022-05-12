@@ -84,11 +84,13 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 }
 
 static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            from_address,
                                        gpointer            start_address,
                                        const cs_insn *     from_insn,
                                        gpointer *          target) {
 
   UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
   cs_x86 *   x86;
