@@ -32,6 +32,8 @@ gboolean prefetch_backpatch = TRUE;
 static prefetch_data_t *prefetch_data = NULL;
 static int              prefetch_shm_id = -1;
 
+static GHashTable *cant_prefetch = NULL;
+
 static void gum_afl_stalker_backpatcher_notify(GumStalkerObserver *self,
                                                const GumBackpatch *backpatch,
                                                gsize               size) {
@@ -40,6 +42,18 @@ static void gum_afl_stalker_backpatcher_notify(GumStalkerObserver *self,
   if (!entry_run) { return; }
   gsize remaining =
       sizeof(prefetch_data->backpatch_data) - prefetch_data->backpatch_size;
+
+  gpointer from = gum_stalker_backpatch_get_from(backpatch);
+  gpointer to = gum_stalker_backpatch_get_to(backpatch);
+
+  /* Stop reporting patches which can't be prefetched */
+  if (g_hash_table_contains(cant_prefetch, GSIZE_TO_POINTER(from)) ||
+      g_hash_table_contains(cant_prefetch, GSIZE_TO_POINTER(to))) {
+
+    return;
+
+  }
+
   if (sizeof(gsize) + size > remaining) { return; }
 
   gsize *dst_backpatch_size =
@@ -68,6 +82,9 @@ void prefetch_write(void *addr) {
   /* Bail if we aren't initialized */
   if (prefetch_data == NULL) return;
 
+  /* Stop reporting blocks which can't be prefetched */
+  if (g_hash_table_contains(cant_prefetch, GSIZE_TO_POINTER(addr))) { return; }
+
   /*
    * Our shared memory IPC is large enough for about 1000 entries, we can fine
    * tune this if we need to. But if we have more new blocks that this in a
@@ -84,6 +101,38 @@ void prefetch_write(void *addr) {
 
 }
 
+typedef struct {
+
+  GumAddress address;
+  gboolean   executable;
+
+} check_executable_t;
+
+static gboolean prefetch_find_executable(const GumRangeDetails *details,
+                                         gpointer               user_data) {
+
+  check_executable_t *ctx = (check_executable_t *)user_data;
+  if (GUM_MEMORY_RANGE_INCLUDES(details->range, ctx->address)) {
+
+    ctx->executable = TRUE;
+    return FALSE;
+
+  }
+
+  return TRUE;
+
+}
+
+static gboolean prefetch_is_executable(void *address) {
+
+  check_executable_t ctx = {.address = GUM_ADDRESS(address),
+                            .executable = FALSE};
+  gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, prefetch_find_executable,
+                               &ctx);
+  return ctx.executable;
+
+}
+
 static void prefetch_read_blocks(void) {
 
   GumStalker *stalker = stalker_get();
@@ -92,7 +141,24 @@ static void prefetch_read_blocks(void) {
   for (size_t i = 0; i < prefetch_data->count; i++) {
 
     void *addr = prefetch_data->entry[i];
-    gum_stalker_prefetch(stalker, addr, 1);
+
+    if (prefetch_is_executable(addr)) {
+
+      gum_stalker_prefetch(stalker, addr, 1);
+
+    } else {
+
+      /*
+       * If our child process creates a new executable mapping, e.g. by
+       * dynamically loading a new DSO, then this won't appear in our parent
+       * process' memory map and hence we can't prefetch it. Add it to a
+       * hashtable which the child will inherit on the next fork to prevent the
+       * child from keep reporting it and exhausting the shared memory buffers
+       * used to pass new blocks from the child back to the parent.
+       */
+      g_hash_table_add(cant_prefetch, GSIZE_TO_POINTER(addr));
+
+    }
 
   }
 
@@ -125,7 +191,36 @@ static void prefetch_read_patches(void) {
     }
 
     backpatch = (GumBackpatch *)&prefetch_data->backpatch_data[offset];
-    gum_stalker_prefetch_backpatch(stalker, backpatch);
+
+    gpointer from = gum_stalker_backpatch_get_from(backpatch);
+    gpointer to = gum_stalker_backpatch_get_to(backpatch);
+
+    /*
+     * If our child process creates a new executable mapping, e.g. by
+     * dynamically loading a new DSO, then this won't appear in our parent
+     * process' memory map and hence we can't prefetch it. Add it to a
+     * hashtable which the child will inherit on the next fork to prevent the
+     * child from keep reporting it and exhausting the shared memory buffers
+     * used to pass new blocks from the child back to the parent.
+     */
+    if (!prefetch_is_executable(from)) {
+
+      g_hash_table_add(cant_prefetch, GSIZE_TO_POINTER(from));
+
+    }
+
+    if (!prefetch_is_executable(to)) {
+
+      g_hash_table_add(cant_prefetch, GSIZE_TO_POINTER(to));
+
+    }
+
+    if (prefetch_is_executable(from) && prefetch_is_executable(to)) {
+
+      gum_stalker_prefetch_backpatch(stalker, backpatch);
+
+    }
+
     offset += size;
 
   }
@@ -214,6 +309,13 @@ void prefetch_init(void) {
   memset(prefetch_data, '\0', sizeof(prefetch_data_t));
 
   prefetch_hook_fork();
+
+  cant_prefetch = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if (cant_prefetch == NULL) {
+
+    FFATAL("Failed to g_hash_table_new, errno: %d", errno);
+
+  }
 
   if (!prefetch_backpatch) { return; }
 

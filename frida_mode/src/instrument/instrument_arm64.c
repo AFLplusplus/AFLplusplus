@@ -157,11 +157,13 @@ static gboolean instrument_is_deterministic(const cs_insn *from_insn) {
 }
 
 static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            from_address,
                                        gpointer            start_address,
                                        const cs_insn *     from_insn,
                                        gpointer *          target) {
 
   UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
   gsize fixup_offset;
