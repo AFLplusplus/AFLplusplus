@@ -1,9 +1,9 @@
 #
-# This Dockerfile for AFLplusplus uses Ubuntu 20.04 focal and
-# installs LLVM 11 from llvm.org for afl-clang-lto support :-)
+# This Dockerfile for AFLplusplus uses Ubuntu 22.04 jammy and
+# installs LLVM 14 for afl-clang-lto support :-)
 #
 
-FROM ubuntu:20.04 AS aflplusplus
+FROM ubuntu:22.04 AS aflplusplus
 LABEL "maintainer"="afl++ team <afl@aflplus.plus>"
 LABEL "about"="AFLplusplus docker image"
 
@@ -29,20 +29,21 @@ RUN apt-get update && \
     gnuplot-nox \
     && rm -rf /var/lib/apt/lists/*
 
-RUN echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-12 main" >> /etc/apt/sources.list && \
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+# TODO: reactivate in timely manner
+#RUN echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main" >> /etc/apt/sources.list && \
+#    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 
-RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main" >> /etc/apt/sources.list && \
+RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu jammy main" >> /etc/apt/sources.list && \
     apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 1E9377A2BA9EF27F
 
 RUN apt-get update && apt-get full-upgrade -y && \
     apt-get -y install --no-install-suggests --no-install-recommends \
-    gcc-10 g++-10 gcc-10-plugin-dev gdb lcov \
-    clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
-    libc++abi1-12 libc++abi-12-dev libclang1-12 libclang-12-dev \
-    libclang-common-12-dev libclang-cpp12 libclang-cpp12-dev liblld-12 \
-    liblld-12-dev liblldb-12 liblldb-12-dev libllvm12 libomp-12-dev \
-    libomp5-12 lld-12 lldb-12 llvm-12 llvm-12-dev llvm-12-runtime llvm-12-tools
+    gcc-12 g++-12 gcc-12-plugin-dev gdb lcov \
+    clang-14 clang-tools-14 libc++1-14 libc++-14-dev \
+    libc++abi1-14 libc++abi-14-dev libclang1-14 libclang-14-dev \
+    libclang-common-14-dev libclang-cpp14 libclang-cpp14-dev liblld-14 \
+    liblld-14-dev liblldb-14 liblldb-14-dev libllvm14 libomp-14-dev \
+    libomp5-14 lld-14 lldb-14 llvm-14 llvm-14-dev llvm-14-runtime llvm-14-tools
 
 # arm64 doesn't have gcc-multilib, and it's only used for -m32 support on x86
 ARG TARGETPLATFORM
@@ -52,10 +53,10 @@ RUN [ "$TARGETPLATFORM" = "linux/amd64" ] && \
 
 RUN rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 0
-RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 0
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 0
 
-ENV LLVM_CONFIG=llvm-config-12
+ENV LLVM_CONFIG=llvm-config-14
 ENV AFL_SKIP_CPUFREQ=1
 ENV AFL_TRY_AFFINITY=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
@@ -66,7 +67,7 @@ RUN cd /afl-cov && make install && cd ..
 COPY . /AFLplusplus
 WORKDIR /AFLplusplus
 
-RUN export CC=gcc-10 && export CXX=g++-10 && make clean && \
+RUN export CC=gcc-12 && export CXX=g++-12 && make clean && \
     make distrib && make install && make clean
 
 RUN sh -c 'echo set encoding=utf-8 > /root/.vimrc'

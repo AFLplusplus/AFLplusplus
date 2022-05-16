@@ -26,10 +26,16 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - "saved timeouts" was wrong information, timeouts are still thrown
       away by default even if they have new coverage (hangs are always
       kept), unless AFL_KEEP_TIMEOUTS are set
+    - AFL never implemented auto token inserts (but user token inserts,
+      user token overwrite and auto token overwrite), added now!
+    - Mopt fix to always select the correct algorithm
+    - fix effector map calculation (deterministic mode)
+    - fix custom mutator post_process functionality
     - document and auto-activate pizza mode on condition
   - afl-cc:
     - converted all passed to use the new llvm pass manager for llvm 11+
     - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
+    - trying to stay on top on all these #$&§!! changes in llvm 15 ...
   - frida_mode:
     - update to new frida release, handles now c++ throw/catch
   - unicorn_mode:

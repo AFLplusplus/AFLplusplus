@@ -131,6 +131,8 @@ void stalker_init(void) {
 
   }
 
+  gum_stalker_activate_experimental_unwind_support();
+
 #if defined(__x86_64__) || defined(__i386__)
   stalker = g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries,
                          "adjacent-blocks", stalker_adjacent_blocks, NULL);
