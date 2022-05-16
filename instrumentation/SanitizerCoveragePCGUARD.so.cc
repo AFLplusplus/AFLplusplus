@@ -313,13 +313,25 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module &               M,
 std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
     Module &M, const char *Section, Type *Ty) {
 
-  GlobalVariable *SecStart = new GlobalVariable(
-      M, Ty->getPointerElementType(), false,
-      GlobalVariable::ExternalWeakLinkage, nullptr, getSectionStart(Section));
+  GlobalVariable *SecStart =
+      new GlobalVariable(M,
+#if LLVM_VERSION_MAJOR >= 15
+                         Ty,
+#else
+                         Ty->getPointerElementType(),
+#endif
+                         false, GlobalVariable::ExternalWeakLinkage, nullptr,
+                         getSectionStart(Section));
   SecStart->setVisibility(GlobalValue::HiddenVisibility);
-  GlobalVariable *SecEnd = new GlobalVariable(
-      M, Ty->getPointerElementType(), false,
-      GlobalVariable::ExternalWeakLinkage, nullptr, getSectionEnd(Section));
+  GlobalVariable *SecEnd =
+      new GlobalVariable(M,
+#if LLVM_VERSION_MAJOR >= 15
+                         Ty,
+#else
+                         Ty->getPointerElementType(),
+#endif
+                         false, GlobalVariable::ExternalWeakLinkage, nullptr,
+                         getSectionEnd(Section));
   SecEnd->setVisibility(GlobalValue::HiddenVisibility);
   IRBuilder<> IRB(M.getContext());
   if (!TargetTriple.isOSBinFormatCOFF())

@@ -107,7 +107,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
     if (shm->cmp_map != NULL) {
 
       munmap(shm->cmp_map, shm->map_size);
-      shm->map = NULL;
+      shm->cmp_map = NULL;
 
     }
 
@@ -153,6 +153,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   shm->g_shm_fd = -1;
   shm->cmplog_g_shm_fd = -1;
 
+  const int shmflags = O_RDWR | O_EXCL;
+
   /* ======
   generate random file name for multi instance
 
@@ -161,9 +163,39 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   so we do this worse workaround */
   snprintf(shm->g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
+  #ifdef SHM_LARGEPAGE_ALLOC_DEFAULT
+  /* trying to get large memory segment optimised and monitorable separately as
+   * such */
+  static size_t sizes[4] = {(size_t)-1};
+  static int    psizes = 0;
+  int           i;
+  if (sizes[0] == (size_t)-1) { psizes = getpagesizes(sizes, 4); }
+
+  /* very unlikely to fail even if the arch supports only two sizes */
+  if (likely(psizes > 0)) {
+
+    for (i = psizes - 1; shm->g_shm_fd == -1 && i >= 0; --i) {
+
+      if (sizes[i] == 0 || map_size % sizes[i]) { continue; }
+
+      shm->g_shm_fd =
+          shm_create_largepage(shm->g_shm_file_path, shmflags, i,
+                               SHM_LARGEPAGE_ALLOC_DEFAULT, DEFAULT_PERMISSION);
+
+    }
+
+  }
+
+  #endif
+
   /* create the shared memory segment as if it was a file */
-  shm->g_shm_fd = shm_open(shm->g_shm_file_path, O_CREAT | O_RDWR | O_EXCL,
-                           DEFAULT_PERMISSION);
+  if (shm->g_shm_fd == -1) {
+
+    shm->g_shm_fd =
+        shm_open(shm->g_shm_file_path, shmflags | O_CREAT, DEFAULT_PERMISSION);
+
+  }
+
   if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */

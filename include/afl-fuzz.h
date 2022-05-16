@@ -230,12 +230,13 @@ enum {
   /* 12 */ STAGE_EXTRAS_UO,
   /* 13 */ STAGE_EXTRAS_UI,
   /* 14 */ STAGE_EXTRAS_AO,
-  /* 15 */ STAGE_HAVOC,
-  /* 16 */ STAGE_SPLICE,
-  /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_CUSTOM_MUTATOR,
-  /* 19 */ STAGE_COLORIZATION,
-  /* 20 */ STAGE_ITS,
+  /* 15 */ STAGE_EXTRAS_AI,
+  /* 16 */ STAGE_HAVOC,
+  /* 17 */ STAGE_SPLICE,
+  /* 18 */ STAGE_PYTHON,
+  /* 19 */ STAGE_CUSTOM_MUTATOR,
+  /* 20 */ STAGE_COLORIZATION,
+  /* 21 */ STAGE_ITS,
 
   STAGE_NUM_MAX
 
@@ -1098,7 +1099,7 @@ int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 /* Run */
 
 void sync_fuzzers(afl_state_t *);
-u32  write_to_testcase(afl_state_t *, void *, u32, u32);
+u32  write_to_testcase(afl_state_t *, void **, u32, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 u8   trim_case(afl_state_t *, struct queue_entry *, u8 *);
 u8   common_fuzz_stuff(afl_state_t *, u8 *, u32);
