@@ -314,7 +314,7 @@ Array* constructArray(struct terminal_arr* terminal_arr, state* pda) {
   return res;
 }
 
-Array* automaton_parser(const uint8_t *seed_fn, u8 *automaton_fn) {
+Array* automaton_parser(const uint8_t *seed_fn) {
     Array* parsed_res = NULL;
     FILE* ptr;
     ptr = fopen(seed_fn, "r");
@@ -346,7 +346,7 @@ Array* automaton_parser(const uint8_t *seed_fn, u8 *automaton_fn) {
     arr_holder = (struct terminal_arr*)calloc(1, sizeof(struct terminal_arr));
     arr_holder->start = (struct terminal_meta*)calloc(MAX_PROGRAM_WALK_LENGTH, sizeof(struct terminal_meta));
     int dfs_success = dfs(&arr_holder, program, strlen(program), &dfs_res, 0, init_state);
-    printf("*** return value %d *** \n", dfs_success);
+    // printf("*** return value %d *** \n", dfs_success);
     if (dfs_success) {
       parsed_res = constructArray(dfs_res, pda);
     }

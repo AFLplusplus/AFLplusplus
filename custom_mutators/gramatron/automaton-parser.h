@@ -66,7 +66,7 @@ struct symbols_arr* create_array_of_chars();
 map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct symbols_arr *first_chars);
 
 // return the automaton represented by the seed
-Array* automaton_parser(const uint8_t *seed_fn, u8 *automaton_fn);
+Array* automaton_parser(const uint8_t *seed_fn);
 
 int add_element_to_symbols_arr(struct symbols_arr* symbols_arr, char* symbol, size_t symbol_len);
 
