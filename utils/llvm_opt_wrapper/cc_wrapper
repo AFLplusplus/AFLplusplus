@@ -1,0 +1,11 @@
+#!/bin/bash
+
+
+# https://bcain-llvm.readthedocs.io/projects/polly/en/latest/UsingPollyWithClang/
+export LLVM_BITCODE_GENERATION_FLAGS="-O1 -Xclang -disable-llvm-passes"
+export LLVM_COMPILER=clang
+
+# export LLVM_CC_NAME=afl-clang
+# export LLVM_CXX_NAME=afl-clang++
+
+wllvm "$@"

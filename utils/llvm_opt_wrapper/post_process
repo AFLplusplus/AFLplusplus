@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+
+
+# AST_NAME=${AST_NAME:-"main"}
+AST_OPT_FLAGS=${AST_OPT_FLAGS:-""}
+AST_OUT_NAME=${AST_OUT_NAME:-"$AST_NAME.opt"}
+
+
+if [[ -z "$AST_NAME" ]]; then
+    echo "AST_NAME must be set" 1>&2
+    exit 1
+fi
+
+set -x
+
+
+extract-bc $AST_NAME
+llvm-dis $AST_NAME.bc
+
+opt ${AST_NAME}.bc -S -o ${AST_NAME}.opt.ll $AST_OPT_FLAGS
+clang ${AST_NAME}.opt.ll -o ${AST_OUT_NAME}
