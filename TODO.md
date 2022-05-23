@@ -2,6 +2,7 @@
 
 ## Should
 
+ - better documentation for custom mutators
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt
  - afl-plot to support multiple plot_data

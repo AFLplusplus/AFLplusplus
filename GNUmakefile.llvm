@@ -46,7 +46,7 @@ LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
 LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
-LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[4-9]' && echo 1 || echo 0 )
+LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[5-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
 LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
@@ -86,6 +86,12 @@ ifeq "$(LLVM_TOO_OLD)" "1"
   $(shell sleep 1)
 endif
 
+ifeq "$(LLVM_MAJOR)" "15"
+  $(info [!] llvm_mode detected llvm 15, which is currently broken for LTO plugins.)
+  LLVM_LTO = 0
+  LLVM_HAVE_LTO = 0
+endif
+
 ifeq "$(LLVM_HAVE_LTO)" "1"
   $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
@@ -93,7 +99,7 @@ ifeq "$(LLVM_HAVE_LTO)" "1"
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 11, afl-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 11 or llvm 15, afl-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE_XCODE)" "1"

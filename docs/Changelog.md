@@ -33,6 +33,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix custom mutator post_process functionality
     - document and auto-activate pizza mode on condition
   - afl-cc:
+    - due a bug in lld of llvm 15 LTO instrumentation wont work atm :-(
     - converted all passed to use the new llvm pass manager for llvm 11+
     - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
     - trying to stay on top on all these #$&§!! changes in llvm 15 ...
