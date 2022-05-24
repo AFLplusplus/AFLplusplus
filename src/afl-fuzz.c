@@ -295,6 +295,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        Supported formats are: 'dogstatsd', 'librato',\n"
       "                        'signalfx' and 'influxdb'\n"
+      "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
@@ -2511,7 +2512,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (unlikely(afl->is_main_node)) {
 
           if (unlikely(get_cur_time() >
-                       (SYNC_TIME >> 1) + afl->last_sync_time)) {
+                       (afl->sync_time >> 1) + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
 
@@ -2523,7 +2524,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
+          if (unlikely(get_cur_time() > afl->sync_time + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
