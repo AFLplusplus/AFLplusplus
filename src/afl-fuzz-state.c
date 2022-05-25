@@ -524,12 +524,12 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
                               afl_environment_variable_len)) {
 
-            int stime = atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-            if (stime > 0) {
-              afl->sync_time = stime * 60 * 1000;
+            int time = atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+            if (time > 0) {
+                afl->sync_time = time * (60 * 1000LL);
             } else {
-                WARNF("incorrect value for AFL_SYNC_TIME environment variable, "
-                      "used default value %d instead.", afl->sync_time / 60 / 1000);
+              WARNF("incorrect value for AFL_SYNC_TIME environment variable, "
+                    "used default value %lld instead.", afl->sync_time / 60 / 1000);
             }
           }
 
