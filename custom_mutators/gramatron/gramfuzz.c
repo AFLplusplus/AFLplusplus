@@ -9,6 +9,7 @@
 
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
+#include "automaton-parser.h"
 
 #define MUTATORS 4  // Specify the total number of mutators
 
@@ -163,6 +164,11 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   if (automaton_file) {
 
     pda = create_pda(automaton_file);
+    symbols = create_array_of_chars();
+    pda_map = create_pda_hashmap((struct state*)pda, symbols);
+    print_symbols_arr(symbols);
+    first_chars = create_array_of_chars();
+    first_char_to_symbols_map = create_first_char_to_symbols_hashmap(symbols, first_chars);
 
   } else {
 
@@ -281,12 +287,25 @@ u8 afl_custom_queue_new_entry(my_mutator_t * data,
   // filename_new_queue,filename_orig_queue,automaton_fn);
 
   if (filename_orig_queue) {
-
-    write_input(data->mutated_walk, automaton_fn);
+    if (data->mutated_walk) {
+      write_input(data->mutated_walk, automaton_fn);
+    }
+    else {
+      Array* parsed_walk = automaton_parser(filename_new_queue);
+      if (!parsed_walk) PFATAL("Parser unsuccessful on %s", filename_new_queue);
+      write_input(parsed_walk, automaton_fn);
+      free(parsed_walk->start);
+      free(parsed_walk);
+    }
 
   } else {
 
-    new_input = gen_input(pda, NULL);
+    // TODO: try to parse the input seeds here, if they can be parsed, then generate the corresponding automaton file
+    // if not, then generate a new input
+    new_input = automaton_parser(filename_new_queue);
+    if (new_input == NULL) {
+      new_input = gen_input(pda, NULL);
+    }
     write_input(new_input, automaton_fn);
 
     // Update the placeholder file
@@ -328,6 +347,16 @@ uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
 
   // get the filename
   u8 *        automaton_fn = alloc_printf("%s.aut", filename);
+  // find the automaton file, if the automaton file cannot be found, do not fuzz the current entry on the queue
+  FILE *fp;
+  fp = fopen(automaton_fn, "rb");
+  if (fp == NULL) {
+
+    printf("File '%s' does not exist, exiting. Would not fuzz current entry on the queue\n", automaton_fn);
+    return 0;
+
+  }
+
   IdxMap_new *statemap_ptr;
   terminal *  term_ptr;
   int         state;
@@ -424,6 +453,10 @@ void afl_custom_deinit(my_mutator_t *data) {
 
   free(data->mutator_buf);
   free(data);
-
+  free_hashmap(pda_map, &free_terminal_arr);
+  free_hashmap(first_char_to_symbols_map, &free_array_of_chars);
+  free_pda(pda);
+  free_array_of_chars(NULL, symbols); // free the array of symbols
+  free_array_of_chars(NULL, first_chars);
 }
 
