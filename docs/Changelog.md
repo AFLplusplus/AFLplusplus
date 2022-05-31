@@ -41,6 +41,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - update to new frida release, handles now c++ throw/catch
   - unicorn_mode:
     - update unicorn engine, fix C example
+  - utils:
+    - removed optimin because it looses coverage due a bug and is
+      unmaintained :-(
 
 
 ### Version ++4.00c (release)
