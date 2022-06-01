@@ -505,7 +505,10 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
 }
 
-#if !defined(__ANDROID__)
+#if defined(__APPLE__)
+size_t malloc_size(const void *ptr) {
+
+#elif !defined(__ANDROID__)
 size_t malloc_usable_size(void *ptr) {
 
 #else
