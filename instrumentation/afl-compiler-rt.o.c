@@ -327,7 +327,7 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (!id_str) {
+  if (!id_str && __afl_area_ptr_dummy == __afl_area_initial) {
 
     u32 val = 0;
     u8 *ptr;
@@ -337,7 +337,6 @@ static void __afl_map_shm(void) {
     if (val > MAP_INITIAL_SIZE) {
 
       __afl_map_size = val;
-      __afl_final_loc = val;
       __afl_area_ptr_dummy = malloc(__afl_map_size);
       if (!__afl_area_ptr_dummy) {
 
@@ -347,6 +346,17 @@ static void __afl_map_shm(void) {
         exit(-1);
 
       }
+
+    } else {
+
+      __afl_map_size = MAP_INITIAL_SIZE;
+
+    }
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: (0) init map size is %u to %p\n", __afl_map_size,
+              __afl_area_ptr_dummy);
 
     }
 
@@ -490,20 +500,26 @@ static void __afl_map_shm(void) {
 
     }
 
-  } else if (_is_sancov && __afl_area_ptr != __afl_area_initial &&
+  } else if (__afl_final_loc > __afl_map_size) {
 
-             __afl_area_ptr != __afl_area_ptr_dummy) {
+    if (__afl_area_initial != __afl_area_ptr_dummy) {
 
-    free(__afl_area_ptr);
-    __afl_area_ptr = NULL;
-
-    if (__afl_final_loc > MAP_INITIAL_SIZE) {
-
-      __afl_area_ptr = (u8 *)malloc(__afl_final_loc);
+      free(__afl_area_ptr_dummy);
 
     }
 
-    if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+    __afl_area_ptr_dummy = (u8 *)malloc(__afl_final_loc);
+    __afl_area_ptr = __afl_area_ptr_dummy;
+    __afl_map_size = __afl_final_loc;
+
+    if (!__afl_area_ptr_dummy) {
+
+      fprintf(stderr,
+              "Error: AFL++ could not aquire %u bytes of memory, exiting!\n",
+              __afl_final_loc);
+      exit(-1);
+
+    }
 
   }
 
