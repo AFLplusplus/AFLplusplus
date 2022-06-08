@@ -526,6 +526,7 @@ size_t malloc_good_size(size_t len) {
   return (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
 
 }
+
 #endif
 
 __attribute__((constructor)) void __dislocator_init(void) {
