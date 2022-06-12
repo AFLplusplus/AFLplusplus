@@ -28,6 +28,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       kept), unless AFL_KEEP_TIMEOUTS are set
     - AFL never implemented auto token inserts (but user token inserts,
       user token overwrite and auto token overwrite), added now!
+    - fixed for a mutation type in havoc mode
     - Mopt fix to always select the correct algorithm
     - fix effector map calculation (deterministic mode)
     - fix custom mutator post_process functionality
