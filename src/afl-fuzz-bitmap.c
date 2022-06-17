@@ -720,7 +720,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       }
 
-      if (unlikely(!afl->saved_crashes) && (afl->afl_env.afl_no_crash_readme != 1)) { write_crash_readme(afl); }
+      if (unlikely(!afl->saved_crashes) &&
+          (afl->afl_env.afl_no_crash_readme != 1)) {
+
+        write_crash_readme(afl);
+
+      }
 
 #ifndef SIMPLE_FILES
 
@@ -821,3 +826,4 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   return keeping;
 
 }
+
