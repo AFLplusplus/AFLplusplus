@@ -619,6 +619,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     emulation" variables (e.g., `QEMU_STACK_SIZE`), but there should be no
     reason to touch them.
 
+  - Normally a `README.txt` is written to the `crashes/` directory when a first
+    crash is found. Setting `AFL_NO_CRASH_README` will prevent this. Useful when
+    counting crashes based on a file count in that directory.
+
 ## 7) Settings for afl-frida-trace
 
 The FRIDA wrapper used to instrument binary-only code supports many of the same

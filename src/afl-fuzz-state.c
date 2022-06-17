@@ -510,6 +510,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_pizza_mode =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+          } else if (!strncmp(env, "AFL_NO_CRASH_README",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_crash_readme =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
             if (afl->afl_env.afl_pizza_mode == 0) {
 
               afl->afl_env.afl_pizza_mode = 1;
@@ -665,4 +673,3 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
-
