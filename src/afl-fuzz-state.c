@@ -673,3 +673,4 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
+

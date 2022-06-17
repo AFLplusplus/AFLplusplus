@@ -235,3 +235,4 @@ static char *afl_environment_variables[] = {
 extern char *afl_environment_variables[];
 
 #endif
+
