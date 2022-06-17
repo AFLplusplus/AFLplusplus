@@ -113,7 +113,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   u8  lockfile[PATH_MAX] = "";
   s32 i;
 
-  if (afl->afl_env.afl_no_affinity && !afl->afl_env.afl_try_affinity) {
+  if (afl->afl_env.afl_no_affinity = 1 && afl->afl_env.afl_try_affinity != 1) {
 
     if (afl->cpu_to_bind != -1) {
 
@@ -130,7 +130,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (!bind_cpu(afl, afl->cpu_to_bind)) {
 
-      if (afl->afl_env.afl_try_affinity) {
+      if (afl->afl_env.afl_try_affinity = 1) {
 
         WARNF(
             "Could not bind to requested CPU %d! Make sure you passed a valid "
@@ -2957,4 +2957,3 @@ void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
   *buf = 0;
 
 }
-
