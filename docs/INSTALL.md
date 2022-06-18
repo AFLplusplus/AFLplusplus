@@ -15,6 +15,9 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 This image is automatically generated when a push to the stable repo happens.
 You will find your target source code in `/src` in the container.
 
+Note: you can also pull `aflplusplus/aflplusplus:dev` which is the most current
+development state of AFL++.
+
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
