@@ -715,17 +715,23 @@ char *get_afl_env(char *env) {
 
   char *val;
 
-  if ((val = getenv(env)) != NULL) {
+  if ((val = getenv(env))) {
 
-    if (!be_quiet) {
+    if (*val) {
+      
+      if (!be_quiet) {
 
-      OKF("Loaded environment variable %s with value %s", env, val);
+        OKF("Enabled environment variable %s with value %s", env, val);
+
+      }
+
+      return val;
 
     }
 
   }
 
-  return val;
+  return NULL;
 
 }
 
