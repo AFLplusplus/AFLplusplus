@@ -47,7 +47,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
   example, the following line will run a Docker container with all this preset:
 
   ```shell
-  # docker run -ti --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk aflplusplus/aflplusplus:stable
+  # docker run -ti --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk docker.io/aflplusplus/aflplusplus:stable
   ```
 
 ## 1. Instrumenting the target
