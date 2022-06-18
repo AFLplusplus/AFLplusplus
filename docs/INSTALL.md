@@ -8,8 +8,8 @@ hence afl-clang-lto is available) or just pull directly from the Docker Hub
 (for x86_64 and arm64):
 
 ```shell
-docker pull aflplusplus/aflplusplus
-docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+docker pull aflplusplus/aflplusplus:stable
+docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus:stable
 ```
 
 This image is automatically generated when a push to the stable repo happens.
