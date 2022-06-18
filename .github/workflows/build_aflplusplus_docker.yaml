@@ -5,6 +5,8 @@ on:
     branches:
       - stable
       - dev
+    tags:
+      - '*'
 
 jobs:
   push_to_registry:
@@ -37,3 +39,11 @@ jobs:
           push: true
           tags: aflplusplus/aflplusplus:${{ github.ref_name }},aflplusplus/aflplusplus:latest
         if: ${{ github.ref_name == 'stable' }}
+      - name: Publish tagged release to docker.io registry
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: aflplusplus/aflplusplus:${{ github.ref_name }}
+        if: ${{ github.ref_type == 'tag' }}
