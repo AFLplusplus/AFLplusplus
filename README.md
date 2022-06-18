@@ -61,6 +61,9 @@ This image is automatically generated when a push to the stable repo happens
 (see [branches](#branches)). If you use the command above, you will find your
 target source code in `/src` in the container.
 
+Note: you can also pull `aflplusplus/aflplusplus:dev` which is the most current
+development state of AFL++.
+
 To build AFL++ yourself - *which we recommend* - continue at
 [docs/INSTALL.md](docs/INSTALL.md).
 
