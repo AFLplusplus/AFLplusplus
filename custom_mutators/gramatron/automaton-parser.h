@@ -17,38 +17,41 @@ struct terminal_meta {
   int trigger_idx;
   int dest;
 
-} ;
+};
 
-// represents a set of edges 
+// represents a set of edges
 struct terminal_arr {
 
-  struct terminal_meta* start;
-  size_t len;
+  struct terminal_meta *start;
+  size_t                len;
 
-} ;
+};
 
 // essentially a string array
 struct symbols_arr {
-  char** symbols_arr;
+
+  char **symbols_arr;
   size_t len;
-} ;
 
-struct symbols_arr* symbols; // symbols contain all the symbols in the language
-map_t pda_map; // a map that maps each symbol in the language to a set of edges 
-struct symbols_arr* first_chars; // an array of first characters, only temperary array
-map_t first_char_to_symbols_map; // a map that maps each first character to a set of symbols (the symbols are sorted in descending order)
+};
 
-
+struct symbols_arr *symbols;  // symbols contain all the symbols in the language
+map_t pda_map;  // a map that maps each symbol in the language to a set of edges
+struct symbols_arr
+    * first_chars;  // an array of first characters, only temperary array
+map_t first_char_to_symbols_map;  // a map that maps each first character to a
+                                  // set of symbols (the symbols are sorted in
+                                  // descending order)
 
 // freeing terminal arrays
 int free_terminal_arr(any_t placeholder, any_t item);
 
-// return a map that maps each symbol in the language to a set of edges 
+// return a map that maps each symbol in the language to a set of edges
 // populate symbols_arr with all the symbols in the language
-map_t create_pda_hashmap(state* pda, struct symbols_arr* symbols_arr);
+map_t create_pda_hashmap(state *pda, struct symbols_arr *symbols_arr);
 
 // print the string array
-void print_symbols_arr(struct symbols_arr* arr);
+void print_symbols_arr(struct symbols_arr *arr);
 
 // free hashmap
 // the function pointer contains function to free the values in the hashmap
@@ -58,17 +61,19 @@ void free_hashmap(map_t m, int (*f)(any_t, any_t));
 int free_array_of_chars(any_t placeholder, any_t item);
 
 // free the pda
-void free_pda(state* pda);
+void free_pda(state *pda);
 
 // create a string array
-struct symbols_arr* create_array_of_chars();
+struct symbols_arr *create_array_of_chars();
 
-map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols, struct symbols_arr *first_chars);
+map_t create_first_char_to_symbols_hashmap(struct symbols_arr *symbols,
+                                           struct symbols_arr *first_chars);
 
 // return the automaton represented by the seed
-Array* automaton_parser(const uint8_t *seed_fn);
+Array *automaton_parser(const uint8_t *seed_fn);
 
-int add_element_to_symbols_arr(struct symbols_arr* symbols_arr, char* symbol, size_t symbol_len);
-
+int add_element_to_symbols_arr(struct symbols_arr *symbols_arr, char *symbol,
+                               size_t symbol_len);
 
 #endif
+

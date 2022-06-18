@@ -127,6 +127,8 @@ typedef unsigned char uint8_t;
 #if HASH_NONFATAL_OOM
   /* malloc failures can be recovered from */
 
+  #define IF_HASH_NONFATAL_OOM(x) x
+
   #ifndef uthash_nonfatal_oom
     #define uthash_nonfatal_oom(obj) \
       do {                           \
@@ -140,8 +142,6 @@ typedef unsigned char uint8_t;
       (oomed) = 1;               \
                                  \
     } while (0)
-\
-  #define IF_HASH_NONFATAL_OOM(x) x
 
 #else
   /* malloc failures result in lost memory, hash tables are unusable */
@@ -156,11 +156,10 @@ typedef unsigned char uint8_t;
 #endif
 
 /* initial number of buckets */
-#define HASH_INITIAL_NUM_BUCKETS 32U    /* initial number of buckets        */
-#define HASH_INITIAL_NUM_BUCKETS_LOG2                                    \
-  5U                                 /* lg2 of initial number of buckets \
-                                      */
-#define HASH_BKT_CAPACITY_THRESH 10U    /* expand when bucket count reaches */
+#define HASH_INITIAL_NUM_BUCKETS 32U     /* initial number of buckets        */
+#define HASH_INITIAL_NUM_BUCKETS_LOG2 5U /* lg2 of initial number of buckets \
+                                          */
+#define HASH_BKT_CAPACITY_THRESH 10U     /* expand when bucket count reaches */
 
 /* calculate the element whose hash handle address is hhp */
 #define ELMT_FROM_HH(tbl, hhp) ((void *)(((char *)(hhp)) - ((tbl)->hho)))
@@ -647,7 +646,7 @@ typedef unsigned char uint8_t;
     HASH_FIND(hh, head, findstr, _uthash_hfstr_keylen, out);          \
                                                                       \
   } while (0)
-\
+
 #define HASH_ADD_STR(head, strfield, add)                                     \
   do {                                                                        \
                                                                               \
@@ -655,7 +654,7 @@ typedef unsigned char uint8_t;
     HASH_ADD(hh, head, strfield[0], _uthash_hastr_keylen, add);               \
                                                                               \
   } while (0)
-\
+
 #define HASH_REPLACE_STR(head, strfield, add, replaced)                       \
   do {                                                                        \
                                                                               \
@@ -663,7 +662,7 @@ typedef unsigned char uint8_t;
     HASH_REPLACE(hh, head, strfield[0], _uthash_hrstr_keylen, add, replaced); \
                                                                               \
   } while (0)
-\
+
 #define HASH_FIND_INT(head, findint, out) \
   HASH_FIND(hh, head, findint, sizeof(int), out)
 #define HASH_ADD_INT(head, intfield, add) \
@@ -683,16 +682,16 @@ typedef unsigned char uint8_t;
  * isn't defined.
  */
 #ifdef HASH_DEBUG
-  #define HASH_OOPS(...)            \
-    do {                            \
-                                    \
-      fprintf(stderr, __VA_ARGS__); \
-      exit(-1);                     \
-                                    \
-    } while (0)
-\
-  #define HASH_FSCK(hh, head, where)                                          \
+  #define HASH_OOPS(...)                                                      \
     do {                                                                      \
+                                                                              \
+      fprintf(stderr, __VA_ARGS__);                                           \
+      exit(-1);                                                               \
+                                                                              \
+    } while (0)                                                               \
+                                                                              \
+                                                                              \
+        #define HASH_FSCK(hh, head, where) do {                               \
                                                                               \
       struct UT_hash_handle *_thh;                                            \
       if (head) {                                                             \
@@ -759,7 +758,8 @@ typedef unsigned char uint8_t;
                                                                               \
       }                                                                       \
                                                                               \
-    } while (0)
+    }                                                                         \
+    while (0)
 
 #else
   #define HASH_FSCK(hh, head, where)
@@ -1351,6 +1351,7 @@ typedef unsigned char uint8_t;
               _hs_psize--;                                                     \
                                                                                \
             } else if ((cmpfcn(DECLTYPE(head)(                                 \
+                                                                               \
                                                                                \
                                    ELMT_FROM_HH((head)->hh.tbl, _hs_p)),       \
                                DECLTYPE(head)(ELMT_FROM_HH((head)->hh.tbl,     \

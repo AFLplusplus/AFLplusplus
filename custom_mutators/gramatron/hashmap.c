@@ -171,6 +171,7 @@ unsigned long custom_crc32(const unsigned char *s, unsigned int len) {
  * Hashing function for a string
  */
 unsigned int hashmap_hash_int(hashmap_map *m, char *keystring) {
+
   unsigned int keystring_len = strlen(keystring);
 
   unsigned long key = custom_crc32((unsigned char *)(keystring), keystring_len);
