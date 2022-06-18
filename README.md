@@ -53,8 +53,8 @@ To have AFL++ easily available with everything compiled, pull the image directly
 from the Docker Hub (available for both x86_64 and arm64):
 
 ```shell
-docker pull aflplusplus/aflplusplus:stable
-docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus:stable
+docker pull docker.io/aflplusplus/aflplusplus:stable
+docker run -ti -v /location/of/your/target:/src docker.io/aflplusplus/aflplusplus:stable
 ```
 
 This image is automatically published when a push to the stable branch happens
