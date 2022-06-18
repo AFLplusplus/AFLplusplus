@@ -721,7 +721,7 @@ char *get_afl_env(char *env) {
       
       if (!be_quiet) {
 
-        OKF("Loaded environment variable %s with value %s", env, val);
+        OKF("Enabled environment variable %s with value %s", env, val);
 
       }
 
