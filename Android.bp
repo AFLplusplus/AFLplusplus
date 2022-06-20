@@ -76,6 +76,7 @@ cc_binary {
   srcs: [
     "src/afl-fuzz*.c",
     "src/afl-common.c",
+    "src/afl-forkserver.c",
     "src/afl-sharedmem.c",
     "src/afl-forkserver.c",
     "src/afl-performance.c",
