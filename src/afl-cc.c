@@ -396,7 +396,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang",
                    LLVM_BINDIR);
         else
-          snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANG_BIN);
+          snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s", CLANG_BIN);
         alt_cc = llvm_fullpath;
 
       }
