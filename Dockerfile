@@ -13,12 +13,9 @@ ENV NO_ARCH_OPT 1
 
 RUN apt-get update && \
     apt-get -y install --no-install-recommends \
-    automake \
-    make \
-    cmake \
-    meson \
-    ninja-build \
-    bison flex \
+    make cmake automake \
+    meson ninja-build bison flex \
+    xz-utils \
     git \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin \
@@ -26,17 +23,15 @@ RUN apt-get update && \
     wget vim jupp nano bash-completion less \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev \
-    gnuplot-nox \
-    && rm -rf /var/lib/apt/lists/*
+    gnuplot-nox && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG LLVM_VERSION=14
 ARG GCC_VERSION=12
 
-RUN echo "deb [signed-by=/usr/local/share/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
+RUN mkdir -p /usr/local/share/keyrings && \
+    echo "deb [signed-by=/usr/local/share/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
     wget -qO /usr/local/share/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
-
-# RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu jammy main" >> /etc/apt/sources.list && \
-#     apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 1E9377A2BA9EF27F
 
 RUN apt-get update && apt-get full-upgrade -y && \
     apt-get -y install --no-install-recommends \
@@ -45,16 +40,16 @@ RUN apt-get update && apt-get full-upgrade -y && \
     libc++abi1-${LLVM_VERSION} libc++abi-${LLVM_VERSION}-dev libclang1-${LLVM_VERSION} libclang-${LLVM_VERSION}-dev \
     libclang-common-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} libclang-cpp${LLVM_VERSION}-dev liblld-${LLVM_VERSION} \
     liblld-${LLVM_VERSION}-dev liblldb-${LLVM_VERSION} liblldb-${LLVM_VERSION}-dev libllvm${LLVM_VERSION} libomp-${LLVM_VERSION}-dev \
-    libomp5-${LLVM_VERSION} lld-${LLVM_VERSION} lldb-${LLVM_VERSION} llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev llvm-${LLVM_VERSION}-runtime llvm-${LLVM_VERSION}-tools \
-    && rm -rf /var/lib/apt/lists/*
+    libomp5-${LLVM_VERSION} lld-${LLVM_VERSION} lldb-${LLVM_VERSION} llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev llvm-${LLVM_VERSION}-runtime llvm-${LLVM_VERSION}-tools && \
+    rm -rf /var/lib/apt/lists/*
 
 # arm64 doesn't have gcc-multilib, and it's only used for -m32 support on x86
-ARG TARGETPLATFORM
-RUN [ "$TARGETPLATFORM" = "linux/amd64" ] && \
-    apt-get -y install --no-install-recommends \
-    gcc-${LLVM_VERSION}-multilib gcc-multilib \
-    && rm -rf /var/lib/apt/lists/*
-
+RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        apt-get update; \
+        apt-get -y install --no-install-recommends \
+        gcc-${GCC_VERSION}-multilib gcc-multilib; \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
 # RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${LLVM_VERSION} 0 && \
 #     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${LLVM_VERSION} 0
 
