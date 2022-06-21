@@ -11,11 +11,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 ENV NO_ARCH_OPT 1
 
-RUN apt-get update && \
+RUN apt-get update && apt-get full-upgrade -y && \
     apt-get -y install --no-install-recommends \
     make cmake automake \
     meson ninja-build bison flex \
-    xz-utils \
+    xz-utils libbz2-1.0 \
     git \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin \
@@ -26,6 +26,9 @@ RUN apt-get update && \
     gnuplot-nox && \
     rm -rf /var/lib/apt/lists/*
 
+RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
+ENV PATH=$PATH:/etc/cargo/bin
+
 ARG LLVM_VERSION=14
 ARG GCC_VERSION=12
 
@@ -33,7 +36,7 @@ RUN mkdir -p /usr/local/share/keyrings && \
     echo "deb [signed-by=/usr/local/share/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
     wget -qO /usr/local/share/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
 
-RUN apt-get update && apt-get full-upgrade -y && \
+RUN apt-get update && \
     apt-get -y install --no-install-recommends \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} gcc-${GCC_VERSION}-plugin-dev gdb lcov \
     clang-${LLVM_VERSION} clang-tools-${LLVM_VERSION} libc++1-${LLVM_VERSION} libc++-${LLVM_VERSION}-dev \
@@ -50,8 +53,9 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
         gcc-${GCC_VERSION}-multilib gcc-multilib; \
         rm -rf /var/lib/apt/lists/*; \
     fi
-# RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${LLVM_VERSION} 0 && \
-#     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${LLVM_VERSION} 0
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0
 
 ENV LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 ENV AFL_SKIP_CPUFREQ=1
