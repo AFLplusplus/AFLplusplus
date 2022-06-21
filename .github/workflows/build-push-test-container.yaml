@@ -16,11 +16,18 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Build image
+      - name: Build amd64 image
         uses: docker/build-push-action@v3
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
+          load: true
+          tags: aflplusplus/aflplusplus:test
+      - name: Build arm64 image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/arm64
           load: true
           tags: aflplusplus/aflplusplus:test
       - name: Test linux/amd64 image
