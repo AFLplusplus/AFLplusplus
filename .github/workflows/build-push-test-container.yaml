@@ -1,4 +1,4 @@
-name: Publish Docker Images
+name: Build, test and push container image
 
 on:
   push:
@@ -9,29 +9,38 @@ on:
       - '*'
 
 jobs:
-  push_to_registry:
-    name: Push Docker images to Dockerhub
+  build:
+    name: Build, test and push container image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+      - uses: actions/checkout@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+      - name: Build image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          load: true
+          tags: aflplusplus/aflplusplus:test
+      - name: Test linux/amd64 image
+        run: docker run --rm --platform linux/amd64 aflplusplus/aflplusplus:test make tests
+      - name: Test linux/arm64 image
+        run: docker run --rm --platform linux/arm64 aflplusplus/aflplusplus:test make tests
       - name: Login to Dockerhub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Publish dev as dev to docker.io registry
+      - name: Publish ${{ github.ref_name }} to docker.io registry
         uses: docker/build-push-action@v3
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: aflplusplus/aflplusplus:${{ github.ref_name }}
-        if: ${{ github.ref_name == 'dev' }}
-      - name: Publish stable as stable and latest to docker.io registry
+        if: ${{ github.ref_name != 'stable' }}
+      - name: Publish stable and latest to docker.io registry
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -39,11 +48,3 @@ jobs:
           push: true
           tags: aflplusplus/aflplusplus:${{ github.ref_name }},aflplusplus/aflplusplus:latest
         if: ${{ github.ref_name == 'stable' }}
-      - name: Publish tagged release to docker.io registry
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: aflplusplus/aflplusplus:${{ github.ref_name }}
-        if: ${{ github.ref_type == 'tag' }}

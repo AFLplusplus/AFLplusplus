@@ -610,42 +610,42 @@ endif
 
 .PHONY: distrib
 distrib: all
-	-$(MAKE) -j4 -f GNUmakefile.llvm
+	$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -f GNUmakefile.gcc_plugin
+	$(MAKE) -f GNUmakefile.gcc_plugin
 endif
-	-$(MAKE) -C utils/libdislocator
-	-$(MAKE) -C utils/libtokencap
-	-$(MAKE) -C utils/afl_network_proxy
-	-$(MAKE) -C utils/socket_fuzzing
-	-$(MAKE) -C utils/argv_fuzzing
-	# -$(MAKE) -C utils/plot_ui
-	-$(MAKE) -C frida_mode
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
+	$(MAKE) -C utils/afl_network_proxy
+	$(MAKE) -C utils/socket_fuzzing
+	$(MAKE) -C utils/argv_fuzzing
+	# $(MAKE) -C utils/plot_ui
+	$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
-	-$(MAKE) -C coresight_mode
+	$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
-	-cd nyx_mode && ./build_nyx_support.sh
+	cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
-	-cd qemu_mode && sh ./build_qemu_support.sh
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+	cd qemu_mode && sh ./build_qemu_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 endif
 
 .PHONY: binary-only
 binary-only: test_shm test_python ready $(PROGS)
-	-$(MAKE) -C utils/libdislocator
-	-$(MAKE) -C utils/libtokencap
-	-$(MAKE) -C utils/afl_network_proxy
-	-$(MAKE) -C utils/socket_fuzzing
-	-$(MAKE) -C utils/argv_fuzzing
-	# -$(MAKE) -C utils/plot_ui
-	-$(MAKE) -C frida_mode
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
+	$(MAKE) -C utils/afl_network_proxy
+	$(MAKE) -C utils/socket_fuzzing
+	$(MAKE) -C utils/argv_fuzzing
+	# $(MAKE) -C utils/plot_ui
+	$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
-	-$(MAKE) -C coresight_mode
+	$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
@@ -658,13 +658,13 @@ endif
 
 .PHONY: source-only
 source-only: all
-	-$(MAKE) -j4 -f GNUmakefile.llvm
+	$(MAKE) -j4 -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -f GNUmakefile.gcc_plugin
+	$(MAKE) -f GNUmakefile.gcc_plugin
 endif
-	-$(MAKE) -C utils/libdislocator
-	-$(MAKE) -C utils/libtokencap
-	# -$(MAKE) -C utils/plot_ui
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
+	# $(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
@@ -712,9 +712,9 @@ install: all $(MANPAGES)
 	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
 	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	-$(MAKE) -f GNUmakefile.llvm install
+	$(MAKE) -f GNUmakefile.llvm install
 ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -f GNUmakefile.gcc_plugin install
+	$(MAKE) -f GNUmakefile.gcc_plugin install
 endif
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
