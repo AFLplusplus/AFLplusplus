@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -e
+
 echo "================================================="
 echo "           Nyx build script"
 echo "================================================="
@@ -6,14 +9,14 @@ echo
 
 echo "[*] Performing basic sanity checks..."
 
-if [ ! "`uname -s`" = "Linux" ]; then
+if [ ! "$(uname -s)" = "Linux" ]; then
 
   echo "[-] Error: Nyx mode is only available on Linux."
   exit 0
 
 fi
 
-if [ ! "`uname -m`" = "x86_64" ]; then
+if [ ! "$(uname -m)" = "x86_64" ]; then
 
   echo "[-] Error: Nyx mode is only available on x86_64 (yet)."
   exit 0
@@ -22,10 +25,10 @@ fi
 
 echo "[*] Making sure all Nyx is checked out"
 
-git status 1>/dev/null 2>/dev/null
-if [ $? -eq 0 ]; then
 
-  git submodule init || exit 1
+if git status 1>/dev/null 2>&1; then
+
+  git submodule init
   echo "[*] initializing QEMU-Nyx submodule"
   git submodule update ./QEMU-Nyx 2>/dev/null # ignore errors
   echo "[*] initializing packer submodule"
@@ -47,32 +50,27 @@ test -e QEMU-Nyx/.git || { echo "[-] QEMU-Nyx not checked out, please install gi
 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then
-    cd packer/linux_initramfs/
-    sh pack.sh || exit 1
-    cd ../../
+    (cd packer/linux_initramfs/ && sh pack.sh)
 fi
 
 echo "[*] Checking libnyx ..."
 if [ ! -f "libnyx/libnyx/target/release/liblibnyx.a" ]; then
-    cd libnyx/libnyx
-    cargo build --release || exit 1
-    cd ../../
+    (cd libnyx/libnyx && cargo build --release)
 fi
 
 echo "[*] Checking QEMU-Nyx ..."
 if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
-    cd QEMU-Nyx/
-    ./compile_qemu_nyx.sh static || exit 1
-    cd ..
+    
+    if ! [ "${IS_DOCKER}" = "" ]; then
+        echo "[-] Disabling GTK as we're building a container image."
+        sed -i 's/--enable-gtk//g' QEMU-Nyx/compile_qemu_nyx.sh
+    fi
+    (cd QEMU-Nyx && ./compile_qemu_nyx.sh static)
 fi
 
 echo "[*] Checking libnyx.so ..."
-if [ -f "libnyx/libnyx/target/release/liblibnyx.so" ]; then
-  cp -v libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so || exit 1
-else
-  echo "[ ] libnyx.so not found..."
-  exit 1
-fi
+cp libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so
+
 echo "[+] All done for nyx_mode, enjoy!"
 
 exit 0
