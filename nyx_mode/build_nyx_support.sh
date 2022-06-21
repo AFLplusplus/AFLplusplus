@@ -61,8 +61,8 @@ fi
 echo "[*] Checking QEMU-Nyx ..."
 if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
     
-    if ! [ "${IS_DOCKER}" = "" ]; then
-        echo "[-] Disabling GTK as we're building a container image."
+    if ! dpkg -s gtk3-devel > /dev/null 2>&1; then
+        echo "[-] Disabling GTK because gtk3-devel is not installed."
         sed -i 's/--enable-gtk//g' QEMU-Nyx/compile_qemu_nyx.sh
     fi
     (cd QEMU-Nyx && ./compile_qemu_nyx.sh static)
