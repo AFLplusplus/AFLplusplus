@@ -623,15 +623,23 @@ endif
 	$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
 	$(MAKE) -C coresight_mode
+  endif
 endif
 ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
+  ifndef NO_NYX
 	cd nyx_mode && ./build_nyx_support.sh
-endif
+  endif
 endif
 	cd qemu_mode && sh ./build_qemu_support.sh
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_UNICORN_ARM64
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+    endif
+  else
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+  endif
 endif
 
 .PHONY: binary-only
@@ -645,15 +653,23 @@ binary-only: test_shm test_python ready $(PROGS)
 	$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
 	$(MAKE) -C coresight_mode
+  endif
 endif
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
-	-cd nyx_mode && ./build_nyx_support.sh
+	cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
-	-cd qemu_mode && sh ./build_qemu_support.sh
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+	cd qemu_mode && sh ./build_qemu_support.sh
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_UNICORN_ARM64
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+    endif
+  else
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+  endif
 endif
 
 .PHONY: source-only
