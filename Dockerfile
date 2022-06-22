@@ -33,9 +33,9 @@ ENV PATH=$PATH:/etc/cargo/bin
 ARG LLVM_VERSION=14
 ARG GCC_VERSION=12
 
-RUN mkdir -p /usr/local/share/keyrings && \
-    echo "deb [signed-by=/usr/local/share/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
-    wget -qO /usr/local/share/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
+RUN mkdir -p /etc/apt/keyrings && \
+    echo "deb [signed-by=/etc/apt/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
+    wget -qO /etc/apt/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
 
 RUN apt-get update && \
     apt-get -y install --no-install-recommends \
@@ -45,9 +45,11 @@ RUN apt-get update && \
     libclang-common-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} libclang-cpp${LLVM_VERSION}-dev liblld-${LLVM_VERSION} \
     liblld-${LLVM_VERSION}-dev liblldb-${LLVM_VERSION} liblldb-${LLVM_VERSION}-dev libllvm${LLVM_VERSION} libomp-${LLVM_VERSION}-dev \
     libomp5-${LLVM_VERSION} lld-${LLVM_VERSION} lldb-${LLVM_VERSION} llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev llvm-${LLVM_VERSION}-runtime llvm-${LLVM_VERSION}-tools \
-    $([ "$(dpkg --print-architecture)" = "amd64" ] && echo gcc-${GCC_VERSION}-multilib gcc-multilib) && \
+    $([ "$(dpkg --print-architecture)" = "amd64" ] && echo gcc-${GCC_VERSION}-multilib gcc-multilib) \
+    $([ "$(dpkg --print-architecture)" = "arm64" ] && echo libcapstone-dev) && \
     rm -rf /var/lib/apt/lists/*
-    # arm64 doesn't have gcc-multilib, and it's only used for -m32 support on x86
+    # gcc-multilib is only used for -m32 support on x86
+    # libcapstone-dev is used for coresight_mode on arm64
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0
@@ -65,6 +67,10 @@ COPY . .
 
 # Until gcc v12.1 is released for ubuntu https://bugs.launchpad.net/ubuntu/+source/gcc-11/+bug/1940029
 ENV NO_NYX 1
+
+# Build currently broken
+ENV NO_CORESIGHT 1
+ENV NO_UNICORN_ARM64 1
 
 RUN export CC=gcc-${GCC_VERSION} && export CXX=g++-${GCC_VERSION} && make clean && \
     make distrib && make install && make clean

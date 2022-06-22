@@ -1,3 +1,4 @@
+/.github
 .test
 .test2
 .sync_tmp
@@ -10,6 +11,7 @@ ld
 in
 out
 core*
+!/coresight_mode
 afl-analyze
 afl-as
 afl-clang
