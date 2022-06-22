@@ -3,7 +3,6 @@ ROOT:=$(PWD)../
 INC_DIR:=$(PWD)include/
 SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
-# INCLUDES_ANDROID:=$(filter-out $(INC_DIR)/seccomp.h, $(INCLUDES)) #doesnt work, something like that for android (i deleted all seccomp instead)
 BUILD_DIR:=$(PWD)build/
 OBJ_DIR:=$(BUILD_DIR)obj/
 
@@ -13,7 +12,6 @@ JS:=$(JS_DIR)$(JS_NAME)
 JS_SRC:=$(BUILD_DIR)api.c
 JS_OBJ:=$(BUILD_DIR)api.o
 SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
-#SOURCES_ANDROID:=$(filter-out $(SRC_DIR)/seccomp/*.c , $(SOURCES)) #doesnt work, something like that for android i deleted all seccomp instead)
 OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
