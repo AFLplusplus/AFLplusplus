@@ -105,6 +105,7 @@ static void instrument_persitent_save_regs(GumArm64Writer *  cw,
                                           offsetof(persistent_ctx_t, rflags));
 
   /* Q */
+  #if defined(__arm64__)
   gum_arm64_writer_put_stp_reg_reg_reg_offset(
       cw, ARM64_REG_Q0, ARM64_REG_Q1, ARM64_REG_X0,
       offsetof(GumCpuContext, q[0]), GUM_INDEX_SIGNED_OFFSET);
@@ -117,7 +118,7 @@ static void instrument_persitent_save_regs(GumArm64Writer *  cw,
   gum_arm64_writer_put_stp_reg_reg_reg_offset(
       cw, ARM64_REG_Q6, ARM64_REG_Q7, ARM64_REG_X0,
       offsetof(GumCpuContext, q[48]), GUM_INDEX_SIGNED_OFFSET);
-
+#endif
   /* x0 & x1 */
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(cw, ARM64_REG_X2, ARM64_REG_X3,
                                               ARM64_REG_SP, 16,
@@ -200,7 +201,7 @@ static void instrument_persitent_restore_regs(GumArm64Writer *  cw,
   gum_arm64_writer_put_ldr_reg_reg_offset(cw, ARM64_REG_X1, ARM64_REG_X0,
                                           offsetof(persistent_ctx_t, rflags));
   gum_arm64_writer_put_instruction(cw, msr_nzcv_x1);
-
+#if defined(__arm64__)
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_Q0, ARM64_REG_Q1, ARM64_REG_X0,
       offsetof(GumCpuContext, q[0]), GUM_INDEX_SIGNED_OFFSET);
@@ -213,7 +214,7 @@ static void instrument_persitent_restore_regs(GumArm64Writer *  cw,
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_Q6, ARM64_REG_Q7, ARM64_REG_X0,
       offsetof(GumCpuContext, q[48]), GUM_INDEX_SIGNED_OFFSET);
-
+#endif
   /* x2 & x3 */
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_X2, ARM64_REG_X3, ARM64_REG_X0,

@@ -2,6 +2,7 @@
 
 #if defined(__linux__) && !defined(__ANDROID__)
   #include <sys/prctl.h>
+  #include "seccomp.h"
 #endif
 
 #include "frida-gumjs.h"
@@ -10,7 +11,7 @@
 #include "instrument.h"
 #include "persistent.h"
 #include "ranges.h"
-#include "seccomp.h"
+
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -31,7 +32,9 @@ static void entry_launch(void) {
   entry_run = TRUE;
   entry_on_fork();
   instrument_on_fork();
+  #if !defined(__ANDROID__)
   seccomp_on_fork();
+  #endif
   stats_on_fork();
 
 }

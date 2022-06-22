@@ -26,7 +26,9 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#if !defined(__ANDROID__)
 #include "seccomp.h"
+#endif
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -36,6 +38,17 @@
 #ifdef __APPLE__
 extern mach_port_t mach_task_self();
 extern GumAddress  gum_darwin_find_entrypoint(mach_port_t task);
+#elif defined(__ANDROID__)
+typedef struct {
+	void (**preinit_array)(void);
+	void (**init_array)(void);
+	void (**fini_array)(void);
+} structors_array_t;
+
+extern void __libc_init(void* raw_args,
+                            void (*onexit)(void) __unused,
+                            int (*slingshot)(int, char **, char **),
+                            structors_array_t const * const structors);
 #else
 extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
@@ -69,7 +82,11 @@ static void on_main_os(int argc, char **argv, char **envp) {
   GumInterceptor *interceptor = gum_interceptor_obtain();
 
   gum_interceptor_begin_transaction(interceptor);
+  #if defined(__ANDROID__)
+  gum_interceptor_revert(interceptor, __libc_init);
+  #else
   gum_interceptor_revert(interceptor, __libc_start_main);
+  #endif
   gum_interceptor_end_transaction(interceptor);
   gum_interceptor_flush(interceptor);
 
@@ -203,7 +220,9 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   persistent_config();
   prefetch_config();
   ranges_config();
+  #if !defined(__ANDROID__)
   seccomp_config();
+  #endif
   stalker_config();
   stats_config();
 
@@ -219,7 +238,9 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   module_init();
   persistent_init();
   prefetch_init();
+#if !defined(__ANDROID__)
   seccomp_init();
+#endif
   stalker_init();
   ranges_init();
   stats_init();
@@ -274,6 +295,22 @@ static void intercept_main(void) {
   void *main = GSIZE_TO_POINTER(entry);
   main_fn = main;
   intercept_hook(main, on_main, NULL);
+
+}
+#elif defined(__ANDROID__)
+static void on_libc_init(void* raw_args,
+                            void (*onexit)(void) __unused,
+                            int (*slingshot)(int, char**, char**),
+                            structors_array_t const * const structors){
+  main_fn = slingshot;
+  intercept_unhook_self();
+  intercept_hook(slingshot, on_main, NULL);
+  return __libc_init(raw_args, onexit, slingshot, structors);
+
+}
+static void intercept_main(void) {
+
+  intercept_hook(__libc_init, on_libc_init, NULL);
 
 }
 

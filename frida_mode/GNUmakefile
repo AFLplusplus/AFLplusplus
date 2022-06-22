@@ -3,6 +3,7 @@ ROOT:=$(PWD)../
 INC_DIR:=$(PWD)include/
 SRC_DIR:=$(PWD)src/
 INCLUDES:=$(wildcard $(INC_DIR)*.h)
+# INCLUDES_ANDROID:=$(filter-out $(INC_DIR)/seccomp.h, $(INCLUDES)) #doesnt work, something like that for android (i deleted all seccomp instead)
 BUILD_DIR:=$(PWD)build/
 OBJ_DIR:=$(BUILD_DIR)obj/
 
@@ -12,6 +13,7 @@ JS:=$(JS_DIR)$(JS_NAME)
 JS_SRC:=$(BUILD_DIR)api.c
 JS_OBJ:=$(BUILD_DIR)api.o
 SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
+#SOURCES_ANDROID:=$(filter-out $(SRC_DIR)/seccomp/*.c , $(SOURCES)) #doesnt work, something like that for android i deleted all seccomp instead)
 OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
@@ -28,9 +30,12 @@ AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-int-to-pointer-cast \
 		   -Wno-pointer-sign
 
-LDFLAGS+=-shared \
-		 -lpthread \
-		 -lresolv
+LDFLAGS+= -static-libstdc++ \
+		  -DANDROID \
+		  -Daarch64 \
+		  -llog \
+		  -shared
+		 
 
 ifdef DEBUG
 CFLAGS+=-Werror \
@@ -79,8 +84,7 @@ endif
 LDFLAGS+=	-z noexecstack \
 			-Wl,--gc-sections \
 			-Wl,--exclude-libs,ALL \
-		    -ldl \
-		    -lrt
+		    -ldl 
 LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
@@ -116,7 +120,10 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=15.1.22
+OS:=android
+ARCH:=arm64
+
+GUM_DEVKIT_VERSION=15.1.25
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -222,6 +229,7 @@ else ifeq "$(ARCH)" "arm64"
 CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
+		-static-libstdc++ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
 
@@ -375,7 +383,6 @@ $(ADDR_BIN): $(ADDR_SRC) | $(BUILD_DIR)
 		-Wl,--gc-sections \
 		-Wl,--exclude-libs,ALL \
 		-ldl \
-		-lrt \
 		$< -o $@
 
 addr: $(ADDR_BIN)

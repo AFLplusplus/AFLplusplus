@@ -6,7 +6,9 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#if !defined(__ANDROID__)
 #include "seccomp.h"
+#endif
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -183,14 +185,14 @@ js_api_set_instrument_unstable_coverage_file(char *path) {
   instrument_coverage_unstable_filename = g_strdup(path);
 
 }
-
+#if !defined(__ANDROID__)
 __attribute__((visibility("default"))) void js_api_set_seccomp_file(
     char *file) {
 
   seccomp_filename = g_strdup(file);
 
 }
-
+#endif
 __attribute__((visibility("default"))) void js_api_set_stdout(char *file) {
 
   output_stdout = g_strdup(file);
