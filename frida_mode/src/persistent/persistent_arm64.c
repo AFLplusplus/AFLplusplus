@@ -107,16 +107,16 @@ static void instrument_persitent_save_regs(GumArm64Writer *  cw,
   /* Q */
   gum_arm64_writer_put_stp_reg_reg_reg_offset(
       cw, ARM64_REG_Q0, ARM64_REG_Q1, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[0]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[0]), GUM_INDEX_SIGNED_OFFSET);
   gum_arm64_writer_put_stp_reg_reg_reg_offset(
       cw, ARM64_REG_Q2, ARM64_REG_Q3, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[16]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[4]), GUM_INDEX_SIGNED_OFFSET);
   gum_arm64_writer_put_stp_reg_reg_reg_offset(
       cw, ARM64_REG_Q4, ARM64_REG_Q5, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[32]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[8]), GUM_INDEX_SIGNED_OFFSET);
   gum_arm64_writer_put_stp_reg_reg_reg_offset(
       cw, ARM64_REG_Q6, ARM64_REG_Q7, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[48]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[12]), GUM_INDEX_SIGNED_OFFSET);
 
   /* x0 & x1 */
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(cw, ARM64_REG_X2, ARM64_REG_X3,
@@ -203,16 +203,16 @@ static void instrument_persitent_restore_regs(GumArm64Writer *  cw,
 
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_Q0, ARM64_REG_Q1, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[0]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[0]), GUM_INDEX_SIGNED_OFFSET);
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_Q2, ARM64_REG_Q3, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[16]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[4]), GUM_INDEX_SIGNED_OFFSET);
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_Q4, ARM64_REG_Q5, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[32]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[8]), GUM_INDEX_SIGNED_OFFSET);
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
       cw, ARM64_REG_Q6, ARM64_REG_Q7, ARM64_REG_X0,
-      offsetof(GumCpuContext, q[48]), GUM_INDEX_SIGNED_OFFSET);
+      offsetof(GumCpuContext, v[12]), GUM_INDEX_SIGNED_OFFSET);
 
   /* x2 & x3 */
   gum_arm64_writer_put_ldp_reg_reg_reg_offset(
