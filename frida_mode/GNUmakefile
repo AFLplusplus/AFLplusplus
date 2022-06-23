@@ -18,7 +18,11 @@ TARGET_CC?=$(CC)
 TARGET_CXX?=$(CXX)
 HOST_CC?=$(CC)
 HOST_CXX?=$(CXX)
-
+IS_ANDROID:=$(findstring android, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_x86:=$(findstring i686, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_x86_64:=$(findstring x86_64, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_ARM:=$(findstring arm, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_ARM64:=$(findstring aarch64, $(shell $(TARGET_CC) --version 2>/dev/null))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
 		-D_FORTIFY_SOURCE=2 \
@@ -33,7 +37,8 @@ AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-unused-result \
 		   -Wno-int-to-pointer-cast \
 		   -Wno-pointer-sign
-ifneq "$(findstring android, $(shell $(TARGET_CC) --version 2>/dev/null))" ""
+
+ifdef IS_ANDROID
 LDFLAGS+= -static-libstdc++ \
 		  -DANDROID \
 		  -llog \
@@ -99,18 +104,19 @@ ifeq "$(shell uname)" "Linux"
  endif
 endif
 
-ifneq "$(findstring android, $(shell $(TARGET_CC) --version 2>/dev/null))" ""
+
+ifdef IS_ANDROID
  OS:=android
- ifneq "$(findstring i686, $(shell $(TARGET_CC) --version 2>/dev/null))" ""
-   ARCH:=x86
+ ifdef IS_x86
+  ARCH:=x86	
  endif
- ifneq "$(findstring x86_64, $(shell $(TARGET_CC) --version 2>/dev/null))" ""
-   ARCH:=x86_64
+ ifdef IS_x86
+  ARCH:=x86_64
  endif
- ifneq "$(findstring arm, $(shell $(TARGET_CC) --version 2>/dev/null))" ""
+ ifdef IS_ARM
    ARCH:=arm
  endif
- ifneq "$(findstring aarch64, $(shell $(TARGET_CC) --version 2>/dev/null))" ""
+ ifdef IS_ARM64
    ARCH:=arm64
  endif
 endif
@@ -126,7 +132,7 @@ ifndef OS
 endif
 
 
-GUM_DEVKIT_VERSION=15.1.25
+GUM_DEVKIT_VERSION=15.1.22
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -228,14 +234,16 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgmodule-2.0.a \
 
 else ifeq "$(ARCH)" "arm64"
-ifeq "$(OS)" "android"
+
 CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \	
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
-		-static-libstdc++ \
-	
+
+ifeq "$(OS)" "android"
+ CFLAGS += -static-libstdc++
+endif
 else
 CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
@@ -262,25 +270,14 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/liblzma.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libz.a \
 
-else
-
-
+CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
+	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ 
 
 ifeq "$(OS)" "android"
-CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
-		-static-libstdc++ \
-
-else
-CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
-
+ CFLAGS += -static-libstdc++
 endif
 
 TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
@@ -299,8 +296,6 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/liblzma.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libz.a \
-
-endif
 
 
 else
