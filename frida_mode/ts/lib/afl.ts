@@ -266,12 +266,11 @@ class Afl {
    * See `AFL_FRIDA_SECCOMP_FILE`. This function takes a single `string` as
    * an argument.
    */
-  /* dk how to exlcude
   public static setSeccompFile(file: string): void {
     const buf = Memory.allocUtf8String(file);
     Afl.jsApiSetSeccompFile(buf);
   }
-  */
+
   /**
    * See `AFL_FRIDA_STALKER_ADJACENT_BLOCKS`.
    */
@@ -479,12 +478,12 @@ class Afl {
     "js_api_set_prefetch_disable",
     "void",
     []);
-/* dk how to exlcude
+
   private static readonly jsApiSetSeccompFile = Afl.jsApiGetFunction(
     "js_api_set_seccomp_file",
     "void",
     ["pointer"]);
-*/
+
   private static readonly jsApiSetStalkerAdjacentBlocks = Afl.jsApiGetFunction(
     "js_api_set_stalker_adjacent_blocks",
     "void",
