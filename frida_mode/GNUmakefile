@@ -31,6 +31,10 @@ CFLAGS+=-fPIC \
 		-funroll-loops \
 		-ffunction-sections \
 
+ifdef IS_ANDROID
+CFLAGS+=-DANDROID 
+endif
+
 AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-sign-compare \
 		   -Wno-unused-function \
@@ -132,7 +136,7 @@ ifndef OS
 endif
 
 
-GUM_DEVKIT_VERSION=15.1.22
+GUM_DEVKIT_VERSION=15.1.27
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
