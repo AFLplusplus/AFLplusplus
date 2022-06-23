@@ -32,7 +32,7 @@ static void entry_launch(void) {
   entry_run = TRUE;
   entry_on_fork();
   instrument_on_fork();
-  #if !defined(__ANDROID__)
+  #if defined(__linux__) && !defined(__ANDROID__)
   seccomp_on_fork();
   #endif
   stats_on_fork();

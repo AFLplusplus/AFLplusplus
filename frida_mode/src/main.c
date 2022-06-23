@@ -26,7 +26,7 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
-#if !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__)
 #include "seccomp.h"
 #endif
 #include "stalker.h"
@@ -220,7 +220,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   persistent_config();
   prefetch_config();
   ranges_config();
-  #if !defined(__ANDROID__)
+  #if defined(__linux__) && !defined(__ANDROID__)
   seccomp_config();
   #endif
   stalker_config();
@@ -238,9 +238,9 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   module_init();
   persistent_init();
   prefetch_init();
-#if !defined(__ANDROID__)
+  #if defined(__linux__) && !defined(__ANDROID__) 
   seccomp_init();
-#endif
+  #endif
   stalker_init();
   ranges_init();
   stats_init();

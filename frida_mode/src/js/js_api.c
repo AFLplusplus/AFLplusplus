@@ -185,7 +185,7 @@ js_api_set_instrument_unstable_coverage_file(char *path) {
   instrument_coverage_unstable_filename = g_strdup(path);
 
 }
-#if !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__)
 __attribute__((visibility("default"))) void js_api_set_seccomp_file(
     char *file) {
 
