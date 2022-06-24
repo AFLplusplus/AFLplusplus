@@ -30,20 +30,22 @@ sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //
 sudo apt-get install -y ninja-build # for QEMU mode
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
-make distrib
+make -i distrib
 sudo make install
 ```
+
+> We add the `-i` to make so it will skip any features that fail to install.
 
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
-Note that `make distrib` also builds FRIDA mode, QEMU mode, unicorn_mode, and
+Note that `make -i distrib` also builds FRIDA mode, QEMU mode, unicorn_mode, and
 more. If you just want plain AFL++, then do `make all`. If you want some
 assisting tooling compiled but are not interested in binary-only targets, then
 instead choose:
 
 ```shell
-make source-only
+make -i source-only
 ```
 
 These build targets exist:
@@ -70,7 +72,7 @@ you can also build statically linked versions of the AFL++ binaries by passing
 the `STATIC=1` argument to make:
 
 ```shell
-make STATIC=1
+make -i STATIC=1
 ```
 
 These build options exist:
@@ -88,7 +90,7 @@ These build options exist:
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
   (e.g., Debian)
 
-e.g.: `make ASAN_BUILD=1`
+e.g.: `make -i ASAN_BUILD=1`
 
 ## MacOS X on x86 and arm64 (M1)
 
@@ -114,11 +116,11 @@ export PATH="/usr/local/opt/llvm/bin:$PATH"
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 export CC=clang
 export CXX=clang++
-gmake
+gmake -i
 cd frida_mode
-gmake
+gmake -i
 cd ..
-sudo gmake install
+sudo gmake -i install
 ```
 
 `afl-gcc` will fail unless you have GCC installed, but that is using outdated
