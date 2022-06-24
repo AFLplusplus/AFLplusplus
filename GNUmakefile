@@ -308,17 +308,17 @@ endif
 
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
-	-$(MAKE) -C utils/aflpp_driver
+	$(MAKE) -C utils/aflpp_driver
 
 .PHONY: llvm
 llvm:
-	-$(MAKE) -j4 -f GNUmakefile.llvm
+	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 .PHONY: gcc_plugin
 gcc_plugin:
 ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -f GNUmakefile.gcc_plugin
+	$(MAKE) -f GNUmakefile.gcc_plugin
 endif
 
 .PHONY: man
@@ -568,19 +568,19 @@ all_done: test_build
 .PHONY: clean
 clean:
 	rm -rf $(PROGS) afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
-	-$(MAKE) -f GNUmakefile.llvm clean
-	-$(MAKE) -f GNUmakefile.gcc_plugin clean
-	-$(MAKE) -C utils/libdislocator clean
-	-$(MAKE) -C utils/libtokencap clean
+	$(MAKE) -f GNUmakefile.llvm clean
+	$(MAKE) -f GNUmakefile.gcc_plugin clean
+	$(MAKE) -C utils/libdislocator clean
+	$(MAKE) -C utils/libtokencap clean
 	$(MAKE) -C utils/aflpp_driver clean
-	-$(MAKE) -C utils/afl_network_proxy clean
-	-$(MAKE) -C utils/socket_fuzzing clean
-	-$(MAKE) -C utils/argv_fuzzing clean
-	-$(MAKE) -C utils/plot_ui clean
-	-$(MAKE) -C qemu_mode/unsigaction clean
-	-$(MAKE) -C qemu_mode/libcompcov clean
-	-$(MAKE) -C qemu_mode/libqasan clean
-	-$(MAKE) -C frida_mode clean
+	$(MAKE) -C utils/afl_network_proxy clean
+	$(MAKE) -C utils/socket_fuzzing clean
+	$(MAKE) -C utils/argv_fuzzing clean
+	$(MAKE) -C utils/plot_ui clean
+	$(MAKE) -C qemu_mode/unsigaction clean
+	$(MAKE) -C qemu_mode/libcompcov clean
+	$(MAKE) -C qemu_mode/libqasan clean
+	$(MAKE) -C frida_mode clean
 	rm -rf nyx_mode/packer/linux_initramfs/init.cpio.gz nyx_mode/libnyx/libnyx/target/release/* nyx_mode/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
 ifeq "$(IN_REPO)" "1"
 	-test -e coresight_mode/coresight-trace/Makefile && $(MAKE) -C coresight_mode/coresight-trace clean || true
@@ -610,7 +610,7 @@ endif
 
 .PHONY: distrib
 distrib: all
-	$(MAKE) -j4 -f GNUmakefile.llvm
+	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	$(MAKE) -f GNUmakefile.gcc_plugin
 endif
@@ -674,7 +674,7 @@ endif
 
 .PHONY: source-only
 source-only: all
-	$(MAKE) -j4 -f GNUmakefile.llvm
+	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	$(MAKE) -f GNUmakefile.gcc_plugin
 endif

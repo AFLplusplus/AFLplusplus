@@ -1,42 +1,42 @@
 all:
 	@echo trying to use GNU make...
-	@gmake all || echo please install GNUmake
+	-@gmake all
 
 source-only:
-	@gmake source-only
+	-@gmake source-only
 
 binary-only:
-	@gmake binary-only
+	-@gmake binary-only
 
 distrib:
-	@gmake distrib
+	-@gmake distrib
 
 man:
-	@gmake man
+	-@gmake man
 
 install:
-	@gmake install
+	-@gmake install
 
 document:
-	@gmake document
+	-@gmake document
 
 deepclean:
-	@gmake deepclean
+	-@gmake deepclean
 
 code-format:
-	@gmake code-format
+	-@gmake code-format
 
 help:
-	@gmake help
+	-@gmake help
 
 tests:
-	@gmake tests
+	-@gmake tests
 
 unit:
-	@gmake unit
+	-@gmake unit
 
 unit_clean:
-	@gmake unit_clean
+	-@gmake unit_clean
 
 clean:
-	@gmake clean
+	-@gmake clean
