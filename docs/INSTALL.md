@@ -34,8 +34,6 @@ make distrib
 sudo make install
 ```
 
-> We add the `-i` to make so it will skip any features that fail to install.
-
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
