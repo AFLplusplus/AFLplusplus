@@ -20,7 +20,8 @@ while True:
 
     try:
         mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT)
-        mq_sender.send(msg_npy.tobytes(order='C'), True, type=TYPE_NUMPY)
+        TYPE = 1
+        mq_sender.send(msg_npy.tobytes(order='C'), True, type=TYPE)
 
     except sysv_ipc.ExistentialError:
         print("ERROR: message queue creation failed")
