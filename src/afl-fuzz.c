@@ -2250,272 +2250,292 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
+  int      msqid;
+  t_data   data;
+
   while (likely(!afl->stop_soon)) {
-
-    cull_queue(afl);
-
-    if (unlikely((!afl->old_seed_selection &&
-                  runs_in_current_cycle > afl->queued_items) ||
-                 (afl->old_seed_selection && !afl->queue_cur))) {
-
-      if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
-                    (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
-                   afl->sync_id)) {
-
-        sync_fuzzers(afl);
-
+    if true {
+      memcpy(data.buff, sched->exec_map, sizeof(u64));
+      if ( -1 == ( msqid = msgget( (key_t)1234, IPC_CREAT | 0666))) {
+        perror( "msgget() failed");
+        exit( 1);
       }
 
-      ++afl->queue_cycle;
-      runs_in_current_cycle = (u32)-1;
-      afl->cur_skipped_items = 0;
+    // } else {
+      cull_queue(afl);
 
-      // 1st april fool joke - enable pizza mode
-      // to not waste time on checking the date we only do this when the
-      // queue is fully cycled.
-      time_t     cursec = time(NULL);
-      struct tm *curdate = localtime(&cursec);
-      if (likely(!afl->afl_env.afl_pizza_mode)) {
+      if (unlikely((!afl->old_seed_selection &&
+                    runs_in_current_cycle > afl->queued_items) ||
+                   (afl->old_seed_selection && !afl->queue_cur))) {
 
-        if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
+        if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
+                      (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
+                     afl->sync_id)) {
 
-          afl->pizza_is_served = 1;
+          sync_fuzzers(afl);
+
+        }
+
+        ++afl->queue_cycle;
+        runs_in_current_cycle = (u32)-1;
+        afl->cur_skipped_items = 0;
+
+        // 1st april fool joke - enable pizza mode
+        // to not waste time on checking the date we only do this when the
+        // queue is fully cycled.
+        time_t     cursec = time(NULL);
+        struct tm *curdate = localtime(&cursec);
+        if (likely(!afl->afl_env.afl_pizza_mode)) {
+
+          if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
+
+            afl->pizza_is_served = 1;
+
+          } else {
+
+            afl->pizza_is_served = 0;
+
+          }
+
+        }
+
+        if (unlikely(afl->old_seed_selection)) {
+
+          afl->current_entry = 0;
+          while (unlikely(afl->current_entry < afl->queued_items &&
+                          afl->queue_buf[afl->current_entry]->disabled)) {
+
+            ++afl->current_entry;
+
+          }
+
+          if (afl->current_entry >= afl->queued_items) { afl->current_entry = 0; }
+
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+          if (unlikely(seek_to)) {
+
+            if (unlikely(seek_to >= afl->queued_items)) {
+
+              // This should never happen.
+              FATAL("BUG: seek_to location out of bounds!\n");
+
+            }
+
+            afl->current_entry = seek_to;
+            afl->queue_cur = afl->queue_buf[seek_to];
+            seek_to = 0;
+
+          }
+
+        }
+
+        if (unlikely(afl->not_on_tty)) {
+
+          ACTF("Entering queue cycle %llu.", afl->queue_cycle);
+          fflush(stdout);
+
+        }
+
+        /* If we had a full queue cycle with no new finds, try
+           recombination strategies next. */
+
+        if (unlikely(afl->queued_items == prev_queued
+                     /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
+                        3600 */
+                     )) {
+
+          if (afl->use_splicing) {
+
+            ++afl->cycles_wo_finds;
+
+            if (unlikely(afl->shm.cmplog_mode &&
+                         afl->cmplog_max_filesize < MAX_FILE)) {
+
+              afl->cmplog_max_filesize <<= 4;
+
+            }
+
+            switch (afl->expand_havoc) {
+
+              case 0:
+                // this adds extra splicing mutation options to havoc mode
+                afl->expand_havoc = 1;
+                break;
+              case 1:
+                // add MOpt mutator
+                /*
+                if (afl->limit_time_sig == 0 && !afl->custom_only &&
+                    !afl->python_only) {
+
+                  afl->limit_time_sig = -1;
+                  afl->limit_time_puppet = 0;
+
+                }
+
+                */
+                afl->expand_havoc = 2;
+                if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
+                break;
+              case 2:
+                // increase havoc mutations per fuzz attempt
+                afl->havoc_stack_pow2++;
+                afl->expand_havoc = 3;
+                break;
+              case 3:
+                // further increase havoc mutations per fuzz attempt
+                afl->havoc_stack_pow2++;
+                afl->expand_havoc = 4;
+                break;
+              case 4:
+                afl->expand_havoc = 5;
+                // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
+                // 3;
+                break;
+              case 5:
+                // nothing else currently
+                break;
+
+            }
+
+          } else {
+
+    #ifndef NO_SPLICING
+            afl->use_splicing = 1;
+    #else
+            afl->use_splicing = 0;
+    #endif
+
+          }
 
         } else {
 
-          afl->pizza_is_served = 0;
+          afl->cycles_wo_finds = 0;
 
         }
 
-      }
+    #ifdef INTROSPECTION
+        fprintf(afl->introspection_file,
+                "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
+                afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
+                afl->queued_items);
+    #endif
 
-      if (unlikely(afl->old_seed_selection)) {
+        if (afl->cycle_schedules) {
 
-        afl->current_entry = 0;
-        while (unlikely(afl->current_entry < afl->queued_items &&
-                        afl->queue_buf[afl->current_entry]->disabled)) {
+          /* we cannot mix non-AFLfast schedules with others */
 
-          ++afl->current_entry;
+          switch (afl->schedule) {
 
-        }
-
-        if (afl->current_entry >= afl->queued_items) { afl->current_entry = 0; }
-
-        afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-        if (unlikely(seek_to)) {
-
-          if (unlikely(seek_to >= afl->queued_items)) {
-
-            // This should never happen.
-            FATAL("BUG: seek_to location out of bounds!\n");
-
-          }
-
-          afl->current_entry = seek_to;
-          afl->queue_cur = afl->queue_buf[seek_to];
-          seek_to = 0;
-
-        }
-
-      }
-
-      if (unlikely(afl->not_on_tty)) {
-
-        ACTF("Entering queue cycle %llu.", afl->queue_cycle);
-        fflush(stdout);
-
-      }
-
-      /* If we had a full queue cycle with no new finds, try
-         recombination strategies next. */
-
-      if (unlikely(afl->queued_items == prev_queued
-                   /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
-                      3600 */
-                   )) {
-
-        if (afl->use_splicing) {
-
-          ++afl->cycles_wo_finds;
-
-          if (unlikely(afl->shm.cmplog_mode &&
-                       afl->cmplog_max_filesize < MAX_FILE)) {
-
-            afl->cmplog_max_filesize <<= 4;
-
-          }
-
-          switch (afl->expand_havoc) {
-
-            case 0:
-              // this adds extra splicing mutation options to havoc mode
-              afl->expand_havoc = 1;
+            case EXPLORE:
+              afl->schedule = EXPLOIT;
               break;
-            case 1:
-              // add MOpt mutator
-              /*
-              if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                  !afl->python_only) {
+            case EXPLOIT:
+              afl->schedule = MMOPT;
+              break;
+            case MMOPT:
+              afl->schedule = SEEK;
+              break;
+            case SEEK:
+              afl->schedule = EXPLORE;
+              break;
+            case FAST:
+              afl->schedule = COE;
+              break;
+            case COE:
+              afl->schedule = LIN;
+              break;
+            case LIN:
+              afl->schedule = QUAD;
+              break;
+            case QUAD:
+              afl->schedule = RARE;
+              break;
+            case RARE:
+              afl->schedule = FAST;
+              break;
 
-                afl->limit_time_sig = -1;
-                afl->limit_time_puppet = 0;
+          }
+
+          // we must recalculate the scores of all queue entries
+          for (u32 i = 0; i < afl->queued_items; i++) {
+
+            if (likely(!afl->queue_buf[i]->disabled)) {
+
+              update_bitmap_score(afl, afl->queue_buf[i]);
+
+            }
+
+          }
+
+        }
+
+        prev_queued = afl->queued_items;
+
+      }
+
+      ++runs_in_current_cycle;
+
+      do {
+
+        if (likely(!afl->old_seed_selection)) {
+
+          if (unlikely(prev_queued_items < afl->queued_items ||
+                       afl->reinit_table)) {
+
+            // we have new queue entries since the last run, recreate alias table
+            prev_queued_items = afl->queued_items;
+            create_alias_table(afl);
+
+          }
+
+          afl->current_entry = select_next_queue_entry(afl);
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+        }
+
+        skipped_fuzz = fuzz_one(afl);
+
+        if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
+
+        if (unlikely(afl->old_seed_selection)) {
+
+          while (++afl->current_entry < afl->queued_items &&
+                 afl->queue_buf[afl->current_entry]->disabled)
+            ;
+          if (unlikely(afl->current_entry >= afl->queued_items ||
+                       afl->queue_buf[afl->current_entry] == NULL ||
+                       afl->queue_buf[afl->current_entry]->disabled))
+            afl->queue_cur = NULL;
+          else
+            afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+        }
+
+      } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
+
+      if (likely(!afl->stop_soon && afl->sync_id)) {
+
+        if (likely(afl->skip_deterministic)) {
+
+          if (unlikely(afl->is_main_node)) {
+
+            if (unlikely(get_cur_time() >
+                         (SYNC_TIME >> 1) + afl->last_sync_time)) {
+
+              if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
+
+                sync_fuzzers(afl);
 
               }
 
-              */
-              afl->expand_havoc = 2;
-              if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
-              break;
-            case 2:
-              // increase havoc mutations per fuzz attempt
-              afl->havoc_stack_pow2++;
-              afl->expand_havoc = 3;
-              break;
-            case 3:
-              // further increase havoc mutations per fuzz attempt
-              afl->havoc_stack_pow2++;
-              afl->expand_havoc = 4;
-              break;
-            case 4:
-              afl->expand_havoc = 5;
-              // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
-              // 3;
-              break;
-            case 5:
-              // nothing else currently
-              break;
+            }
 
-          }
+          } else {
 
-        } else {
+            if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
 
-  #ifndef NO_SPLICING
-          afl->use_splicing = 1;
-  #else
-          afl->use_splicing = 0;
-  #endif
-
-        }
-
-      } else {
-
-        afl->cycles_wo_finds = 0;
-
-      }
-
-  #ifdef INTROSPECTION
-      fprintf(afl->introspection_file,
-              "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
-              afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
-              afl->queued_items);
-  #endif
-
-      if (afl->cycle_schedules) {
-
-        /* we cannot mix non-AFLfast schedules with others */
-
-        switch (afl->schedule) {
-
-          case EXPLORE:
-            afl->schedule = EXPLOIT;
-            break;
-          case EXPLOIT:
-            afl->schedule = MMOPT;
-            break;
-          case MMOPT:
-            afl->schedule = SEEK;
-            break;
-          case SEEK:
-            afl->schedule = EXPLORE;
-            break;
-          case FAST:
-            afl->schedule = COE;
-            break;
-          case COE:
-            afl->schedule = LIN;
-            break;
-          case LIN:
-            afl->schedule = QUAD;
-            break;
-          case QUAD:
-            afl->schedule = RARE;
-            break;
-          case RARE:
-            afl->schedule = FAST;
-            break;
-
-        }
-
-        // we must recalculate the scores of all queue entries
-        for (u32 i = 0; i < afl->queued_items; i++) {
-
-          if (likely(!afl->queue_buf[i]->disabled)) {
-
-            update_bitmap_score(afl, afl->queue_buf[i]);
-
-          }
-
-        }
-
-      }
-
-      prev_queued = afl->queued_items;
-
-    }
-
-    ++runs_in_current_cycle;
-
-    do {
-
-      if (likely(!afl->old_seed_selection)) {
-
-        if (unlikely(prev_queued_items < afl->queued_items ||
-                     afl->reinit_table)) {
-
-          // we have new queue entries since the last run, recreate alias table
-          prev_queued_items = afl->queued_items;
-          create_alias_table(afl);
-
-        }
-
-        afl->current_entry = select_next_queue_entry(afl);
-        afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-      }
-
-      skipped_fuzz = fuzz_one(afl);
-
-      if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
-
-      if (unlikely(afl->old_seed_selection)) {
-
-        while (++afl->current_entry < afl->queued_items &&
-               afl->queue_buf[afl->current_entry]->disabled)
-          ;
-        if (unlikely(afl->current_entry >= afl->queued_items ||
-                     afl->queue_buf[afl->current_entry] == NULL ||
-                     afl->queue_buf[afl->current_entry]->disabled))
-          afl->queue_cur = NULL;
-        else
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-      }
-
-    } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
-
-    if (likely(!afl->stop_soon && afl->sync_id)) {
-
-      if (likely(afl->skip_deterministic)) {
-
-        if (unlikely(afl->is_main_node)) {
-
-          if (unlikely(get_cur_time() >
-                       (SYNC_TIME >> 1) + afl->last_sync_time)) {
-
-            if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
-
-              sync_fuzzers(afl);
+              if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
             }
 
@@ -2523,20 +2543,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
-
-            if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
-
-          }
+          sync_fuzzers(afl);
 
         }
 
-      } else {
-
-        sync_fuzzers(afl);
-
       }
-
     }
 
   }
