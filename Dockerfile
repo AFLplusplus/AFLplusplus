@@ -75,8 +75,9 @@ COPY . .
 ARG CC=gcc-$GCC_VERSION
 ARG CXX=g++-$GCC_VERSION
 
-RUN sed -i 's/-$(MAKE)/$(MAKE)/g' GNUmakefile && make clean && \
-    make distrib && make install && make clean
+RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
+    make clean && make distrib && make install && make clean && \
+    mv GNUmakefile.bak GNUmakefile
 
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
     echo ". /etc/bash_completion" >> ~/.bashrc && \
