@@ -8,6 +8,7 @@ try:
     mq = sysv_ipc.MessageQueue(1234, sysv_ipc.IPC_CREAT)
 
     while True:
+        print('here')
         message, mtype = mq.receive()
         print(mtype)
         if mtype == 1:
