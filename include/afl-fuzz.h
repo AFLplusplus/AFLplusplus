@@ -76,6 +76,21 @@
 #include <sys/file.h>
 #include <sys/types.h>
 
+/* Start my libraries <@@@> */
+
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
+#define  BUFF_SIZE   64
+
+
+typedef struct {
+  long  data_type;
+  char  data_buff[BUFF_SIZE];
+} t_data;
+
+/* End my libraries <@@@> */
+
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
   #include <sys/sysctl.h>
