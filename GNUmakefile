@@ -312,7 +312,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 
 .PHONY: llvm
 llvm:
-	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
+	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 .PHONY: gcc_plugin
@@ -568,19 +568,19 @@ all_done: test_build
 .PHONY: clean
 clean:
 	rm -rf $(PROGS) afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
-	$(MAKE) -f GNUmakefile.llvm clean
-	$(MAKE) -f GNUmakefile.gcc_plugin clean
-	$(MAKE) -C utils/libdislocator clean
-	$(MAKE) -C utils/libtokencap clean
-	$(MAKE) -C utils/aflpp_driver clean
-	$(MAKE) -C utils/afl_network_proxy clean
-	$(MAKE) -C utils/socket_fuzzing clean
-	$(MAKE) -C utils/argv_fuzzing clean
-	$(MAKE) -C utils/plot_ui clean
-	$(MAKE) -C qemu_mode/unsigaction clean
-	$(MAKE) -C qemu_mode/libcompcov clean
-	$(MAKE) -C qemu_mode/libqasan clean
-	$(MAKE) -C frida_mode clean
+	-$(MAKE) -f GNUmakefile.llvm clean
+	-$(MAKE) -f GNUmakefile.gcc_plugin clean
+	-$(MAKE) -C utils/libdislocator clean
+	-$(MAKE) -C utils/libtokencap clean
+	-$(MAKE) -C utils/aflpp_driver clean
+	-$(MAKE) -C utils/afl_network_proxy clean
+	-$(MAKE) -C utils/socket_fuzzing clean
+	-$(MAKE) -C utils/argv_fuzzing clean
+	-$(MAKE) -C utils/plot_ui clean
+	-$(MAKE) -C qemu_mode/unsigaction clean
+	-$(MAKE) -C qemu_mode/libcompcov clean
+	-$(MAKE) -C qemu_mode/libqasan clean
+	-$(MAKE) -C frida_mode clean
 	rm -rf nyx_mode/packer/linux_initramfs/init.cpio.gz nyx_mode/libnyx/libnyx/target/release/* nyx_mode/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
 ifeq "$(IN_REPO)" "1"
 	-test -e coresight_mode/coresight-trace/Makefile && $(MAKE) -C coresight_mode/coresight-trace clean || true
@@ -610,21 +610,21 @@ endif
 
 .PHONY: distrib
 distrib: all
-	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
+	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
-	$(MAKE) -f GNUmakefile.gcc_plugin
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
-	$(MAKE) -C utils/libdislocator
-	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/afl_network_proxy
-	$(MAKE) -C utils/socket_fuzzing
-	$(MAKE) -C utils/argv_fuzzing
+	-$(MAKE) -C utils/libdislocator
+	-$(MAKE) -C utils/libtokencap
+	-$(MAKE) -C utils/afl_network_proxy
+	-$(MAKE) -C utils/socket_fuzzing
+	-$(MAKE) -C utils/argv_fuzzing
 	# $(MAKE) -C utils/plot_ui
-	$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
   ifndef NO_CORESIGHT
-	$(MAKE) -C coresight_mode
+	-$(MAKE) -C coresight_mode
   endif
 endif
 ifeq "$(SYS)" "Linux"
@@ -644,17 +644,17 @@ endif
 
 .PHONY: binary-only
 binary-only: test_shm test_python ready $(PROGS)
-	$(MAKE) -C utils/libdislocator
-	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/afl_network_proxy
-	$(MAKE) -C utils/socket_fuzzing
-	$(MAKE) -C utils/argv_fuzzing
+	-$(MAKE) -C utils/libdislocator
+	-$(MAKE) -C utils/libtokencap
+	-$(MAKE) -C utils/afl_network_proxy
+	-$(MAKE) -C utils/socket_fuzzing
+	-$(MAKE) -C utils/argv_fuzzing
 	# $(MAKE) -C utils/plot_ui
-	$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
   ifndef NO_CORESIGHT
-	$(MAKE) -C coresight_mode
+	-$(MAKE) -C coresight_mode
   endif
 endif
 ifeq "$(SYS)" "Linux"
@@ -674,12 +674,12 @@ endif
 
 .PHONY: source-only
 source-only: all
-	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
+	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
-	$(MAKE) -f GNUmakefile.gcc_plugin
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
-	$(MAKE) -C utils/libdislocator
-	$(MAKE) -C utils/libtokencap
+	-$(MAKE) -C utils/libdislocator
+	-$(MAKE) -C utils/libtokencap
 	# $(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
@@ -728,9 +728,9 @@ install: all $(MANPAGES)
 	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
 	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	$(MAKE) -f GNUmakefile.llvm install
+	-$(MAKE) -f GNUmakefile.llvm install
 ifneq "$(SYS)" "Darwin"
-	$(MAKE) -f GNUmakefile.gcc_plugin install
+	-$(MAKE) -f GNUmakefile.gcc_plugin install
 endif
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++

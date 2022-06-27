@@ -47,7 +47,9 @@ RUN apt-get update && \
     # libcapstone-dev is used for coresight_mode on arm64
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0 && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 0 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${LLVM_VERSION} 0
 
 RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
 ENV PATH=$PATH:/etc/cargo/bin
@@ -70,8 +72,11 @@ ARG NO_UNICORN_ARM64=1
 WORKDIR /AFLplusplus
 COPY . .
 
-RUN export CC=gcc-${GCC_VERSION} && export CXX=g++-${GCC_VERSION} && gmake clean && \
-    gmake distrib && gmake install && gmake clean
+ARG CC=gcc-$GCC_VERSION
+ARG CXX=g++-$GCC_VERSION
+
+RUN sed -i 's/-$(MAKE)/$(MAKE)/g' GNUmakefile && make clean && \
+    make distrib && make install && make clean
 
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
     echo ". /etc/bash_completion" >> ~/.bashrc && \
