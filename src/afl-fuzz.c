@@ -2256,7 +2256,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (likely(!afl->stop_soon)) {
     if (true) {
       data.data_type = 1;
-      memcpy(data.buff, &sched->exec_map, sizeof(u64));
+      memcpy(data.data_buff, &sched->exec_map, sizeof(u64));
       if (-1 == ( msqid = msgget( (key_t)1234, IPC_CREAT | 0666))) {
         perror("msgget() failed");
         exit(1);
