@@ -118,7 +118,7 @@ if [ "$PLATFORM" = "Darwin" ] ; then
     sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist >/dev/null 2>&1
     echo
   fi
-  echo It is recommended to disable System Integration Protection for increased performance.
+  echo It is recommended to disable System Integrity Protection for increased performance.
   echo
   DONE=1
 fi
