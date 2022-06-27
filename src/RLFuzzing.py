@@ -10,8 +10,8 @@ try:
     while True:
         message, mtype = mq.receive()
         if mtype == 1:
-            # afl_fsrv_map_size = struct.unpack("afl->fsrv.map_size", message)
-            afl_fsrv_map_size = message.decode()
+            afl_fsrv_map_size = struct.unpack("afl->fsrv.map_size", message)
+            # afl_fsrv_map_size = message.decode()
             print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
 
 except sysv_ipc.ExistentialError:
