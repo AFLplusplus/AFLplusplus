@@ -680,7 +680,7 @@ ifneq "$(SYS)" "Darwin"
 endif
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
-	# $(MAKE) -C utils/plot_ui
+	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
