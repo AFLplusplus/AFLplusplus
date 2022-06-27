@@ -10,8 +10,8 @@ try:
 	while True:
 		message, mtype = mq.receive()
 		if mtype == 1:
-			sched_exec_map = struct.unpack("sched->exec_map", message)
-			print(f"Scheduler exec_map: {sched_exec_map}")
+			afl_fsrv_map_size = struct.unpack("afl->fsrv.map_size", message)
+			print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
 
 except sysv_ipc.ExistentialError:
     print("ERROR: message queue creation failed")
