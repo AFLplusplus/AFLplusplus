@@ -2263,7 +2263,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (likely(!afl->stop_soon)) {
     if (true) {
       data.data_type = 1;
-      memcpy(data.data_buff, &afl->fsrv.map_size, sizeof(u32));
+      memcpy(data.data_buff, afl->fsrv.map_size, sizeof(u32));
       if ( -1 == msgsnd(msqid, &data, sizeof( t_data) - sizeof( long), 0)) {
         perror( "msgsnd() failed");
         exit( 1);
