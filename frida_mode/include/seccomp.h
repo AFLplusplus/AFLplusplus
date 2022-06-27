@@ -1,9 +1,7 @@
-#if defined(__linux__) && !defined(__ANDROID__)
-
 #ifndef _SECCOMP_H
 #define _SECCOMP_H
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__ANDROID__)
 
   #include <stdint.h>
   #include <linux/filter.h>
@@ -444,4 +442,3 @@ void seccomp_on_fork(void);
 
 #endif
 
-#endif
