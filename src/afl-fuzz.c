@@ -2264,10 +2264,11 @@ int main(int argc, char **argv_orig, char **envp) {
     if (true) {
       data.data_type = 1;
       // memcpy(data.data_buff, &afl->fsrv.map_size, sizeof(u32));
-      double msg_double1 = 1234.56789;
-      double msg_double2 = 9876.12345;
-      memcpy(data.data_buff, &msg_double1, sizeof(double));
-      memcpy(data.data_buff+sizeof(double), &msg_double2, sizeof(double));
+      // double msg_double1 = 1234.56789;
+      // double msg_double2 = 9876.12345;
+      // memcpy(data.data_buff, &msg_double1, sizeof(double));
+      // memcpy(data.data_buff+sizeof(double), &msg_double2, sizeof(double));
+      sprintf( data.data_buff, "string from C");
       if (-1 == msgsnd(msqid, &data, sizeof( t_data) - sizeof( long), 0)) {
         perror( "msgsnd() failed");
         exit(1);
