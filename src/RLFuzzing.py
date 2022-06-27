@@ -12,3 +12,4 @@ try:
 		if mtype == 1:
 			sched_exec_map = struct.unpack("sched->exec_map", message)
 			print(f"Scheduler exec_map: {sched_exec_map}")
+			
