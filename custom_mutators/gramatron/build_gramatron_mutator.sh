@@ -125,7 +125,7 @@ else
   }
 fi
 
-test -f json-c/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -d json-c/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got json-c."
 
 test -e json-c/.libs/libjson-c.a || {
@@ -144,6 +144,6 @@ echo
 echo
 echo "[+] Json-c successfully prepared!"
 echo "[+] Builing gramatron now."
-$CC -O3 -g -fPIC -Wno-unused-result -Wl,--allow-multiple-definition -I../../include -o gramatron.so -shared -I. -I/prg/dev/include gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c automaton-parser.c ../../src/afl-performance.o json-c/.libs/libjson-c.a || exit 1
+$CC -O3 -g -fPIC -Wno-unused-result -Wl,--allow-multiple-definition -I../../include -o gramatron.so -shared -I. -I/prg/dev/include gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c ../../src/afl-performance.o json-c/.libs/libjson-c.a || exit 1
 echo
 echo "[+] gramatron successfully built!"
