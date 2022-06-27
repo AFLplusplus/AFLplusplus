@@ -2268,9 +2268,9 @@ int main(int argc, char **argv_orig, char **envp) {
       double msg_double2 = 9876.12345;
       memcpy(data.data_buff, &msg_double1, sizeof(double));
       memcpy(data.data_buff+sizeof(double), &msg_double2, sizeof(double));
-      if ( -1 == msgsnd(msqid, &data, sizeof( t_data) - sizeof( long), 0)) {
+      if (-1 == msgsnd(msqid, &data, sizeof( t_data) - sizeof( long), 0)) {
         perror( "msgsnd() failed");
-        exit( 1);
+        exit(1);
       }
 
     // } else {
