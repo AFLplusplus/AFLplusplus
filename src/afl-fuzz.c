@@ -2250,11 +2250,17 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
-  int      msqid;
+  int      msqid_sender;
+  int      msqid_reciever;
   t_data   data;
+  char   new_array[BUFF_SIZE];
 
+  if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+    perror("msgget() failed");
+    exit(1);
+  }
 
-  if (-1 == ( msqid = msgget( (key_t)1234, IPC_CREAT | 0666))) {
+  if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
     perror("msgget() failed");
     exit(1);
   }
@@ -2262,18 +2268,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while (likely(!afl->stop_soon)) {
     if (true) {
+
       data.data_type = 1;
-      // memcpy(data.data_buff, &afl->fsrv.map_size, sizeof(u32));
       char msg_array[BUFF_SIZE];
       for (int i = 0; i < BUFF_SIZE; i++) {
         msg_array[i] = i;
       }
 
       memcpy(data.data_buff, msg_array, BUFF_SIZE);
-      if ( -1 == msgsnd( msqid, &data, sizeof( t_data) - sizeof( long), 0)) {
-        perror( "msgsnd() failed");
-        exit( 1);
+      if (-1 == msgsnd( msqid_sender, &data, sizeof( t_data) - sizeof( long), 0)) {
+        perror("msgsnd() failed");
+        exit(1);
       }
+
+
+    if ( -1 == msgrcv( msqid_reciever, &data, sizeof( t_data) - sizeof( long), 0, 0)) {
+      perror( "msgrcv() failed");
+      exit(1);
+    }
+    memcpy(new_array, data.data_buff, BUFF_SIZE);
+    printf("Interpreted as array: ");
+    for(int i = 0; i<BUFF_SIZE; i++) {
+      printf("%d ", new_array[i]);
+    }
+    printf("\n");
+
 
     // } else {
       cull_queue(afl);
