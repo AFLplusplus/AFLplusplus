@@ -2,7 +2,7 @@ import sysv_ipc
 import numpy as np
 import struct
 
-BUFF_SIZE = 64
+BUFF_SIZE = 16
 
 try:
 	mq = sysv_ipc.MessageQueue(1234, sysv_ipc.IPC_CREAT)
