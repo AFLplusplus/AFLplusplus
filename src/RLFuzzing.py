@@ -9,6 +9,7 @@ try:
 
 	while True:
 		message, mtype = mq.receive()
+		print(mtype)
 		if mtype == 1:
 			afl_fsrv_map_size = struct.unpack("afl->fsrv.map_size", message)
 			print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
