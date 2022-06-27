@@ -7,7 +7,7 @@ while True:
     try:
         mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT)
 
-        message, mtype = mq.receive()
+        message, mtype = mq_reciever.receive()
         if mtype == 1:
             afl_fsrv_map_size = np.frombuffer(message, dtype=np.int8)
             # afl_fsrv_map_size = message.decode()
