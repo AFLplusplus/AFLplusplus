@@ -81,7 +81,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#define  BUFF_SIZE   16
+#define  BUFF_SIZE   64
 
 
 typedef struct {
