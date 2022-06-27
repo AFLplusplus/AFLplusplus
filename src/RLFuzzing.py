@@ -2,7 +2,7 @@ import sysv_ipc
 import numpy as np
 import struct
 
-BUFF_SIZE = 16
+BUFF_SIZE = 1000
 while True:
     try:
         mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT)

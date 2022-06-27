@@ -2253,7 +2253,7 @@ int main(int argc, char **argv_orig, char **envp) {
   int      msqid_sender;
   int      msqid_reciever;
   t_data   data;
-  char   new_array[BUFF_SIZE];
+  char   recieved_array[BUFF_SIZE];
 
   if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
     perror("msgget() failed");
@@ -2276,22 +2276,18 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       memcpy(data.data_buff, msg_array, BUFF_SIZE);
-      if (-1 == msgsnd( msqid_sender, &data, sizeof( t_data) - sizeof( long), 0)) {
+      if (-1 == msgsnd(msqid_sender, &data, sizeof(t_data) - sizeof( long), 0)) {
         perror("msgsnd() failed");
         exit(1);
       }
 
 
-    if ( -1 == msgrcv( msqid_reciever, &data, sizeof( t_data) - sizeof( long), 0, 0)) {
+    if ( -1 == msgrcv(msqid_reciever, &data, sizeof(t_data) - sizeof( long), 0, 0)) {
       perror( "msgrcv() failed");
       exit(1);
     }
-    memcpy(new_array, data.data_buff, BUFF_SIZE);
-    printf("Interpreted as array: ");
-    for(int i = 0; i<BUFF_SIZE; i++) {
-      printf("%d ", new_array[i]);
-    }
-    printf("\n");
+    memcpy(recieved_array, data.data_buff, BUFF_SIZE);
+
 
 
     // } else {
