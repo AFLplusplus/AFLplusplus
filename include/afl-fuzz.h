@@ -100,12 +100,12 @@
   typedef struct {
     long    data_type;
     u8      data_buff[BUFF_SIZE_SENDER];
-  } t_send_uint_data;
+  } t_send_u8_data;
 
   typedef struct {
     long    data_type;
     u8      data_buff[BUFF_SIZE_RECEIVER];
-  } t_recieve_uint_data;
+  } t_recieve_u8_data;
 #endif
 
 /* End my libraries <@@@> */
