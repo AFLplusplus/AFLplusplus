@@ -4,7 +4,7 @@ import struct
 
 
 class RLFuzzing:
-    def __init__(self,max_message_size=(int)1e6):
+    def __init__(self,int: max_message_size=1e6):
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         return
