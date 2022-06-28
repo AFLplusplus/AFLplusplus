@@ -5,7 +5,6 @@ import struct
 
 class RLFuzzing:
     def __init__(self):
-        sysv_ipc.MessageQueue.remove()
         return
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=32):
