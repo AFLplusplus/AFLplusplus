@@ -2250,22 +2250,25 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
-  int msqid_sender;
-  int msqid_reciever;
 
-  if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
+  if (RLFUZZING) {
+    int msqid_sender;
+    int msqid_reciever;
 
-  if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
+    if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+      perror("msgget() failed");
+      exit(1);
+    }
+
+    if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
+      perror("msgget() failed");
+      exit(1);
+    }
   }
 
 
   while (likely(!afl->stop_soon)) {
-    if (true) {
+    if (RLFUZZING) {
 
       /* Send Messages */
       t_send_data send_data;

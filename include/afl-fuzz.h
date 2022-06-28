@@ -77,23 +77,25 @@
 #include <sys/types.h>
 
 /* Start my libraries <@@@> */
+#define  RLFUZZING            1
 
-#include <sys/ipc.h>
-#include <sys/msg.h>
+#ifdef RLFUZZING
+  #include <sys/ipc.h>
+  #include <sys/msg.h>
 
-#define  BUFF_SIZE_SENDER     32
-#define  BUFF_SIZE_RECEIVER   64
+  #define  BUFF_SIZE_SENDER     32
+  #define  BUFF_SIZE_RECEIVER   64
 
 
-typedef struct {
-  long    data_type;
-  double  data_buff[BUFF_SIZE_SENDER];
-} t_send_data;
+  typedef struct {
+    long    data_type;
+    double  data_buff[BUFF_SIZE_SENDER];
+  } t_send_data;
 
-typedef struct {
-  long    data_type;
-  double  data_buff[BUFF_SIZE_RECEIVER];
-} t_recieve_data;
+  typedef struct {
+    long    data_type;
+    double  data_buff[BUFF_SIZE_RECEIVER];
+  } t_recieve_data;
 
 /* End my libraries <@@@> */
 
