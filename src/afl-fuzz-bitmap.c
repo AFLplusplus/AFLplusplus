@@ -592,21 +592,21 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     }
 
 
-  /* Receive Messages */
-    t_recieve_u8_data recieve_data;
-    u8 recieved_array[BUFF_SIZE_RECEIVER];
-    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u8_data) - sizeof(long), 0, 0)) {
-      perror("here 2\n");
-      perror( "msgrcv() failed");
-      exit(1);
-    }
+  // /* Receive Messages */
+  //   t_recieve_u8_data recieve_data;
+  //   u8 recieved_array[BUFF_SIZE_RECEIVER];
+  //   if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u8_data) - sizeof(long), 0, 0)) {
+  //     perror("here 2\n");
+  //     perror( "msgrcv() failed");
+  //     exit(1);
+  //   }
 
-    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
-    printf("Interpreted as array: ");
-    for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
-      printf("%d ", recieved_array[i]);
-    }
-    printf("\n");
+  //   memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+  //   printf("Interpreted as array: ");
+  //   for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
+  //     printf("%d ", recieved_array[i]);
+  //   }
+  //   printf("\n");
 
 
   }
