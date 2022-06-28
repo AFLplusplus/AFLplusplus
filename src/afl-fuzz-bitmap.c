@@ -562,6 +562,53 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     afl->queue_top->exec_cksum =
         hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
+  if (RLFUZZING) {
+    int msqid_sender;
+    int msqid_reciever;
+
+    if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+      perror("msgget() failed");
+      exit(1);
+    }
+
+    if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
+      perror("msgget() failed");
+      exit(1);
+    }
+
+
+    /* Send Messages */
+    t_send_data send_data;
+    send_data.data_type = 2;
+    double msg_array[BUFF_SIZE_SENDER];
+    for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
+      msg_array[i] = -3.2;
+    }
+
+    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(double));
+    if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof(long), 0)) {
+      perror("msgsnd() failed");
+      exit(1);
+    }
+
+
+  /* Receive Messages */
+    t_recieve_data recieve_data;
+    double recieved_array[BUFF_SIZE_RECEIVER];
+    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_data) - sizeof(long), 0, 0)) {
+      perror( "msgrcv() failed");
+      exit(1);
+    }
+    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+    printf("Interpreted as array: ");
+    for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
+      printf("%f ", recieved_array[i]);
+    }
+    printf("\n");
+
+
+  }
+
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
 
