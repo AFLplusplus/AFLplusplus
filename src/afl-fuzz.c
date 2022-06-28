@@ -2289,7 +2289,7 @@ int main(int argc, char **argv_orig, char **envp) {
         perror( "msgrcv() failed");
         exit(1);
       }
-      memcpy(recieved_array, data.data_buff, BUFF_SIZE_RECEIVER);
+      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER);
 
 
 
