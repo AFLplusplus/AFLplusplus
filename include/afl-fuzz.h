@@ -96,6 +96,7 @@
     long    data_type;
     double  data_buff[BUFF_SIZE_RECEIVER];
   } t_recieve_data;
+#endif
 
 /* End my libraries <@@@> */
 
