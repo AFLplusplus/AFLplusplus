@@ -2,8 +2,8 @@ import sysv_ipc
 import numpy as np
 import struct
 
-BUFF_SIZE_RECIEVER = 16
-BUFF_SIZE_SENDER = 32
+BUFF_SIZE_RECIEVER = 32
+BUFF_SIZE_SENDER = 64
 while True:
     try:
         mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT)
