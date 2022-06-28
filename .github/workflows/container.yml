@@ -23,11 +23,18 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          tags: aflplusplus:amd64
+          tags: aflplusplus:test-amd64
           load: true
           cache-to: type=gha,mode=max
+          build-args: |
+            TEST_BUILD=1
       - name: Test amd64
-        run: docker run --rm aflplusplus:amd64 bash -c "apt-get update && apt-get install -y libcmocka-dev && make -i tests"
+        run: >
+          docker run --rm aflplusplus:test-amd64 bash -c "
+          apt-get update && 
+          apt-get install -y libcmocka-dev && 
+          make -i tests
+          "
 
   push:
     name: Push amd64 and arm64 images

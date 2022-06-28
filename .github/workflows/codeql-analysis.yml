@@ -7,7 +7,7 @@ on:
     branches: [stable, dev]
 
 jobs:
-  codeql:
+  analyze:
     name: Analyze
     runs-on: ubuntu-latest
     container: # We use a previous image as it's expected to have all the dependencies

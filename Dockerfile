@@ -63,11 +63,11 @@ RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov && \
     (cd afl-cov && make install) && rm -rf afl-cov
 
 # Until gcc v12.1 is released for ubuntu https://bugs.launchpad.net/ubuntu/+source/gcc-11/+bug/1940029
-ARG NO_NYX=1
+ENV NO_NYX=1
 
 # Build currently broken
-ARG NO_CORESIGHT=1
-ARG NO_UNICORN_ARM64=1
+ENV NO_CORESIGHT=1
+ENV NO_UNICORN_ARM64=1
 
 WORKDIR /AFLplusplus
 COPY . .
@@ -75,8 +75,12 @@ COPY . .
 ARG CC=gcc-$GCC_VERSION
 ARG CXX=g++-$GCC_VERSION
 
+# Used in CI to prevent a 'make clean' which would remove the binaries to be tested
+ARG TEST_BUILD
+
 RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
-    make clean && make distrib && make install && make clean && \
+    make clean && make distrib && \
+    ([ "${TEST_BUILD}" ] || (make install && make clean)) && \
     mv GNUmakefile.bak GNUmakefile
 
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
