@@ -2250,10 +2250,8 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
-  int      msqid_sender;
-  int      msqid_reciever;
-  t_data   data;
-  char   recieved_array[BUFF_SIZE];
+  int msqid_sender;
+  int msqid_reciever;
 
   if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
     perror("msgget() failed");
@@ -2269,24 +2267,29 @@ int main(int argc, char **argv_orig, char **envp) {
   while (likely(!afl->stop_soon)) {
     if (true) {
 
-      data.data_type = 1;
-      char msg_array[BUFF_SIZE];
-      for (int i = 0; i < BUFF_SIZE; i++) {
+      /* Send Messages */
+      t_send_data send_data;
+      send_data.data_type = 1;
+      char msg_array[BUFF_SIZE_SENDER];
+      for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
         msg_array[i] = i;
       }
 
-      memcpy(data.data_buff, msg_array, BUFF_SIZE);
-      if (-1 == msgsnd(msqid_sender, &data, sizeof(t_data) - sizeof( long), 0)) {
+      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER);
+      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof( long), 0)) {
         perror("msgsnd() failed");
         exit(1);
       }
 
 
-    if ( -1 == msgrcv(msqid_reciever, &data, sizeof(t_data) - sizeof( long), 0, 0)) {
-      perror( "msgrcv() failed");
-      exit(1);
-    }
-    memcpy(recieved_array, data.data_buff, BUFF_SIZE);
+    /* Receive Messages */
+      t_recieve_data recieve_data;
+      char recieved_array[BUFF_SIZE_RECIEVER];
+      if ( -1 == msgrcv(msqid_reciever, &data, sizeof(t_recieve_data) - sizeof( long), 0, 0)) {
+        perror( "msgrcv() failed");
+        exit(1);
+      }
+      memcpy(recieved_array, data.data_buff, BUFF_SIZE_RECIEVER);
 
 
 

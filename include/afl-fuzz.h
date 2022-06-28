@@ -81,13 +81,19 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#define  BUFF_SIZE   1000
+#define  BUFF_SIZE_SENDER     16
+#define  BUFF_SIZE_RECEIVER   32
 
 
 typedef struct {
   long  data_type;
-  char  data_buff[BUFF_SIZE];
-} t_data;
+  char  data_buff[BUFF_SIZE_SENDER];
+} t_send_data;
+
+typedef struct {
+  long  data_type;
+  char  data_buff[BUFF_SIZE_RECEIVER];
+} t_recieve_data;
 
 /* End my libraries <@@@> */
 

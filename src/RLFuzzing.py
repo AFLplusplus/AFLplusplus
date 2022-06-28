@@ -2,7 +2,8 @@ import sysv_ipc
 import numpy as np
 import struct
 
-BUFF_SIZE = 1000
+BUFF_SIZE_RECIEVER = 16
+BUFF_SIZE_SENDER = 32
 while True:
     try:
         mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT)
@@ -16,7 +17,7 @@ while True:
     except sysv_ipc.ExistentialError:
         print("ERROR: message queue creation failed")
 
-    msg_npy = np.arange(BUFF_SIZE, dtype=np.uint8).reshape((2,BUFF_SIZE//2))
+    msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
 
     try:
         mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT)
