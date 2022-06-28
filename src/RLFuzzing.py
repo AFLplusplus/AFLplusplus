@@ -32,9 +32,6 @@ class RLFuzzing:
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=64):
         if mtype == 1:
             msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.double).reshape((2,BUFF_SIZE_SENDER//2))
-            msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
-
-
         elif mtype == 2:
             msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
 
