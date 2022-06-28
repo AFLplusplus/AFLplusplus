@@ -60,7 +60,7 @@ def fuzz(buf, add_buf, max_size):
 
     ret[:3] = random.choice(COMMANDS)
 
-    return ''
+    return ret
 
 
 # Uncomment and implement the following methods if you want to use a custom
