@@ -505,7 +505,10 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
 }
 
-#if !defined(__ANDROID__)
+#if defined(__APPLE__)
+size_t malloc_size(const void *ptr) {
+
+#elif !defined(__ANDROID__)
 size_t malloc_usable_size(void *ptr) {
 
 #else
@@ -516,6 +519,15 @@ size_t malloc_usable_size(const void *ptr) {
   return ptr ? PTR_L(ptr) : 0;
 
 }
+
+#if defined(__APPLE__)
+size_t malloc_good_size(size_t len) {
+
+  return (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
+
+}
+
+#endif
 
 __attribute__((constructor)) void __dislocator_init(void) {
 

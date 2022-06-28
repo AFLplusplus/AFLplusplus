@@ -1,3 +1,8 @@
+NOTE:
+This license applies only to the gcc_plugin code "afl-gcc-pass.so.cc" as
+gcc is GPL3 too.
+
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

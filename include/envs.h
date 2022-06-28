@@ -159,6 +159,7 @@ static char *afl_environment_variables[] = {
     "AFL_NO_COLOUR",
 #endif
     "AFL_NO_CPU_RED",
+    "AFL_NO_CRASH_README",
     "AFL_NO_FORKSRV",
     "AFL_NO_UI",
     "AFL_NO_PYTHON",
@@ -206,6 +207,7 @@ static char *afl_environment_variables[] = {
     "AFL_STATSD_HOST",
     "AFL_STATSD_PORT",
     "AFL_STATSD_TAGS_FLAVOR",
+    "AFL_SYNC_TIME",
     "AFL_TESTCACHE_SIZE",
     "AFL_TESTCACHE_ENTRIES",
     "AFL_TMIN_EXACT",

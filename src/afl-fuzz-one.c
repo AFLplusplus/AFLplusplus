@@ -2585,7 +2585,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SUBBYTE_");
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[rand_below(afl, temp_len)]++;
+          out_buf[rand_below(afl, temp_len)]--;
           break;
 
         }
