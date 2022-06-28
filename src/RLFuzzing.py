@@ -13,7 +13,7 @@ class RLFuzzing:
         try:
             
 
-            message, mtype = mq_reciever.receive()
+            message, mtype = self.mq_reciever.receive()
 
             if mtype == 1:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
@@ -37,7 +37,7 @@ class RLFuzzing:
 
         try:
             
-            mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
+            self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
 
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
