@@ -2295,7 +2295,6 @@ int main(int argc, char **argv_orig, char **envp) {
         printf("%f ", recieved_array[i]);
       }
       printf("\n");
-    }
 
 
 
