@@ -119,10 +119,14 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
       FATAL("Python mutator fuzz() should return a bytearray or bytes");
     }
 
-    *out_buf = afl_realloc(BUF_PARAMS(fuzz), mutated_size);
-    if (unlikely(!*out_buf)) { PFATAL("alloc"); }
+    if (mutated_size) {
 
-    memcpy(*out_buf, bytes, mutated_size);
+      *out_buf = afl_realloc(BUF_PARAMS(fuzz), mutated_size);
+      if (unlikely(!*out_buf)) { PFATAL("alloc"); }
+
+      memcpy(*out_buf, bytes, mutated_size);
+
+    }
 
     Py_DECREF(py_value);
     return mutated_size;
@@ -650,7 +654,7 @@ s32 post_trim_py(void *py_mutator, u8 success) {
 size_t trim_py(void *py_mutator, u8 **out_buf) {
 
   PyObject *py_args, *py_value;
-  size_t    ret;
+  size_t    trimmed_size;
 
   py_args = PyTuple_New(0);
   py_value = PyObject_CallObject(
@@ -660,13 +664,15 @@ size_t trim_py(void *py_mutator, u8 **out_buf) {
   if (py_value != NULL) {
 
     char *bytes;
-    if (!py_bytes(py_value, &bytes, &ret)) {
+    if (!py_bytes(py_value, &bytes, &trimmed_size)) {
       FATAL("Python mutator fuzz() should return a bytearray");
     }
 
-    *out_buf = afl_realloc(BUF_PARAMS(trim), ret);
-    if (unlikely(!*out_buf)) { PFATAL("alloc"); }
-    memcpy(*out_buf, bytes, ret);
+    if (trimmed_size) {
+      *out_buf = afl_realloc(BUF_PARAMS(trim), trimmed_size);
+      if (unlikely(!*out_buf)) { PFATAL("alloc"); }
+      memcpy(*out_buf, bytes, trimmed_size);
+    }
     Py_DECREF(py_value);
 
   } else {
@@ -676,7 +682,7 @@ size_t trim_py(void *py_mutator, u8 **out_buf) {
 
   }
 
-  return ret;
+  return trimmed_size;
 
 }
 
@@ -738,8 +744,6 @@ size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
       if (unlikely(!*out_buf)) { PFATAL("alloc"); }
 
     }
-
-    memcpy(*out_buf, bytes, mutated_size);
 
     Py_DECREF(py_value);
     return mutated_size;
