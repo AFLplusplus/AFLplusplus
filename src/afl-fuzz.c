@@ -2289,7 +2289,7 @@ int main(int argc, char **argv_orig, char **envp) {
     /* Receive Messages */
       t_recieve_double_data recieve_data;
       double recieved_array[BUFF_SIZE_RECEIVER];
-      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, IPC_NOWAIT)) {
+      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
         perror( "msgrcv() failed");
         exit(1);
       }
