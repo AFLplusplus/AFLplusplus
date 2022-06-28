@@ -763,6 +763,8 @@ size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
 
     }
 
+    if (mutated_size) { memcpy(*out_buf, bytes, mutated_size); }
+
     Py_DECREF(py_value);
     return mutated_size;
 
