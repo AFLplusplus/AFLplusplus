@@ -10,7 +10,7 @@ while True:
 
         message, mtype = mq_reciever.receive()
         if mtype == 1:
-            afl_fsrv_map_size = np.frombuffer(message, dtype=np.int8)
+            afl_fsrv_map_size = np.frombuffer(message, dtype=np.float64)
             # afl_fsrv_map_size = message.decode()
             print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
 

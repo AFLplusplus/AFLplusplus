@@ -2271,7 +2271,7 @@ int main(int argc, char **argv_orig, char **envp) {
       t_send_data send_data;
       send_data.data_type = 1;
       char msg_array[BUFF_SIZE_SENDER];
-      for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
+      for (double i = 0; i < BUFF_SIZE_SENDER; i++) {
         msg_array[i] = i;
       }
 
