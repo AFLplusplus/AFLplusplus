@@ -2284,12 +2284,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
     /* Receive Messages */
       t_recieve_data recieve_data;
-      char recieved_array[BUFF_SIZE_RECEIVER];
+      double recieved_array[BUFF_SIZE_RECEIVER];
       if ( -1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_data) - sizeof(long), 0, 0)) {
         perror( "msgrcv() failed");
         exit(1);
       }
       memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER);
+      printf("Interpreted as array: ");
+      for(int i = 0; i<BUFF_SIZE_RECEIVER; i++)
+        printf("%f ", new_array[i]);
+      printf("\n");
+    }
 
 
 
