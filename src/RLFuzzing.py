@@ -7,8 +7,6 @@ class RLFuzzing:
     def __init__(self,max_message_size=1000000):
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
-        self.mq_reciever.remove()
-        self.mq_sender.remove()
         return
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=32):
