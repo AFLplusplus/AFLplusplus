@@ -2292,7 +2292,7 @@ int main(int argc, char **argv_orig, char **envp) {
       memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER);
       printf("Interpreted as array: ");
       for(int i = 0; i<BUFF_SIZE_RECEIVER; i++)
-        printf("%f ", new_array[i]);
+        printf("%f ", recieved_array[i]);
       printf("\n");
     }
 
