@@ -5,6 +5,7 @@ import struct
 
 class RLFuzzing:
     def __init__(self):
+        sysv_ipc.MessageQueue.remove()
         return
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=32):
@@ -15,13 +16,11 @@ class RLFuzzing:
 
             if mtype == 1:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
-                # afl_fsrv_map_size = message.decode()
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
             elif mtype == 2:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.uint8)
-                # afl_fsrv_map_size = message.decode()
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
                 print(f"mtype: {mtype}")
                 # self.send_messenges(mtype)
@@ -37,7 +36,7 @@ class RLFuzzing:
 
         try:
             mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT)
-            mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
+            mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
 
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
