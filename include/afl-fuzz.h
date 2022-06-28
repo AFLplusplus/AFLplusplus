@@ -87,12 +87,12 @@
 
 typedef struct {
   long  data_type;
-  char  data_buff[BUFF_SIZE_SENDER];
+  double  data_buff[BUFF_SIZE_SENDER];
 } t_send_data;
 
 typedef struct {
   long  data_type;
-  char  data_buff[BUFF_SIZE_RECEIVER];
+  double  data_buff[BUFF_SIZE_RECEIVER];
 } t_recieve_data;
 
 /* End my libraries <@@@> */

@@ -9,10 +9,9 @@ while True:
         mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT)
 
         message, mtype = mq_reciever.receive()
-        if mtype == 1:
-            afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
-            # afl_fsrv_map_size = message.decode()
-            print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
+        afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
+        # afl_fsrv_map_size = message.decode()
+        print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
 
     except sysv_ipc.ExistentialError:
         print("ERROR: message queue creation failed")
