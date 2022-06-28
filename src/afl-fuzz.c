@@ -2275,7 +2275,7 @@ int main(int argc, char **argv_orig, char **envp) {
         msg_array[i] = -3.2;
       }
 
-      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER);
+      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(double));
       if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof(long), 0)) {
         perror("msgsnd() failed");
         exit(1);
@@ -2289,7 +2289,7 @@ int main(int argc, char **argv_orig, char **envp) {
         perror( "msgrcv() failed");
         exit(1);
       }
-      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER);
+      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
       printf("Interpreted as array: ");
       for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
         printf("%f ", recieved_array[i]);
