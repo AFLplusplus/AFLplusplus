@@ -2250,10 +2250,11 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
+  int msqid_sender;
+  int msqid_reciever;
 
   if (RLFUZZING) {
-    int msqid_sender;
-    int msqid_reciever;
+
 
     if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
       perror("msgget() failed");
