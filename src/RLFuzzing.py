@@ -4,12 +4,14 @@ import struct
 
 
 class RLFuzzing:
-    def __init__(self):
+    def __init__(self,max_message_size=(int)1e6):
+        self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
+        self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         return
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=32):
         try:
-            mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT)
+            
 
             message, mtype = mq_reciever.receive()
 
@@ -34,7 +36,7 @@ class RLFuzzing:
         #     msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
 
         try:
-            mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT)
+            
             mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
 
         except sysv_ipc.ExistentialError:
