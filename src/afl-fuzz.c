@@ -2272,7 +2272,7 @@ int main(int argc, char **argv_orig, char **envp) {
       send_data.data_type = 1;
       double msg_array[BUFF_SIZE_SENDER];
       for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
-        msg_array[i] = (double) i;
+        msg_array[i] = -3.2;
       }
 
       memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER);
