@@ -97,3 +97,4 @@ utils/persistent_mode/persistent_demo_new
 utils/persistent_mode/test-instr
 !coresight_mode
 !coresight_mode/coresight-trace
+vuln_prog
