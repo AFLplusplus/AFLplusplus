@@ -2276,7 +2276,7 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER);
-      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof( long), 0)) {
+      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof(long), 0)) {
         perror("msgsnd() failed");
         exit(1);
       }
@@ -2285,7 +2285,7 @@ int main(int argc, char **argv_orig, char **envp) {
     /* Receive Messages */
       t_recieve_data recieve_data;
       char recieved_array[BUFF_SIZE_RECEIVER];
-      if ( -1 == msgrcv(msqid_reciever, &data, sizeof(t_recieve_data) - sizeof( long), 0, 0)) {
+      if ( -1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_data) - sizeof(long), 0, 0)) {
         perror( "msgrcv() failed");
         exit(1);
       }
