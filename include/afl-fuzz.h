@@ -90,12 +90,22 @@
   typedef struct {
     long    data_type;
     double  data_buff[BUFF_SIZE_SENDER];
-  } t_send_data;
+  } t_send_double_data;
 
   typedef struct {
     long    data_type;
     double  data_buff[BUFF_SIZE_RECEIVER];
-  } t_recieve_data;
+  } t_recieve_double_data;
+
+  typedef struct {
+    long    data_type;
+    u8      data_buff[BUFF_SIZE_SENDER];
+  } t_send_uint_data;
+
+  typedef struct {
+    long    data_type;
+    u8      data_buff[BUFF_SIZE_RECEIVER];
+  } t_recieve_uint_data;
 #endif
 
 /* End my libraries <@@@> */

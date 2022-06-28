@@ -20,7 +20,7 @@ class RLFuzzing:
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
             elif mtype == 2:
-                afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
+                afl_fsrv_map_size = np.frombuffer(message, dtype=np.uintc)
                 # afl_fsrv_map_size = message.decode()
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
                 print(f"mtype: {mtype}")
@@ -33,7 +33,7 @@ class RLFuzzing:
         if mtype == 1:
             msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.double).reshape((2,BUFF_SIZE_SENDER//2))
         elif mtype == 2:
-            msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.double).reshape((2,BUFF_SIZE_SENDER//2))
+            msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
 
         try:
             mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT)

@@ -578,28 +578,28 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 
     /* Send Messages */
-    t_send_data send_data;
+    t_send_uint_data send_data;
     send_data.data_type = 2;
-    double msg_array[BUFF_SIZE_SENDER];
+    u8 msg_array[BUFF_SIZE_SENDER];
     for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
-      msg_array[i] = -3.2;
+      msg_array[i] = 2;
     }
 
-    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(double));
-    if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof(long), 0)) {
+    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u8));
+    if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_uint_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
 
 
   /* Receive Messages */
-    t_recieve_data recieve_data;
-    double recieved_array[BUFF_SIZE_RECEIVER];
-    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_data) - sizeof(long), 0, 0)) {
+    t_recieve_uint_data recieve_data;
+    u8 recieved_array[BUFF_SIZE_RECEIVER];
+    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_uint_data) - sizeof(long), 0, 0)) {
       perror( "msgrcv() failed");
       exit(1);
     }
-    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u8));
     printf("Interpreted as array: ");
     for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
       printf("%f ", recieved_array[i]);

@@ -2272,7 +2272,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (RLFUZZING) {
 
       /* Send Messages */
-      t_send_data send_data;
+      t_send_double_data send_data;
       send_data.data_type = 1;
       double msg_array[BUFF_SIZE_SENDER];
       for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
@@ -2280,16 +2280,16 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(double));
-      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_data) - sizeof(long), 0)) {
+      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_double_data) - sizeof(long), 0)) {
         perror("msgsnd() failed");
         exit(1);
       }
 
 
     /* Receive Messages */
-      t_recieve_data recieve_data;
+      t_recieve_double_data recieve_data;
       double recieved_array[BUFF_SIZE_RECEIVER];
-      if ( -1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_data) - sizeof(long), 0, 0)) {
+      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
         perror( "msgrcv() failed");
         exit(1);
       }
