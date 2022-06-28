@@ -17,11 +17,13 @@ class RLFuzzing:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
                 # afl_fsrv_map_size = message.decode()
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
+                print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
             elif mtype == 2:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
                 # afl_fsrv_map_size = message.decode()
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
+                print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
 
         except sysv_ipc.ExistentialError:
