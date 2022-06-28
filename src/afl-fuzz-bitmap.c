@@ -585,7 +585,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       msg_array[i] = 2;
     }
 
-    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u8));
+    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER);
     if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_uint_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
@@ -599,7 +599,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       perror( "msgrcv() failed");
       exit(1);
     }
-    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u8));
+
+    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER);
     printf("Interpreted as array: ");
     for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
       printf("%d ", recieved_array[i]);
