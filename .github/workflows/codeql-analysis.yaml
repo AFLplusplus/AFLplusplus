@@ -10,7 +10,7 @@ jobs:
   codeql:
     name: Analyze
     runs-on: ubuntu-latest
-    container:  # We use a previous image as it's expected to have all the dependencies
+    container: # We use a previous image as it's expected to have all the dependencies
       image: docker.io/aflplusplus/aflplusplus:dev
     steps:
       - name: Fix for using external repo in container build # https://github.com/actions/checkout/issues/760
@@ -20,7 +20,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
-          languages: cpp
+          languages: cpp, python
       - name: Build AFLplusplus # Rebuild because CodeQL needs to monitor the build process
         env:
           CC: gcc # These are symlinked to the version used in the container build
