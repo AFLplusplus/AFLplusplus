@@ -602,7 +602,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u8));
     printf("Interpreted as array: ");
     for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
-      printf("%f ", recieved_array[i]);
+      printf("%d ", recieved_array[i]);
     }
     printf("\n");
 
