@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/master/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
 
-Release version: [4.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [4.01c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.01a
+GitHub version: 4.02a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -50,16 +50,19 @@ Here is some information to get you started:
 ## Building and installing AFL++
 
 To have AFL++ easily available with everything compiled, pull the image directly
-from the Docker Hub (available for x86_64 and arm64):
+from the Docker Hub (available for both x86_64 and arm64):
 
 ```shell
 docker pull aflplusplus/aflplusplus
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
-This image is automatically generated when a push to the stable repo happens
+This image is automatically published when a push to the stable branch happens
 (see [branches](#branches)). If you use the command above, you will find your
 target source code in `/src` in the container.
+
+Note: you can also pull `aflplusplus/aflplusplus:dev` which is the most current
+development state of AFL++.
 
 To build AFL++ yourself - *which we recommend* - continue at
 [docs/INSTALL.md](docs/INSTALL.md).

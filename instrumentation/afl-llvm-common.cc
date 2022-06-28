@@ -291,7 +291,7 @@ void scanForDangerousFunctions(llvm::Module *M) {
     StringRef r_name = cast<Function>(r->getOperand(0))->getName();
     if (!be_quiet)
       fprintf(stderr,
-              "Info: Found an ifunc with name %s that points to resolver "
+              "Note: Found an ifunc with name %s that points to resolver "
               "function %s, we will not instrument this, putting it into the "
               "block list.\n",
               ifunc_name.str().c_str(), r_name.str().c_str());
@@ -329,7 +329,7 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
                 if (!be_quiet)
                   fprintf(stderr,
-                          "Info: Found constructor function %s with prio "
+                          "Note: Found constructor function %s with prio "
                           "%u, we will not instrument this, putting it into a "
                           "block list.\n",
                           F->getName().str().c_str(), Priority);

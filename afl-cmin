@@ -135,6 +135,12 @@ function exists_and_is_executable(binarypath) {
 }
 
 BEGIN {
+  if (0 != system( "test -t 1")) {
+    redirected = 1
+  } else {
+    redirected = 0
+  }
+
   print "corpus minimization tool for afl++ (awk version)\n"
 
   # defaults
@@ -463,7 +469,8 @@ BEGIN {
   while (cur < in_count) {
     fn = infilesSmallToBig[cur]
     ++cur
-    printf "\r    Processing file "cur"/"in_count
+    if (redirected == 0) { printf "\r    Processing file "cur"/"in_count }
+    else { print "    Processing file "cur"/"in_count }
     # create path for the trace file from afl-showmap
     tracefile_path = trace_dir"/"fn
     # gather all keys, and count them
@@ -502,7 +509,9 @@ BEGIN {
     key = field[nrFields]
 
     ++tcnt;
-    printf "\r    Processing tuple "tcnt"/"tuple_count" with count "key_count[key]"..."
+    if (redirected == 0) { printf "\r    Processing tuple "tcnt"/"tuple_count" with count "key_count[key]"..." }
+    else { print "    Processing tuple "tcnt"/"tuple_count" with count "key_count[key]"..." }
+
     if (key in keyAlreadyKnown) {
       continue
     }

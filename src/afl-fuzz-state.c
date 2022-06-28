@@ -101,6 +101,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
+  afl->sync_time = SYNC_TIME;
   afl->cmplog_lvl = 2;
   afl->min_length = 1;
   afl->max_length = MAX_FILE;
@@ -509,6 +510,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_pizza_mode =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+          } else if (!strncmp(env, "AFL_NO_CRASH_README",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_crash_readme =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
             if (afl->afl_env.afl_pizza_mode == 0) {
 
               afl->afl_env.afl_pizza_mode = 1;
@@ -516,6 +525,24 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             } else {
 
               afl->pizza_is_served = 1;
+
+            }
+
+          } else if (!strncmp(env, "AFL_SYNC_TIME",
+
+                              afl_environment_variable_len)) {
+
+            int time = atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+            if (time > 0) {
+
+              afl->sync_time = time * (60 * 1000LL);
+
+            } else {
+
+              WARNF(
+                  "incorrect value for AFL_SYNC_TIME environment variable, "
+                  "used default value %lld instead.",
+                  afl->sync_time / 60 / 1000);
 
             }
 

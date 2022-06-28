@@ -696,6 +696,7 @@ install: all $(MANPAGES)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
+	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so afl-llvm-pass.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f utils/plot_ui/afl-plot-ui ]; then install -m 755 utils/plot_ui/afl-plot-ui $${DESTDIR}$(BIN_PATH); fi
