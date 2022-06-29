@@ -2274,8 +2274,8 @@ int main(int argc, char **argv_orig, char **envp) {
       /* Send Messages */
       t_send_double_data send_data;
       send_data.data_type = 1;
-      double msg_array[BUFF_SIZE_SENDER];
-      // double *msg_array = (double *)ck_alloc(BUFF_SIZE_SENDER * sizeof(double));
+      // double msg_array[BUFF_SIZE_SENDER];
+      double *msg_array = (double *)ck_alloc(BUFF_SIZE_SENDER * sizeof(double));
 
       for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
         msg_array[i] = -3.2;
@@ -2286,7 +2286,7 @@ int main(int argc, char **argv_orig, char **envp) {
         perror("msgsnd() failed");
         exit(1);
       }
-      // ck_free(msg_array);
+      ck_free(msg_array);
 
 
 

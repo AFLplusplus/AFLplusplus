@@ -580,8 +580,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     /* Send Messages */
     t_send_u32_data send_data;
     send_data.data_type = 2;
-    u32 msg_array[BUFF_SIZE_SENDER];
-    // u32 *msg_array = (u32 *)ck_alloc(BUFF_SIZE_SENDER * sizeof(u32));
+    // u32 msg_array[BUFF_SIZE_SENDER];
+    u32 *msg_array = (u32 *)ck_alloc(BUFF_SIZE_SENDER * sizeof(u32));
 
     msg_array[0] = afl->fsrv.map_size;
     // for (u32 i = 0; i < (afl->fsrv.map_size - 1); i++) {
@@ -593,7 +593,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       perror("msgsnd() failed");
       exit(1);
     }
-    // ck_free(msg_array);
+    ck_free(msg_array);
 
 
 
