@@ -86,7 +86,7 @@ class RLFuzzing:
             if self.step_exec_map is not None:
                 score = self.compute_score(k)
             else:
-                score = np.zeros(self.map_size)
+                score = np.zeros(int(self.map_size))
 
             while len(score):
                 msg_npy = score[:BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
