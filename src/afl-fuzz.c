@@ -2307,7 +2307,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
         index += BUFF_SIZE_RECEIVER;
 
-        printf("struck in this loop\n")
+        printf("struck in this loop\n");
       } while (index < afl->fsrv.map_size);
 
       printf("Interpreted as array: ");
