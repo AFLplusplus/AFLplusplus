@@ -591,7 +591,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         if (index+i < afl->fsrv.map_size) {
           msg_array[i+1] = (u32) afl->fsrv.trace_bits[index+i];
         } else {
-           msg_array[i+1] = (u32) 0
+           msg_array[i+1] = (u32) 0;
         }
       }
       memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
