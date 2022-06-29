@@ -88,9 +88,10 @@ class RLFuzzing:
             else:
                 score = np.zeros(int(self.map_size))
 
+            index = 0
             while len(score):
-                msg_npy = score[:BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
-                score = score[BUFF_SIZE_SENDER:]
+                msg_npy = score[index:index+BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
+                index += BUFF_SIZE_SENDER
                 try:
                     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
                 except sysv_ipc.ExistentialError:
