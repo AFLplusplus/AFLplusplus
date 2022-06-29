@@ -11,13 +11,11 @@ UPDATE_BITMAP = 2
 
 
 class RLFuzzing:
-    def __init__(self,max_message_size=10000):
+    def __init__(self,max_message_size=100000):
         self.map_size = None
 
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
-        self.mq_reciever.remove()
-        self.mq_sender.remove()
 
         self.step_exec_map = None     # Positive Reward
         self.negative_reward = None
