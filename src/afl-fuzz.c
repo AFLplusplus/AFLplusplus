@@ -2308,7 +2308,7 @@ int main(int argc, char **argv_orig, char **envp) {
         index += BUFF_SIZE_RECEIVER;
 
 
-      } while (index > afl->fsrv.map_size);
+      } while (index < afl->fsrv.map_size);
 
       printf("Interpreted as array: ");
       for(u32 i = 0; i < afl->fsrv.map_size; i++) {
