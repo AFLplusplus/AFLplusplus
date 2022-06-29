@@ -37,11 +37,11 @@ class RLFuzzing:
                 if self.step_exec_map is None:
                     self.step_exec_map = np.zeros(map_size)
 
-                self.step_exec_map[np.array(trace_bits, dtype=bool)] += 1
+                self.step_exec_map[trace_bits != 0] += 1
                 print(f"afl->fsrv.map_size: {map_size}")
                 print(f"afl->fsrv.trace_bits: {trace_bits}")
                 print(f"len(trace_bits): {len(trace_bits)}")
-                print(f"self.step_exec_map: ", {self.step_exec_map})
+                print(f"self.step_exec_map: {self.step_exec_map}")
                 print(f"mtype: {mtype}")
                 # self.send_messenges(mtype)
 
