@@ -24,7 +24,9 @@ class RLFuzzing:
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
             elif mtype == UPDATE_BITMAP:
-                afl_fsrv_map_size = np.frombuffer(message, dtype=np.uint8)
+                message_numpy_array = np.frombuffer(message, dtype=np.uint8)
+                map_size = message_numpy_array[0]
+                
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
                 print(f"mtype: {mtype}")
                 # self.send_messenges(mtype)
