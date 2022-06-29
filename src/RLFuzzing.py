@@ -89,7 +89,7 @@ class RLFuzzing:
             score = np.zeros(int(self.map_size))
 
         index = 0
-        while len(score):
+        while index < self.map_size:
             msg_npy = score[index:index+BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
             index += BUFF_SIZE_SENDER
             try:
