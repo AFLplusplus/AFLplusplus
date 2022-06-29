@@ -88,7 +88,7 @@ class RLFuzzing:
                 score = self.compute_score(k)
                 print('1a')
             else:
-                score = np.zeros(1)
+                msg_npy = np.zeros(1)
                 try:
                     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
                 except sysv_ipc.ExistentialError:
