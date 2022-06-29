@@ -25,11 +25,11 @@ class RLFuzzing:
                 self.send_messenges(mtype)
 
             elif mtype == UPDATE_BITMAP:
-                message_numpy_array = np.frombuffer(message, dtype=np.uint8)
+                message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                 map_size = message_numpy_array[0]
                 trace_bits = message_numpy_array[1:map_size]
                 while len(trace_bits) < map_size:
-                    message_numpy_array = np.frombuffer(message, dtype=np.uint8)
+                    message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                     trace_bits = np.concatenate([trace_bits, message_numpy_array[1:map_size]])
                 tmp = trace_bits[map_size:]
                 trace_bits = trace_bits[:map_size]
