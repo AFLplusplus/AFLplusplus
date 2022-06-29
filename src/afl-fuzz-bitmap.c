@@ -580,20 +580,23 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     /* Send Messages */
     t_send_u32_data send_data;
     send_data.data_type = 2;
-    // u32 msg_array[BUFF_SIZE_SENDER];
-    u32 *msg_array = (u32 *)ck_alloc(BUFF_SIZE_SENDER * sizeof(u32));
+    u32 msg_array[BUFF_SIZE_SENDER];
+    // u32 *msg_array = (u32 *)ck_alloc(BUFF_SIZE_SENDER * sizeof(u32));
 
-    msg_array[0] = afl->fsrv.map_size;
-    // for (u32 i = 0; i < (afl->fsrv.map_size - 1); i++) {
-    for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
-      msg_array[i+1] = (u32) afl->fsrv.trace_bits[i];
-    }
-    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
-    if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
-      perror("msgsnd() failed");
-      exit(1);
-    }
-    ck_free(msg_array);
+    while index < afl->fsrv.map_size:
+      msg_array[0] = afl->fsrv.map_size;
+      u32 index = 0;
+      for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
+        if index+i < afl->fsrv.map_size:
+          msg_array[i+1] = (u32) afl->fsrv.trace_bits[index+i];
+      }
+      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
+      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
+        perror("msgsnd() failed");
+        exit(1);
+      }
+      index += BUFF_SIZE_SENDER
+    // ck_free(msg_array);
 
 
 
