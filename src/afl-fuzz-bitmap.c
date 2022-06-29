@@ -584,8 +584,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     // u32 *msg_array = (u32 *)ck_alloc(BUFF_SIZE_SENDER * sizeof(u32));
 
     msg_array[0] = afl->fsrv.map_size;
-    for (int i = 1; i < BUFF_SIZE_SENDER; i++) {
-      msg_array[i] = 2;
+    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
+      msg_array[i+1] = (u32) afl->fsrv.map_size[i];
     }
     memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
     if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
