@@ -2270,22 +2270,18 @@ int main(int argc, char **argv_orig, char **envp) {
   while (likely(!afl->stop_soon)) {
     if (RLFUZZING) {
 
-      // /* Send Messages */
-      // t_send_double_data send_data;
-      // send_data.data_type = 1;
-      // double msg_array[BUFF_SIZE_SENDER];
-      // // double *msg_array = (double *)ck_alloc(BUFF_SIZE_SENDER * sizeof(double));
+      /* Send Messages */
+      t_send_double_data send_data;
+      send_data.data_type = 1;
+      double msg_array[BUFF_SIZE_SENDER];
+      msg_array[0] = afl->fsrv.map_size;
+      
 
-      // for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
-      //   msg_array[i] = -3.2;
-      // }
-
-      // memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(double));
-      // if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_double_data) - sizeof(long), 0)) {
-      //   perror("msgsnd() failed");
-      //   exit(1);
-      // }
-      // // ck_free(msg_array);
+      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(double));
+      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_double_data) - sizeof(long), 0)) {
+        perror("msgsnd() failed");
+        exit(1);
+      }
 
 
 
