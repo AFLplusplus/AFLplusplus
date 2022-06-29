@@ -85,6 +85,7 @@ class RLFuzzing:
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
             score = self.compute_score(k)
+            print(f"score: {score}")
 
             while len(score):
                 msg_npy = score[:BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
