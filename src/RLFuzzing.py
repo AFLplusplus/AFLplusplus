@@ -1,6 +1,10 @@
-import sysv_ipc
+from jax import numpy as jnp
+from jax import random
+from jax import jit, lax
+
 import numpy as np
-import struct
+import sysv_ipc
+# import struct
 
 FUZZING_LOOP = 1
 UPDATE_BITMAP = 2
@@ -8,11 +12,33 @@ UPDATE_BITMAP = 2
 
 class RLFuzzing:
     def __init__(self,max_message_size=10000):
+        self.map_size = None
+
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
+
         self.step_exec_map = None     # Positive Reward
         self.negative_reward = None
+
+        self.key = random.PRNGKey(0)
         return
+
+    @jit
+    def thompson_sample_step(self, key, number_of_positive_rewards, number_of_negative_rewards):
+        a = number_of_positive_rewards + 1
+        b = number_of_negative_rewards + 1
+
+        random_beta = random.beta(key, a, b)
+        return random_beta
+
+
+    def compute_score(self, key, number_of_positive_rewards, number_of_negative_rewards):
+        pr = jnp.array(self.step_exec_map)
+        nr = jnp.array(self.negative_reward)
+        random_beta = self.thompson_sample_step(key, pr, nr)
+        rareness = pr**2 / nr
+        score = random_beta / rareness
+        return np.array(score)
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=1024):
         try:
@@ -21,8 +47,8 @@ class RLFuzzing:
             message, mtype = self.mq_reciever.receive()
 
             if mtype == FUZZING_LOOP:
-                afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
-                print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
+                self.map_size = np.frombuffer(message, dtype=np.double)
+                print(f"self.map_size: {self.map_size}")
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
 
@@ -43,6 +69,7 @@ class RLFuzzing:
 
                 self.step_exec_map[trace_bits != 0] += 1
                 self.negative_reward[trace_bits == 0] += 1
+
                 print(f"afl->fsrv.map_size: {map_size}")
                 print(f"afl->fsrv.trace_bits: {trace_bits}")
                 print(f"len(trace_bits): {len(trace_bits)}")
@@ -56,16 +83,28 @@ class RLFuzzing:
 
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == FUZZING_LOOP:
-            msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.double).reshape((2,BUFF_SIZE_SENDER//2))
+            self.key, k = random.split(self.key)
+            score = self.compute_score(k, number_of_positive_rewards, number_of_negative_rewards)
+
+            while len(score):
+                msg_npy = score[:BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
+                score = score[BUFF_SIZE_SENDER:]
+                try:
+                    self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
+                except sysv_ipc.ExistentialError:
+                    print("ERROR: message queue creation failed")
+
+
+
         # elif mtype == UPDATE_BITMAP:
         #     msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
 
-        try:
+        # try:
             
-            self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
+        #     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
 
-        except sysv_ipc.ExistentialError:
-            print("ERROR: message queue creation failed")
+        # except sysv_ipc.ExistentialError:
+        #     print("ERROR: message queue creation failed")
 
 
 
