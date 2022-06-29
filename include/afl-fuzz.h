@@ -80,6 +80,7 @@
 #define  RLFUZZING            1
 
 #ifdef RLFUZZING
+
   #include <sys/ipc.h>
   #include <sys/msg.h>
 
@@ -106,6 +107,17 @@
     long    data_type;
     u8      data_buff[BUFF_SIZE_RECEIVER];
   } t_recieve_u8_data;
+
+  typedef struct {
+    long    data_type;
+    u32     data_buff[BUFF_SIZE_SENDER];
+  } t_send_u32_data;
+
+  typedef struct {
+    long    data_type;
+    u32     data_buff[BUFF_SIZE_RECEIVER];
+  } t_recieve_u32_data;
+
 #endif
 
 /* End my libraries <@@@> */

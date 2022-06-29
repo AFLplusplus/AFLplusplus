@@ -581,11 +581,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     t_send_u8_data send_data;
     send_data.data_type = 2;
     u8 msg_array[BUFF_SIZE_SENDER];
-    for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
+    for (int i = 0; i < (BUFF_SIZE_SENDER - sizeof(u32)); i++) {
       msg_array[i] = 2;
     }
-
-    memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u8));
+    u32 map_size = afl->fsrv.map_size
+    memcpy(&map_size, data.data_buff, sizeof(u32));
+    memcpy(send_data.data_buff + sizeof(u32), msg_array, (BUFF_SIZE_SENDER * sizeof(u8)) - sizeof(u32));
     if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u8_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
