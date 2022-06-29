@@ -47,7 +47,7 @@ class RLFuzzing:
             message, mtype = self.mq_reciever.receive()
 
             if mtype == FUZZING_LOOP:
-                self.map_size = np.frombuffer(message, dtype=np.utinc)[0]
+                self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
                 print(f"self.map_size: {self.map_size}")
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
