@@ -81,22 +81,27 @@ class RLFuzzing:
             print("ERROR: message queue creation failed")
 
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
-        # if mtype == FUZZING_LOOP:
-        self.key, k = random.split(self.key)
-        if self.step_exec_map is not None:
-            score = self.compute_score(k)
-        else:
-            score = np.zeros(int(self.map_size))
+        print('0')
+        if mtype == FUZZING_LOOP:
+            self.key, k = random.split(self.key)
+            if self.step_exec_map is not None:
+                score = self.compute_score(k)
+                print('1a')
+            else:
+                score = np.zeros(int(self.map_size))
+                print('1b')
 
-        index = 0
-        while index < self.map_size:
-            msg_npy = score[index:index+BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
-            index += BUFF_SIZE_SENDER
-            try:
-                self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
-            except sysv_ipc.ExistentialError:
-                print("ERROR: message queue creation failed")
-            print(f"len(score): {len(score)}")
+            index = 0
+            while index < self.map_size:
+                print('3')
+                msg_npy = score[index:index+BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
+                index += BUFF_SIZE_SENDER
+                try:
+                    self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
+                except sysv_ipc.ExistentialError:
+                    print("ERROR: message queue creation failed")
+                print(f"len(score): {len(score)}")
+            print('4')
 
 
 
