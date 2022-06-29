@@ -33,6 +33,7 @@ class RLFuzzing:
                     trace_bits = np.concatenate([trace_bits, message_numpy_array[1:map_size]])
                 print(f"afl->fsrv.map_size: {map_size}")
                 print(f"afl->fsrv.trace_bits: {trace_bits}")
+                print(f"len(trace_bits): {len(trace_bits)}")
                 print(f"mtype: {mtype}")
                 # self.send_messenges(mtype)
 
