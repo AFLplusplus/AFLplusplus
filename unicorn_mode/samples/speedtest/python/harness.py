@@ -20,8 +20,8 @@ import os
 import struct
 
 from unicornafl import *
-from unicornafl.unicorn_const import UC_ARCH_X86, UC_HOOK_CODE, UC_MODE_64
-from unicornafl.x86_const import (
+from unicorn.unicorn_const import UC_ARCH_X86, UC_HOOK_CODE, UC_MODE_64
+from unicorn.x86_const import (
     UC_X86_REG_RAX,
     UC_X86_REG_RDI,
     UC_X86_REG_RIP,

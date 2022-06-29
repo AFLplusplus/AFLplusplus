@@ -53,9 +53,7 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID2");
   if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid2);
-#endif
     if (pgrp > 0) { killpg(pgrp, SIGTERM); }
     kill(pid2, SIGTERM);
 
@@ -64,9 +62,7 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid1);
-#endif
     if (pgrp > 0) { killpg(pgrp, SIGTERM); }
     kill(pid1, SIGTERM);
 
@@ -103,9 +99,7 @@ static void at_exit() {
 
   if (pid1 > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid1);
-#endif
     if (pgrp > 0) { killpg(pgrp, kill_signal); }
     kill(pid1, kill_signal);
 
@@ -113,9 +107,7 @@ static void at_exit() {
 
   if (pid2 > 0) {
 
-#if defined(__linux__)
     pgrp = getpgid(pid1);
-#endif
     if (pgrp > 0) { killpg(pgrp, kill_signal); }
     kill(pid2, kill_signal);
 
@@ -163,6 +155,9 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
+      "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
+      "  -G maxlength  - set max length of generated fuzz input (default: "
+      "%lu)\n"
       "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
@@ -172,7 +167,9 @@ static void usage(u8 *argv0, int more_help) {
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
-      "                  if using QEMU, just use -c 0.\n"
+      "                  if using QEMU/FRIDA or if you the fuzzing target is "
+      "compiled"
+      "                  for CmpLog then just use -c 0.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
@@ -206,13 +203,13 @@ static void usage(u8 *argv0, int more_help) {
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       //"  -B bitmap.txt - mutate a specific test case, use the
-      //out/default/fuzz_bitmap file\n"
+      // out/default/fuzz_bitmap file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, FOREIGN_SYNCS_MAX);
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -261,6 +258,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
+      "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
@@ -296,10 +295,14 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        Supported formats are: 'dogstatsd', 'librato',\n"
       "                        'signalfx' and 'influxdb'\n"
+      "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
+      "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
-      //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
-      //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
+      "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
+      "                      afl-clang-lto/afl-gcc-fast target\n"
+      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so\n"
       "\n"
     );
 
@@ -468,6 +471,9 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
       dlsym(handle, "nyx_get_bitmap_buffer_size");
   if (plugin->nyx_get_bitmap_buffer_size == NULL) { goto fail; }
 
+  plugin->nyx_get_aux_string = dlsym(handle, "nyx_get_aux_string");
+  if (plugin->nyx_get_aux_string == NULL) { goto fail; }
+
   OKF("libnyx plugin is ready!");
   return plugin;
 
@@ -535,12 +541,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while ((opt = getopt(
-              argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOXYo:p:RQs:S:t:T:UV:Wx:Z")) >
-         0) {
+  while (
+      (opt = getopt(
+           argc, argv,
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
+      0) {
 
     switch (opt) {
+
+      case 'g':
+        afl->min_length = atoi(optarg);
+        break;
+
+      case 'G':
+        afl->max_length = atoi(optarg);
+        break;
 
       case 'Z':
         afl->old_seed_selection = 1;
@@ -1451,6 +1466,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->use_banner) { afl->use_banner = argv[optind]; }
 
+  if (afl->shm.cmplog_mode &&
+      (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
+
+    afl->cmplog_binary = argv[optind];
+
+  }
+
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
     WARNF(cLRD
@@ -1630,6 +1652,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  OKF("Generating fuzz data with a length of min=%u max=%u", afl->min_length,
+      afl->max_length);
+  u32 min_alloc = MAX(64U, afl->min_length);
+  afl_realloc(AFL_BUF_PARAM(in_scratch), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(in), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(out_scratch), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(out), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(eff), min_alloc);
+  afl_realloc(AFL_BUF_PARAM(ex), min_alloc);
+
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 
   #ifdef __linux__
@@ -1658,7 +1690,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (getenv("LD_PRELOAD")) {
 
     WARNF(
-        "LD_PRELOAD is set, are you sure that is what to you want to do "
+        "LD_PRELOAD is set, are you sure that is what you want to do "
         "instead of using AFL_PRELOAD?");
 
   }
@@ -2240,6 +2272,25 @@ int main(int argc, char **argv_orig, char **envp) {
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_items = 0;
 
+      // 1st april fool joke - enable pizza mode
+      // to not waste time on checking the date we only do this when the
+      // queue is fully cycled.
+      time_t     cursec = time(NULL);
+      struct tm *curdate = localtime(&cursec);
+      if (likely(!afl->afl_env.afl_pizza_mode)) {
+
+        if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
+
+          afl->pizza_is_served = 1;
+
+        } else {
+
+          afl->pizza_is_served = 0;
+
+        }
+
+      }
+
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;
@@ -2462,7 +2513,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (unlikely(afl->is_main_node)) {
 
           if (unlikely(get_cur_time() >
-                       (SYNC_TIME >> 1) + afl->last_sync_time)) {
+                       (afl->sync_time >> 1) + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
 
@@ -2474,7 +2525,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
+          if (unlikely(get_cur_time() > afl->sync_time + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
@@ -2499,8 +2550,17 @@ stop_fuzzing:
   write_bitmap(afl);
   save_auto(afl);
 
-  SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
-       afl->stop_soon == 2 ? "programmatically" : "by user");
+  if (afl->afl_env.afl_pizza_mode) {
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
+         afl->stop_soon == 2 ? "programmatically" : "by the chef");
+
+  } else {
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
+         afl->stop_soon == 2 ? "programmatically" : "by user");
+
+  }
 
   if (afl->most_time_key == 2) {
 

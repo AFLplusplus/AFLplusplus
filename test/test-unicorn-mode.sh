@@ -3,7 +3,7 @@
 . ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: unicorn_mode"
-test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/samples/shellcode && {
+test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/Makefile && {
   test -e ../unicorn_mode/samples/python_simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # We want to see python errors etc. in logs, in case something doesn't work

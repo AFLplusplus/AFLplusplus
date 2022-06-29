@@ -1,6 +1,9 @@
 # custum mutator: symcc
 
-This uses the excellent symcc to find new paths into the target.
+This uses the symcc to find new paths into the target.
+
+Note that this is a just a proof of concept example! It is better to use
+the fuzzing helpers of symcc, symqemu, Fuzzolic, etc. rather than this.
 
 To use this custom mutator follow the steps in the symcc repository 
 [https://github.com/eurecom-s3/symcc/](https://github.com/eurecom-s3/symcc/) 

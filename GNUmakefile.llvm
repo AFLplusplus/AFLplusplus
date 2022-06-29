@@ -46,7 +46,7 @@ LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
 LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
-LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[4-9]' && echo 1 || echo 0 )
+LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[5-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
 LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
@@ -86,6 +86,12 @@ ifeq "$(LLVM_TOO_OLD)" "1"
   $(shell sleep 1)
 endif
 
+ifeq "$(LLVM_MAJOR)" "15"
+  $(info [!] llvm_mode detected llvm 15, which is currently broken for LTO plugins.)
+  LLVM_LTO = 0
+  LLVM_HAVE_LTO = 0
+endif
+
 ifeq "$(LLVM_HAVE_LTO)" "1"
   $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
@@ -93,7 +99,7 @@ ifeq "$(LLVM_HAVE_LTO)" "1"
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 11, afl-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 11 or llvm 15, afl-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE_XCODE)" "1"
@@ -394,7 +400,7 @@ endif
 
 ./SanitizerCoveragePCGUARD.so: instrumentation/SanitizerCoveragePCGUARD.so.cc instrumentation/afl-llvm-common.o | test_deps
 ifeq "$(LLVM_10_OK)" "1"
-	-$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	-$(CXX) $(CLANG_CPPFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) -Wno-deprecated-copy-dtor -Wdeprecated instrumentation/afl-llvm-common.o
 endif
 
 ./afl-llvm-lto-instrumentlist.so: instrumentation/afl-llvm-lto-instrumentlist.so.cc instrumentation/afl-llvm-common.o
@@ -407,7 +413,7 @@ ifeq "$(LLVM_LTO)" "1"
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@
 endif
 
-./SanitizerCoverageLTO.so: instrumentation/SanitizerCoverageLTO.so.cc
+./SanitizerCoverageLTO.so: instrumentation/SanitizerCoverageLTO.so.cc instrumentation/afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 	$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c instrumentation/afl-llvm-rt-lto.o.c -o ./afl-llvm-rt-lto.o
@@ -447,11 +453,11 @@ document:
 
 ./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-32.o afl-llvm-rt-32.o; else echo "failed (that's fine)"; fi
+	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ./afl-compiler-rt-64.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-64.o afl-llvm-rt-64.o; else echo "failed (that's fine)"; fi
+	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 .PHONY: test_build
 test_build: $(PROGS)
@@ -474,11 +480,11 @@ install: all
 	@install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	@if [ -f ./afl-cc ]; then set -e; install -m 755 ./afl-cc $${DESTDIR}$(BIN_PATH); ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-c++; fi
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt*.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt*.o
-	@if [ -f ./afl-compiler-rt.o ]; then set -e; install -m 755 ./afl-compiler-rt.o $${DESTDIR}$(HELPER_PATH); ln -sf afl-compiler-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o ;fi
+	@if [ -f ./afl-compiler-rt.o ]; then set -e; install -m 755 ./afl-compiler-rt.o $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f ./afl-lto ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-lto; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-lto++; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ./afl-llvm-rt-lto*.o ./afl-llvm-lto-instrumentlist.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f ./afl-ld-lto ]; then set -e; install -m 755 ./afl-ld-lto $${DESTDIR}$(BIN_PATH); fi
-	@if [ -f ./afl-compiler-rt-32.o ]; then set -e; install -m 755 ./afl-compiler-rt-32.o $${DESTDIR}$(HELPER_PATH); ln -sf afl-compiler-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o ;fi
-	@if [ -f ./afl-compiler-rt-64.o ]; then set -e; install -m 755 ./afl-compiler-rt-64.o $${DESTDIR}$(HELPER_PATH); ln -sf afl-compiler-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o ; fi
+	@if [ -f ./afl-compiler-rt-32.o ]; then set -e; install -m 755 ./afl-compiler-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f ./afl-compiler-rt-64.o ]; then set -e; install -m 755 ./afl-compiler-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f ./compare-transform-pass.so ]; then set -e; install -m 755 ./*.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f ./compare-transform-pass.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-fast ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-fast++ ; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang++ ; fi
 	@if [ -f ./SanitizerCoverageLTO.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-lto++ ; fi
@@ -520,4 +526,4 @@ endif
 .PHONY: clean
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 *.dwo
-	rm -f $(PROGS) afl-common.o ./afl-c++ ./afl-lto ./afl-lto++ ./afl-clang-lto* ./afl-clang-fast* ./afl-clang*.8 ./ld ./afl-ld ./afl-llvm-rt*.o instrumentation/*.o
+	rm -f $(PROGS) afl-common.o ./afl-c++ ./afl-lto ./afl-lto++ ./afl-clang-lto* ./afl-clang-fast* ./afl-clang*.8 ./ld ./afl-ld ./afl-compiler-rt*.o ./afl-llvm-rt*.o instrumentation/*.o

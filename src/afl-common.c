@@ -25,8 +25,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#define _GNU_SOURCE
-#define __USE_GNU
+#ifndef _GNU_SOURCE
+  #define _GNU_SOURCE
+#endif
+#ifndef __USE_GNU
+  #define __USE_GNU
+#endif
 #include <string.h>
 #include <strings.h>
 #include <math.h>
@@ -71,11 +75,9 @@ u32 check_binary_signatures(u8 *fn) {
 
   } else if (getenv("AFL_PERSISTENT")) {
 
-    if (!be_quiet) {
-
-      WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
-
-    }
+    if (!be_quiet) { OKF(cPIN "Persistent mode enforced."); }
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    ret = 1;
 
   } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
 
@@ -98,11 +100,9 @@ u32 check_binary_signatures(u8 *fn) {
 
   } else if (getenv("AFL_DEFER_FORKSRV")) {
 
-    if (!be_quiet) {
-
-      WARNF("AFL_DEFER_FORKSRV is no longer supported and may misbehave!");
-
-    }
+    if (!be_quiet) { OKF(cPIN "Deferred forkserver enforced."); }
+    setenv(DEFER_ENV_VAR, "1", 1);
+    ret += 2;
 
   }
 
@@ -719,17 +719,23 @@ char *get_afl_env(char *env) {
 
   char *val;
 
-  if ((val = getenv(env)) != NULL) {
+  if ((val = getenv(env))) {
 
-    if (!be_quiet) {
+    if (*val) {
 
-      OKF("Loaded environment variable %s with value %s", env, val);
+      if (!be_quiet) {
+
+        OKF("Enabled environment variable %s with value %s", env, val);
+
+      }
+
+      return val;
 
     }
 
   }
 
-  return val;
+  return NULL;
 
 }
 
@@ -809,10 +815,7 @@ bool extract_and_set_env(u8 *env_str) {
     *rest = '\0';  // done with variable value
 
     rest += 1;
-    if (rest < end && *rest != ' ') { goto free_and_return; }
-
     num_pairs++;
-
     setenv(key, val, 1);
 
   }

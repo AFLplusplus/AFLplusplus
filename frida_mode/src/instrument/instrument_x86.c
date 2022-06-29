@@ -6,6 +6,9 @@
 
 #if defined(__i386__)
 
+gboolean instrument_cache_enabled = FALSE;
+gsize    instrument_cache_size = 0;
+
 static GHashTable *coverage_blocks = NULL;
 
   #pragma pack(push, 1)
@@ -81,11 +84,13 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 }
 
 static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            from_address,
                                        gpointer            start_address,
                                        const cs_insn *     from_insn,
                                        gpointer *          target) {
 
   UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
   cs_x86 *   x86;
@@ -218,6 +223,14 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
+void instrument_coverage_optimize_insn(const cs_insn *   instr,
+                                       GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(output);
+
+}
+
 void instrument_coverage_optimize_init(void) {
 
 }
@@ -231,6 +244,28 @@ void instrument_flush(GumStalkerOutput *output) {
 gpointer instrument_cur(GumStalkerOutput *output) {
 
   return gum_x86_writer_cur(output->writer.x86);
+
+}
+
+void instrument_cache_config(void) {
+
+}
+
+void instrument_cache_init(void) {
+
+}
+
+void instrument_cache_insert(gpointer real_address, gpointer code_address) {
+
+  UNUSED_PARAMETER(real_address);
+  UNUSED_PARAMETER(code_address);
+
+}
+
+void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
+
+  UNUSED_PARAMETER(instr);
+  UNUSED_PARAMETER(output);
 
 }
 

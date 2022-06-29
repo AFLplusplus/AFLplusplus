@@ -68,6 +68,7 @@
 #endif
 
 #define CTOR_PRIO 3
+#define EARLY_FS_PRIO 5
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -145,6 +146,7 @@ u32 __afl_already_initialized_shm;
 u32 __afl_already_initialized_forkserver;
 u32 __afl_already_initialized_first;
 u32 __afl_already_initialized_second;
+u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
 
@@ -282,11 +284,9 @@ static void __afl_map_shm(void) {
 
   char *id_str = getenv(SHM_ENV_VAR);
 
-  if (__afl_final_loc) { ++__afl_final_loc; }  // as we count starting 0
-
   if (__afl_final_loc) {
 
-    __afl_map_size = __afl_final_loc;
+    __afl_map_size = ++__afl_final_loc;  // as we count starting 0
 
     if (__afl_final_loc > MAP_SIZE) {
 
@@ -327,20 +327,55 @@ static void __afl_map_shm(void) {
 
   }
 
+  if (!id_str && __afl_area_ptr_dummy == __afl_area_initial) {
+
+    u32 val = 0;
+    u8 *ptr;
+
+    if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) val = atoi(ptr);
+
+    if (val > MAP_INITIAL_SIZE) {
+
+      __afl_map_size = val;
+      __afl_area_ptr_dummy = malloc(__afl_map_size);
+      if (!__afl_area_ptr_dummy) {
+
+        fprintf(stderr,
+                "Error: AFL++ could not aquire %u bytes of memory, exiting!\n",
+                __afl_map_size);
+        exit(-1);
+
+      }
+
+    } else {
+
+      __afl_map_size = MAP_INITIAL_SIZE;
+
+    }
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: (0) init map size is %u to %p\n", __afl_map_size,
+              __afl_area_ptr_dummy);
+
+    }
+
+  }
+
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
 
   if (__afl_debug) {
 
-    fprintf(stderr,
-            "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-            "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
-            "__afl_final_loc %u, "
-            "max_size_forkserver %u/0x%x\n",
-            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
-            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+    fprintf(
+        stderr,
+        "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+        "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+        "__afl_final_loc %u, __afl_map_size %u, max_size_forkserver %u/0x%x\n",
+        id_str == NULL ? "<null>" : id_str, __afl_area_ptr, __afl_area_initial,
+        __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE, __afl_final_loc,
+        __afl_map_size, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   }
 
@@ -465,18 +500,26 @@ static void __afl_map_shm(void) {
 
     }
 
-  } else if (_is_sancov && __afl_area_ptr != __afl_area_initial) {
+  } else if (__afl_final_loc > __afl_map_size) {
 
-    free(__afl_area_ptr);
-    __afl_area_ptr = NULL;
+    if (__afl_area_initial != __afl_area_ptr_dummy) {
 
-    if (__afl_final_loc > MAP_INITIAL_SIZE) {
-
-      __afl_area_ptr = (u8 *)malloc(__afl_final_loc);
+      free(__afl_area_ptr_dummy);
 
     }
 
-    if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+    __afl_area_ptr_dummy = (u8 *)malloc(__afl_final_loc);
+    __afl_area_ptr = __afl_area_ptr_dummy;
+    __afl_map_size = __afl_final_loc;
+
+    if (!__afl_area_ptr_dummy) {
+
+      fprintf(stderr,
+              "Error: AFL++ could not aquire %u bytes of memory, exiting!\n",
+              __afl_final_loc);
+      exit(-1);
+
+    }
 
   }
 
@@ -487,11 +530,12 @@ static void __afl_map_shm(void) {
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
-            "%u, __afl_final_loc %u, "
+            "%u, __afl_final_loc %u, __afl_map_size %u, "
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
             __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            __afl_final_loc, __afl_map_size, FS_OPT_MAX_MAPSIZE,
+            FS_OPT_MAX_MAPSIZE);
 
   }
 
@@ -1254,6 +1298,8 @@ void __afl_manual_init(void) {
 
 __attribute__((constructor())) void __afl_auto_init(void) {
 
+  if (__afl_already_initialized_init) { return; }
+
 #ifdef __ANDROID__
   // Disable handlers in linker/debuggerd, check include/debuggerd/handler.h
   signal(SIGABRT, SIG_DFL);
@@ -1266,11 +1312,21 @@ __attribute__((constructor())) void __afl_auto_init(void) {
   signal(SIGTRAP, SIG_DFL);
 #endif
 
+  __afl_already_initialized_init = 1;
+
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   if (getenv(DEFER_ENV_VAR)) return;
 
   __afl_manual_init();
+
+}
+
+/* Optionally run an early forkserver */
+
+__attribute__((constructor(EARLY_FS_PRIO))) void __early_forkserver(void) {
+
+  if (getenv("AFL_EARLY_FORKSERVER")) { __afl_auto_init(); }
 
 }
 

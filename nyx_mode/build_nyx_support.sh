@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e
-
 echo "================================================="
 echo "           Nyx build script"
 echo "================================================="
@@ -15,10 +13,18 @@ if [ ! "`uname -s`" = "Linux" ]; then
 
 fi
 
+if [ ! "`uname -m`" = "x86_64" ]; then
+
+  echo "[-] Error: Nyx mode is only available on x86_64 (yet)."
+  exit 0
+
+fi
+
 echo "[*] Making sure all Nyx is checked out"
 
 git status 1>/dev/null 2>/dev/null
 if [ $? -eq 0 ]; then
+
   git submodule init || exit 1
   echo "[*] initializing QEMU-Nyx submodule"
   git submodule update ./QEMU-Nyx 2>/dev/null # ignore errors
@@ -28,13 +34,16 @@ if [ $? -eq 0 ]; then
   git submodule update ./libnyx 2>/dev/null # ignore errors
 
 else
-  echo "[ ] not a git repo..."
-  exit 1
+
+  test -d QEMU-Nyx/.git || git clone https://github.com/nyx-fuzz/qemu-nyx QEMU-Nyx
+  test -d packer/.git || git clone https://github.com/nyx-fuzz/packer
+  test -d libnyx/.git || git clone https://github.com/nyx-fuzz/libnyx
+
 fi
 
-test -d QEMU-Nyx || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
-test -d packer || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
-test -d libnyx || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e packer/.git || { echo "[-] packer not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e libnyx/.git || { echo "[-] libnyx not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e QEMU-Nyx/.git || { echo "[-] QEMU-Nyx not checked out, please install git or check your internet connection." ; exit 1 ; }
 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then

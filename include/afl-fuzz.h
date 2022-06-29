@@ -230,12 +230,13 @@ enum {
   /* 12 */ STAGE_EXTRAS_UO,
   /* 13 */ STAGE_EXTRAS_UI,
   /* 14 */ STAGE_EXTRAS_AO,
-  /* 15 */ STAGE_HAVOC,
-  /* 16 */ STAGE_SPLICE,
-  /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_CUSTOM_MUTATOR,
-  /* 19 */ STAGE_COLORIZATION,
-  /* 20 */ STAGE_ITS,
+  /* 15 */ STAGE_EXTRAS_AI,
+  /* 16 */ STAGE_HAVOC,
+  /* 17 */ STAGE_SPLICE,
+  /* 18 */ STAGE_PYTHON,
+  /* 19 */ STAGE_CUSTOM_MUTATOR,
+  /* 20 */ STAGE_COLORIZATION,
+  /* 21 */ STAGE_ITS,
 
   STAGE_NUM_MAX
 
@@ -384,7 +385,8 @@ typedef struct afl_env_vars {
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
-      afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems;
+      afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
+      afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -482,7 +484,8 @@ typedef struct afl_state {
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
       is_main_node,                     /* if this is the main node         */
-      is_secondary_node;                /* if this is a secondary instance  */
+      is_secondary_node,                /* if this is a secondary instance  */
+      pizza_is_served;                  /* pizza mode                       */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -574,7 +577,8 @@ typedef struct afl_state {
       last_find_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
-      exit_on_time;                     /* Delay to exit if no new paths    */
+      exit_on_time,                     /* Delay to exit if no new paths    */
+      sync_time;                        /* Sync time (ms)                   */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -725,6 +729,9 @@ typedef struct afl_state {
 
   /* queue entries ready for splicing count (len > 4) */
   u32 ready_for_splicing_count;
+
+  /* min/max length for generated fuzzing inputs */
+  u32 min_length, max_length;
 
   /* This is the user specified maximum size to use for the testcase cache */
   u64 q_testcase_max_cache_size;
@@ -1079,6 +1086,8 @@ void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void show_stats(afl_state_t *);
+void show_stats_normal(afl_state_t *);
+void show_stats_pizza(afl_state_t *);
 void show_init_stats(afl_state_t *);
 
 /* StatsD */
@@ -1090,12 +1099,12 @@ int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 
 /* Run */
 
-fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
-void              write_to_testcase(afl_state_t *, void *, u32);
-u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 void sync_fuzzers(afl_state_t *);
+u32  write_to_testcase(afl_state_t *, void **, u32, u32);
+u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 u8   trim_case(afl_state_t *, struct queue_entry *, u8 *);
 u8   common_fuzz_stuff(afl_state_t *, u8 *, u32);
+fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 
 /* Fuzz one */
 

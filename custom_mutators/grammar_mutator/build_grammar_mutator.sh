@@ -109,9 +109,9 @@ if [ $? -eq 0 ]; then
   git submodule update ./grammar_mutator 2>/dev/null # ignore errors
 else
   echo "[*] cloning grammar mutator"
-  test -d grammar_mutator || {
+  test -d grammar_mutator/.git || {
     CNT=1
-    while [ '!' -d grammar_mutator -a "$CNT" -lt 4 ]; do
+    while [ '!' -d grammar_mutator/.git -a "$CNT" -lt 4 ]; do
       echo "Trying to clone grammar_mutator (attempt $CNT/3)"
       git clone "$GRAMMAR_REPO" 
       CNT=`expr "$CNT" + 1`
@@ -119,11 +119,12 @@ else
   }
 fi
 
-test -d grammar_mutator || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -f grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got grammar mutator."
 
 cd "grammar_mutator" || exit 1
 echo "[*] Checking out $GRAMMAR_VERSION"
+git pull >/dev/null 2>&1
 sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$GRAMMAR_VERSION" || exit 1
 echo "[*] Downloading antlr..."

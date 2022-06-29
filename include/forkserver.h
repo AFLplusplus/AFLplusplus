@@ -70,6 +70,8 @@ typedef struct {
   enum NyxReturnValue (*nyx_exec)(void *qemu_process);
   uint8_t *(*nyx_get_bitmap_buffer)(void *qemu_process);
   size_t (*nyx_get_bitmap_buffer_size)(void *qemu_process);
+  uint32_t (*nyx_get_aux_string)(void *nyx_process, uint8_t *buffer,
+                                 uint32_t size);
 
 } nyx_plugin_handler_t;
 
@@ -162,6 +164,7 @@ typedef struct afl_forkserver {
   void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
 
   u8 kill_signal;
+  u8 persistent_mode;
 
 #ifdef __linux__
   nyx_plugin_handler_t *nyx_handlers;
@@ -172,6 +175,7 @@ typedef struct afl_forkserver {
   void *                nyx_runner;      /* nyx runner object                */
   u32                   nyx_id;          /* nyx runner id (0 -> master)      */
   u32                   nyx_bind_cpu_id; /* nyx runner cpu id                */
+  char *                nyx_aux_string;
 #endif
 
 } afl_forkserver_t;

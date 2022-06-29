@@ -39,6 +39,7 @@
 
 #if (defined(__linux__) && !defined(__ANDROID__)) || defined(__HAIKU__)
   #include <unistd.h>
+  #include <sys/prctl.h>
   #ifdef __linux__
     #include <sys/syscall.h>
     #include <malloc.h>
@@ -65,6 +66,10 @@
                                      \
       } while (0)
 
+  #endif
+  #ifndef PR_SET_VMA
+    #define PR_SET_VMA 0x53564d41
+    #define PR_SET_VMA_ANON_NAME 0
   #endif
 #endif
 
@@ -250,6 +255,20 @@ static void *__dislocator_alloc(size_t len) {
     return NULL;
 
   }
+
+#if defined(USENAMEDPAGE)
+  #if defined(__linux__)
+  // in the /proc/<pid>/maps file, the anonymous page appears as
+  // `<start>-<end> ---p 00000000 00:00 0 [anon:libdislocator]`
+  if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, (unsigned long)ret, tlen,
+            (unsigned long)"libdislocator") < 0) {
+
+    DEBUGF("prctl() failed");
+
+  }
+
+  #endif
+#endif
 
   /* Set PROT_NONE on the last page. */
 
@@ -486,7 +505,10 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
 }
 
-#if !defined(__ANDROID__)
+#if defined(__APPLE__)
+size_t malloc_size(const void *ptr) {
+
+#elif !defined(__ANDROID__)
 size_t malloc_usable_size(void *ptr) {
 
 #else
@@ -497,6 +519,15 @@ size_t malloc_usable_size(const void *ptr) {
   return ptr ? PTR_L(ptr) : 0;
 
 }
+
+#if defined(__APPLE__)
+size_t malloc_good_size(size_t len) {
+
+  return (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
+
+}
+
+#endif
 
 __attribute__((constructor)) void __dislocator_init(void) {
 

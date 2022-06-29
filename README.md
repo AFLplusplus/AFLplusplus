@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/master/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
 
-Release version: [4.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [4.01c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.00c
+GitHub version: 4.02a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -50,18 +50,21 @@ Here is some information to get you started:
 ## Building and installing AFL++
 
 To have AFL++ easily available with everything compiled, pull the image directly
-from the Docker Hub:
+from the Docker Hub (available for both x86_64 and arm64):
 
 ```shell
 docker pull aflplusplus/aflplusplus
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
-This image is automatically generated when a push to the stable repo happens
-(see [branches](#branches)). You will find your target source code in `/src` in
-the container.
+This image is automatically published when a push to the stable branch happens
+(see [branches](#branches)). If you use the command above, you will find your
+target source code in `/src` in the container.
 
-To build AFL++ yourself - which we recommend - continue at
+Note: you can also pull `aflplusplus/aflplusplus:dev` which is the most current
+development state of AFL++.
+
+To build AFL++ yourself - *which we recommend* - continue at
 [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Quick start: Fuzzing with AFL++
@@ -112,7 +115,7 @@ Step-by-step quick start:
 
 5. You will find found crashes and hangs in the subdirectories `crashes/` and
    `hangs/` in the `-o output_dir` directory. You can replay the crashes by
-   feeding them to the target, e.g.:
+   feeding them to the target, e.g. if your target is using stdin:
 
    ```
    cat output_dir/crashes/id:000000,* | /path/to/tested/program [...program's cmdline...]

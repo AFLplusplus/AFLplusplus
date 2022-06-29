@@ -617,11 +617,10 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
-        write_to_testcase(afl, mem, st.st_size);
+        u32 len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
-        afl->queued_imported +=
-            save_if_interesting(afl, mem, st.st_size, fault);
+        afl->queued_imported += save_if_interesting(afl, mem, len, fault);
         afl->syncing_party = 0;
         munmap(mem, st.st_size);
         close(fd);
@@ -2818,19 +2817,23 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
     afl->persistent_mode = 1;
-
+    afl->fsrv.persistent_mode = 1;
     afl->shmem_testcase_mode = 1;
 
   } else if (getenv("AFL_PERSISTENT")) {
 
-    WARNF("AFL_PERSISTENT is no longer supported and may misbehave!");
+    OKF(cPIN "Persistent mode enforced.");
+    setenv(PERSIST_ENV_VAR, "1", 1);
+    afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
+    afl->shmem_testcase_mode = 1;
 
   } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
 
     OKF("FRIDA Persistent mode configuration options detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
     afl->persistent_mode = 1;
-
+    afl->fsrv.persistent_mode = 1;
     afl->shmem_testcase_mode = 1;
 
   }
@@ -2844,7 +2847,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   } else if (getenv("AFL_DEFER_FORKSRV")) {
 
-    WARNF("AFL_DEFER_FORKSRV is no longer supported and may misbehave!");
+    OKF(cPIN "Deferred forkserver enforced.");
+    setenv(DEFER_ENV_VAR, "1", 1);
+    afl->deferred_mode = 1;
 
   }
 

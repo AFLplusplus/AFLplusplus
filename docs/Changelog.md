@@ -8,6 +8,47 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++4.01c (release)
+  - fixed */build_...sh scripts to work outside of git
+  - new custom_mutator: libafl with token fuzzing :)
+  - afl-fuzz:
+    - when you just want to compile once and set CMPLOG, then just
+      set -c 0 to tell afl-fuzz that the fuzzing binary is also for
+      CMPLOG.
+    - new commandline options -g/G to set min/max length of generated
+      fuzz inputs
+    - you can set the time for syncing to other fuzzer now with
+      AFL_SYNC_TIME
+    - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow
+      persistent mode and manual forkserver support if these are not
+      in the target binary (e.g. are in a shared library)
+    - add AFL_EARLY_FORKSERVER to install the forkserver as earliest as
+      possible in the target (for afl-gcc-fast/afl-clang-fast/
+      afl-clang-lto)
+    - "saved timeouts" was wrong information, timeouts are still thrown
+      away by default even if they have new coverage (hangs are always
+      kept), unless AFL_KEEP_TIMEOUTS are set
+    - AFL never implemented auto token inserts (but user token inserts,
+      user token overwrite and auto token overwrite), added now!
+    - fixed a mutation type in havoc mode
+    - Mopt fix to always select the correct algorithm
+    - fix effector map calculation (deterministic mode)
+    - fix custom mutator post_process functionality
+    - document and auto-activate pizza mode on condition
+  - afl-cc:
+    - due a bug in lld of llvm 15 LTO instrumentation wont work atm :-(
+    - converted all passed to use the new llvm pass manager for llvm 11+
+    - AFL++ PCGUARD mode is not available for 10.0.1 anymore (11+ only)
+    - trying to stay on top on all these #$&§!! changes in llvm 15 ...
+  - frida_mode:
+    - update to new frida release, handles now c++ throw/catch
+  - unicorn_mode:
+    - update unicorn engine, fix C example
+  - utils:
+    - removed optimin because it looses coverage due to a bug and is
+      unmaintained :-(
+
+
 ### Version ++4.00c (release)
   - complete documentation restructuring, made possible by Google Season
     of Docs :) thank you Jana!
@@ -53,7 +94,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fix bug where targets are not killed on timeouts
     - moved hidden afl-showmap -A option to -H to be used for
       coresight_mode
-  - Prevent accidentaly killing non-afl/fuzz services when aborting
+  - Prevent accidentally killing non-afl/fuzz services when aborting
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan

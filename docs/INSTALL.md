@@ -3,26 +3,33 @@
 ## Linux on x86
 
 An easy way to install AFL++ with everything compiled is available via docker:
-You can use the [Dockerfile](../Dockerfile) (which has gcc-10 and clang-11 -
-hence afl-clang-lto is available!) or just pull directly from the Docker Hub:
+You can use the [Dockerfile](../Dockerfile) (which has gcc-10 and clang-12 -
+hence afl-clang-lto is available) or just pull directly from the Docker Hub
+(for x86_64 and arm64):
 
 ```shell
-docker pull aflplusplus/aflplusplus
+docker pull aflplusplus/aflplusplus:
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
-This image is automatically generated when a push to the stable repo happens.
+This image is automatically generated when a push to the stable branch happens.
 You will find your target source code in `/src` in the container.
+
+Note: you can also pull `aflplusplus/aflplusplus:dev` which is the most current
+development state of AFL++.
 
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
+NOTE: depending on your Debian/Ubuntu/Kali/... version replease `-12` with
+whatever llvm version is available!
+
 ```shell
 sudo apt-get update
-sudo apt-get install -y build-essential python3-dev automake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
-# try to install llvm 11 and install the distro default if that fails
-sudo apt-get install -y lld-11 llvm-11 llvm-11-dev clang-11 || sudo apt-get install -y lld llvm llvm-dev clang
-sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/.* //'|sed 's/\..*//')-dev
+sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
+# try to install llvm 12 and install the distro default if that fails
+sudo apt-get install -y lld-12 llvm-12 llvm-12-dev clang-12 || sudo apt-get install -y lld llvm llvm-dev clang
+sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 sudo apt-get install -y ninja-build # for QEMU mode
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
@@ -79,6 +86,7 @@ These build options exist:
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for
   normal fuzzing
+* NO_NYX - disable building nyx mode dependencies
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
   (e.g., Debian)

@@ -1969,7 +1969,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
       ol0 > 31 || ol1 > 31) {
 
-    l0 = l1 = ol0 = ol1 = hshape;
+    l0 = ol0 = hshape;
 
   }
 
@@ -2136,7 +2136,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       if ((i % 2)) {
 
-        if (len > idx + i && is_hex(orig_buf + idx + i)) {
+        if (len > idx + i + 1 && is_hex(orig_buf + idx + i)) {
 
           fromhex += 2;
 
@@ -2323,7 +2323,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
         // fprintf(stderr, "RTN ATTEMPT fromhex %u result %u\n", fromhex,
         // *status);
-        memcpy(buf + idx + i, save + i, i + 1 + off);
+        memcpy(buf + idx, save, i + 1 + off);
 
       }
 

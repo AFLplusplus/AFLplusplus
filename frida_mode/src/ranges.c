@@ -595,8 +595,6 @@ void ranges_init(void) {
        ranges_inst_jit ? 'X' : ' ');
   FOKF(cBLU "Ranges" cRST " - " cGRN "instrument libraries:" cYEL " [%c]",
        ranges_inst_libs ? 'X' : ' ');
-  FOKF(cBLU "Ranges" cRST " - " cGRN "instrument libraries:" cYEL " [%c]",
-       ranges_inst_libs ? 'X' : ' ');
 
   print_ranges("include", include_ranges);
   print_ranges("exclude", exclude_ranges);

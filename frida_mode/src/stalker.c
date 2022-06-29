@@ -100,7 +100,7 @@ void stalker_init(void) {
   FOKF(cBLU "Stalker" cRST " - " cGRN "adjacent_blocks:" cYEL " [%u]",
        stalker_adjacent_blocks);
 
-#if !(defined(__x86_64__) || defined(__i386__))
+#if !(defined(__x86_64__) || defined(__i386__) || defined(__aarch64__))
   if (getenv("AFL_FRIDA_STALKER_IC_ENTRIES") != NULL) {
 
     FFATAL("AFL_FRIDA_STALKER_IC_ENTRIES not supported");
@@ -131,9 +131,14 @@ void stalker_init(void) {
 
   }
 
+  gum_stalker_activate_experimental_unwind_support();
+
 #if defined(__x86_64__) || defined(__i386__)
   stalker = g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries,
                          "adjacent-blocks", stalker_adjacent_blocks, NULL);
+#elif defined(__aarch64__)
+  stalker =
+      g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries, NULL);
 #else
   stalker = gum_stalker_new();
 #endif

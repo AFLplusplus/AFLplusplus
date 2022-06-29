@@ -76,9 +76,9 @@ else
 endif
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -fdisable-tree-cunrolli -x c - -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
-endif
+#ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -fdisable-tree-cunrolli -x c - -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+#	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
+#endif
 
 #ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 #  ifndef SOURCE_DATE_EPOCH
@@ -92,9 +92,13 @@ ifneq "$(SYS)" "Darwin"
   #  SPECIAL_PERFORMANCE += -march=native
   #endif
  # OS X does not like _FORTIFY_SOURCE=2
-  ifndef DEBUG
-    CFLAGS_OPT += -D_FORTIFY_SOURCE=2
-  endif
+ ifndef DEBUG
+   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+ endif
+else
+  # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
+  SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
+  LDFLAGS += $(SDK_LD)
 endif
 
 ifeq "$(SYS)" "SunOS"
@@ -138,12 +142,13 @@ ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
   override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
 else
-  CFLAGS ?= -O3 -funroll-loops $(CFLAGS_OPT)
+  CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
 endif
 
-override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
-			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
-			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
+override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
+			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
+			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
+# -fstack-protector
 
 ifeq "$(SYS)" "FreeBSD"
   override CFLAGS  += -I /usr/local/include/
@@ -167,9 +172,9 @@ endif
 
 ifeq "$(SYS)" "Haiku"
   SHMAT_OK=0
-  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
+  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format
   override LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
-  SPECIAL_PERFORMANCE += -DUSEMMAP=1
+  #SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
@@ -241,9 +246,6 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(SYS))" ""
- ifndef DEBUG
-  override CFLAGS += -D_FORTIFY_SOURCE=2
- endif
   override LDFLAGS += -ldl -lrt -lm
 endif
 
@@ -371,6 +373,7 @@ help:
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
+	@echo NO_NYX - disable building nyx mode dependencies
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
@@ -384,7 +387,7 @@ test_x86:
 	@echo "[*] Testing the PATH environment variable..."
 	@test "$${PATH}" != "$${PATH#.:}" && { echo "Please remove current directory '.' from PATH to avoid recursion of 'as', thanks!"; echo; exit 1; } || :
 	@echo "[*] Checking for the ability to compile x86 code..."
-	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) $(CFLAGS) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
+	@echo 'int main() { __asm__("xorb %al, %al"); }' | $(CC) $(CFLAGS) $(LDFLAGS) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
 	@rm -f .test1
 else
 test_x86:
@@ -420,7 +423,7 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	@ln -sf afl-as as
 
 src/afl-performance.o : $(COMM_HDR) src/afl-performance.c include/hash.h
-	$(CC) $(CFLAGS) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
+	$(CC) $(CFLAGS) $(CFLAGS_OPT) -Iinclude -c src/afl-performance.c -o src/afl-performance.o
 
 src/afl-common.o : $(COMM_HDR) src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
@@ -528,7 +531,7 @@ code-format:
 ifndef AFL_NO_X86
 test_build: afl-cc afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper afl-cc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_LSAN AFL_USE_ASAN AFL_USE_MSAN; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
+	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_LSAN AFL_USE_ASAN AFL_USE_MSAN; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c $(LDFLAGS) -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
@@ -564,7 +567,7 @@ all_done: test_build
 
 .PHONY: clean
 clean:
-	rm -rf $(PROGS) afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM
+	rm -rf $(PROGS) afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	-$(MAKE) -C utils/libdislocator clean
@@ -623,7 +626,9 @@ ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -643,7 +648,9 @@ ifeq "$(ARCH)" "aarch64"
 	-$(MAKE) -C coresight_mode
 endif
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -659,7 +666,9 @@ endif
 	-$(MAKE) -C utils/libtokencap
 	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+endif
 endif
 
 %.8:	%
@@ -687,6 +696,7 @@ install: all $(MANPAGES)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
+	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so afl-llvm-pass.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f utils/plot_ui/afl-plot-ui ]; then install -m 755 utils/plot_ui/afl-plot-ui $${DESTDIR}$(BIN_PATH); fi

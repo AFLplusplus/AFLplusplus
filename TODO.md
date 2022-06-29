@@ -2,6 +2,8 @@
 
 ## Should
 
+ - makefiles should show provide a build summary success/failure
+ - better documentation for custom mutators
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt
  - afl-plot to support multiple plot_data
@@ -10,6 +12,8 @@
 
 ## Maybe
 
+ - forkserver tells afl-fuzz if cmplog is supported and if so enable
+   it by default, with AFL_CMPLOG_NO=1 (?) set to skip?
  - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
  - cmdline option from-to range for mutations

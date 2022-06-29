@@ -2,6 +2,12 @@ ifeq "" "$(LLVM_CONFIG)"
   LLVM_CONFIG=llvm-config
 endif
 
+ifeq "$(shell uname -s)" "Darwin"
+  # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
+  SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
+  LDFLAGS += $(SDK_LD)
+endif
+
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 ifneq "" "$(LLVM_BINDIR)"
   LLVM_BINDIR := $(LLVM_BINDIR)/
@@ -33,7 +39,7 @@ libAFLQemuDriver.a:	aflpp_qemu_driver.o
 	@-cp -vf libAFLQemuDriver.a ../../
 
 aflpp_qemu_driver_hook.so:	aflpp_qemu_driver_hook.o
-	@-test -e aflpp_qemu_driver_hook.o && $(LLVM_BINDIR)clang -shared aflpp_qemu_driver_hook.o -o aflpp_qemu_driver_hook.so || echo "Note: Optional aflpp_qemu_driver_hook.so not built."
+	@-test -e aflpp_qemu_driver_hook.o && $(LLVM_BINDIR)clang $(LDFLAGS) -shared aflpp_qemu_driver_hook.o -o aflpp_qemu_driver_hook.so || echo "Note: Optional aflpp_qemu_driver_hook.so not built."
 
 aflpp_qemu_driver_hook.o:	aflpp_qemu_driver_hook.c
 	@-test -e ../../qemu_mode/qemuafl/qemuafl/api.h && $(LLVM_BINDIR)clang $(CFLAGS) -funroll-loops -c aflpp_qemu_driver_hook.c || echo "Note: Optional aflpp_qemu_driver_hook.o not built."

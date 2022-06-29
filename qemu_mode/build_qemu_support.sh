@@ -77,9 +77,9 @@ if [ $? -eq 0 ]; then
   git submodule update ./qemuafl 2>/dev/null # ignore errors
 else
   echo "[*] cloning qemuafl"
-  test -d qemuafl || {
+  test -d qemuafl/.git || {
     CNT=1
-    while [ '!' -d qemuafl -a "$CNT" -lt 4 ]; do
+    while [ '!' -d qemuafl/.git -a "$CNT" -lt 4 ]; do
       echo "Trying to clone qemuafl (attempt $CNT/3)"
       git clone --depth 1 https://github.com/AFLplusplus/qemuafl
       CNT=`expr "$CNT" + 1`
@@ -87,7 +87,7 @@ else
   }
 fi
 
-test -d qemuafl || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e qemuafl/.git || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got qemuafl."
 
 cd "qemuafl" || exit 1
@@ -96,6 +96,7 @@ if [ -n "$NO_CHECKOUT" ]; then
 else
   echo "[*] Checking out $QEMUAFL_VERSION"
   sh -c 'git stash' 1>/dev/null 2>/dev/null
+  git pull
   git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
 fi
 
