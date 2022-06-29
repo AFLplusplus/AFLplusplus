@@ -2275,7 +2275,7 @@ int main(int argc, char **argv_orig, char **envp) {
       t_send_double_data send_data;
       send_data.data_type = 1;
       double msg_array[BUFF_SIZE_SENDER];
-      for (int i = 0; i < 10; i++) {
+      for (int i = 0; i < BUFF_SIZE_SENDER; i++) {
         msg_array[i] = -3.2;
       }
 
@@ -2295,7 +2295,7 @@ int main(int argc, char **argv_orig, char **envp) {
       }
       memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
       printf("Interpreted as array: ");
-      for(int i = 0; i < 10; i++) {
+      for(int i = 0; i<BUFF_SIZE_RECEIVER; i++) {
         printf("%f ", recieved_array[i]);
       }
       printf("\n");
