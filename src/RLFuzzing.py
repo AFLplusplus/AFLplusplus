@@ -95,6 +95,7 @@ class RLFuzzing:
                     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
                 except sysv_ipc.ExistentialError:
                     print("ERROR: message queue creation failed")
+                print(f"len(score): {len(score)}")
 
 
 
