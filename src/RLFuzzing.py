@@ -83,12 +83,10 @@ class RLFuzzing:
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
-            score = self.compute_score(k)
-            pr = np.array(self.step_exec_map, dtype=jnp.float64)
-            nr = np.array(self.negative_reward, dtype=jnp.float64)
-            print(f"self.step_exec_map: {self.step_exec_map}")
-            print(f"self.negative_reward: {self.negative_reward}")
-            print(f"score: {score}")
+            if self.step_exec_map is not None:
+                score = self.compute_score(k)
+            else:
+                score = np.zeros(self.map_size)
 
             while len(score):
                 msg_npy = score[:BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
