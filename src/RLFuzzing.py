@@ -88,7 +88,11 @@ class RLFuzzing:
                 score = self.compute_score(k)
                 print('1a')
             else:
-                score = np.zeros(int(self.map_size))
+                score = np.zeros(1)
+                try:
+                    self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
+                except sysv_ipc.ExistentialError:
+                    print("ERROR: message queue creation failed")
                 print('1b')
 
             index = 0
