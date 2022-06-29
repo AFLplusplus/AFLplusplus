@@ -84,8 +84,8 @@
   #include <sys/ipc.h>
   #include <sys/msg.h>
 
-  #define  BUFF_SIZE_SENDER     16384
-  #define  BUFF_SIZE_RECEIVER   16384
+  #define  BUFF_SIZE_SENDER     10240
+  #define  BUFF_SIZE_RECEIVER   10240
 
 
   typedef struct {
