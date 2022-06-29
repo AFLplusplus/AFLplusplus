@@ -32,7 +32,7 @@ class RLFuzzing:
         return random_beta
 
 
-    def compute_score(self, key, number_of_positive_rewards, number_of_negative_rewards):
+    def compute_score(self, key):
         pr = jnp.array(self.step_exec_map)
         nr = jnp.array(self.negative_reward)
         random_beta = self.thompson_sample_step(key, pr, nr)
@@ -84,7 +84,7 @@ class RLFuzzing:
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
-            score = self.compute_score(k, number_of_positive_rewards, number_of_negative_rewards)
+            score = self.compute_score(k)
 
             while len(score):
                 msg_npy = score[:BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
