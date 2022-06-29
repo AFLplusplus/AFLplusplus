@@ -92,6 +92,7 @@ class RLFuzzing:
                 print('1b')
 
             index = 0
+            print(f'self.map_size: {self.map_size}')
             while index < self.map_size:
                 print('3')
                 msg_npy = score[index:index+BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
