@@ -73,8 +73,7 @@ class RLFuzzing:
                 print(f"afl->fsrv.map_size: {map_size}")
                 print(f"afl->fsrv.trace_bits: {trace_bits}")
                 print(f"len(trace_bits): {len(trace_bits)}")
-                print(f"self.step_exec_map: {self.step_exec_map}")
-                print(f"self.negative_reward: {self.negative_reward}")
+
                 print(f"mtype: {mtype}")
                 # self.send_messenges(mtype)
 
@@ -87,6 +86,8 @@ class RLFuzzing:
             score = self.compute_score(k)
             pr = np.array(self.step_exec_map, dtype=jnp.float64)
             nr = np.array(self.negative_reward, dtype=jnp.float64)
+            print(f"self.step_exec_map: {self.step_exec_map}")
+            print(f"self.negative_reward: {self.negative_reward}")
             print(f"score: {score}")
 
             while len(score):
