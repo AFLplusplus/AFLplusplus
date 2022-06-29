@@ -2293,14 +2293,14 @@ int main(int argc, char **argv_orig, char **envp) {
       t_recieve_double_data recieve_data;
       double recieved_array[BUFF_SIZE_RECEIVER];
       double score_array[afl->fsrv.map_size];
-      int index = 0;
+      u32 index = 0;
       do {
         if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
           perror( "msgrcv() failed");
           exit(1);
         }
         memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
-        for(int i = 0; i < BUFF_SIZE_RECEIVER; i++) {
+        for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
           if(index+i < afl->fsrv.map_size) {
             score_array[index+i] = recieved_array[i];
           }
