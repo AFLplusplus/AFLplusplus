@@ -2311,7 +2311,7 @@ int main(int argc, char **argv_orig, char **envp) {
       } while (index < afl->fsrv.map_size);
 
       printf("Interpreted as array: ");
-      for(int i = 0; i<afl->fsrv.map_size; i++) {
+      for(u32 i = 0; i<afl->fsrv.map_size; i++) {
         printf("%f ", score_array[i]);
       }
       printf("\n");
