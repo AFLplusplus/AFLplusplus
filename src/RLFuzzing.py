@@ -2,6 +2,9 @@ import sysv_ipc
 import numpy as np
 import struct
 
+FUZZING_LOOP = 1
+UPDATE_BITMAP = 2
+
 
 class RLFuzzing:
     def __init__(self,max_message_size=1000000):
@@ -15,12 +18,12 @@ class RLFuzzing:
 
             message, mtype = self.mq_reciever.receive()
 
-            if mtype == 1:
+            if mtype == FUZZING_LOOP:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.double)
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
-            elif mtype == 2:
+            elif mtype == UPDATE_BITMAP:
                 afl_fsrv_map_size = np.frombuffer(message, dtype=np.uint8)
                 print(f"afl->fsrv.map_size: {afl_fsrv_map_size}")
                 print(f"mtype: {mtype}")
@@ -30,9 +33,9 @@ class RLFuzzing:
             print("ERROR: message queue creation failed")
 
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=64):
-        if mtype == 1:
+        if mtype == FUZZING_LOOP:
             msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.double).reshape((2,BUFF_SIZE_SENDER//2))
-        # elif mtype == 2:
+        # elif mtype == UPDATE_BITMAP:
         #     msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
 
         try:
