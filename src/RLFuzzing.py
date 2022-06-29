@@ -85,6 +85,8 @@ class RLFuzzing:
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
             score = self.compute_score(k)
+            pr = np.array(self.step_exec_map, dtype=jnp.float64)
+            nr = np.array(self.negative_reward, dtype=jnp.float64)
             print(f"score: {score}")
 
             while len(score):
