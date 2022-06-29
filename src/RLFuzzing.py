@@ -23,7 +23,7 @@ class RLFuzzing:
         self.key = random.PRNGKey(0)
         return
 
-    @jit
+    # @jit
     def thompson_sample_step(self, key, number_of_positive_rewards, number_of_negative_rewards):
         a = number_of_positive_rewards + 1
         b = number_of_negative_rewards + 1
@@ -33,8 +33,8 @@ class RLFuzzing:
 
 
     def compute_score(self, key):
-        pr = jnp.array(self.step_exec_map, dtype=jnp.float64)
-        nr = jnp.array(self.negative_reward, dtype=jnp.float64)
+        pr = np.array(self.step_exec_map, dtype=jnp.float64)
+        nr = np.array(self.negative_reward, dtype=jnp.float64)
         random_beta = self.thompson_sample_step(key, pr, nr)
         rareness = pr**2 / nr
         score = random_beta / rareness
