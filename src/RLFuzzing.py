@@ -11,7 +11,7 @@ UPDATE_BITMAP = 2
 
 
 class RLFuzzing:
-    def __init__(self,max_message_size=100000):
+    def __init__(self,max_message_size=10000):
         self.map_size = None
 
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
@@ -47,7 +47,7 @@ class RLFuzzing:
             message, mtype = self.mq_reciever.receive()
 
             if mtype == FUZZING_LOOP:
-                self.map_size = np.frombuffer(message, dtype=np.double)[0]
+                self.map_size = np.frombuffer(message, dtype=np.utinc)[0]
                 print(f"self.map_size: {self.map_size}")
                 print(f"mtype: {mtype}")
                 self.send_messenges(mtype)
