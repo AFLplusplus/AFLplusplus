@@ -2285,31 +2285,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
 
 
-      /* Receive Messages */
-      t_recieve_double_data recieve_data;
-      double recieved_array[BUFF_SIZE_RECEIVER];
-      double score_array[afl->fsrv.map_size];
-      u32 index = 0;
-      do {
-        if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
-          perror( "msgrcv() failed");
-          exit(1);
-        }
-        memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
-        for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
-          if(index+i < afl->fsrv.map_size) {
-            score_array[index+i] = recieved_array[i];
-          }
-        }
-        index += BUFF_SIZE_RECEIVER;
-      } while (index < afl->fsrv.map_size && afl->fsrv.map_size != 0);
-      printf("4\n");
+      // /* Receive Messages */
+      // t_recieve_double_data recieve_data;
+      // double recieved_array[BUFF_SIZE_RECEIVER];
+      // double score_array[afl->fsrv.map_size];
+      // u32 index = 0;
+      // do {
+      //   if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
+      //     perror( "msgrcv() failed");
+      //     exit(1);
+      //   }
+      //   memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+      //   for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
+      //     if(index+i < afl->fsrv.map_size) {
+      //       score_array[index+i] = recieved_array[i];
+      //     }
+      //   }
+      //   index += BUFF_SIZE_RECEIVER;
+      // } while (index < afl->fsrv.map_size && afl->fsrv.map_size != 0);
+      // printf("4\n");
 
-      printf("Interpreted as array: ");
-      for(u32 i = 0; i < afl->fsrv.map_size; i++) {
-        printf("%f ", score_array[i]);
-      }
-      printf("\n");
+      // printf("Interpreted as array: ");
+      // for(u32 i = 0; i < afl->fsrv.map_size; i++) {
+      //   printf("%f ", score_array[i]);
+      // }
+      // printf("\n");
 
 
     // } else {

@@ -50,7 +50,7 @@ class RLFuzzing:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
                 print(f"self.map_size: {self.map_size}")
                 print(f"mtype: {mtype}")
-                self.send_messenges(mtype)
+                # self.send_messenges(mtype)
 
             elif mtype == UPDATE_BITMAP:
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
