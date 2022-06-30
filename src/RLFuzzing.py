@@ -95,7 +95,9 @@ class RLFuzzing:
             print(f'self.map_size: {self.map_size}')
             while index < self.map_size:
                 print('3')
-                msg_npy = score[index:index+BUFF_SIZE_SENDER].reshape((2,BUFF_SIZE_SENDER//2))
+                msg_npy = np.zeros(BUFF_SIZE_SENDER)
+                msg_npy[:len(score[index:index+BUFF_SIZE_SENDER])]= score[index:index+BUFF_SIZE_SENDER]
+                msg_npy = msg_npy.reshape((2,BUFF_SIZE_SENDER//2))
                 index += BUFF_SIZE_SENDER
                 try:
                     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
