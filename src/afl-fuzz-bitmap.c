@@ -562,44 +562,44 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     afl->queue_top->exec_cksum =
         hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-  // if (RLFUZZING) {
-  //   int msqid_sender;
-  //   int msqid_reciever;
+  if (RLFUZZING) {
+    int msqid_sender;
+    int msqid_reciever;
 
-  //   if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
-  //     perror("msgget() failed");
-  //     exit(1);
-  //   }
+    if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+      perror("msgget() failed");
+      exit(1);
+    }
 
-  //   if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
-  //     perror("msgget() failed");
-  //     exit(1);
-  //   }
+    if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
+      perror("msgget() failed");
+      exit(1);
+    }
 
 
-  //   /* Send Messages */
-  //   t_send_u32_data send_data;
-  //   send_data.data_type = 2;
-  //   u32 msg_array[BUFF_SIZE_SENDER];
+    /* Send Messages */
+    t_send_u32_data send_data;
+    send_data.data_type = 2;
+    u32 msg_array[BUFF_SIZE_SENDER];
 
-  //   u32 index = 0;
-  //   while (index < afl->fsrv.map_size) {
-  //     msg_array[0] = afl->fsrv.map_size;
+    u32 index = 0;
+    while (index < afl->fsrv.map_size) {
+      msg_array[0] = afl->fsrv.map_size;
       
-  //     for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
-  //       if (index+i < afl->fsrv.map_size) {
-  //         msg_array[i+1] = (u32) afl->fsrv.trace_bits[index+i];
-  //       } else {
-  //          msg_array[i+1] = (u32) 0;
-  //       }
-  //     }
-  //     memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
-  //     if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
-  //       perror("msgsnd() failed");
-  //       exit(1);
-  //     }
-  //     index += BUFF_SIZE_SENDER;
-  //   }
+      for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
+        if (index+i < afl->fsrv.map_size) {
+          msg_array[i+1] = (u32) afl->fsrv.trace_bits[index+i];
+        } else {
+           msg_array[i+1] = (u32) 0;
+        }
+      }
+      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
+      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
+        perror("msgsnd() failed");
+        exit(1);
+      }
+      index += BUFF_SIZE_SENDER;
+    }
 
 
   // /* Receive Messages */
@@ -618,7 +618,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   //   printf("\n");
 
 
-  // }
+  }
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
