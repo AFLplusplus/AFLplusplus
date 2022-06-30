@@ -96,7 +96,7 @@ class RLFuzzing:
                 index += BUFF_SIZE_SENDER
                 print(f'index: {index}')
                 try:
-                    self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
+                    self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
                 except sysv_ipc.ExistentialError:
                     print("ERROR: message queue creation failed")
 
