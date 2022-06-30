@@ -81,18 +81,14 @@ class RLFuzzing:
             print("ERROR: message queue creation failed")
 
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
-        print('0')
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
             if self.step_exec_map is not None:
                 score = self.compute_score(k)
-                print('1a')
             else:
                 score = np.zeros(self.map_size)
-                print('1b')
-
+            print(f"score: {score}")
             index = 0
-            print(f'self.map_size: {self.map_size}')
             while index < self.map_size:
                 print('3')
                 msg_npy = np.zeros(BUFF_SIZE_SENDER)
@@ -103,9 +99,6 @@ class RLFuzzing:
                     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
                 except sysv_ipc.ExistentialError:
                     print("ERROR: message queue creation failed")
-                print(f"len(score): {len(score)}")
-            print('4')
-
 
 
         # elif mtype == UPDATE_BITMAP:

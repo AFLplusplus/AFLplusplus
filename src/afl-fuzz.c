@@ -2291,24 +2291,17 @@ int main(int argc, char **argv_orig, char **envp) {
       double score_array[afl->fsrv.map_size];
       u32 index = 0;
       do {
-        printf("1\n");
         if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
           perror( "msgrcv() failed");
           exit(1);
         }
-        printf("2\n");
         memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
         for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
           if(index+i < afl->fsrv.map_size) {
             score_array[index+i] = recieved_array[i];
           }
         }
-        printf("3\n");
         index += BUFF_SIZE_RECEIVER;
-        printf("%d \n", index);
-
-        printf("struck in this loop\n");
-        printf("%d", afl->fsrv.map_size);
       } while (index < afl->fsrv.map_size && afl->fsrv.map_size != 0);
       printf("4\n");
 
