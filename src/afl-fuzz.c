@@ -2310,6 +2310,7 @@ int main(int argc, char **argv_orig, char **envp) {
         printf("struck in this loop\n");
         printf("%d", afl->fsrv.map_size);
       } while (index < afl->fsrv.map_size && afl->fsrv.map_size != 0);
+      printf("4\n");
 
       printf("Interpreted as array: ");
       for(u32 i = 0; i < afl->fsrv.map_size; i++) {
