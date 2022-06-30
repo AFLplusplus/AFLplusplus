@@ -86,6 +86,7 @@ class RLFuzzing:
             if self.step_exec_map is not None:
                 score = self.compute_score(k)
             else:
+                print('here')
                 score = np.zeros(self.map_size)
             print(f"score: {score}")
             index = 0
