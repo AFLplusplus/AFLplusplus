@@ -37,7 +37,7 @@ class RLFuzzing:
         nr = np.array(self.negative_reward, dtype=jnp.float64)
         random_beta = self.thompson_sample_step(key, pr, nr)
         rareness = pr**2 / (pr+nr+1)
-        score = random_beta / rareness
+        score = (random_beta / rareness)**0.5
         return np.array(score)
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=1024):
