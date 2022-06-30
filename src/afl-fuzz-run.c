@@ -526,7 +526,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
             }
             index += BUFF_SIZE_SENDER;
           }
-
+        }
       }
 
     }
