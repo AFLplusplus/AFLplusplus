@@ -2273,7 +2273,7 @@ int main(int argc, char **argv_orig, char **envp) {
       /* Send Messages */
       t_send_u32_data send_data;
       send_data.data_type = 1;
-      double msg_array[BUFF_SIZE_SENDER];
+      u32 msg_array[BUFF_SIZE_SENDER];
       msg_array[0] = afl->fsrv.map_size;
       
 
