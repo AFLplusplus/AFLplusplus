@@ -36,7 +36,7 @@ class RLFuzzing:
         pr = np.array(self.step_exec_map, dtype=jnp.float64)
         nr = np.array(self.negative_reward, dtype=jnp.float64)
         random_beta = self.thompson_sample_step(key, pr, nr)
-        rareness = pr**2 / nr
+        rareness = pr**2 / (pr+nr+1)
         score = random_beta / rareness
         return np.array(score)
 
