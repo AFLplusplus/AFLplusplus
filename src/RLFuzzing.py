@@ -70,11 +70,11 @@ class RLFuzzing:
                 self.step_exec_map[trace_bits != 0] += 1
                 self.negative_reward[trace_bits == 0] += 1
 
-                # print(f"afl->fsrv.map_size: {map_size}")
-                # print(f"afl->fsrv.trace_bits: {trace_bits}")
-                # print(f"len(trace_bits): {len(trace_bits)}")
+                print(f"afl->fsrv.map_size: {map_size}")
+                print(f"afl->fsrv.trace_bits: {trace_bits}")
+                print(f"len(trace_bits): {len(trace_bits)}")
 
-                # print(f"mtype: {mtype}")
+                print(f"mtype: {mtype}")
                 # self.send_messenges(mtype)
 
         except sysv_ipc.ExistentialError:
