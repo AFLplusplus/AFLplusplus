@@ -2302,14 +2302,7 @@ int main(int argc, char **argv_orig, char **envp) {
           }
         }
         index += BUFF_SIZE_RECEIVER;
-      } 
-
-      printf("Interpreted as array: ");
-      for(u32 i = 0; i < afl->fsrv.map_size; i++) {
-        printf("%f ", score_array[i]);
       }
-      printf("\n");
-
 
     // } else {
       cull_queue(afl);
