@@ -2318,7 +2318,6 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->queue_cur = afl->top_rated[afl->current_entry];
       afl->current_entry = afl->queue_cur->id;
       afl->queue_cycle = recieved_array[1];
-      afl->cur_skipped_paths = 0;
 
 
 
