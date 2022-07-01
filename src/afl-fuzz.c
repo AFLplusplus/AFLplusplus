@@ -2303,6 +2303,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
         index += BUFF_SIZE_RECEIVER;
       }
+      (void)score_array; // Silence Error Remove Later
 
     // } else {
       cull_queue(afl);
