@@ -70,12 +70,6 @@ class RLFuzzing:
                 self.step_exec_map[trace_bits != 0] += 1
                 self.negative_reward[trace_bits == 0] += 1
 
-                print(f'self.step_exec_map: {self.step_exec_map}')
-                print(f'self.negative_reward: {self.negative_reward}')
-
-                print(f"mtype: {mtype}")
-                # self.send_messenges(mtype)
-
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
 
@@ -83,17 +77,27 @@ class RLFuzzing:
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
             score = self.compute_score(k)
-            print(f"score: {score}")
-            index = 0
-            while index < self.map_size:
-                msg_npy = np.zeros(BUFF_SIZE_SENDER)
-                msg_npy[:len(score[index:index+BUFF_SIZE_SENDER])]= score[index:index+BUFF_SIZE_SENDER]
-                msg_npy = np.array(msg_npy, dtype=np.float64).reshape((2,BUFF_SIZE_SENDER//2))
-                index += BUFF_SIZE_SENDER
-                try:
-                    self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
-                except sysv_ipc.ExistentialError:
-                    print("ERROR: message queue creation failed")
+            best_seed_id = np.numpy.argmax(score)
+            msg_npy = np.zeros(BUFF_SIZE_SENDER)
+            msg_npy[0] = best_seed_id
+            msg_npy[1] = self.step_exec_map[best_seed_id] + self.negative_reward[best_seed_id]
+            msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
+            try:
+                self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
+            except sysv_ipc.ExistentialError:
+                print("ERROR: message queue creation failed")
+
+
+            # index = 0
+            # while index < self.map_size:
+            #     msg_npy = np.zeros(BUFF_SIZE_SENDER)
+            #     msg_npy[:len(score[index:index+BUFF_SIZE_SENDER])]= score[index:index+BUFF_SIZE_SENDER]
+            #     msg_npy = np.array(msg_npy, dtype=np.float64).reshape((2,BUFF_SIZE_SENDER//2))
+            #     index += BUFF_SIZE_SENDER
+            #     try:
+            #         self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
+            #     except sysv_ipc.ExistentialError:
+            #         print("ERROR: message queue creation failed")
 
 
         # elif mtype == UPDATE_BITMAP:

@@ -2285,27 +2285,46 @@ int main(int argc, char **argv_orig, char **envp) {
 
 
 
-      /* Receive Messages */
-      t_recieve_double_data recieve_data;
-      double recieved_array[BUFF_SIZE_RECEIVER];
-      double score_array[afl->fsrv.map_size];
-      u32 index = 0;
-      while (index < afl->fsrv.map_size) {
-        if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
-          perror( "msgrcv() failed");
-          exit(1);
-        }
-        memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
-        for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
-          if(index+i < afl->fsrv.map_size) {
-            score_array[index+i] = recieved_array[i];
-          }
-        }
-        index += BUFF_SIZE_RECEIVER;
-      }
-      (void)score_array; // Silence Error Remove Later
+      // /* Receive Messages */
+      // t_recieve_double_data recieve_data;
+      // double recieved_array[BUFF_SIZE_RECEIVER];
+      // double score_array[afl->fsrv.map_size];
+      // u32 index = 0;
+      // while (index < afl->fsrv.map_size) {
+      //   if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
+      //     perror( "msgrcv() failed");
+      //     exit(1);
+      //   }
+      //   memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+      //   for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
+      //     if(index+i < afl->fsrv.map_size) {
+      //       score_array[index+i] = recieved_array[i];
+      //     }
+      //   }
+      //   index += BUFF_SIZE_RECEIVER;
+      // }
+      // (void)score_array; // Silence Error Remove Later
 
-    // } else {
+
+      /* Receive Messages */
+      t_recieve_u32_data recieve_data;
+      u32 recieved_array[BUFF_SIZE_RECEIVER];
+      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
+        perror( "msgrcv() failed");
+        exit(1);
+      }
+      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+      afl->current_entry = recieved_array[0];
+      afl->queue_cur = afl->top_rated[afl->current_entry];
+      afl->current_entry = afl->queue_cur->id;
+      afl->queue_cycle = recieved_array[1];
+      afl->cur_skipped_paths = 0;
+
+
+
+
+
+    } else {
       cull_queue(afl);
 
     }
