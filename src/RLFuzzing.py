@@ -77,7 +77,7 @@ class RLFuzzing:
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
             score = self.compute_score(k)
-            best_seed_id = np.numpy.argmax(score)
+            best_seed_id = np.argmax(score)
             msg_npy = np.zeros(BUFF_SIZE_SENDER)
             msg_npy[0] = best_seed_id
             msg_npy[1] = self.step_exec_map[best_seed_id] + self.negative_reward[best_seed_id]
