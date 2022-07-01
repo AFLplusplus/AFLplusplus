@@ -1,6 +1,6 @@
-from jax import numpy as jnp
-from jax import random
-from jax import jit, lax
+# from jax import numpy as jnp
+# from jax import random
+# from jax import jit, lax
 
 import numpy as np
 import sysv_ipc
@@ -20,7 +20,7 @@ class RLFuzzing:
         self.step_exec_map = None     # Positive Reward
         self.negative_reward = None
 
-        self.key = random.PRNGKey(0)
+        # self.key = random.PRNGKey(0)
         return
 
     # @jit
@@ -28,7 +28,8 @@ class RLFuzzing:
         a = number_of_positive_rewards + 1
         b = number_of_negative_rewards + 1
 
-        random_beta = random.beta(key, a, b)
+        # random_beta = random.beta(key, a, b)
+        random_beta = np.random.beta(a,b)
         return random_beta
 
 
@@ -75,7 +76,8 @@ class RLFuzzing:
 
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == FUZZING_LOOP:
-            self.key, k = random.split(self.key)
+            # self.key, k = random.split(self.key)
+            k = 0
             score = self.compute_score(k)
             best_seed_id = np.argmax(score)
             msg_npy = np.zeros(BUFF_SIZE_SENDER)
