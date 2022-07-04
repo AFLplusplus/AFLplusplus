@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [stable, dev]
+    branches:
+      - stable
+      - dev
   pull_request:
-    branches: [stable, dev]
+    branches:
+      - dev # No need for stable-pull-request, as that equals dev-push
 
 jobs:
   linux:

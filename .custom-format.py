@@ -19,6 +19,7 @@ import subprocess
 import sys
 import os
 import re
+import shutil
 
 # string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # future use
 
@@ -26,6 +27,10 @@ with open(".clang-format") as f:
     fmt = f.read()
 
 CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN")
+
+if CLANG_FORMAT_BIN is None:
+    CLANG_FORMAT_BIN = shutil.which("clang-format")
+
 if CLANG_FORMAT_BIN is None:
     o = 0
     try:
