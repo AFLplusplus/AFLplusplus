@@ -160,6 +160,8 @@ Available options:
 Setting `AFL_LLVM_CMPLOG=1` during compilation will tell afl-clang-fast to
 produce a CmpLog binary.
 
+For afl-gcc-fast set `AFL_GCC_CMPLOG=1` instead.
+
 For more information, see
 [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 

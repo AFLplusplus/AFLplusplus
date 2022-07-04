@@ -8,6 +8,11 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
+### Version ++4.02a (dev)
+  - gcc_plugin:
+    - Adacore submitted CMPLOG support to the gcc_plugin! :-)
+
+
 ### Version ++4.01c (release)
   - fixed */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)

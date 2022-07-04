@@ -100,3 +100,10 @@ See
 
 It can be more effective to fuzzing to only instrument parts of the code. For
 details, see [README.instrument_list.md](README.instrument_list.md).
+
+## 7) Bonus feature #4: CMPLOG
+
+The gcc_plugin also support CMPLOG/Redqueen, just set `AFL_GCC_CMPLOG` before
+instrumenting the target.
+Read more about this in the llvm document.
+
