@@ -27,7 +27,7 @@ with open(".clang-format") as f:
     fmt = f.read()
 
 CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
-CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN")
+CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
 
 if shutil.which(CLANG_FORMAT_BIN) is None:
     CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
