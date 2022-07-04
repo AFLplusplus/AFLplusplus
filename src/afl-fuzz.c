@@ -2275,8 +2275,6 @@ int main(int argc, char **argv_orig, char **envp) {
       send_data.data_type = 1;
       u32 msg_array[BUFF_SIZE_SENDER];
       msg_array[0] = afl->fsrv.map_size;
-      
-
 
       memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
       if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
@@ -2303,13 +2301,12 @@ int main(int argc, char **argv_orig, char **envp) {
       //   }
       //   index += BUFF_SIZE_RECEIVER;
       // }
-      // (void)score_array; // Silence Error Remove Later
 
 
       /* Receive Messages */
       t_recieve_u32_data recieve_data;
       u32 recieved_array[BUFF_SIZE_RECEIVER];
-      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
+      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u32_data) - sizeof(long), 0, 0)) {
         perror( "msgrcv() failed");
         exit(1);
       }
