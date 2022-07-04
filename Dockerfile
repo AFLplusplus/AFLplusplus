@@ -16,8 +16,8 @@ RUN apt-get update && apt-get full-upgrade -y && \
     apt-get install -y --no-install-recommends wget ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-ARG LLVM_VERSION=14
-ARG GCC_VERSION=12
+ENV LLVM_VERSION=14
+ENV GCC_VERSION=12
 
 RUN echo "deb [signed-by=/etc/apt/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
     wget -qO /etc/apt/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
