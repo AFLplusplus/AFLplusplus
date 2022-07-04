@@ -2251,9 +2251,9 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
 
-printf("0");
 
-#ifdef RLFUZZING
+// #ifdef RLFUZZING
+#ifdef 0
   int msqid_sender;
   int msqid_reciever;
   if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
@@ -2269,9 +2269,9 @@ printf("0");
 
 
   while (likely(!afl->stop_soon)) {
-    if (RLFUZZING) {
+    // if (RLFUZZING) {
+    if (0) {
 
-      printf("1");
 
       /* Send Messages */
       t_send_u32_data send_data;
@@ -2279,7 +2279,6 @@ printf("0");
       u32 msg_array[BUFF_SIZE_SENDER];
       msg_array[0] = afl->fsrv.map_size;
       
-      printf("2");
 
 
       memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
@@ -2287,7 +2286,6 @@ printf("0");
         perror("msgsnd() failed");
         exit(1);
       }
-      printf("3");
 
 
       // /* Receive Messages */
@@ -2318,7 +2316,6 @@ printf("0");
         perror( "msgrcv() failed");
         exit(1);
       }
-      printf("4");
 
       memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u32));
       afl->current_entry = recieved_array[0];
@@ -2326,7 +2323,6 @@ printf("0");
       afl->current_entry = afl->queue_cur->id;
       afl->queue_cycle = recieved_array[1];
 
-      printf("5\n");
 
 
 

@@ -563,6 +563,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
   if (RLFUZZING) {
+
     int msqid_sender;
     int msqid_reciever;
 
