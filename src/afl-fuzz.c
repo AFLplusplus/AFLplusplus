@@ -2268,8 +2268,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
 
   while (likely(!afl->stop_soon)) {
-    // if (RLFUZZING) {
-    if (0) {
+    if (RLFUZZING) {
 
 
       /* Send Messages */
@@ -2320,10 +2319,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->current_entry = recieved_array[0];
       afl->queue_cur = afl->top_rated[afl->current_entry];
       afl->current_entry = afl->queue_cur->id;
-      afl->queue_cycle = recieved_array[1];
-
-
-
+      afl->queue_cycle = (u64) recieved_array[1];
 
 
     } else {
