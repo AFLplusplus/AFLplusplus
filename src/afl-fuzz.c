@@ -2251,6 +2251,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
 
+printf("0");
 
 #ifdef RLFUZZING
   int msqid_sender;
