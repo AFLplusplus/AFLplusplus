@@ -921,7 +921,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
               std::string outstring;
               fprintf(stderr, "%s: length %zu/%zu \"", FuncName.c_str(), optLen,
                       thestring.length());
-              for (uint16t_t i = 0; i < (uint16_t)thestring.length(); i++) {
+              for (uint16_t i = 0; i < (uint16_t)thestring.length(); i++) {
 
                 uint8_t c = thestring[i];
                 if (c <= 32 || c >= 127)
