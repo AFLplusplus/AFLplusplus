@@ -11,7 +11,7 @@ UPDATE_BITMAP = 2
 
 
 class RLFuzzing:
-    def __init__(self,max_message_size=100000):
+    def __init__(self,max_message_size=10000):
         self.map_size = None
 
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
@@ -41,7 +41,7 @@ class RLFuzzing:
         score = (np.array(random_beta, dtype=np.float64) / (1+rareness))**0.5
         return np.array(score)
 
-    def recieve_messages(self, BUFF_SIZE_RECIEVER=128):
+    def recieve_messages(self, BUFF_SIZE_RECIEVER=1024):
         try:
             
 
@@ -74,7 +74,7 @@ class RLFuzzing:
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
 
-    def send_messenges(self, mtype, BUFF_SIZE_SENDER=128):
+    def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == FUZZING_LOOP:
             # self.key, k = random.split(self.key)
             k = 0
