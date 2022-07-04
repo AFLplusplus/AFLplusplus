@@ -26,38 +26,15 @@ import shutil
 with open(".clang-format") as f:
     fmt = f.read()
 
+CURRENT_LLVM = 14
 CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN")
 
-if CLANG_FORMAT_BIN is None:
-    CLANG_FORMAT_BIN = shutil.which("clang-format")
+if shutil.which(CLANG_FORMAT_BIN) is None:
+    CLANG_FORMAT_BIN = f"clang-format-{os.getenv('LLVM_VERSION', CURRENT_LLVM)}"
 
-if CLANG_FORMAT_BIN is None:
-    o = 0
-    try:
-        p = subprocess.Popen(["clang-format-11", "--version"], stdout=subprocess.PIPE)
-        o, _ = p.communicate()
-        o = str(o, "utf-8")
-        o = re.sub(r".*ersion ", "", o)
-        # o = o[len("clang-format version "):].strip()
-        o = o[: o.find(".")]
-        o = int(o)
-    except:
-        print("clang-format-11 is needed. Aborted.")
-        exit(1)
-    # if o < 7:
-    #    if subprocess.call(['which', 'clang-format-7'], stdout=subprocess.PIPE) == 0:
-    #        CLANG_FORMAT_BIN = 'clang-format-7'
-    #    elif subprocess.call(['which', 'clang-format-8'], stdout=subprocess.PIPE) == 0:
-    #        CLANG_FORMAT_BIN = 'clang-format-8'
-    #    elif subprocess.call(['which', 'clang-format-9'], stdout=subprocess.PIPE) == 0:
-    #        CLANG_FORMAT_BIN = 'clang-format-9'
-    #    elif subprocess.call(['which', 'clang-format-11'], stdout=subprocess.PIPE) == 0:
-    #        CLANG_FORMAT_BIN = 'clang-format-11'
-    #    else:
-    #        print ("clang-format 7 or above is needed. Aborted.")
-    #        exit(1)
-    else:
-        CLANG_FORMAT_BIN = "clang-format-11"
+if shutil.which(CLANG_FORMAT_BIN) is None:
+    print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
+    exit(1)
 
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):
