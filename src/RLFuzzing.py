@@ -82,7 +82,7 @@ class RLFuzzing:
             msg_npy = np.zeros(BUFF_SIZE_SENDER)
             msg_npy[0] = best_seed_id
             msg_npy[1] = self.step_exec_map[best_seed_id] + self.negative_reward[best_seed_id]
-            msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
+            msg_npy = np.array(msg_npy, dtype=np.float64).reshape((2,BUFF_SIZE_SENDER//2))
             try:
                 self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
             except sysv_ipc.ExistentialError:
