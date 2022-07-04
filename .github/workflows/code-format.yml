@@ -25,7 +25,6 @@ jobs:
           git config --global --add safe.directory /__w/AFLplusplus/AFLplusplus
           apt-get update
           apt-get install -y clang-format-${LLVM_VERSION}
-          update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-${LLVM_VERSION} 0
           make code-format
       - name: Check if code needed formatting
         run: |
