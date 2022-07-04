@@ -146,6 +146,10 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
       }
 
+    } else {
+
+      OKF("CPU binding request using -b %d successful.", afl->cpu_to_bind);
+
     }
 
     return;
