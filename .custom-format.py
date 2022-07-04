@@ -26,11 +26,11 @@ import shutil
 with open(".clang-format") as f:
     fmt = f.read()
 
-CURRENT_LLVM = 14
+CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
 CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN")
 
 if shutil.which(CLANG_FORMAT_BIN) is None:
-    CLANG_FORMAT_BIN = f"clang-format-{os.getenv('LLVM_VERSION', CURRENT_LLVM)}"
+    CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
 
 if shutil.which(CLANG_FORMAT_BIN) is None:
     print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
