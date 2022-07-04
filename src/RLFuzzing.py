@@ -20,7 +20,7 @@ class RLFuzzing:
         self.step_exec_map = None     # Positive Reward
         self.negative_reward = None
 
-        # self.key = random.PRNGKey(0)
+        self.key = random.PRNGKey(0)
         return
 
     # @jit
