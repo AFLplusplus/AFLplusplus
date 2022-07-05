@@ -2308,19 +2308,25 @@ int main(int argc, char **argv_orig, char **envp) {
 
 
       /* Receive Messages */
-      t_recieve_double_data recieve_data;
+      t_recieve_u32_data recieve_data;
       double recieved_array[BUFF_SIZE_RECEIVER];
-      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
+      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u32_data) - sizeof(long), 0, 0)) {
         perror( "msgrcv() failed");
         exit(1);
       }
 
-      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u32));
+
+      if (afl->queued_paths == prev_queued) {
+        afl->cycles_wo_finds++;
+      }
+
       afl->current_entry = (u32) recieved_array[0];
-      afl->queue_cur = afl->top_rated[(int) afl->current_entry];
-      afl->current_entry = afl->queue_cur->id;
       afl->queue_cycle = (u64) recieved_array[1];
 
+
+      afl->queue_cur = afl->top_rated[(int) afl->current_entry];
+      afl->current_entry = afl->queue_cur->id;
 
     } else {
       cull_queue(afl);
