@@ -44,8 +44,9 @@ class RLFuzzing:
     def recieve_messages(self, BUFF_SIZE_RECIEVER=1024):
         try:
             
-
+            print('waiting to receive')
             message, mtype = self.mq_reciever.receive()
+            print('received message')
 
             if mtype == FUZZING_LOOP:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
@@ -84,7 +85,9 @@ class RLFuzzing:
             msg_npy[1] = self.step_exec_map[best_seed_id] + self.negative_reward[best_seed_id]
             msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
             try:
+                print('waiting to send')
                 self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
+                print('message sent')
             except sysv_ipc.ExistentialError:
                 print("ERROR: message queue creation failed")
 
