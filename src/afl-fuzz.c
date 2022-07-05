@@ -2327,12 +2327,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl->queue_cur = afl->top_rated[(int) afl->current_entry];
       if (afl->queue_cur) {
+        OKF("Setting queue_cur to %d", afl->queue_cur->id);
         afl->current_entry = afl->queue_cur->id;
       }
 
     } else {
       cull_queue(afl);
-
     }
 
     if (unlikely((!afl->old_seed_selection &&
