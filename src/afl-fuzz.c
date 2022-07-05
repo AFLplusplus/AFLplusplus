@@ -2326,7 +2326,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
 
       afl->queue_cur = afl->top_rated[(int) afl->current_entry];
-      afl->current_entry = afl->queue_cur->id;
+      if (afl->queue_cur) {
+        afl->current_entry = afl->queue_cur->id;
+      }
 
     } else {
       cull_queue(afl);
