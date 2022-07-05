@@ -2317,12 +2317,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u32));
 
-      if (afl->queued_items == prev_queued) {
-        afl->cycles_wo_finds++;
-      }
+      // if (afl->queued_items == prev_queued) {
+      //   afl->cycles_wo_finds++;
+      // }
 
       afl->current_entry = (u32) recieved_array[0];
-      afl->queue_cycle = (u64) recieved_array[1];
+      // afl->queue_cycle = (u64) recieved_array[1];
 
 
       afl->queue_cur = afl->top_rated[(int) afl->current_entry];
