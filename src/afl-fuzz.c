@@ -2324,7 +2324,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->current_entry = (u32) recieved_array[0];
       // afl->queue_cycle = (u64) recieved_array[1];
 
-
+      OKF("Modifying queue with RL\n");
       afl->queue_cur = afl->top_rated[(int) afl->current_entry];
       if (afl->queue_cur) {
         OKF("Setting queue_cur to %d", afl->queue_cur->id);
