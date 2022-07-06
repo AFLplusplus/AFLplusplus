@@ -566,8 +566,16 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
     case CmpInst::ICMP_NE:
     case CmpInst::ICMP_UGT:
     case CmpInst::ICMP_ULT:
+    case CmpInst::ICMP_UGE:
+    case CmpInst::ICMP_ULE:
+    case CmpInst::ICMP_SGT:
+    case CmpInst::ICMP_SLT:
+    case CmpInst::ICMP_SGE:
+    case CmpInst::ICMP_SLE:
       break;
     default:
+      fprintf(stderr, "Error: split-compare: Unsupported predicate (%u)\n",
+              pred);
       // unsupported predicate!
       return false;
 
@@ -581,6 +589,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
   if (!intTyOp0) {
 
     // not an integer type
+    fprintf(stderr, "Error: split-compare: not an integer type\n");
     return false;
 
   }
@@ -675,6 +684,12 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
     }
 
+    case CmpInst::ICMP_SGE:
+    case CmpInst::ICMP_SLE:
+    case CmpInst::ICMP_SGT:
+    case CmpInst::ICMP_SLT:
+    case CmpInst::ICMP_UGE:
+    case CmpInst::ICMP_ULE:
     case CmpInst::ICMP_UGT:
     case CmpInst::ICMP_ULT: {
 
@@ -729,6 +744,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
     }
 
     default:
+      fprintf(stderr, "Error: split-compare: should not happen\n");
       return false;
 
   }
