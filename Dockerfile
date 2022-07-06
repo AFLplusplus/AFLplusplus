@@ -38,7 +38,7 @@ RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu jammy main
 
 RUN apt-get update && apt-get full-upgrade -y && \
     apt-get -y install --no-install-suggests --no-install-recommends \
-    gcc-12 g++-12 gcc-12-plugin-dev gdb lcov \
+    gcc-11 g++-11 gcc-11-plugin-dev gdb lcov \
     clang-14 clang-tools-14 libc++1-14 libc++-14-dev \
     libc++abi1-14 libc++abi-14-dev libclang1-14 libclang-14-dev \
     libclang-common-14-dev libclang-cpp14 libclang-cpp14-dev liblld-14 \
@@ -53,8 +53,8 @@ RUN [ "$TARGETPLATFORM" = "linux/amd64" ] && \
 
 RUN rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 0
-RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 0
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 0
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 0
 
 ENV LLVM_CONFIG=llvm-config-14
 ENV AFL_SKIP_CPUFREQ=1
@@ -67,7 +67,7 @@ RUN cd /afl-cov && make install && cd ..
 COPY . /AFLplusplus
 WORKDIR /AFLplusplus
 
-RUN export CC=gcc-12 && export CXX=g++-12 && make clean && \
+RUN export CC=gcc-11 && export CXX=g++-11 && make clean && \
     make distrib && make install && make clean
 
 RUN sh -c 'echo set encoding=utf-8 > /root/.vimrc'
