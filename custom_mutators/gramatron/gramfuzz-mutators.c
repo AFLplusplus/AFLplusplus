@@ -58,8 +58,7 @@ Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
     int length = utarray_len(stateptr);
     if (length) {
 
-      int *splice_idx =
-          (int *)utarray_eltptr(stateptr, rand_below(global_afl, length));
+      int *splice_idx = (int *)utarray_eltptr(stateptr, rand_below(global_afl, length));
       ip.orig_idx = *splice_idx;
       ip.splice_idx = x;
       utarray_push_back(pairs, &ip);

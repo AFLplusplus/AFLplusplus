@@ -1,6 +1,8 @@
 #
 # This Dockerfile for AFLplusplus uses Ubuntu 22.04 jammy and
-# installs LLVM 14 for afl-clang-lto support :-)
+# installs LLVM 14 for afl-clang-lto support.
+#
+# GCC 11 is used instead of 12 because genhtml for afl-cov doesn't like it.
 #
 
 FROM ubuntu:22.04 AS aflplusplus
@@ -17,7 +19,7 @@ RUN apt-get update && apt-get full-upgrade -y && \
     rm -rf /var/lib/apt/lists/*
 
 ENV LLVM_VERSION=14
-ENV GCC_VERSION=12
+ENV GCC_VERSION=11
 
 RUN echo "deb [signed-by=/etc/apt/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
     wget -qO /etc/apt/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
@@ -25,7 +27,7 @@ RUN echo "deb [signed-by=/etc/apt/keyrings/llvm-snapshot.gpg.key] http://apt.llv
 RUN apt-get update && \
     apt-get -y install --no-install-recommends \
     make cmake automake meson ninja-build bison flex \
-    git xz-utils bzip2 wget vim jupp nano bash-completion less \
+    git xz-utils bzip2 wget jupp nano bash-completion less vim joe ssh psmisc \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin libglib2.0-dev \
     apt-utils apt-transport-https gnupg dialog \
@@ -61,9 +63,6 @@ ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 
 RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov && \
     (cd afl-cov && make install) && rm -rf afl-cov
-
-# Until gcc v12.1 is released for ubuntu https://bugs.launchpad.net/ubuntu/+source/gcc-11/+bug/1940029
-ENV NO_NYX=1
 
 # Build currently broken
 ENV NO_CORESIGHT=1

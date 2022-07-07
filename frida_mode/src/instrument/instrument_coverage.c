@@ -289,9 +289,9 @@ static void coverage_write_modules(int fd, GArray *coverage_modules) {
     coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", module->base_address);
     coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", module->limit);
     /* entry */
-    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0UL);
     /* checksum */
-    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0UL);
     /* timestamp */
     coverage_format(fd, "%08" G_GINT32_MODIFIER "X, ", 0);
     coverage_format(fd, "%s\n", module->path);
