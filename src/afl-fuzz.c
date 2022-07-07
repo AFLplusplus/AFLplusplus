@@ -1469,7 +1469,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->shm.cmplog_mode &&
       (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
 
-    afl->cmplog_binary = argv[optind];
+    afl->cmplog_binary = strdup(argv[optind]);
 
   }
 
