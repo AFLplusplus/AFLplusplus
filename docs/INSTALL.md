@@ -46,6 +46,7 @@ assisting tooling compiled but are not interested in binary-only targets, then
 instead choose:
 
 ```shell
+sudo apt install -y cargo libgtk-3-dev
 make source-only
 ```
 
