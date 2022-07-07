@@ -12,11 +12,9 @@ on:
 jobs:
   code-format-check:
     name: Check code format
+    if: ${{ 'false' == 'true' }} # Disable the job
     runs-on: ubuntu-22.04
-    container:
-      image: docker.io/aflplusplus/aflplusplus:dev
-      env:
-        LLVM_VERSION: 14 # Remove _after_ this branch's image is built and pushed. The new image will have this var in ENV.
+    container: docker.io/aflplusplus/aflplusplus:dev
     steps:
       - name: Checkout
         uses: actions/checkout@v3
