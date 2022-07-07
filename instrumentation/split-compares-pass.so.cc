@@ -574,8 +574,9 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
     case CmpInst::ICMP_SLE:
       break;
     default:
-      fprintf(stderr, "Error: split-compare: Unsupported predicate (%u)\n",
-              pred);
+      if (!be_quiet)
+        fprintf(stderr, "Error: split-compare: Unsupported predicate (%u)\n",
+                pred);
       // unsupported predicate!
       return false;
 
@@ -702,7 +703,8 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
       CmpInst *    icmp_inv_cmp = nullptr;
       BasicBlock * inv_cmp_bb =
           BasicBlock::Create(C, "inv_cmp", end_bb->getParent(), end_bb);
-      if (pred == CmpInst::ICMP_UGT) {
+      if (pred == CmpInst::ICMP_UGT || pred == CmpInst::ICMP_SGT ||
+          pred == CmpInst::ICMP_UGE || pred == CmpInst::ICMP_SGE) {
 
         icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT,
                                        op0_high, op1_high);
@@ -744,7 +746,8 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
     }
 
     default:
-      fprintf(stderr, "Error: split-compare: should not happen\n");
+      if (!be_quiet)
+        fprintf(stderr, "Error: split-compare: should not happen\n");
       return false;
 
   }

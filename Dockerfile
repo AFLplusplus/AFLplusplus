@@ -1,6 +1,8 @@
 #
 # This Dockerfile for AFLplusplus uses Ubuntu 22.04 jammy and
-# installs LLVM 14 for afl-clang-lto support :-)
+# installs LLVM 14 for afl-clang-lto support.
+#
+# GCC 11 is used instead of 12 because genhtml for afl-cov doesn't like it.
 #
 
 FROM ubuntu:22.04 AS aflplusplus
@@ -25,6 +27,7 @@ RUN apt-get update && \
     libglib2.0-dev \
     wget vim jupp nano bash-completion less \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
+    joe vim ssh \
     libpixman-1-dev \
     gnuplot-nox \
     && rm -rf /var/lib/apt/lists/*
