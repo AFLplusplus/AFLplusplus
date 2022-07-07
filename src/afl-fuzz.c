@@ -296,6 +296,7 @@ static void usage(u8 *argv0, int more_help) {
       "                        Supported formats are: 'dogstatsd', 'librato',\n"
       "                        'signalfx' and 'influxdb'\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
+      "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
@@ -1468,7 +1469,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->shm.cmplog_mode &&
       (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
 
-    afl->cmplog_binary = argv[optind];
+    afl->cmplog_binary = strdup(argv[optind]);
 
   }
 

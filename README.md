@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/master/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
 
-Release version: [4.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [4.01c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.01a
+GitHub version: 4.02a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -53,8 +53,8 @@ To have AFL++ easily available with everything compiled, pull the image directly
 from the Docker Hub (available for both x86_64 and arm64):
 
 ```shell
-docker pull docker.io/aflplusplus/aflplusplus:stable
-docker run -ti -v /location/of/your/target:/src docker.io/aflplusplus/aflplusplus:stable
+docker pull aflplusplus/aflplusplus
+docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
 This image is automatically published when a push to the stable branch happens

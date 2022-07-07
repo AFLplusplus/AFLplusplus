@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: install
-        run: brew install make gcc
+        run: brew install make gcc llvm
       - name: fix install
         run: cd /usr/local/bin; ln -s gcc-11 gcc; ln -s g++-11 g++; which gcc; gcc -v
       - name: build
