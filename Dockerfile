@@ -27,7 +27,8 @@ RUN apt-get update && \
     libglib2.0-dev \
     wget vim jupp nano bash-completion less \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
-    joe vim ssh \
+    joe vim ssh psmisc \
+    cargo libgtk-3-dev \
     libpixman-1-dev \
     gnuplot-nox \
     && rm -rf /var/lib/apt/lists/*
