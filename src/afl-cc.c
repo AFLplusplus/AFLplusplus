@@ -424,21 +424,21 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     char *fplugin_arg;
 
-    if (cmplog_mode)
-      {
-	fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-cmplog-pass.so",
-				   obj_path);
-	cc_params[cc_par_cnt++] = fplugin_arg;
-	fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-cmptrs-pass.so",
-				   obj_path);
-	cc_params[cc_par_cnt++] = fplugin_arg;
-      }
-    else
-      {
-	fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so",
-				   obj_path);
-	cc_params[cc_par_cnt++] = fplugin_arg;
-      }
+    if (cmplog_mode) {
+
+      fplugin_arg =
+          alloc_printf("-fplugin=%s/afl-gcc-cmplog-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = fplugin_arg;
+      fplugin_arg =
+          alloc_printf("-fplugin=%s/afl-gcc-cmptrs-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = fplugin_arg;
+
+    } else {
+
+      fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = fplugin_arg;
+
+    }
 
     cc_params[cc_par_cnt++] = "-fno-if-conversion";
     cc_params[cc_par_cnt++] = "-fno-if-conversion2";
@@ -2166,7 +2166,8 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") || getenv("AFL_GCC_CMPLOG");
+  cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
+                getenv("AFL_GCC_CMPLOG");
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);
