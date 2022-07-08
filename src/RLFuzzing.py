@@ -47,6 +47,7 @@ class RLFuzzing:
 
             if mtype == INITALIZATION_FLAG:
                 self.map_size = int(np.frombuffer(message, dtype=np.uint)[0])
+                print(f'self.map_size: {self.map_size}')
 
             elif mtype == UPDATE_SCORE:
                 print('1')
