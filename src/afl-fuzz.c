@@ -2252,77 +2252,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
 
 
-#ifdef RLFUZZING
-  int msqid_sender;
-  int msqid_reciever;
-  if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
+// #ifdef RLFUZZING
+//   int msqid_sender;
+//   int msqid_reciever;
+//   if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+//     perror("msgget() failed");
+//     exit(1);
+//   }
 
-  if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
-#endif
+//   if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
+//     perror("msgget() failed");
+//     exit(1);
+//   }
+// #endif
 
 
   while (likely(!afl->stop_soon)) {
     if (RLFUZZING) {
-
-
-      /* Send Messages */
-      t_send_u32_data send_data;
-      send_data.data_type = 1;
-      u32 msg_array[BUFF_SIZE_SENDER];
-      msg_array[0] = afl->fsrv.map_size;
-      
-
-
-      memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
-      if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
-        perror("msgsnd() failed");
-        exit(1);
-      }
-
-
-      // /* Receive Messages */
-      // t_recieve_double_data recieve_data;
-      // double recieved_array[BUFF_SIZE_RECEIVER];
-      // double score_array[afl->fsrv.map_size];
-      // u32 index = 0;
-      // while (index < afl->fsrv.map_size) {
-      //   if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
-      //     perror( "msgrcv() failed");
-      //     exit(1);
-      //   }
-      //   memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
-      //   for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
-      //     if(index+i < afl->fsrv.map_size) {
-      //       score_array[index+i] = recieved_array[i];
-      //     }
-      //   }
-      //   index += BUFF_SIZE_RECEIVER;
-      // }
-      // (void)score_array; // Silence Error Remove Later
-
-
-      /* Receive Messages */
-      t_recieve_u32_data recieve_data;
-      double recieved_array[BUFF_SIZE_RECEIVER];
-      if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u32_data) - sizeof(long), 0, 0)) {
-        perror( "msgrcv() failed");
-        exit(1);
-      }
-
-      memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u32));
-
-      // if (afl->queued_items == prev_queued) {
-      //   afl->cycles_wo_finds++;
-      // }
-
-      afl->current_entry = (u32) recieved_array[0];
-      // afl->queue_cycle = (u64) recieved_array[1];
+      afl->rl_params.map_size = afl->fsrv.map_size;
+      afl->rl_params->queue_cur = afl->queue_cur;
+      afl->rl_params->top_rated = afl->top_rated;
+      update_queue(afl->rl_params);
+      afl->current_entry = afl->rl_params->current_entry;
 
       OKF("Modifying queue with RL\n");
       afl->queue_cur = afl->top_rated[(int) afl->current_entry];
@@ -2330,6 +2281,66 @@ int main(int argc, char **argv_orig, char **envp) {
         OKF("Setting queue_cur to %d", afl->queue_cur->id);
         afl->current_entry = afl->queue_cur->id;
       }
+
+      // /* Send Messages */
+      // t_send_u32_data send_data;
+      // send_data.data_type = 1;
+      // u32 msg_array[BUFF_SIZE_SENDER];
+      // msg_array[0] = afl->fsrv.map_size;
+      
+
+
+      // memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
+      // if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_send_u32_data) - sizeof(long), 0)) {
+      //   perror("msgsnd() failed");
+      //   exit(1);
+      // }
+
+
+      // // /* Receive Messages */
+      // // t_recieve_double_data recieve_data;
+      // // double recieved_array[BUFF_SIZE_RECEIVER];
+      // // double score_array[afl->fsrv.map_size];
+      // // u32 index = 0;
+      // // while (index < afl->fsrv.map_size) {
+      // //   if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_double_data) - sizeof(long), 0, 0)) {
+      // //     perror( "msgrcv() failed");
+      // //     exit(1);
+      // //   }
+      // //   memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(double));
+      // //   for(u32 i = 0; i < BUFF_SIZE_RECEIVER; i++) {
+      // //     if(index+i < afl->fsrv.map_size) {
+      // //       score_array[index+i] = recieved_array[i];
+      // //     }
+      // //   }
+      // //   index += BUFF_SIZE_RECEIVER;
+      // // }
+      // // (void)score_array; // Silence Error Remove Later
+
+
+      // /* Receive Messages */
+      // t_recieve_u32_data recieve_data;
+      // double recieved_array[BUFF_SIZE_RECEIVER];
+      // if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u32_data) - sizeof(long), 0, 0)) {
+      //   perror( "msgrcv() failed");
+      //   exit(1);
+      // }
+
+      // memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u32));
+
+      // // if (afl->queued_items == prev_queued) {
+      // //   afl->cycles_wo_finds++;
+      // // }
+
+      // afl->current_entry = (u32) recieved_array[0];
+      // // afl->queue_cycle = (u64) recieved_array[1];
+
+      // OKF("Modifying queue with RL\n");
+      // afl->queue_cur = afl->top_rated[(int) afl->current_entry];
+      // if (afl->queue_cur) {
+      //   OKF("Setting queue_cur to %d", afl->queue_cur->id);
+      //   afl->current_entry = afl->queue_cur->id;
+      // }
 
     } else {
       cull_queue(afl);

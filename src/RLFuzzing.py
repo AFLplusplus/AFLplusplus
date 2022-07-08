@@ -17,7 +17,7 @@ class RLFuzzing:
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
 
-        self.step_exec_map = None     # Positive Reward
+        self.positive_reward = None     # Positive Reward
         self.negative_reward = None
 
         self.key = random.PRNGKey(0)
@@ -34,7 +34,7 @@ class RLFuzzing:
 
 
     def compute_score(self, key):
-        pr = np.array(self.step_exec_map, dtype=np.float64)
+        pr = np.array(self.positive_reward, dtype=np.float64)
         nr = np.array(self.negative_reward, dtype=np.float64)
         random_beta = self.thompson_sample_step(key, pr, nr)
         rareness = (pr**2) / (pr+nr+1)
@@ -47,25 +47,43 @@ class RLFuzzing:
 
             if mtype == FUZZING_LOOP:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
-                self.send_messenges(mtype)
 
-            elif mtype == UPDATE_BITMAP:
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                 map_size = message_numpy_array[0]
                 trace_bits = message_numpy_array[1:map_size]
                 while len(trace_bits) < map_size:
                     message_numpy_array = np.frombuffer(message, dtype=np.uintc)
-                    trace_bits = np.concatenate([trace_bits, message_numpy_array[1:map_size]])
-                trace_bits = trace_bits[:map_size]
+                    positive_reward = np.concatenate([positive_reward, message_numpy_array[1:map_size]])
 
-                if self.step_exec_map is None:
-                    self.step_exec_map = np.zeros(map_size)
+                message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+                map_size = message_numpy_array[0]
+                trace_bits = message_numpy_array[1:map_size]
+                while len(trace_bits) < map_size:
+                    message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+                    negative_reward = np.concatenate([negative_reward, message_numpy_array[1:map_size]])
 
-                if self.negative_reward is None:
-                    self.negative_reward = np.zeros(map_size)
+                self.positive_reward = positive_reward
+                self.negative_reward = negative_reward
+                self.send_messenges(mtype)
 
-                self.step_exec_map[trace_bits != 0] += 1
-                self.negative_reward[trace_bits == 0] += 1
+
+            # elif mtype == UPDATE_BITMAP:
+            #     message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+            #     map_size = message_numpy_array[0]
+            #     trace_bits = message_numpy_array[1:map_size]
+            #     while len(trace_bits) < map_size:
+            #         message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+            #         trace_bits = np.concatenate([trace_bits, message_numpy_array[1:map_size]])
+            #     trace_bits = trace_bits[:map_size]
+
+            #     if self.positive_reward is None:
+            #         self.positive_reward = np.zeros(map_size)
+
+            #     if self.negative_reward is None:
+            #         self.negative_reward = np.zeros(map_size)
+
+            #     self.positive_reward[trace_bits != 0] += 1
+            #     self.negative_reward[trace_bits == 0] += 1
 
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
@@ -77,7 +95,7 @@ class RLFuzzing:
             best_seed_id = np.argmax(score)
             msg_npy = np.zeros(BUFF_SIZE_SENDER)
             msg_npy[0] = best_seed_id
-            msg_npy[1] = self.step_exec_map[best_seed_id] + self.negative_reward[best_seed_id]
+            msg_npy[1] = self.positive_reward[best_seed_id] + self.negative_reward[best_seed_id]
             msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
             try:
                 self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)

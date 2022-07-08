@@ -47,12 +47,18 @@ typedef struct rl_params{
     u64 *positive_reward;
     u64 *negative_reward;
 
+    u8 *trace_bits;
+
+    u32 mapsize,
+        current_entry;
+
+    struct queue_entry *queue_cur,
+                        top_rated;
 } rl_params_t;
 
 rl_params_t* new_hier_sched(u32);
 
-#include "afl-fuzz.h"
 
-void store_features(afl_state_t *);
+void store_features(rl_params_t *);
 
-void update_queue(afl_state_t *);
+void update_queue(rl_params_t *);
