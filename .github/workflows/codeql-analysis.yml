@@ -28,6 +28,6 @@ jobs:
         env:
           CC: gcc # These are symlinked to the version used in the container build
           CXX: g++
-        run: make -i distrib # Best effort using -i
+        run: make -i all # Best effort using -i
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
