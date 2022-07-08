@@ -80,6 +80,13 @@
 #define  RLFUZZING            1
 #include "afl-fuzz-rl.h"
 
+typedef struct rl_params{
+
+    u64 *positive_reward;
+    u64 *negative_reward;
+
+} rl_params_t;
+
 #ifdef RLFUZZING
 
   // #include <sys/ipc.h>
