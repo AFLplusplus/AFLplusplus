@@ -42,9 +42,16 @@ typedef struct {
 
 // Store Parameters for Reinforcement learning
 
+typedef struct rl_params{
 
+    u64 *positive_reward;
+    u64 *negative_reward;
+
+} rl_params_t;
 
 rl_params_t* new_hier_sched(u32);
+
+#include "afl-fuzz.h"
 
 void store_features(afl_state_t *);
 

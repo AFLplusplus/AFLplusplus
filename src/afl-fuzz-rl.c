@@ -1,4 +1,3 @@
-#include "afl-fuzz.h"
 
 hier_sched_t* new_hier_sched(u32 map_size){
   rl_params_t* rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
