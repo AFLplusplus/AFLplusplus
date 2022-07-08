@@ -49,6 +49,7 @@ class RLFuzzing:
                 self.map_size = int(np.frombuffer(message, dtype=np.uint)[0])
 
             elif mtype == UPDATE_SCORE:
+                print('1')
                 message_numpy_array = np.frombuffer(message, dtype=np.uint)
                 positive_reward = message_numpy_array
                 while len(positive_reward) < self.map_size:
@@ -56,6 +57,7 @@ class RLFuzzing:
                     message_numpy_array = np.frombuffer(message, dtype=np.uint)
                     positive_reward = np.concatenate([positive_reward, message_numpy_array])
 
+                print('2')
                 message, mtype = self.mq_reciever.receive()
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                 negative_reward = message_numpy_array
@@ -66,6 +68,7 @@ class RLFuzzing:
 
                 self.positive_reward = positive_reward[:self.map_size]
                 self.negative_reward = negative_reward[:self.map_size]
+                print('3')
                 self.send_messenges(mtype)
 
 
