@@ -275,7 +275,7 @@ endif
 
 else
 $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
-	wget -O $@ $(GUM_DEVKIT_URL) || curl -L -o $@ $(GUM_DEVKIT_URL)
+	wget -qO $@ $(GUM_DEVKIT_URL) || curl -L -o $@ $(GUM_DEVKIT_URL)
 
 $(GUM_DEVIT_LIBRARY): $(GUM_DEVKIT_TARBALL)
 	tar Jxvfm $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)
