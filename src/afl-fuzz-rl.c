@@ -1,6 +1,8 @@
 #include "afl-fuzz.h"
 
 rl_params_t* init_rl_params(u32 map_size){
+  rl_params->map_size = map_size;
+  
   rl_params_t* rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
   rl_params->positive_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
   rl_params->negative_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
