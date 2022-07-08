@@ -44,8 +44,8 @@ typedef struct {
 
 typedef struct rl_params{
 
-    u64 *positive_reward;
-    u64 *negative_reward;
+    u32 *positive_reward;
+    u32 *negative_reward;
 
     u8 *trace_bits;
 
