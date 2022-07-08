@@ -2,8 +2,8 @@
 
 rl_params_t* init_rl_params(u32 map_size){
   rl_params_t* rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
-  rl_params->positive_reward = (u64 *)ck_alloc(map_size * sizeof(u64));
-  rl_params->negative_reward = (u64 *)ck_alloc(map_size * sizeof(u64));
+  rl_params->positive_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
+  rl_params->negative_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
 
   for(u32 i = 0; i < map_size; i++) {
     rl_params->positive_reward[i] = 0;
