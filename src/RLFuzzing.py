@@ -52,13 +52,13 @@ class RLFuzzing:
                 positive_reward = message_numpy_array
 
 
-                while len(positive_reward) < map_size:
+                while len(positive_reward) < self.map_size:
                     message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                     positive_reward = np.concatenate([positive_reward, message_numpy_array])
 
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                 negative_reward = message_numpy_array
-                while len(negative_reward) < map_size:
+                while len(negative_reward) < self.map_size:
                     message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                     negative_reward = np.concatenate([negative_reward, message_numpy_array])
 
