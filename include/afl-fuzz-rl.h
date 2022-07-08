@@ -51,6 +51,6 @@ typedef struct rl_params{
 
 rl_params_t* new_hier_sched(u32);
 
-void store_features(hier_sched_t *);
+void store_features(afl_state_t *);
 
-void update_queue(hier_sched_t *);
+void update_queue(afl_state_t *);

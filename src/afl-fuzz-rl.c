@@ -8,7 +8,7 @@ hier_sched_t* new_hier_sched(u32 map_size){
 }
 
 
-void store_features(hier_sched_t *afl) {
+void store_features(afl_state_t *afl) {
     int msqid_sender;
     int msqid_reciever;
 
@@ -65,7 +65,7 @@ void store_features(hier_sched_t *afl) {
 
 }
 
-void update_queue(hier_sched_t *afl) {
+void update_queue(afl_state_t *afl) {
 
 
   int msqid_sender;
