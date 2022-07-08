@@ -171,14 +171,14 @@ void update_queue(rl_params_t *rl_params) {
 
 
     /* Receive Messages */
-    t_recieve_u32_data recieve_data;
-    double recieved_array[BUFF_SIZE_RECEIVER];
-    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_recieve_u32_data) - sizeof(long), 0, 0)) {
+    t_u32_data recieve_data;
+    double recieved_array[BUFF_SIZE];
+    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_u32_data) - sizeof(long), 0, 0)) {
       perror( "msgrcv() failed");
       exit(1);
     }
 
-    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE_RECEIVER * sizeof(u32));
+    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE * sizeof(u32));
 
     rl_params->current_entry = (u32) recieved_array[0];
 
