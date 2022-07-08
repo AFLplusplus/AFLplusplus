@@ -133,6 +133,7 @@ void update_queue(rl_params_t *rl_params) {
       exit(1);
     }
     index += BUFF_SIZE;
+    OKF("positive reward index: %d", index)
   }
 
   index = 0;
@@ -155,6 +156,8 @@ void update_queue(rl_params_t *rl_params) {
       exit(1);
     }
     index += BUFF_SIZE;
+    OKF("negative reward index: %d", index)
+
   }
 
 
