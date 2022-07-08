@@ -126,7 +126,7 @@ void update_queue(rl_params_t *rl_params) {
       perror("msgsnd() failed");
       exit(1);
     }
-    index += BUFF_SIZE_SENDER;
+    index += BUFF_SIZE;
   }
 
   index = 0;
@@ -144,7 +144,7 @@ void update_queue(rl_params_t *rl_params) {
       perror("msgsnd() failed");
       exit(1);
     }
-    index += BUFF_SIZE_SENDER;
+    index += BUFF_SIZE;
   }
 
 
