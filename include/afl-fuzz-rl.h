@@ -52,7 +52,7 @@ typedef struct rl_params{
     u32 map_size,
         current_entry;
 
-    struct queue_entry *queue_cur,
+    struct queue_entry *queue_cur;
     struct queue_entry **top_rated;
 } rl_params_t;
 
