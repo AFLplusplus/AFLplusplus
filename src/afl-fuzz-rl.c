@@ -17,9 +17,9 @@ void store_features(rl_params_t *rl_params) {
     u8 *trace_bits = rl_params->trace_bits;
     for(u32 i = 0; i < rl_params->map_size; i++) {
         if (trace_bits[i]) {
-            positive_reward[i] += 1;
+            rl_params->positive_reward[i] += 1;
         } else {
-            negative_reward[i] += 1;
+            rl_params->negative_reward[i] += 1;
         }
     }
 
