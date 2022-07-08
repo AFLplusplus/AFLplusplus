@@ -6,8 +6,8 @@ import numpy as np
 import sysv_ipc
 # import struct
 
-FUZZING_LOOP = 1
-UPDATE_BITMAP = 2
+INITALIZATION_FLAG = 1
+UPDATE_SCORE = 2
 
 
 class RLFuzzing:
@@ -45,9 +45,10 @@ class RLFuzzing:
         try:
             message, mtype = self.mq_reciever.receive()
 
-            if mtype == FUZZING_LOOP:
+            if mtype == INITALIZATION_FLAG:
                 self.map_size = int(np.frombuffer(message, dtype=np.uint)[0])
 
+            elif mtype == UPDATE_SCORE:
                 message_numpy_array = np.frombuffer(message, dtype=np.uint)
                 positive_reward = message_numpy_array
                 while len(positive_reward) < self.map_size:
@@ -87,7 +88,7 @@ class RLFuzzing:
             print("ERROR: message queue creation failed")
 
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
-        if mtype == FUZZING_LOOP:
+        if mtype == UPDATE_SCORE:
             self.key, k = random.split(self.key)
             print(f'self.map_size: {self.map_size}')
             print(f'self.positive_reward: {self.positive_reward}, len: {len(self.positive_reward)}')

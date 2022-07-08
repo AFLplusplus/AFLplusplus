@@ -22,6 +22,17 @@ rl_params_t* init_rl_params(u32 map_size){
     exit(1);
   }
 
+  t_u64_data send_data;
+  send_data.data_type = 1;
+  u64 msg_array[BUFF_SIZE];
+  msg_array[0] = (u64) rl_params->map_size;
+
+  memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
+  if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+    perror("msgsnd() failed");
+    exit(1);
+  }
+
 
   return rl_params;
 }
@@ -100,19 +111,14 @@ void update_queue(rl_params_t *rl_params) {
 
 
   /* Send Messages */
-  t_u64_data send_data;
-  send_data.data_type = 1;
-  u64 msg_array[BUFF_SIZE];
-  msg_array[0] = (u64) rl_params->map_size;
 
-  memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-  if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
-    perror("msgsnd() failed");
-    exit(1);
-  }
 
   u32 index = 0;
   while (index < rl_params->map_size) {
+
+    t_u64_data send_data;
+    send_data.data_type = 1;
+    u64 msg_array[BUFF_SIZE];
     
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index+i < rl_params->map_size) {
@@ -131,7 +137,11 @@ void update_queue(rl_params_t *rl_params) {
 
   index = 0;
   while (index < rl_params->map_size) {
-    
+
+    t_u64_data send_data;
+    send_data.data_type = 1;
+    u64 msg_array[BUFF_SIZE];
+
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index+i < rl_params->map_size) {
         msg_array[i] = rl_params->negative_reward[index+i];
