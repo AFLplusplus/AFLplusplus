@@ -27,7 +27,7 @@ rl_params_t* init_rl_params(u32 map_size){
   u32 msg_array[BUFF_SIZE];
   msg_array[0] = rl_params->map_size;
 
-  memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
+  memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u32));
   if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u32_data) - sizeof(long), 0)) {
     perror("msgsnd() failed");
     exit(1);
