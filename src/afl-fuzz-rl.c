@@ -119,7 +119,7 @@ void update_queue(rl_params_t *rl_params) {
     
     for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
       if (index+i < rl_params->map_size) {
-        msg_array[i+1] = (u32) rl_params.positive_reward[index+i];
+        msg_array[i+1] = (u32) rl_params->positive_reward[index+i];
       } else {
          msg_array[i+1] = (u32) 0;
       }
