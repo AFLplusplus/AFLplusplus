@@ -115,8 +115,7 @@ void update_queue(rl_params_t *rl_params) {
   t_u32_data send_data;
   send_data.data_type = 1;
   u32 msg_array[BUFF_SIZE];
-  msg_array[0] = map_size;
-  OKF("map size %d", map_size);
+  msg_array[0] = rl_params->map_size;
 
   memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u32));
   if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u32_data) - sizeof(long), 0)) {
