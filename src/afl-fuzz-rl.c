@@ -10,6 +10,19 @@ rl_params_t* init_rl_params(u32 map_size){
     rl_params->negative_reward[i] = 0;
   }
   rl_params->map_size = map_size;
+
+
+  if (-1 == ( rl_params.msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+    perror("msgget() failed");
+    exit(1);
+  }
+
+  if (-1 == ( rl_params.msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
+    perror("msgget() failed");
+    exit(1);
+  }
+
+
   return rl_params;
 }
 
@@ -84,17 +97,7 @@ void store_features(rl_params_t *rl_params) {
 void update_queue(rl_params_t *rl_params) {
 
 
-  int msqid_sender;
-  int msqid_reciever;
-  if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
 
-  if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
 
   /* Send Messages */
   t_u64_data send_data;
@@ -103,7 +106,7 @@ void update_queue(rl_params_t *rl_params) {
   msg_array[0] = (u64) rl_params->map_size;
 
   memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-  if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+  if (-1 == msgsnd(rl_params.msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
     perror("msgsnd() failed");
     exit(1);
   }
@@ -119,7 +122,7 @@ void update_queue(rl_params_t *rl_params) {
       }
     }
     memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-    if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+    if (-1 == msgsnd(rl_params.msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
@@ -137,7 +140,7 @@ void update_queue(rl_params_t *rl_params) {
       }
     }
     memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-    if (-1 == msgsnd(msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+    if (-1 == msgsnd(rl_params.msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
@@ -170,7 +173,7 @@ void update_queue(rl_params_t *rl_params) {
     /* Receive Messages */
     t_u64_data recieve_data;
     double recieved_array[BUFF_SIZE];
-    if (-1 == msgrcv(msqid_reciever, &recieve_data, sizeof(t_u64_data) - sizeof(long), 0, 0)) {
+    if (-1 == msgrcv(rl_params.msqid_reciever, &recieve_data, sizeof(t_u64_data) - sizeof(long), 0, 0)) {
       perror( "msgrcv() failed");
       exit(1);
     }

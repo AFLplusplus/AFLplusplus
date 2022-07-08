@@ -29,16 +29,19 @@ typedef struct {
 
 typedef struct rl_params{
 
-    u64 *positive_reward;
-    u64 *negative_reward;
+  int msqid_sender;
+  int msqid_reciever;
 
-    u8 *trace_bits;
+  u64 *positive_reward;
+  u64 *negative_reward;
 
-    u32 map_size,
-        current_entry;
+  u8 *trace_bits;
 
-    struct queue_entry *queue_cur;
-    struct queue_entry **top_rated;
+  u32 map_size,
+      current_entry;
+
+  struct queue_entry *queue_cur;
+  struct queue_entry **top_rated;
 } rl_params_t;
 
 rl_params_t* init_rl_params(u32);
