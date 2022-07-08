@@ -61,7 +61,7 @@ class RLFuzzing:
 
                 print('2')
                 message, mtype = self.mq_reciever.receive()
-                message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+                message_numpy_array = np.frombuffer(message, dtype=np.uint)
                 negative_reward = message_numpy_array
                 while len(negative_reward) < self.map_size:
                     message, mtype = self.mq_reciever.receive()
