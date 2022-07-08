@@ -165,6 +165,8 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
       issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
+      afl->rl_params = new_hier_sched(afl->fsrv.map_size); //TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT THIS HERE FOR CONVENIENCE
+
 
       int i = 0, match = 0;
       while (match == 0 && afl_environment_variables[i] != NULL) {
