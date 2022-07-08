@@ -5,17 +5,17 @@ hier_sched_t* new_hier_sched(u32 map_size){
   rl_params->positive_reward = (u64 *)ck_alloc(map_size * sizeof(u64));
   rl_params->negative_reward = (u64 *)ck_alloc(map_size * sizeof(u64));
 
-  for(int i = 0; i < map_size; i++) {
+  for(u32 i = 0; i < map_size; i++) {
     rl_params->positive_reward[i] = 0;
     rl_params->negative_reward[i] = 0;
   }
-  return rl_params
+  return rl_params;
 }
 
 
 void store_features(rl_params_t *rl_params) {
     u8 *trace_bits = rl_params->trace_bits;
-    for(int i = 0; i < rl_params->map_size; i++) {
+    for(u32 i = 0; i < rl_params->map_size; i++) {
         if (trace_bits[i]) {
             positive_reward[i] += 1;
         } else {
