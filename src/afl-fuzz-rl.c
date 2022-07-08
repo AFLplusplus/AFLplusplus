@@ -109,8 +109,6 @@ void update_queue(rl_params_t *rl_params) {
   exit(1);
   }
 
-  send_data.data_type = 1;
-
   u32 index = 0;
   while (index < rl_params->map_size) {
     
