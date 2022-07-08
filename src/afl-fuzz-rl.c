@@ -113,13 +113,12 @@ void update_queue(rl_params_t *rl_params) {
 
   u32 index = 0;
   while (index < rl_params->map_size) {
-    msg_array[0] = rl_params->map_size;
     
     for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
       if (index+i < rl_params->map_size) {
-        msg_array[i+1] = (u32) rl_params->positive_reward[index+i];
+        msg_array[i] = (u32) rl_params->positive_reward[index+i];
       } else {
-         msg_array[i+1] = (u32) 0;
+         msg_array[i] = (u32) 0;
       }
     }
     memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));
@@ -130,15 +129,16 @@ void update_queue(rl_params_t *rl_params) {
     index += BUFF_SIZE_SENDER;
   }
 
+
+
   index = 0;
   while (index < rl_params->map_size) {
-    msg_array[0] = rl_params->map_size;
     
     for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
       if (index+i < rl_params->map_size) {
-        msg_array[i+1] = (u32) rl_params->negative_reward[index+i];
+        msg_array[i] = (u32) rl_params->negative_reward[index+i];
       } else {
-         msg_array[i+1] = (u32) 0;
+         msg_array[i] = (u32) 0;
       }
     }
     memcpy(send_data.data_buff, msg_array, BUFF_SIZE_SENDER * sizeof(u32));

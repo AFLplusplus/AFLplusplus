@@ -17,7 +17,7 @@ class RLFuzzing:
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
         self.mq_sender = sysv_ipc.MessageQueue(2, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
 
-        self.positive_reward = None     # Positive Reward
+        self.positive_reward = None
         self.negative_reward = None
 
         self.key = random.PRNGKey(0)
@@ -49,21 +49,21 @@ class RLFuzzing:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
 
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
-                map_size = message_numpy_array[0]
-                trace_bits = message_numpy_array[1:map_size]
-                while len(trace_bits) < map_size:
+                positive_reward = message_numpy_array
+
+
+                while len(positive_reward) < map_size:
                     message_numpy_array = np.frombuffer(message, dtype=np.uintc)
-                    positive_reward = np.concatenate([positive_reward, message_numpy_array[1:map_size]])
+                    positive_reward = np.concatenate([positive_reward, message_numpy_array])
 
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
-                map_size = message_numpy_array[0]
-                trace_bits = message_numpy_array[1:map_size]
-                while len(trace_bits) < map_size:
+                negative_reward = message_numpy_array
+                while len(negative_reward) < map_size:
                     message_numpy_array = np.frombuffer(message, dtype=np.uintc)
-                    negative_reward = np.concatenate([negative_reward, message_numpy_array[1:map_size]])
+                    negative_reward = np.concatenate([negative_reward, message_numpy_array])
 
-                self.positive_reward = positive_reward
-                self.negative_reward = negative_reward
+                self.positive_reward = positive_reward[:self.map_size]
+                self.negative_reward = negative_reward[:self.map_size]
                 self.send_messenges(mtype)
 
 
