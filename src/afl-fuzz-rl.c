@@ -106,7 +106,7 @@ void update_queue(rl_params_t *rl_params) {
   msg_array[0] = (u64) rl_params->map_size;
 
   memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-  if (-1 == msgsnd(rl_params.msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+  if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
     perror("msgsnd() failed");
     exit(1);
   }
@@ -122,7 +122,7 @@ void update_queue(rl_params_t *rl_params) {
       }
     }
     memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-    if (-1 == msgsnd(rl_params.msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+    if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
