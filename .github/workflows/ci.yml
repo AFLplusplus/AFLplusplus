@@ -2,13 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [ stable, dev ]
+    branches:
+      - stable
+      - dev
   pull_request:
-    branches: [ stable, dev ]
+    branches:
+      - dev # No need for stable-pull-request, as that equals dev-push
 
 jobs:
   linux:
-    runs-on: '${{ matrix.os }}'
+    runs-on: "${{ matrix.os }}"
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04, ubuntu-18.04]
@@ -16,7 +19,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: debug
         run: apt-cache search plugin-dev | grep gcc-; echo; apt-cache search clang-format- | grep clang-format-
       - name: update
@@ -38,7 +41,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: install
         run: brew install make gcc llvm
       - name: fix install

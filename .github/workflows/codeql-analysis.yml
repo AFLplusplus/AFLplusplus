@@ -2,31 +2,32 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ stable, dev ]
+    branches:
+      - stable
+      - dev
   pull_request:
-    branches: [ stable, dev ]
+    branches:
+      - dev # No need for stable-pull-request, as that equals dev-push
 
 jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'cpp' ]
-
+    container: # We use a previous image as it's expected to have all the dependencies
+      image: docker.io/aflplusplus/aflplusplus:dev
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
-      with:
-        languages: ${{ matrix.language }}
-
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
-
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      - name: Fix for using external repo in container build # https://github.com/actions/checkout/issues/760
+        run: git config --global --add safe.directory /__w/AFLplusplus/AFLplusplus
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: cpp, python
+      - name: Build AFLplusplus # Rebuild because CodeQL needs to monitor the build process
+        env:
+          CC: gcc # These are symlinked to the version used in the container build
+          CXX: g++
+        run: make -i all # Best effort using -i
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
