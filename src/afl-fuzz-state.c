@@ -147,7 +147,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
 void read_afl_environment(afl_state_t *afl, char **envp) {
 
-  OKF("initalised RL_params");
   afl->rl_params = init_rl_params(afl->fsrv.map_size); //TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT THIS HERE FOR CONVIENENCE
 
   int   index = 0, issue_detected = 0;

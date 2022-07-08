@@ -129,8 +129,6 @@ void update_queue(rl_params_t *rl_params) {
     index += BUFF_SIZE_SENDER;
   }
 
-
-
   index = 0;
   while (index < rl_params->map_size) {
     
