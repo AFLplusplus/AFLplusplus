@@ -91,6 +91,8 @@ class RLFuzzing:
     def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == FUZZING_LOOP:
             self.key, k = random.split(self.key)
+            print(f'self.positive_reward: {self.positive_reward}')
+            print(f'self.negative_reward: {self.negative_reward}')
             score = self.compute_score(k)
             best_seed_id = np.argmax(score)
             msg_npy = np.zeros(BUFF_SIZE_SENDER)
