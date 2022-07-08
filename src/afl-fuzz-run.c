@@ -489,7 +489,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
         memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
         if (RLFUZZING) {
-          afl->rl_params.trace_bits = afl->fsrv.map_size;
+          afl->rl_params->trace_bits = afl->fsrv.map_size;
           store_features(afl->rl_params);
           // int msqid_sender;
           // int msqid_reciever;
