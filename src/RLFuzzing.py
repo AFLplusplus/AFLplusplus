@@ -46,7 +46,7 @@ class RLFuzzing:
             message, mtype = self.mq_reciever.receive()
 
             if mtype == INITALIZATION_FLAG:
-                self.map_size = np.array(np.frombuffer(message, dtype=np.uintc)[0], dtype=float64)
+                self.map_size = np.array(np.frombuffer(message, dtype=np.uintc)[0], dtype=np.float64)
                 print(f'self.map_size: {self.map_size}')
 
             elif mtype == UPDATE_SCORE:
