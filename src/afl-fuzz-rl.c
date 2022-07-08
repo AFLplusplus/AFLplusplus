@@ -22,10 +22,10 @@ rl_params_t* init_rl_params(u32 map_size){
     exit(1);
   }
 
-  t_u64_data send_data;
+  t_u32_data send_data;
   send_data.data_type = 1;
-  u64 msg_array[BUFF_SIZE];
-  msg_array[0] = (u64) rl_params->map_size;
+  u32 msg_array[BUFF_SIZE];
+  msg_array[0] = rl_params->map_size;
 
   memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
   if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
@@ -127,8 +127,8 @@ void update_queue(rl_params_t *rl_params) {
          msg_array[i] = 0;
       }
     }
-    memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
-    if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u64_data) - sizeof(long), 0)) {
+    memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u32));
+    if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u32_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
@@ -184,14 +184,14 @@ void update_queue(rl_params_t *rl_params) {
 
 
     /* Receive Messages */
-    t_u64_data recieve_data;
-    double recieved_array[BUFF_SIZE];
-    if (-1 == msgrcv(rl_params->msqid_reciever, &recieve_data, sizeof(t_u64_data) - sizeof(long), 0, 0)) {
+    t_u32_data recieve_data;
+    u32 recieved_array[BUFF_SIZE];
+    if (-1 == msgrcv(rl_params->msqid_reciever, &recieve_data, sizeof(t_u32_data) - sizeof(long), 0, 0)) {
       perror( "msgrcv() failed");
       exit(1);
     }
 
-    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE * sizeof(u64));
+    memcpy(recieved_array, recieve_data.data_buff, BUFF_SIZE * sizeof(u32));
 
     rl_params->current_entry = (u32) recieved_array[0];
 
