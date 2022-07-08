@@ -49,7 +49,7 @@ typedef struct rl_params{
 
     u8 *trace_bits;
 
-    u32 mapsize,
+    u32 map_size,
         current_entry;
 
     struct queue_entry *queue_cur,
