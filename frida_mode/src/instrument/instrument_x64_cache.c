@@ -225,8 +225,8 @@ static void instrument_cache_rewrite_branch_insn(const cs_insn *   instr,
     } else {
 
       GumAddress target = instr->address + old_offset;
-      gum_x86_writer_put_mov_reg_address(cw, GUM_REG_RAX, target);
-      gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_REG_RAX, GUM_REG_RAX);
+      gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX, target);
+      gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_X86_RAX, GUM_X86_RAX);
       return;
 
     }
@@ -249,29 +249,29 @@ static void instrument_cache_rewrite_branch_insn(const cs_insn *   instr,
 static void instrument_cache_write_push_frame(GumX86Writer *cw) {
 
   gum_x86_writer_put_mov_reg_offset_ptr_reg(
-      cw, GUM_REG_XSP, -(GUM_RED_ZONE_SIZE + (1 * sizeof(gpointer))),
-      GUM_REG_XAX);
+      cw, GUM_X86_XSP, -(GUM_RED_ZONE_SIZE + (1 * sizeof(gpointer))),
+      GUM_X86_XAX);
   gum_x86_writer_put_lahf(cw);
   gum_x86_writer_put_mov_reg_offset_ptr_reg(
-      cw, GUM_REG_XSP, -(GUM_RED_ZONE_SIZE + (2 * sizeof(gpointer))),
-      GUM_REG_XAX);
+      cw, GUM_X86_XSP, -(GUM_RED_ZONE_SIZE + (2 * sizeof(gpointer))),
+      GUM_X86_XAX);
   gum_x86_writer_put_mov_reg_offset_ptr_reg(
-      cw, GUM_REG_XSP, -(GUM_RED_ZONE_SIZE + (3 * sizeof(gpointer))),
-      GUM_REG_XBX);
+      cw, GUM_X86_XSP, -(GUM_RED_ZONE_SIZE + (3 * sizeof(gpointer))),
+      GUM_X86_XBX);
 
 }
 
 static void instrument_cache_write_pop_frame(GumX86Writer *cw) {
 
   gum_x86_writer_put_mov_reg_reg_offset_ptr(
-      cw, GUM_REG_XBX, GUM_REG_XSP,
+      cw, GUM_X86_XBX, GUM_X86_XSP,
       -(GUM_RED_ZONE_SIZE + (3 * sizeof(gpointer))));
   gum_x86_writer_put_mov_reg_reg_offset_ptr(
-      cw, GUM_REG_XAX, GUM_REG_XSP,
+      cw, GUM_X86_XAX, GUM_X86_XSP,
       -(GUM_RED_ZONE_SIZE + (2 * sizeof(gpointer))));
   gum_x86_writer_put_sahf(cw);
   gum_x86_writer_put_mov_reg_reg_offset_ptr(
-      cw, GUM_REG_XAX, GUM_REG_XSP,
+      cw, GUM_X86_XAX, GUM_X86_XSP,
       -(GUM_RED_ZONE_SIZE + (1 * sizeof(gpointer))));
 
 }
@@ -281,14 +281,14 @@ static void instrument_cache_write_lookup(GumX86Writer *cw) {
   /* &map_base[GPOINTER_TO_SIZE(addr) & MAP_MASK]; */
 
   gsize mask = (instrument_cache_size / sizeof(gpointer)) - 1;
-  gum_x86_writer_put_mov_reg_u64(cw, GUM_REG_XBX, mask);
-  gum_x86_writer_put_and_reg_reg(cw, GUM_REG_XAX, GUM_REG_XBX);
-  gum_x86_writer_put_shl_reg_u8(cw, GUM_REG_XAX, util_log2(sizeof(gpointer)));
-  gum_x86_writer_put_mov_reg_u64(cw, GUM_REG_XBX, GPOINTER_TO_SIZE(map_base));
-  gum_x86_writer_put_add_reg_reg(cw, GUM_REG_XAX, GUM_REG_XBX);
+  gum_x86_writer_put_mov_reg_u64(cw, GUM_X86_XBX, mask);
+  gum_x86_writer_put_and_reg_reg(cw, GUM_X86_XAX, GUM_X86_XBX);
+  gum_x86_writer_put_shl_reg_u8(cw, GUM_X86_XAX, util_log2(sizeof(gpointer)));
+  gum_x86_writer_put_mov_reg_u64(cw, GUM_X86_XBX, GPOINTER_TO_SIZE(map_base));
+  gum_x86_writer_put_add_reg_reg(cw, GUM_X86_XAX, GUM_X86_XBX);
 
   /* Read the return address lookup */
-  gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_REG_XAX, GUM_REG_XAX);
+  gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_X86_XAX, GUM_X86_XAX);
 
 }
 
@@ -315,7 +315,7 @@ void instrument_cache_jmp_call(const cs_insn *instr, GumStalkerOutput *output) {
    * red-zone.
    */
   gum_x86_writer_put_mov_reg_reg_offset_ptr(
-      cw, GUM_REG_XAX, GUM_REG_XSP,
+      cw, GUM_X86_XAX, GUM_X86_XSP,
       -(GUM_RED_ZONE_SIZE + (1 * sizeof(gpointer))));
 
   instrument_cache_rewrite_branch_insn(instr, output);
@@ -323,33 +323,33 @@ void instrument_cache_jmp_call(const cs_insn *instr, GumStalkerOutput *output) {
   instrument_cache_write_lookup(cw);
 
   /* Test if its set*/
-  gum_x86_writer_put_cmp_reg_i32(cw, GUM_REG_XAX, INVALID);
+  gum_x86_writer_put_cmp_reg_i32(cw, GUM_X86_XAX, INVALID);
   gum_x86_writer_put_jcc_short_label(cw, X86_INS_JLE, null, GUM_UNLIKELY);
 
   /* If it's set, then stash the address beyond the red-zone */
   gum_x86_writer_put_mov_reg_offset_ptr_reg(
-      cw, GUM_REG_XSP, -(GUM_RED_ZONE_SIZE + (4 * sizeof(gpointer))),
-      GUM_REG_XAX);
+      cw, GUM_X86_XSP, -(GUM_RED_ZONE_SIZE + (4 * sizeof(gpointer))),
+      GUM_X86_XAX);
 
   if (instr->id == X86_INS_JMP) {
 
     instrument_cache_write_pop_frame(cw);
     gum_x86_writer_put_jmp_reg_offset_ptr(
-        cw, GUM_REG_XSP, -(GUM_RED_ZONE_SIZE + (4 * sizeof(gpointer))));
+        cw, GUM_X86_XSP, -(GUM_RED_ZONE_SIZE + (4 * sizeof(gpointer))));
 
   } else {
 
     gum_x86_writer_put_mov_reg_address(
-        cw, GUM_REG_XAX, GUM_ADDRESS(instr->address + instr->size));
-    gum_x86_writer_put_mov_reg_offset_ptr_reg(cw, GUM_REG_XSP,
-                                              -sizeof(gpointer), GUM_REG_XAX);
+        cw, GUM_X86_XAX, GUM_ADDRESS(instr->address + instr->size));
+    gum_x86_writer_put_mov_reg_offset_ptr_reg(cw, GUM_X86_XSP,
+                                              -sizeof(gpointer), GUM_X86_XAX);
 
     instrument_cache_write_pop_frame(cw);
 
-    gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_REG_XSP, GUM_REG_XSP,
+    gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_X86_XSP, GUM_X86_XSP,
                                           -sizeof(gpointer));
     gum_x86_writer_put_jmp_reg_offset_ptr(
-        cw, GUM_REG_XSP, -(GUM_RED_ZONE_SIZE + ((4 - 1) * sizeof(gpointer))));
+        cw, GUM_X86_XSP, -(GUM_RED_ZONE_SIZE + ((4 - 1) * sizeof(gpointer))));
 
   }
 
@@ -381,16 +381,16 @@ void instrument_cache_ret(const cs_insn *instr, GumStalkerOutput *output) {
 
   instrument_cache_write_push_frame(cw);
 
-  gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_REG_XAX, GUM_REG_XSP);
+  gum_x86_writer_put_mov_reg_reg_ptr(cw, GUM_X86_XAX, GUM_X86_XSP);
 
   instrument_cache_write_lookup(cw);
 
   /* Test if its set*/
-  gum_x86_writer_put_cmp_reg_i32(cw, GUM_REG_XAX, INVALID);
+  gum_x86_writer_put_cmp_reg_i32(cw, GUM_X86_XAX, INVALID);
   gum_x86_writer_put_jcc_short_label(cw, X86_INS_JLE, null, GUM_UNLIKELY);
 
   /* If it's set, then overwrite our return address and return */
-  gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_REG_XSP, GUM_REG_XAX);
+  gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_X86_XSP, GUM_X86_XAX);
   instrument_cache_write_pop_frame(cw);
 
   if (n == 0) {
