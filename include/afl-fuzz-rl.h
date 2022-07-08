@@ -53,7 +53,7 @@ typedef struct rl_params{
         current_entry;
 
     struct queue_entry *queue_cur,
-                        top_rated;
+                       *top_rated;
 } rl_params_t;
 
 rl_params_t* new_hier_sched(u32);
