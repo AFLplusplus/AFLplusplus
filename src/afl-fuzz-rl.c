@@ -112,7 +112,7 @@ void update_queue(rl_params_t *rl_params) {
   u32 index = 0;
   while (index < rl_params->map_size) {
     
-    for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
+    for (u32 i = 0; i < BUFF_SIZE_SENDER; i++) {
       if (index+i < rl_params->map_size) {
         msg_array[i] = rl_params->positive_reward[index+i];
       } else {
@@ -130,7 +130,7 @@ void update_queue(rl_params_t *rl_params) {
   index = 0;
   while (index < rl_params->map_size) {
     
-    for (u32 i = 0; i < (BUFF_SIZE_SENDER - 1); i++) {
+    for (u32 i = 0; i < BUFF_SIZE_SENDER; i++) {
       if (index+i < rl_params->map_size) {
         msg_array[i] = rl_params->negative_reward[index+i];
       } else {
