@@ -48,16 +48,16 @@ class RLFuzzing:
             if mtype == FUZZING_LOOP:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
 
-                message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+                message_numpy_array = np.frombuffer(message, dtype=np.uint)
                 positive_reward = message_numpy_array
                 while len(positive_reward) < self.map_size:
-                    message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+                    message_numpy_array = np.frombuffer(message, dtype=np.uint)
                     positive_reward = np.concatenate([positive_reward, message_numpy_array])
 
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                 negative_reward = message_numpy_array
                 while len(negative_reward) < self.map_size:
-                    message_numpy_array = np.frombuffer(message, dtype=np.uintc)
+                    message_numpy_array = np.frombuffer(message, dtype=np.uint)
                     negative_reward = np.concatenate([negative_reward, message_numpy_array])
 
                 self.positive_reward = positive_reward[:self.map_size]
@@ -97,7 +97,7 @@ class RLFuzzing:
             msg_npy = np.zeros(BUFF_SIZE_SENDER)
             msg_npy[0] = best_seed_id
             msg_npy[1] = self.positive_reward[best_seed_id] + self.negative_reward[best_seed_id]
-            msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
+            msg_npy = np.array(msg_npy, dtype=np.uint).reshape((2,BUFF_SIZE_SENDER//2))
             try:
                 self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
             except sysv_ipc.ExistentialError:

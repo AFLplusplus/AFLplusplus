@@ -20,8 +20,8 @@ typedef struct {
 
 typedef struct {
   long    data_type;
-  u32     data_buff[BUFF_SIZE];
-} t_u32_data;
+  u64     data_buff[BUFF_SIZE];
+} t_u64_data;
 
 
 
@@ -29,8 +29,8 @@ typedef struct {
 
 typedef struct rl_params{
 
-    u32 *positive_reward;
-    u32 *negative_reward;
+    u64 *positive_reward;
+    u64 *negative_reward;
 
     u8 *trace_bits;
 
