@@ -1,4 +1,5 @@
 #include "types.h"
+#include "afl-fuzz.h"
 
 #include <sys/ipc.h>
 #include <sys/msg.h>
