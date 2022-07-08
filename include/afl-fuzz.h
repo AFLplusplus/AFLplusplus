@@ -78,9 +78,9 @@
 
 /* Start my libraries <@@@> */
 #define  RLFUZZING            1
+#include "afl-fuzz.h"
 
 #ifdef RLFUZZING
-  #include "afl-fuzz.h"
 
   // #include <sys/ipc.h>
   // #include <sys/msg.h>
