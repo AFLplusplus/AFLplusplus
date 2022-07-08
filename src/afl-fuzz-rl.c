@@ -1,6 +1,6 @@
 #include "afl-fuzz.h"
 
-rl_params_t* new_hier_sched(u32 map_size){
+rl_params_t* init_rl_params(u32 map_size){
   rl_params_t* rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
   rl_params->positive_reward = (u64 *)ck_alloc(map_size * sizeof(u64));
   rl_params->negative_reward = (u64 *)ck_alloc(map_size * sizeof(u64));

@@ -56,7 +56,7 @@ typedef struct rl_params{
     struct queue_entry **top_rated;
 } rl_params_t;
 
-rl_params_t* new_hier_sched(u32);
+rl_params_t* init_rl_params(u32);
 
 
 void store_features(rl_params_t *);
