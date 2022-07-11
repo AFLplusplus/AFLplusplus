@@ -70,7 +70,7 @@ void update_queue(rl_params_t *rl_params) {
 
     t_u32_data send_data;
     send_data.data_type = 2;
-    u64 msg_array[BUFF_SIZE];
+    u32 msg_array[BUFF_SIZE];
     
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index+i < rl_params->map_size) {
@@ -92,7 +92,7 @@ void update_queue(rl_params_t *rl_params) {
 
     t_u32_data send_data;
     send_data.data_type = 2;
-    u64 msg_array[BUFF_SIZE];
+    u32 msg_array[BUFF_SIZE];
 
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index+i < rl_params->map_size) {
@@ -101,7 +101,7 @@ void update_queue(rl_params_t *rl_params) {
          msg_array[i] = 0;
       }
     }
-    memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u64));
+    memcpy(send_data.data_buff, msg_array, BUFF_SIZE * sizeof(u32));
     if (-1 == msgsnd(rl_params->msqid_sender, &send_data, sizeof(t_u32_data) - sizeof(long), 0)) {
       perror("msgsnd() failed");
       exit(1);
