@@ -51,10 +51,6 @@ void store_features(rl_params_t *rl_params) {
 }
 
 void update_queue(rl_params_t *rl_params) {
-
-
-
-
   /* Send Messages */
   t_u32_data send_data;
   send_data.data_type = 1;
@@ -66,8 +62,6 @@ void update_queue(rl_params_t *rl_params) {
     perror("msgsnd() failed");
     exit(1);
   }
-
-
 
   u32 index = 0;
   while (index < rl_params->map_size) {
