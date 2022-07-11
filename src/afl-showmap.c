@@ -785,6 +785,8 @@ u32 execute_testcases(u8 *dir) {
       ck_free(in_data);
       ++done;
 
+      if (child_crashed && debug) { WARNF("crashed: %s\n", fn2); }
+
       if (collect_coverage)
         analyze_results(fsrv);
       else
