@@ -11,6 +11,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++4.02a (dev)
   - gcc_plugin:
     - Adacore submitted CMPLOG support to the gcc_plugin! :-)
+  - llvm_mode:
+    - laf cmp splitting fixed for more comparison types
 
 
 ### Version ++4.01c (release)
