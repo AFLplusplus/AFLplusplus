@@ -21,7 +21,7 @@ development state of AFL++.
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
-NOTE: depending on your Debian/Ubuntu/Kali/... version replease `-12` with
+NOTE: depending on your Debian/Ubuntu/Kali/... version release `-12` with
 whatever llvm version is available!
 
 ```shell
@@ -148,7 +148,7 @@ and definitely don't look POSIX-compliant. This means two things:
     environment before starting afl-fuzz.
 
 User emulation mode of QEMU does not appear to be supported on MacOS X, so
-black-box instrumentation mode (`-Q`) will not work. However, Frida mode (`-O`)
+black-box instrumentation mode (`-Q`) will not work. However, FRIDA mode (`-O`)
 works on both x86 and arm64 MacOS boxes.
 
 MacOS X supports SYSV shared memory used by AFL's instrumentation, but the
