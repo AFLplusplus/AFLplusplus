@@ -140,9 +140,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   list_append(&afl_states, afl);
 
-  afl->rl_params = init_rl_params(afl->fsrv.map_size); //TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT THIS HERE FOR CONVIENENCE
-
-
 }
 
 /*This sets up the environment variables for afl-fuzz into the afl_state

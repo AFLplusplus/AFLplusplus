@@ -850,6 +850,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
    expected. This is done only for the initial inputs, and only once. */
 
 void perform_dry_run(afl_state_t *afl) {
+  afl->rl_params = init_rl_params(afl->fsrv.map_size); //TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT THIS HERE FOR CONVIENENCE
 
   struct queue_entry *q;
   u32                 cal_failures = 0, idx;
