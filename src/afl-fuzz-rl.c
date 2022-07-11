@@ -11,14 +11,13 @@ rl_params_t* init_rl_params(u32 map_size){
   }
   rl_params->map_size = map_size;
 
-  rl_params->msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666)
-  if (-1 == rl_params->msqid_sender) {
+
+  if (-1 == ( rl_params->msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
     perror("msgget() failed");
     exit(1);
   }
 
-  rl_params->msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666)
-  if (-1 == rl_params->msqid_reciever) {
+  if (-1 == ( rl_params->msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
     perror("msgget() failed");
     exit(1);
   }
