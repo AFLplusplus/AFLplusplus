@@ -40,9 +40,6 @@ rl_params_t* init_rl_params(u32 map_size){
 
 void store_features(rl_params_t *rl_params) {
     u8 *trace_bits = rl_params->trace_bits;
-  rl_params->positive_reward = (u32 *)realloc(rl_params->map_size * sizeof(u32));
-  rl_params->negative_reward = (u32 *)realloc(rl_params->map_size * sizeof(u32));
-    
 
     for(u32 i = 0; i < rl_params->map_size; i++) {
         if (trace_bits[i]) {
