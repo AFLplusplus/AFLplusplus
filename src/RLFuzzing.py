@@ -11,7 +11,7 @@ UPDATE_SCORE = 2
 
 
 class RLFuzzing:
-    def __init__(self,max_message_size=1000):
+    def __init__(self,max_message_size=10000):
         self.map_size = None
 
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
