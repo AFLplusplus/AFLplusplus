@@ -4,7 +4,7 @@
 #include <sys/msg.h>
 
 // Message Queue Parameters and Structs
-#define  BUFF_SIZE    1024
+#define  BUFF_SIZE    128
 
 
 typedef struct {

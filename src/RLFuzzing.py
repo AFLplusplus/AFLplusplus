@@ -41,7 +41,7 @@ class RLFuzzing:
         score = (np.array(random_beta, dtype=np.float64) / (1+rareness))**0.5
         return np.array(score)
 
-    def recieve_messages(self, BUFF_SIZE_RECIEVER=1024):
+    def recieve_messages(self, BUFF_SIZE_RECIEVER=128):
         try:
             message, mtype = self.mq_reciever.receive()
 
@@ -91,7 +91,7 @@ class RLFuzzing:
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
 
-    def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
+    def send_messenges(self, mtype, BUFF_SIZE_SENDER=128):
         if mtype == UPDATE_SCORE:
             self.key, k = random.split(self.key)
             print(f'self.map_size: {self.map_size}')
