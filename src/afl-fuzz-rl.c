@@ -41,13 +41,11 @@ rl_params_t* init_rl_params(u32 map_size){
 void store_features(rl_params_t *rl_params) {
   u8 *trace_bits = rl_params->trace_bits;
 
-  for(u32 i = 0; i < rl_params->map_size; i++) {
-    if (i < (u32)(sizeof(trace_bits) / sizeof(u8))) {
-      if (trace_bits[i]) {
-          rl_params->positive_reward[i] += 1;
-      } else {
-          rl_params->negative_reward[i] += 1;
-      }
+  for(u32 i = 0; i < (u32)(sizeof(trace_bits) / sizeof(u8)); i++) {
+    if (trace_bits[i]) {
+        rl_params->positive_reward[i] += 1;
+    } else {
+        rl_params->negative_reward[i] += 1;
     }
   }
 }
