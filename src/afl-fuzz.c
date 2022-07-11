@@ -2270,6 +2270,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (likely(!afl->stop_soon)) {
     if (RLFUZZING) {
       afl->rl_params->map_size = afl->fsrv.map_size;
+      afl->rl_params = init_rl_params(afl->fsrv.map_size); //TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT THIS HERE FOR CONVIENENCE
       afl->rl_params->queue_cur = afl->queue_cur;
       afl->rl_params->top_rated = afl->top_rated;
       update_queue(afl->rl_params);
