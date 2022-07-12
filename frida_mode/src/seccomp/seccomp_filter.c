@@ -129,7 +129,7 @@ static volatile bool         seccomp_filter_child_done = false;
 static pid_t                 seccomp_filter_child = -1;
 static GumCpuContext         seccomp_filter_cpu_context = {0};
 static GumReturnAddressArray seccomp_filter_frames = {.len = 0, .items = {0}};
-static GumBacktracer *       seccomp_filter_backtracer = NULL;
+static GumBacktracer        *seccomp_filter_backtracer = NULL;
 
 static void seccomp_filter_child_handler(int sig, siginfo_t *info,
                                          void *ucontext) {
@@ -209,7 +209,7 @@ int seccomp_filter_install(pid_t child) {
 
 void seccomp_filter_run(int fd, seccomp_filter_callback_t callback) {
 
-  struct seccomp_notif *     req = NULL;
+  struct seccomp_notif      *req = NULL;
   struct seccomp_notif_resp *resp = NULL;
   struct seccomp_notif_sizes sizes;
 

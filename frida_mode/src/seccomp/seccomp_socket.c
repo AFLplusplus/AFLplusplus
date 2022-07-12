@@ -59,9 +59,9 @@ void seccomp_socket_send(int sockfd, int fd) {
   struct iovec iov = {.iov_base = &data, .iov_len = sizeof(data)};
   union cmsg   control_msg = {.hdr = {
 
-                                .cmsg_len = CMSG_LEN(sizeof(int)),
-                                .cmsg_level = SOL_SOCKET,
-                                .cmsg_type = SCM_RIGHTS,
+                                  .cmsg_len = CMSG_LEN(sizeof(int)),
+                                  .cmsg_level = SOL_SOCKET,
+                                  .cmsg_type = SCM_RIGHTS,
 
                             }};
 

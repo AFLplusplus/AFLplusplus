@@ -182,7 +182,7 @@ class ModuleSanitizerCoverageLTO
  private:
   void            instrumentFunction(Function &F, DomTreeCallback DTCallback,
                                      PostDomTreeCallback PDTCallback);
-  void            InjectCoverageForIndirectCalls(Function &              F,
+  void            InjectCoverageForIndirectCalls(Function               &F,
                                                  ArrayRef<Instruction *> IndirCalls);
   bool            InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks,
                                  bool IsLeafFunc = true);
@@ -211,10 +211,10 @@ class ModuleSanitizerCoverageLTO
   FunctionCallee SanCovTracePC /*, SanCovTracePCGuard*/;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
       *Int16Ty, *Int8Ty, *Int8PtrTy, *Int1Ty, *Int1PtrTy;
-  Module *          CurModule;
+  Module           *CurModule;
   std::string       CurModuleUniqueId;
   Triple            TargetTriple;
-  LLVMContext *     C;
+  LLVMContext      *C;
   const DataLayout *DL;
 
   GlobalVariable *FunctionGuardArray;        // for trace-pc-guard.
@@ -235,20 +235,20 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         unhandled = 0;
   uint32_t                         select_cnt = 0;
   uint64_t                         map_addr = 0;
-  const char *                     skip_nozero = NULL;
-  const char *                     use_threadsafe_counters = nullptr;
+  const char                      *skip_nozero = NULL;
+  const char                      *use_threadsafe_counters = nullptr;
   std::vector<BasicBlock *>        BlockList;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<std::string>         dictionary;
-  IntegerType *                    Int8Tyi = NULL;
-  IntegerType *                    Int32Tyi = NULL;
-  IntegerType *                    Int64Tyi = NULL;
-  ConstantInt *                    Zero = NULL;
-  ConstantInt *                    One = NULL;
-  LLVMContext *                    Ct = NULL;
-  Module *                         Mo = NULL;
-  GlobalVariable *                 AFLMapPtr = NULL;
-  Value *                          MapPtrFixed = NULL;
+  IntegerType                     *Int8Tyi = NULL;
+  IntegerType                     *Int32Tyi = NULL;
+  IntegerType                     *Int64Tyi = NULL;
+  ConstantInt                     *Zero = NULL;
+  ConstantInt                     *One = NULL;
+  LLVMContext                     *Ct = NULL;
+  Module                          *Mo = NULL;
+  GlobalVariable                  *AFLMapPtr = NULL;
+  Value                           *MapPtrFixed = NULL;
   std::ofstream                    dFile;
   size_t                           found = 0;
   // afl++ END
@@ -330,12 +330,12 @@ llvmGetPassPluginInfo() {
 
 }
 
-PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module &               M,
+PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
 
   ModuleSanitizerCoverageLTO ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree * {
+  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
 
     return &FAM.getResult<DominatorTreeAnalysis>(F);
 
@@ -380,7 +380,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   FunctionPCsArray = nullptr;
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
   IntptrPtrTy = PointerType::getUnqual(IntptrTy);
-  Type *      VoidTy = Type::getVoidTy(*C);
+  Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
   Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
   Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
@@ -393,7 +393,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   Int1Ty = IRB.getInt1Ty();
 
   /* afl++ START */
-  char *       ptr;
+  char        *ptr;
   LLVMContext &Ctx = M.getContext();
   Ct = &Ctx;
   Int8Tyi = IntegerType::getInt8Ty(Ctx);
@@ -499,11 +499,11 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
         for (auto &IN : BB) {
 
           CallInst *callInst = nullptr;
-          CmpInst * cmpInst = nullptr;
+          CmpInst  *cmpInst = nullptr;
 
           if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
 
-            Value *      op = cmpInst->getOperand(1);
+            Value       *op = cmpInst->getOperand(1);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op);
 
             if (ilen && ilen->uge(0xffffffffffffffff) == false) {
@@ -759,7 +759,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
               if (HasStr2 == true) {
 
-                Value *      op2 = callInst->getArgOperand(2);
+                Value       *op2 = callInst->getArgOperand(2);
                 ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
                 if (ilen) {
 
@@ -866,7 +866,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
             if (isMemcmp || isStrncmp || isStrncasecmp) {
 
-              Value *      op2 = callInst->getArgOperand(2);
+              Value       *op2 = callInst->getArgOperand(2);
               ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
 
               if (ilen) {
@@ -1017,7 +1017,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
       GlobalVariable *AFLMapAddrFixed = new GlobalVariable(
           M, Int64Tyi, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
       ConstantInt *MapAddr = ConstantInt::get(Int64Tyi, map_addr);
-      StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
+      StoreInst   *StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
       ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreMapAddr);
 
     }
@@ -1032,7 +1032,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
           new GlobalVariable(M, Int32Tyi, true, GlobalValue::ExternalLinkage, 0,
                              "__afl_final_loc");
       ConstantInt *const_loc = ConstantInt::get(Int32Tyi, write_loc);
-      StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+      StoreInst   *StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
       ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreFinalLoc);
 
     }
@@ -1159,7 +1159,7 @@ static bool isFullDominator(const BasicBlock *BB, const DominatorTree *DT) {
 }
 
 // True if block has predecessors and it postdominates all of them.
-static bool isFullPostDominator(const BasicBlock *       BB,
+static bool isFullPostDominator(const BasicBlock        *BB,
                                 const PostDominatorTree *PDT) {
 
   if (pred_begin(BB) == pred_end(BB)) return false;
@@ -1175,8 +1175,8 @@ static bool isFullPostDominator(const BasicBlock *       BB,
 }
 
 static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
-                                  const DominatorTree *           DT,
-                                  const PostDominatorTree *       PDT,
+                                  const DominatorTree            *DT,
+                                  const PostDominatorTree        *PDT,
                                   const SanitizerCoverageOptions &Options) {
 
   // Don't insert coverage for blocks containing nothing but unreachable: we
@@ -1246,7 +1246,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   SmallVector<Instruction *, 8> IndirCalls;
   SmallVector<BasicBlock *, 16> BlocksToInstrument;
 
-  const DominatorTree *    DT = DTCallback(F);
+  const DominatorTree     *DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
   bool                     IsLeafFunc = true;
   uint32_t                 skip_next = 0;
@@ -1294,8 +1294,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
       if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
         uint32_t    vector_cnt = 0;
-        Value *     condition = selectInst->getCondition();
-        Value *     result;
+        Value      *condition = selectInst->getCondition();
+        Value      *result;
         auto        t = condition->getType();
         IRBuilder<> IRB(selectInst->getNextNode());
 
@@ -1451,8 +1451,8 @@ GlobalVariable *ModuleSanitizerCoverageLTO::CreateFunctionLocalArrayInSection(
 
   ArrayType *ArrayTy = ArrayType::get(Ty, NumElements);
   auto       Array = new GlobalVariable(
-      *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
-      Constant::getNullValue(ArrayTy), "__sancov_gen_");
+            *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
+            Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
 #if LLVM_VERSION_MAJOR >= 13
   if (TargetTriple.supportsCOMDAT() &&
@@ -1584,8 +1584,8 @@ void ModuleSanitizerCoverageLTO::InjectCoverageForIndirectCalls(
   for (auto I : IndirCalls) {
 
     IRBuilder<> IRB(I);
-    CallBase &  CB = cast<CallBase>(*I);
-    Value *     Callee = CB.getCalledOperand();
+    CallBase   &CB = cast<CallBase>(*I);
+    Value      *Callee = CB.getCalledOperand();
     if (isa<InlineAsm>(Callee)) continue;
     IRB.CreateCall(SanCovTracePCIndir, IRB.CreatePointerCast(Callee, IntptrTy));
 
@@ -1593,7 +1593,7 @@ void ModuleSanitizerCoverageLTO::InjectCoverageForIndirectCalls(
 
 }
 
-void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function &  F,
+void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
                                                        BasicBlock &BB,
                                                        size_t      Idx,
                                                        bool        IsLeafFunc) {

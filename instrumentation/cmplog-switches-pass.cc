@@ -149,9 +149,9 @@ Iterator Unique(Iterator first, Iterator last) {
 bool CmplogSwitches::hookInstrs(Module &M) {
 
   std::vector<SwitchInst *> switches;
-  LLVMContext &             C = M.getContext();
+  LLVMContext              &C = M.getContext();
 
-  Type *       VoidTy = Type::getVoidTy(C);
+  Type        *VoidTy = Type::getVoidTy(C);
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int16Ty = IntegerType::getInt16Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
@@ -270,7 +270,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
     for (auto &SI : switches) {
 
-      Value *       Val = SI->getCondition();
+      Value        *Val = SI->getCondition();
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
       unsigned char do_cast = 0;
 

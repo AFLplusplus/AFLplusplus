@@ -14,7 +14,7 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);
@@ -23,7 +23,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
-void instrument_coverage_optimize_insn(const cs_insn *   instr,
+void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);

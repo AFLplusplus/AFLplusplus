@@ -86,14 +86,14 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
                                        gpointer            start_address,
-                                       const cs_insn *     from_insn,
-                                       gpointer *          target) {
+                                       const cs_insn      *from_insn,
+                                       gpointer           *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
-  cs_x86 *   x86;
+  cs_x86    *x86;
   cs_x86_op *op;
   if (from_insn == NULL) { return; }
 
@@ -136,7 +136,7 @@ static void instrument_coverage_suppress_init(void) {
   if (initialized) { return; }
   initialized = true;
 
-  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserver          *observer = stalker_get_observer();
   GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
   iface->switch_callback = instrument_coverage_switch;
 
@@ -149,7 +149,7 @@ static void instrument_coverage_suppress_init(void) {
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
 
   afl_log_code  code = {0};
@@ -223,7 +223,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
-void instrument_coverage_optimize_insn(const cs_insn *   instr,
+void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);

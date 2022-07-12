@@ -7,16 +7,16 @@ gboolean                  js_done = FALSE;
 js_api_stalker_callback_t js_user_callback = NULL;
 js_main_hook_t            js_main_hook = NULL;
 
-static char *              js_script = NULL;
-static gchar *             filename = "afl.js";
-static gchar *             contents;
-static GumScriptBackend *  backend;
-static GCancellable *      cancellable = NULL;
-static GError *            error = NULL;
-static GumScript *         script;
+static char               *js_script = NULL;
+static gchar              *filename = "afl.js";
+static gchar              *contents;
+static GumScriptBackend   *backend;
+static GCancellable       *cancellable = NULL;
+static GError             *error = NULL;
+static GumScript          *script;
 static GumScriptScheduler *scheduler;
-static GMainContext *      context;
-static GMainLoop *         main_loop;
+static GMainContext       *context;
+static GMainLoop          *main_loop;
 
 static void js_msg(GumScript *script, const gchar *message, GBytes *data,
                    gpointer user_data) {

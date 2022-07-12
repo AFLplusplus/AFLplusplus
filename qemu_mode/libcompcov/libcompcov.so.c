@@ -139,7 +139,7 @@ static void __compcov_load(void) {
   char *bin_name = getenv("AFL_COMPCOV_BINNAME");
 
   procmaps_iterator *maps = pmparser_parse(-1);
-  procmaps_struct *  maps_tmp = NULL;
+  procmaps_struct   *maps_tmp = NULL;
 
   while ((maps_tmp = pmparser_next(maps)) != NULL) {
 

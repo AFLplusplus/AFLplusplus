@@ -77,8 +77,8 @@ void create_alias_table(afl_state_t *afl) {
   afl->alias_probability = (double *)afl_realloc(
       (void **)&afl->alias_probability, n * sizeof(double));
   double *P = (double *)afl_realloc(AFL_BUF_PARAM(out), n * sizeof(double));
-  int *   S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
-  int *   L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
+  int    *S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
+  int    *L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
 
   if (!P || !S || !L || !afl->alias_table || !afl->alias_probability) {
 
@@ -410,7 +410,7 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8 *    buf;
+  u8     *buf;
   int     fd;
   u32     len = q->len, offset = 0, ascii = 0, utf8 = 0;
   ssize_t comp;

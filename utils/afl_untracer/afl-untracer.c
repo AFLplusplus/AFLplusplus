@@ -108,8 +108,8 @@ __thread u32 do_exit;
 static pid_t     pid = 65537;
 static pthread_t __afl_thread;
 static u8        __afl_dummy[MAP_SIZE];
-static u8 *      __afl_area_ptr = __afl_dummy;
-static u8 *      inputfile;  // this will point to argv[1]
+static u8       *__afl_area_ptr = __afl_dummy;
+static u8       *inputfile;  // this will point to argv[1]
 static u32       len;
 
 static library_list_t liblist[MAX_LIB_COUNT];
@@ -177,7 +177,7 @@ void read_library_information(void) {
 
 #elif defined(__FreeBSD__)
   int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
-  char * buf, *start, *end;
+  char  *buf, *start, *end;
   size_t miblen = sizeof(mib) / sizeof(mib[0]);
   size_t len;
 
@@ -261,7 +261,7 @@ library_list_t *find_library(char *name) {
 
   for (size_t i = 0; i < all_image_infos->infoArrayCount; i++) {
 
-    const char *      image_name = image_infos[i].imageFilePath;
+    const char       *image_name = image_infos[i].imageFilePath;
     mach_vm_address_t image_load_address =
         (mach_vm_address_t)image_infos[i].imageLoadAddress;
     if (strstr(image_name, name)) {
@@ -287,7 +287,7 @@ library_list_t *find_library(char *name) {
 #pragma GCC optimize("O0")
 void        breakpoint(void) {
 
-  if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
+         if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
 
 }
 
@@ -347,7 +347,7 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
+    const char    *shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 
@@ -468,10 +468,10 @@ void setup_trap_instrumentation(void) {
 
   library_list_t *lib_base = NULL;
   size_t          lib_size = 0;
-  u8 *            lib_addr;
-  char *          line = NULL;
+  u8             *lib_addr;
+  char           *line = NULL;
   size_t          nread, len = 0;
-  char *          filename = getenv("AFL_UNTRACER_FILE");
+  char           *filename = getenv("AFL_UNTRACER_FILE");
   if (!filename) filename = getenv("TRAPFUZZ_FILE");
   if (!filename) FATAL("AFL_UNTRACER_FILE environment variable not set");
 

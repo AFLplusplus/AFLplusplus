@@ -92,11 +92,11 @@ static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
-u8 *       __afl_area_ptr = __afl_area_initial;
-u8 *       __afl_dictionary;
-u8 *       __afl_fuzz_ptr;
+u8        *__afl_area_ptr = __afl_area_initial;
+u8        *__afl_dictionary;
+u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
-u32 *      __afl_fuzz_len = &__afl_fuzz_len_dummy;
+u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -399,7 +399,7 @@ static void __afl_map_shm(void) {
     }
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
+    const char    *shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 
@@ -450,11 +450,11 @@ static void __afl_map_shm(void) {
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
-      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
-      if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+             u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
+             if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
 
-        send_forkserver_error(FS_ERROR_MAP_SIZE);
-        _exit(1);
+               send_forkserver_error(FS_ERROR_MAP_SIZE);
+               _exit(1);
 
       }
 
@@ -466,13 +466,13 @@ static void __afl_map_shm(void) {
 
     if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
-      if (__afl_map_addr)
+             if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_SHMAT);
 
       perror("shmat for map");
-      _exit(1);
+             _exit(1);
 
     }
 
@@ -583,7 +583,7 @@ static void __afl_map_shm(void) {
     }
 
 #ifdef USEMMAP
-    const char *    shm_file_path = id_str;
+    const char     *shm_file_path = id_str;
     int             shm_fd = -1;
     struct cmp_map *shm_base = NULL;
 
@@ -689,7 +689,7 @@ static void __afl_unmap_shm(void) {
 
 void write_error_with_location(char *text, char *filename, int linenumber) {
 
-  u8 *  o = getenv("__AFL_OUT_DIR");
+  u8   *o = getenv("__AFL_OUT_DIR");
   char *e = strerror(errno);
 
   if (o) {

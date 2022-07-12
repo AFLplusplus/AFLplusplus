@@ -102,7 +102,7 @@ class SplitSwitchesTransform : public ModulePass {
   struct CaseExpr {
 
     ConstantInt *Val;
-    BasicBlock * BB;
+    BasicBlock  *BB;
 
     CaseExpr(ConstantInt *val = nullptr, BasicBlock *bb = nullptr)
         : Val(val), BB(bb) {
@@ -182,7 +182,7 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
   unsigned     ValTypeBitWidth = Cases[0].Val->getBitWidth();
   IntegerType *ValType =
       IntegerType::get(OrigBlock->getContext(), ValTypeBitWidth);
-  IntegerType *        ByteType = IntegerType::get(OrigBlock->getContext(), 8);
+  IntegerType         *ByteType = IntegerType::get(OrigBlock->getContext(), 8);
   unsigned             BytesInValue = bytesChecked.size();
   std::vector<uint8_t> setSizes;
   std::vector<std::set<uint8_t> > byteSets(BytesInValue, std::set<uint8_t>());
@@ -221,8 +221,8 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
   /* there are only smallestSize different bytes at index smallestIndex */
 
   Instruction *Shift, *Trunc;
-  Function *   F = OrigBlock->getParent();
-  BasicBlock * NewNode = BasicBlock::Create(Val->getContext(), "NodeBlock", F);
+  Function    *F = OrigBlock->getParent();
+  BasicBlock  *NewNode = BasicBlock::Create(Val->getContext(), "NodeBlock", F);
   Shift = BinaryOperator::Create(Instruction::LShr, Val,
                                  ConstantInt::get(ValType, smallestIndex * 8));
   NewNode->getInstList().push_back(Shift);
@@ -403,9 +403,9 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
     BasicBlock *CurBlock = SI->getParent();
     BasicBlock *OrigBlock = CurBlock;
-    Function *  F = CurBlock->getParent();
+    Function   *F = CurBlock->getParent();
     /* this is the value we are switching on */
-    Value *     Val = SI->getCondition();
+    Value      *Val = SI->getCondition();
     BasicBlock *Default = SI->getDefaultDest();
     unsigned    bitw = Val->getType()->getIntegerBitWidth();
 
@@ -445,7 +445,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
      * round up bytesChecked (in case getBitWidth() % 8 != 0) */
     std::vector<bool> bytesChecked((7 + Cases[0].Val->getBitWidth()) / 8,
                                    false);
-    BasicBlock *      SwitchBlock =
+    BasicBlock       *SwitchBlock =
         switchConvert(Cases, bytesChecked, OrigBlock, NewDefault, Val, 0);
 
     /* Branch to our shiny new if-then stuff... */
@@ -483,7 +483,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 }
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-PreservedAnalyses SplitSwitchesTransform::run(Module &               M,
+PreservedAnalyses SplitSwitchesTransform::run(Module                &M,
                                               ModuleAnalysisManager &MAM) {
 
 #else

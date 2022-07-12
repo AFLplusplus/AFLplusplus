@@ -367,7 +367,7 @@ Set AFL_QUIET in the environment to silence it.\n\
 
 /* This is the function GCC calls when loading a plugin.  Initialize
    and register further callbacks.  */
-int plugin_init(struct plugin_name_args *  info,
+int plugin_init(struct plugin_name_args   *info,
                 struct plugin_gcc_version *version) {
 
   if (!plugin_default_version_check(version, &gcc_version))
@@ -386,7 +386,7 @@ int plugin_init(struct plugin_name_args *  info,
   const char *name = info->base_name;
   register_callback(name, PLUGIN_INFO, NULL, &afl_cmplog_plugin);
 
-  afl_cmplog_pass *         aflp = new afl_cmplog_pass(quiet);
+  afl_cmplog_pass          *aflp = new afl_cmplog_pass(quiet);
   struct register_pass_info pass_info = {
 
       .pass = aflp,

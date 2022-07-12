@@ -28,14 +28,14 @@ guint64  instrument_hash_seed = 0;
 
 gboolean instrument_use_fixed_seed = FALSE;
 guint64  instrument_fixed_seed = 0;
-char *   instrument_coverage_unstable_filename = NULL;
+char    *instrument_coverage_unstable_filename = NULL;
 gboolean instrument_coverage_insn = FALSE;
 
 static GumStalkerTransformer *transformer = NULL;
 
 static GumAddress previous_rip = 0;
 static GumAddress previous_end = 0;
-static u8 *       edges_notified = NULL;
+static u8        *edges_notified = NULL;
 
 __thread guint64  instrument_previous_pc;
 __thread guint64 *instrument_previous_pc_addr = NULL;
@@ -149,7 +149,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 }
 
 static void instrument_basic_block(GumStalkerIterator *iterator,
-                                   GumStalkerOutput *  output,
+                                   GumStalkerOutput   *output,
                                    gpointer            user_data) {
 
   UNUSED_PARAMETER(user_data);
@@ -157,7 +157,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   const cs_insn *instr;
   gboolean       begin = TRUE;
   gboolean       excluded;
-  block_ctx_t *  ctx = NULL;
+  block_ctx_t   *ctx = NULL;
 
   while (gum_stalker_iterator_next(iterator, &instr)) {
 

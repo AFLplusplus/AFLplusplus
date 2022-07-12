@@ -181,7 +181,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 #endif
 
   DenseMap<Value *, std::string *> valueMap;
-  char *                           ptr;
+  char                            *ptr;
   int                              found = 0;
 
   /* Show a banner */
@@ -246,11 +246,11 @@ bool AFLdict2filePass::runOnModule(Module &M) {
       for (auto &IN : BB) {
 
         CallInst *callInst = nullptr;
-        CmpInst * cmpInst = nullptr;
+        CmpInst  *cmpInst = nullptr;
 
         if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
 
-          Value *      op = cmpInst->getOperand(1);
+          Value       *op = cmpInst->getOperand(1);
           ConstantInt *ilen = dyn_cast<ConstantInt>(op);
 
           /* We skip > 64 bit integers. why? first because their value is
@@ -518,7 +518,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
             if (HasStr2 == true) {
 
-              Value *      op2 = callInst->getArgOperand(2);
+              Value       *op2 = callInst->getArgOperand(2);
               ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
               if (ilen) {
 
@@ -631,7 +631,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           if (isMemcmp || isStrncmp || isStrncasecmp) {
 
-            Value *      op2 = callInst->getArgOperand(2);
+            Value       *op2 = callInst->getArgOperand(2);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
 
             if (ilen) {
