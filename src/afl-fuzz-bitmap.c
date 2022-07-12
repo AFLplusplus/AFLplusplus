@@ -565,6 +565,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (RLFUZZING) {
 
     afl->rl_params->trace_bits = afl->fsrv.trace_bits;
+    afl->rl_params->map_size = afl->fsrv.map_size;
     store_features(afl->rl_params);
 
 
