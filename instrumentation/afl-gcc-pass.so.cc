@@ -472,7 +472,7 @@ Specify -frandom-seed for reproducible instrumentation.\n\
 
 /* This is the function GCC calls when loading a plugin.  Initialize
    and register further callbacks.  */
-int plugin_init(struct plugin_name_args *  info,
+int plugin_init(struct plugin_name_args   *info,
                 struct plugin_gcc_version *version) {
 
   if (!plugin_default_version_check(version, &gcc_version))
@@ -502,7 +502,7 @@ int plugin_init(struct plugin_name_args *  info,
   const char *name = info->base_name;
   register_callback(name, PLUGIN_INFO, NULL, &afl_plugin);
 
-  afl_pass *                aflp = new afl_pass(quiet, inst_ratio);
+  afl_pass                 *aflp = new afl_pass(quiet, inst_ratio);
   struct register_pass_info pass_info = {
 
       .pass = aflp,

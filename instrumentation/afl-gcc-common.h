@@ -72,7 +72,7 @@ namespace {
 struct afl_base_pass : gimple_opt_pass {
 
   afl_base_pass(bool quiet, bool debug, struct pass_data const &pd)
-    : gimple_opt_pass(pd, g), be_quiet(quiet), debug(debug) {
+      : gimple_opt_pass(pd, g), be_quiet(quiet), debug(debug) {
 
     initInstrumentList();
 
@@ -493,6 +493,8 @@ struct afl_base_pass : gimple_opt_pass {
     return return_default;
 
   }
+
 };
 
-}
+}  // namespace
+

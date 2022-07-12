@@ -25,7 +25,7 @@ gboolean persistent_is_supported(void) {
 
 }
 
-static void instrument_persitent_save_regs(GumX86Writer *    cw,
+static void instrument_persitent_save_regs(GumX86Writer     *cw,
                                            persistent_ctx_t *regs) {
 
   GumAddress regs_address = GUM_ADDRESS(regs);
@@ -101,7 +101,7 @@ static void instrument_persitent_save_regs(GumX86Writer *    cw,
 
 }
 
-static void instrument_persitent_restore_regs(GumX86Writer *    cw,
+static void instrument_persitent_restore_regs(GumX86Writer     *cw,
                                               persistent_ctx_t *regs) {
 
   GumAddress regs_address = GUM_ADDRESS(regs);

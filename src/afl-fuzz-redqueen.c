@@ -266,10 +266,10 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
 static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
                        struct tainted **taints) {
 
-  struct range *  ranges = add_range(NULL, 0, len - 1), *rng;
+  struct range   *ranges = add_range(NULL, 0, len - 1), *rng;
   struct tainted *taint = NULL;
-  u8 *            backup = ck_alloc_nozero(len);
-  u8 *            changed = ck_alloc_nozero(len);
+  u8             *backup = ck_alloc_nozero(len);
+  u8             *changed = ck_alloc_nozero(len);
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   u64 start_time = get_cur_time();
@@ -575,7 +575,7 @@ static int strntoull(const char *str, size_t sz, char **end, int base,
 
   char               buf[64];
   unsigned long long ret;
-  const char *       beg = str;
+  const char        *beg = str;
 
   if (!str || !sz) { return 1; }
 
@@ -755,11 +755,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u64 *buf_64 = (u64 *)&buf[idx];
   u32 *buf_32 = (u32 *)&buf[idx];
   u16 *buf_16 = (u16 *)&buf[idx];
-  u8 * buf_8 = &buf[idx];
+  u8  *buf_8 = &buf[idx];
   u64 *o_buf_64 = (u64 *)&orig_buf[idx];
   u32 *o_buf_32 = (u32 *)&orig_buf[idx];
   u16 *o_buf_16 = (u16 *)&orig_buf[idx];
-  u8 * o_buf_8 = &orig_buf[idx];
+  u8  *o_buf_8 = &orig_buf[idx];
 
   u32 its_len = MIN(len - idx, taint_len);
 
@@ -780,7 +780,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
 
-    u8 *               endptr;
+    u8                *endptr;
     u8                 use_num = 0, use_unum = 0;
     unsigned long long unum;
     long long          num;
@@ -1613,7 +1613,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u32 lvl, struct tainted *taint) {
 
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  struct tainted *   t;
+  struct tainted    *t;
   u32                i, j, idx, taint_len, loggeds;
   u32                have_taint = 1;
   u8                 status = 0, found_one = 0;
@@ -2398,7 +2398,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u8 lvl, struct tainted *taint) {
 
-  struct tainted *   t;
+  struct tainted    *t;
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx, have_taint = 1, taint_len, loggeds;
   u8                 status = 0, found_one = 0;

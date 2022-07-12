@@ -189,7 +189,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   #if defined(__linux__)
 
-  DIR *          d;
+  DIR           *d;
   struct dirent *de;
   d = opendir("/proc");
 
@@ -340,8 +340,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
   #elif defined(__sun)
 
   kstat_named_t *n;
-  kstat_ctl_t *  m;
-  kstat_t *      k;
+  kstat_ctl_t   *m;
+  kstat_t       *k;
   cpu_stat_t     cs;
   u32            ncpus;
 
@@ -657,7 +657,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   struct dirent **nl;
   s32             nl_cnt, subdirs = 1;
   u32             i;
-  u8 *            fn1, *dir = directory;
+  u8             *fn1, *dir = directory;
   u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Auto-detect non-in-place resumption attempts. */
@@ -857,7 +857,7 @@ void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q;
   u32                 cal_failures = 0, idx;
-  u8 *                use_mem;
+  u8                 *use_mem;
 
   for (idx = 0; idx < afl->queued_items; idx++) {
 
@@ -1461,7 +1461,7 @@ void find_timeout(afl_state_t *afl) {
 
 static u8 delete_files(u8 *path, u8 *prefix) {
 
-  DIR *          d;
+  DIR           *d;
   struct dirent *d_ent;
 
   d = opendir(path);
@@ -1589,7 +1589,7 @@ dir_cleanup_failed:
 static void handle_existing_out_dir(afl_state_t *afl) {
 
   FILE *f;
-  u8 *  fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
+  u8   *fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
 
   /* See if the output directory is locked. If yes, bail out. If not,
      create a lock that will persist for the lifetime of the process
@@ -1882,9 +1882,9 @@ dir_cleanup_failed:
 
 int check_main_node_exists(afl_state_t *afl) {
 
-  DIR *          sd;
+  DIR           *sd;
   struct dirent *sd_ent;
-  u8 *           fn;
+  u8            *fn;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { return 0; }
@@ -2585,7 +2585,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   if (unlikely(!fname)) { FATAL("BUG: Binary name is NULL"); }
 
-  u8 *        env_path = 0;
+  u8         *env_path = 0;
   struct stat st;
 
   s32 fd;

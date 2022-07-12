@@ -105,11 +105,11 @@ static gboolean instrument_cache_relocate(GumAddress old_pc, GumAddress new_pc,
 
 }
 
-static void instrument_cache_rewrite_branch_insn(const cs_insn *   instr,
+static void instrument_cache_rewrite_branch_insn(const cs_insn    *instr,
                                                  GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
-  cs_x86 *      x86 = &instr->detail->x86;
+  cs_x86       *x86 = &instr->detail->x86;
   guint8        modified[sizeof(instr->bytes)] = {0};
   guint8        offset = 0;
   guint8        skip = 0;
@@ -295,7 +295,7 @@ static void instrument_cache_write_lookup(GumX86Writer *cw) {
 void instrument_cache_jmp_call(const cs_insn *instr, GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
-  cs_x86 *      x86 = &instr->detail->x86;
+  cs_x86       *x86 = &instr->detail->x86;
 
   if (x86->op_count != 1) { FFATAL("Unexpected operand count"); }
 
@@ -362,7 +362,7 @@ void instrument_cache_jmp_call(const cs_insn *instr, GumStalkerOutput *output) {
 void instrument_cache_ret(const cs_insn *instr, GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
-  cs_x86 *      x86 = &instr->detail->x86;
+  cs_x86       *x86 = &instr->detail->x86;
   guint16       n = 0;
 
   if (x86->op_count != 0) {

@@ -130,8 +130,8 @@ int          libc_perms;
 
 static void find_libc(void) {
 
-  FILE *  fp;
-  char *  line = NULL;
+  FILE   *fp;
+  char   *line = NULL;
   size_t  len = 0;
   ssize_t read;
 

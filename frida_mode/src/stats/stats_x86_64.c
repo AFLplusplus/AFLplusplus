@@ -248,7 +248,7 @@ void stats_write_arch(stats_data_t *data) {
 
 static x86_op_type stats_get_operand_type(const cs_insn *instr) {
 
-  cs_x86 *   x86 = &instr->detail->x86;
+  cs_x86    *x86 = &instr->detail->x86;
   cs_x86_op *operand;
 
   if (x86->op_count != 1) {
@@ -266,7 +266,7 @@ static x86_op_type stats_get_operand_type(const cs_insn *instr) {
 
 static void stats_collect_call_imm_excluded_arch(const cs_insn *instr) {
 
-  cs_x86 *   x86 = &instr->detail->x86;
+  cs_x86    *x86 = &instr->detail->x86;
   cs_x86_op *operand = &x86->operands[0];
 
   if (range_is_excluded(GUM_ADDRESS(operand->imm))) {

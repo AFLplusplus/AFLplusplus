@@ -45,7 +45,7 @@
   #define LLVM_MINOR 0
 #endif
 
-static u8 * obj_path;                  /* Path to runtime libraries         */
+static u8  *obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   clang_mode;                /* Invoked as afl-clang*?            */
@@ -53,7 +53,7 @@ static u8   llvm_fullpath[PATH_MAX];
 static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
-static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
+static u8  *lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
