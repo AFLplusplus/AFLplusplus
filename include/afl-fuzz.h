@@ -76,52 +76,14 @@
 #include <sys/file.h>
 #include <sys/types.h>
 
-/* Start my libraries <@@@> */
-#define  RLFUZZING            1
-#include "afl-fuzz-rl.h"
+/* Start RL fuzzing */
+#define RLFUZZING
 
 #ifdef RLFUZZING
-
-  // #include <sys/ipc.h>
-  // #include <sys/msg.h>
-
-  // #define  BUFF_SIZE_SENDER     1024
-  // #define  BUFF_SIZE_RECEIVER   1024
-
-
-  // typedef struct {
-  //   long    data_type;
-  //   double  data_buff[BUFF_SIZE_SENDER];
-  // } t_send_double_data;
-
-  // typedef struct {
-  //   long    data_type;
-  //   double  data_buff[BUFF_SIZE_RECEIVER];
-  // } t_recieve_double_data;
-
-  // typedef struct {
-  //   long    data_type;
-  //   u8      data_buff[BUFF_SIZE_SENDER];
-  // } t_send_u8_data;
-
-  // typedef struct {
-  //   long    data_type;
-  //   u8      data_buff[BUFF_SIZE_RECEIVER];
-  // } t_recieve_u8_data;
-
-  // typedef struct {
-  //   long    data_type;
-  //   u32     data_buff[BUFF_SIZE_SENDER];
-  // } t_send_u32_data;
-
-  // typedef struct {
-  //   long    data_type;
-  //   u32     data_buff[BUFF_SIZE_RECEIVER];
-  // } t_recieve_u32_data;
-
+#include "afl-fuzz-rl.h"
 #endif
 
-/* End my libraries <@@@> */
+/* End RL fuzzing */
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
@@ -811,7 +773,9 @@ typedef struct afl_state {
   u32   bitsmap_size;
 #endif
 
+#ifdef RLFUZZING
   rl_params_t *rl_params;
+#endif
 
 } afl_state_t;
 
