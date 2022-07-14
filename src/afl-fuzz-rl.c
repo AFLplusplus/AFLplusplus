@@ -2,6 +2,7 @@
 #include <sys/msg.h>
 
 #include "afl-fuzz.h"
+#include "afl-fuzz-rl.h"
 
 rl_params_t *init_rl_params(u32 map_size) {
   rl_params_t *rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
@@ -16,6 +17,7 @@ rl_params_t *init_rl_params(u32 map_size) {
 #endif
   rl_params->map_size = map_size;
 
+#ifdef PYTHON_RL
   if (-1 == (rl_params->msqid_sender = msgget((key_t)1, IPC_CREAT | 0666))) {
     perror("msgget() failed");
     exit(1);
@@ -37,6 +39,7 @@ rl_params_t *init_rl_params(u32 map_size) {
     perror("msgsnd() failed");
     exit(1);
   }
+#endif
 
   return rl_params;
 }

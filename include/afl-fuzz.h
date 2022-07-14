@@ -76,14 +76,14 @@
 #include <sys/file.h>
 #include <sys/types.h>
 
-/* Start my libraries <@@@> */
-#define RLFUZZING 1
+/* Start RL fuzzing */
+#define RLFUZZING
 
 #ifdef RLFUZZING
 #include "afl-fuzz-rl.h"
 #endif
 
-/* End my libraries <@@@> */
+/* End RL fuzzing */
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)

@@ -3,6 +3,8 @@
 
 #include "types.h"
 
+#define PYTHON_RL
+
 // Message Queue Parameters and Structs
 #define  BUFF_SIZE    1024
 
@@ -24,8 +26,10 @@ typedef struct {
 // Store Parameters for Reinforcement learning
 
 typedef struct rl_params {
+#ifdef PYTHON_RL
   int msqid_sender;
   int msqid_reciever;
+#endif
 
   u32 *positive_reward;
   u32 *negative_reward;
