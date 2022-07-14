@@ -1,23 +1,27 @@
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
 #include "afl-fuzz.h"
 
-rl_params_t* init_rl_params(u32 map_size){
+rl_params_t* init_rl_params(u32 map_size) {
   rl_params_t* rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
+
   rl_params->positive_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
   rl_params->negative_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
 
-  for(u32 i = 0; i < map_size; i++) {
-    rl_params->positive_reward[i] = 0;
-    rl_params->negative_reward[i] = 0;
-  }
+  // ck_alloc already zeroes out memory in non-debug mode
+#ifdef DEBUG_BUILD
+  memset(rl_params->positive_reward, 0, map_size * sizeof(u32));
+  memset(rl->params->negative_reward, 0, map_size * sizeof(u32));
+#endif
   rl_params->map_size = map_size;
 
-
-  if (-1 == ( rl_params->msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
+  if (-1 == (rl_params->msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
     perror("msgget() failed");
     exit(1);
   }
 
-  if (-1 == ( rl_params->msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
+  if (-1 == (rl_params->msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
     perror("msgget() failed");
     exit(1);
   }
@@ -32,7 +36,6 @@ rl_params_t* init_rl_params(u32 map_size){
     perror("msgsnd() failed");
     exit(1);
   }
-
 
   return rl_params;
 }
@@ -123,10 +126,4 @@ void update_queue(rl_params_t *rl_params) {
   if (rl_params->queue_cur) {
     rl_params->current_entry = rl_params->queue_cur->id;
   }
-
-
-
 }
-
-
-

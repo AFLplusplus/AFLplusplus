@@ -1,17 +1,15 @@
-#include "types.h"
+#ifndef AFL_FUZZ_RL
+#define AFL_FUZZ_RL
 
-#include <sys/ipc.h>
-#include <sys/msg.h>
+#include "types.h"
 
 // Message Queue Parameters and Structs
 #define  BUFF_SIZE    1024
-
 
 typedef struct {
   long    data_type;
   double  data_buff[BUFF_SIZE];
 } t_double_data;
-
 
 typedef struct {
   long    data_type;
@@ -23,12 +21,9 @@ typedef struct {
   u32     data_buff[BUFF_SIZE];
 } t_u32_data;
 
-
-
 // Store Parameters for Reinforcement learning
 
-typedef struct rl_params{
-
+typedef struct rl_params {
   int msqid_sender;
   int msqid_reciever;
 
@@ -45,8 +40,7 @@ typedef struct rl_params{
 } rl_params_t;
 
 rl_params_t* init_rl_params(u32);
-
-
 void store_features(rl_params_t *);
-
 void update_queue(rl_params_t *);
+
+#endif
