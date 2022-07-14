@@ -74,7 +74,6 @@ void update_queue(rl_params_t *rl_params) {
   while (index < rl_params->map_size) {
     t_u32_data send_data;
     send_data.data_type = 2;
-    u32 msg_array[BUFF_SIZE];
 
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index + i < rl_params->map_size) {
@@ -96,7 +95,6 @@ void update_queue(rl_params_t *rl_params) {
   while (index < rl_params->map_size) {
     t_u32_data send_data;
     send_data.data_type = 2;
-    u32 msg_array[BUFF_SIZE];
 
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index + i < rl_params->map_size) {
