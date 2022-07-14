@@ -66,16 +66,18 @@ void update_queue(rl_params_t *rl_params) {
   py_data.type = INITIALIZATION_FLAG;
   py_data.map_size = rl_params->map_size;
 
+  ACTF("Sending INITIALIZATION_FLAT msg: map_size=%lu", py_data.map_size);
   if (-1 == msgsnd(rl_params->msqid_sender, &py_data, sizeof(py_data), 0)) {
     perror("msgsnd() failed");
     exit(1);
   }
 
   // Send positive reward
+  py_data.type = UPDATE_SCORE;
   u32 index = 0;
-  while (index < rl_params->map_size) {
-    py_data.type = UPDATE_SCORE;
 
+  ACTF("Sending UPDATE_SCORE msg: positive reward");
+  while (index < rl_params->map_size) {
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index + i < rl_params->map_size) {
         py_data.score[i] = rl_params->positive_reward[index + i];
@@ -93,10 +95,11 @@ void update_queue(rl_params_t *rl_params) {
   }
 
   // Send negative reward
+  py_data.type = UPDATE_SCORE;
   index = 0;
-  while (index < rl_params->map_size) {
-    py_data.type = UPDATE_SCORE;
 
+  ACTF("Sending UPDATE_SCORE msg: negative reward");
+  while (index < rl_params->map_size) {
     for (u32 i = 0; i < BUFF_SIZE; i++) {
       if (index + i < rl_params->map_size) {
         py_data.score[i] = rl_params->negative_reward[index + i];
@@ -120,6 +123,8 @@ void update_queue(rl_params_t *rl_params) {
     exit(1);
   }
 
+  ACTF("Recieved BEST_SEED msg: seed=%lu, reward=%lu", py_data.best_seed.seed,
+       py_data.best_seed.reward);
   rl_params->current_entry = py_data.best_seed.seed;
   // TODO: Do something with the reward?
 

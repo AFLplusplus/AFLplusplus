@@ -1,10 +1,10 @@
-from jax import numpy as jnp
+#!/usr/bin/env python3
+
 from jax import random
-# from jax import jit, lax
 
 import numpy as np
 import sysv_ipc
-# import struct
+
 
 # Keep this in sync with the message types in rl-py.h
 INITIALIZATION_FLAG = 1
@@ -13,7 +13,7 @@ BEST_SEED = 3
 
 
 class RLFuzzing:
-    def __init__(self,max_message_size=10000):
+    def __init__(self, max_message_size=10000):
         self.map_size = None
 
         self.mq_reciever = sysv_ipc.MessageQueue(1, sysv_ipc.IPC_CREAT, max_message_size=max_message_size)
@@ -23,7 +23,6 @@ class RLFuzzing:
         self.negative_reward = None
 
         self.key = random.PRNGKey(0)
-        return
 
     # @jit
     def thompson_sample_step(self, key, number_of_positive_rewards, number_of_negative_rewards):
@@ -75,15 +74,18 @@ class RLFuzzing:
     def send_messages(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == BEST_SEED:
             self.key, k = random.split(self.key)
-            print(f'self.map_size: {self.map_size}')
-            print(f'self.positive_reward: {self.positive_reward}, len: {len(self.positive_reward)}')
-            print(f'self.negative_reward: {self.negative_reward}, len: {len(self.negative_reward)}')
+            print(f'map_size: {self.map_size}')
+            print(f'positive_reward (len={len(self.positive_reward)}):\n'
+                  f'{self.positive_reward}')
+            print(f'self.negative_reward (len={len(self.negative_reward)}):\n'
+                  f'{self.negative_reward}')
             score = self.compute_score(k)
             best_seed_id = np.argmax(score)
-            msg_npy = np.zeros(2)
+            msg_npy = np.zeros(2, dtype=np.uintc)
             msg_npy[0] = best_seed_id
             msg_npy[1] = self.positive_reward[best_seed_id] + self.negative_reward[best_seed_id]
-            msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
+            print('msg_npy -> %s' % msg_npy)
+            #msg_npy = np.array(msg_npy, dtype=np.uintc).reshape((2,BUFF_SIZE_SENDER//2))
             try:
                 self.mq_sender.send(msg_npy.tobytes(order='C'), True, type=mtype)
             except sysv_ipc.ExistentialError:
