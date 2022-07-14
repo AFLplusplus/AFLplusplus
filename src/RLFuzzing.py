@@ -6,7 +6,7 @@ import numpy as np
 import sysv_ipc
 # import struct
 
-INITALIZATION_FLAG = 1
+INITIALIZATION_FLAG = 1
 UPDATE_SCORE = 2
 
 
@@ -45,7 +45,7 @@ class RLFuzzing:
         try:
             message, mtype = self.mq_reciever.receive()
 
-            if mtype == INITALIZATION_FLAG:
+            if mtype == INITIALIZATION_FLAG:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
 
             elif mtype == UPDATE_SCORE:
@@ -67,7 +67,7 @@ class RLFuzzing:
                 self.positive_reward = positive_reward[:self.map_size]
                 self.negative_reward = negative_reward[:self.map_size]
 
-                self.send_messenges(mtype)
+                self.send_messages(mtype)
 
 
             # elif mtype == UPDATE_BITMAP:
@@ -91,7 +91,7 @@ class RLFuzzing:
         except sysv_ipc.ExistentialError:
             print("ERROR: message queue creation failed")
 
-    def send_messenges(self, mtype, BUFF_SIZE_SENDER=1024):
+    def send_messages(self, mtype, BUFF_SIZE_SENDER=1024):
         if mtype == UPDATE_SCORE:
             self.key, k = random.split(self.key)
             print(f'self.map_size: {self.map_size}')
@@ -125,7 +125,7 @@ class RLFuzzing:
         #     msg_npy = np.arange(BUFF_SIZE_SENDER, dtype=np.uint8).reshape((2,BUFF_SIZE_SENDER//2))
 
         # try:
-            
+
         #     self.mq_sender.send(msg_npy.tobytes(order='C'), False, type=mtype)
 
         # except sysv_ipc.ExistentialError:
