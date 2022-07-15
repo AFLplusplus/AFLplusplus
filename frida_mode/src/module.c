@@ -31,7 +31,7 @@ typedef struct {
 gboolean found_range(const GumRangeDetails *details, gpointer user_data) {
 
   gum_range_t range = {0};
-  GArray *    ranges = (GArray *)user_data;
+  GArray     *ranges = (GArray *)user_data;
 
   range.range = *details->range;
   range.protection = details->protection;
@@ -45,9 +45,9 @@ gboolean found_range(const GumRangeDetails *details, gpointer user_data) {
 #if defined(__linux__) && !defined(__ANDROID__)
 static int on_dlclose(void *handle) {
 
-  GArray *         ranges = NULL;
+  GArray          *ranges = NULL;
   struct link_map *lm = NULL;
-  gum_range_t *    range = NULL;
+  gum_range_t     *range = NULL;
   GumAddress       base;
   GumAddress       limit;
   gpointer         mem;

@@ -116,7 +116,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=15.1.22
+GUM_DEVKIT_VERSION=15.1.27
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
@@ -275,7 +275,7 @@ endif
 
 else
 $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)
-	wget -O $@ $(GUM_DEVKIT_URL) || curl -L -o $@ $(GUM_DEVKIT_URL)
+	wget -qO $@ $(GUM_DEVKIT_URL) || curl -L -o $@ $(GUM_DEVKIT_URL)
 
 $(GUM_DEVIT_LIBRARY): $(GUM_DEVKIT_TARBALL)
 	tar Jxvfm $(GUM_DEVKIT_TARBALL) -C $(FRIDA_BUILD_DIR)

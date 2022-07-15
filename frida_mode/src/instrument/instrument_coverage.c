@@ -17,7 +17,7 @@ static int unstable_coverage_fd = -1;
 static int unstable_coverage_pipes[2] = {-1, -1};
 
 static uint64_t normal_coverage_last_start = 0;
-static gchar *  unstable_coverage_fuzzer_stats = NULL;
+static gchar   *unstable_coverage_fuzzer_stats = NULL;
 
 typedef struct {
 
@@ -68,7 +68,7 @@ typedef struct {
 static gboolean coverage_range(const GumRangeDetails *details,
                                gpointer               user_data) {
 
-  GArray *         coverage_ranges = (GArray *)user_data;
+  GArray          *coverage_ranges = (GArray *)user_data;
   coverage_range_t coverage = {0};
 
   if (details->file == NULL) { return TRUE; }
@@ -210,8 +210,8 @@ static GArray *coverage_get_modules(void) {
 static void instrument_coverage_mark(void *key, void *value, void *user_data) {
 
   UNUSED_PARAMETER(key);
-  coverage_mark_ctx_t *   ctx = (coverage_mark_ctx_t *)user_data;
-  GArray *                coverage_modules = ctx->modules;
+  coverage_mark_ctx_t    *ctx = (coverage_mark_ctx_t *)user_data;
+  GArray                 *coverage_modules = ctx->modules;
   normal_coverage_data_t *val = (normal_coverage_data_t *)value;
   guint                   i;
 
@@ -289,9 +289,9 @@ static void coverage_write_modules(int fd, GArray *coverage_modules) {
     coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", module->base_address);
     coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", module->limit);
     /* entry */
-    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0UL);
     /* checksum */
-    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0);
+    coverage_format(fd, "%016" G_GINT64_MODIFIER "X, ", 0UL);
     /* timestamp */
     coverage_format(fd, "%08" G_GINT32_MODIFIER "X, ", 0);
     coverage_format(fd, "%s\n", module->path);
@@ -426,7 +426,7 @@ static void instrument_coverage_normal_run() {
 
 static GArray *instrument_coverage_unstable_read_unstable_ids(void) {
 
-  gchar * contents = NULL;
+  gchar  *contents = NULL;
   gsize   length = 0;
   GArray *unstable_edge_ids =
       g_array_sized_new(false, false, sizeof(gpointer), 100);
@@ -533,7 +533,7 @@ static GHashTable *instrument_collect_unstable_blocks(
     while (g_hash_table_iter_next(&iter, NULL, &value)) {
 
       unstable_coverage_data_t *unstable = (unstable_coverage_data_t *)value;
-      normal_coverage_data_t *  from =
+      normal_coverage_data_t   *from =
           gum_malloc0(sizeof(normal_coverage_data_t));
       normal_coverage_data_t *to = gum_malloc0(sizeof(normal_coverage_data_t));
       from->start = unstable->from;

@@ -69,8 +69,8 @@ static void lib_read_text_section(lib_details_t *lib_details, Elf_Ehdr *hdr) {
   Elf_Addr  preferred_base;
   Elf_Shdr *shdr;
   Elf_Shdr *shstrtab;
-  char *    shstr;
-  char *    section_name;
+  char     *shstr;
+  char     *section_name;
   Elf_Shdr *curr;
   char      text_name[] = ".text";
 

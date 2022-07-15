@@ -17,7 +17,7 @@ static void asan_callout(GumCpuContext *ctx, gpointer user_data) {
 
   UNUSED_PARAMETER(user_data);
 
-  cs_x86_op * operand = (cs_x86_op *)user_data;
+  cs_x86_op  *operand = (cs_x86_op *)user_data;
   x86_op_mem *mem = &operand->mem;
   gsize       base = 0;
   gsize       index = 0;
@@ -48,9 +48,9 @@ void asan_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
   UNUSED_PARAMETER(iterator);
 
   cs_x86      x86 = instr->detail->x86;
-  cs_x86_op * operand;
+  cs_x86_op  *operand;
   x86_op_mem *mem;
-  cs_x86_op * ctx;
+  cs_x86_op  *ctx;
 
   if (!asan_initialized) return;
 

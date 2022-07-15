@@ -66,7 +66,7 @@ static void instrument_disasm(guint8 *start, guint8 *end,
 
       instrument_debug("\t0x%" G_GINT64_MODIFIER "x\t* 0x%016" G_GSIZE_MODIFIER
                        "x\n",
-                       curr, *(size_t *)curr);
+                       (uint64_t)curr, *(size_t *)curr);
 
       len += sizeof(size_t);
       continue;

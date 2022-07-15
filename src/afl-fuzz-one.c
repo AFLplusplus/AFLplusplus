@@ -1901,7 +1901,7 @@ custom_mutator_stage:
 
           struct queue_entry *target = NULL;
           u32                 tid;
-          u8 *                new_buf = NULL;
+          u8                 *new_buf = NULL;
           u32                 target_len = 0;
 
           /* check if splicing makes sense yet (enough entries) */
@@ -2110,7 +2110,7 @@ havoc_stage:
           if (el->stacked_custom &&
               rand_below(afl, 100) < el->stacked_custom_prob) {
 
-            u8 *   custom_havoc_buf = NULL;
+            u8    *custom_havoc_buf = NULL;
             size_t new_len = el->afl_custom_havoc_mutation(
                 el->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
             if (unlikely(!custom_havoc_buf)) {
@@ -2823,7 +2823,7 @@ havoc_stage:
           /* Get the testcase for splicing. */
           struct queue_entry *target = afl->queue_buf[tid];
           u32                 new_len = target->len;
-          u8 *                new_buf = queue_testcase_get(afl, target);
+          u8                 *new_buf = queue_testcase_get(afl, target);
 
           if ((temp_len >= 2 && r % 2) || temp_len + HAVOC_BLK_XL >= MAX_FILE) {
 
@@ -2951,7 +2951,7 @@ retry_splicing:
 
     struct queue_entry *target;
     u32                 tid, split_at;
-    u8 *                new_buf;
+    u8                 *new_buf;
     s32                 f_diff, l_diff;
 
     /* First of all, if we've modified in_buf for havoc, let's clean that
@@ -5164,7 +5164,7 @@ pacemaker_fuzzing:
                 /* Get the testcase for splicing. */
                 struct queue_entry *target = afl->queue_buf[tid];
                 u32                 new_len = target->len;
-                u8 *                new_buf = queue_testcase_get(afl, target);
+                u8                 *new_buf = queue_testcase_get(afl, target);
 
                 if ((temp_len >= 2 && rand_below(afl, 2)) ||
                     temp_len + HAVOC_BLK_XL >= MAX_FILE) {
@@ -5340,7 +5340,7 @@ pacemaker_fuzzing:
 
         struct queue_entry *target;
         u32                 tid, split_at;
-        u8 *                new_buf;
+        u8                 *new_buf;
         s32                 f_diff, l_diff;
 
         /* First of all, if we've modified in_buf for havoc, let's clean that

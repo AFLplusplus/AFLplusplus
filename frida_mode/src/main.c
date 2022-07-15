@@ -92,7 +92,7 @@ static void embedded_init(void) {
 static void afl_print_cmdline(void) {
 
 #if defined(__linux__)
-  char * buffer = g_malloc0(PROC_MAX);
+  char  *buffer = g_malloc0(PROC_MAX);
   gchar *fname = g_strdup_printf("/proc/%d/cmdline", getppid());
   int    fd = open(fname, O_RDONLY);
 
@@ -144,7 +144,7 @@ static void afl_print_cmdline(void) {
 
 static void afl_print_env(void) {
 
-  char * buffer = g_malloc0(PROC_MAX);
+  char  *buffer = g_malloc0(PROC_MAX);
   gchar *fname = g_strdup_printf("/proc/%d/environ", getppid());
   int    fd = open(fname, O_RDONLY);
 

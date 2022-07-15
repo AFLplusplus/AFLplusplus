@@ -1,0 +1,33 @@
+name: Formatting
+
+on:
+  push:
+    branches:
+      - stable
+      - dev
+  pull_request:
+    branches:
+      - dev # No need for stable-pull-request, as that equals dev-push
+
+jobs:
+  code-format-check:
+    name: Check code format
+    if: ${{ 'false' == 'true' }} # Disable the job
+    runs-on: ubuntu-22.04
+    container: docker.io/aflplusplus/aflplusplus:dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Format
+        run: |
+          git config --global --add safe.directory /__w/AFLplusplus/AFLplusplus
+          apt-get update
+          apt-get install -y clang-format-${LLVM_VERSION}
+          make code-format
+      - name: Check if code needed formatting
+        run: |
+          git --no-pager -c color.ui=always diff HEAD
+          if ! git diff HEAD --quiet; then
+            echo "[!] Please run 'make code-format' and push its changes."
+            exit 1
+          fi

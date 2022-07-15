@@ -98,7 +98,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
-static sharedmem_t *     shm_fuzz;
+static sharedmem_t      *shm_fuzz;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -138,7 +138,7 @@ static void kill_child() {
 
 static void classify_counts(afl_forkserver_t *fsrv) {
 
-  u8 *      mem = fsrv->trace_bits;
+  u8       *mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
 
   u32 i = map_size;
@@ -166,7 +166,7 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 }
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
-                                 sharedmem_t *     shm_fuzz) {
+                                 sharedmem_t      *shm_fuzz) {
 
   afl_shm_deinit(shm_fuzz);
   fsrv->support_shmem_fuzz = 0;
@@ -784,6 +784,8 @@ u32 execute_testcases(u8 *dir) {
       showmap_run_target_forkserver(fsrv, in_data, in_len);
       ck_free(in_data);
       ++done;
+
+      if (child_crashed && debug) { WARNF("crashed: %s", fn2); }
 
       if (collect_coverage)
         analyze_results(fsrv);

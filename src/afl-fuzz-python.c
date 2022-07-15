@@ -151,7 +151,7 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 
 }
 
-static const char *custom_describe_py(void * py_mutator,
+static const char *custom_describe_py(void  *py_mutator,
                                       size_t max_description_len) {
 
   PyObject *py_args, *py_value;
@@ -202,7 +202,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
   py->py_module = PyImport_Import(py_name);
   Py_DECREF(py_name);
 
-  PyObject * py_module = py->py_module;
+  PyObject  *py_module = py->py_module;
   PyObject **py_functions = py->py_functions;
 
   // initialize the post process buffer; ensures it's always valid
@@ -393,7 +393,7 @@ void deinit_py(void *py_mutator) {
 }
 
 struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
-                                              char *       module_name) {
+                                              char        *module_name) {
 
   struct custom_mutator *mutator;
 
@@ -497,7 +497,7 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
                        u8 **out_buf) {
 
-  PyObject *    py_args, *py_value;
+  PyObject     *py_args, *py_value;
   py_mutator_t *py = (py_mutator_t *)py_mutator;
 
   // buffer returned previously must be released; initialized during init
@@ -819,7 +819,7 @@ const char *introspection_py(void *py_mutator) {
 
   } else {
 
-    char * ret;
+    char  *ret;
     size_t len;
     if (!py_bytes(py_value, &ret, &len)) {
 

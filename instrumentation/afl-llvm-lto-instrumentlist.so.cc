@@ -101,7 +101,7 @@ llvmGetPassPluginInfo() {
 
 }
 
-PreservedAnalyses AFLcheckIfInstrument::run(Module &               M,
+PreservedAnalyses AFLcheckIfInstrument::run(Module                &M,
                                             ModuleAnalysisManager &MAM) {
 
   /* Show a banner */
@@ -135,7 +135,7 @@ PreservedAnalyses AFLcheckIfInstrument::run(Module &               M,
         DEBUGF("function %s is NOT in the instrument file list\n",
                F.getName().str().c_str());
 
-      auto &        Ctx = F.getContext();
+      auto         &Ctx = F.getContext();
       AttributeList Attrs = F.getAttributes();
 #if LLVM_VERSION_MAJOR >= 14
       AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");

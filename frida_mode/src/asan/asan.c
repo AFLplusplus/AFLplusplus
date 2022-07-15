@@ -30,7 +30,7 @@ void asan_init(void) {
 static gboolean asan_exclude_module(const GumModuleDetails *details,
                                     gpointer                user_data) {
 
-  gchar *    symbol_name = (gchar *)user_data;
+  gchar     *symbol_name = (gchar *)user_data;
   GumAddress address;
 
   address = gum_module_find_export_by_name(details->name, symbol_name);

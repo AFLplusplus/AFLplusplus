@@ -192,7 +192,7 @@ static inline const char *colorfilter(const char *x) {
   if (likely(disabled)) return x;
 
   static char monochromestring[4096];
-  char *      d = monochromestring;
+  char       *d = monochromestring;
   int         in_seq = 0;
 
   while (*x) {

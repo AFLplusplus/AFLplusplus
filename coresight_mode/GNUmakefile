@@ -54,7 +54,7 @@ $(GLIBC_LDSO): | $(GLIBC_NAME).tar.xz
 	  $(MAKE) install
 
 $(GLIBC_NAME).tar.xz:
-	wget -O $@ $(GLIBC_URL_BASE)/$@
+	wget -qO $@ $(GLIBC_URL_BASE)/$@
 
 clean:
 	$(MAKE) -C $(CS_TRACE) clean

@@ -43,7 +43,7 @@ typedef struct {
 G_DECLARE_FINAL_TYPE(GumAflStalkerStats, gum_afl_stalker_stats, GUM,
                      AFL_STALKER_STATS, GObject)
 
-extern char *  stats_filename;
+extern char   *stats_filename;
 extern guint64 stats_interval;
 
 void stats_config(void);

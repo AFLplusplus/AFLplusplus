@@ -74,7 +74,7 @@ void setup_custom_mutators(afl_state_t *afl) {
 
   /* Try mutator library first */
   struct custom_mutator *mutator;
-  u8 *                   fn = afl->afl_env.afl_custom_mutator_library;
+  u8                    *fn = afl->afl_env.afl_custom_mutator_library;
   u32                    prev_mutator_count = 0;
 
   if (fn) {
@@ -176,7 +176,7 @@ void destroy_custom_mutators(afl_state_t *afl) {
 
 struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
-  void *                 dh;
+  void                  *dh;
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
   mutator->name = fn;

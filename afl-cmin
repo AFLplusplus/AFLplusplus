@@ -534,7 +534,6 @@ BEGIN {
     }
   }
   close(sortedKeys)
-  print ""
   print "[+] Found "tuple_count" unique tuples across "in_count" files."
 
   if (out_count == 1) {

@@ -13,9 +13,9 @@
 #define MAX_MEMFD_SIZE (64UL << 10)
 
 extern struct cmp_map *__afl_cmp_map;
-static GArray *        cmplog_ranges = NULL;
-static GHashTable *    hash_yes = NULL;
-static GHashTable *    hash_no = NULL;
+static GArray         *cmplog_ranges = NULL;
+static GHashTable     *hash_yes = NULL;
+static GHashTable     *hash_no = NULL;
 
 static long page_size = 0;
 static long page_offset_mask = 0;
@@ -24,7 +24,7 @@ static long page_mask = 0;
 static gboolean cmplog_range(const GumRangeDetails *details,
                              gpointer               user_data) {
 
-  GArray *       cmplog_ranges = (GArray *)user_data;
+  GArray        *cmplog_ranges = (GArray *)user_data;
   GumMemoryRange range = *details->range;
   g_array_append_val(cmplog_ranges, range);
   return TRUE;
@@ -118,7 +118,7 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
   if (g_hash_table_contains(hash_yes, GSIZE_TO_POINTER(addr))) { return true; }
   if (g_hash_table_contains(hash_no, GSIZE_TO_POINTER(addr))) { return false; }
 
-  void * page_addr = GSIZE_TO_POINTER(addr & page_mask);
+  void  *page_addr = GSIZE_TO_POINTER(addr & page_mask);
   size_t page_offset = addr & page_offset_mask;
 
   /* If it spans a page, then bail */

@@ -168,10 +168,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
   DenseMap<Value *, std::string *> valueMap;
   std::vector<CallInst *>          calls;
-  LLVMContext &                    C = M.getContext();
-  IntegerType *                    Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *                    Int32Ty = IntegerType::getInt32Ty(C);
-  IntegerType *                    Int64Ty = IntegerType::getInt64Ty(C);
+  LLVMContext                     &C = M.getContext();
+  IntegerType                     *Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType                     *Int32Ty = IntegerType::getInt32Ty(C);
+  IntegerType                     *Int64Ty = IntegerType::getInt64Ty(C);
 
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee tolowerFn;
@@ -409,7 +409,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
             /* check if third operand is a constant integer
              * strlen("constStr") and sizeof() are treated as constant */
-            Value *      op2 = callInst->getArgOperand(2);
+            Value       *op2 = callInst->getArgOperand(2);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
             if (ilen) {
 
@@ -449,7 +449,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           *Str2P = callInst->getArgOperand(1);
     StringRef   Str1, Str2, ConstStr;
     std::string TmpConstStr;
-    Value *     VarStr;
+    Value      *VarStr;
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
     bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
     uint64_t    constStrLen, unrollLen, constSizedLen = 0;
@@ -457,7 +457,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        isSizedcmp = false;
     bool        isCaseInsensitive = false;
     bool        needs_null = false;
-    Function *  Callee = callInst->getCalledFunction();
+    Function   *Callee = callInst->getCalledFunction();
 
     if (Callee) {
 
@@ -616,14 +616,14 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     for (uint64_t i = 0; i < unrollLen; i++) {
 
-      BasicBlock *  cur_cmp_bb = next_cmp_bb, *cur_lenchk_bb = next_lenchk_bb;
+      BasicBlock   *cur_cmp_bb = next_cmp_bb, *cur_lenchk_bb = next_lenchk_bb;
       unsigned char c;
 
       if (cur_lenchk_bb) {
 
         IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
-        Value *     icmp = cur_lenchk_IRB.CreateICmpEQ(
-            sizedValue, ConstantInt::get(sizedValue->getType(), i));
+        Value      *icmp = cur_lenchk_IRB.CreateICmpEQ(
+                 sizedValue, ConstantInt::get(sizedValue->getType(), i));
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
         cur_lenchk_bb->getTerminator()->eraseFromParent();
 

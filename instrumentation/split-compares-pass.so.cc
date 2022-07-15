@@ -230,9 +230,9 @@ char SplitComparesTransform::ID = 0;
 /// FCMP instructions with predicate xGT or xLT and EQ
 bool SplitComparesTransform::simplifyFPCompares(Module &M) {
 
-  LLVMContext &              C = M.getContext();
+  LLVMContext               &C = M.getContext();
   std::vector<Instruction *> fcomps;
-  IntegerType *              Int1Ty = IntegerType::getInt1Ty(C);
+  IntegerType               *Int1Ty = IntegerType::getInt1Ty(C);
 
   /* iterate over all functions, bbs and instruction and add
    * all integer comparisons with >= and <= predicates to the icomps vector */
@@ -362,8 +362,8 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
 
 /// This function splits ICMP instructions with xGE or xLE predicates into two
 /// ICMP instructions with predicate xGT or xLT and EQ
-bool SplitComparesTransform::simplifyOrEqualsCompare(CmpInst *    IcmpInst,
-                                                     Module &     M,
+bool SplitComparesTransform::simplifyOrEqualsCompare(CmpInst     *IcmpInst,
+                                                     Module      &M,
                                                      CmpWorklist &worklist) {
 
   LLVMContext &C = M.getContext();
@@ -498,7 +498,7 @@ bool SplitComparesTransform::simplifySignedCompare(CmpInst *IcmpInst, Module &M,
 
   /* create a new basic block which is executed if the signedness bit is
    * different */
-  CmpInst *   icmp_inv_sig_cmp;
+  CmpInst    *icmp_inv_sig_cmp;
   BasicBlock *sign_bb =
       BasicBlock::Create(C, "sign", end_bb->getParent(), end_bb);
   if (pred == CmpInst::ICMP_SGT) {
@@ -522,7 +522,7 @@ bool SplitComparesTransform::simplifySignedCompare(CmpInst *IcmpInst, Module &M,
   BranchInst::Create(end_bb, sign_bb);
 
   /* create a new bb which is executed if signedness is equal */
-  CmpInst *   icmp_usign_cmp;
+  CmpInst    *icmp_usign_cmp;
   BasicBlock *middle_bb =
       BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
   /* we can do a normal unsigned compare now */
@@ -566,8 +566,17 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
     case CmpInst::ICMP_NE:
     case CmpInst::ICMP_UGT:
     case CmpInst::ICMP_ULT:
+    case CmpInst::ICMP_UGE:
+    case CmpInst::ICMP_ULE:
+    case CmpInst::ICMP_SGT:
+    case CmpInst::ICMP_SLT:
+    case CmpInst::ICMP_SGE:
+    case CmpInst::ICMP_SLE:
       break;
     default:
+      if (!be_quiet)
+        fprintf(stderr, "Error: split-compare: Unsupported predicate (%u)\n",
+                pred);
       // unsupported predicate!
       return false;
 
@@ -581,6 +590,8 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
   if (!intTyOp0) {
 
     // not an integer type
+    if (!be_quiet)
+      fprintf(stderr, "Error: split-compare: not an integer type\n");
     return false;
 
   }
@@ -595,11 +606,11 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
   LLVMContext &C = M.getContext();
   IntegerType *Int1Ty = IntegerType::getInt1Ty(C);
-  BasicBlock * bb = cmp_inst->getParent();
+  BasicBlock  *bb = cmp_inst->getParent();
   IntegerType *OldIntType = IntegerType::get(C, bitw);
   IntegerType *NewIntType = IntegerType::get(C, bitw / 2);
-  BasicBlock * end_bb = bb->splitBasicBlock(BasicBlock::iterator(cmp_inst));
-  CmpInst *    icmp_high, *icmp_low;
+  BasicBlock  *end_bb = bb->splitBasicBlock(BasicBlock::iterator(cmp_inst));
+  CmpInst     *icmp_high, *icmp_low;
 
   /* create the comparison of the top halves of the original operands */
   Value *s_op0, *op0_high, *s_op1, *op1_high;
@@ -629,7 +640,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
       BasicBlock *cmp_low_bb =
           BasicBlock::Create(C, "" /*"injected"*/, end_bb->getParent(), end_bb);
 
-      Value *     op0_low, *op1_low;
+      Value      *op0_low, *op1_low;
       IRBuilder<> Builder(cmp_low_bb);
 
       op0_low = Builder.CreateTrunc(op0, NewIntType);
@@ -675,6 +686,12 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
     }
 
+    case CmpInst::ICMP_SGE:
+    case CmpInst::ICMP_SLE:
+    case CmpInst::ICMP_SGT:
+    case CmpInst::ICMP_SLT:
+    case CmpInst::ICMP_UGE:
+    case CmpInst::ICMP_ULE:
     case CmpInst::ICMP_UGT:
     case CmpInst::ICMP_ULT: {
 
@@ -684,10 +701,11 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
        * if this is true we can go to the end if not we have to go to the
        * bb which checks the lower half of the operands */
       Instruction *op0_low, *op1_low;
-      CmpInst *    icmp_inv_cmp = nullptr;
-      BasicBlock * inv_cmp_bb =
+      CmpInst     *icmp_inv_cmp = nullptr;
+      BasicBlock  *inv_cmp_bb =
           BasicBlock::Create(C, "inv_cmp", end_bb->getParent(), end_bb);
-      if (pred == CmpInst::ICMP_UGT) {
+      if (pred == CmpInst::ICMP_UGT || pred == CmpInst::ICMP_SGT ||
+          pred == CmpInst::ICMP_UGE || pred == CmpInst::ICMP_SGE) {
 
         icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT,
                                        op0_high, op1_high);
@@ -729,6 +747,8 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
     }
 
     default:
+      if (!be_quiet)
+        fprintf(stderr, "Error: split-compare: should not happen\n");
       return false;
 
   }
@@ -944,7 +964,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     // BUG FIXME TODO: u64 does not work for > 64 bit ... e.g. 80 and 128 bit
     if (sizeInBits > 64) { continue; }
 
-    IntegerType *      intType = IntegerType::get(C, op_size);
+    IntegerType       *intType = IntegerType::get(C, op_size);
     const unsigned int precision = sizeInBits == 32    ? 24
                                    : sizeInBits == 64  ? 53
                                    : sizeInBits == 128 ? 113
@@ -1052,8 +1072,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /*** now working in nonan_bb ***/
 
     /* Treat -0.0 as equal to +0.0, that is for -0.0 make it +0.0 */
-    Instruction *            b_op0, *b_op1;
-    Instruction *            isMzero_op0, *isMzero_op1;
+    Instruction             *b_op0, *b_op1;
+    Instruction             *isMzero_op0, *isMzero_op1;
     const unsigned long long MinusZero = 1UL << (sizeInBits - 1U);
     const unsigned long long PlusZero = 0;
 
@@ -1172,7 +1192,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /* compare the exponents of the operands */
     Instruction *icmp_exponents_equal;
     Instruction *icmp_exponent_result;
-    BasicBlock * signequal2_bb = signequal_bb;
+    BasicBlock  *signequal2_bb = signequal_bb;
     switch (FcmpInst->getPredicate()) {
 
       case CmpInst::FCMP_UEQ:
@@ -1342,8 +1362,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     /* compare the fractions of the operands */
     Instruction *icmp_fraction_result;
-    BasicBlock * middle2_bb = middle_bb;
-    PHINode *    PN2 = nullptr;
+    BasicBlock  *middle2_bb = middle_bb;
+    PHINode     *PN2 = nullptr;
     switch (FcmpInst->getPredicate()) {
 
       case CmpInst::FCMP_UEQ:
@@ -1484,7 +1504,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 }
 
 #if LLVM_MAJOR >= 11
-PreservedAnalyses SplitComparesTransform::run(Module &               M,
+PreservedAnalyses SplitComparesTransform::run(Module                &M,
                                               ModuleAnalysisManager &MAM) {
 
 #else

@@ -142,14 +142,14 @@ class ModuleSanitizerCoverageAFL
  private:
   void instrumentFunction(Function &F, DomTreeCallback DTCallback,
                           PostDomTreeCallback PDTCallback);
-  void InjectCoverageForIndirectCalls(Function &              F,
+  void InjectCoverageForIndirectCalls(Function               &F,
                                       ArrayRef<Instruction *> IndirCalls);
   void InjectTraceForCmp(Function &F, ArrayRef<Instruction *> CmpTraceTargets);
-  void InjectTraceForDiv(Function &                 F,
+  void InjectTraceForDiv(Function                  &F,
                          ArrayRef<BinaryOperator *> DivTraceTargets);
-  void InjectTraceForGep(Function &                    F,
+  void InjectTraceForGep(Function                     &F,
                          ArrayRef<GetElementPtrInst *> GepTraceTargets);
-  void InjectTraceForSwitch(Function &              F,
+  void InjectTraceForSwitch(Function               &F,
                             ArrayRef<Instruction *> SwitchTraceTargets);
   bool InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks,
                       bool IsLeafFunc = true);
@@ -187,10 +187,10 @@ class ModuleSanitizerCoverageAFL
   GlobalVariable *SanCovLowestStack;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
       *Int16Ty, *Int8Ty, *Int8PtrTy, *Int1Ty, *Int1PtrTy;
-  Module *          CurModule;
+  Module           *CurModule;
   std::string       CurModuleUniqueId;
   Triple            TargetTriple;
-  LLVMContext *     C;
+  LLVMContext      *C;
   const DataLayout *DL;
 
   GlobalVariable *FunctionGuardArray;        // for trace-pc-guard.
@@ -204,8 +204,8 @@ class ModuleSanitizerCoverageAFL
 
   uint32_t        instr = 0, selects = 0, unhandled = 0;
   GlobalVariable *AFLMapPtr = NULL;
-  ConstantInt *   One = NULL;
-  ConstantInt *   Zero = NULL;
+  ConstantInt    *One = NULL;
+  ConstantInt    *Zero = NULL;
 
 };
 
@@ -287,12 +287,12 @@ llvmGetPassPluginInfo() {
 
 #endif
 
-PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module &               M,
+PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
 
   ModuleSanitizerCoverageAFL ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree * {
+  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
 
     return &FAM.getResult<DominatorTreeAnalysis>(F);
 
@@ -433,7 +433,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   FunctionPCsArray = nullptr;
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
   IntptrPtrTy = PointerType::getUnqual(IntptrTy);
-  Type *      VoidTy = Type::getVoidTy(*C);
+  Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
   Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
   Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
@@ -612,8 +612,8 @@ bool isFullPostDominator(const BasicBlock *BB, const PostDominatorTree *PDT) {
 }
 
 bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
-                           const DominatorTree *           DT,
-                           const PostDominatorTree *       PDT,
+                           const DominatorTree            *DT,
+                           const PostDominatorTree        *PDT,
                            const SanitizerCoverageOptions &Options) {
 
   // Don't insert coverage for blocks containing nothing but unreachable: we
@@ -704,7 +704,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   SmallVector<BinaryOperator *, 8>    DivTraceTargets;
   SmallVector<GetElementPtrInst *, 8> GepTraceTargets;
 
-  const DominatorTree *    DT = DTCallback(F);
+  const DominatorTree     *DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
   bool                     IsLeafFunc = true;
 
@@ -761,8 +761,8 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
 
   ArrayType *ArrayTy = ArrayType::get(Ty, NumElements);
   auto       Array = new GlobalVariable(
-      *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
-      Constant::getNullValue(ArrayTy), "__sancov_gen_");
+            *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
+            Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
 #if LLVM_VERSION_MAJOR >= 13
   if (TargetTriple.supportsCOMDAT() &&
@@ -971,8 +971,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
         uint32_t    vector_cnt = 0;
-        Value *     condition = selectInst->getCondition();
-        Value *     result;
+        Value      *condition = selectInst->getCondition();
+        Value      *result;
         auto        t = condition->getType();
         IRBuilder<> IRB(selectInst->getNextNode());
 
@@ -1113,7 +1113,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           /* Get CurLoc */
           LoadInst *CurLoc = nullptr;
-          Value *   MapPtrIdx = nullptr;
+          Value    *MapPtrIdx = nullptr;
 
           /* Load counter for CurLoc */
           if (!vector_cnt) {
@@ -1212,8 +1212,8 @@ void ModuleSanitizerCoverageAFL::InjectCoverageForIndirectCalls(
   for (auto I : IndirCalls) {
 
     IRBuilder<> IRB(I);
-    CallBase &  CB = cast<CallBase>(*I);
-    Value *     Callee = CB.getCalledOperand();
+    CallBase   &CB = cast<CallBase>(*I);
+    Value      *Callee = CB.getCalledOperand();
     if (isa<InlineAsm>(Callee)) continue;
     IRB.CreateCall(SanCovTracePCIndir, IRB.CreatePointerCast(Callee, IntptrTy));
 
@@ -1234,7 +1234,7 @@ void ModuleSanitizerCoverageAFL::InjectTraceForSwitch(
 
       IRBuilder<>                 IRB(I);
       SmallVector<Constant *, 16> Initializers;
-      Value *                     Cond = SI->getCondition();
+      Value                      *Cond = SI->getCondition();
       if (Cond->getType()->getScalarSizeInBits() >
           Int64Ty->getScalarSizeInBits())
         continue;
@@ -1282,7 +1282,7 @@ void ModuleSanitizerCoverageAFL::InjectTraceForDiv(
   for (auto BO : DivTraceTargets) {
 
     IRBuilder<> IRB(BO);
-    Value *     A1 = BO->getOperand(1);
+    Value      *A1 = BO->getOperand(1);
     if (isa<ConstantInt>(A1)) continue;
     if (!A1->getType()->isIntegerTy()) continue;
     uint64_t TypeSize = DL->getTypeStoreSizeInBits(A1->getType());
@@ -1319,8 +1319,8 @@ void ModuleSanitizerCoverageAFL::InjectTraceForCmp(
     if (ICmpInst *ICMP = dyn_cast<ICmpInst>(I)) {
 
       IRBuilder<> IRB(ICMP);
-      Value *     A0 = ICMP->getOperand(0);
-      Value *     A1 = ICMP->getOperand(1);
+      Value      *A0 = ICMP->getOperand(0);
+      Value      *A1 = ICMP->getOperand(1);
       if (!A0->getType()->isIntegerTy()) continue;
       uint64_t TypeSize = DL->getTypeStoreSizeInBits(A0->getType());
       int      CallbackIdx = TypeSize == 8    ? 0
@@ -1353,7 +1353,7 @@ void ModuleSanitizerCoverageAFL::InjectTraceForCmp(
 
 }
 
-void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function &  F,
+void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
                                                        BasicBlock &BB,
                                                        size_t      Idx,
                                                        bool        IsLeafFunc) {
@@ -1472,7 +1472,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function &  F,
   if (Options.StackDepth && IsEntryBB && !IsLeafFunc) {
 
     // Check stack depth.  If it's the deepest so far, record it.
-    Module *  M = F.getParent();
+    Module   *M = F.getParent();
     Function *GetFrameAddr = Intrinsic::getDeclaration(
         M, Intrinsic::frameaddress,
         IRB.getInt8PtrTy(M->getDataLayout().getAllocaAddrSpace()));

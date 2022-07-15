@@ -21,7 +21,7 @@ typedef struct {
 
   seccomp_child_func_t func;
   int                  event_fd;
-  void *               ctx;
+  void                *ctx;
 
 } seccomp_child_func_ctx_t;
 

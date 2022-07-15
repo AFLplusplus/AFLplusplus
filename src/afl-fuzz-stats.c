@@ -94,7 +94,7 @@ void load_stats_file(afl_state_t *afl) {
 
   FILE *f;
   u8    buf[MAX_LINE];
-  u8 *  lptr;
+  u8   *lptr;
   u8    fn[PATH_MAX];
   u32   lineno = 0;
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
@@ -761,26 +761,26 @@ void show_stats_normal(afl_state_t *afl) {
 
     } else
 
-        /* Subsequent cycles, but we're still making finds. */
-        if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+      /* Subsequent cycles, but we're still making finds. */
+      if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
 
-      strcpy(tmp, cYEL);
+        strcpy(tmp, cYEL);
 
-    } else
+      } else
 
         /* No finds for a long time and no test cases to try. */
         if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
             min_wo_finds > 120) {
 
-      strcpy(tmp, cLGN);
+          strcpy(tmp, cLGN);
 
-      /* Default: cautiously OK to stop? */
+          /* Default: cautiously OK to stop? */
 
-    } else {
+        } else {
 
-      strcpy(tmp, cLBL);
+          strcpy(tmp, cLBL);
 
-    }
+        }
 
   }
 
@@ -1548,26 +1548,26 @@ void show_stats_pizza(afl_state_t *afl) {
 
     } else
 
-        /* Subsequent cycles, but we're still making finds. */
-        if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+      /* Subsequent cycles, but we're still making finds. */
+      if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
 
-      strcpy(tmp, cYEL);
+        strcpy(tmp, cYEL);
 
-    } else
+      } else
 
         /* No finds for a long time and no test cases to try. */
         if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
             min_wo_finds > 120) {
 
-      strcpy(tmp, cLGN);
+          strcpy(tmp, cLGN);
 
-      /* Default: cautiously OK to stop? */
+          /* Default: cautiously OK to stop? */
 
-    } else {
+        } else {
 
-      strcpy(tmp, cLBL);
+          strcpy(tmp, cLBL);
 
-    }
+        }
 
   }
 
