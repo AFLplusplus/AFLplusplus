@@ -383,9 +383,9 @@ static int stricmp(char const *a, char const *b) {
 static void fasan_check_afl_preload(char *afl_preload) {
 
   char   first_preload[PATH_MAX + 1] = {0};
-  char * separator = strchr(afl_preload, ':');
+  char  *separator = strchr(afl_preload, ':');
   size_t first_preload_len = PATH_MAX;
-  char * basename;
+  char  *basename;
   char   clang_runtime_prefix[] = "libclang_rt.asan";
 
   if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
@@ -429,7 +429,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
-  void *                handle;
+  void                 *handle;
   nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
 
   ACTF("Trying to load libnyx.so plugin...");
@@ -498,8 +498,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
-  char * afl_preload;
-  char * frida_afl_preload = NULL;
+  char  *afl_preload;
+  char  *frida_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -1469,7 +1469,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->shm.cmplog_mode &&
       (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
 
-    afl->cmplog_binary = argv[optind];
+    afl->cmplog_binary = strdup(argv[optind]);
 
   }
 

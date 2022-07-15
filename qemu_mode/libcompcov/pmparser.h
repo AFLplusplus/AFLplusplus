@@ -32,8 +32,8 @@ implied warranty.
  */
 typedef struct procmaps_struct {
 
-  void *        addr_start;  //< start address of the area
-  void *        addr_end;    //< end address
+  void         *addr_start;  //< start address of the area
+  void         *addr_end;    //< end address
   unsigned long length;      //< size of the range
 
   char  perm[5];  //< permissions rwxp

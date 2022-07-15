@@ -45,7 +45,7 @@
   #define LLVM_MINOR 0
 #endif
 
-static u8 * obj_path;                  /* Path to runtime libraries         */
+static u8  *obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   clang_mode;                /* Invoked as afl-clang*?            */
@@ -53,7 +53,7 @@ static u8   llvm_fullpath[PATH_MAX];
 static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
-static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
+static u8  *lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
@@ -422,8 +422,24 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (compiler_mode == GCC_PLUGIN) {
 
-    char *fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
-    cc_params[cc_par_cnt++] = fplugin_arg;
+    char *fplugin_arg;
+
+    if (cmplog_mode) {
+
+      fplugin_arg =
+          alloc_printf("-fplugin=%s/afl-gcc-cmplog-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = fplugin_arg;
+      fplugin_arg =
+          alloc_printf("-fplugin=%s/afl-gcc-cmptrs-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = fplugin_arg;
+
+    } else {
+
+      fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = fplugin_arg;
+
+    }
+
     cc_params[cc_par_cnt++] = "-fno-if-conversion";
     cc_params[cc_par_cnt++] = "-fno-if-conversion2";
 
@@ -1879,6 +1895,7 @@ int main(int argc, char **argv, char **envp) {
       if (have_gcc_plugin)
         SAYF(
             "\nGCC Plugin-specific environment variables:\n"
+            "  AFL_GCC_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
             "  AFL_GCC_OUT_OF_LINE: disable inlined instrumentation\n"
             "  AFL_GCC_SKIP_NEVERZERO: do not skip zero on trace counters\n"
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
@@ -2149,9 +2166,8 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
-  if (!be_quiet && cmplog_mode)
-    printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
+  cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
+                getenv("AFL_GCC_CMPLOG");
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);

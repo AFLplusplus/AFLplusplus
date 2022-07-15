@@ -251,7 +251,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   /* Decide instrumentation ratio */
 
-  char *       inst_ratio_str = getenv("AFL_INST_RATIO");
+  char        *inst_ratio_str = getenv("AFL_INST_RATIO");
   unsigned int inst_ratio = 100;
 
   if (inst_ratio_str) {
@@ -486,7 +486,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   Constant *PrevLocShuffleMask = ConstantVector::get(PrevLocShuffle);
 
-  Constant *                  PrevCallerShuffleMask = NULL;
+  Constant                   *PrevCallerShuffleMask = NULL;
   SmallVector<Constant *, 32> PrevCallerShuffle = {UndefValue::get(Int32Ty)};
 
   if (ctx_k) {
@@ -506,7 +506,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   // other constants we need
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
-  Value *   PrevCtx = NULL;     // CTX sensitive coverage
+  Value    *PrevCtx = NULL;     // CTX sensitive coverage
   LoadInst *PrevCaller = NULL;  // K-CTX coverage
 
   /* Instrument all the things! */

@@ -16,7 +16,7 @@
 
 #define MICRO_TO_SEC 1000000
 
-char *               stats_filename = NULL;
+char                *stats_filename = NULL;
 guint64              stats_interval = 0;
 static guint64       stats_interval_us = 0;
 static int           stats_fd = -1;
@@ -41,8 +41,8 @@ void stats_write(void) {
   stats_data->curr.stats_time = current_time;
 
   GDateTime *date_time = g_date_time_new_now_local();
-  char *     date_string = g_date_time_format(date_time, "%Y-%m-%d");
-  char *     time_string = g_date_time_format(date_time, "%H:%M:%S");
+  char      *date_string = g_date_time_format(date_time, "%Y-%m-%d");
+  char      *time_string = g_date_time_format(date_time, "%H:%M:%S");
   guint elapsed = (stats_data->curr.stats_time - stats_data->prev.stats_time) /
                   MICRO_TO_SEC;
 

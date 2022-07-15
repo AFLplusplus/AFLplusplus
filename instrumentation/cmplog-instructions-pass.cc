@@ -156,9 +156,9 @@ Iterator Unique(Iterator first, Iterator last) {
 bool CmpLogInstructions::hookInstrs(Module &M) {
 
   std::vector<Instruction *> icomps;
-  LLVMContext &              C = M.getContext();
+  LLVMContext               &C = M.getContext();
 
-  Type *       VoidTy = Type::getVoidTy(C);
+  Type        *VoidTy = Type::getVoidTy(C);
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int16Ty = IntegerType::getInt16Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
@@ -338,7 +338,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       IntegerType *intTyOp1 = NULL;
       unsigned     max_size = 0, cast_size = 0;
       unsigned     attr = 0, vector_cnt = 0, is_fp = 0;
-      CmpInst *    cmpInst = dyn_cast<CmpInst>(selectcmpInst);
+      CmpInst     *cmpInst = dyn_cast<CmpInst>(selectcmpInst);
 
       if (!cmpInst) { continue; }
 
@@ -666,7 +666,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 }
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
-PreservedAnalyses CmpLogInstructions::run(Module &               M,
+PreservedAnalyses CmpLogInstructions::run(Module                &M,
                                           ModuleAnalysisManager &MAM) {
 
 #else

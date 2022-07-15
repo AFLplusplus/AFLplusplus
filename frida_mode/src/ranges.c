@@ -9,7 +9,7 @@
 
 typedef struct {
 
-  gchar *         suffix;
+  gchar          *suffix;
   GumMemoryRange *range;
   gboolean        done;
 
@@ -135,7 +135,7 @@ static gboolean convert_name_token_for_module(const GumModuleDetails *details,
 
 static void convert_name_token(gchar *token, GumMemoryRange *range) {
 
-  gchar *            suffix = g_strconcat("/", token, NULL);
+  gchar             *suffix = g_strconcat("/", token, NULL);
   convert_name_ctx_t ctx = {.suffix = suffix, .range = range, .done = false};
 
   gum_process_enumerate_modules(convert_name_token_for_module, &ctx);
@@ -235,7 +235,7 @@ static void print_ranges(char *key, GArray *ranges) {
 static gboolean collect_module_ranges_callback(const GumRangeDetails *details,
                                                gpointer user_data) {
 
-  GArray *       ranges = (GArray *)user_data;
+  GArray        *ranges = (GArray *)user_data;
   GumMemoryRange range = *details->range;
   g_array_append_val(ranges, range);
   return TRUE;
@@ -292,12 +292,12 @@ void ranges_add_exclude(GumMemoryRange *range) {
 
 static GArray *collect_ranges(char *env_key) {
 
-  char *         env_val;
-  gchar **       tokens;
+  char          *env_val;
+  gchar        **tokens;
   int            token_count;
   GumMemoryRange range;
   int            i;
-  GArray *       result;
+  GArray        *result;
 
   result = g_array_new(false, false, sizeof(GumMemoryRange));
 
@@ -330,7 +330,7 @@ static GArray *collect_ranges(char *env_key) {
 
 static GArray *collect_libs_ranges(void) {
 
-  GArray *       result;
+  GArray        *result;
   GumMemoryRange range;
   result = g_array_new(false, false, sizeof(GumMemoryRange));
 
@@ -422,7 +422,7 @@ static gboolean intersect_range(GumMemoryRange *rr, GumMemoryRange *ra,
 
 static GArray *intersect_ranges(GArray *a, GArray *b) {
 
-  GArray *        result;
+  GArray         *result;
   GumMemoryRange *ra;
   GumMemoryRange *rb;
   GumMemoryRange  ri;
@@ -452,7 +452,7 @@ static GArray *intersect_ranges(GArray *a, GArray *b) {
 
 static GArray *subtract_ranges(GArray *a, GArray *b) {
 
-  GArray *        result;
+  GArray         *result;
   GumMemoryRange *ra;
   GumAddress      ral;
   GumMemoryRange *rb;
@@ -528,7 +528,7 @@ static GArray *subtract_ranges(GArray *a, GArray *b) {
 
 static GArray *merge_ranges(GArray *a) {
 
-  GArray *        result;
+  GArray         *result;
   GumMemoryRange  rp;
   GumMemoryRange *r;
 
@@ -585,11 +585,11 @@ void ranges_config(void) {
 void ranges_init(void) {
 
   GumMemoryRange ri;
-  GArray *       step1;
-  GArray *       step2;
-  GArray *       step3;
-  GArray *       step4;
-  GArray *       step5;
+  GArray        *step1;
+  GArray        *step2;
+  GArray        *step3;
+  GArray        *step4;
+  GArray        *step5;
 
   FOKF(cBLU "Ranges" cRST " - " cGRN "instrument jit:" cYEL " [%c]",
        ranges_inst_jit ? 'X' : ' ');
@@ -669,7 +669,7 @@ gboolean range_is_excluded(GumAddress address) {
 void ranges_exclude() {
 
   GumMemoryRange *r;
-  GumStalker *    stalker = stalker_get();
+  GumStalker     *stalker = stalker_get();
 
   FVERBOSE("Excluding ranges");
 
