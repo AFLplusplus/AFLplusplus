@@ -262,7 +262,8 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
 }  // namespace
 
-#if 1
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+
 
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
