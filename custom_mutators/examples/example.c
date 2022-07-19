@@ -352,7 +352,7 @@ uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
  * @return if the file contents was modified return 1 (True), 0 (False)
  *         otherwise
  */
-uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
+uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
                                    const uint8_t *filename_new_queue,
                                    const uint8_t *filename_orig_queue) {
 

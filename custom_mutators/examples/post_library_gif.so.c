@@ -72,6 +72,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "alloc-inl.h"
 
 /* Header that must be present at the beginning of every test case: */
 
@@ -127,9 +128,11 @@ size_t afl_custom_post_process(post_state_t *data, unsigned char *in_buf,
   }
 
   /* Allocate memory for new buffer, reusing previous allocation if
-     possible. */
+     possible. Note we have to use afl-fuzz's own realloc!
+     Note that you should only do this if you need to grow the buffer,
+     otherwise work with in_buf, and assign it to *out_buf instead. */
 
-  *out_buf = realloc(data->buf, len);
+  *out_buf = afl_realloc(out_buf, len);
 
   /* If we're out of memory, the most graceful thing to do is to return the
      original buffer and give up on modifying it. Let AFL handle OOM on its
@@ -142,9 +145,9 @@ size_t afl_custom_post_process(post_state_t *data, unsigned char *in_buf,
 
   }
 
-  /* Copy the original data to the new location. */
-
-  memcpy(*out_buf, in_buf, len);
+  if (len > strlen(HEADER))
+    memcpy(*out_buf + strlen(HEADER), in_buf + strlen(HEADER),
+           len - strlen(HEADER));
 
   /* Insert the new header. */
 
