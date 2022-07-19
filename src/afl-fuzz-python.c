@@ -535,7 +535,16 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
 
     Py_DECREF(py_value);
 
-    *out_buf = (u8 *)py->post_process_buf.buf;
+    if (unlikely(py->post_process_buf.len == 0)) {
+
+      *out_buf = NULL;
+
+    } else {
+
+      *out_buf = (u8 *)py->post_process_buf.buf;
+
+    }
+
     return py->post_process_buf.len;
 
   } else {
