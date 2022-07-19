@@ -16,12 +16,12 @@ rl_params_t *init_rl_params(u32 map_size) {
 
   // Initalize to 1 to save me from adding 1 later on.
   memset(rl_params->positive_reward, 1, map_size * sizeof(u32));
-  memset(rl->params->negative_reward, 1, map_size * sizeof(u32));
+  memset(rl_params->negative_reward, 1, map_size * sizeof(u32));
   
 //   // ck_alloc already zeroes out memory in non-debug mode
 // #ifdef DEBUG_BUILD
 //   memset(rl_params->positive_reward, 0, map_size * sizeof(u32));
-//   memset(rl->params->negative_reward, 0, map_size * sizeof(u32));
+//   memset(rl_params->negative_reward, 0, map_size * sizeof(u32));
 // #endif
   rl_params->map_size = map_size;
 
