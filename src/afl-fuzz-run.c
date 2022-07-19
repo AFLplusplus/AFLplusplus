@@ -172,7 +172,6 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
 #endif
 
-  fprintf(stderr, "len = %u\n", len);
   return len;
 
 }
