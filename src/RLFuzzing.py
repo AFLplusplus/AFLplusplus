@@ -5,6 +5,8 @@ from jax import random
 import numpy as np
 import sysv_ipc
 
+import os
+
 
 # Keep this in sync with the message types in rl-py.h
 INITIALIZATION_FLAG = 1
