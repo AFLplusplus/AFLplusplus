@@ -38,6 +38,11 @@ performed with the custom mutator.
 
 ## 2) APIs
 
+**IMPORTANT NOTE**: If you use our C/C++ API and you want to increase the size
+of an **out_buf buffer, you have to use `afl_realloc()` for this, so include
+`include/alloc-inl.h` - otherwise afl-fuzz will crash when trying to free
+your buffers.
+
 C/C++:
 
 ```c
