@@ -23,6 +23,8 @@ class RLFuzzing:
         self.negative_reward = None
 
         self.key = random.PRNGKey(0)
+        
+        self.correction_factor = os.environ.get('CORRECTION_FACTOR')
 
     # @jit
     def thompson_sample_step(self, key, a, b):
@@ -39,9 +41,12 @@ class RLFuzzing:
         random_beta = self.thompson_sample_step(key, pr, nr)
 #         rareness = (pr**2) / (pr+nr+1)
 #         score = (np.array(random_beta, dtype=np.float64) / (1+rareness))**0.5
-        rareness = ((pr + nr) / (pr**2 + pr + nr))**0.5
-        score = np.array(random_beta, dtype=np.float64) * rareness
-        return score
+        if self.correction_factor:
+            rareness = ((pr + nr) / (pr**2 + pr + nr))**0.5
+            score = np.array(random_beta, dtype=np.float64) * rareness
+            return score
+        else:
+            return np.array(random_beta, dtype=np.float64)
 
     def recieve_messages(self, BUFF_SIZE_RECIEVER=1024):
         try:
