@@ -159,6 +159,10 @@ def deinit():  # optional for Python
     This can return any python object that implements the buffer protocol and
     supports PyBUF_SIMPLE. These include bytes, bytearray, etc.
 
+    You can decide in the post_process mutator to not send the mutated data
+    to the target, e.g. if it is too short, too corrupted, etc. If so,
+    return a NULL buffer and zero length (or a 0 length string in Python).
+
 - `queue_new_entry` (optional):
 
     This methods is called after adding a new test case to the queue. If the

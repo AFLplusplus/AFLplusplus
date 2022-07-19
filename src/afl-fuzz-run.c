@@ -109,16 +109,35 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
         if (unlikely(!new_buf && new_size <= 0)) {
 
-          FATAL("Custom_post_process failed (ret: %lu)",
-                (long unsigned)new_size);
+          new_size = 0;
+          new_buf = new_mem;
+          // FATAL("Custom_post_process failed (ret: %lu)", (long
+          // unsigned)new_size);
+
+        } else {
+
+          new_mem = new_buf;
 
         }
-
-        new_mem = new_buf;
 
       }
 
     });
+
+    if (unlikely(!new_size)) {
+
+      // perform dummy runs (fix = 1), but skip all others
+      if (fix) {
+
+        new_size = len;
+
+      } else {
+
+        return 0;
+
+      }
+
+    }
 
     if (unlikely(new_size < afl->min_length && !fix)) {
 
@@ -969,7 +988,11 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  len = write_to_testcase(afl, (void **)&out_buf, len, 0);
+  if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0) == 0)) {
+
+    return 0;
+
+  }
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 

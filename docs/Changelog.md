@@ -9,6 +9,9 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++4.02a (dev)
+  - afl-fuzz:
+    - change post_process hook to allow returning NULL and 0 length to
+      tell afl-fuzz to skip this mutated input
   - gcc_plugin:
     - Adacore submitted CMPLOG support to the gcc_plugin! :-)
   - llvm_mode:
