@@ -65,7 +65,7 @@ void update_queue(rl_params_t *rl_params) {
   py_data.type = INITIALIZATION_FLAG;
   py_data.map_size = rl_params->map_size;
 
-  ACTF("Sending INITIALIZATION_FLAT msg: map_size=%lu", py_data.map_size);
+  ACTF("Sending INITIALIZATION_FLAG msg: map_size=%lu", py_data.map_size);
   if (-1 == msgsnd(rl_params->msqid_sender, &py_data, sizeof(py_data), 0)) {
     perror("msgsnd() failed");
     exit(1);
