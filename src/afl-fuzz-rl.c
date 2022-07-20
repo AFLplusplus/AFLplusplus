@@ -32,14 +32,7 @@ rl_params_t *init_rl_params(u32 map_size) {
   }
 
   // Send the initial message (with the map size)
-  py_msg_t py_data;
-  py_data.type = INITIALIZATION_FLAG;
-  py_data.map_size = map_size;
-
-  if (-1 == msgsnd(rl_params->msqid_sender, &py_data, sizeof(py_data), 0)) {
-    perror("msgsnd() failed");
-    exit(1);
-  }
+  update_map_size(rl_params);
 #endif
 
   return rl_params;
@@ -57,7 +50,7 @@ void store_features(rl_params_t *rl_params) {
   }
 }
 
-void update_queue(rl_params_t *rl_params) {
+void update_map_size(rl_params_t *rl_params) {
 #ifdef PYTHON_RL
   py_msg_t py_data;
 
@@ -70,6 +63,12 @@ void update_queue(rl_params_t *rl_params) {
     perror("msgsnd() failed");
     exit(1);
   }
+#endif
+}
+
+void update_queue(rl_params_t *rl_params) {
+#ifdef PYTHON_RL
+  py_msg_t py_data;
 
   // Send positive reward
   py_data.type = UPDATE_SCORE;

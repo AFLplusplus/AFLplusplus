@@ -2250,26 +2250,17 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
+  // TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT
+  // THIS HERE FOR CONVIENENCE
+  afl->rl_params = init_rl_params(afl->fsrv.map_size);
 
-
-// #ifdef RLFUZZING
-//   int msqid_sender;
-//   int msqid_reciever;
-//   if (-1 == ( msqid_sender = msgget( (key_t)1, IPC_CREAT | 0666))) {
-//     perror("msgget() failed");
-//     exit(1);
-//   }
-
-//   if (-1 == ( msqid_reciever = msgget( (key_t)2, IPC_CREAT | 0666))) {
-//     perror("msgget() failed");
-//     exit(1);
-//   }
-// #endif
-
-  afl->rl_params = init_rl_params(afl->fsrv.map_size); //TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT THIS HERE FOR CONVIENENCE
   while (likely(!afl->stop_soon)) {
 #ifdef RLFUZZING
-    afl->rl_params->map_size = afl->fsrv.map_size;
+    if (unlikely(afl->rl_params->map_size != afl->fsrv.map_size)) {
+      afl->rl_params->map_size = afl->fsrv.map_size;
+      update_map_size(afl->rl_params);
+    }
+
     afl->rl_params->queue_cur = afl->queue_cur;
     afl->rl_params->top_rated = afl->top_rated;
     update_queue(afl->rl_params);
