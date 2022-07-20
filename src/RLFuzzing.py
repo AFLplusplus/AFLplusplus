@@ -16,11 +16,11 @@ UPDATE_SCORE = 2
 BEST_SEED = 3
 
 # Map message types to a string descriptor
-MESSAGE_TYPES = dict(
-  INITIALIZATION_FLAG='initialization flag',
-  UPDATE_SCORE='update score',
-  BEST_SEED='best seed'
-)
+MESSAGE_TYPES = {
+    INITIALIZATION_FLAG: 'initialization flag',
+    UPDATE_SCORE: 'update score',
+    BEST_SEED: 'best seed'
+}
 
 
 # Logging
@@ -62,11 +62,11 @@ class RLFuzzing:
         logger.debug('Waiting for fuzzer message...')
         try:
             message, mtype = self.mq_reciever.receive()
-            logger.debug('Received %s message', MESSAGE_TYPES[mtype])
+            logger.debug('Received `%s` message', MESSAGE_TYPES[mtype])
 
             if mtype == INITIALIZATION_FLAG:
                 self.map_size = int(np.frombuffer(message, dtype=np.uintc)[0])
-                logger.debug('<ap size = %d', self.map_size)
+                logger.debug('map size = %d', self.map_size)
             elif mtype == UPDATE_SCORE:
                 message_numpy_array = np.frombuffer(message, dtype=np.uintc)
                 pos_reward = message_numpy_array
@@ -91,7 +91,7 @@ class RLFuzzing:
             logger.error('Message queue creation failed')
 
     def send(self, mtype, buff_size_sender=1024):
-        logger.debug('Sending %s message', MESSAGE_TYPES[mtype])
+        logger.debug('Sending `%s` message', MESSAGE_TYPES[mtype])
         if mtype == BEST_SEED:
             self.key, k = random.split(self.key)
             score = self.compute_score(k)
