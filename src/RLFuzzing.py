@@ -121,8 +121,8 @@ def parse_args() -> Namespace:
         return numeric_level
 
     parser = ArgumentParser(description='RL-based fuzzing')
-    parser.add_argument('-c', '--correction-factor', required=False,
-                        action='store_true', help='Use correction factor')
+    parser.add_argument('--disable-correction-factor', required=False,
+                        action='store_true', help='Disable correction factor')
     parser.add_argument('-l', '--log', default=logging.INFO, type=log_level,
                         help='Logging level')
 
@@ -140,7 +140,7 @@ def main():
     logger.setLevel(args.log)
 
     # Start the RL
-    rl_fuzz = RLFuzzing(args.correction_factor)
+    rl_fuzz = RLFuzzing(not args.disable_correction_factor)
     rl_fuzz.start()
 
 
