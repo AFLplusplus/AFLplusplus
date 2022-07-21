@@ -333,19 +333,17 @@ static void instrument_coverage_write(GumAddress        address,
 
 }
 
-void instrument_coverage_optimize(const cs_insn    *instr,
+void instrument_coverage_optimize(const cs_insn *   instr,
                                   GumStalkerOutput *output) {
-
   GumX86Writer *cw = output->writer.x86;
-  /* guint64 area_offset =
-   * instrument_get_offset_hash(GUM_ADDRESS(instr->address)); */
   if (instrument_previous_pc_addr == NULL) {
 
     GumAddressSpec spec = {.near_address = cw->code,
                            .max_distance = 1ULL << 30};
+    guint          page_size = gum_query_page_size();
 
     instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+        &spec, sizeof(guint64), page_size, GUM_PAGE_READ | GUM_PAGE_WRITE);
     *instrument_previous_pc_addr = instrument_hash_zero;
     FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
     FVERBOSE("code_addr: %p", cw->code);
@@ -361,7 +359,6 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   }
 
   instrument_coverage_write(GUM_ADDRESS(instr->address), output);
-
 }
 
 void instrument_coverage_optimize_insn(const cs_insn    *instr,
