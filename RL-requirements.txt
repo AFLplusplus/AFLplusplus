@@ -1,3 +1,2 @@
-jax
-jax[cpu]
+numpy
 sysv_ipc

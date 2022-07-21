@@ -5,7 +5,6 @@ from argparse import ArgumentParser, ArgumentTypeError, Namespace
 from typing import Optional
 import logging
 
-# from jax import random
 import numpy as np
 from sysv_ipc import ExistentialError, MessageQueue, IPC_CREAT
 
@@ -14,6 +13,7 @@ from sysv_ipc import ExistentialError, MessageQueue, IPC_CREAT
 INITIALIZATION_FLAG = 1
 UPDATE_SCORE = 2
 BEST_SEED = 3
+
 
 # Map message types to a string descriptor
 MESSAGE_TYPES = {
@@ -27,11 +27,10 @@ MESSAGE_TYPES = {
 FORMATTER = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger()
 
-# def thompson_sample_step(key, a, b):
-#     return random.beta(key, a, b)
 
 def thompson_sample_step(a, b):
     return np.random.beta(a, b)
+
 
 class RLFuzzing:
     def __init__(self,
@@ -45,14 +44,11 @@ class RLFuzzing:
         self.map_size = None
         self.positive_reward = None
         self.negative_reward = None
-#         self.key = random.PRNGKey(0)
 
-#     def compute_score(self, key):
     def compute_score(self):
         pos_reward = np.array(self.positive_reward, dtype=np.float64)
         neg_reward = np.array(self.negative_reward, dtype=np.float64)
         random_beta = thompson_sample_step(pos_reward, neg_reward)
-#         random_beta = thompson_sample_step(key, pos_reward, neg_reward)
 
         if self.correction_factor:
             rareness = ((pos_reward + neg_reward) /
@@ -96,8 +92,6 @@ class RLFuzzing:
     def send(self, mtype, buff_size_sender=1024):
         logger.debug('Sending `%s` message', MESSAGE_TYPES[mtype])
         if mtype == BEST_SEED:
-#             self.key, k = random.split(self.key)
-#             score = self.compute_score(k)
             score = self.compute_score()
             best_seed_id = np.argmax(score)
             msg_npy = np.zeros(2, dtype=np.uintc)
