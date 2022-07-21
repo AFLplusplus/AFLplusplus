@@ -35,7 +35,7 @@ def thompson_sample_step(a, b):
 
 class RLFuzzing:
     def __init__(self,
-                 use_correction_factor: Optional[bool] = False,
+                 use_correction_factor: Optional[bool] = True,
                  max_message_size: Optional[int] = 10000):
         self.mq_reciever = MessageQueue(1, IPC_CREAT,
                                         max_message_size=max_message_size)
