@@ -8,6 +8,8 @@
   #include "rl-py.h"
 #endif
 
+#define MSG_SZ (sizeof(py_msg_t) - sizeof(long))
+
 rl_params_t *init_rl_params(u32 map_size) {
   rl_params_t *rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
 
@@ -59,7 +61,7 @@ void update_map_size(rl_params_t *rl_params) {
   py_data.map_size = rl_params->map_size;
 
   ACTF("Sending INITIALIZATION_FLAG msg: map_size=%lu", py_data.map_size);
-  if (-1 == msgsnd(rl_params->msqid_sender, &py_data, sizeof(py_data), 0)) {
+  if (-1 == msgsnd(rl_params->msqid_sender, &py_data, MSG_SZ, 0)) {
     perror("msgsnd() failed");
     exit(1);
   }
@@ -84,7 +86,7 @@ void update_queue(rl_params_t *rl_params) {
       }
     }
 
-    if (-1 == msgsnd(rl_params->msqid_sender, &py_data, sizeof(py_data), 0)) {
+    if (-1 == msgsnd(rl_params->msqid_sender, &py_data, MSG_SZ, 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
@@ -106,7 +108,7 @@ void update_queue(rl_params_t *rl_params) {
       }
     }
 
-    if (-1 == msgsnd(rl_params->msqid_sender, &py_data, sizeof(py_data), 0)) {
+    if (-1 == msgsnd(rl_params->msqid_sender, &py_data, MSG_SZ, 0)) {
       perror("msgsnd() failed");
       exit(1);
     }
@@ -115,8 +117,7 @@ void update_queue(rl_params_t *rl_params) {
   }
 
   // Receive best seed
-  if (-1 == msgrcv(rl_params->msqid_reciever, &py_data, sizeof(py_data),
-                   BEST_SEED, 0)) {
+  if (-1 == msgrcv(rl_params->msqid_reciever, &py_data, MSG_SZ, BEST_SEED, 0)) {
     perror("msgrcv() failed");
     exit(1);
   }
