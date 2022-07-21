@@ -7,8 +7,8 @@ void intercept_hook(void *address, gpointer replacement, gpointer user_data) {
 
   GumInterceptor *interceptor = gum_interceptor_obtain();
   gum_interceptor_begin_transaction(interceptor);
-  GumReplaceReturn ret =
-      gum_interceptor_replace(interceptor, address, replacement, user_data);
+  GumReplaceReturn ret = gum_interceptor_replace(interceptor, address,
+                                                 replacement, user_data, NULL);
   if (ret != GUM_REPLACE_OK) { FFATAL("gum_interceptor_attach: %d", ret); }
   gum_interceptor_end_transaction(interceptor);
 

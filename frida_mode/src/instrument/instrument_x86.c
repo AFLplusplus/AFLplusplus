@@ -162,9 +162,10 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
     GumAddressSpec spec = {.near_address = cw->code,
                            .max_distance = 1ULL << 30};
+    guint          page_size = gum_query_page_size();
 
     instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+        &spec, sizeof(guint64), page_size, GUM_PAGE_READ | GUM_PAGE_WRITE);
     *instrument_previous_pc_addr = instrument_hash_zero;
     FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
     FVERBOSE("code_addr: %p", cw->code);
