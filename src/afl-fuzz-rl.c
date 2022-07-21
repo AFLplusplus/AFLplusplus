@@ -10,7 +10,7 @@
 
 #define MSG_SZ (sizeof(py_msg_t) - sizeof(long))
 
-rl_params_t *init_rl_params(u32 map_size) {
+rl_params_t *rl_init_params(u32 map_size) {
   rl_params_t *rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
 
   rl_params->positive_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
@@ -34,13 +34,13 @@ rl_params_t *init_rl_params(u32 map_size) {
   }
 
   // Send the initial message (with the map size)
-  update_map_size(rl_params);
+  rl_update_map_size(rl_params);
 #endif
 
   return rl_params;
 }
 
-void store_features(rl_params_t *rl_params) {
+void rl_store_features(rl_params_t *rl_params) {
   u8 *trace_bits = rl_params->trace_bits;
 
   for (u32 i = 0; i < rl_params->map_size; i++) {
@@ -52,7 +52,7 @@ void store_features(rl_params_t *rl_params) {
   }
 }
 
-void update_map_size(rl_params_t *rl_params) {
+void rl_update_map_size(rl_params_t *rl_params) {
 #ifdef PYTHON_RL
   py_msg_t py_data;
 
@@ -68,7 +68,7 @@ void update_map_size(rl_params_t *rl_params) {
 #endif
 }
 
-void update_queue(rl_params_t *rl_params) {
+void rl_update_queue(rl_params_t *rl_params) {
 #ifdef PYTHON_RL
   py_msg_t py_data;
 

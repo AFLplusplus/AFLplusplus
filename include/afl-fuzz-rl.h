@@ -1,5 +1,9 @@
-#ifndef AFL_FUZZ_RL
-#define AFL_FUZZ_RL
+#ifndef AFL_FUZZ_RL_H
+#define AFL_FUZZ_RL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "types.h"
 
@@ -23,9 +27,13 @@ typedef struct {
   struct queue_entry **top_rated;
 } rl_params_t;
 
-rl_params_t *init_rl_params(u32);
-void         store_features(rl_params_t *);
-void         update_map_size(rl_params_t *);
-void         update_queue(rl_params_t *);
+rl_params_t *rl_init_params(u32);
+void         rl_store_features(rl_params_t *);
+void         rl_update_map_size(rl_params_t *);
+void         rl_update_queue(rl_params_t *);
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif // AFL_FUZZ_RL_H
