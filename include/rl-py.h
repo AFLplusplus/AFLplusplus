@@ -25,8 +25,8 @@ typedef struct __attribute__((__packed__)) {
   union {
     u32         map_size;  ///< The initialization message is just the map size
     u32         score[BUFF_SIZE];  ///< Update score message
-    best_bit_t best_bot;
-  }i
+    best_bit_t  best_bit;
+  };
 } py_msg_t;
 
 void rl_update_map_size(rl_params_t *);
