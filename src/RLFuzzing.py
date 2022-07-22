@@ -12,14 +12,14 @@ from sysv_ipc import ExistentialError, MessageQueue, IPC_CREAT
 # Keep this in sync with the message types in rl-py.h
 INITIALIZATION_FLAG = 1
 UPDATE_SCORE = 2
-BEST_SEED = 3
+BEST_BIT = 3
 
 
 # Map message types to a string descriptor
 MESSAGE_TYPES = {
     INITIALIZATION_FLAG: 'initialization flag',
     UPDATE_SCORE: 'update score',
-    BEST_SEED: 'best seed'
+    BEST_BIT: 'best bit'
 }
 
 
@@ -83,13 +83,11 @@ class RLFuzzing:
                 self.positive_reward = pos_reward[:self.map_size]
                 self.negative_reward = neg_reward[:self.map_size]
 
-                # Compute the best seed and its reward (to send back to AFL)
+                # Compute the best bit and its reward (to send back to AFL)
                 score = self.compute_score()
-                best_seed_id = np.argmax(score)
-                reward = self.positive_reward[best_seed_id] + \
-                        self.negative_reward[best_seed_id]
-                logger.info('Best seed = %d, reward = %d', best_seed_id, reward)
-                self.send(BEST_SEED, best_seed_id, reward)
+                best_bit_id = np.argmax(score)
+                logger.info('Best bit = %d, score = %.4f', best_bit_id, score)
+                self.send(BEST_BIT, best_bit_id)
 
     def receive(self) -> Tuple[int, np.ndarray]:
         logger.debug('Waiting for fuzzer message...')

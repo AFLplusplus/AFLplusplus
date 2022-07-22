@@ -9,15 +9,14 @@
 // Message types
 #define INITIALIZATION_FLAG 1
 #define UPDATE_SCORE 2
-#define BEST_SEED 3
+#define BEST_BIT 3
 
 // Size of a SystemV message queue message
 #define MSG_SZ (sizeof(py_msg_t) - sizeof(long))
 
 typedef struct __attribute__((__packed__)) {
-  u32 seed;    ///< Best seed ID
-  u32 reward;  ///< Reward
-} best_seed_t;
+  u32 bit;    ///< Best bit ID
+} best_bit_t;
 
 // Communicating with Python
 typedef struct __attribute__((__packed__)) {
@@ -26,7 +25,7 @@ typedef struct __attribute__((__packed__)) {
   union {
     u32         map_size;  ///< The initialization message is just the map size
     u32         score[BUFF_SIZE];  ///< Update score message
-    best_seed_t best_seed;
+    best_bit_t  best_bit;
   };
 } py_msg_t;
 

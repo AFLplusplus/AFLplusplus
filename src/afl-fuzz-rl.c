@@ -12,7 +12,7 @@
   #include "rl-py.h"
 
 u32 __attribute__((weak))
-rl_select_best_seed(const rl_params_t *rl_params, bool use_correction_factor) {
+rl_select_best_bit(const rl_params_t *rl_params, bool use_correction_factor) {
   (void)rl_params;
   (void)use_correction_factor;
   return 0;
@@ -84,7 +84,7 @@ void rl_store_features(rl_params_t *rl_params) {
 }
 
 void rl_update_queue(rl_params_t *rl_params) {
-  u32 best_seed;
+  u32 best_bit;
 
 #ifdef RL_USE_PYTHON
   py_msg_t py_data;
@@ -133,23 +133,21 @@ void rl_update_queue(rl_params_t *rl_params) {
     index += BUFF_SIZE;
   }
 
-  // Receive best seed
-  if (-1 == msgrcv(rl_params->msqid_reciever, &py_data, MSG_SZ, BEST_SEED, 0)) {
+  // Receive best bit
+  if (-1 == msgrcv(rl_params->msqid_reciever, &py_data, MSG_SZ, BEST_BIT, 0)) {
     perror("msgrcv() failed");
     exit(1);
   }
 
-  ACTF("Recieved BEST_SEED msg: seed=%u, reward=%u", py_data.best_seed.seed,
-       py_data.best_seed.reward);
-  best_seed = py_data.best_seed.seed;
-  // TODO: Do something with the reward?
+  ACTF("Recieved BEST_BIT msg: bit=%u", py_data.best_bit.bit);
+  best_bit = py_data.best_bit.bit;
 #else
   // XXX hardcode correction factor for now
-  best_seed = rl_select_best_seed(rl_params, true);
-  ACTF("Best seed=%u", best_seed);
+  best_bit = rl_select_best_bit(rl_params, true);
+  ACTF("Best bit=%u", best_bit);
 #endif
 
-  rl_params->current_entry = best_seed;
+  rl_params->current_entry = best_bit;
   rl_params->queue_cur = rl_params->top_rated[(int)rl_params->current_entry];
   if (likely(rl_params->queue_cur)) {
     rl_params->current_entry = rl_params->queue_cur->id;
