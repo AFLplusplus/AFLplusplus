@@ -74,7 +74,7 @@ static gboolean stalker_exclude_self(const GumRangeDetails *details,
                                      gpointer               user_data) {
 
   UNUSED_PARAMETER(user_data);
-  gchar *     name;
+  gchar      *name;
   gboolean    found;
   GumStalker *stalker;
   if (details->file == NULL) { return TRUE; }

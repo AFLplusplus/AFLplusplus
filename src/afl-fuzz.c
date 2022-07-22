@@ -295,6 +295,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        Supported formats are: 'dogstatsd', 'librato',\n"
       "                        'signalfx' and 'influxdb'\n"
+      "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
+      "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
@@ -381,9 +383,9 @@ static int stricmp(char const *a, char const *b) {
 static void fasan_check_afl_preload(char *afl_preload) {
 
   char   first_preload[PATH_MAX + 1] = {0};
-  char * separator = strchr(afl_preload, ':');
+  char  *separator = strchr(afl_preload, ':');
   size_t first_preload_len = PATH_MAX;
-  char * basename;
+  char  *basename;
   char   clang_runtime_prefix[] = "libclang_rt.asan";
 
   if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
@@ -427,7 +429,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
-  void *                handle;
+  void                 *handle;
   nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
 
   ACTF("Trying to load libnyx.so plugin...");
@@ -496,8 +498,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
-  char * afl_preload;
-  char * frida_afl_preload = NULL;
+  char  *afl_preload;
+  char  *frida_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -1467,7 +1469,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->shm.cmplog_mode &&
       (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
 
-    afl->cmplog_binary = argv[optind];
+    afl->cmplog_binary = strdup(argv[optind]);
 
   }
 
@@ -2538,7 +2540,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (unlikely(afl->is_main_node)) {
 
           if (unlikely(get_cur_time() >
-                       (SYNC_TIME >> 1) + afl->last_sync_time)) {
+                       (afl->sync_time >> 1) + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
 
@@ -2550,7 +2552,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (unlikely(get_cur_time() > SYNC_TIME + afl->last_sync_time)) {
+          if (unlikely(get_cur_time() > afl->sync_time + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 

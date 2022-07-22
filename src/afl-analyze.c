@@ -626,7 +626,7 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(char **argv) {
 
-  u8 *  x;
+  u8   *x;
   char *afl_preload;
   char *frida_afl_preload = NULL;
 

@@ -8,8 +8,15 @@
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
-### Version ++4.01a (dev)
-  - fix */build_...sh scripts to work outside of git
+### Version ++4.02a (dev)
+  - gcc_plugin:
+    - Adacore submitted CMPLOG support to the gcc_plugin! :-)
+  - llvm_mode:
+    - laf cmp splitting fixed for more comparison types
+
+
+### Version ++4.01c (release)
+  - fixed */build_...sh scripts to work outside of git
   - new custom_mutator: libafl with token fuzzing :)
   - afl-fuzz:
     - when you just want to compile once and set CMPLOG, then just
@@ -17,6 +24,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       CMPLOG.
     - new commandline options -g/G to set min/max length of generated
       fuzz inputs
+    - you can set the time for syncing to other fuzzer now with
+      AFL_SYNC_TIME
     - reintroduced AFL_PERSISTENT and AFL_DEFER_FORKSRV to allow
       persistent mode and manual forkserver support if these are not
       in the target binary (e.g. are in a shared library)
@@ -28,6 +37,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       kept), unless AFL_KEEP_TIMEOUTS are set
     - AFL never implemented auto token inserts (but user token inserts,
       user token overwrite and auto token overwrite), added now!
+    - fixed a mutation type in havoc mode
     - Mopt fix to always select the correct algorithm
     - fix effector map calculation (deterministic mode)
     - fix custom mutator post_process functionality
@@ -41,6 +51,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - update to new frida release, handles now c++ throw/catch
   - unicorn_mode:
     - update unicorn engine, fix C example
+  - utils:
+    - removed optimin because it looses coverage due to a bug and is
+      unmaintained :-(
 
 
 ### Version ++4.00c (release)

@@ -1,5 +1,9 @@
 # Tutorials
 
+If you are a total newbie, try this guide:
+
+* [https://github.com/alex-maleno/Fuzzing-Module](https://github.com/alex-maleno/Fuzzing-Module)
+
 Here are some good write-ups to show how to effectively use AFL++:
 
 * [https://aflplus.plus/docs/tutorials/libxml2_tutorial/](https://aflplus.plus/docs/tutorials/libxml2_tutorial/)
@@ -17,7 +21,7 @@ training, then we can highly recommend the following:
 * [https://github.com/antonio-morales/Fuzzing101](https://github.com/antonio-morales/Fuzzing101)
 
 If you are interested in fuzzing structured data (where you define what the
-structure is), these links have you covered:
+structure is), these links have you covered (some are outdated though):
 
 * libprotobuf for AFL++:
   [https://github.com/P1umer/AFLplusplus-protobuf-mutator](https://github.com/P1umer/AFLplusplus-protobuf-mutator)
@@ -29,6 +33,7 @@ structure is), these links have you covered:
   [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
 ## Video Tutorials
+
 * [Install AFL++ Ubuntu](https://www.youtube.com/watch?v=5dCvhkbi3RA)
 * [[Fuzzing with AFLplusplus] Installing AFLPlusplus and fuzzing a simple C program](https://www.youtube.com/watch?v=9wRVo0kYSlc)
 * [[Fuzzing with AFLplusplus] How to fuzz a binary with no source code on Linux in persistent mode](https://www.youtube.com/watch?v=LGPJdEO02p4)

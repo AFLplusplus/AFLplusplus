@@ -97,19 +97,19 @@ void __libqasan_init_malloc(void);
 void __libqasan_hotpatch(void);
 
 size_t __libqasan_malloc_usable_size(void *ptr);
-void * __libqasan_malloc(size_t size);
+void  *__libqasan_malloc(size_t size);
 void   __libqasan_free(void *ptr);
-void * __libqasan_calloc(size_t nmemb, size_t size);
-void * __libqasan_realloc(void *ptr, size_t size);
+void  *__libqasan_calloc(size_t nmemb, size_t size);
+void  *__libqasan_realloc(void *ptr, size_t size);
 int    __libqasan_posix_memalign(void **ptr, size_t align, size_t len);
-void * __libqasan_memalign(size_t align, size_t len);
-void * __libqasan_aligned_alloc(size_t align, size_t len);
+void  *__libqasan_memalign(size_t align, size_t len);
+void  *__libqasan_aligned_alloc(size_t align, size_t len);
 
-void *   __libqasan_memcpy(void *dest, const void *src, size_t n);
-void *   __libqasan_memmove(void *dest, const void *src, size_t n);
-void *   __libqasan_memset(void *s, int c, size_t n);
-void *   __libqasan_memchr(const void *s, int c, size_t n);
-void *   __libqasan_memrchr(const void *s, int c, size_t n);
+void    *__libqasan_memcpy(void *dest, const void *src, size_t n);
+void    *__libqasan_memmove(void *dest, const void *src, size_t n);
+void    *__libqasan_memset(void *s, int c, size_t n);
+void    *__libqasan_memchr(const void *s, int c, size_t n);
+void    *__libqasan_memrchr(const void *s, int c, size_t n);
 size_t   __libqasan_strlen(const char *s);
 size_t   __libqasan_strnlen(const char *s, size_t len);
 int      __libqasan_strcmp(const char *str1, const char *str2);
@@ -118,12 +118,12 @@ int      __libqasan_strcasecmp(const char *str1, const char *str2);
 int      __libqasan_strncasecmp(const char *str1, const char *str2, size_t len);
 int      __libqasan_memcmp(const void *mem1, const void *mem2, size_t len);
 int      __libqasan_bcmp(const void *mem1, const void *mem2, size_t len);
-char *   __libqasan_strstr(const char *haystack, const char *needle);
-char *   __libqasan_strcasestr(const char *haystack, const char *needle);
-void *   __libqasan_memmem(const void *haystack, size_t haystack_len,
+char    *__libqasan_strstr(const char *haystack, const char *needle);
+char    *__libqasan_strcasestr(const char *haystack, const char *needle);
+void    *__libqasan_memmem(const void *haystack, size_t haystack_len,
                            const void *needle, size_t needle_len);
-char *   __libqasan_strchr(const char *s, int c);
-char *   __libqasan_strrchr(const char *s, int c);
+char    *__libqasan_strchr(const char *s, int c);
+char    *__libqasan_strrchr(const char *s, int c);
 size_t   __libqasan_wcslen(const wchar_t *s);
 wchar_t *__libqasan_wcscpy(wchar_t *d, const wchar_t *s);
 int      __libqasan_wcscmp(const wchar_t *s1, const wchar_t *s2);

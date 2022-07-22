@@ -196,7 +196,7 @@ struct queue_entry {
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
-  u8 *            cmplog_colorinput;    /* the result buf of colorization   */
+  u8             *cmplog_colorinput;    /* the result buf of colorization   */
   struct tainted *taint;                /* Taint information from CmpLog    */
 
   struct queue_entry *mother;           /* queue entry this based on        */
@@ -349,18 +349,18 @@ typedef struct py_mutator {
 
   PyObject *py_module;
   PyObject *py_functions[PY_FUNC_COUNT];
-  void *    afl_state;
-  void *    py_data;
+  void     *afl_state;
+  void     *py_data;
 
-  u8 *   fuzz_buf;
+  u8    *fuzz_buf;
   size_t fuzz_size;
 
   Py_buffer post_process_buf;
 
-  u8 *   trim_buf;
+  u8    *trim_buf;
   size_t trim_size;
 
-  u8 *   havoc_buf;
+  u8    *havoc_buf;
   size_t havoc_size;
 
 } py_mutator_t;
@@ -369,13 +369,13 @@ typedef struct py_mutator {
 
 typedef struct MOpt_globals {
 
-  u64 * finds;
-  u64 * finds_v2;
-  u64 * cycles;
-  u64 * cycles_v2;
-  u64 * cycles_v3;
+  u64  *finds;
+  u64  *finds_v2;
+  u64  *cycles;
+  u64  *cycles_v2;
+  u64  *cycles_v3;
   u32   is_pilot_mode;
-  u64 * pTime;
+  u64  *pTime;
   u64   period;
   char *havoc_stagename;
   char *splice_stageformat;
@@ -394,7 +394,7 @@ typedef struct afl_env_vars {
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
-      afl_keep_timeouts, afl_pizza_mode;
+      afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -414,7 +414,7 @@ struct afl_pass_stat {
 
 struct foreign_sync {
 
-  u8 *   dir;
+  u8    *dir;
   time_t mtime;
 
 };
@@ -426,7 +426,7 @@ typedef struct afl_state {
 
   afl_forkserver_t fsrv;
   sharedmem_t      shm;
-  sharedmem_t *    shm_fuzz;
+  sharedmem_t     *shm_fuzz;
   afl_env_vars_t   afl_env;
 
   char **argv;                                            /* argv if needed */
@@ -537,7 +537,7 @@ typedef struct afl_state {
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
   double *alias_probability;            /* alias weighted probabilities     */
-  u32 *   alias_table;                /* alias weighted random lookup table */
+  u32    *alias_table;                /* alias weighted random lookup table */
   u32     active_items;                 /* enabled entries in the queue     */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
@@ -585,7 +585,8 @@ typedef struct afl_state {
       last_find_time,                   /* Time for most recent path (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
-      exit_on_time;                     /* Delay to exit if no new paths    */
+      exit_on_time,                     /* Delay to exit if no new paths    */
+      sync_time;                        /* Sync time (ms)                   */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -650,7 +651,7 @@ typedef struct afl_state {
 
   /* CmpLog */
 
-  char *           cmplog_binary;
+  char            *cmplog_binary;
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
   /* Custom mutators */
@@ -665,7 +666,7 @@ typedef struct afl_state {
   u8  cmplog_enable_arith, cmplog_enable_transform;
 
   struct afl_pass_stat *pass_stats;
-  struct cmp_map *      orig_cmp_map;
+  struct cmp_map       *orig_cmp_map;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -697,9 +698,9 @@ typedef struct afl_state {
   u64                statsd_last_send_ms;
   struct sockaddr_in statsd_server;
   int                statsd_sock;
-  char *             statsd_tags_flavor;
-  char *             statsd_tags_format;
-  char *             statsd_metric_format;
+  char              *statsd_tags_flavor;
+  char              *statsd_tags_format;
+  char              *statsd_metric_format;
   int                statsd_metric_format_type;
 
   double stats_avg_exec;
@@ -781,9 +782,9 @@ typedef struct afl_state {
 struct custom_mutator {
 
   const char *name;
-  char *      name_short;
-  void *      dh;
-  u8 *        post_process_buf;
+  char       *name_short;
+  void       *dh;
+  u8         *post_process_buf;
   u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */
