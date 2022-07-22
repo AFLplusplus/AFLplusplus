@@ -10,11 +10,11 @@ extern "C" {
 // Store Parameters for Reinforcement learning
 typedef struct {
 #ifdef RL_USE_PYTHON
-  #pragma message "Using Python-based RL"
+  #pragma message("Using Python-based RL")
   int msqid_sender;
   int msqid_reciever;
 #else
-  #pragma message "Using C++-based RL"
+  #pragma message("Using C++-based RL")
 #endif
 
   u32 *positive_reward;
