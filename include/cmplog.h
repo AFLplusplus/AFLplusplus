@@ -41,6 +41,11 @@
 #define CMP_TYPE_INS 1
 #define CMP_TYPE_RTN 2
 
+// #define VARIABLE_VALUE 1
+// #define VARIABLE_VALUE_BY_INPUT 2
+// #define VARIABLE_INCONSISTENT 3
+// #define VARIABLE_INCONSISTENT_BY_INPUT 4
+
 struct cmp_header {
 
   unsigned hits : 24;
@@ -49,7 +54,7 @@ struct cmp_header {
   unsigned type : 2;
   unsigned attribute : 4;
   unsigned overflow : 1;
-  unsigned reserved : 4;
+  unsigned unchanging : 1;
 
 } __attribute__((packed));
 
@@ -59,6 +64,8 @@ struct cmp_operands {
   u64 v1;
   u64 v0_128;
   u64 v1_128;
+  // unsigned v0_variable : 2;
+  // unsigned v1_variable : 2;
 
 } __attribute__((packed));
 
@@ -68,6 +75,8 @@ struct cmpfn_operands {
   u8 v0_len;
   u8 v1[31];
   u8 v1_len;
+  // unsigned v0_variable : 2;
+  // unsigned v1_variable : 2;
 
 } __attribute__((packed));
 
@@ -78,6 +87,34 @@ struct cmp_map {
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
 
+};
+
+/* Compare to taint mapping */
+
+struct taint_logged {
+  u32 nv0;
+  u32 nv1;
+  struct tainted ** v0;
+  struct tainted ** v1;
+};
+
+struct taint_cmp {
+  u32 key;
+  struct taint_logged * taint_loggeds;
+};
+
+struct taint_mapping{
+  u32 n;
+  struct taint_cmp * taint_cmps;
+};
+
+/* Cache try out */
+
+struct byte_replacement{
+  u8 repl_u8_00;
+  u8 repl_u8_01;
+  u8 repl_u16_00;
+  u8 repl_u16_01;
 };
 
 /* Execs the child */
