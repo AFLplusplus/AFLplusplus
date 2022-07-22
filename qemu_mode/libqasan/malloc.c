@@ -51,7 +51,7 @@ typedef struct {
 struct chunk_begin {
 
   size_t              requested_size;
-  void *              aligned_orig;  // NULL if not aligned
+  void               *aligned_orig;  // NULL if not aligned
   struct chunk_begin *next;
   struct chunk_begin *prev;
   char                redzone[REDZONE_SIZE];
@@ -80,7 +80,7 @@ static unsigned char __tmp_alloc_zone[TMP_ZONE_SIZE];
 #else
 
 // From dlmalloc.c
-void *                    dlmalloc(size_t);
+void                     *dlmalloc(size_t);
 void                      dlfree(void *);
   #define backend_malloc dlmalloc
   #define backend_free dlfree

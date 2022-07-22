@@ -141,7 +141,7 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 }
 
 static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
-                                          cs_x86_op *   operand) {
+                                          cs_x86_op    *operand) {
 
   ctx->type = operand->type;
   ctx->size = operand->size;
@@ -163,7 +163,7 @@ static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
 
 }
 
-static void cmplog_instrument_call(const cs_insn *     instr,
+static void cmplog_instrument_call(const cs_insn      *instr,
                                    GumStalkerIterator *iterator) {
 
   cs_x86     x86 = instr->detail->x86;
@@ -230,7 +230,7 @@ static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 }
 
 static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
-                                                  cs_x86_op *         operand1,
+                                                  cs_x86_op          *operand1,
                                                   cs_x86_op *operand2) {
 
   cmplog_pair_ctx_t *ctx = g_malloc(sizeof(cmplog_pair_ctx_t));
@@ -244,7 +244,7 @@ static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
 
 }
 
-static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
+static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
                                       GumStalkerIterator *iterator) {
 
   cs_x86     x86 = instr->detail->x86;

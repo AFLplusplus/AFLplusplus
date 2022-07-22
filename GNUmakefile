@@ -354,7 +354,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 
 .PHONY: llvm
 llvm:
-	-$(MAKE) -j4 -f GNUmakefile.llvm
+	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 .PHONY: gcc_plugin
@@ -619,7 +619,7 @@ clean:
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	-$(MAKE) -C utils/libdislocator clean
 	-$(MAKE) -C utils/libtokencap clean
-	$(MAKE) -C utils/aflpp_driver clean
+	-$(MAKE) -C utils/aflpp_driver clean
 	-$(MAKE) -C utils/afl_network_proxy clean
 	-$(MAKE) -C utils/socket_fuzzing clean
 	-$(MAKE) -C utils/argv_fuzzing clean
@@ -657,7 +657,7 @@ endif
 
 .PHONY: distrib
 distrib: all
-	-$(MAKE) -j4 -f GNUmakefile.llvm
+	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
@@ -670,15 +670,23 @@ endif
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
 	-$(MAKE) -C coresight_mode
+  endif
 endif
 ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
+  ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
-endif
+  endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_UNICORN_ARM64
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+    endif
+  else
+	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+  endif
 endif
 
 .PHONY: binary-only
@@ -692,7 +700,9 @@ binary-only: test_shm test_python ready $(PROGS)
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
 	-$(MAKE) -C coresight_mode
+  endif
 endif
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
@@ -700,12 +710,18 @@ ifndef NO_NYX
 endif
 endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_UNICORN_ARM64
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+    endif
+  else
+	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+  endif
 endif
 
 .PHONY: source-only
 source-only: all
-	-$(MAKE) -j4 -f GNUmakefile.llvm
+	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 endif
@@ -743,6 +759,7 @@ install: all $(MANPAGES)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
+	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so afl-llvm-pass.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f utils/plot_ui/afl-plot-ui ]; then install -m 755 utils/plot_ui/afl-plot-ui $${DESTDIR}$(BIN_PATH); fi

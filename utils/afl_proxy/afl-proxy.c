@@ -112,7 +112,7 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
+    const char    *shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 

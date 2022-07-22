@@ -2,9 +2,12 @@ name: Rust Custom Mutators
 
 on:
   push:
-    branches: [ stable, dev ]
+    branches:
+      - stable
+      - dev
   pull_request:
-    branches: [ stable, dev ]
+    branches:
+      - dev # No need for stable-pull-request, as that equals dev-push
 
 jobs:
   test:
@@ -15,9 +18,9 @@ jobs:
         working-directory: custom_mutators/rust
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04, ubuntu-20.04]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Rust Toolchain
         uses: actions-rs/toolchain@v1
         with:

@@ -8,9 +8,9 @@
   #include "seccomp.h"
   #include "util.h"
 
-static void seccomp_callback_filter(struct seccomp_notif *     req,
+static void seccomp_callback_filter(struct seccomp_notif      *req,
                                     struct seccomp_notif_resp *resp,
-                                    GumReturnAddressArray *    frames) {
+                                    GumReturnAddressArray     *frames) {
 
   GumDebugSymbolDetails details = {0};
   if (req->data.nr == SYS_OPENAT) {
@@ -54,7 +54,7 @@ static void seccomp_callback_filter(struct seccomp_notif *     req,
   free(syms);
   #else
   void **syms = (void **)__builtin_frame_address(0);
-  void * framep = __builtin_frame_address(1);
+  void  *framep = __builtin_frame_address(1);
   int    i = 0;
 
   syms = framep;

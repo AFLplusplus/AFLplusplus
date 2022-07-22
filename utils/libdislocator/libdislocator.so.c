@@ -171,7 +171,7 @@ static u32          alloc_canary;
 
 static void *__dislocator_alloc(size_t len) {
 
-  u8 *   ret, *base;
+  u8    *ret, *base;
   size_t tlen;
   int    flags, protflags, fd, sp;
 
@@ -488,7 +488,7 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
   const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
   const size_t elem_tot = elem_len * elem_cnt;
-  void *       ret = NULL;
+  void        *ret = NULL;
 
   if ((elem_len >= elem_lim || elem_cnt >= elem_lim) && elem_len > 0 &&
       elem_cnt > (SIZE_MAX / elem_len)) {
@@ -505,7 +505,10 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
 }
 
-#if !defined(__ANDROID__)
+#if defined(__APPLE__)
+size_t malloc_size(const void *ptr) {
+
+#elif !defined(__ANDROID__)
 size_t malloc_usable_size(void *ptr) {
 
 #else
@@ -517,13 +520,22 @@ size_t malloc_usable_size(const void *ptr) {
 
 }
 
+#if defined(__APPLE__)
+size_t malloc_good_size(size_t len) {
+
+  return (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
+
+}
+
+#endif
+
 __attribute__((constructor)) void __dislocator_init(void) {
 
   char *tmp = getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
 
-    char *             tok;
+    char              *tok;
     unsigned long long mmem = strtoull(tmp, &tok, 10);
     if (*tok != '\0' || errno == ERANGE || mmem > SIZE_MAX / 1024 / 1024)
       FATAL("Bad value for AFL_LD_LIMIT_MB");

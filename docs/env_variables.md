@@ -160,6 +160,8 @@ Available options:
 Setting `AFL_LLVM_CMPLOG=1` during compilation will tell afl-clang-fast to
 produce a CmpLog binary.
 
+For afl-gcc-fast, set `AFL_GCC_CMPLOG=1` instead.
+
 For more information, see
 [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
@@ -460,7 +462,7 @@ checks or alter some of the more exotic semantics of the tool:
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
 
-  - In QEMU mode (-Q) and Frida mode (-O), `AFL_PATH` will be searched for
+  - In QEMU mode (-Q) and FRIDA mode (-O), `AFL_PATH` will be searched for
     afl-qemu-trace and afl-frida-trace.so.
 
   - If you are using persistent mode (you should, see
@@ -517,6 +519,10 @@ checks or alter some of the more exotic semantics of the tool:
     (empty/non present) will add no tags to the metrics. For more information,
     see [rpc_statsd.md](rpc_statsd.md).
 
+  - `AFL_SYNC_TIME` allows you to specify a different minimal time (in minutes)
+    between fuzzing instances synchronization. Default sync time is 30 minutes,
+    note that time is halved for -M main nodes.
+
   - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables for
     the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz
     ... `. This exists mostly for things like `LD_LIBRARY_PATH` but it would
@@ -549,10 +555,10 @@ checks or alter some of the more exotic semantics of the tool:
       in the target binary
 
   - If you need an early forkserver in your target because of early
-    constructors in your target you can set `AFL_EARLY_FORKSERVER`.
+    constructors in your target, you can set `AFL_EARLY_FORKSERVER`.
     Note that this is not a compile time option but a runtime option :-)
 
-  - set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
+  - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
     to disable although it is 1st of April.
 
 ## 5) Settings for afl-qemu-trace
@@ -614,6 +620,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - The underlying QEMU binary will recognize any standard "user space
     emulation" variables (e.g., `QEMU_STACK_SIZE`), but there should be no
     reason to touch them.
+
+  - Normally a `README.txt` is written to the `crashes/` directory when a first
+    crash is found. Setting `AFL_NO_CRASH_README` will prevent this. Useful when
+    counting crashes based on a file count in that directory.
 
 ## 7) Settings for afl-frida-trace
 

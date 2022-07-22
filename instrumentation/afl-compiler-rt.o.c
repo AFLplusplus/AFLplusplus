@@ -92,11 +92,11 @@ static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
-u8 *       __afl_area_ptr = __afl_area_initial;
-u8 *       __afl_dictionary;
-u8 *       __afl_fuzz_ptr;
+u8        *__afl_area_ptr = __afl_area_initial;
+u8        *__afl_dictionary;
+u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
-u32 *      __afl_fuzz_len = &__afl_fuzz_len_dummy;
+u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -327,6 +327,41 @@ static void __afl_map_shm(void) {
 
   }
 
+  if (!id_str && __afl_area_ptr_dummy == __afl_area_initial) {
+
+    u32 val = 0;
+    u8 *ptr;
+
+    if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) val = atoi(ptr);
+
+    if (val > MAP_INITIAL_SIZE) {
+
+      __afl_map_size = val;
+      __afl_area_ptr_dummy = malloc(__afl_map_size);
+      if (!__afl_area_ptr_dummy) {
+
+        fprintf(stderr,
+                "Error: AFL++ could not aquire %u bytes of memory, exiting!\n",
+                __afl_map_size);
+        exit(-1);
+
+      }
+
+    } else {
+
+      __afl_map_size = MAP_INITIAL_SIZE;
+
+    }
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: (0) init map size is %u to %p\n", __afl_map_size,
+              __afl_area_ptr_dummy);
+
+    }
+
+  }
+
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
@@ -364,7 +399,7 @@ static void __afl_map_shm(void) {
     }
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
+    const char    *shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 
@@ -415,11 +450,11 @@ static void __afl_map_shm(void) {
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
-      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
-      if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+             u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
+             if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
 
-        send_forkserver_error(FS_ERROR_MAP_SIZE);
-        _exit(1);
+               send_forkserver_error(FS_ERROR_MAP_SIZE);
+               _exit(1);
 
       }
 
@@ -431,13 +466,13 @@ static void __afl_map_shm(void) {
 
     if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
-      if (__afl_map_addr)
+             if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_SHMAT);
 
       perror("shmat for map");
-      _exit(1);
+             _exit(1);
 
     }
 
@@ -465,18 +500,26 @@ static void __afl_map_shm(void) {
 
     }
 
-  } else if (_is_sancov && __afl_area_ptr != __afl_area_initial) {
+  } else if (__afl_final_loc > __afl_map_size) {
 
-    free(__afl_area_ptr);
-    __afl_area_ptr = NULL;
+    if (__afl_area_initial != __afl_area_ptr_dummy) {
 
-    if (__afl_final_loc > MAP_INITIAL_SIZE) {
-
-      __afl_area_ptr = (u8 *)malloc(__afl_final_loc);
+      free(__afl_area_ptr_dummy);
 
     }
 
-    if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+    __afl_area_ptr_dummy = (u8 *)malloc(__afl_final_loc);
+    __afl_area_ptr = __afl_area_ptr_dummy;
+    __afl_map_size = __afl_final_loc;
+
+    if (!__afl_area_ptr_dummy) {
+
+      fprintf(stderr,
+              "Error: AFL++ could not aquire %u bytes of memory, exiting!\n",
+              __afl_final_loc);
+      exit(-1);
+
+    }
 
   }
 
@@ -487,7 +530,7 @@ static void __afl_map_shm(void) {
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
-            "%u, __afl_final_loc %u, __afl_map_size %u,"
+            "%u, __afl_final_loc %u, __afl_map_size %u, "
             "max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
             __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
@@ -540,7 +583,7 @@ static void __afl_map_shm(void) {
     }
 
 #ifdef USEMMAP
-    const char *    shm_file_path = id_str;
+    const char     *shm_file_path = id_str;
     int             shm_fd = -1;
     struct cmp_map *shm_base = NULL;
 
@@ -646,7 +689,7 @@ static void __afl_unmap_shm(void) {
 
 void write_error_with_location(char *text, char *filename, int linenumber) {
 
-  u8 *  o = getenv("__AFL_OUT_DIR");
+  u8   *o = getenv("__AFL_OUT_DIR");
   char *e = strerror(errno);
 
   if (o) {
