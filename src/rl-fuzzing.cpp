@@ -18,7 +18,12 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
   const auto *NegRewards = RLParams->negative_reward;
 
   std::vector<float> Scores(MapSize);
-  random::mt19937    RNG(std::time(0));
+#ifdef _DEBUG
+  // Fix RNG seed in debug mode
+  random::mt19937 RNG;
+#else
+  random::mt19937 RNG(std::time(nullptr));
+#endif
 
   for (unsigned I = 0; I < MapSize; ++I) {
     random::beta_distribution<> Dist(PosRewards[I], NegRewards[I]);
