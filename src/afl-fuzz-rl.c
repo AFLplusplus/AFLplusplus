@@ -128,7 +128,7 @@ void rl_update_queue(rl_params_t *rl_params) {
   // TODO: Do something with the reward?
 
   rl_params->queue_cur = rl_params->top_rated[(int)rl_params->current_entry];
-  if (rl_params->queue_cur) {
+  if (likely(rl_params->queue_cur)) {
     rl_params->current_entry = rl_params->queue_cur->id;
   }
 #endif

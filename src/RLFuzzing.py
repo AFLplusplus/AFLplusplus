@@ -101,7 +101,7 @@ class RLFuzzing:
             logger.error('Message queue creation failed')
             raise
 
-    def send(self, mtype: int, *msg) -> None:
+    def send(self, mtype: int, *msg: List[Any]) -> None:
         logger.debug('Sending `%s` message: %s', MESSAGE_TYPES[mtype], msg)
         ar = np.asarray(msg, dtype=np.uintc)
         try:
