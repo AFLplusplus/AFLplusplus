@@ -60,7 +60,7 @@ void rl_update_map_size(rl_params_t *rl_params) {
   py_data.type = INITIALIZATION_FLAG;
   py_data.map_size = rl_params->map_size;
 
-  ACTF("Sending INITIALIZATION_FLAG msg: map_size=%lu", py_data.map_size);
+  ACTF("Sending INITIALIZATION_FLAG msg: map_size=%u", py_data.map_size);
   if (-1 == msgsnd(rl_params->msqid_sender, &py_data, MSG_SZ, 0)) {
     perror("msgsnd() failed");
     exit(1);
@@ -122,7 +122,7 @@ void rl_update_queue(rl_params_t *rl_params) {
     exit(1);
   }
 
-  ACTF("Recieved BEST_SEED msg: seed=%lu, reward=%lu", py_data.best_seed.seed,
+  ACTF("Recieved BEST_SEED msg: seed=%u, reward=%u", py_data.best_seed.seed,
        py_data.best_seed.reward);
   rl_params->current_entry = py_data.best_seed.seed;
   // TODO: Do something with the reward?
