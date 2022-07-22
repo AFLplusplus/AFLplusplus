@@ -333,12 +333,18 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
+ifdef PY_RL_FUZZING
+  $(info Building Python RL fuzzer)
+  RL_FUZZING=1
+  override CFLAGS += -DRL_USE_PYTHON
+  override CXXFLAGS += -DRL_USE_PYTHON
+endif
+
 ifdef RL_FUZZING
   $(info Building RL fuzzer)
   override CFLAGS += -DRL_FUZZING
   override CXXFLAGS += -DRL_FUZZING
   override LDFLAGS += -lstdc++
-
   override AFL_FUZZ_FILES += src/rl-fuzzing.o
 endif
 

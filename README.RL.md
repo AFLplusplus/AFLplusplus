@@ -9,7 +9,7 @@ make RL_FUZZING=1
 If building with the Python RL code, use:
 
 ```bash
-CFLAGS="-DRL_USE_PYTHON" make RL_FUZZING=1
+make PY_RL_FUZZING=1
 ```
 
 Then configure a Python virtualenv (note only required if using Python RL):
