@@ -43,34 +43,41 @@ $(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
 
 ifdef NO_SPLICING
   override CFLAGS_OPT += -DNO_SPLICING
+  override CXXFLAGS_OPT += -DNO_SPLICING
 endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
   override CFLAGS += $(ASAN_CFLAGS)
+  override CXXFLAGS += $(ASAN_CXXFLAGS)
   LDFLAGS += $(ASAN_LDFLAGS)
 endif
 ifdef UBSAN_BUILD
   $(info Compiling UBSAN version of binaries)
   override CFLAGS += -fsanitize=undefined -fno-omit-frame-pointer
+  override CXXFLAGS += -fsanitize=undefined -fno-omit-frame-pointer
   override LDFLAGS += -fsanitize=undefined
 endif
 ifdef MSAN_BUILD
   $(info Compiling MSAN version of binaries)
   CC := clang
   override CFLAGS += -fsanitize=memory -fno-omit-frame-pointer
+  override CXXFLAGS += -fsanitize=memory -fno-omit-frame-pointer
   override LDFLAGS += -fsanitize=memory
 endif
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
+	CXXFLAGS_FLTO ?= -flto=full
 else
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=thin
+	CXXFLAGS_FLTO ?= -flto=thin
  else
   ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto
+	CXXFLAGS_FLTO ?= -flto
   endif
  endif
 endif
@@ -94,6 +101,7 @@ ifneq "$(SYS)" "Darwin"
  # OS X does not like _FORTIFY_SOURCE=2
  ifndef DEBUG
    CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+   CXXFLAGS_OPT += -D_FORTIFY_SOURCE=2
  endif
 else
   # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
@@ -103,6 +111,7 @@ endif
 
 ifeq "$(SYS)" "SunOS"
   CFLAGS_OPT += -Wno-format-truncation
+  CXXFLAGS_OPT += -Wno-format-truncation
   LDFLAGS = -lkstat -lrt
 endif
 
@@ -120,12 +129,14 @@ endif
 ifdef PROFILING
   $(info Compiling with profiling information, for analysis: gprof ./afl-fuzz gmon.out > prof.txt)
   override CFLAGS_OPT += -pg -DPROFILING=1
+  override CXXFLAGS_OPT += -pg -DPROFILING=1
   override LDFLAGS += -pg
 endif
 
 ifdef INTROSPECTION
   $(info Compiling with introspection documentation)
   override CFLAGS_OPT += -DINTROSPECTION=1
+  override CXXFLAGS_OPT += -DINTROSPECTION=1
 endif
 
 ifneq "$(ARCH)" "x86_64"
@@ -141,38 +152,48 @@ endif
 ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
   override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
+  override CXXFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CXXFLAGS_OPT)
 else
   CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
+  CXXFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
+			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
+			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
+override CXXFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
 			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
 
 ifeq "$(SYS)" "FreeBSD"
   override CFLAGS  += -I /usr/local/include/
+  override CXXFLAGS  += -I /usr/local/include/
   override LDFLAGS += -L /usr/local/lib/
 endif
 
 ifeq "$(SYS)" "DragonFly"
   override CFLAGS  += -I /usr/local/include/
+  override CXXFLAGS  += -I /usr/local/include/
   override LDFLAGS += -L /usr/local/lib/
 endif
 
 ifeq "$(SYS)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/ -mno-retpoline
+  override CXXFLAGS  += -I /usr/local/include/ -mno-retpoline
   override LDFLAGS += -Wl,-z,notext -L /usr/local/lib/
 endif
 
 ifeq "$(SYS)" "NetBSD"
   override CFLAGS  += -I /usr/pkg/include/
+  override CXXFLAGS  += -I /usr/pkg/include/
   override LDFLAGS += -L /usr/pkg/lib/
 endif
 
 ifeq "$(SYS)" "Haiku"
   SHMAT_OK=0
   override CFLAGS  += -DUSEMMAP=1 -Wno-error=format
+  override CXXFLAGS  += -DUSEMMAP=1 -Wno-error=format
   override LDFLAGS += -Wno-deprecated-declarations -lgnu -lnetwork
   #SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
@@ -251,16 +272,19 @@ endif
 
 ifneq "$(findstring FreeBSD, $(SYS))" ""
   override CFLAGS  += -pthread
+  override CXXFLAGS  += -pthread
   override LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(SYS))" ""
   override CFLAGS  += -pthread
+  override CXXFLAGS  += -pthread
   override LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring OpenBSD, $(SYS))" ""
   override CFLAGS  += -pthread
+  override CXXFLAGS  += -pthread
   override LDFLAGS += -lpthread
 endif
 
@@ -289,6 +313,7 @@ endif
 
 ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=address -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer -DASAN_BUILD
+	ASAN_CXXFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer -DASAN_BUILD
 	ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
 endif
 
@@ -297,12 +322,14 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
 	SHMAT_OK=0
 	override CFLAGS+=-DUSEMMAP=1
+	override CXXFLAGS+=-DUSEMMAP=1
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifdef TEST_MMAP
 	SHMAT_OK=0
 	override CFLAGS += -DUSEMMAP=1
+	override CXXFLAGS += -DUSEMMAP=1
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
@@ -434,7 +461,10 @@ src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
-afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
+src/rl-fuzzing.o : $(COMM_HDR) src/rl-fuzzing.cpp
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS_FLTO) -c src/rl-fuzzing.cpp -o src/rl-fuzzing.o
+
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/rl-fuzzing.o | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
