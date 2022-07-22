@@ -23,7 +23,7 @@ typedef struct {
 
   u32 map_size, current_entry;
 
-  struct queue_entry  *queue_cur;
+  struct queue_entry * queue_cur;
   struct queue_entry **top_rated;
 } rl_params_t;
 
@@ -36,4 +36,4 @@ void         rl_update_queue(rl_params_t *);
 }
 #endif
 
-#endif // AFL_FUZZ_RL_H
+#endif  // AFL_FUZZ_RL_H
