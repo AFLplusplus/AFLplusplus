@@ -562,7 +562,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     afl->queue_top->exec_cksum =
         hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-#ifdef RLFUZZING
+#ifdef RL_FUZZING
     afl->rl_params->trace_bits = afl->fsrv.trace_bits;
     afl->rl_params->map_size = afl->fsrv.map_size;
     rl_store_features(afl->rl_params);

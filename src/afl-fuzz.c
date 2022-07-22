@@ -2250,15 +2250,19 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
+#ifdef RL_FUZZING
   // TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT
   // THIS HERE FOR CONVIENENCE
   afl->rl_params = rl_init_params(afl->fsrv.map_size);
+#endif
 
   while (likely(!afl->stop_soon)) {
-#ifdef RLFUZZING
+#ifdef RL_FUZZING
     if (unlikely(afl->rl_params->map_size != afl->fsrv.map_size)) {
       afl->rl_params->map_size = afl->fsrv.map_size;
+#ifdef PYHTON_RL
       rl_update_map_size(afl->rl_params);
+#endif
     }
 
     afl->rl_params->queue_cur = afl->queue_cur;

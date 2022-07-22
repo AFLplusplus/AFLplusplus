@@ -56,6 +56,7 @@ static u32 SelectBestSeed(const rl_params_t *RLParams,
 }
 }  // anonymous namespace
 
-extern "C" u32 select_best_seed(const rl_params_t *rl_params) {
-  return SelectBestSeed(rl_params, /*UseCorrectionFactor=*/true);
+extern "C" u32 rl_select_best_seed(const rl_params_t *rl_params,
+                                   bool               UseCorrectionFactor) {
+  return SelectBestSeed(rl_params, UseCorrectionFactor);
 }

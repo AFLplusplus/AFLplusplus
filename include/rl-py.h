@@ -11,6 +11,9 @@
 #define UPDATE_SCORE 2
 #define BEST_SEED 3
 
+// Size of a SystemV message queue message
+#define MSG_SZ (sizeof(py_msg_t) - sizeof(long))
+
 typedef struct __attribute__((__packed__)) {
   u32 seed;    ///< Best seed ID
   u32 reward;  ///< Reward
@@ -26,5 +29,7 @@ typedef struct __attribute__((__packed__)) {
     best_seed_t best_seed;
   };
 } py_msg_t;
+
+void rl_update_map_size(rl_params_t *);
 
 #endif  // RL_PY_H

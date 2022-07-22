@@ -488,7 +488,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
         q->exec_cksum = cksum;
         memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
-#ifdef RLFUZZING
+#ifdef RL_FUZZING
         afl->rl_params->trace_bits = afl->fsrv.trace_bits;
         afl->rl_params->map_size = afl->fsrv.map_size;
         rl_store_features(afl->rl_params);

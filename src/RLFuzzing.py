@@ -2,7 +2,7 @@
 
 
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
-from typing import Optional, Tuple
+from typing import Any, List, Optional, Tuple
 import logging
 
 import numpy as np

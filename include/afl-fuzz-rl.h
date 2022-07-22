@@ -7,13 +7,14 @@ extern "C" {
 
 #include "types.h"
 
-#define PYTHON_RL
-
 // Store Parameters for Reinforcement learning
 typedef struct {
-#ifdef PYTHON_RL
+#ifdef RL_USE_PYTHON
+  #pragma message "Using Python-based RL"
   int msqid_sender;
   int msqid_reciever;
+#else
+  #pragma message "Using C++-based RL"
 #endif
 
   u32 *positive_reward;
@@ -29,8 +30,8 @@ typedef struct {
 
 rl_params_t *rl_init_params(u32);
 void         rl_store_features(rl_params_t *);
-void         rl_update_map_size(rl_params_t *);
 void         rl_update_queue(rl_params_t *);
+u32          rl_select_best_seed(const rl_params_t *, bool);
 
 #ifdef __cplusplus
 }

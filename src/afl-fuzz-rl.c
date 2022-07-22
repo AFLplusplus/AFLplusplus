@@ -4,11 +4,49 @@
 #include "afl-fuzz.h"
 #include "afl-fuzz-rl.h"
 
-#ifdef PYTHON_RL
+///////////////////////////////////////////////////////////////////////////////
+//
+// For Python prototyping
+
+#if RL_USE_PYTHON
   #include "rl-py.h"
+
+u32 __attribute__((weak))
+rl_select_best_seed(const rl_params_t *rl_params, bool use_correction_factor) {
+  (void)rl_params;
+  (void)use_correction_factor;
+  return 0;
+}
+
+static void rl_initialize_msg_queue(rl_params_t *rl_params) {
+  if (-1 == (rl_params->msqid_sender = msgget((key_t)1, IPC_CREAT | 0666))) {
+    perror("msgget() failed");
+    exit(1);
+  }
+
+  if (-1 == (rl_params->msqid_reciever = msgget((key_t)2, IPC_CREAT | 0666))) {
+    perror("msgget() failed");
+    exit(1);
+  }
+}
+
+void rl_py_update_map_size(rl_params_t *rl_params) {
+  py_msg_t py_data;
+
+  // Send map size
+  py_data.type = INITIALIZATION_FLAG;
+  py_data.map_size = rl_params->map_size;
+
+  ACTF("Sending INITIALIZATION_FLAG msg: map_size=%u", py_data.map_size);
+  if (-1 == msgsnd(rl_params->msqid_sender, &py_data, MSG_SZ, 0)) {
+    perror("msgsnd() failed");
+    exit(1);
+  }
+}
 #endif
 
-#define MSG_SZ (sizeof(py_msg_t) - sizeof(long))
+//
+///////////////////////////////////////////////////////////////////////////////
 
 rl_params_t *rl_init_params(u32 map_size) {
   rl_params_t *rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
@@ -22,19 +60,12 @@ rl_params_t *rl_init_params(u32 map_size) {
 
   rl_params->map_size = map_size;
 
-#ifdef PYTHON_RL
-  if (-1 == (rl_params->msqid_sender = msgget((key_t)1, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
-
-  if (-1 == (rl_params->msqid_reciever = msgget((key_t)2, IPC_CREAT | 0666))) {
-    perror("msgget() failed");
-    exit(1);
-  }
+#ifdef RL_USE_PYTHON
+  // Initialize the SystemV message queue
+  rl_initialize_msg_queue(rl_params);
 
   // Send the initial message (with the map size)
-  rl_update_map_size(rl_params);
+  rl_py_update_map_size(rl_params);
 #endif
 
   return rl_params;
@@ -52,24 +83,10 @@ void rl_store_features(rl_params_t *rl_params) {
   }
 }
 
-void rl_update_map_size(rl_params_t *rl_params) {
-#ifdef PYTHON_RL
-  py_msg_t py_data;
-
-  // Send map size
-  py_data.type = INITIALIZATION_FLAG;
-  py_data.map_size = rl_params->map_size;
-
-  ACTF("Sending INITIALIZATION_FLAG msg: map_size=%u", py_data.map_size);
-  if (-1 == msgsnd(rl_params->msqid_sender, &py_data, MSG_SZ, 0)) {
-    perror("msgsnd() failed");
-    exit(1);
-  }
-#endif
-}
-
 void rl_update_queue(rl_params_t *rl_params) {
-#ifdef PYTHON_RL
+  u32 best_seed;
+
+#ifdef RL_USE_PYTHON
   py_msg_t py_data;
 
   // Send positive reward
@@ -124,12 +141,17 @@ void rl_update_queue(rl_params_t *rl_params) {
 
   ACTF("Recieved BEST_SEED msg: seed=%u, reward=%u", py_data.best_seed.seed,
        py_data.best_seed.reward);
-  rl_params->current_entry = py_data.best_seed.seed;
+  best_seed = py_data.best_seed.seed;
   // TODO: Do something with the reward?
+#else
+  // XXX hardcode correction factor for now
+  best_seed = rl_select_best_seed(rl_params, true);
+  ACTF("Best seed=%u", best_seed);
+#endif
 
+  rl_params->current_entry = best_seed;
   rl_params->queue_cur = rl_params->top_rated[(int)rl_params->current_entry];
   if (likely(rl_params->queue_cur)) {
     rl_params->current_entry = rl_params->queue_cur->id;
   }
-#endif
 }

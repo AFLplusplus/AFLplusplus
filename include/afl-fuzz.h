@@ -77,9 +77,8 @@
 #include <sys/types.h>
 
 /* Start RL fuzzing */
-#define RLFUZZING
 
-#ifdef RLFUZZING
+#ifdef RL_FUZZING
 #include "afl-fuzz-rl.h"
 #endif
 
@@ -773,7 +772,7 @@ typedef struct afl_state {
   u32   bitsmap_size;
 #endif
 
-#ifdef RLFUZZING
+#ifdef RL_FUZZING
   rl_params_t *rl_params;
 #endif
 

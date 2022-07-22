@@ -333,6 +333,15 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
+ifdef RL_FUZZING
+  $(info Building RL fuzzer)
+  override CFLAGS += -DRL_FUZZING
+  override CXXFLAGS += -DRL_FUZZING
+  override LDFLAGS += -lstdc++
+
+  override AFL_FUZZ_FILES += src/rl-fuzzing.o
+endif
+
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 	-$(MAKE) -C utils/aflpp_driver
@@ -461,10 +470,12 @@ src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
+ifdef RL_FUZZING
 src/rl-fuzzing.o : $(COMM_HDR) src/rl-fuzzing.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_FLTO) -c src/rl-fuzzing.cpp -o src/rl-fuzzing.o
+endif
 
-afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/rl-fuzzing.o | test_x86
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
