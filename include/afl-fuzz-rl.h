@@ -31,7 +31,7 @@ typedef struct {
 rl_params_t *rl_init_params(u32);
 void         rl_store_features(rl_params_t *);
 void         rl_update_queue(rl_params_t *);
-u32          rl_select_best_seed(const rl_params_t *, bool);
+u32          rl_select_best_bit(const rl_params_t *, bool);
 
 #ifdef __cplusplus
 }
