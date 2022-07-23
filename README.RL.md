@@ -1,5 +1,11 @@
 # Fuzzing with Reinforcement Learning
 
+If building with the C++ RL code, install Boost:
+
+```bash
+sudo apt install -y libboost-all-dev
+```
+
 Build AFL++:
 
 ```bash
@@ -12,7 +18,7 @@ If building with the Python RL code, use:
 make PY_RL_FUZZING=1
 ```
 
-Then configure a Python virtualenv (note only required if using Python RL):
+Then configure a Python virtualenv (only required if using Python RL):
 
 ```bash
 python 3 -m venv venv
