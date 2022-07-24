@@ -168,7 +168,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or if you the fuzzing target is "
-      "compiled"
+      "compiled\n"
       "                  for CmpLog then just use -c 0.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
