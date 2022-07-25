@@ -161,7 +161,7 @@ endif
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
 			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
-override CXXFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
+override CXXFLAGS += -g -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
 			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
