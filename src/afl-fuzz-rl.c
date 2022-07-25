@@ -143,7 +143,7 @@ void rl_update_queue(rl_params_t *rl_params) {
   best_bit = py_data.best_bit.bit;
 #else
   // XXX hardcode correction factor for now
-  best_bit = rl_select_best_bit(rl_params, true);
+  best_bit = rl_select_best_bit(rl_params, 1);
   ACTF("Best bit=%u", best_bit);
 #endif
 
