@@ -7,14 +7,11 @@ extern "C" {
 
 #include "types.h"
 
-// Store Parameters for Reinforcement learning
+/// Store Parameters for Reinforcement learning
 typedef struct {
 #ifdef RL_USE_PYTHON
-  #pragma message "Using Python-based RL"
   int msqid_sender;
   int msqid_reciever;
-#else
-  #pragma message "Using C++-based RL"
 #endif
 
   u32 *positive_reward;
@@ -28,10 +25,18 @@ typedef struct {
   struct queue_entry **top_rated;
 } rl_params_t;
 
+/// Different types of correction factors
+enum CorrectionFactor {
+  None,
+  WithoutSquareRoot,
+  WithSquareRoot,
+  Sample,
+};
+
 rl_params_t *rl_init_params(u32);
 void         rl_store_features(rl_params_t *);
 void         rl_update_queue(rl_params_t *);
-u32          rl_select_best_bit(const rl_params_t *, bool);
+u32          rl_select_best_bit(const rl_params_t *, enum CorrectionFactor);
 
 #ifdef __cplusplus
 }

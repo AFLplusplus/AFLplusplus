@@ -2,6 +2,7 @@
 
 
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
+from enum import Enum, auto
 from typing import Any, List, Optional, Tuple
 import logging
 
@@ -13,6 +14,13 @@ from sysv_ipc import ExistentialError, MessageQueue, IPC_CREAT
 INITIALIZATION_FLAG = 1
 UPDATE_SCORE = 2
 BEST_BIT = 3
+
+
+class CorrectionFactor(Enum):
+    NONE = auto()
+    WITHOUT_SQUARE_ROOT = auto()
+    WITH_SQUARE_ROOT = auto()
+    SAMPLE = auto()
 
 
 # Map message types to a string descriptor
@@ -29,15 +37,8 @@ logger = logging.getLogger()
 
 class RLFuzzing:
     def __init__(self,
-                 correction_factor: Optional[int] = 0,
+                 correction_factor: Optional[CorrectionFactor] = CorrectionFactor.NONE,
                  max_message_size: Optional[int] = 10000):
-        """
-        correct_factor: int
-            0 - No correction factor
-            1 - Correction factor without square root
-            2 - Correction factor with square root
-            3 - Sample the correction factor
-        """
         logger.info('Initializing RLFuzzing. Use correction factor = %s',
                     correction_factor)
         self.mq_receiver = MessageQueue(1, IPC_CREAT,
@@ -54,15 +55,15 @@ class RLFuzzing:
         neg_reward = np.array(self.negative_reward, dtype=np.float64)
         random_beta = np.random.beta(pos_reward, neg_reward)
 
-        if self.correction_factor == 0:
+        if self.correction_factor is CorrectionFactor.NONE:
             rareness = 1
-        if self.correction_factor == 1:
+        if self.correction_factor is CorrectionFactor.WITHOUT_SQUARE_ROOT:
             rareness = (pos_reward + neg_reward) / \
                        (pos_reward**2 + pos_reward + neg_reward)
-        elif self.correction_factor == 2:
+        elif self.correction_factor is CorrectionFactor.WITH_SQUARE_ROOT:
             rareness = ((pos_reward + neg_reward) / \
                         (pos_reward**2 + pos_reward + neg_reward))**0.5
-        elif self.correction_factor == 3:
+        elif self.correction_factor is CorrectioNFactor.SAMPLE:
             rareness = np.random.beta(pos_reward + neg_reward, pos_reward**2)
 
         return random_beta * rareness

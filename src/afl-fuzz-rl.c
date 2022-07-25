@@ -4,19 +4,25 @@
 #include "afl-fuzz.h"
 #include "afl-fuzz-rl.h"
 
+#ifdef RL_USE_PYTHON
+  #pragma message "Using Python-based RL"
+#else
+  #pragma message "Using C++-based RL"
+#endif
+
+u32 __attribute__((weak))
+rl_select_best_bit(const rl_params_t *rl_params, enum CorrectionFactor CF) {
+  (void)rl_params;
+  (void)CF;
+  return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // For Python prototyping
 
 #if RL_USE_PYTHON
   #include "rl-py.h"
-
-u32 __attribute__((weak))
-rl_select_best_bit(const rl_params_t *rl_params, bool use_correction_factor) {
-  (void)rl_params;
-  (void)use_correction_factor;
-  return 0;
-}
 
 static void rl_initialize_msg_queue(rl_params_t *rl_params) {
   if (-1 == (rl_params->msqid_sender = msgget((key_t)1, IPC_CREAT | 0666))) {
@@ -143,7 +149,7 @@ void rl_update_queue(rl_params_t *rl_params) {
   best_bit = py_data.best_bit.bit;
 #else
   // XXX hardcode correction factor for now
-  best_bit = rl_select_best_bit(rl_params, 1);
+  best_bit = rl_select_best_bit(rl_params, WithoutSquareRoot);
   ACTF("Best bit=%u", best_bit);
 #endif
 
