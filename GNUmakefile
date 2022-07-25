@@ -367,13 +367,16 @@ help:
 	@echo Known build environment options:
 	@echo "=========================================="
 	@echo STATIC - compile AFL++ static
-	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
+	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
+	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
 	@echo PROFILING - compile afl-fuzz with profiling information
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo NO_NYX - disable building nyx mode dependencies
+	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
+	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
