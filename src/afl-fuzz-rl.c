@@ -10,10 +10,8 @@
   #pragma message "Using C++-based RL"
 #endif
 
-u32 __attribute__((weak))
-rl_select_best_bit(const rl_params_t *rl_params, enum CorrectionFactor CF) {
-  (void)rl_params;
-  (void)CF;
+u32 __attribute__((weak)) rl_select_best_bit(const rl_params_t *params) {
+  (void)params;
   return 0;
 }
 
@@ -56,6 +54,16 @@ void rl_py_update_map_size(rl_params_t *rl_params) {
 
 rl_params_t *rl_init_params(u32 map_size) {
   rl_params_t *rl_params = (rl_params_t *)ck_alloc(sizeof(rl_params_t));
+
+  if (getenv("AFL_RL_CORRECTION_FACTOR")) {
+    s32 correction_factor = atoi(getenv("AFL_RL_CORRECTION_FACTOR"));
+    if (correction_factor < NONE || correction_factor > NUM_VALUES) {
+      FATAL("Bad value specified for AFL_RL_CORRECTION_FACTOR");
+    }
+    rl_params->correction_factor = correction_factor;
+  } else {
+    rl_params->correction_factor = NONE;
+  }
 
   rl_params->positive_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
   rl_params->negative_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
@@ -149,7 +157,7 @@ void rl_update_queue(rl_params_t *rl_params) {
   best_bit = py_data.best_bit.bit;
 #else
   // XXX hardcode correction factor for now
-  best_bit = rl_select_best_bit(rl_params, WithoutSquareRoot);
+  best_bit = rl_select_best_bit(rl_params);
   ACTF("Best bit=%u", best_bit);
 #endif
 

@@ -11,8 +11,8 @@
 using namespace boost;
 
 namespace {
-static std::vector<float> computeScores(const rl_params_t *RLParams,
-                                        CorrectionFactor   CorrectionFact) {
+static std::vector<float> computeScores(const rl_params_t *RLParams) {
+  const auto  CorrectionFactor = RLParams->correction_factor;
   const auto  MapSize = RLParams->map_size;
   const auto *PosRewards = RLParams->positive_reward;
   const auto *NegRewards = RLParams->negative_reward;
@@ -26,18 +26,18 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
 #endif
 
   const auto &CalcRareness = [&]() -> std::function<float(float, float)> {
-    switch (CorrectionFact) {
-      case CorrectionFactor::None:
+    switch (CorrectionFactor) {
+      case rl_correction_factor_t::NONE:
         return [&](float, float) -> float { return 1; };
-      case CorrectionFactor::WithoutSquareRoot:
+      case rl_correction_factor_t::WITHOUT_SQUARE_ROOT:
         return [&](float Pos, float Neg) -> float {
           return (Pos + Neg) / (std::pow(Pos, 2) + Pos + Neg);
         };
-      case CorrectionFactor::WithSquareRoot:
+      case rl_correction_factor_t::WITH_SQUARE_ROOT:
         return [&](float Pos, float Neg) -> float {
           return std::sqrt((Pos + Neg) / (std::pow(Pos, 2) + Pos + Neg));
         };
-      case CorrectionFactor::Sample:
+      case rl_correction_factor_t::SAMPLE:
         return [&](float Pos, float Neg) -> float {
           return random::beta_distribution<>(Pos + Neg, std::pow(Pos, 2))(RNG);
         };
@@ -61,16 +61,14 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
   return Scores;
 }
 
-static u32 SelectBestBit(const rl_params_t *RLParams,
-                         CorrectionFactor   CorrectionFact) {
-  const auto &Scores = computeScores(RLParams, CorrectionFact);
+static u32 SelectBestBit(const rl_params_t *RLParams) {
+  const auto &Scores = computeScores(RLParams);
   const auto  ArgMax = std::max_element(Scores.begin(), Scores.end());
 
   return std::distance(Scores.begin(), ArgMax);
 }
 }  // anonymous namespace
 
-extern "C" u32 rl_select_best_bit(const rl_params_t *   rl_params,
-                                  enum CorrectionFactor CorrectionFact) {
-  return SelectBestBit(rl_params, CorrectionFact);
+extern "C" u32 rl_select_best_bit(const rl_params_t *rl_params) {
+  return SelectBestBit(rl_params);
 }

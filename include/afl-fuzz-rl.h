@@ -7,12 +7,23 @@ extern "C" {
 
 #include "types.h"
 
+/// Different types of correction factors
+enum rl_correction_factor_t {
+  NONE = 0,
+  WITHOUT_SQUARE_ROOT,
+  WITH_SQUARE_ROOT,
+  SAMPLE,
+
+  NUM_VALUES, // Don't place anything after this enum element!
+};
+
 /// Store Parameters for Reinforcement learning
 typedef struct {
 #ifdef RL_USE_PYTHON
   int msqid_sender;
   int msqid_reciever;
 #endif
+  enum rl_correction_factor_t correction_factor;
 
   u32 *positive_reward;
   u32 *negative_reward;
@@ -25,18 +36,10 @@ typedef struct {
   struct queue_entry **top_rated;
 } rl_params_t;
 
-/// Different types of correction factors
-enum CorrectionFactor {
-  None,
-  WithoutSquareRoot,
-  WithSquareRoot,
-  Sample,
-};
-
 rl_params_t *rl_init_params(u32);
 void         rl_store_features(rl_params_t *);
 void         rl_update_queue(rl_params_t *);
-u32          rl_select_best_bit(const rl_params_t *, enum CorrectionFactor);
+u32          rl_select_best_bit(const rl_params_t *);
 
 #ifdef __cplusplus
 }
