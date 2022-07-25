@@ -333,8 +333,9 @@ static void instrument_coverage_write(GumAddress        address,
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
+
   GumX86Writer *cw = output->writer.x86;
   if (instrument_previous_pc_addr == NULL) {
 
@@ -359,6 +360,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
   }
 
   instrument_coverage_write(GUM_ADDRESS(instr->address), output);
+
 }
 
 void instrument_coverage_optimize_insn(const cs_insn    *instr,
