@@ -291,6 +291,7 @@ void instrument_config(void) {
 }
 
 void instrument_init(void) {
+
   if (__afl_map_size == MAP_SIZE) __afl_map_size = FRIDA_DEFAULT_MAP_SIZE;
 
   if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
