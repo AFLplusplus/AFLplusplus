@@ -61,7 +61,7 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
 }
 
 static u32 SelectBestBit(const rl_params_t *RLParams,
-                          bool               UseCorrectionFactor) {
+                          int                UseCorrectionFactor) {
   const auto &Scores = computeScores(RLParams, UseCorrectionFactor);
   const auto  ArgMax = std::max_element(Scores.begin(), Scores.end());
   return std::distance(Scores.begin(), ArgMax);
@@ -69,6 +69,6 @@ static u32 SelectBestBit(const rl_params_t *RLParams,
 }  // anonymous namespace
 
 extern "C" u32 rl_select_best_bit(const rl_params_t *rl_params,
-                                   bool               UseCorrectionFactor) {
+                                   int                UseCorrectionFactor) {
   return SelectBestBit(rl_params, UseCorrectionFactor);
 }
