@@ -93,9 +93,9 @@ These build options exist:
 * NO_UNICORN_ARM64 - disable building unicorn on arm64
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
-  (e.g. Debian)
+  (e.g., Debian)
 
-e.g.: `make ASAN_BUILD=1`
+e.g.: `make LLVM_CONFIG=llvm-config-14`
 
 ## MacOS X on x86 and arm64 (M1)
 
