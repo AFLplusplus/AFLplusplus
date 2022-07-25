@@ -17,6 +17,7 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
       // 0 - For no correction factor
       // 1 - For correction without square root
       // 2 - For correction with square root
+      // 3 - Sample the correction factor
   const auto  MapSize = RLParams->map_size;
   const auto *PosRewards = RLParams->positive_reward;
   const auto *NegRewards = RLParams->negative_reward;
@@ -54,7 +55,12 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
                        (std::pow(PosReward, 2) + PosReward + NegReward),
                    0.5);
       Scores[I] *= Rareness;
-    } 
+    } else if (UseCorrectionFactor  == 3) {
+      for (unsigned I = 0; I < MapSize; ++I) {
+        random::beta_distribution<> Dist(PosRewards[I] + NegRewards[I], std::pow(PosReward, 2));
+        Scores[I] *= Dist(RNG);
+      }
+    }
   assert(Scores.size() == MapSize);
 
   return Scores;
