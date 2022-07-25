@@ -378,7 +378,7 @@ help:
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
-	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
+	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)"
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1
 
