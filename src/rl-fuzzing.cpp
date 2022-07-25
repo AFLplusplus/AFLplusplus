@@ -12,7 +12,11 @@ using namespace boost;
 
 namespace {
 static std::vector<float> computeScores(const rl_params_t *RLParams,
-                                        bool UseCorrectionFactor) {
+                                        int UseCorrectionFactor) {
+  // UseCorrectionFactor: int
+      // 0 - For no correction factor
+      // 1 - For correction without square root
+      // 2 - For correction with square root
   const auto  MapSize = RLParams->map_size;
   const auto *PosRewards = RLParams->positive_reward;
   const auto *NegRewards = RLParams->negative_reward;
@@ -31,7 +35,16 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
   }
   assert(Scores.size() == MapSize);
 
-  if (UseCorrectionFactor) {
+   if (UseCorrectionFactor == 1) {
+    for (unsigned I = 0; I < MapSize; ++I) {
+      const auto PosReward = static_cast<float>(PosRewards[I]);
+      const auto NegReward = static_cast<float>(NegRewards[I]);
+
+      const auto Rareness =
+          (PosReward + NegReward) /
+              (std::pow(PosReward, 2) + PosReward + NegReward);
+      Scores[I] *= Rareness;
+    } else if (UseCorrectionFactor == 2) {
     for (unsigned I = 0; I < MapSize; ++I) {
       const auto PosReward = static_cast<float>(PosRewards[I]);
       const auto NegReward = static_cast<float>(NegRewards[I]);
@@ -41,8 +54,7 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
                        (std::pow(PosReward, 2) + PosReward + NegReward),
                    0.5);
       Scores[I] *= Rareness;
-    }
-  }
+    } 
   assert(Scores.size() == MapSize);
 
   return Scores;
