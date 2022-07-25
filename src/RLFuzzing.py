@@ -27,11 +27,6 @@ MESSAGE_TYPES = {
 FORMATTER = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger()
 
-
-def thompson_sample_step(a, b):
-    return np.random.beta(a, b)
-
-
 class RLFuzzing:
     def __init__(self,
                  correction_factor: Optional[int] = 0,
@@ -41,6 +36,7 @@ class RLFuzzing:
             0 - No correction factor
             1 - Correction factor without square root
             2 - Correction factor with square root
+            3 - Sample the correction factor
         """
         logger.info('Initializing RLFuzzing. Use correction factor = %s',
                     correction_factor)
@@ -56,7 +52,7 @@ class RLFuzzing:
     def compute_score(self):
         pos_reward = np.array(self.positive_reward, dtype=np.float64)
         neg_reward = np.array(self.negative_reward, dtype=np.float64)
-        random_beta = thompson_sample_step(pos_reward, neg_reward)
+        random_beta = np.random.beta(pos_reward, neg_reward)
 
         if self.correction_factor == 0:
             rareness = 1
@@ -66,6 +62,8 @@ class RLFuzzing:
         elif self.correction_factor == 2:
             rareness = ((pos_reward + neg_reward) / \
                         (pos_reward**2 + pos_reward + neg_reward))**0.5
+        elif self.correction_factor == 3:
+            rareness = np.random.beta(pos_reward + neg_reward, pos_reward**2)
 
         return random_beta * rareness
 
