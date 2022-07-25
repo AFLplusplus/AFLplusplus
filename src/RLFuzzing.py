@@ -34,21 +34,21 @@ def thompson_sample_step(a, b):
 
 class RLFuzzing:
     def __init__(self,
-                 use_correction_factor: Optional[int] = 0,
+                 correction_factor: Optional[int] = 0,
                  max_message_size: Optional[int] = 10000):
         """
-        use_correct_factor: int
+        correct_factor: int
             0 - No correction factor
             1 - Correction factor without square root
             2 - Correction factor with square root
         """
         logger.info('Initializing RLFuzzing. Use correction factor = %s',
-                    use_correction_factor)
+                    correction_factor)
         self.mq_receiver = MessageQueue(1, IPC_CREAT,
                                         max_message_size=max_message_size)
         self.mq_sender = MessageQueue(2, IPC_CREAT,
                                       max_message_size=max_message_size)
-        self.correction_factor = use_correction_factor
+        self.correction_factor = correction_factor
         self.map_size = None
         self.positive_reward = None
         self.negative_reward = None
@@ -58,17 +58,16 @@ class RLFuzzing:
         neg_reward = np.array(self.negative_reward, dtype=np.float64)
         random_beta = thompson_sample_step(pos_reward, neg_reward)
 
-
+        if self.correction_factor == 0:
+            rareness = 1
         if self.correction_factor == 1:
-            rareness = (pos_reward + neg_reward) /
+            rareness = (pos_reward + neg_reward) / \
                        (pos_reward**2 + pos_reward + neg_reward)
-        
         elif self.correction_factor == 2:
-            rareness = ((pos_reward + neg_reward) /
+            rareness = ((pos_reward + neg_reward) / \
                         (pos_reward**2 + pos_reward + neg_reward))**0.5
-            score = random_beta * rareness
-            return score
-        return random_beta
+
+        return random_beta * rareness
 
     def start(self):
         while True:
