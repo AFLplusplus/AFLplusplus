@@ -357,6 +357,14 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS.\n");
 #endif
 
+#ifdef RL_FUZZING
+  SAYF("Compiled with RL fuzzing.\n");
+#endif
+
+#ifdef PY_RL_FUZZING
+  SAYF("Compiled with Python RL fuzzing.\n");
+#endif
+
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);

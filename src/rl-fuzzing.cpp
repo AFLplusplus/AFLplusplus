@@ -54,7 +54,9 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
 
     Scores[I] = Dist(RNG) * Rareness;
   }
+#ifdef _DEBUG
   assert(Scores.size() == MapSize);
+#endif
 
   return Scores;
 }
