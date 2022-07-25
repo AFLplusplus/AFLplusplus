@@ -25,40 +25,34 @@ static std::vector<float> computeScores(const rl_params_t *RLParams,
   random::mt19937 RNG(std::time(nullptr));
 #endif
 
+  const auto &CalcRareness = [&]() -> std::function<float(float, float)> {
+    switch (CorrectionFact) {
+      case CorrectionFactor::None:
+        return [&](float, float) -> float { return 1; };
+      case CorrectionFactor::WithoutSquareRoot:
+        return [&](float Pos, float Neg) -> float {
+          return (Pos + Neg) / (std::pow(Pos, 2) + Pos + Neg);
+        };
+      case CorrectionFactor::WithSquareRoot:
+        return [&](float Pos, float Neg) -> float {
+          return std::sqrt((Pos + Neg) / (std::pow(Pos, 2) + Pos + Neg));
+        };
+      case CorrectionFactor::Sample:
+        return [&](float Pos, float Neg) -> float {
+          return random::beta_distribution<>(Pos + Neg, std::pow(Pos, 2))(RNG);
+        };
+      default:
+        __builtin_unreachable();
+    }
+  }();
+
   for (unsigned I = 0; I < MapSize; ++I) {
-    random::beta_distribution<> Dist(PosRewards[I], NegRewards[I]);
-    Scores[I] = Dist(RNG);
-  }
-  assert(Scores.size() == MapSize);
+    const auto                  PosReward = static_cast<float>(PosRewards[I]);
+    const auto                  NegReward = static_cast<float>(NegRewards[I]);
+    const auto                  Rareness = CalcRareness(PosReward, NegReward);
+    random::beta_distribution<> Dist(PosReward, NegReward);
 
-  if (CorrectionFact == CorrectionFactor::WithoutSquareRoot) {
-    for (unsigned I = 0; I < MapSize; ++I) {
-      const auto PosReward = static_cast<float>(PosRewards[I]);
-      const auto NegReward = static_cast<float>(NegRewards[I]);
-
-      const auto Rareness = (PosReward + NegReward) /
-                            (std::pow(PosReward, 2) + PosReward + NegReward);
-      Scores[I] *= Rareness;
-    }
-  } else if (CorrectionFact == CorrectionFactor::WithSquareRoot) {
-    for (unsigned I = 0; I < MapSize; ++I) {
-      const auto PosReward = static_cast<float>(PosRewards[I]);
-      const auto NegReward = static_cast<float>(NegRewards[I]);
-
-      const auto Rareness =
-          std::sqrt((PosReward + NegReward) /
-                    (std::pow(PosReward, 2) + PosReward + NegReward));
-      Scores[I] *= Rareness;
-    }
-  } else if (CorrectionFact == CorrectionFactor::Sample) {
-    for (unsigned I = 0; I < MapSize; ++I) {
-      const auto PosReward = static_cast<float>(PosRewards[I]);
-      const auto NegReward = static_cast<float>(NegRewards[I]);
-
-      random::beta_distribution<> Dist(PosReward + NegReward,
-                                       std::pow(PosReward, 2));
-      Scores[I] *= Dist(RNG);
-    }
+    Scores[I] = Dist(RNG) * Rareness;
   }
   assert(Scores.size() == MapSize);
 
@@ -69,6 +63,7 @@ static u32 SelectBestBit(const rl_params_t *RLParams,
                          CorrectionFactor   CorrectionFact) {
   const auto &Scores = computeScores(RLParams, CorrectionFact);
   const auto  ArgMax = std::max_element(Scores.begin(), Scores.end());
+
   return std::distance(Scores.begin(), ArgMax);
 }
 }  // anonymous namespace
