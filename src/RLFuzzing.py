@@ -17,10 +17,13 @@ BEST_BIT = 3
 
 
 class CorrectionFactor(Enum):
-    NONE = auto()
-    WITHOUT_SQUARE_ROOT = auto()
-    WITH_SQUARE_ROOT = auto()
-    SAMPLE = auto()
+    NONE = 'none'
+    WITHOUT_SQUARE_ROOT = 'without_square_root'
+    WITH_SQUARE_ROOT = 'with_square_root'
+    SAMPLE = 'sample'
+
+    def __str__(self):
+        return self.value
 
 
 # Map message types to a string descriptor
@@ -35,9 +38,10 @@ MESSAGE_TYPES = {
 FORMATTER = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger()
 
+
 class RLFuzzing:
     def __init__(self,
-                 correction_factor: Optional[CorrectionFactor] = CorrectionFactor.NONE,
+                 correction_factor: CorrectionFactor,
                  max_message_size: Optional[int] = 10000):
         logger.info('Initializing RLFuzzing. Use correction factor = %s',
                     correction_factor)
@@ -128,8 +132,10 @@ def parse_args() -> Namespace:
         return numeric_level
 
     parser = ArgumentParser(description='RL-based fuzzing')
-    parser.add_argument('--disable-correction-factor', required=False,
-                        action='store_true', help='Disable correction factor')
+    parser.add_argument('--correction-factor', required=False,
+                        type=CorrectionFactor, choices=list(CorrectionFactor),
+                        default=CorrectionFactor.NONE,
+                        help='Select correction factor (default=none)')
     parser.add_argument('-l', '--log', default=logging.INFO, type=log_level,
                         help='Logging level')
 
@@ -147,7 +153,7 @@ def main():
     logger.setLevel(args.log)
 
     # Start the RL
-    rl_fuzz = RLFuzzing(not args.disable_correction_factor)
+    rl_fuzz = RLFuzzing(args.correction_factor)
     rl_fuzz.start()
 
 
