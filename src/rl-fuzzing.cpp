@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <boost/random.hpp>
+#include <boost/random/beta_distribution.hpp>
 
 #include "afl-fuzz-rl.h"
 #include "types.h"
