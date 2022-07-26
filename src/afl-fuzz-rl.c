@@ -10,6 +10,13 @@
   #pragma message "Using C++-based RL"
 #endif
 
+static const char *rl_correction_factor_strs[] = {
+    "none",
+    "without_square_root",
+    "with_square_root",
+    "sample",
+};
+
 u32 __attribute__((weak)) rl_select_best_bit(const rl_params_t *params) {
   (void)params;
   return 0;
@@ -64,6 +71,8 @@ rl_params_t *rl_init_params(u32 map_size) {
   } else {
     rl_params->correction_factor = NONE;
   }
+  OKF("Correction factor = %s\n",
+      rl_correction_factor_strs[rl_params->correction_factor]);
 
   rl_params->positive_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
   rl_params->negative_reward = (u32 *)ck_alloc(map_size * sizeof(u32));
