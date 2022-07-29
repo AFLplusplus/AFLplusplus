@@ -178,6 +178,8 @@ Default is 256Mb.
   a file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
+* `AFL_FRIDA_INST_REGS_FILE` - File to write raw register contents at the start
+  of each block.
   `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_CACHE` - Don't use a look-up table to cache real to
 instrumented address block translations.
