@@ -850,6 +850,14 @@ class Afl {
   static setInstrumentNoOptimize() {
       Afl.jsApiSetInstrumentNoOptimize();
   }
+  /**
+   * See `AFL_FRIDA_INST_REGS_FILE`. This function takes a single `string` as
+   * an argument.
+   */
+  public static setInstrumentRegsFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetInstrumentRegsFile(buf);
+  }
   /*
     * See `AFL_FRIDA_INST_SEED`
     */
