@@ -151,6 +151,7 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
   and their instrumented counterparts during block compilation.
 
+```
 Creating block for 0x7ffff7953313:
         0x7ffff7953313  mov qword ptr [rax], 0
         0x7ffff795331a  add rsp, 8
@@ -166,7 +167,7 @@ Generated block 0x7ffff75e98e2
 
 
   ***
-  ```
+```
 * `AFL_FRIDA_INST_CACHE_SIZE` - Set the size of the instrumentation cache used
 as a look-up table to cache real to instrumented address block translations.
 Default is 256Mb.
