@@ -1,7 +1,5 @@
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/shm.h>
-#include <sys/mman.h>
 #include <sys/syscall.h>
 
 #include "frida-gumjs.h"
@@ -17,6 +15,7 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "shm.h"
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -348,29 +347,7 @@ void instrument_init(void) {
   transformer = gum_stalker_transformer_make_from_callback(
       instrument_basic_block, NULL, NULL);
 
-  if (instrument_unique) {
-
-    int shm_id =
-        shmget(IPC_PRIVATE, __afl_map_size, IPC_CREAT | IPC_EXCL | 0600);
-    if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
-
-    edges_notified = shmat(shm_id, NULL, 0);
-    g_assert(edges_notified != MAP_FAILED);
-
-    /*
-     * Configure the shared memory region to be removed once the process
-     * dies.
-     */
-    if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
-
-      FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-    }
-
-    /* Clear it, not sure it's necessary, just seems like good practice */
-    memset(edges_notified, '\0', __afl_map_size);
-
-  }
+  if (instrument_unique) { edges_notified = shm_create(__afl_map_size); }
 
   if (instrument_use_fixed_seed) {
 

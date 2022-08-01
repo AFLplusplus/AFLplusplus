@@ -2,17 +2,16 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/shm.h>
 #include <sys/mman.h>
 
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "util.h"
-
 #include "entry.h"
+#include "shm.h"
 #include "stalker.h"
 #include "stats.h"
+#include "util.h"
 
 #define MICRO_TO_SEC 1000000
 
@@ -360,27 +359,10 @@ void stats_init(void) {
 
   g_free(path);
 
-  int shm_id =
-      shmget(IPC_PRIVATE, sizeof(stats_data_t), IPC_CREAT | IPC_EXCL | 0600);
-  if (shm_id < 0) { FFATAL("shm_id < 0 - errno: %d\n", errno); }
-
-  stats_data = shmat(shm_id, NULL, 0);
-  g_assert(stats_data != MAP_FAILED);
-
   GumStalkerObserver *observer = stalker_get_observer();
   stats_observer_init(observer);
 
-  /*
-   * Configure the shared memory region to be removed once the process dies.
-   */
-  if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
-
-    FFATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-  }
-
-  /* Clear it, not sure it's necessary, just seems like good practice */
-  memset(stats_data, '\0', sizeof(stats_data_t));
+  stats_data = shm_create(sizeof(stats_data_t));
 
   starts_arch_init();
 
