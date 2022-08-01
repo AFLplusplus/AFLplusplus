@@ -1,12 +1,11 @@
 #include <errno.h>
-#include <sys/shm.h>
-#include <sys/mman.h>
 
 #include "frida-gumjs.h"
 
 #include "entry.h"
 #include "intercept.h"
 #include "prefetch.h"
+#include "shm.h"
 #include "stalker.h"
 #include "util.h"
 
@@ -285,33 +284,7 @@ void prefetch_init(void) {
    * with the coverage bitmap region and fork will take care of ensuring both
    * the parent and child see the same consistent memory region.
    */
-  prefetch_shm_id =
-      shmget(IPC_PRIVATE, sizeof(prefetch_data_t), IPC_CREAT | IPC_EXCL | 0600);
-  if (prefetch_shm_id < 0) {
-
-    FFATAL("prefetch_shm_id < 0 - errno: %d\n", errno);
-
-  }
-
-  prefetch_data = shmat(prefetch_shm_id, NULL, 0);
-  g_assert(prefetch_data != MAP_FAILED);
-
-  /*
-   * Configure the shared memory region to be removed once the process dies.
-   * This doesn't work on Android, so we skip it. Would could end up leaking
-   * shared memory regions though.
-   */
-#ifndef __ANDROID__
-  if (shmctl(prefetch_shm_id, IPC_RMID, NULL) < 0) {
-
-    FFATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-  }
-
-#endif
-
-  /* Clear it, not sure it's necessary, just seems like good practice */
-  memset(prefetch_data, '\0', sizeof(prefetch_data_t));
+  prefetch_data = shm_create(sizeof(prefetch_data_t));
 
   prefetch_hook_fork();
 
