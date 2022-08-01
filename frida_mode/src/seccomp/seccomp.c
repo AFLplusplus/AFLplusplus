@@ -13,7 +13,7 @@ void seccomp_on_fork(void) {
   FFATAL("Seccomp not supported on OSX");
 #elif defined(__ANDROID__)
   FFATAL("Seccomp not supported on Android");
-#else 
+#else
   seccomp_callback_parent();
 #endif
 

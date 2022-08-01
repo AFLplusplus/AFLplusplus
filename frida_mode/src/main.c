@@ -38,15 +38,16 @@ extern mach_port_t mach_task_self();
 extern GumAddress  gum_darwin_find_entrypoint(mach_port_t task);
 #elif defined(__ANDROID__)
 typedef struct {
-	void (**preinit_array)(void);
-	void (**init_array)(void);
-	void (**fini_array)(void);
+
+  void (**preinit_array)(void);
+  void (**init_array)(void);
+  void (**fini_array)(void);
+
 } structors_array_t;
 
-extern void __libc_init(void* raw_args,
-                            void (*onexit)(void) __unused,
-                            int (*slingshot)(int, char **, char **),
-                            structors_array_t const * const structors);
+extern void __libc_init(void *raw_args, void (*onexit)(void) __unused,
+                        int (*slingshot)(int, char **, char **),
+                        structors_array_t const *const structors);
 #else
 extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
@@ -291,17 +292,19 @@ static void intercept_main(void) {
   intercept_hook(main, on_main, NULL);
 
 }
+
 #elif defined(__ANDROID__)
-static void on_libc_init(void* raw_args,
-                            void (*onexit)(void) __unused,
-                            int (*slingshot)(int, char**, char**),
-                            structors_array_t const * const structors){
+static void on_libc_init(void *raw_args, void (*onexit)(void) __unused,
+                         int (*slingshot)(int, char **, char **),
+                         structors_array_t const *const structors) {
+
   main_fn = slingshot;
   intercept_unhook_self();
   intercept_hook(slingshot, on_main, NULL);
   return __libc_init(raw_args, onexit, slingshot, structors);
 
 }
+
 static void intercept_main(void) {
 
   intercept_hook(__libc_init, on_libc_init, NULL);
