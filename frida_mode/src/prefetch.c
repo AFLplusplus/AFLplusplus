@@ -298,12 +298,16 @@ void prefetch_init(void) {
 
   /*
    * Configure the shared memory region to be removed once the process dies.
+   * This doesn't work on Android, so we skip it. Would could end up leaking
+   * shared memory regions though.
    */
+ #ifndef __ANDROID__
   if (shmctl(prefetch_shm_id, IPC_RMID, NULL) < 0) {
 
     FFATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
 
   }
+#endif
 
   /* Clear it, not sure it's necessary, just seems like good practice */
   memset(prefetch_data, '\0', sizeof(prefetch_data_t));
