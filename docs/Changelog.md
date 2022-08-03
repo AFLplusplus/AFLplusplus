@@ -12,6 +12,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - change post_process hook to allow returning NULL and 0 length to
       tell afl-fuzz to skip this mutated input
+  - afl-cc:
+    - important fix for the default pcguard mode when LLVM IR vector
+      selects are produced, thanks to @juppytt for reporting!
   - gcc_plugin:
     - Adacore submitted CMPLOG support to the gcc_plugin! :-)
   - llvm_mode:
