@@ -76,24 +76,6 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 u32 __attribute__((hot))
 write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
-#ifdef _AFL_DOCUMENT_MUTATIONS
-  s32  doc_fd;
-  char fn[PATH_MAX];
-  snprintf(fn, PATH_MAX, "%s/mutations/%09u:%s", afl->out_dir,
-           afl->document_counter++,
-           describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
-
-  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >=
-      0) {
-
-    if (write(doc_fd, *mem, len) != len)
-      PFATAL("write to mutation file failed: %s", fn);
-    close(doc_fd);
-
-  }
-
-#endif
-
   if (unlikely(afl->custom_mutators_count)) {
 
     ssize_t new_size = len;
@@ -107,18 +89,37 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf && new_size <= 0)) {
+        if (unlikely(!new_buf || new_size <= 0)) {
 
-          FATAL("Custom_post_process failed (ret: %lu)",
-                (long unsigned)new_size);
+          new_size = 0;
+          new_buf = new_mem;
+          // FATAL("Custom_post_process failed (ret: %lu)", (long
+          // unsigned)new_size);
+
+        } else {
+
+          new_mem = new_buf;
 
         }
-
-        new_mem = new_buf;
 
       }
 
     });
+
+    if (unlikely(!new_size)) {
+
+      // perform dummy runs (fix = 1), but skip all others
+      if (fix) {
+
+        new_size = len;
+
+      } else {
+
+        return 0;
+
+      }
+
+    }
 
     if (unlikely(new_size < afl->min_length && !fix)) {
 
@@ -152,6 +153,24 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
     afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
 
   }
+
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  s32  doc_fd;
+  char fn[PATH_MAX];
+  snprintf(fn, PATH_MAX, "%s/mutations/%09u:%s", afl->out_dir,
+           afl->document_counter++,
+           describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
+
+  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >=
+      0) {
+
+    if (write(doc_fd, *mem, len) != len)
+      PFATAL("write to mutation file failed: %s", fn);
+    close(doc_fd);
+
+  }
+
+#endif
 
   return len;
 
@@ -207,14 +226,18 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf || new_size <= 0)) {
+        if (unlikely(!new_buf && new_size <= 0)) {
 
-          FATAL("Custom_post_process failed (ret: %lu)",
-                (long unsigned)new_size);
+          new_size = 0;
+          new_buf = new_mem;
+          // FATAL("Custom_post_process failed (ret: %lu)", (long
+          // unsigned)new_size);
+
+        } else {
+
+          new_mem = new_buf;
 
         }
-
-        new_mem = new_buf;
 
       }
 
@@ -969,7 +992,11 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  len = write_to_testcase(afl, (void **)&out_buf, len, 0);
+  if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0)) == 0) {
+
+    return 0;
+
+  }
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 

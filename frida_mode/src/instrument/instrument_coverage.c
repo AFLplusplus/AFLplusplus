@@ -317,6 +317,12 @@ static void coverage_write_events(void *key, void *value, void *user_data) {
 
   };
 
+#if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+  evt.offset = __builtin_bswap32(evt.offset);
+  evt.length = __builtin_bswap16(evt.length);
+  evt.module = __builtin_bswap16(evt.module);
+#endif
+
   coverage_write(fd, &evt, sizeof(coverage_event_t));
 
 }

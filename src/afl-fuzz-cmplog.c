@@ -47,9 +47,18 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
-  u8 fault;
+  u8  fault;
+  u32 tmp_len = write_to_testcase(afl, (void **)&out_buf, len, 0);
 
-  write_to_testcase(afl, (void **)&out_buf, len, 0);
+  if (likely(tmp_len)) {
+
+    len = tmp_len;
+
+  } else {
+
+    len = write_to_testcase(afl, (void **)&out_buf, len, 1);
+
+  }
 
   fault = fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
 

@@ -262,7 +262,7 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
 }  // namespace
 
-#if 1
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
@@ -902,7 +902,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (tt) {
 
             cnt_sel++;
-            cnt_sel_inc += tt->getElementCount().getKnownMinValue();
+            cnt_sel_inc += (tt->getElementCount().getKnownMinValue() * 2);
 
           }
 
