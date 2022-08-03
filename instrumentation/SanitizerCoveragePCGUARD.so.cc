@@ -902,7 +902,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (tt) {
 
             cnt_sel++;
-            cnt_sel_inc += tt->getElementCount().getKnownMinValue();
+            cnt_sel_inc += (tt->getElementCount().getKnownMinValue() * 2);
 
           }
 
