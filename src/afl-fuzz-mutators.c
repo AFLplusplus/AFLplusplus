@@ -430,13 +430,21 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
       retlen = write_to_testcase(afl, (void **)&retbuf, retlen, 0);
 
-      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-      ++afl->trim_execs;
+      if (unlikely(!retlen)) {
 
-      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+        ++afl->trim_execs;
 
-      classify_counts(&afl->fsrv);
-      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      } else {
+
+        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+        ++afl->trim_execs;
+
+        if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+
+        classify_counts(&afl->fsrv);
+        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+      }
 
     }
 

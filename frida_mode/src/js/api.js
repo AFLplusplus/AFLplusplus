@@ -150,6 +150,14 @@ class Afl {
     static setInstrumentNoOptimize() {
         Afl.jsApiSetInstrumentNoOptimize();
     }
+    /**
+     * See `AFL_FRIDA_INST_REGS_FILE`. This function takes a single `string` as
+     * an argument.
+     */
+    static setInstrumentRegsFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetInstrumentRegsFile(buf);
+    }
     /*
      * See `AFL_FRIDA_INST_SEED`
      */
@@ -322,6 +330,7 @@ Afl.jsApiSetInstrumentInstructions = Afl.jsApiGetFunction("js_api_set_instrument
 Afl.jsApiSetInstrumentJit = Afl.jsApiGetFunction("js_api_set_instrument_jit", "void", []);
 Afl.jsApiSetInstrumentLibraries = Afl.jsApiGetFunction("js_api_set_instrument_libraries", "void", []);
 Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_no_optimize", "void", []);
+Afl.jsApiSetInstrumentRegsFile = Afl.jsApiGetFunction("js_api_set_instrument_regs_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", "void", ["uint64"]);
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
 Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);

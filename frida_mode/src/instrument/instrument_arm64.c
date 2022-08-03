@@ -272,9 +272,10 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
     GumAddressSpec spec = {.near_address = cw->code,
                            .max_distance = 1ULL << 30};
+    guint          page_size = gum_query_page_size();
 
     instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+        &spec, sizeof(guint64), page_size, GUM_PAGE_READ | GUM_PAGE_WRITE);
     *instrument_previous_pc_addr = instrument_hash_zero;
     FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
     FVERBOSE("code_addr: %p", cw->code);
@@ -403,6 +404,42 @@ void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
   UNUSED_PARAMETER(instr);
   UNUSED_PARAMETER(output);
 
+}
+
+void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+  int fd = (int)(size_t)user_data;
+  instrument_regs_format(
+      fd, "x0 : 0x%016x, x1 : 0x%016x, x2 : 0x%016x, x3 : 0x%016x\n",
+      cpu_context->x[0], cpu_context->x[1], cpu_context->x[2],
+      cpu_context->x[3]);
+  instrument_regs_format(
+      fd, "x4 : 0x%016x, x5 : 0x%016x, x6 : 0x%016x, x7 : 0x%016x\n",
+      cpu_context->x[4], cpu_context->x[5], cpu_context->x[6],
+      cpu_context->x[7]);
+  instrument_regs_format(
+      fd, "x8 : 0x%016x, x9 : 0x%016x, x10: 0x%016x, x11: 0x%016x\n",
+      cpu_context->x[8], cpu_context->x[9], cpu_context->x[10],
+      cpu_context->x[11]);
+  instrument_regs_format(
+      fd, "x12: 0x%016x, x13: 0x%016x, x14: 0x%016x, x15: 0x%016x\n",
+      cpu_context->x[12], cpu_context->x[13], cpu_context->x[14],
+      cpu_context->x[15]);
+  instrument_regs_format(
+      fd, "x16: 0x%016x, x17: 0x%016x, x18: 0x%016x, x19: 0x%016x\n",
+      cpu_context->x[16], cpu_context->x[17], cpu_context->x[18],
+      cpu_context->x[19]);
+  instrument_regs_format(
+      fd, "x20: 0x%016x, x21: 0x%016x, x22: 0x%016x, x23: 0x%016x\n",
+      cpu_context->x[20], cpu_context->x[21], cpu_context->x[22],
+      cpu_context->x[23]);
+  instrument_regs_format(
+      fd, "x24: 0x%016x, x25: 0x%016x, x26: 0x%016x, x27: 0x%016x\n",
+      cpu_context->x[24], cpu_context->x[25], cpu_context->x[26],
+      cpu_context->x[27]);
+  instrument_regs_format(
+      fd, "x28: 0x%016x, fp : 0x%016x, lr : 0x%016x, sp : 0x%016x\n",
+      cpu_context->x[28], cpu_context->fp, cpu_context->lr, cpu_context->sp);
+  instrument_regs_format(fd, "pc : 0x%016x\n\n", cpu_context->pc);
 }
 
 #endif

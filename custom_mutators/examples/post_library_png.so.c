@@ -29,8 +29,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <zlib.h>
-
 #include <arpa/inet.h>
+#include "alloc-inl.h"
 
 /* A macro to round an integer up to 4 kB. */
 
@@ -70,9 +70,6 @@ size_t afl_custom_post_process(post_state_t *data, const unsigned char *in_buf,
                                unsigned int          len,
                                const unsigned char **out_buf) {
 
-  unsigned char *new_buf = (unsigned char *)in_buf;
-  unsigned int   pos = 8;
-
   /* Don't do anything if there's not enough room for the PNG header
      (8 bytes). */
 
@@ -82,6 +79,22 @@ size_t afl_custom_post_process(post_state_t *data, const unsigned char *in_buf,
     return len;
 
   }
+
+  /* This is not a good way to do it, if you do not need to grow the buffer
+     then just work with in_buf instead for speed reasons.
+     But we want to show how to grow a buffer, so this is how it's done: */
+
+  unsigned int   pos = 8;
+  unsigned char *new_buf = afl_realloc(out_buf, UP4K(len));
+
+  if (!new_buf) {
+
+    *out_buf = in_buf;
+    return len;
+
+  }
+
+  memcpy(new_buf, in_buf, len);
 
   /* Minimum size of a zero-length PNG chunk is 12 bytes; if we
      don't have that, we can bail out. */
@@ -110,33 +123,6 @@ size_t afl_custom_post_process(post_state_t *data, const unsigned char *in_buf,
     /* If the checksums do not match, we need to fix the file. */
 
     if (real_cksum != file_cksum) {
-
-      /* First modification? Make a copy of the input buffer. Round size
-         up to 4 kB to minimize the number of reallocs needed. */
-
-      if (new_buf == in_buf) {
-
-        if (len <= data->size) {
-
-          new_buf = data->buf;
-
-        } else {
-
-          new_buf = realloc(data->buf, UP4K(len));
-          if (!new_buf) {
-
-            *out_buf = in_buf;
-            return len;
-
-          }
-
-          data->buf = new_buf;
-          data->size = UP4K(len);
-          memcpy(new_buf, in_buf, len);
-
-        }
-
-      }
 
       *(uint32_t *)(new_buf + pos + 8 + chunk_len) = real_cksum;
 
