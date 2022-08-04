@@ -43,10 +43,12 @@ endif
 
 FRIDA_BUILD_DIR:=$(BUILD_DIR)frida/
 FRIDA_TRACE:=$(BUILD_DIR)afl-frida-trace.so
+FRIDA_TRACE_LIB:=$(BUILD_DIR)libafl-frida-trace.a
 FRIDA_TRACE_EMBEDDED:=$(BUILD_DIR)afl-frida-trace-embedded
 
 TARGET_CC?=$(CC)
 TARGET_CXX?=$(CXX)
+TARGET_AR?=$(AR)
 HOST_CC?=$(CC)
 HOST_CXX?=$(CXX)
 
@@ -110,6 +112,7 @@ endif
 ifeq "$(ARCH)" "armhf"
  TARGET_CC:=arm-linux-gnueabihf-gcc
  TARGET_CXX:=arm-linux-gnueabihf-g++
+ TARGET_AR:=arm-linux-gnueabihf-ar
 endif
 
 ifndef OS
@@ -157,7 +160,7 @@ BIN2C_SRC:=$(PWD)util/bin2c.c
 
 ############################## ALL #############################################
 
-all: $(FRIDA_TRACE) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ) $(ADDR_BIN)
+all: $(FRIDA_TRACE) $(FRIDA_TRACE_LIB) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ) $(ADDR_BIN)
 
 32:
 	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
@@ -352,6 +355,15 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 		-o $@ \
 
 	cp -v $(FRIDA_TRACE) $(ROOT)
+
+$(FRIDA_TRACE_LIB): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) $(AFL_PERFORMANCE_OBJ) GNUmakefile | $(BUILD_DIR)
+	$(TARGET_AR) \
+		-rcs \
+		$@ \
+		$(OBJS) \
+		$(JS_OBJ) \
+		$(AFL_COMPILER_RT_OBJ) \
+		$(AFL_PERFORMANCE_OBJ) \
 
 ############################# HOOK #############################################
 

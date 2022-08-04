@@ -126,6 +126,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_COVERAGE_ABSOLUTE`.
+   */
+  public static setInstrumentCoverageAbsolute(): void {
+    Afl.jsApiSetInstrumentCoverageAbsolute();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
    * as an argument.
    */
@@ -397,6 +404,12 @@ class Afl {
     "js_api_set_instrument_cache_size",
     "void",
     ["size_t"]);
+
+  private static readonly jsApiSetInstrumentCoverageAbsolute = Afl.jsApiGetFunction(
+    "js_api_set_instrument_coverage_absolute",
+    "void",
+    []
+  );
 
   private static readonly jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction(
     "js_api_set_instrument_coverage_file",
