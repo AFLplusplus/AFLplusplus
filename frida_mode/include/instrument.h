@@ -7,6 +7,7 @@
 
 extern char    *instrument_debug_filename;
 extern char    *instrument_coverage_filename;
+extern bool     instrument_coverage_absolute;
 extern gboolean instrument_tracing;
 extern gboolean instrument_optimize;
 extern gboolean instrument_unique;

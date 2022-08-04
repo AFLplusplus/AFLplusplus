@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #ifdef __APPLE__
   #define TESTINSTR_SECTION
@@ -25,8 +26,10 @@ void LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   if (size < 1) return;
 
-  int r = rand();
-  if ((r % 2) == 0) {
+  struct timeval tv = {0};
+  if (gettimeofday(&tv, NULL) < 0) return;
+
+  if ((tv.tv_usec % 2) == 0) {
     printf ("Hooray all even\n");
   } else {
     printf ("Hmm that's odd\n");
