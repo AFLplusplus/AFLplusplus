@@ -13,7 +13,7 @@ extern gboolean instrument_unique;
 extern guint64  instrument_hash_zero;
 extern char    *instrument_coverage_unstable_filename;
 extern gboolean instrument_coverage_insn;
-extern char *   instrument_regs_filename;
+extern char    *instrument_regs_filename;
 
 extern gboolean instrument_use_fixed_seed;
 extern guint64  instrument_fixed_seed;

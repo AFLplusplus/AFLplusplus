@@ -158,7 +158,9 @@ __attribute__((visibility("default"))) void js_api_set_instrument_no_optimize(
 
 __attribute__((visibility("default"))) void js_api_set_instrument_regs_file(
     char *path) {
+
   instrument_regs_filename = g_strdup(path);
+
 }
 
 __attribute__((visibility("default"))) void js_api_set_instrument_seed(

@@ -469,6 +469,7 @@ gpointer instrument_cur(GumStalkerOutput *output) {
 }
 
 void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
   int fd = (int)(size_t)user_data;
   instrument_regs_format(
       fd, "rax: 0x%016x, rbx: 0x%016x, rcx: 0x%016x, rdx: 0x%016x\n",
@@ -483,6 +484,7 @@ void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
       fd, "r12: 0x%016x, r13: 0x%016x, r14: 0x%016x, r15: 0x%016x\n",
       cpu_context->r12, cpu_context->r13, cpu_context->r14, cpu_context->r15);
   instrument_regs_format(fd, "rip: 0x%016x\n\n", cpu_context->rip);
+
 }
 
 #endif
