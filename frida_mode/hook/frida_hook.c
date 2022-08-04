@@ -31,7 +31,7 @@ __attribute__((visibility("default"))) void afl_persistent_hook(
   // do a length check matching the target!
 
   void **esp = (void **)regs->esp;
-  void * arg1 = esp[0];
+  void  *arg1 = esp[0];
   void **arg2 = &esp[1];
   memcpy(arg1, input_buf, input_buf_len);
   *arg2 = (void *)input_buf_len;

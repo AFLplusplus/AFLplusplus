@@ -407,6 +407,7 @@ void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
 }
 
 void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
   int fd = (int)(size_t)user_data;
   instrument_regs_format(
       fd, "x0 : 0x%016x, x1 : 0x%016x, x2 : 0x%016x, x3 : 0x%016x\n",
@@ -440,6 +441,7 @@ void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
       fd, "x28: 0x%016x, fp : 0x%016x, lr : 0x%016x, sp : 0x%016x\n",
       cpu_context->x[28], cpu_context->fp, cpu_context->lr, cpu_context->sp);
   instrument_regs_format(fd, "pc : 0x%016x\n\n", cpu_context->pc);
+
 }
 
 #endif
