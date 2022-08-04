@@ -5,22 +5,150 @@
 
 #if defined(__arm__)
 
+  #define PAGE_MASK (~(GUM_ADDRESS(0xfff)))
+  #define PAGE_ALIGNED(x) ((GUM_ADDRESS(x) & PAGE_MASK) == GUM_ADDRESS(x))
+
 gboolean instrument_cache_enabled = FALSE;
 gsize    instrument_cache_size = 0;
 
+extern __thread guint64 instrument_previous_pc;
+
+__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_SIZE];
+
+  #pragma pack(push, 1)
+typedef struct {
+  // cur_location = (block_address >> 4) ^ (block_address << 8);
+  // shared_mem[cur_location ^ prev_location]++;
+  // prev_location = cur_location >> 1;
+
+  /* We can remove this branch when we add support for branch suppression */
+  uint32_t  b_code; /* b imm */
+  uint8_t * shared_mem;
+  uint64_t *prev_location;
+
+  /* code */
+
+  /* save regs */
+  uint32_t str_r0_sp_rz;   /* str r0, [sp - RED_ZONE] */
+  uint32_t str_r1_sp_rz_4; /* str r1, [sp - (RED_ZONE + 4)] */
+
+  /* load prev */
+  uint32_t ldr_r0_pprev; /* ldr r0, [pc-x] */
+  uint32_t ldrh_r1_r0;   /* ldrh r1, [r0] */
+
+  /* load curr */
+  uint32_t mov_r0_block_id; /* mov r0, #imm16 */
+
+  /* calculate new */
+  uint32_t eor_r0_r0_r1; /* eor r0, r0, r1 */
+
+  /* load map */
+  uint32_t ldr_r1_pmap; /* ldr r1, [pc-x] */
+
+  /* calculate offset */
+  uint32_t add_r1_r1_r0; /* add r1, r1, r0 */
+
+  /* Load the value */
+  uint32_t ldrb_r0_r1; /* ldrb r0, [r1] */
+
+  /* Increment the value */
+  uint32_t add_r0_r0_1;        /* add r0, r0, #1 */
+  uint32_t add_r0_r0_r0_lsr_8; /* add r0, r0, r0, lsr #8 */
+
+  /* Save the value */
+  uint32_t strb_r0_r1; /* strb r0, [r1] */
+
+  /* load curr shifted */
+  uint32_t mov_r0_block_id_shr_1; /* mov r0, #imm16 >> 1*/
+
+  /* Update prev */
+  uint32_t ldr_r1_pprev; /* ldr r1, [pc-x] */
+  uint32_t strh_r0_r1;   /* strh r0, [r1] */
+
+  /* restore regs */
+  uint32_t ldr_r1_sp_rz_4; /* ldr r1, [sp - (RED_ZONE + 4)] */
+  uint32_t ldr_r0_sp_rz;   /* ldr r0, [sp - RED_ZONE] */
+
+} afl_log_code_asm_t;
+
+typedef union {
+  afl_log_code_asm_t code;
+  uint8_t            bytes[0];
+
+} afl_log_code;
+
+  #pragma pack(pop)
+
+static const afl_log_code_asm_t template =
+    {
+        .b_code = GUINT32_TO_LE(0xea000001),
+        .shared_mem = (uint8_t *)GUINT32_TO_LE(0xcefaadde),
+        .prev_location = (uint64_t *)GUINT32_TO_LE(0xadba0df0),
+        .str_r0_sp_rz = GUINT32_TO_LE(0xe50d0080),
+        .str_r1_sp_rz_4 = GUINT32_TO_LE(0xe50d1084),
+        .ldr_r0_pprev = GUINT32_TO_LE(0xe51f0014),
+        .ldrh_r1_r0 = GUINT32_TO_LE(0xe1d010b0),
+        .mov_r0_block_id = GUINT32_TO_LE(0xe3000000),
+        .eor_r0_r0_r1 = GUINT32_TO_LE(0xe0200001),
+        .ldr_r1_pmap = GUINT32_TO_LE(0xe51f1028),
+        .add_r1_r1_r0 = GUINT32_TO_LE(0xe0811000),
+        .ldrb_r0_r1 = GUINT32_TO_LE(0xe5d10000),
+        .add_r0_r0_1 = GUINT32_TO_LE(0xe2800001),
+        .add_r0_r0_r0_lsr_8 = GUINT32_TO_LE(0xe0800420),
+        .strb_r0_r1 = GUINT32_TO_LE(0xe5c10000),
+        .mov_r0_block_id_shr_1 = GUINT32_TO_LE(0xe3000000),
+        .ldr_r1_pprev = GUINT32_TO_LE(0xe51f1040),
+        .strh_r0_r1 = GUINT32_TO_LE(0xe1c100b0),
+        .ldr_r1_sp_rz_4 = GUINT32_TO_LE(0xe51d1084),
+        .ldr_r0_sp_rz = GUINT32_TO_LE(0xe51d0080),
+}
+
+;
+
 gboolean instrument_is_coverage_optimize_supported(void) {
+  return true;
+}
 
-  return false;
-
+static void patch_t3_insn(uint32_t *insn, uint16_t val) {
+  uint32_t orig = GUINT32_FROM_LE(*insn);
+  uint32_t imm12 = (val & 0xfff);
+  uint32_t imm4 = (val >> 12);
+  orig |= imm12;
+  orig |= (imm4 << 16);
+  *insn = GUINT32_TO_LE(orig);
 }
 
 void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
+  afl_log_code  code = {0};
+  GumArmWriter *cw = output->writer.arm;
+  gpointer      block_start;
+  guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
+  gsize   map_size_pow2;
+  gsize   area_offset_ror;
+  GumAddress code_addr = 0;
 
-  UNUSED_PARAMETER(instr);
-  UNUSED_PARAMETER(output);
-  FFATAL("Optimized coverage not supported on this architecture");
+  // gum_arm64_writer_put_brk_imm(cw, 0x0);
 
+  code_addr = cw->pc;
+
+  block_start = GSIZE_TO_POINTER(GUM_ADDRESS(cw->code));
+
+  code.code = template;
+
+  g_assert(PAGE_ALIGNED(__afl_area_ptr));
+
+  map_size_pow2 = util_log2(__afl_map_size);
+  area_offset_ror = util_rotate(area_offset, 1, map_size_pow2);
+
+  code.code.shared_mem = __afl_area_ptr;
+  code.code.prev_location = instrument_previous_pc_addr;
+
+  patch_t3_insn(&code.code.mov_r0_block_id, (uint16_t)area_offset);
+  patch_t3_insn(&code.code.mov_r0_block_id_shr_1, (uint16_t)area_offset_ror);
+
+  // gum_arm_writer_put_breakpoint(cw);
+  gum_arm_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
 }
 
 void instrument_coverage_optimize_insn(const cs_insn    *instr,
@@ -28,14 +156,26 @@ void instrument_coverage_optimize_insn(const cs_insn    *instr,
 
   UNUSED_PARAMETER(instr);
   UNUSED_PARAMETER(output);
-  FFATAL("Optimized coverage not supported on this architecture");
-
 }
 
 void instrument_coverage_optimize_init(void) {
+  char *shm_env = getenv(SHM_ENV_VAR);
+  FVERBOSE("SHM_ENV_VAR: %s", shm_env);
 
-  FWARNF("Optimized coverage not supported on this architecture");
+  if (shm_env == NULL) {
+    FWARNF("SHM_ENV_VAR not set, using dummy for debugging purposes");
 
+    __afl_area_ptr = area_ptr_dummy;
+    memset(area_ptr_dummy, '\0', sizeof(area_ptr_dummy));
+  }
+
+  FVERBOSE("__afl_area_ptr: %p", __afl_area_ptr);
+
+  if (instrument_previous_pc_addr == NULL) {
+    instrument_previous_pc_addr = &instrument_previous_pc;
+    *instrument_previous_pc_addr = instrument_hash_zero;
+    FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
+  }
 }
 
 void instrument_flush(GumStalkerOutput *output) {
@@ -81,6 +221,7 @@ void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
 }
 
 void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
   int fd = (int)user_data;
   instrument_regs_format(fd,
                          "r0 : 0x%08x, r1 : 0x%08x, r2 : 0x%08x, r3 : 0x%08x\n",
@@ -97,6 +238,7 @@ void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
       fd, "r12: 0x%08x, sp : 0x%08x, lr : 0x%08x, pc : 0x%08x\n",
       cpu_context->r12, cpu_context->sp, cpu_context->lr, cpu_context->pc);
   instrument_regs_format(fd, "cpsr: 0x%08x\n\n", cpu_context->cpsr);
+
 }
 
 #endif

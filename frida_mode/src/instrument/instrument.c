@@ -33,7 +33,7 @@ gboolean instrument_use_fixed_seed = FALSE;
 guint64  instrument_fixed_seed = 0;
 char    *instrument_coverage_unstable_filename = NULL;
 gboolean instrument_coverage_insn = FALSE;
-char *   instrument_regs_filename = NULL;
+char    *instrument_regs_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
@@ -237,9 +237,12 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
         }
 
         if (unlikely(instrument_regs_filename != NULL)) {
+
           gum_stalker_iterator_put_callout(iterator, instrument_write_regs,
                                            (void *)(size_t)regs_fd, NULL);
+
         }
+
       }
 
     }
@@ -274,6 +277,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   instrument_flush(output);
   instrument_debug_end(output);
   instrument_coverage_end(instr->address + instr->size);
+
 }
 
 void instrument_config(void) {
@@ -404,6 +408,7 @@ void instrument_init(void) {
        instrument_regs_filename == NULL ? " " : instrument_regs_filename);
 
   if (instrument_regs_filename != NULL) {
+
     char *path =
         g_canonicalize_filename(instrument_regs_filename, g_get_current_dir());
 
@@ -415,6 +420,7 @@ void instrument_init(void) {
     if (regs_fd < 0) { FFATAL("Failed to open regs file '%s'", path); }
 
     g_free(path);
+
   }
 
   asan_init();
@@ -444,6 +450,7 @@ void instrument_on_fork() {
 }
 
 void instrument_regs_format(int fd, char *format, ...) {
+
   va_list ap;
   char    buffer[4096] = {0};
   int     ret;
@@ -458,4 +465,6 @@ void instrument_regs_format(int fd, char *format, ...) {
   len = strnlen(buffer, sizeof(buffer));
 
   IGNORED_RETURN(write(fd, buffer, len));
+
 }
+

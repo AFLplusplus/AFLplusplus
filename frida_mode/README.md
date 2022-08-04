@@ -146,6 +146,8 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
   QEMU driver to provide a `main` loop for a user provided
   `LLVMFuzzerTestOneInput`, this option configures the driver to read input from
   `stdin` rather than using in-memory test cases.
+* `AFL_FRIDA_INST_COVERAGE_ABSOLUTE` - Generate coverage files using absolute
+  virtual addresses rather than relative virtual addresses.
 * `AFL_FRIDA_INST_COVERAGE_FILE` - File to write DynamoRIO format coverage
   information (e.g., to be loaded within IDA lighthouse).
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
