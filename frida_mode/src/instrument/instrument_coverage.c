@@ -242,7 +242,7 @@ static void instrument_coverage_mark_first(void *key, void *value,
                                            void *user_data) {
 
   UNUSED_PARAMETER(key);
-  coverage_range_t *      module = (coverage_range_t *)user_data;
+  coverage_range_t       *module = (coverage_range_t *)user_data;
   normal_coverage_data_t *val = (normal_coverage_data_t *)value;
 
   val->module = module;
