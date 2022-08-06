@@ -19,6 +19,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Adacore submitted CMPLOG support to the gcc_plugin! :-)
   - llvm_mode:
     - laf cmp splitting fixed for more comparison types
+  - frida_mode:
+    - now works on Android!
 
 
 ### Version ++4.01c (release)
