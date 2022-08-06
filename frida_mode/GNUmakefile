@@ -13,6 +13,16 @@ JS_SRC:=$(BUILD_DIR)api.c
 JS_OBJ:=$(BUILD_DIR)api.o
 SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
 OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
+
+TARGET_CC?=$(CC)
+TARGET_CXX?=$(CXX)
+HOST_CC?=$(CC)
+HOST_CXX?=$(CXX)
+IS_ANDROID:=$(findstring android, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_x86:=$(findstring i686, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_x86_64:=$(findstring x86_64, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_ARM:=$(findstring arm, $(shell $(TARGET_CC) --version 2>/dev/null))
+IS_ARM64:=$(findstring aarch64, $(shell $(TARGET_CC) --version 2>/dev/null))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
 		-D_FORTIFY_SOURCE=2 \
@@ -21,6 +31,10 @@ CFLAGS+=-fPIC \
 		-funroll-loops \
 		-ffunction-sections \
 
+ifdef IS_ANDROID
+CFLAGS+=-DANDROID 
+endif
+
 AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-sign-compare \
 		   -Wno-unused-function \
@@ -28,9 +42,16 @@ AFL_CFLAGS:=-Wno-unused-parameter \
 		   -Wno-int-to-pointer-cast \
 		   -Wno-pointer-sign
 
+ifdef IS_ANDROID
+LDFLAGS+= -static-libstdc++ \
+		  -DANDROID \
+		  -llog \
+		  -shared
+else 		 
 LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv
+endif
 
 ifdef DEBUG
 CFLAGS+=-Werror \
@@ -78,11 +99,11 @@ else
 ifdef DEBUG
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-prio-ctor-dtor
 endif
+
 LDFLAGS+=	-z noexecstack \
 			-Wl,--gc-sections \
 			-Wl,--exclude-libs,ALL \
-		    -ldl \
-		    -lrt
+		    -ldl 
 LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
@@ -93,21 +114,23 @@ ifeq "$(shell uname)" "Linux"
  endif
 endif
 
-ifneq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
+
+ifdef IS_ANDROID
  OS:=android
- ifneq "$(findstring aarch64, $(shell $(CC) --version 2>/dev/null))" ""
-   ARCH:=arm64
+ ifdef IS_x86
+  ARCH:=x86	
  endif
- ifneq "$(findstring arm, $(shell $(CC) --version 2>/dev/null))" ""
+ ifdef IS_x86
+  ARCH:=x86_64
+ endif
+ ifdef IS_ARM
    ARCH:=arm
  endif
- ifneq "$(findstring x86_64, $(shell $(CC) --version 2>/dev/null))" ""
-   ARCH:=x86_64
- endif
- ifneq "$(findstring i686, $(shell $(CC) --version 2>/dev/null))" ""
-   ARCH:=x86
+ ifdef IS_ARM64
+   ARCH:=arm64
  endif
 endif
+
 
 ifeq "$(ARCH)" "armhf"
  TARGET_CC:=arm-linux-gnueabihf-gcc
@@ -224,9 +247,21 @@ else ifeq "$(ARCH)" "arm64"
 
 CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
+		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \	
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
+
+ifeq "$(OS)" "android"
+ CFLAGS += -static-libstdc++
+endif
+else
+CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
+	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
+		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \	
+		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
+		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
+
+endif
 
 TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
@@ -245,13 +280,15 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/liblzma.a \
 			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libz.a \
 
-else
-
 CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
 		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
 		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ 
+
+ifeq "$(OS)" "android"
+ CFLAGS += -static-libstdc++
+endif
 
 TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
@@ -269,11 +306,6 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/liblzma.a \
 			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libz.a \
-
-endif
-
-
-
 
 
 else
@@ -376,6 +408,7 @@ $(AFLPP_QEMU_DRIVER_HOOK_OBJ): $(AFLPP_QEMU_DRIVER_HOOK_SRC) | $(BUILD_DIR)
 hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
 ############################# ADDR #############################################
+ifneq "$(OS)" "android"
 $(ADDR_BIN): $(ADDR_SRC) | $(BUILD_DIR)
 	-$(TARGET_CC) \
 		$(CFLAGS) \
@@ -389,7 +422,20 @@ $(ADDR_BIN): $(ADDR_SRC) | $(BUILD_DIR)
 		-ldl \
 		-lrt \
 		$< -o $@
-
+else
+$(ADDR_BIN): $(ADDR_SRC) | $(BUILD_DIR)
+	-$(TARGET_CC) \
+		$(CFLAGS) \
+		-Werror \
+		-Wall \
+		-Wextra \
+		-Wpointer-arith \
+		-z noexecstack \
+		-Wl,--gc-sections \
+		-Wl,--exclude-libs,ALL \
+		-ldl \
+		$< -o $@
+endif
 addr: $(ADDR_BIN)
 
 ############################# CLEAN ############################################
