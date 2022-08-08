@@ -271,6 +271,7 @@ void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
 }
 
 void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
   int fd = (int)(size_t)user_data;
   instrument_regs_format(
       fd, "eax: 0x%08x, ebx: 0x%08x, ecx: 0x%08x, edx: 0x%08x\n",
@@ -279,6 +280,7 @@ void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
       fd, "esi: 0x%08x, edi: 0x%08x, ebp: 0x%08x, esp: 0x%08x\n",
       cpu_context->esi, cpu_context->edi, cpu_context->ebp, cpu_context->esp);
   instrument_regs_format(fd, "eip: 0x%08x\n\n", cpu_context->eip);
+
 }
 
 #endif

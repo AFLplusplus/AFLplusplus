@@ -105,6 +105,12 @@ class Afl {
         Afl.jsApiSetInstrumentCacheSize(size);
     }
     /**
+     * See `AFL_FRIDA_INST_COVERAGE_ABSOLUTE`.
+     */
+    static setInstrumentCoverageAbsolute() {
+        Afl.jsApiSetInstrumentCoverageAbsolute();
+    }
+    /**
      * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
      * as an argument.
      */
@@ -324,6 +330,7 @@ Afl.jsApiSetCacheDisable = Afl.jsApiGetFunction("js_api_set_cache_disable", "voi
 Afl.jsApiSetDebugMaps = Afl.jsApiGetFunction("js_api_set_debug_maps", "void", []);
 Afl.jsApiSetEntryPoint = Afl.jsApiGetFunction("js_api_set_entrypoint", "void", ["pointer"]);
 Afl.jsApiSetInstrumentCacheSize = Afl.jsApiGetFunction("js_api_set_instrument_cache_size", "void", ["size_t"]);
+Afl.jsApiSetInstrumentCoverageAbsolute = Afl.jsApiGetFunction("js_api_set_instrument_coverage_absolute", "void", []);
 Afl.jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_coverage_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_debug_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentInstructions = Afl.jsApiGetFunction("js_api_set_instrument_instructions", "void", []);
