@@ -1,7 +1,5 @@
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/shm.h>
-#include <sys/mman.h>
 #include <sys/syscall.h>
 
 #include "frida-gumjs.h"
@@ -17,6 +15,7 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "shm.h"
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
@@ -33,7 +32,7 @@ gboolean instrument_use_fixed_seed = FALSE;
 guint64  instrument_fixed_seed = 0;
 char    *instrument_coverage_unstable_filename = NULL;
 gboolean instrument_coverage_insn = FALSE;
-char *   instrument_regs_filename = NULL;
+char    *instrument_regs_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
@@ -237,9 +236,12 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
         }
 
         if (unlikely(instrument_regs_filename != NULL)) {
+
           gum_stalker_iterator_put_callout(iterator, instrument_write_regs,
                                            (void *)(size_t)regs_fd, NULL);
+
         }
+
       }
 
     }
@@ -274,6 +276,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   instrument_flush(output);
   instrument_debug_end(output);
   instrument_coverage_end(instr->address + instr->size);
+
 }
 
 void instrument_config(void) {
@@ -344,29 +347,7 @@ void instrument_init(void) {
   transformer = gum_stalker_transformer_make_from_callback(
       instrument_basic_block, NULL, NULL);
 
-  if (instrument_unique) {
-
-    int shm_id =
-        shmget(IPC_PRIVATE, __afl_map_size, IPC_CREAT | IPC_EXCL | 0600);
-    if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
-
-    edges_notified = shmat(shm_id, NULL, 0);
-    g_assert(edges_notified != MAP_FAILED);
-
-    /*
-     * Configure the shared memory region to be removed once the process
-     * dies.
-     */
-    if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
-
-      FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-    }
-
-    /* Clear it, not sure it's necessary, just seems like good practice */
-    memset(edges_notified, '\0', __afl_map_size);
-
-  }
+  if (instrument_unique) { edges_notified = shm_create(__afl_map_size); }
 
   if (instrument_use_fixed_seed) {
 
@@ -404,6 +385,7 @@ void instrument_init(void) {
        instrument_regs_filename == NULL ? " " : instrument_regs_filename);
 
   if (instrument_regs_filename != NULL) {
+
     char *path =
         g_canonicalize_filename(instrument_regs_filename, g_get_current_dir());
 
@@ -415,6 +397,7 @@ void instrument_init(void) {
     if (regs_fd < 0) { FFATAL("Failed to open regs file '%s'", path); }
 
     g_free(path);
+
   }
 
   asan_init();
@@ -444,6 +427,7 @@ void instrument_on_fork() {
 }
 
 void instrument_regs_format(int fd, char *format, ...) {
+
   va_list ap;
   char    buffer[4096] = {0};
   int     ret;
@@ -458,4 +442,6 @@ void instrument_regs_format(int fd, char *format, ...) {
   len = strnlen(buffer, sizeof(buffer));
 
   IGNORED_RETURN(write(fd, buffer, len));
+
 }
+

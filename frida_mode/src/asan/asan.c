@@ -36,6 +36,15 @@ static gboolean asan_exclude_module(const GumModuleDetails *details,
   address = gum_module_find_export_by_name(details->name, symbol_name);
   if (address == 0) { return TRUE; }
 
+  /* If the reported address of the symbol is outside of the range of the module
+   * then ignore it */
+  if (address < details->range->base_address) { return TRUE; }
+  if (address > (details->range->base_address + details->range->size)) {
+
+    return TRUE;
+
+  }
+
   ranges_add_exclude((GumMemoryRange *)details->range);
   return FALSE;
 
