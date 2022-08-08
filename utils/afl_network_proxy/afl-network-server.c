@@ -60,7 +60,7 @@
 
 #ifdef USE_DEFLATE
   #include <libdeflate.h>
-struct libdeflate_compressor *  compressor;
+struct libdeflate_compressor   *compressor;
 struct libdeflate_decompressor *decompressor;
 #endif
 
@@ -387,8 +387,8 @@ int main(int argc, char **argv_orig, char **envp) {
   struct sockaddr_in6 serveraddr, clientaddr;
   int                 addrlen = sizeof(clientaddr);
   char                str[INET6_ADDRSTRLEN];
-  char **             argv = argv_cpy_dup(argc, argv_orig);
-  u8 *                send_buf;
+  char              **argv = argv_cpy_dup(argc, argv_orig);
+  u8                 *send_buf;
 #ifdef USE_DEFLATE
   u32 *lenptr;
 #endif

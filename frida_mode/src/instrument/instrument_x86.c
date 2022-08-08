@@ -86,14 +86,14 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
                                        gpointer            start_address,
-                                       const cs_insn *     from_insn,
-                                       gpointer *          target) {
+                                       const cs_insn      *from_insn,
+                                       gpointer           *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
-  cs_x86 *   x86;
+  cs_x86    *x86;
   cs_x86_op *op;
   if (from_insn == NULL) { return; }
 
@@ -136,7 +136,7 @@ static void instrument_coverage_suppress_init(void) {
   if (initialized) { return; }
   initialized = true;
 
-  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserver          *observer = stalker_get_observer();
   GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
   iface->switch_callback = instrument_coverage_switch;
 
@@ -149,7 +149,7 @@ static void instrument_coverage_suppress_init(void) {
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
 
   afl_log_code  code = {0};
@@ -162,9 +162,10 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
     GumAddressSpec spec = {.near_address = cw->code,
                            .max_distance = 1ULL << 30};
+    guint          page_size = gum_query_page_size();
 
     instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+        &spec, sizeof(guint64), page_size, GUM_PAGE_READ | GUM_PAGE_WRITE);
     *instrument_previous_pc_addr = instrument_hash_zero;
     FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
     FVERBOSE("code_addr: %p", cw->code);
@@ -223,7 +224,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
-void instrument_coverage_optimize_insn(const cs_insn *   instr,
+void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);
@@ -266,6 +267,19 @@ void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);
   UNUSED_PARAMETER(output);
+
+}
+
+void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
+  int fd = (int)(size_t)user_data;
+  instrument_regs_format(
+      fd, "eax: 0x%08x, ebx: 0x%08x, ecx: 0x%08x, edx: 0x%08x\n",
+      cpu_context->eax, cpu_context->ebx, cpu_context->ecx, cpu_context->edx);
+  instrument_regs_format(
+      fd, "esi: 0x%08x, edi: 0x%08x, ebp: 0x%08x, esp: 0x%08x\n",
+      cpu_context->esi, cpu_context->edi, cpu_context->ebp, cpu_context->esp);
+  instrument_regs_format(fd, "eip: 0x%08x\n\n", cpu_context->eip);
 
 }
 

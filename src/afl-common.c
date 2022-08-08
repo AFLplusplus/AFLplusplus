@@ -558,9 +558,9 @@ void print_suggested_envs(char *mispelled_env) {
 
   for (j = 0; afl_environment_variables[j] != NULL; ++j) {
 
-    char * afl_env = afl_environment_variables[j] + 4;
+    char  *afl_env = afl_environment_variables[j] + 4;
     size_t afl_env_len = strlen(afl_env);
-    char * reduced = ck_alloc(afl_env_len + 1);
+    char  *reduced = ck_alloc(afl_env_len + 1);
 
     size_t start = 0;
     while (start < afl_env_len) {
@@ -598,7 +598,7 @@ void print_suggested_envs(char *mispelled_env) {
 
   if (found) goto cleanup;
 
-  char * reduced = ck_alloc(env_name_len + 1);
+  char  *reduced = ck_alloc(env_name_len + 1);
   size_t start = 0;
   while (start < env_name_len) {
 
@@ -1197,7 +1197,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 u32 get_map_size(void) {
 
   uint32_t map_size = DEFAULT_SHMEM_SIZE;
-  char *   ptr;
+  char    *ptr;
 
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
 

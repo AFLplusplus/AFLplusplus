@@ -1,6 +1,5 @@
+#include <fcntl.h>
 #include <unistd.h>
-#include <sys/shm.h>
-#include <sys/mman.h>
 #include <sys/syscall.h>
 
 #include "frida-gumjs.h"
@@ -16,9 +15,12 @@
 #include "persistent.h"
 #include "prefetch.h"
 #include "ranges.h"
+#include "shm.h"
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
+
+#define FRIDA_DEFAULT_MAP_SIZE (64UL << 10)
 
 gboolean instrument_tracing = false;
 gboolean instrument_optimize = false;
@@ -28,14 +30,17 @@ guint64  instrument_hash_seed = 0;
 
 gboolean instrument_use_fixed_seed = FALSE;
 guint64  instrument_fixed_seed = 0;
-char *   instrument_coverage_unstable_filename = NULL;
+char    *instrument_coverage_unstable_filename = NULL;
 gboolean instrument_coverage_insn = FALSE;
+char    *instrument_regs_filename = NULL;
 
 static GumStalkerTransformer *transformer = NULL;
 
 static GumAddress previous_rip = 0;
 static GumAddress previous_end = 0;
-static u8 *       edges_notified = NULL;
+static u8        *edges_notified = NULL;
+
+static int regs_fd = -1;
 
 __thread guint64  instrument_previous_pc;
 __thread guint64 *instrument_previous_pc_addr = NULL;
@@ -149,7 +154,7 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 }
 
 static void instrument_basic_block(GumStalkerIterator *iterator,
-                                   GumStalkerOutput *  output,
+                                   GumStalkerOutput   *output,
                                    gpointer            user_data) {
 
   UNUSED_PARAMETER(user_data);
@@ -157,7 +162,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   const cs_insn *instr;
   gboolean       begin = TRUE;
   gboolean       excluded;
-  block_ctx_t *  ctx = NULL;
+  block_ctx_t   *ctx = NULL;
 
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
@@ -230,6 +235,13 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
         }
 
+        if (unlikely(instrument_regs_filename != NULL)) {
+
+          gum_stalker_iterator_put_callout(iterator, instrument_write_regs,
+                                           (void *)(size_t)regs_fd, NULL);
+
+        }
+
       }
 
     }
@@ -239,8 +251,6 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       instrument_coverage_optimize_insn(instr, output);
 
     }
-
-    instrument_debug_instruction(instr->address, instr->size, output);
 
     if (likely(!excluded)) {
 
@@ -279,6 +289,7 @@ void instrument_config(void) {
   instrument_coverage_unstable_filename =
       (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
   instrument_coverage_insn = (getenv("AFL_FRIDA_INST_INSN") != NULL);
+  instrument_regs_filename = getenv("AFL_FRIDA_INST_REGS_FILE");
 
   instrument_debug_config();
   instrument_coverage_config();
@@ -289,6 +300,8 @@ void instrument_config(void) {
 }
 
 void instrument_init(void) {
+
+  if (__afl_map_size == MAP_SIZE) __afl_map_size = FRIDA_DEFAULT_MAP_SIZE;
 
   if (!instrument_is_coverage_optimize_supported()) instrument_optimize = false;
 
@@ -334,29 +347,7 @@ void instrument_init(void) {
   transformer = gum_stalker_transformer_make_from_callback(
       instrument_basic_block, NULL, NULL);
 
-  if (instrument_unique) {
-
-    int shm_id =
-        shmget(IPC_PRIVATE, __afl_map_size, IPC_CREAT | IPC_EXCL | 0600);
-    if (shm_id < 0) { FATAL("shm_id < 0 - errno: %d\n", errno); }
-
-    edges_notified = shmat(shm_id, NULL, 0);
-    g_assert(edges_notified != MAP_FAILED);
-
-    /*
-     * Configure the shared memory region to be removed once the process
-     * dies.
-     */
-    if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
-
-      FATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-    }
-
-    /* Clear it, not sure it's necessary, just seems like good practice */
-    memset(edges_notified, '\0', __afl_map_size);
-
-  }
+  if (instrument_unique) { edges_notified = shm_create(__afl_map_size); }
 
   if (instrument_use_fixed_seed) {
 
@@ -390,6 +381,25 @@ void instrument_init(void) {
        instrument_hash_seed);
   instrument_hash_zero = instrument_get_offset_hash(0);
 
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "regs:" cYEL " [%s]",
+       instrument_regs_filename == NULL ? " " : instrument_regs_filename);
+
+  if (instrument_regs_filename != NULL) {
+
+    char *path =
+        g_canonicalize_filename(instrument_regs_filename, g_get_current_dir());
+
+    FOKF(cBLU "Instrumentation" cRST " - " cGRN "path:" cYEL " [%s]", path);
+
+    regs_fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
+                   S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+
+    if (regs_fd < 0) { FFATAL("Failed to open regs file '%s'", path); }
+
+    g_free(path);
+
+  }
+
   asan_init();
   cmplog_init();
   instrument_coverage_init();
@@ -413,6 +423,25 @@ void instrument_on_fork() {
     *instrument_previous_pc_addr = instrument_hash_zero;
 
   }
+
+}
+
+void instrument_regs_format(int fd, char *format, ...) {
+
+  va_list ap;
+  char    buffer[4096] = {0};
+  int     ret;
+  int     len;
+
+  va_start(ap, format);
+  ret = vsnprintf(buffer, sizeof(buffer) - 1, format, ap);
+  va_end(ap);
+
+  if (ret < 0) { return; }
+
+  len = strnlen(buffer, sizeof(buffer));
+
+  IGNORED_RETURN(write(fd, buffer, len));
 
 }
 

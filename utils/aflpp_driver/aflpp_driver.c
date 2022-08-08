@@ -58,7 +58,7 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 #endif
 
 int                   __afl_sharedmem_fuzzing = 1;
-extern unsigned int * __afl_fuzz_len;
+extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.

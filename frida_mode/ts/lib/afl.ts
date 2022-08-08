@@ -126,6 +126,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_COVERAGE_ABSOLUTE`.
+   */
+  public static setInstrumentCoverageAbsolute(): void {
+    Afl.jsApiSetInstrumentCoverageAbsolute();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
    * as an argument.
    */
@@ -176,6 +183,15 @@ class Afl {
    */
   public static setInstrumentNoOptimize(): void {
     Afl.jsApiSetInstrumentNoOptimize();
+  }
+
+  /**
+   * See `AFL_FRIDA_INST_REGS_FILE`. This function takes a single `string` as
+   * an argument.
+   */
+  public static setInstrumentRegsFile(file: string): void {
+    const buf = Memory.allocUtf8String(file);
+    Afl.jsApiSetInstrumentRegsFile(buf);
   }
 
   /*
@@ -389,6 +405,12 @@ class Afl {
     "void",
     ["size_t"]);
 
+  private static readonly jsApiSetInstrumentCoverageAbsolute = Afl.jsApiGetFunction(
+    "js_api_set_instrument_coverage_absolute",
+    "void",
+    []
+  );
+
   private static readonly jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction(
     "js_api_set_instrument_coverage_file",
     "void",
@@ -418,6 +440,11 @@ class Afl {
     "js_api_set_instrument_no_optimize",
     "void",
     []);
+
+  private static readonly jsApiSetInstrumentRegsFile = Afl.jsApiGetFunction(
+    "js_api_set_instrument_regs_file",
+    "void",
+    ["pointer"]);
 
   private static readonly jsApiSetInstrumentSeed = Afl.jsApiGetFunction(
     "js_api_set_instrument_seed",

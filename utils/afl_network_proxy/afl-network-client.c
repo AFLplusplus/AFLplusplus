@@ -109,7 +109,7 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
+    const char    *shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 
@@ -209,13 +209,13 @@ static void __afl_end_testcase(int status) {
 
 int main(int argc, char *argv[]) {
 
-  u8 *            interface, *buf, *ptr;
+  u8             *interface, *buf, *ptr;
   s32             s = -1;
   struct addrinfo hints, *hres, *aip;
-  u32 *           lenptr, max_len = 65536;
+  u32            *lenptr, max_len = 65536;
 #ifdef USE_DEFLATE
-  u8 *   buf2;
-  u32 *  lenptr1, *lenptr2, buf2_len, compress_len;
+  u8    *buf2;
+  u32   *lenptr1, *lenptr2, buf2_len, compress_len;
   size_t decompress_len;
 #endif
 

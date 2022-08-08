@@ -148,7 +148,7 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 }
 
 static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
-                                          cs_arm64_op * operand) {
+                                          cs_arm64_op  *operand) {
 
   ctx->type = operand->type;
   switch (operand->type) {
@@ -169,7 +169,7 @@ static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
 
 }
 
-static void cmplog_instrument_call(const cs_insn *     instr,
+static void cmplog_instrument_call(const cs_insn      *instr,
                                    GumStalkerIterator *iterator) {
 
   cs_arm64     arm64 = instr->detail->arm64;
@@ -247,8 +247,8 @@ static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 }
 
 static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
-                                                  cs_arm64_op *       operand1,
-                                                  cs_arm64_op *       operand2,
+                                                  cs_arm64_op        *operand1,
+                                                  cs_arm64_op        *operand2,
                                                   size_t              size) {
 
   cmplog_pair_ctx_t *ctx = g_malloc(sizeof(cmplog_pair_ctx_t));
@@ -263,7 +263,7 @@ static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
 
 }
 
-static void cmplog_instrument_cmp_sub(const cs_insn *     instr,
+static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
                                       GumStalkerIterator *iterator) {
 
   cs_arm64     arm64 = instr->detail->arm64;
