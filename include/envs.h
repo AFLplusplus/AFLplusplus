@@ -197,6 +197,7 @@ static char *afl_environment_variables[] = {
     "AFL_QEMU_INST_RANGES",
     "AFL_QEMU_EXCLUDE_RANGES",
     "AFL_QEMU_SNAPSHOT",
+    "AFL_QEMU_TRACK_UNSTABLE",
     "AFL_QUIET",
     "AFL_RANDOM_ALLOC_CANARY",
     "AFL_REAL_PATH",
