@@ -4,7 +4,7 @@ BUILD_DIR:=$(PWD)build/
 UNSTABLE_DATA_DIR:=$(BUILD_DIR)in/
 UNSTABLE_DATA_FILE:=$(UNSTABLE_DATA_DIR)in
 
-UNSTABLE_BIN:=$(BUILD_DIR)unstable
+TEST_BIN:=$(BUILD_DIR)unstable
 UNSTABLE_SRC:=$(PWD)unstable.c
 
 QEMU_OUT:=$(BUILD_DIR)qemu-out
@@ -42,7 +42,7 @@ endif
 
 .PHONY: all 32 clean qemu frida
 
-all: $(UNSTABLE_BIN)
+all: $(TEST_BIN)
 	make -C $(ROOT)frida_mode/
 
 32:
@@ -57,14 +57,14 @@ $(UNSTABLE_DATA_DIR): | $(BUILD_DIR)
 $(UNSTABLE_DATA_FILE): | $(UNSTABLE_DATA_DIR)
 	echo -n "000" > $@
 
-$(UNSTABLE_BIN): $(UNSTABLE_SRC) | $(BUILD_DIR)
+$(TEST_BIN): $(UNSTABLE_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
 clean:
 	rm -rf $(BUILD_DIR)
 
 
-qemu: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
+qemu: $(TEST_BIN) $(UNSTABLE_DATA_FILE)
 	AFL_QEMU_PERSISTENT_ADDR=$(AFL_QEMU_PERSISTENT_ADDR) \
 	$(ROOT)afl-fuzz \
 		-D \
@@ -72,9 +72,9 @@ qemu: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
 		-i $(UNSTABLE_DATA_DIR) \
 		-o $(QEMU_OUT) \
 		-- \
-			$(UNSTABLE_BIN) @@
+			$(TEST_BIN) @@
 
-frida: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
+frida: $(TEST_BIN) $(UNSTABLE_DATA_FILE)
 	AFL_DEBUG=1 \
 	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	AFL_FRIDA_INST_TRACE_UNIQUE=1 \
@@ -85,9 +85,9 @@ frida: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
 		-i $(UNSTABLE_DATA_DIR) \
 		-o $(FRIDA_OUT) \
 		-- \
-			$(UNSTABLE_BIN) @@
+			$(TEST_BIN) @@
 
-frida_coverage: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
+frida_coverage: $(TEST_BIN) $(UNSTABLE_DATA_FILE)
 	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	AFL_FRIDA_OUTPUT_STDOUT=/tmp/stdout.txt \
     AFL_FRIDA_OUTPUT_STDERR=/tmp/stderr.txt \
@@ -98,9 +98,9 @@ frida_coverage: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
 		-i $(UNSTABLE_DATA_DIR) \
 		-o $(FRIDA_OUT) \
 		-- \
-			$(UNSTABLE_BIN) @@
+			$(TEST_BIN) @@
 
-frida_unstable: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
+frida_unstable: $(TEST_BIN) $(UNSTABLE_DATA_FILE)
 	AFL_DEBUG=1 \
 	AFL_FRIDA_PERSISTENT_ADDR=$(AFL_FRIDA_PERSISTENT_ADDR) \
 	AFL_FRIDA_OUTPUT_STDOUT=/tmp/stdout.txt \
@@ -112,10 +112,10 @@ frida_unstable: $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
 		-i $(UNSTABLE_DATA_DIR) \
 		-o $(FRIDA_OUT) \
 		-- \
-			$(UNSTABLE_BIN) @@
+			$(TEST_BIN) @@
 
 debug:
 	gdb \
 		--ex 'set environment LD_PRELOAD=$(ROOT)afl-frida-trace.so' \
 		--ex 'set disassembly-flavor intel' \
-		--args $(UNSTABLE_BIN) $(UNSTABLE_DATA_FILE)
+		--args $(TEST_BIN) $(UNSTABLE_DATA_FILE)
