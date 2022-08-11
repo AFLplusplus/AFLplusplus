@@ -77,7 +77,9 @@ static int on_dlclose(void *handle) {
     range = &g_array_index(ranges, gum_range_t, i);
     base = range->range.base_address;
     limit = base + range->range.size;
-    FVERBOSE("Reserving range: 0x%016lx, 0x%016lX", base, limit);
+    FVERBOSE("Reserving range: 0x%016" G_GINT64_MODIFIER
+             "x, 0x%016" G_GINT64_MODIFIER "X",
+             base, limit);
     mem = gum_memory_allocate(GSIZE_TO_POINTER(base), range->range.size,
                               page_size, GUM_PAGE_NO_ACCESS);
     if (mem == NULL) { FATAL("Failed to allocate %p (%d)", mem, errno); }
