@@ -32,7 +32,7 @@ CFLAGS+=-fPIC \
 		-ffunction-sections \
 
 ifdef IS_ANDROID
-CFLAGS+=-DANDROID 
+CFLAGS+=-DANDROID
 endif
 
 AFL_CFLAGS:=-Wno-unused-parameter \
@@ -47,7 +47,7 @@ LDFLAGS+= -static-libstdc++ \
 		  -DANDROID \
 		  -llog \
 		  -shared
-else 		 
+else
 LDFLAGS+=-shared \
 		 -lpthread \
 		 -lresolv
@@ -103,7 +103,7 @@ endif
 LDFLAGS+=	-z noexecstack \
 			-Wl,--gc-sections \
 			-Wl,--exclude-libs,ALL \
-		    -ldl 
+		    -ldl
 LDSCRIPT:=-Wl,--version-script=$(PWD)frida.map
 endif
 
@@ -118,7 +118,7 @@ endif
 ifdef IS_ANDROID
  OS:=android
  ifdef IS_x86
-  ARCH:=x86	
+  ARCH:=x86
  endif
  ifdef IS_x86
   ARCH:=x86_64
@@ -247,17 +247,17 @@ else ifeq "$(ARCH)" "arm64"
 
 CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \	
+		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
 
 ifeq "$(OS)" "android"
- CFLAGS += -static-libstdc++
+CFLAGS += -static-libstdc++
 endif
 else
 CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \	
+		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
 		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
 
@@ -284,7 +284,7 @@ CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
 		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
 		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ 
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/
 
 ifeq "$(OS)" "android"
  CFLAGS += -static-libstdc++
