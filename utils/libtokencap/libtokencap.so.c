@@ -354,7 +354,7 @@ static void __tokencap_dump(const u8 *ptr, size_t len, u8 is_text) {
 
 #undef strcmp
 
-int strcmp(const char *str1, const char *str2) {
+__attribute__((hot)) int strcmp(const char *str1, const char *str2) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, strlen(str1), 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, strlen(str2), 1);
@@ -378,7 +378,7 @@ int strcmp(const char *str1, const char *str2) {
 
 #undef strncmp
 
-int strncmp(const char *str1, const char *str2, size_t len) {
+__attribute__((hot)) int strncmp(const char *str1, const char *str2, size_t len) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, len, 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, len, 1);
@@ -404,7 +404,7 @@ int strncmp(const char *str1, const char *str2, size_t len) {
 
 #undef strcasecmp
 
-int strcasecmp(const char *str1, const char *str2) {
+__attribute__((hot)) int strcasecmp(const char *str1, const char *str2) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, strlen(str1), 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, strlen(str2), 1);
@@ -428,7 +428,7 @@ int strcasecmp(const char *str1, const char *str2) {
 
 #undef strncasecmp
 
-int strncasecmp(const char *str1, const char *str2, size_t len) {
+__attribute__((hot)) int strncasecmp(const char *str1, const char *str2, size_t len) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, len, 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, len, 1);
@@ -454,7 +454,7 @@ int strncasecmp(const char *str1, const char *str2, size_t len) {
 
 #undef memcmp
 
-int memcmp(const void *mem1, const void *mem2, size_t len) {
+__attribute__((hot)) int memcmp(const void *mem1, const void *mem2, size_t len) {
 
   if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
   if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
@@ -481,7 +481,7 @@ int memcmp(const void *mem1, const void *mem2, size_t len) {
 
 #undef bcmp
 
-int bcmp(const void *mem1, const void *mem2, size_t len) {
+__attribute__((hot)) int bcmp(const void *mem1, const void *mem2, size_t len) {
 
   if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
   if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
@@ -508,7 +508,7 @@ int bcmp(const void *mem1, const void *mem2, size_t len) {
 
 #undef strstr
 
-char *strstr(const char *haystack, const char *needle) {
+__attribute__((hot)) char *strstr(const char *haystack, const char *needle) {
 
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
@@ -537,7 +537,7 @@ char *strstr(const char *haystack, const char *needle) {
 
 #undef strcasestr
 
-char *strcasestr(const char *haystack, const char *needle) {
+__attribute__((hot)) char *strcasestr(const char *haystack, const char *needle) {
 
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
@@ -566,7 +566,7 @@ char *strcasestr(const char *haystack, const char *needle) {
 
 #undef memmem
 
-void *memmem(const void *haystack, size_t haystack_len, const void *needle,
+__attribute__((hot)) void *memmem(const void *haystack, size_t haystack_len, const void *needle,
              size_t needle_len) {
 
   if (__tokencap_is_ro(haystack)) __tokencap_dump(haystack, haystack_len, 1);
