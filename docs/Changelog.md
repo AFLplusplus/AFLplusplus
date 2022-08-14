@@ -9,6 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++4.03a (dev)
+  - Building now gives a build summary what succeeded and what not
   - afl-fuzz:
     - added AFL_NO_STARTUP_CALIBRATION to start fuzzing at once instead
       of calibrating all initial seeds first. Good for large queues
