@@ -14,6 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_NO_STARTUP_CALIBRATION to start fuzzing at once instead
       of calibrating all initial seeds first. Good for large queues
       and long execution times, especially in CIs.
+  - afl-cc:
+    - better handling of -fsanitize=..,...,.. lists
   - qemu_mode:
     - added AFL_QEMU_TRACK_UNSTABLE to log the addresses of unstable
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
