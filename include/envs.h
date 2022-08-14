@@ -165,6 +165,7 @@ static char *afl_environment_variables[] = {
     "AFL_NO_FORKSRV",
     "AFL_NO_UI",
     "AFL_NO_PYTHON",
+    "AFL_NO_STARTUP_CALIBRATION",
     "AFL_UNTRACER_FILE",
     "AFL_LLVM_USE_TRACE_PC",
     "AFL_MAP_SIZE",

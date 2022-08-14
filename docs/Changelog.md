@@ -9,7 +9,14 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++4.03a (dev)
-  - ... your PR? :)
+  - afl-fuzz:
+    - added AFL_NO_STARTUP_CALIBRATION to start fuzzing at once instead
+      of calibrating all initial seeds first. Good for large queues
+      and long execution times, especially in CIs.
+  - qemu_mode:
+    - added AFL_QEMU_TRACK_UNSTABLE to log the addresses of unstable
+      edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
+      worksbutnottested!
 
 
 ### Version ++4.02c (release)

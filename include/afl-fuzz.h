@@ -386,7 +386,8 @@ typedef struct afl_env_vars {
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
-      afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme;
+      afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme,
+      afl_no_startup_calibration;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -1122,6 +1123,7 @@ void bind_to_free_cpu(afl_state_t *);
 void   setup_post(afl_state_t *);
 void   read_testcases(afl_state_t *, u8 *);
 void   perform_dry_run(afl_state_t *);
+void   no_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t *);
 u32    find_start_position(afl_state_t *);
 void   find_timeout(afl_state_t *);

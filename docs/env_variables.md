@@ -462,6 +462,9 @@ checks or alter some of the more exotic semantics of the tool:
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
 
+  - Setting `AFL_NO_STARTUP_CALIBRATION` will skip the initial calibration
+    of all starting seeds, and start fuzzing at once.
+
   - In QEMU mode (-Q) and FRIDA mode (-O), `AFL_PATH` will be searched for
     afl-qemu-trace and afl-frida-trace.so.
 
