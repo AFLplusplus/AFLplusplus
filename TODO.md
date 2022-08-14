@@ -2,8 +2,6 @@
 
 ## Should
 
- - env var to start fuzzing at once instead of calibrating everything first
- - makefiles should show provide a build summary success/failure
  - better documentation for custom mutators
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt
