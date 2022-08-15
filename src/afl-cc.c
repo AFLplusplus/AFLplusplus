@@ -822,6 +822,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (compiler_mode == GCC_PLUGIN && !strcmp(cur, "-pipe")) { continue; }
+
     if (!strcmp(cur, "-z") || !strcmp(cur, "-Wl,-z")) {
 
       u8 *param = *(argv + 1);
