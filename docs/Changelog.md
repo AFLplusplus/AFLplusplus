@@ -16,6 +16,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       and long execution times, especially in CIs.
   - afl-cc:
     - better handling of -fsanitize=..,...,.. lists
+    - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
+      note that this will exit the target before main()
   - qemu_mode:
     - added AFL_QEMU_TRACK_UNSTABLE to log the addresses of unstable
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to

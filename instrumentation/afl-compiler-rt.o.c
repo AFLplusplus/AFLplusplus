@@ -288,11 +288,18 @@ static void __afl_map_shm(void) {
 
     __afl_map_size = ++__afl_final_loc;  // as we count starting 0
 
+    if (getenv("AFL_DUMP_MAP_SIZE")) {
+
+      printf("%u\n", __afl_map_size);
+      exit(-1);
+
+    }
+
     if (__afl_final_loc > MAP_SIZE) {
 
       char *ptr;
       u32   val = 0;
-      if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) val = atoi(ptr);
+      if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) { val = atoi(ptr); }
       if (val < __afl_final_loc) {
 
         if (__afl_final_loc > FS_OPT_MAX_MAPSIZE) {
@@ -322,6 +329,15 @@ static void __afl_map_shm(void) {
         }
 
       }
+
+    }
+
+  } else {
+
+    if (getenv("AFL_DUMP_MAP_SIZE")) {
+
+      printf("%u\n", MAP_SIZE);
+      exit(-1);
 
     }
 
