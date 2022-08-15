@@ -291,6 +291,15 @@ BEGIN {
     target_bin = tnew
   }
 
+  get_map_size = "AFL_DUMP_MAP_SIZE=1 " target_bin
+  get_map_size | getline mapsize
+  if (mapsize && mapsize > 65535) {
+
+    AFL_MAP_SIZE = "AFL_MAP_SIZE="mapsize" "
+    print "[+] Setting "AFL_MAP_SIZE
+
+  }
+
   if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !frida_mode && !unicorn_mode) {
     if (0 != system( "grep -q __AFL_SHM_ID "target_bin )) {
       print "[-] Error: binary '"target_bin"' doesn't appear to be instrumented." > "/dev/stderr"
@@ -399,10 +408,10 @@ BEGIN {
     print "[*] Testing the target binary..."
 
     if (!stdin_file) {
-      system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
+      system(AFL_MAP_SIZE "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
     } else {
       system("cp \""in_dir"/"first_file"\" "stdin_file)
-      system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+      system(AFL_MAP_SIZE "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
     }
 
     first_count = 0
@@ -435,11 +444,11 @@ BEGIN {
   if (!stdin_file) {
     print "    Processing "in_count" files (forkserver mode)..."
 #    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string
-    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
+    retval = system(AFL_MAP_SIZE AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
 #    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null"
-    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+    retval = system(AFL_MAP_SIZE AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   if (retval && !AFL_CMIN_CRASHES_ONLY) {
