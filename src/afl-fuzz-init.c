@@ -858,6 +858,7 @@ looking one. */
 
 void no_dry_run(afl_state_t *afl) {
 
+/*
   struct queue_entry *q;
   u32                 idx;
 
@@ -871,6 +872,7 @@ void no_dry_run(afl_state_t *afl) {
     q->tc_ref = MAP_SIZE;
 
   }
+*/
 
 }
 
