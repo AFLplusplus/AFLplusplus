@@ -850,32 +850,6 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
 }
 
-/* In case no initial calibration is to be performed (e.g. huge queue and slow
-execution time), then setting AFL_NO_STARTUP_CALIBRATION will help getting
-initial data. For this to succeed, non-calibrated corpus entries have to look
-especially juicy so they are more likely to be selected then a calibrated good
-looking one. */
-
-void no_dry_run(afl_state_t *afl) {
-
-/*
-  struct queue_entry *q;
-  u32                 idx;
-
-  for (idx = 0; idx < afl->queued_items; idx++) {
-
-    q = afl->queue_buf[idx];
-    if (unlikely(!q || q->disabled)) { continue; }
-
-    q->exec_us = 1;
-    q->bitmap_size = MAP_SIZE;
-    q->tc_ref = MAP_SIZE;
-
-  }
-*/
-
-}
-
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
