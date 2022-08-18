@@ -2159,7 +2159,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     ACTF("skipping initial seed calibration due option override");
     usleep(1000);
-    no_dry_run(afl);
 
   }
 
