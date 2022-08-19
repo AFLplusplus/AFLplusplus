@@ -14,6 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_NO_STARTUP_CALIBRATION to start fuzzing at once instead
       of calibrating all initial seeds first. Good for large queues
       and long execution times, especially in CIs.
+    - default calibration cycles set to 7 from 8, and only add 5 cycles
+      to variables queue items instead of 12.
   - afl-cc:
     - better handling of -fsanitize=..,...,.. lists
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
