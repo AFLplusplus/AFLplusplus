@@ -67,7 +67,7 @@ class RLFuzzing:
         elif self.correction_factor is CorrectionFactor.WITH_SQUARE_ROOT:
             rareness = ((pos_reward + neg_reward) / \
                         (pos_reward**2 + pos_reward + neg_reward))**0.5
-        elif self.correction_factor is CorrectioNFactor.SAMPLE:
+        elif self.correction_factor is CorrectionFactor.SAMPLE:
             rareness = np.random.beta(pos_reward + neg_reward, pos_reward**2)
 
         return random_beta * rareness
