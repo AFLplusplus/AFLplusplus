@@ -42,6 +42,10 @@ static std::vector<float> computeScores(const rl_params_t *RLParams) {
         return [&](float Pos, float Neg) -> float {
           return random::beta_distribution<>(Pos + Neg, std::pow(Pos, 2))(RNG);
         };
+      case rl_correction_factor_t::RARE_EDGE:
+        return [&](float Pos, float Neg) -> float {
+          return random::beta_distribution<>(Pos + Neg, std::pow(Pos, 2))(RNG);
+        };
       default:
         __builtin_unreachable();
     }
@@ -51,9 +55,13 @@ static std::vector<float> computeScores(const rl_params_t *RLParams) {
     const auto                  PosReward = static_cast<float>(PosRewards[I]);
     const auto                  NegReward = static_cast<float>(NegRewards[I]);
     const auto                  Rareness = CalcRareness(PosReward, NegReward);
-    random::beta_distribution<> Dist(PosReward, NegReward);
 
-    Scores[I] = Dist(RNG) * Rareness;
+    if (CorrectionFactor == rl_correction_factor_t::RARE_EDGE) {
+      Scores[I] = Rareness;
+    } else {
+      random::beta_distribution<> Dist(PosReward, NegReward);
+      Scores[I] = Dist(RNG) * Rareness;
+    }
   }
 #ifdef _DEBUG
   assert(Scores.size() == MapSize);

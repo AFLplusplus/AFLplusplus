@@ -13,6 +13,7 @@ enum rl_correction_factor_t {
   WITHOUT_SQUARE_ROOT,
   WITH_SQUARE_ROOT,
   SAMPLE,
+  RARE_EDGE,
 
   NUM_VALUES, // Don't place anything after this enum element!
 };

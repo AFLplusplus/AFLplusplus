@@ -21,7 +21,7 @@ class CorrectionFactor(Enum):
     WITHOUT_SQUARE_ROOT = 'without_square_root'
     WITH_SQUARE_ROOT = 'with_square_root'
     SAMPLE = 'sample'
-    RARE = 'rare'
+    RARE_EDGE = 'rare_edge'
 
     def __str__(self):
         return self.value
@@ -70,7 +70,7 @@ class RLFuzzing:
                         (pos_reward**2 + pos_reward + neg_reward))**0.5
         elif self.correction_factor is CorrectionFactor.SAMPLE:
             rareness = np.random.beta(pos_reward + neg_reward, pos_reward**2)
-        elif self.correction_factor is CorrectionFactor.RARE:
+        elif self.correction_factor is CorrectionFactor.RARE_EDGE:
             rareness = np.random.beta(pos_reward + neg_reward, pos_reward**2)
             return rareness
 
