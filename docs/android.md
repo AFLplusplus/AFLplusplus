@@ -1,6 +1,6 @@
 # Source code fuzzing on Android
 
-_note: Currently there are many features such a CMPLOG missing from Android souce code fuzzing._  
+_note: Currently there are many features such a CMPLOG missing from Android souce code fuzzing._  
 
 Follow these steps to build an AFL++ fuzzer for fuzzing Android source code. 
 Write you fuzzer using the LLVMFuzzerTestOneInput function as the entry point into your code.
@@ -40,18 +40,44 @@ cc_fuzz {
 
 Then build your fuzzer
 ```
-> source build/envsetup.sh
-> lunch aosp_redfin-userdebug
-> FUZZ_FRAMEWORK=AFL mma afl_fuzz_target -j8
-> FUZZ_FRAMEWORK=AFL mma afl-fuzz -j8
+$ product=PRODUCT (ex redfin, coral, flame etc.)
+$ source build/envsetup.sh
+$ lunch aosp_$product-userdebug
+$ FUZZ_FRAMEWORK=AFL mma afl_fuzz_target -j8
+$ FUZZ_FRAMEWORK=AFL mma afl-fuzz -j8
 ```
 
-_note: if "FUZZ\_FRAMEWORK is not set the default will be a libfuzzer build_
+_note: if "FUZZ\_FRAMEWORK is not set the default will be a libfuzzer build  
+
+___
+### Fuzzing on host (if host_supported=true in Android.bp build target)
+
+```
+$ cd $ANDROID_HOST_OUT
+$ mkdir in out
+$ echo "hello" > in/t
+$ bin/afl-fuzz -i in -o out fuzz/$(get_build_var HOST_ARCH)/afl_fuzz_target/afl_fuzz_target
+```
+___
+### Fuzzing on device
+
+```
+$ cd $ANDROID_PRODUCT_OUT
+$ adb root
+$ adb sync data
+$ adb push system/bin/afl-fuzz /data/fuzz/afl-fuzz
+$ adb push system/lib64 /data/fuzz
+$ adb shell
+# cd /data/fuzz
+# mkdir in out
+# echo "hey" > in/t
+# ./afl-fuzz -i in -o out arm64/afl_fuzz_target/afl_fuzz_target
+```
 
 # To Get Coverage
 Build your fuzz target with CLANG_COVERAGE=true
 ```
-> FUZZ_FRAMEWORK=AFL CLANG_COVERAGE=true NATIVE_COVERAGE_PATHS='*' make afl_fuzz_target -j8
+$ FUZZ_FRAMEWORK=AFL CLANG_COVERAGE=true NATIVE_COVERAGE_PATHS='*' make afl_fuzz_target -j8
 ```
 
 You will only be able to generate coverage reports for on device fuzzing, not on host.
@@ -66,8 +92,8 @@ To do so, you will need to
 - Run these commands to generate the report:
 
 ```
-> llvm-profdata merge --sparse cov/*.profraw -output data.profdata
-> llvm-cov show --format=html --instr-profile=data.profdata \
+$ llvm-profdata merge --sparse cov/*.profraw -output data.profdata
+$ llvm-cov show --format=html --instr-profile=data.profdata \
 ${ANDROID_PRODUCT_OUT}/symbols/data/fuzz/$(get_build_var TARGET_ARCH/afl_fuzz_target/afl_fuzz_target \
 --output-dir=coverage-html --path-equivalence=/proc/self/cwd,$ANDROID_BUILD_TOP
 ```
@@ -77,7 +103,7 @@ To include shared libraries you will need to append the paths to those shared li
 ```llvm-cov``` command. These libraries are at $ANDROID_PRODUCT_OUT/symbols/data/fuzz/$(get_build_var TARGET_ARCH)/lib/\<library_to_include\>.so
 
 ```
-> llvm-cov show --format=html --instr-profile=data.profdata \
+$ llvm-cov show --format=html --instr-profile=data.profdata \
 ${ANDROID_PRODUCT_OUT}/symbols/data/fuzz/$(get_build_var TARGET_ARCH/afl_fuzz_target/afl_fuzz_target \
 --output-dir=coverage-html --path-equivalence=/proc/self/cwd,$ANDROID_BUILD_TOP \
 -object $ANDROID_PRODUCT_OUT/symbols/data/fuzz/$(get_build_var TARGET_ARCH)/lib/<library_to_include>.so
