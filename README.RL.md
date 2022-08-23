@@ -21,7 +21,7 @@ make PY_RL_FUZZING=1
 Then configure a Python virtualenv (only required if using Python RL):
 
 ```bash
-python 3 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip3 install --upgrade pip
 pip3 install -r RL-requirements.txt
