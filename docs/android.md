@@ -1,9 +1,11 @@
 # Source code fuzzing on Android
 
-_note: Currently there are many features such a CMPLOG missing from Android souce code fuzzing._  
+_note: Currently there are many features such a CMPLOG missing from Android 
+souce code fuzzing._  
 
 Follow these steps to build an AFL++ fuzzer for fuzzing Android source code. 
-Write you fuzzer using the LLVMFuzzerTestOneInput function as the entry point into your code.
+Write you fuzzer using the LLVMFuzzerTestOneInput function as the entry point 
+into your code.
 
 **fuzz.cpp**
 ```
@@ -56,7 +58,8 @@ ___
 $ cd $ANDROID_HOST_OUT
 $ mkdir in out
 $ echo "hello" > in/t
-$ bin/afl-fuzz -i in -o out fuzz/$(get_build_var HOST_ARCH)/afl_fuzz_target/afl_fuzz_target
+$ bin/afl-fuzz -i in -o out \
+fuzz/$(get_build_var HOST_ARCH)/afl_fuzz_target/afl_fuzz_target
 ```
 ___
 ### Fuzzing on device
@@ -77,17 +80,19 @@ $ adb shell
 # To Get Coverage
 Build your fuzz target with CLANG_COVERAGE=true
 ```
-$ FUZZ_FRAMEWORK=AFL CLANG_COVERAGE=true NATIVE_COVERAGE_PATHS='*' make afl_fuzz_target -j8
+$ FUZZ_FRAMEWORK=AFL CLANG_COVERAGE=true NATIVE_COVERAGE_PATHS='*' make \
+afl_fuzz_target -j8
 ```
 
-You will only be able to generate coverage reports for on device fuzzing, not on host.
-To do so, you will need to 
+You will only be able to generate coverage reports for on device fuzzing, not on
+host. To do so, you will need to 
 - Push afl-fuzz and afl_fuzz_target to your device
 - set LLVM_PROFILE_FILE  
 ```export LLVM_PROFILE_FILE=cov/%m_%p.profraw```
 - Run your fuzzer
 - Pull cov/ from your device
-- Make sure your LLVM tools version match the version that was used to build the fuzz target  
+- Make sure your LLVM tools version match the version that was used to build  
+the fuzz target 
 ```export PATH=$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/llvm-binutils-stable:$PATH```
 - Run these commands to generate the report:
 
@@ -99,7 +104,8 @@ ${ANDROID_PRODUCT_OUT}/symbols/data/fuzz/$(get_build_var TARGET_ARCH/afl_fuzz_ta
 ```
 
 The above will generate coverage for your binary and statically linked librarys.
-To include shared libraries you will need to append the paths to those shared libraries in your
+ To include shared libraries you will need to append the paths to those shared 
+libraries in your
 ```llvm-cov``` command. These libraries are at $ANDROID_PRODUCT_OUT/symbols/data/fuzz/$(get_build_var TARGET_ARCH)/lib/\<library_to_include\>.so
 
 ```
