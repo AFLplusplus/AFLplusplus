@@ -18,6 +18,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to variables queue items instead of 12.
   - afl-cc:
     - better handling of -fsanitize=..,...,.. lists
+    - fix gcc_mode cmplog
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
       note that this will exit the target before main()
   - qemu_mode:

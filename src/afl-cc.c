@@ -498,13 +498,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-fplugin=%s/afl-gcc-cmptrs-pass.so", obj_path);
       cc_params[cc_par_cnt++] = fplugin_arg;
 
-    } else {
-
-      fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
-      cc_params[cc_par_cnt++] = fplugin_arg;
-
     }
 
+    fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
+    cc_params[cc_par_cnt++] = fplugin_arg;
     cc_params[cc_par_cnt++] = "-fno-if-conversion";
     cc_params[cc_par_cnt++] = "-fno-if-conversion2";
 
