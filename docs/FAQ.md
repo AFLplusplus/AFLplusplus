@@ -255,3 +255,18 @@ If you find an interesting or important question missing, submit it via
 
   Solution: `git pull ; make clean install` of AFL++.
 </p></details>
+
+<details>
+  <summary id="afl-map-size-warning">AFL++ map size warning.</summary><p>
+
+  When you run a large instrumented program stand-alone or via afl-showmap
+  you might see a warning like the following:
+
+  ```
+  Warning: AFL++ tools might need to set AFL_MAP_SIZE to 223723 to be able to run this instrumented program if this crashes!
+  ```
+
+  Depending how the target works it might also crash afterwards.
+
+  Solution: just do an `export AFL_MAP_SIZE=(the value in the warning)`.
+</p></details>

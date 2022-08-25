@@ -795,8 +795,14 @@ void cull_queue(afl_state_t *afl) {
 
 u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
-  u32 avg_exec_us = afl->total_cal_us / afl->total_cal_cycles;
-  u32 avg_bitmap_size = afl->total_bitmap_size / afl->total_bitmap_entries;
+  u32 cal_cycles = afl->total_cal_cycles;
+  u32 bitmap_entries = afl->total_bitmap_entries;
+
+  if (unlikely(!cal_cycles)) { cal_cycles = 1; }
+  if (unlikely(!bitmap_entries)) { bitmap_entries = 1; }
+
+  u32 avg_exec_us = afl->total_cal_us / cal_cycles;
+  u32 avg_bitmap_size = afl->total_bitmap_size / bitmap_entries;
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the

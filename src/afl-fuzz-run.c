@@ -363,7 +363,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   ++q->cal_failed;
 
   afl->stage_name = "calibration";
-  afl->stage_max = afl->afl_env.afl_cal_fast ? 3 : CAL_CYCLES;
+  afl->stage_max = afl->afl_env.afl_cal_fast ? CAL_CYCLES_FAST : CAL_CYCLES;
 
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
