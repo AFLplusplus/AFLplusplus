@@ -2560,7 +2560,7 @@ stop_fuzzing:
   write_bitmap(afl);
   save_auto(afl);
 
-  if (afl->afl_env.afl_pizza_mode) {
+  if (afl->pizza_is_served) {
 
     SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
          afl->stop_soon == 2 ? "programmatically" : "by the chef");
