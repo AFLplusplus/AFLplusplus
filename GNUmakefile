@@ -309,6 +309,17 @@ endif
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 	-$(MAKE) -C utils/aflpp_driver
+	@echo
+	@echo
+	@echo Build Summary:
+	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
+	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be build, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
+ifneq "$(SYS)" "Darwin"
+	@test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
+endif
+	@echo
 
 .PHONY: llvm
 llvm:
@@ -674,6 +685,31 @@ endif
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
   endif
 endif
+	@echo
+	@echo
+	@echo Build Summary:
+	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
+ifneq "$(SYS)" "Darwin"
+ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
+	@test -e afl-cs-proxy && echo "[+] coresight_mode successfully built" || echo "[-] coresight_mode could not be built, it is optional and experimental, see coresight_mode/README.md for what is needed"
+  endif
+endif
+ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
+	@test -e libnyx.so && echo "[+] nyx_mode successfully built" || echo "[-] nyx_mode could not be built, it is optional, see nyx_mode/README.md for what is needed"
+endif
+endif
+	@test -e afl-qemu-trace && echo "[+] qemu_mode successfully built" || echo "[-] qemu_mode could not be built, see docs/INSTALL.md for what is needed"
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_UNICORN_ARM64
+	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
+    endif
+  else
+	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
+  endif
+endif
+	@echo
 
 .PHONY: source-only
 source-only: all
@@ -689,6 +725,22 @@ ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
+	@echo
+	@echo
+	@echo Build Summary:
+	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
+	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be build, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
+ifneq "$(SYS)" "Darwin"
+	test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
+endif
+ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
+	@test -e libnyx.so && echo "[+] nyx_mode successfully built" || echo "[-] nyx_mode could not be built, it is optional, see nyx_mode/README.md for what is needed"
+endif
+endif
+	@echo
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@

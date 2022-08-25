@@ -21,8 +21,8 @@ development state of AFL++.
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
-NOTE: depending on your Debian/Ubuntu/Kali/... version release `-12` with
-whatever llvm version is available!
+NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-12` with
+whatever llvm version is available. We recommend llvm 12, 13 or 14.
 
 ```shell
 sudo apt-get update

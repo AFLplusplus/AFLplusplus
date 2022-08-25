@@ -57,7 +57,7 @@ typedef uint128_t         u128;
 #define FS_OPT_SHDMEM_FUZZ 0x01000000
 #define FS_OPT_NEWCMPLOG 0x02000000
 #define FS_OPT_OLD_AFLPP_WORKAROUND 0x0f000000
-// FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 22
+// FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 23
 #define FS_OPT_MAX_MAPSIZE ((0x00fffffeU >> 1) + 1)
 #define FS_OPT_GET_MAPSIZE(x) (((x & 0x00fffffe) >> 1) + 1)
 #define FS_OPT_SET_MAPSIZE(x) \

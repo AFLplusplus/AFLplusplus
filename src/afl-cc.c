@@ -51,7 +51,7 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   clang_mode;                /* Invoked as afl-clang*?            */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
-static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
+static u8   compiler_mode, plusplus_mode, have_instr_env = 0, need_aflpplib = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
 static u8  *lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8   debug;
@@ -310,6 +310,71 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
 }
 
+void parse_fsanitize(char *string) {
+
+  char *p, *ptr = string + strlen("-fsanitize=");
+  char *new = malloc(strlen(string) + 1);
+  char *tmp = malloc(strlen(ptr));
+  u32   count = 0, len, ende = 0;
+
+  if (!new || !tmp) { FATAL("could not aquire memory"); }
+  strcpy(new, "-fsanitize=");
+
+  do {
+
+    p = strchr(ptr, ',');
+    if (!p) {
+
+      p = ptr + strlen(ptr) + 1;
+      ende = 1;
+
+    }
+
+    len = p - ptr;
+    if (len) {
+
+      strncpy(tmp, ptr, len);
+      tmp[len] = 0;
+      // fprintf(stderr, "Found: %s\n", tmp);
+      ptr += len + 1;
+      if (*tmp) {
+
+        u32 copy = 1;
+        if (!strcmp(tmp, "fuzzer")) {
+
+          need_aflpplib = 1;
+          copy = 0;
+
+        } else if (!strncmp(tmp, "fuzzer", 6)) {
+
+          copy = 0;
+
+        }
+
+        if (copy) {
+
+          if (count) { strcat(new, ","); }
+          strcat(new, tmp);
+          ++count;
+
+        }
+
+      }
+
+    } else {
+
+      ptr++;                                    /*fprintf(stderr, "NO!\n"); */
+
+    }
+
+  } while (!ende);
+
+  strcpy(string, new);
+  // fprintf(stderr, "string: %s\n", string);
+  // fprintf(stderr, "new: %s\n", new);
+
+}
+
 /* Copy argv to cc_params, making the necessary edits. */
 
 static void edit_params(u32 argc, char **argv, char **envp) {
@@ -433,13 +498,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-fplugin=%s/afl-gcc-cmptrs-pass.so", obj_path);
       cc_params[cc_par_cnt++] = fplugin_arg;
 
-    } else {
-
-      fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
-      cc_params[cc_par_cnt++] = fplugin_arg;
-
     }
 
+    fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
+    cc_params[cc_par_cnt++] = fplugin_arg;
     cc_params[cc_par_cnt++] = "-fno-if-conversion";
     cc_params[cc_par_cnt++] = "-fno-if-conversion2";
 
@@ -759,6 +821,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (compiler_mode == GCC_PLUGIN && !strcmp(cur, "-pipe")) { continue; }
+
     if (!strcmp(cur, "-z") || !strcmp(cur, "-Wl,-z")) {
 
       u8 *param = *(argv + 1);
@@ -779,20 +843,35 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    if ((!strncmp(cur, "-fsanitize=fuzzer-", strlen("-fsanitize=fuzzer-")) ||
-         !strncmp(cur, "-fsanitize-coverage", strlen("-fsanitize-coverage"))) &&
-        (strncmp(cur, "sanitize-coverage-allow",
-                 strlen("sanitize-coverage-allow")) &&
-         strncmp(cur, "sanitize-coverage-deny",
-                 strlen("sanitize-coverage-deny")) &&
-         instrument_mode != INSTRUMENT_LLVMNATIVE)) {
+    if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list=")) {
+
+      have_instr_list = 1;
+
+    }
+
+    if (!strncmp(cur, "-fsanitize=", strlen("-fsanitize=")) &&
+        strchr(cur, ',')) {
+
+      parse_fsanitize(cur);
+      if (!cur || strlen(cur) <= strlen("-fsanitize=")) { continue; }
+
+    } else if ((!strncmp(cur, "-fsanitize=fuzzer-",
+
+                         strlen("-fsanitize=fuzzer-")) ||
+                !strncmp(cur, "-fsanitize-coverage",
+                         strlen("-fsanitize-coverage"))) &&
+               (strncmp(cur, "sanitize-coverage-allow",
+                        strlen("sanitize-coverage-allow")) &&
+                strncmp(cur, "sanitize-coverage-deny",
+                        strlen("sanitize-coverage-deny")) &&
+                instrument_mode != INSTRUMENT_LLVMNATIVE)) {
 
       if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
       continue;
 
     }
 
-    if (!strcmp(cur, "-fsanitize=fuzzer")) {
+    if (need_aflpplib || !strcmp(cur, "-fsanitize=fuzzer")) {
 
       u8 *afllib = find_object("libAFLDriver.a", argv[0]);
 
@@ -823,16 +902,21 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       }
 
-      continue;
+      if (need_aflpplib) {
+
+        need_aflpplib = 0;
+
+      } else {
+
+        continue;
+
+      }
 
     }
 
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
     if (!strcmp(cur, "-m64")) bit_mode = 64;
-
-    if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list="))
-      have_instr_list = 1;
 
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;

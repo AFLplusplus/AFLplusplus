@@ -215,6 +215,15 @@ if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
 
 fi
 
+grep -aq AFL_DUMP_MAP_SIZE "./$TARGET_BIN" && {
+  echo "[!] Trying to obtain the map size of the target ..."
+  MAPSIZE=`AFL_DUMP_MAP_SIZE=1 "./$TARGET_BIN" 2>/dev/null`
+  test -n "$MAPSIZE" && {
+    export AFL_MAP_SIZE=$MAPSIZE
+    echo "[+] Setting AFL_MAP_SIZE=$MAPSIZE"
+  }
+}
+
 if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
 
   if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then

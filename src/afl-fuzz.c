@@ -273,6 +273,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
+      "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
       "AFL_NO_UI: switch status screen off\n"
 
       DYN_COLOR
@@ -2150,7 +2151,16 @@ int main(int argc, char **argv_orig, char **envp) {
   memset(afl->virgin_tmout, 255, map_size);
   memset(afl->virgin_crash, 255, map_size);
 
-  perform_dry_run(afl);
+  if (likely(!afl->afl_env.afl_no_startup_calibration)) {
+
+    perform_dry_run(afl);
+
+  } else {
+
+    ACTF("skipping initial seed calibration due option override");
+    usleep(1000);
+
+  }
 
   if (afl->q_testcase_max_cache_entries) {
 
@@ -2550,7 +2560,7 @@ stop_fuzzing:
   write_bitmap(afl);
   save_auto(afl);
 
-  if (afl->afl_env.afl_pizza_mode) {
+  if (afl->pizza_is_served) {
 
     SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
          afl->stop_soon == 2 ? "programmatically" : "by the chef");
