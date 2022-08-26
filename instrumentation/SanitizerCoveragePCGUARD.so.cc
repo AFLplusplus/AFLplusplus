@@ -850,7 +850,8 @@ void ModuleSanitizerCoverageAFL::CreateFunctionLocalArrays(
 bool ModuleSanitizerCoverageAFL::InjectCoverage(
     Function &F, ArrayRef<BasicBlock *> AllBlocks, bool IsLeafFunc) {
 
-  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
+  uint32_t        cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
+  static uint32_t first = 1;
 
   for (auto &BB : F) {
 
@@ -876,9 +877,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         }
 
-        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+        if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
 
-        cnt_cov++;
+          cnt_cov++;
+
+        }
 
       }
 
@@ -917,7 +920,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   }
 
   /* Create PCGUARD array */
-  CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel_inc);
+  CreateFunctionLocalArrays(F, AllBlocks, first + cnt_cov + cnt_sel_inc);
+  if (first) { first = 0; }
   selects += cnt_sel;
 
   uint32_t special = 0, local_selects = 0, skip_next = 0;
@@ -1103,10 +1107,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
         /*
-            std::string errMsg;
-            raw_string_ostream os(errMsg);
-        result->print(os);
-        fprintf(stderr, "X: %s\n", os.str().c_str());
+                    std::string errMsg;
+                    raw_string_ostream os(errMsg);
+                    result->print(os);
+                    fprintf(stderr, "X: %s\n", os.str().c_str());
         */
 
         while (1) {
