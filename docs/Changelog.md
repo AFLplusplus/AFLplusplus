@@ -17,6 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - default calibration cycles set to 7 from 8, and only add 5 cycles
       to variables queue items instead of 12.
   - afl-cc:
+    - fixed off-by-one bug in our pcguard implemenation, thanks for
+      @toka for reporting
     - better handling of -fsanitize=..,...,.. lists
     - fix gcc_mode cmplog
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
