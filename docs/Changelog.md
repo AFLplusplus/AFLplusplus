@@ -18,7 +18,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to variables queue items instead of 12.
   - afl-cc:
     - fixed off-by-one bug in our pcguard implemenation, thanks for
-      @toka for reporting
+      @tokatoka for reporting
     - better handling of -fsanitize=..,...,.. lists
     - fix gcc_mode cmplog
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
