@@ -92,14 +92,14 @@ mkdir "$DIR" || exit 1
 
 if [ -n "$3" -a -s "$DIR/../edges.txt" ]; then
 
-  cat "$DIR/"* | sed 's/:.*//' | sort -n | uniq -c | egrep '^[ \t]*1 ' | awk '{print$2}' > $DIR/../unique.txt
+  cat "$DIR/"* | sed 's/:.*//' | sort -n | uniq -c | grep -E '^[ \t]*1 ' | awk '{print$2}' > $DIR/../unique.txt
 
   if [ -s "$DIR/../unique.txt" ]; then
 
     ls "$DIR/id:"* | grep -v ",sync:" |sed 's/.*\/id:/id:/g' | while read file; do
 
       CNT=$(sed 's/:.*//' "$DIR/$file" | tee "$DIR/../tmp.txt" | wc -l)
-      DIFF=$(diff -u "$DIR/../tmp.txt" "$DIR/../unique.txt" | egrep '^-[0-9]' | wc -l)
+      DIFF=$(diff -u "$DIR/../tmp.txt" "$DIR/../unique.txt" | grep -E '^-[0-9]' | wc -l)
       UNIQUE=$(($CNT - $DIFF))
       sed -i "s/;UNIQUE$file/;$UNIQUE/" "$DIR/../queue.csv" "$2"
 
