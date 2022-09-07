@@ -27,6 +27,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_QEMU_TRACK_UNSTABLE to log the addresses of unstable
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
       worksbutnottested!
+  - afl-analyze broke at some point, fix by CodeLogicError, thank you!
 
 
 ### Version ++4.02c (release)
