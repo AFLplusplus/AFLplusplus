@@ -9,17 +9,30 @@ FROM ubuntu:22.04 AS aflplusplus
 LABEL "maintainer"="afl++ team <afl@aflplus.plus>"
 LABEL "about"="AFLplusplus container image"
 
+### Comment out to enable these features
+# Only available on specific ARM64 boards
+ENV NO_CORESIGHT=1
+# Possbile but unlikely in a docker container
+ENV NO_NYX=1
+# Unicorn issues on ARM64
+ENV NO_UNICORN_ARM64=1
+
+### Only change these if you know what you are doing:
+# LLVM 15 does not look good so we stay at 14 to still have LTO
+ENV LLVM_VERSION=14
+# GCC 12 is producing compile errors for some targets so we stay at GCC 11
+ENV GCC_VERSION=11
+
+### No changes beyond the point unless you know what you are doing :)
+
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV NO_ARCH_OPT=1
 ENV IS_DOCKER=1
 
 RUN apt-get update && apt-get full-upgrade -y && \
-    apt-get install -y --no-install-recommends wget ca-certificates && \
+    apt-get install -y --no-install-recommends wget ca-certificates apt-utils && \
     rm -rf /var/lib/apt/lists/*
-
-ENV LLVM_VERSION=14
-ENV GCC_VERSION=11
 
 RUN echo "deb [signed-by=/etc/apt/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
     wget -qO /etc/apt/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
@@ -30,7 +43,7 @@ RUN apt-get update && \
     git xz-utils bzip2 wget jupp nano bash-completion less vim joe ssh psmisc \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin libglib2.0-dev \
-    apt-utils apt-transport-https gnupg dialog \
+    apt-transport-https gnupg dialog \
     gnuplot-nox libpixman-1-dev \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} gcc-${GCC_VERSION}-plugin-dev gdb lcov \
     clang-${LLVM_VERSION} clang-tools-${LLVM_VERSION} libc++1-${LLVM_VERSION} \
@@ -63,10 +76,6 @@ ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 
 RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov && \
     (cd afl-cov && make install) && rm -rf afl-cov
-
-# Build currently broken
-ENV NO_CORESIGHT=1
-ENV NO_UNICORN_ARM64=1
 
 WORKDIR /AFLplusplus
 COPY . .
