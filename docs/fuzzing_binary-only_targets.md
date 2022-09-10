@@ -291,7 +291,7 @@ its IPT performance is just 6%!
 
 There are many binary-only fuzzing frameworks. Some are great for CTFs but don't
 work with large binaries, others are very slow but have good path discovery,
-some are very hard to set-up...
+some are very hard to set up...
 
 * Jackalope:
   [https://github.com/googleprojectzero/Jackalope](https://github.com/googleprojectzero/Jackalope)
