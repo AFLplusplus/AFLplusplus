@@ -86,7 +86,7 @@ To enable the powerful CMPLOG mechanism, set `-c 0` for `afl-fuzz`.
 
 ## Scripting
 
-One of the more powerful features of FRIDA mode is it's support for
+One of the more powerful features of FRIDA mode is its support for
 configuration by JavaScript, rather than using environment variables. For
 details of how this works, see [Scripting.md](Scripting.md).
 

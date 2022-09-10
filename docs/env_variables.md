@@ -455,7 +455,7 @@ checks or alter some of the more exotic semantics of the tool:
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
 
-  - `AFL_NO_SNAPSHOT` will advice afl-fuzz not to use the snapshot feature if
+  - `AFL_NO_SNAPSHOT` will advise afl-fuzz not to use the snapshot feature if
     the snapshot lkm is loaded.
 
   - Setting `AFL_NO_UI` inhibits the UI altogether and just periodically prints
@@ -473,7 +473,7 @@ checks or alter some of the more exotic semantics of the tool:
     some targets keep inherent state due which a detected crash test case does
     not crash the target again when the test case is given. To be able to still
     re-trigger these crashes, you can use the `AFL_PERSISTENT_RECORD` variable
-    with a value of how many previous fuzz cases to keep prio a crash. If set to
+    with a value of how many previous fuzz cases to keep prior a crash. If set to
     e.g., 10, then the 9 previous inputs are written to out/default/crashes as
     RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008 and
     RECORD:000000,cnt:000009 being the crash case. NOTE: This option needs to be
@@ -694,8 +694,8 @@ support.
 * `AFL_FRIDA_STALKER_ADJACENT_BLOCKS` - Configure the number of adjacent blocks
   to fetch when generating instrumented code. By fetching blocks in the same
   order they appear in the original program, rather than the order of execution
-  should help reduce locallity and adjacency. This includes allowing us to
-  vector between adjancent blocks using a NOP slide rather than an immediate
+  should help reduce locality and adjacency. This includes allowing us to
+  vector between adjacent blocks using a NOP slide rather than an immediate
   branch.
 * `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
   stored along-side branch instructions which provide a cache to avoid having to
