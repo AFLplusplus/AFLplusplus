@@ -47,7 +47,6 @@
   #ifdef __NR_getrandom
     #define arc4random_buf(p, l)                       \
       do {                                             \
-                                                       \
         ssize_t rd = syscall(__NR_getrandom, p, l, 0); \
         if (rd != l) DEBUGF("getrandom failed");       \
                                                        \
@@ -57,7 +56,6 @@
     #include <time.h>
     #define arc4random_buf(p, l)     \
       do {                           \
-                                     \
         srand(time(NULL));           \
         u32 i;                       \
         u8 *ptr = (u8 *)p;           \
@@ -80,7 +78,6 @@
     (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
 // use this hack if not C11
 typedef struct {
-
   long long   __ll;
   long double __ld;
 
@@ -92,11 +89,11 @@ typedef struct {
 
 #ifndef PAGE_SIZE
   #define PAGE_SIZE 4096
-#endif                                                        /* !PAGE_SIZE */
+#endif /* !PAGE_SIZE */
 
 #ifndef MAP_ANONYMOUS
   #define MAP_ANONYMOUS MAP_ANON
-#endif                                                    /* !MAP_ANONYMOUS */
+#endif /* !MAP_ANONYMOUS */
 
 #define SUPER_PAGE_SIZE 1 << 21
 
@@ -104,30 +101,22 @@ typedef struct {
 
 #define DEBUGF(_x...)                 \
   do {                                \
-                                      \
     if (alloc_verbose) {              \
-                                      \
       if (++call_depth == 1) {        \
-                                      \
         fprintf(stderr, "[AFL] " _x); \
         fprintf(stderr, "\n");        \
-                                      \
       }                               \
       call_depth--;                   \
-                                      \
     }                                 \
                                       \
   } while (0)
 
 #define FATAL(_x...)                    \
   do {                                  \
-                                        \
     if (++call_depth == 1) {            \
-                                        \
       fprintf(stderr, "*** [AFL] " _x); \
       fprintf(stderr, " ***\n");        \
       abort();                          \
-                                        \
     }                                   \
     call_depth--;                       \
                                         \
@@ -149,19 +138,19 @@ typedef struct {
 
 /* Configurable stuff (use AFL_LD_* to set): */
 
-static size_t max_mem = MAX_ALLOC;      /* Max heap usage to permit         */
-static u8     alloc_verbose,            /* Additional debug messages        */
-    hard_fail,                          /* abort() when max_mem exceeded?   */
-    no_calloc_over,                     /* abort() on calloc() overflows?   */
-    align_allocations;                  /* Force alignment to sizeof(void*) */
+static size_t max_mem = MAX_ALLOC; /* Max heap usage to permit         */
+static u8     alloc_verbose,       /* Additional debug messages        */
+    hard_fail,                     /* abort() when max_mem exceeded?   */
+    no_calloc_over,                /* abort() on calloc() overflows?   */
+    align_allocations;             /* Force alignment to sizeof(void*) */
 
 #if defined __OpenBSD__ || defined __APPLE__
   #define __thread
   #warning no thread support available
 #endif
-static _Atomic size_t total_mem;        /* Currently allocated mem          */
+static _Atomic size_t total_mem; /* Currently allocated mem          */
 
-static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
+static __thread u32 call_depth; /* To avoid recursion via fprintf() */
 static u32          alloc_canary;
 
 /* This is the main alloc function. It allocates one page more than necessary,
@@ -170,19 +159,16 @@ static u32          alloc_canary;
    the returned memory will be zeroed. */
 
 static void *__dislocator_alloc(size_t len) {
-
   u8    *ret, *base;
   size_t tlen;
   int    flags, protflags, fd, sp;
 
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
-
     if (hard_fail) FATAL("total allocs exceed %zu MB", max_mem / 1024 / 1024);
 
     DEBUGF("total allocs exceed %zu MB, returning NULL", max_mem / 1024 / 1024);
 
     return NULL;
-
   }
 
   size_t rlen;
@@ -215,10 +201,8 @@ static void *__dislocator_alloc(size_t len) {
   if (sp) flags |= MAP_ALIGNED_SUPER;
   #elif defined(__sun)
   if (sp) {
-
     base = (void *)(caddr_t)(1 << 21);
     flags |= MAP_ALIGN;
-
   }
 
   #endif
@@ -230,7 +214,6 @@ static void *__dislocator_alloc(size_t len) {
 #if defined(USEHUGEPAGE)
   /* We try one more time with regular call */
   if (ret == MAP_FAILED) {
-
   #if defined(__APPLE__)
     fd = -1;
   #elif defined(__linux__)
@@ -241,19 +224,16 @@ static void *__dislocator_alloc(size_t len) {
     flags &= -MAP_ALIGN;
   #endif
     ret = (u8 *)mmap(NULL, tlen, protflags, flags, fd, 0);
-
   }
 
 #endif
 
   if (ret == MAP_FAILED) {
-
     if (hard_fail) FATAL("mmap() failed on alloc (OOM?)");
 
     DEBUGF("mmap() failed on alloc (OOM?)");
 
     return NULL;
-
   }
 
 #if defined(USENAMEDPAGE)
@@ -262,9 +242,7 @@ static void *__dislocator_alloc(size_t len) {
   // `<start>-<end> ---p 00000000 00:00 0 [anon:libdislocator]`
   if (prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, (unsigned long)ret, tlen,
             (unsigned long)"libdislocator") < 0) {
-
     DEBUGF("prctl() failed");
-
   }
 
   #endif
@@ -290,22 +268,19 @@ static void *__dislocator_alloc(size_t len) {
   total_mem += len;
 
   if (rlen != len) {
-
     size_t i;
     for (i = len; i < rlen; ++i)
       ret[i] = TAIL_ALLOC_CANARY;
-
   }
 
   return ret;
-
 }
 
 /* The "user-facing" wrapper for calloc(). This just checks for overflows and
    displays debug messages if requested. */
 
-void *calloc(size_t elem_len, size_t elem_cnt) {
-
+__attribute__((malloc)) __attribute__((alloc_size(1, 2))) void *calloc(
+    size_t elem_len, size_t elem_cnt) {
   void *ret;
 
   size_t len = elem_len * elem_cnt;
@@ -313,17 +288,13 @@ void *calloc(size_t elem_len, size_t elem_cnt) {
   /* Perform some sanity checks to detect obvious issues... */
 
   if (elem_cnt && len / elem_cnt != elem_len) {
-
     if (no_calloc_over) {
-
       DEBUGF("calloc(%zu, %zu) would overflow, returning NULL", elem_len,
              elem_cnt);
       return NULL;
-
     }
 
     FATAL("calloc(%zu, %zu) would overflow", elem_len, elem_cnt);
-
   }
 
   ret = __dislocator_alloc(len);
@@ -332,15 +303,14 @@ void *calloc(size_t elem_len, size_t elem_cnt) {
          total_mem);
 
   return ret;
-
 }
 
 /* The wrapper for malloc(). Roughly the same, also clobbers the returned
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
    memory). */
 
-void *malloc(size_t len) {
-
+__attribute__((malloc)) __attribute__((alloc_size(1))) void *malloc(
+    size_t len) {
   void *ret;
 
   ret = __dislocator_alloc(len);
@@ -350,7 +320,6 @@ void *malloc(size_t len) {
   if (ret && len) memset(ret, ALLOC_CLOBBER, len);
 
   return ret;
-
 }
 
 /* The wrapper for free(). This simply marks the entire region as PROT_NONE.
@@ -358,7 +327,6 @@ void *malloc(size_t len) {
    read the canary. Not very graceful, but works, right? */
 
 void free(void *ptr) {
-
   u32 len;
 
   DEBUGF("free(%p)", ptr);
@@ -373,12 +341,10 @@ void free(void *ptr) {
   u8 *ptr_ = ptr;
 
   if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
-
     size_t rlen = (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
     for (; len < rlen; ++len)
       if (ptr_[len] != TAIL_ALLOC_CANARY)
         FATAL("bad tail allocator canary on free()");
-
   }
 
   /* Protect everything. Note that the extra page at the end is already
@@ -392,32 +358,27 @@ void free(void *ptr) {
   ptr = ptr_;
 
   /* Keep the mapping; this is wasteful, but prevents ptr reuse. */
-
 }
 
 /* Realloc is pretty straightforward, too. We forcibly reallocate the buffer,
    move data, and then free (aka mprotect()) the original one. */
 
-void *realloc(void *ptr, size_t len) {
-
+__attribute__((alloc_size(2))) void *realloc(void *ptr, size_t len) {
   void *ret;
 
   ret = malloc(len);
 
   if (ret && ptr) {
-
     if (PTR_C(ptr) != alloc_canary) FATAL("bad allocator canary on realloc()");
     // Here the tail canary check is delayed to free()
 
     memcpy(ret, ptr, MIN(len, PTR_L(ptr)));
     free(ptr);
-
   }
 
   DEBUGF("realloc(%p, %zu) = %p [%zu total]", ptr, len, ret, total_mem);
 
   return ret;
-
 }
 
 /* posix_memalign we mainly check the proper alignment argument
@@ -425,14 +386,11 @@ void *realloc(void *ptr, size_t len) {
    a normal request */
 
 int posix_memalign(void **ptr, size_t align, size_t len) {
-
   // if (*ptr == NULL) return EINVAL; // (andrea) Why? I comment it out for now
   if ((align % 2) || (align % sizeof(void *))) return EINVAL;
   if (len == 0) {
-
     *ptr = NULL;
     return 0;
-
   }
 
   size_t rem = len % align;
@@ -445,69 +403,57 @@ int posix_memalign(void **ptr, size_t align, size_t len) {
   DEBUGF("posix_memalign(%p %zu, %zu) [*ptr = %p]", ptr, align, len, *ptr);
 
   return 0;
-
 }
 
 /* just the non-posix fashion */
 
-void *memalign(size_t align, size_t len) {
-
+__attribute__((malloc)) __attribute__((alloc_size(2))) void *memalign(
+    size_t align, size_t len) {
   void *ret = NULL;
 
   if (posix_memalign(&ret, align, len)) {
-
     DEBUGF("memalign(%zu, %zu) failed", align, len);
-
   }
 
   return ret;
-
 }
 
 /* sort of C11 alias of memalign only more severe, alignment-wise */
 
-void *aligned_alloc(size_t align, size_t len) {
-
+__attribute__((malloc)) __attribute__((alloc_size(2))) void *aligned_alloc(
+    size_t align, size_t len) {
   void *ret = NULL;
 
   if ((len % align)) return NULL;
 
   if (posix_memalign(&ret, align, len)) {
-
     DEBUGF("aligned_alloc(%zu, %zu) failed", align, len);
-
   }
 
   return ret;
-
 }
 
 /* specific BSD api mainly checking possible overflow for the size */
 
-void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
-
+__attribute__((alloc_size(2, 3))) void *reallocarray(void *ptr, size_t elem_len,
+                                                     size_t elem_cnt) {
   const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
   const size_t elem_tot = elem_len * elem_cnt;
   void        *ret = NULL;
 
   if ((elem_len >= elem_lim || elem_cnt >= elem_lim) && elem_len > 0 &&
       elem_cnt > (SIZE_MAX / elem_len)) {
-
     DEBUGF("reallocarray size overflow (%zu)", elem_tot);
 
   } else {
-
     ret = realloc(ptr, elem_tot);
-
   }
 
   return ret;
-
 }
 
 #if defined(__APPLE__)
 size_t malloc_size(const void *ptr) {
-
 #elif !defined(__ANDROID__)
 size_t malloc_usable_size(void *ptr) {
 
@@ -517,30 +463,24 @@ size_t malloc_usable_size(const void *ptr) {
 #endif
 
   return ptr ? PTR_L(ptr) : 0;
-
 }
 
 #if defined(__APPLE__)
 size_t malloc_good_size(size_t len) {
-
   return (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
-
 }
 
 #endif
 
 __attribute__((constructor)) void __dislocator_init(void) {
-
   char *tmp = getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
-
     char              *tok;
     unsigned long long mmem = strtoull(tmp, &tok, 10);
     if (*tok != '\0' || errno == ERANGE || mmem > SIZE_MAX / 1024 / 1024)
       FATAL("Bad value for AFL_LD_LIMIT_MB");
     max_mem = mmem * 1024 * 1024;
-
   }
 
   alloc_canary = ALLOC_CANARY;
@@ -552,33 +492,23 @@ __attribute__((constructor)) void __dislocator_init(void) {
   hard_fail = !!getenv("AFL_LD_HARD_FAIL");
   no_calloc_over = !!getenv("AFL_LD_NO_CALLOC_OVER");
   align_allocations = !!getenv("AFL_ALIGNED_ALLOC");
-
 }
 
 /* NetBSD fault handler specific api subset */
 
 void (*esetfunc(void (*fn)(int, const char *, ...)))(int, const char *, ...) {
-
   /* Might not be meaningful to implement; upper calls already report errors */
   return NULL;
-
 }
 
 void *emalloc(size_t len) {
-
   return malloc(len);
-
 }
 
 void *ecalloc(size_t elem_len, size_t elem_cnt) {
-
   return calloc(elem_len, elem_cnt);
-
 }
 
 void *erealloc(void *ptr, size_t len) {
-
   return realloc(ptr, len);
-
 }
-
