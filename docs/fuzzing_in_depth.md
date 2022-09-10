@@ -523,7 +523,7 @@ mode!) and switch the input directory with a dash (`-`):
 afl-fuzz -i - -o output -- bin/target -someopt @@
 ```
 
-Adding a dictionary is helpful. You have to following options:
+Adding a dictionary is helpful. You have the following options:
 
 * See the directory
 [dictionaries/](../dictionaries/), if something is already included for your
@@ -672,7 +672,7 @@ The syncing process itself is very simple. As the `-M main-$HOSTNAME` instance
 syncs to all `-S` secondaries as well as to other fuzzers, you have to copy only
 this directory to the other machines.
 
-Lets say all servers have the `-o out` directory in /target/foo/out, and you
+Let's say all servers have the `-o out` directory in /target/foo/out, and you
 created a file `servers.txt` which contains the hostnames of all participating
 servers, plus you have an ssh key deployed to all of them, then run:
 
