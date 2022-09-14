@@ -38,7 +38,7 @@ many dead ends until we got to this:
 * Our compiler (afl-clang-lto/afl-clang-lto++) takes care of setting the correct
   LTO options and runs our own afl-ld linker instead of the system linker.
 * The LLVM linker collects all LTO files to link and instruments them so that we
-  have non-colliding edge overage.
+  have non-colliding edge coverage.
 * We use a new (for afl) edge coverage - which is the same as in llvm
   -fsanitize=coverage edge coverage mode. :)
 
