@@ -324,8 +324,11 @@ llvmGetPassPluginInfo() {
 #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
-            //            PB.registerFullLinkTimeOptimizationLastEPCallback(
+#if LLVM_VERSION_MAJOR >= 15
+            PB.registerFullLinkTimeOptimizationLastEPCallback(
+#else
             PB.registerOptimizerLastEPCallback(
+#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(ModuleSanitizerCoverageLTO());
