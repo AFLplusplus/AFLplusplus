@@ -156,9 +156,9 @@ echo "[*] Making sure unicornafl is checked out"
 git status 1>/dev/null 2>/dev/null
 if [ $? -eq 0 ]; then
   echo "[*] initializing unicornafl submodule"
-  #git submodule init || exit 1
-  #git submodule update ./unicornafl 2>/dev/null # ignore errors
-  #git submodule sync ./unicornafl 2>/dev/null # ignore errors
+  git submodule init || exit 1
+  git submodule update ./unicornafl 2>/dev/null # ignore errors
+  git submodule sync ./unicornafl 2>/dev/null # ignore errors
 else
   echo "[*] cloning unicornafl"
   test -d unicornafl/.git || {
@@ -177,8 +177,8 @@ echo "[+] Got unicornafl."
 cd "unicornafl" || exit 1
 echo "[*] Checking out $UNICORNAFL_VERSION"
 git pull
-#sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
-#git checkout "$UNICORNAFL_VERSION" || exit 1
+sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
+git checkout "$UNICORNAFL_VERSION" || exit 1
 
 echo "[*] making sure afl++ header files match"
 cp "../../include/config.h" "./include" || exit 1
