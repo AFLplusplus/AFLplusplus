@@ -19,6 +19,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-cc:
     - fixed off-by-one bug in our pcguard implemenation, thanks for
       @tokatoka for reporting
+    - fix for llvm 15 and reenabling LTO, thanks to nikic for the PR!
     - better handling of -fsanitize=..,...,.. lists
     - fix gcc_mode cmplog
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
