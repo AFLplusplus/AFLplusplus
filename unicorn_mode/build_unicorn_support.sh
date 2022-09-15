@@ -196,6 +196,16 @@ $MAKECMD -j1 || exit 1
 echo "[+] Build process successful!"
 
 echo "[*] Installing Unicorn python bindings..."
+cd unicorn/bindings/python || exit 1
+if [ -z "$VIRTUAL_ENV" ]; then
+  echo "[*] Info: Installing python unicornafl using --user"
+  $PYTHONBIN setup.py install --user --force --prefix=|| exit 1
+else
+  echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
+  $PYTHONBIN setup.py install --force || exit 1
+fi
+cd ../../../
+echo "[*] Installing Unicornafl python bindings..."
 cd bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicornafl using --user"
