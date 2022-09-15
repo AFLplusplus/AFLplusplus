@@ -364,7 +364,7 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
         }
 
         prev_length = length;
-        LLVMFuzzerTestOneInput(__afl_fuzz_ptr, length);
+        (void)callback(__afl_fuzz_ptr, length);
 
       }
 
