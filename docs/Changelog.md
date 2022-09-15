@@ -29,6 +29,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
       worksbutnottested!
   - afl-analyze broke at some point, fix by CodeLogicError, thank you!
+  - unicorn_mode:
+    - updated upstream unicorn version
+    - fixed builds for aarch64
+    - build now uses all available cores
 
 
 ### Version ++4.02c (release)
