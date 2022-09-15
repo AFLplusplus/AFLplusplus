@@ -111,6 +111,12 @@ static cl::opt<bool> ClPruneBlocks(
     cl::desc("Reduce the number of instrumented blocks"), cl::Hidden,
     cl::init(true));
 
+namespace llvm {
+
+void initializeModuleSanitizerCoverageLTOLegacyPassPass(PassRegistry &PB);
+
+}
+
 namespace {
 
 SanitizerCoverageOptions getOptions(int LegacyCoverageLevel) {
@@ -255,13 +261,13 @@ class ModuleSanitizerCoverageLTO
 
 };
 
-class ModuleSanitizerCoverageLegacyPass : public ModulePass {
+class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
  public:
   static char ID;
   StringRef   getPassName() const override {
 
-    return "sancov";
+    return "sancov-lto";
 
   }
 
@@ -272,11 +278,11 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
   }
 
-  ModuleSanitizerCoverageLegacyPass(
+  ModuleSanitizerCoverageLTOLegacyPass(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
       : ModulePass(ID), Options(Options) {
 
-    initializeModuleSanitizerCoverageLegacyPassPass(
+    initializeModuleSanitizerCoverageLTOLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
   }
@@ -318,8 +324,11 @@ llvmGetPassPluginInfo() {
 #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
-            //            PB.registerFullLinkTimeOptimizationLastEPCallback(
+#if LLVM_VERSION_MAJOR >= 15
+            PB.registerFullLinkTimeOptimizationLastEPCallback(
+#else
             PB.registerOptimizerLastEPCallback(
+#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(ModuleSanitizerCoverageLTO());
@@ -1750,30 +1759,21 @@ std::string ModuleSanitizerCoverageLTO::getSectionName(
 
 }
 
-char ModuleSanitizerCoverageLegacyPass::ID = 0;
+char ModuleSanitizerCoverageLTOLegacyPass::ID = 0;
 
-INITIALIZE_PASS_BEGIN(ModuleSanitizerCoverageLegacyPass, "sancov",
+INITIALIZE_PASS_BEGIN(ModuleSanitizerCoverageLTOLegacyPass, "sancov-lto",
                       "Pass for instrumenting coverage on functions", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
+INITIALIZE_PASS_END(ModuleSanitizerCoverageLTOLegacyPass, "sancov-lto",
                     "Pass for instrumenting coverage on functions", false,
                     false)
-
-ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options,
-    const std::vector<std::string> &AllowlistFiles,
-    const std::vector<std::string> &BlocklistFiles) {
-
-  return new ModuleSanitizerCoverageLegacyPass(Options);
-
-}
 
 static void registerLTOPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
-  auto p = new ModuleSanitizerCoverageLegacyPass();
+  auto p = new ModuleSanitizerCoverageLTOLegacyPass();
   PM.add(p);
 
 }
