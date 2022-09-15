@@ -14,8 +14,6 @@ LABEL "about"="AFLplusplus container image"
 ENV NO_CORESIGHT=1
 # Possbile but unlikely in a docker container
 ENV NO_NYX=1
-# Unicorn issues on ARM64
-ENV NO_UNICORN_ARM64=1
 
 ### Only change these if you know what you are doing:
 # LLVM 15 does not look good so we stay at 14 to still have LTO
