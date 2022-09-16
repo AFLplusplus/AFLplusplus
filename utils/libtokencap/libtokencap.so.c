@@ -378,7 +378,8 @@ __attribute__((hot)) int strcmp(const char *str1, const char *str2) {
 
 #undef strncmp
 
-__attribute__((hot)) int strncmp(const char *str1, const char *str2, size_t len) {
+__attribute__((hot)) int strncmp(const char *str1, const char *str2,
+                                 size_t len) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, len, 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, len, 1);
@@ -428,7 +429,8 @@ __attribute__((hot)) int strcasecmp(const char *str1, const char *str2) {
 
 #undef strncasecmp
 
-__attribute__((hot)) int strncasecmp(const char *str1, const char *str2, size_t len) {
+__attribute__((hot)) int strncasecmp(const char *str1, const char *str2,
+                                     size_t len) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, len, 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, len, 1);
@@ -454,7 +456,8 @@ __attribute__((hot)) int strncasecmp(const char *str1, const char *str2, size_t 
 
 #undef memcmp
 
-__attribute__((hot)) int memcmp(const void *mem1, const void *mem2, size_t len) {
+__attribute__((hot)) int memcmp(const void *mem1, const void *mem2,
+                                size_t len) {
 
   if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
   if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
@@ -537,7 +540,8 @@ __attribute__((hot)) char *strstr(const char *haystack, const char *needle) {
 
 #undef strcasestr
 
-__attribute__((hot)) char *strcasestr(const char *haystack, const char *needle) {
+__attribute__((hot)) char *strcasestr(const char *haystack,
+                                      const char *needle) {
 
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
@@ -566,8 +570,8 @@ __attribute__((hot)) char *strcasestr(const char *haystack, const char *needle) 
 
 #undef memmem
 
-__attribute__((hot)) void *memmem(const void *haystack, size_t haystack_len, const void *needle,
-             size_t needle_len) {
+__attribute__((hot)) void *memmem(const void *haystack, size_t haystack_len,
+                                  const void *needle, size_t needle_len) {
 
   if (__tokencap_is_ro(haystack)) __tokencap_dump(haystack, haystack_len, 1);
 

@@ -2,7 +2,7 @@
 
 FRIDA now supports the ability to configure itself using JavaScript. This allows
 the user to make use of the convenience of FRIDA's scripting engine (along with
-it's support for debug symbols and exports) to configure all of the things which
+its support for debug symbols and exports) to configure all of the things which
 were traditionally configured using environment variables.
 
 By default, FRIDA mode will look for the file `afl.js` in the current working
@@ -95,7 +95,7 @@ Afl.print("done");
 
 ## Stripped binaries
 
-Lastly, if the binary you attempting to fuzz has no symbol information and no
+Lastly, if the binary you're attempting to fuzz has no symbol information and no
 exports, then the following approach can be used.
 
 ```js
