@@ -62,7 +62,8 @@ extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
-int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
+__attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *Data,
+                                                 size_t         Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
 int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
                                               int (*callback)(const uint8_t *data, size_t size));
