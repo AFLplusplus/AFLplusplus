@@ -12,7 +12,7 @@ LABEL "about"="AFLplusplus container image"
 ### Comment out to enable these features
 # Only available on specific ARM64 boards
 ENV NO_CORESIGHT=1
-# Possbile but unlikely in a docker container
+# Possible but unlikely in a docker container
 ENV NO_NYX=1
 
 ### Only change these if you know what you are doing:
