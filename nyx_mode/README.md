@@ -97,7 +97,7 @@ sudo modprobe kvm-intel # or kvm-amd for AMD processors
 If you want to fuzz in parallel (and you should!), then this has to be done in a
 special way:
 
-* Instead of `-X` (standalone mode), you specify `-Y` (multi processor mode).
+* Instead of `-X` (standalone mode), you specify `-Y` (multiprocessor mode).
 * First, a Main afl-fuzz instance has to be started with `-M 0`.
 * Only afterwards you can start Secondary afl-fuzz instances, which must have an
   increasing number value, starting at 1, e.g., `-S 1`.

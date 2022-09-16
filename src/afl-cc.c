@@ -666,15 +666,21 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 #endif
       free(ld_path);
 
-#if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
+#if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 15
+      // The NewPM implementation only works fully since LLVM 15.
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,--load-pass-plugin=%s/SanitizerCoverageLTO.so", obj_path);
+#elif defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
       cc_params[cc_par_cnt++] = "-Wl,--lto-legacy-pass-manager";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
 #else
       cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
 #endif
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       cc_params[cc_par_cnt++] = lto_flag;
 
     } else {

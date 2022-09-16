@@ -62,8 +62,11 @@ extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
-int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
+__attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *Data,
+                                                 size_t         Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
+int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
+                                              int (*callback)(const uint8_t *data, size_t size));
 
 // Default nop ASan hooks for manual posisoning when not linking the ASan
 // runtime
@@ -245,7 +248,7 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 }
 
-int main(int argc, char **argv) {
+__attribute__((weak)) int main(int argc, char **argv) {
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
     printf(
@@ -264,6 +267,16 @@ int main(int argc, char **argv) {
         "option\n"
         "===================================================================\n",
         argv[0], argv[0]);
+
+  return LLVMFuzzerRunDriver(&argc, &argv, LLVMFuzzerTestOneInput);
+
+}
+
+int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
+                        int (*callback)(const uint8_t *data, size_t size)) {
+
+  int    argc = *argcp;
+  char **argv = *argvp;
 
   if (getenv("AFL_GDB")) {
 
@@ -352,7 +365,7 @@ int main(int argc, char **argv) {
         }
 
         prev_length = length;
-        LLVMFuzzerTestOneInput(__afl_fuzz_ptr, length);
+        (void)callback(__afl_fuzz_ptr, length);
 
       }
 

@@ -604,11 +604,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
   }
 
-  if (afl->afl_env.afl_pizza_mode) {
-
-    afl->pizza_is_served = 1;
-
-  }
+  if (afl->afl_env.afl_pizza_mode) { afl->pizza_is_served = 1; }
 
   if (issue_detected) { sleep(2); }
 

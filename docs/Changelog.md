@@ -18,8 +18,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       to variables queue items instead of 12.
   - afl-cc:
     - fixed off-by-one bug in our pcguard implemenation, thanks for
-      @toka for reporting
+      @tokatoka for reporting
+    - fix for llvm 15 and reenabling LTO, thanks to nikic for the PR!
     - better handling of -fsanitize=..,...,.. lists
+    - support added for LLVMFuzzerRunDriver()
     - fix gcc_mode cmplog
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
       note that this will exit the target before main()
@@ -27,6 +29,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_QEMU_TRACK_UNSTABLE to log the addresses of unstable
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
       worksbutnottested!
+  - afl-analyze broke at some point, fix by CodeLogicError, thank you!
+  - unicorn_mode:
+    - updated upstream unicorn version
+    - fixed builds for aarch64
+    - build now uses all available cores
 
 
 ### Version ++4.02c (release)
