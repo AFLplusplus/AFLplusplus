@@ -30,6 +30,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
       worksbutnottested!
   - afl-analyze broke at some point, fix by CodeLogicError, thank you!
+  - afl-cmin/afl-cmin.bash now have an -A option to allow also crashing
+    and timeout inputs
   - unicorn_mode:
     - updated upstream unicorn version
     - fixed builds for aarch64
