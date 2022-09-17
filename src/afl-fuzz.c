@@ -192,9 +192,9 @@ static void usage(u8 *argv0, int more_help) {
       "executions.\n\n"
 
       "Other stuff:\n"
-      "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
-      "                  -M auto-sets -D, -Z (use -d to disable -D) and no "
-      "trimming\n"
+      "  -M/-S id      - distributed mode (-M sets -Z and disables trimming)\n"
+      "                  see docs/fuzzing_in_depth.md#c-using-multiple-cores\n"
+      "                  for effective recommendations for parallel fuzzing.\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
