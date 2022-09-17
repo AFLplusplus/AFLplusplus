@@ -2420,7 +2420,9 @@ void get_core_count(afl_state_t *afl) {
 
       } else if ((s64)cur_runnable + 1 <= (s64)afl->cpu_core_count) {
 
-        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
+        OKF("Try parallel jobs - see "
+            "%s/fuzzing_in_depth.md#c-using-multiple-cores",
+            doc_path);
 
       }
 

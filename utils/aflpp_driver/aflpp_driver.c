@@ -198,8 +198,9 @@ size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
 }
 
 // Execute any files provided as parameters.
-static int ExecuteFilesOnyByOne(int argc, char **argv, 
-                                int (*callback)(const uint8_t *data, size_t size)) {
+static int ExecuteFilesOnyByOne(int argc, char **argv,
+                                int (*callback)(const uint8_t *data,
+                                                size_t         size)) {
 
   unsigned char *buf = (unsigned char *)malloc(MAX_FILE);
 
