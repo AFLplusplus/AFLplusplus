@@ -198,7 +198,8 @@ size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
 }
 
 // Execute any files provided as parameters.
-static int ExecuteFilesOnyByOne(int argc, char **argv) {
+static int ExecuteFilesOnyByOne(int argc, char **argv, 
+                                int (*callback)(const uint8_t *data, size_t size)) {
 
   unsigned char *buf = (unsigned char *)malloc(MAX_FILE);
 
@@ -234,7 +235,7 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
       prev_length = length;
 
       printf("Reading %zu bytes from %s\n", length, argv[i]);
-      LLVMFuzzerTestOneInput(buf, length);
+      callback(buf, length);
       printf("Execution successful.\n");
 
     }
@@ -312,7 +313,7 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
     __afl_sharedmem_fuzzing = 0;
     __afl_manual_init();
-    return ExecuteFilesOnyByOne(argc, argv);
+    return ExecuteFilesOnyByOne(argc, argv, callback);
 
   } else if (argc == 2 && argv[1][0] == '-') {
 
@@ -328,7 +329,7 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
     if (argc == 2) { __afl_manual_init(); }
 
-    return ExecuteFilesOnyByOne(argc, argv);
+    return ExecuteFilesOnyByOne(argc, argv, callback);
 
   }
 
@@ -338,7 +339,7 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  LLVMFuzzerTestOneInput(dummy_input, 4);
+  callback(dummy_input, 4);
 
   __asan_poison_memory_region(__afl_fuzz_ptr, MAX_FILE);
   size_t prev_length = 0;
@@ -375,7 +376,7 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
     while (__afl_persistent_loop(N)) {
 
-      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
+      callback(__afl_fuzz_ptr, *__afl_fuzz_len);
 
     }
 
