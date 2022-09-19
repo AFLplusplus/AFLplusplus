@@ -3,12 +3,8 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-## Staying informed
 
-Want to stay in the loop on major new features? Join our mailing list by
-sending a mail to <afl-users+subscribe@googlegroups.com>.
-
-### Version ++4.03a (dev)
+### Version ++4.03c (release)
   - Building now gives a build summary what succeeded and what not
   - afl-fuzz:
     - added AFL_NO_STARTUP_CALIBRATION to start fuzzing at once instead
