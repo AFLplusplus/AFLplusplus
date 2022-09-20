@@ -2105,7 +2105,9 @@ void show_init_stats(afl_state_t *afl) {
                     ? 50000
                     : 10000)) {
 
-    WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
+    WARNF(cLRD
+          "The target binary is pretty slow! See "
+          "%s/fuzzing_in_depth.md#i-improve-the-speed",
           doc_path);
 
   }
@@ -2134,13 +2136,17 @@ void show_init_stats(afl_state_t *afl) {
 
     if (max_len > 50 * 1024) {
 
-      WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.md!",
+      WARNF(cLRD
+            "Some test cases are huge (%s) - see "
+            "%s/fuzzing_in_depth.md#i-improve-the-speed",
             stringify_mem_size(IB(0), max_len), doc_path);
 
     } else if (max_len > 10 * 1024) {
 
-      WARNF("Some test cases are big (%s) - see %s/perf_tips.md.",
-            stringify_mem_size(IB(0), max_len), doc_path);
+      WARNF(
+          "Some test cases are big (%s) - see "
+          "%s/fuzzing_in_depth.md#i-improve-the-speed",
+          stringify_mem_size(IB(0), max_len), doc_path);
 
     }
 
