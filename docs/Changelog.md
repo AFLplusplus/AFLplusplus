@@ -4,6 +4,10 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++4.04a (dev)
+  - ... your PR? :)
+
+
 ### Version ++4.03c (release)
   - Building now gives a build summary what succeeded and what not
   - afl-fuzz:
