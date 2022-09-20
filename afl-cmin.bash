@@ -53,7 +53,7 @@ unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eOQUCh" opt; do
+while getopts "+i:o:f:m:t:eOQUACh" opt; do
 
   case "$opt" in 
 
@@ -79,6 +79,9 @@ while getopts "+i:o:f:m:t:eOQUCh" opt; do
          ;;
     "e")
          EXTRA_PAR="$EXTRA_PAR -e"
+         ;;
+    "A")
+         export AFL_CMIN_ALLOW_ANY=1
          ;;
     "C")
          export AFL_CMIN_CRASHES_ONLY=1
@@ -128,6 +131,7 @@ Execution control settings:
   
 Minimization settings:
 
+  -A            - allow crashing and timeout inputs
   -C            - keep crashing inputs, reject everything else
   -e            - solve for edge coverage only, ignore hit counts
 
