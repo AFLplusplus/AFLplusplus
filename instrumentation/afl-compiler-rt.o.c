@@ -363,7 +363,7 @@ static void __afl_map_shm(void) {
 
       }
 
-    } else {
+    } else if (!__afl_final_loc){
 
       __afl_map_size = MAP_INITIAL_SIZE;
 
@@ -516,11 +516,22 @@ static void __afl_map_shm(void) {
 
     }
 
-  } else if (__afl_final_loc > __afl_map_size) {
+  } else if ((_is_sancov && __afl_area_ptr && __afl_area_ptr != __afl_area_initial) || (__afl_final_loc > __afl_map_size)) {
 
-    if (__afl_area_initial != __afl_area_ptr_dummy) {
+    // Reallocate __afl_area_ptr if
+    // 1. __afl_area_ptr was allocated in __afl_auto_first or __afl_auto_second before, or
+    // 2. __afl_map_size from the env is smaller than __afl_final_loc
+
+    if (__afl_area_initial != __afl_area_ptr_dummy && __afl_final_loc > __afl_map_size) {
 
       free(__afl_area_ptr_dummy);
+
+    }
+    if (__afl_area_initial != __afl_area_ptr && __afl_area_ptr && __afl_area_ptr_dummy != __afl_area_ptr) {
+      // In case this __afl_area_ptr got malloc-ed in __afl_auto_first or __afl_auto_second
+      // but then __afl_final_loc is larger now than before, so we must re-request the memory chunk with larger size
+
+      free(__afl_area_ptr);
 
     }
 
