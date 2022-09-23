@@ -243,8 +243,8 @@ struct afl_cmplog_pass : afl_base_pass {
 
       tree t = build_nonstandard_integer_type(sz, 1);
 
-      tree    s = make_ssa_name(t);
-      gimple *g = gimple_build_assign(s, VIEW_CONVERT_EXPR,
+      tree   s = make_ssa_name(t);
+      gimple g = gimple_build_assign(s, VIEW_CONVERT_EXPR,
                                       build1(VIEW_CONVERT_EXPR, t, lhs));
       lhs = s;
       gsi_insert_before(&gsi, g, GSI_SAME_STMT);
@@ -263,8 +263,8 @@ struct afl_cmplog_pass : afl_base_pass {
     lhs = fold_convert_loc(UNKNOWN_LOCATION, t, lhs);
     if (!is_gimple_val(lhs)) {
 
-      tree    s = make_ssa_name(t);
-      gimple *g = gimple_build_assign(s, lhs);
+      tree   s = make_ssa_name(t);
+      gimple g = gimple_build_assign(s, lhs);
       lhs = s;
       gsi_insert_before(&gsi, g, GSI_SAME_STMT);
 
@@ -273,8 +273,8 @@ struct afl_cmplog_pass : afl_base_pass {
     rhs = fold_convert_loc(UNKNOWN_LOCATION, t, rhs);
     if (!is_gimple_val(rhs)) {
 
-      tree    s = make_ssa_name(t);
-      gimple *g = gimple_build_assign(s, rhs);
+      tree   s = make_ssa_name(t);
+      gimple g = gimple_build_assign(s, rhs);
       rhs = s;
       gsi_insert_before(&gsi, g, GSI_SAME_STMT);
 
@@ -282,7 +282,7 @@ struct afl_cmplog_pass : afl_base_pass {
 
     /* Insert the call.  */
     tree    att = build_int_cst(t8u, attr);
-    gimple *call;
+    gimple call;
     if (pass_n)
       call = gimple_build_call(fn, 4, lhs, rhs, att,
                                build_int_cst(t8u, sz / 8 - 1));
@@ -305,7 +305,7 @@ struct afl_cmplog_pass : afl_base_pass {
       gimple_stmt_iterator gsi = gsi_last_bb(bb);
       if (gsi_end_p(gsi)) continue;
 
-      gimple *stmt = gsi_stmt(gsi);
+      gimple stmt = gsi_stmt(gsi);
 
       if (gimple_code(stmt) == GIMPLE_COND) {
 
