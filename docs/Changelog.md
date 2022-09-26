@@ -5,7 +5,9 @@
 
 
 ### Version ++4.04a (dev)
-  - ... your PR? :)
+  - fix gramatron and grammar_mutatur build scripts
+  - afl-cc:
+    - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
 
 
 ### Version ++4.03c (release)
