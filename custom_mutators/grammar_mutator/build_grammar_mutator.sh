@@ -119,7 +119,7 @@ else
   }
 fi
 
-test -f grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got grammar mutator."
 
 cd "grammar_mutator" || exit 1
