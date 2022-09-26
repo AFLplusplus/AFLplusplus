@@ -348,7 +348,7 @@ static void __afl_map_shm(void) {
     u32 val = 0;
     u8 *ptr;
 
-    if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) val = atoi(ptr);
+    if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) { val = atoi(ptr); }
 
     if (val > MAP_INITIAL_SIZE) {
 
@@ -1375,17 +1375,17 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
 
-  if (__afl_final_loc) {
+  if (__afl_final_loc > MAP_INITIAL_SIZE) {
 
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial)
       free(__afl_area_ptr);
 
     if (__afl_map_addr)
-      ptr = (u8 *)mmap((void *)__afl_map_addr, __afl_final_loc,
+      ptr = (u8 *)mmap((void *)__afl_map_addr, __afl_final_loc + 2,
                        PROT_READ | PROT_WRITE,
                        MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     else
-      ptr = (u8 *)malloc(__afl_final_loc);
+      ptr = (u8 *)malloc(__afl_final_loc + 2);
 
     if (ptr && (ssize_t)ptr != -1) {
 
@@ -1407,14 +1407,18 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
   __afl_already_initialized_first = 1;
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
-  u8 *ptr = (u8 *)malloc(MAP_INITIAL_SIZE);
 
-  if (ptr && (ssize_t)ptr != -1) {
+  /*
+    u8 *ptr = (u8 *)malloc(MAP_INITIAL_SIZE);
 
-    __afl_area_ptr = ptr;
-    __afl_area_ptr_backup = __afl_area_ptr;
+    if (ptr && (ssize_t)ptr != -1) {
 
-  }
+      __afl_area_ptr = ptr;
+      __afl_area_ptr_backup = __afl_area_ptr;
+
+    }
+
+  */
 
 }  // ptr memleak report is a false positive
 
