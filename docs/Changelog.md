@@ -4,6 +4,14 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++4.04a (dev)
+  - fix gramatron and grammar_mutatur build scripts
+  - enhancements to the afl-persistent-config and afl-system-config
+    scripts
+  - afl-cc:
+    - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
+
+
 ### Version ++4.03c (release)
   - Building now gives a build summary what succeeded and what not
   - afl-fuzz:

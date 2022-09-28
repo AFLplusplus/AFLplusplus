@@ -125,7 +125,10 @@
 */
 
 #include "afl-gcc-common.h"
+#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
+    60200                                               /* >= version 6.2.0 */
 #include "memmodel.h"
+#endif
 
 /* This plugin, being under the same license as GCC, satisfies the
    "GPL-compatible Software" definition in the GCC RUNTIME LIBRARY

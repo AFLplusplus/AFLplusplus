@@ -125,7 +125,7 @@ else
   }
 fi
 
-test -d json-c/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e json-c/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got json-c."
 
 test -e json-c/.libs/libjson-c.a || {
