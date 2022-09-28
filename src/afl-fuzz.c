@@ -2271,6 +2271,14 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
 #ifdef CALCULATE_OVERHEAD
+    typedef unsigned long long timestamp_t;
+
+    static timestamp_t get_timestamp () {
+      struct timeval now;
+      gettimeofday (&now, NULL);
+      return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+    }
+  
     double T0_sec = get_timestamp() / 1000000.0L;
     double overhead = 0.0;
 #endif
