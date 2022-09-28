@@ -365,6 +365,10 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with Python RL fuzzing.\n");
 #endif
 
+#ifdef CALCULATE_OVERHEAD
+  SAYF("Compiled with calculate overhead.\n");
+#endif
+
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);
