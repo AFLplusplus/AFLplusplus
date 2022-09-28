@@ -2317,7 +2317,7 @@ int main(int argc, char **argv_orig, char **envp) {
     timestamp_t t1 = get_timestamp();
     double secs = (t1 - t0) / 1000000.0L;
     overhead += secs;
-    OKF("Seed scehduler overhead is: %03.1f", overhead / (t1 - T0) );
+    OKF("Seed scehduler overhead is: %03.1f", overhead / (t1 - T0_sec) );
 #endif
 
     if (unlikely((!afl->old_seed_selection &&
