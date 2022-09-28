@@ -85,9 +85,11 @@
 #define CALCULATE_OVERHEAD 1
 
 #ifdef CALCULATE_OVERHEAD
-static timestamp_t;
+typedef unsigned long long timestamp_t;
 
-get_timestamp () {
+static timestamp_t
+get_timestamp ()
+{
   struct timeval now;
   gettimeofday (&now, NULL);
   return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
