@@ -57,7 +57,6 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
-int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
@@ -68,7 +67,7 @@ __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
 int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
                                               int (*callback)(const uint8_t *data, size_t size));
 
-// Default nop ASan hooks for manual posisoning when not linking the ASan
+// Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
 // https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
 __attribute__((weak)) void __asan_poison_memory_region(
@@ -312,7 +311,6 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   if (argc == 2 && !strcmp(argv[1], "-")) {
 
-    __afl_sharedmem_fuzzing = 0;
     __afl_manual_init();
     return ExecuteFilesOnyByOne(argc, argv, callback);
 
@@ -325,8 +323,6 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
 
   } else if (argc > 1) {
-
-    __afl_sharedmem_fuzzing = 0;
 
     if (argc == 2) { __afl_manual_init(); }
 

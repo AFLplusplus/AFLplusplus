@@ -5,9 +5,12 @@
 
 
 ### Version ++4.04a (dev)
-  - fix gramatron and grammar_mutatur build scripts
+  - fix gramatron and grammar_mutator build scripts
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
+  - llvm-mode:
+    - AFL runtime will always pass inputs via shared memory, when possible,
+      ignoring the command line.
 
 
 ### Version ++4.03c (release)
