@@ -113,10 +113,10 @@ EOF
 
   grep -E -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null || echo Error: /etc/default/grub with GRUB_CMDLINE_LINUX_DEFAULT is not present, cannot set boot options
   grep -E -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null && {
-    grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | grep -E -q hardened_usercopy=off || {
+    grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | grep -E -q 'noibrs pcid nopti' || {
       echo "Configuring performance boot options"
       LINE=`grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | sed 's/^GRUB_CMDLINE_LINUX_DEFAULT=//' | tr -d '"'`
-      OPTIONS="$LINE ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx=on tsx_async_abort=off mitigations=off audit=0 hardened_usercopy=off ssbd=force-off"
+      OPTIONS="$LINE ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs pcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=on pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx=on tsx_async_abort=off mitigations=off audit=0 hardened_usercopy=off ssbd=force-off"
       echo Setting boot options in /etc/default/grub to GRUB_CMDLINE_LINUX_DEFAULT=\"$OPTIONS\"
       sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$OPTIONS\"|" /etc/default/grub
     }
