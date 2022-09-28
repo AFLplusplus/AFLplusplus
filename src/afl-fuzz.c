@@ -44,6 +44,14 @@
 extern u64 time_spent_working;
 #endif
 
+#ifdef CALCULATE_OVERHEAD
+  static timestamp_t get_timestamp () {
+    struct timeval now;
+    gettimeofday (&now, NULL);
+    return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+  }
+#endif
+
 static void at_exit() {
 
   s32   i, pid1 = 0, pid2 = 0, pgrp = -1;
@@ -2272,7 +2280,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
 #ifdef CALCULATE_OVERHEAD
 
-  
+
     double T0_sec = get_timestamp() / 1000000.0L;
     double overhead = 0.0;
 #endif
