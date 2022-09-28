@@ -82,6 +82,8 @@
 #include "afl-fuzz-rl.h"
 #endif
 
+CALCULATE_OVERHEAD=1
+
 #ifdef CALCULATE_OVERHEAD
 static timestamp_t get_timestamp () {
   struct timeval now;
