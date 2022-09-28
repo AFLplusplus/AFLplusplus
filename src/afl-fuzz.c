@@ -2266,7 +2266,17 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->rl_params = rl_init_params(afl->fsrv.map_size);
 #endif
 
+#ifdef CALCULATE_OVERHEAD
+    double T0_sec = get_timestamp() / 1000000.0L;
+    double overhead = 0.0;
+#endif
+
   while (likely(!afl->stop_soon)) {
+#ifdef CALCULATE_OVERHEAD
+    timestamp_t t0 = get_timestamp();
+#endif
+
+
 #ifdef RL_FUZZING
     if (unlikely(afl->rl_params->map_size != afl->fsrv.map_size)) {
       afl->rl_params->map_size = afl->fsrv.map_size;
@@ -2289,6 +2299,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
 #else
     cull_queue(afl);
+#endif
+
+#ifdef CALCULATE_OVERHEAD
+    timestamp_t t1 = get_timestamp();
+    double secs = (t1 - t0) / 1000000.0L;
+    overhead += secs;
+    OKF("Seed scehduler overhead is: %03.1f", overhead / (t1 - T0) );
 #endif
 
     if (unlikely((!afl->old_seed_selection &&

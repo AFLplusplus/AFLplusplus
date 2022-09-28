@@ -82,6 +82,14 @@
 #include "afl-fuzz-rl.h"
 #endif
 
+#ifdef CALCULATE_OVERHEAD
+static timestamp_t get_timestamp () {
+  struct timeval now;
+  gettimeofday (&now, NULL);
+  return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+}
+#endif
+
 /* End RL fuzzing */
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
