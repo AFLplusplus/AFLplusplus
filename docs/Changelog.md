@@ -6,6 +6,8 @@
 
 ### Version ++4.04a (dev)
   - fix gramatron and grammar_mutatur build scripts
+  - enhancements to the afl-persistent-config and afl-system-config
+    scripts
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
 
