@@ -116,7 +116,7 @@ PCGUARD analysis.
 Several options are present to make llvm_mode faster or help it rearrange the
 code to make afl-fuzz path discovery easier.
 
-If you need just to instrument specific parts of the code, you can the
+If you need just to instrument specific parts of the code, you can create the
 instrument file list which C/C++ files to actually instrument. See
 [README.instrument_list.md](README.instrument_list.md)
 
