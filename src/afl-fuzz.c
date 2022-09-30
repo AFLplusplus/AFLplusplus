@@ -2326,7 +2326,7 @@ int main(int argc, char **argv_orig, char **envp) {
     fd = open(scheduler_overhead_csv_file_name, O_WRONLY | O_APPEND | O_CREAT, DEFAULT_PERMISSION);
     if (unlikely(fd < 0)) { PFATAL("Unable to create %s/scheduler_overhead.csv'", afl->out_dir); }
 
-    u8 *scheduler_overhead = alloc_printf("%s %s\n", t1 - T0_sec, overhead);
+    u8 *scheduler_overhead = alloc_printf("%d %.4g\n", t1 - T0_sec, overhead);
 
     write((int) (fd), scheduler_overhead, strlen(scheduler_overhead));
     close(fd);
