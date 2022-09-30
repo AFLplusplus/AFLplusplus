@@ -348,6 +348,11 @@ ifdef RL_FUZZING
   override AFL_FUZZ_FILES += src/rl-fuzzing.o
 endif
 
+ifdef CALCULATE_OVERHEAD
+  $(info Calculating overhead of the seed scheduler)
+  CALCULATE_OVERHEAD=1
+endif
+
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 	-$(MAKE) -C utils/aflpp_driver
