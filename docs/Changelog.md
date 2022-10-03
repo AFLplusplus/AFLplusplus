@@ -10,6 +10,9 @@
     scripts
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
+  - unicornafl:
+    - Enabled tricore arch (by @jma-qb)
+    - Updated Capstone version in Rust bindings
 
 
 ### Version ++4.03c (release)
