@@ -347,6 +347,21 @@ static void __afl_map_shm(void) {
 
   }
 
+  if (!id_str || fcntl(FORKSRV_FD, F_GETFD) == -1 ||
+      fcntl(FORKSRV_FD + 1, F_GETFD) == -1) {
+
+    if (__afl_debug) {
+
+      fprintf(stderr,
+              "DEBUG: running not inside afl-fuzz, disabling shared memory "
+              "testcases\n");
+
+    }
+
+    __afl_sharedmem_fuzzing = 0;
+
+  }
+
   if (!id_str) {
 
     u32 val = 0;
@@ -757,10 +772,10 @@ static void __afl_start_snapshots(void) {
      assume we're not running in forkserver mode and just execute program. */
 
   status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT | FS_OPT_NEWCMPLOG);
-  if (__afl_sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
+  if (__afl_sharedmem_fuzzing) { status |= FS_OPT_SHDMEM_FUZZ; }
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
     status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len && __afl_dictionary) status |= FS_OPT_AUTODICT;
+  if (__afl_dictionary_len && __afl_dictionary) { status |= FS_OPT_AUTODICT; }
   memcpy(tmp, &status, 4);
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
@@ -1021,7 +1036,7 @@ static void __afl_start_forkserver(void) {
 
   }
 
-  if (__afl_sharedmem_fuzzing != 0) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
+  if (__afl_sharedmem_fuzzing) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
   if (status_for_fsrv) {
 
     status_for_fsrv |= (FS_OPT_ENABLED | FS_OPT_NEWCMPLOG);

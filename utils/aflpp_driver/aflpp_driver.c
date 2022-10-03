@@ -310,23 +310,20 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   int N = INT_MAX;
 
-  if (argc == 2 && !strcmp(argv[1], "-")) {
+  if (argc == 2 && !strcmp(argv[1], "-") && !__afl_sharedmem_fuzzing) {
 
-    __afl_sharedmem_fuzzing = 0;
     __afl_manual_init();
     return ExecuteFilesOnyByOne(argc, argv, callback);
 
-  } else if (argc == 2 && argv[1][0] == '-') {
+  } else if (argc == 2 && argv[1][0] == '-' && argv[1][1]) {
 
     N = atoi(argv[1] + 1);
 
-  } else if (argc == 2 && (N = atoi(argv[1])) > 0) {
+  } else if (argc == 2 && !argv[1][0] == '-' && (N = atoi(argv[1])) > 0) {
 
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
 
-  } else if (argc > 1) {
-
-    __afl_sharedmem_fuzzing = 0;
+  } else if (argc > 1 && !__afl_sharedmem_fuzzing && !argv[1][0] == '-') {
 
     if (argc == 2) { __afl_manual_init(); }
 
