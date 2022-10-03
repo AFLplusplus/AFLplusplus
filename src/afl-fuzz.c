@@ -2132,6 +2132,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
+
+    afl->fsrv.out_file = NULL;
+    afl->fsrv.use_stdin = 0;
+    WARNF(
+        "You specified -f or @@ on the command line but the target harness "
+        "specified fuzz cases via shmem, switching to shmem!");
+
+  }
+
   deunicode_extras(afl);
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
