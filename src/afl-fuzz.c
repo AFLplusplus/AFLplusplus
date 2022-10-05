@@ -2281,7 +2281,7 @@ int main(int argc, char **argv_orig, char **envp) {
 #ifdef CALCULATE_OVERHEAD
 
 
-    double T0_sec = get_timestamp() / 1000000.0L;
+    double T0 = get_timestamp();
     double overhead = 0.0;
 #endif
 
@@ -2320,14 +2320,14 @@ int main(int argc, char **argv_orig, char **envp) {
     timestamp_t t1 = get_timestamp();
     double secs = (t1 - t0) / 1000000.0L;
     overhead += secs;
-    OKF("Seed scehduler overhead is: %.3g", overhead / (t1 - T0_sec) );
+    OKF("Seed scehduler overhead is: %.3g", overhead / ((t1 - T0) / / 1000000.0L) );
      
     // Write to file
     u8 *scheduler_overhead_csv_file_name = alloc_printf("%s/scheduler_overhead.csv", afl->out_dir);
     fd = open(scheduler_overhead_csv_file_name, O_WRONLY | O_APPEND | O_CREAT, DEFAULT_PERMISSION);
     if (unlikely(fd < 0)) { PFATAL("Unable to create %s/scheduler_overhead.csv'", afl->out_dir); }
 
-    u8 *scheduler_overhead = alloc_printf("%f, %.4g\n", t1 - T0_sec, overhead);
+    u8 *scheduler_overhead = alloc_printf("%f, %.4g\n", (t1 - T0) / / 1000000.0L, overhead / ((t1 - T0) / / 1000000.0L) );
 
     write((int) (fd), scheduler_overhead, strlen(scheduler_overhead));
     close(fd);
