@@ -172,6 +172,7 @@ struct queue_entry {
       n_fuzz_entry;                     /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
+      max_exec_us,                      /* Max execution time (us)          */
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum;                       /* Checksum of the execution trace  */
