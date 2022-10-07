@@ -151,6 +151,9 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
   // TODO SET THIS AS AN ENVIRONMENT VARIABLE IN THE FUTURE! I HAVE JUST PUT
   // THIS HERE FOR CONVIENENCE
   afl->rl_params = rl_init_params(afl->fsrv.map_size);
+#ifdef CALCULATE_OVERHEAD
+  afl->rl_params->update_overhead_sec = 0.0;
+#endif
 #endif
 
   int   index = 0, issue_detected = 0;
