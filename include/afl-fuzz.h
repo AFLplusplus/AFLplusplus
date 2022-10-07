@@ -78,7 +78,7 @@
 
 /* Start RL fuzzing */
 
-#define CALCULATE_OVERHEAD 1
+#define CALCULATE_OVERHEAD 0
 
 
 #ifdef RL_FUZZING
