@@ -5,7 +5,7 @@
 
 
 ### Version ++4.04a (dev)
-  - fix gramatron and grammar_mutatur build scripts
+  - fix gramatron and grammar_mutator build scripts
   - enhancements to the afl-persistent-config and afl-system-config
     scripts
   - afl-cc:
@@ -16,6 +16,9 @@
   - unicorn_mode:
     - Enabled tricore arch (by @jma-qb)
     - Updated Capstone version in Rust bindings
+  - llvm-mode:
+    - AFL runtime will always pass inputs via shared memory, when possible,
+      ignoring the command line.
 
 
 ### Version ++4.03c (release)
