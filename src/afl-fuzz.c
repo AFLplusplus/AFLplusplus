@@ -45,7 +45,7 @@ extern u64 time_spent_working;
 #endif
 
 #ifdef CALCULATE_OVERHEAD
-  static timestamp_t get_timestamp () {
+  timestamp_t get_timestamp () {
     struct timeval now;
     gettimeofday (&now, NULL);
     return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
