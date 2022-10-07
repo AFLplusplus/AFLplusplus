@@ -1097,7 +1097,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_INIT()="
-      "int __afl_sharedmem_fuzzing = 1;"
       "extern unsigned int *__afl_fuzz_len;"
       "extern unsigned char *__afl_fuzz_ptr;"
       "unsigned char __afl_fuzz_alt[1048576];"
@@ -1131,9 +1130,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()";
   cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_SKIP()=__afl_coverage_skip()";
+  // If __AFL_FUZZ_TESTCASE_BUF is called at least once, this sets the (boolean)
+  // __afl_sharedmem_fuzzing to non-zero, indicating we want to use sharedmem_fuzzing
   cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
-      "__afl_fuzz_alt_ptr)";
+      "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_sharedmem_fuzzing = (__afl_fuzz_ptr ? __afl_fuzz_ptr : "
+      "__afl_fuzz_alt_ptr))";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : "
       "(*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1048576)) == 0xffffffff "

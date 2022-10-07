@@ -35,6 +35,7 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,7 +58,7 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
-int                   __afl_sharedmem_fuzzing = 1;
+extern u8 *__afl_sharedmem_fuzzing;
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
@@ -290,6 +291,13 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   }
 
+  bool in_afl = (!getenv(SHM_ENV_VAR) || fcntl(FORKSRV_FD, F_GETFD) == -1 || fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
+
+  if (in_afl) {
+    // always request sharedmem fuzzing, when running in afl
+    __afl_sharedmem_fuzzing = (u8 *)1;
+  }
+
   output_file = stderr;
   maybe_duplicate_stderr();
   maybe_close_fd_mask();
@@ -310,7 +318,7 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   int N = INT_MAX;
 
-  if (argc == 2 && !strcmp(argv[1], "-") && !__afl_sharedmem_fuzzing) {
+  if (!in_afl && argc == 2 && !strcmp(argv[1], "-")) {
 
     __afl_manual_init();
     return ExecuteFilesOnyByOne(argc, argv, callback);
@@ -319,11 +327,11 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
     N = atoi(argv[1] + 1);
 
-  } else if (argc == 2 && !argv[1][0] == '-' && (N = atoi(argv[1])) > 0) {
+  } else if (argc == 2 && argv[1][0] != '-' && (N = atoi(argv[1])) > 0) {
 
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
 
-  } else if (argc > 1 && !__afl_sharedmem_fuzzing && !argv[1][0] == '-') {
+  } else if (!in_afl && argc > 1 && argv[1][0] != '-') {
 
     if (argc == 2) { __afl_manual_init(); }
 
