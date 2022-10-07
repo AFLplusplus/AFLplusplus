@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define CALCULATE_OVERHEAD 1
+
 #include "types.h"
 
 /// Different types of correction factors
