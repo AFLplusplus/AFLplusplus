@@ -2285,7 +2285,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     s32 fd;
     timestamp_t t0, t1;
-    u8* scheduler_overhead, scheduler_overhead_csv_file_name;
+    u8 *scheduler_overhead;
+    u8 *scheduler_overhead_csv_file_name;
 #endif
 
   while (likely(!afl->stop_soon)) {
