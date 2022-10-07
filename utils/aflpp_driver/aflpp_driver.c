@@ -58,7 +58,7 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
-extern u8 *__afl_sharedmem_fuzzing;
+int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
@@ -291,12 +291,11 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   }
 
-  bool in_afl = (!getenv(SHM_ENV_VAR) || fcntl(FORKSRV_FD, F_GETFD) == -1 || fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
+  bool in_afl = !(!getenv(SHM_FUZZ_ENV_VAR) || !getenv(SHM_ENV_VAR) ||
+                 fcntl(FORKSRV_FD, F_GETFD) == -1 ||
+                 fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
 
-  if (in_afl) {
-    // always request sharedmem fuzzing, when running in afl
-    __afl_sharedmem_fuzzing = (u8 *)1;
-  }
+  if (!in_afl) { __afl_sharedmem_fuzzing = 0;  }
 
   output_file = stderr;
   maybe_duplicate_stderr();

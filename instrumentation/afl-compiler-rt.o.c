@@ -97,9 +97,7 @@ u8        *__afl_dictionary;
 u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
-
-// 0, if sharedmem_fuzzing is disabled, else set to some value
-u8        *__afl_sharedmem_fuzzing = (u8 *)0;
+int        __afl_sharedmem_fuzzing __attribute__((weak));
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -121,7 +119,6 @@ __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 __thread PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 __thread u32        __afl_prev_ctx;
 #endif
-
 
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
@@ -349,8 +346,9 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (!id_str || fcntl(FORKSRV_FD, F_GETFD) == -1 ||
-      fcntl(FORKSRV_FD + 1, F_GETFD) == -1) {
+  if (__afl_sharedmem_fuzzing && (!id_str || !getenv(SHM_FUZZ_ENV_VAR) ||
+                                  fcntl(FORKSRV_FD, F_GETFD) == -1 ||
+                                  fcntl(FORKSRV_FD + 1, F_GETFD) == -1)) {
 
     if (__afl_debug) {
 

@@ -2136,9 +2136,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->fsrv.out_file = NULL;
     afl->fsrv.use_stdin = 0;
-    WARNF(
-        "You specified -f or @@ on the command line but the target harness "
-        "specified fuzz cases via shmem, switching to shmem!");
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin) {
+
+      WARNF(
+          "You specified -f or @@ on the command line but the target harness "
+          "specified fuzz cases via shmem, switching to shmem!");
+
+    }
 
   }
 
