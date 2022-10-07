@@ -10,6 +10,12 @@
     scripts
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
+  - qemu_mode:
+    - fixed 10x speed degredation in v4.03c, thanks to @ele7enxxh for
+      reporting!
+  - unicorn_mode:
+    - Enabled tricore arch (by @jma-qb)
+    - Updated Capstone version in Rust bindings
   - llvm-mode:
     - AFL runtime will always pass inputs via shared memory, when possible,
       ignoring the command line.
