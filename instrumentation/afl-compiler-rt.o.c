@@ -558,7 +558,7 @@ static void __afl_map_shm(void) {
     if (!__afl_area_ptr_dummy) {
 
       fprintf(stderr,
-              "Error: AFL++ could not aquire %u bytes of memory, exiting!\n",
+              "Error: AFL++ could not acquire %u bytes of memory, exiting!\n",
               __afl_final_loc);
       exit(-1);
 

@@ -68,7 +68,7 @@ __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
 int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
                                               int (*callback)(const uint8_t *data, size_t size));
 
-// Default nop ASan hooks for manual posisoning when not linking the ASan
+// Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
 // https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
 __attribute__((weak)) void __asan_poison_memory_region(
