@@ -2279,16 +2279,19 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
 #ifdef CALCULATE_OVERHEAD
-
-
     double T0 = get_timestamp();
     double overhead = 0.0;
+
+
+    s32 fd;
+    timestamp_t t0, t1;
+    u8* scheduler_overhead, scheduler_overhead_csv_file_name;
 #endif
 
   while (likely(!afl->stop_soon)) {
+
 #ifdef CALCULATE_OVERHEAD
-    timestamp_t t0 = get_timestamp();
-     s32 fd;
+    t0 = get_timestamp();
 #endif
 
 
@@ -2317,22 +2320,18 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
 #ifdef CALCULATE_OVERHEAD
-    timestamp_t t1 = get_timestamp();
-    double secs = (t1 - t0) / 1000000.0;
-    overhead += secs;
+    t1 = get_timestamp();
+    overhead += (t1 - t0) / 1000000.0;
     OKF("Seed scehduler overhead is: %.3g", overhead / ((t1 - T0) / 1000000.0) );
      
     // Write to file
-    u8 *scheduler_overhead_csv_file_name = alloc_printf("%s/scheduler_overhead.csv", afl->out_dir);
+    scheduler_overhead_csv_file_name = alloc_printf("%s/scheduler_overhead.csv", afl->out_dir);
     fd = open(scheduler_overhead_csv_file_name, O_WRONLY | O_APPEND | O_CREAT, DEFAULT_PERMISSION);
     if (unlikely(fd < 0)) { PFATAL("Unable to create %s/scheduler_overhead.csv'", afl->out_dir); }
 
-    u8 *scheduler_overhead = alloc_printf("%f, %.4g\n", (double) (t1 - T0) / 1000000.0, (double) overhead / ((t1 - T0) / 1000000.0) );
+    scheduler_overhead = alloc_printf("%f, %f\n", (double) (t1 - T0) / 1000000.0, (double) overhead );
 
     write((int) (fd), scheduler_overhead, strlen(scheduler_overhead));
-    close(fd);
-    ck_free(scheduler_overhead_csv_file_name);
-    ck_free(scheduler_overhead);
 #endif
 
     if (unlikely((!afl->old_seed_selection &&
@@ -2694,6 +2693,12 @@ stop_fuzzing:
     unlink(path);
 
   }
+
+#ifdef CALCULATE_OVERHEAD
+    close(fd);
+    ck_free(scheduler_overhead_csv_file_name);
+    ck_free(scheduler_overhead);
+#endif
 
   if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
