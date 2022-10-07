@@ -78,11 +78,13 @@
 
 /* Start RL fuzzing */
 
+#define CALCULATE_OVERHEAD 1
+
+
 #ifdef RL_FUZZING
 #include "afl-fuzz-rl.h"
 #endif
 
-#define CALCULATE_OVERHEAD 1
 
 #ifdef CALCULATE_OVERHEAD
   typedef unsigned long long timestamp_t;
