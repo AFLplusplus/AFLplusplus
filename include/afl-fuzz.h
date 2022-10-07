@@ -86,6 +86,8 @@
 
 #ifdef CALCULATE_OVERHEAD
   typedef unsigned long long timestamp_t;
+  static timestamp_t get_timestamp ();
+  
 #endif
 /* End RL fuzzing */
 
