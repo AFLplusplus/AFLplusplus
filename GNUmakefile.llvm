@@ -214,6 +214,17 @@ ifeq "$(LLVM_LTO)" "1"
     ifeq "$(AFL_REAL_LD)" ""
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
+      else ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
+        AFL_REAL_LD = $(shell command -v ld.lld)
+        TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
+        ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
+          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+        else
+          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
+          AFL_REAL_LD=
+          LLVM_LTO = 0
+        endif
+        undefine TMP_LDLDD_VERSION
       else
         $(warning ld.lld not found, cannot enable LTO mode)
         LLVM_LTO = 0
@@ -229,7 +240,7 @@ AFL_CLANG_FUSELD=
 ifeq "$(LLVM_LTO)" "1"
   ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
     AFL_CLANG_FUSELD=1
-    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(LLVM_BINDIR)/ld.lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(AFL_REAL_LD) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
       AFL_CLANG_LDPATH=1
     endif
   else
