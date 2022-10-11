@@ -34,8 +34,8 @@ heap-related security bugs in several ways:
 
   - Size alignment to `max_align_t` can be enforced with `AFL_ALIGNED_ALLOC=1`. In
     this case, a tail canary is inserted in the padding bytes at the end of the
-    allocated zone. This reduce the ability of libdislocator to detect
-    off-by-one bugs but also it make slibdislocator compliant to the C standard.
+    allocated zone. This reduces the ability of libdislocator to detect
+    off-by-one bugs but also it makes libdislocator compliant to the C standard.
 
 Basically, it is inspired by some of the non-default options available for the
 OpenBSD allocator - see malloc.conf(5) on that platform for reference. It is

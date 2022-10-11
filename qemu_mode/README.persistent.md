@@ -27,11 +27,12 @@ function and will patch the return address (on stack or in the link register) to
 return to START (like WinAFL).
 
 *Note:* If the target is compiled with position independent code (PIE/PIC) qemu
-loads these to a specific base address. For 64 bit you have to add 0x4000000000
-(9 zeroes) and for 32 bit 0x40000000 (7 zeroes) to the address. On strange
-setups the base address set by QEMU for PIE executable may change. You can check
-it printing the process map using `AFL_QEMU_DEBUG_MAPS=1 afl-qemu-trace
-TARGET-BINARY`.
+loads these to a specific base address. For amd64 bit you have to add
+0x4000000000 (9 zeroes) and for 32 bit 0x40000000 (7 zeroes) to the address.
+For aarch64 it is usually 0x5500000000.
+On strange setups the base address set by QEMU for PIE executable may change.
+You can check it printing the process map using
+`AFL_QEMU_DEBUG_MAPS=1 afl-qemu-trace TARGET-BINARY`.
 
 If this address is not valid, afl-fuzz will error during startup with the
 message that the forkserver was not found.

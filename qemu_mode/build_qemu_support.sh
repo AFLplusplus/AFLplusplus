@@ -360,8 +360,10 @@ if ! command -v "$CROSS" > /dev/null ; then
     make -C libcompcov && echo "[+] libcompcov ready"
     echo "[+] Building unsigaction ..."
     make -C unsigaction && echo "[+] unsigaction ready"
+    echo "[+] Building fastexit ..."
+    make -C fastexit && echo "[+] fastexit ready"
     echo "[+] Building libqasan ..."
-    make -C libqasan && echo "[+] unsigaction ready"
+    make -C libqasan && echo "[+] libqasan ready"
     echo "[+] Building qemu libfuzzer helpers ..."
     make -C ../utils/aflpp_driver
   else

@@ -1240,7 +1240,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;
-    fsrv->map_size = 4194304;  // dummy temporary value
+    if (map_size > 4194304) {
+
+      fsrv->map_size = map_size;
+
+    } else {
+
+      fsrv->map_size = 4194304;  // dummy temporary value
+
+    }
+
     u32 new_map_size =
         afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
                              (get_afl_env("AFL_DEBUG_CHILD") ||
@@ -1259,7 +1268,7 @@ int main(int argc, char **argv_orig, char **envp) {
           (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
         if (!be_quiet)
-          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);

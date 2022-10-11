@@ -53,7 +53,7 @@ unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eOQUCh" opt; do
+while getopts "+i:o:f:m:t:eOQUACh" opt; do
 
   case "$opt" in 
 
@@ -79,6 +79,9 @@ while getopts "+i:o:f:m:t:eOQUCh" opt; do
          ;;
     "e")
          EXTRA_PAR="$EXTRA_PAR -e"
+         ;;
+    "A")
+         export AFL_CMIN_ALLOW_ANY=1
          ;;
     "C")
          export AFL_CMIN_CRASHES_ONLY=1
@@ -128,6 +131,7 @@ Execution control settings:
   
 Minimization settings:
 
+  -A            - allow crashing and timeout inputs
   -C            - keep crashing inputs, reject everything else
   -e            - solve for edge coverage only, ignore hit counts
 
@@ -214,6 +218,15 @@ if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
   TARGET_BIN="$TNEW"
 
 fi
+
+grep -aq AFL_DUMP_MAP_SIZE "./$TARGET_BIN" && {
+  echo "[!] Trying to obtain the map size of the target ..."
+  MAPSIZE=`AFL_DUMP_MAP_SIZE=1 "./$TARGET_BIN" 2>/dev/null`
+  test -n "$MAPSIZE" && {
+    export AFL_MAP_SIZE=$MAPSIZE
+    echo "[+] Setting AFL_MAP_SIZE=$MAPSIZE"
+  }
+}
 
 if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
 

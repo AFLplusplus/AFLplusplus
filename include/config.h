@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.02c"
+#define VERSION "++4.04c"
 
 /******************************************************
  *                                                    *
@@ -153,8 +153,9 @@
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
 
-#define CAL_CYCLES 8U
-#define CAL_CYCLES_LONG 20U
+#define CAL_CYCLES_FAST 3U
+#define CAL_CYCLES 7U
+#define CAL_CYCLES_LONG 12U
 
 /* Number of subsequent timeouts before abandoning an input file: */
 

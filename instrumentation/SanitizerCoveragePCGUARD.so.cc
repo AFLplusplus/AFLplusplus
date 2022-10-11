@@ -209,57 +209,6 @@ class ModuleSanitizerCoverageAFL
 
 };
 
-class ModuleSanitizerCoverageLegacyPass : public ModulePass {
-
- public:
-  ModuleSanitizerCoverageLegacyPass(
-      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
-      : ModulePass(ID), Options(Options) {
-
-    initializeModuleSanitizerCoverageLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-
-  }
-
-  bool runOnModule(Module &M) override {
-
-    ModuleSanitizerCoverageAFL ModuleSancov(Options);
-    auto DTCallback = [this](Function &F) -> const DominatorTree * {
-
-      return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-
-    };
-
-    auto PDTCallback = [this](Function &F) -> const PostDominatorTree * {
-
-      return &this->getAnalysis<PostDominatorTreeWrapperPass>(F)
-                  .getPostDomTree();
-
-    };
-
-    return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
-
-  }
-
-  /*static*/ char ID;  // Pass identification, replacement for typeid
-  StringRef       getPassName() const override {
-
-    return "ModuleSanitizerCoverage";
-
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-
-  }
-
- private:
-  SanitizerCoverageOptions Options;
-
-};
-
 }  // namespace
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
@@ -850,7 +799,8 @@ void ModuleSanitizerCoverageAFL::CreateFunctionLocalArrays(
 bool ModuleSanitizerCoverageAFL::InjectCoverage(
     Function &F, ArrayRef<BasicBlock *> AllBlocks, bool IsLeafFunc) {
 
-  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
+  uint32_t        cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
+  static uint32_t first = 1;
 
   for (auto &BB : F) {
 
@@ -876,9 +826,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         }
 
-        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+        if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
 
-        cnt_cov++;
+          cnt_cov++;
+
+        }
 
       }
 
@@ -917,7 +869,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   }
 
   /* Create PCGUARD array */
-  CreateFunctionLocalArrays(F, AllBlocks, cnt_cov + cnt_sel_inc);
+  CreateFunctionLocalArrays(F, AllBlocks, first + cnt_cov + cnt_sel_inc);
+  if (first) { first = 0; }
   selects += cnt_sel;
 
   uint32_t special = 0, local_selects = 0, skip_next = 0;
@@ -1103,10 +1056,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
         /*
-            std::string errMsg;
-            raw_string_ostream os(errMsg);
-        result->print(os);
-        fprintf(stderr, "X: %s\n", os.str().c_str());
+                    std::string errMsg;
+                    raw_string_ostream os(errMsg);
+                    result->print(os);
+                    fprintf(stderr, "X: %s\n", os.str().c_str());
         */
 
         while (1) {
@@ -1525,27 +1478,4 @@ std::string ModuleSanitizerCoverageAFL::getSectionEnd(
   return "__stop___" + Section;
 
 }
-
-#if 0
-
-char ModuleSanitizerCoverageLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(ModuleSanitizerCoverageLegacyPass, "sancov",
-                      "Pass for instrumenting coverage on functions", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
-                    "Pass for instrumenting coverage on functions", false,
-                    false)
-ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options,
-    const std::vector<std::string> &AllowlistFiles,
-    const std::vector<std::string> &BlocklistFiles) {
-
-  return new ModuleSanitizerCoverageLegacyPass(Options, AllowlistFiles,
-                                               BlocklistFiles);
-
-}
-
-#endif
 
