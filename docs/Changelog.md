@@ -4,7 +4,7 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.04a (dev)
+### Version ++4.04c (release)
   - fix gramatron and grammar_mutator build scripts
   - enhancements to the afl-persistent-config and afl-system-config
     scripts
