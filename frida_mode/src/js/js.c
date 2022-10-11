@@ -19,9 +19,11 @@ static GMainContext       *context;
 static GMainLoop          *main_loop;
 
 static void js_msg(const gchar *message, GBytes *data, gpointer user_data) {
+
   UNUSED_PARAMETER(data);
   UNUSED_PARAMETER(user_data);
   FOKF("%s", message);
+
 }
 
 void js_config(void) {

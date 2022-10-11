@@ -54,10 +54,12 @@ __attribute__((visibility("default"))) void afl_persistent_hook(
 
 __attribute__((visibility("default"))) void afl_persistent_hook(
     GumCpuContext *regs, uint8_t *input_buf, uint32_t input_buf_len) {
+
   // do a length check matching the target!
 
   memcpy((void *)regs->r[0], input_buf, input_buf_len);
   regs->r[1] = input_buf_len;
+
 }
 
 #else

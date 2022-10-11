@@ -58,7 +58,9 @@ CFLAGS+=-Werror \
 		-Wall \
 		-Wextra \
 		-Wpointer-arith \
-		-Wno-unknown-pragmas
+		-Wno-unknown-pragmas \
+		-Wno-pointer-to-int-cast \
+		-Wno-int-to-pointer-cast
 else
 CFLAGS+=-Wno-pointer-arith
 endif
@@ -207,7 +209,7 @@ $(FRIDA_MAKEFILE): | $(BUILD_DIR)
 .PHONY: $(GUM_DEVIT_LIBRARY)
 
 $(GUM_DEVIT_LIBRARY): $(FRIDA_MAKEFILE)
-	cd $(FRIDA_DIR) && make gum-$(OS)$(GUM_ARCH)
+	cd $(FRIDA_DIR) && make gum-$(OS)$(GUM_ARCH) FRIDA_V8=disabled
 
 $(GUM_DEVIT_HEADER): $(FRIDA_MAKEFILE) | $(FRIDA_BUILD_DIR)
 	echo "#include <stdio.h>" > $@
@@ -246,40 +248,40 @@ TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
 
 else ifeq "$(ARCH)" "arm64"
 
-CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
+CFLAGS+=-I $(FRIDA_DIR)build/$(OS)-$(ARCH)/include/frida-1.0 \
+	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
 
 ifeq "$(OS)" "android"
 CFLAGS += -static-libstdc++
 endif
 else
-CFLAGS+=-I $(FRIDA_DIR)build/frida_thin-$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
+CFLAGS+=-I $(FRIDA_DIR)build/$(OS)-$(ARCH)/include/frida-1.0 \
+	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
+		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
 
 endif
 
 TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libsqlite3.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libtcc.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libunwind.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libffi.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libdwarf.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libelf.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libgio-2.0.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libgobject-2.0.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/liblzma.a \
-			   $(FRIDA_DIR)build/frida_thin-sdk-$(OS)-$(ARCH)/lib/libz.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsqlite3.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libtcc.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libunwind.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libffi.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libdwarf.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libelf.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgio-2.0.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgobject-2.0.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/liblzma.a \
+			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libz.a \
 
 CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
 	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \

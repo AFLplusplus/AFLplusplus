@@ -9,8 +9,8 @@
   #define PAGE_MASK (~(GUM_ADDRESS(0xfff)))
   #define PAGE_ALIGNED(x) ((GUM_ADDRESS(x) & PAGE_MASK) == GUM_ADDRESS(x))
 
-gboolean instrument_cache_enabled = FALSE;
-gsize    instrument_cache_size = 0;
+gboolean           instrument_cache_enabled = FALSE;
+gsize              instrument_cache_size = 0;
 static GHashTable *coverage_blocks = NULL;
 
 extern __thread guint64 instrument_previous_pc;
@@ -42,7 +42,7 @@ typedef struct {
   // ldr     r1, [sp, #-132] ; 0xffffff7c
   // ldr     r0, [sp, #-128] ; 0xffffff80
 
-  uint32_t b_code; /* b imm */
+  uint32_t  b_code;                                                /* b imm */
   uint8_t  *shared_mem;
   uint64_t *prev_location;
 
@@ -136,43 +136,53 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
-                                       gpointer            start_address,
-                                       void               *from_insn,
-                                       gpointer           *target) {
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
+
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
   UNUSED_PARAMETER(from_insn);
 
   if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
+
     return;
+
   }
 
-  *target = (guint8 *)*target + G_STRUCT_OFFSET(afl_log_code_asm_t, str_r0_sp_rz);
+  *target =
+      (guint8 *)*target + G_STRUCT_OFFSET(afl_log_code_asm_t, str_r0_sp_rz);
+
 }
 
 static void instrument_coverage_suppress_init(void) {
+
   static gboolean initialized = false;
   if (initialized) { return; }
   initialized = true;
 
-  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserver          *observer = stalker_get_observer();
   GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
   iface->switch_callback = instrument_coverage_switch;
 
   coverage_blocks = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (coverage_blocks == NULL) {
+
     FATAL("Failed to g_hash_table_new, errno: %d", errno);
+
   }
+
 }
 
 static void patch_t3_insn(uint32_t *insn, uint16_t val) {
+
   uint32_t orig = GUINT32_FROM_LE(*insn);
   uint32_t imm12 = (val & 0xfff);
   uint32_t imm4 = (val >> 12);
   orig |= imm12;
   orig |= (imm4 << 16);
   *insn = GUINT32_TO_LE(orig);
+
 }
 
 void instrument_coverage_optimize(const cs_insn    *instr,
@@ -190,7 +200,9 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   block_start = GSIZE_TO_POINTER(GUM_ADDRESS(cw->code));
 
   if (!g_hash_table_add(coverage_blocks, block_start)) {
+
     FATAL("Failed - g_hash_table_add");
+
   }
 
   code.code = template;
