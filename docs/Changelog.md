@@ -8,11 +8,14 @@
   - fix gramatron and grammar_mutator build scripts
   - enhancements to the afl-persistent-config and afl-system-config
     scripts
+  - afl-fuzz:
+    - force writing all stats on exit
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
   - qemu_mode:
     - fixed 10x speed degredation in v4.03c, thanks to @ele7enxxh for
       reporting!
+    - added qemu_mode/fastexit helper library
   - unicorn_mode:
     - Enabled tricore arch (by @jma-qb)
     - Updated Capstone version in Rust bindings

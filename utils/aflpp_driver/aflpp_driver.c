@@ -292,10 +292,10 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
   }
 
   bool in_afl = !(!getenv(SHM_FUZZ_ENV_VAR) || !getenv(SHM_ENV_VAR) ||
-                 fcntl(FORKSRV_FD, F_GETFD) == -1 ||
-                 fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
+                  fcntl(FORKSRV_FD, F_GETFD) == -1 ||
+                  fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
 
-  if (!in_afl) { __afl_sharedmem_fuzzing = 0;  }
+  if (!in_afl) { __afl_sharedmem_fuzzing = 0; }
 
   output_file = stderr;
   maybe_duplicate_stderr();

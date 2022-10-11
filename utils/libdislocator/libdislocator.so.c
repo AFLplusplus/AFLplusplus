@@ -512,7 +512,7 @@ __attribute__((alloc_size(2, 3))) void *reallocarray(void *ptr, size_t elem_len,
 
 int reallocarr(void *ptr, size_t elem_len, size_t elem_cnt) {
 
-  void *ret = NULL;
+  void        *ret = NULL;
   const size_t elem_tot = elem_len * elem_cnt;
 
   if (elem_tot == 0) {
