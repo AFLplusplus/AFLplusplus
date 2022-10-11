@@ -306,9 +306,7 @@ int __libqasan_posix_memalign(void **ptr, size_t align, size_t len) {
 
   }
 
-  size_t rem = len % align;
-  size_t size = len;
-  if (rem) size += rem;
+  size_t size = len + align;
 
   int state = QASAN_SWAP(QASAN_DISABLED);  // disable qasan for this thread
 

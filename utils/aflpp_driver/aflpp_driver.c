@@ -35,6 +35,7 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,7 +69,7 @@ __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
 int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
                                               int (*callback)(const uint8_t *data, size_t size));
 
-// Default nop ASan hooks for manual posisoning when not linking the ASan
+// Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
 // https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
 __attribute__((weak)) void __asan_poison_memory_region(
@@ -290,6 +291,12 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   }
 
+  bool in_afl = !(!getenv(SHM_FUZZ_ENV_VAR) || !getenv(SHM_ENV_VAR) ||
+                  fcntl(FORKSRV_FD, F_GETFD) == -1 ||
+                  fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
+
+  if (!in_afl) { __afl_sharedmem_fuzzing = 0; }
+
   output_file = stderr;
   maybe_duplicate_stderr();
   maybe_close_fd_mask();
@@ -310,23 +317,20 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
   int N = INT_MAX;
 
-  if (argc == 2 && !strcmp(argv[1], "-")) {
+  if (!in_afl && argc == 2 && !strcmp(argv[1], "-")) {
 
-    __afl_sharedmem_fuzzing = 0;
     __afl_manual_init();
     return ExecuteFilesOnyByOne(argc, argv, callback);
 
-  } else if (argc == 2 && argv[1][0] == '-') {
+  } else if (argc == 2 && argv[1][0] == '-' && argv[1][1]) {
 
     N = atoi(argv[1] + 1);
 
-  } else if (argc == 2 && (N = atoi(argv[1])) > 0) {
+  } else if (argc == 2 && argv[1][0] != '-' && (N = atoi(argv[1])) > 0) {
 
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
 
-  } else if (argc > 1) {
-
-    __afl_sharedmem_fuzzing = 0;
+  } else if (!in_afl && argc > 1 && argv[1][0] != '-') {
 
     if (argc == 2) { __afl_manual_init(); }
 
