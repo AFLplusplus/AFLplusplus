@@ -592,6 +592,7 @@ clean:
 	-$(MAKE) -C utils/argv_fuzzing clean
 	-$(MAKE) -C utils/plot_ui clean
 	-$(MAKE) -C qemu_mode/unsigaction clean
+	-$(MAKE) -C qemu_mode/fastexit clean
 	-$(MAKE) -C qemu_mode/libcompcov clean
 	-$(MAKE) -C qemu_mode/libqasan clean
 	-$(MAKE) -C frida_mode clean

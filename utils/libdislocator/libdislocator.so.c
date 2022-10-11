@@ -510,6 +510,24 @@ __attribute__((alloc_size(2, 3))) void *reallocarray(void *ptr, size_t elem_len,
 
 }
 
+int reallocarr(void *ptr, size_t elem_len, size_t elem_cnt) {
+
+  void        *ret = NULL;
+  const size_t elem_tot = elem_len * elem_cnt;
+
+  if (elem_tot == 0) {
+
+    void **h = &ptr;
+    *h = ret;
+    return 0;
+
+  }
+
+  ret = reallocarray(ptr, elem_len, elem_cnt);
+  return ret ? 0 : -1;
+
+}
+
 #if defined(__APPLE__)
 size_t malloc_size(const void *ptr) {
 

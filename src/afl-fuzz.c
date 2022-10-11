@@ -2132,6 +2132,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
+
+    afl->fsrv.out_file = NULL;
+    afl->fsrv.use_stdin = 0;
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin) {
+
+      WARNF(
+          "You specified -f or @@ on the command line but the target harness "
+          "specified fuzz cases via shmem, switching to shmem!");
+
+    }
+
+  }
+
   deunicode_extras(afl);
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
@@ -2556,6 +2570,7 @@ int main(int argc, char **argv_orig, char **envp) {
 stop_fuzzing:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
+  afl->stop_soon = 1;        // ensure everything is written
   show_stats(afl);           // print the screen one last time
   write_bitmap(afl);
   save_auto(afl);
