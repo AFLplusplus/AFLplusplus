@@ -57,7 +57,8 @@ ifdef DEBUG
 CFLAGS+=-Werror \
 		-Wall \
 		-Wextra \
-		-Wpointer-arith
+		-Wpointer-arith \
+		-Wno-unknown-pragmas
 else
 CFLAGS+=-Wno-pointer-arith
 endif
@@ -142,7 +143,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=15.2.1
+GUM_DEVKIT_VERSION=15.2.2
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 

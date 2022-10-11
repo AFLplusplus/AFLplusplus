@@ -29,7 +29,6 @@ gboolean prefetch_enable = TRUE;
 gboolean prefetch_backpatch = TRUE;
 
 static prefetch_data_t *prefetch_data = NULL;
-static int              prefetch_shm_id = -1;
 
 static GHashTable *cant_prefetch = NULL;
 
