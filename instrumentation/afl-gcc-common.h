@@ -501,7 +501,8 @@ struct afl_base_pass : gimple_opt_pass {
 // compatibility for older gcc versions
 #if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
     60200                                               /* >= version 6.2.0 */
-#define gimple gimple *
+  #define gimple gimple *
 #else
-#define gimple gimple
+  #define gimple gimple
 #endif
+
