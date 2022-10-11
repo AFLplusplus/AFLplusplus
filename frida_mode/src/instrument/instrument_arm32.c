@@ -137,8 +137,8 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
                                        gpointer            start_address,
-                                       const cs_insn *     from_insn,
-                                       gpointer *          target) {
+                                       void               *from_insn,
+                                       gpointer           *target) {
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
@@ -148,7 +148,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
     return;
   }
 
-  *target += G_STRUCT_OFFSET(afl_log_code_asm_t, str_r0_sp_rz);
+  *target = (guint8 *)*target + G_STRUCT_OFFSET(afl_log_code_asm_t, str_r0_sp_rz);
 }
 
 static void instrument_coverage_suppress_init(void) {
@@ -184,11 +184,8 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
   gsize   map_size_pow2;
   gsize   area_offset_ror;
-  GumAddress code_addr = 0;
 
   instrument_coverage_suppress_init();
-
-  code_addr = cw->pc;
 
   block_start = GSIZE_TO_POINTER(GUM_ADDRESS(cw->code));
 
