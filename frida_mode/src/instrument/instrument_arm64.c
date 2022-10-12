@@ -156,26 +156,47 @@ static gboolean instrument_is_deterministic(const cs_insn *from_insn) {
 
 }
 
+cs_insn *instrument_disassemble(gconstpointer address) {
+
+  csh      capstone;
+  cs_insn *insn = NULL;
+
+  cs_open(CS_ARCH_ARM64, GUM_DEFAULT_CS_ENDIAN, &capstone);
+  cs_option(capstone, CS_OPT_DETAIL, CS_OPT_ON);
+
+  cs_disasm(capstone, address, 16, GPOINTER_TO_SIZE(address), 1, &insn);
+
+  cs_close(&capstone);
+
+  return insn;
+
+}
+
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
-                                       gpointer            start_address,
-                                       const cs_insn      *from_insn,
-                                       gpointer           *target) {
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
-  gsize fixup_offset;
+  cs_insn *insn = NULL;
+  gboolean deterministic = FALSE;
+  gsize    fixup_offset;
 
   if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target)) &&
-      !g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target + 4))) {
+      !g_hash_table_contains(coverage_blocks,
+                             GSIZE_TO_POINTER((guint8 *)*target + 4))) {
 
     return;
 
   }
 
-  if (instrument_is_deterministic(from_insn)) { return; }
+  insn = instrument_disassemble(from_insn);
+  deterministic = instrument_is_deterministic(insn);
+  cs_free(insn, 1);
+  if (deterministic) { return; }
 
   /*
    * Since each block is prefixed with a restoration prologue, we need to be
@@ -208,7 +229,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
    */
   fixup_offset = GUM_RESTORATION_PROLOG_SIZE +
                  G_STRUCT_OFFSET(afl_log_code_asm_t, restoration_prolog);
-  *target += fixup_offset;
+  *target = (guint8 *)*target + fixup_offset;
 
 }
 

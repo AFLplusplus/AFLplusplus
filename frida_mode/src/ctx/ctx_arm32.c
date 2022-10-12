@@ -7,6 +7,8 @@
 
 gsize ctx_read_reg(GumArmCpuContext *ctx, arm_reg reg) {
 
+  UNUSED_PARAMETER(ctx);
+  UNUSED_PARAMETER(reg);
   FFATAL("ctx_read_reg unimplemented for this architecture");
 
 }
