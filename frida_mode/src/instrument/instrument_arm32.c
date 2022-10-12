@@ -1,6 +1,7 @@
 #include "frida-gumjs.h"
 
 #include "instrument.h"
+#include "stalker.h"
 #include "util.h"
 
 #if defined(__arm__)
@@ -8,8 +9,9 @@
   #define PAGE_MASK (~(GUM_ADDRESS(0xfff)))
   #define PAGE_ALIGNED(x) ((GUM_ADDRESS(x) & PAGE_MASK) == GUM_ADDRESS(x))
 
-gboolean instrument_cache_enabled = FALSE;
-gsize    instrument_cache_size = 0;
+gboolean           instrument_cache_enabled = FALSE;
+gsize              instrument_cache_size = 0;
+static GHashTable *coverage_blocks = NULL;
 
 extern __thread guint64 instrument_previous_pc;
 
@@ -22,7 +24,24 @@ typedef struct {
   // shared_mem[cur_location ^ prev_location]++;
   // prev_location = cur_location >> 1;
 
-  /* We can remove this branch when we add support for branch suppression */
+  // str     r0, [sp, #-128] ; 0xffffff80
+  // str     r1, [sp, #-132] ; 0xffffff7c
+  // ldr     r0, [pc, #-20]  ; 0xf691b29c
+  // ldrh    r1, [r0]
+  // movw    r0, #33222      ; 0x81c6
+  // eor     r0, r0, r1
+  // ldr     r1, [pc, #-40]  ; 0xf691b298
+  // add     r1, r1, r0
+  // ldrb    r0, [r1]
+  // add     r0, r0, #1
+  // add     r0, r0, r0, lsr #8
+  // strb    r0, [r1]
+  // movw    r0, #49379      ; 0xc0e3
+  // ldr     r1, [pc, #-64]  ; 0xf691b29c
+  // strh    r0, [r1]
+  // ldr     r1, [sp, #-132] ; 0xffffff7c
+  // ldr     r0, [sp, #-128] ; 0xffffff80
+
   uint32_t  b_code;                                                /* b imm */
   uint8_t  *shared_mem;
   uint64_t *prev_location;
@@ -115,6 +134,46 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
+static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            from_address,
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
+
+  UNUSED_PARAMETER(self);
+  UNUSED_PARAMETER(from_address);
+  UNUSED_PARAMETER(start_address);
+  UNUSED_PARAMETER(from_insn);
+
+  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
+
+    return;
+
+  }
+
+  *target =
+      (guint8 *)*target + G_STRUCT_OFFSET(afl_log_code_asm_t, str_r0_sp_rz);
+
+}
+
+static void instrument_coverage_suppress_init(void) {
+
+  static gboolean initialized = false;
+  if (initialized) { return; }
+  initialized = true;
+
+  GumStalkerObserver          *observer = stalker_get_observer();
+  GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
+  iface->switch_callback = instrument_coverage_switch;
+
+  coverage_blocks = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if (coverage_blocks == NULL) {
+
+    FATAL("Failed to g_hash_table_new, errno: %d", errno);
+
+  }
+
+}
+
 static void patch_t3_insn(uint32_t *insn, uint16_t val) {
 
   uint32_t orig = GUINT32_FROM_LE(*insn);
@@ -135,13 +194,16 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   guint64 area_offset = instrument_get_offset_hash(GUM_ADDRESS(instr->address));
   gsize   map_size_pow2;
   gsize   area_offset_ror;
-  GumAddress code_addr = 0;
 
-  // gum_arm64_writer_put_brk_imm(cw, 0x0);
-
-  code_addr = cw->pc;
+  instrument_coverage_suppress_init();
 
   block_start = GSIZE_TO_POINTER(GUM_ADDRESS(cw->code));
+
+  if (!g_hash_table_add(coverage_blocks, block_start)) {
+
+    FATAL("Failed - g_hash_table_add");
+
+  }
 
   code.code = template;
 

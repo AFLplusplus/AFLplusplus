@@ -13,6 +13,7 @@ void starts_arch_init(void) {
 
 void stats_write_arch(stats_data_t *data) {
 
+  UNUSED_PARAMETER(data);
   FFATAL("Stats not supported on this architecture");
 
 }
