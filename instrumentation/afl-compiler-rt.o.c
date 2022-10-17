@@ -67,8 +67,8 @@
   #endif
 #endif
 
-#define CTOR_PRIO 3
-#define EARLY_FS_PRIO 5
+#define CTOR_PRIO 103
+#define EARLY_FS_PRIO 105
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -1387,7 +1387,7 @@ __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
 /* preset __afl_area_ptr #2 */
 
-__attribute__((constructor(1))) void __afl_auto_second(void) {
+__attribute__((constructor(102))) void __afl_auto_second(void) {
 
   if (__afl_already_initialized_second) return;
   __afl_already_initialized_second = 1;
@@ -1431,7 +1431,7 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 /* preset __afl_area_ptr #1 - at constructor level 0 global variables have
    not been set */
 
-__attribute__((constructor(0))) void __afl_auto_first(void) {
+__attribute__((constructor(101))) void __afl_auto_first(void) {
 
   if (__afl_already_initialized_first) return;
   __afl_already_initialized_first = 1;

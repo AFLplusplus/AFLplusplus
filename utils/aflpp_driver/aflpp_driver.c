@@ -108,7 +108,7 @@ static FILE *output_file;
 
 // Experimental feature to use afl_driver without AFL's deferred mode.
 // Needs to run before __afl_auto_init.
-__attribute__((constructor(0))) static void __decide_deferred_forkserver(void) {
+__attribute__((constructor(101))) static void __decide_deferred_forkserver(void) {
 
   if (getenv("AFL_DRIVER_DONT_DEFER")) {
 

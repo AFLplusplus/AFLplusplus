@@ -18,7 +18,7 @@ unsigned char __afl_lto_mode = 0;
 
 /* Proper initialization routine. */
 
-__attribute__((constructor(0))) void __afl_auto_init_globals(void) {
+__attribute__((constructor(101))) void __afl_auto_init_globals(void) {
 
   if (getenv("AFL_DEBUG")) fprintf(stderr, "[__afl_auto_init_globals]\n");
   __afl_lto_mode = 1;
