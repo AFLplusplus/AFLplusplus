@@ -822,8 +822,8 @@ static void usage(u8 *argv0) {
       "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-      "  -t msec    - timeout for each run (none)\n"
-      "  -m megs    - memory limit for child process (%u MB)\n"
+      "  -t msec    - timeout for each run (1000)\n"
+      "  -m megs    - memory limit for child process (none)\n"
 #if defined(__linux__) && defined(__aarch64__)
       "  -A         - use binary-only instrumentation (ARM CoreSight mode)\n"
 #endif
