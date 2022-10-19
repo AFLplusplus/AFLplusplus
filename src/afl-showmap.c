@@ -873,7 +873,7 @@ static void usage(u8 *argv0) {
       "printed to stdout\n"
       "AFL_QUIET: do not print extra informational output\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
-      argv0, MEM_LIMIT, doc_path);
+      argv0, doc_path);
 
   exit(1);
 
