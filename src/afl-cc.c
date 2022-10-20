@@ -955,7 +955,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
       strncmp(libdir, "/lib", 4)) {
 
-    cc_params[cc_par_cnt++] = "-rpath";
+    cc_params[cc_par_cnt++] = "-Wl,-rpath";
     cc_params[cc_par_cnt++] = libdir;
 
   } else {
