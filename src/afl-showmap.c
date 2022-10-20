@@ -129,7 +129,7 @@ static void kill_child() {
   timed_out = 1;
   if (fsrv->child_pid > 0) {
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
     fsrv->child_pid = -1;
 
   }
@@ -1258,7 +1258,7 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
-    fsrv->kill_signal =
+    fsrv->child_kill_signal =
         parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
     if (new_map_size) {
@@ -1472,4 +1472,3 @@ int main(int argc, char **argv_orig, char **envp) {
   exit(ret);
 
 }
-
