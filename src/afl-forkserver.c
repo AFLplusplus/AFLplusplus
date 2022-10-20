@@ -100,7 +100,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
-  fsrv->kill_signal = SIGKILL;
+  fsrv->child_kill_signal = SIGKILL;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -134,7 +134,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->no_unlink = from->no_unlink;
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
-  fsrv_to->kill_signal = from->kill_signal;
+  fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->debug = from->debug;
 
   // These are forkserver specific.
@@ -793,7 +793,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       s32 tmp_pid = fsrv->fsrv_pid;
       if (tmp_pid > 0) {
 
-        kill(tmp_pid, fsrv->kill_signal);
+        kill(tmp_pid, fsrv->child_kill_signal);
         fsrv->fsrv_pid = -1;
 
       }
@@ -804,7 +804,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       s32 tmp_pid = fsrv->fsrv_pid;
       if (tmp_pid > 0) {
 
-        kill(tmp_pid, fsrv->kill_signal);
+        kill(tmp_pid, fsrv->child_kill_signal);
         fsrv->fsrv_pid = -1;
 
       }
@@ -1242,10 +1242,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
-  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
+  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->child_kill_signal); }
   if (fsrv->fsrv_pid > 0) {
 
-    kill(fsrv->fsrv_pid, fsrv->kill_signal);
+    kill(fsrv->fsrv_pid, SIGTERM);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
@@ -1545,7 +1545,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     s32 tmp_pid = fsrv->child_pid;
     if (tmp_pid > 0) {
 
-      kill(tmp_pid, fsrv->kill_signal);
+      kill(tmp_pid, fsrv->child_kill_signal);
       fsrv->child_pid = -1;
 
     }
@@ -1605,7 +1605,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   /* Did we timeout? */
   if (unlikely(fsrv->last_run_timed_out)) {
 
-    fsrv->last_kill_signal = fsrv->kill_signal;
+    fsrv->last_kill_signal = fsrv->child_kill_signal;
     return FSRV_RUN_TMOUT;
 
   }
@@ -1688,4 +1688,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
-

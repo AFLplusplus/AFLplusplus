@@ -1358,7 +1358,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  afl->fsrv.kill_signal =
+  afl->fsrv.child_kill_signal =
       parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
 
   setup_signal_handlers();
@@ -2683,4 +2683,3 @@ stop_fuzzing:
 }
 
 #endif                                                          /* !AFL_LIB */
-

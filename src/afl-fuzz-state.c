@@ -23,6 +23,7 @@
 
  */
 
+#include <signal.h>
 #include "afl-fuzz.h"
 #include "envs.h"
 
@@ -653,9 +654,14 @@ void afl_states_stop(void) {
   });
 
   LIST_FOREACH(&afl_states, afl_state_t, {
-
-    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.kill_signal);
-    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, el->fsrv.kill_signal);
+    /* NOTE: We need to make sure that the parent (the forkserver) reap the child (see below). */
+    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.child_kill_signal);
+    if (el->fsrv.fsrv_pid > 0) {
+      /* This must be SIGTERM, to allow the forkserver to reap the child before exiting. */
+      kill(el->fsrv.fsrv_pid, SIGTERM);
+      /* Make sure the forkserver does not end up as zombie. */
+      waitpid(el->fsrv.fsrv_pid, NULL, 0);
+    }
 
   });
 
@@ -672,4 +678,3 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
-
