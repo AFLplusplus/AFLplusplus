@@ -123,6 +123,8 @@ function usage() {
 "AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the forkserver to come up\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
 "AFL_KILL_SIGNAL: Signal delivered to child processes on timeout (default: SIGKILL)\n" \
+"AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n"
+"                             (default: SIGTERM)\n"
 "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n" \
 "AFL_CMIN_ALLOW_ANY: write tuples for crashing inputs also\n" \
 "AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH\n" \

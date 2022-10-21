@@ -67,10 +67,11 @@ u8 *find_binary(u8 *fname);
 
 u8 *find_afl_binary(u8 *own_loc, u8 *fname);
 
-/* Parses the kill signal environment variable, FATALs on error.
-  If the env is not set, sets the env to default_signal for the signal handlers
-  and returns the default_signal. */
-int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal);
+/* Parses the (numeric) kill signal environment variable passed
+   via `numeric_signal_as_str`.
+   If NULL is passed, the `default_signal` value is returned.
+   FATALs if `numeric_signal_as_str` is not a valid integer .*/
+int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal);
 
 /* Read a bitmap from file fname to memory
    This is for the -B option again. */
@@ -133,4 +134,3 @@ FILE *create_ffile(u8 *fn);
 s32 create_file(u8 *fn);
 
 #endif
-

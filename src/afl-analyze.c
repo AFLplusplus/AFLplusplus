@@ -1116,7 +1116,10 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   fsrv.child_kill_signal =
-      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+      parse_afl_kill_signal(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+  fsrv.fsrv_kill_signal =
+      parse_afl_kill_signal(getenv("AFL_FORK_SERVER_KILL_SIGNAL"), SIGTERM);
+
 
   read_initial_file();
   (void)check_binary_signatures(fsrv.target_path);

@@ -1359,7 +1359,9 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
   afl->fsrv.child_kill_signal =
-      parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
+      parse_afl_kill_signal(afl->afl_env.afl_child_kill_signal, SIGKILL);
+  afl->fsrv.fsrv_kill_signal =
+      parse_afl_kill_signal(afl->afl_env.afl_fsrv_kill_signal, SIGTERM);
 
   setup_signal_handlers();
   check_asan_opts(afl);
