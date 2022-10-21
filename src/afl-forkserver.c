@@ -1245,8 +1245,8 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->child_kill_signal); }
   if (fsrv->fsrv_pid > 0) {
 
-    kill(fsrv->fsrv_pid, SIGTERM);
-    if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
+    kill(fsrv->fsrv_pid, fsrv->fsrv_kill_signal);
+    waitpid(fsrv->fsrv_pid, NULL, 0);
 
   }
 

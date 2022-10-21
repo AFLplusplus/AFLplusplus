@@ -409,10 +409,17 @@ checks or alter some of the more exotic semantics of the tool:
     the afl-fuzz -g/-G command line option to control the minimum/maximum
     of fuzzing input generated.
 
-  - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes on
-    timeout. Unless you implement your own targets or instrumentation, you
+  - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes
+    on timeout. Unless you implement your own targets or instrumentation, you
     likely don't have to set it. By default, on timeout and on exit, `SIGKILL`
     (`AFL_KILL_SIGNAL=9`) will be delivered to the child.
+
+  - `AFL_FORK_SERVER_KILL_SIGNAL`: Set the signal ID to be delivered to the
+    fork server when AFL++ is terminated. Unless you implement your
+    fork server, you likely do not have to set it. By default, `SIGTERM`
+    (`AFL_FORK_SERVER_KILL_SIGNAL=15`) will be delivered to the fork server.
+    NOTE: Uncatchable signals, such as `SIGKILL`, cause child processes of
+    the fork server to be orphaned and leaves them in a zombie state.
 
   - `AFL_MAP_SIZE` sets the size of the shared map that afl-analyze, afl-fuzz,
     afl-showmap, and afl-tmin create to gather instrumentation data from the

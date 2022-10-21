@@ -866,6 +866,8 @@ static void usage(u8 *argv0) {
       "startup (in milliseconds)\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
       "etc. (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination"
+      "                             (default: SIGTERM)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
       "size the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1259,7 +1261,9 @@ int main(int argc, char **argv_orig, char **envp) {
     be_quiet = save_be_quiet;
 
     fsrv->child_kill_signal =
-        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+        parse_afl_kill_signal(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+    fsrv->fsrv_kill_signal =
+        parse_afl_kill_signal(getenv("AFL_FORK_SERVER_KILL_SIGNAL"), SIGTERM);
 
     if (new_map_size) {
 

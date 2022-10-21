@@ -485,10 +485,15 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 #endif
 
           } else if (!strncmp(env, "AFL_KILL_SIGNAL",
-
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_kill_signal =
+            afl->afl_env.afl_child_kill_signal =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_FORK_SERVER_KILL_SIGNAL",
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_fsrv_kill_signal =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
           } else if (!strncmp(env, "AFL_TARGET_ENV",
@@ -657,8 +662,7 @@ void afl_states_stop(void) {
     /* NOTE: We need to make sure that the parent (the forkserver) reap the child (see below). */
     if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.child_kill_signal);
     if (el->fsrv.fsrv_pid > 0) {
-      /* This must be SIGTERM, to allow the forkserver to reap the child before exiting. */
-      kill(el->fsrv.fsrv_pid, SIGTERM);
+      kill(el->fsrv.fsrv_pid, el->fsrv.fsrv_kill_signal);
       /* Make sure the forkserver does not end up as zombie. */
       waitpid(el->fsrv.fsrv_pid, NULL, 0);
     }
