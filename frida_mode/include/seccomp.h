@@ -1,7 +1,7 @@
 #ifndef _SECCOMP_H
 #define _SECCOMP_H
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__ANDROID__)
 
   #include <stdint.h>
   #include <linux/filter.h>
@@ -401,9 +401,9 @@ enum {
 
 typedef void (*seccomp_child_func_t)(int event_fd, void *ctx);
 
-typedef void (*seccomp_filter_callback_t)(struct seccomp_notif *     req,
+typedef void (*seccomp_filter_callback_t)(struct seccomp_notif      *req,
                                           struct seccomp_notif_resp *resp,
-                                          GumReturnAddressArray *    frames);
+                                          GumReturnAddressArray     *frames);
 
 void seccomp_atomic_set(volatile bool *ptr, bool val);
 bool seccomp_atomic_try_set(volatile bool *ptr, bool val);

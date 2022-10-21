@@ -5,14 +5,16 @@
 
 #include "config.h"
 
-extern char *   instrument_debug_filename;
-extern char *   instrument_coverage_filename;
+extern char    *instrument_debug_filename;
+extern char    *instrument_coverage_filename;
+extern bool     instrument_coverage_absolute;
 extern gboolean instrument_tracing;
 extern gboolean instrument_optimize;
 extern gboolean instrument_unique;
 extern guint64  instrument_hash_zero;
-extern char *   instrument_coverage_unstable_filename;
+extern char    *instrument_coverage_unstable_filename;
 extern gboolean instrument_coverage_insn;
+extern char    *instrument_regs_filename;
 
 extern gboolean instrument_use_fixed_seed;
 extern guint64  instrument_fixed_seed;
@@ -35,9 +37,9 @@ GumStalkerTransformer *instrument_get_transformer(void);
 gboolean instrument_is_coverage_optimize_supported(void);
 
 void instrument_coverage_optimize_init(void);
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output);
-void instrument_coverage_optimize_insn(const cs_insn *   instr,
+void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output);
 
 void     instrument_debug_config(void);
@@ -66,6 +68,8 @@ void instrument_cache_config(void);
 void instrument_cache_init(void);
 void instrument_cache_insert(gpointer real_address, gpointer code_address);
 void instrument_cache(const cs_insn *instr, GumStalkerOutput *output);
+void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data);
+void instrument_regs_format(int fd, char *format, ...);
 
 #endif
 

@@ -156,26 +156,47 @@ static gboolean instrument_is_deterministic(const cs_insn *from_insn) {
 
 }
 
+cs_insn *instrument_disassemble(gconstpointer address) {
+
+  csh      capstone;
+  cs_insn *insn = NULL;
+
+  cs_open(CS_ARCH_ARM64, GUM_DEFAULT_CS_ENDIAN, &capstone);
+  cs_option(capstone, CS_OPT_DETAIL, CS_OPT_ON);
+
+  cs_disasm(capstone, address, 16, GPOINTER_TO_SIZE(address), 1, &insn);
+
+  cs_close(&capstone);
+
+  return insn;
+
+}
+
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
-                                       gpointer            start_address,
-                                       const cs_insn *     from_insn,
-                                       gpointer *          target) {
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
-  gsize fixup_offset;
+  cs_insn *insn = NULL;
+  gboolean deterministic = FALSE;
+  gsize    fixup_offset;
 
   if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target)) &&
-      !g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target + 4))) {
+      !g_hash_table_contains(coverage_blocks,
+                             GSIZE_TO_POINTER((guint8 *)*target + 4))) {
 
     return;
 
   }
 
-  if (instrument_is_deterministic(from_insn)) { return; }
+  insn = instrument_disassemble(from_insn);
+  deterministic = instrument_is_deterministic(insn);
+  cs_free(insn, 1);
+  if (deterministic) { return; }
 
   /*
    * Since each block is prefixed with a restoration prologue, we need to be
@@ -208,7 +229,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
    */
   fixup_offset = GUM_RESTORATION_PROLOG_SIZE +
                  G_STRUCT_OFFSET(afl_log_code_asm_t, restoration_prolog);
-  *target += fixup_offset;
+  *target = (guint8 *)*target + fixup_offset;
 
 }
 
@@ -218,7 +239,7 @@ static void instrument_coverage_suppress_init(void) {
   if (initialized) { return; }
   initialized = true;
 
-  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserver          *observer = stalker_get_observer();
   GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
   iface->switch_callback = instrument_coverage_switch;
 
@@ -257,7 +278,7 @@ static void instrument_patch_ardp(guint32 *patch, GumAddress insn,
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
 
   afl_log_code    code = {0};
@@ -272,9 +293,10 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
     GumAddressSpec spec = {.near_address = cw->code,
                            .max_distance = 1ULL << 30};
+    guint          page_size = gum_query_page_size();
 
     instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+        &spec, sizeof(guint64), page_size, GUM_PAGE_READ | GUM_PAGE_WRITE);
     *instrument_previous_pc_addr = instrument_hash_zero;
     FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
     FVERBOSE("code_addr: %p", cw->code);
@@ -345,7 +367,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
-void instrument_coverage_optimize_insn(const cs_insn *   instr,
+void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);
@@ -402,6 +424,44 @@ void instrument_cache(const cs_insn *instr, GumStalkerOutput *output) {
 
   UNUSED_PARAMETER(instr);
   UNUSED_PARAMETER(output);
+
+}
+
+void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
+  int fd = (int)(size_t)user_data;
+  instrument_regs_format(
+      fd, "x0 : 0x%016x, x1 : 0x%016x, x2 : 0x%016x, x3 : 0x%016x\n",
+      cpu_context->x[0], cpu_context->x[1], cpu_context->x[2],
+      cpu_context->x[3]);
+  instrument_regs_format(
+      fd, "x4 : 0x%016x, x5 : 0x%016x, x6 : 0x%016x, x7 : 0x%016x\n",
+      cpu_context->x[4], cpu_context->x[5], cpu_context->x[6],
+      cpu_context->x[7]);
+  instrument_regs_format(
+      fd, "x8 : 0x%016x, x9 : 0x%016x, x10: 0x%016x, x11: 0x%016x\n",
+      cpu_context->x[8], cpu_context->x[9], cpu_context->x[10],
+      cpu_context->x[11]);
+  instrument_regs_format(
+      fd, "x12: 0x%016x, x13: 0x%016x, x14: 0x%016x, x15: 0x%016x\n",
+      cpu_context->x[12], cpu_context->x[13], cpu_context->x[14],
+      cpu_context->x[15]);
+  instrument_regs_format(
+      fd, "x16: 0x%016x, x17: 0x%016x, x18: 0x%016x, x19: 0x%016x\n",
+      cpu_context->x[16], cpu_context->x[17], cpu_context->x[18],
+      cpu_context->x[19]);
+  instrument_regs_format(
+      fd, "x20: 0x%016x, x21: 0x%016x, x22: 0x%016x, x23: 0x%016x\n",
+      cpu_context->x[20], cpu_context->x[21], cpu_context->x[22],
+      cpu_context->x[23]);
+  instrument_regs_format(
+      fd, "x24: 0x%016x, x25: 0x%016x, x26: 0x%016x, x27: 0x%016x\n",
+      cpu_context->x[24], cpu_context->x[25], cpu_context->x[26],
+      cpu_context->x[27]);
+  instrument_regs_format(
+      fd, "x28: 0x%016x, fp : 0x%016x, lr : 0x%016x, sp : 0x%016x\n",
+      cpu_context->x[28], cpu_context->fp, cpu_context->lr, cpu_context->sp);
+  instrument_regs_format(fd, "pc : 0x%016x\n\n", cpu_context->pc);
 
 }
 

@@ -86,7 +86,7 @@ To enable the powerful CMPLOG mechanism, set `-c 0` for `afl-fuzz`.
 
 ## Scripting
 
-One of the more powerful features of FRIDA mode is it's support for
+One of the more powerful features of FRIDA mode is its support for
 configuration by JavaScript, rather than using environment variables. For
 details of how this works, see [Scripting.md](Scripting.md).
 
@@ -146,11 +146,14 @@ instances run CMPLOG mode and instrumentation of the binary is less frequent
   QEMU driver to provide a `main` loop for a user provided
   `LLVMFuzzerTestOneInput`, this option configures the driver to read input from
   `stdin` rather than using in-memory test cases.
+* `AFL_FRIDA_INST_COVERAGE_ABSOLUTE` - Generate coverage files using absolute
+  virtual addresses rather than relative virtual addresses.
 * `AFL_FRIDA_INST_COVERAGE_FILE` - File to write DynamoRIO format coverage
   information (e.g., to be loaded within IDA lighthouse).
 * `AFL_FRIDA_INST_DEBUG_FILE` - File to write raw assembly of original blocks
   and their instrumented counterparts during block compilation.
 
+```
 Creating block for 0x7ffff7953313:
         0x7ffff7953313  mov qword ptr [rax], 0
         0x7ffff795331a  add rsp, 8
@@ -166,7 +169,7 @@ Generated block 0x7ffff75e98e2
 
 
   ***
-  ```
+```
 * `AFL_FRIDA_INST_CACHE_SIZE` - Set the size of the instrumentation cache used
 as a look-up table to cache real to instrumented address block translations.
 Default is 256Mb.
@@ -177,6 +180,8 @@ Default is 256Mb.
   a file.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
+* `AFL_FRIDA_INST_REGS_FILE` - File to write raw register contents at the start
+  of each block.
   `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_CACHE` - Don't use a look-up table to cache real to
 instrumented address block translations.

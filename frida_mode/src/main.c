@@ -36,6 +36,18 @@
 #ifdef __APPLE__
 extern mach_port_t mach_task_self();
 extern GumAddress  gum_darwin_find_entrypoint(mach_port_t task);
+#elif defined(__ANDROID__)
+typedef struct {
+
+  void (**preinit_array)(void);
+  void (**init_array)(void);
+  void (**fini_array)(void);
+
+} structors_array_t;
+
+extern void __libc_init(void *raw_args, void (*onexit)(void) __unused,
+                        int (*slingshot)(int, char **, char **),
+                        structors_array_t const *const structors);
 #else
 extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
                               char **ubp_av, void (*init)(void),
@@ -69,7 +81,11 @@ static void on_main_os(int argc, char **argv, char **envp) {
   GumInterceptor *interceptor = gum_interceptor_obtain();
 
   gum_interceptor_begin_transaction(interceptor);
+  #if defined(__ANDROID__)
+  gum_interceptor_revert(interceptor, __libc_init);
+  #else
   gum_interceptor_revert(interceptor, __libc_start_main);
+  #endif
   gum_interceptor_end_transaction(interceptor);
   gum_interceptor_flush(interceptor);
 
@@ -92,7 +108,7 @@ static void embedded_init(void) {
 static void afl_print_cmdline(void) {
 
 #if defined(__linux__)
-  char * buffer = g_malloc0(PROC_MAX);
+  char  *buffer = g_malloc0(PROC_MAX);
   gchar *fname = g_strdup_printf("/proc/%d/cmdline", getppid());
   int    fd = open(fname, O_RDONLY);
 
@@ -144,7 +160,7 @@ static void afl_print_cmdline(void) {
 
 static void afl_print_env(void) {
 
-  char * buffer = g_malloc0(PROC_MAX);
+  char  *buffer = g_malloc0(PROC_MAX);
   gchar *fname = g_strdup_printf("/proc/%d/environ", getppid());
   int    fd = open(fname, O_RDONLY);
 
@@ -274,6 +290,24 @@ static void intercept_main(void) {
   void *main = GSIZE_TO_POINTER(entry);
   main_fn = main;
   intercept_hook(main, on_main, NULL);
+
+}
+
+#elif defined(__ANDROID__)
+static void on_libc_init(void *raw_args, void (*onexit)(void) __unused,
+                         int (*slingshot)(int, char **, char **),
+                         structors_array_t const *const structors) {
+
+  main_fn = slingshot;
+  intercept_unhook_self();
+  intercept_hook(slingshot, on_main, NULL);
+  return __libc_init(raw_args, onexit, slingshot, structors);
+
+}
+
+static void intercept_main(void) {
+
+  intercept_hook(__libc_init, on_libc_init, NULL);
 
 }
 

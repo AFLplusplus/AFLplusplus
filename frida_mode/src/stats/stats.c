@@ -2,21 +2,20 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/shm.h>
 #include <sys/mman.h>
 
 #include "frida-gumjs.h"
 
 #include "config.h"
-#include "util.h"
-
 #include "entry.h"
+#include "shm.h"
 #include "stalker.h"
 #include "stats.h"
+#include "util.h"
 
 #define MICRO_TO_SEC 1000000
 
-char *               stats_filename = NULL;
+char                *stats_filename = NULL;
 guint64              stats_interval = 0;
 static guint64       stats_interval_us = 0;
 static int           stats_fd = -1;
@@ -41,8 +40,8 @@ void stats_write(void) {
   stats_data->curr.stats_time = current_time;
 
   GDateTime *date_time = g_date_time_new_now_local();
-  char *     date_string = g_date_time_format(date_time, "%Y-%m-%d");
-  char *     time_string = g_date_time_format(date_time, "%H:%M:%S");
+  char      *date_string = g_date_time_format(date_time, "%Y-%m-%d");
+  char      *time_string = g_date_time_format(date_time, "%H:%M:%S");
   guint elapsed = (stats_data->curr.stats_time - stats_data->prev.stats_time) /
                   MICRO_TO_SEC;
 
@@ -360,27 +359,10 @@ void stats_init(void) {
 
   g_free(path);
 
-  int shm_id =
-      shmget(IPC_PRIVATE, sizeof(stats_data_t), IPC_CREAT | IPC_EXCL | 0600);
-  if (shm_id < 0) { FFATAL("shm_id < 0 - errno: %d\n", errno); }
-
-  stats_data = shmat(shm_id, NULL, 0);
-  g_assert(stats_data != MAP_FAILED);
-
   GumStalkerObserver *observer = stalker_get_observer();
   stats_observer_init(observer);
 
-  /*
-   * Configure the shared memory region to be removed once the process dies.
-   */
-  if (shmctl(shm_id, IPC_RMID, NULL) < 0) {
-
-    FFATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-  }
-
-  /* Clear it, not sure it's necessary, just seems like good practice */
-  memset(stats_data, '\0', sizeof(stats_data_t));
+  stats_data = shm_create(sizeof(stats_data_t));
 
   starts_arch_init();
 

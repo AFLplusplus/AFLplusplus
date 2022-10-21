@@ -21,12 +21,12 @@ development state of AFL++.
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
-NOTE: depending on your Debian/Ubuntu/Kali/... version replease `-12` with
-whatever llvm version is available!
+NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-12` with
+whatever llvm version is available. We recommend llvm 12, 13 or 14.
 
 ```shell
 sudo apt-get update
-sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools
+sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools cargo libgtk-3-dev
 # try to install llvm 12 and install the distro default if that fails
 sudo apt-get install -y lld-12 llvm-12 llvm-12-dev clang-12 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
@@ -79,19 +79,23 @@ make STATIC=1
 These build options exist:
 
 * STATIC - compile AFL++ static
-* ASAN_BUILD - compiles with memory sanitizer for debug purposes
+* ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
+* UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for
+  debug purposes
 * DEBUG - no optimization, -ggdb3, all warnings and -Werror
-* PROFILING - compile with profiling information (gprof)
+* PROFILING - compile afl-fuzz with profiling information
 * INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for
   normal fuzzing
 * NO_NYX - disable building nyx mode dependencies
+* NO_CORESIGHT - disable building coresight (arm64 only)
+* NO_UNICORN_ARM64 - disable building unicorn on arm64
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
   (e.g., Debian)
 
-e.g.: `make ASAN_BUILD=1`
+e.g.: `make LLVM_CONFIG=llvm-config-14`
 
 ## MacOS X on x86 and arm64 (M1)
 
@@ -148,7 +152,7 @@ and definitely don't look POSIX-compliant. This means two things:
     environment before starting afl-fuzz.
 
 User emulation mode of QEMU does not appear to be supported on MacOS X, so
-black-box instrumentation mode (`-Q`) will not work. However, Frida mode (`-O`)
+black-box instrumentation mode (`-Q`) will not work. However, FRIDA mode (`-O`)
 works on both x86 and arm64 MacOS boxes.
 
 MacOS X supports SYSV shared memory used by AFL's instrumentation, but the

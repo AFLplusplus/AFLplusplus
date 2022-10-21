@@ -105,6 +105,12 @@ class Afl {
         Afl.jsApiSetInstrumentCacheSize(size);
     }
     /**
+     * See `AFL_FRIDA_INST_COVERAGE_ABSOLUTE`.
+     */
+    static setInstrumentCoverageAbsolute() {
+        Afl.jsApiSetInstrumentCoverageAbsolute();
+    }
+    /**
      * See `AFL_FRIDA_INST_COVERAGE_FILE`. This function takes a single `string`
      * as an argument.
      */
@@ -149,6 +155,14 @@ class Afl {
      */
     static setInstrumentNoOptimize() {
         Afl.jsApiSetInstrumentNoOptimize();
+    }
+    /**
+     * See `AFL_FRIDA_INST_REGS_FILE`. This function takes a single `string` as
+     * an argument.
+     */
+    static setInstrumentRegsFile(file) {
+        const buf = Memory.allocUtf8String(file);
+        Afl.jsApiSetInstrumentRegsFile(buf);
     }
     /*
      * See `AFL_FRIDA_INST_SEED`
@@ -316,12 +330,14 @@ Afl.jsApiSetCacheDisable = Afl.jsApiGetFunction("js_api_set_cache_disable", "voi
 Afl.jsApiSetDebugMaps = Afl.jsApiGetFunction("js_api_set_debug_maps", "void", []);
 Afl.jsApiSetEntryPoint = Afl.jsApiGetFunction("js_api_set_entrypoint", "void", ["pointer"]);
 Afl.jsApiSetInstrumentCacheSize = Afl.jsApiGetFunction("js_api_set_instrument_cache_size", "void", ["size_t"]);
+Afl.jsApiSetInstrumentCoverageAbsolute = Afl.jsApiGetFunction("js_api_set_instrument_coverage_absolute", "void", []);
 Afl.jsApiSetInstrumentCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_coverage_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_debug_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentInstructions = Afl.jsApiGetFunction("js_api_set_instrument_instructions", "void", []);
 Afl.jsApiSetInstrumentJit = Afl.jsApiGetFunction("js_api_set_instrument_jit", "void", []);
 Afl.jsApiSetInstrumentLibraries = Afl.jsApiGetFunction("js_api_set_instrument_libraries", "void", []);
 Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_no_optimize", "void", []);
+Afl.jsApiSetInstrumentRegsFile = Afl.jsApiGetFunction("js_api_set_instrument_regs_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", "void", ["uint64"]);
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
 Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);

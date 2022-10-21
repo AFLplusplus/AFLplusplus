@@ -119,7 +119,7 @@ else
   }
 fi
 
-test -f grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got grammar mutator."
 
 cd "grammar_mutator" || exit 1
@@ -128,7 +128,7 @@ git pull >/dev/null 2>&1
 sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$GRAMMAR_VERSION" || exit 1
 echo "[*] Downloading antlr..."
-wget -c https://www.antlr.org/download/antlr-4.8-complete.jar
+wget -q https://www.antlr.org/download/antlr-4.8-complete.jar
 cd ..
 
 echo

@@ -167,8 +167,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
-      "                  if using QEMU/FRIDA or if you the fuzzing target is "
-      "compiled"
+      "                  if using QEMU/FRIDA or the fuzzing target is "
+      "compiled\n"
       "                  for CmpLog then just use -c 0.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
@@ -192,9 +192,9 @@ static void usage(u8 *argv0, int more_help) {
       "executions.\n\n"
 
       "Other stuff:\n"
-      "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
-      "                  -M auto-sets -D, -Z (use -d to disable -D) and no "
-      "trimming\n"
+      "  -M/-S id      - distributed mode (-M sets -Z and disables trimming)\n"
+      "                  see docs/fuzzing_in_depth.md#c-using-multiple-cores\n"
+      "                  for effective recommendations for parallel fuzzing.\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
@@ -273,6 +273,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
+      "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
       "AFL_NO_UI: switch status screen off\n"
 
       DYN_COLOR
@@ -383,9 +384,9 @@ static int stricmp(char const *a, char const *b) {
 static void fasan_check_afl_preload(char *afl_preload) {
 
   char   first_preload[PATH_MAX + 1] = {0};
-  char * separator = strchr(afl_preload, ':');
+  char  *separator = strchr(afl_preload, ':');
   size_t first_preload_len = PATH_MAX;
-  char * basename;
+  char  *basename;
   char   clang_runtime_prefix[] = "libclang_rt.asan";
 
   if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
@@ -429,7 +430,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
-  void *                handle;
+  void                 *handle;
   nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
 
   ACTF("Trying to load libnyx.so plugin...");
@@ -498,8 +499,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
-  char * afl_preload;
-  char * frida_afl_preload = NULL;
+  char  *afl_preload;
+  char  *frida_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -1469,7 +1470,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->shm.cmplog_mode &&
       (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
 
-    afl->cmplog_binary = argv[optind];
+    afl->cmplog_binary = strdup(argv[optind]);
 
   }
 
@@ -2131,6 +2132,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
+
+    afl->fsrv.out_file = NULL;
+    afl->fsrv.use_stdin = 0;
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin) {
+
+      WARNF(
+          "You specified -f or @@ on the command line but the target harness "
+          "specified fuzz cases via shmem, switching to shmem!");
+
+    }
+
+  }
+
   deunicode_extras(afl);
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
@@ -2150,7 +2165,16 @@ int main(int argc, char **argv_orig, char **envp) {
   memset(afl->virgin_tmout, 255, map_size);
   memset(afl->virgin_crash, 255, map_size);
 
-  perform_dry_run(afl);
+  if (likely(!afl->afl_env.afl_no_startup_calibration)) {
+
+    perform_dry_run(afl);
+
+  } else {
+
+    ACTF("skipping initial seed calibration due option override");
+    usleep(1000);
+
+  }
 
   if (afl->q_testcase_max_cache_entries) {
 
@@ -2546,11 +2570,12 @@ int main(int argc, char **argv_orig, char **envp) {
 stop_fuzzing:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
+  afl->stop_soon = 1;        // ensure everything is written
   show_stats(afl);           // print the screen one last time
   write_bitmap(afl);
   save_auto(afl);
 
-  if (afl->afl_env.afl_pizza_mode) {
+  if (afl->pizza_is_served) {
 
     SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
          afl->stop_soon == 2 ? "programmatically" : "by the chef");

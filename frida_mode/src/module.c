@@ -31,7 +31,7 @@ typedef struct {
 gboolean found_range(const GumRangeDetails *details, gpointer user_data) {
 
   gum_range_t range = {0};
-  GArray *    ranges = (GArray *)user_data;
+  GArray     *ranges = (GArray *)user_data;
 
   range.range = *details->range;
   range.protection = details->protection;
@@ -45,9 +45,9 @@ gboolean found_range(const GumRangeDetails *details, gpointer user_data) {
 #if defined(__linux__) && !defined(__ANDROID__)
 static int on_dlclose(void *handle) {
 
-  GArray *         ranges = NULL;
+  GArray          *ranges = NULL;
   struct link_map *lm = NULL;
-  gum_range_t *    range = NULL;
+  gum_range_t     *range = NULL;
   GumAddress       base;
   GumAddress       limit;
   gpointer         mem;
@@ -77,7 +77,9 @@ static int on_dlclose(void *handle) {
     range = &g_array_index(ranges, gum_range_t, i);
     base = range->range.base_address;
     limit = base + range->range.size;
-    FVERBOSE("Reserving range: 0x%016lx, 0x%016lX", base, limit);
+    FVERBOSE("Reserving range: 0x%016" G_GINT64_MODIFIER
+             "x, 0x%016" G_GINT64_MODIFIER "X",
+             base, limit);
     mem = gum_memory_allocate(GSIZE_TO_POINTER(base), range->range.size,
                               page_size, GUM_PAGE_NO_ACCESS);
     if (mem == NULL) { FATAL("Failed to allocate %p (%d)", mem, errno); }

@@ -77,8 +77,8 @@ void create_alias_table(afl_state_t *afl) {
   afl->alias_probability = (double *)afl_realloc(
       (void **)&afl->alias_probability, n * sizeof(double));
   double *P = (double *)afl_realloc(AFL_BUF_PARAM(out), n * sizeof(double));
-  int *   S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
-  int *   L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
+  int    *S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
+  int    *L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
 
   if (!P || !S || !L || !afl->alias_table || !afl->alias_probability) {
 
@@ -410,7 +410,7 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8 *    buf;
+  u8     *buf;
   int     fd;
   u32     len = q->len, offset = 0, ascii = 0, utf8 = 0;
   ssize_t comp;
@@ -795,8 +795,14 @@ void cull_queue(afl_state_t *afl) {
 
 u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
-  u32 avg_exec_us = afl->total_cal_us / afl->total_cal_cycles;
-  u32 avg_bitmap_size = afl->total_bitmap_size / afl->total_bitmap_entries;
+  u32 cal_cycles = afl->total_cal_cycles;
+  u32 bitmap_entries = afl->total_bitmap_entries;
+
+  if (unlikely(!cal_cycles)) { cal_cycles = 1; }
+  if (unlikely(!bitmap_entries)) { bitmap_entries = 1; }
+
+  u32 avg_exec_us = afl->total_cal_us / cal_cycles;
+  u32 avg_bitmap_size = afl->total_bitmap_size / bitmap_entries;
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the

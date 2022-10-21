@@ -160,6 +160,8 @@ Available options:
 Setting `AFL_LLVM_CMPLOG=1` during compilation will tell afl-clang-fast to
 produce a CmpLog binary.
 
+For afl-gcc-fast, set `AFL_GCC_CMPLOG=1` instead.
+
 For more information, see
 [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
@@ -453,14 +455,17 @@ checks or alter some of the more exotic semantics of the tool:
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
 
-  - `AFL_NO_SNAPSHOT` will advice afl-fuzz not to use the snapshot feature if
+  - `AFL_NO_SNAPSHOT` will advise afl-fuzz not to use the snapshot feature if
     the snapshot lkm is loaded.
 
   - Setting `AFL_NO_UI` inhibits the UI altogether and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
 
-  - In QEMU mode (-Q) and Frida mode (-O), `AFL_PATH` will be searched for
+  - Setting `AFL_NO_STARTUP_CALIBRATION` will skip the initial calibration
+    of all starting seeds, and start fuzzing at once.
+
+  - In QEMU mode (-Q) and FRIDA mode (-O), `AFL_PATH` will be searched for
     afl-qemu-trace and afl-frida-trace.so.
 
   - If you are using persistent mode (you should, see
@@ -468,7 +473,7 @@ checks or alter some of the more exotic semantics of the tool:
     some targets keep inherent state due which a detected crash test case does
     not crash the target again when the test case is given. To be able to still
     re-trigger these crashes, you can use the `AFL_PERSISTENT_RECORD` variable
-    with a value of how many previous fuzz cases to keep prio a crash. If set to
+    with a value of how many previous fuzz cases to keep prior a crash. If set to
     e.g., 10, then the 9 previous inputs are written to out/default/crashes as
     RECORD:000000,cnt:000000 to RECORD:000000,cnt:000008 and
     RECORD:000000,cnt:000009 being the crash case. NOTE: This option needs to be
@@ -553,10 +558,10 @@ checks or alter some of the more exotic semantics of the tool:
       in the target binary
 
   - If you need an early forkserver in your target because of early
-    constructors in your target you can set `AFL_EARLY_FORKSERVER`.
+    constructors in your target, you can set `AFL_EARLY_FORKSERVER`.
     Note that this is not a compile time option but a runtime option :-)
 
-  - set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
+  - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
     to disable although it is 1st of April.
 
 ## 5) Settings for afl-qemu-trace
@@ -689,8 +694,8 @@ support.
 * `AFL_FRIDA_STALKER_ADJACENT_BLOCKS` - Configure the number of adjacent blocks
   to fetch when generating instrumented code. By fetching blocks in the same
   order they appear in the original program, rather than the order of execution
-  should help reduce locallity and adjacency. This includes allowing us to
-  vector between adjancent blocks using a NOP slide rather than an immediate
+  should help reduce locality and adjacency. This includes allowing us to
+  vector between adjacent blocks using a NOP slide rather than an immediate
   branch.
 * `AFL_FRIDA_STALKER_IC_ENTRIES` - Configure the number of inline cache entries
   stored along-side branch instructions which provide a cache to avoid having to

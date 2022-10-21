@@ -265,6 +265,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_cmplog_only_new =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_NO_STARTUP_CALIBRATION",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_startup_calibration =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_NO_UI", afl_environment_variable_len)) {
 
             afl->afl_env.afl_no_ui =
@@ -518,16 +525,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_no_crash_readme =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
-            if (afl->afl_env.afl_pizza_mode == 0) {
-
-              afl->afl_env.afl_pizza_mode = 1;
-
-            } else {
-
-              afl->pizza_is_served = 1;
-
-            }
-
           } else if (!strncmp(env, "AFL_SYNC_TIME",
 
                               afl_environment_variable_len)) {
@@ -606,6 +603,8 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
     }
 
   }
+
+  if (afl->afl_env.afl_pizza_mode) { afl->pizza_is_served = 1; }
 
   if (issue_detected) { sleep(2); }
 

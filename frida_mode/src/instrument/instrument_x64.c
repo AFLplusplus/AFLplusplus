@@ -171,16 +171,16 @@ void instrument_coverage_optimize_init(void) {
 
 }
 
-static void instrument_coverage_switch(GumStalkerObserver *self,
-                                       gpointer            from_address,
-                                       gpointer            start_address,
-                                       const cs_insn *     from_insn,
-                                       gpointer *          target) {
+static void instrument_coverage_switch_insn(GumStalkerObserver *self,
+                                            gpointer            from_address,
+                                            gpointer            start_address,
+                                            const cs_insn      *from_insn,
+                                            gpointer           *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
 
-  cs_x86 *   x86;
+  cs_x86    *x86;
   cs_x86_op *op;
   if (from_insn == NULL) { return; }
 
@@ -224,13 +224,42 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
 
 }
 
+cs_insn *instrument_disassemble(gconstpointer address) {
+
+  csh      capstone;
+  cs_insn *insn = NULL;
+
+  cs_open(CS_ARCH_X86, GUM_CPU_MODE, &capstone);
+  cs_option(capstone, CS_OPT_DETAIL, CS_OPT_ON);
+
+  cs_disasm(capstone, address, 16, GPOINTER_TO_SIZE(address), 1, &insn);
+
+  cs_close(&capstone);
+
+  return insn;
+
+}
+
+static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            from_address,
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
+
+  if (from_insn == NULL) { return; }
+  cs_insn *insn = instrument_disassemble(from_insn);
+  instrument_coverage_switch_insn(self, from_address, start_address, insn,
+                                  target);
+  cs_free(insn, 1);
+
+}
+
 static void instrument_coverage_suppress_init(void) {
 
   static gboolean initialized = false;
   if (initialized) { return; }
   initialized = true;
 
-  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserver          *observer = stalker_get_observer();
   GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
   iface->switch_callback = instrument_coverage_switch;
 
@@ -333,19 +362,18 @@ static void instrument_coverage_write(GumAddress        address,
 
 }
 
-void instrument_coverage_optimize(const cs_insn *   instr,
+void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
-  /* guint64 area_offset =
-   * instrument_get_offset_hash(GUM_ADDRESS(instr->address)); */
   if (instrument_previous_pc_addr == NULL) {
 
     GumAddressSpec spec = {.near_address = cw->code,
                            .max_distance = 1ULL << 30};
+    guint          page_size = gum_query_page_size();
 
     instrument_previous_pc_addr = gum_memory_allocate_near(
-        &spec, sizeof(guint64), 0x1000, GUM_PAGE_READ | GUM_PAGE_WRITE);
+        &spec, sizeof(guint64), page_size, GUM_PAGE_READ | GUM_PAGE_WRITE);
     *instrument_previous_pc_addr = instrument_hash_zero;
     FVERBOSE("instrument_previous_pc_addr: %p", instrument_previous_pc_addr);
     FVERBOSE("code_addr: %p", cw->code);
@@ -364,7 +392,7 @@ void instrument_coverage_optimize(const cs_insn *   instr,
 
 }
 
-void instrument_coverage_optimize_insn(const cs_insn *   instr,
+void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
@@ -466,6 +494,25 @@ void instrument_flush(GumStalkerOutput *output) {
 gpointer instrument_cur(GumStalkerOutput *output) {
 
   return gum_x86_writer_cur(output->writer.x86);
+
+}
+
+void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data) {
+
+  int fd = (int)(size_t)user_data;
+  instrument_regs_format(
+      fd, "rax: 0x%016x, rbx: 0x%016x, rcx: 0x%016x, rdx: 0x%016x\n",
+      cpu_context->rax, cpu_context->rbx, cpu_context->rcx, cpu_context->rdx);
+  instrument_regs_format(
+      fd, "rdi: 0x%016x, rsi: 0x%016x, rbp: 0x%016x, rsp: 0x%016x\n",
+      cpu_context->rdi, cpu_context->rsi, cpu_context->rbp, cpu_context->rsp);
+  instrument_regs_format(
+      fd, "r8 : 0x%016x, r9 : 0x%016x, r10: 0x%016x, r11: 0x%016x\n",
+      cpu_context->r8, cpu_context->r9, cpu_context->r10, cpu_context->r11);
+  instrument_regs_format(
+      fd, "r12: 0x%016x, r13: 0x%016x, r14: 0x%016x, r15: 0x%016x\n",
+      cpu_context->r12, cpu_context->r13, cpu_context->r14, cpu_context->r15);
+  instrument_regs_format(fd, "rip: 0x%016x\n\n", cpu_context->rip);
 
 }
 

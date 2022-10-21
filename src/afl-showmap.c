@@ -98,7 +98,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
-static sharedmem_t *     shm_fuzz;
+static sharedmem_t      *shm_fuzz;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -138,7 +138,7 @@ static void kill_child() {
 
 static void classify_counts(afl_forkserver_t *fsrv) {
 
-  u8 *      mem = fsrv->trace_bits;
+  u8       *mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
 
   u32 i = map_size;
@@ -166,7 +166,7 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 }
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
-                                 sharedmem_t *     shm_fuzz) {
+                                 sharedmem_t      *shm_fuzz) {
 
   afl_shm_deinit(shm_fuzz);
   fsrv->support_shmem_fuzz = 0;
@@ -785,6 +785,8 @@ u32 execute_testcases(u8 *dir) {
       ck_free(in_data);
       ++done;
 
+      if (child_crashed && debug) { WARNF("crashed: %s", fn2); }
+
       if (collect_coverage)
         analyze_results(fsrv);
       else
@@ -1238,7 +1240,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;
-    fsrv->map_size = 4194304;  // dummy temporary value
+    if (map_size > 4194304) {
+
+      fsrv->map_size = map_size;
+
+    } else {
+
+      fsrv->map_size = 4194304;  // dummy temporary value
+
+    }
+
     u32 new_map_size =
         afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
                              (get_afl_env("AFL_DEBUG_CHILD") ||
@@ -1257,7 +1268,7 @@ int main(int argc, char **argv_orig, char **envp) {
           (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
         if (!be_quiet)
-          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);

@@ -1,12 +1,11 @@
 #include <errno.h>
-#include <sys/shm.h>
-#include <sys/mman.h>
 
 #include "frida-gumjs.h"
 
 #include "entry.h"
 #include "intercept.h"
 #include "prefetch.h"
+#include "shm.h"
 #include "stalker.h"
 #include "util.h"
 
@@ -19,7 +18,7 @@
 typedef struct {
 
   size_t count;
-  void * entry[PREFETCH_ENTRIES];
+  void  *entry[PREFETCH_ENTRIES];
 
   guint8 backpatch_data[BP_SIZE];
   gsize  backpatch_size;
@@ -30,7 +29,6 @@ gboolean prefetch_enable = TRUE;
 gboolean prefetch_backpatch = TRUE;
 
 static prefetch_data_t *prefetch_data = NULL;
-static int              prefetch_shm_id = -1;
 
 static GHashTable *cant_prefetch = NULL;
 
@@ -173,7 +171,7 @@ static void prefetch_read_blocks(void) {
 static void prefetch_read_patches(void) {
 
   gsize         offset = 0;
-  GumStalker *  stalker = stalker_get();
+  GumStalker   *stalker = stalker_get();
   GumBackpatch *backpatch = NULL;
 
   for (gsize remaining = prefetch_data->backpatch_size - offset;
@@ -285,28 +283,7 @@ void prefetch_init(void) {
    * with the coverage bitmap region and fork will take care of ensuring both
    * the parent and child see the same consistent memory region.
    */
-  prefetch_shm_id =
-      shmget(IPC_PRIVATE, sizeof(prefetch_data_t), IPC_CREAT | IPC_EXCL | 0600);
-  if (prefetch_shm_id < 0) {
-
-    FFATAL("prefetch_shm_id < 0 - errno: %d\n", errno);
-
-  }
-
-  prefetch_data = shmat(prefetch_shm_id, NULL, 0);
-  g_assert(prefetch_data != MAP_FAILED);
-
-  /*
-   * Configure the shared memory region to be removed once the process dies.
-   */
-  if (shmctl(prefetch_shm_id, IPC_RMID, NULL) < 0) {
-
-    FFATAL("shmctl (IPC_RMID) < 0 - errno: %d\n", errno);
-
-  }
-
-  /* Clear it, not sure it's necessary, just seems like good practice */
-  memset(prefetch_data, '\0', sizeof(prefetch_data_t));
+  prefetch_data = shm_create(sizeof(prefetch_data_t));
 
   prefetch_hook_fork();
 
@@ -319,7 +296,7 @@ void prefetch_init(void) {
 
   if (!prefetch_backpatch) { return; }
 
-  GumStalkerObserver *         observer = stalker_get_observer();
+  GumStalkerObserver          *observer = stalker_get_observer();
   GumStalkerObserverInterface *iface = GUM_STALKER_OBSERVER_GET_IFACE(observer);
   iface->notify_backpatch = gum_afl_stalker_backpatcher_notify;
 

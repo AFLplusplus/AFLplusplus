@@ -1,81 +1,95 @@
 #
 # This Dockerfile for AFLplusplus uses Ubuntu 22.04 jammy and
-# installs LLVM 14 for afl-clang-lto support :-)
+# installs LLVM 14 for afl-clang-lto support.
+#
+# GCC 11 is used instead of 12 because genhtml for afl-cov doesn't like it.
 #
 
 FROM ubuntu:22.04 AS aflplusplus
 LABEL "maintainer"="afl++ team <afl@aflplus.plus>"
-LABEL "about"="AFLplusplus docker image"
+LABEL "about"="AFLplusplus container image"
+
+### Comment out to enable these features
+# Only available on specific ARM64 boards
+ENV NO_CORESIGHT=1
+# Possible but unlikely in a docker container
+ENV NO_NYX=1
+
+### Only change these if you know what you are doing:
+# LLVM 15 does not look good so we stay at 14 to still have LTO
+ENV LLVM_VERSION=14
+# GCC 12 is producing compile errors for some targets so we stay at GCC 11
+ENV GCC_VERSION=11
+
+### No changes beyond the point unless you know what you are doing :)
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-env NO_ARCH_OPT 1
-
-RUN apt-get update && \
-    apt-get -y install --no-install-suggests --no-install-recommends \
-    automake \
-    cmake \
-    meson \
-    ninja-build \
-    bison flex \
-    build-essential \
-    git \
-    python3 python3-dev python3-setuptools python-is-python3 \
-    libtool libtool-bin \
-    libglib2.0-dev \
-    wget vim jupp nano bash-completion less \
-    apt-utils apt-transport-https ca-certificates gnupg dialog \
-    libpixman-1-dev \
-    gnuplot-nox \
-    && rm -rf /var/lib/apt/lists/*
-
-# TODO: reactivate in timely manner
-#RUN echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main" >> /etc/apt/sources.list && \
-#    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-
-RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu jammy main" >> /etc/apt/sources.list && \
-    apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 1E9377A2BA9EF27F
+ENV NO_ARCH_OPT=1
+ENV IS_DOCKER=1
 
 RUN apt-get update && apt-get full-upgrade -y && \
-    apt-get -y install --no-install-suggests --no-install-recommends \
-    gcc-12 g++-12 gcc-12-plugin-dev gdb lcov \
-    clang-14 clang-tools-14 libc++1-14 libc++-14-dev \
-    libc++abi1-14 libc++abi-14-dev libclang1-14 libclang-14-dev \
-    libclang-common-14-dev libclang-cpp14 libclang-cpp14-dev liblld-14 \
-    liblld-14-dev liblldb-14 liblldb-14-dev libllvm14 libomp-14-dev \
-    libomp5-14 lld-14 lldb-14 llvm-14 llvm-14-dev llvm-14-runtime llvm-14-tools
+    apt-get install -y --no-install-recommends wget ca-certificates apt-utils && \
+    rm -rf /var/lib/apt/lists/*
 
-# arm64 doesn't have gcc-multilib, and it's only used for -m32 support on x86
-ARG TARGETPLATFORM
-RUN [ "$TARGETPLATFORM" = "linux/amd64" ] && \
-    apt-get -y install --no-install-suggests --no-install-recommends \
-    gcc-10-multilib gcc-multilib || true
+RUN echo "deb [signed-by=/etc/apt/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list && \
+    wget -qO /etc/apt/keyrings/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key
 
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get -y install --no-install-recommends \
+    make cmake automake meson ninja-build bison flex \
+    git xz-utils bzip2 wget jupp nano bash-completion less vim joe ssh psmisc \
+    python3 python3-dev python3-setuptools python-is-python3 \
+    libtool libtool-bin libglib2.0-dev \
+    apt-transport-https gnupg dialog \
+    gnuplot-nox libpixman-1-dev \
+    gcc-${GCC_VERSION} g++-${GCC_VERSION} gcc-${GCC_VERSION}-plugin-dev gdb lcov \
+    clang-${LLVM_VERSION} clang-tools-${LLVM_VERSION} libc++1-${LLVM_VERSION} \
+    libc++-${LLVM_VERSION}-dev libc++abi1-${LLVM_VERSION} libc++abi-${LLVM_VERSION}-dev \
+    libclang1-${LLVM_VERSION} libclang-${LLVM_VERSION}-dev \
+    libclang-common-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} \
+    libclang-cpp${LLVM_VERSION}-dev liblld-${LLVM_VERSION} \
+    liblld-${LLVM_VERSION}-dev liblldb-${LLVM_VERSION} liblldb-${LLVM_VERSION}-dev \
+    libllvm${LLVM_VERSION} libomp-${LLVM_VERSION}-dev libomp5-${LLVM_VERSION} \
+    lld-${LLVM_VERSION} lldb-${LLVM_VERSION} llvm-${LLVM_VERSION} \
+    llvm-${LLVM_VERSION}-dev llvm-${LLVM_VERSION}-runtime llvm-${LLVM_VERSION}-tools \
+    $([ "$(dpkg --print-architecture)" = "amd64" ] && echo gcc-${GCC_VERSION}-multilib gcc-multilib) \
+    $([ "$(dpkg --print-architecture)" = "arm64" ] && echo libcapstone-dev) && \
+    rm -rf /var/lib/apt/lists/*
+    # gcc-multilib is only used for -m32 support on x86
+    # libcapstone-dev is used for coresight_mode on arm64
 
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 0
-RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 0
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0 && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 0 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${LLVM_VERSION} 0
 
-ENV LLVM_CONFIG=llvm-config-14
+RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
+ENV PATH=$PATH:/etc/cargo/bin
+
+ENV LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 ENV AFL_SKIP_CPUFREQ=1
 ENV AFL_TRY_AFFINITY=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 
-RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov /afl-cov
-RUN cd /afl-cov && make install && cd ..
+RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov && \
+    (cd afl-cov && make install) && rm -rf afl-cov
 
-COPY . /AFLplusplus
 WORKDIR /AFLplusplus
+COPY . .
 
-RUN export CC=gcc-12 && export CXX=g++-12 && make clean && \
-    make distrib && make install && make clean
+ARG CC=gcc-$GCC_VERSION
+ARG CXX=g++-$GCC_VERSION
 
-RUN sh -c 'echo set encoding=utf-8 > /root/.vimrc'
-RUN echo '. /etc/bash_completion' >> ~/.bashrc
-RUN echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc
-RUN echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc
-ENV IS_DOCKER="1"
+# Used in CI to prevent a 'make clean' which would remove the binaries to be tested
+ARG TEST_BUILD
 
-# Disabled as there are now better alternatives
-#COPY --from=aflplusplus/afl-dyninst /usr/local/lib/libdyninstAPI_RT.so /usr/local/lib/libdyninstAPI_RT.so
-#COPY --from=aflplusplus/afl-dyninst /afl-dyninst/libAflDyninst.so /usr/local/lib/libAflDyninst.so
+RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
+    make clean && make distrib && \
+    ([ "${TEST_BUILD}" ] || (make install && make clean)) && \
+    mv GNUmakefile.bak GNUmakefile
+
+RUN echo "set encoding=utf-8" > /root/.vimrc && \
+    echo ". /etc/bash_completion" >> ~/.bashrc && \
+    echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc && \
+    echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc

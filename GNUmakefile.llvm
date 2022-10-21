@@ -45,11 +45,11 @@ endif
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's/svn//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
 LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
-LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[5-9]' && echo 1 || echo 0 )
-LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
-LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
-LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
+LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[5-9]' && echo 1 || echo 0 )
+LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )
+LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
+LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]' && echo 1 || echo 0 )
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
@@ -86,12 +86,6 @@ ifeq "$(LLVM_TOO_OLD)" "1"
   $(shell sleep 1)
 endif
 
-ifeq "$(LLVM_MAJOR)" "15"
-  $(info [!] llvm_mode detected llvm 15, which is currently broken for LTO plugins.)
-  LLVM_LTO = 0
-  LLVM_HAVE_LTO = 0
-endif
-
 ifeq "$(LLVM_HAVE_LTO)" "1"
   $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
@@ -99,7 +93,7 @@ ifeq "$(LLVM_HAVE_LTO)" "1"
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 11 or llvm 15, afl-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 11, afl-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE_XCODE)" "1"
@@ -220,6 +214,17 @@ ifeq "$(LLVM_LTO)" "1"
     ifeq "$(AFL_REAL_LD)" ""
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
+      else ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
+        AFL_REAL_LD = $(shell command -v ld.lld)
+        TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
+        ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
+          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+        else
+          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
+          AFL_REAL_LD=
+          LLVM_LTO = 0
+        endif
+        undefine TMP_LDLDD_VERSION
       else
         $(warning ld.lld not found, cannot enable LTO mode)
         LLVM_LTO = 0
@@ -235,7 +240,7 @@ AFL_CLANG_FUSELD=
 ifeq "$(LLVM_LTO)" "1"
   ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
     AFL_CLANG_FUSELD=1
-    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(LLVM_BINDIR)/ld.lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(AFL_REAL_LD) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
       AFL_CLANG_LDPATH=1
     endif
   else

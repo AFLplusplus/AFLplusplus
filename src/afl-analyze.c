@@ -203,7 +203,7 @@ static void read_initial_file(void) {
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
+static u64 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
 
   afl_fsrv_write_to_testcase(&fsrv, mem, len);
   fsrv_run_result_t ret = afl_fsrv_run_target(&fsrv, exec_tmout, &stop_soon);
@@ -528,7 +528,7 @@ static void analyze() {
 
   for (i = 0; i < in_len; i++) {
 
-    u32 xor_ff, xor_01, sub_10, add_10;
+    u64 xor_ff, xor_01, sub_10, add_10;
     u8  xff_orig, x01_orig, s10_orig, a10_orig;
 
     /* Perform walking byte adjustments across the file. We perform four
@@ -626,7 +626,7 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(char **argv) {
 
-  u8 *  x;
+  u8   *x;
   char *afl_preload;
   char *frida_afl_preload = NULL;
 

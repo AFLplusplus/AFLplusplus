@@ -38,6 +38,11 @@ performed with the custom mutator.
 
 ## 2) APIs
 
+**IMPORTANT NOTE**: If you use our C/C++ API and you want to increase the size
+of an **out_buf buffer, you have to use `afl_realloc()` for this, so include
+`include/alloc-inl.h` - otherwise afl-fuzz will crash when trying to free
+your buffers.
+
 C/C++:
 
 ```c
@@ -63,7 +68,7 @@ Python:
 def init(seed):
     pass
 
-def fuzz_count(buf, add_buf, max_size):
+def fuzz_count(buf):
     return cnt
 
 def fuzz(buf, add_buf, max_size):
@@ -158,6 +163,10 @@ def deinit():  # optional for Python
 
     This can return any python object that implements the buffer protocol and
     supports PyBUF_SIMPLE. These include bytes, bytearray, etc.
+
+    You can decide in the post_process mutator to not send the mutated data
+    to the target, e.g. if it is too short, too corrupted, etc. If so,
+    return a NULL buffer and zero length (or a 0 length string in Python).
 
 - `queue_new_entry` (optional):
 

@@ -22,8 +22,8 @@ asan_storeN_t asan_storeN = NULL;
 
 static void asan_callout(GumCpuContext *ctx, gpointer user_data) {
 
-  asan_ctx_t *  asan_ctx = (asan_ctx_t *)user_data;
-  cs_arm64_op * operand = &asan_ctx->operand;
+  asan_ctx_t   *asan_ctx = (asan_ctx_t *)user_data;
+  cs_arm64_op  *operand = &asan_ctx->operand;
   arm64_op_mem *mem = &operand->mem;
   gsize         base = 0;
   gsize         index = 0;
@@ -59,7 +59,7 @@ void asan_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
 
   cs_arm64     arm64 = instr->detail->arm64;
   cs_arm64_op *operand;
-  asan_ctx_t * ctx;
+  asan_ctx_t  *ctx;
 
   if (!asan_initialized) return;
 
