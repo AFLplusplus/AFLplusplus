@@ -2576,9 +2576,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 }
 
 static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
-                   u32 len, u8 lvl, struct tainted *taint) {
+                   u32 len, u8 lvl, struct tainted *taint, struct taint_cmp * t_cmp,
+                   struct byte_replacement * replaced_bytes) {
 
+#ifdef COARSE_TAINT_MAP
   struct tainted *   t;
+#endif
+  struct tainted * t_v0,  * t_v1;
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx, taint_len, loggeds;
   u8                 status = 0, found_one = 0;
