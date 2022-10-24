@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "forkserver.h"
 #ifndef _GNU_SOURCE
   #define _GNU_SOURCE
 #endif
@@ -47,6 +48,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 u8  be_quiet = 0;
 u8 *doc_path = "";
@@ -456,37 +458,44 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
 }
 
-/* Parses the kill signal environment variable, FATALs on error.
-  If the env is not set, sets the env to default_signal for the signal handlers
-  and returns the default_signal. */
-int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
 
-  if (afl_kill_signal_env && afl_kill_signal_env[0]) {
+int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
+
+  if (numeric_signal_as_str && numeric_signal_as_str[0]) {
 
     char *endptr;
     u8    signal_code;
-    signal_code = (u8)strtoul(afl_kill_signal_env, &endptr, 10);
+    signal_code = (u8)strtoul(numeric_signal_as_str, &endptr, 10);
     /* Did we manage to parse the full string? */
-    if (*endptr != '\0' || endptr == (char *)afl_kill_signal_env) {
-
-      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
-            afl_kill_signal_env);
-
+    if (*endptr != '\0' || endptr == (char *)numeric_signal_as_str) {
+      FATAL("Invalid signal name: %s", numeric_signal_as_str);
+    } else {
+      return signal_code;
     }
 
-    return signal_code;
-
-  } else {
-
-    char *sigstr = alloc_printf("%d", default_signal);
-    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
-
-    /* Set the env for signal handler */
-    setenv("AFL_KILL_SIGNAL", sigstr, 1);
-    free(sigstr);
-    return default_signal;
-
   }
+
+  return default_signal;
+}
+
+void configure_afl_kill_signals(afl_forkserver_t *fsrv, char* afl_kill_signal_env, char* afl_fsrv_kill_signal_env) {
+  afl_kill_signal_env = afl_kill_signal_env ?
+    afl_kill_signal_env : getenv("AFL_KILL_SIGNAL");
+  afl_fsrv_kill_signal_env = afl_fsrv_kill_signal_env ?
+    afl_fsrv_kill_signal_env : getenv("AFL_FORK_SERVER_KILL_SIGNAL");
+
+  fsrv->child_kill_signal =
+      parse_afl_kill_signal(afl_kill_signal_env, SIGKILL);
+
+  if (afl_kill_signal_env && !afl_fsrv_kill_signal_env) {
+    /*
+    Set AFL_FORK_SERVER_KILL_SIGNAL to the value of AFL_KILL_SIGNAL for backwards
+    compatibility. However, if AFL_FORK_SERVER_KILL_SIGNAL is set, is takes precedence.
+    */
+    afl_fsrv_kill_signal_env = afl_kill_signal_env;
+  }
+  fsrv->fsrv_kill_signal =
+      parse_afl_kill_signal(afl_fsrv_kill_signal_env, SIGTERM);
 
 }
 
@@ -1253,4 +1262,3 @@ s32 create_file(u8 *fn) {
   return fd;
 
 }
-

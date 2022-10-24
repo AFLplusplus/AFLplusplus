@@ -393,8 +393,8 @@ typedef struct afl_env_vars {
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries, *afl_kill_signal, *afl_target_env,
-      *afl_persistent_record, *afl_exit_on_time;
+      *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
+      *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
 } afl_env_vars_t;
 
@@ -1268,4 +1268,3 @@ void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
 #endif
 
 #endif
-
