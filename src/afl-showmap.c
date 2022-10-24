@@ -866,9 +866,12 @@ static void usage(u8 *argv0) {
       "startup (in milliseconds)\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout,\n"
       "                 etc. (default: SIGKILL)\n"
-      "AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n"
-      "                             (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is set,\n"
-      "                             this will be set to the same value as AFL_KILL_SIGNAL.\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes "
+      "on termination\n"
+      "                             (default: SIGTERM). If this is not set and "
+      "AFL_KILL_SIGNAL is set,\n"
+      "                             this will be set to the same value as "
+      "AFL_KILL_SIGNAL.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
       "size the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1474,3 +1477,4 @@ int main(int argc, char **argv_orig, char **envp) {
   exit(ret);
 
 }
+

@@ -1200,7 +1200,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   configure_afl_kill_signals(fsrv, NULL, NULL);
 
-
   if (getenv("AFL_CRASH_EXITCODE")) {
 
     long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
@@ -1354,3 +1353,4 @@ int main(int argc, char **argv_orig, char **envp) {
   exit(0);
 
 }
+

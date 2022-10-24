@@ -485,12 +485,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 #endif
 
           } else if (!strncmp(env, "AFL_KILL_SIGNAL",
+
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_child_kill_signal =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
           } else if (!strncmp(env, "AFL_FORK_SERVER_KILL_SIGNAL",
+
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_fsrv_kill_signal =
@@ -659,12 +661,17 @@ void afl_states_stop(void) {
   });
 
   LIST_FOREACH(&afl_states, afl_state_t, {
-    /* NOTE: We need to make sure that the parent (the forkserver) reap the child (see below). */
-    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.child_kill_signal);
+
+    /* NOTE: We need to make sure that the parent (the forkserver) reap the
+     * child (see below). */
+    if (el->fsrv.child_pid > 0)
+      kill(el->fsrv.child_pid, el->fsrv.child_kill_signal);
     if (el->fsrv.fsrv_pid > 0) {
+
       kill(el->fsrv.fsrv_pid, el->fsrv.fsrv_kill_signal);
       /* Make sure the forkserver does not end up as zombie. */
       waitpid(el->fsrv.fsrv_pid, NULL, 0);
+
     }
 
   });
@@ -682,3 +689,4 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
+
