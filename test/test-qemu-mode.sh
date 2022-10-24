@@ -107,14 +107,21 @@ test -e ../afl-qemu-trace && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
-          if file test-instr | grep -q "32-bit"; then
-            # for 32-bit reduce 8 nibbles to the lower 7 nibbles
-	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.//'`
-          else
-            # for 64-bit reduce 16 nibbles to the lower 9 nibbles
-	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//'`
-          fi
-          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4${ADDR_LOWER_PART}`
+          IS_STATIC=""
+          file test-instr | grep -q 'statically linked' && IS_STATIC=1
+          test -z "$IS_STATIC" && {
+            if file test-instr | grep -q "32-bit"; then
+              # for 32-bit reduce 8 nibbles to the lower 7 nibbles
+  	      ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.//'`
+            else
+              # for 64-bit reduce 16 nibbles to the lower 9 nibbles
+  	      ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//'`
+            fi
+            export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4${ADDR_LOWER_PART}`
+          }
+          test -n "$IS_STATIC" && {
+            export AFL_QEMU_PERSISTENT_ADDR=0x`nm test-instr | grep "T main" |  awk '{print $1}'`
+          }
           export AFL_QEMU_PERSISTENT_GPR=1
           $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           env|grep AFL_|sort

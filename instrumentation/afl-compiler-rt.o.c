@@ -159,6 +159,7 @@ static void at_exit(int signal) {
   if (unlikely(child_pid > 0)) {
 
     kill(child_pid, SIGKILL);
+    waitpid(child_pid, NULL, 0);
     child_pid = -1;
 
   }

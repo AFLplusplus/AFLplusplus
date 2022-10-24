@@ -13,6 +13,8 @@
     scripts
   - afl-fuzz:
     - force writing all stats on exit
+    - ensure targets are killed on exit
+    - `AFL_FORK_SERVER_KILL_SIGNAL` added
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
   - qemu_mode:
