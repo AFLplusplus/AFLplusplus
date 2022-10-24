@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "forkserver.h"
 #ifndef _GNU_SOURCE
   #define _GNU_SOURCE
 #endif
@@ -47,6 +48,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 u8  be_quiet = 0;
 u8 *doc_path = "";
@@ -474,6 +476,27 @@ int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
   }
 
   return default_signal;
+}
+
+void configure_afl_kill_signals(afl_forkserver_t *fsrv, char* afl_kill_signal_env, char* afl_fsrv_kill_signal_env) {
+  afl_kill_signal_env = afl_kill_signal_env ?
+    afl_kill_signal_env : getenv("AFL_KILL_SIGNAL");
+  afl_fsrv_kill_signal_env = afl_fsrv_kill_signal_env ?
+    afl_fsrv_kill_signal_env : getenv("AFL_FORK_SERVER_KILL_SIGNAL");
+
+  fsrv->child_kill_signal =
+      parse_afl_kill_signal(afl_kill_signal_env, SIGKILL);
+
+  if (afl_kill_signal_env && !afl_fsrv_kill_signal_env) {
+    /*
+    Set AFL_FORK_SERVER_KILL_SIGNAL to the value of AFL_KILL_SIGNAL for backwards
+    compatibility. However, if AFL_FORK_SERVER_KILL_SIGNAL is set, is takes precedence.
+    */
+    afl_fsrv_kill_signal_env = afl_kill_signal_env;
+  }
+  fsrv->fsrv_kill_signal =
+      parse_afl_kill_signal(afl_fsrv_kill_signal_env, SIGTERM);
+
 }
 
 static inline unsigned int helper_min3(unsigned int a, unsigned int b,

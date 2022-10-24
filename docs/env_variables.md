@@ -418,6 +418,10 @@ checks or alter some of the more exotic semantics of the tool:
     fork server when AFL++ is terminated. Unless you implement your
     fork server, you likely do not have to set it. By default, `SIGTERM`
     (`AFL_FORK_SERVER_KILL_SIGNAL=15`) will be delivered to the fork server.
+    If only `AFL_KILL_SIGNAL` is provided, `AFL_FORK_SERVER_KILL_SIGNAL` will
+    be set to same value as `AFL_KILL_SIGNAL` to provide backward compatibility.
+    If `AFL_FORK_SERVER_KILL_SIGNAL` is also set, it takes precedence.
+
     NOTE: Uncatchable signals, such as `SIGKILL`, cause child processes of
     the fork server to be orphaned and leaves them in a zombie state.
 
