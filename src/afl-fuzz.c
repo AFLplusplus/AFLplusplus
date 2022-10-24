@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include "common.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
@@ -1358,10 +1359,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  afl->fsrv.child_kill_signal =
-      parse_afl_kill_signal(afl->afl_env.afl_child_kill_signal, SIGKILL);
-  afl->fsrv.fsrv_kill_signal =
-      parse_afl_kill_signal(afl->afl_env.afl_fsrv_kill_signal, SIGTERM);
+  configure_afl_kill_signals(&afl->fsrv,
+    afl->afl_env.afl_child_kill_signal,
+    afl->afl_env.afl_fsrv_kill_signal);
 
   setup_signal_handlers();
   check_asan_opts(afl);

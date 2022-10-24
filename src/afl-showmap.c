@@ -1260,10 +1260,7 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
-    fsrv->child_kill_signal =
-        parse_afl_kill_signal(getenv("AFL_KILL_SIGNAL"), SIGKILL);
-    fsrv->fsrv_kill_signal =
-        parse_afl_kill_signal(getenv("AFL_FORK_SERVER_KILL_SIGNAL"), SIGTERM);
+    configure_afl_kill_signals(fsrv, NULL, NULL);
 
     if (new_map_size) {
 
