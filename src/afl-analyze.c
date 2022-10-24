@@ -1117,7 +1117,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   configure_afl_kill_signals(&fsrv, NULL, NULL);
 
-
   read_initial_file();
   (void)check_binary_signatures(fsrv.target_path);
 
@@ -1151,3 +1150,4 @@ int main(int argc, char **argv_orig, char **envp) {
   exit(0);
 
 }
+

@@ -2408,3 +2408,4 @@ void __afl_set_persistent_mode(u8 mode) {
 }
 
 #undef write_error
+

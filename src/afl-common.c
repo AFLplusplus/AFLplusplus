@@ -458,7 +458,6 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
 }
 
-
 int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
 
   if (numeric_signal_as_str && numeric_signal_as_str[0]) {
@@ -468,32 +467,44 @@ int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
     signal_code = (u8)strtoul(numeric_signal_as_str, &endptr, 10);
     /* Did we manage to parse the full string? */
     if (*endptr != '\0' || endptr == (char *)numeric_signal_as_str) {
+
       FATAL("Invalid signal name: %s", numeric_signal_as_str);
+
     } else {
+
       return signal_code;
+
     }
 
   }
 
   return default_signal;
+
 }
 
-void configure_afl_kill_signals(afl_forkserver_t *fsrv, char* afl_kill_signal_env, char* afl_fsrv_kill_signal_env) {
-  afl_kill_signal_env = afl_kill_signal_env ?
-    afl_kill_signal_env : getenv("AFL_KILL_SIGNAL");
-  afl_fsrv_kill_signal_env = afl_fsrv_kill_signal_env ?
-    afl_fsrv_kill_signal_env : getenv("AFL_FORK_SERVER_KILL_SIGNAL");
+void configure_afl_kill_signals(afl_forkserver_t *fsrv,
+                                char             *afl_kill_signal_env,
+                                char             *afl_fsrv_kill_signal_env) {
 
-  fsrv->child_kill_signal =
-      parse_afl_kill_signal(afl_kill_signal_env, SIGKILL);
+  afl_kill_signal_env =
+      afl_kill_signal_env ? afl_kill_signal_env : getenv("AFL_KILL_SIGNAL");
+  afl_fsrv_kill_signal_env = afl_fsrv_kill_signal_env
+                                 ? afl_fsrv_kill_signal_env
+                                 : getenv("AFL_FORK_SERVER_KILL_SIGNAL");
+
+  fsrv->child_kill_signal = parse_afl_kill_signal(afl_kill_signal_env, SIGKILL);
 
   if (afl_kill_signal_env && !afl_fsrv_kill_signal_env) {
+
     /*
-    Set AFL_FORK_SERVER_KILL_SIGNAL to the value of AFL_KILL_SIGNAL for backwards
-    compatibility. However, if AFL_FORK_SERVER_KILL_SIGNAL is set, is takes precedence.
+    Set AFL_FORK_SERVER_KILL_SIGNAL to the value of AFL_KILL_SIGNAL for
+    backwards compatibility. However, if AFL_FORK_SERVER_KILL_SIGNAL is set, is
+    takes precedence.
     */
     afl_fsrv_kill_signal_env = afl_kill_signal_env;
+
   }
+
   fsrv->fsrv_kill_signal =
       parse_afl_kill_signal(afl_fsrv_kill_signal_env, SIGTERM);
 
@@ -1262,3 +1273,4 @@ s32 create_file(u8 *fn) {
   return fd;
 
 }
+
