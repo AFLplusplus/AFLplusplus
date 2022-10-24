@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include "common.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
@@ -261,6 +262,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n"
+      "                             (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is set,\n"
+      "                             this will be set to the same value.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
@@ -1358,8 +1362,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  afl->fsrv.kill_signal =
-      parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
+  configure_afl_kill_signals(&afl->fsrv,
+    afl->afl_env.afl_child_kill_signal,
+    afl->afl_env.afl_fsrv_kill_signal);
 
   setup_signal_handlers();
   check_asan_opts(afl);
@@ -2683,4 +2688,3 @@ stop_fuzzing:
 }
 
 #endif                                                          /* !AFL_LIB */
-

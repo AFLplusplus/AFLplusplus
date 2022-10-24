@@ -129,7 +129,7 @@ static void kill_child() {
   timed_out = 1;
   if (fsrv->child_pid > 0) {
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
     fsrv->child_pid = -1;
 
   }
@@ -864,8 +864,11 @@ static void usage(u8 *argv0) {
       "AFL_DEBUG: enable extra developer output\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
       "startup (in milliseconds)\n"
-      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
-      "etc. (default: SIGKILL)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout,\n"
+      "                 etc. (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n"
+      "                             (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is set,\n"
+      "                             this will be set to the same value as AFL_KILL_SIGNAL.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
       "size the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1258,8 +1261,7 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
-    fsrv->kill_signal =
-        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+    configure_afl_kill_signals(fsrv, NULL, NULL);
 
     if (new_map_size) {
 
@@ -1472,4 +1474,3 @@ int main(int argc, char **argv_orig, char **envp) {
   exit(ret);
 
 }
-

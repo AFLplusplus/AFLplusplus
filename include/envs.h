@@ -110,6 +110,7 @@ static char *afl_environment_variables[] = {
     "AFL_INST_RATIO",
     "AFL_KEEP_TIMEOUTS",
     "AFL_KILL_SIGNAL",
+    "AFL_FORK_SERVER_KILL_SIGNAL",
     "AFL_KEEP_TRACES",
     "AFL_KEEP_ASSEMBLY",
     "AFL_LD_HARD_FAIL",
@@ -239,4 +240,3 @@ static char *afl_environment_variables[] = {
 extern char *afl_environment_variables[];
 
 #endif
-
