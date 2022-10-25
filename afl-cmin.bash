@@ -47,13 +47,14 @@ echo
 
 MEM_LIMIT=none
 TIMEOUT=none
+NPROC=1
 
 unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
   AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE UNICORN_MODE
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eOQUACh" opt; do
+while getopts "+i:o:f:m:p:t:eOQUACh" opt; do
 
   case "$opt" in 
 
@@ -73,6 +74,9 @@ while getopts "+i:o:f:m:t:eOQUACh" opt; do
     "m")
          MEM_LIMIT="$OPTARG"
          MEM_LIMIT_GIVEN=1
+         ;;
+    "p")
+         NPROC="$OPTARG"
          ;;
     "t")
          TIMEOUT="$OPTARG"
@@ -125,6 +129,7 @@ Execution control settings:
   -f file       - location read by the fuzzed program (stdin)
   -m megs       - memory limit for child process ($MEM_LIMIT MB)
   -t msec       - run time limit for child process (none)
+  -p nproc      - number of parallel showmap processes (1)
   -O            - use binary-only instrumentation (FRIDA mode)
   -Q            - use binary-only instrumentation (QEMU mode)
   -U            - use unicorn-based instrumentation (Unicorn mode)
@@ -351,34 +356,16 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
 (
 
-  CUR=0
-
   if [ "$STDIN_FILE" = "" ]; then
 
-    ls "$IN_DIR" | while read -r fn; do
-
-      CUR=$((CUR+1))
-      printf "\\r    Processing file $CUR/$IN_COUNT... "
-
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$fn"
-
-    done
+    STR=$(echo "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/fn" -Z $EXTRA_PAR -- "$@" "<$IN_DIR/fn")
 
   else
 
-    ls "$IN_DIR" | while read -r fn; do
-
-      CUR=$((CUR+1))
-      printf "\\r    Processing file $CUR/$IN_COUNT... "
-
-      cp "$IN_DIR/$fn" "$STDIN_FILE"
-
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" </dev/null
-
-    done
-
-
+    STR=$(echo cp "$IN_DIR/fn" "$STDIN_FILE" && "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" "</dev/null")
   fi
+
+  ls "$IN_DIR" | xargs -P$NPROC -Ifn bash -c "$STR"
 
 )
 
