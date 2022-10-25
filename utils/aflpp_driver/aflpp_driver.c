@@ -336,6 +336,10 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
 
     return ExecuteFilesOnyByOne(argc, argv, callback);
 
+  } else {
+
+    N = INT_MAX;
+
   }
 
   assert(N > 0);
