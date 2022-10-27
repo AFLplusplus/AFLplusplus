@@ -358,14 +358,17 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
   if [ "$STDIN_FILE" = "" ]; then
 
-    STR=$(echo "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/fn" -Z $EXTRA_PAR -- "$@" "<$IN_DIR/fn")
+    STR=$(echo "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/fn" -Z $EXTRA_PAR -- "$@" "<$IN_DIR/fn" || exit 255)
 
   else
 
-    STR=$(echo cp "$IN_DIR/fn" "$STDIN_FILE" && "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" "</dev/null")
+    STR=$(echo cp "$IN_DIR/fn" "$STDIN_FILE" && "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" "</dev/null" || exit 255)
   fi
 
-  ls "$IN_DIR" | xargs -P$NPROC -Ifn bash -c "$STR"
+  if !(ls "$IN_DIR" | xargs -P$NPROC -Ifn bash -c "$STR"); then
+    echo "[-] Error: Bad exit code received from afl-showmap (this means a crashing or timeout input is likely present), terminating..."
+    exit 1
+  fi
 
 )
 
