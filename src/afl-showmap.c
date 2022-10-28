@@ -1015,7 +1015,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
           }
 
-        } else fsrv->exec_tmout = 0;
+        } else { fsrv->exec_tmout = 0; }
 
         break;
 
