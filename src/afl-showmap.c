@@ -1264,7 +1264,9 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
-    configure_afl_kill_signals(fsrv, NULL, NULL);
+    configure_afl_kill_signals(
+        fsrv, NULL, NULL,
+        (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
     if (new_map_size) {
 
