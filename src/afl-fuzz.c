@@ -249,22 +249,24 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_EXIT_ON_TIME: exit when no new coverage finds are made within the specified time period\n"
-      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
+      "AFL_EXIT_ON_TIME: exit when no new coverage is found within the specified time\n"
+      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60\n"
+      "                      minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
-      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
+      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
-      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
-      "AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n"
-      "                             (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is set,\n"
-      "                             this will be set to the same value.\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
+      "                             (default: SIGTERM). If unset and AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
@@ -1363,7 +1365,14 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
   configure_afl_kill_signals(&afl->fsrv, afl->afl_env.afl_child_kill_signal,
-                             afl->afl_env.afl_fsrv_kill_signal);
+                             afl->afl_env.afl_fsrv_kill_signal,
+                             (afl->fsrv.qemu_mode || afl->unicorn_mode
+  #ifdef __linux__
+                              || afl->fsrv.nyx_mode
+  #endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
 
   setup_signal_handlers();
   check_asan_opts(afl);
