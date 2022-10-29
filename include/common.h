@@ -79,7 +79,8 @@ int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal);
    is NULL, the appropiate values are read from the environment. */
 void configure_afl_kill_signals(afl_forkserver_t *fsrv,
                                 char             *afl_kill_signal_env,
-                                char             *afl_fsrv_kill_signal_env);
+                                char             *afl_fsrv_kill_signal_env,
+                                int               default_server_kill_signal);
 
 /* Read a bitmap from file fname to memory
    This is for the -B option again. */

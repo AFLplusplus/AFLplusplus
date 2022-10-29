@@ -484,7 +484,8 @@ int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
 
 void configure_afl_kill_signals(afl_forkserver_t *fsrv,
                                 char             *afl_kill_signal_env,
-                                char             *afl_fsrv_kill_signal_env) {
+                                char             *afl_fsrv_kill_signal_env,
+                                int               default_server_kill_signal) {
 
   afl_kill_signal_env =
       afl_kill_signal_env ? afl_kill_signal_env : getenv("AFL_KILL_SIGNAL");
@@ -505,8 +506,8 @@ void configure_afl_kill_signals(afl_forkserver_t *fsrv,
 
   }
 
-  fsrv->fsrv_kill_signal =
-      parse_afl_kill_signal(afl_fsrv_kill_signal_env, SIGTERM);
+  fsrv->fsrv_kill_signal = parse_afl_kill_signal(afl_fsrv_kill_signal_env,
+                                                 default_server_kill_signal);
 
 }
 

@@ -1198,7 +1198,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  configure_afl_kill_signals(fsrv, NULL, NULL);
+  configure_afl_kill_signals(
+      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   if (getenv("AFL_CRASH_EXITCODE")) {
 

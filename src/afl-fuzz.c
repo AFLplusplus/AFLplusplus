@@ -1362,8 +1362,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  configure_afl_kill_signals(&afl->fsrv, afl->afl_env.afl_child_kill_signal,
-                             afl->afl_env.afl_fsrv_kill_signal);
+  configure_afl_kill_signals(
+      &afl->fsrv, afl->afl_env.afl_child_kill_signal,
+      afl->afl_env.afl_fsrv_kill_signal,
+      (afl->fsrv.qemu_mode || afl->unicorn_mode || afl->fsrv.nyx_mode)
+          ? SIGKILL
+          : SIGTERM);
 
   setup_signal_handlers();
   check_asan_opts(afl);
