@@ -269,10 +269,10 @@ sudo apt install python-dev
 ```
 
 Then, AFL++ can be compiled with Python support. The AFL++ Makefile detects
-Python 2 and 3 through `python-config` if it is in the PATH and compiles
-`afl-fuzz` with the feature if available.
+Python3 through `python-config`/`python3-config` if it is in the PATH and
+compiles `afl-fuzz` with the feature if available.
 
-Note: for some distributions, you might also need the package `python[23]-apt`.
+Note: for some distributions, you might also need the package `python[3]-apt`.
 In case your setup is different, set the necessary variables like this:
 `PYTHON_INCLUDE=/path/to/python/include LDFLAGS=-L/path/to/python/lib make`.
 

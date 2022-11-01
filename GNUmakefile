@@ -425,7 +425,7 @@ test_python:
 	@echo "[+] $(PYTHON_VERSION) support seems to be working."
 else
 test_python:
-	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3-dev or python-dev (and perhaps python[3]-apt), but it is optional so we continue"
 endif
 
 .PHONY: ready
