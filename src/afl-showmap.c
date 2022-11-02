@@ -518,6 +518,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
     signal(SIGALRM, kill_child);
 
     setitimer(ITIMER_REAL, &it, NULL);
+
   }
 
   if (waitpid(fsrv->child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
@@ -1016,10 +1017,15 @@ int main(int argc, char **argv_orig, char **envp) {
           }
 
         } else {
+
           // The forkserver code does not have a way to completely
           // disable the timeout, so we'll use a very, very long
           // timeout instead.
+          WARNF(
+              "Setting an execution timeout of 120 seconds ('none' is not "
+              "allowed).");
           fsrv->exec_tmout = 120 * 1000;
+
         }
 
         break;
