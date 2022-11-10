@@ -532,7 +532,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("AFL_LLVM_DICT2FILE")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/afl-llvm-dict2file.so", obj_path);
 #else
@@ -549,7 +551,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 #else
@@ -566,7 +570,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/compare-transform-pass.so", obj_path);
 #else
@@ -583,7 +589,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-compares-pass.so", obj_path);
 #else
@@ -606,10 +614,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       cc_params[cc_par_cnt++] = "-fno-inline";
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/cmplog-switches-pass.so", obj_path);
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 #else
@@ -707,7 +719,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         } else {
 
     #if LLVM_MAJOR >= 11                            /* use new pass manager */
+      #if LLVM_MAJOR < 16
           cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+      #endif
           cc_params[cc_par_cnt++] = alloc_printf(
               "-fpass-plugin=%s/SanitizerCoveragePCGUARD.so", obj_path);
     #else
@@ -745,7 +759,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       } else {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
 #else
@@ -763,10 +779,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (cmplog_mode) {
 
 #if LLVM_MAJOR >= 11
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] = alloc_printf(
           "-fpass-plugin=%s/cmplog-instructions-pass.so", obj_path);
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/cmplog-routines-pass.so", obj_path);
 #else
