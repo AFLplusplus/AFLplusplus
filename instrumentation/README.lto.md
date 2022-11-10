@@ -118,10 +118,11 @@ cmake \
     -DLLVM_LINK_LLVM_DYLIB="ON" \
     -DLLVM_TARGETS_TO_BUILD="host" \
     ../llvm/
+# NOTE: for llvm 16 this needs to be changed to:
+#    -DLLVM_ENABLE_PROJECTS='clang;compiler-rt;lld' \
+#    -DLLVM_ENABLE_RUNTIMES='libcxx;libcxxabi' \
 cmake --build . -j4
-export PATH="$(pwd)/bin:$PATH"
 export LLVM_CONFIG="$(pwd)/bin/llvm-config"
-export LD_LIBRARY_PATH="$(llvm-config --libdir)${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 cd /path/to/AFLplusplus/
 make
 sudo make install
