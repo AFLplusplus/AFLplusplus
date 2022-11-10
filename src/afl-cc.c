@@ -514,7 +514,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && have_instr_env) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] = alloc_printf(
           "-fpass-plugin=%s/afl-llvm-lto-instrumentlist.so", obj_path);
 #else
