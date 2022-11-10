@@ -255,16 +255,19 @@ else
 endif
 
 CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
-CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign -I ./include/ -I ./instrumentation/ \
+CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
+                   -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                    -DLLVM_LIBDIR=\"$(LLVM_LIBDIR)\" -DLLVM_VERSION=\"$(LLVMVER)\" \
-                   -Wno-deprecated -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-                   -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
-                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" \
-                   -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
-                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function \
-                   $(AFL_CLANG_DEBUG_PREFIX)
+                   -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
+                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
+                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) \
+                   -Wno-unused-function $(AFL_CLANG_DEBUG_PREFIX)
+ifndef LLVM_DEBUG
+  CFLAGS_SAFE += -Wno-deprecated
+endif
+
 override CFLAGS += $(CFLAGS_SAFE)
 
 ifdef AFL_TRACE_PC
