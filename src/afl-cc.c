@@ -1166,6 +1166,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "({ static volatile char *_B __attribute__((used,unused)); "
       " _B = (char*)\"" PERSIST_SIG
       "\"; "
+      "extern int __afl_connected;"
 #ifdef __APPLE__
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
@@ -1173,7 +1174,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
 #endif                                                        /* ^__APPLE__ */
-      "_L(_A); })";
+      // if afl is connected, we run _A times, else once.
+      "_L(__afl_connected ? _A : 1); })";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_INIT()="
