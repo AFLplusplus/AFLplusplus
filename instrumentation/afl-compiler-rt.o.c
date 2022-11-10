@@ -105,7 +105,7 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 
-/* 1 if we are running in afl, and the forkserver was stared, else 0 */
+/* 1 if we are running in afl, and the forkserver was started, else 0 */
 u32 __afl_connected = 0;
 
 // for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
@@ -1052,9 +1052,7 @@ static void __afl_start_forkserver(void) {
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) {
-    return;
-  }
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
 
   __afl_connected = 1;
 
