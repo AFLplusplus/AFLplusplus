@@ -314,6 +314,14 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
+  /* "afl_custom_fuzz_send", optional */
+  mutator->afl_custom_fuzz_send = dlsym(dh, "afl_custom_fuzz_send");
+  if (!mutator->afl_custom_fuzz_send) {
+
+    ACTF("optional symbol 'afl_custom_fuzz_send' not found.");
+
+  }
+
   /* "afl_custom_queue_new_entry", optional */
   mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
   if (!mutator->afl_custom_queue_new_entry) {

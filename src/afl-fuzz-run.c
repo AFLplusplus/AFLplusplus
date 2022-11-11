@@ -133,9 +133,25 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     if (new_mem != *mem) { *mem = new_mem; }
 
-    /* everything as planned. use the potentially new data. */
-    afl_fsrv_write_to_testcase(&afl->fsrv, *mem, new_size);
-    len = new_size;
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, *mem, new_size);
+
+        }
+
+      });
+
+    } else {
+
+      /* everything as planned. use the potentially new data. */
+      afl_fsrv_write_to_testcase(&afl->fsrv, *mem, new_size);
+      len = new_size;
+
+    }
 
   } else {
 
@@ -149,8 +165,24 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    /* boring uncustom. */
-    afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, *mem, len);
+
+        }
+
+      });
+
+    } else {
+
+      /* boring uncustom. */
+      afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
+
+    }
 
   }
 

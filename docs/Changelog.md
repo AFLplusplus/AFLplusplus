@@ -4,8 +4,12 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.05a (dev)
-  - your PR? :)
-
+  - afl-fuzz:
+    - added afl_custom_fuzz_send custom mutator feature. Now your can
+      send fuzz data to the target as you need, e.g. via IPC.
+  - afl-showmap/afl-cmin
+    - -t none now translates to -t 120000 (120 seconds)
+  - unicorn_mode updated
 
 ### Version ++4.04c (release)
   - fix gramatron and grammar_mutator build scripts
