@@ -969,6 +969,19 @@ struct custom_mutator {
   u8 (*afl_custom_queue_get)(void *data, const u8 *filename);
 
   /**
+   * This method can be used if you want to send data to the target yourself,
+   * e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
+   * that you start the target with afl-fuzz.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init by this custom mutator
+   * @param buf Buffer containing the test case
+   * @param buf_size Size of the test case
+   */
+  void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
+
+  /**
    * Allow for additional analysis (e.g. calling a different tool that does a
    * different kind of coverage and saves this for the custom mutator).
    *
