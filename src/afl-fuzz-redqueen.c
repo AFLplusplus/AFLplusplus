@@ -168,10 +168,14 @@ static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
 }
 
 /* replace everything with different values */
-static void random_replace(afl_state_t *afl, u8 *buf, u32 len){
-  for(u32 i=0; i < len; i++){
+static void random_replace(afl_state_t *afl, u8 *buf, u32 len) {
+
+  for (u32 i = 0; i < len; i++) {
+
     buf[i] = rand_below(afl, 256);
+
   }
+
 }
 
 /* replace everything with different values but stay in the same type */
@@ -301,9 +305,13 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   memcpy(backup, buf, len);
   memcpy(changed, buf, len);
   if (afl->cmplog_random_colorization) {
+
     random_replace(afl, changed, len);
+
   } else {
+
     type_replace(afl, changed, len);
+
   }
 
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
