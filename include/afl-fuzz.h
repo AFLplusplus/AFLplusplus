@@ -656,7 +656,7 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
-  u8  cmplog_enable_arith, cmplog_enable_transform;
+  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_random_colorization;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
