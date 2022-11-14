@@ -172,7 +172,15 @@ static void random_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
   for (u32 i = 0; i < len; i++) {
 
-    buf[i] = rand_below(afl, 256);
+    u8 c;
+
+    do {
+
+      c = rand_below(afl, 256);
+
+    } while (c == buf[i]);
+
+    buf[i] = c;
 
   }
 
