@@ -211,7 +211,15 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
       WARNF("Symbol 'afl_custom_mutator' not found.");
 
+    } else {
+
+      OKF("Found 'afl_custom_mutator'.");
+
     }
+
+  } else {
+
+    OKF("Found 'afl_custom_mutator'.");
 
   }
 
@@ -222,6 +230,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_introspection' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_introspection'.");
+
   }
 
 #endif
@@ -231,6 +243,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   if (!mutator->afl_custom_fuzz_count) {
 
     ACTF("optional symbol 'afl_custom_fuzz_count' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_fuzz_count'.");
 
   }
 
@@ -248,6 +264,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_post_process' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_post_process'.");
+
   }
 
   u8 notrim = 0;
@@ -258,6 +278,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
     notrim = 1;
     ACTF("optional symbol 'afl_custom_init_trim' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_init_trim'.");
+
   }
 
   /* "afl_custom_trim", optional */
@@ -267,6 +291,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
     notrim = 1;
     ACTF("optional symbol 'afl_custom_trim' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_trim'.");
+
   }
 
   /* "afl_custom_post_trim", optional */
@@ -275,6 +303,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     notrim = 1;
     ACTF("optional symbol 'afl_custom_post_trim' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_post_trim'.");
 
   }
 
@@ -295,6 +327,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_havoc_mutation' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_havoc_mutation'.");
+
   }
 
   /* "afl_custom_havoc_mutation", optional */
@@ -304,6 +340,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_havoc_mutation_probability' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_havoc_mutation_probability'.");
+
   }
 
   /* "afl_custom_queue_get", optional */
@@ -311,6 +351,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   if (!mutator->afl_custom_queue_get) {
 
     ACTF("optional symbol 'afl_custom_queue_get' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_queue_get'.");
 
   }
 
@@ -320,6 +364,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_fuzz_send' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_fuzz_send'.");
+
   }
 
   /* "afl_custom_queue_new_entry", optional */
@@ -328,13 +376,21 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_queue_new_entry' not found");
 
+  } else {
+
+    OKF("Found 'afl_custom_queue_new_entry'.");
+
   }
 
   /* "afl_custom_describe", optional */
   mutator->afl_custom_describe = dlsym(dh, "afl_custom_describe");
   if (!mutator->afl_custom_describe) {
 
-    ACTF("Symbol 'afl_custom_describe' not found.");
+    ACTF("optional symbol 'afl_custom_describe' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_describe'.");
 
   }
 
