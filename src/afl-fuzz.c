@@ -171,10 +171,11 @@ static void usage(u8 *argv0, int more_help) {
       "                  if using QEMU/FRIDA or the fuzzing target is "
       "compiled\n"
       "                  for CmpLog then just use -c 0.\n"
-      "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
+      "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
-      "                  A=arithmetic solving, T=transformational solving.\n\n"
+      "                  A=arithmetic solving, T=transformational solving,\n"
+      "                  R=random colorization bytes.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -1112,6 +1113,10 @@ int main(int argc, char **argv_orig, char **envp) {
             case 't':
             case 'T':
               afl->cmplog_enable_transform = 1;
+              break;
+            case 'r':
+            case 'R':
+              afl->cmplog_random_colorization = 1;
               break;
             default:
               FATAL("Unknown option value '%c' in -l %s", *c, optarg);
