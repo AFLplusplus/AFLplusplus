@@ -920,21 +920,7 @@ void fuzz_send_py(void *py_mutator, const u8 *buf, size_t buf_size) {
       ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ_SEND], py_args);
   Py_DECREF(py_args);
 
-  if (py_value != NULL) {
-
-  #if PY_MAJOR_VERSION >= 3
-    u32 retcnt = (u32)PyLong_AsLong(py_value);
-  #else
-    u32 retcnt = PyInt_AsLong(py_value);
-  #endif
-    Py_DECREF(py_value);
-
-  } else {
-
-    PyErr_Print();
-    FATAL("Call failed");
-
-  }
+  if (py_value != NULL) { Py_DECREF(py_value); }
 
 }
 
