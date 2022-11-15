@@ -57,6 +57,7 @@ int afl_custom_post_trim(void *data, unsigned char success);
 size_t afl_custom_havoc_mutation(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, size_t max_size);
 unsigned char afl_custom_havoc_mutation_probability(void *data);
 unsigned char afl_custom_queue_get(void *data, const unsigned char *filename);
+void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
 u8 afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
 const char* afl_custom_introspection(my_mutator_t *data);
 void afl_custom_deinit(void *data);
@@ -97,6 +98,9 @@ def havoc_mutation_probability():
 
 def queue_get(filename):
     return True
+
+def fuzz_send(buf):
+    pass
 
 def queue_new_entry(filename_new_queue, filename_orig_queue):
     return False
@@ -167,6 +171,13 @@ def deinit():  # optional for Python
     You can decide in the post_process mutator to not send the mutated data
     to the target, e.g. if it is too short, too corrupted, etc. If so,
     return a NULL buffer and zero length (or a 0 length string in Python).
+
+- `fuzz_send` (optional):
+
+    This method can be used if you want to send data to the target yourself,
+    e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
+    that you start the target with afl-fuzz.
+    Example: [custom_mutators/examples/custom_send.c](custom_mutators/examples/custom_send.c)
 
 - `queue_new_entry` (optional):
 
@@ -269,10 +280,10 @@ sudo apt install python-dev
 ```
 
 Then, AFL++ can be compiled with Python support. The AFL++ Makefile detects
-Python 2 and 3 through `python-config` if it is in the PATH and compiles
-`afl-fuzz` with the feature if available.
+Python3 through `python-config`/`python3-config` if it is in the PATH and
+compiles `afl-fuzz` with the feature if available.
 
-Note: for some distributions, you might also need the package `python[23]-apt`.
+Note: for some distributions, you might also need the package `python[3]-apt`.
 In case your setup is different, set the necessary variables like this:
 `PYTHON_INCLUDE=/path/to/python/include LDFLAGS=-L/path/to/python/lib make`.
 

@@ -333,6 +333,7 @@ enum {
   /* 11 */ PY_FUNC_QUEUE_NEW_ENTRY,
   /* 12 */ PY_FUNC_INTROSPECTION,
   /* 13 */ PY_FUNC_DESCRIBE,
+  /* 14 */ PY_FUNC_FUZZ_SEND,
   PY_FUNC_COUNT
 
 };
@@ -656,7 +657,7 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
-  u8  cmplog_enable_arith, cmplog_enable_transform;
+  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_random_colorization;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
@@ -969,6 +970,19 @@ struct custom_mutator {
   u8 (*afl_custom_queue_get)(void *data, const u8 *filename);
 
   /**
+   * This method can be used if you want to send data to the target yourself,
+   * e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
+   * that you start the target with afl-fuzz.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init by this custom mutator
+   * @param buf Buffer containing the test case
+   * @param buf_size Size of the test case
+   */
+  void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
+
+  /**
    * Allow for additional analysis (e.g. calling a different tool that does a
    * different kind of coverage and saves this for the custom mutator).
    *
@@ -1022,6 +1036,7 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 void                   finalize_py_module(void *);
 
 u32         fuzz_count_py(void *, const u8 *, size_t);
+void        fuzz_send_py(void *, const u8 *, size_t);
 size_t      post_process_py(void *, u8 *, size_t, u8 **);
 s32         init_trim_py(void *, u8 *, size_t);
 s32         post_trim_py(void *, u8);

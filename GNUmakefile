@@ -381,6 +381,7 @@ help:
 	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
 	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
+	@echo LLVM_DEBUG - shows llvm deprecation warnings
 	@echo PROFILING - compile afl-fuzz with profiling information
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
@@ -425,7 +426,7 @@ test_python:
 	@echo "[+] $(PYTHON_VERSION) support seems to be working."
 else
 test_python:
-	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3-dev or python-dev (and perhaps python[3]-apt), but it is optional so we continue"
 endif
 
 .PHONY: ready

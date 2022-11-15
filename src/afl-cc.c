@@ -514,7 +514,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && have_instr_env) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] = alloc_printf(
           "-fpass-plugin=%s/afl-llvm-lto-instrumentlist.so", obj_path);
 #else
@@ -530,7 +532,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("AFL_LLVM_DICT2FILE")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/afl-llvm-dict2file.so", obj_path);
 #else
@@ -547,7 +551,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 #else
@@ -564,7 +570,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/compare-transform-pass.so", obj_path);
 #else
@@ -581,7 +589,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-compares-pass.so", obj_path);
 #else
@@ -604,10 +614,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       cc_params[cc_par_cnt++] = "-fno-inline";
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/cmplog-switches-pass.so", obj_path);
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 #else
@@ -705,7 +719,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         } else {
 
     #if LLVM_MAJOR >= 11                            /* use new pass manager */
+      #if LLVM_MAJOR < 16
           cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+      #endif
           cc_params[cc_par_cnt++] = alloc_printf(
               "-fpass-plugin=%s/SanitizerCoveragePCGUARD.so", obj_path);
     #else
@@ -743,7 +759,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       } else {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
 #else
@@ -761,10 +779,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (cmplog_mode) {
 
 #if LLVM_MAJOR >= 11
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] = alloc_printf(
           "-fpass-plugin=%s/cmplog-instructions-pass.so", obj_path);
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/cmplog-routines-pass.so", obj_path);
 #else
@@ -1144,6 +1166,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "({ static volatile char *_B __attribute__((used,unused)); "
       " _B = (char*)\"" PERSIST_SIG
       "\"; "
+      "extern int __afl_connected;"
 #ifdef __APPLE__
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
@@ -1151,7 +1174,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
 #endif                                                        /* ^__APPLE__ */
-      "_L(_A); })";
+      // if afl is connected, we run _A times, else once.
+      "_L(__afl_connected ? _A : 1); })";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_INIT()="
