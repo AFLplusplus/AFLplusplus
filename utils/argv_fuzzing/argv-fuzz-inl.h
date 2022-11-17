@@ -73,13 +73,12 @@ static char **afl_init_argv(int *argc) {
       in_buf[num - 1] = 0;
   }
 
-  char delim = ' ';
-  char *curarg = strtok(ptr, &delim);
+  char *curarg = strtok(ptr, " ");
   while (curarg && rc < MAX_CMDLINE_PAR) {
     ret[rc] = curarg;
     if (ret[rc][0] == 0x02 && !ret[rc][1]) ret[rc]++;
     rc++;
-    curarg = strtok(NULL, &delim);
+    curarg = strtok(NULL, " ");
   }
 
   *argc = rc;
