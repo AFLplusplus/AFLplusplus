@@ -254,7 +254,7 @@ else
         AFL_CLANG_DEBUG_PREFIX =
 endif
 
-CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
                    -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
@@ -274,7 +274,7 @@ ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 override CXXFLAGS += -Wall -g -I ./include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
