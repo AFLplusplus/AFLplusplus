@@ -34,7 +34,7 @@
 #ifndef _HAVE_ARGV_FUZZ_INL
 #define _HAVE_ARGV_FUZZ_INL
 
-#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #define AFL_INIT_ARGV()          \
@@ -64,24 +64,27 @@ static char **afl_init_argv(int *argc) {
   char *ptr = in_buf;
   int   rc = 0;
 
-  ssize_t num = 0;
-  if ((num = read(0, in_buf, MAX_CMDLINE_LEN - 2)) <= 0) {
-      *argc = 0;
-      return ret;
+  ssize_t num = read(0, in_buf, MAX_CMDLINE_LEN - 2);
+  if (num < 0) {
+      abort();
   }
-  if (in_buf[num - 1] == '\n') {
-      in_buf[num - 1] = 0;
-  }
+  in_buf[num] = '\0';
+  in_buf[num + 1] = '\0';
 
-  char *curarg = strtok(ptr, " ");
-  while (curarg && rc < MAX_CMDLINE_PAR) {
-    ret[rc] = curarg;
+  while (*ptr && rc < MAX_CMDLINE_PAR) {
+
+    ret[rc] = ptr;
     if (ret[rc][0] == 0x02 && !ret[rc][1]) ret[rc]++;
     rc++;
-    curarg = strtok(NULL, " ");
+
+    while (*ptr)
+      ptr++;
+    ptr++;
+
   }
 
   *argc = rc;
+
   return ret;
 
 }
@@ -90,3 +93,4 @@ static char **afl_init_argv(int *argc) {
 #undef MAX_CMDLINE_PAR
 
 #endif                                              /* !_HAVE_ARGV_FUZZ_INL */
+
