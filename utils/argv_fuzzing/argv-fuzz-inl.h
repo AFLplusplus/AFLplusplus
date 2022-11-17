@@ -65,7 +65,10 @@ static char **afl_init_argv(int *argc) {
   int   rc = 0;
 
   ssize_t num = 0;
-  if ((num = read(0, in_buf, MAX_CMDLINE_LEN - 2)) < 0) {}
+  if ((num = read(0, in_buf, MAX_CMDLINE_LEN - 2)) <= 0) {
+      *argc = 0;
+      return ret;
+  }
   if (in_buf[num - 1] == '\n') {
       in_buf[num - 1] = 0;
   }
