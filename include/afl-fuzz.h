@@ -169,12 +169,18 @@ struct queue_entry {
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level,                       /* Number of fuzzing iterations     */
-      n_fuzz_entry;                     /* offset in n_fuzz                 */
+      n_fuzz_entry,                     /* offset in n_fuzz                 */
+      stats_selected,                   /* stats: how often selected        */
+      stats_skipped,                    /* stats: how often skipped         */
+      stats_finds,                      /* stats: # of saved finds          */
+      stats_crashes,                    /* stats: # of saved crashes        */
+      stats_tmouts;                     /* stats: # of saved timeouts       */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
-      exec_cksum;                       /* Checksum of the execution trace  */
+      exec_cksum,                       /* Checksum of the execution trace  */
+      stats_mutated;                    /* stats: # of mutations performed  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
@@ -686,7 +692,8 @@ typedef struct afl_state {
   u32 plot_prev_qp, plot_prev_pf, plot_prev_pnf, plot_prev_ce, plot_prev_md;
   u64 plot_prev_qc, plot_prev_uc, plot_prev_uh, plot_prev_ed;
 
-  u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
+  u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_queue_ms,
+      stats_last_ms, stats_last_execs;
 
   /* StatsD */
   u64                statsd_last_send_ms;
@@ -1101,6 +1108,7 @@ void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
+void write_queue_stats(afl_state_t *);
 void show_stats(afl_state_t *);
 void show_stats_normal(afl_state_t *);
 void show_stats_pizza(afl_state_t *);

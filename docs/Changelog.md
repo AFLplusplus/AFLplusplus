@@ -9,6 +9,9 @@
       send fuzz data to the target as you need, e.g. via IPC.
     - cmplog mode now has -l R option for random colorization, thanks
       to guyf2010 for the PR!
+    - queue statistics are written every 30 minutes to
+      out/NAME/queue_data - likely this will be moved to a debug flag
+      in the future.
   - afl-showmap/afl-cmin
     - -t none now translates to -t 120000 (120 seconds)
   - unicorn_mode updated

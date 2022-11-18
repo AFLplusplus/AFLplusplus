@@ -365,6 +365,36 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
 }
 
+void write_queue_stats(afl_state_t *afl) {
+
+  FILE *f;
+  u8   *fn = alloc_printf("%s/queue_data", afl->out_dir);
+  if ((f = fopen(fn, "w")) != NULL) {
+
+    u32 id;
+    fprintf(f,
+            "# filename, length, exec_us, selected, skipped, mutations, finds, "
+            "crashes, timeouts, bitmap_size, perf_score, weight, colorized, "
+            "favored, disabled\n");
+    for (id = 0; id < afl->queued_items; ++id) {
+
+      struct queue_entry *q = afl->queue_buf[id];
+      fprintf(f, "\"%s\",%u,%llu,%u,%u,%llu,%u,%u,%u,%u,%.3f,%.3f,%u,%u,%u\n",
+              q->fname, q->len, q->exec_us, q->stats_selected, q->stats_skipped,
+              q->stats_mutated, q->stats_finds, q->stats_crashes,
+              q->stats_tmouts, q->bitmap_size, q->perf_score, q->weight,
+              q->colorized, q->favored, q->disabled);
+
+    }
+
+    fclose(f);
+
+  }
+
+  ck_free(fn);
+
+}
+
 /* Update the plot file if there is a reason to. */
 
 void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
@@ -610,6 +640,16 @@ void show_stats_normal(afl_state_t *afl) {
 
     afl->stats_last_plot_ms = cur_ms;
     maybe_update_plot_file(afl, t_bytes, t_byte_ratio, afl->stats_avg_exec);
+
+  }
+
+  /* Every now and then, write queue data. */
+
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_queue_ms > QUEUE_UPDATE_SEC * 1000)) {
+
+    afl->stats_last_queue_ms = cur_ms;
+    write_queue_stats(afl);
 
   }
 
@@ -1396,6 +1436,16 @@ void show_stats_pizza(afl_state_t *afl) {
 
     afl->stats_last_plot_ms = cur_ms;
     maybe_update_plot_file(afl, t_bytes, t_byte_ratio, afl->stats_avg_exec);
+
+  }
+
+  /* Every now and then, write queue data. */
+
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_queue_ms > QUEUE_UPDATE_SEC * 1000)) {
+
+    afl->stats_last_queue_ms = cur_ms;
+    write_queue_stats(afl);
 
   }
 

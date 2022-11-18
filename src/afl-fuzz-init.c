@@ -1848,6 +1848,10 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
   }
 
+  fn = alloc_printf("%s/queue_data", afl->out_dir);
+  if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
   fn = alloc_printf("%s/cmdline", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
   ck_free(fn);
