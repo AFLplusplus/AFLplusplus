@@ -204,10 +204,7 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
 
   gsize address = context->pc;
 
-  register uintptr_t k = (uintptr_t)address;
-
-  k = (k >> 4) ^ (k << 8);
-  k &= CMP_MAP_W - 1;
+  register uintptr_t k = instrument_get_offset_hash(GUM_ADDRESS(address));
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS)
     __afl_cmp_map->headers[k].hits = 0;
