@@ -3269,6 +3269,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
 
+  // Start filling the taint map: the map which indicates which taints
+  // has a influence on the comparison
   struct taint_cmp * taint_cmp_list[CMP_MAP_W] = {0};
   if (unlikely(fill_taint_map(afl, orig_buf, buf, len, taint, taint_cmp_list))) {
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
@@ -3340,7 +3342,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
-
+    // We can skip if there are no taints which influence the comparison
     if (!taint_cmp_list[k]) { continue; }
     if (!taint_cmp_list[k]->taint_loggeds) { continue; }
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
@@ -3391,7 +3393,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   #ifdef _STATS
     u64 start_time = get_cur_time();
   #endif
-
+    // We can skip if there are no taints which influence the comparison
     if (!taint_cmp_list[k]) { continue; }
     if (!taint_cmp_list[k]->taint_loggeds) { continue; }
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
