@@ -1139,7 +1139,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       // if this is an fcmp (attr & 8 == 8) then do not compare the patterns -
       // due to a bug in llvm dynamic float bitcasts do not work :(
       // the value 16 means this is a +- 1.0 test case
-      if (its_len >= 8 && ((*buf_64 == pattern && *o_buf_64 == o_pattern) ||
+      if (its_len >= 8 && *buf_64 != repl &&
+        ((*buf_64 == pattern && *o_buf_64 == o_pattern) ||
                            attr >= IS_FP_MOD)) {
 
         u64 tmp_64 = *buf_64;
@@ -1179,7 +1180,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       //           its_len, idx, attr, *buf_32, (u32)pattern, *o_buf_32,
       //           (u32)o_pattern, (u32)repl, (u32)changed_val);
 
-      if (its_len >= 4 &&
+      if (its_len >= 4 && *buf_32 != (u32) repl &&
           ((*buf_32 == (u32)pattern && *o_buf_32 == (u32)o_pattern) ||
            attr >= IS_FP_MOD)) {
 
@@ -1213,7 +1214,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (hshape >= 2 && *status != 1) {
 
-      if (its_len >= 2 &&
+      if (its_len >= 2 && *buf_16 != (u16) repl &&
           ((*buf_16 == (u16)pattern && *o_buf_16 == (u16)o_pattern) ||
            attr >= IS_FP_MOD)) {
 
@@ -1251,7 +1252,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       //           its_len, idx, attr, *buf_8, (u8)pattern, *o_buf_8,
       //           (u8)o_pattern, (u8)repl, (u8)changed_val);
 
-      if (its_len >= 1 &&
+      if (its_len >= 1 && *buf_8 != (u8) repl &&
           ((*buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) ||
            attr >= IS_FP_MOD)) {
 
@@ -2057,7 +2058,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       for (i = 0; i < its_len; ++i) {
 
-        if ((pattern[i] != buf[idx + i] && o_pattern[i] != orig_buf[idx + i]) ||
+        if (pattern[i] != buf[idx + i] || o_pattern[i] != orig_buf[idx + i] ||
             *status == 1) {
 
           break;
