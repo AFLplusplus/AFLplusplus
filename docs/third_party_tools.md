@@ -62,3 +62,5 @@
   generates builds of debian packages suitable for AFL.
 * [afl-fid](https://github.com/FoRTE-Research/afl-fid) - a set of tools for
   working with input data.
+* [CASR](https://github.com/ispras/casr) - a set of tools for crash triage and
+  analysis.
