@@ -900,6 +900,32 @@ then color-codes the input based on which sections appear to be critical and
 which are not; while not bulletproof, it can often offer quick insights into
 complex file formats.
 
+`casr-afl` from [CASR](https://github.com/ispras/casr) tools provides a
+straightforward CASR integration with AFL++. While walking through afl
+instances, `casr-afl` generates crash reports depending on target binary. For
+binary with ASAN `casr-san` is used, otherwise `casr-gdb`. On the next step
+report deduplication is done by `casr-cluster`. Finally, reports are triaged
+into clusters. Crash reports contain many useful information: severity
+(like [exploitable](https://github.com/jfoote/exploitable)), OS and package
+versions, command line, stack trace, register values, disassembly, and even
+source code fragment where crash appeared.
+
+**NOTE:** `casr-gdb` and `casr-san` should be in PATH to make `casr-afl` work.
+Before using casr-afl, please, follow the installation
+[guide](https://github.com/ispras/casr#getting-started). Using `casr-afl` is
+very simple:
+
+```shell
+casr-afl -i /path/to/afl/out/dir -o /path/to/casr/out/dir
+```
+
+Output directory contains subdirectories (cl1...clN) with report clusters. To
+view reports you could use `casr-cli` tool:
+
+```shell
+casr-cli /path/to/casr/out/dir/cl1/report.casrep
+```
+
 ## 5. CI fuzzing
 
 Some notes on continuous integration (CI) fuzzing - this fuzzing is different to
