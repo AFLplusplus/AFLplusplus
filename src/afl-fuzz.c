@@ -2523,7 +2523,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        afl->current_entry = select_next_queue_entry(afl);
+        do {
+
+          afl->current_entry = select_next_queue_entry(afl);
+
+        } while (unlikely(afl->current_entry >= afl->queued_items));
+
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
