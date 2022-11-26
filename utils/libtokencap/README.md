@@ -47,9 +47,11 @@ by AFL++ in that earlier run. This demonstrates the basic principle:
 
 ```
   export AFL_TOKEN_FILE=$PWD/temp_output.txt
+  timeout_sec="5"
 
   for i in <out_dir>/queue/id*; do
     LD_PRELOAD=/path/to/libtokencap.so \
+    timeout -s SIGKILL ${timeout_sec} \
       /path/to/target/program [...params, including $i...]
   done
 
