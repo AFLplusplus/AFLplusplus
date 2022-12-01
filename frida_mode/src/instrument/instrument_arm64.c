@@ -196,7 +196,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
   insn = instrument_disassemble(from_insn);
   deterministic = instrument_is_deterministic(insn);
   cs_free(insn, 1);
-  if (deterministic) { return; }
+  if (!deterministic) { return; }
 
   /*
    * Since each block is prefixed with a restoration prologue, we need to be
