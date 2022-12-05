@@ -9,6 +9,7 @@
  - afl-plot to support multiple plot_data
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
+ - first fuzzer should be a main automatically
 
 ## Maybe
 
