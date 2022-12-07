@@ -276,7 +276,7 @@ endif
 
 CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 override CXXFLAGS += -Wall -g -I ./include/ \
-                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros -Wno-deprecated-copy-with-dtor \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
 
 ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""
