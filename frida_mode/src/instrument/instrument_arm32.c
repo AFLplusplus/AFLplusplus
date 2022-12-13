@@ -276,9 +276,13 @@ gpointer instrument_cur(GumStalkerOutput *output) {
   gpointer curr = NULL;
 
   if (output->encoding == GUM_INSTRUCTION_SPECIAL) {
+
     curr = gum_thumb_writer_cur(output->writer.thumb);
+
   } else {
+
     curr = gum_arm_writer_cur(output->writer.arm);
+
   }
 
   return curr;
