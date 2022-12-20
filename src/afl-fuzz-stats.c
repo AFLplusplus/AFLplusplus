@@ -365,6 +365,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
 }
 
+#ifdef INTROSPECTION
 void write_queue_stats(afl_state_t *afl) {
 
   FILE *f;
@@ -394,6 +395,8 @@ void write_queue_stats(afl_state_t *afl) {
   ck_free(fn);
 
 }
+
+#endif
 
 /* Update the plot file if there is a reason to. */
 
@@ -649,7 +652,9 @@ void show_stats_normal(afl_state_t *afl) {
                cur_ms - afl->stats_last_queue_ms > QUEUE_UPDATE_SEC * 1000)) {
 
     afl->stats_last_queue_ms = cur_ms;
+#ifdef INTROSPECTION
     write_queue_stats(afl);
+#endif
 
   }
 
@@ -1445,7 +1450,9 @@ void show_stats_pizza(afl_state_t *afl) {
                cur_ms - afl->stats_last_queue_ms > QUEUE_UPDATE_SEC * 1000)) {
 
     afl->stats_last_queue_ms = cur_ms;
+#ifdef INTROSPECTION
     write_queue_stats(afl);
+#endif
 
   }
 

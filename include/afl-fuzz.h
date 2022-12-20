@@ -169,12 +169,16 @@ struct queue_entry {
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level,                       /* Number of fuzzing iterations     */
-      n_fuzz_entry,                     /* offset in n_fuzz                 */
+      n_fuzz_entry                      /* offset in n_fuzz                 */
+#ifdef INTROSPECTION
+      ,
       stats_selected,                   /* stats: how often selected        */
       stats_skipped,                    /* stats: how often skipped         */
       stats_finds,                      /* stats: # of saved finds          */
       stats_crashes,                    /* stats: # of saved crashes        */
-      stats_tmouts;                     /* stats: # of saved timeouts       */
+      stats_tmouts                      /* stats: # of saved timeouts       */
+#endif
+      ;
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
