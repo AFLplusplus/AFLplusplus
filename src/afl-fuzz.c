@@ -2279,8 +2279,10 @@ int main(int argc, char **argv_orig, char **envp) {
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
-  u32 runs_in_current_cycle = (u32)-1;
-  u32 prev_queued_items = 0, prev_saved_crashes = 0, prev_saved_tmouts = 0;
+  #ifdef INTROSPECTION
+  u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
+  #endif
+  u32 prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
   u8  skipped_fuzz;
 
   #ifdef INTROSPECTION
@@ -2542,6 +2544,7 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       skipped_fuzz = fuzz_one(afl);
+  #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
       if (unlikely(skipped_fuzz)) {
 
@@ -2572,6 +2575,8 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
       }
+
+  #endif
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
