@@ -102,7 +102,7 @@ endif
 
 ifeq "$(SYS)" "SunOS"
   CFLAGS_OPT += -Wno-format-truncation
-  LDFLAGS = -lkstat -lrt
+  LDFLAGS = -lkstat -lrt -lsocket -lnsl
 endif
 
 ifdef STATIC
