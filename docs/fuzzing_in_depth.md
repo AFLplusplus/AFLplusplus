@@ -900,6 +900,13 @@ then color-codes the input based on which sections appear to be critical and
 which are not; while not bulletproof, it can often offer quick insights into
 complex file formats.
 
+`casr-afl` from [CASR](https://github.com/ispras/casr) tools provides
+comfortable triaging for crashes found by AFL++. Reports are clustered and
+contain severity and other information.
+```shell
+casr-afl -i /path/to/afl/out/dir -o /path/to/casr/out/dir
+```
+
 ## 5. CI fuzzing
 
 Some notes on continuous integration (CI) fuzzing - this fuzzing is different to
