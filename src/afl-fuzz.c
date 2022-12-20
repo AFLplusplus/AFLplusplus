@@ -501,7 +501,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, default_output = 1,
       map_size = get_map_size();
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
@@ -802,6 +802,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->fsrv.out_file = ck_strdup(optarg);
         afl->fsrv.use_stdin = 0;
+        default_output = 0;
         break;
 
       case 'x':                                               /* dictionary */
@@ -1911,6 +1912,7 @@ int main(int argc, char **argv_orig, char **envp) {
       if (aa_loc && !afl->fsrv.out_file) {
 
         afl->fsrv.use_stdin = 0;
+        default_output = 0;
 
         if (afl->file_extension) {
 
@@ -2154,7 +2156,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->fsrv.out_file = NULL;
     afl->fsrv.use_stdin = 0;
-    if (!afl->unicorn_mode && !afl->fsrv.use_stdin) {
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
 
       WARNF(
           "You specified -f or @@ on the command line but the target harness "
@@ -2277,8 +2279,10 @@ int main(int argc, char **argv_orig, char **envp) {
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
-  u32 runs_in_current_cycle = (u32)-1;
-  u32 prev_queued_items = 0;
+  #ifdef INTROSPECTION
+  u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
+  #endif
+  u32 prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
   u8  skipped_fuzz;
 
   #ifdef INTROSPECTION
@@ -2305,6 +2309,12 @@ int main(int argc, char **argv_orig, char **envp) {
       if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
                     (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
                    afl->sync_id)) {
+
+        if (!afl->queue_cycle && afl->afl_env.afl_import_first) {
+
+          OKF("Syncing queues from other fuzzer instances first ...");
+
+        }
 
         sync_fuzzers(afl);
 
@@ -2523,26 +2533,68 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        afl->current_entry = select_next_queue_entry(afl);
+        do {
+
+          afl->current_entry = select_next_queue_entry(afl);
+
+        } while (unlikely(afl->current_entry >= afl->queued_items));
+
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
 
       skipped_fuzz = fuzz_one(afl);
+  #ifdef INTROSPECTION
+      ++afl->queue_cur->stats_selected;
+      if (unlikely(skipped_fuzz)) {
+
+        ++afl->queue_cur->stats_skipped;
+
+      } else {
+
+        if (unlikely(afl->queued_items > prev_queued_items)) {
+
+          afl->queue_cur->stats_finds += afl->queued_items - prev_queued_items;
+          prev_queued_items = afl->queued_items;
+
+        }
+
+        if (unlikely(afl->saved_crashes > prev_saved_crashes)) {
+
+          afl->queue_cur->stats_crashes +=
+              afl->saved_crashes - prev_saved_crashes;
+          prev_saved_crashes = afl->saved_crashes;
+
+        }
+
+        if (unlikely(afl->saved_tmouts > prev_saved_tmouts)) {
+
+          afl->queue_cur->stats_tmouts += afl->saved_tmouts - prev_saved_tmouts;
+          prev_saved_tmouts = afl->saved_tmouts;
+
+        }
+
+      }
+
+  #endif
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
       if (unlikely(afl->old_seed_selection)) {
 
         while (++afl->current_entry < afl->queued_items &&
-               afl->queue_buf[afl->current_entry]->disabled)
-          ;
+               afl->queue_buf[afl->current_entry]->disabled) {};
         if (unlikely(afl->current_entry >= afl->queued_items ||
                      afl->queue_buf[afl->current_entry] == NULL ||
-                     afl->queue_buf[afl->current_entry]->disabled))
+                     afl->queue_buf[afl->current_entry]->disabled)) {
+
           afl->queue_cur = NULL;
-        else
+
+        } else {
+
           afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+        }
 
       }
 

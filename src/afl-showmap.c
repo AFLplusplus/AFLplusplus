@@ -1233,6 +1233,36 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+    s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+    if (forksrv_init_tmout < 1) {
+
+      FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+    fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  if (getenv("AFL_CRASH_EXITCODE")) {
+
+    long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            getenv("AFL_CRASH_EXITCODE"));
+
+    }
+
+    fsrv->uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    fsrv->crash_exitcode = (u8)exitcode;
+
+  }
+
   if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
@@ -1362,36 +1392,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       SAYF("\n");
-
-    }
-
-    if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
-
-      s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
-      if (forksrv_init_tmout < 1) {
-
-        FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
-
-      }
-
-      fsrv->init_tmout = (u32)forksrv_init_tmout;
-
-    }
-
-    if (getenv("AFL_CRASH_EXITCODE")) {
-
-      long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
-      if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
-          exitcode < -127 || exitcode > 128) {
-
-        FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
-              getenv("AFL_CRASH_EXITCODE"));
-
-      }
-
-      fsrv->uses_crash_exitcode = true;
-      // WEXITSTATUS is 8 bit unsigned
-      fsrv->crash_exitcode = (u8)exitcode;
 
     }
 

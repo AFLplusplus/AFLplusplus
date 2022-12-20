@@ -91,9 +91,8 @@ ifneq "$(SYS)" "Darwin"
   #ifeq "$(HAVE_MARCHNATIVE)" "1"
   #  SPECIAL_PERFORMANCE += -march=native
   #endif
- # OS X does not like _FORTIFY_SOURCE=2
  ifndef DEBUG
-   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+   CFLAGS_OPT += -D_FORTIFY_SOURCE=1
  endif
 else
   # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
@@ -103,7 +102,7 @@ endif
 
 ifeq "$(SYS)" "SunOS"
   CFLAGS_OPT += -Wno-format-truncation
-  LDFLAGS = -lkstat -lrt
+  LDFLAGS = -lkstat -lrt -lsocket -lnsl
 endif
 
 ifdef STATIC

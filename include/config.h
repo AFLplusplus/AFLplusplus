@@ -290,10 +290,11 @@
 
 #define UI_TARGET_HZ 5
 
-/* Fuzzer stats file and plot update intervals (sec): */
+/* Fuzzer stats file, queue stats and plot update intervals (sec): */
 
 #define STATS_UPDATE_SEC 60
 #define PLOT_UPDATE_SEC 5
+#define QUEUE_UPDATE_SEC 1800
 
 /* Smoothing divisor for CPU load and exec speed stats (1 - no smoothing). */
 

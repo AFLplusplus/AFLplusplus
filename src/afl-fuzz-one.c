@@ -743,6 +743,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   afl->stage_finds[STAGE_FLIP1] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP1] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Two walking bits. */
 
@@ -775,6 +778,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   afl->stage_finds[STAGE_FLIP2] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP2] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Four walking bits. */
 
@@ -811,6 +817,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   afl->stage_finds[STAGE_FLIP4] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP4] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Effector map setup. These macros calculate:
 
@@ -919,6 +928,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   afl->stage_finds[STAGE_FLIP8] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP8] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Two walking bytes. */
 
@@ -962,6 +974,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   afl->stage_finds[STAGE_FLIP16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP16] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   if (len < 4) { goto skip_bitflip; }
 
@@ -1005,6 +1020,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   afl->stage_finds[STAGE_FLIP32] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP32] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_bitflip:
 
@@ -1097,6 +1115,9 @@ skip_bitflip:
 
   afl->stage_finds[STAGE_ARITH8] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ARITH8] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* 16-bit arithmetics, both endians. */
 
@@ -1227,6 +1248,9 @@ skip_bitflip:
 
   afl->stage_finds[STAGE_ARITH16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ARITH16] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* 32-bit arithmetics, both endians. */
 
@@ -1356,6 +1380,9 @@ skip_bitflip:
 
   afl->stage_finds[STAGE_ARITH32] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ARITH32] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_arith:
 
@@ -1422,6 +1449,9 @@ skip_arith:
 
   afl->stage_finds[STAGE_INTEREST8] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST8] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Setting 16-bit integers, both endians. */
 
@@ -1510,6 +1540,9 @@ skip_arith:
 
   afl->stage_finds[STAGE_INTEREST16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST16] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   if (len < 4) { goto skip_interest; }
 
@@ -1599,6 +1632,9 @@ skip_arith:
 
   afl->stage_finds[STAGE_INTEREST32] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST32] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_interest:
 
@@ -1672,6 +1708,9 @@ skip_interest:
 
   afl->stage_finds[STAGE_EXTRAS_UO] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_UO] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Insertion of user-supplied extras. */
 
@@ -1728,6 +1767,9 @@ skip_interest:
 
   afl->stage_finds[STAGE_EXTRAS_UI] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_UI] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_user_extras:
 
@@ -1786,6 +1828,9 @@ skip_user_extras:
 
   afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Insertion of auto extras. */
 
@@ -1842,6 +1887,9 @@ skip_user_extras:
 
   afl->stage_finds[STAGE_EXTRAS_AI] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_AI] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_extras:
 
@@ -1988,6 +2036,9 @@ custom_mutator_stage:
 
   afl->stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   if (likely(afl->custom_only)) {
 
@@ -2925,11 +2976,17 @@ havoc_stage:
 
     afl->stage_finds[STAGE_HAVOC] += new_hit_cnt - orig_hit_cnt;
     afl->stage_cycles[STAGE_HAVOC] += afl->stage_max;
+#ifdef INTROSPECTION
+    afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   } else {
 
     afl->stage_finds[STAGE_SPLICE] += new_hit_cnt - orig_hit_cnt;
     afl->stage_cycles[STAGE_SPLICE] += afl->stage_max;
+#ifdef INTROSPECTION
+    afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   }
 
@@ -3411,6 +3468,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   afl->stage_finds[STAGE_FLIP1] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP1] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Two walking bits. */
 
@@ -3442,6 +3502,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   afl->stage_finds[STAGE_FLIP2] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP2] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Four walking bits. */
 
@@ -3477,6 +3540,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   afl->stage_finds[STAGE_FLIP4] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP4] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Effector map setup. These macros calculate:
 
@@ -3584,6 +3650,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   afl->stage_finds[STAGE_FLIP8] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP8] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Two walking bytes. */
 
@@ -3626,6 +3695,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   afl->stage_finds[STAGE_FLIP16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP16] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   if (len < 4) { goto skip_bitflip; }
 
@@ -3668,6 +3740,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   afl->stage_finds[STAGE_FLIP32] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP32] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_bitflip:
 
@@ -3758,6 +3833,9 @@ skip_bitflip:
 
   afl->stage_finds[STAGE_ARITH8] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ARITH8] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* 16-bit arithmetics, both endians. */
 
@@ -3884,6 +3962,9 @@ skip_bitflip:
 
   afl->stage_finds[STAGE_ARITH16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ARITH16] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* 32-bit arithmetics, both endians. */
 
@@ -4009,6 +4090,9 @@ skip_bitflip:
 
   afl->stage_finds[STAGE_ARITH32] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ARITH32] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_arith:
 
@@ -4074,6 +4158,9 @@ skip_arith:
 
   afl->stage_finds[STAGE_INTEREST8] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST8] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Setting 16-bit integers, both endians. */
 
@@ -4160,6 +4247,9 @@ skip_arith:
 
   afl->stage_finds[STAGE_INTEREST16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST16] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   if (len < 4) { goto skip_interest; }
 
@@ -4247,6 +4337,9 @@ skip_arith:
 
   afl->stage_finds[STAGE_INTEREST32] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST32] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_interest:
 
@@ -4320,6 +4413,9 @@ skip_interest:
 
   afl->stage_finds[STAGE_EXTRAS_UO] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_UO] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Insertion of user-supplied extras. */
 
@@ -4376,6 +4472,9 @@ skip_interest:
 
   afl->stage_finds[STAGE_EXTRAS_UI] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_UI] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_user_extras:
 
@@ -4435,6 +4534,9 @@ skip_user_extras:
 
   afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
   /* Insertion of auto extras. */
 
@@ -4491,6 +4593,9 @@ skip_user_extras:
 
   afl->stage_finds[STAGE_EXTRAS_AI] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_EXTRAS_AI] += afl->stage_max;
+#ifdef INTROSPECTION
+  afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
 skip_extras:
 
@@ -5316,11 +5421,17 @@ pacemaker_fuzzing:
 
           afl->stage_finds[STAGE_HAVOC] += new_hit_cnt - orig_hit_cnt;
           afl->stage_cycles[STAGE_HAVOC] += afl->stage_max;
+#ifdef INTROSPECTION
+          afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
         } else {
 
           afl->stage_finds[STAGE_SPLICE] += new_hit_cnt - orig_hit_cnt;
           afl->stage_cycles[STAGE_SPLICE] += afl->stage_max;
+#ifdef INTROSPECTION
+          afl->queue_cur->stats_mutated += afl->stage_max;
+#endif
 
         }
 
