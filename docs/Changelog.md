@@ -4,6 +4,10 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.05a (dev)
+  - MacOS: libdislocator, libtokencap etc. do not work with modern
+    MacOS anymore, but could be patched to work, see this issue if you
+    want to make the effort and send a PR:
+    https://github.com/AFLplusplus/AFLplusplus/issues/1594
   - afl-fuzz:
     - added afl_custom_fuzz_send custom mutator feature. Now your can
       send fuzz data to the target as you need, e.g. via IPC.
