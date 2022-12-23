@@ -156,7 +156,7 @@ void read_library_information(void) {
         *e = 0;
         if (n[strlen(n) - 1] == '\n') n[strlen(n) - 1] = 0;
 
-        liblist[liblist_cnt].name = strdup(n);
+        liblist[liblist_cnt].name = (u8 *)strdup((char *)n);
         liblist[liblist_cnt].addr_start = strtoull(b, NULL, 16);
         liblist[liblist_cnt].addr_end = strtoull(m, NULL, 16);
         if (debug)
@@ -210,16 +210,16 @@ void read_library_information(void) {
         !(region->kve_protection & KVME_PROT_EXEC)) {
 
       liblist[liblist_cnt].name =
-          region->kve_path[0] != '\0' ? strdup(region->kve_path) : 0;
+          region->kve_path[0] != '\0' ? (u8 *)strdup(region->kve_path) : 0;
       liblist[liblist_cnt].addr_start = region->kve_start;
       liblist[liblist_cnt].addr_end = region->kve_end;
 
       if (debug) {
 
-        fprintf(stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
-                liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
-                liblist[liblist_cnt].addr_start,
-                liblist[liblist_cnt].addr_end - 1);
+        fprintf(stderr, "%s:%lx (%lx-%lx)\n", liblist[liblist_cnt].name,
+                (unsigned long)(liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start),
+                (unsigned long)liblist[liblist_cnt].addr_start,
+                (unsigned long)(liblist[liblist_cnt].addr_end - 1));
 
       }
 
@@ -488,6 +488,12 @@ void setup_trap_instrumentation(void) {
   uint32_t bitmap_index = 0;
 #endif
 
+#if defined(__FreeBSD__) && __FreeBSD_version >= 1301000
+  // We try to allow W/X pages despite kern.elf32/64.allow_wx system settings
+  int allow_wx = PROC_WX_MAPPINGS_PERMIT;
+  (void)procctl(P_PID, 0, PROC_WXMAP_CTL, &allow_wx);
+#endif
+
   while ((nread = getline(&line, &len, patches)) != -1) {
 
     char *end = line + len;
@@ -699,7 +705,7 @@ int main(int argc, char *argv[]) {
   if (argc > 1) {
 
     use_stdin = 0;
-    inputfile = argv[1];
+    inputfile = (u8 *)argv[1];
 
   }
 
@@ -732,7 +738,7 @@ int main(int argc, char *argv[]) {
     if (pid) {
 
       u32 status;
-      if (waitpid(pid, &status, 0) < 0) exit(1);
+      if (waitpid(pid, (int *)&status, 0) < 0) exit(1);
       /* report the test case is done and wait for the next */
       __afl_end_testcase(status);
 
