@@ -55,7 +55,7 @@ install: argvfuzz32.so argvfuzz64.so
 	if [ -f argvfuzz64.so ]; then set -e; install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
 
 clean:
-	rm -f argvfuzz32.so argvfuzz64.so
+	rm -f argvfuzz32.so argvfuzz64.so argv_fuzz_demo argv_fuzz_persistent_demo
 
 demo:
 	../../afl-clang-fast -o argv_fuzz_demo argv_fuzz_demo.c
