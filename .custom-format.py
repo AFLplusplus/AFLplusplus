@@ -26,15 +26,16 @@ import shutil
 with open(".clang-format") as f:
     fmt = f.read()
 
-CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
-CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
+#CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
+#CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
 
-if shutil.which(CLANG_FORMAT_BIN) is None:
-    CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
+#if shutil.which(CLANG_FORMAT_BIN) is None:
+#    CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
 
-if shutil.which(CLANG_FORMAT_BIN) is None:
-    print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
-    exit(1)
+#if shutil.which(CLANG_FORMAT_BIN) is None:
+#    print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
+#    exit(1)
+CLANG_FORMAT_BIN = "clang-format"
 
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):

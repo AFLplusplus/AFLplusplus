@@ -1,4 +1,4 @@
-# argvfuzz
+#argvfuzz
 
 AFL++ supports fuzzing file inputs or stdin. When source is available,
 `argv-fuzz-inl.h` can be used to change `main()` to build argv from stdin.

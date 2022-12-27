@@ -57,18 +57,20 @@
                                  \
   } while (0)
 
-#define AFL_INIT_ARGV_PERSISTENT(persistent_buff)                \
-    do {                                                         \
-        argv = afl_init_argv_persistent(&argc, persistent_buff); \
-     } while (0)
+#define AFL_INIT_ARGV_PERSISTENT(persistent_buff)            \
+  do {                                                       \
+                                                             \
+    argv = afl_init_argv_persistent(&argc, persistent_buff); \
+                                                             \
+  } while (0)
 
-#define AFL_INIT_SET0_PERSISTENT(_p, persistent_buff)            \
-  do {                                                           \
-                                                                 \
-    argv = afl_init_argv_persistent(&argc, persistent_buff);     \
-    argv[0] = (_p);                                              \
-    if (!argc) argc = 1;                                         \
-                                                                 \
+#define AFL_INIT_SET0_PERSISTENT(_p, persistent_buff)        \
+  do {                                                       \
+                                                             \
+    argv = afl_init_argv_persistent(&argc, persistent_buff); \
+    argv[0] = (_p);                                          \
+    if (!argc) argc = 1;                                     \
+                                                             \
   } while (0)
 
 #define MAX_CMDLINE_LEN 100000
@@ -105,12 +107,13 @@ static char **afl_init_argv(int *argc) {
 
 }
 
-static char **afl_init_argv_persistent(int *argc, unsigned char *persistent_buff) {
+static char **afl_init_argv_persistent(int           *argc,
+                                       unsigned char *persistent_buff) {
 
   static char *ret[MAX_CMDLINE_PAR];
 
   unsigned char *ptr = persistent_buff;
-  int   rc = 0;
+  int            rc = 0;
 
   while (*ptr && rc < MAX_CMDLINE_PAR) {
 
