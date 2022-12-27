@@ -58,5 +58,5 @@ clean:
 	rm -f argvfuzz32.so argvfuzz64.so
 
 demo:
-	../../afl-clang-fast -o argv_fuzz_demo argv_fuzz.c
+	../../afl-clang-fast -o argv_fuzz_demo argv_fuzz_demo.c
 	../../afl-clang-fast -o argv_fuzz_persistent_demo argv_fuzz_persistent_demo.c
