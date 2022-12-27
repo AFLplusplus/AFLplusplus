@@ -29,10 +29,10 @@
    If you would like to always preserve argv[0], use this instead:
    AFL_INIT_SET0("prog_name");
 
-  To enable persistent fuzzing, use the AFL_INIT_ARGV_PERSISTENT macro with
-  buf as argument, or use AFL_INIT_SET0_PERSISTENT("prog_name", buf)
-  to preserver argv[0]. buf should be defined as:
-  unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
+   To enable persistent fuzzing, use the AFL_INIT_ARGV_PERSISTENT macro with
+   buf as argument, or use AFL_INIT_SET0_PERSISTENT("prog_name", buf)
+   to preserver argv[0]. buf should be defined as:
+   unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
 */
 
 #ifndef _HAVE_ARGV_FUZZ_INL
