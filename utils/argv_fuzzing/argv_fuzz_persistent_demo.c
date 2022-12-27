@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
 
     if (len < 8) continue;
 
-    AFL_INIT_ARGV_P(buf);
+    AFL_INIT_ARGV_PERSISTENT(buf);
 
     if (argc > 1 && strcmp(argv[1], "XYZ") == 0) {
       if (strcmp(argv[2], "TEST2") == 0) { abort(); }
