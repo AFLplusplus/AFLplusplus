@@ -13,11 +13,20 @@
 
 .PHONY: all install clean argv_fuzz_persistent_demo argv_fuzz_demo
 
+CC ?= afl-clang-fast
+CFLAGS ?= -fsanitize=address
+
+argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
+	$(CC) $(CFLAGS) -o $@ $^
+
+argv_fuzz_demo: argv_fuzz_demo.c
+	$(CC) $(CFLAGS) -o $@ $^
+
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 
-CFLAGS = -fPIC -Wall -Wextra
+CFLAGS += -fPIC -Wall -Wextra
 LDFLAGS = -shared
 
 UNAME_SAYS_LINUX=$(shell uname | grep -E '^Linux|^GNU' >/dev/null; echo $$?)
@@ -57,8 +66,3 @@ install: argvfuzz32.so argvfuzz64.so
 clean:
 	rm -f argvfuzz32.so argvfuzz64.so argv_fuzz_demo argv_fuzz_persistent_demo
 
-argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
-	$(CC) $(CFLAGS) -o $@ $^
-
-argv_fuzz_demo: argv_fuzz_demo.c
-	$(CC) $(CFLAGS) -o $@ $^
