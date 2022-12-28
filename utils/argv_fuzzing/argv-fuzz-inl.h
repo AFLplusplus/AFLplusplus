@@ -31,7 +31,8 @@
 
    To enable persistent fuzzing, use the AFL_INIT_ARGV_PERSISTENT macro with
    buf as argument, or use AFL_INIT_SET0_PERSISTENT("prog_name", buf)
-   to preserver argv[0]. buf should be defined as:
+   to preserver argv[0]. buf is a pointer to a buffer containing
+   the input data for the current test case being processed defined as:
    unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
 */
 
