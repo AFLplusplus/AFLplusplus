@@ -17,7 +17,7 @@ PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 
-CFLAGS += -fPIC -Wall -Wextra
+CFLAGS = -fPIC -Wall -Wextra
 LDFLAGS = -shared
 
 UNAME_SAYS_LINUX=$(shell uname | grep -E '^Linux|^GNU' >/dev/null; echo $$?)
