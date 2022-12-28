@@ -13,14 +13,14 @@
 
 .PHONY: all install clean argv_fuzz_persistent_demo argv_fuzz_demo
 
-CC ?= afl-clang-fast
-CFLAGS ?= -fsanitize=address
+#CC ?= afl-clang-fast
+#CFLAGS ?= -fsanitize=address
 
 argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
-	$(CC) $(CFLAGS) -o $@ $^
+	CC=afl-clang-fast CFLAGS=-fsanitize=address $(CC) $(CFLAGS) -o $@ $^
 
 argv_fuzz_demo: argv_fuzz_demo.c
-	$(CC) $(CFLAGS) -o $@ $^
+	CC=afl-clang-fast CFLAGS=-fsanitize=address $(CC) $(CFLAGS) -o $@ $^
 
 demo: argv_fuzz_persistent_demo argv_fuzz_demo
 
