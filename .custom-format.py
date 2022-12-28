@@ -26,16 +26,15 @@ import shutil
 with open(".clang-format") as f:
     fmt = f.read()
 
-#CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
-#CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
+CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
+CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
 
-#if shutil.which(CLANG_FORMAT_BIN) is None:
-#    CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
+if shutil.which(CLANG_FORMAT_BIN) is None:
+    CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
 
-#if shutil.which(CLANG_FORMAT_BIN) is None:
-#    print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
-#    exit(1)
-CLANG_FORMAT_BIN = "clang-format"
+if shutil.which(CLANG_FORMAT_BIN) is None:
+    print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
+    exit(1)
 
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):
@@ -59,16 +58,16 @@ def custom_format(filename):
                 in_define = True
 
         if (
-            "/*" in line
-            and not line.strip().startswith("/*")
-            and line.endswith("*/")
-            and len(line) < (COLUMN_LIMIT - 2)
+                "/*" in line
+                and not line.strip().startswith("/*")
+                and line.endswith("*/")
+                and len(line) < (COLUMN_LIMIT - 2)
         ):
             cmt_start = line.rfind("/*")
             line = (
-                line[:cmt_start]
-                + " " * (COLUMN_LIMIT - 2 - len(line))
-                + line[cmt_start:]
+                    line[:cmt_start]
+                    + " " * (COLUMN_LIMIT - 2 - len(line))
+                    + line[cmt_start:]
             )
 
         define_padding = 0
@@ -77,21 +76,21 @@ def custom_format(filename):
             define_padding = max(0, len(last_line[last_line.rfind("\n") + 1 :]))
 
         if (
-            last_line is not None
-            and last_line.strip().endswith("{")
-            and line.strip() != ""
+                last_line is not None
+                and last_line.strip().endswith("{")
+                and line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
         elif (
-            last_line is not None
-            and last_line.strip().startswith("}")
-            and line.strip() != ""
+                last_line is not None
+                and last_line.strip().startswith("}")
+                and line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
         elif (
-            line.strip().startswith("}")
-            and last_line is not None
-            and last_line.strip() != ""
+                line.strip().startswith("}")
+                and last_line is not None
+                and last_line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
 
