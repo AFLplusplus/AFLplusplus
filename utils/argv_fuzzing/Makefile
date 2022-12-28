@@ -11,18 +11,11 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-.PHONY: all install clean argv_fuzz_persistent_demo argv_fuzz_demo
+.PHONY: all install clean argv_fuzz_persistent_demo argv_fuzz_demo demo
 
-#CC ?= afl-clang-fast
-#CFLAGS ?= -fsanitize=address
 
-argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
-	CC=afl-clang-fast CFLAGS=-fsanitize=address $(CC) $(CFLAGS) -o $@ $^
 
-argv_fuzz_demo: argv_fuzz_demo.c
-	CC=afl-clang-fast CFLAGS=-fsanitize=address $(CC) $(CFLAGS) -o $@ $^
 
-demo: argv_fuzz_persistent_demo argv_fuzz_demo
 
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
@@ -64,6 +57,14 @@ install: argvfuzz32.so argvfuzz64.so
 	install -d -m 755 $(DESTDIR)$(HELPER_PATH)/
 	if [ -f argvfuzz32.so ]; then set -e; install -m 755 argvfuzz32.so $(DESTDIR)$(HELPER_PATH)/; fi
 	if [ -f argvfuzz64.so ]; then set -e; install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
+
+argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
+	afl-clang-fast -fsanitize=address -g -o $@ $^
+
+argv_fuzz_demo: argv_fuzz_demo.c
+	afl-clang-fast -fsanitize=address -g -o $@ $^
+
+demo: argv_fuzz_persistent_demo argv_fuzz_demo
 
 clean:
 	rm -f argvfuzz32.so argvfuzz64.so argv_fuzz_demo argv_fuzz_persistent_demo
