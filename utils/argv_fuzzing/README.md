@@ -1,7 +1,7 @@
 # argv_fuzzing feature
-AFL++ supports fuzzing file inputs or stdin. The argv_fuzzing feature
+AFL++ supports fuzzing file inputs or standard input. The argv_fuzzing feature
 allows for the fuzzing of arguments passed to a program from the command line
-interface rather than from standard input.  
+interface rather than from STDIN.  
 
 ## With source code
 When the source code is available, a specific macro from the `argv-fuzz-inl.h`
