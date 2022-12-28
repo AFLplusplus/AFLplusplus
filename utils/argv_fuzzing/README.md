@@ -1,18 +1,22 @@
 # argv_fuzzing feature
-AFL++ supports fuzzing file inputs or stdin. The argv_fuzzing feature allows for the fuzzing of arguments
-passed to a program from the command line interface rather than from standard input.  
+AFL++ supports fuzzing file inputs or stdin. The argv_fuzzing feature
+allows for the fuzzing of arguments passed to a program from the command line
+interface rather than from standard input.  
 
 ## With source code
-When the source code is available, a specific macro from the `argv-fuzz-inl.h` header file can be used to change
-the program's behavior to build argv from STDIN.
+When the source code is available, a specific macro from the `argv-fuzz-inl.h`
+header file can be used to change the program's behavior to build argv from STDIN.
 
 ### Without persistent mode
 Conditions needed to use the argv_fuzzing feature:
 1. Include `argv-fuzz-inl.h` header file (`#include "argv-fuzz-inl.h"`)
-2. Identify your main function that parses arguments (for example, `int main(int argc, char **argv)`)
-3. Use one of the following macros (near the beginning of the main function) to initialize argv with the fuzzer's input:
+2. Identify your main function that parses arguments
+(for example, `int main(int argc, char **argv)`)
+3. Use one of the following macros (near the beginning of the main function)
+to initialize argv with the fuzzer's input:
    - `AFL_INIT_ARGV();` or
-   - `AFL_INIT_SET0("prog_name");` to preserve `argv[0]` (the name of the program being executed)
+   - `AFL_INIT_SET0("prog_name");` to preserve `argv[0]`
+   (the name of the program being executed)
    
 see: [argv_fuzz_demo.c](argv_fuzz_demo.c)
 
