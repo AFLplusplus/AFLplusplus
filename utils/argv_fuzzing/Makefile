@@ -13,10 +13,6 @@
 
 .PHONY: all install clean argv_fuzz_persistent_demo argv_fuzz_demo demo
 
-
-
-
-
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
@@ -59,10 +55,10 @@ install: argvfuzz32.so argvfuzz64.so
 	if [ -f argvfuzz64.so ]; then set -e; install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
 
 argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
-	afl-clang-fast -fsanitize=address -g -o $@ $^
+	CC=afl-clang-fast $(CC) -o $@ $^
 
 argv_fuzz_demo: argv_fuzz_demo.c
-	afl-clang-fast -fsanitize=address -g -o $@ $^
+	CC=afl-clang-fast $(CC) -o $@ $^
 
 demo: argv_fuzz_persistent_demo argv_fuzz_demo
 
