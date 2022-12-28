@@ -22,6 +22,8 @@ argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
 argv_fuzz_demo: argv_fuzz_demo.c
 	$(CC) $(CFLAGS) -o $@ $^
 
+demo: argv_fuzz_persistent_demo argv_fuzz_demo
+
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
@@ -50,7 +52,7 @@ __M32FLAG=$(_M32FLAG:00=-mbe32)
 ___M32FLAG=$(__M32FLAG:$(CC_IS_GCC)$(CC_IS_ARMCOMPILER)=-m32)
 M32FLAG=$(___M32FLAG)
 
-all: argvfuzz32.so argvfuzz64.so argv_fuzz_persistent_demo argv_fuzz_demo
+all: argvfuzz32.so argvfuzz64.so demo
 
 argvfuzz32.so: argvfuzz.c
 	-@$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ 2>/dev/null || echo "argvfuzz32 build failure (that's fine)"
