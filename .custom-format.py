@@ -58,16 +58,16 @@ def custom_format(filename):
                 in_define = True
 
         if (
-                "/*" in line
-                and not line.strip().startswith("/*")
-                and line.endswith("*/")
-                and len(line) < (COLUMN_LIMIT - 2)
+            "/*" in line
+            and not line.strip().startswith("/*")
+            and line.endswith("*/")
+            and len(line) < (COLUMN_LIMIT - 2)
         ):
             cmt_start = line.rfind("/*")
             line = (
-                    line[:cmt_start]
-                    + " " * (COLUMN_LIMIT - 2 - len(line))
-                    + line[cmt_start:]
+                line[:cmt_start]
+                + " " * (COLUMN_LIMIT - 2 - len(line))
+                + line[cmt_start:]
             )
 
         define_padding = 0
@@ -76,21 +76,21 @@ def custom_format(filename):
             define_padding = max(0, len(last_line[last_line.rfind("\n") + 1 :]))
 
         if (
-                last_line is not None
-                and last_line.strip().endswith("{")
-                and line.strip() != ""
+            last_line is not None
+            and last_line.strip().endswith("{")
+            and line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
         elif (
-                last_line is not None
-                and last_line.strip().startswith("}")
-                and line.strip() != ""
+            last_line is not None
+            and last_line.strip().startswith("}")
+            and line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
         elif (
-                line.strip().startswith("}")
-                and last_line is not None
-                and last_line.strip() != ""
+            line.strip().startswith("}")
+            and last_line is not None
+            and last_line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
 
