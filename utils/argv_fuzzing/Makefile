@@ -11,7 +11,7 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-.PHONY: all install clean
+.PHONY: all install clean demo
 
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
@@ -58,5 +58,7 @@ clean:
 	rm -f argvfuzz32.so argvfuzz64.so argv_fuzz_demo argv_fuzz_persistent_demo
 
 demo:
-	../../afl-clang-fast -o argv_fuzz_demo argv_fuzz_demo.c
-	../../afl-clang-fast -o argv_fuzz_persistent_demo argv_fuzz_persistent_demo.c
+	CC = afl-clang-fast
+	CFLAGS = -fsanitize=address
+	-@$(CC) $(CFLAGS) -o argv_fuzz_demo argv_fuzz_demo.c
+	-@$(CC) $(CFLAGS) -o argv_fuzz_persistent_demo argv_fuzz_persistent_demo.c
