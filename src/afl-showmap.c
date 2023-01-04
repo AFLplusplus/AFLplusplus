@@ -1284,8 +1284,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   configure_afl_kill_signals(
-      fsrv, NULL, NULL,
-      (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
