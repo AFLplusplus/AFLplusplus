@@ -217,7 +217,8 @@ void read_library_information(void) {
       if (debug) {
 
         fprintf(stderr, "%s:%lx (%lx-%lx)\n", liblist[liblist_cnt].name,
-                (unsigned long)(liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start),
+                (unsigned long)(liblist[liblist_cnt].addr_end -
+                                liblist[liblist_cnt].addr_start),
                 (unsigned long)liblist[liblist_cnt].addr_start,
                 (unsigned long)(liblist[liblist_cnt].addr_end - 1));
 
