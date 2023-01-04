@@ -1283,6 +1283,10 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
+  configure_afl_kill_signals(
+      fsrv, NULL, NULL,
+      (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
     u32 save_be_quiet = be_quiet;
@@ -1304,10 +1308,6 @@ int main(int argc, char **argv_orig, char **envp) {
                                  ? 1
                                  : 0);
     be_quiet = save_be_quiet;
-
-    configure_afl_kill_signals(
-        fsrv, NULL, NULL,
-        (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
     if (new_map_size) {
 
