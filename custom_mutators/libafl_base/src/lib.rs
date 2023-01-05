@@ -1,5 +1,4 @@
 #![cfg(unix)]
-#![allow(unused_variables)]
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
@@ -77,21 +76,21 @@ impl Corpus for AFLCorpus {
     }
 
     #[inline]
-    fn add(&mut self, testcase: Testcase<BytesInput>) -> Result<usize, Error> {
+    fn add(&mut self, _testcase: Testcase<BytesInput>) -> Result<usize, Error> {
         unimplemented!();
     }
 
     #[inline]
     fn replace(
         &mut self,
-        idx: usize,
-        testcase: Testcase<BytesInput>,
+        _idx: usize,
+        _testcase: Testcase<BytesInput>,
     ) -> Result<Testcase<Self::Input>, Error> {
         unimplemented!();
     }
 
     #[inline]
-    fn remove(&mut self, idx: usize) -> Result<Option<Testcase<BytesInput>>, Error> {
+    fn remove(&mut self, _idx: usize) -> Result<Option<Testcase<BytesInput>>, Error> {
         unimplemented!();
     }
 
@@ -235,7 +234,7 @@ impl CustomMutator for LibAFLBaseCustomMutator {
     fn fuzz<'b, 's: 'b>(
         &'s mut self,
         buffer: &'b mut [u8],
-        add_buff: Option<&[u8]>,
+        _add_buff: Option<&[u8]>,
         max_size: usize,
     ) -> Result<Option<&'b [u8]>, Self::Error> {
         self.state.set_max_size(max_size);
