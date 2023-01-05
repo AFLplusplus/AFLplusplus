@@ -12,7 +12,7 @@
                      Dominik Maier <mail@dmnk.co>>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -163,7 +163,9 @@ typedef struct afl_forkserver {
 
   void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
 
-  u8 kill_signal;
+  u8 child_kill_signal;
+  u8 fsrv_kill_signal;
+
   u8 persistent_mode;
 
 #ifdef __linux__

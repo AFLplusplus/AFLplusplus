@@ -89,7 +89,6 @@ endif
 ifeq "$(LLVM_HAVE_LTO)" "1"
   $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
-  #TEST_MMAP = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
@@ -255,26 +254,29 @@ else
         AFL_CLANG_DEBUG_PREFIX =
 endif
 
-CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
-CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign -I ./include/ -I ./instrumentation/ \
+CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
+CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
+                   -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                    -DLLVM_LIBDIR=\"$(LLVM_LIBDIR)\" -DLLVM_VERSION=\"$(LLVMVER)\" \
-                   -Wno-deprecated -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-                   -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
-                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" \
-                   -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
-                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function \
-                   $(AFL_CLANG_DEBUG_PREFIX)
+                   -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
+                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
+                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) \
+                   -Wno-unused-function $(AFL_CLANG_DEBUG_PREFIX)
+ifndef LLVM_DEBUG
+  CFLAGS_SAFE += -Wno-deprecated
+endif
+
 override CFLAGS += $(CFLAGS_SAFE)
 
 ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 override CXXFLAGS += -Wall -g -I ./include/ \
-                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros -Wno-deprecated-copy-with-dtor \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
 
 ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""

@@ -83,6 +83,7 @@ These build options exist:
 * UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for
   debug purposes
 * DEBUG - no optimization, -ggdb3, all warnings and -Werror
+* LLVM_DEBUG - shows llvm deprecation warnings
 * PROFILING - compile afl-fuzz with profiling information
 * INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support

@@ -3,6 +3,24 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.05c (release)
+  - MacOS: libdislocator, libtokencap etc. do not work with modern
+    MacOS anymore, but could be patched to work, see this issue if you
+    want to make the effort and send a PR:
+    https://github.com/AFLplusplus/AFLplusplus/issues/1594
+  - afl-fuzz:
+    - added afl_custom_fuzz_send custom mutator feature. Now your can
+      send fuzz data to the target as you need, e.g. via IPC.
+    - cmplog mode now has a -l R option for random colorization, thanks
+      to guyf2010 for the PR!
+    - queue statistics are written every 30 minutes to
+      out/NAME/queue_data if compiled with INTROSPECTION
+    - new env: AFL_FORK_SERVER_KILL_SIGNAL
+  - afl-showmap/afl-cmin
+    - `-t none` now translates to `-t 120000` (120 seconds)
+  - unicorn_mode updated
+  - updated rust custom mutator dependencies and LibAFL custom mutator
+  - several minor bugfixes
 
 ### Version ++4.04c (release)
   - fix gramatron and grammar_mutator build scripts
@@ -10,6 +28,8 @@
     scripts
   - afl-fuzz:
     - force writing all stats on exit
+    - ensure targets are killed on exit
+    - `AFL_FORK_SERVER_KILL_SIGNAL` added
   - afl-cc:
     - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
   - qemu_mode:

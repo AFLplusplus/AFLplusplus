@@ -10,7 +10,7 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.04c"
+#define VERSION "++4.05c"
 
 /******************************************************
  *                                                    *
@@ -290,10 +290,11 @@
 
 #define UI_TARGET_HZ 5
 
-/* Fuzzer stats file and plot update intervals (sec): */
+/* Fuzzer stats file, queue stats and plot update intervals (sec): */
 
 #define STATS_UPDATE_SEC 60
 #define PLOT_UPDATE_SEC 5
+#define QUEUE_UPDATE_SEC 1800
 
 /* Smoothing divisor for CPU load and exec speed stats (1 - no smoothing). */
 

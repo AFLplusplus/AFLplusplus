@@ -91,9 +91,8 @@ ifneq "$(SYS)" "Darwin"
   #ifeq "$(HAVE_MARCHNATIVE)" "1"
   #  SPECIAL_PERFORMANCE += -march=native
   #endif
- # OS X does not like _FORTIFY_SOURCE=2
  ifndef DEBUG
-   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+   CFLAGS_OPT += -D_FORTIFY_SOURCE=1
  endif
 else
   # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
@@ -103,7 +102,7 @@ endif
 
 ifeq "$(SYS)" "SunOS"
   CFLAGS_OPT += -Wno-format-truncation
-  LDFLAGS = -lkstat -lrt
+  LDFLAGS = -lkstat -lrt -lsocket -lnsl
 endif
 
 ifdef STATIC
@@ -381,6 +380,7 @@ help:
 	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
 	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
+	@echo LLVM_DEBUG - shows llvm deprecation warnings
 	@echo PROFILING - compile afl-fuzz with profiling information
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
@@ -425,7 +425,7 @@ test_python:
 	@echo "[+] $(PYTHON_VERSION) support seems to be working."
 else
 test_python:
-	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3-dev or python-dev (and perhaps python[3]-apt), but it is optional so we continue"
 endif
 
 .PHONY: ready
@@ -628,25 +628,25 @@ distrib: all
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-endif
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
+endif
 	-$(MAKE) -C utils/afl_network_proxy
 	-$(MAKE) -C utils/socket_fuzzing
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
-ifeq "$(ARCH)" "aarch64"
-  ifndef NO_CORESIGHT
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_CORESIGHT
 	-$(MAKE) -C coresight_mode
+    endif
   endif
-endif
-ifeq "$(SYS)" "Linux"
-  ifndef NO_NYX
+  ifeq "$(SYS)" "Linux"
+    ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+    endif
   endif
-endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
   ifeq "$(ARCH)" "aarch64"
     ifndef NO_UNICORN_ARM64
@@ -659,8 +659,10 @@ endif
 
 .PHONY: binary-only
 binary-only: test_shm test_python ready $(PROGS)
+ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
+endif
 	-$(MAKE) -C utils/afl_network_proxy
 	-$(MAKE) -C utils/socket_fuzzing
 	-$(MAKE) -C utils/argv_fuzzing
@@ -717,9 +719,9 @@ source-only: all
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-endif
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
+endif
 	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX

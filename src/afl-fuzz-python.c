@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -246,6 +246,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "havoc_mutation_probability");
     py_functions[PY_FUNC_QUEUE_GET] =
         PyObject_GetAttrString(py_module, "queue_get");
+    py_functions[PY_FUNC_FUZZ_SEND] =
+        PyObject_GetAttrString(py_module, "fuzz_send");
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
     py_functions[PY_FUNC_INTROSPECTION] =
@@ -463,6 +465,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_QUEUE_GET]) {
 
     mutator->afl_custom_queue_get = queue_get_py;
+
+  }
+
+  if (py_functions[PY_FUNC_FUZZ_SEND]) {
+
+    mutator->afl_custom_fuzz_send = fuzz_send_py;
 
   }
 
@@ -890,6 +898,29 @@ u8 queue_get_py(void *py_mutator, const u8 *filename) {
     FATAL("Call failed");
 
   }
+
+}
+
+void fuzz_send_py(void *py_mutator, const u8 *buf, size_t buf_size) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ_SEND], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) { Py_DECREF(py_value); }
 
 }
 

@@ -3,7 +3,7 @@
    ------------------------------------------------
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,6 +105,9 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 
+/* 1 if we are running in afl, and the forkserver was started, else 0 */
+u32 __afl_connected = 0;
+
 // for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
 int        __afl_selective_coverage __attribute__((weak));
 int        __afl_selective_coverage_start_off __attribute__((weak));
@@ -159,6 +162,7 @@ static void at_exit(int signal) {
   if (unlikely(child_pid > 0)) {
 
     kill(child_pid, SIGKILL);
+    waitpid(child_pid, NULL, 0);
     child_pid = -1;
 
   }
@@ -1050,6 +1054,8 @@ static void __afl_start_forkserver(void) {
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
 
+  __afl_connected = 1;
+
   if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
@@ -1260,13 +1266,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
        iteration, it's our job to erase any trace of whatever happened
        before the loop. */
 
-    if (is_persistent) {
-
-      memset(__afl_area_ptr, 0, __afl_map_size);
-      __afl_area_ptr[0] = 1;
-      memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-
-    }
+    memset(__afl_area_ptr, 0, __afl_map_size);
+    __afl_area_ptr[0] = 1;
+    memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
     cycle_cnt = max_cnt;
     first_pass = 0;
@@ -1274,33 +1276,27 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     return 1;
 
-  }
+  } else if (--cycle_cnt) {
 
-  if (is_persistent) {
+    raise(SIGSTOP);
 
-    if (--cycle_cnt) {
+    __afl_area_ptr[0] = 1;
+    memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    __afl_selective_coverage_temp = 1;
 
-      raise(SIGSTOP);
+    return 1;
 
-      __afl_area_ptr[0] = 1;
-      memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-      __afl_selective_coverage_temp = 1;
+  } else {
 
-      return 1;
+    /* When exiting __AFL_LOOP(), make sure that the subsequent code that
+        follows the loop is not traced. We do that by pivoting back to the
+        dummy output region. */
 
-    } else {
+    __afl_area_ptr = __afl_area_ptr_dummy;
 
-      /* When exiting __AFL_LOOP(), make sure that the subsequent code that
-         follows the loop is not traced. We do that by pivoting back to the
-         dummy output region. */
-
-      __afl_area_ptr = __afl_area_ptr_dummy;
-
-    }
+    return 0;
 
   }
-
-  return 0;
 
 }
 

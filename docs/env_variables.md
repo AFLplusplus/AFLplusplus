@@ -378,10 +378,10 @@ checks or alter some of the more exotic semantics of the tool:
     valid terminal was detected (for virtual consoles).
 
   - Setting `AFL_FORKSRV_INIT_TMOUT` allows you to specify a different timeout
-    to wait for the forkserver to spin up. The default is the `-t` value times
-    `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the
-    default would wait for `1000` milliseconds. Setting a different time here is
-    useful if the target has a very slow startup time, for example, when doing
+    to wait for the forkserver to spin up. The specified value is the new timeout, in milliseconds.
+    The default is the `-t` value times `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the default would wait for `1000` milliseconds.
+    The `AFL_FORKSRV_INIT_TMOUT` value does not get multiplied. It overwrites the initial timeout afl-fuzz waits for the target to come up with a constant time.
+    Setting a different time here is useful if the target has a very slow startup time, for example, when doing
     full-system fuzzing or emulation, but you don't want the actual runs to wait
     too long for timeouts.
 
@@ -409,10 +409,21 @@ checks or alter some of the more exotic semantics of the tool:
     the afl-fuzz -g/-G command line option to control the minimum/maximum
     of fuzzing input generated.
 
-  - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes on
-    timeout. Unless you implement your own targets or instrumentation, you
+  - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes
+    on timeout. Unless you implement your own targets or instrumentation, you
     likely don't have to set it. By default, on timeout and on exit, `SIGKILL`
     (`AFL_KILL_SIGNAL=9`) will be delivered to the child.
+
+  - `AFL_FORK_SERVER_KILL_SIGNAL`: Set the signal ID to be delivered to the
+    fork server when AFL++ is terminated. Unless you implement your
+    fork server, you likely do not have to set it. By default, `SIGTERM`
+    (`AFL_FORK_SERVER_KILL_SIGNAL=15`) will be delivered to the fork server.
+    If only `AFL_KILL_SIGNAL` is provided, `AFL_FORK_SERVER_KILL_SIGNAL` will
+    be set to same value as `AFL_KILL_SIGNAL` to provide backward compatibility.
+    If `AFL_FORK_SERVER_KILL_SIGNAL` is also set, it takes precedence.
+
+    NOTE: Uncatchable signals, such as `SIGKILL`, cause child processes of
+    the fork server to be orphaned and leaves them in a zombie state.
 
   - `AFL_MAP_SIZE` sets the size of the shared map that afl-analyze, afl-fuzz,
     afl-showmap, and afl-tmin create to gather instrumentation data from the

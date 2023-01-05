@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ static void kill_child() {
   timed_out = 1;
   if (fsrv->child_pid > 0) {
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
     fsrv->child_pid = -1;
 
   }
@@ -515,11 +515,11 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
     it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
+    signal(SIGALRM, kill_child);
+
+    setitimer(ITIMER_REAL, &it, NULL);
+
   }
-
-  signal(SIGALRM, kill_child);
-
-  setitimer(ITIMER_REAL, &it, NULL);
 
   if (waitpid(fsrv->child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
 
@@ -822,8 +822,8 @@ static void usage(u8 *argv0) {
       "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-      "  -t msec    - timeout for each run (none)\n"
-      "  -m megs    - memory limit for child process (%u MB)\n"
+      "  -t msec    - timeout for each run (default: 1000ms)\n"
+      "  -m megs    - memory limit for child process (default: none)\n"
 #if defined(__linux__) && defined(__aarch64__)
       "  -A         - use binary-only instrumentation (ARM CoreSight mode)\n"
 #endif
@@ -865,15 +865,22 @@ static void usage(u8 *argv0) {
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
       "startup (in milliseconds)\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
-      "etc. (default: SIGKILL)\n"
+      "etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on "
+      "termination\n"
+      "                             (default: SIGTERM). If unset and "
+      "AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
-      "size the target was compiled for\n"
+      "size the\n"
+      "              target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
-      "printed to stdout\n"
+      "AFL_PRINT_FILENAMES: Print the queue entry currently processed will to "
+      "stdout\n"
       "AFL_QUIET: do not print extra informational output\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
-      argv0, MEM_LIMIT, doc_path);
+      argv0, doc_path);
 
   exit(1);
 
@@ -1008,6 +1015,16 @@ int main(int argc, char **argv_orig, char **envp) {
             FATAL("Dangerously low value of -t");
 
           }
+
+        } else {
+
+          // The forkserver code does not have a way to completely
+          // disable the timeout, so we'll use a very, very long
+          // timeout instead.
+          WARNF(
+              "Setting an execution timeout of 120 seconds ('none' is not "
+              "allowed).");
+          fsrv->exec_tmout = 120 * 1000;
 
         }
 
@@ -1216,6 +1233,36 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+    s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+    if (forksrv_init_tmout < 1) {
+
+      FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+    fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  if (getenv("AFL_CRASH_EXITCODE")) {
+
+    long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            getenv("AFL_CRASH_EXITCODE"));
+
+    }
+
+    fsrv->uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    fsrv->crash_exitcode = (u8)exitcode;
+
+  }
+
   if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
@@ -1235,6 +1282,9 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->support_shmem_fuzz = true;
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
+
+  configure_afl_kill_signals(
+      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
@@ -1257,9 +1307,6 @@ int main(int argc, char **argv_orig, char **envp) {
                                  ? 1
                                  : 0);
     be_quiet = save_be_quiet;
-
-    fsrv->kill_signal =
-        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
     if (new_map_size) {
 
@@ -1344,36 +1391,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       SAYF("\n");
-
-    }
-
-    if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
-
-      s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
-      if (forksrv_init_tmout < 1) {
-
-        FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
-
-      }
-
-      fsrv->init_tmout = (u32)forksrv_init_tmout;
-
-    }
-
-    if (getenv("AFL_CRASH_EXITCODE")) {
-
-      long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
-      if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
-          exitcode < -127 || exitcode > 128) {
-
-        FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
-              getenv("AFL_CRASH_EXITCODE"));
-
-      }
-
-      fsrv->uses_crash_exitcode = true;
-      // WEXITSTATUS is 8 bit unsigned
-      fsrv->crash_exitcode = (u8)exitcode;
 
     }
 
