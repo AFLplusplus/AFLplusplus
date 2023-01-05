@@ -19,6 +19,7 @@
   - afl-showmap/afl-cmin
     - `-t none` now translates to `-t 120000` (120 seconds)
   - unicorn_mode updated
+  - updated rust custom mutator dependencies and LibAFL custom mutator
   - several minor bugfixes
 
 ### Version ++4.04c (release)
