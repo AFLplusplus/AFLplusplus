@@ -247,7 +247,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub fn afl_custom_queue_new_entry_<M: RawCustomMutator>(
+    pub unsafe fn afl_custom_queue_new_entry_<M: RawCustomMutator>(
         data: *mut c_void,
         filename_new_queue: *const c_char,
         filename_orig_queue: *const c_char,
@@ -337,7 +337,7 @@ pub mod wrappers {
     }
 
     /// Internal function used in the macro
-    pub fn afl_custom_queue_get_<M: RawCustomMutator>(
+    pub unsafe fn afl_custom_queue_get_<M: RawCustomMutator>(
         data: *mut c_void,
         filename: *const c_char,
     ) -> u8 {
@@ -441,7 +441,7 @@ macro_rules! export_mutator {
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_queue_new_entry(
+        pub unsafe extern "C" fn afl_custom_queue_new_entry(
             data: *mut ::std::os::raw::c_void,
             filename_new_queue: *const ::std::os::raw::c_char,
             filename_orig_queue: *const ::std::os::raw::c_char,
@@ -454,7 +454,7 @@ macro_rules! export_mutator {
         }
 
         #[no_mangle]
-        pub extern "C" fn afl_custom_queue_get(
+        pub unsafe extern "C" fn afl_custom_queue_get(
             data: *mut ::std::os::raw::c_void,
             filename: *const ::std::os::raw::c_char,
         ) -> u8 {
@@ -757,8 +757,7 @@ mod truncate_test {
             let actual_output = truncate_str_unicode_safe(input, *max_len);
             assert_eq!(
                 &actual_output, expected_output,
-                "{:#?} truncated to {} bytes should be {:#?}, but is {:#?}",
-                input, max_len, expected_output, actual_output
+                "{input:#?} truncated to {max_len} bytes should be {expected_output:#?}, but is {actual_output:#?}"
             );
         }
     }
