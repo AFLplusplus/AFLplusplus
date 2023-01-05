@@ -3,10 +3,10 @@
 # american fuzzy lop++ - custom code formatter
 # --------------------------------------------
 #
-# Written and maintaned by Andrea Fioraldi <andreafioraldi@gmail.com>
+# Written and maintained by Andrea Fioraldi <andreafioraldi@gmail.com>
 #
 # Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
-# Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+# Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,23 +18,56 @@
 import subprocess
 import sys
 import os
-import re
+# import re # TODO: for future use
 import shutil
+import importlib.metadata
 
-# string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # future use
-
-with open(".clang-format") as f:
-    fmt = f.read()
+# string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # TODO: for future use
 
 CURRENT_LLVM = os.getenv('LLVM_VERSION', 14)
 CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
 
+
+def check_clang_format_pip_version():
+    """
+    Check if the correct version of clang-format is installed via pip.
+
+    Returns:
+        bool: True if the correct version of clang-format is installed,
+        False otherwise.
+    """
+    # Check if clang-format is installed
+    if importlib.util.find_spec('clang_format'):
+        # Check if the installed version is the expected LLVM version
+        if importlib.metadata.version('clang-format')\
+                .startswith(CURRENT_LLVM+'.'):
+            return True
+        else:
+            # Return False, because the clang-format version does not match
+            return False
+    else:
+        # If the 'clang_format' package isn't installed, return False
+        return False
+
+
+with open(".clang-format") as f:
+    fmt = f.read()
+
+
+CLANG_FORMAT_PIP = check_clang_format_pip_version()
+
 if shutil.which(CLANG_FORMAT_BIN) is None:
     CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
 
-if shutil.which(CLANG_FORMAT_BIN) is None:
+if shutil.which(CLANG_FORMAT_BIN) is None \
+        and CLANG_FORMAT_PIP is False:
     print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
+    print(f"Run `pip3 install \"clang-format=={CURRENT_LLVM}.*\"` \
+to install via pip.")
     exit(1)
+
+if CLANG_FORMAT_PIP:
+    CLANG_FORMAT_BIN = shutil.which("clang-format")
 
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):
@@ -54,43 +87,43 @@ def custom_format(filename):
 
     for line in src.split("\n"):
         if line.lstrip().startswith("#"):
-            if line[line.find("#") + 1 :].lstrip().startswith("define"):
+            if line[line.find("#") + 1:].lstrip().startswith("define"):
                 in_define = True
 
         if (
-            "/*" in line
-            and not line.strip().startswith("/*")
-            and line.endswith("*/")
-            and len(line) < (COLUMN_LIMIT - 2)
+                "/*" in line
+                and not line.strip().startswith("/*")
+                and line.endswith("*/")
+                and len(line) < (COLUMN_LIMIT - 2)
         ):
             cmt_start = line.rfind("/*")
             line = (
-                line[:cmt_start]
-                + " " * (COLUMN_LIMIT - 2 - len(line))
-                + line[cmt_start:]
+                    line[:cmt_start]
+                    + " " * (COLUMN_LIMIT - 2 - len(line))
+                    + line[cmt_start:]
             )
 
         define_padding = 0
         if last_line is not None and in_define and last_line.endswith("\\"):
             last_line = last_line[:-1]
-            define_padding = max(0, len(last_line[last_line.rfind("\n") + 1 :]))
+            define_padding = max(0, len(last_line[last_line.rfind("\n") + 1:]))
 
         if (
-            last_line is not None
-            and last_line.strip().endswith("{")
-            and line.strip() != ""
+                last_line is not None
+                and last_line.strip().endswith("{")
+                and line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
         elif (
-            last_line is not None
-            and last_line.strip().startswith("}")
-            and line.strip() != ""
+                last_line is not None
+                and last_line.strip().startswith("}")
+                and line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
         elif (
-            line.strip().startswith("}")
-            and last_line is not None
-            and last_line.strip() != ""
+                line.strip().startswith("}")
+                and last_line is not None
+                and last_line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
 
