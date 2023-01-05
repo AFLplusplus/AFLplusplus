@@ -628,25 +628,25 @@ distrib: all
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-endif
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
+endif
 	-$(MAKE) -C utils/afl_network_proxy
 	-$(MAKE) -C utils/socket_fuzzing
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
-ifeq "$(ARCH)" "aarch64"
-  ifndef NO_CORESIGHT
+  ifeq "$(ARCH)" "aarch64"
+    ifndef NO_CORESIGHT
 	-$(MAKE) -C coresight_mode
+    endif
   endif
-endif
-ifeq "$(SYS)" "Linux"
-  ifndef NO_NYX
+  ifeq "$(SYS)" "Linux"
+    ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
+    endif
   endif
-endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
   ifeq "$(ARCH)" "aarch64"
     ifndef NO_UNICORN_ARM64
@@ -659,8 +659,10 @@ endif
 
 .PHONY: binary-only
 binary-only: test_shm test_python ready $(PROGS)
+ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
+endif
 	-$(MAKE) -C utils/afl_network_proxy
 	-$(MAKE) -C utils/socket_fuzzing
 	-$(MAKE) -C utils/argv_fuzzing
@@ -717,9 +719,9 @@ source-only: all
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-endif
 	-$(MAKE) -C utils/libdislocator
 	-$(MAKE) -C utils/libtokencap
+endif
 	# -$(MAKE) -C utils/plot_ui
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX

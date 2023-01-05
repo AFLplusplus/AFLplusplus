@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -1283,6 +1283,9 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
+  configure_afl_kill_signals(
+      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
     u32 save_be_quiet = be_quiet;
@@ -1304,10 +1307,6 @@ int main(int argc, char **argv_orig, char **envp) {
                                  ? 1
                                  : 0);
     be_quiet = save_be_quiet;
-
-    configure_afl_kill_signals(
-        fsrv, NULL, NULL,
-        (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
     if (new_map_size) {
 

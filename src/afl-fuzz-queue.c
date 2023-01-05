@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
@@ -51,13 +51,14 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
     u32 hits = afl->n_fuzz[q->n_fuzz_entry];
-    if (likely(hits)) { weight *= log10(hits) + 1; }
+    if (likely(hits)) { weight *= (log10(hits) + 1); }
 
   }
 
   if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
   weight *= (1 + (q->tc_ref / avg_top_size));
+  if (unlikely(weight < 1.0)) { weight = 1.0; }
   if (unlikely(q->favored)) { weight *= 5; }
   if (unlikely(!q->was_fuzzed)) { weight *= 2; }
 
