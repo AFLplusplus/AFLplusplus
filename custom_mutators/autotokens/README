@@ -1,0 +1,12 @@
+# autotokens
+
+This implements an improved autotoken idea presented in
+[Token-Level Fuzzing][https://www.usenix.org/system/files/sec21-salls.pdf].
+It is a grammar fuzzer without actually knowing the grammar.
+
+It is recommended to run with together in an instance with `CMPLOG`.
+
+If you have a dictionary (`-x`) this improves this custom grammar mutator.
+
+If **not** run with `CMPLOG`, it is possible to set `AFL_CUSTOM_MUTATOR_ONLY`,
+to concentrate on grammar bug classes.
