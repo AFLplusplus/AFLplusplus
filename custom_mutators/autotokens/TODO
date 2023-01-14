@@ -1,0 +1,13 @@
+whitespace belassen oder notieren?		MAYBE
+0=space 1=tab 2=linefeed
+
+dictionary mitverwenden?			JA aber nur ascii
+-> neue liste?
+wie mache ich das bei honggfuzz?
+ansonsten neuer custom mutator entrypoint?
+
+nur is_ascii wenn cmplog aktiv, ansonsten eigene implementierung
+die aber dann dafür sorgt dass eine leere struktur da ist.
+is is_ascii in afl-common.o ?
+
+cmplog: only add tokens that were found to fit?
