@@ -494,7 +494,7 @@
 /* What is the minimum percentage of ascii characters present to be classifed
    as "is_ascii"? */
 
-#define AFL_TXT_MIN_PERCENT 94
+#define AFL_TXT_MIN_PERCENT 95
 
 /* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
 
