@@ -14,7 +14,7 @@ extern "C" {
 #include <vector>
 #include <regex>
 
-#define AUTOTOKENS_DEBUG 1
+#define AUTOTOKENS_DEBUG 0
 #define AUTOTOKENS_CHANGE_MIN 8
 
 using namespace std;
@@ -64,11 +64,13 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
                                afl_ptr->havoc_div / 256));
   // DEBUG(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
+  u32 max_rand = 4;
+
   for (i = 0; i < rounds; ++i) {
 
     u32 item, new_item;
 
-    switch (rand_below(afl_ptr, 4)) {
+    switch (rand_below(afl_ptr, max_rand)) {
 
       /* CHANGE */
       case 0:                                               /* fall through */
@@ -90,9 +92,19 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         break;
       /* ERASE - only if large enough */
       case 3:
-        if (m_size > 8) { m.erase(m.begin() + rand_below(afl_ptr, m_size)); }
-        --m_size;
+        if (m_size > 8) {
+
+          m.erase(m.begin() + rand_below(afl_ptr, m_size));
+          --m_size;
+
+        } else {
+
+          max_rand = 3;
+
+        }
+
         break;
+
         // TODO: add full line insert splice, replace splace, delete
 
     }
@@ -119,9 +131,16 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   }
 
+  if (unlikely(debug)) {
+
+    DEBUG(stderr, "MUTATED to %u bytes:\n", mutated_size);
+    fwrite(output.data(), 1, mutated_size, stderr);
+    DEBUG(stderr, "\n---\n");
+
+  }
+
   memcpy(mutated_out, output.data(), mutated_size);
   *out_buf = mutated_out;
-  DEBUG(stderr, "MUTATED to %u bytes:\n%s\n---\n", mutated_size, mutated_out);
   return mutated_size;
 
 }
@@ -292,11 +311,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     while (regex_search(cur, ende, match, regex_string)) {
 
       prev = cur;
-      found = match[1].first;
-      cur = match[1].second;
-      DEBUG(stderr,
-            "string \"%s\" found at start %lu offset %lu continue at %lu\n",
-            match[1].str().c_str(), prev - input.begin(), match.position(),
+      found = match[0].first;
+      cur = match[0].second;
+      DEBUG(stderr, "string %s found at start %lu offset %lu continue at %lu\n",
+            match[0].str().c_str(), prev - input.begin(), match.position(),
             cur - input.begin());
       if (prev < found) {  // there are items between search start and find
         sregex_token_iterator it{prev, found, regex_whitespace, -1};
@@ -361,7 +379,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       }
 
-      if (match[1].length() > 0) { tokens.push_back(match[1]); }
+      if (match[0].length() > 0) { tokens.push_back(match[0]); }
 
     }
 
