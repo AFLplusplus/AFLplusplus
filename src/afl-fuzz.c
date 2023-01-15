@@ -2154,8 +2154,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
 
+    unlink(afl->fsrv.out_file);
     afl->fsrv.out_file = NULL;
     afl->fsrv.use_stdin = 0;
+    close(afl->fsrv.out_fd);
+    afl->fsrv.out_fd = -1;
+
     if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
 
       WARNF(
