@@ -1,5 +1,7 @@
 extern "C" {
+
 #include "afl-fuzz.h"
+
 }
 
 #include <stdio.h>
@@ -13,9 +15,7 @@ extern "C" {
 #include <regex>
 
 #define AUTOTOKENS_DEBUG 1
-#define AUTOTOKENS_LEN_MIN 12
-#define AUTOTOKENS_CHANGE_MIN_PERCENT 5
-#define AUTOTOKENS_CHANGE_MAX_PERCENT 10
+#define AUTOTOKENS_CHANGE_MIN 8
 
 using namespace std;
 
@@ -31,43 +31,55 @@ typedef struct my_mutator {
 static afl_state                           *afl_ptr;
 static int                                  debug = AUTOTOKENS_DEBUG;
 static u32                                  current_id = 0;
+static u32                                  valid_structures = 0;
+static u32                                  extras_cnt = 0, a_extras_cnt = 0;
 static unordered_map<string, vector<u32> *> file_mapping;
 static unordered_map<string, u32>           token_to_id;
 static unordered_map<u32, string>           id_to_token;
-static regex regex_comment_slash("(//.*)([\r\n]?)", regex::optimize);
-static regex regex_comment_star("/\\*(.|\n)*?\\*/",
-                                regex::multiline | regex::optimize);
-static regex regex_string("\"(.*?)\"|'(.*?')", regex::optimize);
-static regex regex_word("[A-Za-z0-9_$]+", regex::optimize);
-static regex regex_whitespace(R"([ \t]+)", regex::optimize);
-static vector<u32> *s;
+static regex        regex_comment_slash("(//.*)([\r\n]?)", regex::optimize);
+static regex        regex_comment_star("/\\*(.|\n)*?\\*/",
+                                       regex::multiline | regex::optimize);
+static regex        regex_string("\"(.*?)\"|'(.*?')", regex::optimize);
+static regex        regex_word("[A-Za-z0-9_$]+", regex::optimize);
+static regex        regex_whitespace(R"([ \t]+)", regex::optimize);
+static vector<u32> *s;  // the structure of the currently selected input
 
-extern "C" size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                       u8 **out_buf, uint8_t *add_buf,
-                       size_t add_buf_size, size_t max_size) {
+extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
+                                  u8 **out_buf, u8 *add_buf,
+                                  size_t add_buf_size, size_t max_size) {
 
-  DEBUG(stderr, "MUT!\n");
+  if (s == NULL) {
 
-  if (s == NULL) { return 0; }
+    *out_buf = NULL;
+    return 0;
 
-  vector<u32> m = *s;
-  u32 i, m_size = (u32)m.size();
+  }
 
-  u32 rounds = MAX(8, MIN(m_size >> 3, HAVOC_CYCLES * afl_ptr->queue_cur->perf_score * afl_ptr->havoc_div / 256));
-  DEBUG(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
+  vector<u32> m = *s;  // copy of the structure we will modify
+  u32         i, m_size = (u32)m.size();
+
+  u32 rounds =
+      MAX(AUTOTOKENS_CHANGE_MIN,
+          MIN(m_size >> 3, HAVOC_CYCLES * afl_ptr->queue_cur->perf_score *
+                               afl_ptr->havoc_div / 256));
+  // DEBUG(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
   for (i = 0; i < rounds; ++i) {
-  
+
     u32 item, new_item;
-  
-    switch(rand_below(afl_ptr, 4)) {
+
+    switch (rand_below(afl_ptr, 4)) {
+
       /* CHANGE */
-      case 0: /* fall through */
+      case 0:                                               /* fall through */
       case 1:
         item = rand_below(afl_ptr, m_size);
         do {
+
           new_item = 1 + rand_below(afl_ptr, current_id);
-        } while(unlikely(new_item == m[item]));
+
+        } while (unlikely(new_item == m[item]));
+
         m[item] = new_item;
         break;
       /* INSERT (+1 so we insert also after last place) */
@@ -81,31 +93,32 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_s
         if (m_size > 8) { m.erase(m.begin() + rand_below(afl_ptr, m_size)); }
         --m_size;
         break;
+        // TODO: add full line insert splice, replace splace, delete
+
     }
-  
+
   }
-  
+
   string output;
-  u32 m_size_1 = m_size - 1;
+  u32    m_size_1 = m_size - 1;
+
   for (i = 0; i < m_size; ++i) {
+
     output += id_to_token[m[i]];
     if (likely(i < m_size_1)) { output += " "; }
+
   }
 
   u32 mutated_size = output.size();
-  u8 *mutated_out = (u8*)afl_realloc((void**)out_buf, mutated_size);
+  u8 *mutated_out = (u8 *)afl_realloc((void **)out_buf, mutated_size);
 
   if (unlikely(!mutated_out)) {
-  
+
     *out_buf = NULL;
     return 0;
-  
+
   }
 
-  /*
-  *out_buf = buf;
-  return buf_size;
-  */
   memcpy(mutated_out, output.data(), mutated_size);
   *out_buf = mutated_out;
   DEBUG(stderr, "MUTATED to %u bytes:\n%s\n---\n", mutated_size, mutated_out);
@@ -113,29 +126,106 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_s
 
 }
 
-
 /* We are not using afl_custom_queue_new_entry() because not every corpus entry
    will be necessarily fuzzed. so we use afl_custom_queue_get() instead */
 
 extern "C" unsigned char afl_custom_queue_get(void                *data,
                                               const unsigned char *filename) {
 
-  if (likely(!debug))
-    if (!afl_ptr->queue_cur->is_ascii) { s = NULL; return 0; }
+  if (likely(!debug)) {
+
+    if (afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) {
+
+      s = NULL;
+      return 0;
+
+    }
+
+  }
+
+  // check if there are new dictionary entries and add them to the tokens
+  if (valid_structures) {
+
+    while (extras_cnt < afl_ptr->extras_cnt) {
+
+      u32 ok = 1, l = afl_ptr->extras[extras_cnt].len;
+      u8 *ptr = afl_ptr->extras[extras_cnt].data;
+
+      for (u32 i = 0; i < l; ++i) {
+
+        if (!isascii((int)ptr[i]) && !isprint((int)ptr[i])) {
+
+          ok = 0;
+          break;
+
+        }
+
+      }
+
+      if (ok) {
+
+        ++current_id;
+        token_to_id[(char *)ptr] = current_id;
+        id_to_token[current_id] = (char *)ptr;
+
+      }
+
+      ++extras_cnt;
+      DEBUG(stderr, "Added from dictionary: \"%s\"\n", ptr);
+
+    }
+
+    while (a_extras_cnt < afl_ptr->a_extras_cnt) {
+
+      u32 ok = 1, l = afl_ptr->a_extras[a_extras_cnt].len;
+      u8 *ptr = afl_ptr->a_extras[a_extras_cnt].data;
+
+      for (u32 i = 0; i < l; ++i) {
+
+        if (!isascii((int)ptr[i]) && !isprint((int)ptr[i])) {
+
+          ok = 0;
+          break;
+
+        }
+
+      }
+
+      if (ok) {
+
+        ++current_id;
+        token_to_id[(char *)ptr] = current_id;
+        id_to_token[current_id] = (char *)ptr;
+
+      }
+
+      ++a_extras_cnt;
+      DEBUG(stderr, "Added from auto dictionary: \"%s\"\n", ptr);
+
+    }
+
+  }
 
   vector<u32> *structure = NULL;
   string       fn = (char *)filename;
+  auto         entry = file_mapping.find(fn);
 
-  auto entry = file_mapping.find(fn);
   if (entry == file_mapping.end()) {
 
     // this input file was not analyzed for tokens yet, so let's do it!
 
     FILE *fp = fopen((char *)filename, "rb");
-    if (!fp) { s = NULL; return 0; }  // should not happen
+    if (!fp) {
+
+      s = NULL;
+      return 0;
+
+    }  // should not happen
+
     fseek(fp, 0, SEEK_END);
     size_t len = (size_t)ftell(fp);
-    if (len < AUTOTOKENS_LEN_MIN) {
+
+    if (len < AFL_TXT_MIN_LEN) {
 
       fclose(fp);
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
@@ -150,6 +240,30 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     rewind(fp);
     fread(input.data(), input.size(), 1, fp);
     fclose(fp);
+
+    if (!afl_ptr->shm.cmplog_mode) {
+
+      // not running with CMPLOG? bad choice, but whatever ...
+      // we only want text inputs, so we have to check it ourselves.
+
+      u32 valid_chars = 0;
+      for (u32 i = 0; i < len; ++i) {
+
+        if (isascii((int)input[i]) || isprint((int)input[i])) { ++valid_chars; }
+
+      }
+
+      // we want at least 95% of text characters ...
+      if (((len * AFL_TXT_MIN_PERCENT) / 100) > valid_chars) {
+
+        file_mapping[fn] = NULL;
+        DEBUG(stderr, "Not text (%lu) %s\n", len, filename);
+        s = NULL;
+        return 0;
+
+      }
+
+    }
 
     // DEBUG(stderr, "Read %lu bytes for %s\nBefore comment trim:\n%s\n",
     // input.size(), filename, input.c_str());
@@ -175,7 +289,6 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     string::const_iterator cur = input.begin(), ende = input.end(), last = cur,
                            found, prev;
 
-    DEBUG(stderr, "MATCHES:\n");
     while (regex_search(cur, ende, match, regex_string)) {
 
       prev = cur;
@@ -196,11 +309,12 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
         DEBUG(stderr, "tokens: %lu   input size: %lu\n", tokenized.size(),
               input.size());
-        for (auto x : tokenized) {
+        if (unlikely(debug))
+          for (auto x : tokenized) {
 
-          cerr << x << endl;
+            cerr << x << endl;
 
-        }
+          }
 
         for (auto token : tokenized) {
 
@@ -232,8 +346,13 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
           if (c < e) {
 
-            string foo(c, e);
-            DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+            if (unlikely(debug)) {
+
+              string foo(c, e);
+              DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+
+            }
+
             tokens.push_back(std::string(c, e));
 
           }
@@ -248,8 +367,6 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     if (cur < ende) {
 
-      DEBUG(stderr, "REST!\n");
-
       sregex_token_iterator it{cur, ende, regex_whitespace, -1};
       vector<std::string>   tokenized{it, {}};
       tokenized.erase(
@@ -260,11 +377,12 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       DEBUG(stderr, "tokens: %lu   input size: %lu\n", tokenized.size(),
             input.size());
-      for (auto x : tokenized) {
+      if (unlikely(debug))
+        for (auto x : tokenized) {
 
-        cerr << x << endl;
+          cerr << x << endl;
 
-      }
+        }
 
       for (auto token : tokenized) {
 
@@ -279,8 +397,13 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
           if (p < f) {
 
             // there are items between search start and find
-            string foo(p, f);
-            DEBUG(stderr, "before string: \"%s\"\n", foo.c_str());
+            if (unlikely(debug)) {
+
+              string foo(p, f);
+              DEBUG(stderr, "before string: \"%s\"\n", foo.c_str());
+
+            }
+
             tokens.push_back(std::string(p, f));
 
           }
@@ -296,8 +419,13 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
         if (c < e) {
 
-          string foo(c, e);
-          DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+          if (unlikely(debug)) {
+
+            string foo(c, e);
+            DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+
+          }
+
           tokens.push_back(std::string(c, e));
 
         }
@@ -306,15 +434,18 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
-    DEBUG(stderr, "DUMPING TOKENS:\n");
-    if (unlikely(debug))
+    if (unlikely(debug)) {
+
+      DEBUG(stderr, "DUMPING TOKENS:\n");
       for (u32 i = 0; i < tokens.size(); ++i) {
 
         DEBUG(stderr, "%s ", tokens[i].c_str());
 
       }
 
-    DEBUG(stderr, "---------------------------\n");
+      DEBUG(stderr, "---------------------------\n");
+
+    }
 
     /* Now we transform the tokens into an ID list and saved that */
 
@@ -342,6 +473,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     // save the token structure to the file mapping
     file_mapping[fn] = structure;
     s = structure;
+    ++valid_structures;
 
     // we are done!
     DEBUG(stderr, "DONE! We have %lu tokens in the structure\n",
