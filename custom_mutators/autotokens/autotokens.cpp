@@ -28,21 +28,40 @@ typedef struct my_mutator {
 #define DEBUG \
   if (unlikely(debug)) fprintf
 
-static afl_state                           *afl_ptr;
-static int                                  debug = AUTOTOKENS_DEBUG;
-static u32                                  current_id = 0;
-static u32                                  valid_structures = 0;
-static u32                                  extras_cnt = 0, a_extras_cnt = 0;
+static afl_state *afl_ptr;
+static int        debug = AUTOTOKENS_DEBUG;
+static u32        current_id;
+static u32        valid_structures;
+static u32        whitespace_ids;
+static u32        extras_cnt, a_extras_cnt;
+static u64        all_spaces, all_tabs, all_lf, all_ws;
 static unordered_map<string, vector<u32> *> file_mapping;
 static unordered_map<string, u32>           token_to_id;
 static unordered_map<u32, string>           id_to_token;
-static regex        regex_comment_slash("(//.*)([\r\n]?)", regex::optimize);
-static regex        regex_comment_star("/\\*(.|\n)*?\\*/",
-                                       regex::multiline | regex::optimize);
-static regex        regex_string("\"(.*?)\"|'(.*?')", regex::optimize);
-static regex        regex_word("[A-Za-z0-9_$]+", regex::optimize);
-static regex        regex_whitespace(R"([ \t]+)", regex::optimize);
+// static regex        regex_comment_slash("(//.*)([\r\n]?)", regex::optimize);
+static regex regex_comment_star("/\\*([:print:]|\n)*?\\*/",
+                                regex::multiline | regex::optimize);
+static regex regex_string("\"[[:print:]]*?\"|'[[:print:]]*?'", regex::optimize);
 static vector<u32> *s;  // the structure of the currently selected input
+
+u32 good_whitespace_or_singleval() {
+
+  u32 i = rand_below(afl_ptr, current_id);
+  if (id_to_token[i].size() == 1) { return i; }
+  i = rand_below(afl_ptr, all_ws);
+  if (i < all_spaces) {
+
+    return 0;
+
+  } else if (i < all_tabs) {
+
+    return 1;
+
+  } else
+
+    return 2;  // linefeed
+
+}
 
 extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
                                   u8 **out_buf, u8 *add_buf,
@@ -68,30 +87,76 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   for (i = 0; i < rounds; ++i) {
 
-    u32 item, new_item;
-
     switch (rand_below(afl_ptr, max_rand)) {
 
       /* CHANGE */
       case 0:                                               /* fall through */
-      case 1:
-        item = rand_below(afl_ptr, m_size);
+      case 1: {
+
+        u32 pos = rand_below(afl_ptr, m_size);
+        u32 cur_item = m[pos], new_item;
         do {
 
-          new_item = 1 + rand_below(afl_ptr, current_id);
+          new_item = rand_below(afl_ptr, current_id);
 
-        } while (unlikely(new_item == m[item]));
+        } while (unlikely(
 
-        m[item] = new_item;
+            new_item == cur_item ||
+            (whitespace_ids < new_item && whitespace_ids >= cur_item) ||
+            (whitespace_ids >= new_item && whitespace_ids < cur_item)));
+
+        DEBUG(stderr, "MUT: %u -> %u\n", cur_item, new_item);
+        m[pos] = new_item;
         break;
-      /* INSERT (+1 so we insert also after last place) */
-      case 2:
-        new_item = 1 + rand_below(afl_ptr, current_id);
-        m.insert(m.begin() + rand_below(afl_ptr, m_size + 1), new_item);
+
+      }
+
+      /* INSERT (m_size +1 so we insert also after last place) */
+      case 2: {
+
+        u32 new_item;
+        do {
+
+          new_item = rand_below(afl_ptr, current_id);
+
+        } while (new_item >= whitespace_ids);
+
+        u32 pos = rand_below(afl_ptr, m_size + 1);
+        m.insert(m.begin() + pos, new_item);
         ++m_size;
+
+        // if we insert an identifier or string we might need whitespace
+        if (id_to_token[new_item].size() > 1) {
+
+          // need to insert before?
+
+          if (pos && m[pos - 1] >= whitespace_ids &&
+              id_to_token[m[pos - 1]].size() > 1) {
+
+            m.insert(m.begin() + pos, good_whitespace_or_singleval());
+            ++m_size;
+
+          }
+
+          if (pos + 1 < m_size && m[pos + 1] >= whitespace_ids &&
+              id_to_token[m[pos + 1]].size() > 1) {
+
+            // need to insert after?
+
+            m.insert(m.begin() + pos + 1, good_whitespace_or_singleval());
+            ++m_size;
+
+          }
+
+        }
+
         break;
+
+      }
+
       /* ERASE - only if large enough */
-      case 3:
+      case 3: {
+
         if (m_size > 8) {
 
           m.erase(m.begin() + rand_below(afl_ptr, m_size));
@@ -105,6 +170,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
         break;
 
+      }
+
         // TODO: add full line insert splice, replace splace, delete
 
     }
@@ -112,12 +179,10 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
   }
 
   string output;
-  u32    m_size_1 = m_size - 1;
 
   for (i = 0; i < m_size; ++i) {
 
     output += id_to_token[m[i]];
-    if (likely(i < m_size_1)) { output += " "; }
 
   }
 
@@ -183,9 +248,9 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       if (ok) {
 
-        ++current_id;
         token_to_id[(char *)ptr] = current_id;
         id_to_token[current_id] = (char *)ptr;
+        ++current_id;
 
       }
 
@@ -212,9 +277,9 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       if (ok) {
 
-        ++current_id;
         token_to_id[(char *)ptr] = current_id;
         id_to_token[current_id] = (char *)ptr;
+        ++current_id;
 
       }
 
@@ -257,7 +322,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     string input;
     input.resize(len);
     rewind(fp);
-    fread(input.data(), input.size(), 1, fp);
+    fread((void *)input.data(), input.size(), 1, fp);
     fclose(fp);
 
     if (!afl_ptr->shm.cmplog_mode) {
@@ -287,28 +352,34 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     // DEBUG(stderr, "Read %lu bytes for %s\nBefore comment trim:\n%s\n",
     // input.size(), filename, input.c_str());
 
-    input = regex_replace(input, regex_comment_slash, "$2");
+    // input = regex_replace(input, regex_comment_slash, "$2");
     input = regex_replace(input, regex_comment_star, "");
 
     DEBUG(stderr, "After replace %lu bytes for %s\n%s\n", input.size(),
           filename, input.c_str());
 
-    /*
-    u32 spaces = count(input.begin(), input.end(), ' ');
-    u32 tabs = count(input.begin(), input.end(), '\t');
-    u32 linefeeds = count(input.begin(), input.end(), '\n');
+    u32  spaces = count(input.begin(), input.end(), ' ');
+    u32  tabs = count(input.begin(), input.end(), '\t');
+    u32  linefeeds = count(input.begin(), input.end(), '\n');
     bool ends_with_linefeed = input[input.length() - 1] == '\n';
     DEBUG(stderr, "spaces=%u tabs=%u linefeeds=%u ends=%u\n", spaces, tabs,
           linefeeds, ends_with_linefeed);
-    */
+    all_spaces += spaces;
+    all_tabs += tabs;
+    all_lf += linefeeds;
+    all_ws = all_spaces + all_tabs + all_lf;
 
     // now extract all tokens
     vector<string>         tokens;
     smatch                 match;
-    string::const_iterator cur = input.begin(), ende = input.end(), last = cur,
-                           found, prev;
+    string::const_iterator cur = input.begin(), ende = input.end(), found, prev;
 
-    while (regex_search(cur, ende, match, regex_string)) {
+    DEBUG(stderr, "START!\n");
+
+    while (regex_search(cur, ende, match, regex_string,
+                        regex_constants::match_any |
+                            regex_constants::match_not_null |
+                            regex_constants::match_continuous)) {
 
       prev = cur;
       found = match[0].first;
@@ -316,62 +387,42 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       DEBUG(stderr, "string %s found at start %lu offset %lu continue at %lu\n",
             match[0].str().c_str(), prev - input.begin(), match.position(),
             cur - input.begin());
+
       if (prev < found) {  // there are items between search start and find
-        sregex_token_iterator it{prev, found, regex_whitespace, -1};
-        vector<std::string>   tokenized{it, {}};
-        tokenized.erase(
-            std::remove_if(tokenized.begin(), tokenized.end(),
-                           [](std::string const &s) { return s.size() == 0; }),
-            tokenized.end());
-        tokens.reserve(tokens.size() + tokenized.size() * 2 + 1);
+        while (prev < found) {
 
-        DEBUG(stderr, "tokens: %lu   input size: %lu\n", tokenized.size(),
-              input.size());
-        if (unlikely(debug))
-          for (auto x : tokenized) {
+          if (isspace(*prev)) {
 
-            cerr << x << endl;
+            auto start = prev;
+            while (isspace(*prev)) {
 
-          }
-
-        for (auto token : tokenized) {
-
-          string::const_iterator c = token.begin(), e = token.end(), f, p;
-          smatch                 m;
-
-          while (regex_search(c, e, m, regex_word)) {
-
-            p = c;
-            f = m[0].first;
-            c = m[0].second;
-            if (p < f) {
-
-              // there are items between search start and find
-              string foo(p, f);
-              DEBUG(stderr, "before string: \"%s\"\n", foo.c_str());
-              tokens.push_back(std::string(p, f));
+              ++prev;
 
             }
 
-            DEBUG(stderr,
-                  "SUBstring \"%s\" found at start %lu offset %lu continue at "
-                  "%lu\n",
-                  m[0].str().c_str(), p - input.begin(), m.position(),
-                  c - token.begin());
-            tokens.push_back(m[0].str());
+            tokens.push_back(std::string(start, prev));
+            DEBUG(stderr, "WHITESPACE %ld \"%s\"\n", prev - start,
+                  tokens[tokens.size() - 1].c_str());
 
-          }
+          } else if (isalnum(*prev) || *prev == '$' || *prev == '_') {
 
-          if (c < e) {
+            auto start = prev;
+            while (isalnum(*prev) || *prev == '$' || *prev == '_' ||
+                   *prev == '.' || *prev == '/') {
 
-            if (unlikely(debug)) {
-
-              string foo(c, e);
-              DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+              ++prev;
 
             }
 
-            tokens.push_back(std::string(c, e));
+            tokens.push_back(std::string(start, prev));
+            DEBUG(stderr, "IDENTIFIER %ld \"%s\"\n", prev - start,
+                  tokens[tokens.size() - 1].c_str());
+
+          } else {
+
+            tokens.push_back(std::string(prev, prev + 1));
+            DEBUG(stderr, "OTHER \"%c\"\n", *prev);
+            ++prev;
 
           }
 
@@ -383,68 +434,44 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
+    DEBUG(stderr, "AFTER all strings\n");
+
     if (cur < ende) {
 
-      sregex_token_iterator it{cur, ende, regex_whitespace, -1};
-      vector<std::string>   tokenized{it, {}};
-      tokenized.erase(
-          std::remove_if(tokenized.begin(), tokenized.end(),
-                         [](std::string const &s) { return s.size() == 0; }),
-          tokenized.end());
-      tokens.reserve(tokens.size() + tokenized.size() * 2 + 1);
+      while (cur < ende) {
 
-      DEBUG(stderr, "tokens: %lu   input size: %lu\n", tokenized.size(),
-            input.size());
-      if (unlikely(debug))
-        for (auto x : tokenized) {
+        if (isspace(*cur)) {
 
-          cerr << x << endl;
+          auto start = cur;
+          while (isspace(*cur)) {
 
-        }
-
-      for (auto token : tokenized) {
-
-        string::const_iterator c = token.begin(), e = token.end(), f, p;
-        smatch                 m;
-
-        while (regex_search(c, e, m, regex_word)) {
-
-          p = c;
-          f = m[0].first;
-          c = m[0].second;
-          if (p < f) {
-
-            // there are items between search start and find
-            if (unlikely(debug)) {
-
-              string foo(p, f);
-              DEBUG(stderr, "before string: \"%s\"\n", foo.c_str());
-
-            }
-
-            tokens.push_back(std::string(p, f));
+            ++cur;
 
           }
 
-          DEBUG(stderr,
-                "SUB2string \"%s\" found at start %lu offset %lu continue at "
-                "%lu\n",
-                m[0].str().c_str(), p - input.begin(), m.position(),
-                c - token.begin());
-          tokens.push_back(m[0].str());
+          tokens.push_back(std::string(start, cur));
+          DEBUG(stderr, "WHITESPACE %ld \"%s\"\n", cur - start,
+                tokens[tokens.size() - 1].c_str());
 
-        }
+        } else if (isalnum(*cur) || *cur == '$' || *cur == '_') {
 
-        if (c < e) {
+          auto start = cur;
+          while (isalnum(*cur) || *cur == '$' || *cur == '_' || *cur == '.' ||
+                 *cur == '/') {
 
-          if (unlikely(debug)) {
-
-            string foo(c, e);
-            DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+            ++cur;
 
           }
 
-          tokens.push_back(std::string(c, e));
+          tokens.push_back(std::string(start, cur));
+          DEBUG(stderr, "IDENTIFIER %ld \"%s\"\n", cur - start,
+                tokens[tokens.size() - 1].c_str());
+
+        } else {
+
+          tokens.push_back(std::string(cur, cur + 1));
+          DEBUG(stderr, "OTHER \"%c\"\n", *cur);
+          ++cur;
 
         }
 
@@ -457,7 +484,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       DEBUG(stderr, "DUMPING TOKENS:\n");
       for (u32 i = 0; i < tokens.size(); ++i) {
 
-        DEBUG(stderr, "%s ", tokens[i].c_str());
+        DEBUG(stderr, "%s", tokens[i].c_str());
 
       }
 
@@ -475,10 +502,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       if ((id = token_to_id[tokens[i]]) == 0) {
 
         // First time we see this token, add it to the list
-        ++current_id;
         token_to_id[tokens[i]] = current_id;
         id_to_token[current_id] = tokens[i];
         structure->push_back(current_id);
+        ++current_id;
 
       } else {
 
@@ -528,6 +555,30 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   }
 
   data->afl = afl_ptr = afl;
+
+  // set common whitespace tokens
+  token_to_id[" "] = current_id;
+  id_to_token[current_id] = " ";
+  ++current_id;
+  token_to_id["\t"] = current_id;
+  id_to_token[current_id] = "\t";
+  ++current_id;
+  token_to_id["\n"] = current_id;
+  id_to_token[current_id] = "\n";
+  ++current_id;
+  token_to_id["\r\n"] = current_id;
+  id_to_token[current_id] = "\r\n";
+  ++current_id;
+  token_to_id[" \n"] = current_id;
+  id_to_token[current_id] = " \n";
+  ++current_id;
+  token_to_id["  "] = current_id;
+  id_to_token[current_id] = "  ";
+  ++current_id;
+  token_to_id["\t\t"] = current_id;
+  id_to_token[current_id] = "\t\t";
+  ++current_id;
+  whitespace_ids = current_id;
 
   return data;
 
