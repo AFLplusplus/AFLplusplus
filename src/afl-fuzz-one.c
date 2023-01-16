@@ -584,7 +584,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic) ||
+  if (likely(afl->skip_deterministic) || likely(afl->queue_cur->passed_det) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
                   ? afl->queue_cur->depth * 30
@@ -1908,9 +1908,10 @@ custom_mutator_stage:
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
-  afl->stage_max = HAVOC_CYCLES * perf_score / afl->havoc_div / 100;
   afl->stage_val_type = STAGE_VAL_NONE;
   bool has_custom_fuzz = false;
+  u32  shift = unlikely(afl->custom_only) ? 7 : 8;
+  afl->stage_max = (HAVOC_CYCLES * perf_score / afl->havoc_div) >> shift;
 
   if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
@@ -2063,8 +2064,9 @@ havoc_stage:
 
     afl->stage_name = "havoc";
     afl->stage_short = "havoc";
-    afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
-                     perf_score / afl->havoc_div / 100;
+    afl->stage_max = ((doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
+                      perf_score / afl->havoc_div) >>
+                     7;
 
   } else {
 
@@ -2073,7 +2075,7 @@ havoc_stage:
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "splice %u", splice_cycle);
     afl->stage_name = afl->stage_name_buf;
     afl->stage_short = "splice";
-    afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
+    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 7;
 
   }
 
@@ -4621,8 +4623,9 @@ pacemaker_fuzzing:
 
     afl->stage_name = MOpt_globals.havoc_stagename;
     afl->stage_short = MOpt_globals.havoc_stagenameshort;
-    afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
-                     perf_score / afl->havoc_div / 100;
+    afl->stage_max = ((doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
+                      perf_score / afl->havoc_div) >>
+                     7;
 
   } else {
 
@@ -4632,7 +4635,7 @@ pacemaker_fuzzing:
              MOpt_globals.splice_stageformat, splice_cycle);
     afl->stage_name = afl->stage_name_buf;
     afl->stage_short = MOpt_globals.splice_stagenameshort;
-    afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
+    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 7;
 
   }
 
@@ -5792,10 +5795,8 @@ void pso_updating(afl_state_t *afl) {
 
 }
 
-/* larger change for MOpt implementation: the original fuzz_one was renamed
-   to fuzz_one_original. All documentation references to fuzz_one therefore
-   mean fuzz_one_original */
-
+/* The entry point for the mutator, choosing the default mutator, and/or MOpt
+   depending on the configuration. */
 u8 fuzz_one(afl_state_t *afl) {
 
   int key_val_lv_1 = 0, key_val_lv_2 = 0;
@@ -5818,7 +5819,12 @@ u8 fuzz_one(afl_state_t *afl) {
 
 #endif
 
-  // if limit_time_sig == -1 then both are run after each other
+  /*
+     -L command line paramter => limit_time_sig value
+       limit_time_sig == 0 then run the default mutator
+       limit_time_sig  > 0 then run MOpt
+       limit_time_sig  < 0 both are run
+  */
 
   if (afl->limit_time_sig <= 0) { key_val_lv_1 = fuzz_one_original(afl); }
 
