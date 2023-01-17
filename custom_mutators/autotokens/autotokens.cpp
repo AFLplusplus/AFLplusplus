@@ -35,6 +35,7 @@ static u32        valid_structures;
 static u32        whitespace_ids;
 static u32        extras_cnt, a_extras_cnt;
 static u64        all_spaces, all_tabs, all_lf, all_ws;
+static u64        all_structure_items;
 static unordered_map<string, vector<u32> *> file_mapping;
 static unordered_map<string, u32>           token_to_id;
 static unordered_map<u32, string>           id_to_token;
@@ -519,6 +520,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     file_mapping[fn] = structure;
     s = structure;
     ++valid_structures;
+    all_structure_items += structure->size();
 
     // we are done!
     DEBUG(stderr, "DONE! We have %lu tokens in the structure\n",
@@ -585,6 +587,16 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
 }
 
 extern "C" void afl_custom_deinit(my_mutator_t *data) {
+
+  /* we use this to print statistics at exit :-)
+     needs to be stderr as stdout is filtered */
+
+  fprintf(stderr,
+          "\n\nAutotoken mutator statistics:\n"
+          "  Number of all seen tokens:  %lu\n"
+          "  Number of input structures: %lu\n"
+          "  Number of all items in structures: %lu\n\n",
+          current_id - 1, valid_structures, all_structure_items);
 
   free(data);
 

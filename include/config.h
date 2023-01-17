@@ -364,9 +364,9 @@
  *                                                         *
  ***********************************************************/
 
-/* Call count interval between reseeding the libc PRNG from /dev/urandom: */
+/* Call count interval between reseeding the PRNG from /dev/urandom: */
 
-#define RESEED_RNG 100000
+#define RESEED_RNG 2500000
 
 /* The default maximum testcase cache size in MB, 0 = disable.
    A value between 50 and 250 is a good default value. Note that the
