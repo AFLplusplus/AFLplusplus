@@ -22,6 +22,7 @@ extern "C" {
 #define AUTOTOKENS_SIZE_MIN 8
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
+#define AUTOTOKENS_SPLICE_DISABLE 0
 
 #if AUTOTOKENS_SPLICE_MIN >= AUTOTOKENS_SIZE_MIN
   #error SPLICE_MIN must be lower than SIZE_MIN
@@ -102,7 +103,13 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
                                afl_ptr->havoc_div / 256));
   // DEBUG(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
-  u32 max_rand = 14;
+#if AUTOTOKENS_SPLICE_DISABLE == 1
+  #define AUTOTOKENS_MUT_MAX 12
+#else
+  #define AUTOTOKENS_MUT_MAX 14
+#endif
+
+  u32 max_rand = AUTOTOKENS_MUT_MAX;
 
   for (i = 0; i < rounds; ++i) {
 
@@ -179,6 +186,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
       }
 
+#if AUTOTOKENS_SPLICE_DISABLE != 1
       /* SPLICING */
       case 10 ... 11: {
 
@@ -230,9 +238,10 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         break;
 
       }
+#endif
 
       /* ERASE - only if large enough */
-      case 12 ... 13: {
+      default: {
 
         if (m_size > 8) {
 
@@ -241,7 +250,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
         } else {
 
-          max_rand = 12;
+          max_rand = AUTOTOKENS_MUT_MAX - 2;
 
         }
 
