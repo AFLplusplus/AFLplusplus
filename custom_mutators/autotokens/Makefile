@@ -1,3 +1,8 @@
+ifdef debug
+	CFLAGS += "-fsanitize=address -Wall"
+	CXX := clang++
+endif
+
 all:	autotokens.so
 
 autotokens.so:	autotokens.cpp

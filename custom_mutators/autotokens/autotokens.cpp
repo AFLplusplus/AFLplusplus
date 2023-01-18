@@ -48,7 +48,7 @@ static string                               whitespace = AUTOTOKENS_WHITESPACE;
 static regex                               *regex_comment_custom;
 static regex regex_comment_star("/\\*([:print:]|\n)*?\\*/",
                                 regex::multiline | regex::optimize);
-static regex regex_word("[A-Za-z0-9_$]+", regex::optimize);
+static regex regex_word("[A-Za-z0-9_$.-]+", regex::optimize);
 static regex regex_whitespace(R"([ \t]+)", regex::optimize);
 static regex regex_string("\"[[:print:]]*?\"|'[[:print:]]*?'", regex::optimize);
 static vector<u32> *s;  // the structure of the currently selected input
@@ -514,7 +514,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       // alternative tokenize
 
-      while (regex_search(cur, ende, match, regex_string)) {
+      while (regex_search(cur, ende, match, regex_string,
+                          regex_constants::match_any |
+                              regex_constants::match_not_null |
+                              regex_constants::match_continuous)) {
 
         prev = cur;
         found = match[0].first;
@@ -553,7 +556,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
             string::const_iterator c = token.begin(), e = token.end(), f, p;
             smatch                 m;
 
-            while (regex_search(c, e, m, regex_word)) {
+            while (regex_search(c, e, m, regex_word,
+                                regex_constants::match_any |
+                                    regex_constants::match_not_null |
+                                    regex_constants::match_continuous)) {
 
               p = c;
               f = m[0].first;
@@ -658,7 +664,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
           string::const_iterator c = token.begin(), e = token.end(), f, p;
           smatch                 m;
 
-          while (regex_search(c, e, m, regex_word)) {
+          while (regex_search(c, e, m, regex_word,
+                              regex_constants::match_any |
+                                  regex_constants::match_not_null |
+                                  regex_constants::match_continuous)) {
 
             p = c;
             f = m[0].first;
@@ -820,6 +829,7 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
 
   }
 
+  if (getenv("AUTOTOKENS_DEBUG")) { debug = 1; }
   if (getenv("AUTOTOKENS_ONLY_FAV")) { only_fav = 1; }
   if (getenv("AUTOTOKENS_ALTERNATIVE_TOKENIZE")) { alternative_tokenize = 1; }
   if (getenv("AUTOTOKENS_WHITESPACE")) {
@@ -890,9 +900,9 @@ extern "C" void afl_custom_deinit(my_mutator_t *data) {
 
   fprintf(stderr,
           "\n\nAutotoken mutator statistics:\n"
-          "  Number of all seen tokens:  %lu\n"
-          "  Number of input structures: %lu\n"
-          "  Number of all items in structures: %lu\n\n",
+          "  Number of all seen tokens:  %u\n"
+          "  Number of input structures: %u\n"
+          "  Number of all items in structures: %llu\n\n",
           current_id - 1, valid_structures, all_structure_items);
 
   free(data);
