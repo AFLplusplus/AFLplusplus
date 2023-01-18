@@ -398,7 +398,7 @@ typedef struct afl_env_vars {
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme,
-      afl_no_startup_calibration;
+      afl_ignore_timeouts, afl_no_startup_calibration;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
