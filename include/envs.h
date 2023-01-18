@@ -103,6 +103,7 @@ static char *afl_environment_variables[] = {
     "AFL_HARDEN",
     "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
     "AFL_IGNORE_PROBLEMS",
+    "AFL_IGNORE_TIMEOUTS",
     "AFL_IGNORE_UNKNOWN_ENVS",
     "AFL_IMPORT_FIRST",
     "AFL_INPUT_LEN_MIN",
