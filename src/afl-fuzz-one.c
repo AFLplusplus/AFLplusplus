@@ -1954,7 +1954,8 @@ custom_mutator_stage:
           u32                 target_len = 0;
 
           /* check if splicing makes sense yet (enough entries) */
-          if (likely(afl->ready_for_splicing_count > 1)) {
+          if (likely(!afl->custom_splice_optout &&
+                     afl->ready_for_splicing_count > 1)) {
 
             /* Pick a random other queue entry for passing to external API
                that has the necessary length */
