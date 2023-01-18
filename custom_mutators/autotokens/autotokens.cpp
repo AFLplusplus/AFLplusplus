@@ -129,7 +129,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
           new_item = rand_below(afl_ptr, current_id);
 
-        } while (new_item >= whitespace_ids);
+        } while (!alternative_tokenize && new_item >= whitespace_ids);
 
         u32 pos = rand_below(afl_ptr, m_size + 1);
         m.insert(m.begin() + pos, new_item);
