@@ -851,43 +851,47 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   // set common whitespace tokens
   // we deliberately do not put uncommon ones here to these will count as
   // identifier tokens.
-  token_to_id[" "] = current_id;
-  id_to_token[current_id] = " ";
-  ++current_id;
-  token_to_id["\t"] = current_id;
-  id_to_token[current_id] = "\t";
-  ++current_id;
-  token_to_id["\n"] = current_id;
-  id_to_token[current_id] = "\n";
-  ++current_id;
-  token_to_id["\r\n"] = current_id;
-  id_to_token[current_id] = "\r\n";
-  ++current_id;
-  token_to_id[" \n"] = current_id;
-  id_to_token[current_id] = " \n";
-  ++current_id;
-  token_to_id["  "] = current_id;
-  id_to_token[current_id] = "  ";
-  ++current_id;
-  token_to_id["\t\t"] = current_id;
-  id_to_token[current_id] = "\t\t";
-  ++current_id;
-  token_to_id["\n\n"] = current_id;
-  id_to_token[current_id] = "\n\n";
-  ++current_id;
-  token_to_id["\r\n\r\n"] = current_id;
-  id_to_token[current_id] = "\r\n\r\n";
-  ++current_id;
-  token_to_id["    "] = current_id;
-  id_to_token[current_id] = "    ";
-  ++current_id;
-  token_to_id["\t\t\t\t"] = current_id;
-  id_to_token[current_id] = "\t\t\t\t";
-  ++current_id;
-  token_to_id["\n\n\n\n"] = current_id;
-  id_to_token[current_id] = "\n\n\n\n";
-  ++current_id;
-  whitespace_ids = current_id;
+  if (!alternative_tokenize) {
+
+    token_to_id[" "] = current_id;
+    id_to_token[current_id] = " ";
+    ++current_id;
+    token_to_id["\t"] = current_id;
+    id_to_token[current_id] = "\t";
+    ++current_id;
+    token_to_id["\n"] = current_id;
+    id_to_token[current_id] = "\n";
+    ++current_id;
+    token_to_id["\r\n"] = current_id;
+    id_to_token[current_id] = "\r\n";
+    ++current_id;
+    token_to_id[" \n"] = current_id;
+    id_to_token[current_id] = " \n";
+    ++current_id;
+    token_to_id["  "] = current_id;
+    id_to_token[current_id] = "  ";
+    ++current_id;
+    token_to_id["\t\t"] = current_id;
+    id_to_token[current_id] = "\t\t";
+    ++current_id;
+    token_to_id["\n\n"] = current_id;
+    id_to_token[current_id] = "\n\n";
+    ++current_id;
+    token_to_id["\r\n\r\n"] = current_id;
+    id_to_token[current_id] = "\r\n\r\n";
+    ++current_id;
+    token_to_id["    "] = current_id;
+    id_to_token[current_id] = "    ";
+    ++current_id;
+    token_to_id["\t\t\t\t"] = current_id;
+    id_to_token[current_id] = "\t\t\t\t";
+    ++current_id;
+    token_to_id["\n\n\n\n"] = current_id;
+    id_to_token[current_id] = "\n\n\n\n";
+    ++current_id;
+    whitespace_ids = current_id;
+
+  }
 
   return data;
 
