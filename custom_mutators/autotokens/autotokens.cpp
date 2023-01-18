@@ -22,7 +22,9 @@ extern "C" {
 #define AUTOTOKENS_SIZE_MIN 8
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
-#define AUTOTOKENS_SPLICE_DISABLE 0
+#ifndef AUTOTOKENS_SPLICE_DISABLE
+  #define AUTOTOKENS_SPLICE_DISABLE 0
+#endif
 
 #if AUTOTOKENS_SPLICE_MIN >= AUTOTOKENS_SIZE_MIN
   #error SPLICE_MIN must be lower than SIZE_MIN
@@ -49,6 +51,7 @@ static u32        whitespace_ids;
 static u32        extras_cnt, a_extras_cnt;
 static u64        all_spaces, all_tabs, all_lf, all_ws;
 static u64        all_structure_items;
+static u64        fuzz_count;
 static unordered_map<string, vector<u32> *> file_mapping;
 static unordered_map<u32, vector<u32> *>    id_mapping;
 static unordered_map<string, u32>           token_to_id;
@@ -238,6 +241,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         break;
 
       }
+
 #endif
 
       /* ERASE - only if large enough */
@@ -298,6 +302,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   memcpy(mutated_out, output.data(), mutated_size);
   *out_buf = mutated_out;
+  ++fuzz_count;
   return mutated_size;
 
 }
@@ -997,8 +1002,9 @@ extern "C" void afl_custom_deinit(my_mutator_t *data) {
           "\n\nAutotoken mutator statistics:\n"
           "  Number of all seen tokens:  %u\n"
           "  Number of input structures: %u\n"
-          "  Number of all items in structures: %llu\n\n",
-          current_id - 1, valid_structures, all_structure_items);
+          "  Number of all items in structures: %llu\n"
+          "  Number of total fuzzes: %llu\n\n",
+          current_id - 1, valid_structures, all_structure_items, fuzz_count);
 
   free(data);
 
