@@ -11,6 +11,8 @@ If you have a dictionary (`-x`) this improves this custom grammar mutator.
 If **not** running with `CMPLOG`, it is possible to set
 `AFL_CUSTOM_MUTATOR_ONLY` to concentrate on grammar bug classes.
 
+Do **not** set `AFL_DISABLE_TRIM` with this custom mutator!
+
 ## Configuration via environment variables
 
 `AUTOTOKENS_ONLY_FAV` - only use this mutator on favorite queue items
