@@ -1,5 +1,9 @@
 ifdef debug
-	CFLAGS += "-fsanitize=address -Wall"
+	CFLAGS += -fsanitize=address -Wall
+	CXX := clang++
+endif
+ifdef DEBUG
+	CFLAGS += -fsanitize=address -Wall
 	CXX := clang++
 endif
 

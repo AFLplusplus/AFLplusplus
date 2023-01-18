@@ -48,6 +48,7 @@ C/C++:
 ```c
 void *afl_custom_init(afl_state_t *afl, unsigned int seed);
 unsigned int afl_custom_fuzz_count(void *data, const unsigned char *buf, size_t buf_size);
+void afl_custom_splice_optout(void *data);
 size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
 const char *afl_custom_describe(void *data, size_t max_description_len);
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
@@ -71,6 +72,9 @@ def init(seed):
 
 def fuzz_count(buf):
     return cnt
+
+def splice_optout()
+    pass
 
 def fuzz(buf, add_buf, max_size):
     return mutated_out
@@ -131,6 +135,13 @@ def deinit():  # optional for Python
     custom mutator wants to set this number instead on how often it is called
     for a specific queue entry, use this function. This function is most useful
     if `AFL_CUSTOM_MUTATOR_ONLY` is **not** used.
+
+- `splice_optout` (optional):
+
+    If this function is present, no splicing target is passed to the `fuzz`
+    function. This saves time if splicing data is not needed by the custom
+    fuzzing function.
+    This function is never called, just needs to be present to activate.
 
 - `fuzz` (optional):
 

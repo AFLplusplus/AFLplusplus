@@ -358,6 +358,19 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
+  /* "afl_custom_splice_optout", optional, never called */
+  mutator->afl_custom_splice_optout = dlsym(dh, "afl_custom_splice_optout");
+  if (!mutator->afl_custom_splice_optout) {
+
+    ACTF("optional symbol 'afl_custom_splice_optout' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_splice_optout'.");
+    afl->custom_splice_optout = 1;
+
+  }
+
   /* "afl_custom_fuzz_send", optional */
   mutator->afl_custom_fuzz_send = dlsym(dh, "afl_custom_fuzz_send");
   if (!mutator->afl_custom_fuzz_send) {

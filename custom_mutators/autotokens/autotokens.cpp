@@ -19,6 +19,13 @@ extern "C" {
 #define AUTOTOKENS_ALTERNATIVE_TOKENIZE 0
 #define AUTOTOKENS_CHANGE_MIN 8
 #define AUTOTOKENS_WHITESPACE " "
+#define AUTOTOKENS_SIZE_MIN 8
+#define AUTOTOKENS_SPLICE_MIN 4
+#define AUTOTOKENS_SPLICE_MAX 64
+
+#if AUTOTOKENS_SPLICE_MIN >= AUTOTOKENS_SIZE_MIN
+  #error SPLICE_MIN must be lower than SIZE_MIN
+#endif
 
 using namespace std;
 
@@ -42,6 +49,7 @@ static u32        extras_cnt, a_extras_cnt;
 static u64        all_spaces, all_tabs, all_lf, all_ws;
 static u64        all_structure_items;
 static unordered_map<string, vector<u32> *> file_mapping;
+static unordered_map<u32, vector<u32> *>    id_mapping;
 static unordered_map<string, u32>           token_to_id;
 static unordered_map<u32, string>           id_to_token;
 static string                               whitespace = AUTOTOKENS_WHITESPACE;
@@ -76,6 +84,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
                                   u8 **out_buf, u8 *add_buf,
                                   size_t add_buf_size, size_t max_size) {
 
+  (void)(data);
+
   if (s == NULL) {
 
     *out_buf = NULL;
@@ -92,14 +102,14 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
                                afl_ptr->havoc_div / 256));
   // DEBUG(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
-  u32 max_rand = 7;
+  u32 max_rand = 14;
 
   for (i = 0; i < rounds; ++i) {
 
     switch (rand_below(afl_ptr, max_rand)) {
 
       /* CHANGE */
-      case 0 ... 3:                                         /* fall through */
+      case 0 ... 7:                                         /* fall through */
       {
 
         u32 pos = rand_below(afl_ptr, m_size);
@@ -122,18 +132,19 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
       }
 
       /* INSERT (m_size +1 so we insert also after last place) */
-      case 4 ... 5: {
+      case 8 ... 9: {
 
         u32 new_item;
         do {
 
           new_item = rand_below(afl_ptr, current_id);
 
-        } while (!alternative_tokenize && new_item >= whitespace_ids);
+        } while (unlikely(!alternative_tokenize && new_item >= whitespace_ids));
 
         u32 pos = rand_below(afl_ptr, m_size + 1);
         m.insert(m.begin() + pos, new_item);
         ++m_size;
+        DEBUG(stderr, "INS: %u at %u\n", new_item, pos);
 
         if (likely(!alternative_tokenize)) {
 
@@ -168,8 +179,63 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
       }
 
+      /* SPLICING */
+      case 10 ... 11: {
+
+        u32  strategy = rand_below(afl_ptr, 4), dst_off, n;
+        auto src = id_mapping[rand_below(afl_ptr, valid_structures)];
+        u32  src_size = src->size();
+        u32  src_off = rand_below(afl_ptr, src_size - AUTOTOKENS_SPLICE_MIN);
+        u32  rand_r = 1 + MAX(AUTOTOKENS_SPLICE_MIN,
+                              MIN(AUTOTOKENS_SPLICE_MAX, src_size - src_off));
+
+        switch (strategy) {
+
+          // insert
+          case 0: {
+
+            dst_off = rand_below(afl_ptr, m_size);
+            n = AUTOTOKENS_SPLICE_MIN +
+                rand_below(afl_ptr, MIN(AUTOTOKENS_SPLICE_MAX,
+                                        rand_r - AUTOTOKENS_SPLICE_MIN));
+            m.insert(m.begin() + dst_off, src->begin() + src_off,
+                     src->begin() + src_off + n);
+            m_size += n;
+            DEBUG(stderr, "SPLICE-INS: %u at %u\n", n, dst_off);
+            break;
+
+          }
+
+          // overwrite
+          default: {
+
+            dst_off = rand_below(afl_ptr, m_size - AUTOTOKENS_SPLICE_MIN);
+            n = AUTOTOKENS_SPLICE_MIN +
+                rand_below(
+                    afl_ptr,
+                    MIN(AUTOTOKENS_SPLICE_MAX - AUTOTOKENS_SPLICE_MIN,
+                        MIN(m_size - dst_off - AUTOTOKENS_SPLICE_MIN,
+                            src_size - src_off - AUTOTOKENS_SPLICE_MIN)));
+
+            for (u32 i = 0; i < n; ++i) {
+
+              m[dst_off + i] = (*src)[src_off + i];
+
+            }
+
+            DEBUG(stderr, "SPLICE-MUT: %u at %u\n", n, dst_off);
+            break;
+
+          }
+
+        }
+
+        break;
+
+      }
+
       /* ERASE - only if large enough */
-      case 6: {
+      case 12 ... 13: {
 
         if (m_size > 8) {
 
@@ -178,7 +244,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
         } else {
 
-          max_rand = 6;
+          max_rand = 12;
 
         }
 
@@ -236,12 +302,15 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 extern "C" unsigned char afl_custom_queue_get(void                *data,
                                               const unsigned char *filename) {
 
+  (void)(data);
+
   if (likely(!debug)) {
 
     if ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
         (only_fav && !afl_ptr->queue_cur->favored)) {
 
       s = NULL;
+      DEBUG(stderr, "cmplog not ascii or only_fav and not favorite\n");
       return 0;
 
     }
@@ -334,8 +403,8 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       fclose(fp);
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
-      DEBUG(stderr, "Too short (%lu) %s\n", len, filename);
       s = NULL;
+      DEBUG(stderr, "Too short (%lu) %s\n", len, filename);
       return 0;
 
     }
@@ -362,8 +431,8 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       if (((len * AFL_TXT_MIN_PERCENT) / 100) > valid_chars) {
 
         file_mapping[fn] = NULL;
-        DEBUG(stderr, "Not text (%lu) %s\n", len, filename);
         s = NULL;
+        DEBUG(stderr, "Not text (%lu) %s\n", len, filename);
         return 0;
 
       }
@@ -766,6 +835,15 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
+    if (tokens.size() < AUTOTOKENS_SIZE_MIN) {
+
+      file_mapping[fn] = NULL;
+      s = NULL;
+      DEBUG(stderr, "too few tokens\n");
+      return 0;
+
+    }
+
     /* Now we transform the tokens into an ID list and saved that */
 
     structure = new vector<u32>();
@@ -791,8 +869,9 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     // save the token structure to the file mapping
     file_mapping[fn] = structure;
-    s = structure;
+    id_mapping[valid_structures] = structure;
     ++valid_structures;
+    s = structure;
     all_structure_items += structure->size();
 
     // we are done!
@@ -894,6 +973,12 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   }
 
   return data;
+
+}
+
+extern "C" void afl_custom_splice_optout(my_mutator_t *data) {
+
+  (void)(data);
 
 }
 
