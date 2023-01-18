@@ -11,3 +11,12 @@ If you have a dictionary (`-x`) this improves this custom grammar mutator.
 If **not** running with `CMPLOG`, it is possible to set
 `AFL_CUSTOM_MUTATOR_ONLY` to concentrate on grammar bug classes.
 
+## Configuration via environment variables
+
+`AUTOTOKENS_ONLY_FAV` - only use this mutator on favorite queue items
+`AUTOTOKENS_COMMENT` - what character or string starts a comment which will be
+                       removed. Default: `/* ... */`
+`AUTOTOKENS_ALTERNATIVE_TOKENIZE` - use an alternative tokenize implementation
+                                   (experimental)
+`AUTOTOKENS_WHITESPACE` - whitespace string to use for ALTERNATIVE_TOKENIZE,
+                          default is " "
