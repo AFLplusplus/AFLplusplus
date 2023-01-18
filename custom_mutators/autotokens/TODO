@@ -1,12 +1,6 @@
-whitespace belassen oder notieren?		MAYBE
-0=space 1=tab 2=linefeed
-
 cmplog: only add tokens that were found to fit?
 
 create from thin air if no good seed after a cycle and dict large enough?
 (static u32 no_of_struct_inputs;) 
 
-splice insert, splice overwrite
-(linefeed, semicolon)
-
-
+splicing -> check if whitespace/token is needed

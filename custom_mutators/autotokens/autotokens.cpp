@@ -217,11 +217,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
                         MIN(m_size - dst_off - AUTOTOKENS_SPLICE_MIN,
                             src_size - src_off - AUTOTOKENS_SPLICE_MIN)));
 
-            for (u32 i = 0; i < n; ++i) {
-
-              m[dst_off + i] = (*src)[src_off + i];
-
-            }
+            copy(src->begin() + src_off, src->begin() + src_off + n,
+                 m.begin() + dst_off);
 
             DEBUG(stderr, "SPLICE-MUT: %u at %u\n", n, dst_off);
             break;
