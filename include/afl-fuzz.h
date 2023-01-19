@@ -844,15 +844,16 @@ struct custom_mutator {
   /**
    * Perform custom mutations on a given input
    *
-   * (Optional for now. Required in the future)
+   * (Optional)
    *
-   * @param data pointer returned in afl_custom_init by this custom mutator
+   * Getting an add_buf can be skipped by using afl_custom_splice_optout().
+   *
+   * @param[in] data Pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of the input/output data
-   * @param[out] out_buf the new buffer. We may reuse *buf if large enough.
-   *             *out_buf = NULL is treated as FATAL.
-   * @param[in] add_buf Buffer containing the additional test case
+   * @param[out] out_buf The new buffer, under your memory mgmt.
+   * @param[in] add_buf Buffer containing an additional test case (splicing)
    * @param[in] add_buf_size Size of the additional test case
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.

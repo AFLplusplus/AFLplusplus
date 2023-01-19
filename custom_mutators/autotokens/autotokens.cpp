@@ -38,8 +38,10 @@ typedef struct my_mutator {
 
 } my_mutator_t;
 
-#define DEBUG \
+#undef DEBUGF
+#define DEBUGF \
   if (unlikely(debug)) fprintf
+#define IFDEBUG if (unlikely(debug))
 
 static afl_state *afl_ptr;
 static int        debug = AUTOTOKENS_DEBUG;
@@ -57,12 +59,12 @@ static unordered_map<u32, vector<u32> *>    id_mapping;
 static unordered_map<string, u32>           token_to_id;
 static unordered_map<u32, string>           id_to_token;
 static string                               whitespace = AUTOTOKENS_WHITESPACE;
+static string                               output;
 static regex                               *regex_comment_custom;
-static regex regex_comment_star("/\\*([:print:]|\n)*?\\*/",
-                                regex::multiline | regex::optimize);
-static regex regex_word("[A-Za-z0-9_$.-]+", regex::optimize);
-static regex regex_whitespace(R"([ \t]+)", regex::optimize);
-static regex regex_string("\"[[:print:]]*?\"|'[[:print:]]*?'", regex::optimize);
+static regex        regex_comment_star("/\\*([:print:]|\n)*?\\*/",
+                                       regex::multiline | regex::optimize);
+static regex        regex_word("[A-Za-z0-9_$.-]+", regex::optimize);
+static regex        regex_whitespace(R"([ \t]+)", regex::optimize);
 static vector<u32> *s;  // the structure of the currently selected input
 
 u32 good_whitespace_or_singleval() {
@@ -104,7 +106,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
       MAX(AUTOTOKENS_CHANGE_MIN,
           MIN(m_size >> 3, HAVOC_CYCLES * afl_ptr->queue_cur->perf_score *
                                afl_ptr->havoc_div / 256));
-  // DEBUG(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
+  // DEBUGF(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
 #if AUTOTOKENS_SPLICE_DISABLE == 1
   #define AUTOTOKENS_MUT_MAX 12
@@ -112,7 +114,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
   #define AUTOTOKENS_MUT_MAX 14
 #endif
 
-  u32 max_rand = AUTOTOKENS_MUT_MAX;
+  u32 max_rand = AUTOTOKENS_MUT_MAX, new_item, pos;
 
   for (i = 0; i < rounds; ++i) {
 
@@ -122,8 +124,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
       case 0 ... 7:                                         /* fall through */
       {
 
-        u32 pos = rand_below(afl_ptr, m_size);
-        u32 cur_item = m[pos], new_item;
+        pos = rand_below(afl_ptr, m_size);
+        u32 cur_item = m[pos];
         do {
 
           new_item = rand_below(afl_ptr, current_id);
@@ -135,7 +137,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
              ((whitespace_ids < new_item && whitespace_ids >= cur_item) ||
               (whitespace_ids >= new_item && whitespace_ids < cur_item)))));
 
-        DEBUG(stderr, "MUT: %u -> %u\n", cur_item, new_item);
+        DEBUGF(stderr, "MUT: %u -> %u\n", cur_item, new_item);
         m[pos] = new_item;
         break;
 
@@ -144,7 +146,6 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
       /* INSERT (m_size +1 so we insert also after last place) */
       case 8 ... 9: {
 
-        u32 new_item;
         do {
 
           new_item = rand_below(afl_ptr, current_id);
@@ -154,7 +155,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         u32 pos = rand_below(afl_ptr, m_size + 1);
         m.insert(m.begin() + pos, new_item);
         ++m_size;
-        DEBUG(stderr, "INS: %u at %u\n", new_item, pos);
+        DEBUGF(stderr, "INS: %u at %u\n", new_item, pos);
 
         if (likely(!alternative_tokenize)) {
 
@@ -212,7 +213,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
             m.insert(m.begin() + dst_off, src->begin() + src_off,
                      src->begin() + src_off + n);
             m_size += n;
-            DEBUG(stderr, "SPLICE-INS: %u at %u\n", n, dst_off);
+            DEBUGF(stderr, "SPLICE-INS: %u at %u\n", n, dst_off);
+
             break;
 
           }
@@ -231,8 +233,31 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
             copy(src->begin() + src_off, src->begin() + src_off + n,
                  m.begin() + dst_off);
 
-            DEBUG(stderr, "SPLICE-MUT: %u at %u\n", n, dst_off);
+            DEBUGF(stderr, "SPLICE-MUT: %u at %u\n", n, dst_off);
             break;
+
+          }
+
+        }
+
+        if (likely(!alternative_tokenize)) {
+
+          // do we need a whitespace/token at the beginning?
+          if (dst_off && id_to_token[m[dst_off - 1]].size() > 1 &&
+              id_to_token[m[dst_off]].size() > 1) {
+
+            m.insert(m.begin() + dst_off, good_whitespace_or_singleval());
+            ++m_size;
+
+          }
+
+          // do we need a whitespace/token at the end?
+          if (dst_off + n < m_size &&
+              id_to_token[m[dst_off + n - 1]].size() > 1 &&
+              id_to_token[m[dst_off + n]].size() > 1) {
+
+            m.insert(m.begin() + dst_off + n, good_whitespace_or_singleval());
+            ++m_size;
 
           }
 
@@ -249,10 +274,31 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
         if (m_size > 8) {
 
-          m.erase(m.begin() + rand_below(afl_ptr, m_size));
-          --m_size;
+          do {
+
+            pos = rand_below(afl_ptr, m_size);
+
+          } while (unlikely(pos < whitespace_ids));
+
+          // if what we delete will result in a missing whitespace/token,
+          // instead of deleting we switch the item to a whitespace or token.
+          if (likely(!alternative_tokenize) && pos && pos < m_size &&
+              id_to_token[m[pos - 1]].size() > 1 &&
+              id_to_token[m[pos + 1]].size() > 1) {
+
+            m[pos] = good_whitespace_or_singleval();
+
+          } else {
+
+            m.erase(m.begin() + pos);
+            --m_size;
+
+          }
 
         } else {
+
+          // if the data is already too small do not try to make it smaller
+          // again this run.
 
           max_rand = AUTOTOKENS_MUT_MAX - 2;
 
@@ -262,14 +308,12 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
       }
 
-        // TODO: add full line insert splice, replace splace, delete
-
     }
 
   }
 
-  string output;
-  u32    m_size_1 = m_size - 1;
+  u32 m_size_1 = m_size - 1;
+  output = "";
 
   for (i = 0; i < m_size; ++i) {
 
@@ -282,28 +326,105 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   }
 
-  u32 mutated_size = output.size();
-  u8 *mutated_out = (u8 *)afl_realloc((void **)out_buf, mutated_size);
+  u32 mutated_size = (u32)output.size();
+  u8 *mutated_out = (u8 *)output.data();
 
-  if (unlikely(!mutated_out)) {
+  if (unlikely(mutated_size > max_size)) { mutated_size = max_size; }
 
-    *out_buf = NULL;
-    return 0;
+  IFDEBUG {
 
-  }
-
-  if (unlikely(debug)) {
-
-    DEBUG(stderr, "MUTATED to %u bytes:\n", mutated_size);
+    DEBUGF(stderr, "MUTATED to %u bytes:\n", mutated_size);
     fwrite(output.data(), 1, mutated_size, stderr);
-    DEBUG(stderr, "\n---\n");
+    DEBUGF(stderr, "\n---\n");
 
   }
 
-  memcpy(mutated_out, output.data(), mutated_size);
   *out_buf = mutated_out;
   ++fuzz_count;
   return mutated_size;
+
+}
+
+/* I get f*cking stack overflow using C++ regex with a regex of
+   "\"[[:print:]]*?\"" if this matches a long string even with regex::optimize
+   enabled :-( */
+u8 my_search_string(string::const_iterator cur, string::const_iterator ende,
+                    string::const_iterator *match_begin,
+                    string::const_iterator *match_end) {
+
+  string::const_iterator start = cur, found_begin;
+  u8                     quote_type = 0;
+
+  while (cur < ende) {
+
+    switch (*cur) {
+
+      case '"': {
+
+        if (cur == start || *(cur - 1) != '\\') {
+
+          if (!quote_type) {
+
+            found_begin = cur;
+            quote_type = 1;
+
+          } else if (quote_type == 1) {
+
+            *match_begin = found_begin;
+            *match_end = cur + 1;
+            return 1;
+
+          }
+
+        }
+
+        break;
+
+      }
+
+      case '\'': {
+
+        if (cur == start || *(cur - 1) != '\\') {
+
+          if (!quote_type) {
+
+            found_begin = cur;
+            quote_type = 2;
+
+          } else if (quote_type == 2) {
+
+            *match_begin = found_begin;
+            *match_end = cur + 1;
+            return 1;
+
+          }
+
+        }
+
+        break;
+
+      }
+
+      case '\n':
+      case '\r':
+      case 0: {
+
+        quote_type = 0;
+        break;
+
+      }
+
+      default:
+        if (unlikely(quote_type && !isprint(*cur))) { quote_type = 0; }
+        break;
+
+    }
+
+    ++cur;
+
+  }
+
+  return 0;
 
 }
 
@@ -321,7 +442,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
         (only_fav && !afl_ptr->queue_cur->favored)) {
 
       s = NULL;
-      DEBUG(stderr, "cmplog not ascii or only_fav and not favorite\n");
+      DEBUGF(stderr, "cmplog not ascii or only_fav and not favorite\n");
       return 0;
 
     }
@@ -356,7 +477,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       }
 
       ++extras_cnt;
-      DEBUG(stderr, "Added from dictionary: \"%s\"\n", ptr);
+      DEBUGF(stderr, "Added from dictionary: \"%s\"\n", ptr);
 
     }
 
@@ -385,7 +506,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       }
 
       ++a_extras_cnt;
-      DEBUG(stderr, "Added from auto dictionary: \"%s\"\n", ptr);
+      DEBUGF(stderr, "Added from auto dictionary: \"%s\"\n", ptr);
 
     }
 
@@ -415,7 +536,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       fclose(fp);
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
       s = NULL;
-      DEBUG(stderr, "Too short (%lu) %s\n", len, filename);
+      DEBUGF(stderr, "Too short (%lu) %s\n", len, filename);
       return 0;
 
     }
@@ -443,14 +564,14 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
         file_mapping[fn] = NULL;
         s = NULL;
-        DEBUG(stderr, "Not text (%lu) %s\n", len, filename);
+        DEBUGF(stderr, "Not text (%lu) %s\n", len, filename);
         return 0;
 
       }
 
     }
 
-    // DEBUG(stderr, "Read %lu bytes for %s\nBefore comment trim:\n%s\n",
+    // DEBUGF(stderr, "Read %lu bytes for %s\nBefore comment trim:\n%s\n",
     // input.size(), filename, input.c_str());
 
     if (regex_comment_custom) {
@@ -463,15 +584,15 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
-    DEBUG(stderr, "After replace %lu bytes for %s\n%s\n", input.size(),
-          filename, input.c_str());
+    DEBUGF(stderr, "After replace %lu bytes for %s\n%s\n", input.size(),
+           filename, input.c_str());
 
     u32  spaces = count(input.begin(), input.end(), ' ');
     u32  tabs = count(input.begin(), input.end(), '\t');
     u32  linefeeds = count(input.begin(), input.end(), '\n');
     bool ends_with_linefeed = input[input.length() - 1] == '\n';
-    DEBUG(stderr, "spaces=%u tabs=%u linefeeds=%u ends=%u\n", spaces, tabs,
-          linefeeds, ends_with_linefeed);
+    DEBUGF(stderr, "spaces=%u tabs=%u linefeeds=%u ends=%u\n", spaces, tabs,
+           linefeeds, ends_with_linefeed);
     all_spaces += spaces;
     all_tabs += tabs;
     all_lf += linefeeds;
@@ -479,25 +600,28 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     // now extract all tokens
     vector<string>         tokens;
-    smatch                 match;
-    string::const_iterator cur = input.begin(), ende = input.end(), found, prev;
+    string::const_iterator cur = input.begin(), ende = input.end(), found, prev,
+                           match_begin, match_end;
 
-    DEBUG(stderr, "START!\n");
+    DEBUGF(stderr, "START!\n");
 
     if (likely(!alternative_tokenize)) {
 
-      while (regex_search(cur, ende, match, regex_string,
-                          regex_constants::match_any |
-                              regex_constants::match_not_null |
-                              regex_constants::match_continuous)) {
+      while (my_search_string(cur, ende, &match_begin, &match_end)) {
 
         prev = cur;
-        found = match[0].first;
-        cur = match[0].second;
-        DEBUG(stderr,
-              "string %s found at start %lu offset %lu continue at %lu\n",
-              match[0].str().c_str(), prev - input.begin(), match.position(),
-              cur - input.begin());
+        found = match_begin;
+        cur = match_end;
+
+        IFDEBUG {
+
+          string foo(match_begin, match_end);
+          DEBUGF(stderr,
+                 "string %s found at start %lu offset %lu continue at %lu\n",
+                 foo.c_str(), prev - input.begin(), found - prev,
+                 cur - input.begin());
+
+        }
 
         if (prev < found) {  // there are items between search start and find
           while (prev < found) {
@@ -512,8 +636,8 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
               }
 
               tokens.push_back(std::string(start, prev));
-              DEBUG(stderr, "WHITESPACE %ld \"%s\"\n", prev - start,
-                    tokens[tokens.size() - 1].c_str());
+              DEBUGF(stderr, "WHITESPACE %ld \"%s\"\n", prev - start,
+                     tokens[tokens.size() - 1].c_str());
 
             } else if (isalnum(*prev) || *prev == '$' || *prev == '_') {
 
@@ -525,14 +649,14 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
               }
 
-              tokens.push_back(std::string(start, prev));
-              DEBUG(stderr, "IDENTIFIER %ld \"%s\"\n", prev - start,
-                    tokens[tokens.size() - 1].c_str());
+              tokens.push_back(string(start, prev));
+              DEBUGF(stderr, "IDENTIFIER %ld \"%s\"\n", prev - start,
+                     tokens[tokens.size() - 1].c_str());
 
             } else {
 
-              tokens.push_back(std::string(prev, prev + 1));
-              DEBUG(stderr, "OTHER \"%c\"\n", *prev);
+              tokens.push_back(string(prev, prev + 1));
+              DEBUGF(stderr, "OTHER \"%c\"\n", *prev);
               ++prev;
 
             }
@@ -541,11 +665,12 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
         }
 
-        if (match[0].length() > 0) { tokens.push_back(match[0]); }
+        tokens.push_back(string(match_begin, match_end));
+        DEBUGF(stderr, "TOK: %s\n", tokens[tokens.size() - 1].c_str());
 
       }
 
-      DEBUG(stderr, "AFTER all strings\n");
+      DEBUGF(stderr, "AFTER all strings\n");
 
       if (cur < ende) {
 
@@ -561,8 +686,8 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
             }
 
             tokens.push_back(std::string(start, cur));
-            DEBUG(stderr, "WHITESPACE %ld \"%s\"\n", cur - start,
-                  tokens[tokens.size() - 1].c_str());
+            DEBUGF(stderr, "WHITESPACE %ld \"%s\"\n", cur - start,
+                   tokens[tokens.size() - 1].c_str());
 
           } else if (isalnum(*cur) || *cur == '$' || *cur == '_') {
 
@@ -575,13 +700,13 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
             }
 
             tokens.push_back(std::string(start, cur));
-            DEBUG(stderr, "IDENTIFIER %ld \"%s\"\n", cur - start,
-                  tokens[tokens.size() - 1].c_str());
+            DEBUGF(stderr, "IDENTIFIER %ld \"%s\"\n", cur - start,
+                   tokens[tokens.size() - 1].c_str());
 
           } else {
 
             tokens.push_back(std::string(cur, cur + 1));
-            DEBUG(stderr, "OTHER \"%c\"\n", *cur);
+            DEBUGF(stderr, "OTHER \"%c\"\n", *cur);
             ++cur;
 
           }
@@ -593,19 +718,21 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     } else {
 
       // alternative tokenize
-
-      while (regex_search(cur, ende, match, regex_string,
-                          regex_constants::match_any |
-                              regex_constants::match_not_null |
-                              regex_constants::match_continuous)) {
+      while (my_search_string(cur, ende, &match_begin, &match_end)) {
 
         prev = cur;
-        found = match[0].first;
-        cur = match[0].second;
-        DEBUG(stderr,
-              "string %s found at start %lu offset %lu continue at %lu\n",
-              match[0].str().c_str(), prev - input.begin(), match.position(),
-              cur - input.begin());
+        found = match_begin;
+        cur = match_end;
+        IFDEBUG {
+
+          string foo(match_begin, match_end);
+          DEBUGF(stderr,
+                 "string %s found at start %lu offset %lu continue at %lu\n",
+                 foo.c_str(), prev - input.begin(), found - prev,
+                 cur - input.begin());
+
+        }
+
         if (prev < found) {  // there are items between search start and find
           sregex_token_iterator it{prev, found, regex_whitespace, -1};
           vector<std::string>   tokenized{it, {}};
@@ -619,10 +746,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
                           tokenized.end());
           tokens.reserve(tokens.size() + tokenized.size() * 2 + 1);
 
-          if (unlikely(debug)) {
+          IFDEBUG {
 
-            DEBUG(stderr, "tokens: %lu   input size: %lu\n", tokenized.size(),
-                  input.size());
+            DEBUGF(stderr, "tokens1: %lu   input size: %lu\n", tokenized.size(),
+                   input.size());
             for (auto x : tokenized) {
 
               cerr << x << endl;
@@ -636,10 +763,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
             string::const_iterator c = token.begin(), e = token.end(), f, p;
             smatch                 m;
 
-            while (regex_search(c, e, m, regex_word,
-                                regex_constants::match_any |
-                                    regex_constants::match_not_null |
-                                    regex_constants::match_continuous)) {
+            while (regex_search(c, e, m, regex_word)) {
 
               p = c;
               f = m[0].first;
@@ -649,10 +773,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
                 // there are items between search start and find
                 while (p < f) {
 
-                  if (unlikely(debug)) {
+                  IFDEBUG {
 
                     string foo(p, p + 1);
-                    DEBUG(stderr, "before string: \"%s\"\n", foo.c_str());
+                    DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
 
                   }
 
@@ -661,20 +785,21 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
                 }
 
-                /*
-                                string foo(p, f);
-                                DEBUG(stderr, "before string: \"%s\"\n",
-                   foo.c_str()); tokens.push_back(std::string(p, f));
-                */
+                IFDEBUG {
+
+                  string foo(p, f);
+                  DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
+                  tokens.push_back(std::string(p, f));
+
+                }
 
               }
 
-              DEBUG(
-                  stderr,
-                  "SUBstring \"%s\" found at start %lu offset %lu continue at "
-                  "%lu\n",
-                  m[0].str().c_str(), p - input.begin(), m.position(),
-                  c - token.begin());
+              DEBUGF(stderr,
+                     "SUBstring \"%s\" found at start %lu offset %lu continue "
+                     "at %lu\n",
+                     m[0].str().c_str(), p - input.begin(), m.position(),
+                     c - token.begin());
               tokens.push_back(m[0].str());
 
             }
@@ -683,10 +808,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
               while (c < e) {
 
-                if (unlikely(debug)) {
+                IFDEBUG {
 
                   string foo(c, c + 1);
-                  DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+                  DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
 
                 }
 
@@ -695,17 +820,14 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
               }
 
-              /*
-                            if (unlikely(debug)) {
+              IFDEBUG {
 
-                              string foo(c, e);
-                              DEBUG(stderr, "after string: \"%s\"\n",
-                 foo.c_str());
+                string foo(c, e);
+                DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
 
-                            }
+              }
 
-                            tokens.push_back(std::string(c, e));
-              */
+              tokens.push_back(std::string(c, e));
 
             }
 
@@ -713,7 +835,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
         }
 
-        if (match[0].length() > 0) { tokens.push_back(match[0]); }
+        tokens.push_back(string(match_begin, match_end));
 
       }
 
@@ -727,10 +849,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
             tokenized.end());
         tokens.reserve(tokens.size() + tokenized.size() * 2 + 1);
 
-        if (unlikely(debug)) {
+        IFDEBUG {
 
-          DEBUG(stderr, "tokens: %lu   input size: %lu\n", tokenized.size(),
-                input.size());
+          DEBUGF(stderr, "tokens2: %lu   input size: %lu\n", tokenized.size(),
+                 input.size());
           for (auto x : tokenized) {
 
             cerr << x << endl;
@@ -744,10 +866,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
           string::const_iterator c = token.begin(), e = token.end(), f, p;
           smatch                 m;
 
-          while (regex_search(c, e, m, regex_word,
-                              regex_constants::match_any |
-                                  regex_constants::match_not_null |
-                                  regex_constants::match_continuous)) {
+          while (regex_search(c, e, m, regex_word)) {
 
             p = c;
             f = m[0].first;
@@ -757,10 +876,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
               // there are items between search start and find
               while (p < f) {
 
-                if (unlikely(debug)) {
+                IFDEBUG {
 
                   string foo(p, p + 1);
-                  DEBUG(stderr, "before string: \"%s\"\n", foo.c_str());
+                  DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
 
                 }
 
@@ -769,25 +888,22 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
               }
 
-              /*
-                            if (unlikely(debug)) {
+              IFDEBUG {
 
-                              string foo(p, f);
-                              DEBUG(stderr, "before string: \"%s\"\n",
-                 foo.c_str());
+                string foo(p, f);
+                DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
 
-                            }
+              }
 
-                            tokens.push_back(std::string(p, f));
-              */
+              tokens.push_back(std::string(p, f));
 
             }
 
-            DEBUG(stderr,
-                  "SUB2string \"%s\" found at start %lu offset %lu continue at "
-                  "%lu\n",
-                  m[0].str().c_str(), p - input.begin(), m.position(),
-                  c - token.begin());
+            DEBUGF(stderr,
+                   "SUB2string \"%s\" found at start %lu offset %lu continue "
+                   "at %lu\n",
+                   m[0].str().c_str(), p - input.begin(), m.position(),
+                   c - token.begin());
             tokens.push_back(m[0].str());
 
           }
@@ -796,10 +912,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
             while (c < e) {
 
-              if (unlikely(debug)) {
+              IFDEBUG {
 
                 string foo(c, c + 1);
-                DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+                DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
 
               }
 
@@ -808,16 +924,14 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
             }
 
-            /*
-                        if (unlikely(debug)) {
+            IFDEBUG {
 
-                          string foo(c, e);
-                          DEBUG(stderr, "after string: \"%s\"\n", foo.c_str());
+              string foo(c, e);
+              DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
 
-                        }
+            }
 
-                        tokens.push_back(std::string(c, e));
-            */
+            tokens.push_back(std::string(c, e));
 
           }
 
@@ -827,22 +941,22 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
-    if (unlikely(debug)) {
+    IFDEBUG {
 
-      DEBUG(stderr, "DUMPING TOKENS:\n");
+      DEBUGF(stderr, "DUMPING TOKENS:\n");
       u32 size_1 = tokens.size() - 1;
       for (u32 i = 0; i < tokens.size(); ++i) {
 
-        DEBUG(stderr, "%s", tokens[i].c_str());
+        DEBUGF(stderr, "%s", tokens[i].c_str());
         if (unlikely(alternative_tokenize && i < size_1)) {
 
-          DEBUG(stderr, "%s", whitespace.c_str());
+          DEBUGF(stderr, "%s", whitespace.c_str());
 
         }
 
       }
 
-      DEBUG(stderr, "---------------------------\n");
+      DEBUGF(stderr, "---------------------------\n");
 
     }
 
@@ -850,7 +964,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       file_mapping[fn] = NULL;
       s = NULL;
-      DEBUG(stderr, "too few tokens\n");
+      DEBUGF(stderr, "too few tokens\n");
       return 0;
 
     }
@@ -886,21 +1000,23 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     all_structure_items += structure->size();
 
     // we are done!
-    DEBUG(stderr, "DONE! We have %lu tokens in the structure\n",
-          structure->size());
+    DEBUGF(stderr, "DONE! We have %lu tokens in the structure\n",
+           structure->size());
 
-  } else {
+  }
+
+  else {
 
     if (entry->second == NULL) {
 
-      DEBUG(stderr, "Skipping %s\n", filename);
+      DEBUGF(stderr, "Skipping %s\n", filename);
       s = NULL;
       return 0;
 
     }
 
     s = entry->second;
-    DEBUG(stderr, "OK %s\n", filename);
+    DEBUGF(stderr, "OK %s\n", filename);
 
   }
 

@@ -150,6 +150,7 @@ def deinit():  # optional for Python
     sense to use it. You would only skip this if `post_process` is used to fix
     checksums etc. so if you are using it, e.g., as a post processing library.
     Note that a length > 0 *must* be returned!
+    The returned output buffer is under **your** memory management!
 
 - `describe` (optional):
 
