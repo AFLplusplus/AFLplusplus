@@ -544,7 +544,15 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     string input;
     input.resize(len);
     rewind(fp);
-    fread((void *)input.data(), input.size(), 1, fp);
+
+    if (fread((void *)input.data(), 1, len, fp) != len) {
+
+      s = NULL;
+      DEBUGF(stderr, "Too short read %s\n", len, filename);
+      return 0;
+
+    }
+
     fclose(fp);
 
     if (!afl_ptr->shm.cmplog_mode) {
