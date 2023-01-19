@@ -121,8 +121,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
     switch (rand_below(afl_ptr, max_rand)) {
 
       /* CHANGE/MUTATE single item */
-      case 0 ... 9:
-      {
+      case 0 ... 9: {
 
         pos = rand_below(afl_ptr, m_size);
         u32 cur_item = m[pos];
@@ -438,8 +437,9 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
   if (likely(!debug)) {
 
-    if ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
-        (only_fav && !afl_ptr->queue_cur->favored)) {
+    if (unlikely(!afl_ptr->custom_only) &&
+        ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
+         (only_fav && !afl_ptr->queue_cur->favored))) {
 
       s = NULL;
       DEBUGF(stderr, "cmplog not ascii or only_fav and not favorite\n");
