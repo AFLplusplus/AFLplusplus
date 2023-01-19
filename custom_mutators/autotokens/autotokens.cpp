@@ -109,9 +109,9 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
   // DEBUGF(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
 #if AUTOTOKENS_SPLICE_DISABLE == 1
-  #define AUTOTOKENS_MUT_MAX 12
+  #define AUTOTOKENS_MUT_MAX 18
 #else
-  #define AUTOTOKENS_MUT_MAX 14
+  #define AUTOTOKENS_MUT_MAX 27
 #endif
 
   u32 max_rand = AUTOTOKENS_MUT_MAX, new_item, pos;
@@ -120,8 +120,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
     switch (rand_below(afl_ptr, max_rand)) {
 
-      /* CHANGE */
-      case 0 ... 7:                                         /* fall through */
+      /* CHANGE/MUTATE single item */
+      case 0 ... 9:
       {
 
         pos = rand_below(afl_ptr, m_size);
@@ -144,7 +144,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
       }
 
       /* INSERT (m_size +1 so we insert also after last place) */
-      case 8 ... 9: {
+      case 10 ... 13: {
 
         do {
 
@@ -192,7 +192,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
 #if AUTOTOKENS_SPLICE_DISABLE != 1
       /* SPLICING */
-      case 10 ... 11: {
+      case 14 ... 22: {
 
         u32  strategy = rand_below(afl_ptr, 4), dst_off, n;
         auto src = id_mapping[rand_below(afl_ptr, valid_structures)];
@@ -278,11 +278,11 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
             pos = rand_below(afl_ptr, m_size);
 
-          } while (unlikely(pos < whitespace_ids));
+          } while (unlikely(m[pos] < whitespace_ids));
 
           // if what we delete will result in a missing whitespace/token,
           // instead of deleting we switch the item to a whitespace or token.
-          if (likely(!alternative_tokenize) && pos && pos < m_size &&
+          if (likely(!alternative_tokenize) && pos && pos + 1 < m_size &&
               id_to_token[m[pos - 1]].size() > 1 &&
               id_to_token[m[pos + 1]].size() > 1) {
 
@@ -300,7 +300,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
           // if the data is already too small do not try to make it smaller
           // again this run.
 
-          max_rand = AUTOTOKENS_MUT_MAX - 2;
+          max_rand -= 4;
 
         }
 
@@ -734,6 +734,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
         }
 
         if (prev < found) {  // there are items between search start and find
+
           sregex_token_iterator it{prev, found, regex_whitespace, -1};
           vector<std::string>   tokenized{it, {}};
           tokenized.erase(std::remove_if(tokenized.begin(), tokenized.end(),
