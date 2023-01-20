@@ -1105,6 +1105,12 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
     id_to_token[current_id] = "\n\n\n\n";
     ++current_id;
     whitespace_ids = current_id;
+    token_to_id["\""] = current_id;
+    id_to_token[current_id] = "\"";
+    ++current_id;
+    token_to_id["'"] = current_id;
+    id_to_token[current_id] = "'";
+    ++current_id;
 
   }
 
