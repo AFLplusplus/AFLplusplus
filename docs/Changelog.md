@@ -3,6 +3,10 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.06a (dev)
+  - afl-cc:
+    - add CFI sanitizer variant to gcc targets
+
 ### Version ++4.05c (release)
   - MacOS: libdislocator, libtokencap etc. do not work with modern
     MacOS anymore, but could be patched to work, see this issue if you
