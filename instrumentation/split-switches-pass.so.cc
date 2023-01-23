@@ -469,7 +469,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
     /* We are now done with the switch instruction, delete it. */
 #if LLVM_VERSION_MAJOR >= 16
-    // TODO to erase range of instructions instead ?
+    SI->eraseFromParent();
 #else
     CurBlock->getInstList().erase(SI);
 #endif
