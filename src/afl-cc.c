@@ -1052,7 +1052,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (compiler_mode == GCC_PLUGIN || compiler_mode == GCC) {
 
-      cc_params[cc_par_cnt++] = "-fcf-protection";
+      cc_params[cc_par_cnt++] = "-fcf-protection=full";
 
     } else {
 
