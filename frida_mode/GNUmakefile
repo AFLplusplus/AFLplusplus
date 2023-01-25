@@ -98,6 +98,25 @@ ifeq "$(shell uname)" "Darwin"
  OS:=macos
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
  GUM_ARCH:=""
+ ifeq "$(ARCH)" "arm64"
+  TARGET_CC= \
+  	"clang" \
+  	"-target" \
+	"arm64-apple-macos10.9"
+  TARGET_CXX= \
+ 	"clang++" \
+ 	"-target" \
+	"arm64-apple-macos10.9"
+ else
+  TARGET_CC= \
+  	"clang" \
+  	"-target" \
+	"x86_64-apple-macos10.9"
+  TARGET_CXX= \
+ 	"clang++" \
+ 	"-target" \
+	"x86_64-apple-macos10.9"
+ endif
 else
 ifdef DEBUG
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-prio-ctor-dtor
