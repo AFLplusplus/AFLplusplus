@@ -446,9 +446,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     ACTF(
         "Fuzzing test case #%u (%u total, %llu crashes saved, "
-        "perf_score=%0.0f, exec_us=%llu, hits=%u, map=%u, ascii=%u)...",
+        "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
+        "exec_us=%llu, hits=%u, map=%u, ascii=%u)...",
         afl->current_entry, afl->queued_items, afl->saved_crashes,
-        afl->queue_cur->perf_score, afl->queue_cur->exec_us,
+        afl->queue_cur->perf_score, afl->queue_cur->weight,
+        afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
+        afl->queue_cur->exec_us,
         likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
         afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii);
     fflush(stdout);
@@ -561,10 +564,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     } else {
 
-      if (afl->cmplog_lvl == 3 ||
-          (afl->cmplog_lvl == 2 && afl->queue_cur->tc_ref) ||
-          afl->queue_cur->favored ||
-          get_cur_time() - afl->last_find_time > 600000) {  // 600 seconds
+      if (afl->queue_cur->favored || afl->cmplog_lvl == 3 ||
+          (afl->cmplog_lvl == 2 &&
+           (afl->queue_cur->tc_ref ||
+            afl->fsrv.total_execs % afl->queued_items <= 10)) ||
+          get_cur_time() - afl->last_find_time > 250000) {  // 250 seconds
 
         if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
