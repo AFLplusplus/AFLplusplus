@@ -12,6 +12,7 @@
 #include <list>
 #include <string>
 #include <fstream>
+#include <cmath>
 
 #include <llvm/Support/raw_ostream.h>
 
