@@ -58,6 +58,63 @@ u8  last_intr = 0;
   #define AFL_PATH "/usr/local/lib/afl/"
 #endif
 
+void set_sanitizer_defaults() {
+
+  /* Set sane defaults for ASAN if nothing else is specified. */
+  u8 *have_asan_options = getenv("ASAN_OPTIONS");
+  u8 *have_ubsan_options = getenv("UBSAN_OPTIONS");
+  u8 *have_msan_options = getenv("MSAN_OPTIONS");
+  u8 *have_lsan_options = getenv("LSAN_OPTIONS");
+  u8  have_san_options = 0;
+  if (have_asan_options || have_ubsan_options || have_msan_options ||
+      have_lsan_options)
+    have_san_options = 1;
+  u8 default_options[1024] =
+      "detect_odr_violation=0:abort_on_error=1:symbolize=0:malloc_context_"
+      "size=0:allocator_may_return_null=1:handle_segv=0:handle_sigbus=0:"
+      "handle_abort=0:handle_sigfpe=0:handle_sigill=0:";
+
+  if (!have_lsan_options) strcat(default_options, "detect_leaks=0:");
+
+  /* Set sane defaults for ASAN if nothing else is specified. */
+
+  if (!have_san_options) setenv("ASAN_OPTIONS", default_options, 1);
+
+  /* Set sane defaults for UBSAN if nothing else is specified. */
+
+  if (!have_san_options) setenv("UBSAN_OPTIONS", default_options, 1);
+
+  /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
+     point. So, we do this in a very hacky way. */
+
+  if (!have_msan_options) {
+
+    u8 buf[2048] = "";
+    if (!have_san_options) strcpy(buf, default_options);
+    strcat(buf, "exit_code=" STRINGIFY(MSAN_ERROR) ":msan_track_origins=0:");
+    setenv("MSAN_OPTIONS", buf, 1);
+
+  }
+
+  /* LSAN, too, does not support abort_on_error=1. (is this still true??) */
+
+  if (!have_lsan_options) {
+
+    u8 buf[2048] = "";
+    if (!have_san_options) strcpy(buf, default_options);
+    strcat(buf,
+           "exitcode=" STRINGIFY(
+               LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:");
+    setenv("LSAN_OPTIONS", buf, 1);
+
+  }
+
+  /* Envs for QASan */
+  setenv("QASAN_MAX_CALL_STACK", "0", 0);
+  setenv("QASAN_SYMBOLIZE", "0", 0);
+
+}
+
 u32 check_binary_signatures(u8 *fn) {
 
   int ret = 0, fd = open(fn, O_RDONLY);
