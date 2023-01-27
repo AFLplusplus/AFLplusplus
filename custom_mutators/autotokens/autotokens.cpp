@@ -61,8 +61,10 @@ static unordered_map<u32, string>           id_to_token;
 static string                               whitespace = AUTOTOKENS_WHITESPACE;
 static string                               output;
 static regex                               *regex_comment_custom;
-static regex        regex_comment_star("/\\*([:print:]|\n)*?\\*/",
-                                       regex::multiline | regex::optimize);
+// multiline requires g++-11 libs :(
+static regex regex_comment_star(
+    "/\\*([:print:]|\n)*?\\*/",
+    regex_constants::optimize /* | regex_constants::multiline */);
 static regex        regex_word("[A-Za-z0-9_$.-]+", regex::optimize);
 static regex        regex_whitespace(R"([ \t]+)", regex::optimize);
 static vector<u32> *s;  // the structure of the currently selected input
@@ -548,7 +550,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     if (fread((void *)input.data(), 1, len, fp) != len) {
 
       s = NULL;
-      DEBUGF(stderr, "Too short read %s\n", len, filename);
+      DEBUGF(stderr, "Too short read %s\n", filename);
       return 0;
 
     }
