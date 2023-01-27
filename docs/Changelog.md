@@ -4,8 +4,16 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.06a (dev)
+  - afl-fuzz:
+    - ensure temporary file descriptor is closed when not used
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
+    - llvm 16 support (thanks to @devnexen!)
+    - support llvm 15 native pcguard changes
+  - better sanitizer default options support for all tools
+  - unicorn_mode: updated and minor issues fixed
+  - frida_mode: fix issue on MacOS
+  - more minor fixes
 
 ### Version ++4.05c (release)
   - MacOS: libdislocator, libtokencap etc. do not work with modern
