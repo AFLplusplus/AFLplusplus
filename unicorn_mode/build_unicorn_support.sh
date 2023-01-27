@@ -121,17 +121,19 @@ PIP_FOUND=0
 for PYTHON in $PYTHONS ; do
 
   if $PYTHON -c "import pip" ; then
+    if $PYTHON -c "import wheel" ; then
 
-    PIP_FOUND=1
-    PYTHONBIN=$PYTHON
-    break
+      PIP_FOUND=1
+      PYTHONBIN=$PYTHON
+      break
 
+    fi
   fi
 
 done
 if [ "0" = $PIP_FOUND ]; then
 
-  echo "[-] Error: Python pip not found. Run 'sudo apt-get install python-pip', or install python3-pip, or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ..."
+  echo "[-] Error: Python pip or python wheel not found. Run 'sudo apt-get install python3-pip', or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ... - and 'pip3 install wheel'"
   PREREQ_NOTFOUND=1
 
 fi
