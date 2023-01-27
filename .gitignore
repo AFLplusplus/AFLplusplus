@@ -83,6 +83,10 @@ examples/aflpp_driver/libAFLQemuDriver.a
 libAFLDriver.a
 libAFLQemuDriver.a
 test/.afl_performance
+test-instr
+test/output
+test/test-instr.ts
+test/test-persistent
 gmon.out
 afl-frida-trace.so
 utils/afl_network_proxy/afl-network-client

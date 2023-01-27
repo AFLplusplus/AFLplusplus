@@ -149,6 +149,7 @@ u32 __afl_already_initialized_shm;
 u32 __afl_already_initialized_forkserver;
 u32 __afl_already_initialized_first;
 u32 __afl_already_initialized_second;
+u32 __afl_already_initialized_early;
 u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
@@ -1373,6 +1374,9 @@ __attribute__((constructor(EARLY_FS_PRIO))) void __early_forkserver(void) {
 
 __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
+  if (__afl_already_initialized_early) return;
+  __afl_already_initialized_early = 1;
+
   is_persistent = !!getenv(PERSIST_ENV_VAR);
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
@@ -1513,6 +1517,10 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   char *x;
 
   _is_sancov = 1;
+
+  __afl_auto_first();
+  __afl_auto_second();
+  __afl_auto_early();
 
   if (__afl_debug) {
 

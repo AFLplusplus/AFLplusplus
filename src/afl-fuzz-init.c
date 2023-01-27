@@ -1817,16 +1817,34 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
   if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", afl->out_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
+    fn = alloc_printf("%s/.cur_input", afl->out_dir);
 
   }
 
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
   ck_free(fn);
+
+  if (afl->afl_env.afl_tmpdir) {
+
+    if (afl->file_extension) {
+
+      fn = alloc_printf("%s/.cur_input.%s", afl->afl_env.afl_tmpdir,
+                        afl->file_extension);
+
+    } else {
+
+      fn = alloc_printf("%s/.cur_input", afl->afl_env.afl_tmpdir);
+
+    }
+
+    if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+    ck_free(fn);
+
+  }
 
   fn = alloc_printf("%s/fuzz_bitmap", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
