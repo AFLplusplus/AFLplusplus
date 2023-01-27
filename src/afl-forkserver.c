@@ -688,70 +688,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
-    /* Set sane defaults for ASAN if nothing else is specified. */
-
-    if (!getenv("ASAN_OPTIONS"))
-      setenv("ASAN_OPTIONS",
-             "abort_on_error=1:"
-             "detect_leaks=0:"
-             "malloc_context_size=0:"
-             "symbolize=0:"
-             "allocator_may_return_null=1:"
-             "detect_odr_violation=0:"
-             "handle_segv=0:"
-             "handle_sigbus=0:"
-             "handle_abort=0:"
-             "handle_sigfpe=0:"
-             "handle_sigill=0",
-             1);
-
-    /* Set sane defaults for UBSAN if nothing else is specified. */
-
-    if (!getenv("UBSAN_OPTIONS"))
-      setenv("UBSAN_OPTIONS",
-             "halt_on_error=1:"
-             "abort_on_error=1:"
-             "malloc_context_size=0:"
-             "allocator_may_return_null=1:"
-             "symbolize=0:"
-             "handle_segv=0:"
-             "handle_sigbus=0:"
-             "handle_abort=0:"
-             "handle_sigfpe=0:"
-             "handle_sigill=0",
-             1);
-
-    /* Envs for QASan */
-    setenv("QASAN_MAX_CALL_STACK", "0", 0);
-    setenv("QASAN_SYMBOLIZE", "0", 0);
-
-    /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
-       point. So, we do this in a very hacky way. */
-
-    if (!getenv("MSAN_OPTIONS"))
-      setenv("MSAN_OPTIONS",
-           "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-           "symbolize=0:"
-           "abort_on_error=1:"
-           "malloc_context_size=0:"
-           "allocator_may_return_null=1:"
-           "msan_track_origins=0:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           1);
-
-    /* LSAN, too, does not support abort_on_error=1. */
-
-    if (!getenv("LSAN_OPTIONS"))
-      setenv("LSAN_OPTIONS",
-            "exitcode=" STRINGIFY(LSAN_ERROR) ":"
-            "fast_unwind_on_malloc=0:"
-            "symbolize=0:"
-            "print_suppressions=0",
-            1);
+    /* Set sane defaults for sanitizers */
+    set_sanitizer_defaults();
 
     fsrv->init_child_func(fsrv, argv);
 

@@ -43,6 +43,7 @@ u32  check_binary_signatures(u8 *fn);
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin);
 void print_suggested_envs(char *mispelled_env);
 void check_environment_vars(char **env);
+void set_sanitizer_defaults();
 
 char **argv_cpy_dup(int argc, char **argv);
 void   argv_cpy_free(char **argv);

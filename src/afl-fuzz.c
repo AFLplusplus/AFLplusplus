@@ -311,7 +311,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
       "                      afl-clang-lto/afl-gcc-fast target\n"
       "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
-      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so)\n"
       "\n"
     );
 
@@ -2178,8 +2178,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
 
+    unlink(afl->fsrv.out_file);
     afl->fsrv.out_file = NULL;
     afl->fsrv.use_stdin = 0;
+    close(afl->fsrv.out_fd);
+    afl->fsrv.out_fd = -1;
+
     if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
 
       WARNF(

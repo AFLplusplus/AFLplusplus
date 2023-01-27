@@ -728,7 +728,11 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
   Array->setSection(getSectionName(Section));
 #if (LLVM_VERSION_MAJOR >= 11) || \
     (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
+  #if LLVM_VERSION_MAJOR >= 16
+  Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedValue()));
+  #else
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
+  #endif
 #else
   Array->setAlignment(Align(4));  // cheating
 #endif

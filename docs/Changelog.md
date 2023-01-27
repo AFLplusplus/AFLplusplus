@@ -3,6 +3,18 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.06a (dev)
+  - afl-fuzz:
+    - ensure temporary file descriptor is closed when not used
+  - afl-cc:
+    - add CFI sanitizer variant to gcc targets
+    - llvm 16 support (thanks to @devnexen!)
+    - support llvm 15 native pcguard changes
+  - better sanitizer default options support for all tools
+  - unicorn_mode: updated and minor issues fixed
+  - frida_mode: fix issue on MacOS
+  - more minor fixes
+
 ### Version ++4.05c (release)
   - MacOS: libdislocator, libtokencap etc. do not work with modern
     MacOS anymore, but could be patched to work, see this issue if you
@@ -20,6 +32,7 @@
     - `-t none` now translates to `-t 120000` (120 seconds)
   - unicorn_mode updated
   - updated rust custom mutator dependencies and LibAFL custom mutator
+  - overall better sanitizer default setting handling
   - several minor bugfixes
 
 ### Version ++4.04c (release)
