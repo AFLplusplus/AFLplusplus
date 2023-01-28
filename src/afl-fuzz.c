@@ -1345,12 +1345,11 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   #endif
-  if (afl->sync_id && afl->is_main_node &&
-      afl->afl_env.afl_custom_mutator_only) {
+  if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
 
-    WARNF(
-        "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
-        "will result in no deterministic mutations being done!");
+    FATAL(
+        "Using -D determinstic fuzzing is incompatible with "
+        "AFL_CUSTOM_MUTATOR_ONLY!");
 
   }
 
