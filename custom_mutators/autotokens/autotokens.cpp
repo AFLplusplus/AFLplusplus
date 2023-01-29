@@ -1,3 +1,9 @@
+/*
+   token level fuzzing custom mutator for afl++
+   (c) by Marc Heuse <mh@mh-sec.de>
+   License: Apache 2.0
+*/
+
 extern "C" {
 
 #include "afl-fuzz.h"
