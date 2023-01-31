@@ -196,7 +196,15 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
   insn = instrument_disassemble(from_insn);
   deterministic = instrument_is_deterministic(insn);
   cs_free(insn, 1);
-  if (!deterministic) { return; }
+
+  /*
+   * If the branch is deterministic, then we should start execution at the
+   * begining of the block. From here, we will branch and skip the coverage
+   * code and jump right to the target code of the instrumented block.
+   * Otherwise, if the branch is non-deterministic, then we need to branch
+   * part way into the block to where the coverage instrumentation starts.
+   */
+  if (deterministic) { return; }
 
   /*
    * Since each block is prefixed with a restoration prologue, we need to be
