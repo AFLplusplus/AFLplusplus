@@ -1988,7 +1988,8 @@ custom_mutator_stage:
 
           if (unlikely(!mutated_buf)) {
 
-            FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
+            //FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
+            break;
 
           }
 
@@ -2040,7 +2041,7 @@ custom_mutator_stage:
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
   afl->stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_max;
+  afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_cur;
 #ifdef INTROSPECTION
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
