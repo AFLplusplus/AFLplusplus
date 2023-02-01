@@ -451,7 +451,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       s = NULL;
       DEBUGF(stderr, "cmplog not ascii or only_fav and not favorite\n");
-      return 0;
+      return 1;
 
     }
 
@@ -532,7 +532,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     if (!fp) {
 
       s = NULL;
-      return 0;
+      return 1;
 
     }  // should not happen
 
@@ -545,7 +545,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
       s = NULL;
       DEBUGF(stderr, "Too short (%lu) %s\n", len, filename);
-      return 0;
+      return 1;
 
     }
 
@@ -557,7 +557,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       s = NULL;
       DEBUGF(stderr, "Too short read %s\n", filename);
-      return 0;
+      return 1;
 
     }
 
@@ -581,7 +581,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
         file_mapping[fn] = NULL;
         s = NULL;
         DEBUGF(stderr, "Not text (%lu) %s\n", len, filename);
-        return 0;
+        return 1;
 
       }
 
@@ -982,7 +982,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       file_mapping[fn] = NULL;
       s = NULL;
       DEBUGF(stderr, "too few tokens\n");
-      return 0;
+      return 1;
 
     }
 
@@ -1020,15 +1020,13 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     DEBUGF(stderr, "DONE! We have %lu tokens in the structure\n",
            structure->size());
 
-  }
-
-  else {
+  } else {
 
     if (entry->second == NULL) {
 
       DEBUGF(stderr, "Skipping %s\n", filename);
       s = NULL;
-      return 0;
+      return 1;
 
     }
 
