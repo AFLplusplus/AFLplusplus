@@ -25,7 +25,7 @@ HARNESS_URL:="https://raw.githubusercontent.com/llvm/llvm-project/main/compiler-
 
 PNGTEST_FILE:=$(PNGTEST_BUILD_DIR)target.cc
 PNGTEST_OBJ:=$(PNGTEST_BUILD_DIR)target.o
-PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/master/benchmarks/libpng-1.2.56/target.cc"
+PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/e0c4a994b6999bae46e8dec5bcea9a73251b8dba/benchmarks/libpng-1.2.56/target.cc"
 
 TEST_BIN:=$(BUILD_DIR)test
 ifeq "$(shell uname)" "Darwin"
