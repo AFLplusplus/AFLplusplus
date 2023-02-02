@@ -1582,6 +1582,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
      to avoid duplicate calls (which can happen as an artifact of the underlying
      implementation in LLVM). */
 
+  if (__afl_final_loc < 3) __afl_final_loc = 3;  // we skip the first 4 entries
+
   *(start++) = ++__afl_final_loc;
 
   while (start < stop) {
