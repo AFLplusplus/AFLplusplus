@@ -1534,6 +1534,16 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (start == stop || *start) return;
 
+  x = getenv("AFL_INST_RATIO");
+  if (x) { inst_ratio = (u32)atoi(x); }
+
+  if (!inst_ratio || inst_ratio > 100) {
+
+    fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
+    abort();
+
+  }
+
   // If a dlopen of an instrumented library happens after the forkserver then
   // we have a problem as we cannot increase the coverage map anymore.
   if (__afl_already_initialized_forkserver) {
@@ -1554,61 +1564,19 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
       while (start < stop) {
 
-        *(start++) = offset;
+        if (likely(inst_ratio == 100) || R(100) < inst_ratio)
+          *start = offset;
+        else
+          *start = 0;  // write to map[0]
         if (unlikely(++offset >= __afl_final_loc)) { offset = 4; }
 
       }
 
     }
 
-  }
-
-  x = getenv("AFL_INST_RATIO");
-  if (x) { inst_ratio = (u32)atoi(x); }
-
-  if (!inst_ratio || inst_ratio > 100) {
-
-    fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
-    abort();
+    return;  // we are done for this special case
 
   }
-
-  /* instrumented code is loaded *after* our forkserver is up. this is a
-     problem. We cannot prevent collisions then :( */
-  /*
-  if (__afl_already_initialized_forkserver &&
-      __afl_final_loc + 1 + stop - start > __afl_map_size) {
-
-    if (__afl_debug) {
-
-      fprintf(stderr, "Warning: new instrumented code after the forkserver!\n");
-
-    }
-
-    __afl_final_loc = 2;
-
-    if (1 + stop - start > __afl_map_size) {
-
-      *(start++) = ++__afl_final_loc;
-
-      while (start < stop) {
-
-        if (R(100) < inst_ratio)
-          *start = ++__afl_final_loc % __afl_map_size;
-        else
-          *start = 4;
-
-        start++;
-
-      }
-
-      return;
-
-    }
-
-  }
-
-  */
 
   /* Make sure that the first element in the range is always set - we use that
      to avoid duplicate calls (which can happen as an artifact of the underlying
@@ -1618,10 +1586,10 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   while (start < stop) {
 
-    if (R(100) < inst_ratio)
+    if (likely(inst_ratio == 100) || R(100) < inst_ratio)
       *start = ++__afl_final_loc;
     else
-      *start = 4;
+      *start = 0;  // write to map[0]
 
     start++;
 
