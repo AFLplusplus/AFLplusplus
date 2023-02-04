@@ -489,12 +489,12 @@
 
 /* Minimum length of a queue input to be evaluated for "is_ascii"? */
 
-#define AFL_TXT_MIN_LEN 12
+#define AFL_TXT_MIN_LEN 16
 
 /* What is the minimum percentage of ascii characters present to be classifed
    as "is_ascii"? */
 
-#define AFL_TXT_MIN_PERCENT 95
+#define AFL_TXT_MIN_PERCENT 98
 
 /* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
 

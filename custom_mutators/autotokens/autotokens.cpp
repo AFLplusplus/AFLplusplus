@@ -34,6 +34,9 @@ extern "C" {
 #ifndef AUTOTOKENS_SPLICE_DISABLE
   #define AUTOTOKENS_SPLICE_DISABLE 0
 #endif
+#ifndef AFL_TXT_MAX_LEN
+  #define AFL_TXT_MAX_LEN 65535
+#endif
 
 #if AUTOTOKENS_SPLICE_MIN >= AUTOTOKENS_SIZE_MIN
   #error SPLICE_MIN must be lower than SIZE_MIN
@@ -569,6 +572,15 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
       s = NULL;
       DEBUGF(stderr, "Too short (%lu) %s\n", len, filename);
+      return 1;
+
+    } else
+    if (len > AFL_TXT_MAX_LEN) {
+
+      fclose(fp);
+      file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
+      s = NULL;
+      DEBUGF(stderr, "Too long (%lu) %s\n", len, filename);
       return 1;
 
     }
