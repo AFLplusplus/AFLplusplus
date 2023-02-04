@@ -18,6 +18,12 @@ Do **not** set `AFL_DISABLE_TRIM` with this custom mutator!
 `AUTOTOKENS_ONLY_FAV` - only use this mutator on favorite queue items
 `AUTOTOKENS_COMMENT` - what character or string starts a comment which will be
                        removed. Default: `/* ... */`
+`AUTOTOKENS_FUZZ_COUNT_SHIFT` - reduce the number of fuzzing performed, shifting
+                                the value by this number set, e.g. 1.
+`AUTOTOKENS_LEARN_DICT` - learn from dictionaries?
+                          0 = none
+                          1 = only -x or autodict
+                          2 = -x, autodict and `CMPLOG`
 `AUTOTOKENS_ALTERNATIVE_TOKENIZE` - use an alternative tokenize implementation
                                    (experimental)
 `AUTOTOKENS_WHITESPACE` - whitespace string to use for ALTERNATIVE_TOKENIZE,
