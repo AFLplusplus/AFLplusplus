@@ -28,6 +28,9 @@ extern "C" {
 #define AUTOTOKENS_SIZE_MIN 8
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
+#define AUTOTOKENS_FUZZ_COUNT_SHIFT 0
+// 0 = no learning, 1 only from -x dict/autodict, 2 also from cmplog
+#define AUTOTOKENS_LEARN_DICT 2
 #ifndef AUTOTOKENS_SPLICE_DISABLE
   #define AUTOTOKENS_SPLICE_DISABLE 0
 #endif
@@ -53,6 +56,8 @@ static afl_state *afl_ptr;
 static int        debug = AUTOTOKENS_DEBUG;
 static int        only_fav = AUTOTOKENS_ONLY_FAV;
 static int        alternative_tokenize = AUTOTOKENS_ALTERNATIVE_TOKENIZE;
+static int        learn_dictionary_tokens = AUTOTOKENS_LEARN_DICT;
+static int        fuzz_count_shift = AUTOTOKENS_FUZZ_COUNT_SHIFT;
 static u32        current_id;
 static u32        valid_structures;
 static u32        whitespace_ids;
@@ -91,6 +96,22 @@ u32 good_whitespace_or_singleval() {
   } else
 
     return 2;  // linefeed
+
+}
+
+extern "C" u32 afl_custom_fuzz_count(void *data, const u8 *buf,
+                                     size_t buf_size) {
+
+  if (s == NULL) return 0;
+
+  u32 shift = unlikely(afl_ptr->custom_only) ? 7 : 8;
+  u32 stage_max = (u32)((HAVOC_CYCLES * afl_ptr->queue_cur->perf_score) /
+                        afl_ptr->havoc_div) >>
+                  shift;
+  if (fuzz_count_shift) { stage_max >>= (u32)fuzz_count_shift; };
+  DEBUGF(stderr, "fuzz count: %u\n", stage_max);
+
+  return stage_max;
 
 }
 
@@ -441,6 +462,7 @@ u8 my_search_string(string::const_iterator cur, string::const_iterator ende,
 extern "C" unsigned char afl_custom_queue_get(void                *data,
                                               const unsigned char *filename) {
 
+  static int learn_state;
   (void)(data);
 
   if (likely(!debug)) {
@@ -458,7 +480,9 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
   }
 
   // check if there are new dictionary entries and add them to the tokens
-  if (valid_structures) {
+  if (valid_structures && learn_state < learn_dictionary_tokens) {
+
+    if (unlikely(!learn_state)) { learn_state = 1; }
 
     while (extras_cnt < afl_ptr->extras_cnt) {
 
@@ -1053,6 +1077,25 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   if (getenv("AUTOTOKENS_DEBUG")) { debug = 1; }
   if (getenv("AUTOTOKENS_ONLY_FAV")) { only_fav = 1; }
   if (getenv("AUTOTOKENS_ALTERNATIVE_TOKENIZE")) { alternative_tokenize = 1; }
+
+  if (getenv("AUTOTOKENS_LEARN_DICT")) {
+
+    learn_dictionary_tokens = atoi(getenv("AUTOTOKENS_LEARN_DICT"));
+    if (learn_dictionary_tokens < 0 || learn_dictionary_tokens > 2) {
+
+      learn_dictionary_tokens = 2;
+
+    }
+
+  }
+
+  if (getenv("AUTOTOKENS_FUZZ_COUNT_SHIFT")) {
+
+    fuzz_count_shift = atoi(getenv("AUTOTOKENS_FUZZ_COUNT_SHIFT"));
+    if (fuzz_count_shift < 0 || fuzz_count_shift > 16) { fuzz_count_shift = 0; }
+
+  }
+
   if (getenv("AUTOTOKENS_WHITESPACE")) {
 
     whitespace = getenv("AUTOTOKENS_WHITESPACE");

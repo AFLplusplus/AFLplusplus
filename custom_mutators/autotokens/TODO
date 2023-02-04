@@ -4,3 +4,20 @@ create from thin air if no good seed after a cycle and dict large enough?
 (static u32 no_of_struct_inputs;) 
 
 splicing -> check if whitespace/token is needed
+
+whitespace/token check only AFTER mutation
+
+analyse welche einen DICT haben, und welche davon rein ascii
+
+corpus analyse:
+	+ libxml
+	- hardbuzz
+	- sqlite
+	- libpcap
+min len, max len, % wenn 95/98/99/100 ascii
+
+funktion und env für menge an mutationen
+
+env für menge an per mutation run
+
+only add inital dictionary, not furher finds, e.g. cmplog
