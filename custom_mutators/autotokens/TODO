@@ -1,5 +1,3 @@
-cmplog: only add tokens that were found to fit?
-
 create from thin air if no good seed after a cycle and dict large enough?
 (static u32 no_of_struct_inputs;) 
 
@@ -16,8 +14,9 @@ corpus analyse:
 	- libpcap
 min len, max len, % wenn 95/98/99/100 ascii
 
-funktion und env für menge an mutationen
-
 env für menge an per mutation run
 
-only add inital dictionary, not furher finds, e.g. cmplog
+AFL_TXT_MAX_LEN 65535
+AFL_TXT_MIN_LEN 16
+AFL_TXT_MIN_PERCENT=99
+
