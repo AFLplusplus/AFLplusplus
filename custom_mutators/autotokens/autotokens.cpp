@@ -24,10 +24,12 @@ extern "C" {
 #define AUTOTOKENS_ONLY_FAV 0
 #define AUTOTOKENS_ALTERNATIVE_TOKENIZE 0
 #define AUTOTOKENS_CHANGE_MIN 8
+#define AUTOTOKENS_CHANGE_MAX 64
 #define AUTOTOKENS_WHITESPACE " "
 #define AUTOTOKENS_SIZE_MIN 8
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
+#define AUTOTOKENS_CREATE_FROM_THIN_AIR 1
 #define AUTOTOKENS_FUZZ_COUNT_SHIFT 0
 // 0 = no learning, 1 only from -x dict/autodict, 2 also from cmplog
 #define AUTOTOKENS_LEARN_DICT 2
@@ -61,6 +63,7 @@ static int        only_fav = AUTOTOKENS_ONLY_FAV;
 static int        alternative_tokenize = AUTOTOKENS_ALTERNATIVE_TOKENIZE;
 static int        learn_dictionary_tokens = AUTOTOKENS_LEARN_DICT;
 static int        fuzz_count_shift = AUTOTOKENS_FUZZ_COUNT_SHIFT;
+static int        create_from_thin_air = AUTOTOKENS_CREATE_FROM_THIN_AIR;
 static u32        current_id;
 static u32        valid_structures;
 static u32        whitespace_ids;
@@ -83,7 +86,18 @@ static regex        regex_word("[A-Za-z0-9_$.-]+", regex::optimize);
 static regex        regex_whitespace(R"([ \t]+)", regex::optimize);
 static vector<u32> *s;  // the structure of the currently selected input
 
-u32 good_whitespace_or_singleval() {
+// FUNCTIONS
+
+/* This function is called once after everything is set up but before
+   any fuzzing attempt has been performed.
+   This is called in afl_custom_queue_get() */
+static void first_run(void *data) {
+
+  (void)(data);
+
+}
+
+static u32 good_whitespace_or_singleval() {
 
   u32 i = rand_below(afl_ptr, current_id);
   if (id_to_token[i].size() == 1) { return i; }
@@ -104,6 +118,8 @@ u32 good_whitespace_or_singleval() {
 
 extern "C" u32 afl_custom_fuzz_count(void *data, const u8 *buf,
                                      size_t buf_size) {
+
+  (void)(data);
 
   if (s == NULL) return 0;
 
@@ -135,9 +151,10 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
   u32         i, m_size = (u32)m.size();
 
   u32 rounds =
-      MAX(AUTOTOKENS_CHANGE_MIN,
-          MIN(m_size >> 3, HAVOC_CYCLES * afl_ptr->queue_cur->perf_score *
-                               afl_ptr->havoc_div / 256));
+      MIN(AUTOTOKENS_CHANGE_MAX,
+          MAX(AUTOTOKENS_CHANGE_MIN,
+              MIN(m_size >> 3, HAVOC_CYCLES * afl_ptr->queue_cur->perf_score *
+                                   afl_ptr->havoc_div / 256)));
   // DEBUGF(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
 
 #if AUTOTOKENS_SPLICE_DISABLE == 1
@@ -379,9 +396,10 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 /* I get f*cking stack overflow using C++ regex with a regex of
    "\"[[:print:]]*?\"" if this matches a long string even with regex::optimize
    enabled :-( */
-u8 my_search_string(string::const_iterator cur, string::const_iterator ende,
-                    string::const_iterator *match_begin,
-                    string::const_iterator *match_end) {
+static u8 my_search_string(string::const_iterator  cur,
+                           string::const_iterator  ende,
+                           string::const_iterator *match_begin,
+                           string::const_iterator *match_end) {
 
   string::const_iterator start = cur, found_begin;
   u8                     quote_type = 0;
@@ -460,25 +478,30 @@ u8 my_search_string(string::const_iterator cur, string::const_iterator ende,
 }
 
 /* We are not using afl_custom_queue_new_entry() because not every corpus entry
-   will be necessarily fuzzed. so we use afl_custom_queue_get() instead */
+   will be necessarily fuzzed with this custom mutator.
+   So we use afl_custom_queue_get() instead. */
 
 extern "C" unsigned char afl_custom_queue_get(void                *data,
                                               const unsigned char *filename) {
 
-  static int learn_state;
+  static int learn_state = 0;
+  static int is_first_run = 1;
   (void)(data);
 
-  if (likely(!debug)) {
+  if (unlikely(is_first_run)) {
 
-    if (unlikely(!afl_ptr->custom_only) &&
-        ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
-         (only_fav && !afl_ptr->queue_cur->favored))) {
+    is_first_run = 0;
+    first_run(data);
 
-      s = NULL;
-      DEBUGF(stderr, "cmplog not ascii or only_fav and not favorite\n");
-      return 1;
+  }
 
-    }
+  if (unlikely(!afl_ptr->custom_only) && !create_from_thin_air &&
+      ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
+       (only_fav && !afl_ptr->queue_cur->favored))) {
+
+    s = NULL;
+    DEBUGF(stderr, "cmplog not ascii or only_fav and not favorite\n");
+    return 1;
 
   }
 
@@ -551,6 +574,42 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
   string       fn = (char *)filename;
   auto         entry = file_mapping.find(fn);
 
+  // if there is only one active queue item at start and it is very small
+  // the we create once a structure randomly.
+  if (unlikely(create_from_thin_air)) {
+
+    if (current_id > whitespace_ids + 6 && afl_ptr->active_items == 1 &&
+        afl_ptr->queue_cur->len < AFL_TXT_MIN_LEN) {
+
+      DEBUGF(stderr, "Creating an entry from thin air...\n");
+      structure = new vector<u32>();
+      u32 item, prev, cnt = current_id >> 1;
+      structure->reserve(cnt + 4);
+      for (u32 i = 0; i < cnt; i++) {
+
+        item = rand_below(afl_ptr, current_id);
+        if (i && id_to_token[item].length() > 1 &&
+            id_to_token[prev].length() > 1) {
+
+          structure->push_back(good_whitespace_or_singleval());
+
+        }
+
+        structure->push_back(item);
+        prev = item;
+
+      }
+
+      file_mapping[fn] = structure;
+      s = structure;
+      return 1;
+
+    }
+
+    create_from_thin_air = 0;
+
+  }
+
   if (entry == file_mapping.end()) {
 
     // this input file was not analyzed for tokens yet, so let's do it!
@@ -574,8 +633,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       DEBUGF(stderr, "Too short (%lu) %s\n", len, filename);
       return 1;
 
-    } else
-    if (len > AFL_TXT_MAX_LEN) {
+    } else if (len > AFL_TXT_MAX_LEN) {
 
       fclose(fp);
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
@@ -1088,6 +1146,7 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
 
   if (getenv("AUTOTOKENS_DEBUG")) { debug = 1; }
   if (getenv("AUTOTOKENS_ONLY_FAV")) { only_fav = 1; }
+  if (getenv("AUTOTOKENS_CREATE_FROM_THIN_AIR")) { create_from_thin_air = 1; }
   if (getenv("AUTOTOKENS_ALTERNATIVE_TOKENIZE")) { alternative_tokenize = 1; }
 
   if (getenv("AUTOTOKENS_LEARN_DICT")) {
