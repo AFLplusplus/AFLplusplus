@@ -29,7 +29,7 @@ extern "C" {
 #define AUTOTOKENS_SIZE_MIN 8
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
-#define AUTOTOKENS_CREATE_FROM_THIN_AIR 1
+#define AUTOTOKENS_CREATE_FROM_THIN_AIR 0
 #define AUTOTOKENS_FUZZ_COUNT_SHIFT 0
 // 0 = no learning, 1 only from -x dict/autodict, 2 also from cmplog
 #define AUTOTOKENS_LEARN_DICT 2
@@ -506,14 +506,15 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
   }
 
   // check if there are new dictionary entries and add them to the tokens
-  if (valid_structures && learn_state < learn_dictionary_tokens) {
+  if (likely(valid_structures || create_from_thin_air) &&
+      learn_state < learn_dictionary_tokens) {
 
     if (unlikely(!learn_state)) { learn_state = 1; }
 
     while (extras_cnt < afl_ptr->extras_cnt) {
 
       u32 ok = 1, l = afl_ptr->extras[extras_cnt].len;
-      u8 *ptr = afl_ptr->extras[extras_cnt].data;
+      u8 *buf, *ptr = afl_ptr->extras[extras_cnt].data;
 
       for (u32 i = 0; i < l; ++i) {
 
@@ -528,14 +529,17 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       if (ok) {
 
-        token_to_id[(char *)ptr] = current_id;
-        id_to_token[current_id] = (char *)ptr;
+        buf = (u8 *)malloc(afl_ptr->extras[extras_cnt].len + 1);
+        memcpy(buf, afl_ptr->extras[extras_cnt].data,
+               afl_ptr->extras[extras_cnt].len);
+        buf[afl_ptr->extras[extras_cnt].len] = 0;
+        token_to_id[(char *)buf] = current_id;
+        id_to_token[current_id] = (char *)buf;
         ++current_id;
 
       }
 
       ++extras_cnt;
-      DEBUGF(stderr, "Added from dictionary: \"%s\"\n", ptr);
 
     }
 
@@ -600,8 +604,12 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
       }
 
-      file_mapping[fn] = structure;
       s = structure;
+      file_mapping[fn] = structure;
+      id_mapping[valid_structures] = structure;
+      ++valid_structures;
+      all_structure_items += structure->size();
+
       return 1;
 
     }
