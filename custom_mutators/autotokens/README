@@ -24,6 +24,9 @@ Do **not** set `AFL_DISABLE_TRIM` with this custom mutator!
                           0 = none
                           1 = only -x or autodict
                           2 = -x, autodict and `CMPLOG`
+`AUTOTOKENS_CREATE_FROM_THIN_AIR` - if only one small start file is present and
+                                    a dictionary loaded then create one initial
+                                    structure based on the dictionary.
 `AUTOTOKENS_ALTERNATIVE_TOKENIZE` - use an alternative tokenize implementation
                                    (experimental)
 `AUTOTOKENS_WHITESPACE` - whitespace string to use for ALTERNATIVE_TOKENIZE,
