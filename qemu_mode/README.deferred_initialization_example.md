@@ -40,13 +40,13 @@ ALPINE_ROOT=<your-alpine-sysroot-directory>
 FUZZ=<your-path-to-the-code>
 sudo systemd-nspawn -D $ALPINE_ROOT --bind=$FUZZ:/fuzz
 CC=$(which clang) CFLAGS="-g" LDSHARED="clang -shared" python3 -m pip install /fuzz
-clang $(python3-config --embed --cflags) $(python3-config --embed --ldflags) -o /fuzz/fuzz_harness.a /fuzz/fuzz_harness.c
+clang $(python3-config --embed --cflags) $(python3-config --embed --ldflags) -o /fuzz/fuzz_harness /fuzz/fuzz_harness.c
 exit
 ```
 
 Manually trigger bug:
 ```bash
-echo -n "FUZZ" | qemu-arm-static -L $ALPINE_ROOT $FUZZ/fuzz_harness.a
+echo -n "FUZZ" | qemu-arm-static -L $ALPINE_ROOT $FUZZ/fuzz_harness
 ```
 
 ## Run AFL++
@@ -54,7 +54,7 @@ Make sure to start the forkserver *after* loading all the shared objects by sett
 
 Choose an address just before the `while()` loop, for example:
 ```bash
-qemu-arm-static -L $ALPINE_ROOT $ALPINE_ROOT/usr/bin/objdump -d $FUZZ/fuzz_harness.a | grep -A 1 "PyObject_GetAttrString"
+qemu-arm-static -L $ALPINE_ROOT $ALPINE_ROOT/usr/bin/objdump -d $FUZZ/fuzz_harness | grep -A 1 "PyObject_GetAttrString"
 
 00000584 <PyObject_GetAttrString@plt>:
  584:	e28fc600 	add	ip, pc, #0, 12
@@ -71,13 +71,13 @@ Check Qemu memory maps using the instructions from [here](https://aflplus.plus/d
 
 Setup Python environment variables and run `afl-qemu-trace`:
 ```bash
-PYTHONPATH=$ALPINE_ROOT/usr/lib/python3.10/ PYTHONHOME=$ALPINE_ROOT/usr/bin/ QEMU_LD_PREFIX=$ALPINE_ROOT AFL_QEMU_DEBUG_MAPS=1 afl-qemu-trace $FUZZ/fuzz_harness.a
+PYTHONPATH=$ALPINE_ROOT/usr/lib/python3.10/ PYTHONHOME=$ALPINE_ROOT/usr/bin/ QEMU_LD_PREFIX=$ALPINE_ROOT AFL_QEMU_DEBUG_MAPS=1 afl-qemu-trace $FUZZ/fuzz_harness
 
 ...
-40000000-40001000 r-xp 00000000 103:03 8002276                           fuzz_harness.a
+40000000-40001000 r-xp 00000000 103:03 8002276                           fuzz_harness
 40001000-4001f000 ---p 00000000 00:00 0
-4001f000-40020000 r--p 0000f000 103:03 8002276                           fuzz_harness.a
-40020000-40021000 rw-p 00010000 103:03 8002276                           fuzz_harness.a
+4001f000-40020000 r--p 0000f000 103:03 8002276                           fuzz_harness
+40020000-40021000 rw-p 00010000 103:03 8002276                           fuzz_harness
 40021000-40022000 ---p 00000000 00:00 0
 40022000-40023000 rw-p 00000000 00:00 0
 ```
@@ -91,7 +91,7 @@ export QEMU_LD_PREFIX=$ALPINE_ROOT
 ... and run AFL++:
 ```bash
 mkdir -p $FUZZ/in && echo -n "FU" > $FUZZ/in/seed
-AFL_ENTRYPOINT=0x400007cc afl-fuzz -i $FUZZ/in -o $FUZZ/out -Q -- $FUZZ/fuzz_harness.a
+AFL_ENTRYPOINT=0x400007cc afl-fuzz -i $FUZZ/in -o $FUZZ/out -Q -- $FUZZ/fuzz_harness
 ```
 
 ## Resources
