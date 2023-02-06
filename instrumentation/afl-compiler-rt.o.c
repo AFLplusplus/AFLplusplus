@@ -1518,9 +1518,13 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   _is_sancov = 1;
 
-  __afl_auto_first();
-  __afl_auto_second();
-  __afl_auto_early();
+  if (!getenv("AFL_DUMP_MAP_SIZE")) {
+
+    __afl_auto_first();
+    __afl_auto_second();
+    __afl_auto_early();
+
+  }
 
   if (__afl_debug) {
 
