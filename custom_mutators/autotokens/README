@@ -24,6 +24,8 @@ Do **not** set `AFL_DISABLE_TRIM` with this custom mutator!
                           0 = none
                           1 = only -x or autodict
                           2 = -x, autodict and `CMPLOG`
+`AUTOTOKENS_CHANGE_MIN` - minimum number of mutations (1-256, default 8)
+`AUTOTOKENS_CHANGE_MAX` - maximum number of mutations (1-4096, default 64)
 `AUTOTOKENS_CREATE_FROM_THIN_AIR` - if only one small start file is present and
                                     a dictionary loaded then create one initial
                                     structure based on the dictionary.

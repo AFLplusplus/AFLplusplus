@@ -32,7 +32,7 @@ extern "C" {
 #define AUTOTOKENS_CREATE_FROM_THIN_AIR 0
 #define AUTOTOKENS_FUZZ_COUNT_SHIFT 0
 // 0 = no learning, 1 only from -x dict/autodict, 2 also from cmplog
-#define AUTOTOKENS_LEARN_DICT 2
+#define AUTOTOKENS_LEARN_DICT 1
 #ifndef AUTOTOKENS_SPLICE_DISABLE
   #define AUTOTOKENS_SPLICE_DISABLE 0
 #endif
@@ -64,6 +64,8 @@ static int        alternative_tokenize = AUTOTOKENS_ALTERNATIVE_TOKENIZE;
 static int        learn_dictionary_tokens = AUTOTOKENS_LEARN_DICT;
 static int        fuzz_count_shift = AUTOTOKENS_FUZZ_COUNT_SHIFT;
 static int        create_from_thin_air = AUTOTOKENS_CREATE_FROM_THIN_AIR;
+static int        change_min = AUTOTOKENS_CHANGE_MIN;
+static int        change_max = AUTOTOKENS_CHANGE_MAX;
 static u32        current_id;
 static u32        valid_structures;
 static u32        whitespace_ids;
@@ -151,8 +153,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
   u32         i, m_size = (u32)m.size();
 
   u32 rounds =
-      MIN(AUTOTOKENS_CHANGE_MAX,
-          MAX(AUTOTOKENS_CHANGE_MIN,
+      MIN(change_max,
+          MAX(change_min,
               MIN(m_size >> 3, HAVOC_CYCLES * afl_ptr->queue_cur->perf_score *
                                    afl_ptr->havoc_div / 256)));
   // DEBUGF(stderr, "structure size: %lu, rounds: %u \n", m.size(), rounds);
@@ -1162,7 +1164,7 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
     learn_dictionary_tokens = atoi(getenv("AUTOTOKENS_LEARN_DICT"));
     if (learn_dictionary_tokens < 0 || learn_dictionary_tokens > 2) {
 
-      learn_dictionary_tokens = 2;
+      learn_dictionary_tokens = AUTOTOKENS_LEARN_DICT;
 
     }
 
@@ -1174,6 +1176,22 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
     if (fuzz_count_shift < 0 || fuzz_count_shift > 16) { fuzz_count_shift = 0; }
 
   }
+
+  if (getenv("AUTOTOKENS_CHANGE_MIN")) {
+
+    change_min = atoi(getenv("AUTOTOKENS_CHANGE_MIN"));
+    if (change_min < 1 || change_min > 256) { change_min = AUTOTOKENS_CHANGE_MIN; }
+
+  }
+
+  if (getenv("AUTOTOKENS_CHANGE_MAX")) {
+
+    change_max = atoi(getenv("AUTOTOKENS_CHANGE_MAX"));
+    if (change_max < 1 || change_max > 4096) { change_max = AUTOTOKENS_CHANGE_MAX; }
+
+  }
+
+  if (change_max < change_min) { change_max = change_min + 1; }
 
   if (getenv("AUTOTOKENS_WHITESPACE")) {
 
