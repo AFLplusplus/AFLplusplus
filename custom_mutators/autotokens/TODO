@@ -9,7 +9,6 @@ analyse welche einen DICT haben, und welche davon rein ascii
 
 corpus analyse:
 	+ libxml
-	- hardbuzz
 	- sqlite
 	- libpcap
 min len, max len, % wenn 95/98/99/100 ascii
@@ -20,3 +19,6 @@ AFL_TXT_MAX_LEN 65535
 AFL_TXT_MIN_LEN 16
 AFL_TXT_MIN_PERCENT=99
 
+-> KEIN FAV!
+
+change_min/_max werte
