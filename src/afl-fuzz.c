@@ -2210,8 +2210,8 @@ int main(int argc, char **argv_orig, char **envp) {
   cull_queue(afl);
 
   // ensure we have at least one seed that is not disabled.
-  u32 entry, valid_seeds = 0;
-  for (entry = 0; entry < afl->queued_items; ++entry)
+  u32 valid_seeds = 0;
+  for (u32 entry = 0; entry < afl->queued_items; ++entry)
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
   if (!afl->pending_not_fuzzed || !valid_seeds) {
@@ -2241,7 +2241,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       u64 max_ms = 0;
 
-      for (entry = 0; entry < afl->queued_items; ++entry)
+      for (u32 entry = 0; entry < afl->queued_items; ++entry)
         if (!afl->queue_buf[entry]->disabled)
           if (afl->queue_buf[entry]->exec_us > max_ms)
             max_ms = afl->queue_buf[entry]->exec_us;
@@ -2285,7 +2285,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef INTROSPECTION
   u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
   #endif
-  u32 prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
+  u32 skip_count = 0, prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
   u8  skipped_fuzz;
 
   #ifdef INTROSPECTION
@@ -2547,8 +2547,57 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       skipped_fuzz = fuzz_one(afl);
+
+      if (unlikely(skipped_fuzz)) {
+
+        ++skip_count;
+
+        if (unlikely(skip_count > afl->active_items)) {
+
+          if (afl->active_items > 1 && !afl->old_seed_selection) {
+
+            u32 found = 0;
+            for (u32 i = 0; i < afl->queued_items; ++i) {
+
+              if (likely(afl->queue_buf[i]->disabled &&
+                         !afl->queue_buf[i]->perf_score)) {
+
+                ++found;
+
+              }
+
+            }
+
+            if (found >= afl->active_items) {
+
+              // all active items have a perf_score of 0 ... damn
+              for (u32 i = 0; i < afl->queued_items; ++i) {
+
+                if (likely(afl->queue_buf[i]->disabled)) {
+
+                  afl->queue_buf[i]->perf_score = afl->queue_buf[i]->weight;
+
+                }
+
+              }
+
+            }
+
+          }
+
+          skip_count = 0;
+
+        }
+
+      } else {
+
+        skip_count = 0;
+
+      }
+
   #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
+
       if (unlikely(skipped_fuzz)) {
 
         ++afl->queue_cur->stats_skipped;
