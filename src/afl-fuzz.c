@@ -2559,8 +2559,8 @@ int main(int argc, char **argv_orig, char **envp) {
             u32 found = 0;
             for (u32 i = 0; i < afl->queued_items; ++i) {
 
-              if (likely(afl->queue_buf[i]->disabled &&
-                         !afl->queue_buf[i]->perf_score)) {
+              if (likely(!afl->queue_buf[i]->disabled &&
+                         afl->queue_buf[i]->perf_score == 0)) {
 
                 ++found;
 
@@ -2573,7 +2573,7 @@ int main(int argc, char **argv_orig, char **envp) {
               // all active items have a perf_score of 0 ... damn
               for (u32 i = 0; i < afl->queued_items; ++i) {
 
-                if (likely(afl->queue_buf[i]->disabled)) {
+                if (likely(!afl->queue_buf[i]->disabled)) {
 
                   afl->queue_buf[i]->perf_score = afl->queue_buf[i]->weight;
 
