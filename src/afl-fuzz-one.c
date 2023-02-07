@@ -5683,6 +5683,7 @@ pacemaker_fuzzing:
 
   }                                                                /* block */
 
+  ++afl->queue_cur->fuzz_level;
   return ret_val;
 
 }
