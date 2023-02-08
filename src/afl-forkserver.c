@@ -1370,7 +1370,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
       case Crash:
       case Asan:
         return FSRV_RUN_CRASH;
-      case Timout:
+      case Timeout:
         return FSRV_RUN_TMOUT;
       case InvalidWriteToPayload:
         /* ??? */
