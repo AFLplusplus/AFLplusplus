@@ -22,7 +22,7 @@
    how they affect the execution path.
 
  */
-
+#include <time.h>
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include "common.h"
@@ -543,9 +543,9 @@ int main(int argc, char **argv_orig, char **envp) {
             " based on afl by Michal Zalewski and a large online community\n");
 
   doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
-
-  gettimeofday(&tv, &tz);
-  rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  rand_set_seed(afl, ts.tv_sec ^ ts.tv_usec ^ getpid());
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
