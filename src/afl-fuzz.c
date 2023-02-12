@@ -1297,6 +1297,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->is_main_node == 1 && afl->schedule != FAST && afl->schedule != EXPLORE) {
+
+    FATAL("-M is compatible only with fast and explore -p power schedules");
+
+  }
+
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
     usage(argv[0], show_help);
