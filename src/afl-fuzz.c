@@ -2081,6 +2081,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
