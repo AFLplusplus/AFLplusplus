@@ -228,6 +228,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Thomas Rooijakkers                    David Carlier
     Ruben ten Hove                        Joey Jiao
     fuzzah                                @intrigus-lgtm
+    Yaakov Saxon
   ```
 
 </details>
