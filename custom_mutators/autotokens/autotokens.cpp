@@ -22,7 +22,6 @@ extern "C" {
 
 #define AUTOTOKENS_DEBUG 0
 #define AUTOTOKENS_ONLY_FAV 0
-#define AUTOTOKENS_ALTERNATIVE_TOKENIZE 0
 #define AUTOTOKENS_CHANGE_MIN 8
 #define AUTOTOKENS_CHANGE_MAX 64
 #define AUTOTOKENS_WHITESPACE " "
@@ -60,7 +59,6 @@ typedef struct my_mutator {
 static afl_state *afl_ptr;
 static int        debug = AUTOTOKENS_DEBUG;
 static int        only_fav = AUTOTOKENS_ONLY_FAV;
-static int        alternative_tokenize = AUTOTOKENS_ALTERNATIVE_TOKENIZE;
 static int        learn_dictionary_tokens = AUTOTOKENS_LEARN_DICT;
 static int        fuzz_count_shift = AUTOTOKENS_FUZZ_COUNT_SHIFT;
 static int        create_from_thin_air = AUTOTOKENS_CREATE_FROM_THIN_AIR;
@@ -142,7 +140,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   (void)(data);
 
-  if (s == NULL) {
+  if (unlikely(s == NULL)) {
 
     *out_buf = NULL;
     return 0;
@@ -183,9 +181,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         } while (unlikely(
 
             new_item == cur_item ||
-            (!alternative_tokenize &&
-             ((whitespace_ids < new_item && whitespace_ids >= cur_item) ||
-              (whitespace_ids >= new_item && whitespace_ids < cur_item)))));
+            ((whitespace_ids < new_item && whitespace_ids >= cur_item) ||
+             (whitespace_ids >= new_item && whitespace_ids < cur_item))));
 
         DEBUGF(stderr, "MUT: %u -> %u\n", cur_item, new_item);
         m[pos] = new_item;
@@ -200,37 +197,33 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
           new_item = rand_below(afl_ptr, current_id);
 
-        } while (unlikely(!alternative_tokenize && new_item >= whitespace_ids));
+        } while (unlikely(new_item >= whitespace_ids));
 
         u32 pos = rand_below(afl_ptr, m_size + 1);
         m.insert(m.begin() + pos, new_item);
         ++m_size;
         DEBUGF(stderr, "INS: %u at %u\n", new_item, pos);
 
-        if (likely(!alternative_tokenize)) {
+        // if we insert an identifier or string we might need whitespace
+        if (id_to_token[new_item].size() > 1) {
 
-          // if we insert an identifier or string we might need whitespace
-          if (id_to_token[new_item].size() > 1) {
+          // need to insert before?
 
-            // need to insert before?
+          if (pos && m[pos - 1] >= whitespace_ids &&
+              id_to_token[m[pos - 1]].size() > 1) {
 
-            if (pos && m[pos - 1] >= whitespace_ids &&
-                id_to_token[m[pos - 1]].size() > 1) {
+            m.insert(m.begin() + pos, good_whitespace_or_singleval());
+            ++m_size;
 
-              m.insert(m.begin() + pos, good_whitespace_or_singleval());
-              ++m_size;
+          }
 
-            }
+          if (pos + 1 < m_size && m[pos + 1] >= whitespace_ids &&
+              id_to_token[m[pos + 1]].size() > 1) {
 
-            if (pos + 1 < m_size && m[pos + 1] >= whitespace_ids &&
-                id_to_token[m[pos + 1]].size() > 1) {
+            // need to insert after?
 
-              // need to insert after?
-
-              m.insert(m.begin() + pos + 1, good_whitespace_or_singleval());
-              ++m_size;
-
-            }
+            m.insert(m.begin() + pos + 1, good_whitespace_or_singleval());
+            ++m_size;
 
           }
 
@@ -290,26 +283,22 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
         }
 
-        if (likely(!alternative_tokenize)) {
+        // do we need a whitespace/token at the beginning?
+        if (dst_off && id_to_token[m[dst_off - 1]].size() > 1 &&
+            id_to_token[m[dst_off]].size() > 1) {
 
-          // do we need a whitespace/token at the beginning?
-          if (dst_off && id_to_token[m[dst_off - 1]].size() > 1 &&
-              id_to_token[m[dst_off]].size() > 1) {
+          m.insert(m.begin() + dst_off, good_whitespace_or_singleval());
+          ++m_size;
 
-            m.insert(m.begin() + dst_off, good_whitespace_or_singleval());
-            ++m_size;
+        }
 
-          }
+        // do we need a whitespace/token at the end?
+        if (dst_off + n < m_size &&
+            id_to_token[m[dst_off + n - 1]].size() > 1 &&
+            id_to_token[m[dst_off + n]].size() > 1) {
 
-          // do we need a whitespace/token at the end?
-          if (dst_off + n < m_size &&
-              id_to_token[m[dst_off + n - 1]].size() > 1 &&
-              id_to_token[m[dst_off + n]].size() > 1) {
-
-            m.insert(m.begin() + dst_off + n, good_whitespace_or_singleval());
-            ++m_size;
-
-          }
+          m.insert(m.begin() + dst_off + n, good_whitespace_or_singleval());
+          ++m_size;
 
         }
 
@@ -332,8 +321,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
           // if what we delete will result in a missing whitespace/token,
           // instead of deleting we switch the item to a whitespace or token.
-          if (likely(!alternative_tokenize) && pos && pos + 1 < m_size &&
-              id_to_token[m[pos - 1]].size() > 1 &&
+          if (pos && pos + 1 < m_size && id_to_token[m[pos - 1]].size() > 1 &&
               id_to_token[m[pos + 1]].size() > 1) {
 
             m[pos] = good_whitespace_or_singleval();
@@ -362,17 +350,11 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   }
 
-  u32 m_size_1 = m_size - 1;
   output = "";
 
   for (i = 0; i < m_size; ++i) {
 
     output += id_to_token[m[i]];
-    if (unlikely(alternative_tokenize && i < m_size_1)) {
-
-      output += whitespace;
-
-    }
 
   }
 
@@ -725,336 +707,107 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     DEBUGF(stderr, "START!\n");
 
-    if (likely(!alternative_tokenize)) {
+    while (my_search_string(cur, ende, &match_begin, &match_end)) {
 
-      while (my_search_string(cur, ende, &match_begin, &match_end)) {
+      prev = cur;
+      found = match_begin;
+      cur = match_end;
 
-        prev = cur;
-        found = match_begin;
-        cur = match_end;
+      IFDEBUG {
 
-        IFDEBUG {
+        string foo(match_begin, match_end);
+        DEBUGF(stderr,
+               "string %s found at start %lu offset %lu continue at %lu\n",
+               foo.c_str(), prev - input.begin(), found - prev,
+               cur - input.begin());
 
-          string foo(match_begin, match_end);
-          DEBUGF(stderr,
-                 "string %s found at start %lu offset %lu continue at %lu\n",
-                 foo.c_str(), prev - input.begin(), found - prev,
-                 cur - input.begin());
+      }
 
-        }
+      if (prev < found) {  // there are items between search start and find
+        while (prev < found) {
 
-        if (prev < found) {  // there are items between search start and find
-          while (prev < found) {
+          if (isspace(*prev)) {
 
-            if (isspace(*prev)) {
+            auto start = prev;
+            while (isspace(*prev)) {
 
-              auto start = prev;
-              while (isspace(*prev)) {
-
-                ++prev;
-
-              }
-
-              tokens.push_back(std::string(start, prev));
-              DEBUGF(stderr, "WHITESPACE %ld \"%s\"\n", prev - start,
-                     tokens[tokens.size() - 1].c_str());
-
-            } else if (isalnum(*prev) || *prev == '$' || *prev == '_') {
-
-              auto start = prev;
-              while (isalnum(*prev) || *prev == '$' || *prev == '_' ||
-                     *prev == '.' || *prev == '/') {
-
-                ++prev;
-
-              }
-
-              tokens.push_back(string(start, prev));
-              DEBUGF(stderr, "IDENTIFIER %ld \"%s\"\n", prev - start,
-                     tokens[tokens.size() - 1].c_str());
-
-            } else {
-
-              tokens.push_back(string(prev, prev + 1));
-              DEBUGF(stderr, "OTHER \"%c\"\n", *prev);
               ++prev;
 
             }
 
-          }
-
-        }
-
-        tokens.push_back(string(match_begin, match_end));
-        DEBUGF(stderr, "TOK: %s\n", tokens[tokens.size() - 1].c_str());
-
-      }
-
-      DEBUGF(stderr, "AFTER all strings\n");
-
-      if (cur < ende) {
-
-        while (cur < ende) {
-
-          if (isspace(*cur)) {
-
-            auto start = cur;
-            while (isspace(*cur)) {
-
-              ++cur;
-
-            }
-
-            tokens.push_back(std::string(start, cur));
-            DEBUGF(stderr, "WHITESPACE %ld \"%s\"\n", cur - start,
+            tokens.push_back(std::string(start, prev));
+            DEBUGF(stderr, "WHITESPACE %ld \"%s\"\n", prev - start,
                    tokens[tokens.size() - 1].c_str());
 
-          } else if (isalnum(*cur) || *cur == '$' || *cur == '_') {
+          } else if (isalnum(*prev) || *prev == '$' || *prev == '_') {
 
-            auto start = cur;
-            while (isalnum(*cur) || *cur == '$' || *cur == '_' || *cur == '.' ||
-                   *cur == '/') {
+            auto start = prev;
+            while (isalnum(*prev) || *prev == '$' || *prev == '_' ||
+                   *prev == '.' || *prev == '/') {
 
-              ++cur;
+              ++prev;
 
             }
 
-            tokens.push_back(std::string(start, cur));
-            DEBUGF(stderr, "IDENTIFIER %ld \"%s\"\n", cur - start,
+            tokens.push_back(string(start, prev));
+            DEBUGF(stderr, "IDENTIFIER %ld \"%s\"\n", prev - start,
                    tokens[tokens.size() - 1].c_str());
 
           } else {
 
-            tokens.push_back(std::string(cur, cur + 1));
-            DEBUGF(stderr, "OTHER \"%c\"\n", *cur);
+            tokens.push_back(string(prev, prev + 1));
+            DEBUGF(stderr, "OTHER \"%c\"\n", *prev);
+            ++prev;
+
+          }
+
+        }
+
+      }
+
+      tokens.push_back(string(match_begin, match_end));
+      DEBUGF(stderr, "TOK: %s\n", tokens[tokens.size() - 1].c_str());
+
+    }
+
+    DEBUGF(stderr, "AFTER all strings\n");
+
+    if (cur < ende) {
+
+      while (cur < ende) {
+
+        if (isspace(*cur)) {
+
+          auto start = cur;
+          while (isspace(*cur)) {
+
             ++cur;
 
           }
 
-        }
+          tokens.push_back(std::string(start, cur));
+          DEBUGF(stderr, "WHITESPACE %ld \"%s\"\n", cur - start,
+                 tokens[tokens.size() - 1].c_str());
 
-      }
+        } else if (isalnum(*cur) || *cur == '$' || *cur == '_') {
 
-    } else {
+          auto start = cur;
+          while (isalnum(*cur) || *cur == '$' || *cur == '_' || *cur == '.' ||
+                 *cur == '/') {
 
-      // alternative tokenize
-      while (my_search_string(cur, ende, &match_begin, &match_end)) {
-
-        prev = cur;
-        found = match_begin;
-        cur = match_end;
-        IFDEBUG {
-
-          string foo(match_begin, match_end);
-          DEBUGF(stderr,
-                 "string %s found at start %lu offset %lu continue at %lu\n",
-                 foo.c_str(), prev - input.begin(), found - prev,
-                 cur - input.begin());
-
-        }
-
-        if (prev < found) {  // there are items between search start and find
-
-          sregex_token_iterator it{prev, found, regex_whitespace, -1};
-          vector<std::string>   tokenized{it, {}};
-          tokenized.erase(std::remove_if(tokenized.begin(), tokenized.end(),
-                                         [](std::string const &s) {
-
-                                           return s.size() == 0;
-
-                                         }),
-
-                          tokenized.end());
-          tokens.reserve(tokens.size() + tokenized.size() * 2 + 1);
-
-          IFDEBUG {
-
-            DEBUGF(stderr, "tokens1: %lu   input size: %lu\n", tokenized.size(),
-                   input.size());
-            for (auto x : tokenized) {
-
-              cerr << x << endl;
-
-            }
+            ++cur;
 
           }
 
-          for (auto token : tokenized) {
-
-            string::const_iterator c = token.begin(), e = token.end(), f, p;
-            smatch                 m;
-
-            while (regex_search(c, e, m, regex_word)) {
-
-              p = c;
-              f = m[0].first;
-              c = m[0].second;
-              if (p < f) {
-
-                // there are items between search start and find
-                while (p < f) {
-
-                  IFDEBUG {
-
-                    string foo(p, p + 1);
-                    DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
-
-                  }
-
-                  tokens.push_back(std::string(p, p + 1));
-                  ++p;
-
-                }
-
-                IFDEBUG {
-
-                  string foo(p, f);
-                  DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
-                  tokens.push_back(std::string(p, f));
-
-                }
-
-              }
-
-              DEBUGF(stderr,
-                     "SUBstring \"%s\" found at start %lu offset %lu continue "
-                     "at %lu\n",
-                     m[0].str().c_str(), p - input.begin(), m.position(),
-                     c - token.begin());
-              tokens.push_back(m[0].str());
-
-            }
-
-            if (c < e) {
-
-              while (c < e) {
-
-                IFDEBUG {
-
-                  string foo(c, c + 1);
-                  DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
-
-                }
-
-                tokens.push_back(std::string(c, c + 1));
-                ++c;
-
-              }
-
-              IFDEBUG {
-
-                string foo(c, e);
-                DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
-
-              }
-
-              tokens.push_back(std::string(c, e));
-
-            }
-
-          }
-
-        }
-
-        tokens.push_back(string(match_begin, match_end));
-
-      }
-
-      if (cur < ende) {
-
-        sregex_token_iterator it{cur, ende, regex_whitespace, -1};
-        vector<std::string>   tokenized{it, {}};
-        tokenized.erase(
-            std::remove_if(tokenized.begin(), tokenized.end(),
-                           [](std::string const &s) { return s.size() == 0; }),
-            tokenized.end());
-        tokens.reserve(tokens.size() + tokenized.size() * 2 + 1);
-
-        IFDEBUG {
-
-          DEBUGF(stderr, "tokens2: %lu   input size: %lu\n", tokenized.size(),
-                 input.size());
-          for (auto x : tokenized) {
-
-            cerr << x << endl;
-
-          }
-
-        }
-
-        for (auto token : tokenized) {
-
-          string::const_iterator c = token.begin(), e = token.end(), f, p;
-          smatch                 m;
-
-          while (regex_search(c, e, m, regex_word)) {
-
-            p = c;
-            f = m[0].first;
-            c = m[0].second;
-            if (p < f) {
-
-              // there are items between search start and find
-              while (p < f) {
-
-                IFDEBUG {
-
-                  string foo(p, p + 1);
-                  DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
-
-                }
-
-                tokens.push_back(std::string(p, p + 1));
-                ++p;
-
-              }
-
-              IFDEBUG {
-
-                string foo(p, f);
-                DEBUGF(stderr, "before string: \"%s\"\n", foo.c_str());
-
-              }
-
-              tokens.push_back(std::string(p, f));
-
-            }
-
-            DEBUGF(stderr,
-                   "SUB2string \"%s\" found at start %lu offset %lu continue "
-                   "at %lu\n",
-                   m[0].str().c_str(), p - input.begin(), m.position(),
-                   c - token.begin());
-            tokens.push_back(m[0].str());
-
-          }
-
-          if (c < e) {
-
-            while (c < e) {
-
-              IFDEBUG {
-
-                string foo(c, c + 1);
-                DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
-
-              }
-
-              tokens.push_back(std::string(c, c + 1));
-              ++c;
-
-            }
-
-            IFDEBUG {
-
-              string foo(c, e);
-              DEBUGF(stderr, "after string: \"%s\"\n", foo.c_str());
-
-            }
-
-            tokens.push_back(std::string(c, e));
-
-          }
+          tokens.push_back(std::string(start, cur));
+          DEBUGF(stderr, "IDENTIFIER %ld \"%s\"\n", cur - start,
+                 tokens[tokens.size() - 1].c_str());
+
+        } else {
+
+          tokens.push_back(std::string(cur, cur + 1));
+          DEBUGF(stderr, "OTHER \"%c\"\n", *cur);
+          ++cur;
 
         }
 
@@ -1065,15 +818,9 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     IFDEBUG {
 
       DEBUGF(stderr, "DUMPING TOKENS:\n");
-      u32 size_1 = tokens.size() - 1;
       for (u32 i = 0; i < tokens.size(); ++i) {
 
         DEBUGF(stderr, "%s", tokens[i].c_str());
-        if (unlikely(alternative_tokenize && i < size_1)) {
-
-          DEBUGF(stderr, "%s", whitespace.c_str());
-
-        }
 
       }
 
@@ -1157,7 +904,6 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   if (getenv("AUTOTOKENS_DEBUG")) { debug = 1; }
   if (getenv("AUTOTOKENS_ONLY_FAV")) { only_fav = 1; }
   if (getenv("AUTOTOKENS_CREATE_FROM_THIN_AIR")) { create_from_thin_air = 1; }
-  if (getenv("AUTOTOKENS_ALTERNATIVE_TOKENIZE")) { alternative_tokenize = 1; }
 
   if (getenv("AUTOTOKENS_LEARN_DICT")) {
 
@@ -1180,14 +926,22 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   if (getenv("AUTOTOKENS_CHANGE_MIN")) {
 
     change_min = atoi(getenv("AUTOTOKENS_CHANGE_MIN"));
-    if (change_min < 1 || change_min > 256) { change_min = AUTOTOKENS_CHANGE_MIN; }
+    if (change_min < 1 || change_min > 256) {
+
+      change_min = AUTOTOKENS_CHANGE_MIN;
+
+    }
 
   }
 
   if (getenv("AUTOTOKENS_CHANGE_MAX")) {
 
     change_max = atoi(getenv("AUTOTOKENS_CHANGE_MAX"));
-    if (change_max < 1 || change_max > 4096) { change_max = AUTOTOKENS_CHANGE_MAX; }
+    if (change_max < 1 || change_max > 4096) {
+
+      change_max = AUTOTOKENS_CHANGE_MAX;
+
+    }
 
   }
 
@@ -1212,53 +966,49 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   // set common whitespace tokens
   // we deliberately do not put uncommon ones here to these will count as
   // identifier tokens.
-  if (!alternative_tokenize) {
-
-    token_to_id[" "] = current_id;
-    id_to_token[current_id] = " ";
-    ++current_id;
-    token_to_id["\t"] = current_id;
-    id_to_token[current_id] = "\t";
-    ++current_id;
-    token_to_id["\n"] = current_id;
-    id_to_token[current_id] = "\n";
-    ++current_id;
-    token_to_id["\r\n"] = current_id;
-    id_to_token[current_id] = "\r\n";
-    ++current_id;
-    token_to_id[" \n"] = current_id;
-    id_to_token[current_id] = " \n";
-    ++current_id;
-    token_to_id["  "] = current_id;
-    id_to_token[current_id] = "  ";
-    ++current_id;
-    token_to_id["\t\t"] = current_id;
-    id_to_token[current_id] = "\t\t";
-    ++current_id;
-    token_to_id["\n\n"] = current_id;
-    id_to_token[current_id] = "\n\n";
-    ++current_id;
-    token_to_id["\r\n\r\n"] = current_id;
-    id_to_token[current_id] = "\r\n\r\n";
-    ++current_id;
-    token_to_id["    "] = current_id;
-    id_to_token[current_id] = "    ";
-    ++current_id;
-    token_to_id["\t\t\t\t"] = current_id;
-    id_to_token[current_id] = "\t\t\t\t";
-    ++current_id;
-    token_to_id["\n\n\n\n"] = current_id;
-    id_to_token[current_id] = "\n\n\n\n";
-    ++current_id;
-    whitespace_ids = current_id;
-    token_to_id["\""] = current_id;
-    id_to_token[current_id] = "\"";
-    ++current_id;
-    token_to_id["'"] = current_id;
-    id_to_token[current_id] = "'";
-    ++current_id;
-
-  }
+  token_to_id[" "] = current_id;
+  id_to_token[current_id] = " ";
+  ++current_id;
+  token_to_id["\t"] = current_id;
+  id_to_token[current_id] = "\t";
+  ++current_id;
+  token_to_id["\n"] = current_id;
+  id_to_token[current_id] = "\n";
+  ++current_id;
+  token_to_id["\r\n"] = current_id;
+  id_to_token[current_id] = "\r\n";
+  ++current_id;
+  token_to_id[" \n"] = current_id;
+  id_to_token[current_id] = " \n";
+  ++current_id;
+  token_to_id["  "] = current_id;
+  id_to_token[current_id] = "  ";
+  ++current_id;
+  token_to_id["\t\t"] = current_id;
+  id_to_token[current_id] = "\t\t";
+  ++current_id;
+  token_to_id["\n\n"] = current_id;
+  id_to_token[current_id] = "\n\n";
+  ++current_id;
+  token_to_id["\r\n\r\n"] = current_id;
+  id_to_token[current_id] = "\r\n\r\n";
+  ++current_id;
+  token_to_id["    "] = current_id;
+  id_to_token[current_id] = "    ";
+  ++current_id;
+  token_to_id["\t\t\t\t"] = current_id;
+  id_to_token[current_id] = "\t\t\t\t";
+  ++current_id;
+  token_to_id["\n\n\n\n"] = current_id;
+  id_to_token[current_id] = "\n\n\n\n";
+  ++current_id;
+  whitespace_ids = current_id;
+  token_to_id["\""] = current_id;
+  id_to_token[current_id] = "\"";
+  ++current_id;
+  token_to_id["'"] = current_id;
+  id_to_token[current_id] = "'";
+  ++current_id;
 
   return data;
 
