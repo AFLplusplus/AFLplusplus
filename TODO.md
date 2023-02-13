@@ -9,13 +9,12 @@
  - afl-plot to support multiple plot_data
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
- - first fuzzer should be a main automatically
+ - first fuzzer should be a main automatically? not sure.
 
 ## Maybe
 
  - forkserver tells afl-fuzz if cmplog is supported and if so enable
    it by default, with AFL_CMPLOG_NO=1 (?) set to skip?
- - afl_custom_fuzz_splice_optin()
  - afl_custom_splice()
  - cmdline option from-to range for mutations
 

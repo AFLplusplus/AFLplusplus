@@ -129,6 +129,9 @@ subset of the settings discussed in section 1, with the exception of:
     write all constant string comparisons to this file to be used later with
     afl-fuzz' `-x` option.
 
+  - An option to `AFL_LLVM_DICT2FILE` is `AFL_LLVM_DICT2FILE_NO_MAIN=1` which
+    skill not parse `main()`.
+
   - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
     created.
 
