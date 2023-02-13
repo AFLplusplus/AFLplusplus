@@ -1,16 +1,22 @@
 ifdef debug
-	CFLAGS += -fsanitize=address -Wall
+	CPPLAGS += -fsanitize=address
+	CXXFLAGS += -Wall
+	CC := clang
 	CXX := clang++
 endif
 ifdef DEBUG
-	CFLAGS += -fsanitize=address -Wall
+	CPPFLAGS += -fsanitize=address
+	CXXFLAGS += -Wall
+	CC := clang
 	CXX := clang++
 endif
 
 all:	autotokens.so
 
 autotokens.so:	autotokens.cpp
-	$(CXX) -g -O3 $(CFLAGS) -shared -fPIC -o autotokens.so -I../../include autotokens.cpp ../../src/afl-performance.o
+	$(CC) -D_STANDALONE_MODULE=1 -I../../include -g -O3 $(CPPFLAGS) -fPIC -c -o ./afl-fuzz-queue.o ../../src/afl-fuzz-queue.c
+	$(CC) -I../../include -g -O3 $(CPPFLAGS) -DBIN_PATH=\"dummy\" -Wno-pointer-sign -fPIC -c -o ./afl-common.o ../../src/afl-common.c
+	$(CXX) -Wno-deprecated -g -O3 $(CXXFLAGS) $(CPPFLAGS) -shared -fPIC -o autotokens.so -I../../include autotokens.cpp  ./afl-fuzz-queue.o ../../src/afl-performance.o ./afl-common.o
 
 clean:
 	rm -f autotokens.so *~ core
