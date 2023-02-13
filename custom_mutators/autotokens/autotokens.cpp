@@ -204,31 +204,6 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         ++m_size;
         DEBUGF(stderr, "INS: %u at %u\n", new_item, pos);
 
-        // if we insert an identifier or string we might need whitespace
-        if (id_to_token[new_item].size() > 1) {
-
-          // need to insert before?
-
-          if (pos && m[pos - 1] >= whitespace_ids &&
-              id_to_token[m[pos - 1]].size() > 1) {
-
-            m.insert(m.begin() + pos, good_whitespace_or_singleval());
-            ++m_size;
-
-          }
-
-          if (pos + 1 < m_size && m[pos + 1] >= whitespace_ids &&
-              id_to_token[m[pos + 1]].size() > 1) {
-
-            // need to insert after?
-
-            m.insert(m.begin() + pos + 1, good_whitespace_or_singleval());
-            ++m_size;
-
-          }
-
-        }
-
         break;
 
       }
@@ -283,25 +258,6 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
         }
 
-        // do we need a whitespace/token at the beginning?
-        if (dst_off && id_to_token[m[dst_off - 1]].size() > 1 &&
-            id_to_token[m[dst_off]].size() > 1) {
-
-          m.insert(m.begin() + dst_off, good_whitespace_or_singleval());
-          ++m_size;
-
-        }
-
-        // do we need a whitespace/token at the end?
-        if (dst_off + n < m_size &&
-            id_to_token[m[dst_off + n - 1]].size() > 1 &&
-            id_to_token[m[dst_off + n]].size() > 1) {
-
-          m.insert(m.begin() + dst_off + n, good_whitespace_or_singleval());
-          ++m_size;
-
-        }
-
         break;
 
       }
@@ -319,19 +275,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
           } while (unlikely(m[pos] < whitespace_ids));
 
-          // if what we delete will result in a missing whitespace/token,
-          // instead of deleting we switch the item to a whitespace or token.
-          if (pos && pos + 1 < m_size && id_to_token[m[pos - 1]].size() > 1 &&
-              id_to_token[m[pos + 1]].size() > 1) {
-
-            m[pos] = good_whitespace_or_singleval();
-
-          } else {
-
-            m.erase(m.begin() + pos);
-            --m_size;
-
-          }
+          m.erase(m.begin() + pos);
+          --m_size;
 
         } else {
 
@@ -350,9 +295,30 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   }
 
+  /* Now we create the output */
+
   output = "";
+  u32 prev_size = 0;
 
   for (i = 0; i < m_size; ++i) {
+
+    if (likely(i + 1 < m_size)) {
+
+      u32 this_size = id_to_token[m[i]].size();
+
+      /* The output we are generating might need repairing.
+         General rule: two items that have a size larger than 2 are strings
+         or identifizers and need a whitespace or an item of length 1 in
+         between. */
+      if (unlikely(prev_size > 1 && this_size > 1)) {
+
+        output += id_to_token[good_whitespace_or_singleval()];
+
+      }
+
+      prev_size = this_size;
+
+    }
 
     output += id_to_token[m[i]];
 
