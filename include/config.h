@@ -491,6 +491,10 @@
 
 #define AFL_TXT_MIN_LEN 16
 
+/* Maximum length of a queue input to be evaluated for "is_ascii"? */
+
+#define AFL_TXT_MAX_LEN 65535
+
 /* What is the minimum percentage of ascii characters present to be classifed
    as "is_ascii"? */
 

@@ -25,10 +25,12 @@ extern "C" {
 #define AUTOTOKENS_CHANGE_MIN 8
 #define AUTOTOKENS_CHANGE_MAX 64
 #define AUTOTOKENS_SIZE_MIN 8
+#define AUTOTOKENS_SIZE_MAX 65535
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
 #define AUTOTOKENS_CREATE_FROM_THIN_AIR 0
 #define AUTOTOKENS_FUZZ_COUNT_SHIFT 0
+#define AUTOTOKENS_AUTO_DISABLE 0
 // 0 = no learning, 1 only from -x dict/autodict, 2 also from cmplog
 #define AUTOTOKENS_LEARN_DICT 1
 #ifndef AUTOTOKENS_SPLICE_DISABLE
@@ -56,6 +58,8 @@ typedef struct my_mutator {
 #define IFDEBUG if (unlikely(debug))
 
 static afl_state *afl_ptr;
+static int        module_disabled = 0;
+static int        auto_disable = AUTOTOKENS_AUTO_DISABLE;
 static int        debug = AUTOTOKENS_DEBUG;
 static int        only_fav = AUTOTOKENS_ONLY_FAV;
 static int        learn_dictionary_tokens = AUTOTOKENS_LEARN_DICT;
@@ -92,6 +96,99 @@ static vector<u32> *s;  // the structure of the currently selected input
 static void first_run(void *data) {
 
   (void)(data);
+
+  /* For auto-loading this module we check here if we can analyze from the
+     input if the inputs look like text inputs and disable the module if
+     not. */
+
+  if (afl_ptr->custom_only || !auto_disable) { return; }
+
+  if (unlikely(afl_ptr->active_items == 1 &&
+               afl_ptr->queue_cur->len < AFL_TXT_MIN_LEN)) {
+
+    if (afl_ptr->extras_cnt > 8) {
+
+      u32 valid = 0;
+
+      while (extras_cnt < afl_ptr->extras_cnt) {
+
+        u32 ok = 1, l = afl_ptr->extras[extras_cnt].len;
+        u8 *buf, *ptr = afl_ptr->extras[extras_cnt].data;
+
+        for (u32 i = 0; i < l; ++i) {
+
+          if (!isascii((int)ptr[i]) && !isprint((int)ptr[i])) {
+
+            ok = 0;
+            break;
+
+          }
+
+        }
+
+        if (ok) {
+
+          buf = (u8 *)malloc(afl_ptr->extras[extras_cnt].len + 1);
+          memcpy(buf, afl_ptr->extras[extras_cnt].data,
+                 afl_ptr->extras[extras_cnt].len);
+          buf[afl_ptr->extras[extras_cnt].len] = 0;
+          token_to_id[(char *)buf] = current_id;
+          id_to_token[current_id] = (char *)buf;
+          ++current_id;
+          ++valid;
+
+        }
+
+        ++extras_cnt;
+
+      }
+
+      if ((valid * 100) / afl_ptr->extras_cnt < 95) { module_disabled = 1; }
+
+    } else {
+
+      module_disabled = 1;
+
+    }
+
+    return;
+
+  }
+
+  u32 is_ascii = 0, valid = 0;
+
+  for (u32 i = 0; i < afl_ptr->queued_items; ++i) {
+
+    struct queue_entry *q;
+
+    q = afl_ptr->queue_buf[i];
+
+    if (!q->disabled && q->len >= AUTOTOKENS_SIZE_MIN &&
+        q->len <= AFL_TXT_MAX_LEN) {
+
+      ++valid;
+      u8 *input = queue_testcase_get(afl_ptr, q);
+
+      u32 valid_chars = 0;
+      for (u32 i = 0; i < q->len; ++i) {
+
+        if (isascii((int)input[i]) || isprint((int)input[i])) { ++valid_chars; }
+
+      }
+
+      // we want at least 99% of text characters ...
+      if (((q->len * AFL_TXT_MIN_PERCENT) / 100) <= valid_chars) {
+
+        ++is_ascii;
+        q->is_ascii = 1;
+
+      }
+
+    }
+
+  }
+
+  if ((is_ascii * 100) / valid < 70) { module_disabled = 1; }
 
 }
 
@@ -441,21 +538,25 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     is_first_run = 0;
     first_run(data);
 
+    if (module_disabled) { WARNF("Autotokens custom module is disabled."); }
+
   }
 
-  if (unlikely(!afl_ptr->custom_only) && !create_from_thin_air &&
-      ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
-       (only_fav && !afl_ptr->queue_cur->favored))) {
+  if (likely(module_disabled) ||
+      (unlikely(!afl_ptr->custom_only) && !create_from_thin_air &&
+       ((afl_ptr->shm.cmplog_mode && !afl_ptr->queue_cur->is_ascii) ||
+        (only_fav && !afl_ptr->queue_cur->favored)))) {
 
     s = NULL;
-    DEBUGF(stderr, "cmplog not ascii or only_fav and not favorite\n");
+    DEBUGF(stderr,
+           "cmplog not ascii or only_fav and not favorite or disabled\n");
     return 1;
 
   }
 
   // check if there are new dictionary entries and add them to the tokens
-  if (likely(valid_structures || create_from_thin_air) &&
-      learn_state < learn_dictionary_tokens) {
+  if (unlikely(learn_state < learn_dictionary_tokens) &&
+      likely(valid_structures || create_from_thin_air)) {
 
     if (unlikely(!learn_state)) { learn_state = 1; }
 
@@ -569,21 +670,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
   if (entry == file_mapping.end()) {
 
     // this input file was not analyzed for tokens yet, so let's do it!
-
-    FILE *fp = fopen((char *)filename, "rb");
-    if (!fp) {
-
-      s = NULL;
-      return 1;
-
-    }  // should not happen
-
-    fseek(fp, 0, SEEK_END);
-    size_t len = (size_t)ftell(fp);
+    size_t len = afl_ptr->queue_cur->len;
 
     if (len < AFL_TXT_MIN_LEN) {
 
-      fclose(fp);
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
       s = NULL;
       DEBUGF(stderr, "Too short (%lu) %s\n", len, filename);
@@ -591,7 +681,6 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     } else if (len > AFL_TXT_MAX_LEN) {
 
-      fclose(fp);
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
       s = NULL;
       DEBUGF(stderr, "Too long (%lu) %s\n", len, filename);
@@ -599,19 +688,8 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
-    string input;
-    input.resize(len);
-    rewind(fp);
-
-    if (fread((void *)input.data(), 1, len, fp) != len) {
-
-      s = NULL;
-      DEBUGF(stderr, "Too short read %s\n", filename);
-      return 1;
-
-    }
-
-    fclose(fp);
+    u8    *input_buf = queue_testcase_get(afl_ptr, afl_ptr->queue_cur);
+    string input((char *)input_buf, afl_ptr->queue_cur->len);
 
     if (!afl_ptr->shm.cmplog_mode) {
 
@@ -866,6 +944,7 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   }
 
   if (getenv("AUTOTOKENS_DEBUG")) { debug = 1; }
+  if (getenv("AUTOTOKENS_AUTO_DISABLE")) { auto_disable = 1; }
   if (getenv("AUTOTOKENS_ONLY_FAV")) { only_fav = 1; }
   if (getenv("AUTOTOKENS_CREATE_FROM_THIN_AIR")) { create_from_thin_air = 1; }
 
