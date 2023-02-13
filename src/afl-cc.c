@@ -2041,6 +2041,8 @@ int main(int argc, char **argv, char **envp) {
 
             "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
             "comparisons\n"
+            "  AFL_LLVM_DICT2FILE_NO_MAIN: skip parsing main() for the "
+            "dictionary\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
@@ -2128,7 +2130,8 @@ int main(int argc, char **argv, char **envp) {
         "defaults.\n"
         "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast "
         "with\n"
-        "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n");
+        "AFL_LLVM_CMPLOG and "
+        "AFL_LLVM_DICT2FILE+AFL_LLVM_DICT2FILE_NO_MAIN.\n\n");
 
     exit(1);
 
