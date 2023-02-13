@@ -24,7 +24,6 @@ extern "C" {
 #define AUTOTOKENS_ONLY_FAV 0
 #define AUTOTOKENS_CHANGE_MIN 8
 #define AUTOTOKENS_CHANGE_MAX 64
-#define AUTOTOKENS_WHITESPACE " "
 #define AUTOTOKENS_SIZE_MIN 8
 #define AUTOTOKENS_SPLICE_MIN 4
 #define AUTOTOKENS_SPLICE_MAX 64
@@ -75,7 +74,6 @@ static unordered_map<string, vector<u32> *> file_mapping;
 static unordered_map<u32, vector<u32> *>    id_mapping;
 static unordered_map<string, u32>           token_to_id;
 static unordered_map<u32, string>           id_to_token;
-static string                               whitespace = AUTOTOKENS_WHITESPACE;
 static string                               output;
 static regex                               *regex_comment_custom;
 // multiline requires g++-11 libs :(
@@ -912,12 +910,6 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   }
 
   if (change_max < change_min) { change_max = change_min + 1; }
-
-  if (getenv("AUTOTOKENS_WHITESPACE")) {
-
-    whitespace = getenv("AUTOTOKENS_WHITESPACE");
-
-  }
 
   if (getenv("AUTOTOKENS_COMMENT")) {
 
