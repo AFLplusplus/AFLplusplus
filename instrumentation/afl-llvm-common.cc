@@ -582,6 +582,24 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 
 }
 
+template <class Iterator>
+Iterator Unique(Iterator first, Iterator last) {
+  static_assert(std::is_trivially_copyable<
+        typename std::iterator_traits<Iterator>
+        >::value_type, "Invalid underlying type");
+
+  while (first != last) {
+
+    Iterator next(first);
+    last = std::remove(++next, last, *first);
+    first = next;
+
+  }
+
+  return last;
+
+}
+
 // Calculate the number of average collisions that would occur if all
 // location IDs would be assigned randomly (like normal afl/afl++).
 // This uses the "balls in bins" algorithm.
