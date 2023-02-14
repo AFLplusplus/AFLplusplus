@@ -138,21 +138,6 @@ llvmGetPassPluginInfo() {
 char CmpLogInstructions::ID = 0;
 #endif
 
-template <class Iterator>
-Iterator Unique(Iterator first, Iterator last) {
-
-  while (first != last) {
-
-    Iterator next(first);
-    last = std::remove(++next, last, *first);
-    first = next;
-
-  }
-
-  return last;
-
-}
-
 bool CmpLogInstructions::hookInstrs(Module &M) {
 
   std::vector<Instruction *> icomps;

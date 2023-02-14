@@ -131,21 +131,6 @@ llvmGetPassPluginInfo() {
 char CmplogSwitches::ID = 0;
 #endif
 
-template <class Iterator>
-Iterator Unique(Iterator first, Iterator last) {
-
-  while (first != last) {
-
-    Iterator next(first);
-    last = std::remove(++next, last, *first);
-    first = next;
-
-  }
-
-  return last;
-
-}
-
 bool CmplogSwitches::hookInstrs(Module &M) {
 
   std::vector<SwitchInst *> switches;
