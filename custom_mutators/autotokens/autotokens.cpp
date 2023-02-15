@@ -145,8 +145,9 @@ static void first_run(void *data) {
 
       if ((valid * 100) / afl_ptr->extras_cnt <= 70) { module_disabled = 1; }
 
-      DEBUGF(stderr, "DICT: valid %u, total %u, %u <= 70 == disable\n", valid,
-             afl_ptr->extras_cnt, (u32)((valid * 100) / afl_ptr->extras_cnt));
+      DEBUGF(stderr, "DICT: total %u, valid %u, %u <= 70 == disable\n",
+             afl_ptr->extras_cnt, valid,
+             (u32)((valid * 100) / afl_ptr->extras_cnt));
 
     } else {
 
