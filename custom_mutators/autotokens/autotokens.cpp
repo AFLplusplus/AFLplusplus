@@ -143,9 +143,9 @@ static void first_run(void *data) {
 
       }
 
-      if ((valid * 100) / afl_ptr->extras_cnt < 95) { module_disabled = 1; }
+      if ((valid * 100) / afl_ptr->extras_cnt <= 70) { module_disabled = 1; }
 
-      DEBUGF(stderr, "DICT: valid %u, total %u, %u < 95 == disable\n", valid,
+      DEBUGF(stderr, "DICT: valid %u, total %u, %u <= 70 == disable\n", valid,
              afl_ptr->extras_cnt, (u32)((valid * 100) / afl_ptr->extras_cnt));
 
     } else {
@@ -191,9 +191,9 @@ static void first_run(void *data) {
 
   }
 
-  if ((is_ascii * 100) / valid < 70) { module_disabled = 1; }
+  if ((is_ascii * 100) / valid <= 70) { module_disabled = 1; }
 
-  DEBUGF(stderr, "seeds: total %u, valid %u, ascii %u, %u < 70 == disabled\n",
+  DEBUGF(stderr, "seeds: total %u, valid %u, ascii %u, %u <= 70 == disabled\n",
          afl_ptr->active_items, valid, is_ascii,
          (u32)((is_ascii * 100) / valid));
 
