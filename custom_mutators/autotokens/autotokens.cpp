@@ -145,6 +145,9 @@ static void first_run(void *data) {
 
       if ((valid * 100) / afl_ptr->extras_cnt < 95) { module_disabled = 1; }
 
+      DEBUGF(stderr, "DICT: valid %u, total %u, %u < 95 == disable\n", valid,
+             afl_ptr->extras_cnt, (u32)((valid * 100) / afl_ptr->extras_cnt));
+
     } else {
 
       module_disabled = 1;
@@ -189,6 +192,10 @@ static void first_run(void *data) {
   }
 
   if ((is_ascii * 100) / valid < 70) { module_disabled = 1; }
+
+  DEBUGF(stderr, "seeds: total %u, valid %u, ascii %u, %u < 70 == disabled\n",
+         afl_ptr->active_items, valid, is_ascii,
+         (u32)((is_ascii * 100) / valid));
 
 }
 
@@ -538,7 +545,15 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     is_first_run = 0;
     first_run(data);
 
-    if (module_disabled) { WARNF("Autotokens custom module is disabled."); }
+    if (module_disabled) {
+
+      WARNF("Autotokens custom module is disabled.");
+
+    } else if (auto_disable) {
+
+      OKF("Autotokens custom module is enabled.");
+
+    }
 
   }
 

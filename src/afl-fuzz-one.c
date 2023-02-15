@@ -1988,7 +1988,7 @@ custom_mutator_stage:
 
           if (unlikely(!mutated_buf)) {
 
-            //FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
+            // FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
             break;
 
           }
