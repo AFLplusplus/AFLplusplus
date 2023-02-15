@@ -214,7 +214,13 @@ int main(int argc, char **argv) {
   #if defined(__linux__)
       if (sched_setaffinity(0, sizeof(c), &c)) {
 
-        PFATAL("sched_setaffinity failed for cpu %d", i);
+        const char *error_code = "Unkown error code";
+        if (errno == EFAULT) error_code = "EFAULT";
+        if (errno == EINVAL) error_code = "EINVAL";
+        if (errno == EPERM) error_code = "EPERM";
+        if (errno == ESRCH) error_code = "ESRCH";
+
+        PFATAL("sched_setaffinity failed for cpu %d, error: %s", i, error_code);
 
       }
 

@@ -41,7 +41,7 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  execv(argv[0], argv);
+  execv(fsrv->target_path, argv);
 
 }
 
