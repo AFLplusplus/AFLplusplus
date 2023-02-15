@@ -6,6 +6,7 @@
 ### Version ++4.06a (dev)
   - afl-fuzz:
     - ensure temporary file descriptor is closed when not used
+    - added `AFL_NO_WARN_INSTABILITY`
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
     - llvm 16 support (thanks to @devnexen!)
