@@ -287,7 +287,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
             ((whitespace_ids < new_item && whitespace_ids >= cur_item) ||
              (whitespace_ids >= new_item && whitespace_ids < cur_item))));
 
-        DEBUGF(stderr, "MUT: %u -> %u\n", cur_item, new_item);
+        // DEBUGF(stderr, "MUT: %u -> %u\n", cur_item, new_item);
         m[pos] = new_item;
         break;
 
@@ -305,7 +305,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
         u32 pos = rand_below(afl_ptr, m_size + 1);
         m.insert(m.begin() + pos, new_item);
         ++m_size;
-        DEBUGF(stderr, "INS: %u at %u\n", new_item, pos);
+        // DEBUGF(stderr, "INS: %u at %u\n", new_item, pos);
 
         break;
 
@@ -334,7 +334,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
             m.insert(m.begin() + dst_off, src->begin() + src_off,
                      src->begin() + src_off + n);
             m_size += n;
-            DEBUGF(stderr, "SPLICE-INS: %u at %u\n", n, dst_off);
+            // DEBUGF(stderr, "SPLICE-INS: %u at %u\n", n, dst_off);
 
             break;
 
@@ -354,7 +354,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
             copy(src->begin() + src_off, src->begin() + src_off + n,
                  m.begin() + dst_off);
 
-            DEBUGF(stderr, "SPLICE-MUT: %u at %u\n", n, dst_off);
+            // DEBUGF(stderr, "SPLICE-MUT: %u at %u\n", n, dst_off);
             break;
 
           }
@@ -432,6 +432,7 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
 
   if (unlikely(mutated_size > max_size)) { mutated_size = max_size; }
 
+  /*
   IFDEBUG {
 
     DEBUGF(stderr, "MUTATED to %u bytes:\n", mutated_size);
@@ -439,6 +440,8 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
     DEBUGF(stderr, "\n---\n");
 
   }
+
+  */
 
   *out_buf = mutated_out;
   ++fuzz_count;
@@ -633,7 +636,6 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
       }
 
       ++a_extras_cnt;
-      DEBUGF(stderr, "Added from auto dictionary: \"%s\"\n", ptr);
 
     }
 
@@ -751,8 +753,10 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     u32  tabs = count(input.begin(), input.end(), '\t');
     u32  linefeeds = count(input.begin(), input.end(), '\n');
     bool ends_with_linefeed = input[input.length() - 1] == '\n';
+
     DEBUGF(stderr, "spaces=%u tabs=%u linefeeds=%u ends=%u\n", spaces, tabs,
            linefeeds, ends_with_linefeed);
+
     all_spaces += spaces;
     all_tabs += tabs;
     all_lf += linefeeds;
