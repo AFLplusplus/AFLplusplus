@@ -312,12 +312,18 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   if (notrim) {
 
+    if (mutator->afl_custom_init_trim || mutator->afl_custom_trim ||
+        mutator->afl_custom_post_trim) {
+
+      WARNF(
+          "Custom mutator does not implement all three trim APIs, standard "
+          "trimming will be used.");
+
+    }
+
     mutator->afl_custom_init_trim = NULL;
     mutator->afl_custom_trim = NULL;
     mutator->afl_custom_post_trim = NULL;
-    ACTF(
-        "Custom mutator does not implement all three trim APIs, standard "
-        "trimming will be used.");
 
   }
 
