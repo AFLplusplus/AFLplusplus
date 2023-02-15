@@ -1078,6 +1078,8 @@ extern "C" void afl_custom_deinit(my_mutator_t *data) {
   /* we use this to print statistics at exit :-)
      needs to be stderr as stdout is filtered */
 
+  if (module_disabled) { return; }
+
   fprintf(stderr,
           "\n\nAutotoken mutator statistics:\n"
           "  Number of all seen tokens:  %u\n"
