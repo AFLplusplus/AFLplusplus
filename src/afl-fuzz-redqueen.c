@@ -1624,6 +1624,8 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
     }
 
+    if (cons_0 > 1 || cons_ff > 1) { return; }
+
   }
 
   maybe_add_auto(afl, (u8 *)&v + off, size);
