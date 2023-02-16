@@ -401,25 +401,28 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
   /* Now we create the output */
 
   output = "";
-  u32 prev_size = 0;
+  u32 prev_size = 1, was_whitespace = 1;
 
   for (i = 0; i < m_size; ++i) {
 
     if (likely(i + 1 < m_size)) {
 
       u32 this_size = id_to_token[m[i]].size();
+      u32 is_whitespace = m[i] < whitespace_ids;
 
       /* The output we are generating might need repairing.
          General rule: two items that have a size larger than 2 are strings
          or identifizers and need a whitespace or an item of length 1 in
          between. */
-      if (unlikely(prev_size > 1 && this_size > 1)) {
+      if (unlikely(!(prev_size == 1 || was_whitespace || this_size == 1 ||
+                     is_whitespace))) {
 
         output += id_to_token[good_whitespace_or_singleval()];
 
       }
 
       prev_size = this_size;
+      was_whitespace = is_whitespace;
 
     }
 
