@@ -9,7 +9,6 @@
 #include <string>
 #include <fstream>
 #include <optional>
-#include <type_traits>
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
@@ -54,7 +53,6 @@ void  initInstrumentList();
 bool  isInInstrumentList(llvm::Function *F, std::string Filename);
 unsigned long long int calculateCollisions(uint32_t edges);
 void                   scanForDangerousFunctions(llvm::Module *M);
-template<class Iterator> Iterator Unique(Iterator, Iterator);
 
 #ifndef IS_EXTERN
   #define IS_EXTERN
