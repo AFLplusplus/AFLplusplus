@@ -289,6 +289,13 @@ __attribute__((visibility("default"))) void js_api_set_instrument_cache_size(
 
 }
 
+__attribute__((visibility("default"))) void
+js_api_set_instrument_suppress_disable(void) {
+
+  instrument_suppress = false;
+
+}
+
 __attribute__((visibility("default"))) void js_api_set_js_main_hook(
     const js_main_hook_t hook) {
 
