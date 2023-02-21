@@ -5691,6 +5691,7 @@ pacemaker_fuzzing:
 
   }                                                                /* block */
 
+  ++afl->queue_cur->fuzz_level;
   return ret_val;
 
 }
@@ -5804,7 +5805,7 @@ void pso_updating(afl_state_t *afl) {
    depending on the configuration. */
 u8 fuzz_one(afl_state_t *afl) {
 
-  int key_val_lv_1 = 0, key_val_lv_2 = 0;
+  int key_val_lv_1 = -1, key_val_lv_2 = -1;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
 
@@ -5850,6 +5851,9 @@ u8 fuzz_one(afl_state_t *afl) {
     }
 
   }
+
+  if (unlikely(key_val_lv_1 == -1)) { key_val_lv_1 = 0; }
+  if (likely(key_val_lv_2 == -1)) { key_val_lv_2 = 0; }
 
   return (key_val_lv_1 | key_val_lv_2);
 

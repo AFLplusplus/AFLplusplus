@@ -630,7 +630,8 @@ If you have a large corpus, a corpus from a previous run or are fuzzing in a CI,
 then also set `export AFL_CMPLOG_ONLY_NEW=1` and `export AFL_FAST_CAL=1`.
 If the queue in the CI is huge and/or the execution time is slow then you can
 also add `AFL_NO_STARTUP_CALIBRATION=1` to skip the initial queue calibration
-phase and start fuzzing at once.
+phase and start fuzzing at once - but only do this if the calibration phase
+would be too long for your fuzz run time.
 
 You can also use different fuzzers. If you are using AFL spinoffs or AFL
 conforming fuzzers, then just use the same -o directory and give it a unique
@@ -916,7 +917,8 @@ normal fuzzing campaigns as these are much shorter runnings.
 
 If the queue in the CI is huge and/or the execution time is slow then you can
 also add `AFL_NO_STARTUP_CALIBRATION=1` to skip the initial queue calibration
-phase and start fuzzing at once.
+phase and start fuzzing at once. But only do that if the calibration time is
+too long for your overall available fuzz run time.
 
 1. Always:
     * LTO has a much longer compile time which is diametrical to short fuzzing -

@@ -1298,6 +1298,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->is_main_node == 1 && afl->schedule != FAST && afl->schedule != EXPLORE) {
+
+    FATAL("-M is compatible only with fast and explore -p power schedules");
+
+  }
+
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
     usage(argv[0], show_help);
@@ -1346,12 +1352,11 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   #endif
-  if (afl->sync_id && afl->is_main_node &&
-      afl->afl_env.afl_custom_mutator_only) {
+  if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
 
-    WARNF(
-        "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
-        "will result in no deterministic mutations being done!");
+    FATAL(
+        "Using -D determinstic fuzzing is incompatible with "
+        "AFL_CUSTOM_MUTATOR_ONLY!");
 
   }
 
@@ -2106,6 +2111,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
@@ -2574,6 +2580,7 @@ int main(int argc, char **argv_orig, char **envp) {
       skipped_fuzz = fuzz_one(afl);
   #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
+
       if (unlikely(skipped_fuzz)) {
 
         ++afl->queue_cur->stats_skipped;

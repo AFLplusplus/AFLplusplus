@@ -1028,10 +1028,16 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case LIN:
+      // Don't modify perf_score for unfuzzed seeds
+      if (!q->fuzz_level) break;
+
       factor = q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;
 
     case QUAD:
+      // Don't modify perf_score for unfuzzed seeds
+      if (!q->fuzz_level) break;
+
       factor =
           q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;

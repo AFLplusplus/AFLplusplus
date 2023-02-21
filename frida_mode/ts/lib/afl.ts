@@ -201,6 +201,13 @@ class Afl {
     Afl.jsApiSetInstrumentSeed(seed);
   }
 
+  /*
+   * See `AFL_FRIDA_INST_NO_SUPPRESS`
+   */
+  public static setInstrumentSuppressDisable(): void{
+    Afl.jsApiSetInstrumentSuppressDisable();
+  }
+
   /**
    * See `AFL_FRIDA_INST_TRACE_UNIQUE`.
    */
@@ -450,6 +457,11 @@ class Afl {
     "js_api_set_instrument_seed",
     "void",
     ["uint64"]);
+
+  private static readonly jsApiSetInstrumentSuppressDisable = Afl.jsApiGetFunction(
+    "js_api_set_instrument_suppress_disable",
+    "void",
+    []);
 
   private static readonly jsApiSetInstrumentTrace = Afl.jsApiGetFunction(
     "js_api_set_instrument_trace",
