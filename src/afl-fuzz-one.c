@@ -5841,7 +5841,10 @@ u8 fuzz_one(afl_state_t *afl) {
 
   }
 
-  return (key_val_lv_1 == 0 || key_val_lv_2 == 0 ? 0 : 1 );
+  if (key_val_lv_1 == -1) { key_val_lv_1 = 0; }
+  if (key_val_lv_2 == -1) { key_val_lv_2 = 0; }
+
+  return (key_val_lv_1 | key_val_lv_2);
 
 }
 
