@@ -27,6 +27,22 @@
 #include <ctype.h>
 #include <math.h>
 
+#ifdef _STANDALONE_MODULE
+void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
+
+  return;
+
+}
+
+void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
+                                    u8 *a, u8 *b) {
+
+  return;
+
+}
+
+#endif
+
 /* select next queue entry based on alias algo - fast! */
 
 inline u32 select_next_queue_entry(afl_state_t *afl) {
@@ -78,8 +94,8 @@ void create_alias_table(afl_state_t *afl) {
   afl->alias_probability = (double *)afl_realloc(
       (void **)&afl->alias_probability, n * sizeof(double));
   double *P = (double *)afl_realloc(AFL_BUF_PARAM(out), n * sizeof(double));
-  int    *S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
-  int    *L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
+  int    *S = (int *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
+  int    *L = (int *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
 
   if (!P || !S || !L || !afl->alias_table || !afl->alias_probability) {
 
@@ -247,11 +263,11 @@ void create_alias_table(afl_state_t *afl) {
 
 void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
-  u8  fn[PATH_MAX];
-  s32 fd;
+  char fn[PATH_MAX];
+  s32  fd;
 
   snprintf(fn, PATH_MAX, "%s/queue/.state/deterministic_done/%s", afl->out_dir,
-           strrchr(q->fname, '/') + 1);
+           strrchr((char *)q->fname, '/') + 1);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
@@ -266,10 +282,10 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
-  u8 fn[PATH_MAX];
-  u8 ldest[PATH_MAX];
+  char fn[PATH_MAX];
+  char ldest[PATH_MAX];
 
-  u8 *fn_name = strrchr(q->fname, '/') + 1;
+  char *fn_name = strrchr((char *)q->fname, '/') + 1;
 
   sprintf(ldest, "../../%s", fn_name);
   sprintf(fn, "%s/queue/.state/variable_behavior/%s", afl->out_dir, fn_name);
@@ -293,12 +309,12 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   if (likely(state == q->fs_redundant)) { return; }
 
-  u8 fn[PATH_MAX];
+  char fn[PATH_MAX];
 
   q->fs_redundant = state;
 
   sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir,
-          strrchr(q->fname, '/') + 1);
+          strrchr((char *)q->fname, '/') + 1);
 
   if (state) {
 
@@ -409,7 +425,7 @@ u8 check_if_text_buf(u8 *buf, u32 len) {
 
 static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
-  if (q->len < AFL_TXT_MIN_LEN) return 0;
+  if (q->len < AFL_TXT_MIN_LEN || q->len < AFL_TXT_MAX_LEN) return 0;
 
   u8     *buf;
   int     fd;
@@ -417,8 +433,8 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
   ssize_t comp;
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
-  if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
-  buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len + 1);
+  if ((fd = open((char *)q->fname, O_RDONLY)) < 0) return 0;
+  buf = (u8 *)afl_realloc(AFL_BUF_PARAM(in_scratch), len + 1);
   comp = read(fd, buf, len);
   close(fd);
   if (comp != (ssize_t)len) return 0;
@@ -520,7 +536,8 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
 void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
-  struct queue_entry *q = ck_alloc(sizeof(struct queue_entry));
+  struct queue_entry *q =
+      (struct queue_entry *)ck_alloc(sizeof(struct queue_entry));
 
   q->fname = fname;
   q->len = len;
@@ -554,7 +571,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   afl->cycles_wo_finds = 0;
 
-  struct queue_entry **queue_buf = afl_realloc(
+  struct queue_entry **queue_buf = (struct queue_entry **)afl_realloc(
       AFL_BUF_PARAM(queue), afl->queued_items * sizeof(struct queue_entry *));
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
   queue_buf[afl->queued_items - 1] = q;
@@ -574,7 +591,11 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   }
 
   /* only redqueen currently uses is_ascii */
-  if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(afl, q);
+  if (unlikely(afl->shm.cmplog_mode && !q->is_ascii)) {
+
+    q->is_ascii = check_if_text(afl, q);
+
+  }
 
 }
 
@@ -704,7 +725,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
       if (!q->trace_mini) {
 
         u32 len = (afl->fsrv.map_size >> 3);
-        q->trace_mini = ck_alloc(len);
+        q->trace_mini = (u8 *)ck_alloc(len);
         minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
 
       }
@@ -1096,19 +1117,19 @@ inline void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
     if (len != old_len) {
 
       afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
-      q->testcase_buf = realloc(q->testcase_buf, len);
+      q->testcase_buf = (u8 *)realloc(q->testcase_buf, len);
 
       if (unlikely(!q->testcase_buf)) {
 
-        PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+        PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
 
       }
 
     }
 
-    int fd = open(q->fname, O_RDONLY);
+    int fd = open((char *)q->fname, O_RDONLY);
 
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
 
     ck_read(fd, q->testcase_buf, len, q->fname);
     close(fd);
@@ -1128,7 +1149,7 @@ inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
 
     if (likely(len != old_len)) {
 
-      u8 *ptr = realloc(q->testcase_buf, len);
+      u8 *ptr = (u8 *)realloc(q->testcase_buf, len);
 
       if (likely(ptr)) {
 
@@ -1160,23 +1181,23 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     if (unlikely(q == afl->queue_cur)) {
 
-      buf = afl_realloc((void **)&afl->testcase_buf, len);
+      buf = (u8 *)afl_realloc((void **)&afl->testcase_buf, len);
 
     } else {
 
-      buf = afl_realloc((void **)&afl->splicecase_buf, len);
+      buf = (u8 *)afl_realloc((void **)&afl->splicecase_buf, len);
 
     }
 
     if (unlikely(!buf)) {
 
-      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+      PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
 
     }
 
-    int fd = open(q->fname, O_RDONLY);
+    int fd = open((char *)q->fname, O_RDONLY);
 
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
 
     ck_read(fd, buf, len, q->fname);
     close(fd);
@@ -1220,7 +1241,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
         do_once = 1;
         // release unneeded memory
-        afl->q_testcase_cache = ck_realloc(
+        afl->q_testcase_cache = (struct queue_entry **)ck_realloc(
             afl->q_testcase_cache,
             (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
 
@@ -1267,15 +1288,15 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     /* Map the test case into memory. */
 
-    int fd = open(q->fname, O_RDONLY);
+    int fd = open((char *)q->fname, O_RDONLY);
 
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
 
-    q->testcase_buf = malloc(len);
+    q->testcase_buf = (u8 *)malloc(len);
 
     if (unlikely(!q->testcase_buf)) {
 
-      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+      PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
 
     }
 
@@ -1338,11 +1359,11 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   /* Map the test case into memory. */
 
-  q->testcase_buf = malloc(len);
+  q->testcase_buf = (u8 *)malloc(len);
 
   if (unlikely(!q->testcase_buf)) {
 
-    PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+    PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
 
   }
 

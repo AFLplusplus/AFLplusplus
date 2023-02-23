@@ -1,7 +1,14 @@
+//
+// This is an example on how to use afl_custom_send
+// It writes each mutated data set to /tmp/foo
+// You can modify this to send to IPC, shared memory, etc.
+//
 // cc -O3 -fPIC -shared -g -o custom_send.so -I../../include custom_send.c
 // cd ../..
 // afl-cc -o test-instr test-instr.c
-// afl-fuzz -i in -o out -- ./test-instr -f /tmp/foo
+// AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/examples/custom_send.so \
+//   afl-fuzz -i in -o out -- ./test-instr -f /tmp/foo
+//
 
 #include "custom_mutator_helpers.h"
 
