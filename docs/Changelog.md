@@ -11,6 +11,7 @@
     - add CFI sanitizer variant to gcc targets
     - llvm 16 support (thanks to @devnexen!)
     - support llvm 15 native pcguard changes
+  - new custom module: autotoken, grammar free fuzzer for text inputs
   - LTO autoken and llvm_mode: added AFL_LLVM_DICT2FILE_NO_MAIN support
   - better sanitizer default options support for all tools
   - unicorn_mode: updated and minor issues fixed
