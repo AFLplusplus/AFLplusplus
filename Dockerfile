@@ -47,7 +47,7 @@ RUN apt-get update && \
     clang-${LLVM_VERSION} clang-tools-${LLVM_VERSION} libc++1-${LLVM_VERSION} \
     libc++-${LLVM_VERSION}-dev libc++abi1-${LLVM_VERSION} libc++abi-${LLVM_VERSION}-dev \
     libclang1-${LLVM_VERSION} libclang-${LLVM_VERSION}-dev \
-    libclang-common-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} \
+    libclang-common-${LLVM_VERSION}-dev libclang-rt-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} \
     libclang-cpp${LLVM_VERSION}-dev liblld-${LLVM_VERSION} \
     liblld-${LLVM_VERSION}-dev liblldb-${LLVM_VERSION} liblldb-${LLVM_VERSION}-dev \
     libllvm${LLVM_VERSION} libomp-${LLVM_VERSION}-dev libomp5-${LLVM_VERSION} \
