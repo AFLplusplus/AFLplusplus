@@ -129,6 +129,9 @@ subset of the settings discussed in section 1, with the exception of:
     write all constant string comparisons to this file to be used later with
     afl-fuzz' `-x` option.
 
+  - An option to `AFL_LLVM_DICT2FILE` is `AFL_LLVM_DICT2FILE_NO_MAIN=1` which
+    skill not parse `main()`.
+
   - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
     created.
 
@@ -354,6 +357,9 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_KEEP_TIMEOUTS` will keep longer running inputs if they reach
     new coverage
 
+  - On the contrary, if you are not interested in any timeouts, you can set
+    `AFL_IGNORE_TIMEOUTS` to get a bit of speed instead.
+
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
@@ -476,6 +482,8 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_NO_STARTUP_CALIBRATION` will skip the initial calibration
     of all starting seeds, and start fuzzing at once. Use with care, this
     degrades the fuzzing performance!
+
+  - Setting `AFL_NO_WARN_INSTABILITY` will suppress instability warnings.
 
   - In QEMU mode (-Q) and FRIDA mode (-O), `AFL_PATH` will be searched for
     afl-qemu-trace and afl-frida-trace.so.

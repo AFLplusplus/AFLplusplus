@@ -129,8 +129,8 @@ size_t afl_custom_post_process(post_state_t *data, unsigned char *in_buf,
 
   /* Allocate memory for new buffer, reusing previous allocation if
      possible. Note we have to use afl-fuzz's own realloc!
-     Note that you should only do this if you need to grow the buffer,
-     otherwise work with in_buf, and assign it to *out_buf instead. */
+     We use afl_realloc because it is effective.
+     You can also work within in_buf, and assign it to *out_buf. */
 
   *out_buf = afl_realloc(out_buf, len);
 

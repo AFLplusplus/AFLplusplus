@@ -59,7 +59,7 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->qemu_mode || fsrv->cs_mode) {
+  if (fsrv->qemu_mode || fsrv->frida_mode || fsrv->cs_mode) {
 
     setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
 

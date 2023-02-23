@@ -258,8 +258,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
-      "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
+      "AFL_IGNORE_TIMEOUTS: do not process or save any timeouts\n"
+      "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
@@ -1297,7 +1298,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->is_main_node == 1 && afl->schedule != FAST && afl->schedule != EXPLORE) {
+  if (afl->is_main_node == 1 && afl->schedule != FAST &&
+      afl->schedule != EXPLORE) {
 
     FATAL("-M is compatible only with fast and explore -p power schedules");
 
@@ -1582,6 +1584,29 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u64 exit_on_time = atoi(afl->afl_env.afl_exit_on_time);
     afl->exit_on_time = (u64)exit_on_time * 1000;
+
+  }
+
+  if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
+
+    if (afl->custom_only) {
+
+      FATAL("Custom mutators are incompatible with MOpt (-L)");
+
+    }
+
+    u32 custom_fuzz = 0;
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_fuzz) { custom_fuzz = 1; }
+
+    });
+
+    if (custom_fuzz) {
+
+      WARNF("afl_custom_fuzz is incompatible with MOpt (-L)");
+
+    }
 
   }
 

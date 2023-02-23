@@ -364,9 +364,9 @@
  *                                                         *
  ***********************************************************/
 
-/* Call count interval between reseeding the libc PRNG from /dev/urandom: */
+/* Call count interval between reseeding the PRNG from /dev/urandom: */
 
-#define RESEED_RNG 100000
+#define RESEED_RNG 2500000
 
 /* The default maximum testcase cache size in MB, 0 = disable.
    A value between 50 and 250 is a good default value. Note that the
@@ -491,10 +491,14 @@
 
 #define AFL_TXT_MIN_LEN 12
 
+/* Maximum length of a queue input to be evaluated for "is_ascii"? */
+
+#define AFL_TXT_MAX_LEN 65535
+
 /* What is the minimum percentage of ascii characters present to be classifed
    as "is_ascii"? */
 
-#define AFL_TXT_MIN_PERCENT 94
+#define AFL_TXT_MIN_PERCENT 99
 
 /* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
 
