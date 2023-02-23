@@ -489,7 +489,7 @@
 
 /* Minimum length of a queue input to be evaluated for "is_ascii"? */
 
-#define AFL_TXT_MIN_LEN 16
+#define AFL_TXT_MIN_LEN 12
 
 /* Maximum length of a queue input to be evaluated for "is_ascii"? */
 

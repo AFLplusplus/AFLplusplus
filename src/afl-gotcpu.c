@@ -92,7 +92,7 @@ static u32 measure_preemption(u32 target_ms) {
   volatile u32 v1, v2 = 0;
 
   u64 st_t, en_t, st_c, en_c, real_delta, slice_delta;
-  //s32 loop_repeats = 0;
+  // s32 loop_repeats = 0;
 
   st_t = get_cur_time_us();
   st_c = get_cpu_usage_us();
@@ -113,7 +113,7 @@ repeat_loop:
 
   if (en_t - st_t < target_ms * 1000) {
 
-    //loop_repeats++;
+    // loop_repeats++;
     goto repeat_loop;
 
   }
