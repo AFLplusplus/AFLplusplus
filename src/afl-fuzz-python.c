@@ -231,8 +231,12 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "describe");
     py_functions[PY_FUNC_FUZZ_COUNT] =
         PyObject_GetAttrString(py_module, "fuzz_count");
-    if (!py_functions[PY_FUNC_FUZZ])
+    if (!py_functions[PY_FUNC_FUZZ]) {
+
       WARNF("fuzz function not found in python module");
+
+    }
+
     py_functions[PY_FUNC_POST_PROCESS] =
         PyObject_GetAttrString(py_module, "post_process");
     py_functions[PY_FUNC_INIT_TRIM] =
@@ -250,6 +254,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "fuzz_send");
     py_functions[PY_FUNC_SPLICE_OPTOUT] =
         PyObject_GetAttrString(py_module, "splice_optout");
+    if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
     py_functions[PY_FUNC_INTROSPECTION] =
