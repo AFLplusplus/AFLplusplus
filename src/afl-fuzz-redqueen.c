@@ -1035,7 +1035,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         } else {
 
-          diff = 0;
+          o_diff = 0;
 
         }
 
