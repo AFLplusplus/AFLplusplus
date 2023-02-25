@@ -43,7 +43,7 @@ typedef enum NyxReturnValue {
   Normal,
   Crash,
   Asan,
-  Timout,
+  Timeout,
   InvalidWriteToPayload,
   Error,
   IoError,

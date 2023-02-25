@@ -523,7 +523,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         }
 
-        if (unlikely(!var_detected)) {
+        if (unlikely(!var_detected && !afl->afl_env.afl_no_warn_instability)) {
 
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {

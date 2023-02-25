@@ -344,6 +344,7 @@ enum {
   /* 12 */ PY_FUNC_INTROSPECTION,
   /* 13 */ PY_FUNC_DESCRIBE,
   /* 14 */ PY_FUNC_FUZZ_SEND,
+  /* 15 */ PY_FUNC_SPLICE_OPTOUT,
   PY_FUNC_COUNT
 
 };
@@ -398,7 +399,7 @@ typedef struct afl_env_vars {
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme,
-      afl_no_startup_calibration;
+      afl_ignore_timeouts, afl_no_startup_calibration, afl_no_warn_instability;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -495,6 +496,7 @@ typedef struct afl_state {
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
+      custom_splice_optout,             /* Custom mutator no splice buffer  */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
       pizza_is_served;                  /* pizza mode                       */
@@ -829,17 +831,29 @@ struct custom_mutator {
   u32 (*afl_custom_fuzz_count)(void *data, const u8 *buf, size_t buf_size);
 
   /**
-   * Perform custom mutations on a given input
+   * Opt-out of a splicing input for the fuzz mutator
    *
-   * (Optional for now. Required in the future)
+   * Empty dummy function. It's presence tells afl-fuzz not to pass a
+   * splice data pointer and len.
    *
    * @param data pointer returned in afl_custom_init by this custom mutator
+   * @noreturn
+   */
+  void (*afl_custom_splice_optout)(void *data);
+
+  /**
+   * Perform custom mutations on a given input
+   *
+   * (Optional)
+   *
+   * Getting an add_buf can be skipped by using afl_custom_splice_optout().
+   *
+   * @param[in] data Pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of the input/output data
-   * @param[out] out_buf the new buffer. We may reuse *buf if large enough.
-   *             *out_buf = NULL is treated as FATAL.
-   * @param[in] add_buf Buffer containing the additional test case
+   * @param[out] out_buf The new buffer, under your memory mgmt.
+   * @param[in] add_buf Buffer containing an additional test case (splicing)
    * @param[in] add_buf_size Size of the additional test case
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.
@@ -1057,6 +1071,7 @@ u8          havoc_mutation_probability_py(void *);
 u8          queue_get_py(void *, const u8 *);
 const char *introspection_py(void *);
 u8          queue_new_entry_py(void *, const u8 *, const u8 *);
+void        splice_optout(void *);
 void        deinit_py(void *);
 
 #endif

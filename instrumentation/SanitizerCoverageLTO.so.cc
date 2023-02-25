@@ -236,6 +236,7 @@ class ModuleSanitizerCoverageLTO
   // const SpecialCaseList *          Allowlist;
   // const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
+  uint32_t                         autodictionary_no_main = 0;
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 0;
   uint32_t                         unhandled = 0;
@@ -411,7 +412,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
-  if (getenv("AFL_DEBUG")) debug = 1;
+  if (getenv("AFL_DEBUG")) { debug = 1; }
+  if (getenv("AFL_LLVM_DICT2FILE_NO_MAIN")) { autodictionary_no_main = 1; }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
@@ -502,6 +504,13 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
     for (auto &F : M) {
 
       if (!isInInstrumentList(&F, MNAME) || !F.size()) { continue; }
+
+      if (autodictionary_no_main &&
+          (!F.getName().compare("main") || !F.getName().compare("_main"))) {
+
+        continue;
+
+      }
 
       for (auto &BB : F) {
 
