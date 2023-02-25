@@ -6,7 +6,7 @@
              Dominik Maier <mail@dmnk.co>
 */
 
-// You need to use -I /path/to/AFLplusplus/include
+// You need to use -I/path/to/AFLplusplus/include -I.
 #include "custom_mutator_helpers.h"
 
 #include <stdint.h>
@@ -117,6 +117,8 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
     surgical_havoc_mutate(mutated_out, 3, mutated_size);
 
   }
+
+  if (max_size > mutated_size) { mutated_size = max_size; }
 
   *out_buf = mutated_out;
   return mutated_size;

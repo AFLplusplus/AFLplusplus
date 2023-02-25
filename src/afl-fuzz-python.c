@@ -231,8 +231,12 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "describe");
     py_functions[PY_FUNC_FUZZ_COUNT] =
         PyObject_GetAttrString(py_module, "fuzz_count");
-    if (!py_functions[PY_FUNC_FUZZ])
+    if (!py_functions[PY_FUNC_FUZZ]) {
+
       WARNF("fuzz function not found in python module");
+
+    }
+
     py_functions[PY_FUNC_POST_PROCESS] =
         PyObject_GetAttrString(py_module, "post_process");
     py_functions[PY_FUNC_INIT_TRIM] =
@@ -248,6 +252,9 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_FUZZ_SEND] =
         PyObject_GetAttrString(py_module, "fuzz_send");
+    py_functions[PY_FUNC_SPLICE_OPTOUT] =
+        PyObject_GetAttrString(py_module, "splice_optout");
+    if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
     py_functions[PY_FUNC_INTROSPECTION] =
@@ -394,6 +401,13 @@ void deinit_py(void *py_mutator) {
 
 }
 
+void splice_optout_py(void *py_mutator) {
+
+  // this is never called
+  (void)(py_mutator);
+
+}
+
 struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
                                               char        *module_name) {
 
@@ -471,6 +485,13 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_FUZZ_SEND]) {
 
     mutator->afl_custom_fuzz_send = fuzz_send_py;
+
+  }
+
+  if (py_functions[PY_FUNC_SPLICE_OPTOUT]) {
+
+    mutator->afl_custom_splice_optout = splice_optout_py;
+    afl->custom_splice_optout = 1;
 
   }
 

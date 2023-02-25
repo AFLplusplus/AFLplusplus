@@ -1035,7 +1035,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         } else {
 
-          diff = 0;
+          o_diff = 0;
 
         }
 
@@ -1623,6 +1623,8 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
       cons_0 = cons_ff = 0;
 
     }
+
+    if (cons_0 > 1 || cons_ff > 1) { return; }
 
   }
 
