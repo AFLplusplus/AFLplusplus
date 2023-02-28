@@ -2,6 +2,7 @@
 
 ## Should
 
+ - splicing selection weighted?
  - support afl_custom_{send,post_process}, persistent and deferred fork
    server in afl-showmap
  - better autodetection of shifting runtime timeout values
