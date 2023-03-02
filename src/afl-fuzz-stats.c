@@ -676,8 +676,8 @@ void show_stats_normal(afl_state_t *afl) {
           !afl->non_instrumented_mode && afl->afl_env.afl_exit_on_time &&
           ((afl->last_find_time &&
             (cur_ms - afl->last_find_time) > afl->exit_on_time) ||
-           (!afl->last_find_time && (afl->prev_run_time + cur_ms -
-                                     afl->start_time) > afl->exit_on_time)))) {
+           (!afl->last_find_time && (cur_ms - afl->start_time) 
+	                             > afl->exit_on_time)))) {
 
     afl->stop_soon = 2;
 
@@ -1480,8 +1480,8 @@ void show_stats_pizza(afl_state_t *afl) {
           !afl->non_instrumented_mode && afl->afl_env.afl_exit_on_time &&
           ((afl->last_find_time &&
             (cur_ms - afl->last_find_time) > afl->exit_on_time) ||
-           (!afl->last_find_time && (afl->prev_run_time + cur_ms -
-                                     afl->start_time) > afl->exit_on_time)))) {
+           (!afl->last_find_time && (cur_ms - afl->start_time)
+	                             > afl->exit_on_time)))) {
 
     afl->stop_soon = 2;
 
