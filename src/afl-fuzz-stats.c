@@ -669,9 +669,15 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* AFL_EXIT_ON_TIME. */
 
-  if (unlikely(afl->last_find_time && !afl->non_instrumented_mode &&
-               afl->afl_env.afl_exit_on_time &&
-               (cur_ms - afl->last_find_time) > afl->exit_on_time)) {
+  /* If no coverage was found yet, check whether run time is greater than
+   * exit_on_time. */
+
+  if (unlikely(
+          !afl->non_instrumented_mode && afl->afl_env.afl_exit_on_time &&
+          ((afl->last_find_time &&
+            (cur_ms - afl->last_find_time) > afl->exit_on_time) ||
+           (!afl->last_find_time && (afl->prev_run_time + cur_ms -
+                                     afl->start_time) > afl->exit_on_time)))) {
 
     afl->stop_soon = 2;
 
