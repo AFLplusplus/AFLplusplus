@@ -63,7 +63,7 @@ namespace {
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class CmpLogRoutines : public PassInfoMixin<CmpLogRoutines> {
-
+  llvm_shutdown_obj LSO;
  public:
   CmpLogRoutines() {
 
