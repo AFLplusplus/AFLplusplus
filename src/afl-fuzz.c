@@ -212,7 +212,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n"
       "  -u            - interval to update fuzzer_stats file in seconds, "
-      "defaults to 60 sec\n"
+      "defaults to 60 sec, minimum interval: 1 sec\n"
       "\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
@@ -672,6 +672,8 @@ int main(int argc, char **argv_orig, char **envp) {
           FATAL("Bad syntax used for -u");
 
         }
+
+        if (stats_update_freq_sec < 1) { FATAL("-u interval must be >= 1"); }
 
         afl->stats_file_update_freq_msecs = stats_update_freq_sec * 1000;
         break;
