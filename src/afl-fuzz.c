@@ -211,8 +211,6 @@ static void usage(u8 *argv0, int more_help) {
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n"
-      "  -u            - interval to update fuzzer_stats file in seconds, "
-      "defaults to 60 sec, minimum interval: 1 sec\n"
       "\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
@@ -315,6 +313,8 @@ static void usage(u8 *argv0, int more_help) {
       "                      afl-clang-lto/afl-gcc-fast target\n"
       "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
       "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so)\n"
+      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in seconds, "
+      "(default: 60, minimum: 1)\n"
       "\n"
     );
 
@@ -504,7 +504,7 @@ fail:
 int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
-  u64 prev_queued = 0, stats_update_freq_sec = 0;
+  u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, default_output = 1,
       map_size = get_map_size();
   u8 *extras_dir[4];
@@ -553,9 +553,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while ((opt = getopt(argc, argv,
-                       "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:u:"
-                       "UV:WXx:YZ")) > 0) {
+  while (
+      (opt = getopt(
+           argc, argv,
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
+      0) {
 
     switch (opt) {
 
@@ -664,18 +666,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->file_extension = optarg;
 
-        break;
-
-      case 'u':
-        if (sscanf(optarg, "%llu", &stats_update_freq_sec) < 1) {
-
-          FATAL("Bad syntax used for -u");
-
-        }
-
-        if (stats_update_freq_sec < 1) { FATAL("-u interval must be >= 1"); }
-
-        afl->stats_file_update_freq_msecs = stats_update_freq_sec * 1000;
         break;
 
       case 'i':                                                /* input dir */
