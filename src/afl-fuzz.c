@@ -553,11 +553,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while (
-      (opt = getopt(
-           argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:u:UV:WXx:YZ")) >
-      0) {
+  while ((opt = getopt(argc, argv,
+                       "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:u:"
+                       "UV:WXx:YZ")) > 0) {
 
     switch (opt) {
 
@@ -670,7 +668,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'u':
         if (sscanf(optarg, "%llu", &stats_update_freq_sec) < 1) {
+
           FATAL("Bad syntax used for -u");
+
         }
 
         afl->stats_file_update_freq_msecs = stats_update_freq_sec * 1000;
