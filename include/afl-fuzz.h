@@ -693,6 +693,7 @@ typedef struct afl_state {
 
   /* statistics file */
   double last_bitmap_cvg, last_stability, last_eps;
+  u64 stats_file_update_freq_msecs;     /* Stats update frequency (msecs)   */
 
   /* plot file saves from last run */
   u32 plot_prev_qp, plot_prev_pf, plot_prev_pnf, plot_prev_ce, plot_prev_md;
