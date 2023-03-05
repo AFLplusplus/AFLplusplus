@@ -578,7 +578,8 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
               WARNF(
                   "Incorrect value given to AFL_FUZZER_STATS_UPDATE_INTERVAL, "
-                  "using default of 60 seconds\n");
+                  "using default of %d seconds\n",
+                  STATS_UPDATE_SEC);
 
             } else {
 
