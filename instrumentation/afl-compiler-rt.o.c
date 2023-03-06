@@ -1539,12 +1539,16 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   if (start == stop || *start) return;
 
   x = getenv("AFL_INST_RATIO");
-  if (x) { inst_ratio = (u32)atoi(x); }
+  if (x) {
 
-  if (!inst_ratio || inst_ratio > 100) {
+    inst_ratio = (u32)atoi(x);
 
-    fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
-    abort();
+    if (!inst_ratio || inst_ratio > 100) {
+
+      fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
+      abort();
+
+    }
 
   }
 
@@ -1568,10 +1572,16 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
       while (start < stop) {
 
-        if (likely(inst_ratio == 100) || R(100) < inst_ratio)
-          *start = offset;
-        else
-          *start = 0;  // write to map[0]
+        if (likely(inst_ratio == 100) || R(100) < inst_ratio) {
+
+          *(start++) = offset;
+
+        } else {
+
+          *(start++) = 0;  // write to map[0]
+
+        }
+
         if (unlikely(++offset >= __afl_final_loc)) { offset = 4; }
 
       }
@@ -1592,12 +1602,15 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   while (start < stop) {
 
-    if (likely(inst_ratio == 100) || R(100) < inst_ratio)
-      *start = ++__afl_final_loc;
-    else
-      *start = 0;  // write to map[0]
+    if (likely(inst_ratio == 100) || R(100) < inst_ratio) {
 
-    start++;
+      *(start++) = ++__afl_final_loc;
+
+    } else {
+
+      *(start++) = 0;  // write to map[0]
+
+    }
 
   }
 
