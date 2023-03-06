@@ -37,10 +37,10 @@ typedef long double max_align_t;
   #define MNAME M.getSourceFileName()
   #define FMNAME F.getParent()->getSourceFileName()
   #if LLVM_VERSION_MAJOR >= 16
-  // None becomes deprecated
-  // the standard std::nullopt_t is recommended instead
-  // from C++17 and onwards.
-  constexpr std::nullopt_t None = std::nullopt;
+// None becomes deprecated
+// the standard std::nullopt_t is recommended instead
+// from C++17 and onwards.
+constexpr std::nullopt_t None = std::nullopt;
   #endif
 #else
   #define MNAME std::string("")
