@@ -66,7 +66,7 @@ namespace {
 
 #if LLVM_MAJOR >= 11
 class SplitComparesTransform : public PassInfoMixin<SplitComparesTransform> {
-
+  llvm_shutdown_obj LSO;
  public:
   //  static char ID;
   SplitComparesTransform() : enableFPSplit(0) {

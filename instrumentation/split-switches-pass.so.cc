@@ -65,7 +65,7 @@ namespace {
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class SplitSwitchesTransform : public PassInfoMixin<SplitSwitchesTransform> {
-
+  llvm_shutdown_obj LSO;
  public:
   SplitSwitchesTransform() {
 
