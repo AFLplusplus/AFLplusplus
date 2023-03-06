@@ -210,7 +210,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
-      "needed)\n\n",
+      "needed)\n"
+      "\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
@@ -312,6 +313,8 @@ static void usage(u8 *argv0, int more_help) {
       "                      afl-clang-lto/afl-gcc-fast target\n"
       "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
       "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so)\n"
+      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in seconds, "
+      "(default: 60, minimum: 1)\n"
       "\n"
     );
 

@@ -584,6 +584,12 @@ checks or alter some of the more exotic semantics of the tool:
   - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
     to disable although it is 1st of April.
 
+  - If you need a specific interval to update fuzzer_stats file, you can
+    set `AFL_FUZZER_STATS_UPDATE_INTERVAL` to the interval in seconds you'd
+    the file to be updated.
+    Note that will not be exact and with slow targets it can take seconds
+    until there is a slice for the time test.
+
 ## 5) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:
