@@ -573,7 +573,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             u64 stats_update_freq_sec =
                 strtoull(get_afl_env(afl_environment_variables[i]), NULL, 0);
-            if (ULLONG_MAX == stats_update_freq_sec ||
+            if (stats_update_freq_sec >= UINT_MAX ||
                 0 == stats_update_freq_sec) {
 
               WARNF(
