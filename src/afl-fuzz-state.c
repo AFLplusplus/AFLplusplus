@@ -24,6 +24,7 @@
  */
 
 #include <signal.h>
+#include <limits.h>
 #include "afl-fuzz.h"
 #include "envs.h"
 
@@ -100,6 +101,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->hang_tmout = EXEC_TIMEOUT;
   afl->exit_on_time = 0;
   afl->stats_update_freq = 1;
+  afl->stats_file_update_freq_msecs = STATS_UPDATE_SEC * 1000;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
   afl->sync_time = SYNC_TIME;
@@ -562,6 +564,26 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                   "incorrect value for AFL_SYNC_TIME environment variable, "
                   "used default value %lld instead.",
                   afl->sync_time / 60 / 1000);
+
+            }
+
+          } else if (!strncmp(env, "AFL_FUZZER_STATS_UPDATE_INTERVAL",
+
+                              afl_environment_variable_len)) {
+
+            u64 stats_update_freq_sec =
+                strtoull(get_afl_env(afl_environment_variables[i]), NULL, 0);
+            if (stats_update_freq_sec >= UINT_MAX ||
+                0 == stats_update_freq_sec) {
+
+              WARNF(
+                  "Incorrect value given to AFL_FUZZER_STATS_UPDATE_INTERVAL, "
+                  "using default of %d seconds\n",
+                  STATS_UPDATE_SEC);
+
+            } else {
+
+              afl->stats_file_update_freq_msecs = stats_update_freq_sec * 1000;
 
             }
 
