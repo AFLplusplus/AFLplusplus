@@ -66,7 +66,7 @@ namespace {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
-  llvm_shutdown_obj LSO;
+
  public:
   CmpLogInstructions() {
 
