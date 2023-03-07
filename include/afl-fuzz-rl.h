@@ -9,11 +9,11 @@ extern "C" {
 
 /// Different types of correction factors
 enum rl_correction_factor_t {
-  NONE = 0,
-  WITHOUT_SQUARE_ROOT,
-  WITH_SQUARE_ROOT,
-  SAMPLE,
-  RARE_EDGE,
+  WO_RARENESS = 0,
+  WITH_RARENESS,
+  WITH_RARENESS_AND_SQRT,
+  SAMPLE_RARENESS,
+  RARE_WO_RL,
 
   NUM_VALUES, // Don't place anything after this enum element!
 };
