@@ -20,7 +20,7 @@
   - better sanitizer default options support for all tools
   - unicorn_mode: updated and minor issues fixed
   - frida_mode: fix issue on MacOS
-  - more minor fixes
+  - more minor fixes and cross-platform support
 
 ### Version ++4.05c (release)
   - MacOS: libdislocator, libtokencap etc. do not work with modern
