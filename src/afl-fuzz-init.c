@@ -2925,7 +2925,7 @@ void setup_signal_handlers(void) {
 
   struct sigaction sa;
 
-  memset((void*)&sa, 0, sizeof(sa));
+  memset((void *)&sa, 0, sizeof(sa));
   sa.sa_handler = NULL;
 #ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;

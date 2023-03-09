@@ -743,11 +743,11 @@ static void setup_signal_handlers(void) {
   struct sigaction sa;
 
   sa.sa_handler = NULL;
-  #ifdef SA_RESTART
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;
-  #else
-    sa.sa_flags = 0;
-  #endif
+#else
+  sa.sa_flags = 0;
+#endif
   sa.sa_sigaction = NULL;
 
   sigemptyset(&sa.sa_mask);
