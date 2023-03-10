@@ -1622,17 +1622,23 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
-  if (__afl_already_initialized_shm && __afl_final_loc > __afl_map_size) {
+  if (__afl_already_initialized_shm) {
 
-    if (__afl_debug) {
+    if (__afl_final_loc > __afl_map_size) {
 
-      fprintf(stderr, "Reinit shm necessary (+%u)\n",
-              __afl_final_loc - __afl_map_size);
+      if (__afl_debug) {
+
+        fprintf(stderr, "Reinit shm necessary (+%u)\n",
+                __afl_final_loc - __afl_map_size);
+
+      }
+
+      __afl_unmap_shm();
+      __afl_map_shm();
 
     }
 
-    __afl_unmap_shm();
-    __afl_map_shm();
+    __afl_map_size = __afl_final_loc + 1;
 
   }
 

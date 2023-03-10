@@ -58,6 +58,25 @@ u8  last_intr = 0;
   #define AFL_PATH "/usr/local/lib/afl/"
 #endif
 
+void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
+                 size_t needlelen) {
+
+  if (unlikely(needlelen > haystacklen)) { return NULL; }
+
+  for (u32 i = 0; i <= haystacklen - needlelen; ++i) {
+
+    if (unlikely(memcmp(haystack + i, needle, needlelen) == 0)) {
+
+      return (void *)(haystack + i);
+
+    }
+
+  }
+
+  return (void *)NULL;
+
+}
+
 void set_sanitizer_defaults() {
 
   /* Set sane defaults for ASAN if nothing else is specified. */
@@ -66,23 +85,44 @@ void set_sanitizer_defaults() {
   u8 *have_msan_options = getenv("MSAN_OPTIONS");
   u8 *have_lsan_options = getenv("LSAN_OPTIONS");
   u8  have_san_options = 0;
-  if (have_asan_options || have_ubsan_options || have_msan_options ||
-      have_lsan_options)
-    have_san_options = 1;
-  u8 default_options[1024] =
-      "detect_odr_violation=0:abort_on_error=1:symbolize=0:malloc_context_"
-      "size=0:allocator_may_return_null=1:handle_segv=0:handle_sigbus=0:"
-      "handle_abort=0:handle_sigfpe=0:handle_sigill=0:";
+  u8  default_options[1024] =
+      "detect_odr_violation=0:abort_on_error=1:symbolize=0:allocator_may_"
+      "return_null=1:handle_segv=0:handle_sigbus=0:handle_abort=0:handle_"
+      "sigfpe=0:handle_sigill=0:";
 
-  if (!have_lsan_options) strcat(default_options, "detect_leaks=0:");
+  if (have_asan_options || have_ubsan_options || have_msan_options ||
+      have_lsan_options) {
+
+    have_san_options = 1;
+
+  }
+
+  /* LSAN does not support abort_on_error=1. (is this still true??) */
+
+  if (!have_lsan_options) {
+
+    u8 buf[2048] = "";
+    if (!have_san_options) { strcpy(buf, default_options); }
+    strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=1:malloc_context_size=30:");
+    setenv("LSAN_OPTIONS", buf, 1);
+
+  }
+
+  /* for everything not LSAN we disable detect_leaks */
+
+  if (!have_lsan_options) {
+
+    strcat(default_options, "detect_leaks=0:malloc_context_size=0:");
+
+  }
 
   /* Set sane defaults for ASAN if nothing else is specified. */
 
-  if (!have_san_options) setenv("ASAN_OPTIONS", default_options, 1);
+  if (!have_san_options) { setenv("ASAN_OPTIONS", default_options, 1); }
 
   /* Set sane defaults for UBSAN if nothing else is specified. */
 
-  if (!have_san_options) setenv("UBSAN_OPTIONS", default_options, 1);
+  if (!have_san_options) { setenv("UBSAN_OPTIONS", default_options, 1); }
 
   /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
      point. So, we do this in a very hacky way. */
@@ -90,22 +130,9 @@ void set_sanitizer_defaults() {
   if (!have_msan_options) {
 
     u8 buf[2048] = "";
-    if (!have_san_options) strcpy(buf, default_options);
+    if (!have_san_options) { strcpy(buf, default_options); }
     strcat(buf, "exit_code=" STRINGIFY(MSAN_ERROR) ":msan_track_origins=0:");
     setenv("MSAN_OPTIONS", buf, 1);
-
-  }
-
-  /* LSAN, too, does not support abort_on_error=1. (is this still true??) */
-
-  if (!have_lsan_options) {
-
-    u8 buf[2048] = "";
-    if (!have_san_options) strcpy(buf, default_options);
-    strcat(buf,
-           "exitcode=" STRINGIFY(
-               LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:");
-    setenv("LSAN_OPTIONS", buf, 1);
 
   }
 
@@ -126,7 +153,7 @@ u32 check_binary_signatures(u8 *fn) {
   if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
   close(fd);
 
-  if (memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
 
     if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -151,7 +178,7 @@ u32 check_binary_signatures(u8 *fn) {
 
   }
 
-  if (memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
 
     if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
     setenv(DEFER_ENV_VAR, "1", 1);
