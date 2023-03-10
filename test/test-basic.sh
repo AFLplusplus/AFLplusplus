@@ -256,7 +256,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     unset AFL_QUIET
    }
    rm -f test-instr.plain
-  } && {
+  } || {
   $ECHO "$YELLOW[-] afl-clang executes gcc, cannot test"
   INCOMPLETE=1
   }
