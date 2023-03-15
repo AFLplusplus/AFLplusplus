@@ -31,6 +31,8 @@ jobs:
         run: gcc -v; echo; clang -v
       - name: install gcc plugin
         run: sudo apt-get install -y -m -f --install-suggests $(readlink /usr/bin/gcc)-plugin-dev
+      - name: install pip
+        run: sudo python3 -m ensurepip
       - name: build afl++
         run: make distrib ASAN_BUILD=1
       - name: run tests
