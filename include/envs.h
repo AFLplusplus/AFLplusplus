@@ -91,6 +91,7 @@ static char *afl_environment_variables[] = {
     "AFL_FRIDA_TRACEABLE",
     "AFL_FRIDA_VERBOSE",
     "AFL_FUZZER_ARGS",  // oss-fuzz
+    "AFL_FUZZER_STATS_UPDATE_INTERVAL",
     "AFL_GDB",
     "AFL_GCC_ALLOWLIST",
     "AFL_GCC_DENYLIST",

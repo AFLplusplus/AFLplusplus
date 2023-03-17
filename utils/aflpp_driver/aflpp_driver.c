@@ -58,9 +58,14 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
+// AFL++ shared memory fuzz cases
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
+
+// AFL++ coverage map
+extern unsigned char *__afl_area_ptr;
+extern unsigned int   __afl_map_size;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 __attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *Data,
@@ -375,7 +380,13 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
         }
 
         prev_length = length;
-        (void)callback(__afl_fuzz_ptr, length);
+
+        if (unlikely(callback(__afl_fuzz_ptr, length) == -1)) {
+
+          memset(__afl_area_ptr, 0, __afl_map_size);
+          __afl_area_ptr[0] = 1;
+
+        }
 
       }
 
