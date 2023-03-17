@@ -143,5 +143,9 @@ FILE *create_ffile(u8 *fn);
 /* create a file */
 s32 create_file(u8 *fn);
 
+/* memmem implementation as not all platforms support this */
+void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
+                 size_t needlelen);
+
 #endif
 

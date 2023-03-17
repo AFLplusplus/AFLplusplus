@@ -475,10 +475,13 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
      only be used for special schedules */
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
+    classify_counts(&afl->fsrv);
+    classified = 1;
+
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     /* Saturated increment */
-    if (afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF)
+    if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
       afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
 
   }
@@ -488,7 +491,15 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
 
-    new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+    if (likely(classified)) {
+
+      new_bits = has_new_bits(afl, afl->virgin_bits);
+
+    } else {
+
+      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
+    }
 
     if (likely(!new_bits)) {
 
@@ -496,8 +507,6 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       return 0;
 
     }
-
-    classified = new_bits;
 
   save_to_queue:
 
@@ -556,21 +565,21 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     }
 
-    /* AFLFast schedule? update the new queue entry */
-    if (cksum) {
+    if (unlikely(!classified && new_bits)) {
 
-      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+      /* due to classify counts we have to recalculate the checksum */
+      afl->queue_top->exec_cksum =
+          hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      classified = 1;
 
     }
 
-    /* due to classify counts we have to recalculate the checksum */
-    afl->queue_top->exec_cksum =
-        hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    /* For AFLFast schedules we update the new queue entry */
+    afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+    afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
-
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
@@ -604,7 +613,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (!classified) {
+        if (unlikely(!classified)) {
 
           classify_counts(&afl->fsrv);
           classified = 1;
@@ -729,7 +738,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (!classified) { classify_counts(&afl->fsrv); }
+        if (unlikely(!classified)) {
+
+          classify_counts(&afl->fsrv);
+          classified = 1;
+
+        }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
