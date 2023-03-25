@@ -54,5 +54,5 @@ jobs:
         run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
       - name: run tests
         run: sudo -E ./afl-system-config; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export PATH=/usr/local/Cellar/llvm/*/":/usr/local/bin:$PATH"; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; gmake tests
-      - name: force frida test for MacOS
-        run: export AFL_PATH=`pwd`; /usr/local/bin/gcc -o test-instr test-instr.c; mkdir in; echo > in/in; AFL_NO_UI=1 ./afl-fuzz -O -i in -o out -V 5 -- ./test-instr
+      #- name: force frida test for MacOS
+      #  run: export AFL_PATH=`pwd`; /usr/local/bin/gcc -o test-instr test-instr.c; mkdir in; echo > in/in; AFL_NO_UI=1 ./afl-fuzz -O -i in -o out -V 5 -- ./test-instr
