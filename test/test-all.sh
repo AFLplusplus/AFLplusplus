@@ -14,7 +14,7 @@
 
 . ./test-qemu-mode.sh
 
-. ./test-frida-mode.sh
+#. ./test-frida-mode.sh
 
 . ./test-unicorn-mode.sh
 

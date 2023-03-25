@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+char *foo = NULL;
+
 int __attribute__((noinline)) crashme(const uint8_t *Data, size_t Size) {
 
   if (Size < 5) return -1;
@@ -10,7 +12,7 @@ int __attribute__((noinline)) crashme(const uint8_t *Data, size_t Size) {
     if (Data[1] == 'A')
       if (Data[2] == '$')
         if (Data[3] == '$')
-          if (Data[4] == '$') abort();
+          if (Data[4] == '$') *foo = 1;
 
   return 0;
 
