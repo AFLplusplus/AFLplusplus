@@ -312,9 +312,9 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 	@echo
 	@echo Build Summary:
 	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
-	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be build, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
+	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
 	@test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
 endif
@@ -732,9 +732,9 @@ endif
 	@echo
 	@echo Build Summary:
 	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
-	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be build, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be build, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
+	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
 	test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
 endif

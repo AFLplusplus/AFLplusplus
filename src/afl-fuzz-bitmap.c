@@ -575,8 +575,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     }
 
     /* For AFLFast schedules we update the new queue entry */
-    afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-    afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+    if (likely(cksum)) {
+
+      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+
+    }
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
