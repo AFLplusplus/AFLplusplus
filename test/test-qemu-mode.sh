@@ -22,7 +22,7 @@ test -e ../afl-qemu-trace && {
       echo 00000 > in/in
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode, this will take approx 10 seconds"
       {
-        ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1
+        ../afl-fuzz -m ${MEM_LIMIT} -V07 -Q -i in -o out -- ./test-instr >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
@@ -63,7 +63,7 @@ test -e ../afl-qemu-trace && {
           {
             export AFL_PRELOAD=../libcompcov.so
             export AFL_COMPCOV_LEVEL=2
-            ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
+            ../afl-fuzz -m ${MEM_LIMIT} -V07 -Q -i in -o out -- ./test-compcov >>errors 2>&1
             unset AFL_PRELOAD
             unset AFL_COMPCOV_LEVEL
           } >>errors 2>&1
@@ -88,7 +88,7 @@ test -e ../afl-qemu-trace && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for qemu_mode cmplog, this will take approx 10 seconds"
         {
-          ../afl-fuzz -m none -V10 -Q -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
+          ../afl-fuzz -m none -V07 -Q -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode cmplog"
@@ -126,7 +126,7 @@ test -e ../afl-qemu-trace && {
           $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           env|grep AFL_|sort
           file test-instr
-          ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr
+          ../afl-fuzz -m ${MEM_LIMIT} -V07 -Q -i in -o out -- ./test-instr
           unset AFL_QEMU_PERSISTENT_ADDR
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
