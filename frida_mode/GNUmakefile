@@ -1,3 +1,4 @@
+
 PWD:=$(shell pwd)/
 ROOT:=$(PWD)../
 INC_DIR:=$(PWD)include/
@@ -164,7 +165,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=16.0.6
+GUM_DEVKIT_VERSION=16.0.11
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
