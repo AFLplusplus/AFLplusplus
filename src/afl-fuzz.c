@@ -1344,8 +1344,7 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
-      "README.md");
+  OKF("NOTE: afl++ >= v3 has changed defaults and behaviours - see README.md");
 
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
