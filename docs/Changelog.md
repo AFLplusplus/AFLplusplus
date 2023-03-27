@@ -8,6 +8,7 @@
     - ensure temporary file descriptor is closed when not used
     - added `AFL_NO_WARN_INSTABILITY`
     - added `AFL_FRIDA_STATS_INTERVAL`
+    - added time_wo_finds to fuzzer_stats
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
     - llvm 16 support (thanks to @devnexen!)

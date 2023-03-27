@@ -251,6 +251,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "fuzzer_pid        : %u\n"
       "cycles_done       : %llu\n"
       "cycles_wo_finds   : %llu\n"
+      "time_wo_finds     : %llu\n"
       "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
       "execs_ps_last_min : %0.02f\n"
@@ -291,6 +292,11 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
       (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
+      afl->longest_find_time > cur_time - afl->last_find_time
+          ? afl->longest_find_time / 1000
+          : ((afl->start_time == 0 || afl->last_find_time == 0)
+                 ? 0
+                 : (cur_time - afl->last_find_time) / 1000),
       afl->fsrv.total_execs,
       afl->fsrv.total_execs /
           ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
