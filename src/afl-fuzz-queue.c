@@ -577,7 +577,24 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   queue_buf[afl->queued_items - 1] = q;
   q->id = afl->queued_items - 1;
 
-  afl->last_find_time = get_cur_time();
+  u64 cur_time = get_cur_time();
+
+  if (likely(afl->start_time) &&
+      unlikely(afl->longest_find_time < cur_time - afl->last_find_time)) {
+
+    if (unlikely(!afl->last_find_time)) {
+
+      afl->longest_find_time = cur_time - afl->start_time;
+
+    } else {
+
+      afl->longest_find_time = cur_time - afl->last_find_time;
+
+    }
+
+  }
+
+  afl->last_find_time = cur_time;
 
   if (afl->custom_mutators_count) {
 
