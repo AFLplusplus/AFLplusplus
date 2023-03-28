@@ -59,9 +59,6 @@ RUN apt-get update && \
     # gcc-multilib is only used for -m32 support on x86
     # libcapstone-dev is used for coresight_mode on arm64
 
-RUN apt-get install -y --no-install-recommends \
-    wget software-properties-common gnupg
-
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0 && \
     update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 0 && \
