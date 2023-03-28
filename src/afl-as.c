@@ -93,7 +93,7 @@ static u8 use_64bit = 0;
 static void edit_params(int argc, char **argv) {
 
   u8 *tmp_dir = getenv("TMPDIR"), *afl_as = getenv("AFL_AS");
-  u32 i;
+  u32 i, input_index;
 
 #ifdef __APPLE__
 
@@ -142,7 +142,23 @@ static void edit_params(int argc, char **argv) {
 
   as_params[argc] = 0;
 
-  for (i = 1; (s32)i < argc - 1; i++) {
+  /* Find the input file.  It's usually located near the end.
+     Assume there won't be any arguments referring to files after the input
+     file, e.g. as input.s -o output.o */
+  for (input_index = argc - 1; input_index > 0; input_index--) {
+
+    input_file = argv[input_index];
+    /* Clang may add debug arguments after the input file. */
+    if (strncmp(input_file, "-g", 2)) break;
+
+  }
+
+  if (input_index == 0)
+    FATAL("Could not find input file (not called through afl-gcc?)");
+
+  for (i = 1; (s32)i < argc; i++) {
+
+    if (i == input_index) continue;
 
     if (!strcmp(argv[i], "--64")) {
 
@@ -193,8 +209,6 @@ static void edit_params(int argc, char **argv) {
   }
 
 #endif                                                         /* __APPLE__ */
-
-  input_file = argv[argc - 1];
 
   if (input_file[0] == '-') {
 
