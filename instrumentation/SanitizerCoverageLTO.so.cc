@@ -1787,14 +1787,16 @@ static void registerLTOPass(const PassManagerBuilder &,
 
 }
 
+#if LLVM_VERSION_MAJOR < 16
 static RegisterStandardPasses RegisterCompTransPass(
     PassManagerBuilder::EP_OptimizerLast, registerLTOPass);
 
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerLTOPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerLTOPass);
+  #endif
 #endif
 
