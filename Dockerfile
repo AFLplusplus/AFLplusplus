@@ -59,6 +59,9 @@ RUN apt-get update && \
     # gcc-multilib is only used for -m32 support on x86
     # libcapstone-dev is used for coresight_mode on arm64
 
+RUN apt-get install -y --no-install-recommends \
+    wget software-properties-common gnupg
+
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 0 && \
     update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 0 && \
@@ -66,6 +69,8 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0
 
 RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
 ENV PATH=$PATH:/etc/cargo/bin
+
+RUN apt clean -y
 
 ENV LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 ENV AFL_SKIP_CPUFREQ=1
@@ -92,4 +97,4 @@ RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
     echo ". /etc/bash_completion" >> ~/.bashrc && \
     echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc && \
-    echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc
+    echo "export PS1='"'[afl++ \h] \w \$ '"'" >> ~/.bashrc
