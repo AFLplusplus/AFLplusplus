@@ -2133,8 +2133,8 @@ havoc_stage:
     afl->stage_cur_val = use_stacking;
 
 #ifdef INTROSPECTION
-    snprintf(afl->mutation, sizeof(afl->mutation), "%s HAVOC-%u",
-             afl->queue_cur->fname, use_stacking);
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s HAVOC-%u-%u",
+             afl->queue_cur->fname, afl->queue_cur->is_ascii, use_stacking);
 #endif
 
     for (i = 0; i < use_stacking; ++i) {
