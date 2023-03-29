@@ -58,8 +58,12 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
+#ifdef MAGMA_PATCH
+int                   __afl_sharedmem_fuzzing = 0;
+#else
 // AFL++ shared memory fuzz cases
 int                   __afl_sharedmem_fuzzing = 1;
+#endif
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
@@ -97,10 +101,10 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 
 // Notify AFL about persistent mode.
 static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
-int                  __afl_persistent_loop(unsigned int);
-
 // Notify AFL about deferred forkserver.
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
+
+int                  __afl_persistent_loop(unsigned int);
 void                 __afl_manual_init();
 
 // Use this optionally defined function to output sanitizer messages even if
