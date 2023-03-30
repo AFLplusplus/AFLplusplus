@@ -30,8 +30,8 @@
 
 static u32 mutation_array_explore[] = {
 
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18,
+    19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37};
 // static u32 mutation_array_exploit[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 // 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
 // 31 }; static u32 mutation_array_txt_explore[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8,
@@ -2133,9 +2133,6 @@ havoc_stage:
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
-#define MAX_HAVOC_ENTRY 31
-#define MUTATE_ASCII_DICT 0
-
   u32   r_max, mutation_array_len;
   u32 **mutation_array;
 
@@ -2725,7 +2722,6 @@ havoc_stage:
 
         }
 
-        // MAX_HAVOC_ENTRY = 64
         case 25: {
 
           /* Delete bytes. */
@@ -3115,6 +3111,102 @@ havoc_stage:
           /* Inserted part */
           memcpy(out_buf + insert_at, ptr, extra_len);
           temp_len += extra_len;
+
+          break;
+
+        }
+
+        case 36: {
+
+          if (afl->ready_for_splicing_count <= 1) { break; }
+
+          /* Pick a random queue entry and seek to it. */
+
+          u32 tid;
+          do {
+
+            tid = rand_below(afl, afl->queued_items);
+
+          } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+
+          /* Get the testcase for splicing. */
+          struct queue_entry *target = afl->queue_buf[tid];
+          u32                 new_len = target->len;
+          u8                 *new_buf = queue_testcase_get(afl, target);
+
+          /* overwrite mode */
+
+          u32 copy_from, copy_to, copy_len;
+
+          copy_len = choose_block_len(afl, new_len - 1);
+          if (copy_len > temp_len) copy_len = temp_len;
+
+          copy_from = rand_below(afl, new_len - copy_len + 1);
+          copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                   " SPLICE-OVERWRITE_%u_%u_%u_%s", copy_from, copy_to,
+                   copy_len, target->fname);
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
+
+          break;
+
+        }
+
+        case 37: {
+
+          if (afl->ready_for_splicing_count <= 1) { break; }
+          if (temp_len + HAVOC_BLK_XL >= MAX_FILE) { break; }
+
+          /* Pick a random queue entry and seek to it. */
+
+          u32 tid;
+          do {
+
+            tid = rand_below(afl, afl->queued_items);
+
+          } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+
+          /* Get the testcase for splicing. */
+          struct queue_entry *target = afl->queue_buf[tid];
+          u32                 new_len = target->len;
+          u8                 *new_buf = queue_testcase_get(afl, target);
+
+          /* insert mode */
+
+          u32 clone_from, clone_to, clone_len;
+
+          clone_len = choose_block_len(afl, new_len);
+          clone_from = rand_below(afl, new_len - clone_len + 1);
+          clone_to = rand_below(afl, temp_len + 1);
+
+          u8 *temp_buf =
+              afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len + 1);
+          if (unlikely(!temp_buf)) { PFATAL("alloc"); }
+
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SPLICE-INSERT_%u_%u_%u_%s",
+                   clone_from, clone_to, clone_len, target->fname);
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          /* Head */
+
+          memcpy(temp_buf, out_buf, clone_to);
+
+          /* Inserted part */
+
+          memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
+
+          /* Tail */
+          memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                 temp_len - clone_to);
+
+          out_buf = temp_buf;
+          afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+          temp_len += clone_len;
 
           break;
 

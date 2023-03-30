@@ -563,7 +563,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
-  if (likely(q->len > 4)) afl->ready_for_splicing_count++;
+  if (likely(q->len > 4)) { ++afl->ready_for_splicing_count; }
 
   ++afl->queued_items;
   ++afl->active_items;
