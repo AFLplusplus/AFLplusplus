@@ -2134,11 +2134,11 @@ havoc_stage:
      where we take the input file and make random stacked tweaks. */
 
   u32   r_max, mutation_array_len;
-  u32 **mutation_array;
+  u32 *mutation_array;
 
   // if ( ... )
   mutation_array = (u32 **)&mutation_array_explore;
-  mutation_array_len = sizeof(mutation_array_explore) + 1;
+  mutation_array_len = sizeof(mutation_array_explore) / 4;
 
   r_max = mutation_array_len;
   // + (afl->extras_cnt ? 2 : 0) + (afl->a_extras_cnt ? 2 : 0);
@@ -2191,7 +2191,8 @@ havoc_stage:
 
       }
 
-      switch (*mutation_array[rand_below(afl, r_max)]) {
+      u32 r = rand_below(afl, r_max);
+      switch (mutation_array[r]) {
 
         case 0: {
 
