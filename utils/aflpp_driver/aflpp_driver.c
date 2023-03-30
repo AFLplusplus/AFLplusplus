@@ -1,12 +1,14 @@
-//===- afl_driver.cpp - a glue between AFL++ and libFuzzer ------*- C++ -* ===//
-//===----------------------------------------------------------------------===//
+//
+// afl_driver.cpp - a glue between AFL++ and libFuzzer
+//
 
 /* This file allows to fuzz libFuzzer-style target functions
  (LLVMFuzzerTestOneInput) with AFL++ using persistent in-memory fuzzing.
 
 Usage:
-################################################################################
-cat << EOF > test_fuzzer.cc
+
+# Example target:
+$ cat << EOF > test_fuzzer.cc
 #include <stddef.h>
 #include <stdint.h>
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -20,16 +22,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 }
 
 EOF
-# Build your target with -fsanitize-coverage=trace-pc-guard using fresh clang.
-clang -c aflpp_driver.c
-# Build afl-compiler-rt.o.c from the AFL distribution.
-clang -c $AFL_HOME/instrumentation/afl-compiler-rt.o.c
-# Build this file, link it with afl-compiler-rt.o.o and the target code.
-afl-clang-fast -o test_fuzzer test_fuzzer.cc afl-compiler-rt.o aflpp_driver.o
+
+# Build your target with afl-cc -fsanitize=fuzzer
+$ afl-c++ -fsanitize=fuzzer -o test_fuzzer test_fuzzer.cc
 # Run AFL:
-rm -rf IN OUT; mkdir IN OUT; echo z > IN/z;
-$AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
-################################################################################
+$ rm -rf in out; mkdir in out; echo z > in/foo;
+$ afl-fuzz -i in -o out -- ./test_fuzzer
+
 */
 
 #include <assert.h>
@@ -58,12 +57,8 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
-#ifdef MAGMA_PATCH
-int __afl_sharedmem_fuzzing = 0;
-#else
 // AFL++ shared memory fuzz cases
-int __afl_sharedmem_fuzzing = 1;
-#endif
+int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
@@ -99,15 +94,13 @@ __attribute__((weak)) void __asan_unpoison_memory_region(
 
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 
-#ifndef MAGMA_PATCH
 // Notify AFL about persistent mode.
 static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
+int                  __afl_persistent_loop(unsigned int);
+
 // Notify AFL about deferred forkserver.
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
-#endif
-
-int  __afl_persistent_loop(unsigned int);
-void __afl_manual_init();
+void                 __afl_manual_init();
 
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
