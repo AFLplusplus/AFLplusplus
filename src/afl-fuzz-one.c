@@ -2145,7 +2145,7 @@ havoc_stage:
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 use_stacking = 2 + rand_below(afl, 15), item;
+    u32 use_stacking = 1 + rand_below(afl, 8), item;
 
     afl->stage_cur_val = use_stacking;
 
