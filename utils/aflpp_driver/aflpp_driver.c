@@ -59,10 +59,10 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 #endif
 
 #ifdef MAGMA_PATCH
-int                   __afl_sharedmem_fuzzing = 0;
+int __afl_sharedmem_fuzzing = 0;
 #else
 // AFL++ shared memory fuzz cases
-int                   __afl_sharedmem_fuzzing = 1;
+int __afl_sharedmem_fuzzing = 1;
 #endif
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
@@ -75,8 +75,8 @@ extern unsigned int   __afl_map_size;
 __attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *Data,
                                                  size_t         Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
-int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
-                                              int (*callback)(const uint8_t *data, size_t size));
+__attribute__((weak)) int LLVMFuzzerRunDriver(
+    int *argc, char ***argv, int (*callback)(const uint8_t *data, size_t size));
 
 // Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
@@ -99,13 +99,15 @@ __attribute__((weak)) void __asan_unpoison_memory_region(
 
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 
+#ifndef MAGMA_PATCH
 // Notify AFL about persistent mode.
 static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
 // Notify AFL about deferred forkserver.
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
+#endif
 
-int                  __afl_persistent_loop(unsigned int);
-void                 __afl_manual_init();
+int  __afl_persistent_loop(unsigned int);
+void __afl_manual_init();
 
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
@@ -200,7 +202,8 @@ static void maybe_close_fd_mask() {
 
 // Define LLVMFuzzerMutate to avoid link failures for targets that use it
 // with libFuzzer's LLVMFuzzerCustomMutator.
-size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
+__attribute__((weak)) size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size,
+                                              size_t MaxSize) {
 
   // assert(false && "LLVMFuzzerMutate should not be called from afl_driver");
   return 0;
@@ -284,8 +287,9 @@ __attribute__((weak)) int main(int argc, char **argv) {
 
 }
 
-int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
-                        int (*callback)(const uint8_t *data, size_t size)) {
+__attribute__((weak)) int LLVMFuzzerRunDriver(
+    int *argcp, char ***argvp,
+    int (*callback)(const uint8_t *data, size_t size)) {
 
   int    argc = *argcp;
   char **argv = *argvp;
