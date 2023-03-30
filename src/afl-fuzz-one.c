@@ -28,6 +28,21 @@
 #include <limits.h>
 #include "cmplog.h"
 
+static u32 mutation_array_explore[] = {
+
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+// static u32 mutation_array_exploit[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+// 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+// 31 }; static u32 mutation_array_txt_explore[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8,
+// 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+// 28, 29, 30, 31 }; static u32 mutation_array_txt_exploit[] = { 0, 1, 2, 3, 4,
+// 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+// 25, 26, 27, 28, 29, 30, 31 };
+
+// what about more splicing?
+// what about -x and cmplog learn?
+
 /* MOpt */
 
 static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
@@ -2121,10 +2136,15 @@ havoc_stage:
 #define MAX_HAVOC_ENTRY 31
 #define MUTATE_ASCII_DICT 0
 
-  u32 r_max, r;
+  u32   r_max, mutation_array_len;
+  u32 **mutation_array;
 
-  r_max = (MAX_HAVOC_ENTRY + 1) + (afl->extras_cnt ? 2 : 0) +
-          (afl->a_extras_cnt ? 2 : 0);
+  // if ( ... )
+  mutation_array = (u32 **)&mutation_array_explore;
+  mutation_array_len = sizeof(mutation_array_explore) + 1;
+
+  r_max = mutation_array_len;
+  // + (afl->extras_cnt ? 2 : 0) + (afl->a_extras_cnt ? 2 : 0);
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
@@ -2174,7 +2194,7 @@ havoc_stage:
 
       }
 
-      switch ((r = rand_below(afl, r_max))) {
+      switch (*mutation_array[rand_below(afl, r_max)]) {
 
         case 0: {
 
@@ -2992,123 +3012,113 @@ havoc_stage:
 
         }
 
-        default:
+        case 32: {
 
-          r -= (MAX_HAVOC_ENTRY + 1);
+          if (!afl->extras_cnt) { break; }
 
-          if (afl->extras_cnt) {
+          /* Use the dictionary. */
 
-            if (r < 1) {
+          u32 use_extra = rand_below(afl, afl->extras_cnt);
+          u32 extra_len = afl->extras[use_extra].len;
 
-              /* Use the dictionary. */
+          if (extra_len > temp_len) { break; }
 
-              u32 use_extra = rand_below(afl, afl->extras_cnt);
-              u32 extra_len = afl->extras[use_extra].len;
-
-              if (extra_len > temp_len) { break; }
-
-              u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+          u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " EXTRA_OVERWRITE-%u-%u",
-                       insert_at, extra_len);
-              strcat(afl->mutation, afl->m_tmp);
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " EXTRA-OVERWRITE_%u_%u",
+                   insert_at, extra_len);
+          strcat(afl->mutation, afl->m_tmp);
 #endif
-              memcpy(out_buf + insert_at, afl->extras[use_extra].data,
-                     extra_len);
+          memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
 
-              break;
+          break;
 
-            } else if (r < 2) {
+        }
 
-              u32 use_extra = rand_below(afl, afl->extras_cnt);
-              u32 extra_len = afl->extras[use_extra].len;
-              if (temp_len + extra_len >= MAX_FILE) { break; }
+        case 33: {
 
-              u8 *ptr = afl->extras[use_extra].data;
-              u32 insert_at = rand_below(afl, temp_len + 1);
+          if (!afl->extras_cnt) { break; }
+
+          u32 use_extra = rand_below(afl, afl->extras_cnt);
+          u32 extra_len = afl->extras[use_extra].len;
+          if (temp_len + extra_len >= MAX_FILE) { break; }
+
+          u8 *ptr = afl->extras[use_extra].data;
+          u32 insert_at = rand_below(afl, temp_len + 1);
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " EXTRA_INSERT-%u-%u",
-                       insert_at, extra_len);
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-
-              out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
-              if (unlikely(!out_buf)) { PFATAL("alloc"); }
-
-              /* Tail */
-              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
-                      temp_len - insert_at);
-
-              /* Inserted part */
-              memcpy(out_buf + insert_at, ptr, extra_len);
-              temp_len += extra_len;
-
-              break;
-
-            } else {
-
-              r -= 2;
-
-            }
-
-          }
-
-          if (afl->a_extras_cnt) {
-
-            if (r < 1) {
-
-              /* Use the dictionary. */
-
-              u32 use_extra = rand_below(afl, afl->a_extras_cnt);
-              u32 extra_len = afl->a_extras[use_extra].len;
-
-              if (extra_len > temp_len) { break; }
-
-              u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                       " AUTO_EXTRA_OVERWRITE-%u-%u", insert_at, extra_len);
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
-                     extra_len);
-
-              break;
-
-            } else if (r < 2) {
-
-              u32 use_extra = rand_below(afl, afl->a_extras_cnt);
-              u32 extra_len = afl->a_extras[use_extra].len;
-              if (temp_len + extra_len >= MAX_FILE) { break; }
-
-              u8 *ptr = afl->a_extras[use_extra].data;
-              u32 insert_at = rand_below(afl, temp_len + 1);
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                       " AUTO_EXTRA_INSERT-%u-%u", insert_at, extra_len);
-              strcat(afl->mutation, afl->m_tmp);
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " EXTRA-INSERT_%u_%u",
+                   insert_at, extra_len);
+          strcat(afl->mutation, afl->m_tmp);
 #endif
 
-              out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
-              if (unlikely(!out_buf)) { PFATAL("alloc"); }
+          out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
+          if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
-              /* Tail */
-              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
-                      temp_len - insert_at);
+          /* Tail */
+          memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                  temp_len - insert_at);
 
-              /* Inserted part */
-              memcpy(out_buf + insert_at, ptr, extra_len);
-              temp_len += extra_len;
+          /* Inserted part */
+          memcpy(out_buf + insert_at, ptr, extra_len);
+          temp_len += extra_len;
 
-              break;
+          break;
 
-            } else {
+        }
 
-              r -= 2;
+        case 34: {
 
-            }
+          if (!afl->a_extras_cnt) { break; }
 
-          }
+          /* Use the dictionary. */
+
+          u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+          u32 extra_len = afl->a_extras[use_extra].len;
+
+          if (extra_len > temp_len) { break; }
+
+          u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                   " AUTO-EXTRA-OVERWRITE_%u_%u", insert_at, extra_len);
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+          memcpy(out_buf + insert_at, afl->a_extras[use_extra].data, extra_len);
+
+          break;
+
+        }
+
+        case 35: {
+
+          if (!afl->a_extras_cnt) { break; }
+
+          u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+          u32 extra_len = afl->a_extras[use_extra].len;
+          if (temp_len + extra_len >= MAX_FILE) { break; }
+
+          u8 *ptr = afl->a_extras[use_extra].data;
+          u32 insert_at = rand_below(afl, temp_len + 1);
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " AUTO-EXTRA-INSERT_%u_%u",
+                   insert_at, extra_len);
+          strcat(afl->mutation, afl->m_tmp);
+#endif
+
+          out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
+          if (unlikely(!out_buf)) { PFATAL("alloc"); }
+
+          /* Tail */
+          memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                  temp_len - insert_at);
+
+          /* Inserted part */
+          memcpy(out_buf + insert_at, ptr, extra_len);
+          temp_len += extra_len;
+
+          break;
+
+        }
 
       }
 
