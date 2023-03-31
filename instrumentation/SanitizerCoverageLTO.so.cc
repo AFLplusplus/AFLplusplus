@@ -431,6 +431,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
     if ((afl_global_id = atoi(ptr)) < 0)
       FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is negative\n", ptr);
 
+  if (afl_global_id < 4) { afl_global_id = 4; }
+
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     dFile.open(ptr, std::ofstream::out | std::ofstream::app);

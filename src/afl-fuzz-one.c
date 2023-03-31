@@ -2071,7 +2071,7 @@ havoc_stage:
     afl->stage_short = "havoc";
     afl->stage_max = ((doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
                       perf_score / afl->havoc_div) >>
-                     7;
+                     8;
 
   } else {
 
@@ -2080,7 +2080,7 @@ havoc_stage:
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "splice %u", splice_cycle);
     afl->stage_name = afl->stage_name_buf;
     afl->stage_short = "splice";
-    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 7;
+    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 8;
 
   }
 
@@ -4640,7 +4640,7 @@ pacemaker_fuzzing:
              MOpt_globals.splice_stageformat, splice_cycle);
     afl->stage_name = afl->stage_name_buf;
     afl->stage_short = MOpt_globals.splice_stagenameshort;
-    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 7;
+    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 8;
 
   }
 
