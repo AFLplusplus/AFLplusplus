@@ -2137,7 +2137,7 @@ havoc_stage:
   u32 *mutation_array;
 
   // if ( ... )
-  mutation_array = (u32 **)&mutation_array_explore;
+  mutation_array = (u32 *)&mutation_array_explore;
   mutation_array_len = sizeof(mutation_array_explore) / 4;
 
   r_max = mutation_array_len;
@@ -2192,6 +2192,7 @@ havoc_stage:
       }
 
       u32 r = rand_below(afl, r_max);
+
       switch (mutation_array[r]) {
 
         case 0: {
