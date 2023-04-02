@@ -1803,10 +1803,10 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* Show a warning about slow execution. */
 
-  if (afl->stats_avg_exec < 100) {
+  if (afl->stats_avg_exec < 20) {
 
     sprintf(tmp, "%s/sec (%s)", u_stringify_float(IB(0), afl->stats_avg_exec),
-            afl->stats_avg_exec < 20 ? "zzzz..." : "Gennarino is at it again!");
+            "zzzz...");
 
     SAYF(bV bSTOP "                pizza making speed : " cLRD
                   "%-22s                ",
