@@ -753,20 +753,20 @@ void show_stats_normal(afl_state_t *afl) {
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {
 
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-              afl->crash_mode ? cPIN "peruvian were-rabbit"
-                              : cYEL "american fuzzy lop",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
+               afl->crash_mode ? cPIN "peruvian were-rabbit"
+                               : cYEL "american fuzzy lop",
+               si, afl->use_banner, afl->power_name);
 
     } else {
 
 #endif
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-              afl->crash_mode ? cPIN "peruvian were-rabbit"
-                              : cYEL "american fuzzy lop",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+               afl->crash_mode ? cPIN "peruvian were-rabbit"
+                               : cYEL "american fuzzy lop",
+               si, afl->use_banner, afl->power_name);
 
 #ifdef __linux__
 
@@ -1557,20 +1557,22 @@ void show_stats_pizza(afl_state_t *afl) {
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {
 
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-              afl->crash_mode ? cPIN "Mozzarbella Pizzeria table booking system"
-                              : cYEL "Mozzarbella Pizzeria management system",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
+               afl->crash_mode ? cPIN
+                   "Mozzarbella Pizzeria table booking system"
+                               : cYEL "Mozzarbella Pizzeria management system",
+               si, afl->use_banner, afl->power_name);
 
     } else {
 
 #endif
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-              afl->crash_mode ? cPIN "Mozzarbella Pizzeria table booking system"
-                              : cYEL "Mozzarbella Pizzeria management system",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+               afl->crash_mode ? cPIN
+                   "Mozzarbella Pizzeria table booking system"
+                               : cYEL "Mozzarbella Pizzeria management system",
+               si, afl->use_banner, afl->power_name);
 
 #ifdef __linux__
 
