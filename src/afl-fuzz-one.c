@@ -2905,7 +2905,7 @@ havoc_stage:
               val /= 2;
               break;
             case 4:
-              if (val) {
+              if (val && val < 0xfffffff) {
 
                 val = rand_next(afl) % (val * 10);
 
