@@ -2133,7 +2133,7 @@ havoc_stage:
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
-  u32   r_max, mutation_array_len;
+  u32  r_max, mutation_array_len;
   u32 *mutation_array;
 
   // if ( ... )
@@ -2905,9 +2905,9 @@ havoc_stage:
               val /= 2;
               break;
             case 4:
-              if (val && val < 0xfffffff) {
+              if (val && (u64)val < 0x19999999) {
 
-                val = rand_next(afl) % (val * 10);
+                val = (u64)rand_next(afl) % (u64)((u64)val * 10);
 
               } else {
 
