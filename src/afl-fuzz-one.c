@@ -2133,19 +2133,35 @@ havoc_stage:
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
-  u32  r_max, mutation_array_len;
   u32 *mutation_array;
+  u32  stack_max;
 
   // if ( ... )
   mutation_array = (u32 *)&mutation_array_explore;
-  mutation_array_len = sizeof(mutation_array_explore) / 4;
 
-  r_max = mutation_array_len;
+  if (temp_len < 64) {
+
+    stack_max = 4;
+
+  } else if (temp_len < 512) {
+
+    stack_max = 8;
+
+  } else if (temp_len < 8096) {
+
+    stack_max = 16;
+
+  } else {
+
+    stack_max = 32;
+
+  }
+
   // + (afl->extras_cnt ? 2 : 0) + (afl->a_extras_cnt ? 2 : 0);
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 use_stacking = 1 + rand_below(afl, 8), item;
+    u32 use_stacking = 1 + rand_below(afl, stack_max);
 
     afl->stage_cur_val = use_stacking;
 
@@ -2191,7 +2207,8 @@ havoc_stage:
 
       }
 
-      u32 r = rand_below(afl, r_max);
+    retry_havoc_step:
+      u32 r = rand_below(afl, 256), item;
 
       switch (mutation_array[r]) {
 
@@ -2228,7 +2245,7 @@ havoc_stage:
 
           /* Set word to interesting value, little endian. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           item = rand_below(afl, sizeof(interesting_16) >> 1);
 #ifdef INTROSPECTION
@@ -2247,7 +2264,7 @@ havoc_stage:
 
           /* Set word to interesting value, big endian. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           item = rand_below(afl, sizeof(interesting_16) >> 1);
 #ifdef INTROSPECTION
@@ -2265,7 +2282,7 @@ havoc_stage:
 
           /* Set dword to interesting value, little endian. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           item = rand_below(afl, sizeof(interesting_32) >> 2);
 #ifdef INTROSPECTION
@@ -2284,7 +2301,7 @@ havoc_stage:
 
           /* Set dword to interesting value, big endian. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           item = rand_below(afl, sizeof(interesting_32) >> 2);
 #ifdef INTROSPECTION
@@ -2330,7 +2347,7 @@ havoc_stage:
 
           /* Randomly subtract from word, little endian. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 1);
           item = 1 + rand_below(afl, ARITH_MAX);
@@ -2349,7 +2366,7 @@ havoc_stage:
 
           /* Randomly subtract from word, big endian. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 1);
           u16 num = 1 + rand_below(afl, ARITH_MAX);
@@ -2369,7 +2386,7 @@ havoc_stage:
 
           /* Randomly add to word, little endian. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 1);
           item = 1 + rand_below(afl, ARITH_MAX);
@@ -2388,7 +2405,7 @@ havoc_stage:
 
           /* Randomly add to word, big endian. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 1);
           u16 num = 1 + rand_below(afl, ARITH_MAX);
@@ -2408,7 +2425,7 @@ havoc_stage:
 
           /* Randomly subtract from dword, little endian. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 3);
           item = 1 + rand_below(afl, ARITH_MAX);
@@ -2427,7 +2444,7 @@ havoc_stage:
 
           /* Randomly subtract from dword, big endian. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 3);
           u32 num = 1 + rand_below(afl, ARITH_MAX);
@@ -2447,7 +2464,7 @@ havoc_stage:
 
           /* Randomly add to dword, little endian. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 3);
           item = 1 + rand_below(afl, ARITH_MAX);
@@ -2466,7 +2483,7 @@ havoc_stage:
 
           /* Randomly add to dword, big endian. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           u32 pos = rand_below(afl, temp_len - 3);
           u32 num = 1 + rand_below(afl, ARITH_MAX);
@@ -2502,7 +2519,7 @@ havoc_stage:
 
         case 17: {
 
-          if (temp_len + HAVOC_BLK_XL < MAX_FILE) {
+          if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
             /* Clone bytes. */
 
@@ -2535,6 +2552,14 @@ havoc_stage:
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
 
+          } else if (unlikely(temp_len < 8)) {
+
+            break;
+
+          } else {
+
+            goto retry_havoc_step;
+
           }
 
           break;
@@ -2543,7 +2568,7 @@ havoc_stage:
 
         case 18: {
 
-          if (temp_len + HAVOC_BLK_XL < MAX_FILE) {
+          if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
             /* Insert a block of constant bytes (25%). */
 
@@ -2578,6 +2603,14 @@ havoc_stage:
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
 
+          } else if (unlikely(temp_len < 8)) {
+
+            break;
+
+          } else {
+
+            goto retry_havoc_step;
+
           }
 
           break;
@@ -2588,7 +2621,7 @@ havoc_stage:
 
           /* Overwrite bytes with a randomly selected chunk bytes. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 copy_len = choose_block_len(afl, temp_len - 1);
           u32 copy_from = rand_below(afl, temp_len - copy_len + 1);
@@ -2613,7 +2646,7 @@ havoc_stage:
 
           /* Overwrite bytes with fixed bytes. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 copy_len = choose_block_len(afl, temp_len - 1);
           u32 copy_to = rand_below(afl, temp_len - copy_len + 1);
@@ -2674,7 +2707,7 @@ havoc_stage:
 
         case 24: {
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           /* Switch bytes. */
 
@@ -2684,7 +2717,7 @@ havoc_stage:
 
             switch_to = rand_below(afl, temp_len);
 
-          } while (switch_from == switch_to);
+          } while (unlikely(switch_from == switch_to));
 
           if (switch_from < switch_to) {
 
@@ -2728,7 +2761,7 @@ havoc_stage:
 
           /* Delete bytes. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           /* Don't delete too much. */
 
@@ -2753,7 +2786,7 @@ havoc_stage:
 
           /* Shuffle bytes. */
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           u32 len = choose_block_len(afl, temp_len - 1);
           u32 off = rand_below(afl, temp_len - len + 1);
@@ -2770,7 +2803,7 @@ havoc_stage:
 
               j = rand_below(afl, i + 1);
 
-            } while (i == j);
+            } while (unlikely(i == j));
 
             unsigned char temp = out_buf[off + i];
             out_buf[off + i] = out_buf[off + j];
@@ -2786,7 +2819,7 @@ havoc_stage:
 
           /* Delete bytes. */
 
-          if (temp_len < 2) { break; }
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           /* Don't delete too much. */
 
@@ -2807,6 +2840,8 @@ havoc_stage:
         }
 
         case 28: {
+
+          if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 clone_len = 1;
           u32 clone_to = rand_below(afl, temp_len);
@@ -2845,7 +2880,7 @@ havoc_stage:
 
         case 29: {
 
-          if (temp_len < 4) { break; }
+          if (unlikely(temp_len < 4)) { break; }  // no retry
 
           u32 off = rand_below(afl, temp_len), off2 = off, cnt = 0;
 
@@ -2867,7 +2902,19 @@ havoc_stage:
 
             }
 
-            if (cnt == off) { break; }
+            if (cnt == off) {
+
+              if (temp_len < 8) {
+
+                break;
+
+              } else {
+
+                goto retry_havoc_step;
+
+              }
+
+            }
 
           }
 
@@ -2905,7 +2952,7 @@ havoc_stage:
               val /= 2;
               break;
             case 4:
-              if (val && (u64)val < 0x19999999) {
+              if (likely(val && (u64)val < 0x19999999)) {
 
                 val = (u64)rand_next(afl) % (u64)((u64)val * 10);
 
@@ -2995,7 +3042,19 @@ havoc_stage:
           u32 len = 1 + rand_below(afl, 8);
           u32 pos = rand_below(afl, temp_len);
           /* Insert ascii number. */
-          if (temp_len < pos + len) { break; }
+          if (unlikely(temp_len < pos + len)) {
+
+            if (unlikely(temp_len < 8)) {
+
+              break;
+
+            } else {
+
+              goto retry_havoc_step;
+
+            }
+
+          }
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INSERTASCIINUM_");
@@ -3012,14 +3071,14 @@ havoc_stage:
 
         case 32: {
 
-          if (!afl->extras_cnt) { break; }
+          if (unlikely(!afl->extras_cnt)) { goto retry_havoc_step; }
 
           /* Use the dictionary. */
 
           u32 use_extra = rand_below(afl, afl->extras_cnt);
           u32 extra_len = afl->extras[use_extra].len;
 
-          if (extra_len > temp_len) { break; }
+          if (unlikely(extra_len > temp_len)) { goto retry_havoc_step; }
 
           u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
 #ifdef INTROSPECTION
@@ -3035,11 +3094,15 @@ havoc_stage:
 
         case 33: {
 
-          if (!afl->extras_cnt) { break; }
+          if (unlikely(!afl->extras_cnt)) { goto retry_havoc_step; }
 
           u32 use_extra = rand_below(afl, afl->extras_cnt);
           u32 extra_len = afl->extras[use_extra].len;
-          if (temp_len + extra_len >= MAX_FILE) { break; }
+          if (unlikely(temp_len + extra_len >= MAX_FILE)) {
+
+            goto retry_havoc_step;
+
+          }
 
           u8 *ptr = afl->extras[use_extra].data;
           u32 insert_at = rand_below(afl, temp_len + 1);
@@ -3066,14 +3129,14 @@ havoc_stage:
 
         case 34: {
 
-          if (!afl->a_extras_cnt) { break; }
+          if (unlikely(!afl->a_extras_cnt)) { goto retry_havoc_step; }
 
           /* Use the dictionary. */
 
           u32 use_extra = rand_below(afl, afl->a_extras_cnt);
           u32 extra_len = afl->a_extras[use_extra].len;
 
-          if (extra_len > temp_len) { break; }
+          if (unlikely(extra_len > temp_len)) { goto retry_havoc_step; }
 
           u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
 #ifdef INTROSPECTION
@@ -3089,11 +3152,15 @@ havoc_stage:
 
         case 35: {
 
-          if (!afl->a_extras_cnt) { break; }
+          if (unlikely(!afl->a_extras_cnt)) { goto retry_havoc_step; }
 
           u32 use_extra = rand_below(afl, afl->a_extras_cnt);
           u32 extra_len = afl->a_extras[use_extra].len;
-          if (temp_len + extra_len >= MAX_FILE) { break; }
+          if (unlikely(temp_len + extra_len >= MAX_FILE)) {
+
+            goto retry_havoc_step;
+
+          }
 
           u8 *ptr = afl->a_extras[use_extra].data;
           u32 insert_at = rand_below(afl, temp_len + 1);
@@ -3120,7 +3187,11 @@ havoc_stage:
 
         case 36: {
 
-          if (afl->ready_for_splicing_count <= 1) { break; }
+          if (unlikely(afl->ready_for_splicing_count <= 1)) {
+
+            goto retry_havoc_step;
+
+          }
 
           /* Pick a random queue entry and seek to it. */
 
@@ -3129,7 +3200,9 @@ havoc_stage:
 
             tid = rand_below(afl, afl->queued_items);
 
-          } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+          } while (unlikely(tid == afl->current_entry ||
+
+                            afl->queue_buf[tid]->len < 4));
 
           /* Get the testcase for splicing. */
           struct queue_entry *target = afl->queue_buf[tid];
@@ -3160,8 +3233,17 @@ havoc_stage:
 
         case 37: {
 
-          if (afl->ready_for_splicing_count <= 1) { break; }
-          if (temp_len + HAVOC_BLK_XL >= MAX_FILE) { break; }
+          if (unlikely(afl->ready_for_splicing_count <= 1)) {
+
+            goto retry_havoc_step;
+
+          }
+
+          if (unlikely(temp_len + HAVOC_BLK_XL >= MAX_FILE)) {
+
+            goto retry_havoc_step;
+
+          }
 
           /* Pick a random queue entry and seek to it. */
 
@@ -3170,7 +3252,9 @@ havoc_stage:
 
             tid = rand_below(afl, afl->queued_items);
 
-          } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+          } while (unlikely(tid == afl->current_entry ||
+
+                            afl->queue_buf[tid]->len < 4));
 
           /* Get the testcase for splicing. */
           struct queue_entry *target = afl->queue_buf[tid];
@@ -3303,7 +3387,9 @@ retry_splicing:
 
       tid = rand_below(afl, afl->queued_items);
 
-    } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+    } while (
+
+        unlikely(tid == afl->current_entry || afl->queue_buf[tid]->len < 4));
 
     /* Get the testcase */
     afl->splicing_with = tid;
