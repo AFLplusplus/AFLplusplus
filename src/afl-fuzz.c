@@ -128,6 +128,13 @@ static void usage(u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
+      "  -P strategy   - set fix mutation strategy: explore (focus on new "
+      "coverage),\n"
+      "                  exploit (focus on triggering crashes). You can also "
+      "set a\n"
+      "                  number of seconds after without any finds it switches "
+      "to\n"
+      "                  exploit mode, and back on new coverage (default: %u)\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
       "                  fast(default), explore, exploit, seek, rare, mmopt, "
       "coe, lin\n"
@@ -156,6 +163,7 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
+      "  -a            - target expects ascii text input\n"
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
@@ -212,7 +220,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n"
       "\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
+      argv0, STRATEGY_SWITCH_TIME, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE,
+      FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -553,13 +562,43 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while (
-      (opt = getopt(
-           argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
-      0) {
+  // still available: aHjJkKPqruvwz
+  while ((opt = getopt(argc, argv,
+                       "+aAb:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
+                       "T:UV:WXx:YZ")) > 0) {
 
     switch (opt) {
+
+      case 'a':
+        afl->text_input = 1;
+        break;
+
+      case 'P':
+        if (!stricmp(optarg, "explore") || !stricmp(optarg, "exploration")) {
+
+          afl->fuzz_mode = 0;
+          afl->switch_fuzz_mode = 1;
+
+        } else if (!stricmp(optarg, "exploit") ||
+
+                   !stricmp(optarg, "exploitation")) {
+
+          afl->fuzz_mode = 1;
+          afl->switch_fuzz_mode = 0;
+
+        } else {
+
+          if ((s32)(afl->switch_fuzz_mode = (u32)atoi(optarg)) < 1) {
+
+            FATAL(
+                "Parameter for option -P must be \"explore\", \"exploit\" or a "
+                "number!");
+
+          }
+
+        }
+
+        break;
 
       case 'g':
         afl->min_length = atoi(optarg);
