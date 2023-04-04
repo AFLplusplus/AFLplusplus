@@ -14,7 +14,7 @@
    Parameters:
      afl_state_t *afl - the *afl state pointer
      u8 *buf - the input buffer to mutate which will be mutated into.
-               NOTE: must be of MAX_FILE size!
+           NOTE: must be able to contain a size of at least max_len (see below)!
      u32 len - the length of the input
      u32 steps - how many mutations to perform on the input
      bool is_text - is the target expecting text inputs
