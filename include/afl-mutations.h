@@ -6,7 +6,8 @@
    #include "afl-mutations.h"  // needs afl-fuzz.h
 
    u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32t steps, bool is_text,
-                  bool is_exploration, u8 *splice_buf, u32 splice_len);
+                  bool is_exploration, u8 *splice_buf, u32 splice_len,
+                  u32 max_len);
 
    Returns:
      u32 - the length of the mutated data return in *buf. 0 = error
@@ -21,6 +22,7 @@
      splice_buf - a buffer from another corpus item to splice with.
                   If NULL then no splicing
      splice_len - the length of the splice buffer. If 0 then no splicing
+     u32 max_len - the maximum size the mutated buffer may grow to
 */
 
 #ifndef _ANDROID_ASHMEM_H
@@ -76,16 +78,13 @@ enum {
 
 };
 
-unsigned int mutation_strategy_exploration_text[MUT_STRATEGY_ARRAY_SIZE] = {};
-unsigned int mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {};
-unsigned int mutation_strategy_exploitation_text[MUT_STRATEGY_ARRAY_SIZE] = {};
-unsigned int mutation_strategy_exploitation_binary[MUT_STRATEGY_ARRAY_SIZE] =
-    {};
+u32 mutation_strategy_exploration_text[MUT_STRATEGY_ARRAY_SIZE] = {};
+u32 mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {};
+u32 mutation_strategy_exploitation_text[MUT_STRATEGY_ARRAY_SIZE] = {};
+u32 mutation_strategy_exploitation_binary[MUT_STRATEGY_ARRAY_SIZE] = {};
 
-unsigned int afl_mutate(afl_state_t *, unsigned char *, unsigned int,
-                        unsigned int, bool, bool, unsigned char *,
-                        unsigned int);
-u32          choose_block_len(afl_state_t *, u32);
+u32 afl_mutate(afl_state_t *, u8 *, u32, u32, bool, bool, u8 *, u32, u32);
+u32 choose_block_len(afl_state_t *, u32);
 
 /* Helper to choose random block len for block operations in fuzz_one().
    Doesn't return zero, provided that max_len is > 0. */
@@ -131,18 +130,39 @@ inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
 }
 
-unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
-                        unsigned int steps, bool is_text, bool is_exploration,
-                        unsigned char *splice_buf, unsigned int splice_len) {
+inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
+                      bool is_text, bool is_exploration, u8 *splice_buf,
+                      u32 splice_len, u32 max_len) {
 
   if (!buf || !len) { return 0; }
 
-  u32                  *mutation_array;
-  static unsigned char *tmp_buf = NULL;
+  u32       *mutation_array;
+  static u8 *tmp_buf = NULL;
+  static u32 tmp_buf_size = 0;
 
-  if (!tmp_buf) {
+  if (max_len > tmp_buf_size) {
 
-    if ((tmp_buf = malloc(MAX_FILE)) == NULL) { return 0; }
+    if (tmp_buf) {
+
+      u8 *ptr = realloc(tmp_buf, max_len);
+
+      if (!ptr) {
+
+        return 0;
+
+      } else {
+
+        tmp_buf = ptr;
+
+      }
+
+    } else {
+
+      if ((tmp_buf = malloc(max_len)) == NULL) { return 0; }
+
+    }
+
+    tmp_buf_size = max_len;
 
   }
 
@@ -150,11 +170,11 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
     if (is_exploration) {
 
-      mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
+      mutation_array = (u32 *)&mutation_strategy_exploration_text;
 
     } else {
 
-      mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
+      mutation_array = (u32 *)&mutation_strategy_exploitation_text;
 
     }
 
@@ -162,17 +182,17 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
     if (is_exploration) {
 
-      mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+      mutation_array = (u32 *)&mutation_strategy_exploration_binary;
 
     } else {
 
-      mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+      mutation_array = (u32 *)&mutation_strategy_exploitation_binary;
 
     }
 
   }
 
-  for (unsigned int step = 0; step < steps; ++step) {
+  for (u32 step = 0; step < steps; ++step) {
 
   retry_havoc_step:
 
@@ -400,7 +420,7 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
       case MUT_CLONE_OVERWRITE: {
 
-        if (likely(len + HAVOC_BLK_XL < MAX_FILE)) {
+        if (likely(len + HAVOC_BLK_XL < max_len)) {
 
           /* Clone bytes. */
 
@@ -439,7 +459,7 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
       case MUT_CLONE_INSERT: {
 
-        if (likely(len + HAVOC_BLK_XL < MAX_FILE)) {
+        if (likely(len + HAVOC_BLK_XL < max_len)) {
 
           /* Insert a block of constant bytes (25%). */
 
@@ -622,7 +642,7 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
           } while (unlikely(i == j));
 
-          unsigned char temp = buf[off + i];
+          u8 temp = buf[off + i];
           buf[off + i] = buf[off + j];
           buf[off + j] = temp;
 
@@ -872,7 +892,7 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
         u32 use_extra = rand_below(afl, afl->extras_cnt);
         u32 extra_len = afl->extras[use_extra].len;
-        if (unlikely(len + extra_len >= MAX_FILE)) { goto retry_havoc_step; }
+        if (unlikely(len + extra_len >= max_len)) { goto retry_havoc_step; }
 
         u8 *ptr = afl->extras[use_extra].data;
         u32 insert_at = rand_below(afl, len + 1);
@@ -912,7 +932,7 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
         u32 use_extra = rand_below(afl, afl->a_extras_cnt);
         u32 extra_len = afl->a_extras[use_extra].len;
-        if (unlikely(len + extra_len >= MAX_FILE)) { goto retry_havoc_step; }
+        if (unlikely(len + extra_len >= max_len)) { goto retry_havoc_step; }
 
         u8 *ptr = afl->a_extras[use_extra].data;
         u32 insert_at = rand_below(afl, len + 1);
@@ -952,7 +972,7 @@ unsigned int afl_mutate(afl_state_t *afl, unsigned char *buf, unsigned int len,
 
         if (unlikely(!splice_buf || !splice_len)) { goto retry_havoc_step; }
 
-        if (unlikely(len + HAVOC_BLK_XL >= MAX_FILE)) { goto retry_havoc_step; }
+        if (unlikely(len + HAVOC_BLK_XL >= max_len)) { goto retry_havoc_step; }
 
         /* insert mode */
 
