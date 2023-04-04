@@ -2078,9 +2078,9 @@ havoc_stage:
   u32 *mutation_array;
   u32  stack_max;
 
-  if (afl->queue_cur->is_ascii) {  // is text?
+  if (unlikely(afl->text_input || afl->queue_cur->is_ascii)) {  // is text?
 
-    if (1) {  // is exploration?
+    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
 
       mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
 
@@ -2092,7 +2092,7 @@ havoc_stage:
 
   } else {  // is binary!
 
-    if (1) {  // is exploration?
+    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
 
       mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
 

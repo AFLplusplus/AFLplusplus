@@ -490,7 +490,9 @@ typedef struct afl_state {
       *orig_cmdline,                    /* Original command line            */
       *infoexec;                       /* Command to execute on a new crash */
 
-  u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
+  u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
+      stats_update_freq,                /* Stats update frequency (execs)   */
+      switch_fuzz_mode;                 /* auto or fixed fuzz mode          */
 
   u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
@@ -499,40 +501,37 @@ typedef struct afl_state {
       custom_splice_optout,             /* Custom mutator no splice buffer  */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
-      pizza_is_served;                  /* pizza mode                       */
-
-  u32 stats_update_freq;                /* Stats update frequency (execs)   */
-
-  u8 schedule;                          /* Power schedule (default: EXPLORE)*/
-  u8 havoc_max_mult;
-
-  u8 skip_deterministic,                /* Skip deterministic stages?       */
-      use_splicing,                     /* Recombine input files?           */
-      non_instrumented_mode,            /* Run in non-instrumented mode?    */
-      score_changed,                    /* Scoring for favorites changed?   */
-      resuming_fuzz,                    /* Resuming an older fuzzing job?   */
-      timeout_given,                    /* Specific timeout given?          */
-      not_on_tty,                       /* stdout is not a tty              */
-      term_too_small,                   /* terminal dimensions too small    */
-      no_forkserver,                    /* Disable forkserver?              */
-      crash_mode,                       /* Crash mode! Yeah!                */
-      in_place_resume,                  /* Attempt in-place resume?         */
-      autoresume,                       /* Resume if afl->out_dir exists?   */
-      auto_changed,                     /* Auto-generated tokens changed?   */
-      no_cpu_meter_red,                 /* Feng shui on the status screen   */
-      no_arith,                         /* Skip most arithmetic ops         */
-      shuffle_queue,                    /* Shuffle input queue?             */
-      bitmap_changed,                   /* Time to update bitmap?           */
-      unicorn_mode,                     /* Running in Unicorn mode?         */
-      use_wine,                         /* Use WINE with QEMU mode          */
-      skip_requested,                   /* Skip request, via SIGUSR1        */
-      run_over10m,                      /* Run time over 10 minutes?        */
-      persistent_mode,                  /* Running in persistent mode?      */
-      deferred_mode,                    /* Deferred forkserver mode?        */
-      fixed_seed,                       /* do not reseed                    */
-      fast_cal,                         /* Try to calibrate faster?         */
-      disable_trim,                     /* Never trim in fuzz_one           */
-      shmem_testcase_mode,              /* If sharedmem testcases are used  */
+      pizza_is_served,                  /* pizza mode                       */
+      text_input,                       /* target wants text inputs         */
+      fuzz_mode, /* current mode: coverage/exploration or crash/exploitation */
+      schedule,                         /* Power schedule (default: EXPLORE)*/
+      havoc_max_mult, skip_deterministic, /* Skip deterministic stages?       */
+      use_splicing,                       /* Recombine input files?           */
+      non_instrumented_mode,              /* Run in non-instrumented mode?    */
+      score_changed,                      /* Scoring for favorites changed?   */
+      resuming_fuzz,                      /* Resuming an older fuzzing job?   */
+      timeout_given,                      /* Specific timeout given?          */
+      not_on_tty,                         /* stdout is not a tty              */
+      term_too_small,                     /* terminal dimensions too small    */
+      no_forkserver,                      /* Disable forkserver?              */
+      crash_mode,                         /* Crash mode! Yeah!                */
+      in_place_resume,                    /* Attempt in-place resume?         */
+      autoresume,                         /* Resume if afl->out_dir exists?   */
+      auto_changed,                       /* Auto-generated tokens changed?   */
+      no_cpu_meter_red,                   /* Feng shui on the status screen   */
+      no_arith,                           /* Skip most arithmetic ops         */
+      shuffle_queue,                      /* Shuffle input queue?             */
+      bitmap_changed,                     /* Time to update bitmap?           */
+      unicorn_mode,                       /* Running in Unicorn mode?         */
+      use_wine,                           /* Use WINE with QEMU mode          */
+      skip_requested,                     /* Skip request, via SIGUSR1        */
+      run_over10m,                        /* Run time over 10 minutes?        */
+      persistent_mode,                    /* Running in persistent mode?      */
+      deferred_mode,                      /* Deferred forkserver mode?        */
+      fixed_seed,                         /* do not reseed                    */
+      fast_cal,                           /* Try to calibrate faster?         */
+      disable_trim,                       /* Never trim in fuzz_one           */
+      shmem_testcase_mode,                /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
       old_seed_selection,               /* use vanilla afl seed selection   */

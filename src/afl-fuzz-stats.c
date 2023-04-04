@@ -1282,7 +1282,10 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   /* Last line */
-  SAYF(SET_G1 "\n" bSTG bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1);
+
+  SAYF(SET_G1 "\n" bSTG bLB bH cCYA                                bSTOP
+              " strategy:%s %s " bSTG bH20 bH10 bH2 bRB bSTOP cRST RESET_G1,
+       cPIN, afl->fuzz_mode == 0 ? "explore" : "exploit");
 
 #undef IB
 
