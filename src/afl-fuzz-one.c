@@ -27,21 +27,7 @@
 #include <string.h>
 #include <limits.h>
 #include "cmplog.h"
-
-static u32 mutation_array_explore[] = {
-
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18,
-    19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37};
-// static u32 mutation_array_exploit[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-// 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-// 31 }; static u32 mutation_array_txt_explore[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8,
-// 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
-// 28, 29, 30, 31 }; static u32 mutation_array_txt_exploit[] = { 0, 1, 2, 3, 4,
-// 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-// 25, 26, 27, 28, 29, 30, 31 };
-
-// what about more splicing?
-// what about -x and cmplog learn?
+#include "afl-mutations.h"
 
 /* MOpt */
 
@@ -82,50 +68,6 @@ static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
   }
 
   return i_puppet;
-
-}
-
-/* Helper to choose random block len for block operations in fuzz_one().
-   Doesn't return zero, provided that max_len is > 0. */
-
-static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
-
-  u32 min_value, max_value;
-  u32 rlim = MIN(afl->queue_cycle, (u32)3);
-
-  if (unlikely(!afl->run_over10m)) { rlim = 1; }
-
-  switch (rand_below(afl, rlim)) {
-
-    case 0:
-      min_value = 1;
-      max_value = HAVOC_BLK_SMALL;
-      break;
-
-    case 1:
-      min_value = HAVOC_BLK_SMALL;
-      max_value = HAVOC_BLK_MEDIUM;
-      break;
-
-    default:
-
-      if (likely(rand_below(afl, 10))) {
-
-        min_value = HAVOC_BLK_MEDIUM;
-        max_value = HAVOC_BLK_LARGE;
-
-      } else {
-
-        min_value = HAVOC_BLK_LARGE;
-        max_value = HAVOC_BLK_XL;
-
-      }
-
-  }
-
-  if (min_value >= limit) { min_value = 1; }
-
-  return min_value + rand_below(afl, MIN(max_value, limit) - min_value + 1);
 
 }
 
@@ -2136,8 +2078,31 @@ havoc_stage:
   u32 *mutation_array;
   u32  stack_max;
 
-  // if ( ... )
-  mutation_array = (u32 *)&mutation_array_explore;
+  if (afl->queue_cur->is_ascii) {  // is text?
+
+    if (1) {  // is exploration?
+
+      mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
+
+    } else {  // is exploitation!
+
+      mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
+
+    }
+
+  } else {  // is binary!
+
+    if (1) {  // is exploration?
+
+      mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+
+    } else {  // is exploitation!
+
+      mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+
+    }
+
+  }
 
   if (temp_len < 64) {
 
@@ -2208,11 +2173,11 @@ havoc_stage:
       }
 
     retry_havoc_step:
-      u32 r = rand_below(afl, 256), item;
+      u32 r = rand_below(afl, MUT_STRATEGY_ARRAY_SIZE), item;
 
       switch (mutation_array[r]) {
 
-        case 0: {
+        case MUT_FLIPBIT: {
 
           /* Flip a single bit somewhere. Spooky! */
           u8  bit = rand_below(afl, 8);
@@ -2227,7 +2192,7 @@ havoc_stage:
 
         }
 
-        case 1: {
+        case MUT_INTERESTING8: {
 
           /* Set byte to interesting value. */
 
@@ -2241,7 +2206,7 @@ havoc_stage:
 
         }
 
-        case 2: {
+        case MUT_INTERESTING16: {
 
           /* Set word to interesting value, little endian. */
 
@@ -2260,7 +2225,7 @@ havoc_stage:
 
         }
 
-        case 3: {
+        case MUT_INTERESTING16BE: {
 
           /* Set word to interesting value, big endian. */
 
@@ -2278,7 +2243,7 @@ havoc_stage:
 
         }
 
-        case 4: {
+        case MUT_INTERESTING32: {
 
           /* Set dword to interesting value, little endian. */
 
@@ -2297,7 +2262,7 @@ havoc_stage:
 
         }
 
-        case 5: {
+        case MUT_INTERESTING32BE: {
 
           /* Set dword to interesting value, big endian. */
 
@@ -2315,7 +2280,7 @@ havoc_stage:
 
         }
 
-        case 6: {
+        case MUT_ARITH8_: {
 
           /* Randomly subtract from byte. */
 
@@ -2329,7 +2294,7 @@ havoc_stage:
 
         }
 
-        case 7: {
+        case MUT_ARITH8: {
 
           /* Randomly add to byte. */
 
@@ -2343,7 +2308,7 @@ havoc_stage:
 
         }
 
-        case 8: {
+        case MUT_ARITH16_: {
 
           /* Randomly subtract from word, little endian. */
 
@@ -2362,7 +2327,7 @@ havoc_stage:
 
         }
 
-        case 9: {
+        case MUT_ARITH16BE_: {
 
           /* Randomly subtract from word, big endian. */
 
@@ -2382,7 +2347,7 @@ havoc_stage:
 
         }
 
-        case 10: {
+        case MUT_ARITH16: {
 
           /* Randomly add to word, little endian. */
 
@@ -2401,7 +2366,7 @@ havoc_stage:
 
         }
 
-        case 11: {
+        case MUT_ARITH16BE: {
 
           /* Randomly add to word, big endian. */
 
@@ -2421,7 +2386,7 @@ havoc_stage:
 
         }
 
-        case 12: {
+        case MUT_ARITH32_: {
 
           /* Randomly subtract from dword, little endian. */
 
@@ -2440,7 +2405,7 @@ havoc_stage:
 
         }
 
-        case 13: {
+        case MUT_ARITH32BE_: {
 
           /* Randomly subtract from dword, big endian. */
 
@@ -2460,7 +2425,7 @@ havoc_stage:
 
         }
 
-        case 14: {
+        case MUT_ARITH32: {
 
           /* Randomly add to dword, little endian. */
 
@@ -2479,7 +2444,7 @@ havoc_stage:
 
         }
 
-        case 15: {
+        case MUT_ARITH32BE: {
 
           /* Randomly add to dword, big endian. */
 
@@ -2499,7 +2464,7 @@ havoc_stage:
 
         }
 
-        case 16: {
+        case MUT_RAND8: {
 
           /* Just set a random byte to a random value. Because,
              why not. We use XOR with 1-255 to eliminate the
@@ -2517,7 +2482,7 @@ havoc_stage:
 
         }
 
-        case 17: {
+        case MUT_CLONE_OVERWRITE: {
 
           if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
@@ -2566,7 +2531,7 @@ havoc_stage:
 
         }
 
-        case 18: {
+        case MUT_CLONE_INSERT: {
 
           if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
@@ -2617,7 +2582,7 @@ havoc_stage:
 
         }
 
-        case 19: {
+        case MUT_OVERWRITE_COPY: {
 
           /* Overwrite bytes with a randomly selected chunk bytes. */
 
@@ -2642,7 +2607,7 @@ havoc_stage:
 
         }
 
-        case 20: {
+        case MUT_OVERWRITE_FIXED: {
 
           /* Overwrite bytes with fixed bytes. */
 
@@ -2666,7 +2631,7 @@ havoc_stage:
 
         }
 
-        case 21: {
+        case MUT_BYTEADD: {
 
           /* Increase byte by 1. */
 
@@ -2679,7 +2644,7 @@ havoc_stage:
 
         }
 
-        case 22: {
+        case MUT_BYTESUB: {
 
           /* Decrease byte by 1. */
 
@@ -2692,7 +2657,7 @@ havoc_stage:
 
         }
 
-        case 23: {
+        case MUT_FLIP8: {
 
           /* Flip byte. */
 
@@ -2705,7 +2670,7 @@ havoc_stage:
 
         }
 
-        case 24: {
+        case MUT_SWITCH: {
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
@@ -2757,7 +2722,7 @@ havoc_stage:
 
         }
 
-        case 25: {
+        case MUT_DEL: {
 
           /* Delete bytes. */
 
@@ -2782,7 +2747,7 @@ havoc_stage:
 
         }
 
-        case 26: {
+        case MUT_SHUFFLE: {
 
           /* Shuffle bytes. */
 
@@ -2815,7 +2780,7 @@ havoc_stage:
 
         }
 
-        case 27: {
+        case MUT_DELONE: {
 
           /* Delete bytes. */
 
@@ -2839,7 +2804,7 @@ havoc_stage:
 
         }
 
-        case 28: {
+        case MUT_INSERTONE: {
 
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
@@ -2878,7 +2843,7 @@ havoc_stage:
 
         }
 
-        case 29: {
+        case MUT_ASCIINUM: {
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
@@ -3022,7 +2987,7 @@ havoc_stage:
 
         }
 
-        case 30: {
+        case MUT_NEG: {
 
           /* Neg byte. */
 
@@ -3037,7 +3002,7 @@ havoc_stage:
 
         }
 
-        case 31: {
+        case MUT_INSERTASCIINUM: {
 
           u32 len = 1 + rand_below(afl, 8);
           u32 pos = rand_below(afl, temp_len);
@@ -3069,7 +3034,7 @@ havoc_stage:
 
         }
 
-        case 32: {
+        case MUT_EXTRA_OVERWRITE: {
 
           if (unlikely(!afl->extras_cnt)) { goto retry_havoc_step; }
 
@@ -3092,7 +3057,7 @@ havoc_stage:
 
         }
 
-        case 33: {
+        case MUT_EXTRA_INSERT: {
 
           if (unlikely(!afl->extras_cnt)) { goto retry_havoc_step; }
 
@@ -3127,7 +3092,7 @@ havoc_stage:
 
         }
 
-        case 34: {
+        case MUT_AUTO_EXTRA_OVERWRITE: {
 
           if (unlikely(!afl->a_extras_cnt)) { goto retry_havoc_step; }
 
@@ -3150,7 +3115,7 @@ havoc_stage:
 
         }
 
-        case 35: {
+        case MUT_AUTO_EXTRA_INSERT: {
 
           if (unlikely(!afl->a_extras_cnt)) { goto retry_havoc_step; }
 
@@ -3185,7 +3150,7 @@ havoc_stage:
 
         }
 
-        case 36: {
+        case MUT_SPLICE_OVERWRITE: {
 
           if (unlikely(afl->ready_for_splicing_count <= 1)) {
 
@@ -3231,7 +3196,7 @@ havoc_stage:
 
         }
 
-        case 37: {
+        case MUT_SPLICE_INSERT: {
 
           if (unlikely(afl->ready_for_splicing_count <= 1)) {
 
