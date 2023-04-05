@@ -577,7 +577,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!stricmp(optarg, "explore") || !stricmp(optarg, "exploration")) {
 
           afl->fuzz_mode = 0;
-          afl->switch_fuzz_mode = 1;
+          afl->switch_fuzz_mode = 0;
 
         } else if (!stricmp(optarg, "exploit") ||
 
@@ -588,11 +588,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if ((s32)(afl->switch_fuzz_mode = (u32)atoi(optarg)) < 1) {
+          if ((afl->switch_fuzz_mode = (u32)atoi(optarg)) > INT_MAX) {
 
             FATAL(
                 "Parameter for option -P must be \"explore\", \"exploit\" or a "
                 "number!");
+
+          } else {
+
+            afl->switch_fuzz_mode *= 1000;
 
           }
 
@@ -2689,13 +2693,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
 
+    u64 cur_time = get_cur_time();
+
+    if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0) &&
+        unlikely(cur_time > afl->last_find_time + afl->switch_fuzz_mode)) {
+
+      if (afl->afl_env.afl_no_ui) {
+
+        ACTF(
+            "No new coverage found for %llu seconds, switching to exploitation "
+            "strategy.",
+            afl->switch_fuzz_mode / 1000);
+
+      }
+
+      afl->fuzz_mode = 1;
+
+    }
+
     if (likely(!afl->stop_soon && afl->sync_id)) {
 
       if (likely(afl->skip_deterministic)) {
 
         if (unlikely(afl->is_main_node)) {
 
-          if (unlikely(get_cur_time() >
+          if (unlikely(cur_time >
                        (afl->sync_time >> 1) + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
@@ -2708,7 +2730,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (unlikely(get_cur_time() > afl->sync_time + afl->last_sync_time)) {
+          if (unlikely(cur_time > afl->sync_time + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
