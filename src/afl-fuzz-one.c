@@ -2076,7 +2076,7 @@ havoc_stage:
      where we take the input file and make random stacked tweaks. */
 
   u32 *mutation_array;
-  u32  stack_max;
+  u32  stack_max, stack_max_pow = afl->havoc_stack_pow2;
 
   if (unlikely(afl->text_input || afl->queue_cur->is_ascii)) {  // is text?
 
@@ -2106,21 +2106,19 @@ havoc_stage:
 
   if (temp_len < 64) {
 
-    stack_max = 4;
+    --stack_max_pow;
 
-  } else if (temp_len < 512) {
+  } else if (temp_len <= 8096) {
 
-    stack_max = 8;
-
-  } else if (temp_len < 8096) {
-
-    stack_max = 16;
+    ++stack_max_pow;
 
   } else {
 
-    stack_max = 32;
+    ++stack_max_pow;
 
   }
+
+  stack_max = 1 << stack_max_pow;
 
   // + (afl->extras_cnt ? 2 : 0) + (afl->a_extras_cnt ? 2 : 0);
 
