@@ -1231,7 +1231,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
   for (u32 step = 0; step < steps; ++step) {
 
-  retry_havoc_step:
+  retry_havoc_step : {
 
     u32 r = rand_below(afl, MUT_STRATEGY_ARRAY_SIZE), item;
 
@@ -1667,10 +1667,10 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         if (unlikely(len < 4)) { break; }  // no retry
 
-        u32 len = choose_block_len(afl, len - 1);
-        u32 off = rand_below(afl, len - len + 1);
+        u32 blen = choose_block_len(afl, len - 1);
+        u32 off = rand_below(afl, len - blen + 1);
 
-        for (u32 i = len - 1; i > 0; i--) {
+        for (u32 i = blen - 1; i > 0; i--) {
 
           u32 j;
           do {
@@ -2027,6 +2027,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
       }
 
     }
+
+  }
 
   }
 
