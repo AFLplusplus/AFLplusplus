@@ -491,8 +491,7 @@ typedef struct afl_state {
       *infoexec;                       /* Command to execute on a new crash */
 
   u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
-      stats_update_freq,                /* Stats update frequency (execs)   */
-      switch_fuzz_mode;                 /* auto or fixed fuzz mode          */
+      stats_update_freq;                /* Stats update frequency (execs)   */
 
   u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
@@ -592,7 +591,8 @@ typedef struct afl_state {
       last_hang_time,                   /* Time for most recent hang (ms)   */
       longest_find_time,                /* Longest time taken for a find    */
       exit_on_time,                     /* Delay to exit if no new paths    */
-      sync_time;                        /* Sync time (ms)                   */
+      sync_time,                        /* Sync time (ms)                   */
+      switch_fuzz_mode;                 /* auto or fixed fuzz mode          */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
