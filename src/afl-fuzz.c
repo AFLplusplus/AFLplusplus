@@ -562,7 +562,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: aHjJkKPqruvwz
+  // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
                        "+aAb:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
                        "T:UV:WXx:YZ")) > 0) {
