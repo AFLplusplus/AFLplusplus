@@ -65,14 +65,13 @@ enum {
   /* 27 */ MUT_DELONE,
   /* 28 */ MUT_INSERTONE,
   /* 29 */ MUT_ASCIINUM,
-  /* 30 */ MUT_NEG,
-  /* 31 */ MUT_INSERTASCIINUM,
-  /* 32 */ MUT_EXTRA_OVERWRITE,
-  /* 33 */ MUT_EXTRA_INSERT,
-  /* 34 */ MUT_AUTO_EXTRA_OVERWRITE,
-  /* 35 */ MUT_AUTO_EXTRA_INSERT,
-  /* 36 */ MUT_SPLICE_OVERWRITE,
-  /* 37 */ MUT_SPLICE_INSERT,
+  /* 30 */ MUT_INSERTASCIINUM,
+  /* 31 */ MUT_EXTRA_OVERWRITE,
+  /* 32 */ MUT_EXTRA_INSERT,
+  /* 33 */ MUT_AUTO_EXTRA_OVERWRITE,
+  /* 34 */ MUT_AUTO_EXTRA_INSERT,
+  /* 35 */ MUT_SPLICE_OVERWRITE,
+  /* 36 */ MUT_SPLICE_INSERT,
 
   MUT_MAX
 
@@ -199,6 +198,7 @@ u32 mutation_strategy_exploration_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_CLONE_INSERT,
     MUT_CLONE_INSERT,
     MUT_CLONE_INSERT,
+    MUT_CLONE_INSERT,
     MUT_OVERWRITE_COPY,
     MUT_OVERWRITE_COPY,
     MUT_OVERWRITE_COPY,
@@ -233,6 +233,9 @@ u32 mutation_strategy_exploration_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_FLIP8,
     MUT_FLIP8,
     MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
     MUT_SWITCH,
     MUT_SWITCH,
     MUT_SWITCH,
@@ -276,12 +279,8 @@ u32 mutation_strategy_exploration_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_ASCIINUM,
     MUT_ASCIINUM,
     MUT_ASCIINUM,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
+    MUT_ASCIINUM,
+    MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
@@ -335,7 +334,7 @@ u32 mutation_strategy_exploration_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
-    MUT_SPLICE_INSERT,
+    MUT_SPLICE_INSERT
 
 };
 
@@ -468,6 +467,7 @@ u32 mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_CLONE_INSERT,
     MUT_CLONE_INSERT,
     MUT_CLONE_INSERT,
+    MUT_CLONE_INSERT,
     MUT_OVERWRITE_COPY,
     MUT_OVERWRITE_COPY,
     MUT_OVERWRITE_COPY,
@@ -498,6 +498,10 @@ u32 mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_BYTESUB,
     MUT_BYTESUB,
     MUT_BYTESUB,
+    MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
     MUT_FLIP8,
     MUT_FLIP8,
     MUT_FLIP8,
@@ -541,12 +545,6 @@ u32 mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_ASCIINUM,
     MUT_ASCIINUM,
     MUT_ASCIINUM,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
@@ -596,7 +594,7 @@ u32 mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
-    MUT_SPLICE_INSERT,
+    MUT_SPLICE_INSERT
 
 };
 
@@ -766,6 +764,9 @@ u32 mutation_strategy_exploitation_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_FLIP8,
     MUT_FLIP8,
     MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
     MUT_SWITCH,
     MUT_SWITCH,
     MUT_SWITCH,
@@ -779,6 +780,7 @@ u32 mutation_strategy_exploitation_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_DEL,
     MUT_DEL,
     MUT_DEL,
+    MUT_SHUFFLE,
     MUT_SHUFFLE,
     MUT_SHUFFLE,
     MUT_SHUFFLE,
@@ -801,12 +803,8 @@ u32 mutation_strategy_exploitation_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_ASCIINUM,
     MUT_ASCIINUM,
     MUT_ASCIINUM,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
+    MUT_ASCIINUM,
+    MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
@@ -857,7 +855,7 @@ u32 mutation_strategy_exploitation_text[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
-    MUT_SPLICE_INSERT,
+    MUT_SPLICE_INSERT
 
 };
 
@@ -959,6 +957,8 @@ u32 mutation_strategy_exploitation_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_ARITH32BE_,
     MUT_ARITH32BE_,
     MUT_ARITH32BE_,
+    MUT_ARITH32BE_,
+    MUT_ARITH32,
     MUT_ARITH32,
     MUT_ARITH32,
     MUT_ARITH32,
@@ -1021,6 +1021,10 @@ u32 mutation_strategy_exploitation_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_BYTESUB,
     MUT_BYTESUB,
     MUT_BYTESUB,
+    MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
+    MUT_FLIP8,
     MUT_FLIP8,
     MUT_FLIP8,
     MUT_FLIP8,
@@ -1062,12 +1066,6 @@ u32 mutation_strategy_exploitation_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_ASCIINUM,
     MUT_ASCIINUM,
     MUT_ASCIINUM,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
-    MUT_NEG,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
     MUT_INSERTASCIINUM,
@@ -1118,7 +1116,9 @@ u32 mutation_strategy_exploitation_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
     MUT_SPLICE_INSERT,
-    MUT_SPLICE_INSERT};
+    MUT_SPLICE_INSERT
+
+};
 
 u32 afl_mutate(afl_state_t *, u8 *, u32, u32, bool, bool, u8 *, u32, u32);
 u32 choose_block_len(afl_state_t *, u32);
@@ -1861,17 +1861,6 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         // fprintf(stderr, "AFTER : %s\n", buf);
-        break;
-
-      }
-
-      case MUT_NEG: {
-
-        /* Neg byte. */
-
-        item = rand_below(afl, len);
-        buf[item] = ~buf[item];
-
         break;
 
       }
