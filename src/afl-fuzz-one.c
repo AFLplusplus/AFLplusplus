@@ -2659,7 +2659,7 @@ havoc_stage:
 
         case MUT_FLIP8: {
 
-          /* Flip byte. */
+          /* Flip byte with a XOR 0xff. This is the same as NEG. */
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP8_");
@@ -2983,21 +2983,6 @@ havoc_stage:
           }
 
           // fprintf(stderr, "AFTER : %s\n", out_buf);
-          break;
-
-        }
-
-        case MUT_NEG: {
-
-          /* Neg byte. */
-
-#ifdef INTROSPECTION
-          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " NEG_");
-          strcat(afl->mutation, afl->m_tmp);
-#endif
-          item = rand_below(afl, temp_len);
-
-          out_buf[item] = ~out_buf[item];
           break;
 
         }
