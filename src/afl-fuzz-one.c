@@ -2139,8 +2139,8 @@ havoc_stage:
 
         LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-          if (el->stacked_custom &&
-              rand_below(afl, 100) < el->stacked_custom_prob) {
+          if (unlikely(el->stacked_custom &&
+                       rand_below(afl, 100) < el->stacked_custom_prob)) {
 
             u8    *custom_havoc_buf = NULL;
             size_t new_len = el->afl_custom_havoc_mutation(
@@ -2170,7 +2170,8 @@ havoc_stage:
 
       }
 
-    retry_havoc_step:
+    retry_havoc_step : {
+
       u32 r = rand_below(afl, MUT_STRATEGY_ARRAY_SIZE), item;
 
       switch (mutation_array[r]) {
@@ -3247,6 +3248,8 @@ havoc_stage:
         }
 
       }
+
+    }
 
     }
 
