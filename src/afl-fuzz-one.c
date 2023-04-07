@@ -2481,7 +2481,7 @@ havoc_stage:
 
         }
 
-        case MUT_CLONE_OVERWRITE: {
+        case MUT_CLONE_COPY: {
 
           if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
@@ -2493,7 +2493,7 @@ havoc_stage:
 
 #ifdef INTROSPECTION
             snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s_%u_%u_%u",
-                     "overwrite", clone_from, clone_to, clone_len);
+                     "COPY", clone_from, clone_to, clone_len);
             strcat(afl->mutation, afl->m_tmp);
 #endif
             u8 *new_buf =
@@ -2530,7 +2530,7 @@ havoc_stage:
 
         }
 
-        case MUT_CLONE_INSERT: {
+        case MUT_CLONE_FIXED: {
 
           if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
@@ -2544,7 +2544,7 @@ havoc_stage:
 
 #ifdef INTROSPECTION
             snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s_%u_%u_%u",
-                     "insert", strat, clone_to, clone_len);
+                     "FIXED", strat, clone_to, clone_len);
             strcat(afl->mutation, afl->m_tmp);
 #endif
             u8 *new_buf =
@@ -2587,20 +2587,22 @@ havoc_stage:
 
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
-          u32 copy_len = choose_block_len(afl, temp_len - 1);
-          u32 copy_from = rand_below(afl, temp_len - copy_len + 1);
-          u32 copy_to = rand_below(afl, temp_len - copy_len + 1);
+          u32 copy_from, copy_to,
+              copy_len = choose_block_len(afl, temp_len - 1);
 
-          if (likely(copy_from != copy_to)) {
+          do {
+
+            copy_from = rand_below(afl, temp_len - copy_len + 1);
+            copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+          } while (unlikely(copy_from == copy_to));
 
 #ifdef INTROSPECTION
-            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " OVERWRITE-COPY_%u_%u_%u",
-                     copy_from, copy_to, copy_len);
-            strcat(afl->mutation, afl->m_tmp);
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " OVERWRITE-COPY_%u_%u_%u",
+                   copy_from, copy_to, copy_len);
+          strcat(afl->mutation, afl->m_tmp);
 #endif
-            memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
-
-          }
+          memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
           break;
 
