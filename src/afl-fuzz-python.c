@@ -414,9 +414,20 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   struct custom_mutator *mutator;
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
-
   mutator->name = module_name;
   ACTF("Loading Python mutator library from '%s'...", module_name);
+
+  if (memchr(module_name, '/', strlen(module_name))) {
+
+    mutator->name_short = strdup(strrchr(module_name, '/') + 1);
+
+  } else {
+
+    mutator->name_short = strdup(module_name);
+
+  }
+
+  if (strlen(mutator->name_short) > 22) { mutator->name_short[21] = 0; }
 
   py_mutator_t *py_mutator;
   py_mutator = init_py_module(afl, module_name);

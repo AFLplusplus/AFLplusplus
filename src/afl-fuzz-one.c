@@ -1931,6 +1931,7 @@ custom_mutator_stage:
     if (el->afl_custom_fuzz) {
 
       afl->current_custom_fuzz = el;
+      afl->stage_name = el->name_short;
 
       if (el->afl_custom_fuzz_count) {
 

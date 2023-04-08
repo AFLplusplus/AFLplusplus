@@ -179,11 +179,19 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   void                  *dh;
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
-  mutator->name = fn;
-  if (memchr(fn, '/', strlen(fn)))
-    mutator->name_short = strrchr(fn, '/') + 1;
-  else
+  if (memchr(fn, '/', strlen(fn))) {
+
+    mutator->name_short = strdup(strrchr(fn, '/') + 1);
+
+  } else {
+
     mutator->name_short = strdup(fn);
+
+  }
+
+  if (strlen(mutator->name_short) > 22) { mutator->name_short[21] = 0; }
+
+  mutator->name = fn;
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
