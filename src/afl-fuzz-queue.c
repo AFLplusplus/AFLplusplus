@@ -75,12 +75,6 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
   weight *= (1 + (q->tc_ref / avg_top_size));
 
-  if (unlikely(afl->prefer_new)) {
-
-    weight *= (2.0 * ((1 + q->id) / afl->queued_items));
-
-  }
-
   if (unlikely(weight < 0.1)) { weight = 0.1; }
   if (unlikely(q->favored)) { weight *= 5; }
   if (unlikely(!q->was_fuzzed)) { weight *= 2; }
@@ -150,6 +144,26 @@ void create_alias_table(afl_state_t *afl) {
             compute_weight(afl, q, avg_exec_us, avg_bitmap_size, avg_top_size);
         q->perf_score = calculate_score(afl, q);
         sum += q->weight;
+
+      }
+
+    }
+
+    if (unlikely(afl->prefer_new) && afl->queued_discovered) {
+
+      double avg_weight = sum / active;
+
+      for (i = n - afl->queued_discovered; i < n; i++) {
+
+        struct queue_entry *q = afl->queue_buf[i];
+
+        if (likely(!q->disabled) && q->weight > avg_weight) {
+
+          double prev_weight = q->weight;
+          q->weight *= (2.0 * (i / n));
+          sum += (q->weight - prev_weight);
+
+        }
 
       }
 
