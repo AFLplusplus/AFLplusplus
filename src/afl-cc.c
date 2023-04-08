@@ -1171,8 +1171,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_LOOP(_A)="
-      "({ static volatile char *_B __attribute__((used,unused)); "
-      " _B = (char*)\"" PERSIST_SIG
+      "({ static volatile const char *_B __attribute__((used,unused)); "
+      " _B = (const char*)\"" PERSIST_SIG
       "\"; "
       "extern int __afl_connected;"
 #ifdef __APPLE__
@@ -1187,8 +1187,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_INIT()="
-      "do { static volatile char *_A __attribute__((used,unused)); "
-      " _A = (char*)\"" DEFER_SIG
+      "do { static volatile const char *_A __attribute__((used,unused)); "
+      " _A = (const char*)\"" DEFER_SIG
       "\"; "
 #ifdef __APPLE__
       "__attribute__((visibility(\"default\"))) "
