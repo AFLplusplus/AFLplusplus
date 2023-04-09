@@ -166,7 +166,6 @@ static void usage(u8 *argv0, int more_help) {
       "                  pacemaker mode (minutes of no new finds). 0 = "
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
-      "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
