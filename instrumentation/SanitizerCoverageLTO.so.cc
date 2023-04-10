@@ -1781,6 +1781,7 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLTOLegacyPass, "sancov-lto",
                     "Pass for instrumenting coverage on functions", false,
                     false)
 
+#if LLVM_VERSION_MAJOR < 16
 static void registerLTOPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
@@ -1789,7 +1790,6 @@ static void registerLTOPass(const PassManagerBuilder &,
 
 }
 
-#if LLVM_VERSION_MAJOR < 16
 static RegisterStandardPasses RegisterCompTransPass(
     PassManagerBuilder::EP_OptimizerLast, registerLTOPass);
 
