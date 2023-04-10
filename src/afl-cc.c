@@ -1101,37 +1101,45 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
-  cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
   cc_params[cc_par_cnt++] = "-D__AFL_COMPILER=1";
   cc_params[cc_par_cnt++] = "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1";
 
-  /* When the user tries to use persistent or deferred forkserver modes by
-     appending a single line to the program, we want to reliably inject a
-     signature into the binary (to be picked up by afl-fuzz) and we want
-     to call a function from the runtime .o file. This is unnecessarily
-     painful for three reasons:
+  /* As documented in instrumentation/README.persistent_mode.md, deferred
+     forkserver initialization and persistent mode are not available in afl-gcc
+     and afl-clang. */
+  if (compiler_mode != GCC && compiler_mode != CLANG) {
 
-     1) We need to convince the compiler not to optimize out the signature.
-        This is done with __attribute__((used)).
+    cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
 
-     2) We need to convince the linker, when called with -Wl,--gc-sections,
-        not to do the same. This is done by forcing an assignment to a
-        'volatile' pointer.
+    /* When the user tries to use persistent or deferred forkserver modes by
+       appending a single line to the program, we want to reliably inject a
+       signature into the binary (to be picked up by afl-fuzz) and we want
+       to call a function from the runtime .o file. This is unnecessarily
+       painful for three reasons:
 
-     3) We need to declare __afl_persistent_loop() in the global namespace,
-        but doing this within a method in a class is hard - :: and extern "C"
-        are forbidden and __attribute__((alias(...))) doesn't work. Hence the
-        __asm__ aliasing trick.
+       1) We need to convince the compiler not to optimize out the signature.
+          This is done with __attribute__((used)).
 
-   */
+       2) We need to convince the linker, when called with -Wl,--gc-sections,
+          not to do the same. This is done by forcing an assignment to a
+          'volatile' pointer.
 
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_INIT()="
-      "int __afl_sharedmem_fuzzing = 1;"
-      "extern unsigned int *__afl_fuzz_len;"
-      "extern unsigned char *__afl_fuzz_ptr;"
-      "unsigned char __afl_fuzz_alt[1048576];"
-      "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
+       3) We need to declare __afl_persistent_loop() in the global namespace,
+          but doing this within a method in a class is hard - :: and extern "C"
+          are forbidden and __attribute__((alias(...))) doesn't work. Hence the
+          __asm__ aliasing trick.
+
+     */
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_FUZZ_INIT()="
+        "int __afl_sharedmem_fuzzing = 1;"
+        "extern unsigned int *__afl_fuzz_len;"
+        "extern unsigned char *__afl_fuzz_ptr;"
+        "unsigned char __afl_fuzz_alt[1048576];"
+        "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
+
+  }
 
   if (plusplus_mode) {
 
@@ -1169,35 +1177,39 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "(*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1048576)) == 0xffffffff "
       "? 0 : *__afl_fuzz_len)";
 
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_LOOP(_A)="
-      "({ static volatile const char *_B __attribute__((used,unused)); "
-      " _B = (const char*)\"" PERSIST_SIG
-      "\"; "
-      "extern int __afl_connected;"
-#ifdef __APPLE__
-      "__attribute__((visibility(\"default\"))) "
-      "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
-#else
-      "__attribute__((visibility(\"default\"))) "
-      "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
-#endif                                                        /* ^__APPLE__ */
-      // if afl is connected, we run _A times, else once.
-      "_L(__afl_connected ? _A : 1); })";
+  if (compiler_mode != GCC && compiler_mode != CLANG) {
 
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_INIT()="
-      "do { static volatile const char *_A __attribute__((used,unused)); "
-      " _A = (const char*)\"" DEFER_SIG
-      "\"; "
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_LOOP(_A)="
+        "({ static volatile const char *_B __attribute__((used,unused)); "
+        " _B = (const char*)\"" PERSIST_SIG
+        "\"; "
+        "extern int __afl_connected;"
 #ifdef __APPLE__
-      "__attribute__((visibility(\"default\"))) "
-      "void _I(void) __asm__(\"___afl_manual_init\"); "
+        "__attribute__((visibility(\"default\"))) "
+        "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
 #else
-      "__attribute__((visibility(\"default\"))) "
-      "void _I(void) __asm__(\"__afl_manual_init\"); "
+        "__attribute__((visibility(\"default\"))) "
+        "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
 #endif                                                        /* ^__APPLE__ */
-      "_I(); } while (0)";
+        // if afl is connected, we run _A times, else once.
+        "_L(__afl_connected ? _A : 1); })";
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_INIT()="
+        "do { static volatile const char *_A __attribute__((used,unused)); "
+        " _A = (const char*)\"" DEFER_SIG
+        "\"; "
+#ifdef __APPLE__
+        "__attribute__((visibility(\"default\"))) "
+        "void _I(void) __asm__(\"___afl_manual_init\"); "
+#else
+        "__attribute__((visibility(\"default\"))) "
+        "void _I(void) __asm__(\"__afl_manual_init\"); "
+#endif                                                        /* ^__APPLE__ */
+        "_I(); } while (0)";
+
+  }
 
   if (x_set) {
 
