@@ -11,4 +11,11 @@ test: angora
 	echo 000000000000000000000000 > input/0
 
 test-run: test
-	AFL_CUSTOM_MUTATOR_LIBRARY="" afl-fuzz -i input -o output -c ./testcmp -m none -- ./test @@
+	AFL_CUSTOM_MUTATOR_LIBRARY="./mutator.so" afl-fuzz -i input -o output -c ./testcmp -m none -- ./test @@
+
+test-debug: test
+	AFL_CUSTOM_MUTATOR_LIBRARY="./mutator.so" gdb --args afl-fuzz -i input -o output -c ./testcmp -m none -- ./test @@
+
+clean:
+	rm *.so testcmp test
+	rm -rf input output
