@@ -132,6 +132,7 @@ static void usage(u8 *argv0, int more_help) {
       "                  fast(default), explore, exploit, seek, rare, mmopt, "
       "coe, lin\n"
       "                  quad -- see docs/FAQ.md for more information\n"
+      "  -z            - prefer new coverage findings when fuzzing\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
@@ -165,7 +166,6 @@ static void usage(u8 *argv0, int more_help) {
       "                  pacemaker mode (minutes of no new finds). 0 = "
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
-      "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
@@ -556,7 +556,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (
       (opt = getopt(
            argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YzZ")) >
       0) {
 
     switch (opt) {
@@ -567,6 +567,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'G':
         afl->max_length = atoi(optarg);
+        break;
+
+      case 'z':
+        afl->prefer_new = 1;
         break;
 
       case 'Z':
@@ -1344,8 +1348,7 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
-      "README.md");
+  OKF("NOTE: afl++ >= v3 has changed defaults and behaviours - see README.md");
 
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
@@ -2497,10 +2500,22 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
   #ifdef INTROSPECTION
-      fprintf(afl->introspection_file,
-              "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
-              afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
-              afl->queued_items);
+      {
+
+        u64 cur_time = get_cur_time();
+        fprintf(afl->introspection_file,
+                "CYCLE cycle=%llu cycle_wo_finds=%llu time_wo_finds=%llu "
+                "expand_havoc=%u queue=%u\n",
+                afl->queue_cycle, afl->cycles_wo_finds,
+                afl->longest_find_time > cur_time - afl->last_find_time
+                    ? afl->longest_find_time / 1000
+                    : ((afl->start_time == 0 || afl->last_find_time == 0)
+                           ? 0
+                           : (cur_time - afl->last_find_time) / 1000),
+                afl->expand_havoc, afl->queued_items);
+
+      }
+
   #endif
 
       if (afl->cycle_schedules) {

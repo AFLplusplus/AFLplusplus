@@ -70,10 +70,10 @@ if [ -d queue ]; then
 
 fi
 
-RED=`tput setaf 9 1 1`
-GREEN=`tput setaf 2 1 1`
-BLUE=`tput setaf 4 1 1`
-YELLOW=`tput setaf 11 1 1`
+RED=`tput setaf 9 1 1 2>/dev/null`
+GREEN=`tput setaf 2 1 1 2>/dev/null`
+BLUE=`tput setaf 4 1 1 2>/dev/null`
+YELLOW=`tput setaf 11 1 1 2>/dev/null`
 NC=`tput sgr0`
 RESET="$NC"
 
@@ -141,7 +141,8 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
   . "$TMP"
-
+  DIR=$(dirname "$i")
+  DIR=${DIR##*/} 
   RUN_UNIX=$run_time
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
   RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
@@ -154,7 +155,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
-    echo ">>> $afl_banner ($RUN_DAYS days, $RUN_HRS hrs) fuzzer PID: $fuzzer_pid <<<"
+    echo ">>> $afl_banner instance: $DIR ($RUN_DAYS days, $RUN_HRS hrs) fuzzer PID: $fuzzer_pid <<<"
     echo
 
   fi

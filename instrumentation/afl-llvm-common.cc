@@ -289,6 +289,7 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
     StringRef ifunc_name = IF.getName();
     Constant *r = IF.getResolver();
+    if (r->getNumOperands() == 0) { continue; }
     StringRef r_name = cast<Function>(r->getOperand(0))->getName();
     if (!be_quiet)
       fprintf(stderr,
