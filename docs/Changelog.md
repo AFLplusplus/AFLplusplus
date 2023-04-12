@@ -16,7 +16,7 @@
     - print name of custom mutator in UI
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
-    - llvm 16 support (thanks to @devnexen!)
+    - llvm 16 + 17 support (thanks to @devnexen!)
     - support llvm 15 native pcguard changes
     - support for LLVMFuzzerTestOneInput -1 return
   - qemu_mode:
