@@ -1,8 +1,10 @@
 //
-// afl_driver.cpp - a glue between AFL++ and libFuzzer
+// afl_driver.cpp - a glue between AFL++ and LLVMFuzzerTestOneInput harnesses
 //
 
-/* This file allows to fuzz libFuzzer-style target functions
+/*
+
+ This file allows to fuzz libFuzzer-style target functions
  (LLVMFuzzerTestOneInput) with AFL++ using persistent in-memory fuzzing.
 
 Usage:
@@ -26,7 +28,7 @@ EOF
 # Build your target with afl-cc -fsanitize=fuzzer
 $ afl-c++ -fsanitize=fuzzer -o test_fuzzer test_fuzzer.cc
 # Run AFL:
-$ rm -rf in out; mkdir in out; echo z > in/foo;
+$ mkdir -p in ; echo z > in/foo;
 $ afl-fuzz -i in -o out -- ./test_fuzzer
 
 */

@@ -20,10 +20,6 @@ endif
 
 CFLAGS := -O3 -funroll-loops -g -fPIC
 
-ifdef MAGMA_PATCH
-	CFLAGS += -DMAGMA_PATCH
-endif
-
 all:	libAFLDriver.a libAFLQemuDriver.a aflpp_qemu_driver_hook.so
 
 aflpp_driver.o:	aflpp_driver.c
