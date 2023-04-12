@@ -431,6 +431,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
     if ((afl_global_id = atoi(ptr)) < 0)
       FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is negative\n", ptr);
 
+  if (afl_global_id < 4) { afl_global_id = 4; }
+
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     dFile.open(ptr, std::ofstream::out | std::ofstream::app);
@@ -1779,6 +1781,7 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLTOLegacyPass, "sancov-lto",
                     "Pass for instrumenting coverage on functions", false,
                     false)
 
+#if LLVM_VERSION_MAJOR < 16
 static void registerLTOPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
@@ -1793,8 +1796,9 @@ static RegisterStandardPasses RegisterCompTransPass(
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerLTOPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerLTOPass);
+  #endif
 #endif
 

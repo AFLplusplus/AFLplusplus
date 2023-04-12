@@ -133,7 +133,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
  SKIP=
  test -e ../${AFL_CLANG} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_CLANG} -v 2>&1 | grep -qi "clang version" && {
-   ../${AFL_CLANG} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
+   ../${AFL_CLANG} -O0 -o test-instr.plain ../test-instr.c > /dev/null 2>&1
    AFL_HARDEN=1 ../${AFL_CLANG} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
    test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_CLANG} compilation succeeded"

@@ -8,6 +8,12 @@
     - ensure temporary file descriptor is closed when not used
     - added `AFL_NO_WARN_INSTABILITY`
     - added `AFL_FRIDA_STATS_INTERVAL`
+    - added time_wo_finds to fuzzer_stats
+    - fixed a crash in pizza (1st april easter egg) mode. Sorry for
+      everyone who was affected!
+    - allow pizza mode to be disabled when AFL_PIZZA_MODE is set to -1
+    - add -z switch to prefer new coverage findings in seed selection
+    - print name of custom mutator in UI
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
     - llvm 16 support (thanks to @devnexen!)
