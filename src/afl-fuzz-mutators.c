@@ -519,7 +519,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (likely(retlen)) {
 
-      retlen = write_to_testcase(afl, (void **)&retbuf, retlen, 0);
+      retlen = write_to_testcase(afl, (void *)retbuf, retlen, 0);
 
       if (unlikely(!retlen)) {
 

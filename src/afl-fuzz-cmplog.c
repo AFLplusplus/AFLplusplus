@@ -52,7 +52,7 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8  fault;
-  u32 tmp_len = write_to_testcase(afl, (void **)&out_buf, len, 0);
+  u32 tmp_len = write_to_testcase(afl, (void *)out_buf, len, 0);
 
   if (likely(tmp_len)) {
 
@@ -60,7 +60,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   } else {
 
-    len = write_to_testcase(afl, (void **)&out_buf, len, 1);
+    len = write_to_testcase(afl, (void *)out_buf, len, 1);
 
   }
 

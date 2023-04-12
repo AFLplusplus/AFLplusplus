@@ -893,7 +893,7 @@ struct custom_mutator {
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
    * @param[out] out_buf Pointer to the buffer storing the test case after
-   *     processing. External library should allocate memory for out_buf.
+   *     processing. The external library should allocate memory for out_buf.
    *     It can chose to alter buf in-place, if the space is large enough.
    * @return Size of the output buffer.
    */
@@ -1148,7 +1148,7 @@ int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 /* Run */
 
 void sync_fuzzers(afl_state_t *);
-u32  write_to_testcase(afl_state_t *, void **, u32, u32);
+u32  write_to_testcase(afl_state_t *, void *, u32, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 u8   trim_case(afl_state_t *, struct queue_entry *, u8 *);
 u8   common_fuzz_stuff(afl_state_t *, u8 *, u32);
