@@ -885,14 +885,19 @@ struct custom_mutator {
    * A post-processing function to use right before AFL writes the test case to
    * disk in order to execute the target.
    *
-   * (Optional) If this functionality is not needed, simply don't define this
+   * NOTE: Do not do any random changes to the data in this function!
+   *
+   * PERFORMANCE: If you can modify the data in-place you will have a better
+   *              performance. Modify *data and set `*out_buf = data`.
+   *
+   * (Optional) If this functionality is not needed, simply do not define this
    * function.
    *
    * @param[in] data pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
    * @param[out] out_buf Pointer to the buffer storing the test case after
-   *     processing. External library should allocate memory for out_buf.
+   *     processing. The external library should allocate memory for out_buf.
    *     It can chose to alter buf in-place, if the space is large enough.
    * @return Size of the output buffer.
    */
