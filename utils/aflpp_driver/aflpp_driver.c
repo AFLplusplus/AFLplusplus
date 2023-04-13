@@ -33,6 +33,11 @@ $ afl-fuzz -i in -o out -- ./test_fuzzer
 
 */
 
+#ifdef __cplusplus
+extern "C" {
+
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -260,6 +265,13 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
 
 __attribute__((weak)) int main(int argc, char **argv) {
 
+  if (!LLVMFuzzerTestOneInput) {
+
+    fprintf(stderr, "Error: function LLVMFuzzerTestOneInput() not found!\n");
+    abort();
+
+  }
+
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
     printf(
         "============================== INFO ================================\n"
@@ -408,4 +420,10 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
   return 0;
 
 }
+
+#ifdef __cplusplus
+
+}
+
+#endif
 
