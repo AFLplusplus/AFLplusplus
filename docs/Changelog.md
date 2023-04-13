@@ -12,7 +12,7 @@
     - fixed a crash in pizza (1st april easter egg) mode. Sorry for
       everyone who was affected!
     - allow pizza mode to be disabled when AFL_PIZZA_MODE is set to -1
-    - add -z switch to prefer new coverage findings in seed selection
+    - option `-p mmopt` now also selects new queue items more often
     - print name of custom mutator in UI
   - afl-cc:
     - add CFI sanitizer variant to gcc targets

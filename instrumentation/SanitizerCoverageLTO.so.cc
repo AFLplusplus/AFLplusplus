@@ -18,7 +18,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #if LLVM_VERSION_MAJOR < 17
-#include "llvm/ADT/Triple.h"
+  #include "llvm/ADT/Triple.h"
 #endif
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"

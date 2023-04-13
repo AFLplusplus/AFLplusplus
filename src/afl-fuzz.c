@@ -132,7 +132,6 @@ static void usage(u8 *argv0, int more_help) {
       "                  fast(default), explore, exploit, seek, rare, mmopt, "
       "coe, lin\n"
       "                  quad -- see docs/FAQ.md for more information\n"
-      "  -z            - prefer new coverage findings when fuzzing\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
@@ -556,7 +555,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (
       (opt = getopt(
            argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YzZ")) >
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
       0) {
 
     switch (opt) {
@@ -567,10 +566,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'G':
         afl->max_length = atoi(optarg);
-        break;
-
-      case 'z':
-        afl->prefer_new = 1;
         break;
 
       case 'Z':

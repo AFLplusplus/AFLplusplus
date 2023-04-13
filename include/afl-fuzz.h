@@ -501,8 +501,7 @@ typedef struct afl_state {
       custom_splice_optout,             /* Custom mutator no splice buffer  */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
-      pizza_is_served,                  /* pizza mode                       */
-      prefer_new;                       /* prefer new queue entries         */
+      pizza_is_served;                  /* pizza mode                       */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 

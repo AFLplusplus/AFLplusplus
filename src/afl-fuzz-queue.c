@@ -149,21 +149,15 @@ void create_alias_table(afl_state_t *afl) {
 
     }
 
-    if (unlikely(afl->prefer_new) && afl->queued_discovered) {
+    if (unlikely(afl->schedule == MMOPT) && afl->queued_discovered) {
 
-      double avg_weight = sum / active;
+      u32 cnt = afl->queued_discovered >= 5 ? 5 : afl->queued_discovered;
 
-      for (i = n - afl->queued_discovered; i < n; i++) {
+      for (i = n - cnt; i < n; i++) {
 
         struct queue_entry *q = afl->queue_buf[i];
 
-        if (likely(!q->disabled) && q->weight > avg_weight) {
-
-          double prev_weight = q->weight;
-          q->weight *= (2.0 * (i / n));
-          sum += (q->weight - prev_weight);
-
-        }
+        if (likely(!q->disabled)) { q->weight *= 2.0; }
 
       }
 
