@@ -13,6 +13,7 @@
       everyone who was affected!
     - allow pizza mode to be disabled when AFL_PIZZA_MODE is set to -1
     - option `-p mmopt` now also selects new queue items more often
+    - fix bug in post_process custom mutator implementation
     - print name of custom mutator in UI
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
