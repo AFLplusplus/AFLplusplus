@@ -63,14 +63,29 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   handle = dlopen((char *)libnyx_binary, RTLD_NOW);
   if (!handle) { goto fail; }
 
+  plugin->nyx_config_load = dlsym(handle, "nyx_config_load");
+  if (plugin->nyx_config_load == NULL) { goto fail; }
+
+  plugin->nyx_config_set_workdir_path = dlsym(handle, "nyx_config_set_workdir_path");
+  if (plugin->nyx_config_set_workdir_path == NULL) { goto fail; }
+
+  plugin->nyx_config_set_input_buffer_size = dlsym(handle, "nyx_config_set_input_buffer_size");
+  if (plugin->nyx_config_set_input_buffer_size == NULL) { goto fail; }
+
+  plugin->nyx_config_set_input_buffer_write_protection = dlsym(handle, "nyx_config_set_input_buffer_write_protection");
+  if (plugin->nyx_config_set_input_buffer_write_protection == NULL) { goto fail; }
+
+  plugin->nyx_config_set_hprintf_fd = dlsym(handle, "nyx_config_set_hprintf_fd");
+  if (plugin->nyx_config_set_hprintf_fd == NULL) { goto fail; }
+
+  plugin->nyx_config_set_process_role = dlsym(handle, "nyx_config_set_process_role");
+  if (plugin->nyx_config_set_process_role == NULL) { goto fail; }
+
+  plugin->nyx_config_set_reuse_snapshot_path = dlsym(handle, "nyx_config_set_reuse_snapshot_path");
+  if (plugin->nyx_config_set_reuse_snapshot_path == NULL) { goto fail; }
+
   plugin->nyx_new = dlsym(handle, "nyx_new");
   if (plugin->nyx_new == NULL) { goto fail; }
-
-  plugin->nyx_new_parent = dlsym(handle, "nyx_new_parent");
-  if (plugin->nyx_new_parent == NULL) { goto fail; }
-
-  plugin->nyx_new_child = dlsym(handle, "nyx_new_child");
-  if (plugin->nyx_new_child == NULL) { goto fail; }
 
   plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
   if (plugin->nyx_shutdown == NULL) { goto fail; }
@@ -100,6 +115,10 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
   plugin->nyx_get_aux_string = dlsym(handle, "nyx_get_aux_string");
   if (plugin->nyx_get_aux_string == NULL) { goto fail; }
+
+  plugin->nyx_remove_work_dir = dlsym(handle, "nyx_remove_work_dir");
+  if (plugin->nyx_remove_work_dir == NULL) { goto fail; }
+
 
   OKF("libnyx plugin is ready!");
   return plugin;
@@ -474,26 +493,23 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
+    void* nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
+
+    fsrv->nyx_handlers->nyx_config_set_workdir_path(nyx_config, x);
+    fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config, MAX_FILE);
+    fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config, true);
+
     if (fsrv->nyx_standalone) {
-
-      fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(
-          fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
-
+      fsrv->nyx_handlers->nyx_config_set_process_role(nyx_config, StandAlone);
     } else {
-
       if (fsrv->nyx_parent) {
-
-        fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_parent(
-            fsrv->target_path, x, fsrv->nyx_bind_cpu_id, MAX_FILE, true);
-
+        fsrv->nyx_handlers->nyx_config_set_process_role(nyx_config, Parent);
       } else {
-
-        fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new_child(
-            fsrv->target_path, x, fsrv->nyx_bind_cpu_id, fsrv->nyx_id);
-
+        fsrv->nyx_handlers->nyx_config_set_process_role(nyx_config, Child);
       }
-
     }
+
+    fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
 
     ck_free(x);
 
