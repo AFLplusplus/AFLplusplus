@@ -509,6 +509,22 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       }
     }
 
+    if (getenv("NYX_REUSE_SNAPSHOT") != NULL){
+
+      if (access(getenv("NYX_REUSE_SNAPSHOT"), F_OK) == -1) {
+        FATAL("NYX_REUSE_SNAPSHOT path does not exist");
+      }
+
+      /* stupid sanity check to avoid passing an empty or invalid snapshot directory */
+      char* snapshot_file_path = alloc_printf("%s/global.state", getenv("NYX_REUSE_SNAPSHOT"));
+      if (access(snapshot_file_path, R_OK) == -1) {
+        FATAL("NYX_REUSE_SNAPSHOT path does not contain a valid Nyx snapshot");
+      }
+      free(snapshot_file_path);
+
+      fsrv->nyx_handlers->nyx_config_set_reuse_snapshot_path(nyx_config, getenv("NYX_REUSE_SNAPSHOT"));
+    }
+
     fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
 
     ck_free(x);
