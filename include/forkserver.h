@@ -75,6 +75,9 @@ typedef struct {
 
 } nyx_plugin_handler_t;
 
+/* Imports helper functions to enable Nyx mode (Linux only )*/
+nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary);
+
 #endif
 
 typedef struct afl_forkserver {

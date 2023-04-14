@@ -789,6 +789,7 @@ static void usage(u8 *argv0) {
       "mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n"
+      "  -X            - use Nyx mode\n"
 #endif
       "\n"
 
@@ -845,7 +846,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeAOQUWHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeAOQUWXHh")) > 0) {
 
     switch (opt) {
 
@@ -1003,6 +1004,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+  #ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv->nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv->nyx_mode = 1;
+        fsrv->nyx_parent = true;
+        fsrv->nyx_standalone = true;
+
+        break;
+  #else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+  #endif
+
       case 'H':                                                /* Hang Mode */
 
         /* Minimizes a testcase to the minimum that still times out */
@@ -1068,7 +1085,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv, argv);
 
+#ifdef __linux__
+  if(!fsrv->nyx_mode){
+    fsrv->target_path = find_binary(argv[optind]);
+  }
+  else{
+    fsrv->target_path = ck_strdup(argv[optind]);
+  }
+#else
   fsrv->target_path = find_binary(argv[optind]);
+#endif
+
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
   signal(SIGALRM, kill_child);
@@ -1091,6 +1118,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
     use_argv =
         get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+
+#ifdef __linux__
+  } else if (fsrv->nyx_mode) {
+
+    fsrv->nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
+    fsrv->nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv->nyx_handlers == NULL) {
+      FATAL("failed to initialize libnyx.so...");
+    }
+
+    fsrv->out_dir_path = create_nyx_tmp_workdir();
+    fsrv->nyx_bind_cpu_id = 0;
+
+    use_argv = argv + optind;
+#endif
 
   } else {
 
@@ -1161,7 +1205,14 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   read_initial_file();
+
+#ifdef __linux__
+  if(!fsrv->nyx_mode){
+    (void)check_binary_signatures(fsrv->target_path);
+  }
+#else
   (void)check_binary_signatures(fsrv->target_path);
+#endif
 
   if (!fsrv->qemu_mode && !unicorn_mode) {
 
@@ -1264,6 +1315,12 @@ int main(int argc, char **argv_orig, char **envp) {
   close(write_to_file(output_file, in_data, in_len));
 
   OKF("We're done here. Have a nice day!\n");
+
+#ifdef __linux__
+  if (fsrv->nyx_mode) {
+    remove_nyx_tmp_workdir(fsrv->out_dir_path);
+  }
+#endif
 
   remove_shm = 0;
   afl_shm_deinit(&shm);
