@@ -7,7 +7,6 @@
   - afl-fuzz:
     - ensure temporary file descriptor is closed when not used
     - added `AFL_NO_WARN_INSTABILITY`
-    - added `AFL_FRIDA_STATS_INTERVAL`
     - added time_wo_finds to fuzzer_stats
     - fixed a crash in pizza (1st april easter egg) mode. Sorry for
       everyone who was affected!
@@ -15,18 +14,23 @@
     - option `-p mmopt` now also selects new queue items more often
     - fix bug in post_process custom mutator implementation
     - print name of custom mutator in UI
+    - slight changes that improve fuzzer performance
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
     - llvm 16 + 17 support (thanks to @devnexen!)
     - support llvm 15 native pcguard changes
     - support for LLVMFuzzerTestOneInput -1 return
+    - LTO autoken and llvm_mode: added AFL_LLVM_DICT2FILE_NO_MAIN support
   - qemu_mode:
     - fix _RANGES envs to allow hyphens in the filenames
-  - new custom module: autotoken, grammar free fuzzer for text inputs
-  - LTO autoken and llvm_mode: added AFL_LLVM_DICT2FILE_NO_MAIN support
+    - basic riscv support
+  - frida_mode:
+    - added `AFL_FRIDA_STATS_INTERVAL`
+    - fix issue on MacOS
+  - unicorn_mode:
+    - updated and minor issues fixed
+  - new custom module: autotoken, a grammar free fuzzer for text inputs
   - better sanitizer default options support for all tools
-  - unicorn_mode: updated and minor issues fixed
-  - frida_mode: fix issue on MacOS
   - more minor fixes and cross-platform support
 
 ### Version ++4.05c (release)
