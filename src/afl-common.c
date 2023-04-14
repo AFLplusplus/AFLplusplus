@@ -1359,3 +1359,34 @@ s32 create_file(u8 *fn) {
 
 }
 
+#ifdef __linux__
+
+/* Nyx requires a tmp workdir to access specific files (such as mmapped files,
+ * etc.). This helper function basically creates both a path to a tmp workdir
+ * and the workdir itself. If the environment variable TMPDIR is set, we use
+ * that as the base directory, otherwise we use /tmp. */
+char* create_nyx_tmp_workdir(void) {
+
+  char *tmpdir = getenv("TMPDIR");
+
+  if (!tmpdir) { tmpdir = "/tmp"; }
+
+  char* nyx_out_dir_path = alloc_printf("%s/.nyx_tmp_%d/", tmpdir, (u32)getpid());
+
+  if (mkdir(nyx_out_dir_path, 0700)) { 
+    PFATAL("Unable to create nyx workdir"); 
+  }
+
+  return nyx_out_dir_path;
+}
+
+/* Vice versa, we remove the tmp workdir for nyx with this helper function. */
+void remove_nyx_tmp_workdir(char* nyx_out_dir_path) {
+  /* Fix me: This is not recursive, so it will always fail. Use a libnyx helper function instead
+   * to remove the workdir safely (and not risking to wipe the whole filesystem accidentally). */
+  //if (rmdir(nyx_out_dir_path)) { 
+  //  PFATAL("Unable to remove nyx workdir"); 
+  //}
+  free(nyx_out_dir_path);
+}
+#endif

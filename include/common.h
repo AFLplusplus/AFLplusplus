@@ -147,5 +147,11 @@ s32 create_file(u8 *fn);
 void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen);
 
+#ifdef __linux__
+/* Nyx helper functions to create and remove tmp workdirs */
+char* create_nyx_tmp_workdir(void);
+void remove_nyx_tmp_workdir(char* nyx_out_dir_path);
+#endif
+
 #endif
 
