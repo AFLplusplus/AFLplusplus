@@ -30,6 +30,7 @@
   - unicorn_mode:
     - updated and minor issues fixed
   - new custom module: autotoken, a grammar free fuzzer for text inputs
+  - fixed custom mutator C examples
   - better sanitizer default options support for all tools
   - more minor fixes and cross-platform support
 
