@@ -126,10 +126,38 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 fail:
 
   FATAL("failed to load libnyx: %s\n", dlerror());
-  free(plugin);
+  ck_free(plugin);
   return NULL;
 
 }
+
+void afl_nyx_runner_kill(afl_forkserver_t *fsrv){
+  if (fsrv->nyx_mode) {
+
+    if (fsrv->nyx_aux_string){
+      ck_free(fsrv->nyx_aux_string);
+    }
+
+    /* check if we actually got a valid nyx runner */
+    if (fsrv->nyx_runner) {
+      fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+    }
+
+    /* if we have use a tmp work dir we need to remove it */
+    if (fsrv->nyx_use_tmp_workdir && fsrv->nyx_tmp_workdir_path) {
+      remove_nyx_tmp_workdir(fsrv, fsrv->nyx_tmp_workdir_path);
+    }
+  }
+}
+
+/* Wrapper for FATAL() that kills the nyx runner (and removes all created tmp
+ * files) before exiting. Used before "afl_fsrv_killall()" is registered as
+ * an atexit() handler. */
+#define NYX_PRE_FATAL(fsrv, x...) \
+  do {                     \
+    afl_nyx_runner_kill(fsrv); \
+    FATAL(x);            \
+  } while (0)
 
 #endif
 
@@ -168,6 +196,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->nyx_runner = NULL;
   fsrv->nyx_id = 0xFFFFFFFF;
   fsrv->nyx_bind_cpu_id = 0xFFFFFFFF;
+  fsrv->nyx_use_tmp_workdir = false;
+  fsrv->nyx_tmp_workdir_path = NULL;
 #endif
 
   // this structure needs default so we initialize it if this was not done
@@ -481,21 +511,24 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!be_quiet) { ACTF("Spinning up the NYX backend..."); }
 
-    if (fsrv->out_dir_path == NULL) { FATAL("Nyx workdir path not found..."); }
+    if (fsrv->nyx_use_tmp_workdir){
+      fsrv->nyx_tmp_workdir_path = create_nyx_tmp_workdir();
+      fsrv->out_dir_path = fsrv->nyx_tmp_workdir_path;
+    } else {
+      if (fsrv->out_dir_path == NULL) { NYX_PRE_FATAL(fsrv, "Nyx workdir path not found..."); }
+    }
 
-    char *x = alloc_printf("%s/workdir", fsrv->out_dir_path);
+    char *workdir_path = alloc_printf("%s/workdir", fsrv->out_dir_path);
 
-    if (fsrv->nyx_id == 0xFFFFFFFF) { FATAL("Nyx ID is not set..."); }
+    if (fsrv->nyx_id == 0xFFFFFFFF) {NYX_PRE_FATAL(fsrv, "Nyx ID is not set..."); }
 
     if (fsrv->nyx_bind_cpu_id == 0xFFFFFFFF) {
-
-      FATAL("Nyx CPU ID is not set...");
-
+      NYX_PRE_FATAL(fsrv, "Nyx CPU ID is not set...");
     }
 
     void* nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
 
-    fsrv->nyx_handlers->nyx_config_set_workdir_path(nyx_config, x);
+    fsrv->nyx_handlers->nyx_config_set_workdir_path(nyx_config, workdir_path);
     fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config, MAX_FILE);
     fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config, true);
 
@@ -512,22 +545,36 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if (getenv("NYX_REUSE_SNAPSHOT") != NULL){
 
       if (access(getenv("NYX_REUSE_SNAPSHOT"), F_OK) == -1) {
-        FATAL("NYX_REUSE_SNAPSHOT path does not exist");
+        NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path does not exist");
       }
 
       /* stupid sanity check to avoid passing an empty or invalid snapshot directory */
       char* snapshot_file_path = alloc_printf("%s/global.state", getenv("NYX_REUSE_SNAPSHOT"));
       if (access(snapshot_file_path, R_OK) == -1) {
-        FATAL("NYX_REUSE_SNAPSHOT path does not contain a valid Nyx snapshot");
+        NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path does not contain a valid Nyx snapshot");
       }
-      free(snapshot_file_path);
+      ck_free(snapshot_file_path);
+
+      /* another sanity check to avoid passing a snapshot directory that is
+       * located in the current workdir (the workdir will be wiped by libnyx on startup) */
+      char* outdir_path_real = realpath(fsrv->out_dir_path, NULL);
+      char* workdir_snapshot_path = alloc_printf("%s/workdir/snapshot", outdir_path_real);
+      char* reuse_snapshot_path_real = realpath(getenv("NYX_REUSE_SNAPSHOT"), NULL);
+
+      if (strcmp(workdir_snapshot_path, reuse_snapshot_path_real) == 0){
+        NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path is located in current workdir (use another output directory)");
+      }
+
+      ck_free(reuse_snapshot_path_real);
+      ck_free(workdir_snapshot_path);
+      ck_free(outdir_path_real);
 
       fsrv->nyx_handlers->nyx_config_set_reuse_snapshot_path(nyx_config, getenv("NYX_REUSE_SNAPSHOT"));
     }
 
     fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
 
-    ck_free(x);
+    ck_free(workdir_path);
 
     if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
 
@@ -555,13 +602,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     switch (fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner)) {
 
       case Abort:
-        FATAL("Error: Nyx abort occured...");
+        NYX_PRE_FATAL(fsrv, "Error: Nyx abort occured...");
         break;
       case IoError:
-        FATAL("Error: QEMU-Nyx has died...");
+        NYX_PRE_FATAL(fsrv, "Error: QEMU-Nyx has died...");
         break;
       case Error:
-        FATAL("Error: Nyx runtime error has occured...");
+        NYX_PRE_FATAL(fsrv, "Error: Nyx runtime error has occured...");
         break;
       default:
         break;
@@ -571,7 +618,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* autodict in Nyx mode */
     if (!ignore_autodict) {
 
-      x = alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
+      char* x = alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
       int nyx_autodict_fd = open(x, O_RDONLY);
       ck_free(x);
 
@@ -584,7 +631,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           u8 *dict = ck_alloc(f_len);
           if (dict == NULL) {
 
-            FATAL("Could not allocate %u bytes of autodictionary memory",
+            NYX_PRE_FATAL(fsrv, "Could not allocate %u bytes of autodictionary memory",
                   f_len);
 
           }
@@ -602,7 +649,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
             } else {
 
-              FATAL(
+              NYX_PRE_FATAL(fsrv, 
                   "Reading autodictionary fail at position %u with %u bytes "
                   "left.",
                   offset, len);
@@ -1289,19 +1336,7 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   fsrv->child_pid = -1;
 
 #ifdef __linux__
-  if (fsrv->nyx_mode) {
-
-    if (fsrv->nyx_aux_string){
-      free(fsrv->nyx_aux_string);
-    }
-
-    /* check if we actually got a valid nyx runner */
-    if (fsrv->nyx_runner) {
-      fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
-    }
-
-  }
-
+  afl_nyx_runner_kill(fsrv);
 #endif
 
 }
