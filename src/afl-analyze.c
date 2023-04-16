@@ -121,9 +121,9 @@ static void kill_child() {
 
 }
 
-static void classify_counts(u8 *mem) {
+static void classify_counts(u8 *mem, u32 mem_size) {
 
-  u32 i = map_size;
+  u32 i = mem_size;
 
   if (edges_only) {
 
@@ -222,7 +222,7 @@ static u64 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  classify_counts(fsrv.trace_bits);
+  classify_counts(fsrv.trace_bits, fsrv.map_size);
   total_execs++;
 
   if (stop_soon) {
@@ -768,6 +768,7 @@ static void usage(u8 *argv0) {
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n"
+      "  -X            - use Nyx mode\n"
 #endif
       "\n"
 
@@ -814,7 +815,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_fsrv_init(&fsrv);
 
-  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWXh")) > 0) {
 
     switch (opt) {
 
@@ -965,6 +966,22 @@ int main(int argc, char **argv_orig, char **envp) {
         fsrv.mem_limit = mem_limit;
 
         break;
+      
+  #ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv.nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv.nyx_mode = 1;
+        fsrv.nyx_parent = true;
+        fsrv.nyx_standalone = true;
+
+        break;
+  #else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+  #endif
 
       case 'h':
         usage(argv[0]);
@@ -997,7 +1014,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(argv);
 
+#ifdef __linux__
+  if(!fsrv.nyx_mode){
+    fsrv.target_path = find_binary(argv[optind]);
+  }
+  else{
+    fsrv.target_path = ck_strdup(argv[optind]);
+  }
+#else
   fsrv.target_path = find_binary(argv[optind]);
+#endif
+
   fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
   signal(SIGALRM, kill_child);
@@ -1019,6 +1046,23 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (cs_mode) {
 
     use_argv = get_cs_argv(argv[0], &target_path, argc - optind, argv + optind);
+
+#ifdef __linux__
+  } else if (fsrv.nyx_mode) {
+
+    fsrv.nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
+    fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv.nyx_handlers == NULL) {
+      FATAL("failed to initialize libnyx.so...");
+    }
+
+    fsrv.nyx_use_tmp_workdir = true;
+    fsrv.nyx_bind_cpu_id = 0;
+
+    use_argv = argv + optind;
+#endif
 
   } else {
 
@@ -1045,7 +1089,13 @@ int main(int argc, char **argv_orig, char **envp) {
       &fsrv, NULL, NULL, (fsrv.qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   read_initial_file();
+#ifdef __linux__
+  if(!fsrv.nyx_mode){
+    (void)check_binary_signatures(fsrv.target_path);
+  }
+#else
   (void)check_binary_signatures(fsrv.target_path);
+#endif
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
@@ -1068,6 +1118,7 @@ int main(int argc, char **argv_orig, char **envp) {
   analyze();
 
   OKF("We're done here. Have a nice day!\n");
+
 
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(&fsrv);
