@@ -1381,12 +1381,22 @@ char* create_nyx_tmp_workdir(void) {
 }
 
 /* Vice versa, we remove the tmp workdir for nyx with this helper function. */
-void remove_nyx_tmp_workdir(char* nyx_out_dir_path) {
-  /* Fix me: This is not recursive, so it will always fail. Use a libnyx helper function instead
-   * to remove the workdir safely (and not risking to wipe the whole filesystem accidentally). */
-  //if (rmdir(nyx_out_dir_path)) { 
-  //  PFATAL("Unable to remove nyx workdir"); 
-  //}
-  free(nyx_out_dir_path);
+void remove_nyx_tmp_workdir(afl_forkserver_t *fsrv, char* nyx_out_dir_path) {
+  char* workdir_path = alloc_printf("%s/workdir", nyx_out_dir_path);
+
+  if (access(workdir_path, R_OK) == 0) {
+    if(fsrv->nyx_handlers->nyx_remove_work_dir(workdir_path) != true) {
+      WARNF("Unable to remove nyx workdir (%s)", workdir_path);
+    }
+  }
+
+  if (access(nyx_out_dir_path, R_OK) == 0) {
+    if (rmdir(nyx_out_dir_path)) {
+      WARNF("Unable to remove nyx workdir (%s)", nyx_out_dir_path);
+    }
+  }
+
+  ck_free(workdir_path);
+  ck_free(nyx_out_dir_path);
 }
 #endif
