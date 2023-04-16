@@ -50,7 +50,7 @@
 #include <sys/stat.h>
 
 #ifdef __linux__
-#include <dlfcn.h>
+  #include <dlfcn.h>
 
 /* function to load nyx_helper function from libnyx.so */
 
@@ -66,22 +66,32 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   plugin->nyx_config_load = dlsym(handle, "nyx_config_load");
   if (plugin->nyx_config_load == NULL) { goto fail; }
 
-  plugin->nyx_config_set_workdir_path = dlsym(handle, "nyx_config_set_workdir_path");
+  plugin->nyx_config_set_workdir_path =
+      dlsym(handle, "nyx_config_set_workdir_path");
   if (plugin->nyx_config_set_workdir_path == NULL) { goto fail; }
 
-  plugin->nyx_config_set_input_buffer_size = dlsym(handle, "nyx_config_set_input_buffer_size");
+  plugin->nyx_config_set_input_buffer_size =
+      dlsym(handle, "nyx_config_set_input_buffer_size");
   if (plugin->nyx_config_set_input_buffer_size == NULL) { goto fail; }
 
-  plugin->nyx_config_set_input_buffer_write_protection = dlsym(handle, "nyx_config_set_input_buffer_write_protection");
-  if (plugin->nyx_config_set_input_buffer_write_protection == NULL) { goto fail; }
+  plugin->nyx_config_set_input_buffer_write_protection =
+      dlsym(handle, "nyx_config_set_input_buffer_write_protection");
+  if (plugin->nyx_config_set_input_buffer_write_protection == NULL) {
 
-  plugin->nyx_config_set_hprintf_fd = dlsym(handle, "nyx_config_set_hprintf_fd");
+    goto fail;
+
+  }
+
+  plugin->nyx_config_set_hprintf_fd =
+      dlsym(handle, "nyx_config_set_hprintf_fd");
   if (plugin->nyx_config_set_hprintf_fd == NULL) { goto fail; }
 
-  plugin->nyx_config_set_process_role = dlsym(handle, "nyx_config_set_process_role");
+  plugin->nyx_config_set_process_role =
+      dlsym(handle, "nyx_config_set_process_role");
   if (plugin->nyx_config_set_process_role == NULL) { goto fail; }
 
-  plugin->nyx_config_set_reuse_snapshot_path = dlsym(handle, "nyx_config_set_reuse_snapshot_path");
+  plugin->nyx_config_set_reuse_snapshot_path =
+      dlsym(handle, "nyx_config_set_reuse_snapshot_path");
   if (plugin->nyx_config_set_reuse_snapshot_path == NULL) { goto fail; }
 
   plugin->nyx_new = dlsym(handle, "nyx_new");
@@ -119,7 +129,6 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   plugin->nyx_remove_work_dir = dlsym(handle, "nyx_remove_work_dir");
   if (plugin->nyx_remove_work_dir == NULL) { goto fail; }
 
-
   OKF("libnyx plugin is ready!");
   return plugin;
 
@@ -131,33 +140,40 @@ fail:
 
 }
 
-void afl_nyx_runner_kill(afl_forkserver_t *fsrv){
+void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
+
   if (fsrv->nyx_mode) {
 
-    if (fsrv->nyx_aux_string){
-      ck_free(fsrv->nyx_aux_string);
-    }
+    if (fsrv->nyx_aux_string) { ck_free(fsrv->nyx_aux_string); }
 
     /* check if we actually got a valid nyx runner */
     if (fsrv->nyx_runner) {
+
       fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+
     }
 
     /* if we have use a tmp work dir we need to remove it */
     if (fsrv->nyx_use_tmp_workdir && fsrv->nyx_tmp_workdir_path) {
+
       remove_nyx_tmp_workdir(fsrv, fsrv->nyx_tmp_workdir_path);
+
     }
+
   }
+
 }
 
-/* Wrapper for FATAL() that kills the nyx runner (and removes all created tmp
- * files) before exiting. Used before "afl_fsrv_killall()" is registered as
- * an atexit() handler. */
-#define NYX_PRE_FATAL(fsrv, x...) \
-  do {                     \
-    afl_nyx_runner_kill(fsrv); \
-    FATAL(x);            \
-  } while (0)
+  /* Wrapper for FATAL() that kills the nyx runner (and removes all created tmp
+   * files) before exiting. Used before "afl_fsrv_killall()" is registered as
+   * an atexit() handler. */
+  #define NYX_PRE_FATAL(fsrv, x...) \
+    do {                            \
+                                    \
+      afl_nyx_runner_kill(fsrv);    \
+      FATAL(x);                     \
+                                    \
+    } while (0)
 
 #endif
 
@@ -511,70 +527,116 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!be_quiet) { ACTF("Spinning up the NYX backend..."); }
 
-    if (fsrv->nyx_use_tmp_workdir){
+    if (fsrv->nyx_use_tmp_workdir) {
+
       fsrv->nyx_tmp_workdir_path = create_nyx_tmp_workdir();
       fsrv->out_dir_path = fsrv->nyx_tmp_workdir_path;
+
     } else {
-      if (fsrv->out_dir_path == NULL) { NYX_PRE_FATAL(fsrv, "Nyx workdir path not found..."); }
+
+      if (fsrv->out_dir_path == NULL) {
+
+        NYX_PRE_FATAL(fsrv, "Nyx workdir path not found...");
+
+      }
+
     }
 
     /* libnyx expects an absolute path */
-    char* outdir_path_absolute = realpath(fsrv->out_dir_path, NULL);
-    if (outdir_path_absolute == NULL) { NYX_PRE_FATAL(fsrv, "Nyx workdir path cannot be resolved ..."); }
+    char *outdir_path_absolute = realpath(fsrv->out_dir_path, NULL);
+    if (outdir_path_absolute == NULL) {
+
+      NYX_PRE_FATAL(fsrv, "Nyx workdir path cannot be resolved ...");
+
+    }
 
     char *workdir_path = alloc_printf("%s/workdir", outdir_path_absolute);
 
-    if (fsrv->nyx_id == 0xFFFFFFFF) {NYX_PRE_FATAL(fsrv, "Nyx ID is not set..."); }
+    if (fsrv->nyx_id == 0xFFFFFFFF) {
 
-    if (fsrv->nyx_bind_cpu_id == 0xFFFFFFFF) {
-      NYX_PRE_FATAL(fsrv, "Nyx CPU ID is not set...");
+      NYX_PRE_FATAL(fsrv, "Nyx ID is not set...");
+
     }
 
-    void* nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
+    if (fsrv->nyx_bind_cpu_id == 0xFFFFFFFF) {
+
+      NYX_PRE_FATAL(fsrv, "Nyx CPU ID is not set...");
+
+    }
+
+    void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
 
     fsrv->nyx_handlers->nyx_config_set_workdir_path(nyx_config, workdir_path);
     fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config, MAX_FILE);
-    fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config, true);
+    fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config,
+                                                                     true);
 
     if (fsrv->nyx_standalone) {
+
       fsrv->nyx_handlers->nyx_config_set_process_role(nyx_config, StandAlone);
+
     } else {
+
       if (fsrv->nyx_parent) {
+
         fsrv->nyx_handlers->nyx_config_set_process_role(nyx_config, Parent);
+
       } else {
+
         fsrv->nyx_handlers->nyx_config_set_process_role(nyx_config, Child);
+
       }
+
     }
 
-    if (getenv("NYX_REUSE_SNAPSHOT") != NULL){
+    if (getenv("NYX_REUSE_SNAPSHOT") != NULL) {
 
       if (access(getenv("NYX_REUSE_SNAPSHOT"), F_OK) == -1) {
+
         NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path does not exist");
+
       }
 
-      /* stupid sanity check to avoid passing an empty or invalid snapshot directory */
-      char* snapshot_file_path = alloc_printf("%s/global.state", getenv("NYX_REUSE_SNAPSHOT"));
+      /* stupid sanity check to avoid passing an empty or invalid snapshot
+       * directory */
+      char *snapshot_file_path =
+          alloc_printf("%s/global.state", getenv("NYX_REUSE_SNAPSHOT"));
       if (access(snapshot_file_path, R_OK) == -1) {
-        NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path does not contain a valid Nyx snapshot");
+
+        NYX_PRE_FATAL(
+            fsrv,
+            "NYX_REUSE_SNAPSHOT path does not contain a valid Nyx snapshot");
+
       }
+
       ck_free(snapshot_file_path);
 
       /* another sanity check to avoid passing a snapshot directory that is
-       * located in the current workdir (the workdir will be wiped by libnyx on startup) */
-      char* workdir_snapshot_path = alloc_printf("%s/workdir/snapshot", outdir_path_absolute);
-      char* reuse_snapshot_path_real = realpath(getenv("NYX_REUSE_SNAPSHOT"), NULL);
+       * located in the current workdir (the workdir will be wiped by libnyx on
+       * startup) */
+      char *workdir_snapshot_path =
+          alloc_printf("%s/workdir/snapshot", outdir_path_absolute);
+      char *reuse_snapshot_path_real =
+          realpath(getenv("NYX_REUSE_SNAPSHOT"), NULL);
 
-      if (strcmp(workdir_snapshot_path, reuse_snapshot_path_real) == 0){
-        NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path is located in current workdir (use another output directory)");
+      if (strcmp(workdir_snapshot_path, reuse_snapshot_path_real) == 0) {
+
+        NYX_PRE_FATAL(fsrv,
+                      "NYX_REUSE_SNAPSHOT path is located in current workdir "
+                      "(use another output directory)");
+
       }
 
       ck_free(reuse_snapshot_path_real);
       ck_free(workdir_snapshot_path);
 
-      fsrv->nyx_handlers->nyx_config_set_reuse_snapshot_path(nyx_config, getenv("NYX_REUSE_SNAPSHOT"));
+      fsrv->nyx_handlers->nyx_config_set_reuse_snapshot_path(
+          nyx_config, getenv("NYX_REUSE_SNAPSHOT"));
+
     }
 
-    fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
+    fsrv->nyx_runner =
+        fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
 
     ck_free(workdir_path);
     ck_free(outdir_path_absolute);
@@ -621,7 +683,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* autodict in Nyx mode */
     if (!ignore_autodict) {
 
-      char* x = alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
+      char *x =
+          alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
       int nyx_autodict_fd = open(x, O_RDONLY);
       ck_free(x);
 
@@ -634,8 +697,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           u8 *dict = ck_alloc(f_len);
           if (dict == NULL) {
 
-            NYX_PRE_FATAL(fsrv, "Could not allocate %u bytes of autodictionary memory",
-                  f_len);
+            NYX_PRE_FATAL(
+                fsrv, "Could not allocate %u bytes of autodictionary memory",
+                f_len);
 
           }
 
@@ -652,7 +716,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
             } else {
 
-              NYX_PRE_FATAL(fsrv, 
+              NYX_PRE_FATAL(
+                  fsrv,
                   "Reading autodictionary fail at position %u with %u bytes "
                   "left.",
                   offset, len);

@@ -52,20 +52,25 @@ typedef enum NyxReturnValue {
 } NyxReturnValue;
 
 typedef enum NyxProcessRole {
+
   StandAlone,
   Parent,
   Child,
+
 } NyxProcessRole;
 
 typedef struct {
 
   void *(*nyx_config_load)(const char *sharedir);
   void (*nyx_config_set_workdir_path)(void *config, const char *workdir);
-  void (*nyx_config_set_input_buffer_size)(void *config, uint32_t input_buffer_size);
-  void (*nyx_config_set_input_buffer_write_protection)(void *config, bool input_buffer_write_protection);
+  void (*nyx_config_set_input_buffer_size)(void    *config,
+                                           uint32_t input_buffer_size);
+  void (*nyx_config_set_input_buffer_write_protection)(
+      void *config, bool input_buffer_write_protection);
   void (*nyx_config_set_hprintf_fd)(void *config, int32_t hprintf_fd);
   void (*nyx_config_set_process_role)(void *config, enum NyxProcessRole role);
-  void (*nyx_config_set_reuse_snapshot_path)(void *config, const char *reuse_snapshot_path);
+  void (*nyx_config_set_reuse_snapshot_path)(void       *config,
+                                             const char *reuse_snapshot_path);
 
   void *(*nyx_new)(void *config, uint32_t worker_id);
   void (*nyx_shutdown)(void *qemu_process);
@@ -191,7 +196,7 @@ typedef struct afl_forkserver {
   u32                   nyx_bind_cpu_id; /* nyx runner cpu id                */
   char                 *nyx_aux_string;
   bool                  nyx_use_tmp_workdir;
-  char                 *nyx_tmp_workdir_path; 
+  char                 *nyx_tmp_workdir_path;
 #endif
 
 } afl_forkserver_t;
