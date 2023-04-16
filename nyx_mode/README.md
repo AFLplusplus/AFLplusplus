@@ -116,11 +116,35 @@ afl-fuzz -i in -o out -Y -S 2 -- ./PACKAGE-DIRECTORY
 
 ## AFL++ companion tools (afl-showmap etc.)
 
-Please note that AFL++ companion tools like afl-cmin, afl-showmap, etc. are
-not supported with Nyx mode, only afl-fuzz.
+AFL++ companion tools support Nyx mode and can be used to analyze or minimize one specific input or an entire output corpus. These tools work similarly to `afl-fuzz`. 
 
-For source based instrumentation just use these tools normally, for
-binary-only targets use with -Q for qemu_mode.
+To run a target with one of these tools, add the `-X` parameter to the command line to enable Nyx mode, and pass the path to a Nyx package directory:
+
+```shell 
+afl-tmin -i in_file -o out_file -X  -- ./PACKAGE-DIRECTORY
+```
+
+```shell 
+afl-analyze -i in_file -X  -- ./PACKAGE-DIRECTORY
+```
+
+```shell 
+afl-showmap -i in_dir -o out_file -X -- ./PACKAGE-DIRECTORY
+```
+
+```shell 
+afl-cmin -i in_dir -o out_dir -X -- ./PACKAGE-DIRECTORY
+```
+
+On each program startup of one the AFL++ tools in Nyx mode, a Nyx VM is spawned, and a bootstrapping procedure is performed inside the VM to prepare the target environment. As a consequence, due to the bootstrapping procedure, the launch performance is much slower compared to other modes. However, this can be optimized by reusing an existing fuzzing snapshot to avoid the slow re-execution of the bootstrap procedure. 
+
+A fuzzing snapshot is automatically created and stored in the output directory at `out_dir/workdir/snapshot/` by the first parent process of `afl-fuzz` if parallel mode is used. To enable this feature, set the path to an existing snapshot directory in the `NYX_REUSE_SNAPSHOT` environment variable and use the tools as usual:
+
+```shell 
+afl-fuzz -i ./in_dir -o ./out_dir -Y -M 0 ./PACKAGE-DIRECTORY
+
+NYX_REUSE_SNAPSHOT=./out_dir/workdir/snapshot/ afl-analyze -i in_file -X  -- ./PACKAGE-DIRECTORY
+```
 
 ## Real-world examples
 
