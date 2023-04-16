@@ -518,7 +518,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if (fsrv->out_dir_path == NULL) { NYX_PRE_FATAL(fsrv, "Nyx workdir path not found..."); }
     }
 
-    char *workdir_path = alloc_printf("%s/workdir", fsrv->out_dir_path);
+    /* libnyx expects an absolute path */
+    char* outdir_path_absolute = realpath(fsrv->out_dir_path, NULL);
+    if (outdir_path_absolute == NULL) { NYX_PRE_FATAL(fsrv, "Nyx workdir path cannot be resolved ..."); }
+
+    char *workdir_path = alloc_printf("%s/workdir", outdir_path_absolute);
 
     if (fsrv->nyx_id == 0xFFFFFFFF) {NYX_PRE_FATAL(fsrv, "Nyx ID is not set..."); }
 
@@ -557,8 +561,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       /* another sanity check to avoid passing a snapshot directory that is
        * located in the current workdir (the workdir will be wiped by libnyx on startup) */
-      char* outdir_path_real = realpath(fsrv->out_dir_path, NULL);
-      char* workdir_snapshot_path = alloc_printf("%s/workdir/snapshot", outdir_path_real);
+      char* workdir_snapshot_path = alloc_printf("%s/workdir/snapshot", outdir_path_absolute);
       char* reuse_snapshot_path_real = realpath(getenv("NYX_REUSE_SNAPSHOT"), NULL);
 
       if (strcmp(workdir_snapshot_path, reuse_snapshot_path_real) == 0){
@@ -567,7 +570,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       ck_free(reuse_snapshot_path_real);
       ck_free(workdir_snapshot_path);
-      ck_free(outdir_path_real);
 
       fsrv->nyx_handlers->nyx_config_set_reuse_snapshot_path(nyx_config, getenv("NYX_REUSE_SNAPSHOT"));
     }
@@ -575,6 +577,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
 
     ck_free(workdir_path);
+    ck_free(outdir_path_absolute);
 
     if (fsrv->nyx_runner == NULL) { FATAL("Something went wrong ..."); }
 
