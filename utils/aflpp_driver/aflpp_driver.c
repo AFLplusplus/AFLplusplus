@@ -78,10 +78,10 @@ extern unsigned int   __afl_map_size;
    on the other hand this is what Google needs to make LLVMFuzzerRunDriver()
    work. Choose your poison Google! */
 /*__attribute__((weak))*/ int LLVMFuzzerTestOneInput(const uint8_t *Data,
-                                                 size_t         Size);
-__attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
-__attribute__((weak)) int LLVMFuzzerRunDriver(
-    int *argc, char ***argv, int (*callback)(const uint8_t *data, size_t size));
+                                                     size_t         Size);
+__attribute__((weak)) int     LLVMFuzzerInitialize(int *argc, char ***argv);
+__attribute__((weak)) int     LLVMFuzzerRunDriver(
+        int *argc, char ***argv, int (*callback)(const uint8_t *data, size_t size));
 
 // Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
@@ -268,15 +268,16 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
 
 __attribute__((weak)) int main(int argc, char **argv) {
 
-// Enable if LLVMFuzzerTestOneInput() has the weak attribute
-/*
-  if (!LLVMFuzzerTestOneInput) {
+  // Enable if LLVMFuzzerTestOneInput() has the weak attribute
+  /*
+    if (!LLVMFuzzerTestOneInput) {
 
-    fprintf(stderr, "Error: function LLVMFuzzerTestOneInput() not found!\n");
-    abort();
+      fprintf(stderr, "Error: function LLVMFuzzerTestOneInput() not found!\n");
+      abort();
 
-  }
-*/
+    }
+
+  */
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
     printf(

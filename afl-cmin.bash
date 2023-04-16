@@ -53,7 +53,7 @@ unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eOQUACh" opt; do
+while getopts "+i:o:f:m:t:eOQUAChXY" opt; do
 
   case "$opt" in 
 
@@ -94,6 +94,14 @@ while getopts "+i:o:f:m:t:eOQUACh" opt; do
          EXTRA_PAR="$EXTRA_PAR -Q"
          QEMU_MODE=1
          ;;
+    "Y")
+         EXTRA_PAR="$EXTRA_PAR -X"
+         NYX_MODE=1
+         ;;
+    "X")
+         EXTRA_PAR="$EXTRA_PAR -X"
+         NYX_MODE=1
+         ;;
     "U")
          EXTRA_PAR="$EXTRA_PAR -U"
          UNICORN_MODE=1
@@ -128,6 +136,7 @@ Execution control settings:
   -O            - use binary-only instrumentation (FRIDA mode)
   -Q            - use binary-only instrumentation (QEMU mode)
   -U            - use unicorn-based instrumentation (Unicorn mode)
+  -X            - use Nyx mode
   
 Minimization settings:
 
@@ -206,16 +215,19 @@ if [ ! "$TIMEOUT" = "none" ]; then
 
 fi
 
-if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
+if [ "$NYX_MODE" = "" ]; then
+  if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
 
-  TNEW="`which "$TARGET_BIN" 2>/dev/null`"
+    TNEW="`which "$TARGET_BIN" 2>/dev/null`"
 
-  if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
-    echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
-    exit 1
+    if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
+      echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
+      exit 1
+    fi
+
+    TARGET_BIN="$TNEW"
+
   fi
-
-  TARGET_BIN="$TNEW"
 
 fi
 
@@ -228,7 +240,7 @@ grep -aq AFL_DUMP_MAP_SIZE "./$TARGET_BIN" && {
   }
 }
 
-if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
+if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" -a "$NYX_MODE" = "" ]; then
 
   if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then
     echo "[-] Error: binary '$TARGET_BIN' doesn't appear to be instrumented." 1>&2

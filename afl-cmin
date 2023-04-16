@@ -124,9 +124,9 @@ function usage() {
 "AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the forkserver to come up\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
 "AFL_KILL_SIGNAL: Signal delivered to child processes on timeout (default: SIGKILL)\n" \
-"AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n" \
-"                             (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is set,\n" \
-"                             this will be set to the same value as AFL_KILL_SIGNAL.\n" \
+"AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on\n" \
+"   termination (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is\n" \
+"   set, this will be set to the same value as AFL_KILL_SIGNAL.\n" \
 "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n" \
 "AFL_CMIN_ALLOW_ANY: write tuples for crashing inputs also\n" \
 "AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH\n" \
@@ -157,7 +157,7 @@ BEGIN {
   # process options
   Opterr = 1    # default is to diagnose
   Optind = 1    # skip ARGV[0]
-  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eACOQUX?")) != -1) {
+  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eACOQUXY?")) != -1) {
     if (_go_c == "i") {
       if (!Optarg) usage()
       if (in_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
@@ -219,7 +219,7 @@ BEGIN {
       unicorn_mode = 1
       continue
     } else
-    if (_go_c == "X") {
+    if (_go_c == "X" || _go_c == "Y") {
       if (nyx_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -X"
       nyx_mode = 1

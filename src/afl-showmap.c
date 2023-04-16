@@ -444,8 +444,11 @@ static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
       FSRV_RUN_ERROR) {
 
     FATAL("Error running target in Nyx mode");
+
   }
+
 }
+
 #endif
 
 /* Execute target application. */
@@ -890,7 +893,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshX")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
 
     switch (opt) {
 
@@ -1078,7 +1081,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-  #ifdef __linux__
+      case 'Y':  // fallthough
+#ifdef __linux__
       case 'X':                                                 /* NYX mode */
 
         if (fsrv->nyx_mode) { FATAL("Multiple -X options not supported"); }
@@ -1088,11 +1092,11 @@ int main(int argc, char **argv_orig, char **envp) {
         fsrv->nyx_standalone = true;
 
         break;
-  #else
+#else
       case 'X':
         FATAL("Nyx mode is only availabe on linux...");
         break;
-  #endif
+#endif
 
       case 'b':
 
@@ -1166,12 +1170,16 @@ int main(int argc, char **argv_orig, char **envp) {
   set_up_environment(fsrv, argv);
 
 #ifdef __linux__
-  if(!fsrv->nyx_mode){
+  if (!fsrv->nyx_mode) {
+
     fsrv->target_path = find_binary(argv[optind]);
-  }
-  else{
+
+  } else {
+
     fsrv->target_path = ck_strdup(argv[optind]);
+
   }
+
 #else
   fsrv->target_path = find_binary(argv[optind]);
 #endif
@@ -1232,11 +1240,12 @@ int main(int argc, char **argv_orig, char **envp) {
         get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
 #ifdef __linux__
+
   } else if (fsrv->nyx_mode) {
 
     use_argv = ck_alloc(sizeof(char *) * (1));
     use_argv[0] = argv[0];
-    
+
     fsrv->nyx_id = 0;
 
     u8 *libnyx_binary = find_afl_binary(use_argv[0], "libnyx.so");
@@ -1288,9 +1297,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
 #ifdef __linux__
-  if(!fsrv->nyx_mode && in_dir){
+  if (!fsrv->nyx_mode && in_dir) {
+
     (void)check_binary_signatures(fsrv->target_path);
+
   }
+
 #else
   if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
 #endif
@@ -1313,14 +1325,14 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
-  configure_afl_kill_signals(
-      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode 
-  #ifdef __linux__
-        || fsrv->nyx_mode
-  #endif
-        )
-            ? SIGKILL
-            : SIGTERM);
+  configure_afl_kill_signals(fsrv, NULL, NULL,
+                             (fsrv->qemu_mode || unicorn_mode
+#ifdef __linux__
+                              || fsrv->nyx_mode
+#endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
 
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
@@ -1464,13 +1476,18 @@ int main(int argc, char **argv_orig, char **envp) {
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
 #ifdef __linux__
-    if(!fsrv->nyx_mode){
+    if (!fsrv->nyx_mode) {
+
 #endif
       showmap_run_target(fsrv, use_argv);
 #ifdef __linux__
+
     } else {
+
       showmap_run_target_nyx_mode(fsrv);
+
     }
+
 #endif
     tcnt = write_results_to_file(fsrv, out_file);
     if (!quiet_mode) {
@@ -1521,7 +1538,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
-
 
   afl_fsrv_deinit(fsrv);
 

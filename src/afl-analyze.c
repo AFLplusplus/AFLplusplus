@@ -815,7 +815,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_fsrv_init(&fsrv);
 
-  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWXh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWXYh")) > 0) {
 
     switch (opt) {
 
@@ -966,8 +966,9 @@ int main(int argc, char **argv_orig, char **envp) {
         fsrv.mem_limit = mem_limit;
 
         break;
-      
-  #ifdef __linux__
+
+      case 'Y':  // fallthough
+#ifdef __linux__
       case 'X':                                                 /* NYX mode */
 
         if (fsrv.nyx_mode) { FATAL("Multiple -X options not supported"); }
@@ -977,11 +978,11 @@ int main(int argc, char **argv_orig, char **envp) {
         fsrv.nyx_standalone = true;
 
         break;
-  #else
+#else
       case 'X':
         FATAL("Nyx mode is only availabe on linux...");
         break;
-  #endif
+#endif
 
       case 'h':
         usage(argv[0]);
@@ -1015,12 +1016,16 @@ int main(int argc, char **argv_orig, char **envp) {
   set_up_environment(argv);
 
 #ifdef __linux__
-  if(!fsrv.nyx_mode){
+  if (!fsrv.nyx_mode) {
+
     fsrv.target_path = find_binary(argv[optind]);
-  }
-  else{
+
+  } else {
+
     fsrv.target_path = ck_strdup(argv[optind]);
+
   }
+
 #else
   fsrv.target_path = find_binary(argv[optind]);
 #endif
@@ -1048,6 +1053,7 @@ int main(int argc, char **argv_orig, char **envp) {
     use_argv = get_cs_argv(argv[0], &target_path, argc - optind, argv + optind);
 
 #ifdef __linux__
+
   } else if (fsrv.nyx_mode) {
 
     fsrv.nyx_id = 0;
@@ -1055,7 +1061,9 @@ int main(int argc, char **argv_orig, char **envp) {
     u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
     fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
     if (fsrv.nyx_handlers == NULL) {
+
       FATAL("failed to initialize libnyx.so...");
+
     }
 
     fsrv.nyx_use_tmp_workdir = true;
@@ -1090,9 +1098,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 #ifdef __linux__
-  if(!fsrv.nyx_mode){
-    (void)check_binary_signatures(fsrv.target_path);
-  }
+  if (!fsrv.nyx_mode) { (void)check_binary_signatures(fsrv.target_path); }
 #else
   (void)check_binary_signatures(fsrv.target_path);
 #endif
@@ -1118,7 +1124,6 @@ int main(int argc, char **argv_orig, char **envp) {
   analyze();
 
   OKF("We're done here. Have a nice day!\n");
-
 
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(&fsrv);
