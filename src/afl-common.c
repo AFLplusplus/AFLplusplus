@@ -1390,10 +1390,8 @@ void remove_nyx_tmp_workdir(afl_forkserver_t *fsrv, char* nyx_out_dir_path) {
     }
   }
 
-  if (access(nyx_out_dir_path, R_OK) == 0) {
-    if (rmdir(nyx_out_dir_path)) {
-      WARNF("Unable to remove nyx workdir (%s)", nyx_out_dir_path);
-    }
+  if (rmdir(nyx_out_dir_path)) {
+    WARNF("Unable to remove nyx workdir (%s)", nyx_out_dir_path);
   }
 
   ck_free(workdir_path);
