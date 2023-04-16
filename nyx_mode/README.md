@@ -15,6 +15,7 @@ Underneath it is built upon KVM and QEMU and requires a modern Linux kernel
 requires an Intel processor (6th generation onwards) and a special 5.10 kernel
 (see [KVM-Nyx](https://github.com/nyx-fuzz/KVM-Nyx)).
 
+
 ## Building Nyx mode
 
 1. Install all the packages from [docs/INSTALL.md](../docs/INSTALL.md).
@@ -40,6 +41,7 @@ requires an Intel processor (6th generation onwards) and a special 5.10 kernel
 
 5. Optionally, for binary-only fuzzing: set up the required 5.10 kernel, see
    [KVM-Nyx](https://github.com/nyx-fuzz/KVM-Nyx).
+
 
 ## Preparing to fuzz a target with Nyx mode
 
@@ -68,11 +70,20 @@ This will create a directory with all necessary files and the Nyx configuration.
 The name of the directory will be whatever you choose for `PACKAGE-DIRECTORY`
 above.
 
-In the final step for the packaging we generate the Nyx configuration:
+Note that if the target reads from a file then use the `-file /path/to/file`
+parameter to the above command.
+
+Note that Nyx does **not** support the afl `@@` argument. Instead pass
+something like `-file /foo.file -args "--file /foo.file --other-args"` to
+the above command.
+
+
+Then the final step: we generate the Nyx package configuration:
 
 ```shell
 python3 nyx_mode/packer/packer/nyx_config_gen.py PACKAGE-DIRECTORY Kernel
 ```
+
 
 ## Fuzzing with Nyx mode
 
@@ -114,6 +125,7 @@ afl-fuzz -i in -o out -Y -S 1 -- ./PACKAGE-DIRECTORY
 afl-fuzz -i in -o out -Y -S 2 -- ./PACKAGE-DIRECTORY
 ```
 
+
 ## AFL++ companion tools (afl-showmap etc.)
 
 AFL++ companion tools support Nyx mode and can be used to analyze or minimize one specific input or an entire output corpus. These tools work similarly to `afl-fuzz`. 
@@ -145,6 +157,7 @@ afl-fuzz -i ./in_dir -o ./out_dir -Y -M 0 ./PACKAGE-DIRECTORY
 
 NYX_REUSE_SNAPSHOT=./out_dir/workdir/snapshot/ afl-analyze -i in_file -X  -- ./PACKAGE-DIRECTORY
 ```
+
 
 ## Real-world examples
 
