@@ -1130,7 +1130,7 @@ int main(int argc, char **argv_orig, char **envp) {
       FATAL("failed to initialize libnyx.so...");
     }
 
-    fsrv->out_dir_path = create_nyx_tmp_workdir();
+    fsrv->nyx_use_tmp_workdir = true;
     fsrv->nyx_bind_cpu_id = 0;
 
     use_argv = argv + optind;
@@ -1316,11 +1316,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   OKF("We're done here. Have a nice day!\n");
 
-#ifdef __linux__
-  if (fsrv->nyx_mode) {
-    remove_nyx_tmp_workdir(fsrv->out_dir_path);
-  }
-#endif
 
   remove_shm = 0;
   afl_shm_deinit(&shm);

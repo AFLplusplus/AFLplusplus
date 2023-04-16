@@ -1247,7 +1247,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    fsrv->out_dir_path = create_nyx_tmp_workdir();
+    fsrv->nyx_use_tmp_workdir = true;
     fsrv->nyx_bind_cpu_id = 0;
 #endif
 
@@ -1443,12 +1443,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (execute_testcases(in_dir) == 0) {
 
-#ifdef __linux__
-    if (fsrv->nyx_mode) {
-      remove_nyx_tmp_workdir(fsrv->out_dir_path);
-      fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
-    }
-#endif
       FATAL("could not read input testcases from %s", in_dir);
 
     }
@@ -1528,11 +1522,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
-#ifdef __linux__
-  if (fsrv->nyx_mode) {
-    remove_nyx_tmp_workdir(fsrv->out_dir_path);
-  }
-#endif
 
   afl_fsrv_deinit(fsrv);
 
