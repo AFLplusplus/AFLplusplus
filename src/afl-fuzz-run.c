@@ -130,15 +130,16 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
       new_size = afl->max_length;
 
     }
-    // TODO: think about how to enable the change without breaking other implementations
-    // if (new_mem != *mem) { *mem = new_mem; }
 
     /* everything as planned. use the potentially new data. */
-    // TODO: think about how to enable the change without breaking other implementations
     afl_fsrv_write_to_testcase(&afl->fsrv, new_mem, new_size);
 
-    // TODO: think about how to enable the change without breaking other implementations
-    // len = new_size;
+    if (likely(!afl->afl_env.afl_post_process_keep_original)) {
+
+        if (new_mem != *mem) { *mem = new_mem; }
+        len = new_size;
+
+    }
 
   } else {
 
