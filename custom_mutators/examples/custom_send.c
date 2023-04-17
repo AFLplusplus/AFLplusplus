@@ -10,21 +10,21 @@
 //   afl-fuzz -i in -o out -- ./test-instr -f /tmp/foo
 //
 
-#include "custom_mutator_helpers.h"
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "afl-fuzz.h"
+
 typedef struct my_mutator {
 
-  afl_t *afl;
+  afl_state_t *afl;
 
 } my_mutator_t;
 
-my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
+my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   my_mutator_t *data = calloc(1, sizeof(my_mutator_t));
   if (!data) {

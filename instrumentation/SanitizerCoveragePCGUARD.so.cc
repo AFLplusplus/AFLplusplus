@@ -13,7 +13,9 @@
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Triple.h"
+#if LLVM_VERSION_MAJOR < 17
+  #include "llvm/ADT/Triple.h"
+#endif
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/CFG.h"

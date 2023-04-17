@@ -132,7 +132,6 @@ static void usage(u8 *argv0, int more_help) {
       "                  fast(default), explore, exploit, seek, rare, mmopt, "
       "coe, lin\n"
       "                  quad -- see docs/FAQ.md for more information\n"
-      "  -z            - prefer new coverage findings when fuzzing\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
@@ -436,69 +435,6 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 }
 
-  #ifdef __linux__
-    #include <dlfcn.h>
-
-nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
-
-  void                 *handle;
-  nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
-
-  ACTF("Trying to load libnyx.so plugin...");
-  handle = dlopen((char *)libnyx_binary, RTLD_NOW);
-  if (!handle) { goto fail; }
-
-  plugin->nyx_new = dlsym(handle, "nyx_new");
-  if (plugin->nyx_new == NULL) { goto fail; }
-
-  plugin->nyx_new_parent = dlsym(handle, "nyx_new_parent");
-  if (plugin->nyx_new_parent == NULL) { goto fail; }
-
-  plugin->nyx_new_child = dlsym(handle, "nyx_new_child");
-  if (plugin->nyx_new_child == NULL) { goto fail; }
-
-  plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
-  if (plugin->nyx_shutdown == NULL) { goto fail; }
-
-  plugin->nyx_option_set_reload_mode =
-      dlsym(handle, "nyx_option_set_reload_mode");
-  if (plugin->nyx_option_set_reload_mode == NULL) { goto fail; }
-
-  plugin->nyx_option_set_timeout = dlsym(handle, "nyx_option_set_timeout");
-  if (plugin->nyx_option_set_timeout == NULL) { goto fail; }
-
-  plugin->nyx_option_apply = dlsym(handle, "nyx_option_apply");
-  if (plugin->nyx_option_apply == NULL) { goto fail; }
-
-  plugin->nyx_set_afl_input = dlsym(handle, "nyx_set_afl_input");
-  if (plugin->nyx_set_afl_input == NULL) { goto fail; }
-
-  plugin->nyx_exec = dlsym(handle, "nyx_exec");
-  if (plugin->nyx_exec == NULL) { goto fail; }
-
-  plugin->nyx_get_bitmap_buffer = dlsym(handle, "nyx_get_bitmap_buffer");
-  if (plugin->nyx_get_bitmap_buffer == NULL) { goto fail; }
-
-  plugin->nyx_get_bitmap_buffer_size =
-      dlsym(handle, "nyx_get_bitmap_buffer_size");
-  if (plugin->nyx_get_bitmap_buffer_size == NULL) { goto fail; }
-
-  plugin->nyx_get_aux_string = dlsym(handle, "nyx_get_aux_string");
-  if (plugin->nyx_get_aux_string == NULL) { goto fail; }
-
-  OKF("libnyx plugin is ready!");
-  return plugin;
-
-fail:
-
-  FATAL("failed to load libnyx: %s\n", dlerror());
-  free(plugin);
-  return NULL;
-
-}
-
-  #endif
-
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -556,7 +492,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (
       (opt = getopt(
            argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YzZ")) >
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
       0) {
 
     switch (opt) {
@@ -567,10 +503,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'G':
         afl->max_length = atoi(optarg);
-        break;
-
-      case 'z':
-        afl->prefer_new = 1;
         break;
 
       case 'Z':
@@ -2254,14 +2186,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->pending_not_fuzzed || !valid_seeds) {
 
-  #ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
-
-      afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
-
-    }
-
-  #endif
     FATAL("We need at least one valid input seed that does not crash!");
 
   }
