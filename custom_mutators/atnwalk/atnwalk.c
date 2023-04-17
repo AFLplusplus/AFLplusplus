@@ -1,3 +1,5 @@
+#include "../../include/afl-fuzz.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,9 +8,14 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#define INIT_BUF_SIZE 4096
+#define BUF_SIZE_INIT 4096
 #define SOCKET_NAME "/tmp/atnwalk.socket"
 
+// how many errors (e.g. timeouts) to tolerate until moving on to the next queue entry
+#define ATNWALK_ERRORS_MAX 1
+
+// how many execution timeouts to tolerate until moving on to the next queue entry
+#define EXEC_TIMEOUT_MAX 2
 
 // handshake constants
 const uint8_t SERVER_ARE_YOU_ALIVE = 213;
@@ -22,6 +29,14 @@ const uint8_t SERVER_ENCODE_BIT = 0b00001000;
 
 
 typedef struct atnwalk_mutator {
+    afl_state_t *afl;
+    uint8_t atnwalk_error_count;
+    uint64_t prev_timeouts;
+    uint32_t prev_hits;
+    uint32_t stage_havoc_cur;
+    uint32_t stage_havoc_max;
+    uint32_t stage_splice_cur;
+    uint32_t stage_splice_max;
     uint8_t *fuzz_buf;
     size_t fuzz_size;
     uint8_t *post_process_buf;
@@ -56,12 +71,14 @@ int write_all(int fd, uint8_t *buf, size_t buf_size) {
     return 1;
 }
 
+
 void put_uint32(uint8_t *buf, uint32_t val) {
     buf[0] = (uint8_t) (val >> 24);
     buf[1] = (uint8_t) ((val & 0x00ff0000) >> 16);
     buf[2] = (uint8_t) ((val & 0x0000ff00) >> 8);
     buf[3] = (uint8_t) (val & 0x000000ff);
 }
+
 
 uint32_t to_uint32(uint8_t *buf) {
     uint32_t val = 0;
@@ -71,6 +88,7 @@ uint32_t to_uint32(uint8_t *buf) {
     val |= ((uint32_t) buf[3]);
     return val;
 }
+
 
 void put_uint64(uint8_t *buf, uint64_t val) {
     buf[0] = (uint8_t) (val >> 56);
@@ -83,6 +101,7 @@ void put_uint64(uint8_t *buf, uint64_t val) {
     buf[7] = (uint8_t) (val & 0x00000000000000ff);
 }
 
+
 /**
  * Initialize this custom mutator
  *
@@ -94,20 +113,47 @@ void put_uint64(uint8_t *buf, uint64_t val) {
  *         There may be multiple instances of this mutator in one afl-fuzz run!
  *         Return NULL on error.
  */
-atnwalk_mutator_t *afl_custom_init(void *afl, unsigned int seed) {
+atnwalk_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
     srand(seed);
     atnwalk_mutator_t *data = (atnwalk_mutator_t *) malloc(sizeof(atnwalk_mutator_t));
     if (!data) {
         perror("afl_custom_init alloc");
         return NULL;
     }
-    data->fuzz_buf = (uint8_t *) malloc(INIT_BUF_SIZE);
-    data->fuzz_size = INIT_BUF_SIZE;
-    data->post_process_buf = (uint8_t *) malloc(INIT_BUF_SIZE);
-    data->post_process_size = INIT_BUF_SIZE;
+    data->afl = afl;
+    data->prev_hits = 0;
+    data->fuzz_buf = (uint8_t *) malloc(BUF_SIZE_INIT);
+    data->fuzz_size = BUF_SIZE_INIT;
+    data->post_process_buf = (uint8_t *) malloc(BUF_SIZE_INIT);
+    data->post_process_size = BUF_SIZE_INIT;
     return data;
 }
 
+
+unsigned int afl_custom_fuzz_count(atnwalk_mutator_t *data, const unsigned char *buf, size_t buf_size) {
+    // afl_custom_fuzz_count is called exactly once before entering the 'stage-loop' for the current queue entry
+    // thus, we use it to reset the error count and to initialize stage variables (somewhat not intended by the API,
+    // but still better than rewriting the whole thing to have a custom mutator stage)
+    data->atnwalk_error_count = 0;
+    data->prev_timeouts = data->afl->total_tmouts;
+
+    // it might happen that on the last execution of the splice stage a new path is found
+    // we need to fix that here and count it
+    if (data->prev_hits) {
+        data->afl->stage_finds[STAGE_SPLICE] += data->afl->queued_items + data->afl->saved_crashes - data->prev_hits;
+    }
+    data->prev_hits = data->afl->queued_items + data->afl->saved_crashes;
+    data->stage_havoc_cur = 0;
+    data->stage_splice_cur = 0;
+
+    // 50% havoc, 50% splice
+    data->stage_havoc_max = data->afl->stage_max >> 1;
+    if (data->stage_havoc_max < HAVOC_MIN) {
+        data->stage_havoc_max = HAVOC_MIN;
+    }
+    data->stage_splice_max = data->stage_havoc_max;
+    return data->stage_havoc_max + data->stage_splice_max;
+}
 
 /**
  * Perform custom mutations on a given input
@@ -132,6 +178,48 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     uint8_t ctrl_buf[8];
     uint8_t wanted;
 
+    // let's display what's going on in a nice way
+    if (data->stage_havoc_cur == 0) {
+        data->afl->stage_name = (uint8_t *) "atnwalk - havoc";
+    }
+    if (data->stage_havoc_cur == data->stage_havoc_max) {
+        data->afl->stage_name = (uint8_t *) "atnwalk - splice";
+    }
+
+    // increase the respective havoc or splice counters
+    if (data->stage_havoc_cur < data->stage_havoc_max) {
+        data->stage_havoc_cur++;
+        data->afl->stage_cycles[STAGE_HAVOC]++;
+    } else {
+        // if there is nothing to splice, continue with havoc and skip splicing this time
+        if (data->afl->ready_for_splicing_count < 1) {
+            data->stage_havoc_max = data->afl->stage_max;
+            data->stage_havoc_cur++;
+            data->afl->stage_cycles[STAGE_HAVOC]++;
+        } else {
+            data->stage_splice_cur++;
+            data->afl->stage_cycles[STAGE_SPLICE]++;
+        }
+    }
+
+    // keep track of found new corpus seeds per stage and run the stage twice as long as initially planned
+    if (data->afl->queued_items + data->afl->saved_crashes > data->prev_hits) {
+        if (data->stage_splice_cur <= 1) {
+            data->afl->stage_finds[STAGE_HAVOC] += data->afl->queued_items + data->afl->saved_crashes - data->prev_hits;
+        } else {
+            data->afl->stage_finds[STAGE_SPLICE] +=
+                    data->afl->queued_items + data->afl->saved_crashes - data->prev_hits;
+        }
+    }
+    data->prev_hits = data->afl->queued_items + data->afl->saved_crashes;
+
+    // check whether this input produces a lot of timeouts, if it does then abandon this queue entry
+    if (data->afl->total_tmouts - data->prev_timeouts >= EXEC_TIMEOUT_MAX) {
+        data->afl->stage_max = data->afl->stage_cur;
+        *out_buf = buf;
+        return buf_size;
+    }
+
     // initialize the socket
     fd_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd_socket == -1) {
@@ -146,11 +234,6 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
         *out_buf = NULL;
         return 0;
     }
-
-    // TODO: how to set connection deadline? maybe not required if server already closes the connection?
-
-    // TODO: there should be some kind of loop retrying with different seeds and ultimately giving up on that input?
-    //       maybe this is not necessary, because we may also just return a single byte in case of failure?
 
     // ask whether the server is alive
     ctrl_buf[0] = SERVER_ARE_YOU_ALIVE;
@@ -170,8 +253,8 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     // tell the server what we want to do
     wanted = SERVER_MUTATE_BIT | SERVER_ENCODE_BIT;
 
-    // 50% chance to perform a crossover if there is an additional buffer available
-    if ((add_buf_size > 0) && (rand() % 2)) {
+    // perform a crossover if we are splicing
+    if (data->stage_splice_cur > 0) {
         wanted |= SERVER_CROSSOVER_BIT;
     }
 
@@ -196,6 +279,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
         put_uint32(ctrl_buf, (uint32_t) add_buf_size);
         if (!write_all(fd_socket, ctrl_buf, 4)) {
             close(fd_socket);
+            data->atnwalk_error_count++;
+            if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+                data->afl->stage_max = data->afl->stage_cur;
+            }
             *out_buf = buf;
             return buf_size;
         }
@@ -203,6 +290,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
         // send the additional data for crossover
         if (!write_all(fd_socket, add_buf, add_buf_size)) {
             close(fd_socket);
+            data->atnwalk_error_count++;
+            if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+                data->afl->stage_max = data->afl->stage_cur;
+            }
             *out_buf = buf;
             return buf_size;
         }
@@ -211,6 +302,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
         put_uint64(ctrl_buf, (uint64_t) rand());
         if (!write_all(fd_socket, ctrl_buf, 8)) {
             close(fd_socket);
+            data->atnwalk_error_count++;
+            if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+                data->afl->stage_max = data->afl->stage_cur;
+            }
             *out_buf = buf;
             return buf_size;
         }
@@ -220,6 +315,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     put_uint64(ctrl_buf, (uint64_t) rand());
     if (!write_all(fd_socket, ctrl_buf, 8)) {
         close(fd_socket);
+        data->atnwalk_error_count++;
+        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+            data->afl->stage_max = data->afl->stage_cur;
+        }
         *out_buf = buf;
         return buf_size;
     }
@@ -227,6 +326,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     // obtain the required buffer size for the data that will be returned
     if (!read_all(fd_socket, ctrl_buf, 4)) {
         close(fd_socket);
+        data->atnwalk_error_count++;
+        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+            data->afl->stage_max = data->afl->stage_cur;
+        }
         *out_buf = buf;
         return buf_size;
     }
@@ -235,6 +338,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     // if the data is too large then we ignore this round
     if (new_size > max_size) {
         close(fd_socket);
+        data->atnwalk_error_count++;
+        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+            data->afl->stage_max = data->afl->stage_cur;
+        }
         *out_buf = buf;
         return buf_size;
     }
@@ -254,6 +361,10 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     // obtain the encoded data
     if (!read_all(fd_socket, *out_buf, new_size)) {
         close(fd_socket);
+        data->atnwalk_error_count++;
+        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+            data->afl->stage_max = data->afl->stage_cur;
+        }
         *out_buf = buf;
         return buf_size;
     }
