@@ -11,8 +11,8 @@
 
 
 // handshake constants
-const uint8_t SERVER_ARE_YOU_ALIVE = 42;
-const uint8_t SERVER_YES_I_AM_ALIVE = 213;
+const uint8_t SERVER_ARE_YOU_ALIVE = 213;
+const uint8_t SERVER_YES_I_AM_ALIVE = 42;
 
 // control bits
 const uint8_t SERVER_CROSSOVER_BIT = 0b00000001;
