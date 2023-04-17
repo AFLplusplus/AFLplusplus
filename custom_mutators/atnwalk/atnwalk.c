@@ -1,4 +1,4 @@
-#include "../../include/afl-fuzz.h"
+#include "afl-fuzz.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define BUF_SIZE_INIT 4096
-#define SOCKET_NAME "/tmp/atnwalk.socket"
+#define SOCKET_NAME "./atnwalk.socket"
 
 // how many errors (e.g. timeouts) to tolerate until moving on to the next queue entry
 #define ATNWALK_ERRORS_MAX 1
@@ -155,6 +155,29 @@ unsigned int afl_custom_fuzz_count(atnwalk_mutator_t *data, const unsigned char 
     return data->stage_havoc_max + data->stage_splice_max;
 }
 
+
+size_t fail_fatal(int fd_socket, uint8_t **out_buf) {
+    if (fd_socket != -1) {
+        close(fd_socket);
+    }
+    *out_buf = NULL;
+    return 0;
+}
+
+
+size_t fail_gracefully(int fd_socket, atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf) {
+    if (fd_socket != -1) {
+        close(fd_socket);
+    }
+    data->atnwalk_error_count++;
+    if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
+        data->afl->stage_max = data->afl->stage_cur;
+    }
+    *out_buf = buf;
+    return buf_size;
+}
+
+
 /**
  * Perform custom mutations on a given input
  *
@@ -202,7 +225,7 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
         }
     }
 
-    // keep track of found new corpus seeds per stage and run the stage twice as long as initially planned
+    // keep track of found new corpus seeds per stage
     if (data->afl->queued_items + data->afl->saved_crashes > data->prev_hits) {
         if (data->stage_splice_cur <= 1) {
             data->afl->stage_finds[STAGE_HAVOC] += data->afl->queued_items + data->afl->saved_crashes - data->prev_hits;
@@ -216,38 +239,28 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     // check whether this input produces a lot of timeouts, if it does then abandon this queue entry
     if (data->afl->total_tmouts - data->prev_timeouts >= EXEC_TIMEOUT_MAX) {
         data->afl->stage_max = data->afl->stage_cur;
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(-1, data, buf, buf_size, out_buf);
     }
 
     // initialize the socket
     fd_socket = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd_socket == -1) {
-        *out_buf = NULL;
-        return 0;
-    }
+    if (fd_socket == -1) { return fail_fatal(fd_socket, out_buf); }
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, SOCKET_NAME, sizeof(addr.sun_path) - 1);
     if (connect(fd_socket, (const struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // ask whether the server is alive
     ctrl_buf[0] = SERVER_ARE_YOU_ALIVE;
     if (!write_all(fd_socket, ctrl_buf, 1)) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // see whether the server replies as expected
     if (!read_all(fd_socket, ctrl_buf, 1) || ctrl_buf[0] != SERVER_YES_I_AM_ALIVE) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // tell the server what we want to do
@@ -262,88 +275,48 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
     ctrl_buf[0] = wanted;
     put_uint32(ctrl_buf + 1, (uint32_t) buf_size);
     if (!write_all(fd_socket, ctrl_buf, 5)) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // send the data to mutate and encode
     if (!write_all(fd_socket, buf, buf_size)) {
-        close(fd_socket);
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     if (wanted & SERVER_CROSSOVER_BIT) {
         // since we requested crossover, we will first tell how much additional data is to be expected
         put_uint32(ctrl_buf, (uint32_t) add_buf_size);
         if (!write_all(fd_socket, ctrl_buf, 4)) {
-            close(fd_socket);
-            data->atnwalk_error_count++;
-            if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-                data->afl->stage_max = data->afl->stage_cur;
-            }
-            *out_buf = buf;
-            return buf_size;
+            return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
         }
 
         // send the additional data for crossover
         if (!write_all(fd_socket, add_buf, add_buf_size)) {
-            close(fd_socket);
-            data->atnwalk_error_count++;
-            if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-                data->afl->stage_max = data->afl->stage_cur;
-            }
-            *out_buf = buf;
-            return buf_size;
+            return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
         }
 
         // lastly, a seed is required for crossover so send one
         put_uint64(ctrl_buf, (uint64_t) rand());
         if (!write_all(fd_socket, ctrl_buf, 8)) {
-            close(fd_socket);
-            data->atnwalk_error_count++;
-            if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-                data->afl->stage_max = data->afl->stage_cur;
-            }
-            *out_buf = buf;
-            return buf_size;
+            return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
         }
     }
 
     // since we requested mutation, we need to provide a seed for that
     put_uint64(ctrl_buf, (uint64_t) rand());
     if (!write_all(fd_socket, ctrl_buf, 8)) {
-        close(fd_socket);
-        data->atnwalk_error_count++;
-        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-            data->afl->stage_max = data->afl->stage_cur;
-        }
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     // obtain the required buffer size for the data that will be returned
     if (!read_all(fd_socket, ctrl_buf, 4)) {
-        close(fd_socket);
-        data->atnwalk_error_count++;
-        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-            data->afl->stage_max = data->afl->stage_cur;
-        }
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
     size_t new_size = (size_t) to_uint32(ctrl_buf);
 
     // if the data is too large then we ignore this round
     if (new_size > max_size) {
-        close(fd_socket);
-        data->atnwalk_error_count++;
-        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-            data->afl->stage_max = data->afl->stage_cur;
-        }
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     if (new_size > buf_size) {
@@ -360,13 +333,7 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size, u
 
     // obtain the encoded data
     if (!read_all(fd_socket, *out_buf, new_size)) {
-        close(fd_socket);
-        data->atnwalk_error_count++;
-        if (data->atnwalk_error_count > ATNWALK_ERRORS_MAX) {
-            data->afl->stage_max = data->afl->stage_cur;
-        }
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     close(fd_socket);
@@ -398,54 +365,41 @@ size_t afl_custom_post_process(atnwalk_mutator_t *data, uint8_t *buf, size_t buf
     // initialize the socket
     fd_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd_socket == -1) {
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, SOCKET_NAME, sizeof(addr.sun_path) - 1);
     if (connect(fd_socket, (const struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // ask whether the server is alive
     ctrl_buf[0] = SERVER_ARE_YOU_ALIVE;
     if (!write_all(fd_socket, ctrl_buf, 1)) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // see whether the server replies as expected
     if (!read_all(fd_socket, ctrl_buf, 1) || ctrl_buf[0] != SERVER_YES_I_AM_ALIVE) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_fatal(fd_socket, out_buf);
     }
 
     // tell the server what we want and how much data will be sent
     ctrl_buf[0] = SERVER_DECODE_BIT;
     put_uint32(ctrl_buf + 1, (uint32_t) buf_size);
     if (!write_all(fd_socket, ctrl_buf, 5)) {
-        close(fd_socket);
-        *out_buf = NULL;
-        return 0;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     // send the data to decode
     if (!write_all(fd_socket, buf, buf_size)) {
-        close(fd_socket);
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     // obtain the required buffer size for the data that will be returned
     if (!read_all(fd_socket, ctrl_buf, 4)) {
-        close(fd_socket);
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
     size_t new_size = (size_t) to_uint32(ctrl_buf);
 
@@ -458,9 +412,7 @@ size_t afl_custom_post_process(atnwalk_mutator_t *data, uint8_t *buf, size_t buf
 
     // obtain the decoded data
     if (!read_all(fd_socket, *out_buf, new_size)) {
-        close(fd_socket);
-        *out_buf = buf;
-        return buf_size;
+        return fail_gracefully(fd_socket, data, buf, buf_size, out_buf);
     }
 
     close(fd_socket);
