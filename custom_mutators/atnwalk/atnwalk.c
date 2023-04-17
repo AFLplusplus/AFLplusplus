@@ -16,10 +16,10 @@ const uint8_t SERVER_ARE_YOU_ALIVE = 42;
 const uint8_t SERVER_YES_I_AM_ALIVE = 213;
 
 // control bits
-const uint8_t SERVER_DECODE_BIT = 0b00000001;
-const uint8_t SERVER_ENCODE_BIT = 0b00000010;
-const uint8_t SERVER_MUTATE_BIT = 0b00000100;
-const uint8_t SERVER_CROSSOVER_BIT = 0b00001000;
+const uint8_t SERVER_CROSSOVER_BIT = 0b00000001;
+const uint8_t SERVER_MUTATE_BIT = 0b00000010;
+const uint8_t SERVER_DECODE_BIT = 0b00000100;
+const uint8_t SERVER_ENCODE_BIT = 0b00001000;
 
 
 typedef struct atnwalk_mutator {
