@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.06a (dev)
+### Version ++4.06c (release)
   - afl-fuzz:
     - ensure temporary file descriptor is closed when not used
     - added `AFL_NO_WARN_INSTABILITY`
@@ -29,9 +29,10 @@
     - fix issue on MacOS
   - unicorn_mode:
     - updated and minor issues fixed
+  - nyx_mode support for all tools
+  - better sanitizer default options support for all tools
   - new custom module: autotoken, a grammar free fuzzer for text inputs
   - fixed custom mutator C examples
-  - better sanitizer default options support for all tools
   - more minor fixes and cross-platform support
 
 ### Version ++4.05c (release)
