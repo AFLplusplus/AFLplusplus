@@ -1359,3 +1359,52 @@ s32 create_file(u8 *fn) {
 
 }
 
+#ifdef __linux__
+
+/* Nyx requires a tmp workdir to access specific files (such as mmapped files,
+ * etc.). This helper function basically creates both a path to a tmp workdir
+ * and the workdir itself. If the environment variable TMPDIR is set, we use
+ * that as the base directory, otherwise we use /tmp. */
+char *create_nyx_tmp_workdir(void) {
+
+  char *tmpdir = getenv("TMPDIR");
+
+  if (!tmpdir) { tmpdir = "/tmp"; }
+
+  char *nyx_out_dir_path =
+      alloc_printf("%s/.nyx_tmp_%d/", tmpdir, (u32)getpid());
+
+  if (mkdir(nyx_out_dir_path, 0700)) { PFATAL("Unable to create nyx workdir"); }
+
+  return nyx_out_dir_path;
+
+}
+
+/* Vice versa, we remove the tmp workdir for nyx with this helper function. */
+void remove_nyx_tmp_workdir(afl_forkserver_t *fsrv, char *nyx_out_dir_path) {
+
+  char *workdir_path = alloc_printf("%s/workdir", nyx_out_dir_path);
+
+  if (access(workdir_path, R_OK) == 0) {
+
+    if (fsrv->nyx_handlers->nyx_remove_work_dir(workdir_path) != true) {
+
+      WARNF("Unable to remove nyx workdir (%s)", workdir_path);
+
+    }
+
+  }
+
+  if (rmdir(nyx_out_dir_path)) {
+
+    WARNF("Unable to remove nyx workdir (%s)", nyx_out_dir_path);
+
+  }
+
+  ck_free(workdir_path);
+  ck_free(nyx_out_dir_path);
+
+}
+
+#endif
+

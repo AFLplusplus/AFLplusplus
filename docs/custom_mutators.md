@@ -118,7 +118,7 @@ def deinit():  # optional for Python
 
 ### Custom Mutation
 
-- `init`:
+- `init` (optional in Python):
 
     This method is called when AFL++ starts up and is used to seed RNG and set
     up buffers and state.
@@ -184,6 +184,11 @@ def deinit():  # optional for Python
     to the target, e.g. if it is too short, too corrupted, etc. If so,
     return a NULL buffer and zero length (or a 0 length string in Python).
 
+    NOTE: Do not make any random changes to the data in this function!
+
+    PERFORMANCE for C/C++: If possible make the changes in-place (so modify
+    the `*data` directly, and return it as `*outbuf = data`.
+
 - `fuzz_send` (optional):
 
     This method can be used if you want to send data to the target yourself,
@@ -202,7 +207,7 @@ def deinit():  # optional for Python
     discovered if compiled with INTROSPECTION. The custom mutator can then
     return a string (const char *) that reports the exact mutations used.
 
-- `deinit`:
+- `deinit` (optional in Python):
 
     The last method to be called, deinitializing the state.
 

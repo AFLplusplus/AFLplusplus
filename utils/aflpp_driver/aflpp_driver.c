@@ -33,6 +33,11 @@ $ afl-fuzz -i in -o out -- ./test_fuzzer
 
 */
 
+#ifdef __cplusplus
+extern "C" {
+
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -69,11 +74,14 @@ extern unsigned char *__afl_area_ptr;
 extern unsigned int   __afl_map_size;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
-__attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *Data,
-                                                 size_t         Size);
-__attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
-__attribute__((weak)) int LLVMFuzzerRunDriver(
-    int *argc, char ***argv, int (*callback)(const uint8_t *data, size_t size));
+/* Using the weak attributed on LLVMFuzzerTestOneInput() breaks oss-fuzz but
+   on the other hand this is what Google needs to make LLVMFuzzerRunDriver()
+   work. Choose your poison Google! */
+/*__attribute__((weak))*/ int LLVMFuzzerTestOneInput(const uint8_t *Data,
+                                                     size_t         Size);
+__attribute__((weak)) int     LLVMFuzzerInitialize(int *argc, char ***argv);
+__attribute__((weak)) int     LLVMFuzzerRunDriver(
+        int *argc, char ***argv, int (*callback)(const uint8_t *data, size_t size));
 
 // Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
@@ -260,6 +268,17 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
 
 __attribute__((weak)) int main(int argc, char **argv) {
 
+  // Enable if LLVMFuzzerTestOneInput() has the weak attribute
+  /*
+    if (!LLVMFuzzerTestOneInput) {
+
+      fprintf(stderr, "Error: function LLVMFuzzerTestOneInput() not found!\n");
+      abort();
+
+    }
+
+  */
+
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
     printf(
         "============================== INFO ================================\n"
@@ -408,4 +427,10 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
   return 0;
 
 }
+
+#ifdef __cplusplus
+
+}
+
+#endif
 
