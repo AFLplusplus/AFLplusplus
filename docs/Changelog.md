@@ -3,6 +3,10 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.07a (dev)
+  - soon :)
+
+
 ### Version ++4.06c (release)
   - afl-fuzz:
     - ensure temporary file descriptor is closed when not used
