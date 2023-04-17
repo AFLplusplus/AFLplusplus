@@ -13,7 +13,9 @@
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Triple.h"
+#if LLVM_VERSION_MAJOR < 17
+  #include "llvm/ADT/Triple.h"
+#endif
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/CFG.h"
@@ -728,7 +730,11 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
   Array->setSection(getSectionName(Section));
 #if (LLVM_VERSION_MAJOR >= 11) || \
     (LLVM_VERSION_MAJOR == 10 && LLVM_VERSION_MINOR >= 1)
+  #if LLVM_VERSION_MAJOR >= 16
+  Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedValue()));
+  #else
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
+  #endif
 #else
   Array->setAlignment(Align(4));  // cheating
 #endif

@@ -133,7 +133,15 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (new_mem != *mem) { *mem = new_mem; }
+    if (new_mem != *mem && new_mem != NULL && new_size > 0) {
+
+      u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
+      if (unlikely(!new_buf)) { PFATAL("alloc"); }
+      *mem = new_buf;
+      memcpy(*mem, new_mem, new_size);
+      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+
+    }
 
     if (unlikely(afl->custom_mutators_count)) {
 
@@ -523,7 +531,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         }
 
-        if (unlikely(!var_detected)) {
+        if (unlikely(!var_detected && !afl->afl_env.afl_no_warn_instability)) {
 
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {

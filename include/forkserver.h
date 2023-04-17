@@ -43,7 +43,7 @@ typedef enum NyxReturnValue {
   Normal,
   Crash,
   Asan,
-  Timout,
+  Timeout,
   InvalidWriteToPayload,
   Error,
   IoError,
@@ -51,16 +51,28 @@ typedef enum NyxReturnValue {
 
 } NyxReturnValue;
 
+typedef enum NyxProcessRole {
+
+  StandAlone,
+  Parent,
+  Child,
+
+} NyxProcessRole;
+
 typedef struct {
 
-  void *(*nyx_new)(const char *sharedir, const char *workdir, uint32_t cpu_id,
-                   uint32_t input_buffer_size,
-                   bool     input_buffer_write_protection);
-  void *(*nyx_new_parent)(const char *sharedir, const char *workdir,
-                          uint32_t cpu_id, uint32_t input_buffer_size,
-                          bool input_buffer_write_protection);
-  void *(*nyx_new_child)(const char *sharedir, const char *workdir,
-                         uint32_t cpu_id, uint32_t worker_id);
+  void *(*nyx_config_load)(const char *sharedir);
+  void (*nyx_config_set_workdir_path)(void *config, const char *workdir);
+  void (*nyx_config_set_input_buffer_size)(void    *config,
+                                           uint32_t input_buffer_size);
+  void (*nyx_config_set_input_buffer_write_protection)(
+      void *config, bool input_buffer_write_protection);
+  void (*nyx_config_set_hprintf_fd)(void *config, int32_t hprintf_fd);
+  void (*nyx_config_set_process_role)(void *config, enum NyxProcessRole role);
+  void (*nyx_config_set_reuse_snapshot_path)(void       *config,
+                                             const char *reuse_snapshot_path);
+
+  void *(*nyx_new)(void *config, uint32_t worker_id);
   void (*nyx_shutdown)(void *qemu_process);
   void (*nyx_option_set_reload_mode)(void *qemu_process, bool enable);
   void (*nyx_option_set_timeout)(void *qemu_process, uint8_t timeout_sec,
@@ -73,7 +85,12 @@ typedef struct {
   uint32_t (*nyx_get_aux_string)(void *nyx_process, uint8_t *buffer,
                                  uint32_t size);
 
+  bool (*nyx_remove_work_dir)(const char *workdir);
+
 } nyx_plugin_handler_t;
+
+/* Imports helper functions to enable Nyx mode (Linux only )*/
+nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary);
 
 #endif
 
@@ -178,6 +195,8 @@ typedef struct afl_forkserver {
   u32                   nyx_id;          /* nyx runner id (0 -> master)      */
   u32                   nyx_bind_cpu_id; /* nyx runner cpu id                */
   char                 *nyx_aux_string;
+  bool                  nyx_use_tmp_workdir;
+  char                 *nyx_tmp_workdir_path;
 #endif
 
 } afl_forkserver_t;

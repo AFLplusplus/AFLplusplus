@@ -1,3 +1,4 @@
+
 PWD:=$(shell pwd)/
 ROOT:=$(PWD)../
 INC_DIR:=$(PWD)include/
@@ -98,6 +99,25 @@ ifeq "$(shell uname)" "Darwin"
  OS:=macos
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
  GUM_ARCH:=""
+ ifeq "$(ARCH)" "arm64"
+  TARGET_CC= \
+  	"clang" \
+  	"-target" \
+	"arm64-apple-macos10.9"
+  TARGET_CXX= \
+ 	"clang++" \
+ 	"-target" \
+	"arm64-apple-macos10.9"
+ else
+  TARGET_CC= \
+  	"clang" \
+  	"-target" \
+	"x86_64-apple-macos10.9"
+  TARGET_CXX= \
+ 	"clang++" \
+ 	"-target" \
+	"x86_64-apple-macos10.9"
+ endif
 else
 ifdef DEBUG
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-prio-ctor-dtor
@@ -145,7 +165,7 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=16.0.6
+GUM_DEVKIT_VERSION=16.0.11
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 

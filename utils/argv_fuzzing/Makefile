@@ -55,10 +55,10 @@ install: argvfuzz32.so argvfuzz64.so
 	if [ -f argvfuzz64.so ]; then set -e; install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
 
 argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
-	../../afl-cc -fsanitize=address -g -o $@ $^
+	../../afl-cc -g -o $@ $^
 
 argv_fuzz_demo: argv_fuzz_demo.c
-	../../afl-cc -fsanitize=address -g -o $@ $^
+	../../afl-cc -g -o $@ $^
 
 demo: argv_fuzz_persistent_demo argv_fuzz_demo
 

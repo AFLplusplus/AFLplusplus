@@ -113,7 +113,7 @@ int        __afl_selective_coverage __attribute__((weak));
 int        __afl_selective_coverage_start_off __attribute__((weak));
 static int __afl_selective_coverage_temp = 1;
 
-#if defined(__ANDROID__) || defined(__HAIKU__)
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 u32        __afl_prev_ctx;
@@ -149,6 +149,7 @@ u32 __afl_already_initialized_shm;
 u32 __afl_already_initialized_forkserver;
 u32 __afl_already_initialized_first;
 u32 __afl_already_initialized_second;
+u32 __afl_already_initialized_early;
 u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
@@ -1373,6 +1374,9 @@ __attribute__((constructor(EARLY_FS_PRIO))) void __early_forkserver(void) {
 
 __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
+  if (__afl_already_initialized_early) return;
+  __afl_already_initialized_early = 1;
+
   is_persistent = !!getenv(PERSIST_ENV_VAR);
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
@@ -1514,6 +1518,14 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   _is_sancov = 1;
 
+  if (!getenv("AFL_DUMP_MAP_SIZE")) {
+
+    __afl_auto_first();
+    __afl_auto_second();
+    __afl_auto_early();
+
+  }
+
   if (__afl_debug) {
 
     fprintf(stderr,
@@ -1524,7 +1536,21 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
-  if (start == stop || *start) return;
+  if (start == stop || *start) { return; }
+
+  x = getenv("AFL_INST_RATIO");
+  if (x) {
+
+    inst_ratio = (u32)atoi(x);
+
+    if (!inst_ratio || inst_ratio > 100) {
+
+      fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
+      abort();
+
+    }
+
+  }
 
   // If a dlopen of an instrumented library happens after the forkserver then
   // we have a problem as we cannot increase the coverage map anymore.
@@ -1537,85 +1563,55 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
           "[-] FATAL: forkserver is already up, but an instrumented dlopen() "
           "library loaded afterwards. You must AFL_PRELOAD such libraries to "
           "be able to fuzz them or LD_PRELOAD to run outside of afl-fuzz.\n"
-          "To ignore this set AFL_IGNORE_PROBLEMS=1.\n");
+          "To ignore this set AFL_IGNORE_PROBLEMS=1 but this will be bad for "
+          "coverage.\n");
       abort();
 
     } else {
 
-      static u32 offset = 4;
+      static u32 offset = 5;
 
       while (start < stop) {
 
-        *(start++) = offset;
-        if (unlikely(++offset >= __afl_final_loc)) { offset = 4; }
+        if (likely(inst_ratio == 100) || R(100) < inst_ratio) {
+
+          *(start++) = offset;
+
+        } else {
+
+          *(start++) = 0;  // write to map[0]
+
+        }
+
+        if (unlikely(++offset >= __afl_final_loc)) { offset = 5; }
 
       }
 
     }
 
-  }
-
-  x = getenv("AFL_INST_RATIO");
-  if (x) { inst_ratio = (u32)atoi(x); }
-
-  if (!inst_ratio || inst_ratio > 100) {
-
-    fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
-    abort();
+    return;  // we are done for this special case
 
   }
-
-  /* instrumented code is loaded *after* our forkserver is up. this is a
-     problem. We cannot prevent collisions then :( */
-  /*
-  if (__afl_already_initialized_forkserver &&
-      __afl_final_loc + 1 + stop - start > __afl_map_size) {
-
-    if (__afl_debug) {
-
-      fprintf(stderr, "Warning: new instrumented code after the forkserver!\n");
-
-    }
-
-    __afl_final_loc = 2;
-
-    if (1 + stop - start > __afl_map_size) {
-
-      *(start++) = ++__afl_final_loc;
-
-      while (start < stop) {
-
-        if (R(100) < inst_ratio)
-          *start = ++__afl_final_loc % __afl_map_size;
-        else
-          *start = 4;
-
-        start++;
-
-      }
-
-      return;
-
-    }
-
-  }
-
-  */
 
   /* Make sure that the first element in the range is always set - we use that
      to avoid duplicate calls (which can happen as an artifact of the underlying
      implementation in LLVM). */
 
+  if (__afl_final_loc < 5) __afl_final_loc = 5;  // we skip the first 5 entries
+
   *(start++) = ++__afl_final_loc;
 
   while (start < stop) {
 
-    if (R(100) < inst_ratio)
-      *start = ++__afl_final_loc;
-    else
-      *start = 4;
+    if (likely(inst_ratio == 100) || R(100) < inst_ratio) {
 
-    start++;
+      *(start++) = ++__afl_final_loc;
+
+    } else {
+
+      *(start++) = 0;  // write to map[0]
+
+    }
 
   }
 
@@ -1627,17 +1623,23 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
-  if (__afl_already_initialized_shm && __afl_final_loc > __afl_map_size) {
+  if (__afl_already_initialized_shm) {
 
-    if (__afl_debug) {
+    if (__afl_final_loc > __afl_map_size) {
 
-      fprintf(stderr, "Reinit shm necessary (+%u)\n",
-              __afl_final_loc - __afl_map_size);
+      if (__afl_debug) {
+
+        fprintf(stderr, "Reinit shm necessary (+%u)\n",
+                __afl_final_loc - __afl_map_size);
+
+      }
+
+      __afl_unmap_shm();
+      __afl_map_shm();
 
     }
 
-    __afl_unmap_shm();
-    __afl_map_shm();
+    __afl_map_size = __afl_final_loc + 1;
 
   }
 

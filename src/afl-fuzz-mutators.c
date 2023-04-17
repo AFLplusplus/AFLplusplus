@@ -179,11 +179,19 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   void                  *dh;
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
-  mutator->name = fn;
-  if (memchr(fn, '/', strlen(fn)))
-    mutator->name_short = strrchr(fn, '/') + 1;
-  else
+  if (memchr(fn, '/', strlen(fn))) {
+
+    mutator->name_short = strdup(strrchr(fn, '/') + 1);
+
+  } else {
+
     mutator->name_short = strdup(fn);
+
+  }
+
+  if (strlen(mutator->name_short) > 22) { mutator->name_short[21] = 0; }
+
+  mutator->name = fn;
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
@@ -312,12 +320,18 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   if (notrim) {
 
+    if (mutator->afl_custom_init_trim || mutator->afl_custom_trim ||
+        mutator->afl_custom_post_trim) {
+
+      WARNF(
+          "Custom mutator does not implement all three trim APIs, standard "
+          "trimming will be used.");
+
+    }
+
     mutator->afl_custom_init_trim = NULL;
     mutator->afl_custom_trim = NULL;
     mutator->afl_custom_post_trim = NULL;
-    ACTF(
-        "Custom mutator does not implement all three trim APIs, standard "
-        "trimming will be used.");
 
   }
 
@@ -355,6 +369,19 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   } else {
 
     OKF("Found 'afl_custom_queue_get'.");
+
+  }
+
+  /* "afl_custom_splice_optout", optional, never called */
+  mutator->afl_custom_splice_optout = dlsym(dh, "afl_custom_splice_optout");
+  if (!mutator->afl_custom_splice_optout) {
+
+    ACTF("optional symbol 'afl_custom_splice_optout' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_splice_optout'.");
+    afl->custom_splice_optout = 1;
 
   }
 

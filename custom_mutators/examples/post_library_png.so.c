@@ -30,7 +30,7 @@
 #include <string.h>
 #include <zlib.h>
 #include <arpa/inet.h>
-#include "alloc-inl.h"
+#include "afl-fuzz.h"
 
 /* A macro to round an integer up to 4 kB. */
 
@@ -53,7 +53,7 @@ void *afl_custom_init(void *afl) {
 
   }
 
-  state->buf = calloc(sizeof(unsigned char), 4096);
+  state->buf = calloc(sizeof(unsigned char), MAX_FILE);
   if (!state->buf) {
 
     free(state);
@@ -80,21 +80,7 @@ size_t afl_custom_post_process(post_state_t *data, const unsigned char *in_buf,
 
   }
 
-  /* This is not a good way to do it, if you do not need to grow the buffer
-     then just work with in_buf instead for speed reasons.
-     But we want to show how to grow a buffer, so this is how it's done: */
-
-  unsigned int   pos = 8;
-  unsigned char *new_buf = afl_realloc(out_buf, UP4K(len));
-
-  if (!new_buf) {
-
-    *out_buf = in_buf;
-    return len;
-
-  }
-
-  memcpy(new_buf, in_buf, len);
+  unsigned int pos = 8;
 
   /* Minimum size of a zero-length PNG chunk is 12 bytes; if we
      don't have that, we can bail out. */
@@ -124,7 +110,7 @@ size_t afl_custom_post_process(post_state_t *data, const unsigned char *in_buf,
 
     if (real_cksum != file_cksum) {
 
-      *(uint32_t *)(new_buf + pos + 8 + chunk_len) = real_cksum;
+      *(uint32_t *)(data->buf + pos + 8 + chunk_len) = real_cksum;
 
     }
 
@@ -134,7 +120,7 @@ size_t afl_custom_post_process(post_state_t *data, const unsigned char *in_buf,
 
   }
 
-  *out_buf = new_buf;
+  *out_buf = data->buf;
   return len;
 
 }

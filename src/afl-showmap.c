@@ -434,6 +434,23 @@ static u32 read_file(u8 *in_file) {
 
 }
 
+#ifdef __linux__
+/* Execute the target application with an empty input (in Nyx mode). */
+static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
+
+  afl_fsrv_write_to_testcase(fsrv, NULL, 0);
+
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
+      FSRV_RUN_ERROR) {
+
+    FATAL("Error running target in Nyx mode");
+
+  }
+
+}
+
+#endif
+
 /* Execute target application. */
 
 static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
@@ -597,49 +614,8 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
   char *afl_preload;
   char *frida_afl_preload = NULL;
-  setenv("ASAN_OPTIONS",
-         "abort_on_error=1:"
-         "detect_leaks=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "detect_odr_violation=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
 
-  setenv("LSAN_OPTIONS",
-         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
-         "fast_unwind_on_malloc=0:"
-         "symbolize=0:"
-         "print_suppressions=0",
-          0);
-
-  setenv("UBSAN_OPTIONS",
-         "halt_on_error=1:"
-         "abort_on_error=1:"
-         "malloc_context_size=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
-
-  setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                         "abort_on_error=1:"
-                         "msan_track_origins=0"
-                         "allocator_may_return_null=1:"
-                         "symbolize=0:"
-                         "handle_segv=0:"
-                         "handle_sigbus=0:"
-                         "handle_abort=0:"
-                         "handle_sigfpe=0:"
-                         "handle_sigill=0", 0);
+  set_sanitizer_defaults();
 
   if (get_afl_env("AFL_PRELOAD")) {
 
@@ -695,7 +671,11 @@ static void setup_signal_handlers(void) {
   struct sigaction sa;
 
   sa.sa_handler = NULL;
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;
+#else
+  sa.sa_flags = 0;
+#endif
   sa.sa_sigaction = NULL;
 
   sigemptyset(&sa.sa_mask);
@@ -834,6 +814,7 @@ static void usage(u8 *argv0) {
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
       "               (Not necessary, here for consistency with other afl-* "
       "tools)\n"
+      "  -X         - use Nyx mode\n"
 #endif
       "\n"
       "Other settings:\n"
@@ -912,7 +893,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
 
     switch (opt) {
 
@@ -1100,6 +1081,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'Y':  // fallthough
+#ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv->nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv->nyx_mode = 1;
+        fsrv->nyx_parent = true;
+        fsrv->nyx_standalone = true;
+
+        break;
+#else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+#endif
+
       case 'b':
 
         /* Secret undocumented mode. Writes output in raw binary format
@@ -1171,7 +1169,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv, argv);
 
+#ifdef __linux__
+  if (!fsrv->nyx_mode) {
+
+    fsrv->target_path = find_binary(argv[optind]);
+
+  } else {
+
+    fsrv->target_path = ck_strdup(argv[optind]);
+
+  }
+
+#else
   fsrv->target_path = find_binary(argv[optind]);
+#endif
+
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   if (!quiet_mode) {
@@ -1227,6 +1239,27 @@ int main(int argc, char **argv_orig, char **envp) {
     use_argv =
         get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
+#ifdef __linux__
+
+  } else if (fsrv->nyx_mode) {
+
+    use_argv = ck_alloc(sizeof(char *) * (1));
+    use_argv[0] = argv[0];
+
+    fsrv->nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(use_argv[0], "libnyx.so");
+    fsrv->nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv->nyx_handlers == NULL) {
+
+      FATAL("failed to initialize libnyx.so...");
+
+    }
+
+    fsrv->nyx_use_tmp_workdir = true;
+    fsrv->nyx_bind_cpu_id = 0;
+#endif
+
   } else {
 
     use_argv = argv + optind;
@@ -1263,7 +1296,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+#ifdef __linux__
+  if (!fsrv->nyx_mode && in_dir) {
+
+    (void)check_binary_signatures(fsrv->target_path);
+
+  }
+
+#else
   if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
+#endif
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
@@ -1283,8 +1325,14 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
-  configure_afl_kill_signals(
-      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+  configure_afl_kill_signals(fsrv, NULL, NULL,
+                             (fsrv->qemu_mode || unicorn_mode
+#ifdef __linux__
+                              || fsrv->nyx_mode
+#endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
 
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
@@ -1427,7 +1475,20 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    showmap_run_target(fsrv, use_argv);
+#ifdef __linux__
+    if (!fsrv->nyx_mode) {
+
+#endif
+      showmap_run_target(fsrv, use_argv);
+#ifdef __linux__
+
+    } else {
+
+      showmap_run_target_nyx_mode(fsrv);
+
+    }
+
+#endif
     tcnt = write_results_to_file(fsrv, out_file);
     if (!quiet_mode) {
 

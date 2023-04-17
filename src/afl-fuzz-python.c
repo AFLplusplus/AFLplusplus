@@ -219,11 +219,14 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
   if (py_module != NULL) {
 
-    u8 py_notrim = 0, py_idx;
-    /* init, required */
+    u8 py_notrim = 0;
     py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
-    if (!py_functions[PY_FUNC_INIT])
-      FATAL("init function not found in python module");
+    if (!py_functions[PY_FUNC_INIT]) {
+
+      WARNF("init function not found in python module");
+
+    }
+
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
@@ -231,8 +234,6 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "describe");
     py_functions[PY_FUNC_FUZZ_COUNT] =
         PyObject_GetAttrString(py_module, "fuzz_count");
-    if (!py_functions[PY_FUNC_FUZZ])
-      WARNF("fuzz function not found in python module");
     py_functions[PY_FUNC_POST_PROCESS] =
         PyObject_GetAttrString(py_module, "post_process");
     py_functions[PY_FUNC_INIT_TRIM] =
@@ -248,6 +249,9 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_FUZZ_SEND] =
         PyObject_GetAttrString(py_module, "fuzz_send");
+    py_functions[PY_FUNC_SPLICE_OPTOUT] =
+        PyObject_GetAttrString(py_module, "splice_optout");
+    if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
     py_functions[PY_FUNC_INTROSPECTION] =
@@ -255,36 +259,6 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
     if (!py_functions[PY_FUNC_DEINIT])
       WARNF("deinit function not found in python module");
-
-    for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
-
-      if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
-
-        if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
-
-          // Implementing the trim API is optional for now
-          if (PyErr_Occurred()) { PyErr_Print(); }
-          py_notrim = 1;
-
-        } else if (py_idx >= PY_OPTIONAL) {
-
-          // Only _init and _deinit are not optional currently
-
-          if (PyErr_Occurred()) { PyErr_Print(); }
-
-        } else {
-
-          fprintf(stderr,
-                  "Cannot find/call function with index %d in external "
-                  "Python module.\n",
-                  py_idx);
-          return NULL;
-
-        }
-
-      }
-
-    }
 
     if (py_notrim) {
 
@@ -337,6 +311,8 @@ static void init_py(afl_state_t *afl, py_mutator_t *py_mutator,
                     unsigned int seed) {
 
   (void)afl;
+
+  if (py_mutator->py_functions[PY_FUNC_INIT] == NULL) { return; }
 
   PyObject *py_args, *py_value;
 
@@ -394,15 +370,33 @@ void deinit_py(void *py_mutator) {
 
 }
 
+void splice_optout_py(void *py_mutator) {
+
+  // this is never called
+  (void)(py_mutator);
+
+}
+
 struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
                                               char        *module_name) {
 
   struct custom_mutator *mutator;
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
-
   mutator->name = module_name;
   ACTF("Loading Python mutator library from '%s'...", module_name);
+
+  if (memchr(module_name, '/', strlen(module_name))) {
+
+    mutator->name_short = strdup(strrchr(module_name, '/') + 1);
+
+  } else {
+
+    mutator->name_short = strdup(module_name);
+
+  }
+
+  if (strlen(mutator->name_short) > 22) { mutator->name_short[21] = 0; }
 
   py_mutator_t *py_mutator;
   py_mutator = init_py_module(afl, module_name);
@@ -471,6 +465,13 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_FUZZ_SEND]) {
 
     mutator->afl_custom_fuzz_send = fuzz_send_py;
+
+  }
+
+  if (py_functions[PY_FUNC_SPLICE_OPTOUT]) {
+
+    mutator->afl_custom_splice_optout = splice_optout_py;
+    afl->custom_splice_optout = 1;
 
   }
 

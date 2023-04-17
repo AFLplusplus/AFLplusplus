@@ -47,7 +47,7 @@ RUN apt-get update && \
     clang-${LLVM_VERSION} clang-tools-${LLVM_VERSION} libc++1-${LLVM_VERSION} \
     libc++-${LLVM_VERSION}-dev libc++abi1-${LLVM_VERSION} libc++abi-${LLVM_VERSION}-dev \
     libclang1-${LLVM_VERSION} libclang-${LLVM_VERSION}-dev \
-    libclang-common-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} \
+    libclang-common-${LLVM_VERSION}-dev libclang-rt-${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} \
     libclang-cpp${LLVM_VERSION}-dev liblld-${LLVM_VERSION} \
     liblld-${LLVM_VERSION}-dev liblldb-${LLVM_VERSION} liblldb-${LLVM_VERSION}-dev \
     libllvm${LLVM_VERSION} libomp-${LLVM_VERSION}-dev libomp5-${LLVM_VERSION} \
@@ -66,6 +66,8 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0
 
 RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
 ENV PATH=$PATH:/etc/cargo/bin
+
+RUN apt clean -y
 
 ENV LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 ENV AFL_SKIP_CPUFREQ=1
@@ -92,4 +94,4 @@ RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
     echo ". /etc/bash_completion" >> ~/.bashrc && \
     echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc && \
-    echo "export PS1='"'[afl++ \h] \w$(__git_ps1) \$ '"'" >> ~/.bashrc
+    echo "export PS1='"'[afl++ \h] \w \$ '"'" >> ~/.bashrc

@@ -193,6 +193,13 @@ instrumented address block translations.
   backpatching information. By default, the child will report applied
   backpatches to the parent so that they can be applied and then be inherited by
   the next child on fork.
+* `AFL_FRIDA_INST_NO_SUPPRESS` - Disable deterministic branch suppression.
+  Deterministic branch suppression skips the preamble which generates coverage
+  information at the start of each block, if the block is reached by a
+  deterministic branch. This reduces map polution, and may improve performance
+  when all the executing blocks have been prefetched and backpatching applied.
+  However, in the event that backpatching is incomplete, this may incur a
+  performance penatly as branch instructions are disassembled on each branch.
 * `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
   generate block (and hence edge) IDs. Setting this to a constant value may be
   useful for debugging purposes, e.g., investigating unstable edges.

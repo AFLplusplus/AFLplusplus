@@ -24,6 +24,7 @@
  */
 
 #include <signal.h>
+#include <limits.h>
 #include "afl-fuzz.h"
 #include "envs.h"
 
@@ -100,6 +101,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->hang_tmout = EXEC_TIMEOUT;
   afl->exit_on_time = 0;
   afl->stats_update_freq = 1;
+  afl->stats_file_update_freq_msecs = STATS_UPDATE_SEC * 1000;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
   afl->sync_time = SYNC_TIME;
@@ -204,6 +206,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_no_affinity =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_NO_WARN_INSTABILITY",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_warn_instability =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_TRY_AFFINITY",
 
                               afl_environment_variable_len)) {
@@ -290,6 +299,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_ignore_problems =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_IGNORE_TIMEOUTS",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_ignore_timeouts =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
@@ -551,6 +567,26 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             }
 
+          } else if (!strncmp(env, "AFL_FUZZER_STATS_UPDATE_INTERVAL",
+
+                              afl_environment_variable_len)) {
+
+            u64 stats_update_freq_sec =
+                strtoull(get_afl_env(afl_environment_variables[i]), NULL, 0);
+            if (stats_update_freq_sec >= UINT_MAX ||
+                0 == stats_update_freq_sec) {
+
+              WARNF(
+                  "Incorrect value given to AFL_FUZZER_STATS_UPDATE_INTERVAL, "
+                  "using default of %d seconds\n",
+                  STATS_UPDATE_SEC);
+
+            } else {
+
+              afl->stats_file_update_freq_msecs = stats_update_freq_sec * 1000;
+
+            }
+
           }
 
         } else {
@@ -612,7 +648,15 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
   }
 
-  if (afl->afl_env.afl_pizza_mode) { afl->pizza_is_served = 1; }
+  if (afl->afl_env.afl_pizza_mode > 0) {
+
+    afl->pizza_is_served = 1;
+
+  } else if (afl->afl_env.afl_pizza_mode < 0) {
+
+    OKF("Pizza easter egg mode is now disabled.");
+
+  }
 
   if (issue_detected) { sleep(2); }
 
