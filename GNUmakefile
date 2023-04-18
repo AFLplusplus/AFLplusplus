@@ -41,6 +41,8 @@ ARCH = $(shell uname -m)
 
 $(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
 
+CFLAGS += -Wl,--export-dynamic 
+
 ifdef NO_SPLICING
   override CFLAGS_OPT += -DNO_SPLICING
 endif
