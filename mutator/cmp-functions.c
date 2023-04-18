@@ -46,7 +46,7 @@ kale_function_info_t kale_get_function_from_type(unsigned attributes) {
   // a < b
   else if (attributes & IS_LESSER) {
     // f = a - b     f < 0
-    return (kale_function_info_t) {aminusb, ltz);
+    return (kale_function_info_t) {aminusb, ltz};
   }
   // a > b
   else if (attributes & IS_GREATER) {

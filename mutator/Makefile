@@ -2,7 +2,7 @@ CC=gcc
 FLAGS=-I ../include 
 
 angora: mutator.c
-	$(CC) $(FLAGS) -fPIC -g -O0 -shared mutator.c -o mutator.so 
+	$(CC) $(FLAGS) -fPIC -g -O0 -shared mutator.c cmp-functions.c -o mutator.so 
 
 
 test: angora
