@@ -11,11 +11,6 @@ Angora* afl_custom_init(afl_state_t* afl, unsigned int seed){
     return data;
 }
 
-uint8_t afl_custom_queue_get(Angora *data, const uint8_t *filename) {
-
-  return 0;
-}
-
 size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size){
   const int learningRate = 2;
 
@@ -56,7 +51,7 @@ size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigne
         u64 fprime = f.callback(afl->shm.cmp_map->log[k][0].v0, afl->shm.cmp_map->log[k][0].v1);
         u64 f0 = f.callback(afl->orig_cmp_map->log[k][0].v0, afl->orig_cmp_map->log[k][0].v1);
 
-        gradients[k*CMP_MAP_W + i] = (fprime - f0) / 1;
+        gradients[k*buf_size + i] = (fprime - f0) / 1;
       }
 
     }
