@@ -4,7 +4,8 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.07a (dev)
-  - soon :)
+  - afl-showmap:
+    - added custom mutator post_process and send support
 
 
 ### Version ++4.06c (release)

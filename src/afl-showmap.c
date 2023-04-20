@@ -30,8 +30,10 @@
  */
 
 #define AFL_MAIN
+#define AFL_SHOWMAP
 
 #include "config.h"
+#include "afl-fuzz.h"
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
@@ -61,6 +63,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+
+static afl_state_t *afl;
 
 static char *stdin_file;               /* stdin file                        */
 
@@ -308,12 +312,73 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 }
 
+void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
+
+  static u8 buf[MAX_FILE];
+  u32       sent = 0;
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    ssize_t new_size = len;
+    u8     *new_mem = mem;
+    u8     *new_buf = NULL;
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_process) {
+
+        new_size =
+            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
+
+        if (unlikely(!new_buf || new_size <= 0)) {
+
+          return;
+
+        } else {
+
+          new_mem = new_buf;
+          len = new_size;
+
+        }
+
+      }
+
+    });
+
+    if (new_mem != mem && new_mem != NULL) {
+
+      mem = buf;
+      memcpy(mem, new_mem, new_size);
+
+    }
+
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, mem, len);
+          sent = 1;
+
+        }
+
+      });
+
+    }
+
+  }
+
+  if (likely(!sent)) { afl_fsrv_write_to_testcase(fsrv, mem, len); }
+
+}
+
 /* Execute target application. */
 
 static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
                                           u32 len) {
 
-  afl_fsrv_write_to_testcase(fsrv, mem, len);
+  pre_afl_fsrv_write_to_testcase(fsrv, mem, len);
 
   if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
@@ -835,6 +900,10 @@ static void usage(u8 *argv0) {
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
 
+      "If you use -i mode, then custom mutator post_process send send "
+      "functionality\n"
+      "is supported.\n\n"
+
       "Environment variables used:\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
@@ -1266,6 +1335,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  afl = calloc(1, sizeof(afl_state_t));
+
   if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
 
     s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
@@ -1377,6 +1448,26 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     fsrv->map_size = map_size;
+
+  }
+
+  if (in_dir) {
+
+    afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    afl->afl_env.afl_custom_mutator_library =
+        getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+    afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+    setup_custom_mutators(afl);
+
+  } else {
+
+    if (getenv("AFL_CUSTOM_MUTATOR_LIBRARY") || getenv("AFL_PYTHON_MODULE")) {
+
+      WARNF(
+          "Custom mutator environment detected, this is only supported in -i "
+          "mode!\n");
+
+    }
 
   }
 
