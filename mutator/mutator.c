@@ -11,6 +11,23 @@ Angora* afl_custom_init(afl_state_t* afl, unsigned int seed){
     return data;
 }
 
+long kale_get_gradient_h(afl_state_t* afl, int k, int i, int h){
+  // Angora the if statement
+  int attributes = afl->shm.cmp_map->headers[k].attribute;
+  kale_function_info_t f = kale_get_function_from_type(attributes);
+  
+  long fprime = f.callback(afl->shm.cmp_map->log[k][i].v0, afl->shm.cmp_map->log[k][i].v1);
+  long f0 = f.callback(afl->orig_cmp_map->log[k][i].v0, afl->orig_cmp_map->log[k][i].v1);
+
+  return (fprime - f0) / h;
+}
+
+// Gets the gradient between a currently calculated cmp log entry and the original cmplog entry
+// k and i are the cmp log entry target and the index of the log
+long kale_get_gradient(afl_state_t* afl, int k, int i){
+  kale_get_gradient_h(afl, k, i, 1);
+}
+
 size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size){
   const int learningRate = 2;
 
@@ -43,17 +60,7 @@ size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigne
       if(afl->shm.cmp_map->headers[k].id != afl->orig_cmp_map->headers[k].id) 
         continue;
 
-      if(afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS){
-        // Angora the if statement
-        unsigned attributes = afl->shm.cmp_map->headers[k].attribute;
-        kale_function_info_t f = kale_get_function_from_type(attributes);
-        
-        u64 fprime = f.callback(afl->shm.cmp_map->log[k][0].v0, afl->shm.cmp_map->log[k][0].v1);
-        u64 f0 = f.callback(afl->orig_cmp_map->log[k][0].v0, afl->orig_cmp_map->log[k][0].v1);
-
-        gradients[k*buf_size + i] = (fprime - f0) / 1;
-      }
-
+      gradients[k*buf_size + i] = kale_get_gradient(afl, k, 0);
     }
 
 
