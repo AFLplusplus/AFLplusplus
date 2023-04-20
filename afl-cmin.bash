@@ -151,6 +151,8 @@ AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
 AFL_NO_FORKSRV: run target via execve instead of using the forkserver
 AFL_PATH: last resort location to find the afl-showmap binary
 AFL_SKIP_BIN_CHECK: skip check for target binary
+AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
+AFL_PYTHON_MODULE: custom mutator library (post_process and send)
 _EOF_
   exit 1
 fi
