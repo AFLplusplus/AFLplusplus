@@ -1,5 +1,4 @@
 #![cfg(unix)]
-#![allow(unused_variables)]
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
@@ -18,10 +17,12 @@ use libafl::{
         scheduled::{havoc_mutations, tokens_mutations, StdScheduledMutator, Tokens},
         Mutator,
     },
-    state::{HasCorpus, HasMaxSize, HasMetadata, HasRand, State},
+    prelude::UsesInput,
+    state::{HasCorpus, HasMaxSize, HasMetadata, HasRand, State, UsesState},
     Error,
 };
 
+#[allow(clippy::identity_op)]
 const MAX_FILE: usize = 1 * 1024 * 1024;
 
 static mut AFL: Option<&'static afl_state> = None;
@@ -64,24 +65,32 @@ impl<'de> Deserialize<'de> for AFLCorpus {
     }
 }
 
-impl Corpus<BytesInput> for AFLCorpus {
+impl UsesState for AFLCorpus {
+    type State = AFLState;
+}
+
+impl Corpus for AFLCorpus {
     #[inline]
     fn count(&self) -> usize {
         afl().queued_items as usize
     }
 
     #[inline]
-    fn add(&mut self, testcase: Testcase<BytesInput>) -> Result<usize, Error> {
+    fn add(&mut self, _testcase: Testcase<BytesInput>) -> Result<usize, Error> {
         unimplemented!();
     }
 
     #[inline]
-    fn replace(&mut self, idx: usize, testcase: Testcase<BytesInput>) -> Result<(), Error> {
+    fn replace(
+        &mut self,
+        _idx: usize,
+        _testcase: Testcase<BytesInput>,
+    ) -> Result<Testcase<Self::Input>, Error> {
         unimplemented!();
     }
 
     #[inline]
-    fn remove(&mut self, idx: usize) -> Result<Option<Testcase<BytesInput>>, Error> {
+    fn remove(&mut self, _idx: usize) -> Result<Option<Testcase<BytesInput>>, Error> {
         unimplemented!();
     }
 
@@ -92,7 +101,7 @@ impl Corpus<BytesInput> for AFLCorpus {
             entries.entry(idx).or_insert_with(|| {
                 let queue_buf = std::slice::from_raw_parts_mut(afl().queue_buf, self.count());
                 let entry = queue_buf[idx].as_mut().unwrap();
-                let fname = CStr::from_ptr((entry.fname as *mut i8).as_ref().unwrap())
+                let fname = CStr::from_ptr((entry.fname.cast::<i8>()).as_ref().unwrap())
                     .to_str()
                     .unwrap()
                     .to_owned();
@@ -127,9 +136,10 @@ pub struct AFLState {
 }
 
 impl AFLState {
+    #[must_use]
     pub fn new(seed: u32) -> Self {
         Self {
-            rand: StdRand::with_seed(seed as u64),
+            rand: StdRand::with_seed(u64::from(seed)),
             corpus: AFLCorpus::default(),
             metadata: SerdeAnyMap::new(),
             max_size: MAX_FILE,
@@ -153,7 +163,11 @@ impl HasRand for AFLState {
     }
 }
 
-impl HasCorpus<BytesInput> for AFLState {
+impl UsesInput for AFLState {
+    type Input = BytesInput;
+}
+
+impl HasCorpus for AFLState {
     type Corpus = AFLCorpus;
 
     #[inline]
@@ -208,7 +222,7 @@ impl CustomMutator for LibAFLBaseCustomMutator {
                 tokens.push(data.to_vec());
             }
             if !tokens.is_empty() {
-                state.add_metadata(Tokens::new(tokens));
+                state.add_metadata(Tokens::from(tokens));
             }
             Ok(Self {
                 state,
@@ -220,7 +234,7 @@ impl CustomMutator for LibAFLBaseCustomMutator {
     fn fuzz<'b, 's: 'b>(
         &'s mut self,
         buffer: &'b mut [u8],
-        add_buff: Option<&[u8]>,
+        _add_buff: Option<&[u8]>,
         max_size: usize,
     ) -> Result<Option<&'b [u8]>, Self::Error> {
         self.state.set_max_size(max_size);

@@ -8,6 +8,7 @@
   "__afl_auto_first";
   "__afl_auto_init";
   "__afl_auto_second";
+  "__afl_connected";
   "__afl_coverage_discard";
   "__afl_coverage_interesting";
   "__afl_coverage_off";
@@ -53,4 +54,5 @@
   "__sanitizer_cov_trace_pc_guard";
   "__sanitizer_cov_trace_pc_guard_init";
   "__sanitizer_cov_trace_switch";
+  "LLVMFuzzerTestOneInput";
 };

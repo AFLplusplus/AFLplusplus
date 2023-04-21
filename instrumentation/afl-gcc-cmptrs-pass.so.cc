@@ -3,7 +3,7 @@
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
-   Copyright 2019-2022 AdaCore
+   Copyright 2019-2023 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL++
    LLVM CmpLog Routines pass by Andrea Fioraldi
@@ -241,7 +241,7 @@ struct afl_cmptrs_pass : afl_base_pass {
       for (gimple_stmt_iterator gsi = gsi_after_labels(bb); !gsi_end_p(gsi);
            gsi_next(&gsi)) {
 
-        gimple *stmt = gsi_stmt(gsi);
+        gimple stmt = gsi_stmt(gsi);
 
         /* We're only interested in GIMPLE_CALLs.  */
         if (gimple_code(stmt) != GIMPLE_CALL) continue;
@@ -291,8 +291,8 @@ struct afl_cmptrs_pass : afl_base_pass {
           tree c = fold_convert_loc(UNKNOWN_LOCATION, tp8u, arg[i]);
           if (!is_gimple_val(c)) {
 
-            tree    s = make_ssa_name(tp8u);
-            gimple *g = gimple_build_assign(s, c);
+            tree   s = make_ssa_name(tp8u);
+            gimple g = gimple_build_assign(s, c);
             c = s;
             gsi_insert_before(&gsi, g, GSI_SAME_STMT);
 
@@ -302,7 +302,7 @@ struct afl_cmptrs_pass : afl_base_pass {
 
         }
 
-        gimple *call = gimple_build_call(fn, 2, arg[0], arg[1]);
+        gimple call = gimple_build_call(fn, 2, arg[0], arg[1]);
         gsi_insert_before(&gsi, call, GSI_SAME_STMT);
 
       }

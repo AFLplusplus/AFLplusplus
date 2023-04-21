@@ -11,7 +11,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -167,6 +167,25 @@ static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
 
 }
 
+/* replace everything with different values */
+static void random_replace(afl_state_t *afl, u8 *buf, u32 len) {
+
+  for (u32 i = 0; i < len; i++) {
+
+    u8 c;
+
+    do {
+
+      c = rand_below(afl, 256);
+
+    } while (c == buf[i]);
+
+    buf[i] = c;
+
+  }
+
+}
+
 /* replace everything with different values but stay in the same type */
 static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
@@ -293,7 +312,15 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   memcpy(backup, buf, len);
   memcpy(changed, buf, len);
-  type_replace(afl, changed, len);
+  if (afl->cmplog_random_colorization) {
+
+    random_replace(afl, changed, len);
+
+  } else {
+
+    type_replace(afl, changed, len);
+
+  }
 
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
          afl->stage_cur < afl->stage_max) {
@@ -1008,7 +1035,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         } else {
 
-          diff = 0;
+          o_diff = 0;
 
         }
 
@@ -1596,6 +1623,8 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
       cons_0 = cons_ff = 0;
 
     }
+
+    if (cons_0 > 1 || cons_ff > 1) { return; }
 
   }
 

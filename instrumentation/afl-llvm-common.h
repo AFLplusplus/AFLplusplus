@@ -8,6 +8,7 @@
 #include <list>
 #include <string>
 #include <fstream>
+#include <optional>
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
@@ -35,6 +36,12 @@ typedef long double max_align_t;
 #if LLVM_VERSION_MAJOR >= 11
   #define MNAME M.getSourceFileName()
   #define FMNAME F.getParent()->getSourceFileName()
+  #if LLVM_VERSION_MAJOR >= 16
+// None becomes deprecated
+// the standard std::nullopt_t is recommended instead
+// from C++17 and onwards.
+constexpr std::nullopt_t None = std::nullopt;
+  #endif
 #else
   #define MNAME std::string("")
   #define FMNAME std::string("")

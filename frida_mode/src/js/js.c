@@ -18,10 +18,8 @@ static GumScriptScheduler *scheduler;
 static GMainContext       *context;
 static GMainLoop          *main_loop;
 
-static void js_msg(GumScript *script, const gchar *message, GBytes *data,
-                   gpointer user_data) {
+static void js_msg(const gchar *message, GBytes *data, gpointer user_data) {
 
-  UNUSED_PARAMETER(script);
   UNUSED_PARAMETER(data);
   UNUSED_PARAMETER(user_data);
   FOKF("%s", message);
@@ -124,8 +122,8 @@ void js_start(void) {
   main_loop = g_main_loop_new(context, true);
   g_main_context_push_thread_default(context);
 
-  gum_script_backend_create(backend, "example", source, cancellable, create_cb,
-                            &error);
+  gum_script_backend_create(backend, "example", source, NULL, cancellable,
+                            create_cb, &error);
 
   while (g_main_context_pending(context))
     g_main_context_iteration(context, FALSE);
