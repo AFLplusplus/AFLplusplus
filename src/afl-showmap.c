@@ -140,7 +140,7 @@ static void kill_child() {
 
 }
 
-/* dummy function */
+/* dummy functions */
 u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
 
   (void)afl;
@@ -149,7 +149,30 @@ u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
 
 }
 
-static void classify_counts(afl_forkserver_t *fsrv) {
+void show_stats(afl_state_t *afl) {
+
+  (void)afl;
+
+}
+
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+
+  (void)afl;
+  (void)q;
+
+}
+
+fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                                  u32 i) {
+
+  (void)afl;
+  (void)fsrv;
+  (void)i;
+  return 0;
+
+}
+
+void classify_counts(afl_forkserver_t *fsrv) {
 
   u8       *mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
