@@ -18,6 +18,7 @@ typedef struct {
 gboolean ranges_debug_maps = FALSE;
 gboolean ranges_inst_libs = FALSE;
 gboolean ranges_inst_jit = FALSE;
+gboolean ranges_inst_dynamic_load = TRUE;
 
 static GArray *module_ranges = NULL;
 static GArray *libs_ranges = NULL;
@@ -25,6 +26,7 @@ static GArray *jit_ranges = NULL;
 static GArray *include_ranges = NULL;
 static GArray *exclude_ranges = NULL;
 static GArray *ranges = NULL;
+static GArray *whole_memory_ranges = NULL;
 
 static void convert_address_token(gchar *token, GumMemoryRange *range) {
 
@@ -387,6 +389,21 @@ static GArray *collect_jit_ranges(void) {
 
 }
 
+static GArray *collect_whole_mem_ranges(void) {
+
+  GArray        *result;
+  GumMemoryRange range;
+  result = g_array_new(false, false, sizeof(GumMemoryRange));
+
+  range.base_address = 0;
+  range.size = G_MAXULONG;
+
+  g_array_append_val(result, range);
+
+  return result;
+
+}
+
 static gboolean intersect_range(GumMemoryRange *rr, GumMemoryRange *ra,
                                 GumMemoryRange *rb) {
 
@@ -574,11 +591,17 @@ void ranges_config(void) {
   if (getenv("AFL_FRIDA_DEBUG_MAPS") != NULL) { ranges_debug_maps = TRUE; }
   if (getenv("AFL_INST_LIBS") != NULL) { ranges_inst_libs = TRUE; }
   if (getenv("AFL_FRIDA_INST_JIT") != NULL) { ranges_inst_jit = TRUE; }
+  if (getenv("AFL_FRIDA_INST_NO_DYNAMIC_LOAD") != NULL) {
+
+    ranges_inst_dynamic_load = FALSE;
+
+  }
 
   if (ranges_debug_maps) { ranges_print_debug_maps(); }
 
   include_ranges = collect_ranges("AFL_FRIDA_INST_RANGES");
   exclude_ranges = collect_ranges("AFL_FRIDA_EXCLUDE_RANGES");
+  whole_memory_ranges = collect_whole_mem_ranges();
 
 }
 
@@ -628,10 +651,20 @@ void ranges_init(void) {
   print_ranges("step4", step4);
 
   /*
-   * After step4, we have the total ranges to be instrumented, we now subtract
-   * that from the original ranges of the modules to configure stalker.
+   * After step 4 we have the total ranges to be instrumented, we now subtract
+   * that either from the original ranges of the modules or from the whole
+   * memory if AFL_INST_NO_DYNAMIC_LOAD to configure the stalker.
    */
-  step5 = subtract_ranges(module_ranges, step4);
+  if (ranges_inst_dynamic_load) {
+
+    step5 = subtract_ranges(module_ranges, step4);
+
+  } else {
+
+    step5 = subtract_ranges(whole_memory_ranges, step4);
+
+  }
+
   print_ranges("step5", step5);
 
   ranges = merge_ranges(step5);
