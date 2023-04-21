@@ -287,9 +287,9 @@ $PLOT_EG
 
 _EOF_
 
-) | gnuplot
+) | gnuplot || echo "Note: if you see errors concerning 'unknown or ambiguous terminal type' then you need to use a gnuplot that has png support compiled in."
 
-echo "[?] You can also use -g flag to view the plots in an GUI window, and interact with the plots (if you have built afl-plot-ui). Run \"afl-plot-h\" to know more."
+echo "[?] You can also use -g flag to view the plots in an GUI window, and interact with the plots (if you have built afl-plot-ui). Run \"afl-plot -h\" to know more."
 
 fi
 

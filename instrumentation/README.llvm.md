@@ -116,7 +116,7 @@ PCGUARD analysis.
 Several options are present to make llvm_mode faster or help it rearrange the
 code to make afl-fuzz path discovery easier.
 
-If you need just to instrument specific parts of the code, you can the
+If you need just to instrument specific parts of the code, you can create the
 instrument file list which C/C++ files to actually instrument. See
 [README.instrument_list.md](README.instrument_list.md)
 
@@ -166,6 +166,10 @@ explanation, see [README.persistent_mode.md](README.persistent_mode.md).
 Just specify `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` and during compilation
 all constant string compare parameters will be written to this file to be used
 with afl-fuzz' `-x` option.
+
+Adding `AFL_LLVM_DICT2FILE_NO_MAIN=1` will skip parsing `main()` which often
+does command line parsing which has string comparisons that are not helpful
+for fuzzing.
 
 ## 6) AFL++ Context Sensitive Branch Coverage
 

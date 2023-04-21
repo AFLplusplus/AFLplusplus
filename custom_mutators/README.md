@@ -11,6 +11,16 @@ The `./examples` folder contains examples for custom mutators in python and C.
 
 In `./rust`, you will find rust bindings, including a simple example in `./rust/example` and an example for structured fuzzing, based on lain, in`./rust/example_lain`.
 
+## The AFL++ grammar agnostic grammar mutator
+
+In `./autotokens` you find a token-level fuzzer that does not need to know
+anything about the grammar of an input as long as it is in ascii and allows
+whitespace.
+It is very fast and effective.
+
+If you are looking for an example of how to effectively create a custom
+mutator take a look at this one.
+
 ## The AFL++ Grammar Mutator
 
 If you use git to clone AFL++, then the following will incorporate our

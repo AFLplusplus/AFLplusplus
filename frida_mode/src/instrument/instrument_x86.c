@@ -83,11 +83,11 @@ gboolean instrument_is_coverage_optimize_supported(void) {
 
 }
 
-static void instrument_coverage_switch(GumStalkerObserver *self,
-                                       gpointer            from_address,
-                                       gpointer            start_address,
-                                       const cs_insn      *from_insn,
-                                       gpointer           *target) {
+static void instrument_coverage_switch_insn(GumStalkerObserver *self,
+                                            gpointer            from_address,
+                                            gpointer            start_address,
+                                            const cs_insn      *from_insn,
+                                            gpointer           *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
@@ -127,6 +127,35 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
   }
 
   *target = (guint8 *)*target + sizeof(afl_log_code);
+
+}
+
+cs_insn *instrument_disassemble(gconstpointer address) {
+
+  csh      capstone;
+  cs_insn *insn = NULL;
+
+  cs_open(CS_ARCH_X86, GUM_CPU_MODE, &capstone);
+  cs_option(capstone, CS_OPT_DETAIL, CS_OPT_ON);
+
+  cs_disasm(capstone, address, 16, GPOINTER_TO_SIZE(address), 1, &insn);
+
+  cs_close(&capstone);
+
+  return insn;
+
+}
+
+static void instrument_coverage_switch(GumStalkerObserver *self,
+                                       gpointer            from_address,
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
+
+  if (from_insn == NULL) { return; }
+  cs_insn *insn = instrument_disassemble(from_insn);
+  instrument_coverage_switch_insn(self, from_address, start_address, insn,
+                                  target);
+  cs_free(insn, 1);
 
 }
 
@@ -174,13 +203,17 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   code.code = template;
 
-  instrument_coverage_suppress_init();
+  if (instrument_suppress) {
 
-  // gum_x86_writer_put_breakpoint(cw);
+    instrument_coverage_suppress_init();
 
-  if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+    // gum_x86_writer_put_breakpoint(cw);
 
-    FATAL("Failed - g_hash_table_add");
+    if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
 
   }
 

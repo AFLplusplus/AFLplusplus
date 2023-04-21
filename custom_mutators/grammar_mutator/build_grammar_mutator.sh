@@ -14,7 +14,7 @@
 #                                <andreafioraldi@gmail.com>
 #
 # Copyright 2017 Battelle Memorial Institute. All rights reserved.
-# Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+# Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ else
   }
 fi
 
-test -f grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -e grammar_mutator/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got grammar mutator."
 
 cd "grammar_mutator" || exit 1

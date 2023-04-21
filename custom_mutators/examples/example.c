@@ -6,8 +6,8 @@
              Dominik Maier <mail@dmnk.co>
 */
 
-// You need to use -I /path/to/AFLplusplus/include
-#include "custom_mutator_helpers.h"
+// You need to use -I/path/to/AFLplusplus/include -I.
+#include "afl-fuzz.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -26,19 +26,14 @@ static const char *commands[] = {
 
 typedef struct my_mutator {
 
-  afl_t *afl;
+  afl_state_t *afl;
 
   // any additional data here!
   size_t trim_size_current;
   int    trimmming_steps;
   int    cur_step;
 
-  // Reused buffers:
-  BUF_VAR(u8, fuzz);
-  BUF_VAR(u8, data);
-  BUF_VAR(u8, havoc);
-  BUF_VAR(u8, trim);
-  BUF_VAR(u8, post_process);
+  u8 *mutated_out, *post_process_buf, *trim_buf;
 
 } my_mutator_t;
 
@@ -53,7 +48,7 @@ typedef struct my_mutator {
  *         There may be multiple instances of this mutator in one afl-fuzz run!
  *         Return NULL on error.
  */
-my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
+my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   srand(seed);  // needed also by surgical_havoc_mutate()
 
@@ -61,6 +56,27 @@ my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
   if (!data) {
 
     perror("afl_custom_init alloc");
+    return NULL;
+
+  }
+
+  if ((data->mutated_out = (u8 *)malloc(MAX_FILE)) == NULL) {
+
+    perror("afl_custom_init malloc");
+    return NULL;
+
+  }
+
+  if ((data->post_process_buf = (u8 *)malloc(MAX_FILE)) == NULL) {
+
+    perror("afl_custom_init malloc");
+    return NULL;
+
+  }
+
+  if ((data->trim_buf = (u8 *)malloc(MAX_FILE)) == NULL) {
+
+    perror("afl_custom_init malloc");
     return NULL;
 
   }
@@ -96,29 +112,14 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   // the fuzzer
   size_t mutated_size = DATA_SIZE <= max_size ? DATA_SIZE : max_size;
 
-  // maybe_grow is optimized to be quick for reused buffers.
-  u8 *mutated_out = maybe_grow(BUF_PARAMS(data, fuzz), mutated_size);
-  if (!mutated_out) {
-
-    *out_buf = NULL;
-    perror("custom mutator allocation (maybe_grow)");
-    return 0;            /* afl-fuzz will very likely error out after this. */
-
-  }
+  memcpy(data->mutated_out, buf, buf_size);
 
   // Randomly select a command string to add as a header to the packet
-  memcpy(mutated_out, commands[rand() % 3], 3);
+  memcpy(data->mutated_out, commands[rand() % 3], 3);
 
-  // Mutate the payload of the packet
-  int i;
-  for (i = 0; i < 8; ++i) {
+  if (mutated_size > max_size) { mutated_size = max_size; }
 
-    // Randomly perform one of the (no len modification) havoc mutations
-    surgical_havoc_mutate(mutated_out, 3, mutated_size);
-
-  }
-
-  *out_buf = mutated_out;
+  *out_buf = data->mutated_out;
   return mutated_size;
 
 }
@@ -142,24 +143,16 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 size_t afl_custom_post_process(my_mutator_t *data, uint8_t *buf,
                                size_t buf_size, uint8_t **out_buf) {
 
-  uint8_t *post_process_buf =
-      maybe_grow(BUF_PARAMS(data, post_process), buf_size + 5);
-  if (!post_process_buf) {
+  if (buf_size + 5 > MAX_FILE) { buf_size = MAX_FILE - 5; }
 
-    perror("custom mutator realloc failed.");
-    *out_buf = NULL;
-    return 0;
+  memcpy(data->post_process_buf + 5, buf, buf_size);
+  data->post_process_buf[0] = 'A';
+  data->post_process_buf[1] = 'F';
+  data->post_process_buf[2] = 'L';
+  data->post_process_buf[3] = '+';
+  data->post_process_buf[4] = '+';
 
-  }
-
-  memcpy(post_process_buf + 5, buf, buf_size);
-  post_process_buf[0] = 'A';
-  post_process_buf[1] = 'F';
-  post_process_buf[2] = 'L';
-  post_process_buf[3] = '+';
-  post_process_buf[4] = '+';
-
-  *out_buf = post_process_buf;
+  *out_buf = data->post_process_buf;
 
   return buf_size + 5;
 
@@ -194,13 +187,6 @@ int32_t afl_custom_init_trim(my_mutator_t *data, uint8_t *buf,
   data->trimmming_steps = 1;
 
   data->cur_step = 0;
-
-  if (!maybe_grow(BUF_PARAMS(data, trim), buf_size)) {
-
-    perror("init_trim grow");
-    return -1;
-
-  }
 
   memcpy(data->trim_buf, buf, buf_size);
 
@@ -282,27 +268,11 @@ int32_t afl_custom_post_trim(my_mutator_t *data, int success) {
 size_t afl_custom_havoc_mutation(my_mutator_t *data, u8 *buf, size_t buf_size,
                                  u8 **out_buf, size_t max_size) {
 
-  if (buf_size == 0) {
+  *out_buf = buf;  // in-place mutation
 
-    *out_buf = maybe_grow(BUF_PARAMS(data, havoc), 1);
-    if (!*out_buf) {
+  if (buf_size <= sizeof(size_t)) { return buf_size; }
 
-      perror("custom havoc: maybe_grow");
-      return 0;
-
-    }
-
-    **out_buf = rand() % 256;
-    buf_size = 1;
-
-  } else {
-
-    // We reuse buf here. It's legal and faster.
-    *out_buf = buf;
-
-  }
-
-  size_t victim = rand() % buf_size;
+  size_t victim = rand() % (buf_size - sizeof(size_t));
   (*out_buf)[victim] += rand() % 10;
 
   return buf_size;
@@ -369,9 +339,7 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
 void afl_custom_deinit(my_mutator_t *data) {
 
   free(data->post_process_buf);
-  free(data->havoc_buf);
-  free(data->data_buf);
-  free(data->fuzz_buf);
+  free(data->mutated_out);
   free(data->trim_buf);
   free(data);
 

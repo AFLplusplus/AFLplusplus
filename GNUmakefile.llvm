@@ -45,11 +45,12 @@ endif
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's/svn//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
 LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
-LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[5-9]' && echo 1 || echo 0 )
-LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
-LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
-LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
+LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[5-9]' && echo 1 || echo 0 )
+LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )
+LLVM_NEWER_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[6-9]' && echo 1 || echo 0 )
+LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
+LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]' && echo 1 || echo 0 )
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
@@ -81,25 +82,23 @@ ifeq "$(LLVM_NEW_API)" "1"
   LLVM_TOO_OLD=0
 endif
 
+ifeq "$(LLVM_NEWER_API)" "1"
+  $(info [+] llvm_mode detected llvm 16+, enabling c++17)
+  LLVM_STDCXX = c++17
+endif
+
 ifeq "$(LLVM_TOO_OLD)" "1"
   $(info [!] llvm_mode detected an old version of llvm, upgrade to at least 9 or preferable 11!)
   $(shell sleep 1)
 endif
 
-ifeq "$(LLVM_MAJOR)" "15"
-  $(info [!] llvm_mode detected llvm 15, which is currently broken for LTO plugins.)
-  LLVM_LTO = 0
-  LLVM_HAVE_LTO = 0
-endif
-
 ifeq "$(LLVM_HAVE_LTO)" "1"
   $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
-  #TEST_MMAP = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 11 or llvm 15, afl-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 11, afl-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE_XCODE)" "1"
@@ -220,6 +219,17 @@ ifeq "$(LLVM_LTO)" "1"
     ifeq "$(AFL_REAL_LD)" ""
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
+      else ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
+        AFL_REAL_LD = $(shell command -v ld.lld)
+        TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
+        ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
+          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+        else
+          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
+          AFL_REAL_LD=
+          LLVM_LTO = 0
+        endif
+        undefine TMP_LDLDD_VERSION
       else
         $(warning ld.lld not found, cannot enable LTO mode)
         LLVM_LTO = 0
@@ -235,7 +245,7 @@ AFL_CLANG_FUSELD=
 ifeq "$(LLVM_LTO)" "1"
   ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
     AFL_CLANG_FUSELD=1
-    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(LLVM_BINDIR)/ld.lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(AFL_REAL_LD) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
       AFL_CLANG_LDPATH=1
     endif
   else
@@ -250,26 +260,29 @@ else
         AFL_CLANG_DEBUG_PREFIX =
 endif
 
-CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
-CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign -I ./include/ -I ./instrumentation/ \
+CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
+CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
+                   -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                    -DLLVM_LIBDIR=\"$(LLVM_LIBDIR)\" -DLLVM_VERSION=\"$(LLVMVER)\" \
-                   -Wno-deprecated -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-                   -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
-                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" \
-                   -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
-                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function \
-                   $(AFL_CLANG_DEBUG_PREFIX)
+                   -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
+                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
+                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) \
+                   -Wno-unused-function $(AFL_CLANG_DEBUG_PREFIX)
+ifndef LLVM_DEBUG
+  CFLAGS_SAFE += -Wno-deprecated
+endif
+
 override CFLAGS += $(CFLAGS_SAFE)
 
 ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 override CXXFLAGS += -Wall -g -I ./include/ \
-                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros -Wno-deprecated-copy-with-dtor \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
 
 ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""
@@ -281,6 +294,11 @@ endif
 CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
+# wasm fuzzing: disable thread-local storage and unset LLVM debug flag
+ifdef WAFL_MODE
+  $(info Compiling libraries for use with WAVM)
+  CLANG_CPPFL += -DNDEBUG -DNO_TLS
+endif
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(SYS)" "Darwin"

@@ -7,10 +7,10 @@ LIBPNG_BUILD_DIR:=$(BUILD_DIR)libpng/
 HARNESS_BUILD_DIR:=$(BUILD_DIR)harness/
 PNGTEST_BUILD_DIR:=$(BUILD_DIR)pngtest/
 
-LIBZ_FILE:=$(LIBZ_BUILD_DIR)zlib-1.2.12.tar.gz
-LIBZ_URL:=http://www.zlib.net/zlib-1.2.12.tar.gz
-LIBZ_DIR:=$(LIBZ_BUILD_DIR)zlib-1.2.12/
-LIBZ_PC:=$(ZLIB_DIR)zlib.pc
+LIBZ_FILE:=$(LIBZ_BUILD_DIR)zlib-1.2.13.tar.gz
+LIBZ_URL:=http://www.zlib.net/zlib-1.2.13.tar.gz
+LIBZ_DIR:=$(LIBZ_BUILD_DIR)zlib-1.2.13/
+LIBZ_PC:=$(LIBZ_DIR)zlib.pc
 LIBZ_LIB:=$(LIBZ_DIR)libz.a
 
 LIBPNG_FILE:=$(LIBPNG_BUILD_DIR)libpng-1.2.56.tar.gz
@@ -25,7 +25,7 @@ HARNESS_URL:="https://raw.githubusercontent.com/llvm/llvm-project/main/compiler-
 
 PNGTEST_FILE:=$(PNGTEST_BUILD_DIR)target.cc
 PNGTEST_OBJ:=$(PNGTEST_BUILD_DIR)target.o
-PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/master/benchmarks/libpng-1.2.56/target.cc"
+PNGTEST_URL:="https://raw.githubusercontent.com/google/fuzzbench/e0c4a994b6999bae46e8dec5bcea9a73251b8dba/benchmarks/libpng-1.2.56/target.cc"
 
 TEST_BIN:=$(BUILD_DIR)test
 ifeq "$(shell uname)" "Darwin"
@@ -48,7 +48,7 @@ all: $(TEST_BIN)
 	CFLAGS="-m32" LDFLAGS="-m32" make $(TEST_BIN)
 
 arm:
-	ARCH="arm" CC="arm-linux-gnueabihf-gcc" CXX="arm-linux-gnueabihf-g++" make $(TEST_BIN)
+	CFLAGS="-marm" LDFLAGS="-marm" CC="arm-linux-gnueabihf-gcc" CXX="arm-linux-gnueabihf-g++" make $(TEST_BIN)
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -96,7 +96,7 @@ $(LIBZ_PC): | $(LIBZ_DIR)
 			--static \
 			--archs="$(ARCH)"
 
-$(LIBZ_LIB): $(LIBZ_PC)
+$(LIBZ_LIB): | $(LIBZ_PC)
 	CFLAGS="$(CFLAGS) -fPIC" \
 		make \
 			-C $(LIBZ_DIR) \
@@ -133,7 +133,7 @@ png: $(LIBPNG_LIB)
 
 ######### TEST ########
 
-$(TEST_BIN): $(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB)
+$(TEST_BIN): $(HARNESS_OBJ) $(PNGTEST_OBJ) $(LIBPNG_LIB) $(LIBZ_LIB)
 	$(CXX) \
 		$(CFLAGS) \
 		$(LDFLAGS) \

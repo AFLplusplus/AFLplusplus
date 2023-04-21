@@ -133,7 +133,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     test -z "$SKIP" && {
       $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
       {
-        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -D -- ./test-instr.plain >>errors 2>&1
+        ../afl-fuzz -V07 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
@@ -228,7 +228,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     echo ZZZZ > in/in
     $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 45 seconds"
     {
-      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -Z -s 123 -V50 -m ${MEM_LIMIT} -i in -o out -D -- ./test-floatingpoint >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -Z -s 123 -V15 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
@@ -257,14 +257,15 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   rm -f test-compcov test.out instrumentlist.txt
   AFL_LLVM_CMPLOG=1 ../afl-clang-fast -o test-cmplog test-cmplog.c > /dev/null 2>&1
+  ../afl-clang-fast -o test-c test-cmplog.c > /dev/null 2>&1
   test -e test-cmplog && {
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode cmplog, this will take approx 10 seconds"
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -m none -V60 -i in -o out -c./test-cmplog -- ./test-cmplog >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -m none -V15 -i in -o out -c./test-cmplog -- ./test-c >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" & {
+    test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -277,7 +278,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
     INCOMPLETE=1
   }
-  rm -rf errors test-cmplog in core.*
+  rm -rf errors test-cmplog test-c in core.*
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {

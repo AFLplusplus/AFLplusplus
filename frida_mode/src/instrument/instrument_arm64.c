@@ -156,26 +156,55 @@ static gboolean instrument_is_deterministic(const cs_insn *from_insn) {
 
 }
 
+cs_insn *instrument_disassemble(gconstpointer address) {
+
+  csh      capstone;
+  cs_insn *insn = NULL;
+
+  cs_open(CS_ARCH_ARM64, GUM_DEFAULT_CS_ENDIAN, &capstone);
+  cs_option(capstone, CS_OPT_DETAIL, CS_OPT_ON);
+
+  cs_disasm(capstone, address, 16, GPOINTER_TO_SIZE(address), 1, &insn);
+
+  cs_close(&capstone);
+
+  return insn;
+
+}
+
 static void instrument_coverage_switch(GumStalkerObserver *self,
                                        gpointer            from_address,
-                                       gpointer            start_address,
-                                       const cs_insn      *from_insn,
-                                       gpointer           *target) {
+                                       gpointer start_address, void *from_insn,
+                                       gpointer *target) {
 
   UNUSED_PARAMETER(self);
   UNUSED_PARAMETER(from_address);
   UNUSED_PARAMETER(start_address);
 
-  gsize fixup_offset;
+  cs_insn *insn = NULL;
+  gboolean deterministic = FALSE;
+  gsize    fixup_offset;
 
   if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target)) &&
-      !g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target + 4))) {
+      !g_hash_table_contains(coverage_blocks,
+                             GSIZE_TO_POINTER((guint8 *)*target + 4))) {
 
     return;
 
   }
 
-  if (instrument_is_deterministic(from_insn)) { return; }
+  insn = instrument_disassemble(from_insn);
+  deterministic = instrument_is_deterministic(insn);
+  cs_free(insn, 1);
+
+  /*
+   * If the branch is deterministic, then we should start execution at the
+   * begining of the block. From here, we will branch and skip the coverage
+   * code and jump right to the target code of the instrumented block.
+   * Otherwise, if the branch is non-deterministic, then we need to branch
+   * part way into the block to where the coverage instrumentation starts.
+   */
+  if (deterministic) { return; }
 
   /*
    * Since each block is prefixed with a restoration prologue, we need to be
@@ -208,7 +237,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
    */
   fixup_offset = GUM_RESTORATION_PROLOG_SIZE +
                  G_STRUCT_OFFSET(afl_log_code_asm_t, restoration_prolog);
-  *target += fixup_offset;
+  *target = (guint8 *)*target + fixup_offset;
 
 }
 
@@ -284,7 +313,7 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   // gum_arm64_writer_put_brk_imm(cw, 0x0);
 
-  instrument_coverage_suppress_init();
+  if (instrument_suppress) { instrument_coverage_suppress_init(); }
 
   code_addr = cw->pc;
 
@@ -304,9 +333,13 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   block_start =
       GSIZE_TO_POINTER(GUM_ADDRESS(cw->code) - GUM_RESTORATION_PROLOG_SIZE);
 
-  if (!g_hash_table_add(coverage_blocks, block_start)) {
+  if (instrument_suppress) {
 
-    FATAL("Failed - g_hash_table_add");
+    if (!g_hash_table_add(coverage_blocks, block_start)) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
 
   }
 
@@ -342,7 +375,17 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   code.code.mov_x1_curr_loc_shr_1 |= (area_offset_ror << 5);
 
-  gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+  if (instrument_suppress) {
+
+    gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+
+  } else {
+
+    size_t offset = offsetof(afl_log_code, code.stp_x0_x1);
+    gum_arm64_writer_put_bytes(cw, &code.bytes[offset],
+                               sizeof(afl_log_code) - offset);
+
+  }
 
 }
 

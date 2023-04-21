@@ -10,7 +10,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,6 +76,8 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 u32 __attribute__((hot))
 write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
+  u8 sent = 0;
+
   if (unlikely(afl->custom_mutators_count)) {
 
     ssize_t new_size = len;
@@ -131,13 +133,46 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    /* everything as planned. use the potentially new data. */
-    afl_fsrv_write_to_testcase(&afl->fsrv, new_mem, new_size);
+    if (new_mem != *mem && new_mem != NULL && new_size > 0
+        && !afl->afl_env.afl_post_process_keep_original) {
 
-    if (likely(!afl->afl_env.afl_post_process_keep_original)) {
+        u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
+        if (unlikely(!new_buf)) { PFATAL("alloc"); }
+        *mem = new_buf;
+        memcpy(*mem, new_mem, new_size);
+        afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
 
-        if (new_mem != *mem) { *mem = new_mem; }
-        len = new_size;
+    }
+
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, *mem, new_size);
+          sent = 1;
+
+        }
+
+      });
+
+    }
+
+    if (likely(!sent)) {
+
+      /* everything as planned. use the potentially new data. */
+
+      if (likely(!afl->afl_env.afl_post_process_keep_original)) {
+
+        afl_fsrv_write_to_testcase(&afl->fsrv, *mem, new_size);
+
+      } else {
+
+        afl_fsrv_write_to_testcase(&afl->fsrv, new_mem, new_size);
+
+      }
+      len = new_size;
 
     }
 
@@ -153,8 +188,27 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    /* boring uncustom. */
-    afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, *mem, len);
+          sent = 1;
+
+        }
+
+      });
+
+    }
+
+    if (likely(!sent)) {
+
+      /* boring uncustom. */
+      afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
+
+    }
 
   }
 
@@ -487,7 +541,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         }
 
-        if (unlikely(!var_detected)) {
+        if (unlikely(!var_detected && !afl->afl_env.afl_no_warn_instability)) {
 
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {

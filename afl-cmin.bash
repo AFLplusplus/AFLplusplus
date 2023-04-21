@@ -53,7 +53,7 @@ unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eOQUCh" opt; do
+while getopts "+i:o:f:m:t:eOQUAChXY" opt; do
 
   case "$opt" in 
 
@@ -80,6 +80,9 @@ while getopts "+i:o:f:m:t:eOQUCh" opt; do
     "e")
          EXTRA_PAR="$EXTRA_PAR -e"
          ;;
+    "A")
+         export AFL_CMIN_ALLOW_ANY=1
+         ;;
     "C")
          export AFL_CMIN_CRASHES_ONLY=1
          ;;
@@ -90,6 +93,14 @@ while getopts "+i:o:f:m:t:eOQUCh" opt; do
     "Q")
          EXTRA_PAR="$EXTRA_PAR -Q"
          QEMU_MODE=1
+         ;;
+    "Y")
+         EXTRA_PAR="$EXTRA_PAR -X"
+         NYX_MODE=1
+         ;;
+    "X")
+         EXTRA_PAR="$EXTRA_PAR -X"
+         NYX_MODE=1
          ;;
     "U")
          EXTRA_PAR="$EXTRA_PAR -U"
@@ -125,9 +136,11 @@ Execution control settings:
   -O            - use binary-only instrumentation (FRIDA mode)
   -Q            - use binary-only instrumentation (QEMU mode)
   -U            - use unicorn-based instrumentation (Unicorn mode)
+  -X            - use Nyx mode
   
 Minimization settings:
 
+  -A            - allow crashing and timeout inputs
   -C            - keep crashing inputs, reject everything else
   -e            - solve for edge coverage only, ignore hit counts
 
@@ -138,6 +151,8 @@ AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
 AFL_NO_FORKSRV: run target via execve instead of using the forkserver
 AFL_PATH: last resort location to find the afl-showmap binary
 AFL_SKIP_BIN_CHECK: skip check for target binary
+AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
+AFL_PYTHON_MODULE: custom mutator library (post_process and send)
 _EOF_
   exit 1
 fi
@@ -202,16 +217,19 @@ if [ ! "$TIMEOUT" = "none" ]; then
 
 fi
 
-if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
+if [ "$NYX_MODE" = "" ]; then
+  if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
 
-  TNEW="`which "$TARGET_BIN" 2>/dev/null`"
+    TNEW="`which "$TARGET_BIN" 2>/dev/null`"
 
-  if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
-    echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
-    exit 1
+    if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
+      echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
+      exit 1
+    fi
+
+    TARGET_BIN="$TNEW"
+
   fi
-
-  TARGET_BIN="$TNEW"
 
 fi
 
@@ -224,7 +242,7 @@ grep -aq AFL_DUMP_MAP_SIZE "./$TARGET_BIN" && {
   }
 }
 
-if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
+if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" -a "$NYX_MODE" = "" ]; then
 
   if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then
     echo "[-] Error: binary '$TARGET_BIN' doesn't appear to be instrumented." 1>&2

@@ -6,7 +6,7 @@
    Originally written by Michal Zalewski
 
    Copyright 2016 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -304,7 +304,8 @@ static void *__dislocator_alloc(size_t len) {
 /* The "user-facing" wrapper for calloc(). This just checks for overflows and
    displays debug messages if requested. */
 
-void *calloc(size_t elem_len, size_t elem_cnt) {
+__attribute__((malloc)) __attribute__((alloc_size(1, 2))) void *calloc(
+    size_t elem_len, size_t elem_cnt) {
 
   void *ret;
 
@@ -339,7 +340,8 @@ void *calloc(size_t elem_len, size_t elem_cnt) {
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
    memory). */
 
-void *malloc(size_t len) {
+__attribute__((malloc)) __attribute__((alloc_size(1))) void *malloc(
+    size_t len) {
 
   void *ret;
 
@@ -398,7 +400,7 @@ void free(void *ptr) {
 /* Realloc is pretty straightforward, too. We forcibly reallocate the buffer,
    move data, and then free (aka mprotect()) the original one. */
 
-void *realloc(void *ptr, size_t len) {
+__attribute__((alloc_size(2))) void *realloc(void *ptr, size_t len) {
 
   void *ret;
 
@@ -450,7 +452,8 @@ int posix_memalign(void **ptr, size_t align, size_t len) {
 
 /* just the non-posix fashion */
 
-void *memalign(size_t align, size_t len) {
+__attribute__((malloc)) __attribute__((alloc_size(2))) void *memalign(
+    size_t align, size_t len) {
 
   void *ret = NULL;
 
@@ -466,7 +469,8 @@ void *memalign(size_t align, size_t len) {
 
 /* sort of C11 alias of memalign only more severe, alignment-wise */
 
-void *aligned_alloc(size_t align, size_t len) {
+__attribute__((malloc)) __attribute__((alloc_size(2))) void *aligned_alloc(
+    size_t align, size_t len) {
 
   void *ret = NULL;
 
@@ -484,7 +488,8 @@ void *aligned_alloc(size_t align, size_t len) {
 
 /* specific BSD api mainly checking possible overflow for the size */
 
-void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
+__attribute__((alloc_size(2, 3))) void *reallocarray(void *ptr, size_t elem_len,
+                                                     size_t elem_cnt) {
 
   const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
   const size_t elem_tot = elem_len * elem_cnt;
@@ -502,6 +507,24 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
   }
 
   return ret;
+
+}
+
+int reallocarr(void *ptr, size_t elem_len, size_t elem_cnt) {
+
+  void        *ret = NULL;
+  const size_t elem_tot = elem_len * elem_cnt;
+
+  if (elem_tot == 0) {
+
+    void **h = &ptr;
+    *h = ret;
+    return 0;
+
+  }
+
+  ret = reallocarray(ptr, elem_len, elem_cnt);
+  return ret ? 0 : -1;
 
 }
 
