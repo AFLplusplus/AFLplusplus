@@ -8,7 +8,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *buf, size_t i) {
 
-  if (i < 30) return 0;
+  if (i < 30) return -1;
   if (buf[0] != 'A') return 0;
   if (buf[1] != 'B') return 0;
   if (buf[2] != 'C') return 0;

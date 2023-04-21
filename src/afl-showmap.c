@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,8 +30,10 @@
  */
 
 #define AFL_MAIN
+#define AFL_SHOWMAP
 
 #include "config.h"
+#include "afl-fuzz.h"
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
@@ -61,6 +63,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+
+static afl_state_t *afl;
 
 static char *stdin_file;               /* stdin file                        */
 
@@ -129,7 +133,7 @@ static void kill_child() {
   timed_out = 1;
   if (fsrv->child_pid > 0) {
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
     fsrv->child_pid = -1;
 
   }
@@ -308,12 +312,73 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 }
 
+void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
+
+  static u8 buf[MAX_FILE];
+  u32       sent = 0;
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    ssize_t new_size = len;
+    u8     *new_mem = mem;
+    u8     *new_buf = NULL;
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_process) {
+
+        new_size =
+            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
+
+        if (unlikely(!new_buf || new_size <= 0)) {
+
+          return;
+
+        } else {
+
+          new_mem = new_buf;
+          len = new_size;
+
+        }
+
+      }
+
+    });
+
+    if (new_mem != mem && new_mem != NULL) {
+
+      mem = buf;
+      memcpy(mem, new_mem, new_size);
+
+    }
+
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, mem, len);
+          sent = 1;
+
+        }
+
+      });
+
+    }
+
+  }
+
+  if (likely(!sent)) { afl_fsrv_write_to_testcase(fsrv, mem, len); }
+
+}
+
 /* Execute target application. */
 
 static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
                                           u32 len) {
 
-  afl_fsrv_write_to_testcase(fsrv, mem, len);
+  pre_afl_fsrv_write_to_testcase(fsrv, mem, len);
 
   if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
@@ -434,6 +499,23 @@ static u32 read_file(u8 *in_file) {
 
 }
 
+#ifdef __linux__
+/* Execute the target application with an empty input (in Nyx mode). */
+static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
+
+  afl_fsrv_write_to_testcase(fsrv, NULL, 0);
+
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
+      FSRV_RUN_ERROR) {
+
+    FATAL("Error running target in Nyx mode");
+
+  }
+
+}
+
+#endif
+
 /* Execute target application. */
 
 static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
@@ -515,11 +597,11 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
     it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
+    signal(SIGALRM, kill_child);
+
+    setitimer(ITIMER_REAL, &it, NULL);
+
   }
-
-  signal(SIGALRM, kill_child);
-
-  setitimer(ITIMER_REAL, &it, NULL);
 
   if (waitpid(fsrv->child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
 
@@ -597,49 +679,8 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
   char *afl_preload;
   char *frida_afl_preload = NULL;
-  setenv("ASAN_OPTIONS",
-         "abort_on_error=1:"
-         "detect_leaks=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "detect_odr_violation=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
 
-  setenv("LSAN_OPTIONS",
-         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
-         "fast_unwind_on_malloc=0:"
-         "symbolize=0:"
-         "print_suppressions=0",
-          0);
-
-  setenv("UBSAN_OPTIONS",
-         "halt_on_error=1:"
-         "abort_on_error=1:"
-         "malloc_context_size=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
-
-  setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                         "abort_on_error=1:"
-                         "msan_track_origins=0"
-                         "allocator_may_return_null=1:"
-                         "symbolize=0:"
-                         "handle_segv=0:"
-                         "handle_sigbus=0:"
-                         "handle_abort=0:"
-                         "handle_sigfpe=0:"
-                         "handle_sigill=0", 0);
+  set_sanitizer_defaults();
 
   if (get_afl_env("AFL_PRELOAD")) {
 
@@ -695,7 +736,11 @@ static void setup_signal_handlers(void) {
   struct sigaction sa;
 
   sa.sa_handler = NULL;
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;
+#else
+  sa.sa_flags = 0;
+#endif
   sa.sa_sigaction = NULL;
 
   sigemptyset(&sa.sa_mask);
@@ -822,8 +867,8 @@ static void usage(u8 *argv0) {
       "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-      "  -t msec    - timeout for each run (none)\n"
-      "  -m megs    - memory limit for child process (%u MB)\n"
+      "  -t msec    - timeout for each run (default: 1000ms)\n"
+      "  -m megs    - memory limit for child process (default: none)\n"
 #if defined(__linux__) && defined(__aarch64__)
       "  -A         - use binary-only instrumentation (ARM CoreSight mode)\n"
 #endif
@@ -834,6 +879,7 @@ static void usage(u8 *argv0) {
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
       "               (Not necessary, here for consistency with other afl-* "
       "tools)\n"
+      "  -X         - use Nyx mode\n"
 #endif
       "\n"
       "Other settings:\n"
@@ -854,6 +900,10 @@ static void usage(u8 *argv0) {
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
 
+      "If you use -i mode, then custom mutator post_process send send "
+      "functionality\n"
+      "is supported.\n\n"
+
       "Environment variables used:\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
@@ -865,15 +915,22 @@ static void usage(u8 *argv0) {
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
       "startup (in milliseconds)\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
-      "etc. (default: SIGKILL)\n"
+      "etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on "
+      "termination\n"
+      "                             (default: SIGTERM). If unset and "
+      "AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
-      "size the target was compiled for\n"
+      "size the\n"
+      "              target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
-      "printed to stdout\n"
+      "AFL_PRINT_FILENAMES: Print the queue entry currently processed will to "
+      "stdout\n"
       "AFL_QUIET: do not print extra informational output\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
-      argv0, MEM_LIMIT, doc_path);
+      argv0, doc_path);
 
   exit(1);
 
@@ -905,7 +962,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
 
     switch (opt) {
 
@@ -1009,6 +1066,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
           }
 
+        } else {
+
+          // The forkserver code does not have a way to completely
+          // disable the timeout, so we'll use a very, very long
+          // timeout instead.
+          WARNF(
+              "Setting an execution timeout of 120 seconds ('none' is not "
+              "allowed).");
+          fsrv->exec_tmout = 120 * 1000;
+
         }
 
         break;
@@ -1083,6 +1150,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'Y':  // fallthough
+#ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv->nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv->nyx_mode = 1;
+        fsrv->nyx_parent = true;
+        fsrv->nyx_standalone = true;
+
+        break;
+#else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+#endif
+
       case 'b':
 
         /* Secret undocumented mode. Writes output in raw binary format
@@ -1154,7 +1238,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv, argv);
 
+#ifdef __linux__
+  if (!fsrv->nyx_mode) {
+
+    fsrv->target_path = find_binary(argv[optind]);
+
+  } else {
+
+    fsrv->target_path = ck_strdup(argv[optind]);
+
+  }
+
+#else
   fsrv->target_path = find_binary(argv[optind]);
+#endif
+
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   if (!quiet_mode) {
@@ -1210,13 +1308,75 @@ int main(int argc, char **argv_orig, char **envp) {
     use_argv =
         get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
+#ifdef __linux__
+
+  } else if (fsrv->nyx_mode) {
+
+    use_argv = ck_alloc(sizeof(char *) * (1));
+    use_argv[0] = argv[0];
+
+    fsrv->nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(use_argv[0], "libnyx.so");
+    fsrv->nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv->nyx_handlers == NULL) {
+
+      FATAL("failed to initialize libnyx.so...");
+
+    }
+
+    fsrv->nyx_use_tmp_workdir = true;
+    fsrv->nyx_bind_cpu_id = 0;
+#endif
+
   } else {
 
     use_argv = argv + optind;
 
   }
 
+  afl = calloc(1, sizeof(afl_state_t));
+
+  if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+    s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+    if (forksrv_init_tmout < 1) {
+
+      FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+    fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  if (getenv("AFL_CRASH_EXITCODE")) {
+
+    long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            getenv("AFL_CRASH_EXITCODE"));
+
+    }
+
+    fsrv->uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    fsrv->crash_exitcode = (u8)exitcode;
+
+  }
+
+#ifdef __linux__
+  if (!fsrv->nyx_mode && in_dir) {
+
+    (void)check_binary_signatures(fsrv->target_path);
+
+  }
+
+#else
   if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
+#endif
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
@@ -1236,16 +1396,29 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
+  configure_afl_kill_signals(fsrv, NULL, NULL,
+                             (fsrv->qemu_mode || unicorn_mode
+#ifdef __linux__
+                              || fsrv->nyx_mode
+#endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
+
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;
     if (map_size > 4194304) {
-        fsrv->map_size = map_size;
+
+      fsrv->map_size = map_size;
+
+    } else {
+
+      fsrv->map_size = 4194304;  // dummy temporary value
+
     }
-    else {
-        fsrv->map_size = 4194304; // dummy temporary value
-    }
+
     u32 new_map_size =
         afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
                              (get_afl_env("AFL_DEBUG_CHILD") ||
@@ -1254,9 +1427,6 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
-    fsrv->kill_signal =
-        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
-
     if (new_map_size) {
 
       // only reinitialize when it makes sense
@@ -1264,7 +1434,7 @@ int main(int argc, char **argv_orig, char **envp) {
           (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
         if (!be_quiet)
-          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);
@@ -1278,6 +1448,26 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     fsrv->map_size = map_size;
+
+  }
+
+  if (in_dir) {
+
+    afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    afl->afl_env.afl_custom_mutator_library =
+        getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+    afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+    setup_custom_mutators(afl);
+
+  } else {
+
+    if (getenv("AFL_CUSTOM_MUTATOR_LIBRARY") || getenv("AFL_PYTHON_MODULE")) {
+
+      WARNF(
+          "Custom mutator environment detected, this is only supported in -i "
+          "mode!\n");
+
+    }
 
   }
 
@@ -1343,36 +1533,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
-
-      s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
-      if (forksrv_init_tmout < 1) {
-
-        FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
-
-      }
-
-      fsrv->init_tmout = (u32)forksrv_init_tmout;
-
-    }
-
-    if (getenv("AFL_CRASH_EXITCODE")) {
-
-      long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
-      if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
-          exitcode < -127 || exitcode > 128) {
-
-        FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
-              getenv("AFL_CRASH_EXITCODE"));
-
-      }
-
-      fsrv->uses_crash_exitcode = true;
-      // WEXITSTATUS is 8 bit unsigned
-      fsrv->crash_exitcode = (u8)exitcode;
-
-    }
-
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
                    (get_afl_env("AFL_DEBUG_CHILD") ||
                     get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
@@ -1406,7 +1566,20 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    showmap_run_target(fsrv, use_argv);
+#ifdef __linux__
+    if (!fsrv->nyx_mode) {
+
+#endif
+      showmap_run_target(fsrv, use_argv);
+#ifdef __linux__
+
+    } else {
+
+      showmap_run_target_nyx_mode(fsrv);
+
+    }
+
+#endif
     tcnt = write_results_to_file(fsrv, out_file);
     if (!quiet_mode) {
 

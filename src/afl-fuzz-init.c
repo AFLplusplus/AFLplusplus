@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@
  */
 
 #include "afl-fuzz.h"
+#include "common.h"
 #include <limits.h>
+#include <string.h>
 #include "cmplog.h"
 
 #ifdef HAVE_AFFINITY
@@ -1120,7 +1122,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
-    if (q->var_behavior) {
+    if (unlikely(q->var_behavior && !afl->afl_env.afl_no_warn_instability)) {
 
       WARNF("Instrumentation output varies across runs.");
 
@@ -1817,16 +1819,34 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
   if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", afl->out_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
+    fn = alloc_printf("%s/.cur_input", afl->out_dir);
 
   }
 
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
   ck_free(fn);
+
+  if (afl->afl_env.afl_tmpdir) {
+
+    if (afl->file_extension) {
+
+      fn = alloc_printf("%s/.cur_input.%s", afl->afl_env.afl_tmpdir,
+                        afl->file_extension);
+
+    } else {
+
+      fn = alloc_printf("%s/.cur_input", afl->afl_env.afl_tmpdir);
+
+    }
+
+    if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+    ck_free(fn);
+
+  }
 
   fn = alloc_printf("%s/fuzz_bitmap", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
@@ -1847,6 +1867,10 @@ static void handle_existing_out_dir(afl_state_t *afl) {
     ck_free(fn);
 
   }
+
+  fn = alloc_printf("%s/queue_data", afl->out_dir);
+  if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+  ck_free(fn);
 
   fn = alloc_printf("%s/cmdline", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
@@ -2420,7 +2444,9 @@ void get_core_count(afl_state_t *afl) {
 
       } else if ((s64)cur_runnable + 1 <= (s64)afl->cpu_core_count) {
 
-        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
+        OKF("Try parallel jobs - see "
+            "%s/fuzzing_in_depth.md#c-using-multiple-cores",
+            doc_path);
 
       }
 
@@ -2762,7 +2788,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.nyx_mode &&
 #endif
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
-      !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the target binary is not instrumented! The fuzzer depends "
@@ -2793,7 +2819,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
-      memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with afl-gcc, but is being "
@@ -2806,9 +2832,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (memmem(f_data, f_len, "__asan_init", 11) ||
-      memmem(f_data, f_len, "__msan_init", 11) ||
-      memmem(f_data, f_len, "__lsan_init", 11)) {
+  if (afl_memmem(f_data, f_len, "__asan_init", 11) ||
+      afl_memmem(f_data, f_len, "__msan_init", 11) ||
+      afl_memmem(f_data, f_len, "__lsan_init", 11)) {
 
     afl->fsrv.uses_asan = 1;
 
@@ -2816,7 +2842,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   /* Detect persistent & deferred init signatures in the binary. */
 
-  if (memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
 
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -2843,7 +2869,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (afl->fsrv.frida_mode ||
-      memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);
@@ -2899,8 +2925,11 @@ void setup_signal_handlers(void) {
 
   struct sigaction sa;
 
+  memset((void *)&sa, 0, sizeof(sa));
   sa.sa_handler = NULL;
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;
+#endif
   sa.sa_sigaction = NULL;
 
   sigemptyset(&sa.sa_mask);

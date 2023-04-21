@@ -13,7 +13,7 @@
 # counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 #
 # Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
-# Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+# Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -251,6 +251,7 @@ else
     --disable-qom-cast-debug \
     --disable-stack-protector \
     --disable-werror \
+    --disable-docs \
     "
 
 fi
@@ -360,8 +361,10 @@ if ! command -v "$CROSS" > /dev/null ; then
     make -C libcompcov && echo "[+] libcompcov ready"
     echo "[+] Building unsigaction ..."
     make -C unsigaction && echo "[+] unsigaction ready"
+    echo "[+] Building fastexit ..."
+    make -C fastexit && echo "[+] fastexit ready"
     echo "[+] Building libqasan ..."
-    make -C libqasan && echo "[+] unsigaction ready"
+    make -C libqasan && echo "[+] libqasan ready"
     echo "[+] Building qemu libfuzzer helpers ..."
     make -C ../utils/aflpp_driver
   else
@@ -373,8 +376,10 @@ else
   make -C libcompcov CC="$CROSS $CROSS_FLAGS" && echo "[+] libcompcov ready"
   echo "[+] Building unsigaction ..."
   make -C unsigaction CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
+  echo "[+] Building fastexit ..."
+  make -C fastexit CC="$CROSS $CROSS_FLAGS" && echo "[+] fastexit ready"
   echo "[+] Building libqasan ..."
-  make -C libqasan CC="$CROSS $CROSS_FLAGS" && echo "[+] unsigaction ready"
+  make -C libqasan CC="$CROSS $CROSS_FLAGS" && echo "[+] libqasan ready"
 fi
 
 echo "[+] All done for qemu_mode, enjoy!"

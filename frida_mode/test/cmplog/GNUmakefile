@@ -2,8 +2,9 @@ PWD:=$(shell pwd)/
 ROOT:=$(PWD)../../../
 BUILD_DIR:=$(PWD)build/
 
+TEST_CMPLOG_BASENAME=compcovtest
 TEST_CMPLOG_SRC=$(PWD)cmplog.c
-TEST_CMPLOG_OBJ=$(BUILD_DIR)compcovtest
+TEST_CMPLOG_OBJ=$(BUILD_DIR)$(TEST_CMPLOG_BASENAME)
 
 TEST_BIN:=$(PWD)../../build/test
 
@@ -13,7 +14,7 @@ CMP_LOG_INPUT:=$(TEST_DATA_DIR)in
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-.PHONY: all 32 clean qemu frida frida-nocmplog format
+.PHONY: all 32 clean qemu frida frida-nocmplog frida-unprefixedpath format
 
 all: $(TEST_CMPLOG_OBJ)
 	make -C $(ROOT)frida_mode/
@@ -63,6 +64,18 @@ frida-nocmplog: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
 		-Z \
 		-- \
 			$(TEST_CMPLOG_OBJ) @@
+
+
+frida-unprefixedpath: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
+	PATH=$(BUILD_DIR) $(ROOT)afl-fuzz \
+		-O \
+		-i $(TEST_DATA_DIR) \
+		-o $(FRIDA_OUT) \
+		-c 0 \
+		-l 3AT \
+		-Z \
+		-- \
+			$(TEST_CMPLOG_BASENAME) @@
 
 debug: $(TEST_CMPLOG_OBJ) $(CMP_LOG_INPUT)
 	gdb \

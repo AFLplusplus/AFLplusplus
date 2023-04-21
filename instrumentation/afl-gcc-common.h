@@ -2,7 +2,7 @@
 
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2022 AdaCore
+   Copyright 2019-2023 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL++
    GCC plugin.
@@ -497,4 +497,12 @@ struct afl_base_pass : gimple_opt_pass {
 };
 
 }  // namespace
+
+// compatibility for older gcc versions
+#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
+    60200                                               /* >= version 6.2.0 */
+  #define gimple gimple *
+#else
+  #define gimple gimple
+#endif
 

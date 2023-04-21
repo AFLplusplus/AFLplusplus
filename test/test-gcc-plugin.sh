@@ -63,7 +63,7 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
       echo 0 > in/in
       $ECHO "$GREY[*] running afl-fuzz for gcc_plugin, this will take approx 10 seconds"
       {
-        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -D -- ./test-instr.plain.gccpi >>errors 2>&1
+        ../afl-fuzz -V07 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain.gccpi >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with gcc_plugin"

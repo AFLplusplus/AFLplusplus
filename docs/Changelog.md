@@ -3,12 +3,86 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-## Staying informed
+### Version ++4.07a (dev)
+  - afl-showmap:
+    - added custom mutator post_process and send support
 
-Want to stay in the loop on major new features? Join our mailing list by
-sending a mail to <afl-users+subscribe@googlegroups.com>.
 
-### Version ++4.03a (dev)
+### Version ++4.06c (release)
+  - afl-fuzz:
+    - ensure temporary file descriptor is closed when not used
+    - added `AFL_NO_WARN_INSTABILITY`
+    - added time_wo_finds to fuzzer_stats
+    - fixed a crash in pizza (1st april easter egg) mode. Sorry for
+      everyone who was affected!
+    - allow pizza mode to be disabled when AFL_PIZZA_MODE is set to -1
+    - option `-p mmopt` now also selects new queue items more often
+    - fix bug in post_process custom mutator implementation
+    - print name of custom mutator in UI
+    - slight changes that improve fuzzer performance
+  - afl-cc:
+    - add CFI sanitizer variant to gcc targets
+    - llvm 16 + 17 support (thanks to @devnexen!)
+    - support llvm 15 native pcguard changes
+    - support for LLVMFuzzerTestOneInput -1 return
+    - LTO autoken and llvm_mode: added AFL_LLVM_DICT2FILE_NO_MAIN support
+  - qemu_mode:
+    - fix _RANGES envs to allow hyphens in the filenames
+    - basic riscv support
+  - frida_mode:
+    - added `AFL_FRIDA_STATS_INTERVAL`
+    - fix issue on MacOS
+  - unicorn_mode:
+    - updated and minor issues fixed
+  - nyx_mode support for all tools
+  - better sanitizer default options support for all tools
+  - new custom module: autotoken, a grammar free fuzzer for text inputs
+  - fixed custom mutator C examples
+  - more minor fixes and cross-platform support
+
+### Version ++4.05c (release)
+  - MacOS: libdislocator, libtokencap etc. do not work with modern
+    MacOS anymore, but could be patched to work, see this issue if you
+    want to make the effort and send a PR:
+    https://github.com/AFLplusplus/AFLplusplus/issues/1594
+  - afl-fuzz:
+    - added afl_custom_fuzz_send custom mutator feature. Now your can
+      send fuzz data to the target as you need, e.g. via IPC.
+    - cmplog mode now has a -l R option for random colorization, thanks
+      to guyf2010 for the PR!
+    - queue statistics are written every 30 minutes to
+      out/NAME/queue_data if compiled with INTROSPECTION
+    - new env: AFL_FORK_SERVER_KILL_SIGNAL
+  - afl-showmap/afl-cmin
+    - `-t none` now translates to `-t 120000` (120 seconds)
+  - unicorn_mode updated
+  - updated rust custom mutator dependencies and LibAFL custom mutator
+  - overall better sanitizer default setting handling
+  - several minor bugfixes
+
+### Version ++4.04c (release)
+  - fix gramatron and grammar_mutator build scripts
+  - enhancements to the afl-persistent-config and afl-system-config
+    scripts
+  - afl-fuzz:
+    - force writing all stats on exit
+    - ensure targets are killed on exit
+    - `AFL_FORK_SERVER_KILL_SIGNAL` added
+  - afl-cc:
+    - make gcc_mode (afl-gcc-fast) work with gcc down to version 3.6
+  - qemu_mode:
+    - fixed 10x speed degredation in v4.03c, thanks to @ele7enxxh for
+      reporting!
+    - added qemu_mode/fastexit helper library
+  - unicorn_mode:
+    - Enabled tricore arch (by @jma-qb)
+    - Updated Capstone version in Rust bindings
+  - llvm-mode:
+    - AFL runtime will always pass inputs via shared memory, when possible,
+      ignoring the command line.
+
+
+### Version ++4.03c (release)
   - Building now gives a build summary what succeeded and what not
   - afl-fuzz:
     - added AFL_NO_STARTUP_CALIBRATION to start fuzzing at once instead
@@ -17,7 +91,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - default calibration cycles set to 7 from 8, and only add 5 cycles
       to variables queue items instead of 12.
   - afl-cc:
+    - fixed off-by-one bug in our pcguard implemenation, thanks for
+      @tokatoka for reporting
+    - fix for llvm 15 and reenabling LTO, thanks to nikic for the PR!
     - better handling of -fsanitize=..,...,.. lists
+    - support added for LLVMFuzzerRunDriver()
     - fix gcc_mode cmplog
     - obtain the map size of a target with setting AFL_DUMP_MAP_SIZE=1
       note that this will exit the target before main()
@@ -25,6 +103,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_QEMU_TRACK_UNSTABLE to log the addresses of unstable
       edges (together with AFL_DEBUG=1 afl-fuzz). thanks to
       worksbutnottested!
+  - afl-analyze broke at some point, fix by CodeLogicError, thank you!
+  - afl-cmin/afl-cmin.bash now have an -A option to allow also crashing
+    and timeout inputs
+  - unicorn_mode:
+    - updated upstream unicorn version
+    - fixed builds for aarch64
+    - build now uses all available cores
 
 
 ### Version ++4.02c (release)

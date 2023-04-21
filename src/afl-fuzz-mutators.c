@@ -10,7 +10,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -179,11 +179,19 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   void                  *dh;
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
-  mutator->name = fn;
-  if (memchr(fn, '/', strlen(fn)))
-    mutator->name_short = strrchr(fn, '/') + 1;
-  else
+  if (memchr(fn, '/', strlen(fn))) {
+
+    mutator->name_short = strdup(strrchr(fn, '/') + 1);
+
+  } else {
+
     mutator->name_short = strdup(fn);
+
+  }
+
+  if (strlen(mutator->name_short) > 22) { mutator->name_short[21] = 0; }
+
+  mutator->name = fn;
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
@@ -211,7 +219,15 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
       WARNF("Symbol 'afl_custom_mutator' not found.");
 
+    } else {
+
+      OKF("Found 'afl_custom_mutator'.");
+
     }
+
+  } else {
+
+    OKF("Found 'afl_custom_mutator'.");
 
   }
 
@@ -222,6 +238,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_introspection' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_introspection'.");
+
   }
 
 #endif
@@ -231,6 +251,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   if (!mutator->afl_custom_fuzz_count) {
 
     ACTF("optional symbol 'afl_custom_fuzz_count' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_fuzz_count'.");
 
   }
 
@@ -248,6 +272,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_post_process' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_post_process'.");
+
   }
 
   u8 notrim = 0;
@@ -258,6 +286,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
     notrim = 1;
     ACTF("optional symbol 'afl_custom_init_trim' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_init_trim'.");
+
   }
 
   /* "afl_custom_trim", optional */
@@ -266,6 +298,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     notrim = 1;
     ACTF("optional symbol 'afl_custom_trim' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_trim'.");
 
   }
 
@@ -276,16 +312,26 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
     notrim = 1;
     ACTF("optional symbol 'afl_custom_post_trim' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_post_trim'.");
+
   }
 
   if (notrim) {
 
+    if (mutator->afl_custom_init_trim || mutator->afl_custom_trim ||
+        mutator->afl_custom_post_trim) {
+
+      WARNF(
+          "Custom mutator does not implement all three trim APIs, standard "
+          "trimming will be used.");
+
+    }
+
     mutator->afl_custom_init_trim = NULL;
     mutator->afl_custom_trim = NULL;
     mutator->afl_custom_post_trim = NULL;
-    ACTF(
-        "Custom mutator does not implement all three trim APIs, standard "
-        "trimming will be used.");
 
   }
 
@@ -294,6 +340,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   if (!mutator->afl_custom_havoc_mutation) {
 
     ACTF("optional symbol 'afl_custom_havoc_mutation' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_havoc_mutation'.");
 
   }
 
@@ -304,6 +354,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_havoc_mutation_probability' not found.");
 
+  } else {
+
+    OKF("Found 'afl_custom_havoc_mutation_probability'.");
+
   }
 
   /* "afl_custom_queue_get", optional */
@@ -311,6 +365,35 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   if (!mutator->afl_custom_queue_get) {
 
     ACTF("optional symbol 'afl_custom_queue_get' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_queue_get'.");
+
+  }
+
+  /* "afl_custom_splice_optout", optional, never called */
+  mutator->afl_custom_splice_optout = dlsym(dh, "afl_custom_splice_optout");
+  if (!mutator->afl_custom_splice_optout) {
+
+    ACTF("optional symbol 'afl_custom_splice_optout' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_splice_optout'.");
+    afl->custom_splice_optout = 1;
+
+  }
+
+  /* "afl_custom_fuzz_send", optional */
+  mutator->afl_custom_fuzz_send = dlsym(dh, "afl_custom_fuzz_send");
+  if (!mutator->afl_custom_fuzz_send) {
+
+    ACTF("optional symbol 'afl_custom_fuzz_send' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_fuzz_send'.");
 
   }
 
@@ -320,13 +403,21 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     ACTF("optional symbol 'afl_custom_queue_new_entry' not found");
 
+  } else {
+
+    OKF("Found 'afl_custom_queue_new_entry'.");
+
   }
 
   /* "afl_custom_describe", optional */
   mutator->afl_custom_describe = dlsym(dh, "afl_custom_describe");
   if (!mutator->afl_custom_describe) {
 
-    ACTF("Symbol 'afl_custom_describe' not found.");
+    ACTF("optional symbol 'afl_custom_describe' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_describe'.");
 
   }
 

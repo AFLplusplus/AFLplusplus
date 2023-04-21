@@ -1,0 +1,34 @@
+# Autotokens
+
+This implements an improved autotoken grammar fuzzing idea presented in
+[Token-Level Fuzzing][https://www.usenix.org/system/files/sec21-salls.pdf].
+It is a grammar fuzzer without actually knowing the grammar, but only works
+with text based inputs.
+
+It is recommended to run with together in an instance with `CMPLOG`.
+
+If you have a dictionary (`-x`) this improves this custom grammar mutator.
+
+If **not** running with `CMPLOG`, it is possible to set
+`AFL_CUSTOM_MUTATOR_ONLY` to concentrate on grammar bug classes.
+
+Do **not** set `AFL_DISABLE_TRIM` with this custom mutator!
+
+## Configuration via environment variables
+
+`AUTOTOKENS_ONLY_FAV` - only use this mutator on favorite queue items
+`AUTOTOKENS_COMMENT` - what character or string starts a comment which will be
+                       removed. Default: `/* ... */`
+`AUTOTOKENS_FUZZ_COUNT_SHIFT` - reduce the number of fuzzing performed, shifting
+                                the value by this number, e.g. 1.
+`AUTOTOKENS_AUTO_DISABLE` - disable this module if the seeds are not ascii
+                            (or no input and no (ascii) dictionary)
+`AUTOTOKENS_LEARN_DICT` - learn from dictionaries?
+                          0 = none
+                          1 = only -x or autodict
+                          2 = -x, autodict and `CMPLOG`
+`AUTOTOKENS_CHANGE_MIN` - minimum number of mutations (1-256, default 8)
+`AUTOTOKENS_CHANGE_MAX` - maximum number of mutations (1-4096, default 64)
+`AUTOTOKENS_CREATE_FROM_THIN_AIR` - if only one small start file is present and
+                                    a dictionary loaded then create one initial
+                                    structure based on the dictionary.

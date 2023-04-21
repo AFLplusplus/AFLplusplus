@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -114,16 +114,16 @@ static void kill_child() {
 
   if (fsrv.child_pid > 0) {
 
-    kill(fsrv.child_pid, fsrv.kill_signal);
+    kill(fsrv.child_pid, fsrv.child_kill_signal);
     fsrv.child_pid = -1;
 
   }
 
 }
 
-static void classify_counts(u8 *mem) {
+static void classify_counts(u8 *mem, u32 mem_size) {
 
-  u32 i = map_size;
+  u32 i = mem_size;
 
   if (edges_only) {
 
@@ -203,7 +203,7 @@ static void read_initial_file(void) {
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
+static u64 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
 
   afl_fsrv_write_to_testcase(&fsrv, mem, len);
   fsrv_run_result_t ret = afl_fsrv_run_target(&fsrv, exec_tmout, &stop_soon);
@@ -222,7 +222,7 @@ static u32 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  classify_counts(fsrv.trace_bits);
+  classify_counts(fsrv.trace_bits, fsrv.map_size);
   total_execs++;
 
   if (stop_soon) {
@@ -528,7 +528,7 @@ static void analyze() {
 
   for (i = 0; i < in_len; i++) {
 
-    u32 xor_ff, xor_01, sub_10, add_10;
+    u64 xor_ff, xor_01, sub_10, add_10;
     u8  xff_orig, x01_orig, s10_orig, a10_orig;
 
     /* Perform walking byte adjustments across the file. We perform four
@@ -656,28 +656,6 @@ static void set_up_environment(char **argv) {
   if (fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", fsrv.out_file); }
 
   /* Set sane defaults... */
-
-  x = get_afl_env("ASAN_OPTIONS");
-
-  if (x) {
-
-    if (!strstr(x, "abort_on_error=1")) {
-
-      FATAL("Custom ASAN_OPTIONS set without abort_on_error=1 - please fix!");
-
-    }
-
-#ifndef ASAN_BUILD
-    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
-
-      FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
-
-    }
-
-#endif
-
-  }
-
   x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
@@ -689,69 +667,9 @@ static void set_up_environment(char **argv) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
-
-      FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
-
-    }
-
   }
 
-  x = get_afl_env("LSAN_OPTIONS");
-
-  if (x) {
-
-    if (!strstr(x, "symbolize=0")) {
-
-      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
-
-    }
-
-  }
-
-  setenv("ASAN_OPTIONS",
-         "abort_on_error=1:"
-         "detect_leaks=0:"
-         "allocator_may_return_null=1:"
-         "detect_odr_violation=0:"
-         "symbolize=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
-
-  setenv("UBSAN_OPTIONS",
-         "halt_on_error=1:"
-         "abort_on_error=1:"
-         "malloc_context_size=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
-
-  setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                         "abort_on_error=1:"
-                         "msan_track_origins=0"
-                         "allocator_may_return_null=1:"
-                         "symbolize=0:"
-                         "handle_segv=0:"
-                         "handle_sigbus=0:"
-                         "handle_abort=0:"
-                         "handle_sigfpe=0:"
-                         "handle_sigill=0", 0);
-
-  setenv("LSAN_OPTIONS",
-         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
-         "fast_unwind_on_malloc=0:"
-         "symbolize=0:"
-         "print_suppressions=0",
-         0);
+  set_sanitizer_defaults();
 
   if (get_afl_env("AFL_PRELOAD")) {
 
@@ -807,7 +725,11 @@ static void setup_signal_handlers(void) {
   struct sigaction sa;
 
   sa.sa_handler = NULL;
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;
+#else
+  sa.sa_flags = 0;
+#endif
   sa.sa_sigaction = NULL;
 
   sigemptyset(&sa.sa_mask);
@@ -846,6 +768,7 @@ static void usage(u8 *argv0) {
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n"
+      "  -X            - use Nyx mode\n"
 #endif
       "\n"
 
@@ -862,11 +785,15 @@ static void usage(u8 *argv0) {
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
       "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
+      "                             (default: SIGTERM). If unset and AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
-
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -888,7 +815,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_fsrv_init(&fsrv);
 
-  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:f:m:t:eAOQUWXYh")) > 0) {
 
     switch (opt) {
 
@@ -1040,6 +967,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'Y':  // fallthough
+#ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv.nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv.nyx_mode = 1;
+        fsrv.nyx_parent = true;
+        fsrv.nyx_standalone = true;
+
+        break;
+#else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+#endif
+
       case 'h':
         usage(argv[0]);
         return -1;
@@ -1071,7 +1015,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(argv);
 
+#ifdef __linux__
+  if (!fsrv.nyx_mode) {
+
+    fsrv.target_path = find_binary(argv[optind]);
+
+  } else {
+
+    fsrv.target_path = ck_strdup(argv[optind]);
+
+  }
+
+#else
   fsrv.target_path = find_binary(argv[optind]);
+#endif
+
   fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
   signal(SIGALRM, kill_child);
@@ -1094,6 +1052,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
     use_argv = get_cs_argv(argv[0], &target_path, argc - optind, argv + optind);
 
+#ifdef __linux__
+
+  } else if (fsrv.nyx_mode) {
+
+    fsrv.nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
+    fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv.nyx_handlers == NULL) {
+
+      FATAL("failed to initialize libnyx.so...");
+
+    }
+
+    fsrv.nyx_use_tmp_workdir = true;
+    fsrv.nyx_bind_cpu_id = 0;
+
+    use_argv = argv + optind;
+#endif
+
   } else {
 
     use_argv = argv + optind;
@@ -1115,11 +1093,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  fsrv.kill_signal =
-      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+  configure_afl_kill_signals(
+      &fsrv, NULL, NULL, (fsrv.qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   read_initial_file();
+#ifdef __linux__
+  if (!fsrv.nyx_mode) { (void)check_binary_signatures(fsrv.target_path); }
+#else
   (void)check_binary_signatures(fsrv.target_path);
+#endif
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");

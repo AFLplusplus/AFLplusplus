@@ -48,6 +48,7 @@ C/C++:
 ```c
 void *afl_custom_init(afl_state_t *afl, unsigned int seed);
 unsigned int afl_custom_fuzz_count(void *data, const unsigned char *buf, size_t buf_size);
+void afl_custom_splice_optout(void *data);
 size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
 const char *afl_custom_describe(void *data, size_t max_description_len);
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
@@ -57,6 +58,7 @@ int afl_custom_post_trim(void *data, unsigned char success);
 size_t afl_custom_havoc_mutation(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, size_t max_size);
 unsigned char afl_custom_havoc_mutation_probability(void *data);
 unsigned char afl_custom_queue_get(void *data, const unsigned char *filename);
+void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
 u8 afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
 const char* afl_custom_introspection(my_mutator_t *data);
 void afl_custom_deinit(void *data);
@@ -68,8 +70,11 @@ Python:
 def init(seed):
     pass
 
-def fuzz_count(buf, add_buf, max_size):
+def fuzz_count(buf):
     return cnt
+
+def splice_optout()
+    pass
 
 def fuzz(buf, add_buf, max_size):
     return mutated_out
@@ -98,6 +103,9 @@ def havoc_mutation_probability():
 def queue_get(filename):
     return True
 
+def fuzz_send(buf):
+    pass
+
 def queue_new_entry(filename_new_queue, filename_orig_queue):
     return False
 
@@ -110,7 +118,7 @@ def deinit():  # optional for Python
 
 ### Custom Mutation
 
-- `init`:
+- `init` (optional in Python):
 
     This method is called when AFL++ starts up and is used to seed RNG and set
     up buffers and state.
@@ -128,6 +136,13 @@ def deinit():  # optional for Python
     for a specific queue entry, use this function. This function is most useful
     if `AFL_CUSTOM_MUTATOR_ONLY` is **not** used.
 
+- `splice_optout` (optional):
+
+    If this function is present, no splicing target is passed to the `fuzz`
+    function. This saves time if splicing data is not needed by the custom
+    fuzzing function.
+    This function is never called, just needs to be present to activate.
+
 - `fuzz` (optional):
 
     This method performs custom mutations on a given input. It also accepts an
@@ -135,6 +150,7 @@ def deinit():  # optional for Python
     sense to use it. You would only skip this if `post_process` is used to fix
     checksums etc. so if you are using it, e.g., as a post processing library.
     Note that a length > 0 *must* be returned!
+    The returned output buffer is under **your** memory management!
 
 - `describe` (optional):
 
@@ -168,6 +184,18 @@ def deinit():  # optional for Python
     to the target, e.g. if it is too short, too corrupted, etc. If so,
     return a NULL buffer and zero length (or a 0 length string in Python).
 
+    NOTE: Do not make any random changes to the data in this function!
+
+    PERFORMANCE for C/C++: If possible make the changes in-place (so modify
+    the `*data` directly, and return it as `*outbuf = data`.
+
+- `fuzz_send` (optional):
+
+    This method can be used if you want to send data to the target yourself,
+    e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
+    that you start the target with afl-fuzz.
+    Example: [custom_mutators/examples/custom_send.c](custom_mutators/examples/custom_send.c)
+
 - `queue_new_entry` (optional):
 
     This methods is called after adding a new test case to the queue. If the
@@ -179,7 +207,7 @@ def deinit():  # optional for Python
     discovered if compiled with INTROSPECTION. The custom mutator can then
     return a string (const char *) that reports the exact mutations used.
 
-- `deinit`:
+- `deinit` (optional in Python):
 
     The last method to be called, deinitializing the state.
 
@@ -269,10 +297,10 @@ sudo apt install python-dev
 ```
 
 Then, AFL++ can be compiled with Python support. The AFL++ Makefile detects
-Python 2 and 3 through `python-config` if it is in the PATH and compiles
-`afl-fuzz` with the feature if available.
+Python3 through `python-config`/`python3-config` if it is in the PATH and
+compiles `afl-fuzz` with the feature if available.
 
-Note: for some distributions, you might also need the package `python[23]-apt`.
+Note: for some distributions, you might also need the package `python[3]-apt`.
 In case your setup is different, set the necessary variables like this:
 `PYTHON_INCLUDE=/path/to/python/include LDFLAGS=-L/path/to/python/lib make`.
 
