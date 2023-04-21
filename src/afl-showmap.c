@@ -140,6 +140,15 @@ static void kill_child() {
 
 }
 
+/* dummy function */
+u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
+
+  (void)afl;
+  (void)mem;
+  return a + b;
+
+}
+
 static void classify_counts(afl_forkserver_t *fsrv) {
 
   u8       *mem = fsrv->trace_bits;
