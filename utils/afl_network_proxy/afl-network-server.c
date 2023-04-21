@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -194,7 +194,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
@@ -213,7 +213,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
 
@@ -221,18 +221,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
   }
 
-  setenv("ASAN_OPTIONS",
-         "abort_on_error=1:"
-         "detect_leaks=0:"
-         "symbolize=0:"
-         "allocator_may_return_null=1",
-         0);
-
-  setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                         "symbolize=0:"
-                         "abort_on_error=1:"
-                         "allocator_may_return_null=1:"
-                         "msan_track_origins=0", 0);
+  set_sanitizer_defaults();
 
   if (get_afl_env("AFL_PRELOAD")) {
 

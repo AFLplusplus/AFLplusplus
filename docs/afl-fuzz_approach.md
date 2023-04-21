@@ -483,6 +483,7 @@ directory. This includes:
 - `fuzzer_pid`        - PID of the fuzzer process
 - `cycles_done`       - queue cycles completed so far
 - `cycles_wo_finds`   - number of cycles without any new paths found
+- `time_wo_finds`     - longest time in seconds no new path was found
 - `execs_done`        - number of execve() calls attempted
 - `execs_per_sec`     - overall number of execs per second
 - `corpus_count`      - total number of entries in the queue

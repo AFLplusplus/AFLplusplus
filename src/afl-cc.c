@@ -5,7 +5,7 @@
    Written by Michal Zalewski, Laszlo Szekeres and Marc Heuse
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -317,7 +317,7 @@ void parse_fsanitize(char *string) {
   char *tmp = malloc(strlen(ptr));
   u32   count = 0, len, ende = 0;
 
-  if (!new || !tmp) { FATAL("could not aquire memory"); }
+  if (!new || !tmp) { FATAL("could not acquire memory"); }
   strcpy(new, "-fsanitize=");
 
   do {
@@ -514,7 +514,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && have_instr_env) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] = alloc_printf(
           "-fpass-plugin=%s/afl-llvm-lto-instrumentlist.so", obj_path);
 #else
@@ -530,7 +532,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("AFL_LLVM_DICT2FILE")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/afl-llvm-dict2file.so", obj_path);
 #else
@@ -547,7 +551,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 #else
@@ -564,7 +570,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/compare-transform-pass.so", obj_path);
 #else
@@ -581,7 +589,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-compares-pass.so", obj_path);
 #else
@@ -604,10 +614,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       cc_params[cc_par_cnt++] = "-fno-inline";
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/cmplog-switches-pass.so", obj_path);
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/split-switches-pass.so", obj_path);
 #else
@@ -666,15 +680,21 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 #endif
       free(ld_path);
 
-#if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
+#if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 15
+      // The NewPM implementation only works fully since LLVM 15.
+      cc_params[cc_par_cnt++] = alloc_printf(
+          "-Wl,--load-pass-plugin=%s/SanitizerCoverageLTO.so", obj_path);
+#elif defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
       cc_params[cc_par_cnt++] = "-Wl,--lto-legacy-pass-manager";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
 #else
       cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
 #endif
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       cc_params[cc_par_cnt++] = lto_flag;
 
     } else {
@@ -699,7 +719,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         } else {
 
     #if LLVM_MAJOR >= 11                            /* use new pass manager */
+      #if LLVM_MAJOR < 16
           cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+      #endif
           cc_params[cc_par_cnt++] = alloc_printf(
               "-fpass-plugin=%s/SanitizerCoveragePCGUARD.so", obj_path);
     #else
@@ -737,7 +759,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       } else {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
+  #if LLVM_MAJOR < 16
         cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
         cc_params[cc_par_cnt++] =
             alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
 #else
@@ -755,10 +779,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (cmplog_mode) {
 
 #if LLVM_MAJOR >= 11
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] = alloc_printf(
           "-fpass-plugin=%s/cmplog-instructions-pass.so", obj_path);
+  #if LLVM_MAJOR < 16
       cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
       cc_params[cc_par_cnt++] =
           alloc_printf("-fpass-plugin=%s/cmplog-routines-pass.so", obj_path);
 #else
@@ -949,7 +977,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
       strncmp(libdir, "/lib", 4)) {
 
-    cc_params[cc_par_cnt++] = "-rpath";
+    cc_params[cc_par_cnt++] = "-Wl,-rpath";
     cc_params[cc_par_cnt++] = libdir;
 
   } else {
@@ -1022,17 +1050,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (getenv("AFL_USE_CFISAN")) {
 
-    if (!lto_mode) {
+    if (compiler_mode == GCC_PLUGIN || compiler_mode == GCC) {
 
-      uint32_t i = 0, found = 0;
-      while (envp[i] != NULL && !found)
-        if (strncmp("-flto", envp[i++], 5) == 0) found = 1;
-      if (!found) cc_params[cc_par_cnt++] = "-flto";
+      cc_params[cc_par_cnt++] = "-fcf-protection=full";
+
+    } else {
+
+      if (!lto_mode) {
+
+        uint32_t i = 0, found = 0;
+        while (envp[i] != NULL && !found)
+          if (strncmp("-flto", envp[i++], 5) == 0) found = 1;
+        if (!found) cc_params[cc_par_cnt++] = "-flto";
+
+      }
+
+      cc_params[cc_par_cnt++] = "-fsanitize=cfi";
+      cc_params[cc_par_cnt++] = "-fvisibility=hidden";
 
     }
-
-    cc_params[cc_par_cnt++] = "-fsanitize=cfi";
-    cc_params[cc_par_cnt++] = "-fvisibility=hidden";
 
   }
 
@@ -1065,37 +1101,45 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (!have_c) cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
-  cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
   cc_params[cc_par_cnt++] = "-D__AFL_COMPILER=1";
   cc_params[cc_par_cnt++] = "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1";
 
-  /* When the user tries to use persistent or deferred forkserver modes by
-     appending a single line to the program, we want to reliably inject a
-     signature into the binary (to be picked up by afl-fuzz) and we want
-     to call a function from the runtime .o file. This is unnecessarily
-     painful for three reasons:
+  /* As documented in instrumentation/README.persistent_mode.md, deferred
+     forkserver initialization and persistent mode are not available in afl-gcc
+     and afl-clang. */
+  if (compiler_mode != GCC && compiler_mode != CLANG) {
 
-     1) We need to convince the compiler not to optimize out the signature.
-        This is done with __attribute__((used)).
+    cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
 
-     2) We need to convince the linker, when called with -Wl,--gc-sections,
-        not to do the same. This is done by forcing an assignment to a
-        'volatile' pointer.
+    /* When the user tries to use persistent or deferred forkserver modes by
+       appending a single line to the program, we want to reliably inject a
+       signature into the binary (to be picked up by afl-fuzz) and we want
+       to call a function from the runtime .o file. This is unnecessarily
+       painful for three reasons:
 
-     3) We need to declare __afl_persistent_loop() in the global namespace,
-        but doing this within a method in a class is hard - :: and extern "C"
-        are forbidden and __attribute__((alias(...))) doesn't work. Hence the
-        __asm__ aliasing trick.
+       1) We need to convince the compiler not to optimize out the signature.
+          This is done with __attribute__((used)).
 
-   */
+       2) We need to convince the linker, when called with -Wl,--gc-sections,
+          not to do the same. This is done by forcing an assignment to a
+          'volatile' pointer.
 
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_INIT()="
-      "int __afl_sharedmem_fuzzing = 1;"
-      "extern unsigned int *__afl_fuzz_len;"
-      "extern unsigned char *__afl_fuzz_ptr;"
-      "unsigned char __afl_fuzz_alt[1048576];"
-      "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
+       3) We need to declare __afl_persistent_loop() in the global namespace,
+          but doing this within a method in a class is hard - :: and extern "C"
+          are forbidden and __attribute__((alias(...))) doesn't work. Hence the
+          __asm__ aliasing trick.
+
+     */
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_FUZZ_INIT()="
+        "int __afl_sharedmem_fuzzing = 1;"
+        "extern unsigned int *__afl_fuzz_len;"
+        "extern unsigned char *__afl_fuzz_ptr;"
+        "unsigned char __afl_fuzz_alt[1048576];"
+        "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
+
+  }
 
   if (plusplus_mode) {
 
@@ -1133,33 +1177,39 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "(*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1048576)) == 0xffffffff "
       "? 0 : *__afl_fuzz_len)";
 
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_LOOP(_A)="
-      "({ static volatile char *_B __attribute__((used,unused)); "
-      " _B = (char*)\"" PERSIST_SIG
-      "\"; "
-#ifdef __APPLE__
-      "__attribute__((visibility(\"default\"))) "
-      "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
-#else
-      "__attribute__((visibility(\"default\"))) "
-      "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
-#endif                                                        /* ^__APPLE__ */
-      "_L(_A); })";
+  if (compiler_mode != GCC && compiler_mode != CLANG) {
 
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_INIT()="
-      "do { static volatile char *_A __attribute__((used,unused)); "
-      " _A = (char*)\"" DEFER_SIG
-      "\"; "
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_LOOP(_A)="
+        "({ static volatile const char *_B __attribute__((used,unused)); "
+        " _B = (const char*)\"" PERSIST_SIG
+        "\"; "
+        "extern int __afl_connected;"
 #ifdef __APPLE__
-      "__attribute__((visibility(\"default\"))) "
-      "void _I(void) __asm__(\"___afl_manual_init\"); "
+        "__attribute__((visibility(\"default\"))) "
+        "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
 #else
-      "__attribute__((visibility(\"default\"))) "
-      "void _I(void) __asm__(\"__afl_manual_init\"); "
+        "__attribute__((visibility(\"default\"))) "
+        "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
 #endif                                                        /* ^__APPLE__ */
-      "_I(); } while (0)";
+        // if afl is connected, we run _A times, else once.
+        "_L(__afl_connected ? _A : 1); })";
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_INIT()="
+        "do { static volatile const char *_A __attribute__((used,unused)); "
+        " _A = (const char*)\"" DEFER_SIG
+        "\"; "
+#ifdef __APPLE__
+        "__attribute__((visibility(\"default\"))) "
+        "void _I(void) __asm__(\"___afl_manual_init\"); "
+#else
+        "__attribute__((visibility(\"default\"))) "
+        "void _I(void) __asm__(\"__afl_manual_init\"); "
+#endif                                                        /* ^__APPLE__ */
+        "_I(); } while (0)";
+
+  }
 
   if (x_set) {
 
@@ -2003,6 +2053,8 @@ int main(int argc, char **argv, char **envp) {
 
             "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
             "comparisons\n"
+            "  AFL_LLVM_DICT2FILE_NO_MAIN: skip parsing main() for the "
+            "dictionary\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
@@ -2090,7 +2142,8 @@ int main(int argc, char **argv, char **envp) {
         "defaults.\n"
         "Recommended is afl-clang-lto with AFL_LLVM_CMPLOG or afl-clang-fast "
         "with\n"
-        "AFL_LLVM_CMPLOG and AFL_LLVM_DICT2FILE.\n\n");
+        "AFL_LLVM_CMPLOG and "
+        "AFL_LLVM_DICT2FILE+AFL_LLVM_DICT2FILE_NO_MAIN.\n\n");
 
     exit(1);
 

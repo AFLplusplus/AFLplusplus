@@ -2,7 +2,7 @@
 # american fuzzy lop++ - argvfuzz
 # --------------------------------
 #
-# Copyright 2019-2022 Kjell Braden <afflux@pentabarf.de>
+# Copyright 2019-2023 Kjell Braden <afflux@pentabarf.de>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-.PHONY: all install clean
+.PHONY: all install clean argv_fuzz_persistent_demo argv_fuzz_demo demo
 
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
@@ -41,7 +41,7 @@ __M32FLAG=$(_M32FLAG:00=-mbe32)
 ___M32FLAG=$(__M32FLAG:$(CC_IS_GCC)$(CC_IS_ARMCOMPILER)=-m32)
 M32FLAG=$(___M32FLAG)
 
-all: argvfuzz32.so argvfuzz64.so
+all: argvfuzz32.so argvfuzz64.so demo
 
 argvfuzz32.so: argvfuzz.c
 	-@$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ 2>/dev/null || echo "argvfuzz32 build failure (that's fine)"
@@ -54,5 +54,14 @@ install: argvfuzz32.so argvfuzz64.so
 	if [ -f argvfuzz32.so ]; then set -e; install -m 755 argvfuzz32.so $(DESTDIR)$(HELPER_PATH)/; fi
 	if [ -f argvfuzz64.so ]; then set -e; install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
 
+argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
+	../../afl-cc -g -o $@ $^
+
+argv_fuzz_demo: argv_fuzz_demo.c
+	../../afl-cc -g -o $@ $^
+
+demo: argv_fuzz_persistent_demo argv_fuzz_demo
+
 clean:
-	rm -f argvfuzz32.so argvfuzz64.so
+	rm -f argvfuzz32.so argvfuzz64.so argv_fuzz_demo argv_fuzz_persistent_demo
+

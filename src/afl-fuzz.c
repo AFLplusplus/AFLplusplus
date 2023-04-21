@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include "common.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
@@ -164,16 +165,16 @@ static void usage(u8 *argv0, int more_help) {
       "                  pacemaker mode (minutes of no new finds). 0 = "
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
-      "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
       "compiled\n"
       "                  for CmpLog then just use -c 0.\n"
-      "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
+      "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
-      "                  A=arithmetic solving, T=transformational solving.\n\n"
+      "                  A=arithmetic solving, T=transformational solving,\n"
+      "                  R=random colorization bytes.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -192,9 +193,9 @@ static void usage(u8 *argv0, int more_help) {
       "executions.\n\n"
 
       "Other stuff:\n"
-      "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
-      "                  -M auto-sets -D, -Z (use -d to disable -D) and no "
-      "trimming\n"
+      "  -M/-S id      - distributed mode (-M sets -Z and disables trimming)\n"
+      "                  see docs/fuzzing_in_depth.md#c-using-multiple-cores\n"
+      "                  for effective recommendations for parallel fuzzing.\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
@@ -208,7 +209,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
-      "needed)\n\n",
+      "needed)\n"
+      "\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
@@ -248,19 +250,25 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_EXIT_ON_TIME: exit when no new coverage finds are made within the specified time period\n"
-      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
+      "AFL_EXIT_ON_TIME: exit when no new coverage is found within the specified time\n"
+      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60\n"
+      "                      minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
+      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
+      "AFL_IGNORE_TIMEOUTS: do not process or save any timeouts\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
-      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
-      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
+      "                             (default: SIGTERM). If unset and AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
@@ -305,7 +313,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
       "                      afl-clang-lto/afl-gcc-fast target\n"
       "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
-      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so)\n"
+      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in seconds, "
+      "(default: 60, minimum: 1)\n"
       "\n"
     );
 
@@ -427,76 +437,13 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 }
 
-  #ifdef __linux__
-    #include <dlfcn.h>
-
-nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
-
-  void                 *handle;
-  nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
-
-  ACTF("Trying to load libnyx.so plugin...");
-  handle = dlopen((char *)libnyx_binary, RTLD_NOW);
-  if (!handle) { goto fail; }
-
-  plugin->nyx_new = dlsym(handle, "nyx_new");
-  if (plugin->nyx_new == NULL) { goto fail; }
-
-  plugin->nyx_new_parent = dlsym(handle, "nyx_new_parent");
-  if (plugin->nyx_new_parent == NULL) { goto fail; }
-
-  plugin->nyx_new_child = dlsym(handle, "nyx_new_child");
-  if (plugin->nyx_new_child == NULL) { goto fail; }
-
-  plugin->nyx_shutdown = dlsym(handle, "nyx_shutdown");
-  if (plugin->nyx_shutdown == NULL) { goto fail; }
-
-  plugin->nyx_option_set_reload_mode =
-      dlsym(handle, "nyx_option_set_reload_mode");
-  if (plugin->nyx_option_set_reload_mode == NULL) { goto fail; }
-
-  plugin->nyx_option_set_timeout = dlsym(handle, "nyx_option_set_timeout");
-  if (plugin->nyx_option_set_timeout == NULL) { goto fail; }
-
-  plugin->nyx_option_apply = dlsym(handle, "nyx_option_apply");
-  if (plugin->nyx_option_apply == NULL) { goto fail; }
-
-  plugin->nyx_set_afl_input = dlsym(handle, "nyx_set_afl_input");
-  if (plugin->nyx_set_afl_input == NULL) { goto fail; }
-
-  plugin->nyx_exec = dlsym(handle, "nyx_exec");
-  if (plugin->nyx_exec == NULL) { goto fail; }
-
-  plugin->nyx_get_bitmap_buffer = dlsym(handle, "nyx_get_bitmap_buffer");
-  if (plugin->nyx_get_bitmap_buffer == NULL) { goto fail; }
-
-  plugin->nyx_get_bitmap_buffer_size =
-      dlsym(handle, "nyx_get_bitmap_buffer_size");
-  if (plugin->nyx_get_bitmap_buffer_size == NULL) { goto fail; }
-
-  plugin->nyx_get_aux_string = dlsym(handle, "nyx_get_aux_string");
-  if (plugin->nyx_get_aux_string == NULL) { goto fail; }
-
-  OKF("libnyx plugin is ready!");
-  return plugin;
-
-fail:
-
-  FATAL("failed to load libnyx: %s\n", dlerror());
-  free(plugin);
-  return NULL;
-
-}
-
-  #endif
-
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, default_output = 1,
       map_size = get_map_size();
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
@@ -797,6 +744,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->fsrv.out_file = ck_strdup(optarg);
         afl->fsrv.use_stdin = 0;
+        default_output = 0;
         break;
 
       case 'x':                                               /* dictionary */
@@ -1109,6 +1057,10 @@ int main(int argc, char **argv_orig, char **envp) {
             case 'T':
               afl->cmplog_enable_transform = 1;
               break;
+            case 'r':
+            case 'R':
+              afl->cmplog_random_colorization = 1;
+              break;
             default:
               FATAL("Unknown option value '%c' in -l %s", *c, optarg);
 
@@ -1287,6 +1239,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->is_main_node == 1 && afl->schedule != FAST &&
+      afl->schedule != EXPLORE) {
+
+    FATAL("-M is compatible only with fast and explore -p power schedules");
+
+  }
+
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
     usage(argv[0], show_help);
@@ -1323,8 +1282,7 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
-      "README.md");
+  OKF("NOTE: afl++ >= v3 has changed defaults and behaviours - see README.md");
 
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
@@ -1335,12 +1293,11 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   #endif
-  if (afl->sync_id && afl->is_main_node &&
-      afl->afl_env.afl_custom_mutator_only) {
+  if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
 
-    WARNF(
-        "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
-        "will result in no deterministic mutations being done!");
+    FATAL(
+        "Using -D determinstic fuzzing is incompatible with "
+        "AFL_CUSTOM_MUTATOR_ONLY!");
 
   }
 
@@ -1360,8 +1317,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  afl->fsrv.kill_signal =
-      parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
+  configure_afl_kill_signals(&afl->fsrv, afl->afl_env.afl_child_kill_signal,
+                             afl->afl_env.afl_fsrv_kill_signal,
+                             (afl->fsrv.qemu_mode || afl->unicorn_mode
+  #ifdef __linux__
+                              || afl->fsrv.nyx_mode
+  #endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
 
   setup_signal_handlers();
   check_asan_opts(afl);
@@ -1560,6 +1524,29 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u64 exit_on_time = atoi(afl->afl_env.afl_exit_on_time);
     afl->exit_on_time = (u64)exit_on_time * 1000;
+
+  }
+
+  if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
+
+    if (afl->custom_only) {
+
+      FATAL("Custom mutators are incompatible with MOpt (-L)");
+
+    }
+
+    u32 custom_fuzz = 0;
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_fuzz) { custom_fuzz = 1; }
+
+    });
+
+    if (custom_fuzz) {
+
+      WARNF("afl_custom_fuzz is incompatible with MOpt (-L)");
+
+    }
 
   }
 
@@ -1895,6 +1882,7 @@ int main(int argc, char **argv_orig, char **envp) {
       if (aa_loc && !afl->fsrv.out_file) {
 
         afl->fsrv.use_stdin = 0;
+        default_output = 0;
 
         if (afl->file_extension) {
 
@@ -2064,6 +2052,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
@@ -2134,6 +2123,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
+
+    unlink(afl->fsrv.out_file);
+    afl->fsrv.out_file = NULL;
+    afl->fsrv.use_stdin = 0;
+    close(afl->fsrv.out_fd);
+    afl->fsrv.out_fd = -1;
+
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
+
+      WARNF(
+          "You specified -f or @@ on the command line but the target harness "
+          "specified fuzz cases via shmem, switching to shmem!");
+
+    }
+
+  }
+
   deunicode_extras(afl);
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
@@ -2181,14 +2188,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->pending_not_fuzzed || !valid_seeds) {
 
-  #ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
-
-      afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
-
-    }
-
-  #endif
     FATAL("We need at least one valid input seed that does not crash!");
 
   }
@@ -2247,8 +2246,10 @@ int main(int argc, char **argv_orig, char **envp) {
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
-  u32 runs_in_current_cycle = (u32)-1;
-  u32 prev_queued_items = 0;
+  #ifdef INTROSPECTION
+  u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
+  #endif
+  u32 prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
   u8  skipped_fuzz;
 
   #ifdef INTROSPECTION
@@ -2275,6 +2276,12 @@ int main(int argc, char **argv_orig, char **envp) {
       if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
                     (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
                    afl->sync_id)) {
+
+        if (!afl->queue_cycle && afl->afl_env.afl_import_first) {
+
+          OKF("Syncing queues from other fuzzer instances first ...");
+
+        }
 
         sync_fuzzers(afl);
 
@@ -2419,10 +2426,22 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
   #ifdef INTROSPECTION
-      fprintf(afl->introspection_file,
-              "CYCLE cycle=%llu cycle_wo_finds=%llu expand_havoc=%u queue=%u\n",
-              afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
-              afl->queued_items);
+      {
+
+        u64 cur_time = get_cur_time();
+        fprintf(afl->introspection_file,
+                "CYCLE cycle=%llu cycle_wo_finds=%llu time_wo_finds=%llu "
+                "expand_havoc=%u queue=%u\n",
+                afl->queue_cycle, afl->cycles_wo_finds,
+                afl->longest_find_time > cur_time - afl->last_find_time
+                    ? afl->longest_find_time / 1000
+                    : ((afl->start_time == 0 || afl->last_find_time == 0)
+                           ? 0
+                           : (cur_time - afl->last_find_time) / 1000),
+                afl->expand_havoc, afl->queued_items);
+
+      }
+
   #endif
 
       if (afl->cycle_schedules) {
@@ -2493,26 +2512,69 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        afl->current_entry = select_next_queue_entry(afl);
+        do {
+
+          afl->current_entry = select_next_queue_entry(afl);
+
+        } while (unlikely(afl->current_entry >= afl->queued_items));
+
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
 
       skipped_fuzz = fuzz_one(afl);
+  #ifdef INTROSPECTION
+      ++afl->queue_cur->stats_selected;
+
+      if (unlikely(skipped_fuzz)) {
+
+        ++afl->queue_cur->stats_skipped;
+
+      } else {
+
+        if (unlikely(afl->queued_items > prev_queued_items)) {
+
+          afl->queue_cur->stats_finds += afl->queued_items - prev_queued_items;
+          prev_queued_items = afl->queued_items;
+
+        }
+
+        if (unlikely(afl->saved_crashes > prev_saved_crashes)) {
+
+          afl->queue_cur->stats_crashes +=
+              afl->saved_crashes - prev_saved_crashes;
+          prev_saved_crashes = afl->saved_crashes;
+
+        }
+
+        if (unlikely(afl->saved_tmouts > prev_saved_tmouts)) {
+
+          afl->queue_cur->stats_tmouts += afl->saved_tmouts - prev_saved_tmouts;
+          prev_saved_tmouts = afl->saved_tmouts;
+
+        }
+
+      }
+
+  #endif
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
       if (unlikely(afl->old_seed_selection)) {
 
         while (++afl->current_entry < afl->queued_items &&
-               afl->queue_buf[afl->current_entry]->disabled)
-          ;
+               afl->queue_buf[afl->current_entry]->disabled) {};
         if (unlikely(afl->current_entry >= afl->queued_items ||
                      afl->queue_buf[afl->current_entry] == NULL ||
-                     afl->queue_buf[afl->current_entry]->disabled))
+                     afl->queue_buf[afl->current_entry]->disabled)) {
+
           afl->queue_cur = NULL;
-        else
+
+        } else {
+
           afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+        }
 
       }
 
@@ -2558,6 +2620,7 @@ int main(int argc, char **argv_orig, char **envp) {
 stop_fuzzing:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
+  afl->stop_soon = 1;        // ensure everything is written
   show_stats(afl);           // print the screen one last time
   write_bitmap(afl);
   save_auto(afl);

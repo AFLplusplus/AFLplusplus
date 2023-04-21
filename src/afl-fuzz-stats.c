@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
     if (memchr(argv[i], '\'', strlen(argv[i]))) {
 
 #else
-    if (index(argv[i], '\'')) {
+    if (strchr(argv[i], '\'')) {
 
 #endif
 
@@ -251,6 +251,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "fuzzer_pid        : %u\n"
       "cycles_done       : %llu\n"
       "cycles_wo_finds   : %llu\n"
+      "time_wo_finds     : %llu\n"
       "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
       "execs_ps_last_min : %0.02f\n"
@@ -291,6 +292,11 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
       (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
+      afl->longest_find_time > cur_time - afl->last_find_time
+          ? afl->longest_find_time / 1000
+          : ((afl->start_time == 0 || afl->last_find_time == 0)
+                 ? 0
+                 : (cur_time - afl->last_find_time) / 1000),
       afl->fsrv.total_execs,
       afl->fsrv.total_execs /
           ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
@@ -364,6 +370,39 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   fclose(f);
 
 }
+
+#ifdef INTROSPECTION
+void write_queue_stats(afl_state_t *afl) {
+
+  FILE *f;
+  u8   *fn = alloc_printf("%s/queue_data", afl->out_dir);
+  if ((f = fopen(fn, "w")) != NULL) {
+
+    u32 id;
+    fprintf(f,
+            "# filename, length, exec_us, selected, skipped, mutations, finds, "
+            "crashes, timeouts, bitmap_size, perf_score, weight, colorized, "
+            "favored, disabled\n");
+    for (id = 0; id < afl->queued_items; ++id) {
+
+      struct queue_entry *q = afl->queue_buf[id];
+      fprintf(f, "\"%s\",%u,%llu,%u,%u,%llu,%u,%u,%u,%u,%.3f,%.3f,%u,%u,%u\n",
+              q->fname, q->len, q->exec_us, q->stats_selected, q->stats_skipped,
+              q->stats_mutated, q->stats_finds, q->stats_crashes,
+              q->stats_tmouts, q->bitmap_size, q->perf_score, q->weight,
+              q->colorized, q->favored, q->disabled);
+
+    }
+
+    fclose(f);
+
+  }
+
+  ck_free(fn);
+
+}
+
+#endif
 
 /* Update the plot file if there is a reason to. */
 
@@ -578,9 +617,10 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (unlikely(!afl->non_instrumented_mode &&
-               (afl->force_ui_update ||
-                cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000))) {
+  if (unlikely(
+          !afl->non_instrumented_mode &&
+          (afl->force_ui_update || cur_ms - afl->stats_last_stats_ms >
+                                       afl->stats_file_update_freq_msecs))) {
 
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
@@ -613,6 +653,18 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
+  /* Every now and then, write queue data. */
+
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_queue_ms > QUEUE_UPDATE_SEC * 1000)) {
+
+    afl->stats_last_queue_ms = cur_ms;
+#ifdef INTROSPECTION
+    write_queue_stats(afl);
+#endif
+
+  }
+
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
   if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
@@ -624,9 +676,14 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* AFL_EXIT_ON_TIME. */
 
-  if (unlikely(afl->last_find_time && !afl->non_instrumented_mode &&
-               afl->afl_env.afl_exit_on_time &&
-               (cur_ms - afl->last_find_time) > afl->exit_on_time)) {
+  /* If no coverage was found yet, check whether run time is greater than
+   * exit_on_time. */
+
+  if (unlikely(!afl->non_instrumented_mode && afl->afl_env.afl_exit_on_time &&
+               ((afl->last_find_time &&
+                 (cur_ms - afl->last_find_time) > afl->exit_on_time) ||
+                (!afl->last_find_time &&
+                 (cur_ms - afl->start_time) > afl->exit_on_time)))) {
 
     afl->stop_soon = 2;
 
@@ -696,20 +753,20 @@ void show_stats_normal(afl_state_t *afl) {
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {
 
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-              afl->crash_mode ? cPIN "peruvian were-rabbit"
-                              : cYEL "american fuzzy lop",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
+               afl->crash_mode ? cPIN "peruvian were-rabbit"
+                               : cYEL "american fuzzy lop",
+               si, afl->use_banner, afl->power_name);
 
     } else {
 
 #endif
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-              afl->crash_mode ? cPIN "peruvian were-rabbit"
-                              : cYEL "american fuzzy lop",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+               afl->crash_mode ? cPIN "peruvian were-rabbit"
+                               : cYEL "american fuzzy lop",
+               si, afl->use_banner, afl->power_name);
 
 #ifdef __linux__
 
@@ -1399,6 +1456,18 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
+  /* Every now and then, write queue data. */
+
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_queue_ms > QUEUE_UPDATE_SEC * 1000)) {
+
+    afl->stats_last_queue_ms = cur_ms;
+#ifdef INTROSPECTION
+    write_queue_stats(afl);
+#endif
+
+  }
+
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
   if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
@@ -1410,9 +1479,14 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* AFL_EXIT_ON_TIME. */
 
-  if (unlikely(afl->last_find_time && !afl->non_instrumented_mode &&
-               afl->afl_env.afl_exit_on_time &&
-               (cur_ms - afl->last_find_time) > afl->exit_on_time)) {
+  /* If no coverage was found yet, check whether run time is greater than
+   * exit_on_time. */
+
+  if (unlikely(!afl->non_instrumented_mode && afl->afl_env.afl_exit_on_time &&
+               ((afl->last_find_time &&
+                 (cur_ms - afl->last_find_time) > afl->exit_on_time) ||
+                (!afl->last_find_time &&
+                 (cur_ms - afl->start_time) > afl->exit_on_time)))) {
 
     afl->stop_soon = 2;
 
@@ -1483,20 +1557,22 @@ void show_stats_pizza(afl_state_t *afl) {
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {
 
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-              afl->crash_mode ? cPIN "Mozzarbella Pizzeria table booking system"
-                              : cYEL "Mozzarbella Pizzeria management system",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
+               afl->crash_mode ? cPIN
+                   "Mozzarbella Pizzeria table booking system"
+                               : cYEL "Mozzarbella Pizzeria management system",
+               si, afl->use_banner, afl->power_name);
 
     } else {
 
 #endif
-      sprintf(banner + banner_pad,
-              "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-              afl->crash_mode ? cPIN "Mozzarbella Pizzeria table booking system"
-                              : cYEL "Mozzarbella Pizzeria management system",
-              si, afl->use_banner, afl->power_name);
+      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
+               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+               afl->crash_mode ? cPIN
+                   "Mozzarbella Pizzeria table booking system"
+                               : cYEL "Mozzarbella Pizzeria management system",
+               si, afl->use_banner, afl->power_name);
 
 #ifdef __linux__
 
@@ -1727,10 +1803,10 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* Show a warning about slow execution. */
 
-  if (afl->stats_avg_exec < 100) {
+  if (afl->stats_avg_exec < 20) {
 
     sprintf(tmp, "%s/sec (%s)", u_stringify_float(IB(0), afl->stats_avg_exec),
-            afl->stats_avg_exec < 20 ? "zzzz..." : "Gennarino is at it again!");
+            "zzzz...");
 
     SAYF(bV bSTOP "                pizza making speed : " cLRD
                   "%-22s                ",
@@ -2105,7 +2181,9 @@ void show_init_stats(afl_state_t *afl) {
                     ? 50000
                     : 10000)) {
 
-    WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
+    WARNF(cLRD
+          "The target binary is pretty slow! See "
+          "%s/fuzzing_in_depth.md#i-improve-the-speed",
           doc_path);
 
   }
@@ -2134,13 +2212,17 @@ void show_init_stats(afl_state_t *afl) {
 
     if (max_len > 50 * 1024) {
 
-      WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.md!",
+      WARNF(cLRD
+            "Some test cases are huge (%s) - see "
+            "%s/fuzzing_in_depth.md#i-improve-the-speed",
             stringify_mem_size(IB(0), max_len), doc_path);
 
     } else if (max_len > 10 * 1024) {
 
-      WARNF("Some test cases are big (%s) - see %s/perf_tips.md.",
-            stringify_mem_size(IB(0), max_len), doc_path);
+      WARNF(
+          "Some test cases are big (%s) - see "
+          "%s/fuzzing_in_depth.md#i-improve-the-speed",
+          stringify_mem_size(IB(0), max_len), doc_path);
 
     }
 

@@ -2,7 +2,7 @@
 
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2022 AdaCore
+   Copyright 2019-2023 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL
    LLVM pass by Laszlo Szekeres <lszekeres@google.com> and Michal
@@ -125,7 +125,10 @@
 */
 
 #include "afl-gcc-common.h"
-#include "memmodel.h"
+#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
+    60200                                               /* >= version 6.2.0 */
+  #include "memmodel.h"
+#endif
 
 /* This plugin, being under the same license as GCC, satisfies the
    "GPL-compatible Software" definition in the GCC RUNTIME LIBRARY

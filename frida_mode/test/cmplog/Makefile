@@ -19,6 +19,9 @@ frida:
 frida-nocmplog:
 	@gmake frida-nocmplog
 
+frida-unprefixedpath:
+	@gmake frida-unprefixedpath
+
 format:
 	@gmake format
 

@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@
 
    This tool provides a fairly accurate measurement of CPU preemption rate.
    It is meant to complement the quick-and-dirty load average widget shown
-   in the afl-fuzz UI. See docs/parallel_fuzzing.md for more info.
+   in the afl-fuzz UI. See docs/fuzzing_in_depth.md#c-using-multiple-cores
+   for more info.
 
    For some work loads, the tool may actually suggest running more instances
    than you have CPU cores. This can happen if the tested program is spending
@@ -91,7 +92,7 @@ static u32 measure_preemption(u32 target_ms) {
   volatile u32 v1, v2 = 0;
 
   u64 st_t, en_t, st_c, en_c, real_delta, slice_delta;
-  s32 loop_repeats = 0;
+  // s32 loop_repeats = 0;
 
   st_t = get_cur_time_us();
   st_c = get_cpu_usage_us();
@@ -112,7 +113,7 @@ repeat_loop:
 
   if (en_t - st_t < target_ms * 1000) {
 
-    loop_repeats++;
+    // loop_repeats++;
     goto repeat_loop;
 
   }
@@ -173,7 +174,12 @@ int main(int argc, char **argv) {
       if (c == NULL) PFATAL("cpuset_create failed");
 
       cpuset_set(i, c);
-  #elif defined(__APPLE__)
+  #elif defined(__APPLE__) && defined(__x86_64__)
+      // the api is not workable on arm64, core's principle
+      // differs significantly hive of core per type vs individual ones.
+      // Possible TODO: For arm64 is to slightly change the meaning
+      // of gotcpu since it makes no sense on this platform
+      // but rather just displaying current policy ?
       thread_affinity_policy_data_t c = {i};
       thread_port_t native_thread = pthread_mach_thread_np(pthread_self());
       if (thread_policy_set(native_thread, THREAD_AFFINITY_POLICY,
@@ -208,7 +214,13 @@ int main(int argc, char **argv) {
   #if defined(__linux__)
       if (sched_setaffinity(0, sizeof(c), &c)) {
 
-        PFATAL("sched_setaffinity failed for cpu %d", i);
+        const char *error_code = "Unkown error code";
+        if (errno == EFAULT) error_code = "EFAULT";
+        if (errno == EINVAL) error_code = "EINVAL";
+        if (errno == EPERM) error_code = "EPERM";
+        if (errno == ESRCH) error_code = "ESRCH";
+
+        PFATAL("sched_setaffinity failed for cpu %d, error: %s", i, error_code);
 
       }
 
