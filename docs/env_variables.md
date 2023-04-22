@@ -677,6 +677,8 @@ support.
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
   a file.
+* `AFL_FRIDA_INST_NO_DYNAMIC_LOAD` - Don't instrument the code loaded late at
+  runtime. Strictly limits instrumentation to what has been included.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
   `AFL_FRIDA_INST_TRACE`.

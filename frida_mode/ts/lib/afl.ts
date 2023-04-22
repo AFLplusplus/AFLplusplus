@@ -179,6 +179,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_DYNAMIC_LOAD`
+   */
+  public static setInstrumentNoDynamicLoad(): void {
+    Afl.jsApiSetInstrumentNoDynamicLoad();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_NO_OPTIMIZE`
    */
   public static setInstrumentNoOptimize(): void {
@@ -440,6 +447,11 @@ class Afl {
 
   private static readonly jsApiSetInstrumentLibraries = Afl.jsApiGetFunction(
     "js_api_set_instrument_libraries",
+    "void",
+    []);
+
+  private static readonly jsApiSetInstrumentNoDynamicLoad = Afl.jsApiGetFunction(
+    "js_api_set_instrument_no_dynamic_load",
     "void",
     []);
 
