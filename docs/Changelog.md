@@ -4,8 +4,12 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.07a (dev)
+  - afl-fuzz:
+    - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
+      data before post process on finds
   - afl-showmap:
     - added custom mutator post_process and send support
+  - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
 
 
 ### Version ++4.06c (release)
