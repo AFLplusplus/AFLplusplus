@@ -156,8 +156,8 @@ __attribute__((visibility("default"))) void js_api_set_instrument_instructions(
 
 }
 
-__attribute__((visibility("default"))) void js_api_set_instrument_no_dynamic_load(
-    void) {
+__attribute__((visibility("default"))) void
+js_api_set_instrument_no_dynamic_load(void) {
 
   ranges_inst_dynamic_load = FALSE;
 
