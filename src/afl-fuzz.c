@@ -292,6 +292,8 @@ static void usage(u8 *argv0, int more_help) {
 
       PERSISTENT_MSG
 
+      "AFL_POST_PROCESS_KEEP_ORIGINAL: save the file as it was prior post-processing to the queue,\n"
+      "                                but execute the post-processed one\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
