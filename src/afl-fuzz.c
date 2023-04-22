@@ -326,7 +326,7 @@ static void usage(u8 *argv0, int more_help) {
   }
 
 #ifdef USE_PYTHON
-  SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
+  SAYF("Compiled with %s module support, see docs/custom_mutators.md\n",
        (char *)PYTHON_VERSION);
 #else
   SAYF("Compiled without Python module support.\n");
