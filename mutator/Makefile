@@ -3,7 +3,7 @@ FLAGS=-I ../include
 
 TEST_FILE=test1.c
 
-angora: mutator.c
+angora: mutator.c cmp-functions.c
 	$(CC) $(FLAGS) -fPIC -g -O0 -shared mutator.c cmp-functions.c -o mutator.so 
 
 

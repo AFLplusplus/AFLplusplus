@@ -11,13 +11,13 @@ enum {
   IS_FP = 8,       // is a floating point, not an integer
 };
 
-u64 aminusb(u64 a, u64 b) { return a - b; }
+s64 aminusb(u64 a, u64 b) { return a - b; }
 
-u64 bminusa(u64 a, u64 b) { return b - a; }
+s64 bminusa(u64 a, u64 b) { return b - a; }
 
-u64 abs_aminusb(u64 a, u64 b) { return abs(a - b); }
+s64 abs_aminusb(u64 a, u64 b) { return abs(a - b); }
 
-u64 neg_abs_aminusb(u64 a, u64 b) { return -abs(a - b); }
+s64 neg_abs_aminusb(u64 a, u64 b) { return -abs(a - b); }
 
 
 u8 ltez(u64 n){
