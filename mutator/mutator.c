@@ -182,24 +182,26 @@ size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigne
   memset(kale->gradients, 0, spaceNeeded);
 
   // Select a cmplog entry to start with
-  u32 k = kale_choose_random_false(afl->shm.cmp_map);
-  u32 i = kale_get_false_entry(afl->shm.cmp_map, k);
+  u32 k = kale_choose_random(afl->shm.cmp_map);
+  u32 i = rand() % (afl->shm.cmp_map->headers[k].hits);
 
 
-    // Do first cmplog pass
-    memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+  // Do first cmplog pass
+  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
 
-    if (unlikely(common_fuzz_cmplog_stuff(afl, *out_buf, buf_size))) {
-      // TODO: Error handling
-      assert(false);
-      return 0;
-    }
+  if (unlikely(common_fuzz_cmplog_stuff(afl, *out_buf, buf_size))) {
+    // TODO: Error handling
+    assert(false);
+    return 0;
+  }
 
-    // Save the original map
-    memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
+  // Save the original map
+  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
 
-  // Continually calculate gradient until it evaluates to true
-  while(!kale_cmplog_is_true(afl->shm.cmp_map, k, i)){
+  u8 initial_cmp_state = kale_cmplog_is_true(afl->shm.cmp_map, k, i);
+
+  // Continually calculate gradient until it flips
+  while(kale_cmplog_is_true(afl->shm.cmp_map, k, i) == initial_cmp_state){
 
     // Calculate gradients of new input
     for(int j = 0; j < buf_size; j++){
@@ -213,9 +215,10 @@ size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigne
         return 0;
       }
 
-      // Check if the if statement is no longer present (success)
+      // Check if the if statement is no longer present, this could be because the args are equal,
+      // just apply another gradient descent and hope
       if(afl->shm.cmp_map->headers[k].hits != afl->orig_cmp_map->headers[k].hits){
-        goto success;
+        goto descent;
       }
 
       kale->gradients[j] = kale_get_gradient(afl->orig_cmp_map, afl->shm.cmp_map, k, i);
@@ -232,6 +235,7 @@ size_t afl_custom_fuzz(void* udata, unsigned char *buf, size_t buf_size, unsigne
     }
 
     // Apply gradient descent
+    descent:
     for(int j = 0; j < buf_size; j++){
       (*out_buf)[j] += kale->gradients[j] * learningRate;
     }

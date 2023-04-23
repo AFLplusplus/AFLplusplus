@@ -20,15 +20,15 @@ s64 abs_aminusb(u64 a, u64 b) { return abs(a - b); }
 s64 neg_abs_aminusb(u64 a, u64 b) { return -abs(a - b); }
 
 
-u8 ltez(u64 n){
+u8 ltez(s64 n){
   return n <= 0;
 }
 
-u8 ltz(u64 n){
+u8 ltz(s64 n){
   return n < 0;
 }
 
-u8 ez(u64 n){
+u8 ez(s64 n){
   return n == 0;
 }
 
