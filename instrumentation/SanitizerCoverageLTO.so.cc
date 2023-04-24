@@ -1005,7 +1005,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   // afl++ START
   if (dFile.is_open()) dFile.close();
 
-  if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
+  if (!getenv("AFL_LLVM_LTO_SKIPINIT") &&
+      (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr)) {
 
     // yes we could create our own function, insert it into ctors ...
     // but this would be a pain in the butt ... so we use afl-llvm-rt-lto.o
