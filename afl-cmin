@@ -234,7 +234,7 @@ BEGIN {
   } # while options
 
   if (!mem_limit) mem_limit = "none"
-  if (!timeout) timeout = "none"
+  if (!timeout) timeout = "5000"
 
   # get program args
   i = 0
