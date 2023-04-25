@@ -2099,6 +2099,8 @@ int main(int argc, char **argv, char **envp) {
             "bb\n"
             "  AFL_REAL_LD: use this lld linker instead of the compiled in "
             "path\n"
+            "  AFL_LLVM_LTO_SKIPINIT: don't inject initialization code "
+            "(used in WAFL mode)\n"
             "If anything fails - be sure to read README.lto.md!\n");
 #endif
 
