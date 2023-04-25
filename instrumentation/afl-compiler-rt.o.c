@@ -496,11 +496,11 @@ static void __afl_map_shm(void) {
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
-             u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
-             if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
+      if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
 
-               send_forkserver_error(FS_ERROR_MAP_SIZE);
-               _exit(1);
+        send_forkserver_error(FS_ERROR_MAP_SIZE);
+        _exit(1);
 
       }
 
@@ -512,13 +512,13 @@ static void __afl_map_shm(void) {
 
     if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
-             if (__afl_map_addr)
+      if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_SHMAT);
 
       perror("shmat for map");
-             _exit(1);
+      _exit(1);
 
     }
 
