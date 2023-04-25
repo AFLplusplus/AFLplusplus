@@ -316,11 +316,15 @@ if [ ! "$T_ARG" = "" ]; then
   if [ "$T_ARG" = "all" ]; then
     THREADS=$(nproc)
   else
-    if [ "$T_ARG" -gt 0 -a "$T_ARG" -le "$(nproc)" ]; then
+    if [ "$T_ARG" -gt 1 -a "$T_ARG" -le "$(nproc)" ]; then
       THREADS=$T_ARG
     else
-      echo "[-] Error: -T parameter must between 1 and $(nproc) or \"all\"." 1>&2
+      echo "[-] Error: -T parameter must between 2 and $(nproc) or \"all\"." 1>&2
     fi
+  fi
+else
+  if [ "$F_ARG" = ""]; then
+    echo "[*] Are you aware of the '-T all' parallelize option that massively improves the speed?"
   fi
 fi
 
@@ -332,6 +336,7 @@ if [ "$IN_COUNT" = "0" ]; then
   exit 1
 fi
 
+echo "[*] Are you aware that afl-cmin is faster than this afl-cmin.bash script?"
 echo "[+] Found $IN_COUNT files for minimizing."
 
 FIRST_FILE=`ls "$IN_DIR" | head -1`
