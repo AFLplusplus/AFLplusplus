@@ -14,6 +14,8 @@
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
+  - afl-cmin.bash:
+    - `-T threads` parallel task support, huge speedup!
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
 
 
