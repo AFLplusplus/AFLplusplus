@@ -756,7 +756,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
         free(nl[i]);                                         /* not tracked */
         read_testcases(afl, fn2);
         ck_free(fn2);
-        continue;
+        goto next_entry;
 
       }
 
@@ -765,7 +765,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
         ck_free(fn2);
-        continue;
+        goto next_entry;
 
       }
 
@@ -812,13 +812,14 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
       }
 
+    next_entry:
       if (unlikely(afl->in_place_resume)) {
 
         if (unlikely(i == 0)) { done = 1; }
 
       } else {
 
-        if (unlikely(++i == (u32)nl_cnt)) { done = 1; }
+        if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
 
       }
 
