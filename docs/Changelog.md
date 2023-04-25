@@ -7,6 +7,10 @@
   - afl-fuzz:
     - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
       data before post process on finds
+    - reverse reading the seeds only on restarts
+  - afl-cc:
+    - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
+      (https://github.com/fgsect/WAFL) project
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
