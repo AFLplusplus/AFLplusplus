@@ -894,9 +894,7 @@ u32 execute_testcases_filelist(u8 *fn) {
   while (fgets(buf, sizeof(buf), f) != NULL) {
 
     struct stat st;
-
-    u8 *fn2 = buf, *fn3;
-    ;
+    u8         *fn2 = buf, *fn3;
 
     while (*fn2 == ' ') {
 
@@ -904,14 +902,11 @@ u32 execute_testcases_filelist(u8 *fn) {
 
     }
 
-    if (*fn2) {
+    while (*fn2 &&
+           (fn2[strlen(fn2) - 1] == '\r' || fn2[strlen(fn2) - 1] == '\n' ||
+            fn2[strlen(fn2) - 1] == ' ')) {
 
-      while (fn2[strlen(fn2) - 1] == '\r' || fn2[strlen(fn2) - 1] == '\n' ||
-             fn2[strlen(fn2) - 1] == ' ') {
-
-        fn2[strlen(fn2) - 1] = 0;
-
-      }
+      fn2[strlen(fn2) - 1] = 0;
 
     }
 
@@ -925,6 +920,8 @@ u32 execute_testcases_filelist(u8 *fn) {
       continue;
 
     }
+
+    ++done;
 
     if (!S_ISREG(st.st_mode) || !st.st_size) { continue; }
 
@@ -946,8 +943,11 @@ u32 execute_testcases_filelist(u8 *fn) {
 
     }
 
-    if (!collect_coverage)
+    if (!collect_coverage) {
+
       snprintf(outfile, sizeof(outfile), "%s/%s", out_file, fn3);
+
+    }
 
     if (read_file(fn2)) {
 
@@ -961,7 +961,6 @@ u32 execute_testcases_filelist(u8 *fn) {
 
       showmap_run_target_forkserver(fsrv, in_data, in_len);
       ck_free(in_data);
-      ++done;
 
       if (child_crashed && debug) { WARNF("crashed: %s", fn2); }
 
