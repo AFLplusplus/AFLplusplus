@@ -1,6 +1,5 @@
 // This simple example just creates random buffer <= 100 filled with 'A'
 // needs -I /path/to/AFLplusplus/include
-//#include "custom_mutator_helpers.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -8,19 +7,17 @@
 #include <stdio.h>
 
 #include "radamsa.h"
-#include "custom_mutator_helpers.h"
+#include "afl-fuzz.h"
 
 typedef struct my_mutator {
 
-  afl_t *afl;
-
-  u8 *mutator_buf;
-
+  afl_state_t *afl;
+  u8          *mutator_buf;
   unsigned int seed;
 
 } my_mutator_t;
 
-my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
+my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   srand(seed);
   my_mutator_t *data = calloc(1, sizeof(my_mutator_t));

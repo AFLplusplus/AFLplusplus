@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "custom_mutator_helpers.h"
+#include "afl-fuzz.h"
 #include "mangle.h"
 
 #define NUMBER_OF_MUTATIONS 5
 
-uint8_t *         queue_input;
+uint8_t          *queue_input;
 size_t            queue_input_size;
-afl_state_t *     afl_struct;
+afl_state_t      *afl_struct;
 run_t             run;
 honggfuzz_t       global;
 struct _dynfile_t dynfile;
@@ -18,8 +18,8 @@ struct _dynfile_t dynfile;
 typedef struct my_mutator {
 
   afl_state_t *afl;
-  run_t *      run;
-  u8 *         mutator_buf;
+  run_t       *run;
+  u8          *mutator_buf;
   unsigned int seed;
   unsigned int extras_cnt, a_extras_cnt;
 
@@ -65,9 +65,9 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 /* When a new queue entry is added we check if there are new dictionary
    entries to add to honggfuzz structure */
 
-uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
-                                   const uint8_t *filename_new_queue,
-                                   const uint8_t *filename_orig_queue) {
+void afl_custom_queue_new_entry(my_mutator_t  *data,
+                                const uint8_t *filename_new_queue,
+                                const uint8_t *filename_orig_queue) {
 
   if (run.global->mutate.dictionaryCnt >= 1024) return;
 
@@ -97,7 +97,7 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
 
   }
 
-  return 0;
+  return;
 
 }
 
