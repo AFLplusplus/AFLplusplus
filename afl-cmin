@@ -281,8 +281,8 @@ BEGIN {
     exit 1
   }
 
-  if (!threads && !stdin_file) {
-    print "[*] Are you aware of the '-T all' parallelize option that massively improves the speed for large corpuses?"
+  if (!threads && !stdin_file && !nyx_mode) {
+    print "[*] Are you aware of the '-T all' parallelize option that improves the speed for large/slow corpuses?"
   }
 
   # If @@ is specified, but there's no -f, let's come up with a temporary input
@@ -504,8 +504,6 @@ BEGIN {
     for (; cnt < in_count; cnt++) {
       print in_dir"/"infilesSmallToBigFull[cnt] >> tmpfile"."threads
     }
-
-    print "ls -l "tmpfile"*"
 
   }
 

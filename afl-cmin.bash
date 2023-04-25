@@ -206,7 +206,7 @@ fi
 
 # Check for obvious errors.
 
-if [ ! "$T_ARG" = "" -a ! "$F_ARG" = "" ]; then
+if [ ! "$T_ARG" = "" -a ! "$F_ARG" = "" -a ! "$NYX_MODE" == 1 ]; then
   echo "[-] Error: -T and -f can not be used together." 1>&2
   exit 1
 fi
