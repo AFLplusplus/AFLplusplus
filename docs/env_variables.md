@@ -406,7 +406,8 @@ checks or alter some of the more exotic semantics of the tool:
 
   - If afl-fuzz encounters an incorrect fuzzing setup during a fuzzing session
     (not at startup), it will terminate. If you do not want this, then you can
-    set `AFL_IGNORE_PROBLEMS`.
+    set `AFL_IGNORE_PROBLEMS`. If you additionally want to also ignore coverage
+    from late loaded libraries, you can set `AFL_IGNORE_PROBLEMS_COVERAGE`.
 
   - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
     fuzzer to import test cases from other instances before doing anything else.

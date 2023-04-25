@@ -1565,13 +1565,13 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
           "be able to fuzz them or LD_PRELOAD to run outside of afl-fuzz.\n"
           "To ignore this set AFL_IGNORE_PROBLEMS=1 but this will lead to "
           "ambiguous coverage data.\n"
-          "In addition, you can set AFL_LLVM_IGNORE_PROBLEMS_COVERAGE=1 to "
+          "In addition, you can set AFL_IGNORE_PROBLEMS_COVERAGE=1 to "
           "ignore the additional coverage instead (use with caution!).\n");
       abort();
 
     } else {
 
-      u8 ignore_dso_after_fs = !!getenv("AFL_LLVM_IGNORE_PROBLEMS_COVERAGE");
+      u8 ignore_dso_after_fs = !!getenv("AFL_IGNORE_PROBLEMS_COVERAGE");
       if (__afl_debug && ignore_dso_after_fs) {
 
         fprintf(stderr, "Ignoring coverage from dynamically loaded code\n");
