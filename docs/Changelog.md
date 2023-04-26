@@ -5,9 +5,11 @@
 
 ### Version ++4.07a (dev)
   - afl-fuzz:
+    - reverse reading the seeds only on restarts (increases performance)
     - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
-      data before post process on finds
-    - reverse reading the seeds only on restarts
+      data before post process on finds (for atnwalk custom mutator)
+    - new env `AFL_IGNORE_PROBLEMS_COVERAGE` to ignore coverage from
+      loaded libs after forkserver initialization (required by Mozilla)
   - afl-cc:
     - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
       (https://github.com/fgsect/WAFL) project
@@ -15,7 +17,7 @@
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
   - afl-cmin + afl-cmin.bash:
-    - `-T threads` parallel task support, huge speedup!
+    - `-T threads` parallel task support, can be a huge speedup!
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
 
 

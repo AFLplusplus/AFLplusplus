@@ -10,7 +10,6 @@
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
  - first fuzzer should be a main automatically? not sure.
- - reload fuzz binary on signal
 
 ## Maybe
 
