@@ -106,6 +106,7 @@ static char *afl_environment_variables[] = {
     "AFL_HARDEN",
     "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
     "AFL_IGNORE_PROBLEMS",
+    "AFL_IGNORE_PROBLEMS_COVERAGE",
     "AFL_IGNORE_TIMEOUTS",
     "AFL_IGNORE_UNKNOWN_ENVS",
     "AFL_IMPORT_FIRST",
@@ -160,8 +161,9 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_SKIP_NEVERZERO",
     "AFL_NO_AFFINITY",
     "AFL_TRY_AFFINITY",
-    "AFL_LLVM_LTO_STARTID",
     "AFL_LLVM_LTO_DONTWRITEID",
+    "AFL_LLVM_LTO_SKIPINIT"
+    "AFL_LLVM_LTO_STARTID",
     "AFL_NO_ARITH",
     "AFL_NO_AUTODICT",
     "AFL_NO_BUILTIN",

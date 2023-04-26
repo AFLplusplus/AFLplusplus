@@ -259,6 +259,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
+      "AFL_IGNORE_PROBLEMS_COVERAGE: if set in addition to AFL_IGNORE_PROBLEMS - also\n"
+      "                              ignore those libs for coverage\n"
       "AFL_IGNORE_TIMEOUTS: do not process or save any timeouts\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"

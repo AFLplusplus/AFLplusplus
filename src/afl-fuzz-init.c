@@ -718,10 +718,21 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   if (nl_cnt) {
 
-    i = nl_cnt;
+    u32 done = 0;
+
+    if (unlikely(afl->in_place_resume)) {
+
+      i = nl_cnt;
+
+    } else {
+
+      i = 0;
+
+    }
+
     do {
 
-      --i;
+      if (unlikely(afl->in_place_resume)) { --i; }
 
       struct stat st;
       u8          dfn[PATH_MAX];
@@ -745,7 +756,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
         free(nl[i]);                                         /* not tracked */
         read_testcases(afl, fn2);
         ck_free(fn2);
-        continue;
+        goto next_entry;
 
       }
 
@@ -754,7 +765,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
         ck_free(fn2);
-        continue;
+        goto next_entry;
 
       }
 
@@ -801,18 +812,18 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
       }
 
-      /*
-          if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+    next_entry:
+      if (unlikely(afl->in_place_resume)) {
 
-            u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size,
-         HASH_CONST); afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-            afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+        if (unlikely(i == 0)) { done = 1; }
 
-          }
+      } else {
 
-      */
+        if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
 
-    } while (i > 0);
+      }
+
+    } while (!done);
 
   }
 
