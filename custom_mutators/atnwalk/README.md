@@ -6,9 +6,7 @@ Refer to [https://github.com/atnwalk/testbed](https://github.com/atnwalk/testbed
 
 ## Build
 
-```bash
-gcc -I ../../include/ -shared -fPIC -Wall -O3 atnwalk.c -o atnwalk.so
-```
+Just type `make` to build `atnwalk.so`.
 
 ## Run
 

@@ -229,7 +229,8 @@ If you find an interesting or important question missing, submit it via
   If this is not a viable option, you can set `AFL_IGNORE_PROBLEMS=1` but then
   the existing map will be used also for the newly loaded libraries, which
   allows it to work, however, the efficiency of the fuzzing will be partially
-  degraded.
+  degraded. Note that there is additionally `AFL_IGNORE_PROBLEMS_COVERAGE` to
+  additionally tell AFL++ to ignore any coverage from the late loaded libaries.
 </p></details>
 
 <details>

@@ -69,7 +69,9 @@ static afl_state_t *afl;
 static char *stdin_file;               /* stdin file                        */
 
 static u8 *in_dir = NULL,              /* input folder                      */
-    *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
+    *out_file = NULL,                  /* output file or directory          */
+        *at_file = NULL,               /* Substitution string for @@        */
+            *in_filelist = NULL;       /* input file list                   */
 
 static u8 outfile[PATH_MAX];
 
@@ -878,6 +880,103 @@ u32 execute_testcases(u8 *dir) {
 
 }
 
+u32 execute_testcases_filelist(u8 *fn) {
+
+  u32   done = 0;
+  u8    buf[4096];
+  u8    val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  FILE *f;
+
+  if (!be_quiet) { ACTF("Reading from '%s'...", fn); }
+
+  if ((f = fopen(fn, "r")) == NULL) { FATAL("could not open '%s'", fn); }
+
+  while (fgets(buf, sizeof(buf), f) != NULL) {
+
+    struct stat st;
+    u8         *fn2 = buf, *fn3;
+
+    while (*fn2 == ' ') {
+
+      ++fn2;
+
+    }
+
+    while (*fn2 &&
+           (fn2[strlen(fn2) - 1] == '\r' || fn2[strlen(fn2) - 1] == '\n' ||
+            fn2[strlen(fn2) - 1] == ' ')) {
+
+      fn2[strlen(fn2) - 1] = 0;
+
+    }
+
+    if (debug) { printf("Getting coverage for '%s'\n", fn2); }
+
+    if (!*fn2) { continue; }
+
+    if (lstat(fn2, &st) || access(fn2, R_OK)) {
+
+      WARNF("Unable to access '%s'", fn2);
+      continue;
+
+    }
+
+    ++done;
+
+    if (!S_ISREG(st.st_mode) || !st.st_size) { continue; }
+
+    if ((fn3 = strrchr(fn2, '/'))) {
+
+      ++fn3;
+
+    } else {
+
+      fn3 = fn2;
+
+    }
+
+    if (st.st_size > MAX_FILE && !be_quiet && !quiet_mode) {
+
+      WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
+            stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+            stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+
+    }
+
+    if (!collect_coverage) {
+
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, fn3);
+
+    }
+
+    if (read_file(fn2)) {
+
+      if (wait_for_gdb) {
+
+        fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
+        fprintf(stderr, "exec: kill -CONT %d\n", getpid());
+        kill(0, SIGSTOP);
+
+      }
+
+      showmap_run_target_forkserver(fsrv, in_data, in_len);
+      ck_free(in_data);
+
+      if (child_crashed && debug) { WARNF("crashed: %s", fn2); }
+
+      if (collect_coverage)
+        analyze_results(fsrv);
+      else
+        tcnt = write_results_to_file(fsrv, outfile);
+
+    }
+
+  }
+
+  return done;
+
+}
+
 /* Show banner. */
 
 static void show_banner(void) {
@@ -920,6 +1019,7 @@ static void usage(u8 *argv0) {
       "               With -C, -o is a file, without -C it must be a "
       "directory\n"
       "               and each bitmap will be written there individually.\n"
+      "  -I filelist - alternatively to -i, -I is a list of files\n"
       "  -C         - collect coverage, writes all edges to -o and gives a "
       "summary\n"
       "               Must be combined with -i.\n"
@@ -932,7 +1032,7 @@ static void usage(u8 *argv0) {
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
 
-      "If you use -i mode, then custom mutator post_process send send "
+      "If you use -i/-I mode, then custom mutator post_process send send "
       "functionality\n"
       "is supported.\n\n"
 
@@ -994,7 +1094,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
 
     switch (opt) {
 
@@ -1010,6 +1110,11 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'i':
         if (in_dir) { FATAL("Multiple -i options not supported"); }
         in_dir = optarg;
+        break;
+
+      case 'I':
+        if (in_filelist) { FATAL("Multiple -I options not supported"); }
+        in_filelist = optarg;
         break;
 
       case 'o':
@@ -1234,10 +1339,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
-  if (in_dir) {
+  if (in_dir && in_filelist) { FATAL("you can only specify either -i or -I"); }
+
+  if (in_dir || in_filelist) {
 
     if (!out_file && !collect_coverage)
-      FATAL("for -i you need to specify either -C and/or -o");
+      FATAL("for -i/-I you need to specify either -C and/or -o");
 
   }
 
@@ -1294,7 +1401,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (in_dir) {
+  if (in_dir || in_filelist) {
 
     /* If we don't have a file name chosen yet, use a safe default. */
     u8 *use_dir = ".";
@@ -1400,7 +1507,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
 #ifdef __linux__
-  if (!fsrv->nyx_mode && in_dir) {
+  if (!fsrv->nyx_mode && (in_dir || in_filelist)) {
 
     (void)check_binary_signatures(fsrv->target_path);
 
@@ -1483,7 +1590,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (in_dir) {
+  if (in_dir || in_filelist) {
 
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
     afl->afl_env.afl_custom_mutator_library =
@@ -1496,33 +1603,46 @@ int main(int argc, char **argv_orig, char **envp) {
     if (getenv("AFL_CUSTOM_MUTATOR_LIBRARY") || getenv("AFL_PYTHON_MODULE")) {
 
       WARNF(
-          "Custom mutator environment detected, this is only supported in -i "
-          "mode!\n");
+          "Custom mutator environment detected, this is only supported in "
+          "-i/-I mode!\n");
 
     }
 
   }
 
-  if (in_dir) {
+  if (in_dir || in_filelist) {
 
     DIR *dir_in, *dir_out = NULL;
+    u8  *dn = NULL;
 
     if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = true;
 
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
     if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
-    // if a queue subdirectory exists switch to that
-    u8 *dn = alloc_printf("%s/queue", in_dir);
-    if ((dir_in = opendir(dn)) != NULL) {
+    if (in_filelist) {
 
-      closedir(dir_in);
-      in_dir = dn;
+      if (!be_quiet) ACTF("Reading from file list '%s'...", in_filelist);
 
-    } else
+    } else {
 
-      ck_free(dn);
-    if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
+      // if a queue subdirectory exists switch to that
+      dn = alloc_printf("%s/queue", in_dir);
+
+      if ((dir_in = opendir(dn)) != NULL) {
+
+        closedir(dir_in);
+        in_dir = dn;
+
+      } else {
+
+        ck_free(dn);
+
+      }
+
+      if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
+
+    }
 
     if (!collect_coverage) {
 
@@ -1576,9 +1696,21 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    if (execute_testcases(in_dir) == 0) {
+    if (in_dir) {
 
-      FATAL("could not read input testcases from %s", in_dir);
+      if (execute_testcases(in_dir) == 0) {
+
+        FATAL("could not read input testcases from %s", in_dir);
+
+      }
+
+    } else {
+
+      if (execute_testcases_filelist(in_filelist) == 0) {
+
+        FATAL("could not read input testcases from %s", in_filelist);
+
+      }
 
     }
 
