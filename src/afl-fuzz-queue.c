@@ -107,7 +107,6 @@ void create_alias_table(afl_state_t *afl) {
 
   }
 
-  memset((void *)P, 0, n * sizeof(double));
   memset((void *)afl->alias_probability, 0, n * sizeof(double));
   memset((void *)afl->alias_table, 0, n * sizeof(u32));
   memset((void *)Small, 0, n * sizeof(u32));
