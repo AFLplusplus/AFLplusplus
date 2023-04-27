@@ -12,9 +12,9 @@ Repository:
 AFL++ is maintained by:
 
 * Marc "van Hauser" Heuse <mh@mh-sec.de>
-* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
 * Andrea Fioraldi <andreafioraldi@gmail.com>
 * Dominik Maier <mail@dmnk.co>
+* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
 * Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michał "lcamtuf" Zalewski.
