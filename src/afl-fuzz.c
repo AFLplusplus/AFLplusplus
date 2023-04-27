@@ -1280,16 +1280,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
-  OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
-      "Eißfeldt, Andrea Fioraldi and Dominik Maier");
-  OKF("afl++ is open source, get it at "
+  OKF("AFL++ is maintained by Marc \"van Hauser\" Heuse, Dominik Maier, Andrea "
+      "Fioraldi and Heiko \"hexcoder\" Eißfeldt");
+  OKF("AFL++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("NOTE: afl++ >= v3 has changed defaults and behaviours - see README.md");
+  OKF("NOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md");
 
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
-    OKF("afl++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
+    OKF("AFL++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
     OKF("Nyx is open source, get it at https://github.com/Nyx-Fuzz");
 
   }

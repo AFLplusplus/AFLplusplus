@@ -744,7 +744,7 @@ static void registerAFLdict2filePass(const PassManagerBuilder &,
 }
 
 static RegisterPass<AFLdict2filePass> X("afl-dict2file",
-                                        "afl++ dict2file instrumentation pass",
+                                        "AFL++ dict2file instrumentation pass",
                                         false, false);
 
 static RegisterStandardPasses RegisterAFLdict2filePass(

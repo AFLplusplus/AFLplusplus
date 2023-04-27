@@ -149,7 +149,7 @@ BEGIN {
     redirected = 0
   }
 
-  print "corpus minimization tool for afl++ (awk version)\n"
+  print "corpus minimization tool for AFL++ (awk version)\n"
 
   # defaults
   extra_par = ""

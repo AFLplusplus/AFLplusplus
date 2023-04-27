@@ -39,7 +39,7 @@ ASAN_OPTIONS=detect_leaks=0
 SYS = $(shell uname -s)
 ARCH = $(shell uname -m)
 
-$(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
+$(info [*] Compiling AFL++ for OS $(SYS) on ARCH $(ARCH))
 
 ifdef NO_SPLICING
   override CFLAGS_OPT += -DNO_SPLICING
@@ -359,7 +359,7 @@ performance-test:	source-only
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
-	@echo "all: the main afl++ binaries and llvm/gcc instrumentation"
+	@echo "all: the main AFL++ binaries and llvm/gcc instrumentation"
 	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
@@ -367,7 +367,7 @@ help:
 	@echo "install: installs everything you have compiled with the build option above"
 	@echo "clean: cleans everything compiled (not downloads when on a checkout)"
 	@echo "deepclean: cleans everything including downloads"
-	@echo "uninstall: uninstall afl++ from the system"
+	@echo "uninstall: uninstall AFL++ from the system"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
 	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
@@ -749,7 +749,7 @@ endif
 	@echo
 
 %.8:	%
-	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
+	@echo .TH $* 8 $(BUILD_DATE) "AFL++" > $@
 	@echo .SH NAME >> $@
 	@echo .B $* >> $@
 	@echo >> $@
@@ -761,8 +761,8 @@ endif
 	@./$* -hh 2>&1 | tail -n +4 >> $@
 	@echo >> $@
 	@echo .SH AUTHOR >> $@
-	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>, Andrea Fioraldi <andreafioraldi@gmail.com> and Dominik Maier <domenukk@gmail.com>" >> $@
-	@echo  The homepage of afl++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
+	@echo "AFL++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Dominik Maier <domenukk@gmail.com>, Andrea Fioraldi <andreafioraldi@gmail.com> and Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>" >> $@
+	@echo  The homepage of AFL++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
 	@echo >> $@
 	@echo .SH LICENSE >> $@
 	@echo Apache License Version 2.0, January 2004 >> $@
