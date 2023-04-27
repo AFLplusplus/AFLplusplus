@@ -47,13 +47,22 @@ void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
 
 inline u32 select_next_queue_entry(afl_state_t *afl) {
 
-  u32    s = rand_below(afl, afl->queued_items);
+  u32 s;
+
+  do {
+
+    s = rand_below(afl, afl->queued_items);
+
+  } while (afl->queue_buf[s]->disabled);
+
   double p = rand_next_percent(afl);
+
   /*
   fprintf(stderr, "select: p=%f s=%u ... p < prob[s]=%f ? s=%u : alias[%u]=%u"
   " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p <
   afl->alias_probability[s] ? s : afl->alias_table[s]);
   */
+
   return (p < afl->alias_probability[s] ? s : afl->alias_table[s]);
 
 }
