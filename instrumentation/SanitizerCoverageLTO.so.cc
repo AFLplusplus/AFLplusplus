@@ -1,4 +1,4 @@
-/* SanitizeCoverage.cpp ported to afl++ LTO :-) */
+/* SanitizeCoverage.cpp ported to AFL++ LTO :-) */
 
 #define AFL_LLVM_PASS
 
@@ -234,7 +234,7 @@ class ModuleSanitizerCoverageLTO
 
   SanitizerCoverageOptions Options;
 
-  // afl++ START
+  // AFL++ START
   // const SpecialCaseList *          Allowlist;
   // const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
@@ -260,7 +260,7 @@ class ModuleSanitizerCoverageLTO
   Value                           *MapPtrFixed = NULL;
   std::ofstream                    dFile;
   size_t                           found = 0;
-  // afl++ END
+  // AFL++ END
 
 };
 
@@ -404,7 +404,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   Int8Ty = IRB.getInt8Ty();
   Int1Ty = IRB.getInt1Ty();
 
-  /* afl++ START */
+  /* AFL++ START */
   char        *ptr;
   LLVMContext &Ctx = M.getContext();
   Ct = &Ctx;
@@ -978,7 +978,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   }
 
-  // afl++ END
+  // AFL++ END
 
   SanCovTracePCIndir =
       M.getOrInsertFunction(SanCovTracePCIndirName, VoidTy, IntptrTy);
@@ -1002,7 +1002,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   for (auto &F : M)
     instrumentFunction(F, DTCallback, PDTCallback);
 
-  // afl++ START
+  // AFL++ START
   if (dFile.is_open()) dFile.close();
 
   if (!getenv("AFL_LLVM_LTO_SKIPINIT") &&
@@ -1156,7 +1156,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   }
 
-  // afl++ END
+  // AFL++ END
 
   // We don't reference these arrays directly in any of our runtime functions,
   // so we need to prevent them from being dead stripped.
@@ -1213,10 +1213,10 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   // (catchswitch blocks).
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
-  // afl++ START
+  // AFL++ START
   if (!Options.NoPrune && &F.getEntryBlock() == BB && F.size() > 1)
     return false;
-  // afl++ END
+  // AFL++ END
 
   if (Options.NoPrune || &F.getEntryBlock() == BB) return true;
 
@@ -1258,10 +1258,10 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   // if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName()))
   // return;
 
-  // afl++ START
+  // AFL++ START
   if (!F.size()) return;
   if (!isInInstrumentList(&F, FMNAME)) return;
-  // afl++ END
+  // AFL++ END
 
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
@@ -1559,7 +1559,7 @@ bool ModuleSanitizerCoverageLTO::InjectCoverage(
 
   for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
 
-    // afl++ START
+    // AFL++ START
     if (BlockList.size()) {
 
       int skip = 0;
@@ -1581,7 +1581,7 @@ bool ModuleSanitizerCoverageLTO::InjectCoverage(
 
     }
 
-    // afl++ END
+    // AFL++ END
 
     InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
 
@@ -1647,7 +1647,7 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
 
   if (Options.TracePCGuard) {
 
-    // afl++ START
+    // AFL++ START
     ++afl_global_id;
 
     if (dFile.is_open()) {
@@ -1711,7 +1711,7 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
     // done :)
 
     inst++;
-    // afl++ END
+    // AFL++ END
 
     /*
     XXXXXXXXXXXXXXXXXXX

@@ -584,7 +584,7 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 }
 
 // Calculate the number of average collisions that would occur if all
-// location IDs would be assigned randomly (like normal afl/afl++).
+// location IDs would be assigned randomly (like normal afl/AFL++).
 // This uses the "balls in bins" algorithm.
 unsigned long long int calculateCollisions(uint32_t edges) {
 

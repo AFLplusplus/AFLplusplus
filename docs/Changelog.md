@@ -229,7 +229,7 @@
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan
-    - new cmplog mode (incompatible with older afl++ versions)
+    - new cmplog mode (incompatible with older AFL++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
     - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST

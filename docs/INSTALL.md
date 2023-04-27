@@ -51,7 +51,7 @@ make source-only
 
 These build targets exist:
 
-* all: the main afl++ binaries and llvm/gcc instrumentation
+* all: the main AFL++ binaries and llvm/gcc instrumentation
 * binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode,
   qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator,
   libtokencap

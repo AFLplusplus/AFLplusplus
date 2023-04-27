@@ -42,7 +42,7 @@
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
 
 #ifndef _WANT_ORIGINAL_AFL_ALLOC
-  // afl++ stuff without memory corruption checks - for speed
+  // AFL++ stuff without memory corruption checks - for speed
 
   /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
