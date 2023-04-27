@@ -1287,7 +1287,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      case 'Y':  // fallthough
+      case 'Y':  // fallthrough
 #ifdef __linux__
       case 'X':                                                 /* NYX mode */
 
