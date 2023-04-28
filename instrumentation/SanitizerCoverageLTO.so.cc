@@ -19,8 +19,8 @@
 #include "llvm/ADT/SmallVector.h"
 #if LLVM_VERSION_MAJOR < 17
   #include "llvm/ADT/Triple.h"
+  #include "llvm/Analysis/EHPersonalities.h"
 #endif
-#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -49,7 +49,9 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#if LLVM_VERSION_MAJOR < 17
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
