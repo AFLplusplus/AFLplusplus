@@ -15,8 +15,8 @@
 #include "llvm/ADT/SmallVector.h"
 #if LLVM_VERSION_MAJOR < 17
   #include "llvm/ADT/Triple.h"
+  #include "llvm/Analysis/EHPersonalities.h"
 #endif
-#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"

@@ -22,7 +22,9 @@ typedef long double max_align_t;
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
+#if LLVM_VERSION_MAJOR < 17
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
