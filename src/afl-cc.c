@@ -752,15 +752,21 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       } else if (instrument_mode == INSTRUMENT_LLVMNATIVE) {
 
 #if LLVM_MAJOR >= 4
-	if (instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
+        if (instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
+
   #if LLVM_MAJOR >= 6
-          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table";
+          cc_params[cc_par_cnt++] =
+              "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table";
   #else
           FATAL("pcguard instrumentation with pc-table requires llvm 6.0.1+");
   #endif
-	} else {
+
+        } else {
+
           cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-	}
+
+        }
+
 #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
 #endif
@@ -1660,12 +1666,16 @@ int main(int argc, char **argv, char **envp) {
           instrument_mode = INSTRUMENT_CLASSIC;
           lto_mode = 1;
 
-        } else if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+        } else if (!instrument_mode || instrument_mode == INSTRUMENT_AFL) {
 
           instrument_mode = INSTRUMENT_AFL;
-        else
+
+        } else {
+
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);
+
+        }
 
       }
 
@@ -1695,11 +1705,16 @@ int main(int argc, char **argv, char **envp) {
           strncasecmp(ptr2, "llvm-codecov", strlen("llvm-codecov")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE) {
+
           instrument_mode = INSTRUMENT_LLVMNATIVE;
-	  instrument_opt_mode |= INSTRUMENT_OPT_CODECOV;
-	} else
+          instrument_opt_mode |= INSTRUMENT_OPT_CODECOV;
+
+        } else {
+
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);
+
+        }
 
       }
 

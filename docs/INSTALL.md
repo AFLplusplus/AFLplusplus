@@ -79,22 +79,20 @@ make STATIC=1
 These build options exist:
 
 * STATIC - compile AFL++ static
+* CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)
 * ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
-* UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for
-  debug purposes
+* UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 * DEBUG - no optimization, -ggdb3, all warnings and -Werror
 * LLVM_DEBUG - shows llvm deprecation warnings
 * PROFILING - compile afl-fuzz with profiling information
 * INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support
-* NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for
-  normal fuzzing
+* NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)
 * NO_UNICORN_ARM64 - disable building unicorn on arm64
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
-* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
-  (e.g., Debian)
+* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)
 
 e.g.: `make LLVM_CONFIG=llvm-config-14`
 
