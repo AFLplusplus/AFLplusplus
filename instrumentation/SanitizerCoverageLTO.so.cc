@@ -20,6 +20,8 @@
 #if LLVM_VERSION_MAJOR < 17
   #include "llvm/ADT/Triple.h"
   #include "llvm/Analysis/EHPersonalities.h"
+#else
+  #include "llvm/IR/EHPersonalities.h"
 #endif
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
