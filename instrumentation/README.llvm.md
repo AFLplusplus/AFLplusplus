@@ -280,3 +280,27 @@ Please note that the default counter implementations are not thread safe!
 
 Support for thread safe counters in mode LLVM CLASSIC can be activated with
 setting `AFL_LLVM_THREADSAFE_INST=1`.
+
+## 8) Source code coverage through instrumentation
+
+Measuring source code coverage is a common task in fuzzing, but it is very
+difficut to do in some situations (e.g. when using snapshot fuzzing).
+
+When using the `AFL_LLVM_INSTRUMENT=llvm-codecov` option, afl-cc will use
+native trace-pc-guard instrumentation but additionally select options that
+are required to utilize the instrumentation for source code coverage.
+
+In particular, it will switch the instrumentation to be per basic block
+instead of instrumenting edges, disable all guard pruning and enable the
+experimental pc-table support that allows the runtime to gather 100% of
+instrumented basic blocks at start, including their locations.
+
+Note: You must compile AFL with the `CODE_COVERAGE=1` option to enable the
+respective parts in the AFL compiler runtime. Support is currently only
+implemented for Nyx, but can in theory also work without Nyx.
+
+Note: You might have to adjust `MAP_SIZE_POW2` in include/config.h to ensure
+that your coverage map is large enough to hold all basic blocks of your
+target program without any collisions.
+
+More documentation on how to utilize this with Nyx will follow.
