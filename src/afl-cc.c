@@ -76,6 +76,7 @@ enum {
   INSTRUMENT_OPT_NGRAM = 16,
   INSTRUMENT_OPT_CALLER = 32,
   INSTRUMENT_OPT_CTX_K = 64,
+  INSTRUMENT_OPT_CODECOV = 128,
 
 };
 
@@ -751,7 +752,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       } else if (instrument_mode == INSTRUMENT_LLVMNATIVE) {
 
 #if LLVM_MAJOR >= 4
-        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+	if (instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
+  #if LLVM_MAJOR >= 6
+          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table";
+  #else
+          FATAL("pcguard instrumentation with pc-table requires llvm 6.0.1+");
+  #endif
+	} else {
+          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+	}
 #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
 #endif
@@ -1682,6 +1691,18 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
+      if (strncasecmp(ptr2, "llvmcodecov", strlen("llvmcodecov")) == 0 ||
+          strncasecmp(ptr2, "llvm-codecov", strlen("llvm-codecov")) == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE) {
+          instrument_mode = INSTRUMENT_LLVMNATIVE;
+	  instrument_opt_mode |= INSTRUMENT_OPT_CODECOV;
+	} else
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+
+      }
+
       if (strncasecmp(ptr2, "cfg", strlen("cfg")) == 0 ||
           strncasecmp(ptr2, "instrim", strlen("instrim")) == 0) {
 
@@ -2241,7 +2262,8 @@ int main(int argc, char **argv, char **envp) {
         "(requires LLVM 11 or higher)");
 #endif
 
-  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
+  if (instrument_opt_mode && instrument_opt_mode != INSTRUMENT_OPT_CODECOV &&
+      instrument_mode != INSTRUMENT_CLASSIC)
     FATAL(
         "CALLER, CTX and NGRAM instrumentation options can only be used with "
         "the LLVM CLASSIC instrumentation mode.");

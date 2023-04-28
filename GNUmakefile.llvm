@@ -274,6 +274,11 @@ ifndef LLVM_DEBUG
   CFLAGS_SAFE += -Wno-deprecated
 endif
 
+ifdef CODE_COVERAGE
+  override CFLAGS_SAFE += -D__AFL_CODE_COVERAGE=1
+  override LDFLAGS += -ldl
+endif
+
 override CFLAGS += $(CFLAGS_SAFE)
 
 ifdef AFL_TRACE_PC
