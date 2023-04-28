@@ -379,6 +379,7 @@ help:
 	@echo Known build environment options:
 	@echo "=========================================="
 	@echo STATIC - compile AFL++ static
+	@echo CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)
 	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
 	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
@@ -394,7 +395,7 @@ help:
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)"
 	@echo "=========================================="
-	@echo e.g.: make ASAN_BUILD=1
+	@echo e.g.: make LLVM_CONFIG=llvm-config-16
 
 .PHONY: test_x86
 ifndef AFL_NO_X86
