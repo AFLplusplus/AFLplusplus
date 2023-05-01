@@ -704,11 +704,10 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
     *buf = NULL;
     return NULL;
 
-  } else {
-
-    new_buf = newer_buf;
-
   }
+
+  new_buf = newer_buf;
+  memset(((u8 *)new_buf) + current_size, 0, next_size - current_size);
 
   new_buf->complete_size = next_size;
   *buf = (void *)(new_buf->buf);

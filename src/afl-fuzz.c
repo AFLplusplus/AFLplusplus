@@ -1979,6 +1979,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
       afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
 
+    u32 old_map_size = map_size;
     map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
     afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
     afl->virgin_tmout = ck_realloc(afl->virgin_tmout, map_size);
@@ -1989,6 +1990,18 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, map_size);
     afl->first_trace = ck_realloc(afl->first_trace, map_size);
     afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, map_size);
+
+    if (old_map_size < map_size) {
+
+      memset(afl->var_bytes + old_map_size, 0, map_size - old_map_size);
+      memset(afl->top_rated + old_map_size, 0, map_size - old_map_size);
+      memset(afl->clean_trace + old_map_size, 0, map_size - old_map_size);
+      memset(afl->clean_trace_custom + old_map_size, 0,
+             map_size - old_map_size);
+      memset(afl->first_trace + old_map_size, 0, map_size - old_map_size);
+      memset(afl->map_tmp_buf + old_map_size, 0, map_size - old_map_size);
+
+    }
 
   }
 
@@ -2017,6 +2030,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
 
+      u32 old_map_size = map_size;
       afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
       afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
       afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
@@ -2028,6 +2042,18 @@ int main(int argc, char **argv_orig, char **envp) {
           ck_realloc(afl->clean_trace_custom, new_map_size);
       afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
       afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+
+      if (old_map_size < new_map_size) {
+
+        memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->clean_trace_custom + old_map_size, 0,
+               new_map_size - old_map_size);
+        memset(afl->first_trace + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->map_tmp_buf + old_map_size, 0, new_map_size - old_map_size);
+
+      }
 
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
@@ -2079,6 +2105,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
 
+      u32 old_map_size = map_size;
       afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
       afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
       afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
@@ -2090,6 +2117,18 @@ int main(int argc, char **argv_orig, char **envp) {
           ck_realloc(afl->clean_trace_custom, new_map_size);
       afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
       afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+
+      if (old_map_size < new_map_size) {
+
+        memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->clean_trace_custom + old_map_size, 0,
+               new_map_size - old_map_size);
+        memset(afl->first_trace + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->map_tmp_buf + old_map_size, 0, new_map_size - old_map_size);
+
+      }
 
       afl_fsrv_kill(&afl->fsrv);
       afl_fsrv_kill(&afl->cmplog_fsrv);
