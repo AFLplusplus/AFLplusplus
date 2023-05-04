@@ -124,7 +124,7 @@ static void usage(u8 *argv0, int more_help) {
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
 
       "Required parameters:\n"
-      "  -i dir        - input directory with test cases\n"
+      "  -i dir        - input directory with test cases (or '-' to resume, also see AFL_AUTORESUME)\n"
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
