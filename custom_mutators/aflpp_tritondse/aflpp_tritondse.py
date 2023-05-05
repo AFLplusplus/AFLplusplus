@@ -1,6 +1,7 @@
 import sys
 import os
 import logging
+import hashlib
 
 from tritondse import Config
 from tritondse import CoverageStrategy
@@ -92,14 +93,17 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
     # Add seed to the worklist.
     with open(filename_new_queue, "rb") as file:
         seed = file.read()
-    seed = Seed(seed)
-    dse.add_input_seed(seed)
-    if is_debug:
-        print("NEW FILE " + filename_new_queue + " count " + str(cycle))
-        cycle += 1
-    # Start exploration!
-    #dse.step()
-    dse.explore()
+    hash = hashlib.md5(seed).hexdigest()
+    if hash not in hashes:
+        hashes.add(hash)
+        if is_debug:
+            print("NEW FILE " + filename_new_queue + " hash " + hash + " count " + str(cycle))
+            cycle += 1
+        seed = Seed(seed)
+        dse.add_input_seed(seed)
+        # Start exploration!
+        #dse.step()
+        dse.explore()
     pass
 
 def splice_optout():
