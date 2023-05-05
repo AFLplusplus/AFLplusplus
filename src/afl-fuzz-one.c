@@ -2048,19 +2048,21 @@ custom_mutator_stage:
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
 
-  if (likely(afl->custom_only)) {
-
-    /* Skip other stages */
-    ret_val = 0;
-    goto abandon_entry;
-
-  }
-
   /****************
    * RANDOM HAVOC *
    ****************/
 
 havoc_stage:
+
+  if (unlikely(afl->custom_only)) {
+
+    /* Force UI update */
+    show_stats(afl);
+    /* Skip other stages */
+    ret_val = 0;
+    goto abandon_entry;
+
+  }
 
   afl->stage_cur_byte = -1;
 
