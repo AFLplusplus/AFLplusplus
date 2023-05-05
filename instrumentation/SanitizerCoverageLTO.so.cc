@@ -17,8 +17,10 @@
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/EHPersonalities.h"
+#if LLVM_VERSION_MAJOR < 17
+  #include "llvm/ADT/Triple.h"
+  #include "llvm/Analysis/EHPersonalities.h"
+#endif
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -47,7 +49,9 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#if LLVM_VERSION_MAJOR < 17
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -236,6 +240,7 @@ class ModuleSanitizerCoverageLTO
   // const SpecialCaseList *          Allowlist;
   // const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
+  uint32_t                         autodictionary_no_main = 0;
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 0;
   uint32_t                         unhandled = 0;
@@ -411,7 +416,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
-  if (getenv("AFL_DEBUG")) debug = 1;
+  if (getenv("AFL_DEBUG")) { debug = 1; }
+  if (getenv("AFL_LLVM_DICT2FILE_NO_MAIN")) { autodictionary_no_main = 1; }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
@@ -428,6 +434,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
     if ((afl_global_id = atoi(ptr)) < 0)
       FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is negative\n", ptr);
+
+  if (afl_global_id < 4) { afl_global_id = 4; }
 
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
@@ -502,6 +510,13 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
     for (auto &F : M) {
 
       if (!isInInstrumentList(&F, MNAME) || !F.size()) { continue; }
+
+      if (autodictionary_no_main &&
+          (!F.getName().compare("main") || !F.getName().compare("_main"))) {
+
+        continue;
+
+      }
 
       for (auto &BB : F) {
 
@@ -992,7 +1007,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   // afl++ START
   if (dFile.is_open()) dFile.close();
 
-  if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
+  if (!getenv("AFL_LLVM_LTO_SKIPINIT") &&
+      (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr)) {
 
     // yes we could create our own function, insert it into ctors ...
     // but this would be a pain in the butt ... so we use afl-llvm-rt-lto.o
@@ -1770,6 +1786,7 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLTOLegacyPass, "sancov-lto",
                     "Pass for instrumenting coverage on functions", false,
                     false)
 
+#if LLVM_VERSION_MAJOR < 16
 static void registerLTOPass(const PassManagerBuilder &,
                             legacy::PassManagerBase &PM) {
 
@@ -1784,8 +1801,9 @@ static RegisterStandardPasses RegisterCompTransPass(
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerLTOPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerLTOPass);
+  #endif
 #endif
 

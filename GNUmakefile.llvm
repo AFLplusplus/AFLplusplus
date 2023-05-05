@@ -48,6 +48,7 @@ LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
 LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[5-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )
+LLVM_NEWER_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[6-9]' && echo 1 || echo 0 )
 LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
 LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]' && echo 1 || echo 0 )
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
@@ -79,6 +80,11 @@ ifeq "$(LLVM_NEW_API)" "1"
   $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
   LLVM_STDCXX = c++14
   LLVM_TOO_OLD=0
+endif
+
+ifeq "$(LLVM_NEWER_API)" "1"
+  $(info [+] llvm_mode detected llvm 16+, enabling c++17)
+  LLVM_STDCXX = c++17
 endif
 
 ifeq "$(LLVM_TOO_OLD)" "1"
@@ -254,7 +260,7 @@ else
         AFL_CLANG_DEBUG_PREFIX =
 endif
 
-CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
                    -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
@@ -274,9 +280,9 @@ ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
+CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
 override CXXFLAGS += -Wall -g -I ./include/ \
-                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros -Wno-deprecated-copy-with-dtor \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
 
 ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""
@@ -288,6 +294,11 @@ endif
 CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
+# wasm fuzzing: disable thread-local storage and unset LLVM debug flag
+ifdef WAFL_MODE
+  $(info Compiling libraries for use with WAVM)
+  CLANG_CPPFL += -DNDEBUG -DNO_TLS
+endif
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(SYS)" "Darwin"

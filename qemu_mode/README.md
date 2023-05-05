@@ -66,6 +66,8 @@ allows to move the forkserver to a different part, e.g., just before the file is
 opened (e.g., way after command line parsing and config file loading, etc.)
 which can be a huge speed improvement.
 
+For an example, see [README.deferred_initialization_example.md](README.deferred_initialization_example.md).
+
 ## 4) Persistent mode
 
 AFL++'s QEMU mode now supports also persistent mode for x86, x86_64, arm, and

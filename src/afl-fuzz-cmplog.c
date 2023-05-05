@@ -11,7 +11,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,15 +33,19 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
+  if (fsrv->qemu_mode || fsrv->cs_mode) {
 
-  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->cmplog_binary) {
-
-    argv[0] = fsrv->cmplog_binary;
+    setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
 
   }
 
-  execv(argv[0], argv);
+  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->cmplog_binary) {
+
+    fsrv->target_path = argv[0] = fsrv->cmplog_binary;
+
+  }
+
+  execv(fsrv->target_path, argv);
 
 }
 

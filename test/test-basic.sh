@@ -7,9 +7,10 @@ AFL_GCC=afl-gcc
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "i386" && {
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
-  AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
-  test -e test-instr.plain && {
+  ../${AFL_GCC} -v 2>&1 | grep -qi "gcc version" && {
+   ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
+   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
+   test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
@@ -35,15 +36,15 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     test "$TUPLES" -lt 3 && SKIP=1
     true  # this is needed because of the test above
-  } || {
+   } || {
     $ECHO "$RED[!] ${AFL_GCC} failed"
     echo CUT------------------------------------------------------------------CUT
     uname -a
     ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c
     echo CUT------------------------------------------------------------------CUT
     CODE=1
-  }
-  test -e test-compcov.harden && {
+   }
+   test -e test-compcov.harden && {
     nm test-compcov.harden | grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || {
@@ -54,22 +55,22 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CODE=1
     }
     rm -f test-compcov.harden
-  } || {
+   } || {
     $ECHO "$RED[!] ${AFL_GCC} hardened mode compilation failed"
     CODE=1
-  }
-  # now we want to be sure that afl-fuzz is working
-  # make sure crash reporter is disabled on Mac OS X
-  (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+   }
+   # now we want to be sure that afl-fuzz is working
+   # make sure crash reporter is disabled on Mac OS X
+   (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
     true
-  }) || {
+   }) || {
     mkdir -p in
     echo 0 > in/in
     test -z "$SKIP" && {
       $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
       {
-        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -D -- ./test-instr.plain >>errors 2>&1
+        ../afl-fuzz -V07 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
@@ -116,83 +117,89 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -rf in out errors in2
     unset AFL_QUIET
+   }
+   rm -f test-instr.plain
+  } || {
+   $ECHO "$YELLOW[-] afl-gcc executes clang, cannot test!"
+   INCOMPLETE=1
   }
-  rm -f test-instr.plain
  } || {
-  $ECHO "$YELLOW[-] afl is not compiled, cannot test"
-  INCOMPLETE=1
+   $ECHO "$YELLOW[-] afl is not compiled, cannot test"
+   INCOMPLETE=1
  }
- if [ ${AFL_GCC} = "afl-gcc" ] ; then AFL_GCC=afl-clang ; else AFL_GCC=afl-gcc ; fi
- $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
+
+ AFL_CLANG=afl-clang
+ $ECHO "$BLUE[*] Testing: ${AFL_CLANG}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
  SKIP=
- test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../${AFL_GCC} -o test-instr.plain -O0 ../test-instr.c > /dev/null 2>&1
-  AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
-  test -e test-instr.plain && {
-    $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
+ test -e ../${AFL_CLANG} -a -e ../afl-showmap -a -e ../afl-fuzz && {
+  ../${AFL_CLANG} -v 2>&1 | grep -qi "clang version" && {
+   ../${AFL_CLANG} -O0 -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+   AFL_HARDEN=1 ../${AFL_CLANG} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
+   test -e test-instr.plain && {
+    $ECHO "$GREEN[+] ${AFL_CLANG} compilation succeeded"
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
-        $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
+        $ECHO "$RED[!] ${AFL_CLANG} instrumentation should be different on different input but is not"
         CODE=1
       } || {
-        $ECHO "$GREEN[+] ${AFL_GCC} instrumentation present and working correctly"
+        $ECHO "$GREEN[+] ${AFL_CLANG} instrumentation present and working correctly"
       }
     } || {
-      $ECHO "$RED[!] ${AFL_GCC} instrumentation failed"
+      $ECHO "$RED[!] ${AFL_CLANG} instrumentation failed"
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
     test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
-      $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
+      $ECHO "$GREEN[+] ${AFL_CLANG} run reported $TUPLES instrumented locations which is fine"
     } || {
-      $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
+      $ECHO "$RED[!] ${AFL_CLANG} instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
     test "$TUPLES" -lt 3 && SKIP=1
     true  # this is needed because of the test above
-  } || {
-    $ECHO "$RED[!] ${AFL_GCC} failed"
+   } || {
+    $ECHO "$RED[!] ${AFL_CLANG} failed"
     echo CUT------------------------------------------------------------------CUT
     uname -a
-    ../${AFL_GCC} -o test-instr.plain ../test-instr.c
+    ../${AFL_CLANG} -o test-instr.plain ../test-instr.c
     echo CUT------------------------------------------------------------------CUT
     CODE=1
-  }
-  test -e test-compcov.harden && {
+   }
+   test -e test-compcov.harden && {
     nm test-compcov.harden | grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' > /dev/null 2>&1 && {
-      $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
+      $ECHO "$GREEN[+] ${AFL_CLANG} hardened mode succeeded and is working"
     } || {
-      $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
+      $ECHO "$RED[!] ${AFL_CLANG} hardened mode is not hardened"
       CODE=1
     }
     rm -f test-compcov.harden
-  } || {
-    $ECHO "$RED[!] ${AFL_GCC} hardened mode compilation failed"
+   } || {
+    $ECHO "$RED[!] ${AFL_CLANG} hardened mode compilation failed"
     CODE=1
-  }
-  # now we want to be sure that afl-fuzz is working
-  # make sure crash reporter is disabled on Mac OS X
-  (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+   }
+   # now we want to be sure that afl-fuzz is working
+   # make sure crash reporter is disabled on Mac OS X
+   (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
     true
-  }) || {
+   }) || {
     mkdir -p in
     echo 0 > in/in
     test -z "$SKIP" && {
-      $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for ${AFL_CLANG}, this will take approx 10 seconds"
       {
-        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -D -- ./test-instr.plain >>errors 2>&1
+        ../afl-fuzz -V07 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
-        $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_CLANG}"
       } || {
         echo CUT------------------------------------------------------------------CUT
         cat errors
         echo CUT------------------------------------------------------------------CUT
-        $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
+        $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_CLANG}"
         CODE=1
       }
     }
@@ -247,8 +254,12 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -rf in out errors in2
     unset AFL_QUIET
+   }
+   rm -f test-instr.plain
+  } || {
+  $ECHO "$YELLOW[-] afl-clang executes gcc, cannot test"
+  INCOMPLETE=1
   }
-  rm -f test-instr.plain
  } || {
   $ECHO "$YELLOW[-] afl is not compiled, cannot test"
   INCOMPLETE=1

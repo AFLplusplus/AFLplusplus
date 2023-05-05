@@ -203,13 +203,17 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   code.code = template;
 
-  instrument_coverage_suppress_init();
+  if (instrument_suppress) {
 
-  // gum_x86_writer_put_breakpoint(cw);
+    instrument_coverage_suppress_init();
 
-  if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+    // gum_x86_writer_put_breakpoint(cw);
 
-    FATAL("Failed - g_hash_table_add");
+    if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
 
   }
 

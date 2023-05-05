@@ -2,36 +2,37 @@
 
 ## TL;DR:
 
-This version requires a current llvm 11+ compiled from the GitHub master.
+This version requires a LLVM 11 or newer.
 
-1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
-   coverage than anything else that is out there in the AFL world.
+1. Use afl-clang-lto/afl-clang-lto++ because the resulting binaries run
+   slightly faster and give better coverage.
 
-2. You can use it together with llvm_mode: laf-intel and the instrument file
-   listing features and can be combined with cmplog/Redqueen.
+2. You can use it together with COMPCOV, COMPLOG and the instrument file
+   listing features.
 
-3. It only works with llvm 11+.
+3. It only works with LLVM 11 or newer.
 
-4. AUTODICTIONARY feature (see below)!
+4. AUTODICTIONARY feature (see below)
 
-5. If any problems arise, be sure to set `AR=llvm-ar RANLIB=llvm-ranlib`. Some
-   targets might need `LD=afl-clang-lto` and others `LD=afl-ld-lto`.
+5. If any problems arise, be sure to set `AR=llvm-ar RANLIB=llvm-ranlib AS=llvm-as`.
+   Some targets might need `LD=afl-clang-lto` and others `LD=afl-ld-lto`.
 
 ## Introduction and problem description
 
-A big issue with how AFL++ works is that the basic block IDs that are set during
-compilation are random - and hence naturally the larger the number of
-instrumented locations, the higher the number of edge collisions are in the map.
-This can result in not discovering new paths and therefore degrade the
+A big issue with how vanilla AFL worked was that the basic block IDs that are
+set during compilation are random - and hence naturally the larger the number
+of instrumented locations, the higher the number of edge collisions are in the
+map. This can result in not discovering new paths and therefore degrade the
 efficiency of the fuzzing process.
 
-*This issue is underestimated in the fuzzing community!* With a 2^16 = 64kb
+*This issue is underestimated in the fuzzing community* With a 2^16 = 64kb
 standard map at already 256 instrumented blocks, there is on average one
 collision. On average, a target has 10.000 to 50.000 instrumented blocks, hence
 the real collisions are between 750-18.000!
 
-To reach a solution that prevents any collisions took several approaches and
-many dead ends until we got to this:
+Note that PCGUARD (our own modified implementation and the SANCOV PCGUARD
+implementation from libfuzzer) also provides collision free coverage.
+It is a bit slower though and can a few targets with very early constructors.
 
 * We instrument at link time when we have all files pre-compiled.
 * To instrument at link time, we compile in LTO (link time optimization) mode.
@@ -45,9 +46,9 @@ many dead ends until we got to this:
 The result:
 
 * 10-25% speed gain compared to llvm_mode
-* guaranteed non-colliding edge coverage :-)
+* guaranteed non-colliding edge coverage 
 * The compile time, especially for binaries to an instrumented library, can be
-  much longer.
+  much (and sometimes much much) longer.
 
 Example build output from a libtiff build:
 
@@ -59,71 +60,30 @@ AUTODICTIONARY: 11 strings found
 [+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 ```
 
-## Getting llvm 11+
+## Getting LLVM 11+
 
-### Installing llvm version 11 or 12
+### Installing llvm
 
-llvm 11 or even 12 should be available in all current Linux repositories. If you
-use an outdated Linux distribution, read the next section.
+The best way to install LLVM is to follow [https://apt.llvm.org/](https://apt.llvm.org/)
 
-### Installing llvm from the llvm repository (version 12+)
-
-Installing the llvm snapshot builds is easy and mostly painless:
-
-In the following line, change `NAME` for your Debian or Ubuntu release name
-(e.g., buster, focal, eon, etc.):
-
+e.g. for LLVM 15:
 ```
-echo deb http://apt.llvm.org/NAME/ llvm-toolchain-NAME NAME >> /etc/apt/sources.list
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 15 all
 ```
 
-Then add the pgp key of llvm and install the packages:
+LLVM 11 to 16 should be available in all current Linux repositories.
+
+## How to build afl-clang-lto
+
+That part is easy.
+Just set `LLVM_CONFIG` to the llvm-config-VERSION and build AFL++, e.g. for
+LLVM 15:
 
 ```
-wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-apt-get update && apt-get upgrade -y
-apt-get install -y clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
-    libc++abi1-12 libc++abi-12-dev libclang1-12 libclang-12-dev \
-    libclang-common-12-dev libclang-cpp12 libclang-cpp12-dev liblld-12 \
-    liblld-12-dev liblldb-12 liblldb-12-dev libllvm12 libomp-12-dev \
-    libomp5-12 lld-12 lldb-12 llvm-12 llvm-12-dev llvm-12-runtime llvm-12-tools
-```
-
-### Building llvm yourself (version 12+)
-
-Building llvm from GitHub takes quite some time and is not painless:
-
-```sh
-sudo apt install binutils-dev  # this is *essential*!
-git clone --depth=1 https://github.com/llvm/llvm-project
-cd llvm-project
-mkdir build
-cd build
-
-# Add -G Ninja if ninja-build installed
-# "Building with ninja significantly improves your build time, especially with
-# incremental builds, and improves your memory usage."
-cmake \
-    -DCLANG_INCLUDE_DOCS="OFF" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_BINUTILS_INCDIR=/usr/include/ \
-    -DLLVM_BUILD_LLVM_DYLIB="ON" \
-    -DLLVM_ENABLE_BINDINGS="OFF" \
-    -DLLVM_ENABLE_PROJECTS='clang;compiler-rt;libcxx;libcxxabi;libunwind;lld' \
-    -DLLVM_ENABLE_WARNINGS="OFF" \
-    -DLLVM_INCLUDE_BENCHMARKS="OFF" \
-    -DLLVM_INCLUDE_DOCS="OFF" \
-    -DLLVM_INCLUDE_EXAMPLES="OFF" \
-    -DLLVM_INCLUDE_TESTS="OFF" \
-    -DLLVM_LINK_LLVM_DYLIB="ON" \
-    -DLLVM_TARGETS_TO_BUILD="host" \
-    ../llvm/
-# NOTE: for llvm 16 this needs to be changed to:
-#    -DLLVM_ENABLE_PROJECTS='clang;compiler-rt;lld' \
-#    -DLLVM_ENABLE_RUNTIMES='libcxx;libcxxabi' \
-cmake --build . -j4
-export LLVM_CONFIG="$(pwd)/bin/llvm-config"
-cd /path/to/AFLplusplus/
+cd ~/AFLplusplus
+export LLVM_CONFIG=llvm-config-15
 make
 sudo make install
 ```
@@ -136,10 +96,10 @@ Also, the instrument file listing (AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST ->
 [README.instrument_list.md](README.instrument_list.md)) and laf-intel/compcov
 (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
 
-Example:
+Example (note that you might need to add the version, e.g. `llvm-ar-15`:
 
 ```
-CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar ./configure
+CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar AS=llvm-as ./configure
 make
 ```
 
@@ -317,13 +277,13 @@ AS=llvm-as  ...
 afl-clang-lto is still work in progress.
 
 Known issues:
-* Anything that llvm 11+ cannot compile, afl-clang-lto cannot compile either -
+* Anything that LLVM 11+ cannot compile, afl-clang-lto cannot compile either -
   obviously.
 * Anything that does not compile with LTO, afl-clang-lto cannot compile either -
   obviously.
 
 Hence, if building a target with afl-clang-lto fails, try to build it with
-llvm12 and LTO enabled (`CC=clang-12`, `CXX=clang++-12`, `CFLAGS=-flto=full`,
+LLVM 12 and LTO enabled (`CC=clang-12`, `CXX=clang++-12`, `CFLAGS=-flto=full`,
 and `CXXFLAGS=-flto=full`).
 
 If this succeeds, then there is an issue with afl-clang-lto. Please report at
@@ -341,7 +301,7 @@ knows what this is doing. And the developer who implemented this didn't respond
 to emails.)
 
 In December then came the idea to implement this as a pass that is run via the
-llvm "opt" program, which is performed via an own linker that afterwards calls
+LLVM "opt" program, which is performed via an own linker that afterwards calls
 the real linker. This was first implemented in January and work ... kinda. The
 LTO time instrumentation worked, however, "how" the basic blocks were
 instrumented was a problem, as reducing duplicates turned out to be very, very
@@ -353,13 +313,13 @@ dead-end too.
 The final idea to solve this came from domenukk who proposed to insert a block
 into an edge and then just use incremental counters ... and this worked! After
 some trials and errors to implement this vanhauser-thc found out that there is
-actually an llvm function for this: SplitEdge() :-)
+actually an LLVM function for this: SplitEdge() :-)
 
-Still more problems came up though as this only works without bugs from llvm 9
+Still more problems came up though as this only works without bugs from LLVM 9
 onwards, and with high optimization the link optimization ruins the instrumented
 control flow graph.
 
-This is all now fixed with llvm 11+. The llvm's own linker is now able to load
+This is all now fixed with LLVM 11+. The llvm's own linker is now able to load
 passes and this bypasses all problems we had.
 
 Happy end :)

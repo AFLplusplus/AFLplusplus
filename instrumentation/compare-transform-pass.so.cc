@@ -708,7 +708,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     /* since the call is the first instruction of the bb it is safe to
      * replace it with a phi instruction */
     BasicBlock::iterator ii(callInst);
+#if LLVM_MAJOR >= 16
+    ReplaceInstWithInst(callInst->getParent(), ii, PN);
+#else
     ReplaceInstWithInst(callInst->getParent()->getInstList(), ii, PN);
+#endif
 
   }
 

@@ -11,7 +11,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -1035,7 +1035,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         } else {
 
-          diff = 0;
+          o_diff = 0;
 
         }
 
@@ -1623,6 +1623,8 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
       cons_0 = cons_ff = 0;
 
     }
+
+    if (cons_0 > 1 || cons_ff > 1) { return; }
 
   }
 

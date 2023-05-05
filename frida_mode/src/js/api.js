@@ -151,6 +151,12 @@ class Afl {
         Afl.jsApiSetInstrumentLibraries();
     }
     /**
+     * See `AFL_FRIDA_INST_NO_DYNAMIC_LOAD`
+     */
+    static setInstrumentNoDynamicLoad() {
+      Afl.jsApiSetInstrumentNoDynamicLoad();
+    }
+    /**
      * See `AFL_FRIDA_INST_NO_OPTIMIZE`
      */
     static setInstrumentNoOptimize() {
@@ -169,6 +175,12 @@ class Afl {
      */
     static setInstrumentSeed(seed) {
         Afl.jsApiSetInstrumentSeed(seed);
+    }
+    /*
+     * See `AFL_FRIDA_INST_NO_SUPPRESS`
+     */
+    static setInstrumentSuppressDisable() {
+        Afl.jsApiSetInstrumentSuppressDisable();
     }
     /**
      * See `AFL_FRIDA_INST_TRACE_UNIQUE`.
@@ -336,9 +348,11 @@ Afl.jsApiSetInstrumentDebugFile = Afl.jsApiGetFunction("js_api_set_instrument_de
 Afl.jsApiSetInstrumentInstructions = Afl.jsApiGetFunction("js_api_set_instrument_instructions", "void", []);
 Afl.jsApiSetInstrumentJit = Afl.jsApiGetFunction("js_api_set_instrument_jit", "void", []);
 Afl.jsApiSetInstrumentLibraries = Afl.jsApiGetFunction("js_api_set_instrument_libraries", "void", []);
+Afl.jsApiSetInstrumentNoDynamicLoad = Afl.jsApiGetFunction("js_api_set_instrument_no_dynamic_load", "void", []);
 Afl.jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction("js_api_set_instrument_no_optimize", "void", []);
 Afl.jsApiSetInstrumentRegsFile = Afl.jsApiGetFunction("js_api_set_instrument_regs_file", "void", ["pointer"]);
 Afl.jsApiSetInstrumentSeed = Afl.jsApiGetFunction("js_api_set_instrument_seed", "void", ["uint64"]);
+Afl.jsApiSetInstrumentSuppressDisable = Afl.jsApiGetFunction("js_api_set_instrument_suppress_disable", "void", []);
 Afl.jsApiSetInstrumentTrace = Afl.jsApiGetFunction("js_api_set_instrument_trace", "void", []);
 Afl.jsApiSetInstrumentTraceUnique = Afl.jsApiGetFunction("js_api_set_instrument_trace_unique", "void", []);
 Afl.jsApiSetInstrumentUnstableCoverageFile = Afl.jsApiGetFunction("js_api_set_instrument_unstable_coverage_file", "void", ["pointer"]);

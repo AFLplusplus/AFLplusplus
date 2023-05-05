@@ -14,7 +14,7 @@
 #                                <andreafioraldi@gmail.com>
 #
 # Copyright 2017 Battelle Memorial Institute. All rights reserved.
-# Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+# Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,21 +117,23 @@ done
 
 # some python version should be available now
 PYTHONS="`command -v python3` `command -v python` `command -v python2`"
-SETUPTOOLS_FOUND=0
+PIP_FOUND=0
 for PYTHON in $PYTHONS ; do
 
-  if $PYTHON -c "import setuptools" ; then
+  if $PYTHON -c "import pip" ; then
+    if $PYTHON -c "import wheel" ; then
 
-    SETUPTOOLS_FOUND=1
-    PYTHONBIN=$PYTHON
-    break
+      PIP_FOUND=1
+      PYTHONBIN=$PYTHON
+      break
 
+    fi
   fi
 
 done
-if [ "0" = $SETUPTOOLS_FOUND ]; then
+if [ "0" = $PIP_FOUND ]; then
 
-  echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools', or install python3-setuptools, or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ..."
+  echo "[-] Error: Python pip or python wheel not found. Run 'sudo apt-get install python3-pip', or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ... - and 'pip3 install wheel'"
   PREREQ_NOTFOUND=1
 
 fi
@@ -199,22 +201,22 @@ echo "[*] Installing Unicorn python bindings..."
 cd unicorn/bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicornafl using --user"
-  THREADS=$CORES $PYTHONBIN setup.py install --user --force --prefix=|| exit 1
+  THREADS=$CORES $PYTHONBIN -m pip install --user --force .|| exit 1
 else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
-  THREADS=$CORES $PYTHONBIN setup.py install --force || exit 1
+  THREADS=$CORES $PYTHONBIN -m pip install --force .|| exit 1
 fi
 cd ../../../
 echo "[*] Installing Unicornafl python bindings..."
 cd bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicornafl using --user"
-  THREADS=$CORES $PYTHONBIN setup.py install --user --force --prefix=|| exit 1
+  THREADS=$CORES $PYTHONBIN -m pip install --user --force .|| exit 1
 else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
-  THREADS=$CORES $PYTHONBIN setup.py install --force || exit 1
+  THREADS=$CORES $PYTHONBIN -m pip install --force .|| exit 1
 fi
-echo '[*] If needed, you can (re)install the bindings from `./unicornafl/bindings/python` using `python setup.py install`'
+echo '[*] If needed, you can (re)install the bindings in `./unicornafl/bindings/python` using `pip install --force .`'
 
 cd ../../ || exit 1
 

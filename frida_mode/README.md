@@ -178,11 +178,13 @@ Default is 256Mb.
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
   a file.
+* `AFL_FRIDA_INST_NO_DYNAMIC_LOAD` - Don't instrument the code loaded late at
+  runtime. Strictly limits instrumentation to what has been included.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
+  `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_REGS_FILE` - File to write raw register contents at the start
   of each block.
-  `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_CACHE` - Don't use a look-up table to cache real to
 instrumented address block translations.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default, the child will
@@ -193,6 +195,13 @@ instrumented address block translations.
   backpatching information. By default, the child will report applied
   backpatches to the parent so that they can be applied and then be inherited by
   the next child on fork.
+* `AFL_FRIDA_INST_NO_SUPPRESS` - Disable deterministic branch suppression.
+  Deterministic branch suppression skips the preamble which generates coverage
+  information at the start of each block, if the block is reached by a
+  deterministic branch. This reduces map polution, and may improve performance
+  when all the executing blocks have been prefetched and backpatching applied.
+  However, in the event that backpatching is incomplete, this may incur a
+  performance penatly as branch instructions are disassembled on each branch.
 * `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
   generate block (and hence edge) IDs. Setting this to a constant value may be
   useful for debugging purposes, e.g., investigating unstable edges.

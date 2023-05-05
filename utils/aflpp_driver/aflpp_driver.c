@@ -1,12 +1,16 @@
-//===- afl_driver.cpp - a glue between AFL++ and libFuzzer ------*- C++ -* ===//
-//===----------------------------------------------------------------------===//
+//
+// afl_driver.cpp - a glue between AFL++ and LLVMFuzzerTestOneInput harnesses
+//
 
-/* This file allows to fuzz libFuzzer-style target functions
+/*
+
+ This file allows to fuzz libFuzzer-style target functions
  (LLVMFuzzerTestOneInput) with AFL++ using persistent in-memory fuzzing.
 
 Usage:
-################################################################################
-cat << EOF > test_fuzzer.cc
+
+# Example target:
+$ cat << EOF > test_fuzzer.cc
 #include <stddef.h>
 #include <stdint.h>
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -20,17 +24,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 }
 
 EOF
-# Build your target with -fsanitize-coverage=trace-pc-guard using fresh clang.
-clang -c aflpp_driver.c
-# Build afl-compiler-rt.o.c from the AFL distribution.
-clang -c $AFL_HOME/instrumentation/afl-compiler-rt.o.c
-# Build this file, link it with afl-compiler-rt.o.o and the target code.
-afl-clang-fast -o test_fuzzer test_fuzzer.cc afl-compiler-rt.o aflpp_driver.o
+
+# Build your target with afl-cc -fsanitize=fuzzer
+$ afl-c++ -fsanitize=fuzzer -o test_fuzzer test_fuzzer.cc
 # Run AFL:
-rm -rf IN OUT; mkdir IN OUT; echo z > IN/z;
-$AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
-################################################################################
+$ mkdir -p in ; echo z > in/foo;
+$ afl-fuzz -i in -o out -- ./test_fuzzer
+
 */
+
+#ifdef __cplusplus
+extern "C" {
+
+#endif
 
 #include <assert.h>
 #include <errno.h>
@@ -58,16 +64,24 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
   #include "hash.h"
 #endif
 
+// AFL++ shared memory fuzz cases
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
+// AFL++ coverage map
+extern unsigned char *__afl_area_ptr;
+extern unsigned int   __afl_map_size;
+
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
-__attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *Data,
-                                                 size_t         Size);
-__attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
-int                       LLVMFuzzerRunDriver(int *argc, char ***argv,
-                                              int (*callback)(const uint8_t *data, size_t size));
+/* Using the weak attributed on LLVMFuzzerTestOneInput() breaks oss-fuzz but
+   on the other hand this is what Google needs to make LLVMFuzzerRunDriver()
+   work. Choose your poison Google! */
+/*__attribute__((weak))*/ int LLVMFuzzerTestOneInput(const uint8_t *Data,
+                                                     size_t         Size);
+__attribute__((weak)) int     LLVMFuzzerInitialize(int *argc, char ***argv);
+__attribute__((weak)) int     LLVMFuzzerRunDriver(
+        int *argc, char ***argv, int (*callback)(const uint8_t *data, size_t size));
 
 // Default nop ASan hooks for manual poisoning when not linking the ASan
 // runtime
@@ -191,7 +205,8 @@ static void maybe_close_fd_mask() {
 
 // Define LLVMFuzzerMutate to avoid link failures for targets that use it
 // with libFuzzer's LLVMFuzzerCustomMutator.
-size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
+__attribute__((weak)) size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size,
+                                              size_t MaxSize) {
 
   // assert(false && "LLVMFuzzerMutate should not be called from afl_driver");
   return 0;
@@ -253,6 +268,17 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
 
 __attribute__((weak)) int main(int argc, char **argv) {
 
+  // Enable if LLVMFuzzerTestOneInput() has the weak attribute
+  /*
+    if (!LLVMFuzzerTestOneInput) {
+
+      fprintf(stderr, "Error: function LLVMFuzzerTestOneInput() not found!\n");
+      abort();
+
+    }
+
+  */
+
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
     printf(
         "============================== INFO ================================\n"
@@ -275,8 +301,9 @@ __attribute__((weak)) int main(int argc, char **argv) {
 
 }
 
-int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
-                        int (*callback)(const uint8_t *data, size_t size)) {
+__attribute__((weak)) int LLVMFuzzerRunDriver(
+    int *argcp, char ***argvp,
+    int (*callback)(const uint8_t *data, size_t size)) {
 
   int    argc = *argcp;
   char **argv = *argvp;
@@ -375,7 +402,13 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
         }
 
         prev_length = length;
-        (void)callback(__afl_fuzz_ptr, length);
+
+        if (unlikely(callback(__afl_fuzz_ptr, length) == -1)) {
+
+          memset(__afl_area_ptr, 0, __afl_map_size);
+          __afl_area_ptr[0] = 1;
+
+        }
 
       }
 
@@ -394,4 +427,10 @@ int LLVMFuzzerRunDriver(int *argcp, char ***argvp,
   return 0;
 
 }
+
+#ifdef __cplusplus
+
+}
+
+#endif
 

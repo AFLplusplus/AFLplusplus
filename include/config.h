@@ -10,7 +10,7 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.05a"
+#define VERSION "++4.07a"
 
 /******************************************************
  *                                                    *
@@ -290,10 +290,11 @@
 
 #define UI_TARGET_HZ 5
 
-/* Fuzzer stats file and plot update intervals (sec): */
+/* Fuzzer stats file, queue stats and plot update intervals (sec): */
 
 #define STATS_UPDATE_SEC 60
 #define PLOT_UPDATE_SEC 5
+#define QUEUE_UPDATE_SEC 1800
 
 /* Smoothing divisor for CPU load and exec speed stats (1 - no smoothing). */
 
@@ -363,9 +364,9 @@
  *                                                         *
  ***********************************************************/
 
-/* Call count interval between reseeding the libc PRNG from /dev/urandom: */
+/* Call count interval between reseeding the PRNG from /dev/urandom: */
 
-#define RESEED_RNG 100000
+#define RESEED_RNG 2500000
 
 /* The default maximum testcase cache size in MB, 0 = disable.
    A value between 50 and 250 is a good default value. Note that the
@@ -490,10 +491,14 @@
 
 #define AFL_TXT_MIN_LEN 12
 
+/* Maximum length of a queue input to be evaluated for "is_ascii"? */
+
+#define AFL_TXT_MAX_LEN 65535
+
 /* What is the minimum percentage of ascii characters present to be classifed
    as "is_ascii"? */
 
-#define AFL_TXT_MIN_PERCENT 94
+#define AFL_TXT_MIN_PERCENT 99
 
 /* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
 

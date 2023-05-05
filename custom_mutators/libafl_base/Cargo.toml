@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libafl = { git = "https://github.com/AFLplusplus/LibAFL.git", rev = "62614ce1016c86e3f00f35b56399292ceabd486b" }
+libafl = { git = "https://github.com/AFLplusplus/LibAFL.git", rev = "266677bb88abe75165430f34e7de897c35560504" }
 custom_mutator = { path = "../rust/custom_mutator", features = ["afl_internals"] }
 serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
 

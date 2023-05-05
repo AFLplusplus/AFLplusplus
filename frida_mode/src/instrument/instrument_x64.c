@@ -380,11 +380,15 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   }
 
-  instrument_coverage_suppress_init();
+  if (instrument_suppress) {
 
-  if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+    instrument_coverage_suppress_init();
 
-    FATAL("Failed - g_hash_table_add");
+    if (!g_hash_table_add(coverage_blocks, GSIZE_TO_POINTER(cw->code))) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
 
   }
 
