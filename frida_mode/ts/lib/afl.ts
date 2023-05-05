@@ -179,6 +179,13 @@ class Afl {
   }
 
   /**
+   * See `AFL_FRIDA_INST_NO_DYNAMIC_LOAD`
+   */
+  public static setInstrumentNoDynamicLoad(): void {
+    Afl.jsApiSetInstrumentNoDynamicLoad();
+  }
+
+  /**
    * See `AFL_FRIDA_INST_NO_OPTIMIZE`
    */
   public static setInstrumentNoOptimize(): void {
@@ -199,6 +206,13 @@ class Afl {
    */
   public static setInstrumentSeed(seed: NativePointer): void {
     Afl.jsApiSetInstrumentSeed(seed);
+  }
+
+  /*
+   * See `AFL_FRIDA_INST_NO_SUPPRESS`
+   */
+  public static setInstrumentSuppressDisable(): void{
+    Afl.jsApiSetInstrumentSuppressDisable();
   }
 
   /**
@@ -436,6 +450,11 @@ class Afl {
     "void",
     []);
 
+  private static readonly jsApiSetInstrumentNoDynamicLoad = Afl.jsApiGetFunction(
+    "js_api_set_instrument_no_dynamic_load",
+    "void",
+    []);
+
   private static readonly jsApiSetInstrumentNoOptimize = Afl.jsApiGetFunction(
     "js_api_set_instrument_no_optimize",
     "void",
@@ -450,6 +469,11 @@ class Afl {
     "js_api_set_instrument_seed",
     "void",
     ["uint64"]);
+
+  private static readonly jsApiSetInstrumentSuppressDisable = Afl.jsApiGetFunction(
+    "js_api_set_instrument_suppress_disable",
+    "void",
+    []);
 
   private static readonly jsApiSetInstrumentTrace = Afl.jsApiGetFunction(
     "js_api_set_instrument_trace",

@@ -103,12 +103,14 @@ function usage() {
 "  -o dir        - output directory for minimized files\n" \
 "\n" \
 "Execution control settings:\n" \
+"  -T tasks      - how many parallel tasks to run (default: 1, all=nproc)\n" \
 "  -f file       - location read by the fuzzed program (stdin)\n" \
 "  -m megs       - memory limit for child process ("mem_limit" MB)\n" \
-"  -t msec       - run time limit for child process (default: none)\n" \
+"  -t msec       - run time limit for child process (default: 5000)\n" \
 "  -O            - use binary-only instrumentation (FRIDA mode)\n" \
 "  -Q            - use binary-only instrumentation (QEMU mode)\n" \
 "  -U            - use unicorn-based instrumentation (unicorn mode)\n" \
+"  -X            - use Nyx mode\n" \
 "\n" \
 "Minimization settings:\n" \
 "  -A            - allow crashes and timeouts (not recommended)\n" \
@@ -118,20 +120,21 @@ function usage() {
 "For additional tips, please consult README.md\n" \
 "\n" \
 "Environment variables used:\n" \
-"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
 "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n" \
 "AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the forkserver to come up\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
 "AFL_KILL_SIGNAL: Signal delivered to child processes on timeout (default: SIGKILL)\n" \
-"AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on termination\n" \
-"                             (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is set,\n" \
-"                             this will be set to the same value as AFL_KILL_SIGNAL.\n" \
+"AFL_FORK_SERVER_KILL_SIGNAL: Signal delivered to fork server processes on\n" \
+"   termination (default: SIGTERM). If this is not set and AFL_KILL_SIGNAL is\n" \
+"   set, this will be set to the same value as AFL_KILL_SIGNAL.\n" \
 "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n" \
 "AFL_CMIN_ALLOW_ANY: write tuples for crashing inputs also\n" \
 "AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH\n" \
 "AFL_PRINT_FILENAMES: If set, the filename currently processed will be " \
       "printed to stdout\n" \
 "AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n"
+"AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)\n"
+"AFL_PYTHON_MODULE: custom mutator library (post_process and send)\n"
    exit 1
 }
 
@@ -156,11 +159,17 @@ BEGIN {
   # process options
   Opterr = 1    # default is to diagnose
   Optind = 1    # skip ARGV[0]
-  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eACOQU?")) != -1) {
+  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eACOQUXYT:?")) != -1) {
     if (_go_c == "i") {
       if (!Optarg) usage()
       if (in_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       in_dir = Optarg
+      continue
+    } else 
+    if (_go_c == "T") {
+      if (!Optarg) usage()
+      if (threads) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      threads = Optarg
       continue
     } else 
     if (_go_c == "o") {
@@ -217,6 +226,12 @@ BEGIN {
       extra_par = extra_par " -U"
       unicorn_mode = 1
       continue
+    } else
+    if (_go_c == "X" || _go_c == "Y") {
+      if (nyx_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      extra_par = extra_par " -X"
+      nyx_mode = 1
+      continue
     } else 
     if (_go_c == "?") {
       exit 1
@@ -225,7 +240,7 @@ BEGIN {
   } # while options
 
   if (!mem_limit) mem_limit = "none"
-  if (!timeout) timeout = "none"
+  if (!timeout) timeout = "5000"
 
   # get program args
   i = 0
@@ -244,21 +259,30 @@ BEGIN {
   # Do a sanity check to discourage the use of /tmp, since we can't really
   # handle this safely from an awk script.
 
-  if (!ENVIRON["AFL_ALLOW_TMP"]) {
-    dirlist[0] = in_dir
-    dirlist[1] = target_bin
-    dirlist[2] = out_dir
-    dirlist[3] = stdin_file
-    "pwd" | getline dirlist[4] # current directory
-    for (dirind in dirlist) {
-      dir = dirlist[dirind]
+  #if (!ENVIRON["AFL_ALLOW_TMP"]) {
+  #  dirlist[0] = in_dir
+  #  dirlist[1] = target_bin
+  #  dirlist[2] = out_dir
+  #  dirlist[3] = stdin_file
+  #  "pwd" | getline dirlist[4] # current directory
+  #  for (dirind in dirlist) {
+  #    dir = dirlist[dirind]
+  #
+  #      if (dir ~ /^(\/var)?\/tmp/) {
+  #        print "[-] Error: do not use this script in /tmp or /var/tmp." > "/dev/stderr"
+  #        exit 1
+  #      }
+  #    }
+  #  delete dirlist
+  #}
 
-      if (dir ~ /^(\/var)?\/tmp/) {
-        print "[-] Error: do not use this script in /tmp or /var/tmp." > "/dev/stderr"
-        exit 1
-      }
-    }
-    delete dirlist
+  if (threads && stdin_file) {
+    print "[-] Error: -T and -f cannot be used together." > "/dev/stderr"
+    exit 1
+  }
+
+  if (!threads && !stdin_file && !nyx_mode) {
+    print "[*] Are you aware of the '-T all' parallelize option that improves the speed for large/slow corpuses?"
   }
 
   # If @@ is specified, but there's no -f, let's come up with a temporary input
@@ -291,7 +315,8 @@ BEGIN {
     exit 1
   }
 
-  if (target_bin && !exists_and_is_executable(target_bin)) {
+
+  if (!nyx_mode && target_bin && !exists_and_is_executable(target_bin)) {
 
     "command -v "target_bin" 2>/dev/null" | getline tnew
     if (!tnew || !exists_and_is_executable(tnew)) {
@@ -311,7 +336,7 @@ BEGIN {
     }
   }
 
-  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !frida_mode && !unicorn_mode) {
+  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !frida_mode && !unicorn_mode && !nyx_mode) {
     if (0 != system( "grep -q __AFL_SHM_ID "target_bin )) {
       print "[-] Error: binary '"target_bin"' doesn't appear to be instrumented." > "/dev/stderr"
       exit 1
@@ -338,6 +363,18 @@ BEGIN {
   if (0 == system( "test -d "out_dir" -a "noofentries" -gt 0" )) {
     print "[-] Error: directory '"out_dir"' exists and is not empty - delete it first." > "/dev/stderr"
     exit 1
+  }
+
+  if (threads) {
+    "nproc" | getline nproc
+    if (threads == "all") {
+      threads = nproc
+    } else {
+      if (!(threads > 1 && threads <= nproc)) {
+        print "[-] Error: -T option must be between 1 and "nproc" or \"all\"." > "/dev/stderr"
+        exit 1
+      }
+    }
   }
 
   # Check for the more efficient way to copy files...
@@ -449,27 +486,79 @@ BEGIN {
   # STEP 1: Collecting traces #
   #############################
 
+  if (threads) {
+
+    inputsperfile = in_count / threads
+    if (in_count % threads) {
+      inputsperfile++;
+    }
+
+    cnt = 0;
+    tmpfile=out_dir "/.filelist"
+    for (instance = 1; instance < threads; instance++) {
+      for (i = 0; i < inputsperfile; i++) {
+        print in_dir"/"infilesSmallToBigFull[cnt] >> tmpfile"."instance
+        cnt++
+      }
+    }
+    for (; cnt < in_count; cnt++) {
+      print in_dir"/"infilesSmallToBigFull[cnt] >> tmpfile"."threads
+    }
+
+  }
+
   print "[*] Obtaining traces for "in_count" input files in '"in_dir"'."
 
   cur = 0;
-  if (!stdin_file) {
-    print "    Processing "in_count" files (forkserver mode)..."
-#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string
-    retval = system(AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
-  } else {
-    print "    Processing "in_count" files (forkserver mode)..."
-#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null"
-    retval = system(AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
-  }
 
-  if (retval && (!AFL_CMIN_CRASHES_ONLY && !AFL_CMIN_ALLOW_ANY)) {
-    print "[!] Exit code "retval" != 0 received from afl-showmap (this means a crashing or timeout input is likely present), terminating..."
+  if (threads > 1) {
 
-    if (!ENVIRON["AFL_KEEP_TRACES"]) {
-      system("rm -rf "trace_dir" 2>/dev/null")
-      system("rmdir "out_dir)
+    print "[*] Creating " threads " parallel tasks with about " inputsperfile " each."
+    for (i = 1; i <= threads; i++) {
+
+      if (!stdin_file) {
+#        print " { "AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -I \""tmpfile"."i"\" -- \""target_bin"\" "prog_args_string"; > "tmpfile"."i".done ; } &"
+        retval = system(" { "AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -I \""tmpfile"."i"\" -- \""target_bin"\" "prog_args_string"; > "tmpfile"."i".done ; } &")
+      } else {
+        stdin_file=tmpfile"."i".stdin"
+#        print " { "AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -I \""tmpfile"."i"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null; > "tmpfile"."i".done ; } &"
+        retval = system(" { "AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -I \""tmpfile"."i"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null; > "tmpfile"."i".done ; } &")
+      }
     }
-    exit retval
+    print "[*] Waiting for parallel tasks to complete ..."
+    # wait for all processes to finish
+    ok=0
+    while (ok < threads) {
+      ok=0
+      for (i = 1; i <= threads; i++) {
+        if (system("test -f "tmpfile"."i".done") == 0) {
+          ok++
+        }
+      }
+    }
+    print "[*] Done!"
+    system("rm -f "tmpfile"*")
+  } else {
+    if (!stdin_file) {
+      print "    Processing "in_count" files (forkserver mode)..."
+#      print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string
+      retval = system(AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
+    } else {
+      print "    Processing "in_count" files (forkserver mode)..."
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null"
+      retval = system(AFL_MAP_SIZE AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -H \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+    }
+
+    if (retval && (!AFL_CMIN_CRASHES_ONLY && !AFL_CMIN_ALLOW_ANY)) {
+      print "[!] Exit code "retval" != 0 received from afl-showmap (this means a crashing or timeout input is likely present), terminating..."
+
+      if (!ENVIRON["AFL_KEEP_TRACES"]) {
+        system("rm -rf "trace_dir" 2>/dev/null")
+        system("rmdir "out_dir)
+      }
+      exit retval
+    }
+
   }
 
   #######################################################

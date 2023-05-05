@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -674,27 +674,6 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
   /* Set sane defaults... */
 
-  x = get_afl_env("ASAN_OPTIONS");
-
-  if (x) {
-
-    if (!strstr(x, "abort_on_error=1")) {
-
-      FATAL("Custom ASAN_OPTIONS set without abort_on_error=1 - please fix!");
-
-    }
-
-#ifndef ASAN_BUILD
-    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
-
-      FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
-
-    }
-
-#endif
-
-  }
-
   x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
@@ -706,69 +685,9 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
-
-      FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
-
-    }
-
   }
 
-  x = get_afl_env("LSAN_OPTIONS");
-
-  if (x) {
-
-    if (!strstr(x, "symbolize=0")) {
-
-      FATAL("Custom LSAN_OPTIONS set without symbolize=0 - please fix!");
-
-    }
-
-  }
-
-  setenv("ASAN_OPTIONS",
-         "abort_on_error=1:"
-         "detect_leaks=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "detect_odr_violation=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
-
-  setenv("UBSAN_OPTIONS",
-         "halt_on_error=1:"
-         "abort_on_error=1:"
-         "malloc_context_size=0:"
-         "allocator_may_return_null=1:"
-         "symbolize=0:"
-         "handle_segv=0:"
-         "handle_sigbus=0:"
-         "handle_abort=0:"
-         "handle_sigfpe=0:"
-         "handle_sigill=0",
-         0);
-
-  setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                         "abort_on_error=1:"
-                         "msan_track_origins=0"
-                         "allocator_may_return_null=1:"
-                         "symbolize=0:"
-                         "handle_segv=0:"
-                         "handle_sigbus=0:"
-                         "handle_abort=0:"
-                         "handle_sigfpe=0:"
-                         "handle_sigill=0", 0);
-
-  setenv("LSAN_OPTIONS",
-         "exitcode=" STRINGIFY(LSAN_ERROR) ":"
-         "fast_unwind_on_malloc=0:"
-         "symbolize=0:"
-         "print_suppressions=0",
-         0);
+  set_sanitizer_defaults();
 
   if (get_afl_env("AFL_PRELOAD")) {
 
@@ -824,7 +743,11 @@ static void setup_signal_handlers(void) {
   struct sigaction sa;
 
   sa.sa_handler = NULL;
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;
+#else
+  sa.sa_flags = 0;
+#endif
   sa.sa_sigaction = NULL;
 
   sigemptyset(&sa.sa_mask);
@@ -866,6 +789,7 @@ static void usage(u8 *argv0) {
       "mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n"
+      "  -X            - use Nyx mode\n"
 #endif
       "\n"
 
@@ -922,7 +846,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeAOQUWHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeAOQUWXYHh")) > 0) {
 
     switch (opt) {
 
@@ -1080,6 +1004,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'Y':  // fallthough
+#ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv->nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv->nyx_mode = 1;
+        fsrv->nyx_parent = true;
+        fsrv->nyx_standalone = true;
+
+        break;
+#else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+#endif
+
       case 'H':                                                /* Hang Mode */
 
         /* Minimizes a testcase to the minimum that still times out */
@@ -1145,7 +1086,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv, argv);
 
+#ifdef __linux__
+  if (!fsrv->nyx_mode) {
+
+    fsrv->target_path = find_binary(argv[optind]);
+
+  } else {
+
+    fsrv->target_path = ck_strdup(argv[optind]);
+
+  }
+
+#else
   fsrv->target_path = find_binary(argv[optind]);
+#endif
+
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
   signal(SIGALRM, kill_child);
@@ -1168,6 +1123,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
     use_argv =
         get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+
+#ifdef __linux__
+
+  } else if (fsrv->nyx_mode) {
+
+    fsrv->nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
+    fsrv->nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv->nyx_handlers == NULL) {
+
+      FATAL("failed to initialize libnyx.so...");
+
+    }
+
+    fsrv->nyx_use_tmp_workdir = true;
+    fsrv->nyx_bind_cpu_id = 0;
+
+    use_argv = argv + optind;
+#endif
 
   } else {
 
@@ -1238,7 +1213,12 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   read_initial_file();
+
+#ifdef __linux__
+  if (!fsrv->nyx_mode) { (void)check_binary_signatures(fsrv->target_path); }
+#else
   (void)check_binary_signatures(fsrv->target_path);
+#endif
 
   if (!fsrv->qemu_mode && !unicorn_mode) {
 

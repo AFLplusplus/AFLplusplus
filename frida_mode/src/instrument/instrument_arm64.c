@@ -196,6 +196,14 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
   insn = instrument_disassemble(from_insn);
   deterministic = instrument_is_deterministic(insn);
   cs_free(insn, 1);
+
+  /*
+   * If the branch is deterministic, then we should start execution at the
+   * begining of the block. From here, we will branch and skip the coverage
+   * code and jump right to the target code of the instrumented block.
+   * Otherwise, if the branch is non-deterministic, then we need to branch
+   * part way into the block to where the coverage instrumentation starts.
+   */
   if (deterministic) { return; }
 
   /*
@@ -305,7 +313,7 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   // gum_arm64_writer_put_brk_imm(cw, 0x0);
 
-  instrument_coverage_suppress_init();
+  if (instrument_suppress) { instrument_coverage_suppress_init(); }
 
   code_addr = cw->pc;
 
@@ -325,9 +333,13 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   block_start =
       GSIZE_TO_POINTER(GUM_ADDRESS(cw->code) - GUM_RESTORATION_PROLOG_SIZE);
 
-  if (!g_hash_table_add(coverage_blocks, block_start)) {
+  if (instrument_suppress) {
 
-    FATAL("Failed - g_hash_table_add");
+    if (!g_hash_table_add(coverage_blocks, block_start)) {
+
+      FATAL("Failed - g_hash_table_add");
+
+    }
 
   }
 
@@ -363,7 +375,17 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   code.code.mov_x1_curr_loc_shr_1 |= (area_offset_ror << 5);
 
-  gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+  if (instrument_suppress) {
+
+    gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+
+  } else {
+
+    size_t offset = offsetof(afl_log_code, code.stp_x0_x1);
+    gum_arm64_writer_put_bytes(cw, &code.bytes[offset],
+                               sizeof(afl_log_code) - offset);
+
+  }
 
 }
 

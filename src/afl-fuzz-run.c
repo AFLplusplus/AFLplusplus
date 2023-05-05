@@ -10,7 +10,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2022 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -133,7 +133,24 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (new_mem != *mem) { *mem = new_mem; }
+    if (new_mem != *mem && new_mem != NULL && new_size > 0) {
+
+      new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
+      if (unlikely(!new_buf)) { PFATAL("alloc"); }
+      memcpy(new_buf, new_mem, new_size);
+
+      /* if AFL_POST_PROCESS_KEEP_ORIGINAL is set then save the original memory
+         prior post-processing in new_mem to restore it later */
+      if (unlikely(afl->afl_env.afl_post_process_keep_original)) {
+
+        new_mem = *mem;
+
+      }
+
+      *mem = new_buf;
+      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+
+    }
 
     if (unlikely(afl->custom_mutators_count)) {
 
@@ -154,7 +171,18 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
       /* everything as planned. use the potentially new data. */
       afl_fsrv_write_to_testcase(&afl->fsrv, *mem, new_size);
-      len = new_size;
+
+      if (likely(!afl->afl_env.afl_post_process_keep_original)) {
+
+        len = new_size;
+
+      } else {
+
+        /* restore the original memory which was saved in new_mem */
+        *mem = new_mem;
+        afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+
+      }
 
     }
 
@@ -523,7 +551,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         }
 
-        if (unlikely(!var_detected)) {
+        if (unlikely(!var_detected && !afl->afl_env.afl_no_warn_instability)) {
 
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {
