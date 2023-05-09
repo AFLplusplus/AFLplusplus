@@ -4,7 +4,7 @@ FLAGS=-I ../include
 TEST_FILE=test1.c
 
 angora: mutator.c cmp-functions.c
-	$(CC) $(FLAGS) -fPIC -g -O0 -shared mutator.c cmp-functions.c -o mutator.so 
+	$(CC) $(FLAGS) -fPIC -O3 -shared mutator.c cmp-functions.c -o mutator.so 
 
 
 test: angora
