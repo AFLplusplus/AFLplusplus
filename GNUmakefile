@@ -379,7 +379,7 @@ help:
 	@echo Known build environment options:
 	@echo "=========================================="
 	@echo STATIC - compile AFL++ static
-	@echo CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)
+	@echo "CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)"
 	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
 	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
