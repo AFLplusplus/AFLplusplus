@@ -1530,29 +1530,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
-
-    if (afl->custom_only) {
-
-      FATAL("Custom mutators are incompatible with MOpt (-L)");
-
-    }
-
-    u32 custom_fuzz = 0;
-    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-      if (el->afl_custom_fuzz) { custom_fuzz = 1; }
-
-    });
-
-    if (custom_fuzz) {
-
-      WARNF("afl_custom_fuzz is incompatible with MOpt (-L)");
-
-    }
-
-  }
-
   if (afl->afl_env.afl_max_det_extras) {
 
     s32 max_det_extras = atoi(afl->afl_env.afl_max_det_extras);
@@ -1827,7 +1804,75 @@ int main(int argc, char **argv_orig, char **envp) {
     printf("DEBUG: rand %06d is %u\n", counter, rand_below(afl, 65536));
   #endif
 
+  if (!getenv("AFL_CUSTOM_INFO_PROGRAM")) {
+
+    setenv("AFL_CUSTOM_INFO_PROGRAM", argv[optind], 1);
+
+  }
+
+  if (!getenv("AFL_CUSTOM_INFO_PROGRAM_INPUT") && afl->fsrv.out_file) {
+
+    setenv("AFL_CUSTOM_INFO_PROGRAM_INPUT", afl->fsrv.out_file, 1);
+
+  }
+
+  {
+
+    u8 envbuf[8096] = "", tmpbuf[8096] = "";
+    for (s32 i = optind + 1; i < argc; ++i) {
+
+      strcpy(tmpbuf, envbuf);
+      if (strchr(argv[i], ' ') && !strchr(argv[i], '"') &&
+          !strchr(argv[i], '\'')) {
+
+        if (!strchr(argv[i], '\'')) {
+
+          snprintf(envbuf, sizeof(tmpbuf), "%s '%s'", tmpbuf, argv[i]);
+
+        } else {
+
+          snprintf(envbuf, sizeof(tmpbuf), "%s \"%s\"", tmpbuf, argv[i]);
+
+        }
+
+      } else {
+
+        snprintf(envbuf, sizeof(tmpbuf), "%s %s", tmpbuf, argv[i]);
+
+      }
+
+    }
+
+    setenv("AFL_CUSTOM_INFO_PROGRAM_ARGV", envbuf + 1, 1);
+
+  }
+
+  setenv("AFL_CUSTOM_INFO_OUT", afl->out_dir, 1);  // same as __AFL_OUT_DIR
+
   setup_custom_mutators(afl);
+
+  if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
+
+    if (afl->custom_only) {
+
+      FATAL("Custom mutators are incompatible with MOpt (-L)");
+
+    }
+
+    u32 custom_fuzz = 0;
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_fuzz) { custom_fuzz = 1; }
+
+    });
+
+    if (custom_fuzz) {
+
+      WARNF("afl_custom_fuzz is incompatible with MOpt (-L)");
+
+    }
+
+  }
 
   write_setup_file(afl, argc, argv);
 
