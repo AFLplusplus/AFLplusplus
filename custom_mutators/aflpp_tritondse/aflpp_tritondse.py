@@ -3,18 +3,16 @@ import os
 import logging
 import hashlib
 
+from tritondse import CleLoader
+from tritondse import CompositeData
 from tritondse import Config
 from tritondse import CoverageStrategy
 from tritondse import ProcessState
 from tritondse import Program
-from tritondse import CleLoader
 from tritondse import Seed
 from tritondse import SeedFormat
 from tritondse import SymbolicExecutor
 from tritondse import SymbolicExplorator
-
-
-#logging.basicConfig(level=logging.INFO)
 
 is_debug = False
 out_path = ""
@@ -25,13 +23,11 @@ dse = None
 cycle = 0
 count = 0
 hashes = set()
+format = SeedFormat.RAW
 
 def pre_exec_hook(se: SymbolicExecutor, state: ProcessState):
-    #logging.info(f"[PRE-EXEC] Processing seed: {se.seed.hash}, \
-    #                ({repr(se.seed.content)})")
     global count
     global hashes
-    print('DEBUG - prehook')
     if se.seed.hash not in hashes:
         hashes.add(se.seed.hash)
         filename = out_path + "/id:" + f"{count:06}" + "," + se.seed.hash
@@ -39,26 +35,26 @@ def pre_exec_hook(se: SymbolicExecutor, state: ProcessState):
             if is_debug:
                 print('Creating queue input ' + filename)
             with open(filename, 'wb') as file:
-                file.write(se.seed.content)
+                if input_file:
+                    file.write(se.seed.content.files[input_file])
+                else:
+                    file.write(se.seed.content)
                 count += 1
-    else:
-        print('has hash: ' + se.seed.hash)
-    if input_file:
-        if is_debug:
-            print('Writing to ' + input_file + ' the content: ' + str(se.seed.content))
-        with open(input_file, 'wb') as file:
-            file.write(se.seed.content)
-    else:
-        print('no input!')
+    #if input_file:
+    #    if is_debug:
+    #        print('Writing to ' + input_file + ' the content: ' + str(se.seed.content))
+    #    with open(input_file, 'wb') as file:
+    #        file.write(se.seed.content)
 
 
 def init(seed):
-    global prog
     global config
     global dse
-    global out_path
+    global format
     global input_file
     global is_debug
+    global out_path
+    global prog
     # Load the program (LIEF-based program loader).
     prog = CleLoader(os.environ['AFL_CUSTOM_INFO_PROGRAM'])
     # Process other configuration environment variables.
@@ -104,6 +100,8 @@ def init(seed):
             print('DEBUG input_file: ' + input_file)
         print('DEBUG out_path: ' + out_path)
         print('')
+    if input_file:
+        format = SeedFormat.COMPOSITE
     # Now set up TritonDSE
     config = Config(coverage_strategy = CoverageStrategy.PATH,
                     debug = is_debug,
@@ -112,7 +110,7 @@ def init(seed):
                     execution_timeout = 1,
                     program_argv = argv,
                     smt_timeout= 50,
-                    seed_format = SeedFormat.RAW)
+                    seed_format = format)
     # Create an instance of the Symbolic Explorator
     dse = SymbolicExplorator(config, prog)
     # Add callbacks.
@@ -124,18 +122,22 @@ def init(seed):
 
 
 def queue_new_entry(filename_new_queue, filename_orig_queue):
-    global dse
     global cycle
+    global dse
     # Add seed to the worklist.
     with open(filename_new_queue, "rb") as file:
-        seed = file.read()
-    hash = hashlib.md5(seed).hexdigest()
+        data = file.read()
+    hash = hashlib.md5(data).hexdigest()
     if hash not in hashes:
         hashes.add(hash)
         if is_debug:
             print("NEW FILE " + filename_new_queue + " hash " + hash + " count " + str(cycle))
             cycle += 1
-        seed = Seed(seed)
+        if input_file:
+            seed = Seed(CompositeData(files={"stdin": b"", # nothing on stdin
+                                  input_file: data}))
+        else:
+            seed = Seed(data)
         dse.add_input_seed(seed)
         # Start exploration!
         #dse.step()
