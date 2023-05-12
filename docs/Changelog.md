@@ -11,6 +11,7 @@
     - new env `AFL_IGNORE_PROBLEMS_COVERAGE` to ignore coverage from
       loaded libs after forkserver initialization (required by Mozilla)
   - afl-cc:
+    - added @responsefile support
     - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
       (https://github.com/fgsect/WAFL) project
     - error and print help if afl-clan-lto is used with lto=thin
