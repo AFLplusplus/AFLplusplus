@@ -13,6 +13,7 @@
   - afl-cc:
     - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
       (https://github.com/fgsect/WAFL) project
+    - error and print help if afl-clan-lto is used with lto=thin
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`

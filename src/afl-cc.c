@@ -853,6 +853,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (cur[0] != '-') { non_dash = 1; }
     if (!strncmp(cur, "--afl", 5)) continue;
+
+    if (lto_mode && !strncmp(cur, "-flto=thin", 10)) {
+
+      FATAL(
+          "afl-clang-lto cannot work with -flto=thin. Switch to -flto=full or "
+          "use afl-clang-fast!");
+
+    }
+
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
     if (!strncmp(cur, "-fno-unroll", 11)) continue;
