@@ -18,8 +18,8 @@
     - add `-I filelist` option, an alternative to `-i in_dir`
   - afl-cmin + afl-cmin.bash:
     - `-T threads` parallel task support, can be a huge speedup!
-  - qemuafl:
-    - Persistent mode support for ppc32 tragets by @worksbutnottested
+  - qemu_mode:
+    - Persistent mode +QASAN support for ppc32 tragets by @worksbutnottested
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
 
 
