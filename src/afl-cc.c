@@ -31,6 +31,8 @@
 #include <strings.h>
 #include <limits.h>
 #include <assert.h>
+#include <ctype.h>
+#include <sys/stat.h>
 
 #if (LLVM_MAJOR - 0 == 0)
   #undef LLVM_MAJOR
@@ -376,15 +378,304 @@ void parse_fsanitize(char *string) {
 
 }
 
+static u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
+          shared_linking = 0, preprocessor_only = 0, have_unroll = 0,
+          have_o = 0, have_pic = 0, have_c = 0, partial_linking = 0,
+          non_dash = 0;
+
+static void process_params(u32 argc, char **argv) {
+
+  if (cc_par_cnt + argc >= 1024) { FATAL("Too many command line parameters"); }
+
+  if (lto_mode && argc > 1) {
+
+    u32 idx;
+    for (idx = 1; idx < argc; idx++) {
+
+      if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+
+    }
+
+  }
+
+  // for (u32 x = 0; x < argc; ++x) fprintf(stderr, "[%u] %s\n", x, argv[x]);
+
+  /* Process the argument list. */
+
+  u8 skip_next = 0;
+  while (--argc) {
+
+    u8 *cur = *(++argv);
+
+    if (skip_next) {
+
+      skip_next = 0;
+      continue;
+
+    }
+
+    if (cur[0] != '-') { non_dash = 1; }
+    if (!strncmp(cur, "--afl", 5)) continue;
+
+    if (lto_mode && !strncmp(cur, "-flto=thin", 10)) {
+
+      FATAL(
+          "afl-clang-lto cannot work with -flto=thin. Switch to -flto=full or "
+          "use afl-clang-fast!");
+
+    }
+
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
+    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
+    if (!strncmp(cur, "-fno-unroll", 11)) continue;
+    if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined") ||
+        !strcmp(cur, "--no-undefined")) {
+
+      continue;
+
+    }
+
+    if (compiler_mode == GCC_PLUGIN && !strcmp(cur, "-pipe")) { continue; }
+
+    if (!strcmp(cur, "-z") || !strcmp(cur, "-Wl,-z")) {
+
+      u8 *param = *(argv + 1);
+      if (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs")) {
+
+        skip_next = 1;
+        continue;
+
+      }
+
+    }
+
+    if ((compiler_mode == GCC || compiler_mode == GCC_PLUGIN) &&
+        !strncmp(cur, "-stdlib=", 8)) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
+    if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list=")) {
+
+      have_instr_list = 1;
+
+    }
+
+    if (!strncmp(cur, "-fsanitize=", strlen("-fsanitize=")) &&
+        strchr(cur, ',')) {
+
+      parse_fsanitize(cur);
+      if (!cur || strlen(cur) <= strlen("-fsanitize=")) { continue; }
+
+    } else if ((!strncmp(cur, "-fsanitize=fuzzer-",
+
+                         strlen("-fsanitize=fuzzer-")) ||
+                !strncmp(cur, "-fsanitize-coverage",
+                         strlen("-fsanitize-coverage"))) &&
+               (strncmp(cur, "sanitize-coverage-allow",
+                        strlen("sanitize-coverage-allow")) &&
+                strncmp(cur, "sanitize-coverage-deny",
+                        strlen("sanitize-coverage-deny")) &&
+                instrument_mode != INSTRUMENT_LLVMNATIVE)) {
+
+      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
+      continue;
+
+    }
+
+    if (need_aflpplib || !strcmp(cur, "-fsanitize=fuzzer")) {
+
+      u8 *afllib = find_object("libAFLDriver.a", argv[0]);
+
+      if (!be_quiet) {
+
+        OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
+
+      }
+
+      if (!afllib) {
+
+        if (!be_quiet) {
+
+          WARNF(
+              "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
+              "the flags - this will fail!");
+
+        }
+
+      } else {
+
+        cc_params[cc_par_cnt++] = afllib;
+
+#ifdef __APPLE__
+        cc_params[cc_par_cnt++] = "-undefined";
+        cc_params[cc_par_cnt++] = "dynamic_lookup";
+#endif
+
+      }
+
+      if (need_aflpplib) {
+
+        need_aflpplib = 0;
+
+      } else {
+
+        continue;
+
+      }
+
+    }
+
+    if (!strcmp(cur, "-m32")) bit_mode = 32;
+    if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
+    if (!strcmp(cur, "-m64")) bit_mode = 64;
+
+    if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
+      asan_set = 1;
+
+    if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
+
+    if (!strcmp(cur, "-x")) x_set = 1;
+    if (!strcmp(cur, "-E")) preprocessor_only = 1;
+    if (!strcmp(cur, "-shared")) shared_linking = 1;
+    if (!strcmp(cur, "-dynamiclib")) shared_linking = 1;
+    if (!strcmp(cur, "--target=wasm32-wasi")) passthrough = 1;
+    if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
+    if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
+    if (!strcmp(cur, "-Wl,--relocatable")) partial_linking = 1;
+    if (!strcmp(cur, "-r")) partial_linking = 1;
+    if (!strcmp(cur, "--relocatable")) partial_linking = 1;
+    if (!strcmp(cur, "-c")) have_c = 1;
+
+    if (!strncmp(cur, "-O", 2)) have_o = 1;
+    if (!strncmp(cur, "-funroll-loop", 13)) have_unroll = 1;
+
+    if (*cur == '@') {
+
+      // response file support.
+      // we have two choices - move everything to the command line or
+      // rewrite the response files to temporary files and delete them
+      // afterwards. We choose the first for easiness.
+      // We do *not* support quotes in the rsp files to cope with spaces in
+      // filenames etc! If you need that then send a patch!
+      u8 *filename = cur + 1;
+      if (debug) { DEBUGF("response file=%s\n", filename); }
+      FILE       *f = fopen(filename, "r");
+      struct stat st;
+
+      // Check not found or empty? let the compiler complain if so.
+      if (!f || fstat(fileno(f), &st) < 0 || st.st_size < 1) {
+
+        cc_params[cc_par_cnt++] = cur;
+        continue;
+
+      }
+
+      u8    *tmpbuf = malloc(st.st_size + 1), *ptr;
+      char **args = malloc(sizeof(char *) * (st.st_size >> 1));
+      int    count = 1, cont = 0, cont_act = 0;
+
+      while (fgets(tmpbuf, st.st_size, f)) {
+
+        ptr = tmpbuf;
+        // no leading whitespace
+        while (isspace(*ptr)) {
+
+          ++ptr;
+          cont_act = 0;
+
+        }
+
+        // no comments, no empty lines
+        if (*ptr == '#' || *ptr == '\n' || !*ptr) { continue; }
+        // remove LF
+        if (ptr[strlen(ptr) - 1] == '\n') { ptr[strlen(ptr) - 1] = 0; }
+        // remove CR
+        if (*ptr && ptr[strlen(ptr) - 1] == '\r') { ptr[strlen(ptr) - 1] = 0; }
+        // handle \ at end of line
+        if (*ptr && ptr[strlen(ptr) - 1] == '\\') {
+
+          cont = 1;
+          ptr[strlen(ptr) - 1] = 0;
+
+        }
+
+        // remove whitespace at end
+        while (*ptr && isspace(ptr[strlen(ptr) - 1])) {
+
+          ptr[strlen(ptr) - 1] = 0;
+          cont = 0;
+
+        }
+
+        if (*ptr) {
+
+          do {
+
+            u8 *value = ptr;
+            while (*ptr && !isspace(*ptr)) {
+
+              ++ptr;
+
+            }
+
+            while (*ptr && isspace(*ptr)) {
+
+              *ptr++ = 0;
+
+            }
+
+            if (cont_act) {
+
+              u32 len = strlen(args[count - 1]) + strlen(value) + 1;
+              u8 *tmp = malloc(len);
+              snprintf(tmp, len, "%s%s", args[count - 1], value);
+              free(args[count - 1]);
+              args[count - 1] = tmp;
+              cont_act = 0;
+
+            } else {
+
+              args[count++] = strdup(value);
+
+            }
+
+          } while (*ptr);
+
+        }
+
+        if (cont) {
+
+          cont_act = 1;
+          cont = 0;
+
+        }
+
+      }
+
+      if (count) { process_params(count, args); }
+
+      // we cannot free args[]
+      free(tmpbuf);
+
+      continue;
+
+    }
+
+    cc_params[cc_par_cnt++] = cur;
+
+  }
+
+}
+
 /* Copy argv to cc_params, making the necessary edits. */
 
 static void edit_params(u32 argc, char **argv, char **envp) {
 
-  u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
-     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0,
-     have_c = 0, partial_linking = 0;
-
-  cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
+  cc_params = ck_alloc(1024 * sizeof(u8 *));
 
   if (lto_mode) {
 
@@ -831,168 +1122,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       }
 
-      if (!have_pic) cc_params[cc_par_cnt++] = "-fPIC";
-
     }
 
   }
 
-  /* Detect stray -v calls from ./configure scripts. */
+  /* Inspect the command line parameters. */
 
-  u8 skip_next = 0, non_dash = 0;
-  while (--argc) {
+  process_params(argc, argv);
 
-    u8 *cur = *(++argv);
-
-    if (skip_next) {
-
-      skip_next = 0;
-      continue;
-
-    }
-
-    if (cur[0] != '-') { non_dash = 1; }
-    if (!strncmp(cur, "--afl", 5)) continue;
-
-    if (lto_mode && !strncmp(cur, "-flto=thin", 10)) {
-
-      FATAL(
-          "afl-clang-lto cannot work with -flto=thin. Switch to -flto=full or "
-          "use afl-clang-fast!");
-
-    }
-
-    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
-    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
-    if (!strncmp(cur, "-fno-unroll", 11)) continue;
-    if (strstr(cur, "afl-compiler-rt") || strstr(cur, "afl-llvm-rt")) continue;
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined") ||
-        !strcmp(cur, "--no-undefined")) {
-
-      continue;
-
-    }
-
-    if (compiler_mode == GCC_PLUGIN && !strcmp(cur, "-pipe")) { continue; }
-
-    if (!strcmp(cur, "-z") || !strcmp(cur, "-Wl,-z")) {
-
-      u8 *param = *(argv + 1);
-      if (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs")) {
-
-        skip_next = 1;
-        continue;
-
-      }
-
-    }
-
-    if ((compiler_mode == GCC || compiler_mode == GCC_PLUGIN) &&
-        !strncmp(cur, "-stdlib=", 8)) {
-
-      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
-      continue;
-
-    }
-
-    if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list=")) {
-
-      have_instr_list = 1;
-
-    }
-
-    if (!strncmp(cur, "-fsanitize=", strlen("-fsanitize=")) &&
-        strchr(cur, ',')) {
-
-      parse_fsanitize(cur);
-      if (!cur || strlen(cur) <= strlen("-fsanitize=")) { continue; }
-
-    } else if ((!strncmp(cur, "-fsanitize=fuzzer-",
-
-                         strlen("-fsanitize=fuzzer-")) ||
-                !strncmp(cur, "-fsanitize-coverage",
-                         strlen("-fsanitize-coverage"))) &&
-               (strncmp(cur, "sanitize-coverage-allow",
-                        strlen("sanitize-coverage-allow")) &&
-                strncmp(cur, "sanitize-coverage-deny",
-                        strlen("sanitize-coverage-deny")) &&
-                instrument_mode != INSTRUMENT_LLVMNATIVE)) {
-
-      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur); }
-      continue;
-
-    }
-
-    if (need_aflpplib || !strcmp(cur, "-fsanitize=fuzzer")) {
-
-      u8 *afllib = find_object("libAFLDriver.a", argv[0]);
-
-      if (!be_quiet) {
-
-        OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
-
-      }
-
-      if (!afllib) {
-
-        if (!be_quiet) {
-
-          WARNF(
-              "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
-              "the flags - this will fail!");
-
-        }
-
-      } else {
-
-        cc_params[cc_par_cnt++] = afllib;
-
-#ifdef __APPLE__
-        cc_params[cc_par_cnt++] = "-undefined";
-        cc_params[cc_par_cnt++] = "dynamic_lookup";
-#endif
-
-      }
-
-      if (need_aflpplib) {
-
-        need_aflpplib = 0;
-
-      } else {
-
-        continue;
-
-      }
-
-    }
-
-    if (!strcmp(cur, "-m32")) bit_mode = 32;
-    if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
-    if (!strcmp(cur, "-m64")) bit_mode = 64;
-
-    if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
-      asan_set = 1;
-
-    if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
-
-    if (!strcmp(cur, "-x")) x_set = 1;
-    if (!strcmp(cur, "-E")) preprocessor_only = 1;
-    if (!strcmp(cur, "-shared")) shared_linking = 1;
-    if (!strcmp(cur, "-dynamiclib")) shared_linking = 1;
-    if (!strcmp(cur, "--target=wasm32-wasi")) passthrough = 1;
-    if (!strcmp(cur, "-Wl,-r")) partial_linking = 1;
-    if (!strcmp(cur, "-Wl,-i")) partial_linking = 1;
-    if (!strcmp(cur, "-Wl,--relocatable")) partial_linking = 1;
-    if (!strcmp(cur, "-r")) partial_linking = 1;
-    if (!strcmp(cur, "--relocatable")) partial_linking = 1;
-    if (!strcmp(cur, "-c")) have_c = 1;
-
-    if (!strncmp(cur, "-O", 2)) have_o = 1;
-    if (!strncmp(cur, "-funroll-loop", 13)) have_unroll = 1;
-
-    cc_params[cc_par_cnt++] = cur;
-
-  }
+  if (!have_pic) { cc_params[cc_par_cnt++] = "-fPIC"; }
 
   // in case LLVM is installed not via a package manager or "make install"
   // e.g. compiled download or compiled from github then its ./lib directory
