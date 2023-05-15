@@ -7,6 +7,8 @@ variables.
 
 In FRIDA mode, binary programs are instrumented, similarly to QEMU mode.
 
+A tutorial can be found at [https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html](https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html)
+
 ## Current progress
 
 As FRIDA mode is new, it is missing a lot of features. The design is such that

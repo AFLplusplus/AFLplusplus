@@ -20,6 +20,10 @@ training, then we can highly recommend the following:
 
 * [https://github.com/antonio-morales/Fuzzing101](https://github.com/antonio-morales/Fuzzing101)
 
+Here is good workflow description for frida_mode:
+
+* [https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html](https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html)
+
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered (some are outdated though):
 

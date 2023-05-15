@@ -131,6 +131,11 @@ jitter, or is a hash map function etc., then it should not be instrumented.
 To be able to exclude these functions (based on AFL++'s measured stability), the
 following process will allow to identify functions with variable edges.
 
+Note that this is only useful for non-persistent targets!
+If a persistent target is unstable whereas when run non-persistent is fine,
+then this means that the target is keeping internal state, which is bad for
+fuzzing. Fuzz such targets **without** persistent mode.
+
 Four steps are required to do this and it also requires quite some knowledge of
 coding and/or disassembly and is effectively possible only with `afl-clang-fast`
 `PCGUARD` and `afl-clang-lto` `LTO` instrumentation.
