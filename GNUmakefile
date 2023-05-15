@@ -39,7 +39,7 @@ ASAN_OPTIONS=detect_leaks=0
 SYS = $(shell uname -s)
 ARCH = $(shell uname -m)
 
-$(info [*] Compiling afl++ for OS $(SYS) on ARCH $(ARCH))
+$(info [*] Compiling AFL++ for OS $(SYS) on ARCH $(ARCH))
 
 ifdef NO_SPLICING
   override CFLAGS_OPT += -DNO_SPLICING
@@ -316,7 +316,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_bu
 	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
 	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM and LLD 11+. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
 	@test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
 endif
@@ -359,7 +359,7 @@ performance-test:	source-only
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
-	@echo "all: the main afl++ binaries and llvm/gcc instrumentation"
+	@echo "all: the main AFL++ binaries and llvm/gcc instrumentation"
 	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
@@ -367,7 +367,7 @@ help:
 	@echo "install: installs everything you have compiled with the build option above"
 	@echo "clean: cleans everything compiled (not downloads when on a checkout)"
 	@echo "deepclean: cleans everything including downloads"
-	@echo "uninstall: uninstall afl++ from the system"
+	@echo "uninstall: uninstall AFL++ from the system"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
 	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
@@ -379,6 +379,7 @@ help:
 	@echo Known build environment options:
 	@echo "=========================================="
 	@echo STATIC - compile AFL++ static
+	@echo "CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)"
 	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
 	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
@@ -394,7 +395,7 @@ help:
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)"
 	@echo "=========================================="
-	@echo e.g.: make ASAN_BUILD=1
+	@echo e.g.: make LLVM_CONFIG=llvm-config-16
 
 .PHONY: test_x86
 ifndef AFL_NO_X86
@@ -749,7 +750,7 @@ endif
 	@echo
 
 %.8:	%
-	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
+	@echo .TH $* 8 $(BUILD_DATE) "AFL++" > $@
 	@echo .SH NAME >> $@
 	@echo .B $* >> $@
 	@echo >> $@
@@ -761,8 +762,8 @@ endif
 	@./$* -hh 2>&1 | tail -n +4 >> $@
 	@echo >> $@
 	@echo .SH AUTHOR >> $@
-	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>, Andrea Fioraldi <andreafioraldi@gmail.com> and Dominik Maier <domenukk@gmail.com>" >> $@
-	@echo  The homepage of afl++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
+	@echo "AFL++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Dominik Maier <domenukk@gmail.com>, Andrea Fioraldi <andreafioraldi@gmail.com> and Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>" >> $@
+	@echo  The homepage of AFL++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
 	@echo >> $@
 	@echo .SH LICENSE >> $@
 	@echo Apache License Version 2.0, January 2004 >> $@

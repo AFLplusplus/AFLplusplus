@@ -133,7 +133,7 @@ MEM_LIMIT=none
 
 export PATH="${PATH}:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 
-$ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
+$ECHO "${RESET}${GREY}[*] starting AFL++ test framework ..."
 
 test -z "$SYS" && $ECHO "$YELLOW[-] uname -m did not succeed"
 

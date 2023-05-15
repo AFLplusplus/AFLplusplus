@@ -7,7 +7,7 @@ FILE=$AFL_PERFORMANCE_FILE
 test -z "$FILE" && FILE=.afl_performance
 
 test -e $FILE || {
-  echo Warning: This script measure the performance of afl++ and saves the result for future comparisons into $FILE
+  echo Warning: This script measure the performance of AFL++ and saves the result for future comparisons into $FILE
   echo Press ENTER to continue or CONTROL-C to abort
   read IN
 }
@@ -74,7 +74,7 @@ afl-system-config > /dev/null 2>&1
 echo Performance settings applied.
 echo
 
-$ECHO "${RESET}${GREY}[*] starting afl++ performance test framework ..."
+$ECHO "${RESET}${GREY}[*] starting AFL++ performance test framework ..."
 
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}"
 GCC=x

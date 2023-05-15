@@ -6,7 +6,7 @@
 #
 
 FROM ubuntu:22.04 AS aflplusplus
-LABEL "maintainer"="afl++ team <afl@aflplus.plus>"
+LABEL "maintainer"="AFL++ team <afl@aflplus.plus>"
 LABEL "about"="AFLplusplus container image"
 
 ### Comment out to enable these features
@@ -94,4 +94,4 @@ RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
     echo ". /etc/bash_completion" >> ~/.bashrc && \
     echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc && \
-    echo "export PS1='"'[afl++ \h] \w \$ '"'" >> ~/.bashrc
+    echo "export PS1='"'[AFL++ \h] \w \$ '"'" >> ~/.bashrc
