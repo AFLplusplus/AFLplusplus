@@ -86,15 +86,13 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 int main(int argc, char *argv[]) {
 
   if (argc > 1 && strncmp(argv[1], "-h", 2) == 0) {
-  
-    printf("Syntax: $0 [-v] [inputfile [outputfile [splicefile]]]\n\n", argv[0]);
+    printf("Syntax: %s [-v] [inputfile [outputfile [splicefile]]]\n\n", argv[0]);
     printf("Reads a testcase from stdin when no input file (or '-') is specified,\n");
     printf("mutates according to AFL++'s mutation engine, and write to stdout when '-' or\n");
     printf("no output filename is given. As an optional third parameter you can give a file\n");
     printf("for splicing. Maximum input and output length is 1MB.\n");
-    printf("The -v verbose option prints debug output to stderr\n");
+    printf("The -v verbose option prints debug output to stderr.\n");
     return 0;
-  
   }
 
   FILE *in = stdin, *out = stdout, *splice = NULL;
