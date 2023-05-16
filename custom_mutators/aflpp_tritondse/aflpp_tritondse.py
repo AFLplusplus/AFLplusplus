@@ -206,5 +206,11 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
         #dse.explore()
     pass
 
+
+# we simulate just doing one single fuzz in the custom mutator
+def fuzz_count(buf):
+    return 1
+
+
 def splice_optout():
     pass
