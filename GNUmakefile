@@ -139,13 +139,13 @@ endif
 
 ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
-  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
+  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror -Wno-error=format-truncation= $(CFLAGS_OPT)
 else
   CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
-			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
+			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" -Wno-format-truncation \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
 
