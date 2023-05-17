@@ -24,7 +24,7 @@
 
 int main(int argc, char **argv) {
 
-  int   fd = 0;
+  int   fd = 0, cnt;
   char  buff[8];
   char *buf = buff;
 
@@ -32,7 +32,6 @@ int main(int argc, char **argv) {
   if (argc == 2) {
 
     buf = argv[1];
-    printf("Input %s - ", buf);
 
   } else {
 
@@ -47,14 +46,18 @@ int main(int argc, char **argv) {
 
     }
 
-    if (read(fd, buf, sizeof(buf)) < 1) {
+    if ((cnt = read(fd, buf, sizeof(buf) - 1)) < 1) {
 
       printf("Hum?\n");
       return 1;
 
     }
 
+    buf[cnt] = 0;
+
   }
+
+  if (getenv("AFL_DEBUG")) fprintf(stderr, "test-instr: %s\n", buf);
 
   // we support three input cases (plus a 4th if stdin is used but there is no
   // input)
