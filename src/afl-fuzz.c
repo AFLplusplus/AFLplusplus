@@ -1748,6 +1748,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_custom_mutator_only) {
 
+    if (!afl->custom_mutators_count) {
+
+      if (afl->shm.cmplog_mode) {
+
+        WARNF(
+            "No custom mutator loaded, using AFL_CUSTOM_MUTATOR_ONLY is "
+            "pointless and only allowed now to allow experiments with CMPLOG.");
+
+      } else {
+
+        FATAL(
+            "No custom mutator loaded but AFL_CUSTOM_MUTATOR_ONLY specified.");
+
+      }
+
+    }
+
     /* This ensures we don't proceed to havoc/splice */
     afl->custom_only = 1;
 
