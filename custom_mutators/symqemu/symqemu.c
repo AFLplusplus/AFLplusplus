@@ -13,6 +13,9 @@
 
 afl_state_t *afl_struct;
 static u32   debug = 0;
+static u32   found_items = 0;
+
+#define SYMQEMU_LOCATION "symqemu"
 
 #define DBG(x...) \
   if (debug) { fprintf(stderr, x); }
@@ -22,7 +25,6 @@ typedef struct my_mutator {
   afl_state_t *afl;
   u8          *mutator_buf;
   u8          *out_dir;
-  u8          *queue_dir;
   u8          *target;
   u8          *symqemu;
   u8          *input_file;
@@ -67,8 +69,13 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   if (!data->symqemu) FATAL("symqemu binary %s not found", exec_name);
   DBG("Found %s\n", data->symqemu);
 
-  if (getenv("AFL_CUSTOM_MUTATOR_ONLY"))
-    FATAL("the symqemu module cannot be used with AFL_CUSTOM_MUTATOR_ONLY.");
+  if (getenv("AFL_CUSTOM_MUTATOR_ONLY")) {
+
+    WARNF(
+        "the symqemu module is not very effective with "
+        "AFL_CUSTOM_MUTATOR_ONLY.");
+
+  }
 
   if ((data->mutator_buf = malloc(MAX_FILE)) == NULL) {
 
@@ -84,14 +91,11 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   u32 len = strlen(path_tmp) + 32;
   u8 *symqemu_path = malloc(len);
   data->out_dir = malloc(len);
-  data->queue_dir = malloc(len);
-  snprintf(symqemu_path, len, "%s/../symqemu", path_tmp);
-  snprintf(data->out_dir, len, "%s/../symqemu/out", path_tmp);
-  snprintf(data->queue_dir, len, "%s/../symqemu/queue", path_tmp);
+  snprintf(symqemu_path, len, "%s/%s", path_tmp, SYMQEMU_LOCATION);
+  snprintf(data->out_dir, len, "%s/out", symqemu_path, path_tmp);
 
-  mkdir(symqemu_path, 0755);
-  mkdir(data->out_dir, 0755);
-  mkdir(data->queue_dir, 0755);
+  (void)mkdir(symqemu_path, 0755);
+  (void)mkdir(data->out_dir, 0755);
 
   setenv("SYMCC_OUTPUT_DIR", data->out_dir, 1);
 
@@ -153,8 +157,8 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   data->argv[0] = data->symqemu;
   data->argv[1] = data->target;
 
-  DBG("out_dir=%s, queue_dir=%s, target=%s, input_file=%s, argc=%u\n",
-      data->out_dir, data->queue_dir, data->target,
+  DBG("out_dir=%s, target=%s, input_file=%s, argc=%u\n", data->out_dir,
+      data->target,
       data->input_file ? (char *)data->input_file : (char *)"<stdin>",
       data->argc);
 
@@ -174,29 +178,39 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   }
 
-  OKF("Custom mutator symqemu loaded - note that the initial startup of "
-      "afl-fuzz will be delayed the more starting seeds are present. This is "
-      "fine, do not worry!");
-
   return data;
 
 }
 
-/* When a new queue entry is added we run this input with the symqemu
-   instrumented binary */
-uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
-                                   const uint8_t *filename_new_queue,
-                                   const uint8_t *filename_orig_queue) {
+/* No need to receive a splicing item */
+void afl_custom_splice_optout(void *data) {
+
+  (void)(data);
+
+}
+
+u32 afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf, size_t buf_size) {
+
+  if (likely(!afl_struct->queue_cur->favored ||
+             afl_struct->queue_cur->was_fuzzed)) {
+
+    return 0;
+
+  }
 
   int         pipefd[2];
   struct stat st;
-  if (data->afl->afl_env.afl_no_ui)
-    ACTF("Sending to symqemu: %s", filename_new_queue);
-  u8 *fn = alloc_printf("%s", filename_new_queue);
-  if (!(stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size)) {
 
-    ck_free(fn);
-    PFATAL("Couldn't find enqueued file: %s", fn);
+  if (afl_struct->afl_env.afl_no_ui) {
+
+    ACTF("Sending to symqemu: %s", afl_struct->queue_cur->fname);
+
+  }
+
+  if (!(stat(afl_struct->queue_cur->fname, &st) == 0 && S_ISREG(st.st_mode) &&
+        st.st_size)) {
+
+    PFATAL("Couldn't find enqueued file: %s", afl_struct->queue_cur->fname);
 
   }
 
@@ -204,7 +218,6 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
 
     if (pipe(pipefd) == -1) {
 
-      ck_free(fn);
       PFATAL(
           "Couldn't create a pipe for interacting with symqemu child process");
 
@@ -212,19 +225,12 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
 
   }
 
-  int fd = open(fn, O_RDONLY);
-  if (fd < 0) return 0;
-  ssize_t r = read(fd, data->mutator_buf, MAX_FILE);
-  DBG("fn=%s, fd=%d, size=%ld\n", fn, fd, r);
-  ck_free(fn);
-  close(fd);
-
   if (data->input_file) {
 
-    fd = open(data->input_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    ssize_t s = write(fd, data->mutator_buf, r);
+    int     fd = open(data->input_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    ssize_t s = write(fd, buf, buf_size);
     close(fd);
-    DBG("wrote %zd/%zd to %s\n", s, r, data->input_file);
+    DBG("wrote %zd/%zd to %s\n", s, buf_size, data->input_file);
 
   }
 
@@ -232,34 +238,19 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
 
   if (pid == -1) return 0;
 
-  if (pid) {
+  if (likely(pid)) {
 
     if (!data->input_file || afl_struct->fsrv.use_stdin) {
 
       close(pipefd[0]);
 
-      if (fd >= 0) {
+      if (fcntl(pipefd[1], F_GETPIPE_SZ)) {
 
-        if (r <= 0) {
-
-          close(pipefd[1]);
-          return 0;
-
-        }
-
-        if (r > fcntl(pipefd[1], F_GETPIPE_SZ))
-          fcntl(pipefd[1], F_SETPIPE_SZ, MAX_FILE);
-        ck_write(pipefd[1], data->mutator_buf, r, filename_new_queue);
-
-      } else {
-
-        ck_free(fn);
-        close(pipefd[1]);
-        PFATAL(
-            "Something happened to the enqueued file before sending its "
-            "contents to symqemu binary");
+        fcntl(pipefd[1], F_SETPIPE_SZ, MAX_FILE);
 
       }
+
+      ck_write(pipefd[1], buf, buf_size, data->input_file);
 
       close(pipefd[1]);
 
@@ -267,46 +258,6 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
 
     pid = waitpid(pid, NULL, 0);
     DBG("symqemu finished executing!\n");
-
-    // At this point we need to transfer files to output dir, since their names
-    // collide and symqemu will just overwrite them
-
-    struct dirent **nl;
-    int32_t         items = scandir(data->out_dir, &nl, NULL, NULL);
-    u8             *origin_name = basename(filename_new_queue);
-    u8              source_name[4096], destination_name[4096];
-    int32_t         i;
-
-    if (items > 0) {
-
-      for (i = 0; i < (u32)items; ++i) {
-
-        // symqemu output files start with a digit
-        if (!isdigit(nl[i]->d_name[0])) continue;
-
-        struct stat st;
-        snprintf(source_name, sizeof(source_name), "%s/%s", data->out_dir,
-                 nl[i]->d_name);
-        DBG("file=%s\n", source_name);
-
-        if (stat(source_name, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
-
-          snprintf(destination_name, sizeof(destination_name), "%s/id:%06u,%s",
-                   data->queue_dir, data->counter++, nl[i]->d_name);
-          DBG("src=%s dst=%s\n", source_name, destination_name);
-          rename(source_name, destination_name);
-
-        }
-
-        free(nl[i]);
-
-      }
-
-      free(nl);
-
-    }
-
-    DBG("Done!\n");
 
   } else /* (pid == 0) */ {  // child
 
@@ -338,33 +289,31 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
 
   }
 
-  return 0;
+  /* back in mother process */
 
-}
-
-/*
-uint32_t afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf,
-                               size_t buf_size) {
-
-  uint32_t        count = 0, i;
   struct dirent **nl;
-  int32_t         items = scandir(data->out_dir, &nl, NULL, NULL);
+  s32             i, items = scandir(data->out_dir, &nl, NULL, NULL);
+  found_items = 0;
+  char source_name[4096];
 
   if (items > 0) {
 
     for (i = 0; i < (u32)items; ++i) {
 
-      struct stat st;
-      u8 *        fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
-      DBG("test=%s\n", fn);
-      if (stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
+      // symqemu output files start with a digit
+      if (!isdigit(nl[i]->d_name[0])) continue;
 
-        DBG("found=%s\n", fn);
-        count++;
+      struct stat st;
+      snprintf(source_name, sizeof(source_name), "%s/%s", data->out_dir,
+               nl[i]->d_name);
+      DBG("file=%s\n", source_name);
+
+      if (stat(source_name, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
+
+        ++found_items;
 
       }
 
-      ck_free(fn);
       free(nl[i]);
 
     }
@@ -373,64 +322,66 @@ uint32_t afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf,
 
   }
 
-  DBG("dir=%s, count=%u\n", data->out_dir, count);
-  return count;
+  DBG("Done, found %u items!\n", found_items);
+
+  return found_items;
 
 }
 
-*/
-
-// here we actually just read the files generated from symqemu
-/*
-size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                       u8 **out_buf, uint8_t *add_buf, size_t add_buf_size,
+size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
+                       u8 **out_buf, u8 *add_buf, size_t add_buf_size,
                        size_t max_size) {
 
   struct dirent **nl;
-  int32_t         i, done = 0, items = scandir(data->out_dir, &nl, NULL, NULL);
-  ssize_t         size = 0;
+  s32             done = 0, i, items = scandir(data->out_dir, &nl, NULL, NULL);
+  char            source_name[4096];
 
-  if (items <= 0) return 0;
+  if (items > 0) {
 
-  for (i = 0; i < (u32)items; ++i) {
+    for (i = 0; i < (u32)items; ++i) {
 
-    struct stat st;
-    u8 *        fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
+      // symqemu output files start with a digit
+      if (!isdigit(nl[i]->d_name[0])) continue;
 
-    if (done == 0) {
+      struct stat st;
+      snprintf(source_name, sizeof(source_name), "%s/%s", data->out_dir,
+               nl[i]->d_name);
+      DBG("file=%s\n", source_name);
 
-      if (stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
+      if (stat(source_name, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
 
-        int fd = open(fn, O_RDONLY);
+        int fd = open(source_name, O_RDONLY);
+        if (fd < 0) { goto got_an_issue; }
 
-        if (fd >= 0) {
+        ssize_t r = read(fd, data->mutator_buf, MAX_FILE);
+        close(fd);
 
-          size = read(fd, data->mutator_buf, max_size);
-          *out_buf = data->mutator_buf;
+        DBG("fn=%s, fd=%d, size=%ld\n", source_name, fd, r);
 
-          close(fd);
-          done = 1;
+        if (r < 1) { goto got_an_issue; }
 
-        }
+        done = 1;
+        --found_items;
+        unlink(source_name);
+
+        *out_buf = data->mutator_buf;
+        return (u32)r;
 
       }
 
-      unlink(fn);
+      free(nl[i]);
 
     }
 
-    ck_free(fn);
-    free(nl[i]);
+    free(nl);
 
   }
 
-  free(nl);
-  DBG("FUZZ size=%lu\n", size);
-  return (uint32_t)size;
+got_an_issue:
+  *out_buf = NULL;
+  return 0;
 
 }
-
-*/
 
 /**
  * Deinitialize everything
