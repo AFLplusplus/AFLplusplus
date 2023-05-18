@@ -207,9 +207,8 @@ inline u64 get_cur_time(void) {
 
 u32 afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf, size_t buf_size) {
 
-  if (likely((!afl_struct->queue_cur->favored ||
-              afl_struct->queue_cur->was_fuzzed) &&
-             !data->all)) {
+  if (likely((!afl_struct->queue_cur->favored && !data->all) ||
+             afl_struct->queue_cur->was_fuzzed)) {
 
     return 0;
 
