@@ -184,6 +184,7 @@ struct queue_entry {
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum,                       /* Checksum of the execution trace  */
+      custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */

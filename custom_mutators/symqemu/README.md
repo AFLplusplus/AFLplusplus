@@ -8,4 +8,4 @@ on how to build symqemu-x86_x64 and put it in your `PATH`.
 
 just type `make` to build this custom mutator.
 
-```AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/symqemu/symqemu-mutator.so AFL_SYNC_TIME=1 AFL_DISABLE_TRIM=1 afl-fuzz ...```
+```AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/symqemu/symqemu-mutator.so AFL_DISABLE_TRIM=1 afl-fuzz ...```
