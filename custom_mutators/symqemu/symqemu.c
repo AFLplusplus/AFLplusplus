@@ -23,6 +23,8 @@ static u32   found_items = 0;
 typedef struct my_mutator {
 
   afl_state_t *afl;
+  u32          all;
+  u32          late;
   u8          *mutator_buf;
   u8          *out_dir;
   u8          *target;
@@ -156,17 +158,18 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   data->argv[0] = data->symqemu;
   data->argv[1] = data->target;
+  data->afl = afl;
+  data->seed = seed;
+  afl_struct = afl;
+
+  if (getenv("SYMQEMU_ALL")) { data->all = 1; }
+  if (getenv("SYMQEMU_LATE")) { data->late = 1; }
+  if (data->input_file) { setenv("SYMCC_INPUT_FILE", data->input_file, 1); }
 
   DBG("out_dir=%s, target=%s, input_file=%s, argc=%u\n", data->out_dir,
       data->target,
       data->input_file ? (char *)data->input_file : (char *)"<stdin>",
       data->argc);
-
-  if (data->input_file) { setenv("SYMCC_INPUT_FILE", data->input_file, 1); }
-
-  data->afl = afl;
-  data->seed = seed;
-  afl_struct = afl;
 
   if (debug) {
 
@@ -189,12 +192,37 @@ void afl_custom_splice_optout(void *data) {
 
 }
 
+/* Get unix time in milliseconds */
+
+inline u64 get_cur_time(void) {
+
+  struct timeval  tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
+
+}
+
 u32 afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf, size_t buf_size) {
 
-  if (likely(!afl_struct->queue_cur->favored ||
-             afl_struct->queue_cur->was_fuzzed)) {
+  if (likely((!afl_struct->queue_cur->favored ||
+              afl_struct->queue_cur->was_fuzzed) &&
+             !data->all)) {
 
     return 0;
+
+  }
+
+  if (likely(data->late)) {
+
+    if (unlikely(get_cur_time() - afl_struct->last_find_time <=
+                 10 * 60 * 1000)) {
+
+      return 0;
+
+    }
 
   }
 
