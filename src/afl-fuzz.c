@@ -1864,7 +1864,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!getenv("AFL_CUSTOM_INFO_OUT") {
+  if (!getenv("AFL_CUSTOM_INFO_OUT")) {
 
     setenv("AFL_CUSTOM_INFO_OUT", afl->out_dir, 1);  // same as __AFL_OUT_DIR
 
