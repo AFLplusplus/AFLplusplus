@@ -120,6 +120,10 @@ def init(seed):
         is_debug = True
     except KeyError:
         pass
+    if is_debug:
+        logging.basicConfig(level=logging.WARNING)
+    else:
+        logging.basicConfig(level=logging.CRITICAL)
     try:
         foo = os.environ['AFL_CUSTOM_INFO_OUT']
         out_path = foo + '/../tritondse/queue'

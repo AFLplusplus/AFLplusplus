@@ -15,6 +15,8 @@ AFL_DISABLE_TRIM=1 AFL_CUSTOM_MUTATOR_ONLY=1 AFL_SYNC_TIME=1 AFL_PYTHON_MODULE=a
 
 Note that this custom mutator works differently, new finds are synced
 after 10-60 seconds to the fuzzing instance. This is necessary because only
-C/C++ mutators have access to the internal AFL++ state.
+C/C++ custom mutators have access to the internal AFL++ state.
 
-Hence the symqemu customer mutator is more effective.
+Note that you should run first with `AFL_DEBUG` for 5-10 minutes and see if
+all important libraries and syscalls are hooked (look at `WARNING` and `CRITICAL`
+output during the run, best use with `AFL_NO_UI=1`)
