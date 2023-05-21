@@ -1833,7 +1833,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  {
+  if (!getenv("AFL_CUSTOM_INFO_PROGRAM_ARGV")) {
 
     u8 envbuf[8096] = "", tmpbuf[8096] = "";
     for (s32 i = optind + 1; i < argc; ++i) {
@@ -1864,7 +1864,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  setenv("AFL_CUSTOM_INFO_OUT", afl->out_dir, 1);  // same as __AFL_OUT_DIR
+  if (!getenv("AFL_CUSTOM_INFO_OUT") {
+
+    setenv("AFL_CUSTOM_INFO_OUT", afl->out_dir, 1);  // same as __AFL_OUT_DIR
+
+  }
 
   setup_custom_mutators(afl);
 
