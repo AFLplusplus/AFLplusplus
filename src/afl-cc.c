@@ -933,10 +933,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    //#if LLVM_MAJOR >= 13
-    //    // Use the old pass manager in LLVM 14 which the AFL++ passes still
-    //    use. cc_params[cc_par_cnt++] = "-flegacy-pass-manager";
-    //#endif
+    // #if LLVM_MAJOR >= 13
+    //     // Use the old pass manager in LLVM 14 which the AFL++ passes still
+    //     use. cc_params[cc_par_cnt++] = "-flegacy-pass-manager";
+    // #endif
 
     if (lto_mode && !have_c) {
 

@@ -81,7 +81,11 @@ void *(*__libc_memmem)(const void *haystack, size_t haystack_len,
 
 #define MAX_MAPPINGS 1024
 
-static struct mapping { void *st, *en; } __tokencap_ro[MAX_MAPPINGS];
+static struct mapping {
+
+  void *st, *en;
+
+} __tokencap_ro[MAX_MAPPINGS];
 
 static u32   __tokencap_ro_cnt;
 static u8    __tokencap_ro_loaded;
