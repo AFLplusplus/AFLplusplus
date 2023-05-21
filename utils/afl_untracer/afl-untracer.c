@@ -288,7 +288,7 @@ library_list_t *find_library(char *name) {
 #pragma GCC optimize("O0")
 void        breakpoint(void) {
 
-         if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
+  if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
 
 }
 

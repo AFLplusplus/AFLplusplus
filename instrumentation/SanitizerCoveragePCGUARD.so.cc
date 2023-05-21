@@ -714,8 +714,8 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
 
   ArrayType *ArrayTy = ArrayType::get(Ty, NumElements);
   auto       Array = new GlobalVariable(
-            *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
-            Constant::getNullValue(ArrayTy), "__sancov_gen_");
+      *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
+      Constant::getNullValue(ArrayTy), "__sancov_gen_");
 
 #if LLVM_VERSION_MAJOR >= 13
   if (TargetTriple.supportsCOMDAT() &&
