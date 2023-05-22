@@ -154,7 +154,7 @@ Available options:
   - CTX - context sensitive instrumentation
   - GCC - outdated gcc instrumentation
   - LTO - LTO instrumentation
-  - NATIVE - clang's original pcguard based instrumentation
+  - LLVMNATIVE - clang's original pcguard based instrumentation
   - NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
   - PCGUARD - our own pcguard based instrumentation (default)
 
