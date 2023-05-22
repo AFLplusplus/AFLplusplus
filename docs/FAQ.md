@@ -171,6 +171,14 @@ If you find an interesting or important question missing, submit it via
   The more "unstable" edges there are, the harder it is for AFL++ to identify
   valid new paths.
 
+  If you fuzz in persistent mode (`AFL_LOOP` or `LLVMFuzzerTestOneInput()`
+  harnesses, a large number of unstable edges can mean that the target keeps
+  internal state and therefore it is possible that crashes cannot be replayed.
+  In such a case do either **not** fuzz in persistent mode (remove `AFL_LOOP()`
+  from your harness or call `LLVMFuzzerTestOneInput()` harnesses with `@@`),
+  or set a low  `AFL_LOOP` value, e.g. 100, and enable `AFL_PERSISTENT_RECORD`
+  in `config.h` with the same value.
+
   A value above 90% is usually fine and a value above 80% is also still ok, and
   even a value above 20% can still result in successful finds of bugs. However,
   it is recommended that for values below 90% or 80% you should take

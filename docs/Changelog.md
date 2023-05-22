@@ -11,13 +11,17 @@
     - new env `AFL_IGNORE_PROBLEMS_COVERAGE` to ignore coverage from
       loaded libs after forkserver initialization (required by Mozilla)
   - afl-cc:
+    - added @responsefile support
     - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
       (https://github.com/fgsect/WAFL) project
+    - error and print help if afl-clan-lto is used with lto=thin
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
   - afl-cmin + afl-cmin.bash:
     - `-T threads` parallel task support, can be a huge speedup!
+  - qemu_mode:
+    - Persistent mode +QASAN support for ppc32 tragets by @worksbutnottested
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
 
 
@@ -229,7 +233,7 @@
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan
-    - new cmplog mode (incompatible with older afl++ versions)
+    - new cmplog mode (incompatible with older AFL++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
     - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST

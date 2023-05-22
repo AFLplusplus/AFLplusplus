@@ -42,7 +42,7 @@
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
 
 #ifndef _WANT_ORIGINAL_AFL_ALLOC
-  // afl++ stuff without memory corruption checks - for speed
+  // AFL++ stuff without memory corruption checks - for speed
 
   /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
@@ -704,11 +704,10 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
     *buf = NULL;
     return NULL;
 
-  } else {
-
-    new_buf = newer_buf;
-
   }
+
+  new_buf = newer_buf;
+  memset(((u8 *)new_buf) + current_size, 0, next_size - current_size);
 
   new_buf->complete_size = next_size;
   *buf = (void *)(new_buf->buf);
