@@ -379,7 +379,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
     }
 
-    if (++afl->stage_cur % screen_update == 0) { show_stats(afl); };
+    if (unlikely(++afl->stage_cur % screen_update == 0)) { show_stats(afl); };
 
   }
 
@@ -790,7 +790,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   u32 its_len = MIN(len - idx, taint_len);
 
-  if (afl->fsrv.total_execs - last_update > screen_update) {
+  if (unlikely(afl->fsrv.total_execs - last_update > screen_update)) {
 
     show_stats(afl);
     last_update = afl->fsrv.total_execs;
@@ -1455,7 +1455,7 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                                u32 len, u8 do_reverse, u8 lvl, u8 *status) {
 
-  if (afl->fsrv.total_execs - last_update > screen_update) {
+  if (unlikely(afl->fsrv.total_execs - last_update > screen_update)) {
 
     show_stats(afl);
     last_update = afl->fsrv.total_execs;
@@ -1952,7 +1952,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   //   (void)(changed_val);
   // #endif
 
-  if (afl->fsrv.total_execs - last_update > screen_update) {
+  if (unlikely(afl->fsrv.total_execs - last_update > screen_update)) {
 
     show_stats(afl);
     last_update = afl->fsrv.total_execs;
@@ -2002,10 +2002,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  u8  lmax = MAX(l0, ol0);
+  u8  lmin = MIN(l0, ol0);
   u8  save[40];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
-  u32 its_len = MIN(MIN(lmax, hshape), len - idx);
+  u32 its_len = MIN(MIN(lmin, hshape), len - idx);
   its_len = MIN(its_len, taint_len);
   u32 saved_its_len = its_len;
 
