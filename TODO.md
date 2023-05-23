@@ -2,6 +2,7 @@
 
 ## Should
 
+ - redo PCGUARD + LTO for llvm 15+
  - splicing selection weighted?
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values

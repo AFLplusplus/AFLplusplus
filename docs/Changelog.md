@@ -23,6 +23,9 @@
   - qemu_mode:
     - Persistent mode +QASAN support for ppc32 tragets by @worksbutnottested
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
+  - two new custom mutators are now available:
+    - TritonDSE in custom_mutators/aflpp_tritondse
+    - SymQEMU in custom_mutators/symqemu
 
 
 ### Version ++4.06c (release)

@@ -574,14 +574,15 @@ static void process_params(u32 argc, char **argv) {
 
       }
 
-      u8    *tmpbuf = malloc(st.st_size + 1), *ptr;
+      u8    *tmpbuf = malloc(st.st_size + 2), *ptr;
       char **args = malloc(sizeof(char *) * (st.st_size >> 1));
       int    count = 1, cont = 0, cont_act = 0;
 
-      while (fgets(tmpbuf, st.st_size, f)) {
+      while (fgets(tmpbuf, st.st_size + 1, f)) {
 
         ptr = tmpbuf;
-        // no leading whitespace
+        // fprintf(stderr, "1: %s\n", ptr);
+        //  no leading whitespace
         while (isspace(*ptr)) {
 
           ++ptr;
@@ -603,6 +604,8 @@ static void process_params(u32 argc, char **argv) {
 
         }
 
+        // fprintf(stderr, "2: %s\n", ptr);
+
         // remove whitespace at end
         while (*ptr && isspace(ptr[strlen(ptr) - 1])) {
 
@@ -611,6 +614,7 @@ static void process_params(u32 argc, char **argv) {
 
         }
 
+        // fprintf(stderr, "3: %s\n", ptr);
         if (*ptr) {
 
           do {
@@ -933,10 +937,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    //#if LLVM_MAJOR >= 13
-    //    // Use the old pass manager in LLVM 14 which the AFL++ passes still
-    //    use. cc_params[cc_par_cnt++] = "-flegacy-pass-manager";
-    //#endif
+    // #if LLVM_MAJOR >= 13
+    //     // Use the old pass manager in LLVM 14 which the AFL++ passes still
+    //     use. cc_params[cc_par_cnt++] = "-flegacy-pass-manager";
+    // #endif
 
     if (lto_mode && !have_c) {
 
@@ -1838,7 +1842,8 @@ int main(int argc, char **argv, char **envp) {
       }
 
       if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
-          strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0) {
+          strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0 ||
+          strncasecmp(ptr2, "native", strlen("native")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE)
           instrument_mode = INSTRUMENT_LLVMNATIVE;

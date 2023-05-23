@@ -619,6 +619,14 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - Setting `AFL_INST_LIBS` causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
 
+  - You can use `AFL_QEMU_INST_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to just
+    instrument specific memory locations, e.g. a specific library.
+    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
+
+  - You can use `AFL_QEMU_EXCLUDE_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to **NOT**
+    instrument specific memory locations, e.g. a specific library.
+    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
+
   - It is possible to set `AFL_INST_RATIO` to skip the instrumentation on some
     of the basic blocks, which can be useful when dealing with very complex
     binaries.

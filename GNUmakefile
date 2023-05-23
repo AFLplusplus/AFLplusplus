@@ -139,13 +139,13 @@ endif
 
 ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
-  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
+  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror -Wno-error=format-truncation= $(CFLAGS_OPT)
 else
   CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
-			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
+			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" -Wno-format-truncation \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
 
@@ -180,13 +180,13 @@ AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
   ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
-    PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
+    PYTHON_INCLUDE  := $(shell python3m-config --includes)
+    PYTHON_VERSION  := $(strip $(shell python3m --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earlier versions didn't know this flag.
     ifeq "$(shell python3m-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3m-config --libs --embed --ldflags)
+      PYTHON_LIB      := $(shell python3m-config --libs --embed --ldflags)
     else
-      PYTHON_LIB      ?= $(shell python3m-config --ldflags)
+      PYTHON_LIB      := $(shell python3m-config --ldflags)
     endif
   endif
 endif
@@ -194,13 +194,13 @@ endif
 ifeq "$(PYTHON_INCLUDE)" ""
   ifneq "$(shell command -v python3 2>/dev/null)" ""
     ifneq "$(shell command -v python3-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  ?= $(shell python3-config --includes)
-      PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
+      PYTHON_INCLUDE  := $(shell python3-config --includes)
+      PYTHON_VERSION  := $(strip $(shell python3 --version 2>&1))
       # Starting with python3.8, we need to pass the `embed` flag. Earlier versions didn't know this flag.
       ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-        PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
+        PYTHON_LIB      := $(shell python3-config --libs --embed --ldflags)
       else
-        PYTHON_LIB      ?= $(shell python3-config --ldflags)
+        PYTHON_LIB      := $(shell python3-config --ldflags)
       endif
     endif
   endif
@@ -209,9 +209,9 @@ endif
 ifeq "$(PYTHON_INCLUDE)" ""
   ifneq "$(shell command -v python 2>/dev/null)" ""
     ifneq "$(shell command -v python-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  ?= $(shell python-config --includes)
-      PYTHON_LIB      ?= $(shell python-config --ldflags)
-      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+      PYTHON_INCLUDE  := $(shell python-config --includes)
+      PYTHON_LIB      := $(shell python-config --ldflags)
+      PYTHON_VERSION  := $(strip $(shell python --version 2>&1))
     endif
   endif
 endif
@@ -220,9 +220,9 @@ endif
 ifeq "$(PYTHON_INCLUDE)" ""
   ifneq "$(shell command -v python3.7 2>/dev/null)" ""
     ifneq "$(shell command -v python3.7-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
-      PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
-      PYTHON_VERSION  ?= $(strip $(shell python3.7 --version 2>&1))
+      PYTHON_INCLUDE  := $(shell python3.7-config --includes)
+      PYTHON_LIB      := $(shell python3.7-config --ldflags)
+      PYTHON_VERSION  := $(strip $(shell python3.7 --version 2>&1))
     endif
   endif
 endif
@@ -231,9 +231,9 @@ endif
 ifeq "$(PYTHON_INCLUDE)" ""
   ifneq "$(shell command -v python2.7 2>/dev/null)" ""
     ifneq "$(shell command -v python2.7-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
-      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
-      PYTHON_VERSION  ?= $(strip $(shell python2.7 --version 2>&1))
+      PYTHON_INCLUDE  := $(shell python2.7-config --includes)
+      PYTHON_LIB      := $(shell python2.7-config --ldflags)
+      PYTHON_VERSION  := $(strip $(shell python2.7 --version 2>&1))
     endif
   endif
 endif
