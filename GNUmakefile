@@ -101,8 +101,8 @@ else
 endif
 
 COMPILER_TYPE=$(shell $(CC) --version|grep "Free Software Foundation")
-ifneq ($(COMPILER_TYPE), "")
-  # $(info gcc is being used)
+ifneq "$(COMPILER_TYPE)" ""
+  #$(info gcc is being used)
   CFLAGS_OPT += -Wno-error=format-truncation -Wno-format-truncation
 endif
 
