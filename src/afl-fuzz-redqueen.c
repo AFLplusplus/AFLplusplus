@@ -28,8 +28,8 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-//#define _DEBUG
-//#define CMPLOG_INTROSPECTION
+// #define _DEBUG
+// #define CMPLOG_INTROSPECTION
 
 // CMP attribute enum
 enum {
@@ -571,7 +571,7 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
 }
 
-//#ifdef CMPLOG_SOLVE_TRANSFORM
+// #ifdef CMPLOG_SOLVE_TRANSFORM
 static int strntoll(const char *str, size_t sz, char **end, int base,
                     long long *out) {
 
@@ -771,7 +771,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 #endif
 
-//#endif
+// #endif
 
 static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
@@ -803,8 +803,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //         o_pattern, pattern, repl, changed_val, idx, taint_len,
   //         hshape, attr);
 
-  //#ifdef CMPLOG_SOLVE_TRANSFORM
-  // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
+  // #ifdef CMPLOG_SOLVE_TRANSFORM
+  //  reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
 
     u8                *endptr;
@@ -1120,7 +1120,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  //#endif
+  // #endif
 
   // we only allow this for ascii2integer (above) so leave if this is the case
   if (unlikely(pattern == o_pattern)) { return 0; }
@@ -1275,7 +1275,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //       16 = modified float, 32 = modified integer (modified = wont match
   //                                                   in original buffer)
 
-  //#ifdef CMPLOG_SOLVE_ARITHMETIC
+  // #ifdef CMPLOG_SOLVE_ARITHMETIC
   if (!afl->cmplog_enable_arith || lvl < LVL3 || attr == IS_TRANSFORM) {
 
     return 0;
@@ -1440,8 +1440,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  //#endif                                           /*
-  // CMPLOG_SOLVE_ARITHMETIC
+  // #endif                                           /*
+  //  CMPLOG_SOLVE_ARITHMETIC
 
   return 0;
 
@@ -1948,9 +1948,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 #ifndef CMPLOG_COMBINE
   (void)(cbuf);
 #endif
-  //#ifndef CMPLOG_SOLVE_TRANSFORM
-  //  (void)(changed_val);
-  //#endif
+  // #ifndef CMPLOG_SOLVE_TRANSFORM
+  //   (void)(changed_val);
+  // #endif
 
   if (afl->fsrv.total_execs - last_update > screen_update) {
 
@@ -2418,7 +2418,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  //#endif
+  // #endif
 
   return 0;
 
@@ -2818,9 +2818,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     } else if ((lvl & LVL1)
 
-               //#ifdef CMPLOG_SOLVE_TRANSFORM
+               // #ifdef CMPLOG_SOLVE_TRANSFORM
                || ((lvl & LVL3) && afl->cmplog_enable_transform)
-               //#endif
+               // #endif
     ) {
 
       if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {

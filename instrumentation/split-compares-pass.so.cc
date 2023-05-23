@@ -60,7 +60,7 @@ using namespace llvm;
 
 // uncomment this toggle function verification at each step. horribly slow, but
 // helps to pinpoint a potential problem in the splitting code.
-//#define VERIFY_TOO_MUCH 1
+// #define VERIFY_TOO_MUCH 1
 
 namespace {
 

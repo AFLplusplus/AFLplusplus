@@ -81,7 +81,7 @@
    will be kept and written to the crash/ directory as RECORD:... files.
    Note that every crash will be written, not only unique ones! */
 
-//#define AFL_PERSISTENT_RECORD
+// #define AFL_PERSISTENT_RECORD
 
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined

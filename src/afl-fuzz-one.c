@@ -1912,6 +1912,7 @@ custom_mutator_stage:
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
+  afl->stage_cur = 0;
   afl->stage_val_type = STAGE_VAL_NONE;
   bool has_custom_fuzz = false;
   u32  shift = unlikely(afl->custom_only) ? 7 : 8;

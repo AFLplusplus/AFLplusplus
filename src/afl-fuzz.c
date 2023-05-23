@@ -1746,16 +1746,6 @@ int main(int argc, char **argv_orig, char **envp) {
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) { afl->not_on_tty = 0; }
 
-  if (afl->afl_env.afl_custom_mutator_only) {
-
-    /* This ensures we don't proceed to havoc/splice */
-    afl->custom_only = 1;
-
-    /* Ensure we also skip all deterministic steps */
-    afl->skip_deterministic = 1;
-
-  }
-
   get_core_count(afl);
 
   atexit(at_exit);
@@ -1816,7 +1806,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  {
+  if (!getenv("AFL_CUSTOM_INFO_PROGRAM_ARGV")) {
 
     u8 envbuf[8096] = "", tmpbuf[8096] = "";
     for (s32 i = optind + 1; i < argc; ++i) {
@@ -1847,9 +1837,40 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  setenv("AFL_CUSTOM_INFO_OUT", afl->out_dir, 1);  // same as __AFL_OUT_DIR
+  if (!getenv("AFL_CUSTOM_INFO_OUT")) {
+
+    setenv("AFL_CUSTOM_INFO_OUT", afl->out_dir, 1);  // same as __AFL_OUT_DIR
+
+  }
 
   setup_custom_mutators(afl);
+
+  if (afl->afl_env.afl_custom_mutator_only) {
+
+    if (!afl->custom_mutators_count) {
+
+      if (afl->shm.cmplog_mode) {
+
+        WARNF(
+            "No custom mutator loaded, using AFL_CUSTOM_MUTATOR_ONLY is "
+            "pointless and only allowed now to allow experiments with CMPLOG.");
+
+      } else {
+
+        FATAL(
+            "No custom mutator loaded but AFL_CUSTOM_MUTATOR_ONLY specified.");
+
+      }
+
+    }
+
+    /* This ensures we don't proceed to havoc/splice */
+    afl->custom_only = 1;
+
+    /* Ensure we also skip all deterministic steps */
+    afl->skip_deterministic = 1;
+
+  }
 
   if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
 
