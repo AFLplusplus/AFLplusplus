@@ -1838,7 +1838,8 @@ int main(int argc, char **argv, char **envp) {
       }
 
       if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
-          strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0) {
+          strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0 ||
+          strncasecmp(ptr2, "native", strlen("native")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE)
           instrument_mode = INSTRUMENT_LLVMNATIVE;
