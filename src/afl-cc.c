@@ -574,14 +574,15 @@ static void process_params(u32 argc, char **argv) {
 
       }
 
-      u8    *tmpbuf = malloc(st.st_size + 1), *ptr;
+      u8    *tmpbuf = malloc(st.st_size + 2), *ptr;
       char **args = malloc(sizeof(char *) * (st.st_size >> 1));
       int    count = 1, cont = 0, cont_act = 0;
 
-      while (fgets(tmpbuf, st.st_size, f)) {
+      while (fgets(tmpbuf, st.st_size + 1, f)) {
 
         ptr = tmpbuf;
-        // no leading whitespace
+        // fprintf(stderr, "1: %s\n", ptr);
+        //  no leading whitespace
         while (isspace(*ptr)) {
 
           ++ptr;
@@ -603,6 +604,8 @@ static void process_params(u32 argc, char **argv) {
 
         }
 
+        // fprintf(stderr, "2: %s\n", ptr);
+
         // remove whitespace at end
         while (*ptr && isspace(ptr[strlen(ptr) - 1])) {
 
@@ -611,6 +614,7 @@ static void process_params(u32 argc, char **argv) {
 
         }
 
+        // fprintf(stderr, "3: %s\n", ptr);
         if (*ptr) {
 
           do {
