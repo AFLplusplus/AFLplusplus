@@ -100,8 +100,13 @@ else
   LDFLAGS += $(SDK_LD)
 endif
 
+COMPILER_TYPE=$(shell $(CC) --version|grep "Free Software Foundation")
+ifneq "$(COMPILER_TYPE)" ""
+  #$(info gcc is being used)
+  CFLAGS_OPT += -Wno-error=format-truncation -Wno-format-truncation
+endif
+
 ifeq "$(SYS)" "SunOS"
-  CFLAGS_OPT += -Wno-format-truncation
   LDFLAGS = -lkstat -lrt -lsocket -lnsl
 endif
 
@@ -139,13 +144,13 @@ endif
 
 ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
-  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror -Wno-error=format-truncation= $(CFLAGS_OPT)
+  override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
 else
   CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
-			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" -Wno-format-truncation \
+			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\"  \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
 
