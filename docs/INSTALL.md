@@ -3,9 +3,8 @@
 ## Linux on x86
 
 An easy way to install AFL++ with everything compiled is available via docker:
-You can use the [Dockerfile](../Dockerfile) (which has gcc-10 and clang-12 -
-hence afl-clang-lto is available) or just pull directly from the Docker Hub
-(for x86_64 and arm64):
+You can use the [Dockerfile](../Dockerfile) or just pull directly from the
+Docker Hub (for x86_64 and arm64):
 
 ```shell
 docker pull aflplusplus/aflplusplus:
@@ -21,14 +20,14 @@ development state of AFL++.
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
-NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-12` with
-whatever llvm version is available. We recommend llvm 12, 13 or 14.
+NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-14` with
+whatever llvm version is available. We recommend llvm 13, 14, 15 or 16.
 
 ```shell
 sudo apt-get update
 sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools cargo libgtk-3-dev
-# try to install llvm 12 and install the distro default if that fails
-sudo apt-get install -y lld-12 llvm-12 llvm-12-dev clang-12 || sudo apt-get install -y lld llvm llvm-dev clang
+# try to install llvm 14 and install the distro default if that fails
+sudo apt-get install -y lld-14 llvm-14 llvm-14-dev clang-14 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 sudo apt-get install -y ninja-build # for QEMU mode
 git clone https://github.com/AFLplusplus/AFLplusplus
