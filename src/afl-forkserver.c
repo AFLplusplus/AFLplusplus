@@ -1226,7 +1226,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
-           "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
+           "      fail, poke the Awesome Fuzzing Discord for troubleshooting "
            "tips.\n");
 
     } else {
@@ -1271,7 +1271,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
-           "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
+           "      fail, poke the Awesome Fuzzing Discord for troubleshooting "
            "tips.\n",
            stringify_mem_size(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
            fsrv->mem_limit - 1);
@@ -1321,7 +1321,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
          "Otherwise there is a horrible bug in the fuzzer.\n"
-         "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
+         "Poke the Awesome Fuzzing Discord for troubleshooting tips.\n");
 
   } else {
 
@@ -1370,7 +1370,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
         "options\n"
-        "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
+        "      fail, poke the Awesome Fuzzing Discord for troubleshooting "
         "tips.\n",
         getenv(DEFER_ENV_VAR)
             ? "    - You are using deferred forkserver, but __AFL_INIT() is "
