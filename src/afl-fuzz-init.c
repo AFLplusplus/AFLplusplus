@@ -1012,7 +1012,7 @@ void perform_dry_run(afl_state_t *afl) {
 
                "    - Least likely, there is a horrible bug in the fuzzer. If "
                "other options\n"
-               "      fail, poke <afl-users@googlegroups.com> for "
+               "      fail, poke the Awesome Fuzzing Discord for "
                "troubleshooting tips.\n",
                stringify_mem_size(val_buf, sizeof(val_buf),
                                   afl->fsrv.mem_limit << 20),
@@ -1041,7 +1041,7 @@ void perform_dry_run(afl_state_t *afl) {
 
                "    - Least likely, there is a horrible bug in the fuzzer. If "
                "other options\n"
-               "      fail, poke <afl-users@googlegroups.com> for "
+               "      fail, poke the Awesome Fuzzing Discord for "
                "troubleshooting tips.\n");
 
         }
