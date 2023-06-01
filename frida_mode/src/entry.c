@@ -78,31 +78,7 @@ void entry_init(void) {
 
 void entry_start(void) {
 
-  if (persistent_start == 0) {
-
-    ranges_exclude();
-    stalker_trust();
-
-  }
-
-  if (entry_point == 0) { entry_launch(); }
-
-}
-
-static void entry_callout(GumCpuContext *cpu_context, gpointer user_data) {
-
-  UNUSED_PARAMETER(cpu_context);
-  UNUSED_PARAMETER(user_data);
-  entry_compiled = TRUE;
-  entry_launch();
-
-}
-
-void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output) {
-
-  UNUSED_PARAMETER(output);
   FVERBOSE("AFL_ENTRYPOINT reached");
-
   if (persistent_start == 0) {
 
     ranges_exclude();
@@ -110,7 +86,7 @@ void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output) {
 
   }
 
-  gum_stalker_iterator_put_callout(iterator, entry_callout, NULL, NULL);
+  entry_launch();
 
 }
 
