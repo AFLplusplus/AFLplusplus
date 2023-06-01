@@ -162,9 +162,7 @@ class ModuleSanitizerCoverageAFL
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
-#if LLVM_VERSION_MAJOR == 15
-    I->setMetadata(LLVMContext::MD_nosanitize, MDNode::get(*C, None));
-#elif LLVM_VERSION_MAJOR >= 16
+#if LLVM_VERSION_MAJOR >= 16
     I->setMetadata(LLVMContext::MD_nosanitize, MDNode::get(*C, std::nullopt));
 #else
     I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
