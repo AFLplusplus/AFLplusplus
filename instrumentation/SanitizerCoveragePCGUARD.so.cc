@@ -1212,7 +1212,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
   }
 
-#if LLVM_VERSION_MAJOR >= 15
+#if LLVM_VERSION_MAJOR >= 16
   InstrumentationIRBuilder IRB(&*IP);
 #else
   IRBuilder<> IRB(&*IP);
