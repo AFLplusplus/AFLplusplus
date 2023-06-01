@@ -2,9 +2,7 @@
 
 ## Should
 
- - redo PCGUARD + LTO for llvm 15+
  - test cmplog for less than 16bit
- - splicing selection weighted?
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt
