@@ -20,6 +20,8 @@
 #endif
 #if LLVM_VERSION_MAJOR < 17
   #include "llvm/Analysis/EHPersonalities.h"
+#else
+  #include "llvm/IR/EHPersonalities.h"
 #endif
 #include "llvm/Analysis/PostDominators.h"
 #if LLVM_VERSION_MAJOR < 15
@@ -31,8 +33,10 @@
   #include "llvm/IR/DebugInfo.h"
 #endif
 #include "llvm/IR/Dominators.h"
-#if LLVM_VERSION_MAJOR >= 17
+#if LLVM_VERSION_MAJOR < 17
   #include "llvm/Analysis/EHPersonalities.h"
+#else
+  #include "llvm/IR/EHPersonalities.h"
 #endif
 #include "llvm/IR/Function.h"
 #if LLVM_VERSION_MAJOR >= 16
