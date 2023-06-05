@@ -15,13 +15,16 @@
     - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
       (https://github.com/fgsect/WAFL) project
     - error and print help if afl-clan-lto is used with lto=thin
+    - rewrote our PCGUARD pass to be compatible with LLVM 15+ shenanigans,
+      requires LLVM 13+ now instead of 10.0.1+
+    - fallback to native LLVM PCGUARD if our PCGUARD is unavailable
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
   - afl-cmin + afl-cmin.bash:
     - `-T threads` parallel task support, can be a huge speedup!
   - qemu_mode:
-    - Persistent mode +QASAN support for ppc32 tragets by @worksbutnottested
+    - Persistent mode + QASAN support for ppc32 targets by @worksbutnottested
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
   - two new custom mutators are now available:
     - TritonDSE in custom_mutators/aflpp_tritondse

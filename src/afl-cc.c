@@ -997,7 +997,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 11
+#if LLVM_MAJOR >= 13
   #if defined __ANDROID__ || ANDROID
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
         instrument_mode = INSTRUMENT_LLVMNATIVE;
@@ -1014,7 +1014,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         } else {
 
-    #if LLVM_MAJOR >= 11                            /* use new pass manager */
+    #if LLVM_MAJOR >= 13                            /* use new pass manager */
       #if LLVM_MAJOR < 16
           cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
       #endif
@@ -1035,12 +1035,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
           SAYF(
-              "Using unoptimized trace-pc-guard, upgrade to llvm 10.0.1+ for "
+              "Using unoptimized trace-pc-guard, upgrade to LLVM 13+ for "
               "enhanced version.\n");
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
         instrument_mode = INSTRUMENT_LLVMNATIVE;
   #else
-        FATAL("pcguard instrumentation requires llvm 4.0.1+");
+        FATAL("pcguard instrumentation requires LLVM 4.0.1+");
   #endif
 #endif
 
@@ -1053,7 +1053,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           cc_params[cc_par_cnt++] =
               "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table";
   #else
-          FATAL("pcguard instrumentation with pc-table requires llvm 6.0.1+");
+          FATAL("pcguard instrumentation with pc-table requires LLVM 6.0.1+");
   #endif
 
         } else {
@@ -1063,7 +1063,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         }
 
 #else
-        FATAL("pcguard instrumentation requires llvm 4.0.1+");
+        FATAL("pcguard instrumentation requires LLVM 4.0.1+");
 #endif
 
       } else {
@@ -2031,7 +2031,7 @@ int main(int argc, char **argv, char **envp) {
   if (!compiler_mode) {
 
     // lto is not a default because outside of afl-cc RANLIB and AR have to
-    // be set to llvm versions so this would work
+    // be set to LLVM versions so this would work
     if (have_llvm)
       compiler_mode = LLVM;
     else if (have_gcc_plugin)
@@ -2047,6 +2047,17 @@ int main(int argc, char **argv, char **envp) {
       compiler_mode = LTO;
     else
       FATAL("no compiler mode available");
+
+  }
+
+  /* if our PCGUARD implementation is not available then silently switch to
+     native LLVM PCGUARD */
+  if (compiler_mode == CLANG &&
+      (instrument_mode == INSTRUMENT_DEFAULT ||
+       instrument_mode == INSTRUMENT_PCGUARD) &&
+      find_object("SanitizerCoveragePCGUARD.so", argv[0]) == NULL) {
+
+    instrument_mode = INSTRUMENT_LLVMNATIVE;
 
   }
 
@@ -2096,12 +2107,12 @@ int main(int argc, char **argv, char **envp) {
         "-------------|\n"
         "MODES:                                  NCC PERSIST DICT   LAF "
         "CMPLOG SELECT\n"
-        "  [LTO] llvm LTO:          %s%s\n"
+        "  [LTO] LLVM LTO:          %s%s\n"
         "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
         "   yes\n"
         "      CLASSIC                           yes yes     yes    yes yes "
         "   yes\n"
-        "  [LLVM] llvm:             %s%s\n"
+        "  [LLVM] LLVM:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
         "yes\n"
         "      CLASSIC              %s      no  yes     module yes yes    "
@@ -2171,7 +2182,7 @@ int main(int argc, char **argv, char **envp) {
         "          (instrumentation/README.lto.md)\n"
         "  PERSIST: persistent mode support [code] (huge speed increase!)\n"
         "          (instrumentation/README.persistent_mode.md)\n"
-        "  DICT:   dictionary in the target [yes=automatic or llvm module "
+        "  DICT:   dictionary in the target [yes=automatic or LLVM module "
         "pass]\n"
         "          (instrumentation/README.lto.md + "
         "instrumentation/README.llvm.md)\n"
