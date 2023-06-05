@@ -206,7 +206,7 @@ fi
 
 # Check for obvious errors.
 
-if [ ! "$T_ARG" = "" -a ! "$F_ARG" = "" -a ! "$NYX_MODE" == 1 ]; then
+if [ ! "$T_ARG" = "" -a -n "$F_ARG" -a ! "$NYX_MODE" == 1 ]; then
   echo "[-] Error: -T and -f can not be used together." 1>&2
   exit 1
 fi
@@ -323,7 +323,7 @@ if [ ! "$T_ARG" = "" ]; then
     fi
   fi
 else
-  if [ "$F_ARG" = ""]; then
+  if [ -z "$F_ARG" ]; then
     echo "[*] Are you aware of the '-T all' parallelize option that massively improves the speed?"
   fi
 fi

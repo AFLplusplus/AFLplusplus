@@ -49,7 +49,7 @@ LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[
 LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[5-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_NEWER_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[6-9]' && echo 1 || echo 0 )
-LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
+LLVM_13_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[3-9]' && echo 1 || echo 0 )
 LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]' && echo 1 || echo 0 )
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
@@ -422,7 +422,7 @@ endif
 	$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./SanitizerCoveragePCGUARD.so: instrumentation/SanitizerCoveragePCGUARD.so.cc instrumentation/afl-llvm-common.o | test_deps
-ifeq "$(LLVM_10_OK)" "1"
+ifeq "$(LLVM_13_OK)" "1"
 	-$(CXX) $(CLANG_CPPFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) -Wno-deprecated-copy-dtor -Wdeprecated instrumentation/afl-llvm-common.o
 endif
 
