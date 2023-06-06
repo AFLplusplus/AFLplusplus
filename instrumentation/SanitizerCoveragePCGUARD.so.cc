@@ -18,11 +18,6 @@
     #include "llvm/ADT/Triple.h"
   #endif
 #endif
-#if LLVM_VERSION_MAJOR < 17
-  #include "llvm/Analysis/EHPersonalities.h"
-#else
-  #include "llvm/IR/EHPersonalities.h"
-#endif
 #include "llvm/Analysis/PostDominators.h"
 #if LLVM_VERSION_MAJOR < 15
   #include "llvm/IR/CFG.h"
@@ -33,10 +28,10 @@
   #include "llvm/IR/DebugInfo.h"
 #endif
 #include "llvm/IR/Dominators.h"
-#if LLVM_VERSION_MAJOR < 17
-  #include "llvm/Analysis/EHPersonalities.h"
-#else
+#if LLVM_VERSION_MAJOR >= 17
   #include "llvm/IR/EHPersonalities.h"
+#else
+  #include "llvm/Analysis/EHPersonalities.h"
 #endif
 #include "llvm/IR/Function.h"
 #if LLVM_VERSION_MAJOR >= 16
