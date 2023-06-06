@@ -7,6 +7,8 @@ variables.
 
 In FRIDA mode, binary programs are instrumented, similarly to QEMU mode.
 
+A tutorial can be found at [https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html](https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html)
+
 ## Current progress
 
 As FRIDA mode is new, it is missing a lot of features. The design is such that
@@ -178,11 +180,13 @@ Default is 256Mb.
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
   a file.
+* `AFL_FRIDA_INST_NO_DYNAMIC_LOAD` - Don't instrument the code loaded late at
+  runtime. Strictly limits instrumentation to what has been included.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
+  `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_REGS_FILE` - File to write raw register contents at the start
   of each block.
-  `AFL_FRIDA_INST_TRACE`.
 * `AFL_FRIDA_INST_NO_CACHE` - Don't use a look-up table to cache real to
 instrumented address block translations.
 * `AFL_FRIDA_INST_NO_PREFETCH` - Disable prefetching. By default, the child will

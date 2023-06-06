@@ -3,9 +3,8 @@
 ## Linux on x86
 
 An easy way to install AFL++ with everything compiled is available via docker:
-You can use the [Dockerfile](../Dockerfile) (which has gcc-10 and clang-12 -
-hence afl-clang-lto is available) or just pull directly from the Docker Hub
-(for x86_64 and arm64):
+You can use the [Dockerfile](../Dockerfile) or just pull directly from the
+Docker Hub (for x86_64 and arm64):
 
 ```shell
 docker pull aflplusplus/aflplusplus:
@@ -21,14 +20,14 @@ development state of AFL++.
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
-NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-12` with
-whatever llvm version is available. We recommend llvm 12, 13 or 14.
+NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-14` with
+whatever llvm version is available. We recommend llvm 13, 14, 15 or 16.
 
 ```shell
 sudo apt-get update
 sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools cargo libgtk-3-dev
-# try to install llvm 12 and install the distro default if that fails
-sudo apt-get install -y lld-12 llvm-12 llvm-12-dev clang-12 || sudo apt-get install -y lld llvm llvm-dev clang
+# try to install llvm 14 and install the distro default if that fails
+sudo apt-get install -y lld-14 llvm-14 llvm-14-dev clang-14 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 sudo apt-get install -y ninja-build # for QEMU mode
 git clone https://github.com/AFLplusplus/AFLplusplus
@@ -51,7 +50,7 @@ make source-only
 
 These build targets exist:
 
-* all: the main afl++ binaries and llvm/gcc instrumentation
+* all: the main AFL++ binaries and llvm/gcc instrumentation
 * binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode,
   qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator,
   libtokencap
@@ -79,22 +78,20 @@ make STATIC=1
 These build options exist:
 
 * STATIC - compile AFL++ static
+* CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)
 * ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
-* UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for
-  debug purposes
+* UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 * DEBUG - no optimization, -ggdb3, all warnings and -Werror
 * LLVM_DEBUG - shows llvm deprecation warnings
 * PROFILING - compile afl-fuzz with profiling information
 * INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support
-* NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for
-  normal fuzzing
+* NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)
 * NO_UNICORN_ARM64 - disable building unicorn on arm64
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
-* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config
-  (e.g., Debian)
+* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)
 
 e.g.: `make LLVM_CONFIG=llvm-config-14`
 

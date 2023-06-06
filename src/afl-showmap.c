@@ -30,8 +30,10 @@
  */
 
 #define AFL_MAIN
+#define AFL_SHOWMAP
 
 #include "config.h"
+#include "afl-fuzz.h"
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
@@ -62,10 +64,14 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
+static afl_state_t *afl;
+
 static char *stdin_file;               /* stdin file                        */
 
 static u8 *in_dir = NULL,              /* input folder                      */
-    *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
+    *out_file = NULL,                  /* output file or directory          */
+        *at_file = NULL,               /* Substitution string for @@        */
+            *in_filelist = NULL;       /* input file list                   */
 
 static u8 outfile[PATH_MAX];
 
@@ -136,7 +142,39 @@ static void kill_child() {
 
 }
 
-static void classify_counts(afl_forkserver_t *fsrv) {
+/* dummy functions */
+u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
+
+  (void)afl;
+  (void)mem;
+  return a + b;
+
+}
+
+void show_stats(afl_state_t *afl) {
+
+  (void)afl;
+
+}
+
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+
+  (void)afl;
+  (void)q;
+
+}
+
+fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                                  u32 i) {
+
+  (void)afl;
+  (void)fsrv;
+  (void)i;
+  return 0;
+
+}
+
+void classify_counts(afl_forkserver_t *fsrv) {
 
   u8       *mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
@@ -308,12 +346,73 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 }
 
+void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
+
+  static u8 buf[MAX_FILE];
+  u32       sent = 0;
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    ssize_t new_size = len;
+    u8     *new_mem = mem;
+    u8     *new_buf = NULL;
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_process) {
+
+        new_size =
+            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
+
+        if (unlikely(!new_buf || new_size <= 0)) {
+
+          return;
+
+        } else {
+
+          new_mem = new_buf;
+          len = new_size;
+
+        }
+
+      }
+
+    });
+
+    if (new_mem != mem && new_mem != NULL) {
+
+      mem = buf;
+      memcpy(mem, new_mem, new_size);
+
+    }
+
+    if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          el->afl_custom_fuzz_send(el->data, mem, len);
+          sent = 1;
+
+        }
+
+      });
+
+    }
+
+  }
+
+  if (likely(!sent)) { afl_fsrv_write_to_testcase(fsrv, mem, len); }
+
+}
+
 /* Execute target application. */
 
 static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
                                           u32 len) {
 
-  afl_fsrv_write_to_testcase(fsrv, mem, len);
+  pre_afl_fsrv_write_to_testcase(fsrv, mem, len);
 
   if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
@@ -433,6 +532,23 @@ static u32 read_file(u8 *in_file) {
   return in_len;
 
 }
+
+#ifdef __linux__
+/* Execute the target application with an empty input (in Nyx mode). */
+static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
+
+  afl_fsrv_write_to_testcase(fsrv, NULL, 0);
+
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
+      FSRV_RUN_ERROR) {
+
+    FATAL("Error running target in Nyx mode");
+
+  }
+
+}
+
+#endif
 
 /* Execute target application. */
 
@@ -764,6 +880,103 @@ u32 execute_testcases(u8 *dir) {
 
 }
 
+u32 execute_testcases_filelist(u8 *fn) {
+
+  u32   done = 0;
+  u8    buf[4096];
+  u8    val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  FILE *f;
+
+  if (!be_quiet) { ACTF("Reading from '%s'...", fn); }
+
+  if ((f = fopen(fn, "r")) == NULL) { FATAL("could not open '%s'", fn); }
+
+  while (fgets(buf, sizeof(buf), f) != NULL) {
+
+    struct stat st;
+    u8         *fn2 = buf, *fn3;
+
+    while (*fn2 == ' ') {
+
+      ++fn2;
+
+    }
+
+    while (*fn2 &&
+           (fn2[strlen(fn2) - 1] == '\r' || fn2[strlen(fn2) - 1] == '\n' ||
+            fn2[strlen(fn2) - 1] == ' ')) {
+
+      fn2[strlen(fn2) - 1] = 0;
+
+    }
+
+    if (debug) { printf("Getting coverage for '%s'\n", fn2); }
+
+    if (!*fn2) { continue; }
+
+    if (lstat(fn2, &st) || access(fn2, R_OK)) {
+
+      WARNF("Unable to access '%s'", fn2);
+      continue;
+
+    }
+
+    ++done;
+
+    if (!S_ISREG(st.st_mode) || !st.st_size) { continue; }
+
+    if ((fn3 = strrchr(fn2, '/'))) {
+
+      ++fn3;
+
+    } else {
+
+      fn3 = fn2;
+
+    }
+
+    if (st.st_size > MAX_FILE && !be_quiet && !quiet_mode) {
+
+      WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
+            stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+            stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+
+    }
+
+    if (!collect_coverage) {
+
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, fn3);
+
+    }
+
+    if (read_file(fn2)) {
+
+      if (wait_for_gdb) {
+
+        fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
+        fprintf(stderr, "exec: kill -CONT %d\n", getpid());
+        kill(0, SIGSTOP);
+
+      }
+
+      showmap_run_target_forkserver(fsrv, in_data, in_len);
+      ck_free(in_data);
+
+      if (child_crashed && debug) { WARNF("crashed: %s", fn2); }
+
+      if (collect_coverage)
+        analyze_results(fsrv);
+      else
+        tcnt = write_results_to_file(fsrv, outfile);
+
+    }
+
+  }
+
+  return done;
+
+}
+
 /* Show banner. */
 
 static void show_banner(void) {
@@ -797,6 +1010,7 @@ static void usage(u8 *argv0) {
       "  -W         - use qemu-based instrumentation with Wine (Wine mode)\n"
       "               (Not necessary, here for consistency with other afl-* "
       "tools)\n"
+      "  -X         - use Nyx mode\n"
 #endif
       "\n"
       "Other settings:\n"
@@ -805,6 +1019,7 @@ static void usage(u8 *argv0) {
       "               With -C, -o is a file, without -C it must be a "
       "directory\n"
       "               and each bitmap will be written there individually.\n"
+      "  -I filelist - alternatively to -i, -I is a list of files\n"
       "  -C         - collect coverage, writes all edges to -o and gives a "
       "summary\n"
       "               Must be combined with -i.\n"
@@ -816,6 +1031,10 @@ static void usage(u8 *argv0) {
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
+
+      "If you use -i/-I mode, then custom mutator post_process send send "
+      "functionality\n"
+      "is supported.\n\n"
 
       "Environment variables used:\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
@@ -875,7 +1094,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
 
     switch (opt) {
 
@@ -891,6 +1110,11 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'i':
         if (in_dir) { FATAL("Multiple -i options not supported"); }
         in_dir = optarg;
+        break;
+
+      case 'I':
+        if (in_filelist) { FATAL("Multiple -I options not supported"); }
+        in_filelist = optarg;
         break;
 
       case 'o':
@@ -1063,6 +1287,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+      case 'Y':  // fallthrough
+#ifdef __linux__
+      case 'X':                                                 /* NYX mode */
+
+        if (fsrv->nyx_mode) { FATAL("Multiple -X options not supported"); }
+
+        fsrv->nyx_mode = 1;
+        fsrv->nyx_parent = true;
+        fsrv->nyx_standalone = true;
+
+        break;
+#else
+      case 'X':
+        FATAL("Nyx mode is only availabe on linux...");
+        break;
+#endif
+
       case 'b':
 
         /* Secret undocumented mode. Writes output in raw binary format
@@ -1098,10 +1339,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
-  if (in_dir) {
+  if (in_dir && in_filelist) { FATAL("you can only specify either -i or -I"); }
+
+  if (in_dir || in_filelist) {
 
     if (!out_file && !collect_coverage)
-      FATAL("for -i you need to specify either -C and/or -o");
+      FATAL("for -i/-I you need to specify either -C and/or -o");
 
   }
 
@@ -1134,7 +1377,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv, argv);
 
+#ifdef __linux__
+  if (!fsrv->nyx_mode) {
+
+    fsrv->target_path = find_binary(argv[optind]);
+
+  } else {
+
+    fsrv->target_path = ck_strdup(argv[optind]);
+
+  }
+
+#else
   fsrv->target_path = find_binary(argv[optind]);
+#endif
+
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   if (!quiet_mode) {
@@ -1144,7 +1401,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (in_dir) {
+  if (in_dir || in_filelist) {
 
     /* If we don't have a file name chosen yet, use a safe default. */
     u8 *use_dir = ".";
@@ -1163,6 +1420,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
     // If @@ are in the target args, replace them and also set use_stdin=false.
     detect_file_args(argv + optind, stdin_file, &fsrv->use_stdin);
+
+    fsrv->dev_null_fd = open("/dev/null", O_RDWR);
+    if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
+
+    fsrv->out_file = stdin_file;
+    fsrv->out_fd =
+        open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", stdin_file); }
 
   } else {
 
@@ -1190,11 +1455,34 @@ int main(int argc, char **argv_orig, char **envp) {
     use_argv =
         get_cs_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
+#ifdef __linux__
+
+  } else if (fsrv->nyx_mode) {
+
+    use_argv = ck_alloc(sizeof(char *) * (1));
+    use_argv[0] = argv[0];
+
+    fsrv->nyx_id = 0;
+
+    u8 *libnyx_binary = find_afl_binary(use_argv[0], "libnyx.so");
+    fsrv->nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
+    if (fsrv->nyx_handlers == NULL) {
+
+      FATAL("failed to initialize libnyx.so...");
+
+    }
+
+    fsrv->nyx_use_tmp_workdir = true;
+    fsrv->nyx_bind_cpu_id = 0;
+#endif
+
   } else {
 
     use_argv = argv + optind;
 
   }
+
+  afl = calloc(1, sizeof(afl_state_t));
 
   if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
 
@@ -1226,7 +1514,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+#ifdef __linux__
+  if (!fsrv->nyx_mode && (in_dir || in_filelist)) {
+
+    (void)check_binary_signatures(fsrv->target_path);
+
+  }
+
+#else
   if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
+#endif
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
@@ -1246,8 +1543,14 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
-  configure_afl_kill_signals(
-      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+  configure_afl_kill_signals(fsrv, NULL, NULL,
+                             (fsrv->qemu_mode || unicorn_mode
+#ifdef __linux__
+                              || fsrv->nyx_mode
+#endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
 
   if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
 
@@ -1293,28 +1596,66 @@ int main(int argc, char **argv_orig, char **envp) {
 
     fsrv->map_size = map_size;
 
+  } else {
+
+    afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
   }
 
-  if (in_dir) {
+  if (in_dir || in_filelist) {
+
+    afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    afl->afl_env.afl_custom_mutator_library =
+        getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+    afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+    setup_custom_mutators(afl);
+
+  } else {
+
+    if (getenv("AFL_CUSTOM_MUTATOR_LIBRARY") || getenv("AFL_PYTHON_MODULE")) {
+
+      WARNF(
+          "Custom mutator environment detected, this is only supported in "
+          "-i/-I mode!\n");
+
+    }
+
+  }
+
+  if (in_dir || in_filelist) {
 
     DIR *dir_in, *dir_out = NULL;
+    u8  *dn = NULL;
 
     if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = true;
 
-    fsrv->dev_null_fd = open("/dev/null", O_RDWR);
-    if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
+    if (in_filelist) {
 
-    // if a queue subdirectory exists switch to that
-    u8 *dn = alloc_printf("%s/queue", in_dir);
-    if ((dir_in = opendir(dn)) != NULL) {
+      if (!be_quiet) ACTF("Reading from file list '%s'...", in_filelist);
 
-      closedir(dir_in);
-      in_dir = dn;
+    } else {
 
-    } else
+      // if a queue subdirectory exists switch to that
+      dn = alloc_printf("%s/queue", in_dir);
 
-      ck_free(dn);
-    if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
+      if ((dir_in = opendir(dn)) != NULL) {
+
+        closedir(dir_in);
+        in_dir = dn;
+
+      } else {
+
+        ck_free(dn);
+
+      }
+
+      if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
+
+    }
 
     if (!collect_coverage) {
 
@@ -1338,10 +1679,6 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     atexit(at_exit_handler);
-    fsrv->out_file = stdin_file;
-    fsrv->out_fd =
-        open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
-    if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
     if (get_afl_env("AFL_DEBUG")) {
 
@@ -1357,20 +1694,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   (get_afl_env("AFL_DEBUG_CHILD") ||
-                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                       ? 1
-                       : 0);
-
     map_size = fsrv->map_size;
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    if (execute_testcases(in_dir) == 0) {
+    if (in_dir) {
 
-      FATAL("could not read input testcases from %s", in_dir);
+      if (execute_testcases(in_dir) == 0) {
+
+        FATAL("could not read input testcases from %s", in_dir);
+
+      }
+
+    } else {
+
+      if (execute_testcases_filelist(in_filelist) == 0) {
+
+        FATAL("could not read input testcases from %s", in_filelist);
+
+      }
 
     }
 
@@ -1390,7 +1733,20 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    showmap_run_target(fsrv, use_argv);
+#ifdef __linux__
+    if (!fsrv->nyx_mode) {
+
+#endif
+      showmap_run_target(fsrv, use_argv);
+#ifdef __linux__
+
+    } else {
+
+      showmap_run_target_nyx_mode(fsrv);
+
+    }
+
+#endif
     tcnt = write_results_to_file(fsrv, out_file);
     if (!quiet_mode) {
 

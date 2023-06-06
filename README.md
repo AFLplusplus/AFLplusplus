@@ -1,10 +1,10 @@
 # American Fuzzy Lop plus plus (AFL++)
 
-<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/master/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
+<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
 
-Release version: [4.05c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [4.06c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.06a
+GitHub version: 4.07a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -12,9 +12,9 @@ Repository:
 AFL++ is maintained by:
 
 * Marc "van Hauser" Heuse <mh@mh-sec.de>
-* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
 * Andrea Fioraldi <andreafioraldi@gmail.com>
 * Dominik Maier <mail@dmnk.co>
+* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
 * Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michał "lcamtuf" Zalewski.

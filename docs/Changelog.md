@@ -3,24 +3,64 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.06a (dev)
+### Version ++4.07a (dev)
+  - afl-fuzz:
+    - reverse reading the seeds only on restarts (increases performance)
+    - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
+      data before post process on finds (for atnwalk custom mutator)
+    - new env `AFL_IGNORE_PROBLEMS_COVERAGE` to ignore coverage from
+      loaded libs after forkserver initialization (required by Mozilla)
+  - afl-cc:
+    - added @responsefile support
+    - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
+      (https://github.com/fgsect/WAFL) project
+    - error and print help if afl-clan-lto is used with lto=thin
+    - rewrote our PCGUARD pass to be compatible with LLVM 15+ shenanigans,
+      requires LLVM 13+ now instead of 10.0.1+
+    - fallback to native LLVM PCGUARD if our PCGUARD is unavailable
+  - afl-showmap:
+    - added custom mutator post_process and send support
+    - add `-I filelist` option, an alternative to `-i in_dir`
+  - afl-cmin + afl-cmin.bash:
+    - `-T threads` parallel task support, can be a huge speedup!
+  - qemu_mode:
+    - Persistent mode + QASAN support for ppc32 targets by @worksbutnottested
+  - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
+  - two new custom mutators are now available:
+    - TritonDSE in custom_mutators/aflpp_tritondse
+    - SymQEMU in custom_mutators/symqemu
+
+
+### Version ++4.06c (release)
   - afl-fuzz:
     - ensure temporary file descriptor is closed when not used
     - added `AFL_NO_WARN_INSTABILITY`
-    - added `AFL_FRIDA_STATS_INTERVAL`
     - added time_wo_finds to fuzzer_stats
+    - fixed a crash in pizza (1st april easter egg) mode. Sorry for
+      everyone who was affected!
+    - allow pizza mode to be disabled when AFL_PIZZA_MODE is set to -1
+    - option `-p mmopt` now also selects new queue items more often
+    - fix bug in post_process custom mutator implementation
+    - print name of custom mutator in UI
+    - slight changes that improve fuzzer performance
   - afl-cc:
     - add CFI sanitizer variant to gcc targets
-    - llvm 16 support (thanks to @devnexen!)
+    - llvm 16 + 17 support (thanks to @devnexen!)
     - support llvm 15 native pcguard changes
     - support for LLVMFuzzerTestOneInput -1 return
+    - LTO autoken and llvm_mode: added AFL_LLVM_DICT2FILE_NO_MAIN support
   - qemu_mode:
     - fix _RANGES envs to allow hyphens in the filenames
-  - new custom module: autotoken, grammar free fuzzer for text inputs
-  - LTO autoken and llvm_mode: added AFL_LLVM_DICT2FILE_NO_MAIN support
+    - basic riscv support
+  - frida_mode:
+    - added `AFL_FRIDA_STATS_INTERVAL`
+    - fix issue on MacOS
+  - unicorn_mode:
+    - updated and minor issues fixed
+  - nyx_mode support for all tools
   - better sanitizer default options support for all tools
-  - unicorn_mode: updated and minor issues fixed
-  - frida_mode: fix issue on MacOS
+  - new custom module: autotoken, a grammar free fuzzer for text inputs
+  - fixed custom mutator C examples
   - more minor fixes and cross-platform support
 
 ### Version ++4.05c (release)
@@ -199,7 +239,7 @@
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan
-    - new cmplog mode (incompatible with older afl++ versions)
+    - new cmplog mode (incompatible with older AFL++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
     - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST

@@ -23,7 +23,7 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces a weird numbers: $TUPLES"
-          $ECHO "$YELLOW[-] this is a known issue in gcc, not afl++. It is not flagged as an error because travis builds would all fail otherwise :-("
+          $ECHO "$YELLOW[-] this is a known issue in gcc, not AFL++. It is not flagged as an error because travis builds would all fail otherwise :-("
           #CODE=1
         }
         test "$TUPLES" -lt 2 && SKIP=1

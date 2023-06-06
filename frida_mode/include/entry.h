@@ -14,8 +14,6 @@ void entry_init(void);
 
 void entry_start(void);
 
-void entry_prologue(GumStalkerIterator *iterator, GumStalkerOutput *output);
-
 void entry_on_fork(void);
 
 #endif
