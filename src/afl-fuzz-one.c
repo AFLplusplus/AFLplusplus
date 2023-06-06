@@ -402,10 +402,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
   if (unlikely(afl->not_on_tty)) {
 
     ACTF(
-        "Fuzzing test case #%u (%u total, %llu crashes saved, "
+        "Fuzzing test case #%u (%u total, %llu crashes saved, mode=%s, "
         "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
         "exec_us=%llu, hits=%u, map=%u, ascii=%u)...",
         afl->current_entry, afl->queued_items, afl->saved_crashes,
+        afl->fuzz_mode ? "exploit" : "explore",
         afl->queue_cur->perf_score, afl->queue_cur->weight,
         afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
         afl->queue_cur->exec_us,
