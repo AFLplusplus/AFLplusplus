@@ -257,7 +257,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   rm -f test-compcov test.out instrumentlist.txt
   AFL_LLVM_CMPLOG=1 ../afl-clang-fast -o test-cmplog test-cmplog.c > /dev/null 2>&1
-  ../afl-clang-fast -o test-c test-cmplog.c > /dev/null 2>&1
+  ../afl-clang-fast -O0 -o test-c test-cmplog.c > /dev/null 2>&1
   test -e test-cmplog && {
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode cmplog, this will take approx 10 seconds"
     {
