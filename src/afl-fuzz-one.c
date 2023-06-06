@@ -2081,33 +2081,48 @@ havoc_stage:
      where we take the input file and make random stacked tweaks. */
 
   u32 *mutation_array;
-  u32  stack_max;  // stack_max_pow = afl->havoc_stack_pow2;
+  u32  stack_max, rand_max;  // stack_max_pow = afl->havoc_stack_pow2;
 
-  if (unlikely(afl->text_input || afl->queue_cur->is_ascii)) {  // is text?
+  if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
-    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+    mutation_array = full_splice_array;
+    rand_max = MUT_SPLICE_ARRAY_SIZE;
 
-      mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
+  } else {
 
-    } else {  // is exploitation!
-
-      mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
-
-    }
-
-  } else {  // is binary!
-
-    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
-
-      mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
-
-    } else {  // is exploitation!
-
-      mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
-
-    }
+    mutation_array = normal_splice_array;
+    rand_max = MUT_NORMAL_ARRAY_SIZE;
 
   }
+
+  /*
+    if (unlikely(afl->text_input || afl->queue_cur->is_ascii)) {  // is text?
+
+      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+
+        mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
+
+      } else {  // is exploitation!
+
+        mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
+
+      }
+
+    } else {  // is binary!
+
+      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+
+        mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+
+      } else {  // is exploitation!
+
+        mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+
+      }
+
+    }
+
+  */
 
   /*
   if (temp_len < 64) {
@@ -2180,7 +2195,7 @@ havoc_stage:
 
     retry_havoc_step : {
 
-      u32 r = rand_below(afl, MUT_STRATEGY_ARRAY_SIZE), item;
+      u32 r = rand_below(afl, rand_max), item;
 
       switch (mutation_array[r]) {
 
