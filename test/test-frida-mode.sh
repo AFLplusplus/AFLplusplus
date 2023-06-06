@@ -39,7 +39,7 @@ test -e ../afl-frida-trace.so && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for frida_mode cmplog, this will take approx 10 seconds"
         {
-          ../afl-fuzz -m none -V07 -O -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
+          ../afl-fuzz -m none -V07 -O -c 0 -l 3 -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000003* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with frida_mode cmplog"
