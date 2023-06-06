@@ -465,7 +465,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0;
+  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0,
+     need_hash = 1;
   s32 fd;
   u64 cksum = 0;
 
@@ -477,6 +478,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     classify_counts(&afl->fsrv);
     classified = 1;
+    need_hash = 0;
 
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
@@ -498,6 +500,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     } else {
 
       new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
+      if (unlikely(new_bits)) { classified = 1; }
 
     }
 
@@ -577,12 +581,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     }
 
-    if (unlikely(!classified && new_bits)) {
+    if (unlikely(need_hash && new_bits)) {
 
       /* due to classify counts we have to recalculate the checksum */
       afl->queue_top->exec_cksum =
           hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      classified = 1;
+      need_hash = 0;
 
     }
 

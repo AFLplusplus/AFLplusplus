@@ -14,6 +14,16 @@
 
 */
 
+#ifdef __AFL_CODE_COVERAGE
+  #ifndef _GNU_SOURCE
+    #define _GNU_SOURCE
+  #endif
+  #ifndef __USE_GNU
+    #define __USE_GNU
+  #endif
+  #include <dlfcn.h>
+#endif
+
 #ifdef __ANDROID__
   #include "android-ashmem.h"
 #endif
@@ -105,6 +115,44 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 
+#ifdef __AFL_CODE_COVERAGE
+typedef struct afl_module_info_t afl_module_info_t;
+
+struct afl_module_info_t {
+
+  // A unique id starting with 0
+  u32 id;
+
+  // Name and base address of the module
+  char     *name;
+  uintptr_t base_address;
+
+  // PC Guard start/stop
+  u32 start;
+  u32 stop;
+
+  // PC Table begin/end
+  const uintptr_t *pcs_beg;
+  const uintptr_t *pcs_end;
+
+  u8 mapped;
+
+  afl_module_info_t *next;
+
+};
+
+typedef struct {
+
+  uintptr_t PC, PCFlags;
+
+} PCTableEntry;
+
+afl_module_info_t *__afl_module_info = NULL;
+
+u32        __afl_pcmap_size = 0;
+uintptr_t *__afl_pcmap_ptr = NULL;
+#endif  // __AFL_CODE_COVERAGE
+
 /* 1 if we are running in afl, and the forkserver was started, else 0 */
 u32 __afl_connected = 0;
 
@@ -113,7 +161,7 @@ int        __afl_selective_coverage __attribute__((weak));
 int        __afl_selective_coverage_start_off __attribute__((weak));
 static int __afl_selective_coverage_temp = 1;
 
-#if defined(__ANDROID__) || defined(__HAIKU__)
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 u32        __afl_prev_ctx;
@@ -496,11 +544,12 @@ static void __afl_map_shm(void) {
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
-             u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
-             if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
+      if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
 
-               send_forkserver_error(FS_ERROR_MAP_SIZE);
-               _exit(1);
+        fprintf(stderr, "FS_ERROR_MAP_SIZE\n");
+        send_forkserver_error(FS_ERROR_MAP_SIZE);
+        _exit(1);
 
       }
 
@@ -512,13 +561,13 @@ static void __afl_map_shm(void) {
 
     if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
-             if (__afl_map_addr)
+      if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_SHMAT);
 
       perror("shmat for map");
-             _exit(1);
+      _exit(1);
 
     }
 
@@ -678,6 +727,27 @@ static void __afl_map_shm(void) {
 
   }
 
+#ifdef __AFL_CODE_COVERAGE
+  char *pcmap_id_str = getenv("__AFL_PCMAP_SHM_ID");
+
+  if (pcmap_id_str) {
+
+    __afl_pcmap_size = __afl_map_size * sizeof(void *);
+    u32 shm_id = atoi(pcmap_id_str);
+
+    __afl_pcmap_ptr = (uintptr_t *)shmat(shm_id, NULL, 0);
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: Received %p via shmat for pcmap\n",
+              __afl_pcmap_ptr);
+
+    }
+
+  }
+
+#endif  // __AFL_CODE_COVERAGE
+
 }
 
 /* unmap SHM. */
@@ -685,6 +755,17 @@ static void __afl_map_shm(void) {
 static void __afl_unmap_shm(void) {
 
   if (!__afl_already_initialized_shm) return;
+
+#ifdef __AFL_CODE_COVERAGE
+  if (__afl_pcmap_size) {
+
+    shmdt((void *)__afl_pcmap_ptr);
+    __afl_pcmap_ptr = NULL;
+    __afl_pcmap_size = 0;
+
+  }
+
+#endif  // __AFL_CODE_COVERAGE
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -1507,6 +1588,102 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
 }
 
+#ifdef __AFL_CODE_COVERAGE
+void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
+                              const uintptr_t *pcs_end) {
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: __sanitizer_cov_pcs_init called\n");
+
+  }
+
+  // If for whatever reason, we cannot get dlinfo here, then pc_guard_init also
+  // couldn't get it and we'd end up attributing to the wrong module.
+  Dl_info dlinfo;
+  if (!dladdr(__builtin_return_address(0), &dlinfo)) {
+
+    fprintf(stderr,
+            "WARNING: Ignoring __sanitizer_cov_pcs_init callback due to "
+            "missing module info\n");
+    return;
+
+  }
+
+  afl_module_info_t *last_module_info = __afl_module_info;
+  while (last_module_info && last_module_info->next) {
+
+    last_module_info = last_module_info->next;
+
+  }
+
+  if (!last_module_info) {
+
+    fprintf(stderr,
+            "ERROR: __sanitizer_cov_pcs_init called with no module info?!\n");
+    abort();
+
+  }
+
+  last_module_info->pcs_beg = pcs_beg;
+  last_module_info->pcs_end = pcs_end;
+
+  // Now update the pcmap. If this is the last module coming in, after all
+  // pre-loaded code, then this will also map all of our delayed previous
+  // modules.
+
+  if (!__afl_pcmap_ptr) { return; }
+
+  for (afl_module_info_t *mod_info = __afl_module_info; mod_info;
+       mod_info = mod_info->next) {
+
+    if (mod_info->mapped) { continue; }
+
+    PCTableEntry *start = (PCTableEntry *)(mod_info->pcs_beg);
+    PCTableEntry *end = (PCTableEntry *)(mod_info->pcs_end);
+
+    u32 in_module_index = 0;
+
+    while (start < end) {
+
+      if (mod_info->start + in_module_index >= __afl_map_size) {
+
+        fprintf(stderr, "ERROR: __sanitizer_cov_pcs_init out of bounds?!\n");
+        abort();
+
+      }
+
+      uintptr_t PC = start->PC;
+
+      // This is what `GetPreviousInstructionPc` in sanitizer runtime does
+      // for x86/x86-64. Needs more work for ARM and other archs.
+      PC = PC - 1;
+
+      // Calculate relative offset in module
+      PC = PC - mod_info->base_address;
+
+      __afl_pcmap_ptr[mod_info->start + in_module_index] = PC;
+
+      start++;
+      in_module_index++;
+
+    }
+
+    mod_info->mapped = 1;
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: __sanitizer_cov_pcs_init initialized %u PCs\n",
+              in_module_index);
+
+    }
+
+  }
+
+}
+
+#endif  // __AFL_CODE_COVERAGE
+
 /* Init callback. Populates instrumentation IDs. Note that we're using
    ID of 0 as a special value to indicate non-instrumented bits. That may
    still touch the bitmap, but in a fairly harmless way. */
@@ -1536,7 +1713,63 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
-  if (start == stop || *start) return;
+  if (start == stop || *start) { return; }
+
+#ifdef __AFL_CODE_COVERAGE
+  u32               *orig_start = start;
+  afl_module_info_t *mod_info = NULL;
+
+  Dl_info dlinfo;
+  if (dladdr(__builtin_return_address(0), &dlinfo)) {
+
+    if (__afl_already_initialized_forkserver) {
+
+      fprintf(stderr, "[pcmap] Error: Module was not preloaded: %s\n",
+              dlinfo.dli_fname);
+
+    } else {
+
+      afl_module_info_t *last_module_info = __afl_module_info;
+      while (last_module_info && last_module_info->next) {
+
+        last_module_info = last_module_info->next;
+
+      }
+
+      mod_info = malloc(sizeof(afl_module_info_t));
+
+      mod_info->id = last_module_info ? last_module_info->id + 1 : 0;
+      mod_info->name = strdup(dlinfo.dli_fname);
+      mod_info->base_address = (uintptr_t)dlinfo.dli_fbase;
+      mod_info->start = 0;
+      mod_info->stop = 0;
+      mod_info->pcs_beg = NULL;
+      mod_info->pcs_end = NULL;
+      mod_info->mapped = 0;
+      mod_info->next = NULL;
+
+      if (last_module_info) {
+
+        last_module_info->next = mod_info;
+
+      } else {
+
+        __afl_module_info = mod_info;
+
+      }
+
+      fprintf(stderr, "[pcmap] Module: %s Base Address: %p\n", dlinfo.dli_fname,
+              dlinfo.dli_fbase);
+
+    }
+
+  } else {
+
+    fprintf(stderr, "[pcmap] dladdr call failed\n");
+
+  }
+
+#endif  // __AFL_CODE_COVERAGE
 
   x = getenv("AFL_INST_RATIO");
   if (x) {
@@ -1563,16 +1796,27 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
           "[-] FATAL: forkserver is already up, but an instrumented dlopen() "
           "library loaded afterwards. You must AFL_PRELOAD such libraries to "
           "be able to fuzz them or LD_PRELOAD to run outside of afl-fuzz.\n"
-          "To ignore this set AFL_IGNORE_PROBLEMS=1.\n");
+          "To ignore this set AFL_IGNORE_PROBLEMS=1 but this will lead to "
+          "ambiguous coverage data.\n"
+          "In addition, you can set AFL_IGNORE_PROBLEMS_COVERAGE=1 to "
+          "ignore the additional coverage instead (use with caution!).\n");
       abort();
 
     } else {
 
-      static u32 offset = 4;
+      u8 ignore_dso_after_fs = !!getenv("AFL_IGNORE_PROBLEMS_COVERAGE");
+      if (__afl_debug && ignore_dso_after_fs) {
+
+        fprintf(stderr, "Ignoring coverage from dynamically loaded code\n");
+
+      }
+
+      static u32 offset = 5;
 
       while (start < stop) {
 
-        if (likely(inst_ratio == 100) || R(100) < inst_ratio) {
+        if (!ignore_dso_after_fs &&
+            (likely(inst_ratio == 100) || R(100) < inst_ratio)) {
 
           *(start++) = offset;
 
@@ -1582,7 +1826,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
         }
 
-        if (unlikely(++offset >= __afl_final_loc)) { offset = 4; }
+        if (unlikely(++offset >= __afl_final_loc)) { offset = 5; }
 
       }
 
@@ -1596,7 +1840,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
      to avoid duplicate calls (which can happen as an artifact of the underlying
      implementation in LLVM). */
 
-  if (__afl_final_loc < 3) __afl_final_loc = 3;  // we skip the first 4 entries
+  if (__afl_final_loc < 5) __afl_final_loc = 5;  // we skip the first 5 entries
 
   *(start++) = ++__afl_final_loc;
 
@@ -1613,6 +1857,22 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     }
 
   }
+
+#ifdef __AFL_CODE_COVERAGE
+  if (mod_info) {
+
+    mod_info->start = *orig_start;
+    mod_info->stop = *(stop - 1);
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: [pcmap] Start Index: %u Stop Index: %u\n",
+              mod_info->start, mod_info->stop);
+
+    }
+
+  }
+
+#endif  // __AFL_CODE_COVERAGE
 
   if (__afl_debug) {
 

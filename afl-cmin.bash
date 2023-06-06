@@ -7,6 +7,8 @@
 #
 # Copyright 2014, 2015 Google Inc. All rights reserved.
 #
+# Copyright 2019-2023 AFLplusplus
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -36,7 +38,7 @@
 # array sizes.
 #
 
-echo "corpus minimization tool for afl-fuzz by Michal Zalewski"
+echo "corpus minimization tool for afl-fuzz"
 echo
 
 #########
@@ -46,14 +48,14 @@ echo
 # Process command-line options...
 
 MEM_LIMIT=none
-TIMEOUT=none
+TIMEOUT=5000
 
-unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
-  AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE UNICORN_MODE
+unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN F_ARG \
+  AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE UNICORN_MODE T_ARG
 
 export AFL_QUIET=1
 
-while getopts "+i:o:f:m:t:eOQUACh" opt; do
+while getopts "+i:o:f:m:t:T:eOQUAChXY" opt; do
 
   case "$opt" in 
 
@@ -69,6 +71,7 @@ while getopts "+i:o:f:m:t:eOQUACh" opt; do
          ;;
     "f")
          STDIN_FILE="$OPTARG"
+         F_ARG=1
          ;;
     "m")
          MEM_LIMIT="$OPTARG"
@@ -94,10 +97,21 @@ while getopts "+i:o:f:m:t:eOQUACh" opt; do
          EXTRA_PAR="$EXTRA_PAR -Q"
          QEMU_MODE=1
          ;;
+    "Y")
+         EXTRA_PAR="$EXTRA_PAR -X"
+         NYX_MODE=1
+         ;;
+    "X")
+         EXTRA_PAR="$EXTRA_PAR -X"
+         NYX_MODE=1
+         ;;
     "U")
          EXTRA_PAR="$EXTRA_PAR -U"
          UNICORN_MODE=1
          ;;    
+    "T")
+         T_ARG="$OPTARG"
+         ;;
     "?")
          exit 1
          ;;
@@ -122,12 +136,14 @@ Required parameters:
 
 Execution control settings:
 
-  -f file       - location read by the fuzzed program (stdin)
-  -m megs       - memory limit for child process ($MEM_LIMIT MB)
-  -t msec       - run time limit for child process (none)
+  -T tasks      - how many parallel processes to create (default=1, "all"=nproc)
+  -f file       - location read by the fuzzed program (default: stdin)
+  -m megs       - memory limit for child process (default=$MEM_LIMIT MB)
+  -t msec       - run time limit for child process (default: 5000ms)
   -O            - use binary-only instrumentation (FRIDA mode)
   -Q            - use binary-only instrumentation (QEMU mode)
   -U            - use unicorn-based instrumentation (Unicorn mode)
+  -X            - use Nyx mode
   
 Minimization settings:
 
@@ -142,6 +158,8 @@ AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
 AFL_NO_FORKSRV: run target via execve instead of using the forkserver
 AFL_PATH: last resort location to find the afl-showmap binary
 AFL_SKIP_BIN_CHECK: skip check for target binary
+AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
+AFL_PYTHON_MODULE: custom mutator library (post_process and send)
 _EOF_
   exit 1
 fi
@@ -188,6 +206,11 @@ fi
 
 # Check for obvious errors.
 
+if [ ! "$T_ARG" = "" -a -n "$F_ARG" -a ! "$NYX_MODE" == 1 ]; then
+  echo "[-] Error: -T and -f can not be used together." 1>&2
+  exit 1
+fi
+
 if [ ! "$MEM_LIMIT" = "none" ]; then
 
   if [ "$MEM_LIMIT" -lt "5" ]; then
@@ -206,20 +229,23 @@ if [ ! "$TIMEOUT" = "none" ]; then
 
 fi
 
-if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
+if [ "$NYX_MODE" = "" ]; then
+  if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
 
-  TNEW="`which "$TARGET_BIN" 2>/dev/null`"
+    TNEW="`which "$TARGET_BIN" 2>/dev/null`"
 
-  if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
-    echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
-    exit 1
+    if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
+      echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
+      exit 1
+    fi
+
+    TARGET_BIN="$TNEW"
+
   fi
-
-  TARGET_BIN="$TNEW"
 
 fi
 
-grep -aq AFL_DUMP_MAP_SIZE "./$TARGET_BIN" && {
+grep -aq AFL_DUMP_MAP_SIZE "$TARGET_BIN" && {
   echo "[!] Trying to obtain the map size of the target ..."
   MAPSIZE=`AFL_DUMP_MAP_SIZE=1 "./$TARGET_BIN" 2>/dev/null`
   test -n "$MAPSIZE" && {
@@ -228,7 +254,7 @@ grep -aq AFL_DUMP_MAP_SIZE "./$TARGET_BIN" && {
   }
 }
 
-if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
+if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$FRIDA_MODE" = "" -a "$UNICORN_MODE" = "" -a "$NYX_MODE" = "" ]; then
 
   if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then
     echo "[-] Error: binary '$TARGET_BIN' doesn't appear to be instrumented." 1>&2
@@ -285,13 +311,33 @@ if [ ! -x "$SHOWMAP" ]; then
   exit 1
 fi
 
+THREADS=
+if [ ! "$T_ARG" = "" ]; then
+  if [ "$T_ARG" = "all" ]; then
+    THREADS=$(nproc)
+  else
+    if [ "$T_ARG" -gt 1 -a "$T_ARG" -le "$(nproc)" ]; then
+      THREADS=$T_ARG
+    else
+      echo "[-] Error: -T parameter must between 2 and $(nproc) or \"all\"." 1>&2
+    fi
+  fi
+else
+  if [ -z "$F_ARG" ]; then
+    echo "[*] Are you aware of the '-T all' parallelize option that massively improves the speed?"
+  fi
+fi
+
 IN_COUNT=$((`ls -- "$IN_DIR" 2>/dev/null | wc -l`))
 
 if [ "$IN_COUNT" = "0" ]; then
-  echo "[+] Hmm, no inputs in the target directory. Nothing to be done."
+  echo "[-] Hmm, no inputs in the target directory. Nothing to be done."
   rm -rf "$TRACE_DIR"
   exit 1
 fi
+
+echo "[*] Are you aware that afl-cmin is faster than this afl-cmin.bash script?"
+echo "[+] Found $IN_COUNT files for minimizing."
 
 FIRST_FILE=`ls "$IN_DIR" | head -1`
 
@@ -341,6 +387,18 @@ else
 
 fi
 
+TMPFILE=$OUT_DIR/.list.$$
+if [ ! "$THREADS" = "" ]; then
+  ls -- "$IN_DIR" > $TMPFILE 2>/dev/null
+  IN_COUNT=$(cat $TMPFILE | wc -l)
+  SPLIT=$(($IN_COUNT / $THREADS))
+  if [ "$(($IN_COUNT % $THREADS))" -gt 0 ]; then
+    SPLIT=$(($SPLIT + 1))
+  fi
+  echo "[+] Splitting workload into $THREADS tasks with $SPLIT items on average each."
+  split -l $SPLIT $TMPFILE $TMPFILE.
+fi
+
 # Let's roll!
 
 #############################
@@ -349,6 +407,7 @@ fi
 
 echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
+if [ "$THREADS" = "" ]; then
 (
 
   CUR=0
@@ -372,17 +431,58 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
       printf "\\r    Processing file $CUR/$IN_COUNT... "
 
       cp "$IN_DIR/$fn" "$STDIN_FILE"
-
       "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" </dev/null
 
     done
 
-
   fi
+
+  echo
 
 )
 
-echo
+else
+
+  PIDS=
+  CNT=0
+  for inputs in $(ls ${TMPFILE}.*); do
+
+(
+
+  if [ "$STDIN_FILE" = "" ]; then
+
+    cat $inputs | while read -r fn; do
+
+      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$fn"
+
+    done
+
+  else
+
+    STDIN_FILE="$inputs.$$"
+    cat $inputs | while read -r fn; do
+
+      cp "$IN_DIR/$fn" "$STDIN_FILE"
+      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -H "$STDIN_FILE" -- "$@" </dev/null
+
+    done
+
+  fi
+
+) &
+
+  PIDS="$PIDS $!"
+  done
+
+  echo "[+] Waiting for running tasks IDs:$PIDS"
+  wait
+  echo "[+] all $THREADS running tasks completed."
+  rm -f ${TMPFILE}*
+
+  echo trace dir files: $(ls $TRACE_DIR/*|wc -l)
+
+fi
+
 
 ##########################
 # STEP 2: SORTING TUPLES #

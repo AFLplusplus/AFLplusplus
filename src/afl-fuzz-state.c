@@ -395,6 +395,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_statsd =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_POST_PROCESS_KEEP_ORIGINAL",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_post_process_keep_original =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_TMPDIR",
 
                               afl_environment_variable_len)) {
@@ -649,7 +656,15 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
   }
 
-  if (afl->afl_env.afl_pizza_mode) { afl->pizza_is_served = 1; }
+  if (afl->afl_env.afl_pizza_mode > 0) {
+
+    afl->pizza_is_served = 1;
+
+  } else if (afl->afl_env.afl_pizza_mode < 0) {
+
+    OKF("Pizza easter egg mode is now disabled.");
+
+  }
 
   if (issue_detected) { sleep(2); }
 

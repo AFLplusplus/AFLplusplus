@@ -118,7 +118,7 @@ def deinit():  # optional for Python
 
 ### Custom Mutation
 
-- `init`:
+- `init` (optional in Python):
 
     This method is called when AFL++ starts up and is used to seed RNG and set
     up buffers and state.
@@ -184,6 +184,11 @@ def deinit():  # optional for Python
     to the target, e.g. if it is too short, too corrupted, etc. If so,
     return a NULL buffer and zero length (or a 0 length string in Python).
 
+    NOTE: Do not make any random changes to the data in this function!
+
+    PERFORMANCE for C/C++: If possible make the changes in-place (so modify
+    the `*data` directly, and return it as `*outbuf = data`.
+
 - `fuzz_send` (optional):
 
     This method can be used if you want to send data to the target yourself,
@@ -202,7 +207,7 @@ def deinit():  # optional for Python
     discovered if compiled with INTROSPECTION. The custom mutator can then
     return a string (const char *) that reports the exact mutations used.
 
-- `deinit`:
+- `deinit` (optional in Python):
 
     The last method to be called, deinitializing the state.
 
@@ -298,6 +303,34 @@ compiles `afl-fuzz` with the feature if available.
 Note: for some distributions, you might also need the package `python[3]-apt`.
 In case your setup is different, set the necessary variables like this:
 `PYTHON_INCLUDE=/path/to/python/include LDFLAGS=-L/path/to/python/lib make`.
+
+### Helpers
+
+For C/C++ custom mutators you get a pointer to `afl_state_t *afl` in the
+`afl_custom_init()` which contains all information that you need.
+Note that if you access it, you need to recompile your custom mutator if
+you update AFL++ because the structure might have changed!
+
+For mutators written in Python, Rust, GO, etc. there are a few environment
+variables set to help you to get started:
+
+`AFL_CUSTOM_INFO_PROGRAM` - the program name of the target that is executed.
+If your custom mutator is used with modes like Qemu (`-Q`), this will still
+contain the target program, not afl-qemu-trace.
+
+`AFL_CUSTOM_INFO_PROGRAM_INPUT` - if the `-f` parameter is used with afl-fuzz
+then this value is found in this environment variable.
+
+`AFL_CUSTOM_INFO_PROGRAM_ARGV` - this contains the parameters given to the
+target program and still has the `@@` identifier in there.
+
+Note: If `AFL_CUSTOM_INFO_PROGRAM_INPUT` is empty and `AFL_CUSTOM_INFO_PROGRAM_ARGV`
+is either empty or does not contain `@@` then the target gets the input via
+`stdin`.
+
+`AFL_CUSTOM_INFO_OUT` - This is the output directory for this fuzzer instance,
+so if `afl-fuzz` was called with `-o out -S foobar`, then this will be set to
+`out/foobar`.
 
 ### Custom Mutator Preparation
 

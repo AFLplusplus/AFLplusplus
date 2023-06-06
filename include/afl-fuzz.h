@@ -184,6 +184,7 @@ struct queue_entry {
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum,                       /* Checksum of the execution trace  */
+      custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
@@ -398,8 +399,9 @@ typedef struct afl_env_vars {
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
-      afl_keep_timeouts, afl_pizza_mode, afl_no_crash_readme,
-      afl_ignore_timeouts, afl_no_startup_calibration, afl_no_warn_instability;
+      afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
+      afl_no_startup_calibration, afl_no_warn_instability,
+      afl_post_process_keep_original;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -407,6 +409,8 @@ typedef struct afl_env_vars {
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
+
+  s32 afl_pizza_mode;
 
 } afl_env_vars_t;
 
@@ -882,14 +886,19 @@ struct custom_mutator {
    * A post-processing function to use right before AFL writes the test case to
    * disk in order to execute the target.
    *
-   * (Optional) If this functionality is not needed, simply don't define this
+   * NOTE: Do not do any random changes to the data in this function!
+   *
+   * PERFORMANCE: If you can modify the data in-place you will have a better
+   *              performance. Modify *data and set `*out_buf = data`.
+   *
+   * (Optional) If this functionality is not needed, simply do not define this
    * function.
    *
    * @param[in] data pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
    * @param[out] out_buf Pointer to the buffer storing the test case after
-   *     processing. External library should allocate memory for out_buf.
+   *     processing. The external library should allocate memory for out_buf.
    *     It can chose to alter buf in-place, if the space is large enough.
    * @return Size of the output buffer.
    */
@@ -1095,7 +1104,6 @@ u32  count_bits(afl_state_t *, u8 *);
 u32  count_bytes(afl_state_t *, u8 *);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 void simplify_trace(afl_state_t *, u8 *);
-void classify_counts(afl_forkserver_t *);
 #ifdef WORD_SIZE_64
 void discover_word(u8 *ret, u64 *current, u64 *virgin);
 #else
@@ -1109,6 +1117,9 @@ u8 *describe_op(afl_state_t *, u8, size_t);
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
 u8 has_new_bits_unclassified(afl_state_t *, u8 *);
+#ifndef AFL_SHOWMAP
+void classify_counts(afl_forkserver_t *);
+#endif
 
 /* Extras */
 
@@ -1184,11 +1195,13 @@ void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);
-void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
 void   write_crash_readme(afl_state_t *afl);
 u8     check_if_text_buf(u8 *buf, u32 len);
+#ifndef AFL_SHOWMAP
+void setup_signal_handlers(void);
+#endif
 
 /* CmpLog */
 
@@ -1210,7 +1223,7 @@ double rand_next_percent(afl_state_t *afl);
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
-  if (limit <= 1) return 0;
+  if (unlikely(limit <= 1)) return 0;
 
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
@@ -1243,7 +1256,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
    expand havoc mode */
 static inline u32 rand_below_datalen(afl_state_t *afl, u32 limit) {
 
-  if (limit <= 1) return 0;
+  if (unlikely(limit <= 1)) return 0;
 
   switch (rand_below(afl, 3)) {
 

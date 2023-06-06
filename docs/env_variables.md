@@ -156,7 +156,7 @@ Available options:
   - LTO - LTO instrumentation
   - NATIVE - clang's original pcguard based instrumentation
   - NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
-  - PCGUARD - our own pcgard based instrumentation (default)
+  - PCGUARD - our own pcguard based instrumentation (default)
 
 #### CMPLOG
 
@@ -240,7 +240,9 @@ combined.
     the default `0x10000`. A value of 0 or empty sets the map address to be
     dynamic (the original AFL way, which is slower).
   - `AFL_LLVM_MAP_DYNAMIC` sets the shared memory address to be dynamic.
-
+  - `AFL_LLVM_LTO_SKIPINIT` skips adding initialization code. Some global vars
+    (e.g. the highest location ID) are not injected. Needed to instrument with
+    [WAFL](https://github.com/fgsect/WAFL.git).
   For more information, see
   [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
@@ -404,7 +406,8 @@ checks or alter some of the more exotic semantics of the tool:
 
   - If afl-fuzz encounters an incorrect fuzzing setup during a fuzzing session
     (not at startup), it will terminate. If you do not want this, then you can
-    set `AFL_IGNORE_PROBLEMS`.
+    set `AFL_IGNORE_PROBLEMS`. If you additionally want to also ignore coverage
+    from late loaded libraries, you can set `AFL_IGNORE_PROBLEMS_COVERAGE`.
 
   - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
     fuzzer to import test cases from other instances before doing anything else.
@@ -581,7 +584,7 @@ checks or alter some of the more exotic semantics of the tool:
     constructors in your target, you can set `AFL_EARLY_FORKSERVER`.
     Note that this is not a compile time option but a runtime option :-)
 
-  - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to 0
+  - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to -1
     to disable although it is 1st of April.
 
   - If you need a specific interval to update fuzzer_stats file, you can
@@ -615,6 +618,14 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - Setting `AFL_INST_LIBS` causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
+
+  - You can use `AFL_QEMU_INST_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to just
+    instrument specific memory locations, e.g. a specific library.
+    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
+
+  - You can use `AFL_QEMU_EXCLUDE_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to **NOT**
+    instrument specific memory locations, e.g. a specific library.
+    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
 
   - It is possible to set `AFL_INST_RATIO` to skip the instrumentation on some
     of the basic blocks, which can be useful when dealing with very complex
@@ -677,6 +688,8 @@ support.
 * `AFL_FRIDA_INST_JIT` - Enable the instrumentation of Just-In-Time compiled
   code. Code is considered to be JIT if the executable segment is not backed by
   a file.
+* `AFL_FRIDA_INST_NO_DYNAMIC_LOAD` - Don't instrument the code loaded late at
+  runtime. Strictly limits instrumentation to what has been included.
 * `AFL_FRIDA_INST_NO_OPTIMIZE` - Don't use optimized inline assembly coverage
   instrumentation (the default where available). Required to use
   `AFL_FRIDA_INST_TRACE`.

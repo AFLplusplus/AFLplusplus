@@ -110,7 +110,7 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   sysctl kern.sysv.shmall=131072000
   echo Settings applied.
   echo
-  if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then
+  if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ; then
     echo
     echo Unloading the default crash reporter
     SL=/System/Library; PL=com.apple.ReportCrash
@@ -119,6 +119,7 @@ if [ "$PLATFORM" = "Darwin" ] ; then
     echo
   fi
   echo It is recommended to disable System Integrity Protection for increased performance.
+  echo See: https://developer.apple.com/documentation/security/disabling_and_enabling_system_integrity_protection
   echo
   DONE=1
 fi

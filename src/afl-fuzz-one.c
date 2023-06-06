@@ -799,6 +799,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   eff_map = afl_realloc(AFL_BUF_PARAM(eff), EFF_ALEN(len));
   if (unlikely(!eff_map)) { PFATAL("alloc"); }
+  memset(eff_map, 0, EFF_ALEN(len));
   eff_map[0] = 1;
 
   if (EFF_APOS(len - 1) != 0) {
@@ -1868,6 +1869,7 @@ custom_mutator_stage:
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
+  afl->stage_cur = 0;
   afl->stage_val_type = STAGE_VAL_NONE;
   bool has_custom_fuzz = false;
   u32  shift = unlikely(afl->custom_only) ? 7 : 8;
@@ -1888,6 +1890,7 @@ custom_mutator_stage:
     if (el->afl_custom_fuzz) {
 
       afl->current_custom_fuzz = el;
+      afl->stage_name = el->name_short;
 
       if (el->afl_custom_fuzz_count) {
 
@@ -2003,19 +2006,21 @@ custom_mutator_stage:
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
 
-  if (likely(afl->custom_only)) {
-
-    /* Skip other stages */
-    ret_val = 0;
-    goto abandon_entry;
-
-  }
-
   /****************
    * RANDOM HAVOC *
    ****************/
 
 havoc_stage:
+
+  if (unlikely(afl->custom_only)) {
+
+    /* Force UI update */
+    show_stats(afl);
+    /* Skip other stages */
+    ret_val = 0;
+    goto abandon_entry;
+
+  }
 
   afl->stage_cur_byte = -1;
 
@@ -2028,7 +2033,7 @@ havoc_stage:
     afl->stage_short = "havoc";
     afl->stage_max = ((doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
                       perf_score / afl->havoc_div) >>
-                     7;
+                     8;
 
   } else {
 
@@ -2037,7 +2042,7 @@ havoc_stage:
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "splice %u", splice_cycle);
     afl->stage_name = afl->stage_name_buf;
     afl->stage_short = "splice";
-    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 7;
+    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 8;
 
   }
 
@@ -3880,6 +3885,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   eff_map = afl_realloc(AFL_BUF_PARAM(eff), EFF_ALEN(len));
   if (unlikely(!eff_map)) { PFATAL("alloc"); }
+  memset(eff_map, 0, EFF_ALEN(len));
   eff_map[0] = 1;
 
   if (EFF_APOS(len - 1) != 0) {
@@ -4951,7 +4957,7 @@ pacemaker_fuzzing:
              MOpt_globals.splice_stageformat, splice_cycle);
     afl->stage_name = afl->stage_name_buf;
     afl->stage_short = MOpt_globals.splice_stagenameshort;
-    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 7;
+    afl->stage_max = (SPLICE_HAVOC * perf_score / afl->havoc_div) >> 8;
 
   }
 

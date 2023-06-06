@@ -289,6 +289,7 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
     StringRef ifunc_name = IF.getName();
     Constant *r = IF.getResolver();
+    if (r->getNumOperands() == 0) { continue; }
     StringRef r_name = cast<Function>(r->getOperand(0))->getName();
     if (!be_quiet)
       fprintf(stderr,
@@ -583,7 +584,7 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 }
 
 // Calculate the number of average collisions that would occur if all
-// location IDs would be assigned randomly (like normal afl/afl++).
+// location IDs would be assigned randomly (like normal afl/AFL++).
 // This uses the "balls in bins" algorithm.
 unsigned long long int calculateCollisions(uint32_t edges) {
 
