@@ -18,6 +18,7 @@
     - rewrote our PCGUARD pass to be compatible with LLVM 15+ shenanigans,
       requires LLVM 13+ now instead of 10.0.1+
     - fallback to native LLVM PCGUARD if our PCGUARD is unavailable
+    - fixed a crash in GCC CMPLOG
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
