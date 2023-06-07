@@ -279,3 +279,54 @@ If you find an interesting or important question missing, submit it via
 
   Solution: just do an `export AFL_MAP_SIZE=(the value in the warning)`.
 </p></details>
+
+<details>
+  <summary id="linker-errors">Linker errors.</summary><p>
+
+  If you compile C++ harnesses and see `undefined reference` errors for
+  variables named `__afl_...`, e.g.:
+
+  ```
+  /usr/bin/ld: /tmp/test-d3085f.o: in function `foo::test()':
+  test.cpp:(.text._ZN3fooL4testEv[_ZN3fooL4testEv]+0x35): undefined reference to `foo::__afl_connected'
+  clang: error: linker command failed with exit code 1 (use -v to see invocation)
+  ```
+
+  Then you use AFL++ macros like `__AFL_LOOP` within a namespace and this
+  will not work.
+
+  Solution: Move that harness portion to the global namespace, e.g. before:
+  ```
+  #include <cstdio>
+  namespace foo {
+    static void test() {
+      while(__AFL_LOOP(1000)) {
+        foo::function();
+      }
+    }
+  }
+
+  int main(int argc, char** argv) {
+    foo::test();
+    return 0;
+  }
+  ```
+  after:
+  ```
+  #include <cstdio>
+  static void mytest() {
+    while(__AFL_LOOP(1000)) {
+      foo::function();
+    }
+  }
+  namespace foo {
+    static void test() {
+      mytest();
+    }
+  }
+  int main(int argc, char** argv) {
+    foo::test();
+    return 0;
+  }
+  ```
+</p></details>
