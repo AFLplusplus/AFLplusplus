@@ -145,12 +145,15 @@ def deinit():  # optional for Python
 
 - `fuzz` (optional):
 
-    This method performs custom mutations on a given input. It also accepts an
-    additional test case. Note that this function is optional - but it makes
-    sense to use it. You would only skip this if `post_process` is used to fix
-    checksums etc. so if you are using it, e.g., as a post processing library.
-    Note that a length > 0 *must* be returned!
-    The returned output buffer is under **your** memory management!
+    This method performs your custom mutations on a given input.
+    The add_buf is the contents of another queue item that can be used for
+    splicing - or anything else - and can also be ignored. If you are not
+    using this additional data then define `splice_optout` (see above).
+    This function is optional.
+    Returing a length of 0 is valid and is interpreted as skipping this
+    one mutation result.
+    For non-Python: the returned output buffer is under **your** memory
+    management!
 
 - `describe` (optional):
 
