@@ -1202,6 +1202,7 @@ u8     check_if_text_buf(u8 *buf, u32 len);
 #ifndef AFL_SHOWMAP
 void setup_signal_handlers(void);
 #endif
+char *get_fuzzing_state(afl_state_t *afl);
 
 /* CmpLog */
 
