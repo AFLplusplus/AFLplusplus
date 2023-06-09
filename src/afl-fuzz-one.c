@@ -2085,6 +2085,8 @@ havoc_stage:
   u32 *mutation_array;
   u32  stack_max, rand_max;  // stack_max_pow = afl->havoc_stack_pow2;
 
+  /*
+
   if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
     mutation_array = full_splice_array;
@@ -2096,6 +2098,8 @@ havoc_stage:
     rand_max = MUT_NORMAL_ARRAY_SIZE;
 
   }
+
+  */
 
   /*
     if (unlikely(afl->text_input || afl->queue_cur->is_ascii)) {  // is text?
@@ -2112,15 +2116,21 @@ havoc_stage:
 
     } else {  // is binary!
 
-      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+  */
 
-        mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+  rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
-      } else {  // is exploitation!
+  if (likely(afl->fuzz_mode == 0)) {  // is exploration?
 
-        mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+    mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
 
-      }
+  } else {  // is exploitation!
+
+    mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+
+  }
+
+  /*
 
     }
 
