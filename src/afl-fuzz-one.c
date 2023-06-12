@@ -2101,40 +2101,33 @@ havoc_stage:
 
   */
 
-  /*
-    if (unlikely(afl->text_input || afl->queue_cur->is_ascii)) {  // is text?
-
-      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
-
-        mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
-
-      } else {  // is exploitation!
-
-        mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
-
-      }
-
-    } else {  // is binary!
-
-  */
-
   rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
-  if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+  if (unlikely(afl->text_input /*|| afl->queue_cur->is_ascii*/)) {  // is text?
 
-    mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
 
-  } else {  // is exploitation!
+      mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
 
-    mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+    } else {  // is exploitation!
 
-  }
-
-  /*
+      mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
 
     }
 
-  */
+  } else {  // is binary!
+
+    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+
+      mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+
+    } else {  // is exploitation!
+
+      mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+
+    }
+
+  }
 
   /*
   if (temp_len < 64) {
