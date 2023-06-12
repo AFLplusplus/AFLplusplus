@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
 
-Release version: [4.06c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [4.07c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.07a
+GitHub version: 4.07c
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
