@@ -48,11 +48,11 @@ char *get_fuzzing_state(afl_state_t *afl) {
     u64 percent_cur = last_find_100 / cur_run_time;
     u64 percent_total = last_find_100 / cur_total_run_time;
 
-    if (unlikely(percent_cur >= 90 && percent_total >= 90)) {
+    if (unlikely(percent_cur >= 80 && percent_total >= 80)) {
 
       return fuzzing_state[3];
 
-    } else if (unlikely(percent_cur >= 75 && percent_total >= 75)) {
+    } else if (unlikely(percent_cur >= 55 && percent_total >= 55)) {
 
       return fuzzing_state[2];
 
