@@ -3,6 +3,13 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.08a (dev)
+  - new mutation engine: mutations that favor discovery more paths are prefered
+    until no new finds for 10 minutes then switching to mutations that favor
+    triggering crashes. Modes and switch time can be configured wie `-P`.
+  - display the state of the fuzzing run in the UI :-)
+
+
 ### Version ++4.07c (release)
   - afl-fuzz:
     - reverse reading the seeds only on restarts (increases performance)
