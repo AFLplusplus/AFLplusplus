@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.07a (dev)
+### Version ++4.07c (release)
   - afl-fuzz:
     - reverse reading the seeds only on restarts (increases performance)
     - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
