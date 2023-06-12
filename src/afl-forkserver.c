@@ -489,7 +489,7 @@ static void report_error_and_exit(int error) {
       break;
     case FS_ERROR_OLD_CMPLOG:
       FATAL(
-          "the -c cmplog target was instrumented with an too old afl++ "
+          "the -c cmplog target was instrumented with an too old AFL++ "
           "version, you need to recompile it.");
       break;
     case FS_ERROR_OLD_CMPLOG_QEMU:
@@ -987,7 +987,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
-      // workaround for recent afl++ versions
+      // workaround for recent AFL++ versions
       if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
         status = (status & 0xf0ffffff);
 
@@ -1059,7 +1059,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "afl++ is set with (%u). Either set AFL_MAP_SIZE=%u and restart "
+              "AFL++ is set with (%u). Either set AFL_MAP_SIZE=%u and restart "
               " afl-fuzz, or change MAP_SIZE_POW2 in config.h and recompile "
               "afl-fuzz",
               tmp_map_size, fsrv->map_size, tmp_map_size);
@@ -1226,7 +1226,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
-           "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
+           "      fail, poke the Awesome Fuzzing Discord for troubleshooting "
            "tips.\n");
 
     } else {
@@ -1271,7 +1271,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
-           "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
+           "      fail, poke the Awesome Fuzzing Discord for troubleshooting "
            "tips.\n",
            stringify_mem_size(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
            fsrv->mem_limit - 1);
@@ -1321,7 +1321,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
          "Otherwise there is a horrible bug in the fuzzer.\n"
-         "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
+         "Poke the Awesome Fuzzing Discord for troubleshooting tips.\n");
 
   } else {
 
@@ -1370,7 +1370,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
         "options\n"
-        "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
+        "      fail, poke the Awesome Fuzzing Discord for troubleshooting "
         "tips.\n",
         getenv(DEFER_ENV_VAR)
             ? "    - You are using deferred forkserver, but __AFL_INIT() is "

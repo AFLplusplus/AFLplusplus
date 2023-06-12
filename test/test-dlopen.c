@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 
   }
 
-  // must use deferred forkserver as otherwise afl++ instrumentation aborts
+  // must use deferred forkserver as otherwise AFL++ instrumentation aborts
   // because all dlopen() of instrumented libs must be before the forkserver
   __AFL_INIT();
 

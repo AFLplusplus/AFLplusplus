@@ -623,7 +623,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
         IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
         Value      *icmp = cur_lenchk_IRB.CreateICmpEQ(
-                 sizedValue, ConstantInt::get(sizedValue->getType(), i));
+            sizedValue, ConstantInt::get(sizedValue->getType(), i));
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
         cur_lenchk_bb->getTerminator()->eraseFromParent();
 

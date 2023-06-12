@@ -356,7 +356,7 @@ fi
 
 if ! command -v "$CROSS" > /dev/null ; then
   if [ "$CPU_TARGET" = "$(uname -m)" ] ; then
-    echo "[+] Building afl++ qemu support libraries with CC=$CC"
+    echo "[+] Building AFL++ qemu support libraries with CC=$CC"
     echo "[+] Building libcompcov ..."
     make -C libcompcov && echo "[+] libcompcov ready"
     echo "[+] Building unsigaction ..."
@@ -371,7 +371,7 @@ if ! command -v "$CROSS" > /dev/null ; then
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
   fi
 else
-  echo "[+] Building afl++ qemu support libraries with CC=\"$CROSS $CROSS_FLAGS\""
+  echo "[+] Building AFL++ qemu support libraries with CC=\"$CROSS $CROSS_FLAGS\""
   echo "[+] Building libcompcov ..."
   make -C libcompcov CC="$CROSS $CROSS_FLAGS" && echo "[+] libcompcov ready"
   echo "[+] Building unsigaction ..."

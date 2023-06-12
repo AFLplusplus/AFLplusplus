@@ -3,6 +3,35 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.07c (release)
+  - afl-fuzz:
+    - reverse reading the seeds only on restarts (increases performance)
+    - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
+      data before post process on finds (for atnwalk custom mutator)
+    - new env `AFL_IGNORE_PROBLEMS_COVERAGE` to ignore coverage from
+      loaded libs after forkserver initialization (required by Mozilla)
+  - afl-cc:
+    - added @responsefile support
+    - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
+      (https://github.com/fgsect/WAFL) project
+    - error and print help if afl-clan-lto is used with lto=thin
+    - rewrote our PCGUARD pass to be compatible with LLVM 15+ shenanigans,
+      requires LLVM 13+ now instead of 10.0.1+
+    - fallback to native LLVM PCGUARD if our PCGUARD is unavailable
+    - fixed a crash in GCC CMPLOG
+  - afl-showmap:
+    - added custom mutator post_process and send support
+    - add `-I filelist` option, an alternative to `-i in_dir`
+  - afl-cmin + afl-cmin.bash:
+    - `-T threads` parallel task support, can be a huge speedup!
+  - qemu_mode:
+    - Persistent mode + QASAN support for ppc32 targets by @worksbutnottested
+  - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
+  - two new custom mutators are now available:
+    - TritonDSE in custom_mutators/aflpp_tritondse
+    - SymQEMU in custom_mutators/symqemu
+
+
 ### Version ++4.06c (release)
   - afl-fuzz:
     - ensure temporary file descriptor is closed when not used
@@ -211,7 +240,7 @@
     afl-showmap and other tools.
   - afl-cc:
     - detect overflow reads on initial input buffer for asan
-    - new cmplog mode (incompatible with older afl++ versions)
+    - new cmplog mode (incompatible with older AFL++ versions)
     - support llvm IR select instrumentation for default PCGUARD and LTO
     - fix for shared linking on MacOS
     - better selective instrumentation AFL_LLVM_{ALLOW|DENY}LIST

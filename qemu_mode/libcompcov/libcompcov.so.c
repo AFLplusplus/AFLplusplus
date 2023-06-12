@@ -68,7 +68,11 @@ static int debug_fd = -1;
 
 #define MAX_MAPPINGS 1024
 
-static struct mapping { void *st, *en; } __compcov_ro[MAX_MAPPINGS];
+static struct mapping {
+
+  void *st, *en;
+
+} __compcov_ro[MAX_MAPPINGS];
 
 static u32 __compcov_ro_cnt;
 

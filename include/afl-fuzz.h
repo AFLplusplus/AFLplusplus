@@ -184,6 +184,7 @@ struct queue_entry {
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum,                       /* Checksum of the execution trace  */
+      custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
@@ -399,7 +400,8 @@ typedef struct afl_env_vars {
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
-      afl_no_startup_calibration, afl_no_warn_instability;
+      afl_no_startup_calibration, afl_no_warn_instability,
+      afl_post_process_keep_original;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -1103,7 +1105,6 @@ u32  count_bits(afl_state_t *, u8 *);
 u32  count_bytes(afl_state_t *, u8 *);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 void simplify_trace(afl_state_t *, u8 *);
-void classify_counts(afl_forkserver_t *);
 #ifdef WORD_SIZE_64
 void discover_word(u8 *ret, u64 *current, u64 *virgin);
 #else
@@ -1117,6 +1118,9 @@ u8 *describe_op(afl_state_t *, u8, size_t);
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
 u8 has_new_bits_unclassified(afl_state_t *, u8 *);
+#ifndef AFL_SHOWMAP
+void classify_counts(afl_forkserver_t *);
+#endif
 
 /* Extras */
 
@@ -1192,11 +1196,13 @@ void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);
-void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
 void   write_crash_readme(afl_state_t *afl);
 u8     check_if_text_buf(u8 *buf, u32 len);
+#ifndef AFL_SHOWMAP
+void setup_signal_handlers(void);
+#endif
 
 /* CmpLog */
 
@@ -1218,7 +1224,7 @@ double rand_next_percent(afl_state_t *afl);
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
-  if (limit <= 1) return 0;
+  if (unlikely(limit <= 1)) return 0;
 
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
@@ -1251,7 +1257,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
    expand havoc mode */
 static inline u32 rand_below_datalen(afl_state_t *afl, u32 limit) {
 
-  if (limit <= 1) return 0;
+  if (unlikely(limit <= 1)) return 0;
 
   switch (rand_below(afl, 3)) {
 

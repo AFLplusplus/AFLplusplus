@@ -2,7 +2,7 @@
   american fuzzy lop++ - wrapper for llvm 11+ lld
   -----------------------------------------------
 
-  Written by Marc Heuse <mh@mh-sec.de> for afl++
+  Written by Marc Heuse <mh@mh-sec.de> for AFL++
 
   Maintained by Marc Heuse <mh@mh-sec.de>,
                 Heiko Eißfeldt <heiko.eissfeldt@hexco.de>
@@ -210,7 +210,7 @@ static void edit_params(int argc, char **argv) {
 
     if (strcmp(argv[i], "--afl") == 0) {
 
-      if (!be_quiet) OKF("afl++ test command line flag detected, exiting.");
+      if (!be_quiet) OKF("AFL++ test command line flag detected, exiting.");
       exit(0);
 
     }
