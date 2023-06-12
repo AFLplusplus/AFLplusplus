@@ -47,7 +47,7 @@
    switches to exploitation mode. It automatically switches back when new
    coverage is found.
    Default: 300 (seconds) */
-#define STRATEGY_SWITCH_TIME 600
+#define STRATEGY_SWITCH_TIME 1000
 
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600
