@@ -43,6 +43,12 @@
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
+/* Default time until when no more coverage finds are happening afl-fuzz
+   switches to exploitation mode. It automatically switches back when new
+   coverage is found.
+   Default: 300 (seconds) */
+#define STRATEGY_SWITCH_TIME 600
+
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600
 
