@@ -157,6 +157,9 @@ struct afl_cmptrs_pass : afl_base_pass {
     /* We expect it to be a record type.  */
     if (TREE_CODE(t) != RECORD_TYPE) return false;
 
+    /* The type has an identifier.  */
+    if (!TYPE_IDENTIFIER(t)) return false;
+
     /* The type of the template is basic_string.  */
     if (strcmp(IDENTIFIER_POINTER(TYPE_IDENTIFIER(t)), "basic_string") != 0)
       return false;
@@ -201,7 +204,7 @@ struct afl_cmptrs_pass : afl_base_pass {
     /* Now go back to the first data member.  Its type should be a
        record type named _Alloc_hider.  */
     c = TREE_TYPE(c);
-    if (!c || TREE_CODE(c) != RECORD_TYPE ||
+    if (!c || TREE_CODE(c) != RECORD_TYPE || !TYPE_IDENTIFIER(t) ||
         strcmp(IDENTIFIER_POINTER(TYPE_IDENTIFIER(c)), "_Alloc_hider") != 0)
       return false;
 
