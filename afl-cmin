@@ -488,7 +488,7 @@ BEGIN {
 
   if (threads) {
 
-    inputsperfile = in_count / threads
+    inputsperfile = int(in_count / threads)
     if (in_count % threads) {
       inputsperfile++;
     }
