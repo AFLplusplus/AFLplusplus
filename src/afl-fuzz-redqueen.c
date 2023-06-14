@@ -2068,13 +2068,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
         buf[idx + i] = repl[i];
 
-        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+      }
+
+      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
 #ifdef CMPLOG_COMBINE
-        if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i); }
+      if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i); }
 #endif
-
-      }
 
       memcpy(&buf[idx], save + to - pre, i);
 
