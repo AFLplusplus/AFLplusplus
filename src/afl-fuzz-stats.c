@@ -2303,7 +2303,12 @@ void show_init_stats(afl_state_t *afl) {
       stringify_int(IB(0), min_us), stringify_int(IB(1), max_us),
       stringify_int(IB(2), avg_us));
 
-  if (afl->timeout_given != 1) {
+  if (afl->timeout_given == 3) {
+
+    ACTF("Applying timeout settings from resumed session (%u ms).",
+         afl->fsrv.exec_tmout);
+
+  } else if (afl->timeout_given != 1) {
 
     /* Figure out the appropriate timeout. The basic idea is: 5x average or
        1x max, rounded up to EXEC_TM_ROUND ms and capped at 1 second.
@@ -2344,13 +2349,6 @@ void show_init_stats(afl_state_t *afl) {
          afl->fsrv.exec_tmout);
 
     afl->timeout_given = 1;
-
-  } else if (afl->timeout_given == 3) {
-
-    ACTF("Applying timeout settings from resumed session (%u ms).",
-         afl->fsrv.exec_tmout);
-
-  } else {
 
     ACTF("-t option specified. We'll use an exec timeout of %u ms.",
          afl->fsrv.exec_tmout);
