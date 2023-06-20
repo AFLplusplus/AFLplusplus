@@ -2362,6 +2362,7 @@ int main(int argc, char **argv_orig, char **envp) {
             max_ms = afl->queue_buf[entry]->exec_us;
 
       afl->fsrv.exec_tmout = max_ms;
+      afl->timeout_given = 1;
 
     }
 

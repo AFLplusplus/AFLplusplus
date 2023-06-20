@@ -4,13 +4,16 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.08a (dev)
-  - new mutation engine: mutations that favor discovery more paths are prefered
-    until no new finds for 10 minutes then switching to mutations that favor
-    triggering crashes. Modes and switch time can be configured wie `-P`.
-  - new custom mutator that has the new afl++ engine (so it can easily
-    incorporated into new custom mutators), and also comes with a standalone
-    command line tool! See custom_mutators/aflpp/standalone/
-  - display the state of the fuzzing run in the UI :-)
+  - afl-fuzz:
+    - new mutation engine: mutations that favor discovery more paths are
+      prefered until no new finds for 10 minutes then switching to mutations
+      that favor triggering crashes. Modes and switch time can be configured
+      with `-P`.
+    - new custom mutator that has the new afl++ engine (so it can easily
+      incorporated into new custom mutators), and also comes with a standalone
+      command line tool! See custom_mutators/aflpp/standalone/
+    - display the state of the fuzzing run in the UI :-)
+    - fix timeout setting if '+' is used or a session is restarted
 
 
 ### Version ++4.07c (release)
