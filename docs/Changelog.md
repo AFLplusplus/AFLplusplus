@@ -14,6 +14,10 @@
       command line tool! See custom_mutators/aflpp/standalone/
     - display the state of the fuzzing run in the UI :-)
     - fix timeout setting if '+' is used or a session is restarted
+  - afl-cmin/afl-cmin.bash:
+    - fixed a bug inherited from vanilla AFL where a coverage of
+      map[123] = 11 would be the same as map[1123] = 1
+    - warn on crashing inputs
 
 
 ### Version ++4.07c (release)
