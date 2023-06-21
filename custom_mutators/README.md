@@ -70,14 +70,17 @@ requires cmake (among other things):
 
 ### libprotobuf Mutators
 
-There are two WIP protobuf projects, that require work to be working though:
+There are three WIP protobuf projects, that require work to be working though:
+
+ASN.1 example:
+[https://github.com/airbus-seclab/AFLplusplus-blogpost/tree/main/src/mutator](https://github.com/airbus-seclab/AFLplusplus-blogpost/tree/main/src/mutator)
 
 transforms protobuf raw:
-https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator
+[https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
 
 has a transform function you need to fill for your protobuf format, however
 needs to be ported to the updated AFL++ custom mutator API (not much work):
-https://github.com/thebabush/afl-libprotobuf-mutator
+[https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
 
 same as above but is for current AFL++:
-https://github.com/P1umer/AFLplusplus-protobuf-mutator
+[https://github.com/P1umer/AFLplusplus-protobuf-mutator](https://github.com/P1umer/AFLplusplus-protobuf-mutator)
