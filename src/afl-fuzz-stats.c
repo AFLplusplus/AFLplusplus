@@ -2350,6 +2350,8 @@ void show_init_stats(afl_state_t *afl) {
 
     afl->timeout_given = 1;
 
+  } else {
+
     ACTF("-t option specified. We'll use an exec timeout of %u ms.",
          afl->fsrv.exec_tmout);
 

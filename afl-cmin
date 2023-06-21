@@ -513,7 +513,7 @@ BEGIN {
 
   if (threads > 1) {
 
-    print "[*] Creating " threads " parallel tasks with about " inputsperfile " each."
+    print "[*] Creating " threads " parallel tasks with about " inputsperfile " items each."
     for (i = 1; i <= threads; i++) {
 
       if (!stdin_file) {
