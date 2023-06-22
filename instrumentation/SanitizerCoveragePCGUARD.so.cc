@@ -225,49 +225,18 @@ llvmGetPassPluginInfo() {
 
 }
 
-#if LLVM_VERSION_MAJOR == 1
+#if LLVM_VERSION_MAJOR >= 16
 PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
 
+#else
+PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
+                                                  ModuleAnalysisManager &MAM) {
+
+#endif
   ModuleSanitizerCoverageAFL ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
-
-    return &FAM.getResult<DominatorTreeAnalysis>(F);
-
-  };
-
-  auto PDTCallback = [&FAM](Function &F) -> const PostDominatorTree * {
-
-    return &FAM.getResult<PostDominatorTreeAnalysis>(F);
-
-  };
-
-  if (!ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
-    return PreservedAnalyses::all();
-
-  PreservedAnalyses PA = PreservedAnalyses::none();
-  // GlobalsAA is considered stateless and does not get invalidated unless
-  // explicitly invalidated; PreservedAnalyses::none() is not enough. Sanitizers
-  // make changes that require GlobalsAA to be invalidated.
-  PA.abandon<GlobalsAA>();
-  return PA;
-
-}
-
-#else
-  #if LLVM_VERSION_MAJOR >= 16
-PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module &M,
-                                                  ModuleAnalysisManager &MAM) {
-
-  #else
-PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
-                                                  ModuleAnalysisManager &MAM) {
-
-  #endif
-  ModuleSanitizerCoverageAFL ModuleSancov(Options);
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
     return &FAM.getResult<DominatorTreeAnalysis>(F);
 
@@ -284,8 +253,6 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
   return PreservedAnalyses::all();
 
 }
-
-#endif
 
 std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
     Module &M, const char *Section, Type *Ty) {

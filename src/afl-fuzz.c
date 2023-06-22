@@ -164,7 +164,8 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
-      "  -a            - target expects ascii text input (prefer text mutators)\n"
+      "  -a            - target expects ascii text input (prefer text "
+      "mutators)\n"
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
