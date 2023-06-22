@@ -1542,8 +1542,8 @@ double get_runnable_processes(void) {
      processes well. */
 
   FILE *f = fopen("/proc/stat", "r");
-  u8 tmp[1024];
-  u32 val = 0;
+  u8    tmp[1024];
+  u32   val = 0;
 
   if (!f) { return 0; }
 
@@ -2226,7 +2226,7 @@ void check_crash_handling(void) {
    *BSD, so we can just let it slide for now. */
 
   s32 fd = open("/proc/sys/kernel/core_pattern", O_RDONLY);
-  u8 fchar;
+  u8  fchar;
 
   if (fd < 0) { return; }
 
@@ -2365,7 +2365,7 @@ void check_cpu_governor(afl_state_t *afl) {
   FATAL("Suboptimal CPU scaling governor");
 
 #elif defined __APPLE__
-  u64 min = 0, max = 0;
+  u64    min = 0, max = 0;
   size_t mlen = sizeof(min);
   if (afl->afl_env.afl_skip_cpufreq) return;
 
