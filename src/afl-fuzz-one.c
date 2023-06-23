@@ -2101,27 +2101,17 @@ havoc_stage:
 
   */
 
-  rand_max = MUT_STRATEGY_ARRAY_SIZE;
-
   if (unlikely(afl->text_input)) {  // is text?
 
     if (likely(afl->fuzz_mode == 0)) {  // is exploration?
 
-      if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
-
-        mutation_array = full_splice_array;
-        rand_max = MUT_SPLICE_ARRAY_SIZE;
-
-      } else {
-
-        mutation_array = normal_splice_array;
-        rand_max = MUT_NORMAL_ARRAY_SIZE;
-
-      }
+      mutation_array = (unsigned int *)&text_array;
+      rand_max = MUT_TXT_ARRAY_SIZE;
 
     } else {  // is exploitation!
 
       mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
+      rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
     }
 
@@ -2129,21 +2119,13 @@ havoc_stage:
 
     if (likely(afl->fuzz_mode == 0)) {  // is exploration?
 
-      if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
-
-        mutation_array = full_splice_array;
-        rand_max = MUT_SPLICE_ARRAY_SIZE;
-
-      } else {
-
-        mutation_array = normal_splice_array;
-        rand_max = MUT_NORMAL_ARRAY_SIZE;
-
-      }
+      mutation_array = (unsigned int *)&binary_array;
+      rand_max = MUT_BIN_ARRAY_SIZE;
 
     } else {  // is exploitation!
 
       mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+      rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
     }
 
