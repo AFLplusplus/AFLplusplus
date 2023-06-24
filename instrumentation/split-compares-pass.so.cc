@@ -464,8 +464,11 @@ bool SplitComparesTransform::simplifyOrEqualsCompare(CmpInst     *IcmpInst,
   ReplaceInstWithInst(IcmpInst->getParent()->getInstList(), ii, PN);
 #endif
   if (new_pred == CmpInst::ICMP_SGT || new_pred == CmpInst::ICMP_SLT) {
+
     simplifySignedCompare(icmp_np, M, worklist);
+
   }
+
   worklist.push_back(icmp_eq);
 
   return true;
@@ -751,11 +754,14 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
         icmp_inv_cmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT,
                                        op0_high, op1_high);
 
-      }
-      else {
+      } else {
+
         // Never gonna appen
         if (!be_quiet)
-          fprintf(stderr, "Error: split-compare: Equals or signed not removed: %d\n", pred);
+          fprintf(stderr,
+                  "Error: split-compare: Equals or signed not removed: %d\n",
+                  pred);
+
       }
 
 #if LLVM_MAJOR >= 16
