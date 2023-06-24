@@ -225,15 +225,8 @@ llvmGetPassPluginInfo() {
 
 }
 
-#if LLVM_VERSION_MAJOR >= 16
 PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
-
-#else
-PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
-                                                  ModuleAnalysisManager &MAM) {
-
-#endif
   ModuleSanitizerCoverageAFL ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
