@@ -331,7 +331,7 @@ llvmGetPassPluginInfo() {
 #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
-#if LLVM_VERSION_MAJOR >= 16
+#if LLVM_VERSION_MAJOR >= 15
             PB.registerFullLinkTimeOptimizationLastEPCallback(
 #else
             PB.registerOptimizerLastEPCallback(
