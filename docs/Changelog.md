@@ -8,7 +8,8 @@
     - new mutation engine: mutations that favor discovery more paths are
       prefered until no new finds for 10 minutes then switching to mutations
       that favor triggering crashes. Modes and switch time can be configured
-      with `-P`.
+      with `-P`. Also input mode for the target can be defined with `-a` to
+      be `text` or `binary` (defaults to `generic`)
     - new custom mutator that has the new afl++ engine (so it can easily
       incorporated into new custom mutators), and also comes with a standalone
       command line tool! See custom_mutators/aflpp/standalone/
@@ -23,6 +24,7 @@
       Thanks to @amykweon for spotting and fixing!
     - @toka fixed a bug in laf-intel signed integer comparison splitting,
       thanks a lot!!
+    - more LLVM compatability
   - frida_mode:
     - support for long form instrumentation on x86_x64 and arm64
 

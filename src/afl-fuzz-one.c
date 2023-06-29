@@ -2085,47 +2085,57 @@ havoc_stage:
   u32 *mutation_array;
   u32  stack_max, rand_max;  // stack_max_pow = afl->havoc_stack_pow2;
 
-  /*
+  switch (afl->input_mode) {
 
-  if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
+    case 1: {  // TEXT
 
-    mutation_array = full_splice_array;
-    rand_max = MUT_SPLICE_ARRAY_SIZE;
+      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+        mutation_array = (unsigned int *)&binary_array;
+        rand_max = MUT_BIN_ARRAY_SIZE;
 
-  } else {
+      } else {  // exploitation mode
 
-    mutation_array = normal_splice_array;
-    rand_max = MUT_NORMAL_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
+        rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
-  }
+      }
 
-  */
-
-  if (unlikely(afl->text_input)) {  // is text?
-
-    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
-
-      mutation_array = (unsigned int *)&text_array;
-      rand_max = MUT_TXT_ARRAY_SIZE;
-
-    } else {  // is exploitation!
-
-      mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
-      rand_max = MUT_STRATEGY_ARRAY_SIZE;
+      break;
 
     }
 
-  } else {  // is binary!
+    case 2: {  // BINARY
 
-    if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+        mutation_array = (unsigned int *)&mutation_strategy_exploration_binary;
+        rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
-      mutation_array = (unsigned int *)&binary_array;
-      rand_max = MUT_BIN_ARRAY_SIZE;
+      } else {  // exploitation mode
 
-    } else {  // is exploitation!
+        mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
+        rand_max = MUT_STRATEGY_ARRAY_SIZE;
 
-      mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
-      rand_max = MUT_STRATEGY_ARRAY_SIZE;
+      }
+
+      break;
+
+    }
+
+    default: {  // DEFAULT/GENERIC
+
+      if (likely(afl->fuzz_mode == 0)) {  // is exploration?
+        mutation_array = (unsigned int *)&binary_array;
+        rand_max = MUT_BIN_ARRAY_SIZE;
+
+      } else {  // exploitation mode
+
+        // this will need to be changed I guess
+        mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
+        rand_max = MUT_STRATEGY_ARRAY_SIZE;
+
+      }
+
+      break;
 
     }
 

@@ -505,36 +505,37 @@ typedef struct afl_state {
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
       pizza_is_served,                  /* pizza mode                       */
-      text_input,                       /* target wants text inputs         */
-      fuzz_mode, /* current mode: coverage/exploration or crash/exploitation */
+      input_mode,                       /* target wants text inputs         */
+      fuzz_mode,          /* coverage/exploration or crash/exploitation mode */
       schedule,                         /* Power schedule (default: EXPLORE)*/
-      havoc_max_mult, skip_deterministic, /* Skip deterministic stages?       */
-      use_splicing,                       /* Recombine input files?           */
-      non_instrumented_mode,              /* Run in non-instrumented mode?    */
-      score_changed,                      /* Scoring for favorites changed?   */
-      resuming_fuzz,                      /* Resuming an older fuzzing job?   */
-      timeout_given,                      /* Specific timeout given?          */
-      not_on_tty,                         /* stdout is not a tty              */
-      term_too_small,                     /* terminal dimensions too small    */
-      no_forkserver,                      /* Disable forkserver?              */
-      crash_mode,                         /* Crash mode! Yeah!                */
-      in_place_resume,                    /* Attempt in-place resume?         */
-      autoresume,                         /* Resume if afl->out_dir exists?   */
-      auto_changed,                       /* Auto-generated tokens changed?   */
-      no_cpu_meter_red,                   /* Feng shui on the status screen   */
-      no_arith,                           /* Skip most arithmetic ops         */
-      shuffle_queue,                      /* Shuffle input queue?             */
-      bitmap_changed,                     /* Time to update bitmap?           */
-      unicorn_mode,                       /* Running in Unicorn mode?         */
-      use_wine,                           /* Use WINE with QEMU mode          */
-      skip_requested,                     /* Skip request, via SIGUSR1        */
-      run_over10m,                        /* Run time over 10 minutes?        */
-      persistent_mode,                    /* Running in persistent mode?      */
-      deferred_mode,                      /* Deferred forkserver mode?        */
-      fixed_seed,                         /* do not reseed                    */
-      fast_cal,                           /* Try to calibrate faster?         */
-      disable_trim,                       /* Never trim in fuzz_one           */
-      shmem_testcase_mode,                /* If sharedmem testcases are used  */
+      havoc_max_mult,                   /* havoc multiplier                 */
+      skip_deterministic,               /* Skip deterministic stages?       */
+      use_splicing,                     /* Recombine input files?           */
+      non_instrumented_mode,            /* Run in non-instrumented mode?    */
+      score_changed,                    /* Scoring for favorites changed?   */
+      resuming_fuzz,                    /* Resuming an older fuzzing job?   */
+      timeout_given,                    /* Specific timeout given?          */
+      not_on_tty,                       /* stdout is not a tty              */
+      term_too_small,                   /* terminal dimensions too small    */
+      no_forkserver,                    /* Disable forkserver?              */
+      crash_mode,                       /* Crash mode! Yeah!                */
+      in_place_resume,                  /* Attempt in-place resume?         */
+      autoresume,                       /* Resume if afl->out_dir exists?   */
+      auto_changed,                     /* Auto-generated tokens changed?   */
+      no_cpu_meter_red,                 /* Feng shui on the status screen   */
+      no_arith,                         /* Skip most arithmetic ops         */
+      shuffle_queue,                    /* Shuffle input queue?             */
+      bitmap_changed,                   /* Time to update bitmap?           */
+      unicorn_mode,                     /* Running in Unicorn mode?         */
+      use_wine,                         /* Use WINE with QEMU mode          */
+      skip_requested,                   /* Skip request, via SIGUSR1        */
+      run_over10m,                      /* Run time over 10 minutes?        */
+      persistent_mode,                  /* Running in persistent mode?      */
+      deferred_mode,                    /* Deferred forkserver mode?        */
+      fixed_seed,                       /* do not reseed                    */
+      fast_cal,                         /* Try to calibrate faster?         */
+      disable_trim,                     /* Never trim in fuzz_one           */
+      shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
       old_seed_selection,               /* use vanilla afl seed selection   */

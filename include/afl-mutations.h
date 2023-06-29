@@ -14,14 +14,14 @@
    Parameters:
      afl_state_t *afl - the *afl state pointer
      u8 *buf - the input buffer to mutate which will be mutated into.
-           NOTE: must be able to contain a size of at least max_len (see below)!
+         NOTE: must be able to contain a size of at least max_len!! (see below)
      u32 len - the length of the input
      u32 steps - how many mutations to perform on the input
      bool is_text - is the target expecting text inputs
      bool is_exploration - mutate for exploration mode (instead of exploitation)
      splice_buf - a buffer from another corpus item to splice with.
-                  If NULL then no splicing
-     splice_len - the length of the splice buffer. If 0 then no splicing
+                  If NULL then no splicing is done (obviously).
+     splice_len - the length of the splice buffer. If 0 then no splicing.
      u32 max_len - the maximum size the mutated buffer may grow to
 */
 
