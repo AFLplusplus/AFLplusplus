@@ -125,7 +125,8 @@ static void usage(u8 *argv0, int more_help) {
 
       "Required parameters:\n"
       "  -i dir        - input directory with test cases (or '-' to resume, "
-      "also see AFL_AUTORESUME)\n"
+      "also see \n"
+      "                  AFL_AUTORESUME)\n"
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
@@ -164,8 +165,8 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
-      "  -a            - target expects ascii text input (prefer text "
-      "mutators)\n"
+      "  -a            - target input format, \"text\" or \"binary\" (default: "
+      "generic)\n"
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
@@ -506,13 +507,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
-                       "+aAb:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
+                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
                        "T:UV:WXx:YZ")) > 0) {
 
     switch (opt) {
 
       case 'a':
-        afl->text_input = 1;
+
+        if (!stricmp(optarg, "text") || !stricmp(optarg, "ascii") ||
+            !stricmp(optarg, "txt") || !stricmp(optarg, "asc")) {
+
+          afl->input_mode = 1;
+
+        } else if (!stricmp(optarg, "bin") || !stricmp(optarg, "binary")) {
+
+          afl->input_mode = 2;
+
+        } else {
+
+          FATAL("-a input mode needs to be \"text\" or \"binary\".");
+
+        }
+
         break;
 
       case 'P':
