@@ -1988,10 +1988,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   if (l0 >= 0x80 || ol0 >= 0x80) {
 
-    l0 -= 0x80;
-    l1 -= 0x80;
-    ol0 -= 0x80;
-    ol1 -= 0x80;
+    if (l0 >= 0x80) { l0 -= 0x80; }
+    if (l1 >= 0x80) { l1 -= 0x80; }
+    if (ol0 >= 0x80) { ol0 -= 0x80; }
+    if (ol1 >= 0x80) { ol1 -= 0x80; }
 
   }
 
@@ -2059,7 +2059,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       for (i = 0; i < its_len; ++i) {
 
-        if ((pattern[i] != buf[idx + i] && o_pattern[i] != orig_buf[idx + i]) ||
+        if ((pattern[i] != buf[idx + i] || o_pattern[i] != orig_buf[idx + i]) ||
             *status == 1) {
 
           break;
@@ -2592,6 +2592,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
       // o->v0, v1_len, o->v1);
 
+      // Note that this check differs from the line 1901, for RTN we are more
+      // opportunistic for adding to the dictionary than cmps
       if (!memcmp(o->v0, orig_o->v0, v0_len) ||
           (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
         maybe_add_auto(afl, o->v0, v0_len);

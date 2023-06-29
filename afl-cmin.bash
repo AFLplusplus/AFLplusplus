@@ -479,7 +479,7 @@ else
   echo "[+] all $THREADS running tasks completed."
   rm -f ${TMPFILE}*
 
-  echo trace dir files: $(ls $TRACE_DIR/*|wc -l)
+  #echo trace dir files: $(ls $TRACE_DIR/*|wc -l)
 
 fi
 
@@ -522,6 +522,8 @@ ls -rS "$IN_DIR" | while read -r fn; do
   printf "\\r    Processing file $CUR/$IN_COUNT... "
 
   sed "s#\$# $fn#" "$TRACE_DIR/$fn" >>"$TRACE_DIR/.candidate_list"
+
+  test -s "$TRACE_DIR/$fn" || echo Warning: $fn is ignored because of crashing the target
 
 done
 

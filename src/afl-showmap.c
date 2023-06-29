@@ -243,7 +243,8 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
       total += fsrv->trace_bits[i];
       if (fsrv->trace_bits[i] > highest) highest = fsrv->trace_bits[i];
-      if (!coverage_map[i]) { coverage_map[i] = 1; }
+      // if (!coverage_map[i]) { coverage_map[i] = 1; }
+      coverage_map[i] |= fsrv->trace_bits[i];
 
     }
 
@@ -328,7 +329,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
       if (cmin_mode) {
 
-        fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
+        fprintf(f, "%u%03u\n", i, fsrv->trace_bits[i]);
 
       } else {
 

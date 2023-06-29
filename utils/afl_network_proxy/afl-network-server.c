@@ -173,6 +173,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
     }
 
     out_file = alloc_printf("%s/.afl-input-temp-%u", use_dir, getpid());
+    fsrv->out_file = out_file;
 
   }
 
