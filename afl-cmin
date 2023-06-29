@@ -318,7 +318,9 @@ BEGIN {
 
   if (!nyx_mode && target_bin && !exists_and_is_executable(target_bin)) {
 
-    "command -v "target_bin" 2>/dev/null" | getline tnew
+    cmd = "command -v "target_bin" 2>/dev/null"
+    cmd | getline tnew
+    close(cmd)
     if (!tnew || !exists_and_is_executable(tnew)) {
       print "[-] Error: binary '"target_bin"' not found or not executable." > "/dev/stderr"
       exit 1
@@ -330,6 +332,7 @@ BEGIN {
     echo "[!] Trying to obtain the map size of the target ..."
     get_map_size = "AFL_DUMP_MAP_SIZE=1 " target_bin
     get_map_size | getline mapsize
+    close(get_map_size)
     if (mapsize && mapsize > 65535 && mapsize < 100000000) {
       AFL_MAP_SIZE = "AFL_MAP_SIZE="mapsize" "
       print "[+] Setting "AFL_MAP_SIZE
@@ -359,14 +362,18 @@ BEGIN {
   system("rm -rf "trace_dir" 2>/dev/null");
   system("rm "out_dir"/id[:_]* 2>/dev/null")
 
-  "ls "out_dir"/* 2>/dev/null | wc -l" | getline noofentries
+  cmd = "ls "out_dir"/* 2>/dev/null | wc -l"
+  cmd | getline noofentries
+  close(cmd)
   if (0 == system( "test -d "out_dir" -a "noofentries" -gt 0" )) {
     print "[-] Error: directory '"out_dir"' exists and is not empty - delete it first." > "/dev/stderr"
     exit 1
   }
 
   if (threads) {
-    "nproc" | getline nproc
+    cmd = "nproc"
+    cmd | getline nproc
+    close(cmd)
     if (threads == "all") {
       threads = nproc
     } else {
@@ -386,12 +393,14 @@ BEGIN {
   if (stdin_file) {
     # truncate input file
     printf "" > stdin_file
-    close( stdin_file )
+    close(stdin_file)
   }
 
   # First we look in PATH
   if (0 == system("command -v afl-showmap >/dev/null 2>&1")) {
-    "command -v afl-showmap 2>/dev/null" | getline showmap
+    cmd = "command -v afl-showmap 2>/dev/null"
+    cmd | getline showmap
+    close(cmd)
   } else {
     # then we look in the current directory
     if (0 == system("test -x ./afl-showmap")) {
@@ -413,7 +422,9 @@ BEGIN {
   # yuck, gnu stat is option incompatible to bsd stat
   # we use a heuristic to differentiate between
   # GNU stat and other stats
-  "stat --version 2>/dev/null" | getline statversion
+  cmd = "stat --version 2>/dev/null"
+  cmd | getline statversion
+  close(cmd)
   if (statversion ~ /GNU coreutils/) {
     stat_format = "-c '%s %n'" # GNU
   } else {
@@ -432,6 +443,7 @@ BEGIN {
     infilesSmallToBigFullMap[infilesSmallToBigFull[i]] = infilesSmallToBig[i]
     i++
   }
+  close(cmdline)
   in_count = i
 
   first_file = infilesSmallToBigFull[0]
@@ -468,6 +480,7 @@ BEGIN {
     while ((getline < runtest) > 0) {
       ++first_count
     }
+    close(runtest)
 
     if (first_count) {
       print "[+] OK, "first_count" tuples recorded."
@@ -488,7 +501,7 @@ BEGIN {
 
   if (threads) {
 
-    inputsperfile = in_count / threads
+    inputsperfile = int(in_count / threads)
     if (in_count % threads) {
       inputsperfile++;
     }
@@ -513,7 +526,7 @@ BEGIN {
 
   if (threads > 1) {
 
-    print "[*] Creating " threads " parallel tasks with about " inputsperfile " each."
+    print "[*] Creating " threads " parallel tasks with about " inputsperfile " items each."
     for (i = 1; i <= threads; i++) {
 
       if (!stdin_file) {
@@ -582,6 +595,15 @@ BEGIN {
     else { print "    Processing file "cur"/"in_count }
     # create path for the trace file from afl-showmap
     tracefile_path = trace_dir"/"fn
+    # ensure the file size is not zero
+    cmd = "du -b "tracefile_path
+    "ls -l "tracefile_path
+    cmd | getline output
+    close(cmd)
+    split(output, result, "\t")
+    if (result[1] == 0) {
+      print "[!] WARNING: file "fn" is crashing the target, ignoring..."
+    }
     # gather all keys, and count them
     while ((getline line < tracefile_path) > 0) {
         key = line
@@ -643,6 +665,7 @@ BEGIN {
     }
   }
   close(sortedKeys)
+  print ""
   print "[+] Found "tuple_count" unique tuples across "in_count" files."
 
   if (out_count == 1) {

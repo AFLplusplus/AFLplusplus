@@ -1762,7 +1762,7 @@ static FORCEINLINE void *win32direct_mmap(size_t size) {
 static FORCEINLINE int win32munmap(void *ptr, size_t size) {
 
   MEMORY_BASIC_INFORMATION minfo;
-  char *cptr = (char *)ptr;
+  char                    *cptr = (char *)ptr;
 
   while (size) {
 

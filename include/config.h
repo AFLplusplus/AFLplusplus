@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.07c"
+#define VERSION "++4.08a"
 
 /******************************************************
  *                                                    *
@@ -42,6 +42,12 @@
    At runtime this value can be overriden via AFL_MAP_SIZE.
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
+
+/* Default time until when no more coverage finds are happening afl-fuzz
+   switches to exploitation mode. It automatically switches back when new
+   coverage is found.
+   Default: 300 (seconds) */
+#define STRATEGY_SWITCH_TIME 1000
 
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600

@@ -383,9 +383,11 @@ static u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
           have_o = 0, have_pic = 0, have_c = 0, partial_linking = 0,
           non_dash = 0;
 
+#define MAX_PARAMS_NUM 2048
+
 static void process_params(u32 argc, char **argv) {
 
-  if (cc_par_cnt + argc >= 1024) { FATAL("Too many command line parameters"); }
+  if (cc_par_cnt + argc >= MAX_PARAMS_NUM) { FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM."); }
 
   if (lto_mode && argc > 1) {
 
@@ -679,7 +681,7 @@ static void process_params(u32 argc, char **argv) {
 
 static void edit_params(u32 argc, char **argv, char **envp) {
 
-  cc_params = ck_alloc(1024 * sizeof(u8 *));
+  cc_params = ck_alloc(MAX_PARAMS_NUM * sizeof(u8 *));
 
   if (lto_mode) {
 

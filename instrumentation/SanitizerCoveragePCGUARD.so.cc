@@ -225,49 +225,11 @@ llvmGetPassPluginInfo() {
 
 }
 
-#if LLVM_VERSION_MAJOR == 1
 PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
-
   ModuleSanitizerCoverageAFL ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
-
-    return &FAM.getResult<DominatorTreeAnalysis>(F);
-
-  };
-
-  auto PDTCallback = [&FAM](Function &F) -> const PostDominatorTree * {
-
-    return &FAM.getResult<PostDominatorTreeAnalysis>(F);
-
-  };
-
-  if (!ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
-    return PreservedAnalyses::all();
-
-  PreservedAnalyses PA = PreservedAnalyses::none();
-  // GlobalsAA is considered stateless and does not get invalidated unless
-  // explicitly invalidated; PreservedAnalyses::none() is not enough. Sanitizers
-  // make changes that require GlobalsAA to be invalidated.
-  PA.abandon<GlobalsAA>();
-  return PA;
-
-}
-
-#else
-  #if LLVM_VERSION_MAJOR >= 16
-PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module &M,
-                                                  ModuleAnalysisManager &MAM) {
-
-  #else
-PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
-                                                  ModuleAnalysisManager &MAM) {
-
-  #endif
-  ModuleSanitizerCoverageAFL ModuleSancov(Options);
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
     return &FAM.getResult<DominatorTreeAnalysis>(F);
 
@@ -284,8 +246,6 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
   return PreservedAnalyses::all();
 
 }
-
-#endif
 
 std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
     Module &M, const char *Section, Type *Ty) {
@@ -892,7 +852,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                   IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                   ConstantInt::get(
                       IntptrTy,
-                      (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
               Int32PtrTy);
 
           auto GuardPtr2 = IRB.CreateIntToPtr(
@@ -900,7 +860,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                   IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                   ConstantInt::get(
                       IntptrTy,
-                      (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
               Int32PtrTy);
 
           result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
@@ -937,7 +897,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                       IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                       ConstantInt::get(
                           IntptrTy,
-                          (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                          (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
                   Int32PtrTy);
               x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
 
@@ -946,7 +906,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                       IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                       ConstantInt::get(
                           IntptrTy,
-                          (cnt_cov + ++local_selects + AllBlocks.size()) * 4)),
+                          (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
                   Int32PtrTy);
               y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
 
@@ -955,7 +915,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                 val1 = IRB.CreateIntToPtr(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy, (cnt_cov + ++local_selects +
+                        ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
                                                     AllBlocks.size()) *
                                                        4)),
                     Int32PtrTy);
@@ -964,7 +924,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                 val2 = IRB.CreateIntToPtr(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy, (cnt_cov + ++local_selects +
+                        ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
                                                     AllBlocks.size()) *
                                                        4)),
                     Int32PtrTy);
