@@ -111,8 +111,9 @@ static sharedmem_t      *shm_fuzz;
 
 static const u8 count_class_human[256] = {
 
-    [0] = 0, [1] = 1,  [2] = 2,  [3] = 3,  [4] = 4,
-    [8] = 5, [16] = 6, [32] = 7, [128] = 8
+    [0] = 0,          [1] = 1,        [2] = 2,         [3] = 3,
+    [4 ... 7] = 4,    [8 ... 15] = 5, [16 ... 31] = 6, [32 ... 127] = 7,
+    [128 ... 255] = 8
 
 };
 
@@ -424,9 +425,9 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   }
 
-  if (fsrv->trace_bits[0] == 1) {
+  if (fsrv->trace_bits[0]) {
 
-    fsrv->trace_bits[0] = 0;
+    fsrv->trace_bits[0] -= 1;
     have_coverage = true;
 
   } else {
@@ -655,9 +656,9 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  if (fsrv->trace_bits[0] == 1) {
+  if (fsrv->trace_bits[0]) {
 
-    fsrv->trace_bits[0] = 0;
+    fsrv->trace_bits[0] -= 1;
     have_coverage = true;
 
   } else {
