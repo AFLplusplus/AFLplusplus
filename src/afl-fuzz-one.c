@@ -2095,8 +2095,8 @@ havoc_stage:
 
       } else {  // exploitation mode
 
-        mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
-        rand_max = MUT_STRATEGY_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&text_array;
+        rand_max = MUT_TXT_ARRAY_SIZE;
 
       }
 
@@ -2129,9 +2129,8 @@ havoc_stage:
 
       } else {  // exploitation mode
 
-        // this will need to be changed I guess
-        mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
-        rand_max = MUT_STRATEGY_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&text_array;
+        rand_max = MUT_TXT_ARRAY_SIZE;
 
       }
 
