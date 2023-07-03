@@ -1298,6 +1298,35 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
 }
 
+/* Unsafe describe time delta as simple string.
+   Returns a pointer to buf for convenience. */
+
+u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
+
+  if (!event_ms) {
+
+    sprintf(buf, "00:00:00");
+
+  } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+
+    delta = cur_ms - event_ms;
+
+    t_d = delta / 1000 / 60 / 60 / 24;
+    t_h = (delta / 1000 / 60 / 60) % 24;
+    t_m = (delta / 1000 / 60) % 60;
+    t_s = (delta / 1000) % 60;
+
+    sprintf(buf, "%d:%02d:%02d:%02d", t_d, t_h, t_m, t_s);
+
+  }
+
+  return buf;
+
+}
+
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 

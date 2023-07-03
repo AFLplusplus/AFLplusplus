@@ -399,20 +399,24 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #endif                                                     /* ^IGNORE_FINDS */
 
-  if (unlikely(afl->not_on_tty)) {
+  if (likely(afl->not_on_tty)) {
 
+    u8 time_tmp[64];
+
+    u_simplestring_time_diff(time_tmp, afl->prev_run_time + get_cur_time(),
+                             afl->start_time);
     ACTF(
         "Fuzzing test case #%u (%u total, %llu crashes saved, state: %s, "
         "mode=%s, "
         "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
-        "exec_us=%llu, hits=%u, map=%u, ascii=%u)...",
+        "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s)...",
         afl->current_entry, afl->queued_items, afl->saved_crashes,
         get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
         afl->queue_cur->perf_score, afl->queue_cur->weight,
         afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
         afl->queue_cur->exec_us,
         likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
-        afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii);
+        afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp);
     fflush(stdout);
 
   }
@@ -2095,8 +2099,8 @@ havoc_stage:
 
       } else {  // exploitation mode
 
-        mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
-        rand_max = MUT_STRATEGY_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&text_array;
+        rand_max = MUT_TXT_ARRAY_SIZE;
 
       }
 
@@ -2114,6 +2118,9 @@ havoc_stage:
 
         mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
         rand_max = MUT_STRATEGY_ARRAY_SIZE;
+        // or this one? we do not have enough binary bug benchmarks :-(
+        // mutation_array = (unsigned int *)&binary_array;
+        // rand_max = MUT_BIN_ARRAY_SIZE;
 
       }
 
@@ -2129,9 +2136,8 @@ havoc_stage:
 
       } else {  // exploitation mode
 
-        // this will need to be changed I guess
-        mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
-        rand_max = MUT_STRATEGY_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&text_array;
+        rand_max = MUT_TXT_ARRAY_SIZE;
 
       }
 
