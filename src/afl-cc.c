@@ -383,7 +383,9 @@ static u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
           have_o = 0, have_pic = 0, have_c = 0, partial_linking = 0,
           non_dash = 0;
 
+#ifndef MAX_PARAMS_NUM
 #define MAX_PARAMS_NUM 2048
+#endif
 
 static void process_params(u32 argc, char **argv) {
 
