@@ -2118,6 +2118,9 @@ havoc_stage:
 
         mutation_array = (unsigned int *)&mutation_strategy_exploitation_binary;
         rand_max = MUT_STRATEGY_ARRAY_SIZE;
+        // or this one? we do not have enough binary bug benchmarks :-(
+        // mutation_array = (unsigned int *)&binary_array;
+        // rand_max = MUT_BIN_ARRAY_SIZE;
 
       }
 
