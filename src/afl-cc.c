@@ -2111,11 +2111,6 @@ int main(int argc, char **argv, char **envp) {
         "-------------|\n"
         "MODES:                                  NCC PERSIST DICT   LAF "
         "CMPLOG SELECT\n"
-        "  [LTO] LLVM LTO:          %s%s\n"
-        "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
-        "   yes\n"
-        "      CLASSIC                           yes yes     yes    yes yes "
-        "   yes\n"
         "  [LLVM] LLVM:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
         "yes\n"
@@ -2125,16 +2120,21 @@ int main(int argc, char **argv, char **envp) {
         "        - CALLER\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
+        "  [LTO] LLVM LTO:          %s%s\n"
+        "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
+        "   yes\n"
+        "      CLASSIC                           yes yes     yes    yes yes "
+        "   yes\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
         "yes\n"
         "  [GCC/CLANG] simple gcc/clang: %s%s\n"
         "      CLASSIC              DEFAULT      no  no      no     no  no     "
         "no\n\n",
-        have_lto ? "AVAILABLE" : "unavailable!",
-        compiler_mode == LTO ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
+        have_lto ? "AVAILABLE" : "unavailable!",
+        compiler_mode == LTO ? " [SELECTED]" : "",
         LLVM_MAJOR >= 7 ? "DEFAULT" : "       ",
         LLVM_MAJOR >= 7 ? "       " : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
