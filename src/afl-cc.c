@@ -384,12 +384,16 @@ static u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
           non_dash = 0;
 
 #ifndef MAX_PARAMS_NUM
-#define MAX_PARAMS_NUM 2048
+  #define MAX_PARAMS_NUM 2048
 #endif
 
 static void process_params(u32 argc, char **argv) {
 
-  if (cc_par_cnt + argc >= MAX_PARAMS_NUM) { FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM."); }
+  if (cc_par_cnt + argc >= MAX_PARAMS_NUM) {
+
+    FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM.");
+
+  }
 
   if (lto_mode && argc > 1) {
 
@@ -2349,6 +2353,15 @@ int main(int argc, char **argv, char **envp) {
         "with\n"
         "AFL_LLVM_CMPLOG and "
         "AFL_LLVM_DICT2FILE+AFL_LLVM_DICT2FILE_NO_MAIN.\n\n");
+
+    if (LLVM_MAJOR < 13) {
+
+      SAYF(
+          "Warning: It is highly recommended to use at least LLVM version 13 "
+          "(or better, higher) rather than %d!\n\n",
+          LLVM_MAJOR);
+
+    }
 
     exit(1);
 
