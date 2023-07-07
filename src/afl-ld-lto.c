@@ -37,6 +37,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
