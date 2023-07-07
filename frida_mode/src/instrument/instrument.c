@@ -27,6 +27,8 @@ gboolean instrument_optimize = false;
 gboolean instrument_unique = false;
 guint64  instrument_hash_zero = 0;
 guint64  instrument_hash_seed = 0;
+guint64  instrument_skip_num = 0;
+guint64  instrument_skip_mask = 0;
 gboolean instrument_suppress = false;
 
 gboolean instrument_use_fixed_seed = FALSE;
@@ -221,17 +223,25 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       prefetch_write(GSIZE_TO_POINTER(instr->address));
 #endif
 
+      guint64 pc_hash = instrument_get_offset_hash(instr->address);
+
       if (likely(!excluded)) {
 
-        if (likely(instrument_optimize)) {
+        if ((pc_hash & instrument_skip_mask) == 0 ||
+            unlikely(instr->address == persistent_start)) {
 
-          instrument_coverage_optimize(instr, output);
+          if (likely(instrument_optimize)) {
 
-        } else {
+            instrument_coverage_optimize(instr, output);
 
-          ctx = gum_malloc0(sizeof(block_ctx_t));
-          ctx->address = GUM_ADDRESS(instr->address);
-          gum_stalker_iterator_put_callout(iterator, on_basic_block, ctx, NULL);
+          } else {
+
+            ctx = gum_malloc0(sizeof(block_ctx_t));
+            ctx->address = GUM_ADDRESS(instr->address);
+            gum_stalker_iterator_put_callout(iterator, on_basic_block, ctx,
+                                             NULL);
+
+          }
 
         }
 
@@ -291,6 +301,9 @@ void instrument_config(void) {
   instrument_coverage_insn = (getenv("AFL_FRIDA_INST_INSN") != NULL);
   instrument_regs_filename = getenv("AFL_FRIDA_INST_REGS_FILE");
   instrument_suppress = (getenv("AFL_FRIDA_INST_NO_SUPPRESS") == NULL);
+  instrument_skip_num = util_read_num("AFL_FRIDA_SKIP_NUM", 0);
+  util_log2(instrument_skip_num);
+  instrument_skip_mask = (1 << instrument_skip_num) - 1;
 
   instrument_debug_config();
   instrument_coverage_config();
@@ -324,6 +337,11 @@ void instrument_init(void) {
 
   FOKF(cBLU "Instrumentation" cRST " - " cGRN "suppression:" cYEL " [%c]",
        instrument_suppress ? 'X' : ' ');
+  FOKF(cBLU "Instrumentation" cRST " - " cGRN "skip:" cYEL
+            " [%c] [0x%016" G_GINT64_MODIFIER
+            "x], mask: [0x%016" G_GINT64_MODIFIER "x]",
+       instrument_skip_num == 0 ? ' ' : 'X', instrument_skip_num,
+       instrument_skip_mask);
 
   if (instrument_tracing && instrument_optimize) {
 
