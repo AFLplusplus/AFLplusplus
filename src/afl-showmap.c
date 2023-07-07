@@ -75,8 +75,9 @@ static u8 *in_dir = NULL,              /* input folder                      */
 
 static u8 outfile[PATH_MAX];
 
-static u8 *in_data,                    /* Input data                        */
-    *coverage_map;                     /* Coverage map                      */
+static u8 *in_data;                    /* Input data                        */
+
+static u8 *coverage_map;               /* Coverage map                      */
 
 static u64 total;                      /* tuple content information         */
 static u32 tcnt, highest;              /* tuple content information         */
@@ -97,7 +98,8 @@ static bool quiet_mode,                /* Hide non-essential messages?      */
     no_classify,                       /* do not classify counts            */
     debug,                             /* debug mode                        */
     print_filenames,                   /* print the current filename        */
-    wait_for_gdb;
+    wait_for_gdb,                      /* wait for gdb to allow attaching   */
+    code_cov;                          /* code coverage cmdline parameter   */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -244,8 +246,15 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
       total += fsrv->trace_bits[i];
       if (fsrv->trace_bits[i] > highest) highest = fsrv->trace_bits[i];
-      // if (!coverage_map[i]) { coverage_map[i] = 1; }
-      coverage_map[i] |= fsrv->trace_bits[i];
+      if (code_cov) {
+
+        if (coverage_map[i] < 255 && fsrv->trace_bits[i]) { coverage_map[i]++; }
+
+      } else {
+
+        coverage_map[i] |= fsrv->trace_bits[i];
+
+      }
 
     }
 
@@ -347,6 +356,75 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   return ret;
 
 }
+
+#if 0
+static u32 write_results_to_file32(u32 *map, u8 *outfile) {
+
+  s32 fd;
+  u32 i, ret = 0;
+
+  if (!outfile || !*outfile) {
+
+    FATAL("Output filename not set (Bug in AFL++?)");
+
+  }
+
+  if (!strncmp(outfile, "/dev/", 5)) {
+
+    fd = open(outfile, O_WRONLY);
+
+    if (fd < 0) { PFATAL("Unable to open '%s'", out_file); }
+
+  } else if (!strcmp(outfile, "-")) {
+
+    fd = dup(1);
+    if (fd < 0) { PFATAL("Unable to open stdout"); }
+
+  } else {
+
+    unlink(outfile);                                       /* Ignore errors */
+    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    if (fd < 0) { PFATAL("Unable to create '%s'", outfile); }
+
+  }
+
+  if (binary_mode) {
+
+    for (i = 0; i < map_size; i++) {
+
+      if (map[i]) { ret++; }
+
+    }
+
+    ck_write(fd, map, map_size, outfile);
+    close(fd);
+
+  } else {
+
+    FILE *f = fdopen(fd, "w");
+
+    if (!f) { PFATAL("fdopen() failed"); }
+
+    for (i = 0; i < map_size; i++) {
+
+      if (!map[i]) { continue; }
+      ret++;
+
+      total += map[i];
+      if (highest < map[i]) { highest = map[i]; }
+
+      fprintf(f, "%06u:%u\n", i, map[i]);
+
+    }
+
+    fclose(f);
+
+  }
+
+  return ret;
+
+}
+#endif
 
 void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
 
@@ -1096,9 +1174,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshVXY")) > 0) {
 
     switch (opt) {
+
+      case 'V':
+        code_cov = true;
+        collect_coverage = true;
+        quiet_mode = true;
+        break;
 
       case 's':
         no_classify = true;
@@ -1673,8 +1757,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } else {
 
-      if ((coverage_map = (u8 *)malloc(map_size + 64)) == NULL)
+      if ((coverage_map = (u8 *)malloc((map_size + 64))) == NULL) {
+
         FATAL("coult not grab memory");
+
+      }
+
       edges_only = false;
       raw_instr_output = true;
 

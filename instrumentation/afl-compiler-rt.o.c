@@ -151,6 +151,15 @@ afl_module_info_t *__afl_module_info = NULL;
 
 u32        __afl_pcmap_size = 0;
 uintptr_t *__afl_pcmap_ptr = NULL;
+
+  // Maximum path length on Linux
+  #ifndef PATH_MAX
+    #define PATH_MAX 4096
+  #endif
+
+  // Maximum length of an uint32_t as string
+  #define START_STOP_MAX 10
+
 #endif  // __AFL_CODE_COVERAGE
 
 /* 1 if we are running in afl, and the forkserver was started, else 0 */
@@ -1082,8 +1091,63 @@ static void __afl_start_snapshots(void) {
 
 static void __afl_start_forkserver(void) {
 
-  if (__afl_already_initialized_forkserver) return;
+  if (__afl_already_initialized_forkserver) { return; }
   __afl_already_initialized_forkserver = 1;
+
+  if (getenv("AFL_DUMP_MODULE_MAP")) {
+
+    if (__afl_module_info) {
+
+      int32_t            cnt = 0;
+      afl_module_info_t *start = __afl_module_info;
+
+      while (start) {
+
+        ++cnt;
+        start = start->next;
+
+      }
+
+      // Allocate per entry enough space for:
+      //
+      //   1. One path
+      //   2. Two pcguard start/stop offsets
+      //   3. Two spaces and a trailing newline
+      //
+      // This is a very conservative allocation so we can just YOLO the rest.
+      size_t bufsize = (PATH_MAX + START_STOP_MAX * 2 + 2 + 1) * cnt + 1;
+      char  *buf = malloc(bufsize);
+      char  *cur = buf;
+
+      if (!buf) { perror("malloc"); };
+
+      start = __afl_module_info;
+
+      while (start) {
+
+        size_t namelen = strlen(start->name);
+
+        memcpy(cur, start->name, namelen);
+        cur += namelen;
+        *cur = ' ';
+        cur += 1;
+        cur += sprintf(cur, "%u %u", start->start, start->stop);
+        *cur = '\n';
+        cur += 1;
+
+        start = start->next;
+
+      }
+
+      *cur = '\0';
+
+      printf("%s\n", buf);
+
+    }
+
+    exit(-1);
+
+  }
 
   struct sigaction orig_action;
   sigaction(SIGTERM, NULL, &orig_action);

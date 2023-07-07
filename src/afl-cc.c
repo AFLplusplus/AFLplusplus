@@ -1868,6 +1868,7 @@ int main(int argc, char **argv, char **envp) {
 
           instrument_mode = INSTRUMENT_LLVMNATIVE;
           instrument_opt_mode |= INSTRUMENT_OPT_CODECOV;
+          setenv("AFL_DONT_OPTIMIZE", "1", 1);
 
         } else {
 
