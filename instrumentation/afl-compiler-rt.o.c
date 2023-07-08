@@ -14,15 +14,13 @@
 
 */
 
-#ifdef __AFL_CODE_COVERAGE
-  #ifndef _GNU_SOURCE
-    #define _GNU_SOURCE
-  #endif
-  #ifndef __USE_GNU
-    #define __USE_GNU
-  #endif
-  #include <dlfcn.h>
+#ifndef _GNU_SOURCE
+  #define _GNU_SOURCE
 #endif
+#ifndef __USE_GNU
+  #define __USE_GNU
+#endif
+#include <dlfcn.h>
 
 #ifdef __ANDROID__
   #include "android-ashmem.h"
@@ -115,7 +113,6 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 
-#ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
 
 struct afl_module_info_t {
@@ -149,18 +146,16 @@ typedef struct {
 
 afl_module_info_t *__afl_module_info = NULL;
 
-u32        __afl_pcmap_size = 0;
+u32        __afl_pcmap_size = 0, __afl_pcmap_shmem = 1;
 uintptr_t *__afl_pcmap_ptr = NULL;
 
-  // Maximum path length on Linux
-  #ifndef PATH_MAX
-    #define PATH_MAX 4096
-  #endif
+// Maximum path length on Linux
+#ifndef PATH_MAX
+  #define PATH_MAX 4096
+#endif
 
-  // Maximum length of an uint32_t as string
-  #define START_STOP_MAX 10
-
-#endif  // __AFL_CODE_COVERAGE
+// Maximum length of an uint32_t as string
+#define START_STOP_MAX 10
 
 /* 1 if we are running in afl, and the forkserver was started, else 0 */
 u32 __afl_connected = 0;
@@ -736,7 +731,6 @@ static void __afl_map_shm(void) {
 
   }
 
-#ifdef __AFL_CODE_COVERAGE
   char *pcmap_id_str = getenv("__AFL_PCMAP_SHM_ID");
 
   if (pcmap_id_str) {
@@ -753,9 +747,13 @@ static void __afl_map_shm(void) {
 
     }
 
-  }
+  } else if (getenv("__AFL_CODE_COVERAGE")) {
 
-#endif  // __AFL_CODE_COVERAGE
+    __afl_pcmap_size = __afl_map_size * sizeof(void *);
+    __afl_pcmap_ptr = (uintptr_t *)malloc(__afl_pcmap_size);
+    __afl_pcmap_shmem = 0;
+
+  }
 
 }
 
@@ -765,16 +763,14 @@ static void __afl_unmap_shm(void) {
 
   if (!__afl_already_initialized_shm) return;
 
-#ifdef __AFL_CODE_COVERAGE
   if (__afl_pcmap_size) {
 
-    shmdt((void *)__afl_pcmap_ptr);
+    if (__afl_pcmap_shmem) { shmdt((void *)__afl_pcmap_ptr); }
     __afl_pcmap_ptr = NULL;
     __afl_pcmap_size = 0;
+    __afl_pcmap_shmem = 1;
 
   }
-
-#endif  // __AFL_CODE_COVERAGE
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -1094,7 +1090,7 @@ static void __afl_start_forkserver(void) {
   if (__afl_already_initialized_forkserver) { return; }
   __afl_already_initialized_forkserver = 1;
 
-  if (getenv("AFL_DUMP_MODULE_MAP")) {
+  if (getenv("AFL_DUMP_CODE_COVERAGE")) {
 
     if (__afl_module_info) {
 
@@ -1141,7 +1137,31 @@ static void __afl_start_forkserver(void) {
 
       *cur = '\0';
 
-      printf("%s\n", buf);
+      FILE *f = fopen("modinfo.txt", "w");
+      if (!f) {
+
+        fprintf(stderr, "Error: Could not create modinfo.txt!");
+        exit(-1);
+
+      }
+
+      fprintf(f, "%s\n", buf);
+      fclose(f);
+
+      f = fopen("pcmap.dump", "w");
+      if (!f) {
+
+        fprintf(stderr, "Error: Could not create pcmap.dump!");
+        exit(-1);
+
+      }
+
+      fwrite(__afl_pcmap_ptr, __afl_pcmap_size, 1, f);
+      fclose(f);
+
+      fprintf(stderr,
+              "[+] Created modinfo.txt and pcmap.dump for coverage analysis "
+              "purposes. Now run afl-showmap with '-V -o covmap.dump'.\n");
 
     }
 
@@ -1652,7 +1672,6 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
 }
 
-#ifdef __AFL_CODE_COVERAGE
 void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
                               const uintptr_t *pcs_end) {
 
@@ -1708,14 +1727,16 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     u32 in_module_index = 0;
 
+    if (mod_info->start - in_module_index >= __afl_map_size) {
+
+      fprintf(stderr,
+              "ERROR: __sanitizer_cov_pcs_init out of bounds?! (%u >= %u)\n",
+              mod_info->start, __afl_map_size);
+      abort();
+
+    }
+
     while (start < end) {
-
-      if (mod_info->start + in_module_index >= __afl_map_size) {
-
-        fprintf(stderr, "ERROR: __sanitizer_cov_pcs_init out of bounds?!\n");
-        abort();
-
-      }
 
       uintptr_t PC = start->PC;
 
@@ -1745,8 +1766,6 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
   }
 
 }
-
-#endif  // __AFL_CODE_COVERAGE
 
 /* Init callback. Populates instrumentation IDs. Note that we're using
    ID of 0 as a special value to indicate non-instrumented bits. That may
@@ -1779,61 +1798,67 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (start == stop || *start) { return; }
 
-#ifdef __AFL_CODE_COVERAGE
   u32               *orig_start = start;
   afl_module_info_t *mod_info = NULL;
 
-  Dl_info dlinfo;
-  if (dladdr(__builtin_return_address(0), &dlinfo)) {
+  if (getenv("__AFL_CODE_COVERAGE")) {
 
-    if (__afl_already_initialized_forkserver) {
+    Dl_info dlinfo;
 
-      fprintf(stderr, "[pcmap] Error: Module was not preloaded: %s\n",
-              dlinfo.dli_fname);
+    if (dladdr(__builtin_return_address(0), &dlinfo)) {
 
-    } else {
+      if (__afl_already_initialized_forkserver) {
 
-      afl_module_info_t *last_module_info = __afl_module_info;
-      while (last_module_info && last_module_info->next) {
-
-        last_module_info = last_module_info->next;
-
-      }
-
-      mod_info = malloc(sizeof(afl_module_info_t));
-
-      mod_info->id = last_module_info ? last_module_info->id + 1 : 0;
-      mod_info->name = strdup(dlinfo.dli_fname);
-      mod_info->base_address = (uintptr_t)dlinfo.dli_fbase;
-      mod_info->start = 0;
-      mod_info->stop = 0;
-      mod_info->pcs_beg = NULL;
-      mod_info->pcs_end = NULL;
-      mod_info->mapped = 0;
-      mod_info->next = NULL;
-
-      if (last_module_info) {
-
-        last_module_info->next = mod_info;
+        fprintf(stderr, "[pcmap] Error: Module was not preloaded: %s\n",
+                dlinfo.dli_fname);
 
       } else {
 
-        __afl_module_info = mod_info;
+        afl_module_info_t *last_module_info = __afl_module_info;
+        while (last_module_info && last_module_info->next) {
+
+          last_module_info = last_module_info->next;
+
+        }
+
+        mod_info = malloc(sizeof(afl_module_info_t));
+
+        mod_info->id = last_module_info ? last_module_info->id + 1 : 0;
+        mod_info->name = strdup(dlinfo.dli_fname);
+        mod_info->base_address = (uintptr_t)dlinfo.dli_fbase;
+        mod_info->start = 0;
+        mod_info->stop = 0;
+        mod_info->pcs_beg = NULL;
+        mod_info->pcs_end = NULL;
+        mod_info->mapped = 0;
+        mod_info->next = NULL;
+
+        if (last_module_info) {
+
+          last_module_info->next = mod_info;
+
+        } else {
+
+          __afl_module_info = mod_info;
+
+        }
+
+        if (__afl_debug) {
+
+          fprintf(stderr, "[pcmap] Module: %s Base Address: %p\n",
+                  dlinfo.dli_fname, dlinfo.dli_fbase);
+
+        }
 
       }
 
-      fprintf(stderr, "[pcmap] Module: %s Base Address: %p\n", dlinfo.dli_fname,
-              dlinfo.dli_fbase);
+    } else {
+
+      fprintf(stderr, "[pcmap] dladdr call failed\n");
 
     }
 
-  } else {
-
-    fprintf(stderr, "[pcmap] dladdr call failed\n");
-
   }
-
-#endif  // __AFL_CODE_COVERAGE
 
   x = getenv("AFL_INST_RATIO");
   if (x) {
@@ -1922,7 +1947,6 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
-#ifdef __AFL_CODE_COVERAGE
   if (mod_info) {
 
     mod_info->start = *orig_start;
@@ -1935,8 +1959,6 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     }
 
   }
-
-#endif  // __AFL_CODE_COVERAGE
 
   if (__afl_debug) {
 

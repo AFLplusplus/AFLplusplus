@@ -424,6 +424,7 @@ static u32 write_results_to_file32(u32 *map, u8 *outfile) {
   return ret;
 
 }
+
 #endif
 
 void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
@@ -1182,6 +1183,7 @@ int main(int argc, char **argv_orig, char **envp) {
         code_cov = true;
         collect_coverage = true;
         quiet_mode = true;
+        setenv("__AFL_CODE_COVERAGE", "1", 1);
         break;
 
       case 's':
