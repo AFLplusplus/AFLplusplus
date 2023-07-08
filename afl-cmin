@@ -493,6 +493,11 @@ BEGIN {
     }
   }
 
+  if (in_count < threads) {
+    threads = in_count
+    print "[!] WARNING: less inputs than threads, reducing threads to "threads" and likely the overhead of threading makes things slower..."
+  }
+
   # Let's roll!
 
   #############################

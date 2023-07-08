@@ -19,6 +19,7 @@
     - fixed a bug inherited from vanilla AFL where a coverage of
       map[123] = 11 would be the same as map[1123] = 1
     - warn on crashing inputs
+    - adjust threads if less inputs than threads specified
   - afl-cc:
     - fixed an off-by-one instrumentation of iselect, hurting coverage a bit.
       Thanks to @amykweon for spotting and fixing!
