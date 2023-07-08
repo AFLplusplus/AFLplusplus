@@ -1156,12 +1156,12 @@ static void __afl_start_forkserver(void) {
 
       }
 
-      fwrite(__afl_pcmap_ptr, __afl_pcmap_size, 1, f);
+      fwrite(__afl_pcmap_ptr, __afl_map_size * sizeof(void *), 1, f);
       fclose(f);
 
       fprintf(stderr,
               "[+] Created modinfo.txt and pcmap.dump for coverage analysis "
-              "purposes. Now run afl-showmap with '-V -o covmap.dump'.\n");
+              "purposes. Now run afl-showmap with '-V -b -o covmap.dump'.\n");
 
     }
 
