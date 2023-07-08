@@ -747,7 +747,9 @@ static void __afl_map_shm(void) {
 
     }
 
-  } else if (getenv("__AFL_CODE_COVERAGE")) {
+  } else if (getenv("__AFL_CODE_COVERAGE") ||
+
+             getenv("AFL_DUMP_CODE_COVERAGE")) {
 
     __afl_pcmap_size = __afl_map_size * sizeof(void *);
     __afl_pcmap_ptr = (uintptr_t *)malloc(__afl_pcmap_size);
@@ -1801,7 +1803,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   u32               *orig_start = start;
   afl_module_info_t *mod_info = NULL;
 
-  if (getenv("__AFL_CODE_COVERAGE")) {
+  if (getenv("__AFL_CODE_COVERAGE") || getenv("AFL_DUMP_CODE_COVERAGE")) {
 
     Dl_info dlinfo;
 
