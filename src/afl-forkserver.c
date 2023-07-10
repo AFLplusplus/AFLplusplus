@@ -667,13 +667,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     switch (fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner)) {
 
       case Abort:
-        NYX_PRE_FATAL(fsrv, "Error: Nyx abort occured...");
+        NYX_PRE_FATAL(fsrv, "Error: Nyx abort occurred...");
         break;
       case IoError:
         NYX_PRE_FATAL(fsrv, "Error: QEMU-Nyx has died...");
         break;
       case Error:
-        NYX_PRE_FATAL(fsrv, "Error: Nyx runtime error has occured...");
+        NYX_PRE_FATAL(fsrv, "Error: Nyx runtime error has occurred...");
         break;
       default:
         break;
@@ -1581,7 +1581,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
         FATAL("FixMe: Nyx InvalidWriteToPayload handler is missing");
         break;
       case Abort:
-        FATAL("Error: Nyx abort occured...");
+        FATAL("Error: Nyx abort occurred...");
       case IoError:
         if (*stop_soon_p) {
 
@@ -1595,7 +1595,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
         break;
       case Error:
-        FATAL("Error: Nyx runtime error has occured...");
+        FATAL("Error: Nyx runtime error has occurred...");
         break;
 
     }
