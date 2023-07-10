@@ -226,6 +226,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   /* Settings */
   fsrv->use_stdin = true;
   fsrv->no_unlink = false;
+  fsrv->keep_coverage = false;
+  fsrv->coverage_map = NULL;
   fsrv->exec_tmout = EXEC_TIMEOUT;
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
@@ -275,6 +277,9 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func or ->persistent_record*
+
+  fsrv_to->keep_coverage = false;
+  fsrv_to->coverage_map = NULL;
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -1175,6 +1180,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
+    if (unlikely(fsrv->keep_coverage)) {
+
+      fsrv->coverage_map = ck_alloc(fsrv->map_size);
+
+    }
+
     return;
 
   }
@@ -1407,6 +1418,19 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   afl_nyx_runner_kill(fsrv);
 #endif
 
+  if (unlikely(fsrv->keep_coverage)) {
+
+    // TODO maybe we should write that to out_dir
+    FILE *f = fopen("covmap.dump", "w");
+    if (!f) { PFATAL("creating covmap.dump failed"); }
+    fwrite(fsrv->coverage_map, fsrv->map_size, 1, f);
+    fclose(f);
+    OKF("Wrote coverage map to covmap.dump");
+    ck_free(fsrv->coverage_map);
+    fsrv->coverage_map = NULL;
+
+  }
+
 }
 
 /* Get the map size from the target forkserver */
@@ -1565,7 +1589,22 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     enum NyxReturnValue ret_val =
         fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner);
 
-    fsrv->total_execs++;
+    ++fsrv->total_execs;
+
+    if (unlikely(fsrv->keep_coverage)) {
+
+      for (u32 i = 0; i < fsrv->map_size; ++i) {
+
+        if (unlikely(fsrv->trace_bits[i]) &&
+            likely(fsrv->coverage_map[i] < 255)) {
+
+          ++fsrv->coverage_map[i];
+
+        }
+
+      }
+
+    }
 
     switch (ret_val) {
 

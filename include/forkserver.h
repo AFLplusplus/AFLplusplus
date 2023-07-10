@@ -151,6 +151,8 @@ typedef struct afl_forkserver {
 
   bool uses_asan;                       /* Target uses ASAN?                */
 
+  bool keep_coverage;                   /* use coverage feature             */
+
   bool debug;                           /* debug mode?                      */
 
   bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
@@ -159,6 +161,8 @@ typedef struct afl_forkserver {
   u32 *shmem_fuzz_len;                  /* length of the fuzzing test case  */
 
   u8 *shmem_fuzz;                       /* allocated memory for fuzzing     */
+
+  u8 *coverage_map;                     /* for coverage feature             */
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
 
