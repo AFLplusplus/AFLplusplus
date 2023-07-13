@@ -26,7 +26,7 @@ FRIDA_OUT:=$(BUILD_DIR)frida-out
 HARNESS_LDFLAGS:=-Wl,-no_pie
 LIB_CFLAGS:=-dynamiclib
 
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/frida_get_symbol_addr.sh
 AFL_FRIDA_MAIN_ADDR=$(shell $(GET_SYMBOL_ADDR) $(HARNESS_BIN) main 0x0)
 AFL_FRIDA_MAIN_ADDR2=$(shell $(GET_SYMBOL_ADDR) $(HARNESS2_BIN) main 0x0)
 AFL_FRIDA_FUZZ_ADDR=$(shell $(GET_SYMBOL_ADDR) $(HARNESS_BIN) LLVMFuzzerTestOneInput 0x0)

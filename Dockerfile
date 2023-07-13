@@ -42,7 +42,7 @@ RUN apt-get update && \
     python3 python3-dev python3-pip python-is-python3 \
     libtool libtool-bin libglib2.0-dev \
     apt-transport-https gnupg dialog \
-    gnuplot-nox libpixman-1-dev \
+    gnuplot-nox libpixman-1-dev bc \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} gcc-${GCC_VERSION}-plugin-dev gdb lcov \
     clang-${LLVM_VERSION} clang-tools-${LLVM_VERSION} libc++1-${LLVM_VERSION} \
     libc++-${LLVM_VERSION}-dev libc++abi1-${LLVM_VERSION} libc++abi-${LLVM_VERSION}-dev \
