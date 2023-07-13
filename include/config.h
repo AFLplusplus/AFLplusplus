@@ -360,9 +360,10 @@
       65535,      /* Overflow unsig 16-bit when incremented  */ \
       65536,      /* Overflow unsig 16 bit                   */ \
       100663045,  /* Large positive number (endian-agnostic) */ \
+      2139095040, /* float infinite                          */ \
       2147483647                 /* Overflow signed 32-bit when incremented */
 
-#define INTERESTING_32_LEN 8
+#define INTERESTING_32_LEN 9
 
 /***********************************************************
  *                                                         *
