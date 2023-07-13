@@ -28,6 +28,9 @@
     - more LLVM compatability
   - frida_mode:
     - support for long form instrumentation on x86_x64 and arm64
+    - renamed utils/get_symbol_addr.sh to utils/frida_get_symbol_addr.sh
+  - qemu_mode:
+    - added qemu_mode/utils/qemu_get_symbol_addr.sh
 
 
 ### Version ++4.07c (release)
