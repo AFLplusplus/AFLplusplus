@@ -1740,7 +1740,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
     if (!be_quiet && !debug) {
 
       errs() << "Split-floatingpoint-compare-pass: " << count
-             << " FP comparisons splitted\n";
+             << " FP comparisons split\n";
 
     }
 

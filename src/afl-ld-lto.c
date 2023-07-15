@@ -23,7 +23,9 @@
 */
 
 #define AFL_MAIN
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+  #define _GNU_SOURCE
+#endif
 
 #include "config.h"
 #include "types.h"
@@ -37,6 +39,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -44,11 +47,6 @@
 #include <sys/time.h>
 
 #include <dirent.h>
-
-#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || \
-    defined(__DragonFly__)
-  #include <limits.h>
-#endif
 
 #ifdef __APPLE__
   #include <sys/syslimits.h>

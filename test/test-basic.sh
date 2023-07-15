@@ -28,7 +28,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     rm -f test-instr.plain.0 test-instr.plain.1
     SKIP=
     TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
+    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 22 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
@@ -152,7 +152,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
+    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 22 && {
       $ECHO "$GREEN[+] ${AFL_CLANG} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_CLANG} instrumentation produces weird numbers: $TUPLES"

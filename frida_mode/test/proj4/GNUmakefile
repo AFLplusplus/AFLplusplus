@@ -47,7 +47,7 @@ endif
 endif
 
 ADDR_BIN:=$(ROOT)frida_mode/build/addr
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/frida_get_symbol_addr.sh
 
 AFL_FRIDA_BASE_ADDR:=$(shell $(ADDR_BIN))
 AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TEST_BIN) LLVMFuzzerTestOneInput $(AFL_FRIDA_BASE_ADDR))

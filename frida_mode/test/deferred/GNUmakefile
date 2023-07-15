@@ -10,7 +10,7 @@ TESTINSTSRC:=$(PWD)testinstr.c
 QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/frida_get_symbol_addr.sh
 
 ifndef ARCH
 

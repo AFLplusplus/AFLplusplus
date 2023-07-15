@@ -383,11 +383,17 @@ static u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
           have_o = 0, have_pic = 0, have_c = 0, partial_linking = 0,
           non_dash = 0;
 
-#define MAX_PARAMS_NUM 2048
+#ifndef MAX_PARAMS_NUM
+  #define MAX_PARAMS_NUM 2048
+#endif
 
 static void process_params(u32 argc, char **argv) {
 
-  if (cc_par_cnt + argc >= MAX_PARAMS_NUM) { FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM."); }
+  if (cc_par_cnt + argc >= MAX_PARAMS_NUM) {
+
+    FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM.");
+
+  }
 
   if (lto_mode && argc > 1) {
 
@@ -2109,11 +2115,6 @@ int main(int argc, char **argv, char **envp) {
         "-------------|\n"
         "MODES:                                  NCC PERSIST DICT   LAF "
         "CMPLOG SELECT\n"
-        "  [LTO] LLVM LTO:          %s%s\n"
-        "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
-        "   yes\n"
-        "      CLASSIC                           yes yes     yes    yes yes "
-        "   yes\n"
         "  [LLVM] LLVM:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
         "yes\n"
@@ -2123,16 +2124,21 @@ int main(int argc, char **argv, char **envp) {
         "        - CALLER\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
+        "  [LTO] LLVM LTO:          %s%s\n"
+        "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
+        "   yes\n"
+        "      CLASSIC                           yes yes     yes    yes yes "
+        "   yes\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
         "yes\n"
         "  [GCC/CLANG] simple gcc/clang: %s%s\n"
         "      CLASSIC              DEFAULT      no  no      no     no  no     "
         "no\n\n",
-        have_lto ? "AVAILABLE" : "unavailable!",
-        compiler_mode == LTO ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
+        have_lto ? "AVAILABLE" : "unavailable!",
+        compiler_mode == LTO ? " [SELECTED]" : "",
         LLVM_MAJOR >= 7 ? "DEFAULT" : "       ",
         LLVM_MAJOR >= 7 ? "       " : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
@@ -2347,6 +2353,15 @@ int main(int argc, char **argv, char **envp) {
         "with\n"
         "AFL_LLVM_CMPLOG and "
         "AFL_LLVM_DICT2FILE+AFL_LLVM_DICT2FILE_NO_MAIN.\n\n");
+
+    if (LLVM_MAJOR < 13) {
+
+      SAYF(
+          "Warning: It is highly recommended to use at least LLVM version 13 "
+          "(or better, higher) rather than %d!\n\n",
+          LLVM_MAJOR);
+
+    }
 
     exit(1);
 
