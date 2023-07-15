@@ -425,7 +425,7 @@ BEGIN {
   cmd = "stat --version 2>/dev/null"
   cmd | getline statversion
   close(cmd)
-  if (statversion ~ /GNU coreutils/) {
+  if (statversion ~ /GNU coreutils/ || statversion ~ /BusyBox/) {
     stat_format = "-c '%s %n'" # GNU
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
@@ -491,6 +491,11 @@ BEGIN {
       }
       exit 1
     }
+  }
+
+  if (in_count < threads) {
+    threads = in_count
+    print "[!] WARNING: less inputs than threads, reducing threads to "threads" and likely the overhead of threading makes things slower..."
   }
 
   # Let's roll!

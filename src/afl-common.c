@@ -403,7 +403,7 @@ u8 *find_binary(u8 *fname) {
 
           FATAL(
               "Unexpected overflow when processing ENV. This should never "
-              "happend.");
+              "had happened.");
 
         }
 

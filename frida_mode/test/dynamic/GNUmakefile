@@ -17,7 +17,7 @@ FRIDA_OUT:=$(BUILD_DIR)frida-out
 AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/frida_hook.so
 
 ADDR_BIN:=$(ROOT)frida_mode/build/addr
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/frida_get_symbol_addr.sh
 
 AFL_FRIDA_BASE_ADDR:=$(shell $(ADDR_BIN))
 AFL_FRIDA_PERSISTENT_ADDR=$(shell $(GET_SYMBOL_ADDR) $(TESTINSTBIN) testinstr $(AFL_FRIDA_BASE_ADDR))

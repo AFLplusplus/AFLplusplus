@@ -360,9 +360,10 @@
       65535,      /* Overflow unsig 16-bit when incremented  */ \
       65536,      /* Overflow unsig 16 bit                   */ \
       100663045,  /* Large positive number (endian-agnostic) */ \
+      2139095040, /* float infinite                          */ \
       2147483647                 /* Overflow signed 32-bit when incremented */
 
-#define INTERESTING_32_LEN 8
+#define INTERESTING_32_LEN 9
 
 /***********************************************************
  *                                                         *
@@ -446,7 +447,15 @@
    after changing this - otherwise, SEGVs may ensue. */
 
 #define MAP_SIZE_POW2 16
+
+/* Do not change this unless you really know what you are doing. */
+
 #define MAP_SIZE (1U << MAP_SIZE_POW2)
+#if MAP_SIZE <= 65536
+  #define MAP_INITIAL_SIZE (2 << 20)  // = 2097152
+#else
+  #define MAP_INITIAL_SIZE MAP_SIZE
+#endif
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 

@@ -1281,6 +1281,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        WARNF(
+            "Note that the MOpt mode is not maintained and is not as effective "
+            "as normal havoc mode.");
+
       } break;
 
       case 'h':

@@ -1081,7 +1081,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
       }
 
       if (!be_quiet)
-        printf("AUTODICTIONARY: %lu string%s found\n", count,
+        printf("AUTODICTIONARY: %zu string%s found\n", count,
                count == 1 ? "" : "s");
 
       if (count) {

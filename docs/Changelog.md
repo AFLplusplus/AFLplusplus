@@ -19,6 +19,7 @@
     - fixed a bug inherited from vanilla AFL where a coverage of
       map[123] = 11 would be the same as map[1123] = 1
     - warn on crashing inputs
+    - adjust threads if less inputs than threads specified
   - afl-cc:
     - fixed an off-by-one instrumentation of iselect, hurting coverage a bit.
       Thanks to @amykweon for spotting and fixing!
@@ -27,6 +28,9 @@
     - more LLVM compatability
   - frida_mode:
     - support for long form instrumentation on x86_x64 and arm64
+    - renamed utils/get_symbol_addr.sh to utils/frida_get_symbol_addr.sh
+  - qemu_mode:
+    - added qemu_mode/utils/qemu_get_symbol_addr.sh
 
 
 ### Version ++4.07c (release)
