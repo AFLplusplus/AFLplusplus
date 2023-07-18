@@ -15,6 +15,7 @@ AFL++ is maintained by:
 * Andrea Fioraldi <andreafioraldi@gmail.com>
 * Dominik Maier <mail@dmnk.co>
 * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
+* frida_mode is maintained by @Worksbutnottested
 * Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michał "lcamtuf" Zalewski.
