@@ -185,7 +185,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
       "                  A=arithmetic solving, T=transformational solving,\n"
-      "                  R=random colorization bytes.\n\n"
+      "                  X=extreme transform solving, R=random colorization "
+      "bytes.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -1119,6 +1120,10 @@ int main(int argc, char **argv_orig, char **envp) {
             case 't':
             case 'T':
               afl->cmplog_enable_transform = 1;
+              break;
+            case 'x':
+            case 'X':
+              afl->cmplog_enable_xtreme_transform = 1;
               break;
             case 'r':
             case 'R':
