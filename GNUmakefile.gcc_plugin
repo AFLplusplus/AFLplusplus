@@ -28,14 +28,16 @@ MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
 
-CFLAGS          ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=1
+CFLAGS          ?= -O3 -g -funroll-loops
+# -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -Iinclude -Wno-pointer-sign \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
                    -Wno-unused-function
 override CFLAGS += $(CFLAGS_SAFE)
 
-CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=1
+CXXFLAGS    ?= -O3 -g -funroll-loops
+# -D_FORTIFY_SOURCE=1
 CXXEFLAGS   := $(CXXFLAGS) -Wall -std=c++11
 
 CC          ?= gcc
