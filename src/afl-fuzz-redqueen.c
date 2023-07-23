@@ -129,7 +129,6 @@ static struct range *pop_biggest_range(struct range **ranges) {
 }
 
 #ifdef _DEBUG
-// static int  logging = 0;
 static void dump(char *txt, u8 *buf, u32 len) {
 
   u32 i;
@@ -140,6 +139,7 @@ static void dump(char *txt, u8 *buf, u32 len) {
 
 }
 
+/*
 static void dump_file(char *path, char *name, u32 counter, u8 *buf, u32 len) {
 
   char fn[4096];
@@ -154,6 +154,8 @@ static void dump_file(char *path, char *name, u32 counter, u8 *buf, u32 len) {
   }
 
 }
+
+*/
 
 #endif
 
@@ -730,12 +732,14 @@ static u32 from_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 }
 
-static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
+static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
   u32 i, j, v;
-  u32 len = (dst_len >> 2) * 3;
+  //  u32 len = (dst_len >> 2) * 3;
+  u32 len = (dst_len / 3) * 4;
+  if (dst_len % 3) len += 4;
 
-  for (i = 0, j = 0; i < len; i += 3, j += 4) {
+  for (i = 0, j = 0; j < len; i += 3, j += 4) {
 
     v = src[i];
     v = i + 1 < len ? v << 8 | src[i + 1] : v << 8;
@@ -743,7 +747,8 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
     dst[j] = base64_encode_table[(v >> 18) & 0x3F];
     dst[j + 1] = base64_encode_table[(v >> 12) & 0x3F];
-    if (i + 1 < len) {
+
+    if (i + 1 < dst_len) {
 
       dst[j + 2] = base64_encode_table[(v >> 6) & 0x3F];
 
@@ -753,7 +758,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
     }
 
-    if (i + 2 < len) {
+    if (i + 2 < dst_len) {
 
       dst[j + 3] = base64_encode_table[v & 0x3F];
 
@@ -764,6 +769,9 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
     }
 
   }
+
+  dst[len] = 0;
+  return len;
 
 }
 
@@ -2016,6 +2024,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   its_len = MIN(its_len, taint_len);
   u32 saved_its_len = its_len;
 
+  // fprintf(stderr, "its_len=%u repl=%s\n", its_len, repl);
+
   if (its_len <= 1) { return 0; }
 
   if (lvl & LVL3) {
@@ -2032,27 +2042,32 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   (void)(j);
 
 #ifdef _DEBUG
-  fprintf(stderr, "RTN T idx=%u lvl=%02x is_txt=%u shape=%u/%u ", idx, lvl,
-          o->v0_len >= 0x80 ? 1 : 0, hshape, l0);
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", orig_buf[idx + j]);
-  fprintf(stderr, " -> ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", o_pattern[j]);
-  fprintf(stderr, " <= ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", repl[j]);
-  fprintf(stderr, "\n");
-  fprintf(stderr, "                ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", buf[idx + j]);
-  fprintf(stderr, " -> ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", pattern[j]);
-  fprintf(stderr, " <= ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", changed_val[j]);
-  fprintf(stderr, "\n");
+  if (idx == 0) {
+
+    fprintf(stderr, "RTN T idx=%u lvl=%02x is_txt=%u shape=%u/%u ", idx, lvl,
+            o->v0_len >= 0x80 ? 1 : 0, hshape, l0);
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", orig_buf[idx + j]);
+    fprintf(stderr, " -> ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", o_pattern[j]);
+    fprintf(stderr, " <= ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", repl[j]);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "                ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", buf[idx + j]);
+    fprintf(stderr, " -> ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", pattern[j]);
+    fprintf(stderr, " <= ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", changed_val[j]);
+    fprintf(stderr, "\n");
+
+  }
+
 #endif
 
   // Try to match the replace value up to 4 bytes before the current idx.
@@ -2060,6 +2075,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   //   if (memcmp(user_val, "TEST") == 0)
   //     if (memcmp(user_val, "TEST-VALUE") == 0) ...
   // We only do this in lvl 3, otherwise we only do direct matching
+
+  // fprintf(stderr, "XXXX FROMB64 saved_idx=%u its_len=%u from=%u to=%u FROMHEX
+  // repl=%s\n", saved_idx, saved_its_len, from, to, repl);
 
   for (pre = from; pre <= to; pre++) {
 
@@ -2173,9 +2191,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       }
 
-      if (afl->cmplog_enable_xtreme_transform && (i % 2)) {
+      if (afl->cmplog_enable_xtreme_transform && (i % 2) == 1) {
 
-        if (len > idx + i + 1 && is_hex(orig_buf + idx + i)) {
+        if (len > idx + i + 1 && is_hex(orig_buf + idx + i - 1)) {
 
           fromhex += 2;
 
@@ -2205,6 +2223,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
         }
 
+        // fprintf(stderr, "X FROMB64 idx=%u i=%u repl=%s\n", saved_idx, i,
+        // repl);
         if (i % 4 == 3 && i < 24) {
 
           if (is_base64(orig_buf + idx + i - 3)) fromb64 += 4;
@@ -2240,17 +2260,23 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
       }
 
 #ifdef _DEBUG
-      fprintf(stderr, "RTN %s %s %s %s\n", buf, pattern, orig_buf, o_pattern);
-      fprintf(stderr,
-              "RTN idx=%u len=%u loop=%u xor=%u arith=%u tolower=%u toupper=%u "
-              "tohex=%u fromhex=%u to_0=%u to_slash=%u to_x=%u "
-              "from_0=%u from_slash=%u from_x=%u\n",
-              idx, its_len, i, xor, arith, tolower, toupper, tohex, fromhex,
-              to_0, to_slash, to_x, from_0, from_slash, from_x);
-      if (afl->cmplog_enable_xtreme_transform) {
+      if (idx == 0) {
 
-        fprintf(stderr, "RTN idx=%u loop=%u tob64=%u from64=%u\n", idx, i,
-                tob64, fromb64);
+        fprintf(stderr, "RTN Z %s %s %s %s repl=%s\n", buf, pattern, orig_buf,
+                o_pattern, repl);
+        fprintf(
+            stderr,
+            "RTN Z idx=%u len=%u loop=%u xor=%u arith=%u tolower=%u toupper=%u "
+            "tohex=%u fromhex=%u to_0=%u to_slash=%u to_x=%u "
+            "from_0=%u from_slash=%u from_x=%u\n",
+            idx, its_len, i, xor, arith, tolower, toupper, tohex, fromhex, to_0,
+            to_slash, to_x, from_0, from_slash, from_x);
+        if (afl->cmplog_enable_xtreme_transform) {
+
+          fprintf(stderr, "RTN Z idx=%u loop=%u tob64=%u from64=%u\n", idx, i,
+                  tob64, fromb64);
+
+        }
 
       }
 
@@ -2259,13 +2285,27 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
       if (afl->cmplog_enable_xtreme_transform) {
 
         // input is base64 and converted to binary? convert repl to base64!
+        // fprintf(stderr, "FROMB64 idx=%u i=%u %% 4 == 3 && i < 24 &&
+        // fromb64=%u > i, repl=%s\n", saved_idx, i, fromb64, repl);
         if ((i % 4) == 3 && i < 24 && fromb64 > i) {
 
-          to_base64(repl, tmp, i + 1);
-          memcpy(buf + idx, tmp, i + 1);
-          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-          // fprintf(stderr, "RTN ATTEMPT fromb64 %u result %u\n", fromb64,
-          // *status);
+          for (u32 hlen = i; hlen + saved_idx < len && hlen <= its_len;
+               ++hlen) {
+
+            u32 res = to_base64(repl, tmp, hlen);
+            // fprintf(stderr, "FROMB64 GOGO! idx=%u repl=%s tmp[%u]=%s
+            // hlen=%u\n", saved_idx, repl, res, tmp, hlen);
+            if (res + saved_idx < len) {
+
+              memcpy(buf + idx, tmp, res);
+              if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+              // fprintf(stderr, "RTN ATTEMPT FROMB64 idx=%u fromb64 %u %s %s
+              // result %u\n",       saved_idx,      fromb64,      tmp, repl,
+              // *status);
+
+            }
+
+          }
 
         }
 
@@ -2308,7 +2348,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
       }
 
       // input is hex and converted to binary? convert repl to hex!
-      if (afl->cmplog_enable_xtreme_transform && i && (i % 2) && i < 16 &&
+      if (afl->cmplog_enable_xtreme_transform && (i % 2) == 1 && i < 16 &&
           fromhex && fromhex + from_slash + from_x + from_0 > i) {
 
         u8 off = 0;
@@ -2344,31 +2384,36 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
         }
 
-        if (to_up == 1) {
+        for (u32 hlen = i; hlen <= (i << 1) && hlen + idx < len; hlen += i) {
 
-          for (j = 0; j <= (i >> 1); j++) {
+          if (to_up == 1) {
 
-            tmp[off + (j << 1)] = hex_table_up[repl[j] >> 4];
-            tmp[off + (j << 1) + 1] = hex_table_up[repl[j] % 16];
+            for (j = 0; j <= (hlen >> 1); j++) {
+
+              tmp[off + (j << 1)] = hex_table_up[repl[j] >> 4];
+              tmp[off + (j << 1) + 1] = hex_table_up[repl[j] % 16];
+
+            }
+
+          } else {
+
+            for (j = 0; j <= (hlen >> 1); j++) {
+
+              tmp[off + (j << 1)] = hex_table_low[repl[j] >> 4];
+              tmp[off + (j << 1) + 1] = hex_table_low[repl[j] % 16];
+
+            }
 
           }
 
-        } else {
-
-          for (j = 0; j <= (i >> 1); j++) {
-
-            tmp[off + (j << 1)] = hex_table_low[repl[j] >> 4];
-            tmp[off + (j << 1) + 1] = hex_table_low[repl[j] % 16];
-
-          }
+          memcpy(buf + idx, tmp, hlen + 1 + off);
+          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+          tmp[hlen + 1 + off] = 0;
+          // fprintf(stderr, "RTN ATTEMPT idx=%u len=%u fromhex %u %s %s result
+          // %u\n", idx, len, fromhex, tmp, repl, *status);
+          memcpy(buf + idx, save, hlen + 1 + off);
 
         }
-
-        memcpy(buf + idx, tmp, i + 1 + off);
-        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        // fprintf(stderr, "RTN ATTEMPT fromhex %u result %u\n", fromhex,
-        // *status);
-        memcpy(buf + idx, save, i + 1 + off);
 
       }
 
@@ -2441,7 +2486,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   struct tainted    *t;
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  u32                i, j, idx, have_taint = 1, taint_len, loggeds;
+  u32                i, idx, have_taint = 1, taint_len, loggeds;
   u8                 status = 0, found_one = 0;
 
   hshape = SHAPE_BYTES(h->shape);
@@ -2464,19 +2509,22 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     struct cmpfn_operands *orig_o =
         &((struct cmpfn_operands *)afl->orig_cmp_map->log[key])[i];
 
-    // opt not in the paper
-    for (j = 0; j < i; ++j) {
-
-      if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j], o,
-                  sizeof(struct cmpfn_operands))) {
-
-        goto rtn_fuzz_next_iter;
-
-      }
-
-    }
-
     /*
+        // opt not in the paper
+        for (j = 0; j < i; ++j) {
+
+          if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j],
+       o, sizeof(struct cmpfn_operands))) {
+
+            goto rtn_fuzz_next_iter;
+
+          }
+
+        }
+
+    */
+
+#ifdef _DEBUG
     struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
     fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
             hshape, h->attribute);
@@ -2493,7 +2541,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", orig_o->v1[j]);
     fprintf(stderr, "\n");
-    */
+#endif
 
     t = taint;
     while (t->next) {
@@ -2527,7 +2575,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       status = 0;
 
 #ifdef _DEBUG
-      int w;
+      u32 w;
       fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx, hshape);
       for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", orig_o->v0[w]);

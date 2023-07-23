@@ -91,9 +91,9 @@ ifneq "$(SYS)" "Darwin"
   #ifeq "$(HAVE_MARCHNATIVE)" "1"
   #  SPECIAL_PERFORMANCE += -march=native
   #endif
- ifndef DEBUG
-   CFLAGS_OPT += -D_FORTIFY_SOURCE=1
- endif
+ #ifndef DEBUG
+ #  CFLAGS_OPT += -D_FORTIFY_SOURCE=1
+ #endif
 else
   # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
   SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
