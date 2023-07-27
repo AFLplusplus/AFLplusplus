@@ -286,7 +286,6 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
-
   fprintf(
       f,
       "start_time        : %llu\n"
@@ -332,7 +331,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "afl_version       : " VERSION
       "\n"
       "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
-      "command_line      : %s\n",
+      "command_line      : %s\n"
+      "hash_collisions   : %lu",
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
       (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
@@ -381,7 +381,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
        afl->persistent_mode || afl->deferred_mode)
           ? ""
           : "default",
-      afl->orig_cmdline);
+      afl->orig_cmdline, (unsigned long)afl->num_detected_collisions);
 
   /* ignore errors */
 
@@ -448,6 +448,62 @@ void write_queue_stats(afl_state_t *afl) {
 
 #endif
 
+/* Write coverage file */
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+void        write_coverage_file(afl_state_t *afl) {
+
+  char *tmp = alloc_printf("%s/path_data/time:%llu", afl->out_dir,
+                           (unsigned long long)afl->next_save_time / 1000);
+  s32   fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", tmp); }
+  FILE *current_file = fdopen(fd, "w");
+  // Write file header
+  fprintf(current_file, "# path hash, number of times path is fuzzed\n");
+  for (u64 i = 0; i < afl->n_fuzz_size; i++) {
+
+    if (LARGE_INDEX(afl->n_fuzz, i, MAX_ALLOC, sizeof(u32)) !=
+        LARGE_INDEX(afl->n_fuzz_logged, i, MAX_ALLOC, sizeof(u32))) {
+
+      fprintf(
+          current_file, "%llu,%lu\n", (unsigned long long)i,
+          (unsigned long)LARGE_INDEX(afl->n_fuzz, i, MAX_ALLOC, sizeof(u32)));
+      LARGE_INDEX(afl->n_fuzz_logged, i, MAX_ALLOC, sizeof(u32)) =
+          LARGE_INDEX(afl->n_fuzz, i, MAX_ALLOC, sizeof(u32));
+
+    }
+
+  }
+
+  fflush(current_file);
+  fclose(current_file);
+  if (afl->next_save_time < 1000 * 60 * 15) {
+
+    // Save every 1 min
+    afl->next_save_time += 1000 * 60;
+
+  } else if (afl->next_save_time < 1000 * 60 * 60 * 6 /* 6h */) {
+
+    // Save every 15 min
+    afl->next_save_time += 1000 * 60 * 15;
+
+  } else if (afl->next_save_time < 1000 * 60 * 60 * 24 * 2 /* 2d */) {
+
+    // Save every 6h
+    afl->next_save_time += 1000 * 60 * 60 * 6;
+
+  } else {
+
+    // Save every 12h
+    afl->next_save_time += 1000 * 60 * 60 * 12;
+
+  }
+
+  return;
+
+}
+
+#endif
+
 /* Update the plot file if there is a reason to. */
 
 void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
@@ -483,10 +539,9 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   /* Fields in the file:
 
-     relative_time, afl->cycles_done, cur_item, corpus_count, corpus_not_fuzzed,
-     favored_not_fuzzed, saved_crashes, saved_hangs, max_depth,
-     execs_per_sec, edges_found */
-
+      relative_time, afl->cycles_done, cur_item, corpus_count,
+      corpus_not_fuzzed, favored_not_fuzzed, saved_crashes, saved_hangs,
+      max_depth, execs_per_sec, edges_found */
   fprintf(afl->fsrv.plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
           "%u\n",
@@ -497,6 +552,37 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           afl->plot_prev_ed, t_bytes);                     /* ignore errors */
 
   fflush(afl->fsrv.plot_file);
+
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+  if (afl->coverage_estimation) {
+
+    /* Update log file for coverage estimation */
+    /*Fields in the file:
+      relative_time, total_paths, abundant_paths, lower_estimate,
+      higher_estimate, max_path_number, max_path_count, second_max_path_number
+      second_max_path_count, path_frequenzies... */
+    fprintf(afl->coverage_log_file,
+            "%llu, %llu, %llu, %0.02f%%, %0.02f%%, %llu, %llu, %llu, %llu",
+            ((afl->prev_run_time + get_cur_time() - afl->start_time) / 1000),
+            afl->total_paths, afl->abundant_paths,
+            afl->lower_coverage_estimate * 100,
+            afl->upper_coverage_estimate * 100, afl->max_path_number,
+            afl->max_path_count, afl->second_max_path_number,
+            afl->second_max_path_count);
+
+    for (u8 i = 0; i < afl->abundant_cut_off; i++) {
+
+      fprintf(afl->coverage_log_file, ", %u", afl->path_frequenzy[i]);
+
+    }
+
+    fprintf(afl->coverage_log_file, "\n");
+
+    fflush(afl->coverage_log_file);
+
+  }
+
+#endif
 
 }
 
@@ -511,7 +597,15 @@ static void check_term_size(afl_state_t *afl) {
   if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
 
   if (ws.ws_row == 0 || ws.ws_col == 0) { return; }
-  if (ws.ws_row < 24 || ws.ws_col < 79) { afl->term_too_small = 1; }
+  if (afl->coverage_estimation) {
+
+    if (ws.ws_row < 26 || ws.ws_col < 79) { afl->term_too_small = 1; }
+
+  } else {
+
+    if (ws.ws_row < 24 || ws.ws_col < 79) { afl->term_too_small = 1; }
+
+  }
 
 }
 
@@ -519,6 +613,123 @@ static void check_term_size(afl_state_t *afl) {
    execve() calls, plus in several other circumstances. */
 
 void show_stats(afl_state_t *afl) {
+
+  if (afl->coverage_estimation) {
+
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+
+    u64 cur_time = get_cur_time();
+    if (unlikely(cur_time - afl->start_time > afl->next_save_time)) {
+
+      write_coverage_file(afl);
+
+    }
+
+#endif
+    afl->coverage_counter++;
+    if (afl->coverage_counter >= COVERAGE_INTERVAL &&
+        afl->max_path_number >= afl->abundant_cut_off) {
+
+      afl->coverage_counter = 0;
+      u64 n_rare = 0, s_rare = 0, sum_i = 0;
+      for (u8 i = 0; i < afl->abundant_cut_off; i++) {
+
+        s_rare += afl->path_frequenzy[i];
+        n_rare += afl->path_frequenzy[i] * (i + 1);
+        sum_i += afl->path_frequenzy[i] * i * (i + 1);
+
+      }
+
+      u64 s_total = s_rare + afl->abundant_paths;
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+      afl->total_paths = s_total;
+#endif
+      afl->n_fuzz_fill = (double)s_total / afl->n_fuzz_size;
+      if (likely(n_rare)) {
+
+        u64 n_abundant = afl->fsrv.total_execs - n_rare;
+        if (unlikely(n_abundant > afl->fsrv.total_execs)) /* Check underflow*/ {
+
+          FATAL(
+              "Total number of Paths or Executions is less than rare"
+              "Executions");
+
+        }
+
+        double c_rare = 1 - (double)afl->path_frequenzy[0] / n_rare;
+        if (likely(n_rare != 10)) {
+
+          double s_lower_estimate = 0;
+          if (c_rare == 0) /* all singleton */ {
+
+            s_lower_estimate =
+                (((double)afl->fsrv.total_execs - 1) / afl->fsrv.total_execs *
+                 afl->path_frequenzy[0] * (afl->path_frequenzy[0] - 1) / 2.0);
+
+          } else {
+
+            double variation_rare =
+                (s_rare / c_rare) * ((double)sum_i / (n_rare * (n_rare - 10))) -
+                1;
+            if (variation_rare < 0) variation_rare = 0;
+            s_lower_estimate = afl->abundant_paths + s_rare / c_rare +
+                               afl->path_frequenzy[0] / c_rare * variation_rare;
+
+          }
+
+          afl->upper_coverage_estimate =
+              (double)s_total / (s_lower_estimate + s_total);
+          double pi_zero =
+              (double)s_lower_estimate / (s_lower_estimate + s_total);
+          if (pi_zero < 0.5) {
+
+            afl->lower_coverage_estimate =
+                s_total / ((double)2 * s_total - afl->max_path_count);
+
+          } else {
+
+            double p_max_minus_one =
+                       (double)(s_total - afl->max_path_count) / s_total,
+                   p_max_minus_two = (double)(s_total - afl->max_path_count -
+                                              afl->second_max_path_count) /
+                                     s_total;
+            double pi_max_minus_one = pi_zero + (1 - pi_zero) * p_max_minus_one,
+                   pi_max_minus_two = pi_zero + (1 - pi_zero) * p_max_minus_two;
+            double normalisation_factor = 0;
+            if (p_max_minus_one == p_max_minus_two) {
+
+              normalisation_factor = (1 - p_max_minus_two);
+
+            } else {
+
+              normalisation_factor =
+                  (1 - p_max_minus_two) *
+                  ((p_max_minus_one - p_max_minus_two) /
+                   (p_max_minus_one -
+                    p_max_minus_two * pi_max_minus_two / pi_max_minus_one));
+
+            }
+
+            double estimated_paths =
+                s_total /
+                (1 - normalisation_factor / (1 - normalisation_factor) *
+                         p_max_minus_two / (1 - p_max_minus_two));
+            afl->lower_coverage_estimate = (double)s_total / estimated_paths;
+
+          }
+
+        }
+
+      } else /*n_rare = 0*/ {
+
+        afl->lower_coverage_estimate = 1;
+        afl->upper_coverage_estimate = 1;
+
+      }
+
+    }
+
+  }
 
   if (afl->pizza_is_served) {
 
@@ -766,9 +977,19 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (unlikely(afl->term_too_small)) {
 
-    SAYF(cBRI
-         "Your terminal is too small to display the UI.\n"
-         "Please resize terminal window to at least 79x24.\n" cRST);
+    if (afl->coverage_estimation) {
+
+      SAYF(cBRI
+           "Your terminal is too small to display the UI.\n"
+           "Please resize terminal window to at least 79x26.\n" cRST);
+
+    } else {
+
+      SAYF(cBRI
+           "Your terminal is too small to display the UI.\n"
+           "Please resize terminal window to at least 79x24.\n" cRST);
+
+    }
 
     return;
 
@@ -1322,6 +1543,42 @@ void show_stats_normal(afl_state_t *afl) {
   } else {
 
     SAYF("\r");
+
+  }
+
+  if (afl->coverage_estimation) {
+
+    SAYF(SET_G1 "\n" bSTG bVR bH cCYA                           bSTOP
+                " code coverage information " bSTG bH20 bH2 bH2 bVL "\n");
+    if (afl->upper_coverage_estimate ||
+        afl->lower_coverage_estimate) /* If both are 0 they are not yet
+                                         calculated */
+      sprintf(tmp, "%6.2f%% - %6.2f%%", afl->lower_coverage_estimate * 100,
+              afl->upper_coverage_estimate * 100);
+    else
+      sprintf(tmp, "not yet calculated!");
+    SAYF(bV bSTOP "              coverage : " cRST "%-27s" bSTG bV "\n", tmp);
+    sprintf(tmp, "%.2f%%", afl->n_fuzz_fill * 100);
+    SAYF(bV bSTOP " collision probability : ");
+    if (afl->n_fuzz_fill < 0.05) {
+
+      SAYF(cRST);
+
+    } else if (afl->n_fuzz_fill < 0.25) {
+
+      SAYF(bSTG);
+
+    } else if (afl->n_fuzz_fill < 0.5) {
+
+      SAYF(cYEL);
+
+    } else {
+
+      SAYF(cLRD);
+
+    }
+
+    SAYF("%-27s" bSTG bV, tmp);
 
   }
 
@@ -2172,6 +2429,19 @@ void show_stats_pizza(afl_state_t *afl) {
   } else {
 
     SAYF("\r");
+
+  }
+
+  if (afl->coverage_estimation) {
+
+    SAYF(SET_G1 "\n" bSTG bVR bH cCYA                                bSTOP
+                " code coverage information " bSTG bH20 bH20 bH5 bH2 bVL "\n");
+    if (afl->upper_coverage_estimate && afl->lower_coverage_estimate)
+      sprintf(tmp, "%6.2f%% - %6.2f%%", afl->lower_coverage_estimate * 100,
+              afl->upper_coverage_estimate * 100);
+    else
+      sprintf(tmp, "oven not hot enough!");
+    SAYF(bV bSTOP " coverage : " cRST "%-63s" bSTG bV, tmp);
 
   }
 

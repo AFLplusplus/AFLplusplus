@@ -314,6 +314,10 @@ mode.
 The main fuzzer binary accepts several options that disable a couple of sanity
 checks or alter some of the more exotic semantics of the tool:
 
+  - Coverage estimation only: `AFL_ABUNDANT_CUT_OFF` describes the cut-off for
+    species richness estimators. Default is 10. The Value should only be changed
+    for research.
+
   - Setting `AFL_AUTORESUME` will resume a fuzz run (same as providing `-i -`)
     for an existing out folder, even if a different `-i` was provided. Without
     this setting, afl-fuzz will refuse execution for a long-fuzzed out dir.
@@ -326,6 +330,11 @@ checks or alter some of the more exotic semantics of the tool:
     newly found test cases and not for test cases that are loaded on startup
     (`-i in`). This is an important feature to set when resuming a fuzzing
     session.
+
+  - `AFL_CODE_COVERAGE` will enable code coverage estimation. See also 
+    [coverage_estimation.md](./coverage_estimation.md). Related enviroment
+    variables: `AFL_ABUNDANT_CUT_OFF`, `AFL_CRASH_ON_HASH_COLLISION` and
+    `AFL_N_FUZZ_SIZE`
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL++ treats as crash. For
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
@@ -407,6 +416,11 @@ checks or alter some of the more exotic semantics of the tool:
     Others need not apply, unless they also want to disable the
     `/proc/sys/kernel/core_pattern` check.
 
+  - Coverage estimation only: `AFL_CRASH_ON_HASH_COLLISION` will crash on detected
+    (Re)Hash collisions. If this is not set only a warning is displayed instead of
+    Aborting the Fuzzing campaign. You could also increase `AFL_N_FUZZ_SIZE` to
+    mitigate the chance of a (Re)Hash collision.
+
   - If afl-fuzz encounters an incorrect fuzzing setup during a fuzzing session
     (not at startup), it will terminate. If you do not want this, then you can
     set `AFL_IGNORE_PROBLEMS`. If you additionally want to also ignore coverage
@@ -449,6 +463,10 @@ checks or alter some of the more exotic semantics of the tool:
     fuzzing. The default count is `200` elements. So for the 200 + 1st element,
     there is a 1 in 201 chance, that one of the dictionary entries will not be
     used directly.
+
+  - Coverage estimation only: `AFL_N_FUZZ_SIZE` sets the amount of Path Hashes that
+    can be stored. Default (1 << 21). Think about increasing this value to mitigate
+    (Re)Hash collisions. Upper Bound is (1 << 64 - 1).
 
   - Setting `AFL_NO_AFFINITY` disables attempts to bind to a specific CPU core
     on Linux systems. This slows things down, but lets you run more instances of

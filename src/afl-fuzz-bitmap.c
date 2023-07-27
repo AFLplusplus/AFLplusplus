@@ -474,7 +474,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   /* Generating a hash on every input is super expensive. Bad idea and should
      only be used for special schedules */
-  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  if (unlikely((afl->schedule >= FAST && afl->schedule <= RARE) ||
+               afl->coverage_estimation)) {
 
     classify_counts(&afl->fsrv);
     classified = 1;
@@ -483,8 +484,91 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     /* Saturated increment */
-    if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
-      afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
+    if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                    sizeof(u32)) < 0xFFFFFFFF)
+      ++LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                    sizeof(u32));
+
+    if (afl->coverage_estimation) {
+
+      if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                      sizeof(u32)) <= afl->abundant_cut_off + 1U) {
+
+        if ((LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                         sizeof(u32)) != 1) &&
+            likely(afl->path_frequenzy[LARGE_INDEX(afl->n_fuzz,
+                                                   cksum % afl->n_fuzz_size,
+                                                   MAX_ALLOC, sizeof(u32)) -
+                                       2] > 0))
+          --afl->path_frequenzy[LARGE_INDEX(afl->n_fuzz,
+                                            cksum % afl->n_fuzz_size, MAX_ALLOC,
+                                            sizeof(u32)) -
+                                2];
+        if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                        sizeof(u32)) <= afl->abundant_cut_off) {
+
+          if (likely(afl->path_frequenzy[LARGE_INDEX(afl->n_fuzz,
+                                                     cksum % afl->n_fuzz_size,
+                                                     MAX_ALLOC, sizeof(u32)) -
+                                         1] < UINT32_MAX)) {
+
+            ++afl->path_frequenzy[LARGE_INDEX(afl->n_fuzz,
+                                              cksum % afl->n_fuzz_size,
+                                              MAX_ALLOC, sizeof(u32)) -
+                                  1];
+
+          }
+
+        } else {
+
+          ++afl->abundant_paths;
+
+        }
+
+      }
+
+      if (unlikely(afl->max_path_number == 0)) {
+
+        afl->max_path_number = 1;
+        afl->max_path_count = 1;
+
+      } else if (unlikely(LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size,
+
+                                      MAX_ALLOC, sizeof(u32)) >=
+
+                          afl->second_max_path_number)) {
+
+        if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                        sizeof(u32)) == afl->second_max_path_number)
+          ++afl->second_max_path_count;
+        else if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                             sizeof(u32)) == afl->max_path_number)
+          ++afl->max_path_count;
+        else if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
+                             sizeof(u32)) > afl->max_path_number) {
+
+          if (afl->max_path_count > 1) {
+
+            afl->second_max_path_count = afl->max_path_count - 1;
+            afl->second_max_path_number = afl->max_path_number;
+
+          }
+
+          afl->max_path_number = LARGE_INDEX(
+              afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC, sizeof(u32));
+          afl->max_path_count = 1;
+
+        } else /* second max < n_fuzz < max*/ {
+
+          afl->second_max_path_count = 1;
+          afl->second_max_path_number = LARGE_INDEX(
+              afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC, sizeof(u32));
+
+        }
+
+      }
+
+    }
 
   }
 
@@ -593,11 +677,42 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     /* For AFLFast schedules we update the new queue entry */
     if (likely(cksum)) {
+      afl->queue_top->n_fuzz_entry = cksum % afl->n_fuzz_size;
+      if (afl->coverage_estimation) {
 
-      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+        if (unlikely(LARGE_INDEX(afl->n_fuzz, afl->queue_top->n_fuzz_entry,
+                                 MAX_ALLOC, sizeof(u32)) > 1)) {
+
+          if (afl->crash_on_hash_collision)
+            FATAL(
+                "Hash collision on n_fuzz increase AFL_N_FUZZ_SIZE or ignore "
+                "with removing AFL_CRASH_ON_HASH_COLLISION");
+          else
+            WARNF("Hash collision on n_fuzz increase AFL_N_FUZZ_SIZE! (%lu)",
+                  (unsigned long)++afl->num_detected_collisions);
+          if (LARGE_INDEX(afl->n_fuzz, afl->queue_top->n_fuzz_entry, MAX_ALLOC,
+                          sizeof(u32)) == 0) {
+
+            if (likely(afl->path_frequenzy[0] < UINT32_MAX)) {
+
+              ++afl->path_frequenzy[0];
+
+            }
+
+          }
+
+        }
+
+      }
+
+      LARGE_INDEX(afl->n_fuzz, afl->queue_top->n_fuzz_entry, MAX_ALLOC,
+                  sizeof(u32)) = 1;
 
     }
+
+    /* due to classify counts we have to recalculate the checksum */
+    afl->queue_top->exec_cksum =
+        hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */

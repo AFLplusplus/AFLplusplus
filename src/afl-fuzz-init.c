@@ -1841,6 +1841,12 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+  fn = alloc_printf("%s/path_data", afl->out_dir);
+  if (delete_files(fn, NULL)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+#endif
+
   /* All right, let's do <afl->out_dir>/crashes/id:* and
    * <afl->out_dir>/hangs/id:*. */
 
@@ -1971,6 +1977,10 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   }
 
   fn = alloc_printf("%s/queue_data", afl->out_dir);
+  if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
+  fn = alloc_printf("%s/coverage_estimation", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
   ck_free(fn);
 
@@ -2181,6 +2191,35 @@ void setup_dirs_fds(afl_state_t *afl) {
         "# relative_time, cycles_done, cur_item, corpus_count, "
         "pending_total, pending_favs, map_size, saved_crashes, "
         "saved_hangs, max_depth, execs_per_sec, total_execs, edges_found\n");
+
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+    tmp = alloc_printf("%s/path_data", afl->out_dir);
+    if (mkdir(tmp, 0700)) {
+
+      if (errno != EEXIST)
+        PFATAL("Unable to create '%s'", tmp);
+      else {
+
+      }
+
+    }
+
+    ck_free(tmp);
+    tmp = alloc_printf("%s/coverage_estimation", afl->out_dir);
+    fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+
+    ck_free(tmp);
+    afl->coverage_log_file = fdopen(fd, "w");
+    if (!afl->coverage_log_file) { PFATAL("fdopen() failed"); }
+
+    fprintf(afl->coverage_log_file,
+            "# relative_time, total_paths, abundant_paths, lower_estimate, "
+            "higher_estimate, max_path_number, max_path_count, "
+            "second_max_path_number, "
+            "second_max_path_count, path_frequenzies...\n");
+    fflush(afl->coverage_log_file);
+#endif
 
   } else {
 

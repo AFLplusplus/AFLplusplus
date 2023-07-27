@@ -157,8 +157,6 @@ static void usage(u8 *argv0, int more_help) {
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
-#endif
-#if defined(__linux__)
       "  -X            - use VM fuzzing (NYX mode - standalone mode)\n"
       "  -Y            - use VM fuzzing (NYX mode - multiple instances mode)\n"
 #endif
@@ -251,11 +249,13 @@ static void usage(u8 *argv0, int more_help) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_ABUNDANT_CUT_OFF: cut of for code coverage estimatiors (default 10)\n"
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
       "AFL_CMPLOG_ONLY_NEW: do not run cmplog on initial testcases (good for resumes!)\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
+      "AFL_CODE_COVERAGE: enable code coverage estimators\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
@@ -1542,6 +1542,22 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   ACTF("Getting to work...");
+  {
+
+    char *n_fuzz_size = get_afl_env("AFL_N_FUZZ_SIZE");
+    char *end = NULL;
+    if (n_fuzz_size == NULL ||
+        (afl->n_fuzz_size = strtoull(n_fuzz_size, &end, 0)) == 0) {
+
+      ACTF("Using default n_fuzz_size of 1 << 21");
+      afl->n_fuzz_size = (1 << 21);
+
+    }
+
+    if (get_afl_env("AFL_CRASH_ON_HASH_COLLISION"))
+      afl->crash_on_hash_collision = 1;
+
+  }
 
   switch (afl->schedule) {
 
@@ -1583,7 +1599,24 @@ int main(int argc, char **argv_orig, char **envp) {
   /* Dynamically allocate memory for AFLFast schedules */
   if (afl->schedule >= FAST && afl->schedule <= RARE) {
 
-    afl->n_fuzz = ck_alloc(N_FUZZ_SIZE * sizeof(u32));
+    afl->n_fuzz = ck_alloc((afl->n_fuzz_size * sizeof(u32) /
+                                (MAX_ALLOC / sizeof(u32) * sizeof(u32)) +
+                            1) *
+                           sizeof(u32 *));
+    if (afl->n_fuzz_size * sizeof(u32) %
+        (MAX_ALLOC / sizeof(u32) * sizeof(u32)))
+      afl->n_fuzz[afl->n_fuzz_size * sizeof(u32) /
+                  (MAX_ALLOC / sizeof(u32) * sizeof(u32))] =
+          ck_alloc(afl->n_fuzz_size * sizeof(u32) %
+                   (MAX_ALLOC / sizeof(u32) * sizeof(u32)));
+    for (u32 i = 0; i < afl->n_fuzz_size * sizeof(u32) /
+                            (MAX_ALLOC / sizeof(u32) * sizeof(u32));
+         i++) {
+
+      ;
+      afl->n_fuzz[i] = ck_alloc(MAX_ALLOC);
+
+    }
 
   }
 
@@ -1592,6 +1625,70 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
+  if (get_afl_env("AFL_CODE_COVERAGE")) {
+
+    afl->coverage_estimation = 1;
+    char *cut_off = get_afl_env("AFL_ABUNDANT_CUT_OFF");
+    if (cut_off == NULL || (afl->abundant_cut_off = atoi(cut_off)) <= 0) {
+
+      WARNF(
+          "Code Coverage is set but AFL_ABUNDANT_CUT_OFF is not valid default "
+          "10 is selected");
+      afl->abundant_cut_off = 10;
+
+    };
+
+    afl->path_frequenzy = ck_alloc((afl->abundant_cut_off) * sizeof(u32));
+    if (afl->n_fuzz == NULL) {
+
+      afl->n_fuzz = ck_alloc((afl->n_fuzz_size * sizeof(u32) /
+                                  (MAX_ALLOC / sizeof(u32) * sizeof(u32)) +
+                              1) *
+                             sizeof(u32 *));
+      if (afl->n_fuzz_size * sizeof(u32) %
+          (MAX_ALLOC / sizeof(u32) * sizeof(u32)))
+        afl->n_fuzz[afl->n_fuzz_size * sizeof(u32) /
+                    (MAX_ALLOC / sizeof(u32) * sizeof(u32))] =
+            ck_alloc(afl->n_fuzz_size * sizeof(u32) %
+                     (MAX_ALLOC / sizeof(u32) * sizeof(u32)));
+      for (u32 i = 0; i < afl->n_fuzz_size * sizeof(u32) /
+                              (MAX_ALLOC / sizeof(u32) * sizeof(u32));
+           i++) {
+
+        afl->n_fuzz[i] = ck_alloc(MAX_ALLOC);
+
+      }
+
+    }
+
+  }
+
+  #if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+  afl->n_fuzz_logged = ck_alloc((afl->n_fuzz_size * sizeof(u32) /
+                                     (MAX_ALLOC / sizeof(u32) * sizeof(u32)) +
+                                 1) *
+                                sizeof(u32 *));
+  if (afl->n_fuzz_size * sizeof(u32) % (MAX_ALLOC / sizeof(u32) * sizeof(u32)))
+    afl->n_fuzz_logged[afl->n_fuzz_size * sizeof(u32) /
+                       (MAX_ALLOC / sizeof(u32) * sizeof(u32))] =
+        ck_alloc(afl->n_fuzz_size * sizeof(u32) %
+                 (MAX_ALLOC / sizeof(u32) * sizeof(u32)));
+  for (u32 i = 0; i < afl->n_fuzz_size * sizeof(u32) /
+                          (MAX_ALLOC / sizeof(u32) * sizeof(u32));
+       i++) {
+
+    ;
+    afl->n_fuzz_logged[i] = ck_alloc(MAX_ALLOC);
+
+  }
+
+  #endif
+
+  if (get_afl_env("AFL_ABUNDANT_CUT_OFF") && !afl->coverage_estimation) {
+
+    FATAL("AFL_ABUNDANT_CUT_OFF needs AFL_CODE_COVERAGE set!");
+
+  }
 
   if (afl->afl_env.afl_autoresume) {
 

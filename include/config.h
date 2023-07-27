@@ -298,6 +298,15 @@
 #define PLOT_UPDATE_SEC 5
 #define QUEUE_UPDATE_SEC 1800
 
+/* Max Interval for Coverage Estimation in UI Updates - UI Updates is set by
+ * UI_TARGET_HZ */
+
+#define COVERAGE_INTERVAL 10                     /* Roughly every 2 seconds */
+
+/* Write File to log Data for coverage estimation */
+
+#define COVERAGE_ESTIMATION_LOGGING 1
+
 /* Smoothing divisor for CPU load and exec speed stats (1 - no smoothing). */
 
 #define AVG_SMOOTHING 16

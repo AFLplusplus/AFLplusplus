@@ -415,7 +415,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
         afl->queue_cur->perf_score, afl->queue_cur->weight,
         afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
         afl->queue_cur->exec_us,
-        likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
+        likely(afl->n_fuzz)
+            ? LARGE_INDEX(afl->n_fuzz, afl->queue_cur->n_fuzz_entry, MAX_ALLOC,
+                          sizeof(u32))
+            : 0,
         afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp);
     fflush(stdout);
 
