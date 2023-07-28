@@ -39,6 +39,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   data->afl = calloc(1, sizeof(afl_state_t));
   data->afl->queue_cycle = 1;
   data->afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (data->afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
   rand_set_seed(data->afl, getpid());
 
   return data;
