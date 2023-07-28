@@ -585,7 +585,8 @@ checks or alter some of the more exotic semantics of the tool:
     Note that this is not a compile time option but a runtime option :-)
 
   - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to -1
-    to disable although it is 1st of April.
+    to disable although it is 1st of April. 0 is the default and means enable
+    on the 1st of April automatically.
 
   - If you need a specific interval to update fuzzer_stats file, you can
     set `AFL_FUZZER_STATS_UPDATE_INTERVAL` to the interval in seconds you'd
