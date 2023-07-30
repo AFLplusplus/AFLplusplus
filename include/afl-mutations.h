@@ -25,13 +25,14 @@
      u32 max_len - the maximum size the mutated buffer may grow to
 */
 
-#ifndef _ANDROID_ASHMEM_H
-  #define AFL_MUTATIONS_H
+#ifndef AFL_MUTATIONS_H
+#define AFL_MUTATIONS_H
 
-  #include <stdbool.h>
-  #include "afl-fuzz.h"
+#include <stdbool.h>
+#include <inttypes.h>
+#include "afl-fuzz.h"
 
-  #define MUT_STRATEGY_ARRAY_SIZE 256
+#define MUT_STRATEGY_ARRAY_SIZE 256
 
 enum {
 
@@ -2456,7 +2457,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         char buf[20];
-        snprintf(buf, sizeof(buf), "%lld", val);
+        snprintf(buf, sizeof(buf), "%" PRId64, val);
         u32 old_len = off2 - off;
         u32 new_len = strlen(buf);
 

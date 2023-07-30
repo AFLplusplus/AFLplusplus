@@ -2995,7 +2995,7 @@ havoc_stage:
           // fprintf(stderr, "val: %u-%u = %ld\n", off, off2, val);
 
           char buf[20];
-          snprintf(buf, sizeof(buf), "%lld", val);
+          snprintf(buf, sizeof(buf), "%" PRId64, val);
 
           // fprintf(stderr, "BEFORE: %s\n", out_buf);
 

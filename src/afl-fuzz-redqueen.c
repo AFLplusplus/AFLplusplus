@@ -2665,7 +2665,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
-  rtn_fuzz_next_iter:
+  // rtn_fuzz_next_iter:
     afl->stage_cur++;
 
   }
