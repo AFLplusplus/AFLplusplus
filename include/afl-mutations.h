@@ -2456,7 +2456,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         char buf[20];
-        snprintf(buf, sizeof(buf), "%ld", val);
+        snprintf(buf, sizeof(buf), "%lld", val);
         u32 old_len = off2 - off;
         u32 new_len = strlen(buf);
 
