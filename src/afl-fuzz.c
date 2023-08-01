@@ -1573,7 +1573,8 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
-
+  if (get_afl_env("AFL_CRASHING_SEEDS_AS_NEW_CRASH")) { afl->crashing_seeds_as_new_crash = 1; }
+  
   if (afl->afl_env.afl_autoresume) {
 
     afl->autoresume = 1;
