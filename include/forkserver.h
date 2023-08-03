@@ -86,6 +86,7 @@ typedef struct {
                                  uint32_t size);
 
   bool (*nyx_remove_work_dir)(const char *workdir);
+  bool (*nyx_config_set_aux_buffer_size)(void *config, uint32_t aux_buffer_size);
 
 } nyx_plugin_handler_t;
 
