@@ -1056,17 +1056,19 @@ void perform_dry_run(afl_state_t *afl) {
               "skipping",
               fn, (int)(s8)afl->fsrv.crash_exitcode);
 
-        } else if (afl->crashing_seeds_as_new_crash) {
-          
-          WARNF(
-              "Test case '%s' results in a crash,"
-              "as AFL_CRASHING_SEEDS_AS_NEW_CRASH is set, "
-              "saving as a crash", fn);
-
         } else {
+          if (afl->afl_env.afl_crashing_seeds_as_new_crash) {
+          
+            WARNF(
+                "Test case '%s' results in a crash, "
+                "as AFL_CRASHING_SEEDS_AS_NEW_CRASH is set, "
+                "saving as a new crash", fn);
+            
+          } else {
 
-          WARNF("Test case '%s' results in a crash, skipping", fn);
-
+            WARNF("Test case '%s' results in a crash, skipping", fn);
+          
+          }
         }
 
         if (afl->afl_env.afl_exit_on_seed_issues) {
@@ -1085,8 +1087,8 @@ void perform_dry_run(afl_state_t *afl) {
 
         }
 
-        /* Crashing corpus will regrad as normal, and categorized as new crash at fuzzing  */
-        if (afl->crashing_seeds_as_new_crash) {
+        /* Crashing seeds will be regarded as new crashes on startup */
+        if (afl->afl_env.afl_crashing_seeds_as_new_crash) {
           
           ++afl->total_crashes;
 
@@ -1139,9 +1141,6 @@ void perform_dry_run(afl_state_t *afl) {
 
         } else {
 
-          q->disabled = 1;
-          q->perf_score = 0;
-
           u32 i = 0;
           while (unlikely(i < afl->queued_items && afl->queue_buf[i] &&
                           afl->queue_buf[i]->disabled)) {
@@ -1171,6 +1170,9 @@ void perform_dry_run(afl_state_t *afl) {
 
         }
         
+        q->disabled = 1;
+        q->perf_score = 0;
+
         break;  
       
       case FSRV_RUN_ERROR:
