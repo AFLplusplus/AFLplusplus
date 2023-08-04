@@ -150,12 +150,12 @@ afl-cmin -i in_dir -o out_dir -X -- ./PACKAGE-DIRECTORY
 
 On each program startup of one the AFL++ tools in Nyx mode, a Nyx VM is spawned, and a bootstrapping procedure is performed inside the VM to prepare the target environment. As a consequence, due to the bootstrapping procedure, the launch performance is much slower compared to other modes. However, this can be optimized by reusing an existing fuzzing snapshot to avoid the slow re-execution of the bootstrap procedure. 
 
-A fuzzing snapshot is automatically created and stored in the output directory at `out_dir/workdir/snapshot/` by the first parent process of `afl-fuzz` if parallel mode is used. To enable this feature, set the path to an existing snapshot directory in the `NYX_REUSE_SNAPSHOT` environment variable and use the tools as usual:
+A fuzzing snapshot is automatically created and stored in the output directory at `out_dir/workdir/snapshot/` by the first parent process of `afl-fuzz` if parallel mode is used. To enable this feature, set the path to an existing snapshot directory in the `AFL_NYX_REUSE_SNAPSHOT` environment variable and use the tools as usual:
 
 ```shell 
 afl-fuzz -i ./in_dir -o ./out_dir -Y -M 0 ./PACKAGE-DIRECTORY
 
-NYX_REUSE_SNAPSHOT=./out_dir/workdir/snapshot/ afl-analyze -i in_file -X  -- ./PACKAGE-DIRECTORY
+AFL_NYX_REUSE_SNAPSHOT=./out_dir/workdir/snapshot/ afl-analyze -i in_file -X  -- ./PACKAGE-DIRECTORY
 ```
 
 
@@ -311,7 +311,7 @@ command:
 ```
 
 If you want to disable fast snapshots (except for crashes), you can simply set
-the `NYX_DISABLE_SNAPSHOT_MODE` environment variable.
+the `AFL_NYX_DISABLE_SNAPSHOT_MODE` environment variable.
 
 ### Nyx crash reports
 
