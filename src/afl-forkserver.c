@@ -606,23 +606,23 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    if (getenv("NYX_REUSE_SNAPSHOT") != NULL) {
+    if (getenv("AFL_NYX_REUSE_SNAPSHOT") != NULL) {
 
-      if (access(getenv("NYX_REUSE_SNAPSHOT"), F_OK) == -1) {
+      if (access(getenv("AFL_NYX_REUSE_SNAPSHOT"), F_OK) == -1) {
 
-        NYX_PRE_FATAL(fsrv, "NYX_REUSE_SNAPSHOT path does not exist");
+        NYX_PRE_FATAL(fsrv, "AFL_NYX_REUSE_SNAPSHOT path does not exist");
 
       }
 
       /* stupid sanity check to avoid passing an empty or invalid snapshot
        * directory */
       char *snapshot_file_path =
-          alloc_printf("%s/global.state", getenv("NYX_REUSE_SNAPSHOT"));
+          alloc_printf("%s/global.state", getenv("AFL_NYX_REUSE_SNAPSHOT"));
       if (access(snapshot_file_path, R_OK) == -1) {
 
-        NYX_PRE_FATAL(
-            fsrv,
-            "NYX_REUSE_SNAPSHOT path does not contain a valid Nyx snapshot");
+        NYX_PRE_FATAL(fsrv,
+                      "AFL_NYX_REUSE_SNAPSHOT path does not contain a valid "
+                      "Nyx snapshot");
 
       }
 
@@ -634,13 +634,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       char *workdir_snapshot_path =
           alloc_printf("%s/workdir/snapshot", outdir_path_absolute);
       char *reuse_snapshot_path_real =
-          realpath(getenv("NYX_REUSE_SNAPSHOT"), NULL);
+          realpath(getenv("AFL_NYX_REUSE_SNAPSHOT"), NULL);
 
       if (strcmp(workdir_snapshot_path, reuse_snapshot_path_real) == 0) {
 
-        NYX_PRE_FATAL(fsrv,
-                      "NYX_REUSE_SNAPSHOT path is located in current workdir "
-                      "(use another output directory)");
+        NYX_PRE_FATAL(
+            fsrv,
+            "AFL_NYX_REUSE_SNAPSHOT path is located in current workdir "
+            "(use another output directory)");
 
       }
 
@@ -648,7 +649,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       ck_free(workdir_snapshot_path);
 
       fsrv->nyx_handlers->nyx_config_set_reuse_snapshot_path(
-          nyx_config, getenv("NYX_REUSE_SNAPSHOT"));
+          nyx_config, getenv("AFL_NYX_REUSE_SNAPSHOT"));
 
     }
 
@@ -670,7 +671,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         fsrv->nyx_handlers->nyx_get_bitmap_buffer(fsrv->nyx_runner);
 
     fsrv->nyx_handlers->nyx_option_set_reload_mode(
-        fsrv->nyx_runner, getenv("NYX_DISABLE_SNAPSHOT_MODE") == NULL);
+        fsrv->nyx_runner, getenv("AFL_NYX_DISABLE_SNAPSHOT_MODE") == NULL);
     fsrv->nyx_handlers->nyx_option_apply(fsrv->nyx_runner);
 
     fsrv->nyx_handlers->nyx_option_set_timeout(fsrv->nyx_runner, 2, 0);
