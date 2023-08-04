@@ -302,7 +302,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NYX_AUX_SIZE: size of the Nyx auxiliary buffer. Must be a multiple of 4096.\n"
       "                  Increase this value in case the crash reports are truncated.\n"
       "                  Default value is 4096.\n"
-
+      "AFL_NYX_DISABLE_SNAPSHOT_MODE: disable snapshot mode (must be supported by the agent)\n"
+      "AFL_NYX_REUSE_SNAPSHOT: reuse an existing Nyx root snapshot\n"
       DYN_COLOR
 
       "AFL_PATH: path to AFL support binaries\n"
