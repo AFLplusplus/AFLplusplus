@@ -299,6 +299,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
       "AFL_NO_UI: switch status screen off\n"
+      "AFL_NYX_AUX_SIZE: size of the Nyx auxiliary buffer. Must be a multiple of 4096.\n"
+      "                  Increase this value in case the crash reports are truncated.\n"
+      "                  Default value is 4096.\n"
 
       DYN_COLOR
 
