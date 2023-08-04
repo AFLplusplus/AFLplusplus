@@ -129,7 +129,8 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   plugin->nyx_remove_work_dir = dlsym(handle, "nyx_remove_work_dir");
   if (plugin->nyx_remove_work_dir == NULL) { goto fail; }
 
-  plugin->nyx_config_set_aux_buffer_size = dlsym(handle, "nyx_config_set_aux_buffer_size");
+  plugin->nyx_config_set_aux_buffer_size =
+      dlsym(handle, "nyx_config_set_aux_buffer_size");
   if (plugin->nyx_config_set_aux_buffer_size == NULL) { goto fail; }
 
   OKF("libnyx plugin is ready!");
@@ -593,10 +594,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
     if (getenv("AFL_NYX_AUX_SIZE") != NULL) {
-        if(fsrv->nyx_handlers->nyx_config_set_aux_buffer_size(
-            nyx_config, atoi(getenv("AFL_NYX_AUX_SIZE"))) != 1) {  
-            NYX_PRE_FATAL(fsrv, "Invalid AFL_NYX_AUX_SIZE value set (must be a multiple of 4096) ...");
-        }
+
+      if (fsrv->nyx_handlers->nyx_config_set_aux_buffer_size(
+              nyx_config, atoi(getenv("AFL_NYX_AUX_SIZE"))) != 1) {
+
+        NYX_PRE_FATAL(fsrv,
+                      "Invalid AFL_NYX_AUX_SIZE value set (must be a multiple "
+                      "of 4096) ...");
+
+      }
+
     }
 
     if (getenv("NYX_REUSE_SNAPSHOT") != NULL) {

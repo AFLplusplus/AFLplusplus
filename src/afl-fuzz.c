@@ -311,8 +311,8 @@ static void usage(u8 *argv0, int more_help) {
 
       PERSISTENT_MSG
 
-      "AFL_POST_PROCESS_KEEP_ORIGINAL: save the file as it was prior post-processing to the queue,\n"
-      "                                but execute the post-processed one\n"
+      "AFL_POST_PROCESS_KEEP_ORIGINAL: save the file as it was prior post-processing to\n"
+      "                                the queue, but execute the post-processed one\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
@@ -323,18 +323,17 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
-      "                        Supported formats are: 'dogstatsd', 'librato',\n"
-      "                        'signalfx' and 'influxdb'\n"
+      "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
       "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
       "                      afl-clang-lto/afl-gcc-fast target\n"
-      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
-      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so)\n"
-      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in seconds, "
-      "(default: 60, minimum: 1)\n"
+      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib)\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a shared lib)\n"
+      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in\n"
+      "                                  seconds (default: 60, minimum: 1)\n"
       "\n"
     );
 

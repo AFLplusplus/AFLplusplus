@@ -78,7 +78,7 @@ enum {
 
 };
 
-  #define MUT_TXT_ARRAY_SIZE 200
+#define MUT_TXT_ARRAY_SIZE 200
 u32 text_array[MUT_TXT_ARRAY_SIZE] = {MUT_FLIPBIT,
                                       MUT_FLIPBIT,
                                       MUT_FLIPBIT,
@@ -280,7 +280,7 @@ u32 text_array[MUT_TXT_ARRAY_SIZE] = {MUT_FLIPBIT,
                                       MUT_SPLICE_INSERT,
                                       MUT_SPLICE_INSERT};
 
-  #define MUT_BIN_ARRAY_SIZE 256
+#define MUT_BIN_ARRAY_SIZE 256
 u32 binary_array[MUT_BIN_ARRAY_SIZE] = {MUT_FLIPBIT,
                                         MUT_FLIPBIT,
                                         MUT_FLIPBIT,
@@ -538,7 +538,7 @@ u32 binary_array[MUT_BIN_ARRAY_SIZE] = {MUT_FLIPBIT,
                                         MUT_SPLICE_INSERT,
                                         MUT_SPLICE_INSERT};
 
-  #define MUT_NORMAL_ARRAY_SIZE 77
+#define MUT_NORMAL_ARRAY_SIZE 77
 u32 normal_splice_array[MUT_NORMAL_ARRAY_SIZE] = {MUT_FLIPBIT,
                                                   MUT_FLIPBIT,
                                                   MUT_FLIPBIT,
@@ -617,7 +617,7 @@ u32 normal_splice_array[MUT_NORMAL_ARRAY_SIZE] = {MUT_FLIPBIT,
                                                   MUT_SPLICE_INSERT,
                                                   MUT_SPLICE_INSERT};
 
-  #define MUT_SPLICE_ARRAY_SIZE 81
+#define MUT_SPLICE_ARRAY_SIZE 81
 u32 full_splice_array[MUT_SPLICE_ARRAY_SIZE] = {MUT_FLIPBIT,
                                                 MUT_FLIPBIT,
                                                 MUT_FLIPBIT,
