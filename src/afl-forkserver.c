@@ -164,6 +164,8 @@ void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
 
     }
 
+    if (fsrv->nyx_log_fd >= 0) { close(fsrv->nyx_log_fd); }
+
   }
 
 }
@@ -218,6 +220,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->nyx_bind_cpu_id = 0xFFFFFFFF;
   fsrv->nyx_use_tmp_workdir = false;
   fsrv->nyx_tmp_workdir_path = NULL;
+  fsrv->nyx_log_fd = -1;
 #endif
 
   // this structure needs default so we initialize it if this was not done
@@ -574,6 +577,22 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config, MAX_FILE);
     fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config,
                                                                      true);
+
+    char *nyx_log_path = getenv("AFL_NYX_LOG");
+    if (nyx_log_path) {
+
+      fsrv->nyx_log_fd =
+          open(nyx_log_path, O_CREAT | O_TRUNC | O_WRONLY, DEFAULT_PERMISSION);
+      if (fsrv->nyx_log_fd < 0) {
+
+        NYX_PRE_FATAL(fsrv, "AFL_NYX_LOG path could not be written");
+
+      }
+
+      fsrv->nyx_handlers->nyx_config_set_hprintf_fd(nyx_config,
+                                                    fsrv->nyx_log_fd);
+
+    }
 
     if (fsrv->nyx_standalone) {
 
