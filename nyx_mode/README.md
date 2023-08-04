@@ -331,7 +331,7 @@ the header (1408 bytes) and the remaining bytes can be used to transfer crash
 reports (also the `hprintf` feature utilizes the very same shared memory for 
 transferring data). By default a crash report will be truncated to 2688 bytes.
 However, if you want to increase the size of the shared memory region, you can
-set the `NYX_AUX_BUFFER_SIZE` environment variable to a higher value (keep in
+set the `AFL_NYX_AUX_SIZE` environment variable to a higher value (keep in
 mind that this value must be a multiple of 4096).
 
 ### Run AFL++Nyx with a custom agent
