@@ -199,6 +199,7 @@ typedef struct afl_forkserver {
   char                 *nyx_aux_string;
   bool                  nyx_use_tmp_workdir;
   char                 *nyx_tmp_workdir_path;
+  s32                   nyx_log_fd;
 #endif
 
 } afl_forkserver_t;

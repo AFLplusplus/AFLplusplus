@@ -191,6 +191,7 @@ static char *afl_environment_variables[] = {
     "AFL_NOOPT",
     "AFL_NYX_AUX_SIZE",
     "AFL_NYX_DISABLE_SNAPSHOT_MODE",
+    "AFL_NYX_LOG",
     "AFL_NYX_REUSE_SNAPSHOT",
     "AFL_PASSTHROUGH",
     "AFL_PATH",
