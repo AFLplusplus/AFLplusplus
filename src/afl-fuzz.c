@@ -303,6 +303,7 @@ static void usage(u8 *argv0, int more_help) {
       "                  Increase this value in case the crash reports are truncated.\n"
       "                  Default value is 4096.\n"
       "AFL_NYX_DISABLE_SNAPSHOT_MODE: disable snapshot mode (must be supported by the agent)\n"
+      "AFL_NYX_LOG: output NYX hprintf messages to another file\n"
       "AFL_NYX_REUSE_SNAPSHOT: reuse an existing Nyx root snapshot\n"
       DYN_COLOR
 
