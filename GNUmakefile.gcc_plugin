@@ -61,7 +61,7 @@ ifeq "$(findstring Foundation,$(shell $(CC) --version))" ""
 endif
 
 PLUGIN_BASE = "$(shell $(CC) -print-file-name=plugin)"
-PLUGIN_FLAGS = -fPIC -fno-rtti -I$(PLUGIN_BASE)/include -I$(PLUGIN_BASE)
+PLUGIN_FLAGS = -fPIC -fno-rtti -fno-exceptions -I$(PLUGIN_BASE)/include -I$(PLUGIN_BASE)
 HASH=\#
 
 GCCVER    = $(shell $(CC) --version 2>/dev/null | awk 'NR == 1 {print $$NF}')
