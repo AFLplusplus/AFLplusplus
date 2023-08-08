@@ -255,17 +255,17 @@ endif
 
 ifneq "$(findstring FreeBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  override LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread -lm
 endif
 
 ifneq "$(findstring NetBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  override LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread -lm
 endif
 
 ifneq "$(findstring OpenBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  override LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread -lm
 endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
