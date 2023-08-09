@@ -180,7 +180,8 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
       "compiled\n"
-      "                  for CmpLog then just use -c 0.\n"
+      "                  for CmpLog then use '-c 0'. To disable Cmplog use '-c "
+      "-'.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
@@ -600,8 +601,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'c': {
 
-        afl->shm.cmplog_mode = 1;
-        afl->cmplog_binary = ck_strdup(optarg);
+        if (strcmp(optarg, "-") == 0) {
+
+          if (afl->shm.cmplog_mode) {
+
+            ACTF("Disabling cmplog again because of '-c -'.");
+            afl->shm.cmplog_mode = 0;
+            afl->cmplog_binary = NULL;
+
+          }
+
+        } else {
+
+          afl->shm.cmplog_mode = 1;
+          afl->cmplog_binary = ck_strdup(optarg);
+
+        }
+
         break;
 
       }
@@ -1510,8 +1526,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->use_banner) { afl->use_banner = argv[optind]; }
 
-  if (afl->shm.cmplog_mode &&
-      (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
+  if (afl->shm.cmplog_mode && strcmp("0", afl->cmplog_binary) == 0) {
 
     afl->cmplog_binary = strdup(argv[optind]);
 
