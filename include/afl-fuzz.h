@@ -1,3 +1,4 @@
+
 /*
    american fuzzy lop++ - fuzzer header
    ------------------------------------
@@ -408,7 +409,7 @@ typedef struct afl_env_vars {
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
-      *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
+      *afl_target_env, *afl_persistent_record, *afl_exit_on_time, *afl_crashing_seeds_as_new_crash;
 
   s32 afl_pizza_mode;
 

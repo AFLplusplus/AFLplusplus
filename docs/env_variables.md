@@ -365,6 +365,9 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
+  - `AFL_CRASHING_SEEDS_AS_NEW_CRASH` will treat crashing seeds as new crash. these 
+    crashes will be written to crashes folder as op:dry_run, and orig:<seed_file_name>.
+
   - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
     within a specified period of time (in seconds). May be convenient for some
     types of automated jobs.
