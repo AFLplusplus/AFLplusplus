@@ -2525,6 +2525,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     */
 
 #ifdef _DEBUG
+    u32 j;
     struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
     fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
             hshape, h->attribute);
