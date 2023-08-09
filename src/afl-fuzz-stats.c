@@ -453,7 +453,7 @@ void write_queue_stats(afl_state_t *afl) {
 void        write_coverage_file(afl_state_t *afl) {
 
   char *tmp = alloc_printf("%s/path_data/time:%llu", afl->out_dir,
-                           (unsigned long long)afl->next_save_time / 1000);
+                                  (unsigned long long)afl->next_save_time / 1000);
   s32   fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
   if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", tmp); }
   FILE *current_file = fdopen(fd, "w");

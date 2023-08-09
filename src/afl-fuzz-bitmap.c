@@ -677,6 +677,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     /* For AFLFast schedules we update the new queue entry */
     if (likely(cksum)) {
+
       afl->queue_top->n_fuzz_entry = cksum % afl->n_fuzz_size;
       if (afl->coverage_estimation) {
 

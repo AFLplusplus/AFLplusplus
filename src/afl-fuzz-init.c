@@ -2198,9 +2198,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
       if (errno != EEXIST)
         PFATAL("Unable to create '%s'", tmp);
-      else {
-
-      }
+      else {}
 
     }
 
