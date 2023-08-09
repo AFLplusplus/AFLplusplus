@@ -1611,6 +1611,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (in_dir || in_filelist) {
 
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
     afl->afl_env.afl_custom_mutator_library =
         getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
     afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");

@@ -91,9 +91,9 @@ ifneq "$(SYS)" "Darwin"
   #ifeq "$(HAVE_MARCHNATIVE)" "1"
   #  SPECIAL_PERFORMANCE += -march=native
   #endif
- ifndef DEBUG
-   CFLAGS_OPT += -D_FORTIFY_SOURCE=1
- endif
+ #ifndef DEBUG
+ #  CFLAGS_OPT += -D_FORTIFY_SOURCE=1
+ #endif
 else
   # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
   SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
@@ -255,17 +255,17 @@ endif
 
 ifneq "$(findstring FreeBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  override LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread -lm
 endif
 
 ifneq "$(findstring NetBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  override LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread -lm
 endif
 
 ifneq "$(findstring OpenBSD, $(SYS))" ""
   override CFLAGS  += -pthread
-  override LDFLAGS += -lpthread
+  override LDFLAGS += -lpthread -lm
 endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h

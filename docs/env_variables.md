@@ -365,6 +365,9 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
+  - `AFL_CRASHING_SEEDS_AS_NEW_CRASH` will treat crashing seeds as new crash. these 
+    crashes will be written to crashes folder as op:dry_run, and orig:<seed_file_name>.
+
   - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
     within a specified period of time (in seconds). May be convenient for some
     types of automated jobs.
@@ -585,7 +588,8 @@ checks or alter some of the more exotic semantics of the tool:
     Note that this is not a compile time option but a runtime option :-)
 
   - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to -1
-    to disable although it is 1st of April.
+    to disable although it is 1st of April. 0 is the default and means enable
+    on the 1st of April automatically.
 
   - If you need a specific interval to update fuzzer_stats file, you can
     set `AFL_FUZZER_STATS_UPDATE_INTERVAL` to the interval in seconds you'd

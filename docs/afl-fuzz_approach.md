@@ -419,8 +419,8 @@ the process. Be sure to consult this file especially if any UI elements are
 highlighted in red.
 
 The fuzzing process will continue until you press Ctrl-C. At a minimum, you want
-to allow the fuzzer to complete one queue cycle, which may take anywhere from a
-couple of hours to a week or so.
+to allow the fuzzer to at least one queue cycle without any new finds, which may
+take anywhere from a couple of hours to a week or so.
 
 There are three subdirectories created within the output directory and updated
 in real-time:
