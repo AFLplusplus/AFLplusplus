@@ -35,6 +35,7 @@ static char *afl_environment_variables[] = {
     "AFL_COMPCOV_BINNAME",
     "AFL_COMPCOV_LEVEL",
     "AFL_CRASH_EXITCODE",
+    "AFL_CRASHING_SEEDS_AS_NEW_CRASH",
     "AFL_CUSTOM_MUTATOR_LIBRARY",
     "AFL_CUSTOM_MUTATOR_ONLY",
     "AFL_CUSTOM_INFO_PROGRAM",
@@ -189,6 +190,10 @@ static char *afl_environment_variables[] = {
     "AFL_MAX_DET_EXTRAS",
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
     "AFL_NOOPT",
+    "AFL_NYX_AUX_SIZE",
+    "AFL_NYX_DISABLE_SNAPSHOT_MODE",
+    "AFL_NYX_LOG",
+    "AFL_NYX_REUSE_SNAPSHOT",
     "AFL_PASSTHROUGH",
     "AFL_PATH",
     "AFL_PERFORMANCE_FILE",

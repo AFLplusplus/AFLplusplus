@@ -1,3 +1,4 @@
+
 /*
    american fuzzy lop++ - fuzzer header
    ------------------------------------
@@ -401,7 +402,7 @@ typedef struct afl_env_vars {
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
-      afl_post_process_keep_original;
+      afl_post_process_keep_original, afl_crashing_seeds_as_new_crash;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -674,7 +675,8 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
-  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_random_colorization;
+  u8  cmplog_enable_arith, cmplog_enable_transform,
+      cmplog_enable_xtreme_transform, cmplog_random_colorization;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;

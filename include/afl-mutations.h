@@ -25,13 +25,14 @@
      u32 max_len - the maximum size the mutated buffer may grow to
 */
 
-#ifndef _ANDROID_ASHMEM_H
-  #define AFL_MUTATIONS_H
+#ifndef AFL_MUTATIONS_H
+#define AFL_MUTATIONS_H
 
-  #include <stdbool.h>
-  #include "afl-fuzz.h"
+#include <stdbool.h>
+#include <inttypes.h>
+#include "afl-fuzz.h"
 
-  #define MUT_STRATEGY_ARRAY_SIZE 256
+#define MUT_STRATEGY_ARRAY_SIZE 256
 
 enum {
 
@@ -77,7 +78,7 @@ enum {
 
 };
 
-  #define MUT_TXT_ARRAY_SIZE 200
+#define MUT_TXT_ARRAY_SIZE 200
 u32 text_array[MUT_TXT_ARRAY_SIZE] = {MUT_FLIPBIT,
                                       MUT_FLIPBIT,
                                       MUT_FLIPBIT,
@@ -279,7 +280,7 @@ u32 text_array[MUT_TXT_ARRAY_SIZE] = {MUT_FLIPBIT,
                                       MUT_SPLICE_INSERT,
                                       MUT_SPLICE_INSERT};
 
-  #define MUT_BIN_ARRAY_SIZE 256
+#define MUT_BIN_ARRAY_SIZE 256
 u32 binary_array[MUT_BIN_ARRAY_SIZE] = {MUT_FLIPBIT,
                                         MUT_FLIPBIT,
                                         MUT_FLIPBIT,
@@ -537,7 +538,7 @@ u32 binary_array[MUT_BIN_ARRAY_SIZE] = {MUT_FLIPBIT,
                                         MUT_SPLICE_INSERT,
                                         MUT_SPLICE_INSERT};
 
-  #define MUT_NORMAL_ARRAY_SIZE 77
+#define MUT_NORMAL_ARRAY_SIZE 77
 u32 normal_splice_array[MUT_NORMAL_ARRAY_SIZE] = {MUT_FLIPBIT,
                                                   MUT_FLIPBIT,
                                                   MUT_FLIPBIT,
@@ -616,7 +617,7 @@ u32 normal_splice_array[MUT_NORMAL_ARRAY_SIZE] = {MUT_FLIPBIT,
                                                   MUT_SPLICE_INSERT,
                                                   MUT_SPLICE_INSERT};
 
-  #define MUT_SPLICE_ARRAY_SIZE 81
+#define MUT_SPLICE_ARRAY_SIZE 81
 u32 full_splice_array[MUT_SPLICE_ARRAY_SIZE] = {MUT_FLIPBIT,
                                                 MUT_FLIPBIT,
                                                 MUT_FLIPBIT,
@@ -2456,7 +2457,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         char buf[20];
-        snprintf(buf, sizeof(buf), "%ld", val);
+        snprintf(buf, sizeof(buf), "%" PRId64, val);
         u32 old_len = off2 - off;
         u32 new_len = strlen(buf);
 

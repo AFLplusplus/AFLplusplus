@@ -60,10 +60,6 @@
  *
  */
 
-/* if TRANSFORM is enabled with '-l T', this additionally enables base64
-   encoding/decoding */
-// #define CMPLOG_SOLVE_TRANSFORM_BASE64
-
 /* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
@@ -71,10 +67,10 @@
 #define CMPLOG_CORPUS_PERCENT 5U
 
 /* Number of potential positions from which we decide if cmplog becomes
-   useless, default 8096 */
+   useless, default 12288 */
 #define CMPLOG_POSITIONS_MAX (12 * 1024)
 
-/* Maximum allowed fails per CMP value. Default: 128 */
+/* Maximum allowed fails per CMP value. Default: 96 */
 #define CMPLOG_FAIL_MAX 96
 
 /* -------------------------------------*/

@@ -37,8 +37,13 @@ char *get_fuzzing_state(afl_state_t *afl) {
   u64 cur_run_time = cur_ms - afl->start_time;
   u64 cur_total_run_time = afl->prev_run_time + cur_run_time;
 
-  if (unlikely(cur_run_time < 60 * 3 * 1000 ||
-               cur_total_run_time < 60 * 5 * 1000)) {
+  if (unlikely(afl->non_instrumented_mode)) {
+
+    return fuzzing_state[1];
+
+  } else if (unlikely(cur_run_time < 60 * 3 * 1000 ||
+
+                      cur_total_run_time < 60 * 5 * 1000)) {
 
     return fuzzing_state[0];
 

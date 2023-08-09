@@ -533,7 +533,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     close(fd);
     add_to_queue(afl, queue_fn, len, 0);
 
-    if (unlikely(afl->fuzz_mode) && likely(afl->switch_fuzz_mode)) {
+    if (unlikely(afl->fuzz_mode) &&
+        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {
 
       if (afl->afl_env.afl_no_ui) {
 
