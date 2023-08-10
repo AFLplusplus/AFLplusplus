@@ -1627,6 +1627,12 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
   if (get_afl_env("AFL_CODE_COVERAGE")) {
 
+    if (afl->skip_deterministic == 0) {
+
+      FATAL("AFL_CODE_COVERAGE is not compatible with -D");
+
+    }
+
     afl->coverage_estimation = 1;
     char *cut_off = get_afl_env("AFL_ABUNDANT_CUT_OFF");
     if (cut_off == NULL || (afl->abundant_cut_off = atoi(cut_off)) <= 0) {

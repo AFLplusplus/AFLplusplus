@@ -598,15 +598,8 @@ static void check_term_size(afl_state_t *afl) {
   if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
 
   if (ws.ws_row == 0 || ws.ws_col == 0) { return; }
-  if (unlikely(afl->coverage_estimation)) {
 
-    if (ws.ws_row < 26 || ws.ws_col < 79) { afl->term_too_small = 1; }
-
-  } else {
-
-    if (ws.ws_row < 24 || ws.ws_col < 79) { afl->term_too_small = 1; }
-
-  }
+  if (ws.ws_row < 24 || ws.ws_col < 79) { afl->term_too_small = 1; }
 
 }
 
@@ -978,19 +971,9 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (unlikely(afl->term_too_small)) {
 
-    if (unlikely(afl->coverage_estimation)) {
-
-      SAYF(cBRI
-           "Your terminal is too small to display the UI.\n"
-           "Please resize terminal window to at least 79x26.\n" cRST);
-
-    } else {
-
-      SAYF(cBRI
-           "Your terminal is too small to display the UI.\n"
-           "Please resize terminal window to at least 79x24.\n" cRST);
-
-    }
+    SAYF(cBRI
+         "Your terminal is too small to display the UI.\n"
+         "Please resize terminal window to at least 79x24.\n" cRST);
 
     return;
 
@@ -1266,9 +1249,17 @@ void show_stats_normal(afl_state_t *afl) {
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-20s" bSTG bV "\n", tmp);
 
   /* Aaaalmost there... hold on! */
+  if (likely(!afl->coverage_estimation)) {
 
-  SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bH2 bHT bH10 bH2
-           bH bHB bH bSTOP cCYA " item geometry " bSTG bH5 bH2 bVL "\n");
+    SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bH2 bHT bH10
+             bH2 bH bHB bH bSTOP cCYA " item geometry " bSTG bH5 bH2 bVL "\n");
+
+  } else {
+
+    SAYF(bVR bH cCYA bSTOP " code coverage information " bSTG bH10 bHT bH10 bH2
+             bH bHB bH bSTOP cCYA " item geometry " bSTG bH5 bH2 bVL "\n");
+
+  }
 
   if (unlikely(afl->custom_only)) {
 
@@ -1290,9 +1281,26 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP
-                "    levels : " cRST "%-10s" bSTG       bV "\n",
-       tmp, u_stringify_int(IB(0), afl->max_depth));
+  if (likely(!afl->coverage_estimation)) {
+
+    SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP
+                  "    levels : " cRST "%-10s" bSTG       bV "\n",
+         tmp, u_stringify_int(IB(0), afl->max_depth));
+
+  } else {
+
+    if (afl->upper_coverage_estimate ||
+        afl->lower_coverage_estimate) /* If both are 0 they are not yet
+                                         calculated */
+      sprintf(tmp, "%6.2f%% - %6.2f%%", afl->lower_coverage_estimate * 100,
+              afl->upper_coverage_estimate * 100);
+    else
+      sprintf(tmp, "not yet calculated!");
+    SAYF(bV bSTOP "              coverage : " cRST "%-27s" bSTG bV bSTOP
+                  "    levels : " cRST "%-10s" bSTG                bV "\n",
+         tmp, u_stringify_int(IB(0), afl->max_depth));
+
+  }
 
   if (unlikely(!afl->skip_deterministic)) {
 
@@ -1306,9 +1314,38 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
-                "   pending : " cRST "%-10s" bSTG       bV "\n",
-       tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
+  if (likely(!afl->coverage_estimation)) {
+
+    SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
+                  "   pending : " cRST "%-10s" bSTG       bV "\n",
+         tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
+
+  } else {
+
+    sprintf(tmp, "%.2f%%", afl->n_fuzz_fill * 100);
+    SAYF(bV bSTOP " collision probability : ");
+    if (afl->n_fuzz_fill < 0.05) {
+
+      SAYF(cRST);
+
+    } else if (afl->n_fuzz_fill < 0.25) {
+
+      SAYF(bSTG);
+
+    } else if (afl->n_fuzz_fill < 0.5) {
+
+      SAYF(cYEL);
+
+    } else {
+
+      SAYF(cLRD);
+
+    }
+
+    SAYF("%-27s" bSTG bV bSTOP "   pending : " cRST "%-10s" bSTG bV "\n", tmp,
+         u_stringify_int(IB(0), afl->pending_not_fuzzed));
+
+  }
 
   if (unlikely(!afl->skip_deterministic)) {
 
@@ -1322,9 +1359,30 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP
-                "  pend fav : " cRST "%-10s" bSTG       bV "\n",
-       tmp, u_stringify_int(IB(0), afl->pending_favored));
+  if (likely(!afl->coverage_estimation)) {
+
+    SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP
+                  "  pend fav : " cRST "%-10s" bSTG       bV "\n",
+         tmp, u_stringify_int(IB(0), afl->pending_favored));
+
+  } else {
+
+    if (unlikely(afl->custom_only)) {
+
+      strcpy(tmp, "disabled (custom-mutator-only mode)");
+
+    } else {
+
+      strcpy(tmp, "disabled (default, enable with -D)");
+
+    }
+
+    SAYF(bVR bH cCYA                                      bSTOP
+         " fuzzing strategy yields " bSTG bH20 bH5 bH bVL bSTOP
+         "  pend fav : " cRST "%-10s" bSTG                bV "\n",
+         u_stringify_int(IB(0), afl->pending_favored));
+
+  }
 
   if (unlikely(!afl->skip_deterministic)) {
 
@@ -1544,42 +1602,6 @@ void show_stats_normal(afl_state_t *afl) {
   } else {
 
     SAYF("\r");
-
-  }
-
-  if (unlikely(afl->coverage_estimation)) {
-
-    SAYF(SET_G1 "\n" bSTG bVR bH cCYA                           bSTOP
-                " code coverage information " bSTG bH20 bH2 bH2 bVL "\n");
-    if (afl->upper_coverage_estimate ||
-        afl->lower_coverage_estimate) /* If both are 0 they are not yet
-                                         calculated */
-      sprintf(tmp, "%6.2f%% - %6.2f%%", afl->lower_coverage_estimate * 100,
-              afl->upper_coverage_estimate * 100);
-    else
-      sprintf(tmp, "not yet calculated!");
-    SAYF(bV bSTOP "              coverage : " cRST "%-27s" bSTG bV "\n", tmp);
-    sprintf(tmp, "%.2f%%", afl->n_fuzz_fill * 100);
-    SAYF(bV bSTOP " collision probability : ");
-    if (afl->n_fuzz_fill < 0.05) {
-
-      SAYF(cRST);
-
-    } else if (afl->n_fuzz_fill < 0.25) {
-
-      SAYF(bSTG);
-
-    } else if (afl->n_fuzz_fill < 0.5) {
-
-      SAYF(cYEL);
-
-    } else {
-
-      SAYF(cLRD);
-
-    }
-
-    SAYF("%-27s" bSTG bV, tmp);
 
   }
 
