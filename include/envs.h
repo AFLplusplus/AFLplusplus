@@ -16,6 +16,7 @@ static char *afl_environment_deprecated[] = {
 
 static char *afl_environment_variables[] = {
 
+    "AFL_ABUNDANT_CUT_OFF",
     "AFL_ALIGNED_ALLOC",
     "AFL_ALLOW_TMP",
     "AFL_ANALYZE_HEX",
@@ -30,11 +31,13 @@ static char *afl_environment_variables[] = {
     "AFL_CMIN_ALLOW_ANY",
     "AFL_CMIN_CRASHES_ONLY",
     "AFL_CMPLOG_ONLY_NEW",
+    "AFL_CODE_COVERAGE",
     "AFL_CODE_END",
     "AFL_CODE_START",
     "AFL_COMPCOV_BINNAME",
     "AFL_COMPCOV_LEVEL",
     "AFL_CRASH_EXITCODE",
+    "AFL_CRASH_ON_HASH_COLLISION",
     "AFL_CRASHING_SEEDS_AS_NEW_CRASH",
     "AFL_CUSTOM_MUTATOR_LIBRARY",
     "AFL_CUSTOM_MUTATOR_ONLY",
@@ -169,6 +172,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_LTO_DONTWRITEID",
     "AFL_LLVM_LTO_SKIPINIT"
     "AFL_LLVM_LTO_STARTID",
+    "AFL_N_FUZZ_SIZE",
     "AFL_NO_ARITH",
     "AFL_NO_AUTODICT",
     "AFL_NO_BUILTIN",

@@ -68,7 +68,8 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
 
   if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    u32 hits = afl->n_fuzz[q->n_fuzz_entry];
+    u32 hits =
+        LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry, MAX_ALLOC, sizeof(u32));
     if (likely(hits)) { weight /= (log10(hits) + 1); }
 
   }
@@ -704,7 +705,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE))
     fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
   else if (unlikely(afl->schedule == RARE))
-    fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
+    fuzz_p2 = next_pow2(
+        LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry, MAX_ALLOC, sizeof(u32)));
   else
     fuzz_p2 = q->fuzz_level;
 
@@ -730,8 +732,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
         if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
-          top_rated_fuzz_p2 =
-              next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
+          top_rated_fuzz_p2 = next_pow2(
+              LARGE_INDEX(afl->n_fuzz, afl->top_rated[i]->n_fuzz_entry,
+                          MAX_ALLOC, sizeof(u32)));
         else
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
 
@@ -1032,7 +1035,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
         if (likely(!afl->queue_buf[i]->disabled)) {
 
-          fuzz_mu += log2(afl->n_fuzz[afl->queue_buf[i]->n_fuzz_entry]);
+          fuzz_mu +=
+              log2(LARGE_INDEX(afl->n_fuzz, afl->queue_buf[i]->n_fuzz_entry,
+                               MAX_ALLOC, sizeof(u32)));
           n_items++;
 
         }
@@ -1043,7 +1048,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       fuzz_mu = fuzz_mu / n_items;
 
-      if (log2(afl->n_fuzz[q->n_fuzz_entry]) > fuzz_mu) {
+      if (log2(LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry, MAX_ALLOC,
+                           sizeof(u32)) > fuzz_mu)) {
 
         /* Never skip favourites */
         if (!q->favored) factor = 0;
@@ -1058,7 +1064,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // Don't modify unfuzzed seeds
       if (!q->fuzz_level) break;
 
-      switch ((u32)log2(afl->n_fuzz[q->n_fuzz_entry])) {
+      switch ((u32)log2(
+          LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry, MAX_ALLOC, sizeof(u32)))) {
 
         case 0 ... 1:
           factor = 4;
@@ -1097,7 +1104,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // Don't modify perf_score for unfuzzed seeds
       if (!q->fuzz_level) break;
 
-      factor = q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
+      factor = q->fuzz_level / (LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry,
+                                            MAX_ALLOC, sizeof(u32)) +
+                                1);
       break;
 
     case QUAD:
@@ -1105,7 +1114,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       if (!q->fuzz_level) break;
 
       factor =
-          q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
+          q->fuzz_level * q->fuzz_level /
+          (LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry, MAX_ALLOC, sizeof(u32)) +
+           1);
       break;
 
     case MMOPT:
@@ -1130,8 +1141,10 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       perf_score += (q->tc_ref * 10);
       // the more often fuzz result paths are equal to this queue entry,
       // reduce its value
-      perf_score *= (1 - (double)((double)afl->n_fuzz[q->n_fuzz_entry] /
-                                  (double)afl->fsrv.total_execs));
+      perf_score *=
+          (1 - (double)((double)LARGE_INDEX(afl->n_fuzz, q->n_fuzz_entry,
+                                            MAX_ALLOC, sizeof(u32)) /
+                        (double)afl->fsrv.total_execs));
 
       break;
 

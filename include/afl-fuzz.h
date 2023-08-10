@@ -130,6 +130,9 @@
 // Little helper to access the ptr to afl->##name_buf - for use in afl_realloc.
 #define AFL_BUF_PARAM(name) ((void **)&afl->name##_buf)
 
+#define LARGE_INDEX(array, index, size, item_size) \
+  array[(u64)((index) / (size / item_size))][(index) % (size / item_size)]
+
 #ifdef WORD_SIZE_64
   #define AFL_RAND_RETURN u64
 #else
@@ -540,7 +543,9 @@ typedef struct afl_state {
       expand_havoc,                /* perform expensive havoc after no find */
       cycle_schedules,                  /* cycle power schedules?           */
       old_seed_selection,               /* use vanilla afl seed selection   */
-      reinit_table;                     /* reinit the queue weight table    */
+      reinit_table,                     /* reinit the queue weight table    */
+      coverage_estimation,              /* Code Coverage Estimation Mode?   */
+      crash_on_hash_collision;          /* Ignore Hash collisions           */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -552,8 +557,28 @@ typedef struct afl_state {
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
-#define N_FUZZ_SIZE (1 << 21)
-  u32 *n_fuzz;
+  u64   n_fuzz_size;
+  u32 **n_fuzz;
+
+  double n_fuzz_fill;                   /* Fill level of n_fuzz (0-1)       */
+
+  u32 *path_frequenzy;      /* Frequenzies of Paths for Coverage Estimation */
+  u8   abundant_cut_off;                /* Cut-off Value for estimators     */
+  u64  max_path_number,   /* Number of times most viewed path(s) are viewed */
+      max_path_count,                /* Count of paths wich are most viewed */
+      second_max_path_number,
+      second_max_path_count,      /* Count of paths wich are 2nd most viewed */
+      abundant_paths;                   /* Number of abundant code paths    */
+  u32 coverage_counter,               /* Counter when to calculate coverage */
+      num_detected_collisions;          /* Number of detected Collisions    */
+  double upper_coverage_estimate,       /* Coverage Estimation lower in %   */
+      lower_coverage_estimate;          /* Coverage Estimation upper in %   */
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+  FILE *coverage_log_file;              /* File to log coverage             */
+  u64   total_paths,                    /* Total Paths saved for logging    */
+      next_save_time;                   /* Time to save Paths again         */
+  u32 **n_fuzz_logged;
+#endif
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
@@ -1138,9 +1163,12 @@ void destroy_extras(afl_state_t *);
 
 /* Stats */
 
-void load_stats_file(afl_state_t *);
-void write_setup_file(afl_state_t *, u32, char **);
-void write_stats_file(afl_state_t *, u32, double, double, double);
+void        load_stats_file(afl_state_t *);
+void        write_setup_file(afl_state_t *, u32, char **);
+void        write_stats_file(afl_state_t *, u32, double, double, double);
+#if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
+void        write_coverage_file(afl_state_t *);
+#endif
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void write_queue_stats(afl_state_t *);
 void show_stats(afl_state_t *);
