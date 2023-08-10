@@ -38,3 +38,5 @@ The status screen will be extended with following box:
  Unfortunately there is not enough research done to prove accuracy and precision of these estimators, but they hold in asymptotic behavior and the accuracy and precision of the estimators, go down with more hash collisions (see collision probability).
  * collision propability - This is a estimate for the probability of hash collisions. If this number gets higher than 25% you should consider increasing `AFL_N_FUZZ_SIZE`. The coverage estimation will lose accuracy (overestimates) when hash collisions occur. You can also chose to ignore this, but then the coverage estimation will suffer.
  If `AFL_CRASH_ON_HASH_COLLISION` is set afl-fuzz will abort on a detected Hash collision.
+
+This box takes the place of the fuzzing strategy yields, since there are not used when non-deterministic mode is used. Therefore the coverage estimation is not compatible with the deterministic mode (-D).
