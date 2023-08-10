@@ -164,7 +164,7 @@ def init(seed):
         format = SeedFormat.COMPOSITE
     # Now set up TritonDSE
     config = Config(coverage_strategy = CoverageStrategy.PATH,
-                    debug = is_debug,
+    #                debug = is_debug,
                     pipe_stdout = is_debug,
                     pipe_stderr = is_debug,
                     execution_timeout = 1,
