@@ -23,7 +23,7 @@ endif
 endif
 
 ADDR_BIN:=$(ROOT)frida_mode/build/addr
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/frida_get_symbol_addr.sh
 
 ifeq "$(shell uname)" "Darwin"
 TEST_BIN_LDFLAGS:=-Wl,-no_pie

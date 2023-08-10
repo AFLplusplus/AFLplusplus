@@ -108,6 +108,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->cmplog_lvl = 2;
   afl->min_length = 1;
   afl->max_length = MAX_FILE;
+  afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
 #ifndef NO_SPLICING
   afl->use_splicing = 1;
 #endif
@@ -198,6 +199,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_exit_on_time =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_CRASHING_SEEDS_AS_NEW_CRASH",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_crashing_seeds_as_new_crash =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
           } else if (!strncmp(env, "AFL_NO_AFFINITY",
 

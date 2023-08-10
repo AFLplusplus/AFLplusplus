@@ -22,7 +22,7 @@ gboolean           instrument_cache_enabled = FALSE;
 gsize              instrument_cache_size = 0;
 static GHashTable *coverage_blocks = NULL;
 
-__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_SIZE];
+__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_INITIAL_SIZE];
 
   #pragma pack(push, 1)
 typedef struct {

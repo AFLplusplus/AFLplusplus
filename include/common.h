@@ -115,6 +115,11 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val);
 
 u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms);
 
+/* Unsafe describe time delta as simple string.
+   Returns a pointer to buf for convenience. */
+
+u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
+
 /* Unsafe Describe integer. The buf sizes are not checked.
    This is unsafe but fast.
    Will return buf for convenience. */

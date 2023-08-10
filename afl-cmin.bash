@@ -339,6 +339,13 @@ fi
 echo "[*] Are you aware that afl-cmin is faster than this afl-cmin.bash script?"
 echo "[+] Found $IN_COUNT files for minimizing."
 
+if [ -n "$THREADS" ]; then
+  if [ "$IN_COUNT" -lt "$THREADS" ]; then
+    THREADS=$IN_COUNT
+    echo "[!] WARNING: less inputs than threads, reducing threads to $THREADS and likely the overhead of threading makes things slower..."
+  fi
+fi
+
 FIRST_FILE=`ls "$IN_DIR" | head -1`
 
 # Make sure that we're not dealing with a directory.
@@ -479,7 +486,7 @@ else
   echo "[+] all $THREADS running tasks completed."
   rm -f ${TMPFILE}*
 
-  echo trace dir files: $(ls $TRACE_DIR/*|wc -l)
+  #echo trace dir files: $(ls $TRACE_DIR/*|wc -l)
 
 fi
 
@@ -522,6 +529,8 @@ ls -rS "$IN_DIR" | while read -r fn; do
   printf "\\r    Processing file $CUR/$IN_COUNT... "
 
   sed "s#\$# $fn#" "$TRACE_DIR/$fn" >>"$TRACE_DIR/.candidate_list"
+
+  test -s "$TRACE_DIR/$fn" || echo Warning: $fn is ignored because of crashing the target
 
 done
 

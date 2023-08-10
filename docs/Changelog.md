@@ -3,6 +3,40 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.08c (release)
+  - afl-fuzz:
+    - new mutation engine: mutations that favor discovery more paths are
+      prefered until no new finds for 10 minutes then switching to mutations
+      that favor triggering crashes. Modes and switch time can be configured
+      with `-P`. Also input mode for the target can be defined with `-a` to
+      be `text` or `binary` (defaults to `generic`)
+    - new custom mutator that has the new afl++ engine (so it can easily
+      incorporated into new custom mutators), and also comes with a standalone
+      command line tool! See custom_mutators/aflpp/standalone/
+    - display the state of the fuzzing run in the UI :-)
+    - fix timeout setting if '+' is used or a session is restarted
+    - -l X option to enable base64 transformation solving
+    - allow to disable CMPLOG with '-c -' (e.g. afl.rs enforces '-c 0' on
+      every instance which is counterproductive).
+
+  - afl-cmin/afl-cmin.bash:
+    - fixed a bug inherited from vanilla AFL where a coverage of
+      map[123] = 11 would be the same as map[1123] = 1
+    - warn on crashing inputs
+    - adjust threads if less inputs than threads specified
+  - afl-cc:
+    - fixed an off-by-one instrumentation of iselect, hurting coverage a bit.
+      Thanks to @amykweon for spotting and fixing!
+    - @toka fixed a bug in laf-intel signed integer comparison splitting,
+      thanks a lot!!
+    - more LLVM compatability
+  - frida_mode:
+    - support for long form instrumentation on x86_x64 and arm64
+    - renamed utils/get_symbol_addr.sh to utils/frida_get_symbol_addr.sh
+  - qemu_mode:
+    - added qemu_mode/utils/qemu_get_symbol_addr.sh
+
+
 ### Version ++4.07c (release)
   - afl-fuzz:
     - reverse reading the seeds only on restarts (increases performance)

@@ -403,7 +403,7 @@ u8 *find_binary(u8 *fname) {
 
           FATAL(
               "Unexpected overflow when processing ENV. This should never "
-              "happend.");
+              "had happened.");
 
         }
 
@@ -1291,6 +1291,35 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
     u_stringify_int(val_buf, t_d);
     sprintf(buf, "%s days, %d hrs, %d min, %d sec", val_buf, t_h, t_m, t_s);
+
+  }
+
+  return buf;
+
+}
+
+/* Unsafe describe time delta as simple string.
+   Returns a pointer to buf for convenience. */
+
+u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
+
+  if (!event_ms) {
+
+    sprintf(buf, "00:00:00");
+
+  } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+
+    delta = cur_ms - event_ms;
+
+    t_d = delta / 1000 / 60 / 60 / 24;
+    t_h = (delta / 1000 / 60 / 60) % 24;
+    t_m = (delta / 1000 / 60) % 60;
+    t_s = (delta / 1000) % 60;
+
+    sprintf(buf, "%d:%02d:%02d:%02d", t_d, t_h, t_m, t_s);
 
   }
 

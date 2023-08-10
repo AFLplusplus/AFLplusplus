@@ -5,9 +5,9 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
-                     Andrea Fioraldi <andreafioraldi@gmail.com>,
                      Dominik Maier <mail@dmnk.co>
+                     Andrea Fioraldi <andreafioraldi@gmail.com>,
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2023 AFLplusplus Project. All rights reserved.
@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.07c"
+#define VERSION "++4.08c"
 
 /******************************************************
  *                                                    *
@@ -43,6 +43,12 @@
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
+/* Default time until when no more coverage finds are happening afl-fuzz
+   switches to exploitation mode. It automatically switches back when new
+   coverage is found.
+   Default: 300 (seconds) */
+#define STRATEGY_SWITCH_TIME 1000
+
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600
 
@@ -54,10 +60,6 @@
  *
  */
 
-/* if TRANSFORM is enabled with '-l T', this additionally enables base64
-   encoding/decoding */
-// #define CMPLOG_SOLVE_TRANSFORM_BASE64
-
 /* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
@@ -65,10 +67,10 @@
 #define CMPLOG_CORPUS_PERCENT 5U
 
 /* Number of potential positions from which we decide if cmplog becomes
-   useless, default 8096 */
+   useless, default 12288 */
 #define CMPLOG_POSITIONS_MAX (12 * 1024)
 
-/* Maximum allowed fails per CMP value. Default: 128 */
+/* Maximum allowed fails per CMP value. Default: 96 */
 #define CMPLOG_FAIL_MAX 96
 
 /* -------------------------------------*/
@@ -354,9 +356,10 @@
       65535,      /* Overflow unsig 16-bit when incremented  */ \
       65536,      /* Overflow unsig 16 bit                   */ \
       100663045,  /* Large positive number (endian-agnostic) */ \
+      2139095040, /* float infinite                          */ \
       2147483647                 /* Overflow signed 32-bit when incremented */
 
-#define INTERESTING_32_LEN 8
+#define INTERESTING_32_LEN 9
 
 /***********************************************************
  *                                                         *
@@ -440,7 +443,15 @@
    after changing this - otherwise, SEGVs may ensue. */
 
 #define MAP_SIZE_POW2 16
+
+/* Do not change this unless you really know what you are doing. */
+
 #define MAP_SIZE (1U << MAP_SIZE_POW2)
+#if MAP_SIZE <= 65536
+  #define MAP_INITIAL_SIZE (2 << 20)  // = 2097152
+#else
+  #define MAP_INITIAL_SIZE MAP_SIZE
+#endif
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 

@@ -111,8 +111,9 @@ static sharedmem_t      *shm_fuzz;
 
 static const u8 count_class_human[256] = {
 
-    [0] = 0, [1] = 1,  [2] = 2,  [3] = 3,  [4] = 4,
-    [8] = 5, [16] = 6, [32] = 7, [128] = 8
+    [0] = 0,          [1] = 1,        [2] = 2,         [3] = 3,
+    [4 ... 7] = 4,    [8 ... 15] = 5, [16 ... 31] = 6, [32 ... 127] = 7,
+    [128 ... 255] = 8
 
 };
 
@@ -243,7 +244,8 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
       total += fsrv->trace_bits[i];
       if (fsrv->trace_bits[i] > highest) highest = fsrv->trace_bits[i];
-      if (!coverage_map[i]) { coverage_map[i] = 1; }
+      // if (!coverage_map[i]) { coverage_map[i] = 1; }
+      coverage_map[i] |= fsrv->trace_bits[i];
 
     }
 
@@ -328,7 +330,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
       if (cmin_mode) {
 
-        fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
+        fprintf(f, "%u%03u\n", i, fsrv->trace_bits[i]);
 
       } else {
 
@@ -423,9 +425,9 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   }
 
-  if (fsrv->trace_bits[0] == 1) {
+  if (fsrv->trace_bits[0]) {
 
-    fsrv->trace_bits[0] = 0;
+    fsrv->trace_bits[0] -= 1;
     have_coverage = true;
 
   } else {
@@ -654,9 +656,9 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  if (fsrv->trace_bits[0] == 1) {
+  if (fsrv->trace_bits[0]) {
 
-    fsrv->trace_bits[0] = 0;
+    fsrv->trace_bits[0] -= 1;
     have_coverage = true;
 
   } else {
@@ -1609,6 +1611,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (in_dir || in_filelist) {
 
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
     afl->afl_env.afl_custom_mutator_library =
         getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
     afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");

@@ -1,3 +1,4 @@
+
 /*
    american fuzzy lop++ - fuzzer header
    ------------------------------------
@@ -31,7 +32,7 @@
 #define MESSAGES_TO_STDOUT
 
 #ifndef _GNU_SOURCE
-  #define _GNU_SOURCE 1
+  #define _GNU_SOURCE
 #endif
 #ifndef _FILE_OFFSET_BITS
   #define _FILE_OFFSET_BITS 64
@@ -401,7 +402,7 @@ typedef struct afl_env_vars {
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
-      afl_post_process_keep_original;
+      afl_post_process_keep_original, afl_crashing_seeds_as_new_crash;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -494,7 +495,8 @@ typedef struct afl_state {
       *orig_cmdline,                    /* Original command line            */
       *infoexec;                       /* Command to execute on a new crash */
 
-  u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
+  u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
+      stats_update_freq;                /* Stats update frequency (execs)   */
 
   u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
@@ -503,14 +505,12 @@ typedef struct afl_state {
       custom_splice_optout,             /* Custom mutator no splice buffer  */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
-      pizza_is_served;                  /* pizza mode                       */
-
-  u32 stats_update_freq;                /* Stats update frequency (execs)   */
-
-  u8 schedule;                          /* Power schedule (default: EXPLORE)*/
-  u8 havoc_max_mult;
-
-  u8 skip_deterministic,                /* Skip deterministic stages?       */
+      pizza_is_served,                  /* pizza mode                       */
+      input_mode,                       /* target wants text inputs         */
+      fuzz_mode,          /* coverage/exploration or crash/exploitation mode */
+      schedule,                         /* Power schedule (default: EXPLORE)*/
+      havoc_max_mult,                   /* havoc multiplier                 */
+      skip_deterministic,               /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
       non_instrumented_mode,            /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
@@ -597,7 +597,8 @@ typedef struct afl_state {
       last_hang_time,                   /* Time for most recent hang (ms)   */
       longest_find_time,                /* Longest time taken for a find    */
       exit_on_time,                     /* Delay to exit if no new paths    */
-      sync_time;                        /* Sync time (ms)                   */
+      sync_time,                        /* Sync time (ms)                   */
+      switch_fuzz_mode;                 /* auto or fixed fuzz mode          */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -674,7 +675,8 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
-  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_random_colorization;
+  u8  cmplog_enable_arith, cmplog_enable_transform,
+      cmplog_enable_xtreme_transform, cmplog_random_colorization;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
@@ -1203,6 +1205,7 @@ u8     check_if_text_buf(u8 *buf, u32 len);
 #ifndef AFL_SHOWMAP
 void setup_signal_handlers(void);
 #endif
+char *get_fuzzing_state(afl_state_t *afl);
 
 /* CmpLog */
 

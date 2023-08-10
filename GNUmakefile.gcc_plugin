@@ -28,15 +28,17 @@ MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
 
-CFLAGS          ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=1
+CFLAGS          ?= -O3 -g -funroll-loops
+# -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -Iinclude -Wno-pointer-sign \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
                    -Wno-unused-function
 override CFLAGS += $(CFLAGS_SAFE)
 
-CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=1
-CXXEFLAGS   := $(CXXFLAGS) -Wall -std=c++11
+CXXFLAGS    ?= -O3 -g -funroll-loops
+# -D_FORTIFY_SOURCE=1
+CXXEFLAGS   := $(CXXFLAGS) $(CPPFLAGS) -Wall -std=c++11
 
 CC          ?= gcc
 CXX         ?= g++
@@ -59,7 +61,7 @@ ifeq "$(findstring Foundation,$(shell $(CC) --version))" ""
 endif
 
 PLUGIN_BASE = "$(shell $(CC) -print-file-name=plugin)"
-PLUGIN_FLAGS = -fPIC -fno-rtti -I$(PLUGIN_BASE)/include -I$(PLUGIN_BASE)
+PLUGIN_FLAGS = -fPIC -fno-rtti -fno-exceptions -I$(PLUGIN_BASE)/include -I$(PLUGIN_BASE)
 HASH=\#
 
 GCCVER    = $(shell $(CC) --version 2>/dev/null | awk 'NR == 1 {print $$NF}')

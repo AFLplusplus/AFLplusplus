@@ -125,10 +125,18 @@ static void usage(u8 *argv0, int more_help) {
 
       "Required parameters:\n"
       "  -i dir        - input directory with test cases (or '-' to resume, "
-      "also see AFL_AUTORESUME)\n"
+      "also see \n"
+      "                  AFL_AUTORESUME)\n"
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
+      "  -P strategy   - set fix mutation strategy: explore (focus on new "
+      "coverage),\n"
+      "                  exploit (focus on triggering crashes). You can also "
+      "set a\n"
+      "                  number of seconds after without any finds it switches "
+      "to\n"
+      "                  exploit mode, and back on new coverage (default: %u)\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
       "                  fast(default), explore, exploit, seek, rare, mmopt, "
       "coe, lin\n"
@@ -157,6 +165,8 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
+      "  -a            - target input format, \"text\" or \"binary\" (default: "
+      "generic)\n"
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
@@ -170,12 +180,14 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
       "compiled\n"
-      "                  for CmpLog then just use -c 0.\n"
+      "                  for CmpLog then use '-c 0'. To disable Cmplog use '-c "
+      "-'.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
       "                  A=arithmetic solving, T=transformational solving,\n"
-      "                  R=random colorization bytes.\n\n"
+      "                  X=extreme transform solving, R=random colorization "
+      "bytes.\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
       "random\n"
@@ -212,7 +224,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n"
       "\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE, FOREIGN_SYNCS_MAX);
+      argv0, STRATEGY_SWITCH_TIME, EXEC_TIMEOUT, MEM_LIMIT, MAX_FILE,
+      FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -266,7 +279,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
-      "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
+      "AFL_PIZZA_MODE: 1 - enforce pizza mode, -1 - disable for April 1st,\n"
+      "                0 (default) - activate on April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
       "                 (default: SIGKILL)\n"
       "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
@@ -286,7 +300,12 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
       "AFL_NO_UI: switch status screen off\n"
-
+      "AFL_NYX_AUX_SIZE: size of the Nyx auxiliary buffer. Must be a multiple of 4096.\n"
+      "                  Increase this value in case the crash reports are truncated.\n"
+      "                  Default value is 4096.\n"
+      "AFL_NYX_DISABLE_SNAPSHOT_MODE: disable snapshot mode (must be supported by the agent)\n"
+      "AFL_NYX_LOG: output NYX hprintf messages to another file\n"
+      "AFL_NYX_REUSE_SNAPSHOT: reuse an existing Nyx root snapshot\n"
       DYN_COLOR
 
       "AFL_PATH: path to AFL support binaries\n"
@@ -295,8 +314,8 @@ static void usage(u8 *argv0, int more_help) {
 
       PERSISTENT_MSG
 
-      "AFL_POST_PROCESS_KEEP_ORIGINAL: save the file as it was prior post-processing to the queue,\n"
-      "                                but execute the post-processed one\n"
+      "AFL_POST_PROCESS_KEEP_ORIGINAL: save the file as it was prior post-processing to\n"
+      "                                the queue, but execute the post-processed one\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TARGET_ENV: pass extra environment variables to target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
@@ -307,18 +326,17 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
-      "                        Supported formats are: 'dogstatsd', 'librato',\n"
-      "                        'signalfx' and 'influxdb'\n"
+      "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
       "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       "AFL_EARLY_FORKSERVER: force an early forkserver in an afl-clang-fast/\n"
       "                      afl-clang-lto/afl-gcc-fast target\n"
-      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib\n"
-      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a .so)\n"
-      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in seconds, "
-      "(default: 60, minimum: 1)\n"
+      "AFL_PERSISTENT: enforce persistent mode (if __AFL_LOOP is in a shared lib)\n"
+      "AFL_DEFER_FORKSRV: enforced deferred forkserver (__AFL_INIT is in a shared lib)\n"
+      "AFL_FUZZER_STATS_UPDATE_INTERVAL: interval to update fuzzer_stats file in\n"
+      "                                  seconds (default: 60, minimum: 1)\n"
       "\n"
     );
 
@@ -494,13 +512,62 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  while (
-      (opt = getopt(
-           argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
-      0) {
+  // still available: HjJkKqruvwz
+  while ((opt = getopt(argc, argv,
+                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
+                       "T:UV:WXx:YZ")) > 0) {
 
     switch (opt) {
+
+      case 'a':
+
+        if (!stricmp(optarg, "text") || !stricmp(optarg, "ascii") ||
+            !stricmp(optarg, "txt") || !stricmp(optarg, "asc")) {
+
+          afl->input_mode = 1;
+
+        } else if (!stricmp(optarg, "bin") || !stricmp(optarg, "binary")) {
+
+          afl->input_mode = 2;
+
+        } else {
+
+          FATAL("-a input mode needs to be \"text\" or \"binary\".");
+
+        }
+
+        break;
+
+      case 'P':
+        if (!stricmp(optarg, "explore") || !stricmp(optarg, "exploration")) {
+
+          afl->fuzz_mode = 0;
+          afl->switch_fuzz_mode = 0;
+
+        } else if (!stricmp(optarg, "exploit") ||
+
+                   !stricmp(optarg, "exploitation")) {
+
+          afl->fuzz_mode = 1;
+          afl->switch_fuzz_mode = 0;
+
+        } else {
+
+          if ((afl->switch_fuzz_mode = (u32)atoi(optarg)) > INT_MAX) {
+
+            FATAL(
+                "Parameter for option -P must be \"explore\", \"exploit\" or a "
+                "number!");
+
+          } else {
+
+            afl->switch_fuzz_mode *= 1000;
+
+          }
+
+        }
+
+        break;
 
       case 'g':
         afl->min_length = atoi(optarg);
@@ -534,8 +601,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'c': {
 
-        afl->shm.cmplog_mode = 1;
-        afl->cmplog_binary = ck_strdup(optarg);
+        if (strcmp(optarg, "-") == 0) {
+
+          if (afl->shm.cmplog_mode) {
+
+            ACTF("Disabling cmplog again because of '-c -'.");
+            afl->shm.cmplog_mode = 0;
+            afl->cmplog_binary = NULL;
+
+          }
+
+        } else {
+
+          afl->shm.cmplog_mode = 1;
+          afl->cmplog_binary = ck_strdup(optarg);
+
+        }
+
         break;
 
       }
@@ -1060,6 +1142,10 @@ int main(int argc, char **argv_orig, char **envp) {
             case 'T':
               afl->cmplog_enable_transform = 1;
               break;
+            case 'x':
+            case 'X':
+              afl->cmplog_enable_xtreme_transform = 1;
+              break;
             case 'r':
             case 'R':
               afl->cmplog_random_colorization = 1;
@@ -1220,6 +1306,10 @@ int main(int argc, char **argv_orig, char **envp) {
           afl->core_operator_cycles_puppet_v3[j] = 0;
 
         }
+
+        WARNF(
+            "Note that the MOpt mode is not maintained and is not as effective "
+            "as normal havoc mode.");
 
       } break;
 
@@ -1436,8 +1526,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->use_banner) { afl->use_banner = argv[optind]; }
 
-  if (afl->shm.cmplog_mode &&
-      (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
+  if (afl->shm.cmplog_mode && strcmp("0", afl->cmplog_binary) == 0) {
 
     afl->cmplog_binary = strdup(argv[optind]);
 
@@ -2319,6 +2408,7 @@ int main(int argc, char **argv_orig, char **envp) {
             max_ms = afl->queue_buf[entry]->exec_us;
 
       afl->fsrv.exec_tmout = max_ms;
+      afl->timeout_given = 1;
 
     }
 
@@ -2688,13 +2778,32 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
 
+    u64 cur_time = get_cur_time();
+
+    if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0 &&
+               !afl->non_instrumented_mode) &&
+        unlikely(cur_time > afl->last_find_time + afl->switch_fuzz_mode)) {
+
+      if (afl->afl_env.afl_no_ui) {
+
+        ACTF(
+            "No new coverage found for %llu seconds, switching to exploitation "
+            "strategy.",
+            afl->switch_fuzz_mode / 1000);
+
+      }
+
+      afl->fuzz_mode = 1;
+
+    }
+
     if (likely(!afl->stop_soon && afl->sync_id)) {
 
       if (likely(afl->skip_deterministic)) {
 
         if (unlikely(afl->is_main_node)) {
 
-          if (unlikely(get_cur_time() >
+          if (unlikely(cur_time >
                        (afl->sync_time >> 1) + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
@@ -2707,7 +2816,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (unlikely(get_cur_time() > afl->sync_time + afl->last_sync_time)) {
+          if (unlikely(cur_time > afl->sync_time + afl->last_sync_time)) {
 
             if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
