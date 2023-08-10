@@ -327,12 +327,12 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "testcache_size    : %llu\n"
       "testcache_count   : %u\n"
       "testcache_evict   : %u\n"
+      "hash_collisions   : %lu\n"
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
       "\n"
       "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
-      "command_line      : %s\n"
-      "hash_collisions   : %lu",
+      "command_line      : %s\n",
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
       (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
@@ -368,7 +368,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #endif
       t_bytes, afl->fsrv.real_map_size, afl->var_byte_count, afl->expand_havoc,
       afl->a_extras_cnt, afl->q_testcase_cache_size,
-      afl->q_testcase_cache_count, afl->q_testcase_evictions, afl->use_banner,
+      afl->q_testcase_cache_count, afl->q_testcase_evictions,
+      (unsigned long)afl->num_detected_collisions, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->fsrv.cs_mode ? "coresight" : "",
       afl->non_instrumented_mode ? " non_instrumented " : "",
@@ -381,7 +382,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
        afl->persistent_mode || afl->deferred_mode)
           ? ""
           : "default",
-      afl->orig_cmdline, (unsigned long)afl->num_detected_collisions);
+      afl->orig_cmdline);
 
   /* ignore errors */
 
@@ -554,7 +555,7 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   fflush(afl->fsrv.plot_file);
 
 #if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
-  if (afl->coverage_estimation) {
+  if (unlikely(afl->coverage_estimation)) {
 
     /* Update log file for coverage estimation */
     /*Fields in the file:
@@ -597,7 +598,7 @@ static void check_term_size(afl_state_t *afl) {
   if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
 
   if (ws.ws_row == 0 || ws.ws_col == 0) { return; }
-  if (afl->coverage_estimation) {
+  if (unlikely(afl->coverage_estimation)) {
 
     if (ws.ws_row < 26 || ws.ws_col < 79) { afl->term_too_small = 1; }
 
@@ -614,7 +615,7 @@ static void check_term_size(afl_state_t *afl) {
 
 void show_stats(afl_state_t *afl) {
 
-  if (afl->coverage_estimation) {
+  if (unlikely(afl->coverage_estimation)) {
 
 #if defined COVERAGE_ESTIMATION_LOGGING && COVERAGE_ESTIMATION_LOGGING
 
@@ -635,8 +636,8 @@ void show_stats(afl_state_t *afl) {
       for (u8 i = 0; i < afl->abundant_cut_off; i++) {
 
         s_rare += afl->path_frequenzy[i];
-        n_rare += afl->path_frequenzy[i] * (i + 1);
-        sum_i += afl->path_frequenzy[i] * i * (i + 1);
+        n_rare += afl->path_frequenzy[i] * (u64)(i + 1);
+        sum_i += afl->path_frequenzy[i] * (u64)i * (i + 1);
 
       }
 
@@ -977,7 +978,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (unlikely(afl->term_too_small)) {
 
-    if (afl->coverage_estimation) {
+    if (unlikely(afl->coverage_estimation)) {
 
       SAYF(cBRI
            "Your terminal is too small to display the UI.\n"
@@ -1546,7 +1547,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  if (afl->coverage_estimation) {
+  if (unlikely(afl->coverage_estimation)) {
 
     SAYF(SET_G1 "\n" bSTG bVR bH cCYA                           bSTOP
                 " code coverage information " bSTG bH20 bH2 bH2 bVL "\n");
@@ -2432,7 +2433,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  if (afl->coverage_estimation) {
+  if (unlikely(afl->coverage_estimation)) {
 
     SAYF(SET_G1 "\n" bSTG bVR bH cCYA                                bSTOP
                 " code coverage information " bSTG bH20 bH20 bH5 bH2 bVL "\n");

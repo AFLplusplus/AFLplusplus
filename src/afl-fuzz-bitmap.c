@@ -489,7 +489,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       ++LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
                     sizeof(u32));
 
-    if (afl->coverage_estimation) {
+    if (unlikely(afl->coverage_estimation)) {
 
       if (LARGE_INDEX(afl->n_fuzz, cksum % afl->n_fuzz_size, MAX_ALLOC,
                       sizeof(u32)) <= afl->abundant_cut_off + 1U) {
@@ -679,7 +679,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (likely(cksum)) {
 
       afl->queue_top->n_fuzz_entry = cksum % afl->n_fuzz_size;
-      if (afl->coverage_estimation) {
+      if (unlikely(afl->coverage_estimation)) {
 
         if (unlikely(LARGE_INDEX(afl->n_fuzz, afl->queue_top->n_fuzz_entry,
                                  MAX_ALLOC, sizeof(u32)) > 1)) {
