@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.08a (dev)
+### Version ++4.08c (release)
   - afl-fuzz:
     - new mutation engine: mutations that favor discovery more paths are
       prefered until no new finds for 10 minutes then switching to mutations
