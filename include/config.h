@@ -5,9 +5,9 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
-                     Andrea Fioraldi <andreafioraldi@gmail.com>,
                      Dominik Maier <mail@dmnk.co>
+                     Andrea Fioraldi <andreafioraldi@gmail.com>,
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2023 AFLplusplus Project. All rights reserved.
@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.08a"
+#define VERSION "++4.08c"
 
 /******************************************************
  *                                                    *
