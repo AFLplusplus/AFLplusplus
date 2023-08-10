@@ -474,8 +474,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   /* Generating a hash on every input is super expensive. Bad idea and should
      only be used for special schedules */
-  if (unlikely((afl->schedule >= FAST && afl->schedule <= RARE) ||
-               afl->coverage_estimation)) {
+  if (likely((afl->schedule >= FAST && afl->schedule <= RARE)) ||
+      unlikely(afl->coverage_estimation)) {
 
     classify_counts(&afl->fsrv);
     classified = 1;
