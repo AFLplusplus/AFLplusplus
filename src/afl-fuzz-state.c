@@ -269,6 +269,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_import_first =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_FINAL_SYNC",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_final_sync =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_ONLY",
 
                               afl_environment_variable_len)) {
