@@ -2899,6 +2899,15 @@ stop_fuzzing:
        time_spent_working / afl->fsrv.total_execs);
   #endif
 
+  if (afl->afl_env.afl_final_sync) {
+
+    SAYF(cYEL "[!] " cRST "\nPerforming final sync, this make take some time ...\n");
+    sync_fuzzers(afl);
+    write_bitmap(afl);
+    SAYF(cYEL "[!] " cRST "Done!\n\n");
+
+  }
+
   if (afl->is_main_node) {
 
     u8 path[PATH_MAX];
