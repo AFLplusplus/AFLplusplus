@@ -487,12 +487,13 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 #ifdef RL_FUZZING
 #ifdef CALCULATE_OVERHEAD
         timestamp_t t0 = get_timestamp();
+#endif
         afl->rl_params->trace_bits = afl->fsrv.trace_bits;
         afl->rl_params->map_size = afl->fsrv.map_size;
         rl_store_features(afl->rl_params);
+#ifdef CALCULATE_OVERHEAD
         timestamp_t t1 = get_timestamp();
         afl->rl_params->update_overhead_sec += (t1 - t0) / 1000000.0;
-#endif
 #endif
       }
 
