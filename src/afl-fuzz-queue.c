@@ -746,30 +746,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         }
 
-        if (fuzz_p2 > top_rated_fuzz_p2) {
+        if (fuzz_p2 > top_rated_fuzz_p2) continue;
 
-          continue;
-
-        } else if (fuzz_p2 == top_rated_fuzz_p2) {
-
-          if (fav_factor > top_rated_fav_factor) { continue; }
-
-        }
-
-        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
-
-          if (fav_factor > afl->top_rated[i]->len << 2) { continue; }
-
-        } else {
-
-          if (fav_factor >
-              afl->top_rated[i]->exec_us * afl->top_rated[i]->len) {
-
-            continue;
-
-          }
-
-        }
+        if (fav_factor > top_rated_fav_factor) continue;
 
         /* Looks like we're going to win. Decrease ref count for the
            previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
