@@ -158,6 +158,7 @@ struct queue_entry {
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
+
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
       passed_det,                       /* Deterministic stages passed?     */
@@ -169,17 +170,15 @@ struct queue_entry {
       disabled;                         /* Is disabled from fuzz selection  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level,                       /* Number of fuzzing iterations     */
-      n_fuzz_entry                      /* offset in n_fuzz                 */
 #ifdef INTROSPECTION
-      ,
       stats_selected,                   /* stats: how often selected        */
       stats_skipped,                    /* stats: how often skipped         */
       stats_finds,                      /* stats: # of saved finds          */
       stats_crashes,                    /* stats: # of saved crashes        */
-      stats_tmouts                      /* stats: # of saved timeouts       */
+      stats_tmouts,                      /* stats: # of saved timeouts       */
 #endif
-      ;
+      fuzz_level,                       /* Number of fuzzing iterations     */
+      n_fuzz_entry;                      /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
