@@ -2901,7 +2901,8 @@ stop_fuzzing:
 
   if (afl->afl_env.afl_final_sync) {
 
-    SAYF(cYEL "[!] " cRST "\nPerforming final sync, this make take some time ...\n");
+    SAYF(cYEL "[!] " cRST
+              "\nPerforming final sync, this make take some time ...\n");
     sync_fuzzers(afl);
     write_bitmap(afl);
     SAYF(cYEL "[!] " cRST "Done!\n\n");
