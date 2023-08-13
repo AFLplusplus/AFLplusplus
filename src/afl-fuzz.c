@@ -1633,6 +1633,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    if (afl->in_place_resume) {
+
+      FATAL("AFL_CODE_COVERAGE is not compatible with '-i -'/AFL_AUTORESUME");
+
+    }
+
     afl->coverage_estimation = 1;
     char *cut_off = get_afl_env("AFL_ABUNDANT_CUT_OFF");
     if (cut_off == NULL || (afl->abundant_cut_off = atoi(cut_off)) <= 0) {

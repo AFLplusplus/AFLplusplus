@@ -31,6 +31,37 @@
 
 #ifdef HAVE_AFFINITY
 
+/* A helper function for handle_existing_out_dir(), deleting all prefixed
+   files in a directory. */
+
+static u8 delete_files(u8 *path, u8 *prefix) {
+
+  DIR           *d;
+  struct dirent *d_ent;
+
+  d = opendir(path);
+
+  if (!d) { return 0; }
+
+  while ((d_ent = readdir(d))) {
+
+    if (d_ent->d_name[0] != '.' &&
+        (!prefix || !strncmp(d_ent->d_name, prefix, strlen(prefix)))) {
+
+      u8 *fname = alloc_printf("%s/%s", path, d_ent->d_name);
+      if (unlink(fname)) { PFATAL("Unable to delete '%s'", fname); }
+      ck_free(fname);
+
+    }
+
+  }
+
+  closedir(d);
+
+  return !!rmdir(path);
+
+}
+
 /* bind process to a specific cpu. Returns 0 on failure. */
 
 static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
@@ -1471,7 +1502,17 @@ void pivot_inputs(afl_state_t *afl) {
 
   }
 
-  if (afl->in_place_resume) { nuke_resume_dir(afl); }
+  if (afl->in_place_resume) {
+
+    nuke_resume_dir(afl);
+
+  } else {
+
+    u8 *fn = alloc_printf("%s/path_data", afl->out_dir);
+    (void)delete_files(fn, NULL);
+    ck_free(fn);
+
+  }
 
 }
 
@@ -1560,37 +1601,6 @@ void find_timeout(afl_state_t *afl) {
 
 }
 
-/* A helper function for handle_existing_out_dir(), deleting all prefixed
-   files in a directory. */
-
-static u8 delete_files(u8 *path, u8 *prefix) {
-
-  DIR           *d;
-  struct dirent *d_ent;
-
-  d = opendir(path);
-
-  if (!d) { return 0; }
-
-  while ((d_ent = readdir(d))) {
-
-    if (d_ent->d_name[0] != '.' &&
-        (!prefix || !strncmp(d_ent->d_name, prefix, strlen(prefix)))) {
-
-      u8 *fname = alloc_printf("%s/%s", path, d_ent->d_name);
-      if (unlink(fname)) { PFATAL("Unable to delete '%s'", fname); }
-      ck_free(fname);
-
-    }
-
-  }
-
-  closedir(d);
-
-  return !!rmdir(path);
-
-}
-
 /* Get the number of runnable processes, with some simple smoothing. */
 
 double get_runnable_processes(void) {
@@ -1676,6 +1686,10 @@ void nuke_resume_dir(afl_state_t *afl) {
 
   fn = alloc_printf("%s/_resume", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
+  fn = alloc_printf("%s/path_data", afl->out_dir);
+  (void)delete_files(fn, NULL);
   ck_free(fn);
 
   return;
@@ -1845,7 +1859,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (unlikely(afl->coverage_estimation)) {
 
     fn = alloc_printf("%s/path_data", afl->out_dir);
-    if (delete_files(fn, NULL)) { goto dir_cleanup_failed; }
+    (void)delete_files(fn, NULL);
     ck_free(fn);
 
   }
