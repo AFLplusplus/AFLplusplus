@@ -623,39 +623,34 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *in_buf, size_t buf_size,
   size_t mutated_size = ehdr_size + phdr_size + elf->text.text_size;
   int    pos = 0;
   // example fields
-  ehdr->e_ident[EI_CLASS] = (uint8_t *)(in_buf + pos);
-  pos = pos + 1;
-  ehdr->e_ident[EI_DATA] = (uint8_t *)(in_buf + pos);
-  pos = pos + 1;
-  ehdr->e_ident[EI_VERSION] = (uint8_t *)(in_buf + pos);
-  pos = pos + 1;
-  ehdr->e_ident[EI_OSABI] = (uint8_t *)(in_buf + pos);
-  pos = pos + 1;
+  ehdr->e_ident[EI_CLASS] = (uint8_t *)(in_buf + pos++);
+  ehdr->e_ident[EI_DATA] = (uint8_t *)(in_buf + pos++);
+  ehdr->e_ident[EI_VERSION] = (uint8_t *)(in_buf + pos++);
+  ehdr->e_ident[EI_OSABI] = (uint8_t *)(in_buf + pos++);
   for (int i = 0x8; i < 0x10; ++i) {
 
-    (ehdr->e_ident)[i] = (uint8_t *)(in_buf + pos);
-    pos = pos + 1;
+    (ehdr->e_ident)[i] = (uint8_t *)(in_buf + pos++);
 
   }
 
   ehdr->e_version = (uint32_t *)(in_buf + pos);
-  pos = pos + 4;
+  pos += 4;
   // sections headers
   ehdr->e_shoff = (uint64_t *)(in_buf + pos);
-  pos = pos + 8;
+  pos += 8;
   ehdr->e_shentsize = (uint16_t *)(in_buf + pos);
-  pos = pos + 2;
+  pos += 2;
   ehdr->e_shnum = (uint16_t *)(in_buf + pos);
-  pos = pos + 2;
+  pos += 2;
   ehdr->e_shstrndx = (uint16_t *)(in_buf + pos);
-  pos = pos + 2;
+  pos += 2;
   ehdr->e_flags = (uint32_t *)(in_buf + pos);
-  pos = pos + 4;
+  pos += 4;
   // physical addr
   phdr->p_paddr = (uint64_t *)(in_buf + pos);
-  pos = pos + 8;
+  pos += 8;
   phdr->p_align = (uint64_t *)(in_buf + pos);
-  pos = pos + 8;
+  pos += 8;
 
   /* mimic GEN_ELF()
    * Write:
