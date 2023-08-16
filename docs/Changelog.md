@@ -7,6 +7,8 @@
   - afl-fuzz:
     - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
       before terminating.
+  - added benchmark/benchmark.sh if you want to see how good your fuzzing
+    speed is in comparison to other setups.
 
 
 ### Version ++4.08c (release)
