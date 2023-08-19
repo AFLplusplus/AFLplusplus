@@ -114,8 +114,8 @@ if [ "$PLATFORM" = "Darwin" ] ; then
     echo
     echo Unloading the default crash reporter
     SL=/System/Library; PL=com.apple.ReportCrash
-    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
-    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
+    sudo -u "$SUDO_USER" launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
+    launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
     echo
   fi
   echo It is recommended to disable System Integrity Protection for increased performance.
