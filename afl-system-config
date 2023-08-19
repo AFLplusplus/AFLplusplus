@@ -110,7 +110,7 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   sysctl kern.sysv.shmall=131072000
   echo Settings applied.
   echo
-  if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ; then
+  if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash\>') ; then
     echo
     echo Unloading the default crash reporter
     SL=/System/Library; PL=com.apple.ReportCrash

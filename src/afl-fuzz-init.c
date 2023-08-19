@@ -2270,7 +2270,7 @@ void check_crash_handling(void) {
      reporting the awful way. */
 
   #if !TARGET_OS_IPHONE
-  if (system("launchctl list 2>/dev/null | grep -q '\\.ReportCrash$'")) return;
+  if (system("launchctl list 2>/dev/null | grep -q '\\.ReportCrash\\>'")) return;
 
   SAYF(
       "\n" cLRD "[-] " cRST
