@@ -70,6 +70,8 @@ if [ -d queue ]; then
 
 fi
 
+BC=`which bc 2>/dev/null`
+
 RED=`tput setaf 9 1 1 2>/dev/null`
 GREEN=`tput setaf 2 1 1 2>/dev/null`
 BLUE=`tput setaf 4 1 1 2>/dev/null`
@@ -91,6 +93,7 @@ TOTAL_CRASHES=0
 TOTAL_HANGS=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
+TOTAL_COVERAGE=
 
 # Time since last find / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
@@ -147,6 +150,13 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   RUN_UNIX=$run_time
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
   RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
+  COVERAGE=$(echo $bitmap_cvg|tr -d %)
+  if [ -n "$TOTAL_COVERAGE" -a -n "$B" ]; then
+    if [ "$(echo "$TOTAL_COVERAGE < $COVERAGE" | bc)" -eq 1 ]; then
+      TOTAL_COVERAGE=$COVERAGE
+    fi
+  fi
+  if [ -z "$TOTAL_COVERAGE" ]; then TOTAL_COVERAGE=$COVERAGE ; fi
 
   test -n "$cycles_wo_finds" && {
     test -z "$FIRST" && TOTAL_WCOP="${TOTAL_WCOP}/"
@@ -227,6 +237,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     echo "  last_crash      : $FMT_CRASH"
     echo "  last_hang       : $FMT_HANG"
     echo "  cycles_wo_finds : $FMT_CWOP"
+    echo "  coverage        : $COVERAGE%"
 
     CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
     MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
@@ -302,6 +313,7 @@ if [ "$ALIVE_CNT" -gt "1" ]; then
   echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
 fi
 
+echo "    Coverage reached : ${TOTAL_COVERAGE}%"
 echo "       Crashes saved : $TOTAL_CRASHES"
 echo "         Hangs saved : $TOTAL_HANGS"
 echo "Cycles without finds : $TOTAL_WCOP"

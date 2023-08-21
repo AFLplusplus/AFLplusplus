@@ -7,6 +7,7 @@
   - afl-fuzz:
     - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
       before terminating.
+  - afl-whatsup: now also shows coverage reached
   - added benchmark/benchmark.sh if you want to see how good your fuzzing
     speed is in comparison to other setups.
 
