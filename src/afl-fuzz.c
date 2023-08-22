@@ -299,6 +299,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
+      "AFL_NO_WARN_INSTABILITY: no warn about instability issues on startup calibration\n"
       "AFL_NO_UI: switch status screen off\n"
       "AFL_NYX_AUX_SIZE: size of the Nyx auxiliary buffer. Must be a multiple of 4096.\n"
       "                  Increase this value in case the crash reports are truncated.\n"
@@ -2898,6 +2899,16 @@ stop_fuzzing:
        time_spent_working / 1000000,
        time_spent_working / afl->fsrv.total_execs);
   #endif
+
+  if (afl->afl_env.afl_final_sync) {
+
+    SAYF(cYEL "[!] " cRST
+              "\nPerforming final sync, this make take some time ...\n");
+    sync_fuzzers(afl);
+    write_bitmap(afl);
+    SAYF(cYEL "[!] " cRST "Done!\n\n");
+
+  }
 
   if (afl->is_main_node) {
 

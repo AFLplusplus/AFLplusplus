@@ -59,6 +59,7 @@ static char *afl_environment_variables[] = {
     "AFL_EXIT_ON_TIME",
     "AFL_EXIT_ON_SEED_ISSUES",
     "AFL_FAST_CAL",
+    "AFL_FINAL_SYNC",
     "AFL_FORCE_UI",
     "AFL_FRIDA_DEBUG_MAPS",
     "AFL_FRIDA_DRIVER_NO_HOOK",

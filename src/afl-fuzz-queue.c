@@ -701,12 +701,19 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fav_factor;
   u64 fuzz_p2;
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE))
+  if (likely(afl->schedule >= FAST && afl->schedule < RARE)) {
+
     fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
-  else if (unlikely(afl->schedule == RARE))
+
+  } else if (unlikely(afl->schedule == RARE)) {
+
     fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
-  else
+
+  } else {
+
     fuzz_p2 = q->fuzz_level;
+
+  }
 
   if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
@@ -729,11 +736,17 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         /* Faster-executing or smaller test cases are favored. */
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
-        if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
+
+        if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
           top_rated_fuzz_p2 =
               next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
-        else
+
+        } else {
+
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
+
+        }
 
         if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
@@ -746,30 +759,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         }
 
-        if (fuzz_p2 > top_rated_fuzz_p2) {
+        if (likely(fuzz_p2 > top_rated_fuzz_p2)) { continue; }
 
-          continue;
-
-        } else if (fuzz_p2 == top_rated_fuzz_p2) {
-
-          if (fav_factor > top_rated_fav_factor) { continue; }
-
-        }
-
-        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
-
-          if (fav_factor > afl->top_rated[i]->len << 2) { continue; }
-
-        } else {
-
-          if (fav_factor >
-              afl->top_rated[i]->exec_us * afl->top_rated[i]->len) {
-
-            continue;
-
-          }
-
-        }
+        if (likely(fav_factor > top_rated_fav_factor)) { continue; }
 
         /* Looks like we're going to win. Decrease ref count for the
            previous winner, discard its afl->fsrv.trace_bits[] if necessary. */

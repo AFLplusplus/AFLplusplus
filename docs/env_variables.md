@@ -412,10 +412,15 @@ checks or alter some of the more exotic semantics of the tool:
     set `AFL_IGNORE_PROBLEMS`. If you additionally want to also ignore coverage
     from late loaded libraries, you can set `AFL_IGNORE_PROBLEMS_COVERAGE`.
 
-  - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
-    fuzzer to import test cases from other instances before doing anything else.
-    This makes the "own finds" counter in the UI more accurate. Beyond counter
-    aesthetics, not much else should change.
+  - When running with multiple afl-fuzz or with `-F`,  setting `AFL_IMPORT_FIRST`
+    causes the fuzzer to import test cases from other instances before doing
+    anything else. This makes the "own finds" counter in the UI more accurate.
+
+  - When running with multiple afl-fuzz or with `-F`,  setting `AFL_FINAL_SYNC`
+    will cause the fuzzer to perform a final import of test cases when
+    terminating. This is beneficial for `-M` main fuzzers to ensure it has all
+    unique test cases and hence you only need to `afl-cmin` this single
+    queue.
 
   - Setting `AFL_INPUT_LEN_MIN` and `AFL_INPUT_LEN_MAX` are an alternative to
     the afl-fuzz -g/-G command line option to control the minimum/maximum
