@@ -18,9 +18,9 @@
 # instances of afl-fuzz.
 #
 
-echo "$0 status check tool for afl-fuzz by Michal Zalewski"
-echo
 test "$1" = "-h" -o "$1" = "-hh" && {
+  echo "$0 status check tool for afl-fuzz by Michal Zalewski"
+  echo
   echo "Usage: $0 [-s] [-d] afl_output_directory"
   echo
   echo Options:
@@ -71,6 +71,8 @@ DIR="$1"
 
 if [ "$DIR" = "" -o "$DIR" = "-h" -o "$DIR" = "--help" ]; then
 
+  echo "$0 status check tool for afl-fuzz by Michal Zalewski" 1>&2
+  echo 1>&2
   echo "Usage: $0 [-d] [-m] [-n] [-s] afl_output_directory" 1>&2
   echo 1>&2
   echo Options: 1>&2
@@ -81,6 +83,11 @@ if [ "$DIR" = "" -o "$DIR" = "-h" -o "$DIR" = "--help" ]; then
   echo 1>&2
   exit 1
 
+fi
+
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "$0 status check tool for afl-fuzz by Michal Zalewski"
+  echo
 fi
 
 cd "$DIR" || exit 1
@@ -325,7 +332,10 @@ fi
 
 echo "Summary stats"
 echo "============="
-echo
+if [ -z "$SUMMARY_ONLY" -o -z "$MINIMAL_ONLY" ]; then
+  echo
+fi
+
 echo "       Fuzzers alive : $ALIVE_CNT"
 
 if [ ! "$DEAD_CNT" = "0" ]; then
@@ -345,7 +355,9 @@ if [ -z "$MINIMAL_ONLY" ]; then
 fi
 
 if [ "$ALIVE_CNT" -gt "1" -o -n "$MINIMAL_ONLY" ]; then
-  echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
+  if [ "$ALIVE_CNT" -gt "0" ]; then
+    echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
+  fi
 fi
 
 echo "    Coverage reached : ${TOTAL_COVERAGE}%"
