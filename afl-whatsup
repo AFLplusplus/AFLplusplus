@@ -24,38 +24,60 @@ test "$1" = "-h" -o "$1" = "-hh" && {
   echo "Usage: $0 [-s] [-d] afl_output_directory"
   echo
   echo Options:
-  echo "  -s  -  skip details and output summary results only"
   echo "  -d  -  include dead fuzzer stats"
+  echo "  -m  -  just show minimal stats"
+  echo "  -n  -  no color output"
+  echo "  -s  -  skip details and output summary results only"
   echo
   exit 1
 }
 
-unset SUMMARY_ONLY
+unset MINIMAL_ONLY
+unset NO_COLOR
 unset PROCESS_DEAD
+unset SUMMARY_ONLY
+unset RED
+unset GREEN
+unset YELLOW
+unset BLUE
+unset NC
+unset RESET
 
-while [ "$1" = "-s" -o "$1" = "-d" ]; do
+if [ -z "$TERM" ]; then export TERM=vt220; fi
 
-  if [ "$1" = "-s" ]; then
-    SUMMARY_ONLY=1
-  fi
+while [ "$1" = "-d" -o "$1" = "-m"  -o "$1" = "-n"  -o "$1" = "-s" ]; do
 
   if [ "$1" = "-d" ]; then
     PROCESS_DEAD=1
   fi
   
+  if [ "$1" = "-m" ]; then
+    MINIMAL_ONLY=1
+  fi
+  
+  if [ "$1" = "-n" ]; then
+    NO_COLOR=1
+  fi
+  
+  if [ "$1" = "-s" ]; then
+    SUMMARY_ONLY=1
+  fi
+
   shift
 
 done
 
 DIR="$1"
 
-if [ "$DIR" = "" ]; then
+if [ "$DIR" = "" -o "$DIR" = "-h" -o "$DIR" = "--help" ]; then
 
-  echo "Usage: $0 [-s] [-d] afl_output_directory" 1>&2
+  echo "Usage: $0 [-d] [-m] [-n] [-s] afl_output_directory" 1>&2
   echo 1>&2
   echo Options: 1>&2
-  echo "  -s  -  skip details and output summary results only" 1>&2
   echo "  -d  -  include dead fuzzer stats" 1>&2
+  echo "  -m  -  just show minimal stats" 1>&2
+  echo "  -n  -  no color output" 1>&2
+  echo "  -s  -  skip details and output summary results only" 1>&2
   echo 1>&2
   exit 1
 
@@ -72,12 +94,14 @@ fi
 
 BC=`which bc 2>/dev/null`
 
-RED=`tput setaf 9 1 1 2>/dev/null`
-GREEN=`tput setaf 2 1 1 2>/dev/null`
-BLUE=`tput setaf 4 1 1 2>/dev/null`
-YELLOW=`tput setaf 11 1 1 2>/dev/null`
-NC=`tput sgr0`
-RESET="$NC"
+if [ -z "$NO_COLOR" ]; then
+  RED=`tput setaf 9 1 1 2>/dev/null`
+  GREEN=`tput setaf 2 1 1 2>/dev/null`
+  BLUE=`tput setaf 4 1 1 2>/dev/null`
+  YELLOW=`tput setaf 11 1 1 2>/dev/null`
+  NC=`tput sgr0`
+  RESET="$NC"
+fi
 
 CUR_TIME=`date +%s`
 
@@ -235,14 +259,21 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
     echo "  last_find       : $FMT_FIND"
     echo "  last_crash      : $FMT_CRASH"
-    echo "  last_hang       : $FMT_HANG"
-    echo "  cycles_wo_finds : $FMT_CWOP"
+    if [ -z "$MINIMAL_ONLY" ]; then
+      echo "  last_hang       : $FMT_HANG"
+      echo "  cycles_wo_finds : $FMT_CWOP"
+    fi
     echo "  coverage        : $COVERAGE%"
 
-    CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
-    MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
+    if [ -z "$MINIMAL_ONLY" ]; then
 
-    echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
+      CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
+      MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
+
+      echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
+
+    fi
+
     echo "  cycles $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, items $cur_item/$corpus_count (${PATH_PERC}%)"
 
     if [ "$saved_crashes" = "0" ]; then
@@ -302,21 +333,27 @@ if [ ! "$DEAD_CNT" = "0" ]; then
 fi
 
 echo "      Total run time : $FMT_TIME"
-echo "         Total execs : $FMT_EXECS"
-echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "         Total execs : $FMT_EXECS"
+  echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+fi
 if [ "$ALIVE_CNT" -gt "0" ]; then
   echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
 fi
-echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
+fi
 
-if [ "$ALIVE_CNT" -gt "1" ]; then
+if [ "$ALIVE_CNT" -gt "1" -o -n "$MINIMAL_ONLY" ]; then
   echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
 fi
 
 echo "    Coverage reached : ${TOTAL_COVERAGE}%"
 echo "       Crashes saved : $TOTAL_CRASHES"
-echo "         Hangs saved : $TOTAL_HANGS"
-echo "Cycles without finds : $TOTAL_WCOP"
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "         Hangs saved : $TOTAL_HANGS"
+  echo "Cycles without finds : $TOTAL_WCOP"
+fi
 echo "  Time without finds : $TOTAL_LAST_FIND"
 echo
 
