@@ -1,0 +1,4 @@
+CPU                                     | Mz   | exec/s | afl-*-config |
+========================================|======|========|==============|
+CPU 12th Gen Intel(R) Core(TM) i7-1270P | 4200 | 12750  | both         |
+AMD EPYC 7282 16-Core Processor         | 3190 | 10060  | both         |

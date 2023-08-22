@@ -3,6 +3,18 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.09a (dev)
+  - afl-fuzz:
+    - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
+      before terminating.
+  - afl-whatsup:
+    - now also shows coverage reached
+    - option -m shows only very relevant stats
+    - option -n will not use color in the output
+  - added benchmark/benchmark.sh if you want to see how good your fuzzing
+    speed is in comparison to other setups.
+
+
 ### Version ++4.08c (release)
   - afl-fuzz:
     - new mutation engine: mutations that favor discovery more paths are
@@ -18,7 +30,6 @@
     - -l X option to enable base64 transformation solving
     - allow to disable CMPLOG with '-c -' (e.g. afl.rs enforces '-c 0' on
       every instance which is counterproductive).
-
   - afl-cmin/afl-cmin.bash:
     - fixed a bug inherited from vanilla AFL where a coverage of
       map[123] = 11 would be the same as map[1123] = 1
@@ -35,7 +46,6 @@
     - renamed utils/get_symbol_addr.sh to utils/frida_get_symbol_addr.sh
   - qemu_mode:
     - added qemu_mode/utils/qemu_get_symbol_addr.sh
-
 
 ### Version ++4.07c (release)
   - afl-fuzz:
@@ -64,7 +74,6 @@
   - two new custom mutators are now available:
     - TritonDSE in custom_mutators/aflpp_tritondse
     - SymQEMU in custom_mutators/symqemu
-
 
 ### Version ++4.06c (release)
   - afl-fuzz:
