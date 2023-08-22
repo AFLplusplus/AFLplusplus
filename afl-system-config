@@ -110,12 +110,12 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   sysctl kern.sysv.shmall=131072000
   echo Settings applied.
   echo
-  if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ; then
+  if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash\>') ; then
     echo
     echo Unloading the default crash reporter
     SL=/System/Library; PL=com.apple.ReportCrash
-    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist >/dev/null 2>&1
-    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist >/dev/null 2>&1
+    sudo -u "$SUDO_USER" launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
+    launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
     echo
   fi
   echo It is recommended to disable System Integrity Protection for increased performance.
