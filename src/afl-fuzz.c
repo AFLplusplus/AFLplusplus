@@ -275,6 +275,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
       "AFL_IGNORE_PROBLEMS_COVERAGE: if set in addition to AFL_IGNORE_PROBLEMS - also\n"
       "                              ignore those libs for coverage\n"
+      "AFL_IGNORE_SEED_PROBLEMS: skip over crashes and timeouts in the seeds instead of\n"
+      "                          exiting\n"
       "AFL_IGNORE_TIMEOUTS: do not process or save any timeouts\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"

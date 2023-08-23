@@ -327,6 +327,9 @@ checks or alter some of the more exotic semantics of the tool:
     (`-i in`). This is an important feature to set when resuming a fuzzing
     session.
 
+  - `AFL_IGNORE_SEED_PROBLEMS` will skip over crashes and timeouts in the seeds
+    instead of exiting.
+
   - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL++ treats as crash. For
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
     return code (i.e. `exit(-1)` got called), will be treated as if a crash had
