@@ -8,6 +8,7 @@
     - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
       before terminating.
   - afl-whatsup:
+    - detect instanced that are starting up and show them as such as not dead
     - now also shows coverage reached
     - option -m shows only very relevant stats
     - option -n will not use color in the output
