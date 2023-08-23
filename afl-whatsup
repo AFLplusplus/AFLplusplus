@@ -100,6 +100,7 @@ if [ -d queue ]; then
 fi
 
 BC=`which bc 2>/dev/null`
+FUSER=`which fuser 2>/dev/null`
 
 if [ -z "$NO_COLOR" ]; then
   RED=`tput setaf 9 1 1 2>/dev/null`
@@ -116,6 +117,7 @@ TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-wha
 
 ALIVE_CNT=0
 DEAD_CNT=0
+START_CNT=0
 
 TOTAL_TIME=0
 TOTAL_EXECS=0
@@ -177,6 +179,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
   . "$TMP"
   DIR=$(dirname "$i")
+  DIRECTORY=$DIR
   DIR=${DIR##*/} 
   RUN_UNIX=$run_time
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
@@ -204,19 +207,59 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   if ! kill -0 "$fuzzer_pid" 2>/dev/null; then
 
-    if [ "$SUMMARY_ONLY" = "" ]; then
+    IS_STARTING=
+    IS_DEAD=
 
-      echo "  Instance is dead or running remotely, skipping."
-      echo
+    if [ -e "$i" ] && [ -e "$DIRECTORY/fuzzer_setup" ] && [ -n "$FUSER" ]; then
+
+      if [ "$i" -ot "$DIRECTORY/fuzzer_setup" ]; then
+
+        # fuzzer_setup is newer than fuzzer_stats, maybe the instance is starting?
+	TMP_PID=`fuser -v "$DIRECTORY" 2>&1 | grep afl-fuzz`
+
+	if [ -n "$TMP_PID" ]; then
+
+          if [ "$SUMMARY_ONLY" = "" ]; then
+
+            echo "  Instance is still starting up, skipping."
+            echo
+
+          fi
+
+          START_CNT=$((START_CNT + 1))
+          last_find=0
+          IS_STARTING=1
+
+          if [ "$PROCESS_DEAD" = "" ]; then
+
+            continue
+
+          fi
+
+	fi
+
+      fi
 
     fi
 
-    DEAD_CNT=$((DEAD_CNT + 1))
-    last_find=0
+    if [ -z "$IS_STARTING" ]; then
 
-    if [ "$PROCESS_DEAD" = "" ]; then
+      if [ "$SUMMARY_ONLY" = "" ]; then
 
-      continue
+        echo "  Instance is dead or running remotely, skipping."
+        echo
+
+      fi
+
+      DEAD_CNT=$((DEAD_CNT + 1))
+      IS_DEAD=1
+      last_find=0
+
+      if [ "$PROCESS_DEAD" = "" ]; then
+
+        continue
+
+      fi
 
     fi
 
@@ -326,7 +369,7 @@ if [ "$PROCESS_DEAD" = "" ]; then
 else
 
   TXT="included in stats"
-  ALIVE_CNT=$(($ALIVE_CNT - $DEAD_CNT))
+  ALIVE_CNT=$(($ALIVE_CNT - $DEAD_CNT - $START_CNT))
 
 fi
 
@@ -337,6 +380,10 @@ if [ -z "$SUMMARY_ONLY" -o -z "$MINIMAL_ONLY" ]; then
 fi
 
 echo "       Fuzzers alive : $ALIVE_CNT"
+
+if [ ! "$START_CNT" = "0" ]; then
+  echo "         Starting up : $START_CNT ($TXT)"
+fi
 
 if [ ! "$DEAD_CNT" = "0" ]; then
   echo "      Dead or remote : $DEAD_CNT ($TXT)"
