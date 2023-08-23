@@ -1,4 +1,3 @@
-
 /*
    american fuzzy lop++ - fuzzer header
    ------------------------------------
@@ -175,10 +174,10 @@ struct queue_entry {
       stats_skipped,                    /* stats: how often skipped         */
       stats_finds,                      /* stats: # of saved finds          */
       stats_crashes,                    /* stats: # of saved crashes        */
-      stats_tmouts,                      /* stats: # of saved timeouts       */
+      stats_tmouts,                     /* stats: # of saved timeouts       */
 #endif
       fuzz_level,                       /* Number of fuzzing iterations     */
-      n_fuzz_entry;                      /* offset in n_fuzz                 */
+      n_fuzz_entry;                     /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
@@ -402,7 +401,7 @@ typedef struct afl_env_vars {
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
-      afl_final_sync;
+      afl_final_sync, afl_ignore_seed_problems;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
