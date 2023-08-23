@@ -951,19 +951,47 @@ void perform_dry_run(afl_state_t *afl) {
 
         } else {
 
-          SAYF("\n" cLRD "[-] " cRST
-               "The program took more than %u ms to process one of the initial "
-               "test cases.\n"
-               "    This is bad news; raising the limit with the -t option is "
-               "possible, but\n"
-               "    will probably make the fuzzing process extremely slow.\n\n"
+          static int say_once = 0;
 
-               "    If this test case is just a fluke, the other option is to "
-               "just avoid it\n"
-               "    altogether, and find one that is less of a CPU hog.\n",
-               afl->fsrv.exec_tmout);
+          if (!say_once) {
 
-          FATAL("Test case '%s' results in a timeout", fn);
+            SAYF(
+                "\n" cLRD "[-] " cRST
+                "The program took more than %u ms to process one of the "
+                "initial "
+                "test cases.\n"
+                "    This is bad news; raising the limit with the -t option is "
+                "possible, but\n"
+                "    will probably make the fuzzing process extremely slow.\n\n"
+
+                "    If this test case is just a fluke, the other option is to "
+                "just avoid it\n"
+                "    altogether, and find one that is less of a CPU hog.\n",
+                afl->fsrv.exec_tmout);
+
+            if (!afl->afl_env.afl_ignore_seed_problems) {
+
+              FATAL("Test case '%s' results in a timeout", fn);
+
+            }
+
+            say_once = 1;
+
+          }
+
+          if (!q->was_fuzzed) {
+
+            q->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            --afl->active_items;
+
+          }
+
+          q->disabled = 1;
+          q->perf_score = 0;
+
+          WARNF("Test case '%s' results in a timeout, skipping", fn);
+          break;
 
         }
 
@@ -2270,7 +2298,8 @@ void check_crash_handling(void) {
      reporting the awful way. */
 
   #if !TARGET_OS_IPHONE
-  if (system("launchctl list 2>/dev/null | grep -q '\\.ReportCrash\\>'")) return;
+  if (system("launchctl list 2>/dev/null | grep -q '\\.ReportCrash\\>'"))
+    return;
 
   SAYF(
       "\n" cLRD "[-] " cRST

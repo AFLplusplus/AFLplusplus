@@ -7,6 +7,8 @@
   - afl-fuzz:
     - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
       before terminating.
+    - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
+      of exiting with an error message
   - afl-whatsup:
     - detect instanced that are starting up and show them as such as not dead
     - now also shows coverage reached
