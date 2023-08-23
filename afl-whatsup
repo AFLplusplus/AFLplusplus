@@ -185,7 +185,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
   RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
   COVERAGE=$(echo $bitmap_cvg|tr -d %)
-  if [ -n "$TOTAL_COVERAGE" -a -n "$COVERAGE" ]; then
+  if [ -n "$TOTAL_COVERAGE" -a -n "$COVERAGE" -a -n "$BC" ]; then
     if [ "$(echo "$TOTAL_COVERAGE < $COVERAGE" | bc)" -eq 1 ]; then
       TOTAL_COVERAGE=$COVERAGE
     fi
