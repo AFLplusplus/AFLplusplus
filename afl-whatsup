@@ -344,7 +344,9 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
 
     if [ ! -e "$i" -a -e "$j" ]; then
 
-      ALIVE_CNT=$((ALIVE_CNT + 1))
+      if [ '!' "$PROCESS_DEAD" = "" ]; then
+        ALIVE_CNT=$((ALIVE_CNT + 1))
+      fi
       START_CNT=$((START_CNT + 1))
       last_find=0
       IS_STARTING=1
