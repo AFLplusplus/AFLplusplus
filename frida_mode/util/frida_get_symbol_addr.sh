@@ -31,12 +31,13 @@ file=$(file $target|sed 's/.*: //')
 arch=$(echo $file|awk -F, '{print$2}'|tr -d ' ')
 bits=$(echo $file|sed 's/-bit .*//'|sed 's/.* //')
 pie=$(echo $file|grep -wqi pie && echo pie)
+dso=$(echo $file|grep -wqi "shared object" && echo dso)
 
 test $(uname -s) = "Darwin" && symbol=_"$symbol"
 tmp_addr=$(nm "$target" | grep -i "T $symbol" | awk '{print$1}' | tr a-f A-F)
 
 test -z "$tmp_addr" && { echo Error: function $symbol not found 1>&2; exit 1; }
-test -z "$pie" && { echo 0x$tmp_addr; exit 0; }
+test -z "$pie" && test -z "$dso" && { echo 0x$tmp_addr; exit 0; }
 
 test -z "$base" && {
   test "$bits" = 32 -o "$bits" = 64 || { echo "Error: could not identify arch (bits=$bits)" 1>&2 ; exit 1; }
