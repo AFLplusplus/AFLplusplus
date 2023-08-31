@@ -169,7 +169,13 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
     if (unlikely(begin)) { instrument_debug_start(instr->address, output); }
 
-    if (instr->address == persistent_start) { persistent_prologue(output); }
+    if (instr->address == persistent_start) {
+
+      persistent_prologue(output);
+      instrument_coverage_persistent_start_arch(output);
+
+    }
+
     if (instr->address == persistent_ret) { persistent_epilogue(output); }
 
     /*

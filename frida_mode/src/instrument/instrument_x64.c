@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include "instrument.h"
+#include "persistent.h"
 #include "ranges.h"
 #include "stalker.h"
 #include "util.h"
@@ -58,7 +59,6 @@ typedef union {
 } jcc_insn;
 
 static GHashTable *coverage_blocks = NULL;
-static GHashTable *coverage_blocks_long = NULL;
 
 gboolean instrument_is_coverage_optimize_supported(void) {
 
@@ -74,183 +74,223 @@ static gboolean instrument_coverage_in_range(gssize offset) {
 
   #pragma pack(push, 1)
 
+  #define LOG_SIZE 1024
+
+typedef void (*fnPurgeBlockLog)(void);
+
 typedef struct {
 
-  // cur_location = (block_address >> 4) ^ (block_address << 8);
-  // shared_mem[cur_location ^ prev_location]++;
-  // prev_location = cur_location >> 1;
+  void           *bitmap;
+  fnPurgeBlockLog fn_purge;
+  uint32_t        remain;
+  uint32_t        log[LOG_SIZE];
 
-  // mov    QWORD PTR [rsp-0x88],rax
-  // lahf
-  // mov    QWORD PTR [rsp-0x90],rax
-  // mov    QWORD PTR [rsp-0x98],rbx
+} block_log_t;
 
-  // mov    eax,DWORD PTR [rip+0x1312334]
-  // xor    eax,0x3f77
+extern void instrument_purge(void);
 
-  // lea    rbx,[rip+0x132338]
-  // add    rax,rbx
+asm("instrument_purge:\n"
+    ".global instrument_purge\n"
+    /* RAX points at our remaining count */
+    // "int $0x3\n"
 
-  // mov    bl,BYTE PTR [rax]
-  // add    bl,0x1
-  // adc    bl,0x0
-  // mov    BYTE PTR [rax],bl
+    /* TODO: Process block log and update __afl_area_map*/
+    "pushf \n"
 
-  // mov    rbx,QWORD PTR [rsp-0x98]
-  // mov    rax,QWORD PTR [rsp-0x90]
-  // sahf
-  // mov    rax,QWORD PTR [rsp-0x88]
+    /* rax = block_log_t */
+    "push %rbx\n"                                             /* prev block */
+    /* rcx = loop count */
+    "push %rdx\n"                                             /* curr block */
 
-  // mov    DWORD PTR [rip+0x13122f8],0x9fbb
+    "push %rsi\n"                                                 /* bitmap */
+    "push %rdi\n"                                             /* map offset */
+    "push %r8\n"                                                /* map byte */
 
-  uint8_t mov_rax_rsp_88[8];
-  uint8_t lahf;
-  uint8_t mov_rax_rsp_90[8];
-  uint8_t mov_rbx_rsp_98[8];
+    /* Get bitmap address */
+    "mov -16(%rax), %rsi\n"
+    "mov (%rsi), %rsi\n"
 
-  uint8_t mov_eax_prev_loc[6];
-  uint8_t xor_eax_curr_loc[5];
+    /* Set loop counter (BLOCK_SIZE) */
+    "movl $1024, %ecx\n"
 
-  uint8_t lea_rbx_area_ptr[7];
-  uint8_t add_rax_rbx[3];
+    /* Calculate the first prev map index */
+    "movl (%rax,%rcx,4), %ebx\n"
+    "shr $0x1, %ebx\n"
+    "dec %rcx\n"
 
-  uint8_t mov_rbx_ptr_rax[2];
-  uint8_t add_bl_1[3];
-  uint8_t adc_bl_0[3];
-  uint8_t mov_ptr_rax_rbx[2];
+    "1:\n"
+    "movl (%rax,%rcx,4), %edx\n"
 
-  uint8_t mov_rsp_98_rbx[8];
-  uint8_t mov_rsp_90_rax[8];
-  uint8_t sahf;
-  uint8_t mov_rsp_88_rax[8];
+    /* Calculate the map offset */
+    "mov %rdx, %rdi\n"
+    "xor %rbx, %rdi\n"
 
-  uint8_t mov_prev_loc_curr_loc_shr1[10];
+    /* Update the map */
+    "movb (%rsi,%rdi), %r8b\n"
+    "add $0x1, %r8b\n"
+    "adc $0x0, %r8b\n"
+    "movb %r8b, (%rsi,%rdi)\n"
+
+    /* Calculate the prev map index */
+    "mov %edx, %ebx\n"
+    "shr $0x1, %ebx\n"
+
+    "dec %ecx\n"
+    "jnz 1b\n"
+
+    /* Move the last entry written (index 0) into the last position */
+    "mov %ebx, 0x4000(%rax)\n"
+
+    "pop %r8\n"
+    "pop %rdi\n"
+    "pop %rsi\n"
+    "pop %rdx\n"
+    "pop %rbx\n"
+    "popf\n"
+
+    /* Reset .remain BLOCK_SIZE - 1*/
+    "movl $1023, %ecx\n"
+    "ret\n");
+
+block_log_t block_log = {
+
+    .bitmap = &__afl_area_ptr,
+    .fn_purge = instrument_purge,
+    .remain = LOG_SIZE + 1,
+    .log = {0}};
+
+typedef struct {
+
+  uint8_t push_rax[8];
+  uint8_t push_rcx[8];
+
+  union {
+
+    uint8_t mov_rax_data[10];
+    struct {
+
+      uint8_t  mov_rax_data_code[2];
+      uint64_t mov_rax_data_addr;
+
+    };
+
+  };
+
+  uint8_t read_count[2];
+  uint8_t loop[2];
+
+  uint8_t push_stack[8];
+  uint8_t call_purge[3];
+  uint8_t pop_stack[8];
+
+  uint8_t write_count[2];
+  union {
+
+    uint8_t store_block_id[7];
+    struct {
+
+      uint8_t  store_block_code[3];
+      uint32_t store_block_data;
+
+    };
+
+  };
+
+  uint8_t pop_rcx[8];
+  uint8_t pop_rax[8];
 
 } afl_log_code_asm_t;
 
 typedef struct {
 
-  // cur_location = (block_address >> 4) ^ (block_address << 8);
-  // shared_mem[cur_location ^ prev_location]++;
-  // prev_location = cur_location >> 1;
+  uint8_t push_rax[8];
 
-  // mov    QWORD PTR [rsp-0x88],rax
-  // lahf
-  // mov    QWORD PTR [rsp-0x90],rax
-  // mov    QWORD PTR [rsp-0x98],rbx
+  union {
 
-  // mov    rax, 0xXXXXXXXXXXXXXXXXX                          /* p_prev_loc */
-  // mov    eax, dword ptr [rax]                                /* prev_loc */
-  // xor    eax,0x3f77                                           /* cur_loc */
+    uint8_t mov_rax_data[10];
+    struct {
 
-  // mov    rbx, 0xXXXXXXXXXXXXXXXXX                                 /* map */
-  // add    rax,rbx
+      uint8_t  mov_rax_data_code[2];
+      uint64_t mov_rax_data_addr;
 
-  // mov    bl,BYTE PTR [rax]
-  // add    bl,0x1
-  // adc    bl,0x0
-  // mov    BYTE PTR [rax],bl
+    };
 
-  // mov    rax, 0xXXXXXXXXXXXXXXXXX                          /* p_prev_loc */
-  // mov    dword ptr [rax], 0xXXXXXXXXX                        /* prev_loc */
+  };
 
-  // mov    rbx,QWORD PTR [rsp-0x98]
-  // mov    rax,QWORD PTR [rsp-0x90]
-  // sahf
-  // mov    rax,QWORD PTR [rsp-0x88]
+  union {
 
-  uint8_t mov_rax_rsp_88[8];
-  uint8_t lahf;
-  uint8_t mov_rax_rsp_90[8];
-  uint8_t mov_rbx_rsp_98[8];
+    uint8_t store_count[6];
+    struct {
 
-  uint8_t mov_rax_prev_loc_ptr1[10];
-  uint8_t mov_eax_prev_loc[2];
-  uint8_t xor_eax_curr_loc[5];
+      uint8_t  store_count_code[2];
+      uint32_t store_count_data;
 
-  uint8_t mov_rbx_map_ptr[10];
-  uint8_t add_rax_rbx[3];
+    };
 
-  uint8_t mov_rbx_ptr_rax[2];
-  uint8_t add_bl_1[3];
-  uint8_t adc_bl_0[3];
-  uint8_t mov_ptr_rax_rbx[2];
+  };
 
-  uint8_t mov_rax_prev_loc_ptr2[10];
-  uint8_t mov_prev_loc_curr_loc_shr1[6];
+  uint8_t pop_rax[8];
 
-  uint8_t mov_rsp_98_rbx[8];
-  uint8_t mov_rsp_90_rax[8];
-  uint8_t sahf;
-  uint8_t mov_rsp_88_rax[8];
-
-} afl_log_code_asm_long_t;
+} afl_init_code_asm_t;
 
   #pragma pack(pop)
 
-static const afl_log_code_asm_t template =
-    {
+// mov qword ptr [rsp-0x88], rax
+//    48 89 84 24 78 FF FF FF
+// mov qword ptr [rsp-0x90], rcx
+//    48 89 8C 24 70 FF FF FF
+// mov rax, 0xb00bd00dfacedead
+//    48 B8 AD DE CE FA 0D D0 0B B0
+// mov ecx, dword ptr [rax]
+//    8B 08
+// loop 0x13
+//    E2 13
+// lea rsp, qword ptr [rsp - 0x98]
+//    48 8D A4 24 68 FF FF FF
+// call qword ptr [rax - 0x8]
+//    FF 50 F8
+// lea rsp, qword ptr [rsp + 0x98]
+//    48 8D A4 24 98 00 00 00
+// mov dword ptr [rax], ecx
+//    89 08
+// mov dword ptr [rax + rcx * 4], 0xdeadface
+//    C7 04 88 CE FA AD DE
+// mov rcx, qword ptr [rsp-0x90]
+//    48 8B 8C 24 70 FF FF FF
+// mov rax, qword ptr [rsp-0x88]
+//    48 8B 84 24 78 FF FF FF
 
-        .mov_rax_rsp_88 = {0x48, 0x89, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
-        .lahf = 0x9f,
-        .mov_rax_rsp_90 = {0x48, 0x89, 0x84, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
-        .mov_rbx_rsp_98 = {0x48, 0x89, 0x9C, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
+static const afl_log_code_asm_t template = {
 
-        .mov_eax_prev_loc = {0x8b, 0x05},
-        .xor_eax_curr_loc = {0x35},
-        .lea_rbx_area_ptr = {0x48, 0x8d, 0x1d},
-        .add_rax_rbx = {0x48, 0x01, 0xd8},
+    .push_rax = {0x48, 0x89, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
+    .push_rcx = {0x48, 0x89, 0x8C, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
+    .mov_rax_data = {0x48, 0xB8, 0xAD, 0xDE, 0xCE, 0xFA, 0x0D, 0xD0, 0x0B,
+                     0xB0},
 
-        .mov_rbx_ptr_rax = {0x8a, 0x18},
-        .add_bl_1 = {0x80, 0xc3, 0x01},
-        .adc_bl_0 = {0x80, 0xd3, 0x00},
-        .mov_ptr_rax_rbx = {0x88, 0x18},
+    .read_count = {0x8B, 0x08},
+    .loop = {0xE2, 0x13},
 
-        .mov_rsp_98_rbx = {0x48, 0x8B, 0x9C, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
-        .mov_rsp_90_rax = {0x48, 0x8B, 0x84, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
-        .sahf = 0x9e,
-        .mov_rsp_88_rax = {0x48, 0x8B, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
+    .push_stack = {0x48, 0x8D, 0xA4, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
+    .call_purge = {0xFF, 0x50, 0xF8},
+    .pop_stack = {0x48, 0x8D, 0xA4, 0x24, 0x98, 0x00, 0x00, 0x00},
 
-        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x05},
+    .write_count = {0x89, 0x08},
+    .store_block_id = {0xC7, 0x04, 0x88, 0xCE, 0xFA, 0xAD, 0xDE},
 
-}
+    .pop_rcx = {0x48, 0x8B, 0x8C, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
+    .pop_rax = {0x48, 0x8B, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
 
-;
+};
 
-static const afl_log_code_asm_long_t template_long =
-    {
+static const afl_init_code_asm_t init_template = {
 
-        .mov_rax_rsp_88 = {0x48, 0x89, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
-        .lahf = 0x9f,
-        .mov_rax_rsp_90 = {0x48, 0x89, 0x84, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
-        .mov_rbx_rsp_98 = {0x48, 0x89, 0x9C, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
+    .push_rax = {0x48, 0x89, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
+    .mov_rax_data = {0x48, 0xB8, 0xAD, 0xDE, 0xCE, 0xFA, 0x0D, 0xD0, 0x0B,
+                     0xB0},
+    .store_count = {0xC7, 0x00, 0xCE, 0xFA, 0xAD, 0xDE},
+    .pop_rax = {0x48, 0x8B, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
 
-        .mov_rax_prev_loc_ptr1 = {0x48, 0xB8, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                                  0xFF, 0xFF, 0xFF},
-        .mov_eax_prev_loc = {0x8b, 0x00},
-        .xor_eax_curr_loc = {0x35},
-
-        .mov_rbx_map_ptr = {0x48, 0xBB, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                            0xFF, 0xFF},
-        .add_rax_rbx = {0x48, 0x01, 0xd8},
-
-        .mov_rbx_ptr_rax = {0x8a, 0x18},
-        .add_bl_1 = {0x80, 0xc3, 0x01},
-        .adc_bl_0 = {0x80, 0xd3, 0x00},
-        .mov_ptr_rax_rbx = {0x88, 0x18},
-
-        .mov_rax_prev_loc_ptr2 = {0x48, 0xB8, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                                  0xFF, 0xFF, 0xFF},
-        .mov_prev_loc_curr_loc_shr1 = {0xc7, 0x00, 0xFF, 0xFF, 0xFF, 0xFF},
-
-        .mov_rsp_98_rbx = {0x48, 0x8B, 0x9C, 0x24, 0x68, 0xFF, 0xFF, 0xFF},
-        .mov_rsp_90_rax = {0x48, 0x8B, 0x84, 0x24, 0x70, 0xFF, 0xFF, 0xFF},
-        .sahf = 0x9e,
-        .mov_rsp_88_rax = {0x48, 0x8B, 0x84, 0x24, 0x78, 0xFF, 0xFF, 0xFF},
-
-}
-
-;
+};
 
 typedef union {
 
@@ -261,14 +301,15 @@ typedef union {
 
 typedef union {
 
-  afl_log_code_asm_long_t code;
-  uint8_t                 bytes[0];
+  afl_init_code_asm_t code;
+  uint8_t             bytes[0];
 
-} afl_log_code_long;
+} afl_init_code;
 
 void instrument_coverage_optimize_init(void) {
 
   FVERBOSE("__afl_area_ptr: %p", __afl_area_ptr);
+  FVERBOSE("__afl_map_size: 0x%08x\n", __afl_map_size);
 
 }
 
@@ -291,11 +332,11 @@ static void instrument_coverage_switch_insn(GumStalkerObserver *self,
   x86 = &from_insn->detail->x86;
   op = x86->operands;
 
-  is_short = g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target));
-  is_long =
-      g_hash_table_contains(coverage_blocks_long, GSIZE_TO_POINTER(*target));
+  if (!g_hash_table_contains(coverage_blocks, GSIZE_TO_POINTER(*target))) {
 
-  if (!is_short && !is_long) { return; }
+    return;
+
+  }
 
   switch (from_insn->id) {
 
@@ -316,21 +357,9 @@ static void instrument_coverage_switch_insn(GumStalkerObserver *self,
 
       break;
     case X86_INS_RET:
-      if (is_short) {
 
-        instrument_cache_insert(start_address,
-                                (guint8 *)*target + sizeof(afl_log_code));
-
-      } else if (is_long) {
-
-        instrument_cache_insert(start_address,
-                                (guint8 *)*target + sizeof(afl_log_code_long));
-
-      } else {
-
-        FATAL("Something has gone wrong here!");
-
-      }
+      instrument_cache_insert(start_address,
+                              (guint8 *)*target + sizeof(afl_log_code));
 
       break;
     default:
@@ -338,19 +367,7 @@ static void instrument_coverage_switch_insn(GumStalkerObserver *self,
 
   }
 
-  if (is_short) {
-
-    *target = (guint8 *)*target + sizeof(afl_log_code);
-
-  } else if (is_long) {
-
-    *target = (guint8 *)*target + sizeof(afl_log_code_long);
-
-  } else {
-
-    FATAL("Something has gone wrong here!");
-
-  }
+  *target = (guint8 *)*target + sizeof(afl_log_code);
 
 }
 
@@ -400,77 +417,15 @@ static void instrument_coverage_suppress_init(void) {
 
   }
 
-  coverage_blocks_long = g_hash_table_new(g_direct_hash, g_direct_equal);
-  if (coverage_blocks_long == NULL) {
-
-    FATAL("Failed to g_hash_table_new, errno: %d", errno);
-
-  }
-
 }
 
-bool instrument_write_inline(GumX86Writer *cw, GumAddress code_addr,
-                             guint32 area_offset, guint32 area_offset_ror) {
+static bool instrument_write(GumX86Writer *cw, guint32 area_offset) {
 
   afl_log_code code = {0};
-
   code.code = template;
 
-  gssize prev_loc_value =
-      GPOINTER_TO_SIZE(instrument_previous_pc_addr) -
-      (code_addr + offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
-       sizeof(code.code.mov_prev_loc_curr_loc_shr1));
-  gssize prev_loc_value_offset =
-      offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
-      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(gint) -
-      sizeof(guint32);
-  if (!instrument_coverage_in_range(prev_loc_value)) { return false; }
-
-  *((gint *)&code.bytes[prev_loc_value_offset]) = (gint)prev_loc_value;
-
-  /* mov_eax_prev_loc */
-
-  gssize prev_loc_value2 =
-      GPOINTER_TO_SIZE(instrument_previous_pc_addr) -
-      (code_addr + offsetof(afl_log_code, code.mov_eax_prev_loc) +
-       sizeof(code.code.mov_eax_prev_loc));
-  gssize prev_loc_value_offset2 =
-      offsetof(afl_log_code, code.mov_eax_prev_loc) +
-      sizeof(code.code.mov_eax_prev_loc) - sizeof(gint);
-  if (!instrument_coverage_in_range(prev_loc_value)) { return false; }
-
-  *((gint *)&code.bytes[prev_loc_value_offset2]) = (gint)prev_loc_value2;
-
-  /* xor_eax_curr_loc */
-
-  gssize xor_curr_loc_offset = offsetof(afl_log_code, code.xor_eax_curr_loc) +
-                               sizeof(code.code.xor_eax_curr_loc) -
-                               sizeof(guint32);
-
-  *((guint32 *)&code.bytes[xor_curr_loc_offset]) = area_offset;
-
-  /* lea_rbx_area_ptr */
-
-  gssize lea_rbx_area_ptr_offset =
-      offsetof(afl_log_code, code.lea_rbx_area_ptr) +
-      sizeof(code.code.lea_rbx_area_ptr) - sizeof(guint32);
-
-  gssize lea_rbx_area_ptr_value =
-      (GPOINTER_TO_SIZE(__afl_area_ptr) -
-       (code_addr + offsetof(afl_log_code, code.lea_rbx_area_ptr) +
-        sizeof(code.code.lea_rbx_area_ptr)));
-
-  if (!instrument_coverage_in_range(lea_rbx_area_ptr_value)) { return false; }
-
-  *((guint32 *)&code.bytes[lea_rbx_area_ptr_offset]) = lea_rbx_area_ptr_value;
-
-  /* mov_prev_loc_curr_loc_shr1 */
-
-  gssize curr_loc_shr_1_offset =
-      offsetof(afl_log_code, code.mov_prev_loc_curr_loc_shr1) +
-      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(guint32);
-
-  *((guint32 *)&code.bytes[curr_loc_shr_1_offset]) = (guint32)(area_offset_ror);
+  code.code.mov_rax_data_addr = (uint64_t)&block_log.remain;
+  code.code.store_block_data = area_offset;
 
   if (instrument_suppress) {
 
@@ -482,88 +437,37 @@ bool instrument_write_inline(GumX86Writer *cw, GumAddress code_addr,
 
   }
 
+  // gum_x86_writer_put_breakpoint(cw);
   gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
   return true;
 
-}
-
-bool instrument_write_inline_long(GumX86Writer *cw, guint32 area_offset,
-                                  guint32 area_offset_ror) {
-
-  afl_log_code_long code = {0};
-  code.code = template_long;
-
-  /* mov_rax_prev_loc_ptr1 */
-  gssize mov_rax_prev_loc_ptr1_offset =
-      offsetof(afl_log_code_long, code.mov_rax_prev_loc_ptr1) +
-      sizeof(code.code.mov_rax_prev_loc_ptr1) - sizeof(gsize);
-  *((gsize *)&code.bytes[mov_rax_prev_loc_ptr1_offset]) =
-      GPOINTER_TO_SIZE(instrument_previous_pc_addr);
-
-  /* xor_eax_curr_loc */
-  gssize xor_eax_curr_loc_offset =
-      offsetof(afl_log_code_long, code.xor_eax_curr_loc) +
-      sizeof(code.code.xor_eax_curr_loc) - sizeof(guint32);
-  *((guint32 *)&code.bytes[xor_eax_curr_loc_offset]) = area_offset;
-
-  /* mov_rbx_map_ptr */
-  gsize mov_rbx_map_ptr_offset =
-      offsetof(afl_log_code_long, code.mov_rbx_map_ptr) +
-      sizeof(code.code.mov_rbx_map_ptr) - sizeof(gsize);
-  *((gsize *)&code.bytes[mov_rbx_map_ptr_offset]) =
-      GPOINTER_TO_SIZE(__afl_area_ptr);
-
-  /* mov_rax_prev_loc_ptr2 */
-  gssize mov_rax_prev_loc_ptr2_offset =
-      offsetof(afl_log_code_long, code.mov_rax_prev_loc_ptr2) +
-      sizeof(code.code.mov_rax_prev_loc_ptr2) - sizeof(gsize);
-  *((gsize *)&code.bytes[mov_rax_prev_loc_ptr2_offset]) =
-      GPOINTER_TO_SIZE(instrument_previous_pc_addr);
-
-  /* mov_prev_loc_curr_loc_shr1 */
-  gssize mov_prev_loc_curr_loc_shr1_offset =
-      offsetof(afl_log_code_long, code.mov_prev_loc_curr_loc_shr1) +
-      sizeof(code.code.mov_prev_loc_curr_loc_shr1) - sizeof(guint32);
-  *((guint32 *)&code.bytes[mov_prev_loc_curr_loc_shr1_offset]) =
-      (guint32)(area_offset_ror);
-
-  if (instrument_suppress) {
-
-    if (!g_hash_table_add(coverage_blocks_long, GSIZE_TO_POINTER(cw->code))) {
-
-      FATAL("Failed - g_hash_table_add");
-
-    }
-
-  }
-
-  gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code_long));
-  return true;
-
-}
+};
 
 static void instrument_coverage_write(GumAddress        address,
                                       GumStalkerOutput *output) {
 
   GumX86Writer *cw = output->writer.x86;
   guint64       area_offset = (guint32)instrument_get_offset_hash(address);
-  gsize         map_size_pow2;
-  guint32       area_offset_ror;
-  GumAddress    code_addr = cw->pc;
 
-  map_size_pow2 = util_log2(__afl_map_size);
-  area_offset_ror = (guint32)util_rotate(instrument_get_offset_hash(address), 1,
-                                         map_size_pow2);
+  if (!instrument_write(cw, area_offset)) {
 
-  if (!instrument_write_inline(cw, code_addr, area_offset, area_offset_ror)) {
-
-    if (!instrument_write_inline_long(cw, area_offset, area_offset_ror)) {
-
-      FATAL("Failed to write inline instrumentation");
-
-    }
+    FATAL("Failed to write inline instrumentation");
 
   }
+
+}
+
+void instrument_coverage_persistent_start_arch(GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+  afl_init_code code = {0};
+  code.code = init_template;
+
+  code.code.mov_rax_data_addr = (uint64_t)&block_log.remain;
+  code.code.store_count_data = LOG_SIZE + 1;
+
+  // gum_x86_writer_put_breakpoint(cw);
+  gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_init_code));
 
 }
 

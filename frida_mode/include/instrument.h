@@ -42,6 +42,7 @@ void instrument_coverage_optimize(const cs_insn    *instr,
                                   GumStalkerOutput *output);
 void instrument_coverage_optimize_insn(const cs_insn    *instr,
                                        GumStalkerOutput *output);
+void instrument_coverage_persistent_start_arch(GumStalkerOutput *output);
 
 void     instrument_debug_config(void);
 void     instrument_debug_init(void);
