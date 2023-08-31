@@ -105,6 +105,10 @@ asm("instrument_purge:\n"
     "push %rsi\n"                                                 /* bitmap */
     "push %rdi\n"                                             /* map offset */
     "push %r8\n"                                                /* map byte */
+    "push %r10\n"                                              /* fill count*/
+
+    /* Get fill count */
+    "movl (%rax), %r10d\n"
 
     /* Get bitmap address */
     "mov -16(%rax), %rsi\n"
@@ -136,11 +140,13 @@ asm("instrument_purge:\n"
     "shr $0x1, %ebx\n"
 
     "dec %ecx\n"
-    "jnz 1b\n"
+    "cmpl %ecx, %r10d\n"
+    "jle 1b\n"
 
     /* Move the last entry written (index 0) into the last position */
     "mov %ebx, 0x4000(%rax)\n"
 
+    "pop %r10\n"
     "pop %r8\n"
     "pop %rdi\n"
     "pop %rsi\n"
@@ -468,6 +474,28 @@ void instrument_coverage_persistent_start_arch(GumStalkerOutput *output) {
 
   // gum_x86_writer_put_breakpoint(cw);
   gum_x86_writer_put_bytes(cw, code.bytes, sizeof(afl_init_code));
+
+}
+
+void instrument_coverage_persistent_end_arch(GumStalkerOutput *output) {
+
+  GumX86Writer *cw = output->writer.x86;
+  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_X86_RSP, GUM_X86_RSP,
+                                        -(GUM_RED_ZONE_SIZE));
+
+  gum_x86_writer_put_push_reg(cw, GUM_X86_RAX);
+  gum_x86_writer_put_push_reg(cw, GUM_X86_RCX);
+
+  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX,
+                                     GUM_ADDRESS(&block_log.remain));
+
+  gum_x86_writer_put_call_address_with_arguments(
+      cw, GUM_CALL_CAPI, GUM_ADDRESS(instrument_purge), 0);
+
+  gum_x86_writer_put_pop_reg(cw, GUM_X86_RCX);
+  gum_x86_writer_put_pop_reg(cw, GUM_X86_RAX);
+  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_X86_RSP, GUM_X86_RSP,
+                                        (GUM_RED_ZONE_SIZE));
 
 }
 

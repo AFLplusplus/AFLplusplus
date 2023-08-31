@@ -301,6 +301,8 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   gum_x86_writer_put_call_near_label(cw, original);
 
+  instrument_coverage_persistent_end_arch(output);
+
   /* jmp loop */
   gum_x86_writer_put_jmp_near_label(cw, loop);
 
@@ -313,6 +315,8 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
   gum_x86_writer_put_label(cw, original);
 
   instrument_persitent_save_ret(cw);
+
+  instrument_coverage_persistent_start_arch(output);
 
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
 
