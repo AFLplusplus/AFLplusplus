@@ -317,7 +317,7 @@ void parse_fsanitize(char *string) {
 
   char *p, *ptr = string + strlen("-fsanitize=");
   char *new = malloc(strlen(string) + 1);
-  char *tmp = malloc(strlen(ptr));
+  char *tmp = malloc(strlen(ptr) + 1);
   u32   count = 0, len, ende = 0;
 
   if (!new || !tmp) { FATAL("could not acquire memory"); }
