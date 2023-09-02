@@ -2,6 +2,7 @@
 # Requires Python 3.6+.
 # Author: Chris Ball <chris@printf.net>
 # Ported from Marc "van Hauser" Heuse's "benchmark.sh".
+import argparse
 import asyncio
 import glob
 import json
@@ -9,30 +10,32 @@ import multiprocessing
 import os
 import shutil
 import sys
+from collections import defaultdict
 from decimal import Decimal
 
-debug = False
+reset = "\033[0m"
+blue  = lambda text: f"\033[1;94m{text}{reset}"
+gray  = lambda text: f"\033[1;90m{text}{reset}"
+green = lambda text: f"\033[0;32m{text}{reset}"
+red   = lambda text: f"\033[0;31m{text}{reset}"
 
 targets = [
     {"source": "../test-instr.c", "binary": "test-instr"},
     {"source": "../utils/persistent_mode/test-instr.c", "binary": "test-instr-persistent-shmem"},
 ]
 modes = ["single-core", "multi-core"]
-results = {}
-
-colors = {
-    "blue": "\033[1;94m",
-    "gray": "\033[1;90m",
-    "green": "\033[0;32m",
-    "red": "\033[0;31m",
-    "reset": "\033[0m",
-}
+tree = lambda: defaultdict(tree) # recursive (arbitrary-depth) defaultdict!
+results = tree()
+between_tests = False
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug", action="store_true")
+args = parser.parse_args()
 
 async def clean_up() -> None:
     """Remove temporary files."""
     shutil.rmtree("in")
     for target in targets:
-        # os.remove(target["binary"])
+        os.remove(target["binary"])
         for mode in modes:
             for outdir in glob.glob(f"/tmp/out-{mode}-{target['binary']}*"):
                 shutil.rmtree(outdir)
@@ -40,7 +43,7 @@ async def clean_up() -> None:
 async def check_deps() -> None:
     """Check if the necessary files exist and are executable."""
     if not (os.access("../afl-fuzz", os.X_OK) and os.access("../afl-cc", os.X_OK) and os.path.exists("../SanitizerCoveragePCGUARD.so")):
-        sys.exit(f"{colors['red']}Error: you need to compile AFL++ first, we need afl-fuzz, afl-clang-fast and SanitizerCoveragePCGUARD.so built.{colors['reset']}")
+        sys.exit(f'{red(" [*] Error: you need to compile AFL++ first, we need afl-fuzz, afl-clang-fast and SanitizerCoveragePCGUARD.so built.")}')
 
 async def prep_env() -> dict:
     # Unset AFL_* environment variables
@@ -69,17 +72,21 @@ async def compile_target(source: str, binary: str) -> None:
         env={"AFL_INSTRUMENT": "PCGUARD", "PATH": os.environ["PATH"]},
     )
     if returncode != 0:
-        sys.exit(f"{colors['red']} [*] Error: afl-cc is unable to compile: {stderr} {stdout}{colors['reset']}")
+        sys.exit(f'{red(f" [*] Error: afl-cc is unable to compile: {stderr} {stdout}")}')
 
 async def cool_down() -> None:
     """Avoid the next test run's results being contaminated by e.g. thermal limits hit on this one."""
-    print(f"{colors['blue']}Taking a five second break to stay cool.{colors['reset']}")
-    await asyncio.sleep(10)
+    global between_tests
+    if between_tests:
+        print(f'{blue("Taking a five second break to stay cool between tests.")}')
+        await asyncio.sleep(10)
+    else:
+        between_tests = True
 
-async def run_command(args, env) -> (int | None, bytes, bytes):
-    if debug:
-        print(f"\n{colors['blue']}Launching command: {args} with env {env}{colors['reset']}")
-    p = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env)
+async def run_command(cmd, env) -> (int | None, bytes, bytes):
+    if args.debug:
+        print(blue(f"Launching command: {cmd} with env {env}"))
+    p = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env)
     stdout, stderr = await p.communicate()
     return (p.returncode, stdout, stderr)
 
@@ -96,18 +103,31 @@ async def colon_value_or_none(filename: str, searchKey: str) -> str | None:
                     return value
         return None
 
+async def save_benchmark_results() -> None:
+    """We want a consistent JSON file, so read in the existing one, append, and replace."""
+    with open("benchmark-results.json", "r+") as jsonfile:
+        current_benchmarks = json.load(jsonfile)
+        current_benchmarks.append(results)
+        jsonfile.seek(0)
+        jsonfile.write(json.dumps(current_benchmarks, indent=2))
+        jsonfile.truncate()
+        print(json.dumps(results, indent=2))
+
+
 async def main() -> None:
+    print(f'{gray(" [*] Preparing environment")}')
     # Remove stale files, if necessary.
     try:
         await clean_up()
     except FileNotFoundError:
         pass
-
     await check_deps()
     env_vars = await prep_env()
     cpu_count = multiprocessing.cpu_count()
-    print(f"{colors['gray']} [*] Preparing environment{colors['reset']}")
-    print(f"{colors['gray']} [*] Ready, starting benchmark - this will take approx 1-2 minutes...{colors['reset']}")
+    results["cpu_model"] = await colon_value_or_none("/proc/cpuinfo", "model name")
+    results["cpu_mhz"]   = await colon_value_or_none("/proc/cpuinfo", "cpu MHz")
+
+    print(f'{gray(" [*] Ready, starting benchmark - this will take approx 1-2 minutes...")}')
     for target in targets:
         await compile_target(target["source"], target["binary"])
         for mode in modes:
@@ -118,19 +138,25 @@ async def main() -> None:
             elif mode == "multi-core":
                 cpus = range(0, cpu_count)
             basedir = f"/tmp/out-{mode}-{target['binary']}-"
-            args = [["afl-fuzz", "-i", "in", "-o", f"{basedir}{cpu}", "-M", f"{cpu}", "-s", "123", "-D", f"./{target['binary']}"] for cpu in cpus]
-            tasks = [run_command(args[cpu], env_vars) for cpu in cpus]
+            cmd = [["afl-fuzz", "-i", "in", "-o", f"{basedir}{cpu}", "-M", f"{cpu}", "-s", "123", "-D", f"./{target['binary']}"] for cpu in cpus]
+
+            # Here's where we schedule the tasks, and then block waiting for them to finish.
+            tasks = [run_command(cmd[cpu], env_vars) for cpu in cpus]
             output = await asyncio.gather(*tasks)
-            if debug:
-                for _, (_, stdout, stderr) in enumerate(output):
-                    print(f"{colors['blue']}Output: {stdout} {stderr}{colors['reset']}")
+
+            if args.debug:
+                for (_, stdout, stderr) in output:
+                    print(blue(f"Output: {stdout.decode()} {stderr.decode()}"))
             execs = sum([Decimal(await colon_value_or_none(f"{basedir}{cpu}/{cpu}/fuzzer_stats", "execs_per_sec")) for cpu in cpus])
-            print(f"{colors['green']}{execs}{colors['reset']}")
+            print(green(execs))
+            results["targets"][target["binary"]][mode]["execs_per_second"] = str(execs)
+            results["targets"][target["binary"]][mode]["cores_used"] = len(cpus)
 
     print("\nComparison: (note that values can change by 10-20% per run)")
     with open("COMPARISON", "r") as f:
         print(f.read())
     await clean_up()
+    await save_benchmark_results()
 
 if __name__ == "__main__":
     asyncio.run(main())
