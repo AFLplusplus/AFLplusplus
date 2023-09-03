@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-# Part of the aflpluslpus project, requires Python 3.7+.
+# Part of the aflplusplus project, requires Python 3.9+.
 # Author: Chris Ball <chris@printf.net>, ported from Marc "van Hauser" Heuse's "benchmark.sh".
 import argparse
 import asyncio
+import datetime
 import json
 import multiprocessing
 import os
 import platform
 import shutil
 import sys
-import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum, auto
@@ -26,15 +26,15 @@ class Mode(Enum):
 @dataclass
 class Target:
     source: Path
-    binary: str
+    binary: Path
 
 all_modes = [Mode.singlecore, Mode.multicore]
 all_targets = [
-    Target(source=Path("../utils/persistent_mode/test-instr.c").resolve(), binary="test-instr-persist-shmem"),
-    Target(source=Path("../test-instr.c").resolve(), binary="test-instr")
+    Target(source=Path("../utils/persistent_mode/test-instr.c").resolve(), binary=Path("test-instr-persist-shmem")),
+    Target(source=Path("../test-instr.c").resolve(), binary=Path("test-instr"))
 ]
 mode_names = [mode.name for mode in all_modes]
-target_names = [target.binary for target in all_targets]
+target_names = [str(target.binary) for target in all_targets]
 cpu_count = multiprocessing.cpu_count()
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -47,15 +47,16 @@ parser.add_argument(
     "-t", "--target", help="pick targets", action="append", default=["test-instr-persist-shmem"], choices=target_names
 )
 args = parser.parse_args()
-
 # Really unsatisfying argparse behavior: we want a default and to allow multiple choices, but if there's a manual choice
 # it should override the default.  Seems like we have to remove the default to get that and have correct help text?
 if len(args.target) > 1: args.target = args.target[1:]
 if len(args.mode) > 1: args.mode = args.mode[1:]
 
-targets = [target for target in all_targets if target.binary in args.target]
+targets = [target for target in all_targets if str(target.binary) in args.target]
 modes = [mode for mode in all_modes if mode.name in args.mode]
-results = {"config": {}, "hardware": {}, "targets": {t.binary: {m.name: {} for m in modes} for t in targets}}
+results: dict[str, dict] = {
+    "config": {}, "hardware": {}, "targets": {str(t.binary): {m.name: {} for m in modes} for t in targets}
+}
 debug = lambda text: args.debug and print(blue(text))
 if Mode.multicore in modes:
     print(blue(f" [*] Using {args.fuzzers} fuzzers for multicore fuzzing "), end="")
@@ -64,9 +65,9 @@ if Mode.multicore in modes:
 async def clean_up_tempfiles() -> None:
     shutil.rmtree(f"{args.basedir}/in")
     for target in targets:
-        Path(target.binary).unlink()
+        target.binary.unlink()
         for mode in modes:
-            shutil.rmtree(f"{args.basedir}/out-{mode.name}-{target.binary}")
+            shutil.rmtree(f"{args.basedir}/out-{mode.name}-{str(target.binary)}")
 
 async def check_afl_persistent() -> bool:
     with open("/proc/cmdline", "r") as cpuinfo:
@@ -80,12 +81,9 @@ async def check_afl_system() -> bool:
     return False
 
 async def check_deps() -> None:
-    """Checks for dependencies, platform, performance."""
-    plat = platform.system()
-    if not plat == "Linux": sys.exit(red(f" [*] Error: Your platform '{plat}' is not supported by this script yet."))
+    if not (plat := platform.system()) == "Linux": sys.exit(red(f" [*] {plat} is not supported by this script yet."))
     if not os.access(Path("../afl-fuzz").resolve(), os.X_OK) and os.access(Path("../afl-cc").resolve(), os.X_OK) and (
-        os.path.exists(Path("../SanitizerCoveragePCGUARD.so").resolve()
-    )):
+        os.path.exists(Path("../SanitizerCoveragePCGUARD.so").resolve())):
         sys.exit(red(" [*] Compile AFL++: we need afl-fuzz, afl-clang-fast and SanitizerCoveragePCGUARD.so built."))
 
     # Pick some sample settings from afl-{persistent,system}-config to try to see whether they were run.
@@ -96,22 +94,22 @@ async def check_deps() -> None:
             print(yellow(f" [*] {cmd} was not run. You can run it to improve performance (and decrease security)."))
 
 async def prep_env() -> dict:
-    """Unset AFL_* environment variables, create corpus dir and file, provide env vars for fuzzing."""
-    Path(args.basedir).mkdir(exist_ok=True)
-    Path(f"{args.basedir}/in").mkdir(exist_ok=True)
+    Path(f"{args.basedir}/in").mkdir(exist_ok=True, parents=True)
     with open(f"{args.basedir}/in/in.txt", "wb") as seed: seed.write(b"\x00" * 10240)
     return {
         "AFL_BENCH_JUST_ONE": "1", "AFL_DISABLE_TRIM": "1", "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES": "1",
         "AFL_NO_UI": "1", "AFL_TRY_AFFINITY": "1", "PATH": str(Path("../").resolve()),
     }
 
-async def compile_target(source: str, binary: str) -> None:
+async def compile_target(source: Path, binary: Path) -> None:
+    print(f" [*] Compiling the {binary} fuzzing harness for the benchmark to use.")
     (returncode, stdout, stderr) = await run_command(
-        [Path("../afl-cc").resolve(), "-o", binary, source], env={"AFL_INSTRUMENT": "PCGUARD"}
+        [str(Path("../afl-cc").resolve()), "-o", str(Path(binary.resolve())), str(Path(source).resolve())],
+        env={"AFL_INSTRUMENT": "PCGUARD"},
     )
-    if returncode != 0: sys.exit(red(f" [*] Error: afl-cc is unable to compile: {stderr} {stdout}"))
+    if returncode != 0: sys.exit(red(f" [*] Error: afl-cc is unable to compile: {stderr.decode()} {stdout.decode()}"))
 
-async def run_command(cmd: str, env: dict) -> (int | None, bytes, bytes):
+async def run_command(cmd: list[str], env: dict | None) -> tuple[int | None, bytes, bytes]:
     debug(f"Launching command: {cmd} with env {env}")
     p = await asyncio.create_subprocess_exec(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env
@@ -127,7 +125,7 @@ async def colon_value_or_none(filename: str, searchKey: str) -> str | None:
         return next((v.rstrip() for k, v in kv_pairs if k.rstrip() == searchKey), None)
 
 async def save_benchmark_results() -> None:
-    """Append a single row to the benchmark results in JSON Lines format (simple to write and to diff)."""
+    """Append a single row to the benchmark results in JSON Lines format (which is simple to write and diff)."""
     with open("benchmark-results.jsonl", "a") as jsonfile:
         json.dump(results, jsonfile, sort_keys=True)
         jsonfile.write("\n")
@@ -135,21 +133,21 @@ async def save_benchmark_results() -> None:
 
 
 async def main() -> None:
-    print(" [*] Preparing environment")
     try:
         await clean_up_tempfiles()
     except FileNotFoundError:
         pass
     await check_deps()
-    # Only record the first core's speed for now, even though it can vary between cores.
-    results["hardware"]["cpu_mhz"]     = float(await colon_value_or_none("/proc/cpuinfo", "cpu MHz"))
-    results["hardware"]["cpu_model"]   = await colon_value_or_none("/proc/cpuinfo", "model name")
-    results["hardware"]["cpu_threads"] = cpu_count
+    results["hardware"] = { # Only record the first core's speed for now, even though it can vary between cores.
+        "cpu_mhz":     float(await colon_value_or_none("/proc/cpuinfo", "cpu MHz") or ""),
+        "cpu_model":   await colon_value_or_none("/proc/cpuinfo", "model name") or "",
+        "cpu_threads": cpu_count
+    }
     env_vars = await prep_env()
     print(f" [*] Ready, starting benchmark...")
     for target in targets:
-        (source, binary) = [target.source, target.binary]
-        await compile_target(source, binary)
+        await compile_target(target.source, target.binary)
+        binary = str(target.binary)
         for mode in modes:
             execs_per_sec, execs_total, run_time_total = ([] for _ in range(3))
             for run in range(0, args.runs):
@@ -157,36 +155,39 @@ async def main() -> None:
                 fuzzers = range(0, args.fuzzers if mode == Mode.multicore else 1)
                 outdir = f"{args.basedir}/out-{mode.name}-{binary}"
                 cmds = []
-                for (idx, afl) in enumerate(fuzzers):
+                for idx, afl in enumerate(fuzzers):
                     name = ["-o", outdir, "-M" if idx == 0 else "-S", str(afl)]
                     cmds.append(["afl-fuzz", "-i", f"{args.basedir}/in"] + name + ["-s", "123", "-D", f"./{binary}"])
 
-                # Prepare the afl-fuzz tasks, and then block here while waiting for them to finish.
-                tasks = [run_command(cmds[cpu], env_vars) for cpu in fuzzers]
-                start = time.time()
-                await asyncio.gather(*tasks)
-                end = time.time()
+                # Prepare the afl-fuzz tasks, and then block while waiting for them to finish.
+                fuzztasks = [run_command(cmds[cpu], env_vars) for cpu in fuzzers]
+                start_time = datetime.datetime.now()
+                await asyncio.gather(*fuzztasks)
+                end_time = datetime.datetime.now()
 
                 # Our score is the sum of all execs_per_sec entries in fuzzer_stats files for the run.
-                tasks = [colon_value_or_none(f"{outdir}/{afl}/fuzzer_stats", "execs_per_sec") for afl in fuzzers]
-                all_execs_per_sec = await asyncio.gather(*tasks)
+                sectasks = [colon_value_or_none(f"{outdir}/{afl}/fuzzer_stats", "execs_per_sec") for afl in fuzzers]
+                all_execs_per_sec = await asyncio.gather(*sectasks)
                 execs = sum([Decimal(count) for count in all_execs_per_sec if count is not None])
                 print(green(execs))
                 execs_per_sec.append(execs)
 
                 # Also gather execs_total and total_run_time for this run.
-                tasks = [colon_value_or_none(f"{outdir}/{afl}/fuzzer_stats", "execs_done") for afl in fuzzers]
-                all_execs_total = await asyncio.gather(*tasks)
+                exectasks = [colon_value_or_none(f"{outdir}/{afl}/fuzzer_stats", "execs_done") for afl in fuzzers]
+                all_execs_total = await asyncio.gather(*exectasks)
                 execs_total.append(sum([Decimal(count) for count in all_execs_total if count is not None]))
-                run_time_total.append(Decimal(end - start))
+                run_time_total.append((end_time - start_time).total_seconds())
 
-            total_run_time = round(Decimal(sum(run_time_total)), 2)
-            avg_score      = round(Decimal(sum(execs_per_sec) / len(execs_per_sec)), 2)
-            results["targets"][binary][mode.name] = {
-                "execs_per_second": float(avg_score),
-                "execs_total":      int(sum([Decimal(execs) for execs in execs_total])),
-                "fuzzers_used":     len(fuzzers),
-                "total_run_time":   float(total_run_time),
+            avg_score = round(Decimal(sum(execs_per_sec) / len(execs_per_sec)), 2)
+            afl_execs_total = int(sum([Decimal(execs) for execs in execs_total]))
+            total_run_time = float(round(Decimal(sum(run_time_total)), 2))
+            results["targets"][binary][mode.name] = { # (Using float() because Decimal() is not JSON-serializable.)
+                "afl_execs_per_second": float(avg_score),
+                "afl_execs_total":      afl_execs_total,
+                "fuzzers_used":         len(fuzzers),
+                "start_time_of_run":    str(start_time),
+                "total_execs_per_sec":  float(round(Decimal(afl_execs_total / total_run_time), 2)),
+                "total_run_time":       total_run_time,
             }
             print(f" [*] Average score for this test across all runs was: {green(avg_score)}")
             if (((max(execs_per_sec) - min(execs_per_sec)) / avg_score) * 100) > 15:
@@ -196,3 +197,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
