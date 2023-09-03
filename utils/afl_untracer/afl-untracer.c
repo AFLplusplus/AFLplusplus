@@ -54,7 +54,7 @@
 
 #include <sys/mman.h>
 #if !defined(__HAIKU__)
-#include <sys/shm.h>
+  #include <sys/shm.h>
 #endif
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -236,28 +236,31 @@ void read_library_information(void) {
     start += size;
 
   }
+
 #elif defined(__HAIKU__)
   image_info ii;
-  int32 c = 0;
+  int32      c = 0;
 
   while (get_next_image_info(0, &c, &ii) == B_OK) {
 
-      liblist[liblist_cnt].name = (u8 *)strdup(ii.name);
-      liblist[liblist_cnt].addr_start = (u64)ii.text;
-      liblist[liblist_cnt].addr_end = (u64)((char *)ii.text + ii.text_size);
+    liblist[liblist_cnt].name = (u8 *)strdup(ii.name);
+    liblist[liblist_cnt].addr_start = (u64)ii.text;
+    liblist[liblist_cnt].addr_end = (u64)((char *)ii.text + ii.text_size);
 
-      if (debug) {
+    if (debug) {
 
-        fprintf(stderr, "%s:%lx (%lx-%lx)\n", liblist[liblist_cnt].name,
-                (unsigned long)(liblist[liblist_cnt].addr_end -
-                                liblist[liblist_cnt].addr_start),
-                (unsigned long)liblist[liblist_cnt].addr_start,
-                (unsigned long)(liblist[liblist_cnt].addr_end - 1));
+      fprintf(stderr, "%s:%lx (%lx-%lx)\n", liblist[liblist_cnt].name,
+              (unsigned long)(liblist[liblist_cnt].addr_end -
+                              liblist[liblist_cnt].addr_start),
+              (unsigned long)liblist[liblist_cnt].addr_start,
+              (unsigned long)(liblist[liblist_cnt].addr_end - 1));
 
-      }
+    }
 
-      liblist_cnt++;
+    liblist_cnt++;
+
   }
+
 #endif
 
 }
