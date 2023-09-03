@@ -2707,20 +2707,30 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (likely(afl->pending_favored)) {
+        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
 
-          for (u32 iter = 0; iter < afl->queued_items; ++iter) {
+          afl->current_entry = afl->smallest_favored;
 
-            if (unlikely(afl->queue_buf[iter]->favored &&
-                !afl->queue_buf[iter]->was_fuzzed)) {
+          /*
 
-              afl->current_entry = iter;
-              afl->queue_cur = afl->queue_buf[afl->current_entry];
-              break;
+                    } else {
 
-            }
+                      for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
+             {
 
-          }
+                        if (unlikely(afl->queue_buf[iter]->favored &&
+                                     !afl->queue_buf[iter]->was_fuzzed)) {
+
+                          afl->current_entry = iter;
+                          break;
+
+                        }
+
+                      }
+
+          */
+
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
 
         } else {
 

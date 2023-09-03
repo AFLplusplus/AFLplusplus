@@ -402,17 +402,13 @@ bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
 
   }
 
-  /* 
-   * The mov instruction supports up to a 16-bit offset. If our offset is out of 
-   * range, then it can end up clobbering the op-code portion of the instruction 
-   * rather than just the operands. So return false and fall back to the 
+  /*
+   * The mov instruction supports up to a 16-bit offset. If our offset is out of
+   * range, then it can end up clobbering the op-code portion of the instruction
+   * rather than just the operands. So return false and fall back to the
    * alternative instrumentation.
    */
-  if (area_offset > UINT16_MAX) {
-
-    return false;
-    
-  }
+  if (area_offset > UINT16_MAX) { return false; }
 
   code.code.mov_x0_curr_loc |= area_offset << 5;
 
