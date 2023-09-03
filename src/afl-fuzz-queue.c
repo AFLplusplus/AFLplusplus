@@ -854,7 +854,7 @@ void cull_queue(afl_state_t *afl) {
         if (!afl->top_rated[i]->was_fuzzed) {
 
           ++afl->pending_favored;
-          if (unlikely(afl->smallest_favored > (s64)afl->top_rated[i]->id)) {
+          if (unlikely(afl->smallest_favored < 0)) {
 
             afl->smallest_favored = (s64)afl->top_rated[i]->id;
 
