@@ -5905,6 +5905,7 @@ pacemaker_fuzzing:
 
             --afl->pending_not_fuzzed;
             afl->queue_cur->was_fuzzed = 1;
+            afl->reinit_table = 1
             if (afl->queue_cur->favored) { --afl->pending_favored; }
 
           }
