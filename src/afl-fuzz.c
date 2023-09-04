@@ -2369,7 +2369,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    ACTF("skipping initial seed calibration due option override");
+    ACTF("skipping initial seed calibration due option override!");
     usleep(1000);
 
   }
