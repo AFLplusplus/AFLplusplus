@@ -14,6 +14,8 @@
     - now also shows coverage reached
     - option -m shows only very relevant stats
     - option -n will not use color in the output
+  - instrumentation:
+    - fix for a few string compare transform functions for LAF
   - frida_mode:
     - fixes support for large map offsets
   - added benchmark/benchmark.sh if you want to see how good your fuzzing

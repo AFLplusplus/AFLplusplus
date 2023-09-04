@@ -228,7 +228,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           isStrcmp &=
               (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
                !FuncName.compare("xmlStrEqual") ||
-               !FuncName.compare("g_strcmp0") ||
                !FuncName.compare("curl_strequal") ||
                !FuncName.compare("strcsequal") ||
                !FuncName.compare("g_strcmp0"));
@@ -239,7 +238,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                !FuncName.compare("memcmp_const_time") ||
                !FuncName.compare("memcmpct"));
           isStrncmp &= (!FuncName.compare("strncmp") ||
-                        !FuncName.compare("xmlStrncmp") ||
                         !FuncName.compare("curl_strnequal") ||
                         !FuncName.compare("xmlStrncmp"));
           isStrcasecmp &= (!FuncName.compare("strcasecmp") ||
@@ -508,10 +506,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         isCaseInsensitive = true;
 
       if (!Callee->getName().compare("xmlStrEqual") ||
-          !Callee->getName().compare("g_strcmp0") ||
           !Callee->getName().compare("curl_strequal") ||
           !Callee->getName().compare("strcsequal") ||
-          !Callee->getName().compare("xmlStrncmp") ||
           !Callee->getName().compare("curl_strnequal"))
         success_is_one = true;
 
