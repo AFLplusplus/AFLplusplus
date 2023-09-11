@@ -169,6 +169,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   DenseMap<Value *, std::string *> valueMap;
   std::vector<CallInst *>          calls;
   LLVMContext                     &C = M.getContext();
+  IntegerType                     *Int1Ty = IntegerType::getInt1Ty(C);
   IntegerType                     *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType                     *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType                     *Int64Ty = IntegerType::getInt64Ty(C);
@@ -227,9 +228,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           isStrcmp &=
               (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
                !FuncName.compare("xmlStrEqual") ||
-               !FuncName.compare("g_strcmp0") ||
                !FuncName.compare("curl_strequal") ||
-               !FuncName.compare("strcsequal"));
+               !FuncName.compare("strcsequal") ||
+               !FuncName.compare("g_strcmp0"));
           isMemcmp &=
               (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
                !FuncName.compare("CRYPTO_memcmp") ||
@@ -237,8 +238,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                !FuncName.compare("memcmp_const_time") ||
                !FuncName.compare("memcmpct"));
           isStrncmp &= (!FuncName.compare("strncmp") ||
-                        !FuncName.compare("xmlStrncmp") ||
-                        !FuncName.compare("curl_strnequal"));
+                        !FuncName.compare("curl_strnequal") ||
+                        !FuncName.compare("xmlStrncmp"));
           isStrcasecmp &= (!FuncName.compare("strcasecmp") ||
                            !FuncName.compare("stricmp") ||
                            !FuncName.compare("ap_cstr_casecmp") ||
@@ -457,6 +458,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        isSizedcmp = false;
     bool        isCaseInsensitive = false;
     bool        needs_null = false;
+    bool        success_is_one = false;
     Function   *Callee = callInst->getCalledFunction();
 
     if (Callee) {
@@ -502,6 +504,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           !Callee->getName().compare("Curl_strncasecompare") ||
           !Callee->getName().compare("g_strncasecmp"))
         isCaseInsensitive = true;
+
+      if (!Callee->getName().compare("xmlStrEqual") ||
+          !Callee->getName().compare("curl_strequal") ||
+          !Callee->getName().compare("strcsequal") ||
+          !Callee->getName().compare("curl_strnequal"))
+        success_is_one = true;
 
     }
 
@@ -666,6 +674,14 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         isub = cur_cmp_IRB.CreateSub(ConstantInt::get(Int8Ty, c), load);
       else
         isub = cur_cmp_IRB.CreateSub(load, ConstantInt::get(Int8Ty, c));
+
+      if (success_is_one && i == unrollLen - 1) {
+
+        Value *isubsub = cur_cmp_IRB.CreateTrunc(isub, Int1Ty);
+        isub = cur_cmp_IRB.CreateSelect(isubsub, ConstantInt::get(Int8Ty, 0),
+                                        ConstantInt::get(Int8Ty, 1));
+
+      }
 
       Value *sext = cur_cmp_IRB.CreateSExt(isub, Int32Ty);
       PN->addIncoming(sext, cur_cmp_bb);

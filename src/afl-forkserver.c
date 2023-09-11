@@ -272,6 +272,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
   fsrv_to->child_kill_signal = from->child_kill_signal;
+  fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
 
   // These are forkserver specific.
