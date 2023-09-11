@@ -5912,9 +5912,12 @@ pacemaker_fuzzing:
             afl->queue_cur->was_fuzzed = 1;
             afl->reinit_table = 1
             if (afl->queue_cur->favored) {
+
               --afl->pending_favored;
               afl->smallest_favored = -1;
+
             }
+
           }
 
         }
