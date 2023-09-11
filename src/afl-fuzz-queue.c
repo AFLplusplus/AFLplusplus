@@ -830,6 +830,8 @@ void cull_queue(afl_state_t *afl) {
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
 
+  afl->smallest_favored = -1;
+
   for (i = 0; i < afl->fsrv.map_size; ++i) {
 
     if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7)))) {
@@ -853,7 +855,16 @@ void cull_queue(afl_state_t *afl) {
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;
 
-        if (!afl->top_rated[i]->was_fuzzed) { ++afl->pending_favored; }
+        if (!afl->top_rated[i]->was_fuzzed) {
+
+          ++afl->pending_favored;
+          if (unlikely(afl->smallest_favored < 0)) {
+
+            afl->smallest_favored = (s64)afl->top_rated[i]->id;
+
+          }
+
+        }
 
       }
 
