@@ -2,8 +2,9 @@
 
 ## Should
 
+ - afl-showmap -f support
+ - afl-fuzz multicore wrapper script
  - afl-crash-analysis
- - test cmplog for less than 16bit
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
  - Update afl->pending_not_fuzzed for MOpt
