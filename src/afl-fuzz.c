@@ -2369,7 +2369,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    ACTF("skipping initial seed calibration due option override");
+    ACTF("skipping initial seed calibration due option override!");
     usleep(1000);
 
   }
@@ -2707,22 +2707,52 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (unlikely(prev_queued_items < afl->queued_items ||
-                     afl->reinit_table)) {
+        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
 
-          // we have new queue entries since the last run, recreate alias table
-          prev_queued_items = afl->queued_items;
-          create_alias_table(afl);
+          afl->current_entry = afl->smallest_favored;
+
+          /*
+
+                    } else {
+
+                      for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
+             {
+
+                        if (unlikely(afl->queue_buf[iter]->favored &&
+                                     !afl->queue_buf[iter]->was_fuzzed)) {
+
+                          afl->current_entry = iter;
+                          break;
+
+                        }
+
+                      }
+
+          */
+
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+        } else {
+
+          if (unlikely(prev_queued_items < afl->queued_items ||
+                       afl->reinit_table)) {
+
+            // we have new queue entries since the last run, recreate alias
+            // table
+            prev_queued_items = afl->queued_items;
+            create_alias_table(afl);
+
+          }
+
+          do {
+
+            afl->current_entry = select_next_queue_entry(afl);
+
+          } while (unlikely(afl->current_entry >= afl->queued_items));
+
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
 
         }
-
-        do {
-
-          afl->current_entry = select_next_queue_entry(afl);
-
-        } while (unlikely(afl->current_entry >= afl->queued_items));
-
-        afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
 
