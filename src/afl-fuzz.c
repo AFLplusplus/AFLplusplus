@@ -1492,9 +1492,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->sync_id) {
 
-    if (strlen(afl->sync_id) > 24) {
+    if (strlen(afl->sync_id) > 50) {
 
-      FATAL("sync_id max length is 24 characters");
+      FATAL("sync_id max length is 50 characters");
 
     }
 
