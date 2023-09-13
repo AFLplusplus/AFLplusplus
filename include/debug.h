@@ -116,42 +116,63 @@
  * Box drawing sequences *
  *************************/
 
-#ifdef FANCY_BOXES
-
-  #define SET_G1 "\x1b)0"                      /* Set G1 for box drawing    */
-  #define RESET_G1 "\x1b)B"                    /* Reset G1 to ASCII         */
-  #define bSTART "\x0e"                        /* Enter G1 drawing mode     */
-  #define bSTOP "\x0f"                         /* Leave G1 drawing mode     */
-  #define bH "q"                               /* Horizontal line           */
-  #define bV "x"                               /* Vertical line             */
-  #define bLT "l"                              /* Left top corner           */
-  #define bRT "k"                              /* Right top corner          */
-  #define bLB "m"                              /* Left bottom corner        */
-  #define bRB "j"                              /* Right bottom corner       */
-  #define bX "n"                               /* Cross                     */
-  #define bVR "t"                              /* Vertical, branch right    */
-  #define bVL "u"                              /* Vertical, branch left     */
-  #define bHT "v"                              /* Horizontal, branch top    */
-  #define bHB "w"                              /* Horizontal, branch bottom */
-
-#else
+#ifdef FANCY_BOXES_UTF
 
   #define SET_G1 ""
   #define RESET_G1 ""
   #define bSTART ""
   #define bSTOP ""
-  #define bH "-"
-  #define bV "|"
-  #define bLT "+"
-  #define bRT "+"
-  #define bLB "+"
-  #define bRB "+"
-  #define bX "+"
-  #define bVR "+"
-  #define bVL "+"
-  #define bHT "+"
-  #define bHB "+"
+  #define bH "\u2500"                          /* Horizontal line           */
+  #define bV "\u2502"                          /* Vertical line             */
+  #define bLT "\u250c"                         /* Left top corner           */
+  #define bRT "\u2510"                         /* Right top corner          */
+  #define bLB "\u2514"                         /* Left bottom corner        */
+  #define bRB "\u2518"                         /* Right bottom corner       */
+  #define bX "\u253c"                          /* Cross                     */
+  #define bVR "\u251c"                         /* Vertical, branch right    */
+  #define bVL "\u2524"                         /* Vertical, branch left     */
+  #define bHT "\u2534"                         /* Horizontal, branch top    */
+  #define bHB "\u252c"                         /* Horizontal, branch bottom */
 
+#else
+
+  #ifdef FANCY_BOXES
+
+    #define SET_G1 "\x1b)0"                    /* Set G1 for box drawing    */
+    #define RESET_G1 "\x1b)B"                  /* Reset G1 to ASCII         */
+    #define bSTART "\x0e"                      /* Enter G1 drawing mode     */
+    #define bSTOP "\x0f"                       /* Leave G1 drawing mode     */
+    #define bH "q"                             /* Horizontal line           */
+    #define bV "x"                             /* Vertical line             */
+    #define bLT "l"                            /* Left top corner           */
+    #define bRT "k"                            /* Right top corner          */
+    #define bLB "m"                            /* Left bottom corner        */
+    #define bRB "j"                            /* Right bottom corner       */
+    #define bX "n"                             /* Cross                     */
+    #define bVR "t"                            /* Vertical, branch right    */
+    #define bVL "u"                            /* Vertical, branch left     */
+    #define bHT "v"                            /* Horizontal, branch top    */
+    #define bHB "w"                            /* Horizontal, branch bottom */
+
+  #else
+
+    #define SET_G1 ""
+    #define RESET_G1 ""
+    #define bSTART ""
+    #define bSTOP ""
+    #define bH "-"
+    #define bV "|"
+    #define bLT "+"
+    #define bRT "+"
+    #define bLB "+"
+    #define bRB "+"
+    #define bX "+"
+    #define bVR "+"
+    #define bVL "+"
+    #define bHT "+"
+    #define bHB "+"
+
+  #endif
 #endif                                                      /* ^FANCY_BOXES */
 
 /***********************
