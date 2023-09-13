@@ -536,6 +536,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->input_mode = 2;
 
+        } else if (!stricmp(optarg, "def") || !stricmp(optarg, "default")) {
+
+          afl->input_mode = 0;
+
         } else {
 
           FATAL("-a input mode needs to be \"text\" or \"binary\".");
