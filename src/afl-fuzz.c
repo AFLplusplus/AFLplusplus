@@ -536,6 +536,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->input_mode = 2;
 
+        } else if (!stricmp(optarg, "def") || !stricmp(optarg, "default")) {
+
+          afl->input_mode = 0;
+
         } else {
 
           FATAL("-a input mode needs to be \"text\" or \"binary\".");
@@ -1492,9 +1496,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->sync_id) {
 
-    if (strlen(afl->sync_id) > 24) {
+    if (strlen(afl->sync_id) > 50) {
 
-      FATAL("sync_id max length is 24 characters");
+      FATAL("sync_id max length is 50 characters");
 
     }
 

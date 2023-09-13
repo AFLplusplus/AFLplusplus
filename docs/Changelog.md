@@ -9,6 +9,7 @@
       before terminating.
     - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
       of exiting with an error message
+    - allow -S/-M naming up to 50 characters (from 24)
   - afl-whatsup:
     - detect instanced that are starting up and show them as such as not dead
     - now also shows coverage reached
