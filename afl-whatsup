@@ -321,8 +321,8 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
       
       if [ -z "$MINIMAL_ONLY" ]; then
         
-        CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
-        MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
+        CPU_USAGE=$(ps aux | grep -w $fuzzer_pid | grep -v grep | awk '{print $3}')
+        MEM_USAGE=$(ps aux | grep -w $fuzzer_pid | grep -v grep | awk '{print $4}')
         
         echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
         
