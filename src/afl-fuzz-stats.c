@@ -332,6 +332,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "afl_version       : " VERSION
       "\n"
       "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
+      "is_target_odd     : %u\n"
       "command_line      : %s\n",
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
       (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
@@ -381,6 +382,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
        afl->persistent_mode || afl->deferred_mode)
           ? ""
           : "default",
+      afl->is_target_odd,
       afl->orig_cmdline);
 
   /* ignore errors */
@@ -911,6 +913,7 @@ void show_stats_normal(afl_state_t *afl) {
 
       SAYF(bV bSTOP "   last new find : " cRST "none yet " cLRD
                     "(odd, check syntax!)     ");
+      afl->is_target_odd = 1;
 
     }
 
