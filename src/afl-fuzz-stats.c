@@ -382,8 +382,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
        afl->persistent_mode || afl->deferred_mode)
           ? ""
           : "default",
-      afl->is_target_odd,
-      afl->orig_cmdline);
+      afl->is_target_odd, afl->orig_cmdline);
 
   /* ignore errors */
 
