@@ -120,9 +120,9 @@
 
 // #define _WANT_ORIGINAL_AFL_ALLOC
 
-/* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
+/* Comment out to disable fancy boxes and use poor man's 7-bit UI: */
 
-#ifndef ANDROID_DISABLE_FANCY  // Fancy boxes are ugly from adb
+#ifndef DISABLE_FANCY
   #define FANCY_BOXES
 #endif
 
