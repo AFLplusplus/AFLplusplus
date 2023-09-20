@@ -45,6 +45,10 @@ ifdef NO_SPLICING
   override CFLAGS_OPT += -DNO_SPLICING
 endif
 
+ifdef NO_UTF
+  override CFLAGS_OPT += -DFANCY_BOXES_NO_UTF
+endif
+
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
   override CFLAGS += $(ASAN_CFLAGS)
@@ -391,6 +395,7 @@ help:
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
+	@echo NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64

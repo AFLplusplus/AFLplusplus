@@ -381,6 +381,10 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with NO_SPLICING.\n");
 #endif
 
+#ifdef FANCY_BOXES_NO_UTF
+  SAYF("Compiled without UTF-8 support for line rendering in status screen.\n");
+#endif
+
 #ifdef PROFILING
   SAYF("Compiled with PROFILING.\n");
 #endif
