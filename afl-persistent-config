@@ -98,9 +98,9 @@ if [[ "$PLATFORM" = "Linux" ]] ; then
   echo "Checks passed."
 
   test -d /etc/sysctl.d || echo Error: /etc/sysctl.d directory not found, cannot install shmem config
-  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing && {
-    echo "Installing /etc/sysctl.d/99-fuzzing"
-    cat << EOF > /etc/sysctl.d/99-fuzzing
+  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing.conf && {
+    echo "Installing /etc/sysctl.d/99-fuzzing.conf"
+    cat << EOF > /etc/sysctl.d/99-fuzzing.conf
 kernel.core_uses_pid=0
 kernel.core_pattern=core
 kernel.randomize_va_space=0
