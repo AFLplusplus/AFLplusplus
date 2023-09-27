@@ -2118,6 +2118,8 @@ int main(int argc, char **argv, char **envp) {
         "  [LLVM] LLVM:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
         "yes\n"
+        "      NATIVE               AVAILABLE      no  yes     no     no  "
+        "part.  yes\n"
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
@@ -2137,10 +2139,10 @@ int main(int argc, char **argv, char **envp) {
         "no\n\n",
         have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
+        have_llvm ? "AVAILABLE" : "unavailable!",
+        have_llvm ? "AVAILABLE" : "unavailable!",
         have_lto ? "AVAILABLE" : "unavailable!",
         compiler_mode == LTO ? " [SELECTED]" : "",
-        LLVM_MAJOR >= 7 ? "DEFAULT" : "       ",
-        LLVM_MAJOR >= 7 ? "       " : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
         have_gcc ? "AVAILABLE" : "unavailable!",
