@@ -2826,7 +2826,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0 &&
                !afl->non_instrumented_mode) &&
-        unlikely(cur_time > afl->last_find_time + afl->switch_fuzz_mode)) {
+        unlikely(cur_time > (likely(afl->last_find_time) ? afl->last_find_time
+                                                         : afl->start_time) +
+                                afl->switch_fuzz_mode)) {
 
       if (afl->afl_env.afl_no_ui) {
 
