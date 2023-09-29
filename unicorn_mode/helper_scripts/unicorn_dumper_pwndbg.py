@@ -40,10 +40,10 @@ import gdb
 pwndbg_loaded = False
 
 try:
-    import pwndbg.arch
-    import pwndbg.regs
-    import pwndbg.vmmap
-    import pwndbg.memory
+    import pwndbg.gdblib.arch
+    import pwndbg.gdblib.regs
+    import pwndbg.gdblib.vmmap
+    import pwndbg.gdblib.memory
 
     pwndbg_loaded = True
 
@@ -64,7 +64,7 @@ INDEX_FILE_NAME = "_index.json"
 
 
 def map_arch():
-    arch = pwndbg.arch.current  # from PWNDBG
+    arch = pwndbg.gdblib.arch.current  # from PWNDBG
     if "x86_64" in arch or "x86-64" in arch:
         return "x64"
     elif "x86" in arch or "i386" in arch:
@@ -74,9 +74,9 @@ def map_arch():
     elif "aarch64_be" in arch:
         return "arm64be"
     elif "arm" in arch:
-        cpsr = pwndbg.regs["cpsr"]
+        cpsr = pwndbg.gdblib.regs["cpsr"]
         # check endianess
-        if pwndbg.arch.endian == "big":
+        if pwndbg.gdblib.arch.endian == "big":
             # check for THUMB mode
             if cpsr & (1 << 5):
                 return "armbethumb"
@@ -89,7 +89,7 @@ def map_arch():
             else:
                 return "armle"
     elif "mips" in arch:
-        if pwndbg.arch.endian == "little":
+        if pwndbg.gdblib.arch.endian == "little":
             return "mipsel"
         else:
             return "mips"
@@ -109,8 +109,8 @@ def dump_arch_info():
 
 def dump_regs():
     reg_state = {}
-    for reg in pwndbg.regs.all:
-        reg_val = pwndbg.regs[reg]
+    for reg in pwndbg.gdblib.regs.all:
+        reg_val = pwndbg.gdblib.regs[reg]
         # current dumper script looks for register values to be hex strings
         #         reg_str = "0x{:08x}".format(reg_val)
         #         if "64" in get_arch():
@@ -125,7 +125,7 @@ def dump_process_memory(output_dir):
     final_segment_list = []
 
     # PWNDBG:
-    vmmap = pwndbg.vmmap.get()
+    vmmap = pwndbg.gdblib.vmmap.get()
 
     # Pointer to end of last dumped memory segment
     segment_last_addr = 0x0
@@ -165,7 +165,7 @@ def dump_process_memory(output_dir):
         if entry.read and not "(deleted)" in entry.objfile:
             try:
                 # Compress and dump the content to a file
-                seg_content = pwndbg.memory.read(start, end - start)
+                seg_content = pwndbg.gdblib.memory.read(start, end - start)
                 if seg_content == None:
                     print(
                         "Segment empty: @0x{0:016x} (size:UNKNOWN) {1}".format(
@@ -181,7 +181,7 @@ def dump_process_memory(output_dir):
                             repr(seg_info["permissions"]),
                         )
                     )
-                    compressed_seg_content = zlib.compress(str(seg_content))
+                    compressed_seg_content = zlib.compress(bytes(seg_content))
                     md5_sum = hashlib.md5(compressed_seg_content).hexdigest() + ".bin"
                     seg_info["content_file"] = md5_sum
 
