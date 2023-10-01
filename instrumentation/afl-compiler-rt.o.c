@@ -2294,7 +2294,7 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   int len1 = strnlen(ptr1, len0);
   if (len1 < 31) len1 = area_is_valid(ptr1, len1 + 1);
   int len2 = strnlen(ptr2, len0);
-  if (len2 < 31) len2 = area_is_valid(ptr1, len2 + 1);
+  if (len2 < 31) len2 = area_is_valid(ptr2, len2 + 1);
   int l = MAX(len1, len2);
   if (l < 2) return;
 
