@@ -666,8 +666,8 @@ static void __afl_map_shm(void) {
   }
 
   if (id_str) {
-
-    if ((__afl_dummy_fd[1] = open("/dev/null", O_WRONLY)) < 0) {
+    // /dev/null doesn't work so we use /dev/urandom
+    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
 
       if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
 
