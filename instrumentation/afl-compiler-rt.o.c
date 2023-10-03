@@ -1117,6 +1117,7 @@ static void __afl_start_forkserver(void) {
 
   }
 
+  if (1 == CMPLOG_U256 && __afl_cmp_map) { status_for_fsrv |= FS_OPT_U256CMPLOG; }
   if (__afl_sharedmem_fuzzing) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
   if (status_for_fsrv) {
 
