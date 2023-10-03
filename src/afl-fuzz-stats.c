@@ -817,17 +817,18 @@ void show_stats_normal(afl_state_t *afl) {
     if (afl->fsrv.nyx_mode) {
 
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-               afl->crash_mode ? cPIN : cYEL, fuzzer_name,
-               si, afl->use_banner, afl->power_name);
+               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN
+               "[%s] - Nyx",
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
+               afl->power_name);
 
     } else {
 
 #endif
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
                "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-               afl->crash_mode ? cPIN : cYEL, fuzzer_name,
-               si, afl->use_banner, afl->power_name);
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
+               afl->power_name);
 
 #ifdef __linux__
 
