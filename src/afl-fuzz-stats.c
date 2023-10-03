@@ -778,10 +778,29 @@ void show_stats_normal(afl_state_t *afl) {
   if (unlikely(!banner[0])) {
 
     char *si = "";
+    char *fuzzer_name;
+
     if (afl->sync_id) { si = afl->sync_id; }
     memset(banner, 0, sizeof(banner));
-    banner_len = (afl->crash_mode ? 20 : 18) + strlen(VERSION) + strlen(si) +
-                 strlen(afl->power_name) + 4 + 6;
+
+    banner_len = strlen(VERSION) + strlen(si) + strlen(afl->power_name) + 4 + 6;
+
+    if (afl->crash_mode) {
+
+      fuzzer_name = "peruvian were-rabbit";
+
+    } else {
+
+      fuzzer_name = "american fuzzy lop";
+      if (banner_len + strlen(fuzzer_name) + strlen(afl->use_banner) > 75) {
+
+        fuzzer_name = "AFL";
+
+      }
+
+    }
+
+    banner_len += strlen(fuzzer_name);
 
     if (strlen(afl->use_banner) + banner_len > 75) {
 
@@ -798,18 +817,16 @@ void show_stats_normal(afl_state_t *afl) {
     if (afl->fsrv.nyx_mode) {
 
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-               afl->crash_mode ? cPIN "peruvian were-rabbit"
-                               : cYEL "american fuzzy lop",
+               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name,
                si, afl->use_banner, afl->power_name);
 
     } else {
 
 #endif
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-               afl->crash_mode ? cPIN "peruvian were-rabbit"
-                               : cYEL "american fuzzy lop",
+               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name,
                si, afl->use_banner, afl->power_name);
 
 #ifdef __linux__

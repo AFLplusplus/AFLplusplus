@@ -19,6 +19,7 @@
     - fix for a few string compare transform functions for LAF
   - frida_mode:
     - fixes support for large map offsets
+  - added new tool afl-addseeds that adds new seeds to a running campaign
   - added benchmark/benchmark.sh if you want to see how good your fuzzing
     speed is in comparison to other setups.
 
