@@ -2435,7 +2435,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   cmpfn[hits].v1_len = len;
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
-  // fprintf(stderr, "RTN3\n");
+  fprintf(stderr, "RTN3 len %u\n", len);
 
 }
 
@@ -2444,11 +2444,6 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
    information and pass it on to the standard binary rtn hook */
 void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
-  (void)(len);
-  __cmplog_rtn_hook(ptr1, ptr2);
-
-#if 0
-  /*
     u32 i;
     if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
     fprintf(stderr, "rtn_n len=%u arg0=", len);
@@ -2458,6 +2453,12 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
     for (i = 0; i < len; i++)
       fprintf(stderr, "%02x", ptr2[i]);
     fprintf(stderr, "\n");
+  
+  (void)(len);
+  __cmplog_rtn_hook(ptr1, ptr2);
+
+#if 0
+  /*
   */
 
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
