@@ -2445,6 +2445,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
     u32 i;
+    fprintf(stderr, "__cmplog_rtn_hook_n %llu, %p %p\n", ptr1, ptr2);
     if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
     fprintf(stderr, "rtn_n len=%u arg0=", len);
     for (i = 0; i < len; i++)
