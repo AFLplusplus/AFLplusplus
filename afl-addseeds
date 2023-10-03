@@ -1,0 +1,54 @@
+#!/bin/sh
+
+test -z "$1" -o "$1" = "-h" -o "$1" = "--help" && {
+  echo Syntax: afl-addseeds -o afl-out-dir [-i seed_file_or_dir] seed_file_or_seed_dir seed_file_or_seed_dir ...
+  echo
+  echo Options:
+  echo "  -o afl-out-dir       the output directory being used in the fuzzing campaign"
+  echo "  -i seed_file_or_dir  file or directory of files to add"
+  echo
+  echo Adds new seeds to an existing AFL++ fuzzing campaign.
+  exit 0
+}
+
+for TOOL in find ls; do
+  X=`which $TOOL`
+  test -n "$X" || { echo "Error: required tool '$TOOL' not found."; exit 1; }
+done
+
+TEST=`printf %06d 123 2>/dev/null`
+test "$TEST" = "000123" || { echo "Error: required tool 'printf' not found."; exit 1; }
+
+OUT=
+NEXT=
+for i in $*; do
+  test -n "$NEXT" && { OUT=$i ; NEXT=""; }
+  test "$i" = "-o" && { NEXT=1; }
+done
+
+test -d "$OUT" || { echo Error: $OUT is not an existing directory; exit 1; }
+OK=`ls $OUT/*/fuzzer_stats 2>/dev/null`
+test -n "$OK" || { echo "Error: $OUT is not an 'afl-fuzz -o ... ' output directory" ; exit 1; }
+
+OUTDIR=$OUT/addseeds/queue
+mkdir -p "$OUTDIR" 2>/dev/null
+test -d "$OUTDIR" || { echo Error: could not create $OUTDIR ; exit 1 ; }
+
+echo Adding seeds ...
+NEXTID=0
+for i in $*; do
+  test -z "$i" -o "$i" = "$OUT" -o "$i" = "-i" -o "$i" = "-o" || {
+    find "$i" -type f | while read FILE; do
+      N=xxx
+      while [ -n "$N" ]; do
+        ID=$NEXTID
+        N=`ls "$OUTDIR/id:$(printf %06d $ID),"* 2>/dev/null`
+        NEXTID=$(($NEXTID + 1))
+      done
+      FN=`echo "$FILE" | sed 's/.*\///'`
+      cp -v "$FILE" "$OUTDIR/id:$(printf %06d $ID),time:0,execs:0,orig:$FN"
+    done
+  }
+done
+
+echo Done.
