@@ -469,6 +469,12 @@ static void report_error_and_exit(int error) {
 
   switch (error) {
 
+    case FS_ERROR_U256CMPLOG1:
+      FATAL("afl-fuzz was compiled for CMPLOG_U256, but the target was not");
+      break;
+    case FS_ERROR_U256CMPLOG2:
+      FATAL("the target was compiled for CMPLOG_U256, but afl-fuzz was not");
+      break;
     case FS_ERROR_MAP_SIZE:
       FATAL(
           "AFL_MAP_SIZE is not set and fuzzing target reports that the "
@@ -1026,8 +1032,26 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
       // workaround for recent AFL++ versions
-      if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
+      if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) ==
+          FS_OPT_OLD_AFLPP_WORKAROUND) {
+
         status = (status & 0xf0ffffff);
+
+      }
+
+      if (fsrv->cmplog_binary && CMPLOG_U256 == 1 &&
+          (status & FS_OPT_U256CMPLOG) == 0) {
+
+        report_error_and_exit(FS_ERROR_U256CMPLOG1);
+
+      }
+
+      if (fsrv->cmplog_binary && CMPLOG_U256 == 0 &&
+          (status & FS_OPT_U256CMPLOG)) {
+
+        report_error_and_exit(FS_ERROR_U256CMPLOG2);
+
+      }
 
       if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
 

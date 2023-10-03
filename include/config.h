@@ -60,6 +60,9 @@
  *
  */
 
+/* Support 38 byte wide strings (default: off - up to 29 bytes) */
+#define CMPLOG_U256 1
+
 /* If a redqueen pass finds more than one solution, try to combine them? */
 #define CMPLOG_COMBINE
 
@@ -522,6 +525,13 @@
 /* Maximum mutations on a string */
 
 #define AFL_TXT_STRING_MAX_MUTATIONS 6
+
+/* IGNORE */
+#ifdef CMPLOG_U256
+  #define _CMPLOG_EXTRA 8
+#else
+  #define _CMPLOG_EXTRA 0
+#endif
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

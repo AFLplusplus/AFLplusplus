@@ -2010,8 +2010,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
-      ol0 > 31 || ol1 > 31) {
+  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 + _CMPLOG_EXTRA ||
+      l1 > 31 + _CMPLOG_EXTRA || ol0 > 31 + _CMPLOG_EXTRA ||
+      ol1 > 31 + _CMPLOG_EXTRA) {
 
     l0 = ol0 = hshape;
 
@@ -2121,7 +2122,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
     u32 tob64 = 0, fromb64 = 0;
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
     u32 to_0 = 0, to_x = 0, to_slash = 0, to_up = 0;
-    u8  xor_val[32], arith_val[32], tmp[48];
+    u8  xor_val[32 + _CMPLOG_EXTRA], arith_val[32 + _CMPLOG_EXTRA],
+        tmp[48 + (_CMPLOG_EXTRA << 1)];
 
     idx = saved_idx;
     its_len = saved_its_len;

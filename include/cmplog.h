@@ -59,14 +59,15 @@ struct cmp_operands {
   u64 v1;
   u64 v0_128;
   u64 v1_128;
+  u64 unused;
 
 } __attribute__((packed));
 
 struct cmpfn_operands {
 
-  u8 v0[31];
+  u8 v0[31 + _CMPLOG_EXTRA];
   u8 v0_len;
-  u8 v1[31];
+  u8 v1[31 + _CMPLOG_EXTRA];
   u8 v1_len;
 
 } __attribute__((packed));

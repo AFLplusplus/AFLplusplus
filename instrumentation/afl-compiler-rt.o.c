@@ -856,6 +856,7 @@ static void __afl_start_snapshots(void) {
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
     status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
   if (__afl_dictionary_len && __afl_dictionary) { status |= FS_OPT_AUTODICT; }
+  if (1 == CMPLOG_U256 && __afl_cmp_map) { status |= FS_OPT_U256CMPLOG; }
   memcpy(tmp, &status, 4);
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
@@ -2290,11 +2291,11 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!len)) return;
-  int len0 = MIN(len, 31);
+  int len0 = MIN(len, 31 + _CMPLOG_EXTRA);
   int len1 = strnlen(ptr1, len0);
-  if (len1 < 31) len1 = area_is_valid(ptr1, len1 + 1);
+  if (len1 < 31 + _CMPLOG_EXTRA) len1 = area_is_valid(ptr1, len1 + 1);
   int len2 = strnlen(ptr2, len0);
-  if (len2 < 31) len2 = area_is_valid(ptr2, len2 + 1);
+  if (len2 < 31 + _CMPLOG_EXTRA) len2 = area_is_valid(ptr2, len2 + 1);
   int l = MAX(len1, len2);
   if (l < 2) return;
 
@@ -2384,7 +2385,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   /*
     u32 i;
-    if (area_is_valid(ptr1, 31) <= 0 || area_is_valid(ptr2, 31) <= 0) return;
+    if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
     fprintf(stderr, "rtn arg0=");
     for (i = 0; i < 32; i++)
       fprintf(stderr, "%02x", ptr1[i]);
@@ -2397,10 +2398,10 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   if (likely(!__afl_cmp_map)) return;
   int l1, l2;
-  if ((l1 = area_is_valid(ptr1, 31)) <= 0 ||
-      (l2 = area_is_valid(ptr2, 31)) <= 0)
+  if ((l1 = area_is_valid(ptr1, 31 + _CMPLOG_EXTRA)) <= 0 ||
+      (l2 = area_is_valid(ptr2, 31 + _CMPLOG_EXTRA)) <= 0)
     return;
-  int len = MIN(31, MIN(l1, l2));
+  int len = MIN(31 + _CMPLOG_EXTRA, MIN(l1, l2));
 
   // fprintf(stderr, "RTN2 %u\n", len);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -2449,7 +2450,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 #if 0
   /*
     u32 i;
-    if (area_is_valid(ptr1, 31) <= 0 || area_is_valid(ptr2, 31) <= 0) return;
+    if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
     fprintf(stderr, "rtn_n len=%u arg0=", len);
     for (i = 0; i < len; i++)
       fprintf(stderr, "%02x", ptr1[i]);
@@ -2462,7 +2463,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!len)) return;
-  int l = MIN(31, len);
+  int l = MIN(31 + _CMPLOG_EXTRA, len);
 
   if ((l = area_is_valid(ptr1, l)) <= 0 || (l = area_is_valid(ptr2, l)) <= 0)
     return;
