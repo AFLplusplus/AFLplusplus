@@ -666,6 +666,7 @@ static void __afl_map_shm(void) {
   }
 
   if (id_str) {
+
     // /dev/null doesn't work so we use /dev/urandom
     if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
 
@@ -1117,7 +1118,12 @@ static void __afl_start_forkserver(void) {
 
   }
 
-  if (1 == CMPLOG_U256 && __afl_cmp_map) { status_for_fsrv |= FS_OPT_U256CMPLOG; }
+  if (1 == CMPLOG_U256 && __afl_cmp_map) {
+
+    status_for_fsrv |= FS_OPT_U256CMPLOG;
+
+  }
+
   if (__afl_sharedmem_fuzzing) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
   if (status_for_fsrv) {
 
@@ -2384,17 +2390,20 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 /* hook function for all other func(ptr, ptr, ...) variants */
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
-    u32 i;
-    if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
-    fprintf(stderr, "rtn arg0=");
-    for (i = 0; i < 32; i++)
-      fprintf(stderr, "%02x", ptr1[i]);
-    fprintf(stderr, " arg1=");
-    for (i = 0; i < 32; i++)
-      fprintf(stderr, "%02x", ptr2[i]);
-    fprintf(stderr, "\n");
-
   fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
+
+  u32 i;
+  if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 ||
+      area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0)
+    return;
+  fprintf(stderr, "rtn arg0=");
+  for (i = 0; i < 32; i++)
+    fprintf(stderr, "%02x", ptr1[i]);
+  fprintf(stderr, " arg1=");
+  for (i = 0; i < 32; i++)
+    fprintf(stderr, "%02x", ptr2[i]);
+  fprintf(stderr, "\n");
+
   if (likely(!__afl_cmp_map)) return;
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 31 + _CMPLOG_EXTRA)) <= 0 ||
@@ -2444,17 +2453,20 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
    information and pass it on to the standard binary rtn hook */
 void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
-    u32 i;
-    fprintf(stderr, "__cmplog_rtn_hook_n %llu, %p %p\n", ptr1, ptr2);
-    if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
-    fprintf(stderr, "rtn_n len=%u arg0=", len);
-    for (i = 0; i < len; i++)
-      fprintf(stderr, "%02x", ptr1[i]);
-    fprintf(stderr, " arg1=");
-    for (i = 0; i < len; i++)
-      fprintf(stderr, "%02x", ptr2[i]);
-    fprintf(stderr, "\n");
-  
+  fprintf(stderr, "__cmplog_rtn_hook_n %llu, %p %p\n", len, ptr1, ptr2);
+
+  u32 i;
+  if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 ||
+      area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0)
+    return;
+  fprintf(stderr, "rtn_n len=%llu arg0=", len);
+  for (i = 0; i < len; i++)
+    fprintf(stderr, "%02x", ptr1[i]);
+  fprintf(stderr, " arg1=");
+  for (i = 0; i < len; i++)
+    fprintf(stderr, "%02x", ptr2[i]);
+  fprintf(stderr, "\n");
+
   //(void)(len);
   __cmplog_rtn_hook(ptr1, ptr2);
 
