@@ -2384,7 +2384,6 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 /* hook function for all other func(ptr, ptr, ...) variants */
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
-  /*
     u32 i;
     if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 || area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0) return;
     fprintf(stderr, "rtn arg0=");
@@ -2394,9 +2393,8 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
     for (i = 0; i < 32; i++)
       fprintf(stderr, "%02x", ptr2[i]);
     fprintf(stderr, "\n");
-  */
 
-  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
+  fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   if (likely(!__afl_cmp_map)) return;
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 31 + _CMPLOG_EXTRA)) <= 0 ||
@@ -2436,6 +2434,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   cmpfn[hits].v1_len = len;
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
+
   fprintf(stderr, "RTN3 len %u\n", len);
 
 }
@@ -2455,7 +2454,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
       fprintf(stderr, "%02x", ptr2[i]);
     fprintf(stderr, "\n");
   
-  (void)(len);
+  //(void)(len);
   __cmplog_rtn_hook(ptr1, ptr2);
 
 #if 0
