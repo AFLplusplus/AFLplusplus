@@ -45,11 +45,11 @@ struct cmp_header {
 
   unsigned hits : 24;
   unsigned id : 24;
-  unsigned shape : 5;
+  unsigned shape : 6;
   unsigned type : 2;
   unsigned attribute : 4;
   unsigned overflow : 1;
-  unsigned reserved : 4;
+  unsigned reserved : 3;
 
 } __attribute__((packed));
 
