@@ -2019,7 +2019,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   }
 
   u8  lmax = MAX(l0, ol0);
-  u8  save[40];
+  u8  save[80];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
   u32 its_len = MIN(MIN(lmax, hshape), len - idx);
   its_len = MIN(its_len, taint_len);
