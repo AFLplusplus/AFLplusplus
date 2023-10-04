@@ -743,6 +743,12 @@ static void __afl_map_shm(void) {
 
 #endif  // __AFL_CODE_COVERAGE
 
+  if (!__afl_cmp_map && getenv("AFL_CMPLOG_DEBUG")) {
+
+    __afl_cmp_map_backup = __afl_cmp_map = malloc(sizeof(struct cmp_map));
+
+  }
+
 }
 
 /* unmap SHM. */
