@@ -217,7 +217,7 @@ llvmGetPassPluginInfo() {
 #if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
 #else
-            PB.registerOptimizerLastEPCallback()
+            PB.registerOptimizerLastEPCallback(
 #endif
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
