@@ -4,7 +4,7 @@
 
  - adapt MOpt to new mutation engine
  - Update afl->pending_not_fuzzed for MOpt
- - cmplog rtn sanity check on fixed length?
+ - cmplog rtn sanity check on fixed length? + no length 1
  - afl-showmap -f support
  - afl-fuzz multicore wrapper script
 
