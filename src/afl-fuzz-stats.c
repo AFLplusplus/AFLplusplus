@@ -250,11 +250,13 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #endif
 
   u64   cur_time = get_cur_time();
-  u8    fn[PATH_MAX];
+  u8    fn_tmp[PATH_MAX];
+  u8    fn_final[PATH_MAX];
   FILE *f;
 
-  snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
-  f = create_ffile(fn);
+  snprintf(fn_tmp, PATH_MAX, "%s/.fuzzer_stats_tmp", afl->out_dir);
+  snprintf(fn_final, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
+  f = create_ffile(fn_tmp);
 
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
@@ -412,6 +414,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   }
 
   fclose(f);
+  rename(fn_tmp, fn_final);
 
 }
 
@@ -817,17 +820,18 @@ void show_stats_normal(afl_state_t *afl) {
     if (afl->fsrv.nyx_mode) {
 
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-               afl->crash_mode ? cPIN : cYEL, fuzzer_name,
-               si, afl->use_banner, afl->power_name);
+               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN
+               "[%s] - Nyx",
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
+               afl->power_name);
 
     } else {
 
 #endif
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
                "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-               afl->crash_mode ? cPIN : cYEL, fuzzer_name,
-               si, afl->use_banner, afl->power_name);
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
+               afl->power_name);
 
 #ifdef __linux__
 
