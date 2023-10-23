@@ -40,7 +40,7 @@ enum {
   IS_FP = 8,       // is a floating point, not an integer
   /* --- below are internal settings, not from target cmplog */
   IS_FP_MOD = 16,    // arithemtic changed floating point
-  IS_INT_MOD = 32,   // arithmetic changed interger
+  IS_INT_MOD = 32,   // arithmetic changed integer
   IS_TRANSFORM = 64  // transformed integer
 
 };
@@ -775,6 +775,13 @@ static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 }
 
+#ifdef WORD_SIZE_64
+static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+                               u128 pattern, u128 repl, u128 o_pattern,
+                               u128 changed_val, u8 attr, u32 idx,
+                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                               u32 len, u8 do_reverse, u8 lvl, u8 *status);
+#endif
 static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
@@ -806,6 +813,29 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
           o_pattern, pattern, repl, changed_val, idx, taint_len,
           hshape, attr);
   */
+
+  u8 bytes;
+
+  switch (hshape) {
+
+    case 0:
+    case 1:
+      bytes = 1;
+      break;
+    case 2:
+      bytes = 2;
+      break;
+    case 3:
+    case 4:
+      bytes = 4;
+      break;
+    default:
+      bytes = 8;
+
+  }
+
+  // necessary for preventing heap access overflow
+  bytes = MIN(bytes, len - idx);
 
   //  reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
@@ -895,29 +925,6 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (pattern != o_pattern && repl == changed_val && attr <= IS_EQUAL) {
 
       u64 b_val, o_b_val, mask;
-      u8  bytes;
-
-      switch (hshape) {
-
-        case 0:
-        case 1:
-          bytes = 1;
-          break;
-        case 2:
-          bytes = 2;
-          break;
-        case 3:
-        case 4:
-          bytes = 4;
-          break;
-        default:
-          bytes = 8;
-
-      }
-
-      // necessary for preventing heap access overflow
-      bytes = MIN(bytes, len - idx);
-
       switch (bytes) {
 
         case 0:                        // cannot happen
@@ -1285,6 +1292,125 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
+  // If 'S' is set for cmplog mode then we try a scale encoding of the value.
+  // Currently we can only handle bytes up to 1 << 55
+
+  if (attr < IS_FP && attr < 32 && (afl->cmplog_enable_scale || lvl >= LVL3)) {
+
+    u8  do_call = 1;
+    u64 new_val = repl << 2;
+    u32 saved_hshape = hshape;
+
+    if (changed_val <= 255) {
+
+      // nothing
+
+    } else if (new_val <= 65535) {
+
+      new_val += 1;  // two byte mode
+      hshape = 2;
+
+    } else if (new_val <= 4294967295) {
+
+      new_val += 2;  // four byte mode
+      hshape = 4;
+
+    } else {
+
+#ifndef WORD_SIZE_64
+      if (repl <= 0x00ffffffffffffff {
+
+        new_val = repl << 8;
+        u8  scale_len = 0;
+        u64 tmp_val = repl;
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        hshape = 8;
+
+      } else {
+
+        do_call = 0;
+
+      }
+
+#else
+      {
+
+        u128 new_val = ((u128)repl) << 8;
+        u8   scale_len = 0;
+        u128 tmp_val = (u128)repl;
+
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        hshape = scale_len + 5;
+
+        if (unlikely(cmp_extend_encodingN(afl, h, (u128)pattern, new_val,
+                                          (u128)o_pattern, (u128)changed_val,
+                                          32, idx, taint_len, orig_buf, buf,
+                                          cbuf, len, 1, lvl, status))) {
+
+          hshape = saved_hshape;
+          return 1;
+
+        }
+
+        do_call = 0;
+
+      }
+
+#endif
+
+    }
+
+    if (do_call) {
+
+      if (unlikely(cmp_extend_encoding(
+              afl, h, pattern, new_val, o_pattern, changed_val, 32, idx,
+              taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
+
+        hshape = saved_hshape;
+        return 1;
+
+      }
+
+    }
+
+    hshape = saved_hshape;
+
+  }
+
   // here we add and subract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
@@ -1548,6 +1674,95 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
         return 1;
 
       }
+
+    }
+
+    if (attr < IS_FP && attr < 32 &&
+        (afl->cmplog_enable_scale || lvl >= LVL3)) {
+
+      u128 new_val = repl << 2;
+      u128 max_scale = (u128)1 << 120;
+      u32  saved_hshape = hshape;
+
+      if (new_val <= 255) {
+
+        hshape = 1;
+        if (unlikely(cmp_extend_encoding(afl, h, (u64)pattern, new_val,
+                                         (u64)o_pattern, (u64)changed_val, 32,
+                                         idx, taint_len, orig_buf, buf, cbuf,
+                                         len, 1, lvl, status))) {
+
+          hshape = saved_hshape;
+          return 1;
+
+        }
+
+      } else if (new_val <= 65535) {
+
+        new_val += 1;  // two byte mode
+        hshape = 2;
+        if (unlikely(cmp_extend_encoding(afl, h, (u64)pattern, new_val,
+                                         (u64)o_pattern, (u64)changed_val, 32,
+                                         idx, taint_len, orig_buf, buf, cbuf,
+                                         len, 1, lvl, status))) {
+
+          hshape = saved_hshape;
+          return 1;
+
+        }
+
+      } else if (new_val <= 4294967295) {
+
+        new_val += 2;  // four byte mode
+        hshape = 4;
+        if (unlikely(cmp_extend_encoding(afl, h, (u64)pattern, new_val,
+                                         (u64)o_pattern, (u64)changed_val, 32,
+                                         idx, taint_len, orig_buf, buf, cbuf,
+                                         len, 1, lvl, status))) {
+
+          hshape = saved_hshape;
+          return 1;
+
+        }
+
+      } else if (repl < max_scale) {
+
+        u128 new_val = (u128)repl << 8;
+        u8   scale_len = 0;
+        u128 tmp_val = (u128)repl;
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        hshape = scale_len + 5;
+
+        if (unlikely(cmp_extend_encodingN(afl, h, (u128)pattern, new_val,
+                                          (u128)o_pattern, (u128)changed_val,
+                                          32, idx, taint_len, orig_buf, buf,
+                                          cbuf, len, 1, lvl, status))) {
+
+          hshape = saved_hshape;
+          return 1;
+
+        }
+
+      }
+
+      hshape = saved_hshape;
 
     }
 
