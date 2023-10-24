@@ -1145,6 +1145,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (!have_pic) { cc_params[cc_par_cnt++] = "-fPIC"; }
 
   if (!getenv("AFL_LLVM_NO_RPATH")) {
+
     // in case LLVM is installed not via a package manager or "make install"
     // e.g. compiled download or compiled from github then its ./lib directory
     // might not be in the search path. Add it if so.
