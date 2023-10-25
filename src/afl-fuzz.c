@@ -1152,6 +1152,10 @@ int main(int argc, char **argv_orig, char **envp) {
             case 'A':
               afl->cmplog_enable_arith = 1;
               break;
+            case 's':
+            case 'S':
+              afl->cmplog_enable_scale = 1;
+              break;
             case 't':
             case 'T':
               afl->cmplog_enable_transform = 1;
