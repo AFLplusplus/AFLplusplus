@@ -1293,27 +1293,30 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   }
 
   // If 'S' is set for cmplog mode then we try a scale encoding of the value.
-  // Currently we can only handle bytes up to 1 << 55
+  // Currently we can only handle bytes up to 1 << 55 on 32 bit and 1 << 119
+  // on 64 bit systems.
+  // Caveat: This implementation here works only on little endian systems.
 
-  if (attr < IS_FP && attr < 32 && (afl->cmplog_enable_scale || lvl >= LVL3)) {
+  if (attr < IS_FP && (afl->cmplog_enable_scale || lvl >= LVL3) &&
+      repl == changed_val) {
 
     u8  do_call = 1;
     u64 new_val = repl << 2;
-    u32 saved_hshape = hshape;
+    u32 ilen = 0;
 
     if (changed_val <= 255) {
 
-      // nothing
+      ilen = 1;
 
     } else if (new_val <= 65535) {
 
       new_val += 1;  // two byte mode
-      hshape = 2;
+      ilen = 2;
 
     } else if (new_val <= 4294967295) {
 
       new_val += 2;  // four byte mode
-      hshape = 4;
+      ilen = 4;
 
     } else {
 
@@ -1341,7 +1344,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         };
 
         new_val += (scale_len << 2) + 3;
-        hshape = 8;
+        ilen = scale_len + 5;
 
       } else {
 
@@ -1352,7 +1355,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 #else
       {
 
-        u128 new_val = ((u128)repl) << 8;
+        u128 new_vall = ((u128)repl) << 8;
         u8   scale_len = 0;
         u128 tmp_val = (u128)repl;
 
@@ -1373,18 +1376,22 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         };
 
-        new_val += (scale_len << 2) + 3;
-        hshape = scale_len + 5;
+        new_vall += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
 
-        if (unlikely(cmp_extend_encodingN(afl, h, (u128)pattern, new_val,
-                                          (u128)o_pattern, (u128)changed_val,
-                                          32, idx, taint_len, orig_buf, buf,
-                                          cbuf, len, 1, lvl, status))) {
+        if (ilen <= its_len) {
 
-          hshape = saved_hshape;
-          return 1;
+          u8 tmpbuf[32];
+          memcpy(tmpbuf, buf + idx, ilen);
+          memcpy(buf + idx, (char *)&new_vall, ilen);
 
-        }
+          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+  #ifdef CMPLOG_COMBINE
+          if (*status == 1) { memcpy(cbuf + idx, (char *)&new_vall, ilen); }
+  #endif
+          memcpy(buf + idx, tmpbuf, ilen);
+
+        };
 
         do_call = 0;
 
@@ -1396,18 +1403,21 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (do_call) {
 
-      if (unlikely(cmp_extend_encoding(
-              afl, h, pattern, new_val, o_pattern, changed_val, 32, idx,
-              taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
+      if (ilen <= its_len) {
 
-        hshape = saved_hshape;
-        return 1;
+        u8 tmpbuf[32];
+        memcpy(tmpbuf, buf + idx, ilen);
+        memcpy(buf + idx, (char *)&new_val, ilen);
 
-      }
+        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef CMPLOG_COMBINE
+        if (*status == 1) { memcpy(cbuf + idx, (char *)&new_val, ilen); }
+#endif
+        memcpy(buf + idx, tmpbuf, ilen);
+
+      };
 
     }
-
-    hshape = saved_hshape;
 
   }
 
@@ -1677,57 +1687,33 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
     }
 
+    // Scale encoding only works on little endian systems
+
     if (attr < IS_FP && attr < 32 &&
         (afl->cmplog_enable_scale || lvl >= LVL3)) {
 
       u128 new_val = repl << 2;
       u128 max_scale = (u128)1 << 120;
-      u32  saved_hshape = hshape;
+      u32  ilen = 0;
+      u8   do_call = 1;
 
       if (new_val <= 255) {
 
-        hshape = 1;
-        if (unlikely(cmp_extend_encoding(afl, h, (u64)pattern, new_val,
-                                         (u64)o_pattern, (u64)changed_val, 32,
-                                         idx, taint_len, orig_buf, buf, cbuf,
-                                         len, 1, lvl, status))) {
-
-          hshape = saved_hshape;
-          return 1;
-
-        }
+        ilen = 1;
 
       } else if (new_val <= 65535) {
 
         new_val += 1;  // two byte mode
-        hshape = 2;
-        if (unlikely(cmp_extend_encoding(afl, h, (u64)pattern, new_val,
-                                         (u64)o_pattern, (u64)changed_val, 32,
-                                         idx, taint_len, orig_buf, buf, cbuf,
-                                         len, 1, lvl, status))) {
-
-          hshape = saved_hshape;
-          return 1;
-
-        }
+        ilen = 2;
 
       } else if (new_val <= 4294967295) {
 
         new_val += 2;  // four byte mode
-        hshape = 4;
-        if (unlikely(cmp_extend_encoding(afl, h, (u64)pattern, new_val,
-                                         (u64)o_pattern, (u64)changed_val, 32,
-                                         idx, taint_len, orig_buf, buf, cbuf,
-                                         len, 1, lvl, status))) {
-
-          hshape = saved_hshape;
-          return 1;
-
-        }
+        ilen = 4;
 
       } else if (repl < max_scale) {
 
-        u128 new_val = (u128)repl << 8;
+        new_val = (u128)repl << 8;
         u8   scale_len = 0;
         u128 tmp_val = (u128)repl;
         while (tmp_val) {
@@ -1748,21 +1734,27 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
         };
 
         new_val += (scale_len << 2) + 3;
-        hshape = scale_len + 5;
+        ilen = scale_len + 5;
 
-        if (unlikely(cmp_extend_encodingN(afl, h, (u128)pattern, new_val,
-                                          (u128)o_pattern, (u128)changed_val,
-                                          32, idx, taint_len, orig_buf, buf,
-                                          cbuf, len, 1, lvl, status))) {
+      } else {
 
-          hshape = saved_hshape;
-          return 1;
-
-        }
+        do_call = 0;
 
       }
 
-      hshape = saved_hshape;
+      if (do_call && ilen <= its_len) {
+
+        u8 tmpbuf[32];
+        memcpy(tmpbuf, buf + idx, ilen);
+        memcpy(buf + idx, (char *)&new_val, ilen);
+
+        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+  #ifdef CMPLOG_COMBINE
+        if (*status == 1) { memcpy(cbuf + idx, (char *)&new_val, ilen); }
+  #endif
+        memcpy(buf + idx, tmpbuf, ilen);
+
+      };
 
     }
 
