@@ -10,6 +10,7 @@
 .test
 .test2
 .vscode
+afl-addseeds.8
 afl-analyze
 afl-analyze.8
 afl-as
