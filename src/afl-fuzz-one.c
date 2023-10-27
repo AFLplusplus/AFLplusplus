@@ -545,6 +545,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
+  u64 before_det_time = get_cur_time(), 
+      before_havoc_time;
+  u32 before_det_findings = afl->queued_items,
+      before_det_edges = count_non_255_bytes(afl, afl->virgin_bits),
+      before_havoc_findings, before_havoc_edges;
+  u8 is_logged = 0;
+
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
@@ -2018,6 +2025,15 @@ custom_mutator_stage:
 
 havoc_stage:
 
+  if (!is_logged) {
+    
+    is_logged = 1;
+    before_havoc_findings = afl->queued_items;
+    before_havoc_edges = count_non_255_bytes(afl, afl->virgin_bits);
+    before_havoc_time = get_cur_time();
+
+  }
+
   if (unlikely(afl->custom_only)) {
 
     /* Force UI update */
@@ -3427,6 +3443,16 @@ retry_splicing:
 #endif                                                     /* !IGNORE_FINDS */
 
   ret_val = 0;
+
+  afl->havoc_prof->queued_det_stage = before_havoc_findings - before_det_findings;
+  afl->havoc_prof->queued_havoc_stage = afl->queued_items - before_havoc_findings;
+  afl->havoc_prof->total_queued_det += afl->havoc_prof->queued_det_stage;
+  afl->havoc_prof->edge_det_stage = before_havoc_edges - before_det_edges;
+  afl->havoc_prof->edge_havoc_stage = count_non_255_bytes(afl, afl->virgin_bits) - before_havoc_edges;
+  afl->havoc_prof->total_det_edge += afl->havoc_prof->edge_det_stage;
+  afl->havoc_prof->det_stage_time = before_havoc_time - before_det_time;
+  afl->havoc_prof->havoc_stage_time = get_cur_time() - before_havoc_time;
+  afl->havoc_prof->total_det_time += afl->havoc_prof->det_stage_time;
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
