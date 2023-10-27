@@ -1283,7 +1283,7 @@ double rand_next_percent(afl_state_t *afl);
 extern "C" {
 #endif 
  
-void log_seed_findings(afl_state_t *, struct queue_entry *);
+void plot_profile_data(afl_state_t *, struct queue_entry *);
 u8 should_det_fuzz(afl_state_t *, struct queue_entry *);
 u32 current_undet_bits(afl_state_t *, struct queue_entry *);
 u8 is_det_timeout(u64, u8);
