@@ -141,6 +141,12 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->fsrv.child_pid = -1;
   afl->fsrv.out_dir_fd = -1;
 
+  /* Init SkipDet */
+  afl->skipdet_g = (struct skipdet_global *)ck_alloc(sizeof(struct skipdet_global));
+  afl->skipdet_g->inf_prof = (struct inf_profile *)ck_alloc(sizeof(struct inf_profile));
+  afl->havoc_prof = (struct havoc_profile *)ck_alloc(sizeof(struct havoc_profile));
+
+
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);

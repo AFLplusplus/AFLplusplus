@@ -52,6 +52,16 @@
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600
 
+/* SkipDet's global configuration */
+
+#define MINIMAL_BLOCK_SIZE 64
+#define SMALL_DET_TIME  (60 * 1000 * 1000U)
+#define THRESHOLD_DEC_TIME (20 * 60 * 1000U)
+ 
+/* Set the Prob of selecting eff_bytes 3 times more than original,
+   Now disabled */
+#define EFF_HAVOC_RATE  3
+
 /* CMPLOG/REDQUEEN TUNING
  *
  * Here you can modify tuning and solving options for CMPLOG.
