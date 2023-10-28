@@ -872,37 +872,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
-    /* We also use this stage to pull off a simple trick: we identify
-       bytes that seem to have no effect on the current execution path
-       even when fully flipped - and we skip them during more expensive
-       deterministic stages, such as arithmetics or known ints. */
-
-    if (!eff_map[EFF_APOS(afl->stage_cur)]) {
-
-      u64 cksum;
-
-      /* If in non-instrumented mode or if the file is very short, just flag
-         everything without wasting time on checksums. */
-
-      if (!afl->non_instrumented_mode && len >= EFF_MIN_LEN) {
-
-        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-
-      } else {
-
-        cksum = ~prev_cksum;
-
-      }
-
-      if (cksum != prev_cksum) {
-
-        eff_map[EFF_APOS(afl->stage_cur)] = 1;
-        ++eff_cnt;
-
-      }
-
-    }
-
     out_buf[afl->stage_cur] ^= 0xFF;
 
   }
@@ -910,19 +879,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* If the effector map is more than EFF_MAX_PERC dense, just flag the
      whole thing as worth fuzzing, since we wouldn't be saving much time
      anyway. */
-
-  if (eff_cnt != (u32)EFF_ALEN(len) &&
-      eff_cnt * 100 / EFF_ALEN(len) > EFF_MAX_PERC) {
-
-    memset(eff_map, 1, EFF_ALEN(len));
-
-    afl->blocks_eff_select += EFF_ALEN(len);
-
-  } else {
-
-    afl->blocks_eff_select += eff_cnt;
-
-  }
+  
+  memset(eff_map, 1, EFF_ALEN(len));
+  afl->blocks_eff_select += EFF_ALEN(len);
 
   afl->blocks_eff_total += EFF_ALEN(len);
 
