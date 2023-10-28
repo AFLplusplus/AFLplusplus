@@ -13,6 +13,24 @@ void flip_range(u8 *input, u32 pos, u32 size) {
 }
 
 
+#define MAX_EFF_TIMEOUT    (10 * 60 * 1000)
+#define MAX_DET_TIMEOUT     (15 * 60 * 1000)
+u8 is_det_timeout(u64 cur_ms, u8 is_flip) {
+
+  if (is_flip) { 
+  
+    if (unlikely(get_cur_time() - cur_ms > MAX_EFF_TIMEOUT)) return 1;
+  
+  } else {
+
+    if (unlikely(get_cur_time() - cur_ms > MAX_DET_TIMEOUT)) return 1;
+
+  }
+    
+  return 0;
+
+}
+
 static u64 estimate_det_time(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue_cur;
@@ -41,9 +59,11 @@ static u64 estimate_det_time(afl_state_t *afl) {
   return 0 if exec failed.
 */
 
-u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len) {
+u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len, u64 before_det_time) {
 
   u64 orig_hit_cnt, new_hit_cnt;
+
+  if (afl->queue_cur->skipdet_e->done_eff) return 1;
     
   /******************
    * SKIP INFERENCE *
@@ -133,6 +153,176 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
 
   afl->stage_finds[STAGE_INF] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INF] += afl->stage_cur;
+
+
+  /****************************
+   * Quick Skip Effective Map *
+   ****************************/
+
+  /* Quick Effective Map Calculation */
+
+  afl->stage_short = "quick";
+  afl->stage_name  = "quick eff";
+  afl->stage_cur   = 0;
+  afl->stage_max   = 32 * 1024;
+
+  u32 before_skip_inf = afl->queued_items;
+
+  /* clean all the eff bytes, since previous eff bytes are already fuzzed */
+  u8  *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map,
+      *done_inf_map = afl->queue_cur->skipdet_e->done_inf_map;
+  
+  if (!skip_eff_map) {
+
+    skip_eff_map = (u8*) ck_alloc(sizeof(u8) * len);
+    afl->queue_cur->skipdet_e->skip_eff_map = skip_eff_map;
+  
+  } else {
+
+    memset(skip_eff_map, 0, sizeof(u8) * len);
+
+  }
+  
+  /* restore the starting point */
+  if (!done_inf_map) {
+    
+    done_inf_map = (u8*) ck_alloc(sizeof(u8) * len);
+    afl->queue_cur->skipdet_e->done_inf_map = done_inf_map;
+
+  } else {
+
+    for (afl->stage_cur = 0; afl->stage_cur < len; afl->stage_cur ++) {
+    
+      if (done_inf_map[afl->stage_cur] == 0) break; 
+    
+    }
+
+  }
+
+  /* depending on the seed's performance, we could search eff bytes 
+     for multiple rounds */
+
+  u8 eff_round_continue = 1, eff_round_done = 0, 
+     done_eff = 0, repeat_eff = 0,
+     fuzz_nearby = 0, *non_eff_bytes = 0;
+  
+  if (getenv("REPEAT_EFF")) repeat_eff = 1;
+  if (getenv("FUZZ_NEARBY")) fuzz_nearby = 1;
+
+  if (fuzz_nearby) {
+
+    non_eff_bytes = (u8*)ck_alloc(sizeof(u8) * len);
+    
+    // clean exec cksum
+    if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+    prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+  }
+
+  do {
+
+    eff_round_continue = 0;
+    afl->stage_max = 32 * 1024;
+
+    for (; afl->stage_cur < afl->stage_max && afl->stage_cur < len; ++afl->stage_cur) {
+
+      afl->stage_cur_byte = afl->stage_cur;
+
+      if (!inf_eff_map[afl->stage_cur_byte] ||
+          skip_eff_map[afl->stage_cur_byte]) continue;
+
+      if (is_det_timeout(before_det_time, 1)) { return 1; }
+
+      u8 orig = out_buf[afl->stage_cur_byte], 
+          replace = rand_below(afl, 256);
+        
+      while (replace == orig) {
+
+        replace = rand_below(afl, 256);
+
+      }
+
+      out_buf[afl->stage_cur_byte] = replace;
+
+      before_skip_inf = afl->queued_items;
+
+      if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+
+      out_buf[afl->stage_cur_byte] = orig;
+
+      if (fuzz_nearby) {
+
+        if (prev_cksum == hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST)) {
+
+          non_eff_bytes[afl->stage_cur_byte] = 1;
+
+        }
+      
+      }
+
+      if (afl->queued_items != before_skip_inf) {
+        
+        skip_eff_map[afl->stage_cur_byte] = 1;
+
+        if (afl->stage_max < 128 * 1024) {
+
+          afl->stage_max *= 2;
+
+        }
+
+        if (afl->stage_max == 128 * 1024 && repeat_eff) eff_round_continue = 1;
+
+      } 
+
+      done_inf_map[afl->stage_cur_byte] = 1;
+
+    }
+
+    afl->stage_cur = 0;
+    done_eff = 1;
+
+    if (++eff_round_done >= 8) break;
+
+  } while (eff_round_continue);
+
+  if (fuzz_nearby) {
+
+    u8 *nearby_bytes = (u8*) ck_alloc(sizeof(u8) * len);
+
+    u32 i = 3;
+    while (i < len) {
+
+      // assume DWORD size, from i - 3 -> i + 3
+      if (skip_eff_map[i]) {
+        
+        u32 fill_length = (i + 3 < len) ? 7 : len - i + 2;
+        memset(nearby_bytes + i - 3, 1, fill_length);
+        i += 3;
+
+      } else i += 1;
+
+    }
+
+    for (i = 0; i < len; i ++) {
+
+      if (nearby_bytes[i] && !non_eff_bytes[i]) skip_eff_map[i] = 1;
+
+    }
+
+    ck_free(nearby_bytes);
+    ck_free(non_eff_bytes);
+
+  }
+
+  if (done_eff) {
+    
+    afl->queue_cur->skipdet_e->continue_inf = 0;
+    afl->queue_cur->skipdet_e->done_eff = 1;
+  } else {
+    
+    afl->queue_cur->skipdet_e->continue_inf = 1;
+  
+  }
 
   return 1;
 

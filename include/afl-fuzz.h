@@ -175,7 +175,8 @@ struct havoc_profile {
 
 struct skipdet_entry {
 
-  u8 continue_inf;
+  u8 continue_inf,
+     done_eff;
   u32 undet_bits;
 
   u8 *skip_eff_map,                     /* we'v finish the eff_map          */
@@ -1281,7 +1282,8 @@ double rand_next_percent(afl_state_t *afl);
 
 /* SkipDet Functions */
 
-u8 skip_deterministic_stage(afl_state_t *, u8*, u8*, u32);
+u8 skip_deterministic_stage(afl_state_t *, u8*, u8*, u32, u64);
+u8 is_det_timeout(u64, u8);
 
 #ifdef __cplusplus
 extern "C" {
