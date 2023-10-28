@@ -54,6 +54,70 @@ static u64 estimate_det_time(afl_state_t *afl) {
 
 }
 
+
+/* decide if the seed should be deterministically fuzzed */
+
+u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
+
+  if (!afl->skipdet_g->virgin_det_bits) {
+
+    afl->skipdet_g->virgin_det_bits = (u8*)ck_alloc(sizeof(u8) * afl->fsrv.map_size);
+
+  }
+
+  if (!q->favored || q->passed_det) return 0;
+  if (!q->trace_mini) return 0;
+
+  if (!afl->skipdet_g->last_cov_undet) afl->skipdet_g->last_cov_undet = get_cur_time();
+
+  if (get_cur_time() - afl->skipdet_g->last_cov_undet >= THRESHOLD_DEC_TIME) {
+
+    if (afl->skipdet_g->undet_bits_threshold >= 2) {
+      
+      afl->skipdet_g->undet_bits_threshold *= 0.75;
+      afl->skipdet_g->last_cov_undet = get_cur_time();
+
+    }
+
+  }
+
+  u32 new_det_bits = 0;
+
+  for (u32 i = 0; i < afl->fsrv.map_size; i ++) {
+
+    if (unlikely(q->trace_mini[i >> 3] & (1 << (i & 7)))) {
+
+      if (!afl->skipdet_g->virgin_det_bits[i]) { new_det_bits ++; }
+
+    }
+
+  }
+
+  if (!afl->skipdet_g->undet_bits_threshold) afl->skipdet_g->undet_bits_threshold = new_det_bits * 0.05;
+
+  if (new_det_bits >= afl->skipdet_g->undet_bits_threshold) {
+
+    afl->skipdet_g->last_cov_undet = get_cur_time();
+    q->skipdet_e->undet_bits = new_det_bits;
+
+    for (u32 i = 0; i < afl->fsrv.map_size; i ++) {
+
+      if (unlikely(q->trace_mini[i >> 3] & (1 << (i & 7)))) {
+
+        if (!afl->skipdet_g->virgin_det_bits[i]) afl->skipdet_g->virgin_det_bits[i] = 1;
+
+      }
+
+    }
+
+    return 1;
+
+  }
+
+  return 0;
+
+}
+
 /*
   consists of two stages that 
   return 0 if exec failed.
@@ -64,6 +128,8 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
   u64 orig_hit_cnt, new_hit_cnt;
 
   if (afl->queue_cur->skipdet_e->done_eff) return 1;
+
+  if (!should_det_fuzz(afl, afl->queue_cur)) return 1;
 
   /* Add check to make sure that for seeds without too much undet bits, 
      we ignore them */
