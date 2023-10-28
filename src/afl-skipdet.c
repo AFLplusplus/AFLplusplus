@@ -64,6 +64,9 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
   u64 orig_hit_cnt, new_hit_cnt;
 
   if (afl->queue_cur->skipdet_e->done_eff) return 1;
+
+  /* Add check to make sure that for seeds without too much undet bits, 
+     we ignore them */
     
   /******************
    * SKIP INFERENCE *
@@ -166,6 +169,8 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
   afl->stage_cur   = 0;
   afl->stage_max   = 32 * 1024;
 
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+
   u32 before_skip_inf = afl->queued_items;
 
   /* clean all the eff bytes, since previous eff bytes are already fuzzed */
@@ -206,6 +211,8 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
      done_eff = 0, repeat_eff = 0,
      fuzz_nearby = 0, *non_eff_bytes = 0;
   
+  u64 before_eff_execs = afl->fsrv.total_execs;
+  
   if (getenv("REPEAT_EFF")) repeat_eff = 1;
   if (getenv("FUZZ_NEARBY")) fuzz_nearby = 1;
 
@@ -231,7 +238,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
       if (!inf_eff_map[afl->stage_cur_byte] ||
           skip_eff_map[afl->stage_cur_byte]) continue;
 
-      if (is_det_timeout(before_det_time, 1)) { return 1; }
+      if (is_det_timeout(before_det_time, 1)) { goto cleanup_skipdet; }
 
       u8 orig = out_buf[afl->stage_cur_byte], 
           replace = rand_below(afl, 256);
@@ -263,14 +270,15 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
       if (afl->queued_items != before_skip_inf) {
         
         skip_eff_map[afl->stage_cur_byte] = 1;
+        afl->queue_cur->skipdet_e->quick_eff_bytes += 1;
 
-        if (afl->stage_max < 128 * 1024) {
+        if (afl->stage_max < MAXIMUM_QUICK_EFF_EXECS) {
 
           afl->stage_max *= 2;
 
         }
 
-        if (afl->stage_max == 128 * 1024 && repeat_eff) eff_round_continue = 1;
+        if (afl->stage_max == MAXIMUM_QUICK_EFF_EXECS && repeat_eff) eff_round_continue = 1;
 
       } 
 
@@ -284,6 +292,13 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
     if (++eff_round_done >= 8) break;
 
   } while (eff_round_continue);
+
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
+
+  afl->stage_finds[STAGE_QUICK] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_QUICK] += (afl->fsrv.total_execs - before_eff_execs);
+
+cleanup_skipdet:
 
   if (fuzz_nearby) {
 
@@ -318,6 +333,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8* orig_buf, u8* out_buf, u32 len
     
     afl->queue_cur->skipdet_e->continue_inf = 0;
     afl->queue_cur->skipdet_e->done_eff = 1;
+
   } else {
     
     afl->queue_cur->skipdet_e->continue_inf = 1;

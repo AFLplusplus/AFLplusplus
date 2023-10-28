@@ -552,12 +552,24 @@ u8 fuzz_one_original(afl_state_t *afl) {
       before_havoc_findings, before_havoc_edges;
   u8 is_logged = 0;
 
+
+  if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
+
+    goto abandon_entry;
+
+  }
+
+  u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map;
+
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
+  /* if skipdet decide to skip the seed or no interesting bytes found, 
+     we skip the whole deterministic stage as well */
 
-  if (likely(afl->skip_deterministic) || likely(afl->queue_cur->passed_det) ||
+  if (likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) || 
+      likely(afl->queue_cur->passed_det) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
                   ? afl->queue_cur->depth * 30
@@ -615,6 +627,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     afl->stage_cur_byte = afl->stage_cur >> 3;
+
+    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -732,6 +748,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     afl->stage_cur_byte = afl->stage_cur >> 3;
 
+    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
@@ -766,6 +786,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     afl->stage_cur_byte = afl->stage_cur >> 3;
+
+    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -834,6 +858,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     afl->stage_cur_byte = afl->stage_cur;
+
+    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
@@ -928,6 +956,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     afl->stage_cur_byte = i;
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
@@ -973,6 +1005,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
       continue;
 
     }
+
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1029,6 +1065,10 @@ skip_bitflip:
       continue;
 
     }
+
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1116,6 +1156,10 @@ skip_bitflip:
       continue;
 
     }
+
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1250,6 +1294,10 @@ skip_bitflip:
       continue;
 
     }
+
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1388,6 +1436,10 @@ skip_arith:
 
     }
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     afl->stage_cur_byte = i;
 
     for (j = 0; j < (u32)sizeof(interesting_8); ++j) {
@@ -1450,6 +1502,10 @@ skip_arith:
       continue;
 
     }
+
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1543,6 +1599,10 @@ skip_arith:
 
     }
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     afl->stage_cur_byte = i;
 
     for (j = 0; j < sizeof(interesting_32) / 4; ++j) {
@@ -1633,6 +1693,10 @@ skip_interest:
 
     u32 last_len = 0;
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     afl->stage_cur_byte = i;
 
     /* Extras are sorted by size, from smallest to largest. This means
@@ -1700,6 +1764,10 @@ skip_interest:
 
   for (i = 0; i <= (u32)len; ++i) {
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     afl->stage_cur_byte = i;
 
     for (j = 0; j < afl->extras_cnt; ++j) {
@@ -1762,6 +1830,10 @@ skip_user_extras:
 
     u32 last_len = 0;
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+
     afl->stage_cur_byte = i;
 
     u32 min_extra_len = MIN(afl->a_extras_cnt, (u32)USE_AUTO_EXTRAS);
@@ -1820,6 +1892,10 @@ skip_user_extras:
 
   for (i = 0; i <= (u32)len; ++i) {
 
+    if (!skip_eff_map[i]) continue;
+
+    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    
     afl->stage_cur_byte = i;
 
     for (j = 0; j < afl->a_extras_cnt; ++j) {

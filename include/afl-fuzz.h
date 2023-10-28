@@ -177,7 +177,8 @@ struct skipdet_entry {
 
   u8 continue_inf,
      done_eff;
-  u32 undet_bits;
+  u32 undet_bits,
+      quick_eff_bytes;
 
   u8 *skip_eff_map,                     /* we'v finish the eff_map          */
      *done_inf_map;                     /* some bytes are not done yet      */
