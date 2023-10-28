@@ -56,6 +56,7 @@
 
 #define MINIMAL_BLOCK_SIZE 64
 #define SMALL_DET_TIME  (60 * 1000 * 1000U)
+#define MAXIMUM_INF_EXECS (16 * 1024)
 #define THRESHOLD_DEC_TIME (20 * 60 * 1000U)
  
 /* Set the Prob of selecting eff_bytes 3 times more than original,

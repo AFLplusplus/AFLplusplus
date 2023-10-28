@@ -3454,6 +3454,8 @@ retry_splicing:
   afl->havoc_prof->havoc_stage_time = get_cur_time() - before_havoc_time;
   afl->havoc_prof->total_det_time += afl->havoc_prof->det_stage_time;
 
+  plot_profile_data(afl, afl->queue_cur);
+
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
 
