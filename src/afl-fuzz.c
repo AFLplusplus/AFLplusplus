@@ -486,6 +486,22 @@ int main(int argc, char **argv_orig, char **envp) {
   struct timeval  tv;
   struct timezone tz;
 
+  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
+
+  if (argc > 1 && strcmp(argv_orig[1], "--version") == 0) {
+
+    printf("afl-fuzz" VERSION "\n");
+    exit(0);
+
+  }
+
+  if (argc > 1 && strcmp(argv_orig[1], "--help") == 0) {
+
+    usage(argv_orig[0], 1);
+    exit(0);
+
+  }
+
   #if defined USE_COLOR && defined ALWAYS_COLORED
   if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
 
@@ -514,8 +530,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a large online community\n");
-
-  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
 
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
