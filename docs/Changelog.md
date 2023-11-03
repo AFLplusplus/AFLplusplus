@@ -10,6 +10,8 @@
     - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
       of exiting with an error message
     - allow -S/-M naming up to 50 characters (from 24)
+    - added scale support to CMPLOG (-l S)
+    - added --version and --help command line parameters
   - afl-whatsup:
     - detect instanced that are starting up and show them as such as not dead
     - now also shows coverage reached
