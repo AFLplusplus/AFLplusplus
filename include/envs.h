@@ -162,6 +162,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_MAP_DYNAMIC",
     "AFL_LLVM_NGRAM_SIZE",
     "AFL_NGRAM_SIZE",
+    "AFL_LLVM_NO_RPATH",
     "AFL_LLVM_NOT_ZERO",
     "AFL_LLVM_INSTRUMENT_FILE",
     "AFL_LLVM_THREADSAFE_INST",
@@ -179,6 +180,7 @@ static char *afl_environment_variables[] = {
     "AFL_NO_COLOUR",
 #endif
     "AFL_NO_CPU_RED",
+    "AFL_NO_CFG_FUZZING",  // afl.rs rust crate option
     "AFL_NO_CRASH_README",
     "AFL_NO_FORKSRV",
     "AFL_NO_UI",

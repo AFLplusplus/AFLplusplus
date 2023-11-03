@@ -135,6 +135,12 @@ subset of the settings discussed in section 1, with the exception of:
   - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
     created.
 
+  - LLVM modes compiling C++ will normally set rpath in the binary if LLVM is
+    not in a usual location (/usr or /lib). Setting `AFL_LLVM_NO_RPATH=1`
+    disables this behaviour in case it isn't desired. For example, the compiling
+    toolchain might be in a custom location, but the target machine has LLVM
+    runtime libs in the search path.
+
 Then there are a few specific features that are only available in
 instrumentation mode:
 

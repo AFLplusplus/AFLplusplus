@@ -866,7 +866,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
 
     u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
-        afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string, 0x1000);
+        afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string,
+        afl->fsrv.nyx_aux_string_len);
 
     ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len, fn_log);
     close(fd);
