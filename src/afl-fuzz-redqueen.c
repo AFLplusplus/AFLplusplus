@@ -1828,7 +1828,7 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
   for (k = 0; k < size; ++k) {
 
   #else
-  u32    off = 16 - size;
+  u32 off = 16 - size;
   for (k = 16 - size; k < 16; ++k) {
 
   #endif

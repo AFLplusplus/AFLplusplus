@@ -80,8 +80,8 @@ static unsigned char __tmp_alloc_zone[TMP_ZONE_SIZE];
 #else
 
 // From dlmalloc.c
-void                     *dlmalloc(size_t);
-void                      dlfree(void *);
+void *dlmalloc(size_t);
+void  dlfree(void *);
   #define backend_malloc dlmalloc
   #define backend_free dlfree
 

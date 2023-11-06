@@ -365,7 +365,7 @@ typedef uint32_t XXH32_hash_t;
       (defined(__cplusplus) || \
        (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */))
     #include <stdint.h>
-typedef uint32_t      XXH32_hash_t;
+typedef uint32_t XXH32_hash_t;
 
   #else
     #include <limits.h>
@@ -1082,7 +1082,7 @@ struct XXH64_state_s {
       #include <stdalign.h>
       #define XXH_ALIGN(n) alignas(n)
     #elif defined(__cplusplus) && (__cplusplus >= 201103L)      /* >= C++11 */
-      /* In C++ alignas() is a keyword */
+    /* In C++ alignas() is a keyword */
       #define XXH_ALIGN(n) alignas(n)
     #elif defined(__GNUC__)
       #define XXH_ALIGN(n) __attribute__((aligned(n)))
@@ -3031,8 +3031,8 @@ XXH64_hashFromCanonical(const XXH64_canonical_t *src) {
           __STDC_VERSION__ >= 199901L                             /* >= C99 */
         #define XXH_RESTRICT restrict
       #else
-        /* Note: it might be useful to define __restrict or __restrict__ for
-         * some C++ compilers */
+      /* Note: it might be useful to define __restrict or __restrict__ for
+       * some C++ compilers */
         #define XXH_RESTRICT                                     /* disable */
       #endif
 
@@ -3492,8 +3492,8 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr) {
           #define XXH_vec_mulo vec_mulo
           #define XXH_vec_mule vec_mule
         #elif defined(__clang__) && XXH_HAS_BUILTIN(__builtin_altivec_vmuleuw)
-          /* Clang has a better way to control this, we can just use the builtin
-           * which doesn't swap. */
+        /* Clang has a better way to control this, we can just use the builtin
+         * which doesn't swap. */
           #define XXH_vec_mulo __builtin_altivec_vmulouw
           #define XXH_vec_mule __builtin_altivec_vmuleuw
         #else
@@ -3604,15 +3604,15 @@ XXH_FORCE_INLINE xxh_u64 XXH_mult32to64(xxh_u64 x, xxh_u64 y) {
         #include <intrin.h>
         #define XXH_mult32to64(x, y) __emulu((unsigned)(x), (unsigned)(y))
       #else
-        /*
-         * Downcast + upcast is usually better than masking on older compilers
-         * like GCC 4.2 (especially 32-bit ones), all without affecting newer
-         * compilers.
-         *
-         * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both
-         * operands and perform a full 64x64 multiply -- entirely redundant on
-         * 32-bit.
-         */
+      /*
+       * Downcast + upcast is usually better than masking on older compilers
+       * like GCC 4.2 (especially 32-bit ones), all without affecting newer
+       * compilers.
+       *
+       * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both
+       * operands and perform a full 64x64 multiply -- entirely redundant on
+       * 32-bit.
+       */
         #define XXH_mult32to64(x, y) \
           ((xxh_u64)(xxh_u32)(x) * (xxh_u64)(xxh_u32)(y))
       #endif
