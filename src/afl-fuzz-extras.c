@@ -176,6 +176,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
     afl->extras =
         afl_realloc((void **)&afl->extras,
                     (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    char *hexdigits = "0123456789abcdef";
+
     if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     wptr = afl->extras[afl->extras_cnt].data = ck_alloc(rptr - lptr);
@@ -184,13 +186,12 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     while (*lptr) {
 
-      char *hexdigits = "0123456789abcdef";
-
       switch (*lptr) {
 
         case 1 ... 31:
         case 128 ... 255:
           WARNF("Non-printable characters in line %u.", cur_line);
+          ++lptr;
           continue;
           break;
 

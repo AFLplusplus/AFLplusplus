@@ -12,6 +12,7 @@
     - allow -S/-M naming up to 50 characters (from 24)
     - added scale support to CMPLOG (-l S)
     - added --version and --help command line parameters
+    - fixed endless loop when reading malformed dictionaries
   - afl-whatsup:
     - detect instanced that are starting up and show them as such as not dead
     - now also shows coverage reached
@@ -21,6 +22,7 @@
     - fix for a few string compare transform functions for LAF
   - frida_mode:
     - fixes support for large map offsets
+  - afl-cmin/afl-cmin.bash: prevent unneeded file errors
   - added new tool afl-addseeds that adds new seeds to a running campaign
   - added benchmark/benchmark.sh if you want to see how good your fuzzing
     speed is in comparison to other setups.
