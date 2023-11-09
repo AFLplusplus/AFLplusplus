@@ -125,8 +125,9 @@ def deinit():  # optional for Python
 
 - `queue_get` (optional):
 
-    This method determines whether the custom fuzzer should fuzz the current
-    queue entry or not
+    This method determines whether AFL++ should fuzz the current
+    queue entry or not: all defined custom mutators as well as
+    all AFL++'s mutators.
 
 - `fuzz_count` (optional):
 
