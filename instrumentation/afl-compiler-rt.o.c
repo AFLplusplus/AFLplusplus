@@ -872,7 +872,7 @@ static void __afl_start_snapshots(void) {
 
     if (__afl_debug) {
 
-      fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+      fprintf(stderr, "DEBUG: target forkserver recv: %08x\n", was_killed);
 
     }
 
@@ -1139,7 +1139,7 @@ static void __afl_start_forkserver(void) {
 
     if (__afl_debug) {
 
-      fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+      fprintf(stderr, "DEBUG: target forkserver recv: %08x\n", was_killed);
 
     }
 
@@ -1472,6 +1472,7 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
     __afl_debug = 1;
     fprintf(stderr, "DEBUG: debug enabled\n");
+    fprintf(stderr, "DEBUG: AFL++ afl-compiler-rt" VERSION "\n");
 
   }
 
@@ -1700,11 +1701,12 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (__afl_debug) {
 
-    fprintf(stderr,
-            "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
-            "after_fs=%u\n",
-            start, stop, (unsigned long)(stop - start),
-            __afl_already_initialized_forkserver);
+    fprintf(
+        stderr,
+        "DEBUG: Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
+        "after_fs=%u\n",
+        start, stop, (unsigned long)(stop - start),
+        __afl_already_initialized_forkserver);
 
   }
 
@@ -1802,7 +1804,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       u8 ignore_dso_after_fs = !!getenv("AFL_IGNORE_PROBLEMS_COVERAGE");
       if (__afl_debug && ignore_dso_after_fs) {
 
-        fprintf(stderr, "Ignoring coverage from dynamically loaded code\n");
+        fprintf(stderr,
+                "DEBUG: Ignoring coverage from dynamically loaded code\n");
 
       }
 
@@ -1872,7 +1875,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   if (__afl_debug) {
 
     fprintf(stderr,
-            "Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc = %u\n",
+            "DEBUG: Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc "
+            "= %u\n",
             __afl_final_loc);
 
   }
@@ -1883,7 +1887,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
       if (__afl_debug) {
 
-        fprintf(stderr, "Reinit shm necessary (+%u)\n",
+        fprintf(stderr, "DEBUG: Reinit shm necessary (+%u)\n",
                 __afl_final_loc - __afl_map_size);
 
       }

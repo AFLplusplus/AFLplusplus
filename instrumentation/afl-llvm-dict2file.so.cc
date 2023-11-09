@@ -206,7 +206,18 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
   ptr = getenv("AFL_LLVM_DICT2FILE");
 
-  if (!ptr || *ptr != '/')
+  if (!ptr) {
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+    auto PA = PreservedAnalyses::all();
+    return PA;
+#else
+    return true;
+#endif
+
+  }
+
+  if (*ptr != '/')
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
   of.open(ptr, std::ofstream::out | std::ofstream::app);

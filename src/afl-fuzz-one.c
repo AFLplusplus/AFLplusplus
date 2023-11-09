@@ -577,13 +577,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * SIMPLE BITFLIP (+dictionary construction) *
    *********************************************/
 
-#define FLIP_BIT(_ar, _b)                   \
-  do {                                      \
-                                            \
-    u8 *_arf = (u8 *)(_ar);                 \
-    u32 _bf = (_b);                         \
-    _arf[(_bf) >> 3] ^= (128 >> ((_bf)&7)); \
-                                            \
+#define FLIP_BIT(_ar, _b)                     \
+  do {                                        \
+                                              \
+    u8 *_arf = (u8 *)(_ar);                   \
+    u32 _bf = (_b);                           \
+    _arf[(_bf) >> 3] ^= (128 >> ((_bf) & 7)); \
+                                              \
   } while (0)
 
   /* Single walking bit. */
@@ -1894,6 +1894,7 @@ custom_mutator_stage:
   LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
     if (el->afl_custom_fuzz) {
+      havoc_queued = afl->queued_items;
 
       afl->current_custom_fuzz = el;
       afl->stage_name = el->name_short;
@@ -2216,7 +2217,7 @@ havoc_stage:
 
       }
 
-    retry_havoc_step : {
+    retry_havoc_step: {
 
       u32 r = rand_below(afl, rand_max), item;
 
@@ -3703,13 +3704,13 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
    * SIMPLE BITFLIP (+dictionary construction) *
    *********************************************/
 
-#define FLIP_BIT(_ar, _b)                   \
-  do {                                      \
-                                            \
-    u8 *_arf = (u8 *)(_ar);                 \
-    u32 _bf = (_b);                         \
-    _arf[(_bf) >> 3] ^= (128 >> ((_bf)&7)); \
-                                            \
+#define FLIP_BIT(_ar, _b)                     \
+  do {                                        \
+                                              \
+    u8 *_arf = (u8 *)(_ar);                   \
+    u32 _bf = (_b);                           \
+    _arf[(_bf) >> 3] ^= (128 >> ((_bf) & 7)); \
+                                              \
   } while (0)
 
   /* Single walking bit. */

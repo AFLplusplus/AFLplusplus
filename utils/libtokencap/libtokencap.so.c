@@ -55,7 +55,7 @@
 #elif defined __HAIKU__
   #include <kernel/image.h>
 #elif defined __sun
-  /* For map addresses the old struct is enough */
+/* For map addresses the old struct is enough */
   #include <sys/procfs.h>
   #include <limits.h>
 #endif
@@ -168,7 +168,7 @@ static void __tokencap_load_mappings(void) {
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
   #if defined   __FreeBSD__
-  int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
+  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
   #elif defined __OpenBSD__
   int mib[] = {CTL_KERN, KERN_PROC_VMMAP, __tokencap_pid};
   #elif defined __NetBSD__
@@ -209,7 +209,7 @@ static void __tokencap_load_mappings(void) {
   #if defined __FreeBSD__ || defined __NetBSD__
 
     #if defined   __FreeBSD__
-    size_t                size = region->kve_structsize;
+    size_t size = region->kve_structsize;
 
     if (size == 0) break;
     #elif defined __NetBSD__
