@@ -1854,7 +1854,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
   for (u32 step = 0; step < steps; ++step) {
 
-  retry_havoc_step : {
+  retry_havoc_step: {
 
     u32 r = rand_below(afl, MUT_STRATEGY_ARRAY_SIZE), item;
 

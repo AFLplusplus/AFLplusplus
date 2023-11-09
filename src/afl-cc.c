@@ -1144,19 +1144,23 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (!have_pic) { cc_params[cc_par_cnt++] = "-fPIC"; }
 
-  // in case LLVM is installed not via a package manager or "make install"
-  // e.g. compiled download or compiled from github then its ./lib directory
-  // might not be in the search path. Add it if so.
-  u8 *libdir = strdup(LLVM_LIBDIR);
-  if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
-      strncmp(libdir, "/lib", 4)) {
+  if (!getenv("AFL_LLVM_NO_RPATH")) {
 
-    cc_params[cc_par_cnt++] = "-Wl,-rpath";
-    cc_params[cc_par_cnt++] = libdir;
+    // in case LLVM is installed not via a package manager or "make install"
+    // e.g. compiled download or compiled from github then its ./lib directory
+    // might not be in the search path. Add it if so.
+    u8 *libdir = strdup(LLVM_LIBDIR);
+    if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
+        strncmp(libdir, "/lib", 4)) {
 
-  } else {
+      cc_params[cc_par_cnt++] = "-Wl,-rpath";
+      cc_params[cc_par_cnt++] = libdir;
 
-    free(libdir);
+    } else {
+
+      free(libdir);
+
+    }
 
   }
 
@@ -2289,7 +2293,9 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CTX: use full context sensitive coverage (for "
             "CLASSIC)\n"
             "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
-            "CLASSIC)\n");
+            "CLASSIC)\n"
+            "  AFL_LLVM_NO_RPATH: disable rpath setting for custom LLVM "
+            "locations\n");
 
 #ifdef AFL_CLANG_FLTO
       if (have_lto)
