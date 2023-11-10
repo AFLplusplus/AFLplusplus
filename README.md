@@ -52,6 +52,7 @@ Here is some information to get you started:
 
 To have AFL++ easily available with everything compiled, pull the image directly
 from the Docker Hub (available for both x86_64 and arm64):
+要轻松获取已编译的 AFL++ 并包含所有内容，可以直接从 Docker Hub 拉取镜像（适用于 x86_64 和 arm64 架构）：
 
 ```shell
 docker pull aflplusplus/aflplusplus
@@ -61,31 +62,40 @@ docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 This image is automatically published when a push to the stable branch happens
 (see [branches](#branches)). If you use the command above, you will find your
 target source code in `/src` in the container.
+当推送到稳定分支时，该镜像将自动发布（请参见 branches）。如果使用上述命令，你将在容器中的 /src 目录中找到你的目标源代码。
 
 Note: you can also pull `aflplusplus/aflplusplus:dev` which is the most current
 development state of AFL++.
+注意：你也可以拉取 aflplusplus/aflplusplus:dev，这是 AFL++ 的最新开发状态。
 
 To build AFL++ yourself - *which we recommend* - continue at
 [docs/INSTALL.md](docs/INSTALL.md).
+要自己构建 AFL++ - 我们推荐这样做 - 请继续查阅 docs/INSTALL.md。
 
 ## Quick start: Fuzzing with AFL++
 
 *NOTE: Before you start, please read about the
+在开始之前,请阅读:
 [common sense risks of fuzzing](docs/fuzzing_in_depth.md#0-common-sense-risks).*
 
 This is a quick start for fuzzing targets with the source code available. To
 read about the process in detail, see
 [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md).
+这是使用可用源代码进行模糊测试目标的快速入门指南。要详细了解该过程，请查看 docs/fuzzing_in_depth.md。
 
 To learn about fuzzing other targets, see:
 * Binary-only targets:
+  二进制目标
   [docs/fuzzing_binary-only_targets.md](docs/fuzzing_binary-only_targets.md)
 * Network services:
+  网络服务
   [docs/best_practices.md#fuzzing-a-network-service](docs/best_practices.md#fuzzing-a-network-service)
 * GUI programs:
+  GUI程序
   [docs/best_practices.md#fuzzing-a-gui-program](docs/best_practices.md#fuzzing-a-gui-program)
 
 Step-by-step quick start:
+快速入门:
 
 1. Compile the program or library to be fuzzed using `afl-cc`. A common way to
    do this would be:
@@ -98,34 +108,42 @@ Step-by-step quick start:
 2. Get a small but valid input file that makes sense to the program. When
    fuzzing verbose syntax (SQL, HTTP, etc.), create a dictionary as described in
    [dictionaries/README.md](dictionaries/README.md), too.
+   获取一个小而有效的输入文件，使其对程序有意义。当进行详细语法（如 SQL、HTTP 等）的模糊测试时，还需创建一个字典，详见 dictionaries/README.md。
 
 3. If the program reads from stdin, run `afl-fuzz` like so:
+   如果程序从标准输入读取，可以这样运行 afl-fuzz：
 
    ```
-   ./afl-fuzz -i seeds_dir -o output_dir -- \
-   /path/to/tested/program [...program's cmdline...]
+   ./afl-fuzz -i seeds_dir -o output_dir -- /path/to/tested/program [...program's cmdline...]
    ```
 
    To add a dictionary, add `-x /path/to/dictionary.txt` to afl-fuzz.
+  要添加字典，请在 afl-fuzz 命令中添加 `-x /path/to/dictionary.txt`。
+
 
    If the program takes input from a file, you can put `@@` in the program's
    command line; AFL++ will put an auto-generated file name in there for you.
+   如果程序从文件中读取输入，可以在程序的命令行中放置 `@@`；AFL++ 将为你自动生成文件名。
 
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting
    [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen).
+   及时查看模糊测试器界面中显示的红色内容，并立即参考 [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen) 进行调查
 
 5. You will find found crashes and hangs in the subdirectories `crashes/` and
    `hangs/` in the `-o output_dir` directory. You can replay the crashes by
    feeding them to the target, e.g. if your target is using stdin:
+  在 `-o output_dir` 目录的子目录 `crashes/` 和 `hangs/` 中可以找到发现的崩溃和挂起情况。可以通过将其提供给目标来重新触发崩溃，例如，如果目标使用标准输入
 
    ```
    cat output_dir/crashes/id:000000,* | /path/to/tested/program [...program's cmdline...]
    ```
 
    You can generate cores or use gdb directly to follow up the crashes.
+   可以生成 `coredump` 文件或直接使用 gdb 进一步跟踪崩溃情况。
 
 6. We cannot stress this enough - if you want to fuzz effectively, read the
    [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md) document!
+   我们再次强调 - 如果想要有效进行模糊测试，请阅读 docs/fuzzing_in_depth.md 文档！
 
 ## Contact
 
@@ -158,17 +176,20 @@ The following branches exist:
 * (any other): experimental branches to work on specific features or testing new
   functionality or changes.
 
-## Help wanted
+## Help wanted 招募帮助
 
 We have several [ideas](docs/ideas.md) we would like to see in AFL++ to make it
 even better. However, we already work on so many things that we do not have the
 time for all the big ideas.
+我们有几个 [想法](docs/ideas.md) ，希望在 AFL++ 中实现，以使其更加出色。然而，由于我们已经在处理很多事情，无法抽出时间来实现所有的大型想法。
 
 This can be your way to support and contribute to AFL++ - extend it to do
 something cool.
+这是你支持和贡献 AFL++ 的方式 - 扩展它以实现一些酷炫的功能。
 
 For everyone who wants to contribute (and send pull requests), please read our
 [contributing guidelines](CONTRIBUTING.md) before you submit.
+对于每个想要做出贡献（并发送拉取请求）的人，请在提交之前阅读我们的 贡献指南。
 
 ## Special thanks
 
@@ -239,6 +260,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
 If you use AFL++ in scientific work, consider citing
 [our paper](https://www.usenix.org/conference/woot20/presentation/fioraldi)
 presented at WOOT'20:
+如果你在科学研究中使用 AFL++，请考虑引用我们在 WOOT'20 上发表的论文：
 
     Andrea Fioraldi, Dominik Maier, Heiko Eißfeldt, and Marc Heuse. “AFL++: Combining incremental steps of fuzzing research”. In 14th USENIX Workshop on Offensive Technologies (WOOT 20). USENIX Association, Aug. 2020.
 
