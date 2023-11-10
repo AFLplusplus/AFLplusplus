@@ -12,13 +12,13 @@ Fuzzing source code is a three-step process:
 
 1. Compile the target with a special compiler that prepares the target to be
    fuzzed efficiently. This step is called "instrumenting a target".
-1.使用特殊的编译器编译目标，该编译器可以有效地准备要模糊测试的目标。此步骤称为`对目标插桩`。
+   使用特殊的编译器编译目标，该编译器可以有效地准备要模糊测试的目标。此步骤称为`对目标插桩`。
 2. Prepare the fuzzing by selecting and optimizing the input corpus for the
    target.
-2.通过选择和优化目标的输入语料库来准备模糊测试。
+   通过选择和优化目标的输入语料库来准备模糊测试。
 3. Perform the fuzzing of the target by randomly mutating input and assessing if
    that input was processed on a new path in the target binary.
-3.通过随机改变输入并评估该输入是否在目标二进制文件中的新路径上处理，对目标执行模糊测试。
+   通过随机改变输入并评估该输入是否在目标二进制文件中的新路径上处理，对目标执行模糊测试。
 
 ## 0. Common sense risks 常识性风险
 
@@ -48,6 +48,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
   模糊测试涉及对文件系统的数十亿次读取和写入。在现代系统上，这通常会被大量缓存，从而产生相当适度的`物理`I/O，但有许多因素可能会改变这个等式。您有责任监控潜在的问题;由于 I/O 非常繁重，许多 HDD 和 SSD 的使用寿命可能会缩短。
 
   A good way to monitor disk I/O on Linux is the `iostat` command:
+  监控IO的Linux命令如下:
 
   ```shell
   $ iostat -d 3 -x -k [...optional disk ID...]
@@ -56,7 +57,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
   Using the `AFL_TMPDIR` environment variable and a RAM-disk, you can have the
   heavy writing done in RAM to prevent the aforementioned wear and tear. For
   example, the following line will run a Docker container with all this preset:
-  使用`AFL_TMPDIR`环境变量和 RAM-磁盘，您可以在 RAM 中完成繁重的写入，以防止上述磨损。例如，以下命令将运行具有所有这些预设的 Docker 容器：
+  使用`AFL_TMPDIR`环境变量和 RAM-disk，您可以在 RAM 中完成繁重的写入，以防止上述硬件消耗。例如，以下命令将运行具有所有这些预设的 Docker 容器：
   ```shell
   # docker run -ti --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk aflplusplus/aflplusplus
   ```
