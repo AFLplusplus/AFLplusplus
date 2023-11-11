@@ -1,4 +1,4 @@
-CPU                                     | Mz   | exec/s | afl-*-config |
-========================================|======|========|==============|
-CPU 12th Gen Intel(R) Core(TM) i7-1270P | 4200 | 12750  | both         |
-AMD EPYC 7282 16-Core Processor         | 3190 | 10060  | both         |
+CPU                            | MHz   | singlecore | multicore | afl-*-config |
+===============================|=======|============|===========|==============|
+Apple Mac Studio M2 Ultra 2023 | 3500  | 174386     | 1112585   | both         |
+Intel(R) Core(TM) i9-9900K CPU | 4999  | 133706     | 1169989   | both         |
