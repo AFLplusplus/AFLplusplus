@@ -48,7 +48,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
 #ifndef USEMMAP
@@ -2257,11 +2257,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-#ifndef __HAIKU__
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#else
+#ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
-#endif  // HAIKU
+#elif defined(__OpenBSD__)
+  long r = write(__afl_dummy_fd[1], ptr, len);
+#else
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+#endif  // HAIKU, OPENBSD
 
   if (r <= 0 || r > len) return 0;
 
