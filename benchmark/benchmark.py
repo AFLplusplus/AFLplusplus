@@ -198,17 +198,15 @@ async def save_benchmark_results() -> None:
         aflconfig = described_config.ljust(12)
         if results.hardware is None:
             return
-        cpu_model = results.hardware.cpu_model.ljust(42)
+        cpu_model = results.hardware.cpu_model.ljust(51)
         cpu_mhz = str(round(results.hardware.cpu_fastest_core_mhz)).ljust(5)
         if "test-instr-persist-shmem" in results.targets and "multicore" in results.targets["test-instr-persist-shmem"]:
             if results.targets["test-instr-persist-shmem"]["singlecore"] is None or \
                results.targets["test-instr-persist-shmem"]["multicore"] is None:
                 return
-            single = str(round(results.targets["test-instr-persist-shmem"]["singlecore"].total_execs_per_sec)).ljust(10)
-            multi = str(round(results.targets["test-instr-persist-shmem"]["multicore"].total_execs_per_sec)).ljust(9)
+            single = str(round(results.targets["test-instr-persist-shmem"]["singlecore"].afl_execs_per_sec)).ljust(10)
+            multi = str(round(results.targets["test-instr-persist-shmem"]["multicore"].afl_execs_per_sec)).ljust(9)
             cores = str(args.fuzzers).ljust(7)
-            if len(cpu_model) > 30:
-                cpu_model = cpu_model[:30]
             comparisonfile.write(f"{cpu_model} | {cpu_mhz} | {cores} | {single} | {multi} | {aflconfig} |\n")
     with open("COMPARISON", "r") as comparisonfile:
         print(comparisonfile.read())
@@ -281,7 +279,6 @@ async def main() -> None:
             results.targets[binary][mode.name] = run
 
             print(f" [*] Average AFL execs/sec for this test across all runs was: {green(avg_afl_execs_per_sec)}")
-            print(f" [*] Average total execs/sec for this test across all runs was: {green(total_execs_per_sec)}")
             if (((max(afl_execs_per_sec) - min(afl_execs_per_sec)) / avg_afl_execs_per_sec) * 100) > 15:
                 print(yellow(" [*] The difference between your slowest and fastest runs was >15%, maybe try again?"))
 
