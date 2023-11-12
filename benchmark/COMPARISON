@@ -1,4 +1,4 @@
-CPU                            | MHz   | threads | singlecore | multicore | afl-*-config |
-===============================|=======|=========|============|===========|==============|
-Apple Mac Studio M2 Ultra 2023 | 3500  | 16      | 174386     | 1112585   | both         |
-Intel(R) Core(TM) i9-9900K CPU | 4995  | 16      | 133706     | 1169989   | both         |
+CPU                                                 | MHz   | threads | singlecore | multicore | afl-*-config |
+====================================================|=======|=========|============|===========|==============|
+Apple Mac Studio M2 Ultra 2023, Linux VM guest      | 3500  | 16      | 174386     | 1112585   | both         |
+Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz            | 4995  | 16      | 133706     | 1169989   | both         |
