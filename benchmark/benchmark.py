@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# Part of the aflplusplus project, requires Python 3.9+.
+# Part of the aflplusplus project, requires Python 3.8+.
 # Author: Chris Ball <chris@printf.net>, ported from Marc "van Hauser" Heuse's "benchmark.sh".
 import argparse, asyncio, datetime, json, multiprocessing, os, platform, re, shutil, sys
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from enum import Enum, auto
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, List, Optional, Tuple
 
 blue   = lambda text: f"\033[1;94m{text}\033[0m"; gray = lambda text: f"\033[1;90m{text}\033[0m"
 green  = lambda text: f"\033[0;32m{text}\033[0m"; red  = lambda text: f"\033[0;31m{text}\033[0m"
@@ -50,7 +50,7 @@ class Hardware:
 class Results:
     config: Optional[Config]
     hardware: Optional[Hardware]
-    targets: dict[str, dict[str, Optional[Run]]]
+    targets: Dict[str, Dict[str, Optional[Run]]]
 
 all_modes = [Mode.singlecore, Mode.multicore]
 all_targets = [
@@ -132,7 +132,7 @@ async def compile_target(source: Path, binary: Path) -> None:
     if returncode != 0:
         sys.exit(red(f" [*] Error: afl-cc is unable to compile: {stderr.decode()} {stdout.decode()}"))
 
-async def run_command(cmd: list[str]) -> tuple[Union[int, None], bytes, bytes]:
+async def run_command(cmd: List[str]) -> Tuple[Optional[int], bytes, bytes]:
     debug(f"Launching command: {cmd} with env {env_vars}")
     p = await asyncio.create_subprocess_exec(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env_vars
@@ -168,7 +168,7 @@ async def check_deps() -> None:
     results.config = Config(afl_persistent_config=afl_pc, afl_system_config=afl_sc, afl_version="",
                             comment=args.comment, compiler=compiler, target_arch=target_arch)
 
-async def colon_values(filename: str, searchKey: str) -> list[str]:
+async def colon_values(filename: str, searchKey: str) -> List[str]:
     """Return a colon-separated value given a key in a file, e.g. 'cpu MHz         : 4976.109')"""
     with open(filename, "r") as fh:
         kv_pairs = (line.split(": ", 1) for line in fh if ": " in line)
