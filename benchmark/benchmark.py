@@ -195,6 +195,7 @@ async def save_benchmark_results() -> None:
         print(blue(f" [*] Results have been written to {jsonfile.name}"))
     with open("COMPARISON", "a") as comparisonfile:
         described_config = await describe_afl_config()
+        aflconfig = described_config.ljust(12)
         if results.hardware is None:
             return
         cpu_model = results.hardware.cpu_model.ljust(42)
@@ -205,9 +206,10 @@ async def save_benchmark_results() -> None:
                 return
             single = str(round(results.targets["test-instr-persist-shmem"]["singlecore"].total_execs_per_sec)).ljust(10)
             multi = str(round(results.targets["test-instr-persist-shmem"]["multicore"].total_execs_per_sec)).ljust(9)
+            cores = str(args.fuzzers).ljust(7)
             if len(cpu_model) > 30:
                 cpu_model = cpu_model[:30]
-            comparisonfile.write(f"{cpu_model} | {cpu_mhz} | {single} | {multi} | {described_config.ljust(12)} |\n")
+            comparisonfile.write(f"{cpu_model} | {cpu_mhz} | {cores} | {single} | {multi} | {aflconfig} |\n")
     with open("COMPARISON", "r") as comparisonfile:
         print(comparisonfile.read())
 
