@@ -55,7 +55,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   // send the request message
   memcpy(my_msg.data_buff, &msg, sizeof(int));
-  my_msg.data_type = TYPE_REQUEST
+  my_msg.data_type = TYPE_REQUEST;
   if (msgsnd(msqid, &my_msg, sizeof(my_msg.data_buff), 0) == -1) {
     perror("msgsnd() failed");
     exit(1);
@@ -108,12 +108,13 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   /* set everything up, costly ... :( */
   memcpy(data->buf, buf, buf_size);
+  u32 out_buf_len;
   if (!data->received){
-    u32 out_buf_len = afl_mutate(data->afl, data->buf, buf_size, havoc_steps,
+     out_buf_len = afl_mutate(data->afl, data->buf, buf_size, havoc_steps,
                                false, true, add_buf, add_buf_size, max_size);
   }
   else{ // if received use that seed
-    u32 out_buf_len = data->data_buff;
+    out_buf_len = data->buf_size;
   }
   /* return size of mutated data */
   *out_buf = data->buf;
