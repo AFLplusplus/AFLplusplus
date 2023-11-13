@@ -19,7 +19,7 @@ typedef struct my_mutator {
   afl_state_t *afl;
   u8          *buf;
   u32          buf_size;
-
+  bool received;
 } my_mutator_t;
 
 my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
@@ -38,6 +38,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
     data->buf_size = MAX_FILE;
   }
   data->afl = afl;
+  data->received = false;
 
   /* the mutation, send request to LLM, then receive mutate seed */
   //   u32 out_buf_len = afl_mutate(data->afl, data->buf, buf_size,
@@ -45,7 +46,6 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   My_message my_msg;
   int        msg = 200;
   int        msqid;
-  int        receive_flag = 1;
 
   // Create or open the message queue
   if ((msqid = msgget((key_t)1234, IPC_CREAT | 0666)) == -1) {
@@ -67,7 +67,6 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   while (true) {
     // if run time exceed 0.1s then break and mutate default one
     if (difftime(clock(), start_time) >= 0.1) {
-      receive_flag = 0;
       break;
     }
     
@@ -76,22 +75,14 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
       exit(1);
     } 
     else {
+      // receive non-empty seed
       if (my_msg.data_type == TYPE_SEED){
-        receive_flag = 1;
-        data.buf = my_msg.data_buff;
+        data->buf = my_msg.data_buff;
+        data->received = true;
         data->buf_size = size(my_msg.data_buff) <= MAX_FILE ? size(my_msg.data_buff) : MAX_FILE;
-      }
-      else{
-        // receive empty seed
-        receive_flag = 0;
       }
       break;
     }
-  }
-  // did not receive new seed, mutate default seed
-  if receive_flag==0:
-  {
-    
   }
   return data;
 }
@@ -117,9 +108,13 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   /* set everything up, costly ... :( */
   memcpy(data->buf, buf, buf_size);
-  u32 out_buf_len = afl_mutate(data->afl, data->buf, buf_size, havoc_steps,
+  if (!data->received){
+    u32 out_buf_len = afl_mutate(data->afl, data->buf, buf_size, havoc_steps,
                                false, true, add_buf, add_buf_size, max_size);
-
+  }
+  else{ // if received use that seed
+    u32 out_buf_len = data->data_buff;
+  }
   /* return size of mutated data */
   *out_buf = data->buf;
   return out_buf_len;
