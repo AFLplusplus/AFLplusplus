@@ -93,7 +93,7 @@ results = Results(config=None, hardware=None, targets={
 debug = lambda text: args.debug and print(blue(text))
 if Mode.multicore in chosen_modes:
     print(blue(f" [*] Using {args.fuzzers} fuzzers for multicore fuzzing "), end="")
-    print(blue("(use --fuzzers to override)" if args.fuzzers == cpu_count else f"(the default is {cpu_count})"))
+    print(blue("(use --fuzzers to override)." if args.fuzzers == cpu_count else f"(the default is {cpu_count})"))
 
 async def clean_up_tempfiles() -> None:
     shutil.rmtree(f"{args.basedir}/in")
@@ -192,13 +192,16 @@ async def save_benchmark_results() -> None:
     with open("benchmark-results.jsonl", "a") as jsonfile:
         json.dump(asdict(results), jsonfile, sort_keys=True)
         jsonfile.write("\n")
-        print(blue(f" [*] Results have been written to {jsonfile.name}"))
-    with open("COMPARISON", "a") as comparisonfile:
+        print(blue(f" [*] Results have been written to the {jsonfile.name} file."))
+    with open("COMPARISON", "r+") as comparisonfile:
         described_config = await describe_afl_config()
         aflconfig = described_config.ljust(12)
         if results.hardware is None:
             return
         cpu_model = results.hardware.cpu_model.ljust(51)
+        if cpu_model in comparisonfile.read():
+            print(blue(f" [*] Results have not been written to the COMPARISON file; this CPU is already present."))
+            return
         cpu_mhz = str(round(results.hardware.cpu_fastest_core_mhz)).ljust(5)
         if "test-instr-persist-shmem" in results.targets and "multicore" in results.targets["test-instr-persist-shmem"]:
             if results.targets["test-instr-persist-shmem"]["singlecore"] is None or \
@@ -208,6 +211,7 @@ async def save_benchmark_results() -> None:
             multi = str(round(results.targets["test-instr-persist-shmem"]["multicore"].afl_execs_per_sec)).ljust(9)
             cores = str(args.fuzzers).ljust(7)
             comparisonfile.write(f"{cpu_model} | {cpu_mhz} | {cores} | {single} | {multi} | {aflconfig} |\n")
+            print(blue(f" [*] Results have been written to the COMPARISON file."))
     with open("COMPARISON", "r") as comparisonfile:
         print(comparisonfile.read())
 
