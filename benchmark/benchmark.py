@@ -63,6 +63,7 @@ cpu_count = multiprocessing.cpu_count()
 env_vars = {
     "AFL_BENCH_JUST_ONE": "1", "AFL_DISABLE_TRIM": "1", "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES": "1",
     "AFL_NO_UI": "1", "AFL_TRY_AFFINITY": "1", "PATH": f'{str(Path("../").resolve())}:{os.environ["PATH"]}',
+    "AFL_FAST_CAL": "1",
 }
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -91,9 +92,6 @@ results = Results(config=None, hardware=None, targets={
     str(t.binary): {m.name: None for m in chosen_modes} for t in chosen_targets}
 )
 debug = lambda text: args.debug and print(blue(text))
-if Mode.multicore in chosen_modes:
-    print(blue(f" [*] Using {args.fuzzers} fuzzers for multicore fuzzing "), end="")
-    print(blue("(use --fuzzers to override)." if args.fuzzers == cpu_count else f"(the default is {cpu_count})"))
 
 async def clean_up_tempfiles() -> None:
     shutil.rmtree(f"{args.basedir}/in")
@@ -240,6 +238,9 @@ async def main() -> None:
         await compile_target(target.source, target.binary)
         binary = str(target.binary)
         for mode in chosen_modes:
+            if mode == Mode.multicore:
+                print(blue(f" [*] Using {args.fuzzers} fuzzers for multicore fuzzing "), end="")
+                print(blue("(use --fuzzers to override)." if args.fuzzers == cpu_count else f"(the default is {cpu_count})"))
             afl_execs_per_sec, execs_total, run_time_total = ([] for _ in range(3))
             for run_idx in range(0, args.runs):
                 print(gray(f" [*] {mode.name} {binary} run {run_idx+1} of {args.runs}, execs/s: "), end="", flush=True)
