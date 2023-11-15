@@ -8,7 +8,6 @@ typedef struct my_mutator {
   afl_state_t *afl;
   u8          *buf;
   u32          buf_size;
-  bool received;
 } my_mutator_t;
 
 my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
@@ -27,7 +26,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
     data->buf_size = MAX_FILE;
   }
   
-  data->received = false;
+  afl->from_llm = false;
 
   /* the mutation, send request to LLM, then receive mutate seed */
   My_message my_msg;
@@ -67,7 +66,6 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
         afl->from_llm =true;
         afl->unique_id = my_msg.data_int;
         data->buf = my_msg.data_buff;
-        data->received = true;
         data->buf_size = size(data->buf) <= MAX_FILE ? size(data->buf) : MAX_FILE;
       }
       break;
@@ -99,7 +97,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   /* set everything up, costly ... :( */
   memcpy(data->buf, buf, buf_size);
   u32 out_buf_len;
-  if (!data->received){
+  if (!data->afl->from_llm){
      out_buf_len = afl_mutate(data->afl, data->buf, buf_size, havoc_steps,
                                false, true, add_buf, add_buf_size, max_size);
   }
