@@ -32,14 +32,17 @@ Here is some information to get you started:
 
 * For an overview of the AFL++ documentation and a very helpful graphical guide,
   please visit [docs/README.md](docs/README.md).
+  有关 AFL++ 文档的概述和非常有用的图形指南，请访问[docs/README.md](docs/README.md).
 * To get you started with tutorials, go to
   [docs/tutorials.md](docs/tutorials.md).
+  要开始教程，请访问[docs/tutorials.md](docs/tutorials.md)
 * For releases, see the
   [Releases tab](https://github.com/AFLplusplus/AFLplusplus/releases) and
   [branches](#branches). The best branches to use are, however, `stable` or
   `dev` - depending on your risk appetite. Also take a look at the list of
   [important changes in AFL++](docs/important_changes.md) and the list of
   [features](docs/features.md).
+  有关发布版本，请查看[发布](https://github.com/AFLplusplus/AFLplusplus/releases)和[分支](#branches)。然而，最好使用的分支是稳定版或开发版，这取决于你的风险承受能力。也请查看 AFL++ 的[重要更改列表](docs/important_changes.md)和[功能列表](docs/features.md)。
 * If you want to use AFL++ for your academic work, check the
   [papers page](https://aflplus.plus/papers/) on the website.
 * To cite our work, look at the [Cite](#cite) section.
@@ -81,7 +84,7 @@ To build AFL++ yourself - *which we recommend* - continue at
 This is a quick start for fuzzing targets with the source code available. To
 read about the process in detail, see
 [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md).
-这是使用可用源代码进行模糊测试目标的快速入门指南。要详细了解该过程，请查看 docs/fuzzing_in_depth.md。
+这是使用可用源代码进行模糊测试目标的快速入门指南。要详细了解该过程，请查看 [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md)。
 
 To learn about fuzzing other targets, see:
 * Binary-only targets:
