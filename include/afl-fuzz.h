@@ -149,6 +149,17 @@ struct tainted {
 
 };
 
+typedef struct {
+  long data_type;
+  int  data_num;
+  char data_buff[1024];
+} My_message;
+
+typedef struct {
+  long data_type;
+  int  data_num[2];
+} Rw_message;
+
 struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
@@ -261,6 +272,11 @@ enum {
   /* 02 */ STAGE_VAL_BE
 
 };
+
+#define TYPE_REQUEST 1
+#define TYPE_REWARD 2
+#define TYPE_SEED 3
+#define TYPE_EMPTY_SEED 4
 
 #define operator_num 19
 #define swarm_num 5
@@ -433,6 +449,7 @@ typedef struct afl_state {
   /* Position of this state in the global states list */
   u32 _id;
 
+  bool             from_llm;
   afl_forkserver_t fsrv;
   sharedmem_t      shm;
   sharedmem_t     *shm_fuzz;
@@ -498,6 +515,7 @@ typedef struct afl_state {
       stats_update_freq;                /* Stats update frequency (execs)   */
 
   u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
+      unique_id,                        /* UNIQUE ID of the SEED            */
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */

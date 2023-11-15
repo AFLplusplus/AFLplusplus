@@ -232,7 +232,32 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
     afl->bitmap_changed = 1;
+  
+  // If this seed is from LLM send reward to LLM
+  if (afl->from_llm){
+    // Todo: calculate reward with all bitmap + new path
+    u8        reward = ret;
+    int       msqid;
 
+    // Create or open the message queue
+    if ((msqid = msgget((key_t)4321, IPC_CREAT | 0666)) == -1) {
+
+      perror("msgget() failed");
+      exit(1);
+    }
+    // send the uid, reward to LLM
+    Rw_message rw_msg;
+
+    rw_msg.data_int[0] = afl->unique_id;
+	  rw_msg.data_int[1] = reward;
+    rw_msg.data_type = TYPE_REWARD;
+    
+    if (msgsnd(msqid, &rw_msg, sizeof(rw_msg.data_int), 0) == -1) {
+
+      perror("msgsnd() failed");
+      exit(1);
+    }
+  }
   return ret;
 
 }
