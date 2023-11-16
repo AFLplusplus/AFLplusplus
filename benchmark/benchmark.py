@@ -61,9 +61,8 @@ modes = [mode.name for mode in all_modes]
 targets = [str(target.binary) for target in all_targets]
 cpu_count = multiprocessing.cpu_count()
 env_vars = {
-    "AFL_BENCH_JUST_ONE": "1", "AFL_DISABLE_TRIM": "1", "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES": "1",
+    "AFL_DISABLE_TRIM": "1", "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES": "1", "AFL_FAST_CAL": "1",
     "AFL_NO_UI": "1", "AFL_TRY_AFFINITY": "1", "PATH": f'{str(Path("../").resolve())}:{os.environ["PATH"]}',
-    "AFL_FAST_CAL": "1",
 }
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -249,7 +248,7 @@ async def main() -> None:
                 cmds = []
                 for fuzzer_idx, afl in enumerate(fuzzers):
                     name = ["-o", outdir, "-M" if fuzzer_idx == 0 else "-S", str(afl)]
-                    cmds.append(["afl-fuzz", "-i", f"{args.basedir}/in"] + name + ["-s", "123", "-D", f"./{binary}"])
+                    cmds.append(["afl-fuzz", "-i", f"{args.basedir}/in"] + name + ["-s", "123", "V10", "-D", f"./{binary}"])
 
                 # Prepare the afl-fuzz tasks, and then block while waiting for them to finish.
                 fuzztasks = [run_command(cmds[cpu]) for cpu in fuzzers]
