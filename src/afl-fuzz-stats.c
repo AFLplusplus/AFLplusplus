@@ -138,7 +138,7 @@ void load_stats_file(afl_state_t *afl) {
 
   FILE *f;
   u8    buf[MAX_LINE];
-  u8   *lptr;
+  u8 *  lptr;
   u8    fn[PATH_MAX];
   u32   lineno = 0;
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
@@ -288,6 +288,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
+  u64 runtime = afl->prev_run_time + cur_time - afl->start_time;
+  if (!runtime) { runtime = 1; }
 
   fprintf(
       f,
@@ -336,17 +338,14 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
       "command_line      : %s\n",
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
-      (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
+      runtime / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
       afl->longest_find_time > cur_time - afl->last_find_time
           ? afl->longest_find_time / 1000
           : ((afl->start_time == 0 || afl->last_find_time == 0)
                  ? 0
                  : (cur_time - afl->last_find_time) / 1000),
-      afl->fsrv.total_execs,
-      afl->fsrv.total_execs /
-          ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
-           1000),
+      afl->fsrv.total_execs, afl->fsrv.total_execs / ((double)(runtime) / 1000),
       afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
       afl->max_depth, afl->current_entry, afl->pending_favored,
@@ -422,7 +421,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 void write_queue_stats(afl_state_t *afl) {
 
   FILE *f;
-  u8   *fn = alloc_printf("%s/queue_data", afl->out_dir);
+  u8 *  fn = alloc_printf("%s/queue_data", afl->out_dir);
   if ((f = fopen(fn, "w")) != NULL) {
 
     u32 id;
@@ -858,9 +857,8 @@ void show_stats_normal(afl_state_t *afl) {
   /* Since `total_crashes` does not get reloaded from disk on restart,
     it indicates if we found crashes this round already -> paint red.
     If it's 0, but `saved_crashes` is set from a past run, paint in yellow. */
-  char *crash_color = afl->total_crashes   ? cLRD
-                      : afl->saved_crashes ? cYEL
-                                           : cRST;
+  char *crash_color =
+      afl->total_crashes ? cLRD : afl->saved_crashes ? cYEL : cRST;
 
   /* Lord, forgive me this. */
 
@@ -883,26 +881,26 @@ void show_stats_normal(afl_state_t *afl) {
 
     } else
 
-      /* Subsequent cycles, but we're still making finds. */
-      if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+        /* Subsequent cycles, but we're still making finds. */
+        if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
 
-        strcpy(tmp, cYEL);
+      strcpy(tmp, cYEL);
 
-      } else
+    } else
 
         /* No finds for a long time and no test cases to try. */
         if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
             min_wo_finds > 120) {
 
-          strcpy(tmp, cLGN);
+      strcpy(tmp, cLGN);
 
-          /* Default: cautiously OK to stop? */
+      /* Default: cautiously OK to stop? */
 
-        } else {
+    } else {
 
-          strcpy(tmp, cLBL);
+      strcpy(tmp, cLBL);
 
-        }
+    }
 
   }
 
@@ -1668,9 +1666,8 @@ void show_stats_pizza(afl_state_t *afl) {
   /* Since `total_crashes` does not get reloaded from disk on restart,
     it indicates if we found crashes this round already -> paint red.
     If it's 0, but `saved_crashes` is set from a past run, paint in yellow. */
-  char *crash_color = afl->total_crashes   ? cLRD
-                      : afl->saved_crashes ? cYEL
-                                           : cRST;
+  char *crash_color =
+      afl->total_crashes ? cLRD : afl->saved_crashes ? cYEL : cRST;
 
   /* Lord, forgive me this. */
 
@@ -1693,26 +1690,26 @@ void show_stats_pizza(afl_state_t *afl) {
 
     } else
 
-      /* Subsequent cycles, but we're still making finds. */
-      if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+        /* Subsequent cycles, but we're still making finds. */
+        if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
 
-        strcpy(tmp, cYEL);
+      strcpy(tmp, cYEL);
 
-      } else
+    } else
 
         /* No finds for a long time and no test cases to try. */
         if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
             min_wo_finds > 120) {
 
-          strcpy(tmp, cLGN);
+      strcpy(tmp, cLGN);
 
-          /* Default: cautiously OK to stop? */
+      /* Default: cautiously OK to stop? */
 
-        } else {
+    } else {
 
-          strcpy(tmp, cLBL);
+      strcpy(tmp, cLBL);
 
-        }
+    }
 
   }
 
