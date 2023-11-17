@@ -1321,7 +1321,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     } else {
 
 #ifndef WORD_SIZE_64
-      if (repl <= 0x00ffffffffffffff {
+      if (repl <= 0x00ffffffffffffff) {
 
         new_val = repl << 8;
         u8  scale_len = 0;
