@@ -248,7 +248,7 @@ async def main() -> None:
                 cmds = []
                 for fuzzer_idx, afl in enumerate(fuzzers):
                     name = ["-o", outdir, "-M" if fuzzer_idx == 0 else "-S", str(afl)]
-                    cmds.append(["afl-fuzz", "-i", f"{args.basedir}/in"] + name + ["-s", "123", "V10", "-D", f"./{binary}"])
+                    cmds.append(["afl-fuzz", "-i", f"{args.basedir}/in"] + name + ["-s", "123", "-V10", "-D", f"./{binary}"])
 
                 # Prepare the afl-fuzz tasks, and then block while waiting for them to finish.
                 fuzztasks = [run_command(cmds[cpu]) for cpu in fuzzers]
