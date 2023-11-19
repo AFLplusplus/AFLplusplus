@@ -9,20 +9,22 @@ To achieve this, we use a sample program ("test-instr.c") where each path is
 equally likely, supply it a single seed, and tell AFL to exit after one run of
 deterministic mutations against that seed.
 
-Usage:
+Usage example:
 
 ```
 cd aflplusplus/benchmark
 python3 benchmark.py
- [*] Using 16 fuzzers for multicore fuzzing (use --fuzzers to override)
  [*] Ready, starting benchmark...
  [*] Compiling the test-instr-persist-shmem fuzzing harness for the benchmark to use.
- [*] multicore test-instr-persist-shmem run 1 of 3, execs/s: 846065.81
- [*] multicore test-instr-persist-shmem run 2 of 3, execs/s: 849694.03
- [*] multicore test-instr-persist-shmem run 3 of 3, execs/s: 850757.52
- [*] Average AFL execs/sec for this test across all runs was: 848839.12
- [*] Average total execs/sec for this test across all runs was: 833138.28
- [*] Results have been written to benchmark-results.jsonl
+ [*] singlecore test-instr-persist-shmem run 1 of 2, execs/s: 124883.62
+ [*] singlecore test-instr-persist-shmem run 2 of 2, execs/s: 126704.93
+ [*] Average execs/sec for this test across all runs was: 125794.28
+ [*] Using 16 fuzzers for multicore fuzzing (use --fuzzers to override).
+ [*] multicore test-instr-persist-shmem run 1 of 2, execs/s: 1179822.66
+ [*] multicore test-instr-persist-shmem run 2 of 2, execs/s: 1175584.09
+ [*] Average execs/sec for this test across all runs was: 1177703.38
+ [*] Results have been written to the benchmark-results.jsonl file.
+ [*] Results have been written to the COMPARISON file.
 ```
 
 By default, the script will use a number of parallel fuzzers equal to your
@@ -32,6 +34,9 @@ three times and average the result (change with `--runs`).
 The script will use multicore fuzzing instead of singlecore by default (change
 with `--mode singlecore`) and use a persistent-mode shared memory harness for
 optimal speed (change with `--target test-instr`).
+
+Feel free to submit the resulting line for your CPU added to the COMPARISON
+file back to aflplusplus in a pull request.
 
 Each run writes results to [benchmark-results.jsonl](benchmark-results.jsonl)
 in [JSON Lines](https://jsonlines.org/) format, ready to be pulled in to other
