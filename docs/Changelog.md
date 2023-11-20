@@ -24,7 +24,7 @@
     - fixes support for large map offsets
   - afl-cmin/afl-cmin.bash: prevent unneeded file errors
   - added new tool afl-addseeds that adds new seeds to a running campaign
-  - added benchmark/benchmark.sh if you want to see how good your fuzzing
+  - added benchmark/benchmark.py if you want to see how good your fuzzing
     speed is in comparison to other setups.
 
 
