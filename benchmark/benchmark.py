@@ -64,7 +64,7 @@ env_vars = {
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("-b", "--basedir", help="directory to use for temp files", type=str, default="/tmp/aflpp-benchmark")
 parser.add_argument("-d", "--debug", help="show verbose debugging output", action="store_true")
-parser.add_argument("-r", "--runs", help="how many runs to average results over", type=int, default=2)
+parser.add_argument("-r", "--runs", help="how many runs to average results over", type=int, default=3)
 parser.add_argument("-f", "--fuzzers", help="how many afl-fuzz workers to use", type=int, default=cpu_count)
 parser.add_argument("-m", "--mode", help="pick modes", action="append", default=modes, choices=modes)
 parser.add_argument("-c", "--comment", help="add a comment about your setup", type=str, default="")
