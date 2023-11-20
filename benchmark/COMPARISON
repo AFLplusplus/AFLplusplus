@@ -2,3 +2,4 @@ CPU                                                 | MHz   | threads | singleco
 ====================================================|=======|=========|============|===========|==============|
 Apple Mac Studio M2 Ultra 2023, Linux VM guest      | 3500  | 16      | 163570     | 1157465   | both         |
 Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz            | 4995  | 16      | 120064     | 1168943   | both         |
+12th Gen Intel(R) Core(TM) i7-1270P                 | 4761  | 16      | 149778     | 641219    | both         |
