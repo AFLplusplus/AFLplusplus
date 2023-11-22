@@ -7,6 +7,8 @@
  - cmplog rtn sanity check on fixed length? + no length 1
  - afl-showmap -f support
  - afl-fuzz multicore wrapper script
+ - when trimming then perform crash detection
+ - either -L0 and/or -p mmopt results in zero new coverage
 
 ## Should
 
