@@ -931,7 +931,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
      detected, it will still work to some extent, so we don't check for
      this. */
 
-  if (q->len < 5) { return 0; }
+  if (unlikely(q->len < 5)) { return 0; }
 
   afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
