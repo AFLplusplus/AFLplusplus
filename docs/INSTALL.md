@@ -7,8 +7,15 @@ You can use the [Dockerfile](../Dockerfile) or just pull directly from the
 Docker Hub (for x86_64 and arm64):
 
 ```shell
-docker pull aflplusplus/aflplusplus:
+docker pull aflplusplus/aflplusplus:latest
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+```
+
+Or for convinince to run in the current directory:
+
+```shell
+docker pull aflplusplus/aflplusplus:latest
+docker run -ti -v $(pwd):/src aflplusplus/aflplusplus
 ```
 
 This image is automatically generated when a push to the stable branch happens.
