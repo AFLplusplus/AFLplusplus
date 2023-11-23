@@ -1058,7 +1058,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
-          (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (afl->saved_tmouts >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-20s" bSTG bV "\n", tmp);
 
@@ -1889,7 +1889,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
-          (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (afl->saved_tmouts >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "                    burned pizzas : " cRST "%-20s" bSTG bV
                      "\n",
