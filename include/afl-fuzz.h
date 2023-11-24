@@ -1021,6 +1021,18 @@ struct custom_mutator {
   void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
 
   /**
+   * This method can be used if you want to run some code or scripts each time
+   * AFL++ executes the target with afl-fuzz.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init by this custom mutator
+   * @param buf Buffer containing the test case
+   * @param buf_size Size of the test case
+   */
+  void (*afl_custom_post_run)(void *data, const u8 *buf, size_t buf_size);
+
+  /**
    * Allow for additional analysis (e.g. calling a different tool that does a
    * different kind of coverage and saves this for the custom mutator).
    *
