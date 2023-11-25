@@ -1027,10 +1027,8 @@ struct custom_mutator {
    * (Optional)
    *
    * @param data pointer returned in afl_custom_init by this custom mutator
-   * @param buf Buffer containing the test case
-   * @param buf_size Size of the test case
    */
-  void (*afl_custom_post_run)(void *data, const u8 *buf, size_t buf_size);
+  void (*afl_custom_post_run)(void *data);
 
   /**
    * Allow for additional analysis (e.g. calling a different tool that does a
