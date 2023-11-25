@@ -60,7 +60,7 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
-  
+  post_run(afl);
 
 #ifdef PROFILING
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -1113,3 +1113,20 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
 }
 
+/* Run some code each time scripts each time AFL++ executes the target
+   with afl-fuzz. */
+
+void post_run(afl_state_t *afl) {
+  if (unlikely(afl->custom_mutators_count)) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_post_run) {
+
+          el->afl_custom_post_run(el->data);
+
+        }
+
+      });
+    }
+}
