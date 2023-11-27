@@ -1117,16 +1117,15 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
    with afl-fuzz. */
 
 void post_run(afl_state_t *afl) {
+
   if (unlikely(afl->custom_mutators_count)) {
 
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-        if (el->afl_custom_post_run) {
+      if (el->afl_custom_post_run) { el->afl_custom_post_run(el->data); }
 
-          el->afl_custom_post_run(el->data);
+    });
 
-        }
+  }
 
-      });
-    }
 }
