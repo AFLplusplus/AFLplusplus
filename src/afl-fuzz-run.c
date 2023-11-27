@@ -1113,7 +1113,7 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
 }
 
-/* Run some code each time scripts each time AFL++ executes the target
+/* Run some code or scripts each time AFL++ executes the target program
    with afl-fuzz. */
 
 void post_run(afl_state_t *afl) {
