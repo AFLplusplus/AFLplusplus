@@ -939,9 +939,7 @@ void post_run_py(void *py_mutator) {
 
   py_args = PyTuple_New(0);
   py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)
-          ->py_functions[PY_FUNC_POST_RUN],
-      py_args);
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_RUN], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
