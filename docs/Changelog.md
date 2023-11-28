@@ -13,6 +13,7 @@
     - added scale support to CMPLOG (-l S)
     - added --version and --help command line parameters
     - fixed endless loop when reading malformed dictionaries
+    - new custom mutator function: post_run - thanks to yangzao!
   - afl-whatsup:
     - detect instanced that are starting up and show them as such as not dead
     - now also shows coverage reached
