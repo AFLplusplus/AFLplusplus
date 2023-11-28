@@ -249,6 +249,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_FUZZ_SEND] =
         PyObject_GetAttrString(py_module, "fuzz_send");
+    py_functions[PY_FUNC_POST_RUN] =
+        PyObject_GetAttrString(py_module, "post_run");
     py_functions[PY_FUNC_SPLICE_OPTOUT] =
         PyObject_GetAttrString(py_module, "splice_optout");
     if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
@@ -465,6 +467,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_FUZZ_SEND]) {
 
     mutator->afl_custom_fuzz_send = fuzz_send_py;
+
+  }
+
+  if (py_functions[PY_FUNC_POST_RUN]) {
+
+    mutator->afl_custom_post_run = post_run_py;
 
   }
 
@@ -922,6 +930,28 @@ void fuzz_send_py(void *py_mutator, const u8 *buf, size_t buf_size) {
   Py_DECREF(py_args);
 
   if (py_value != NULL) { Py_DECREF(py_value); }
+
+}
+
+void post_run_py(void *py_mutator) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(0);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_RUN], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+
+    Py_DECREF(py_value);
+
+  } else {
+
+    PyErr_Print();
+    FATAL("Call failed");
+
+  }
 
 }
 

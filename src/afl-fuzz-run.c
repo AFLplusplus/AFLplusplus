@@ -60,6 +60,19 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
+  /* If post_run() function is defined in custom mutator, the function will be
+     called each time after AFL++ executes the target program. */
+  
+  if (unlikely(afl->custom_mutators_count)) {
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_run) { el->afl_custom_post_run(el->data); }
+
+    });
+
+  }
+
 #ifdef PROFILING
   clock_gettime(CLOCK_REALTIME, &spec);
   time_spent_start = (spec.tv_sec * 1000000000) + spec.tv_nsec;
@@ -1110,4 +1123,3 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
-
