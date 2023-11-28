@@ -1906,6 +1906,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 #endif
 
+  if (hshape < 2) { return 0; }
+
   for (i = 0; i < loggeds; ++i) {
 
     struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
@@ -2697,6 +2699,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8                 status = 0, found_one = 0;
 
   hshape = SHAPE_BYTES(h->shape);
+
+  if (hshape < 2) { return 0; }
 
   if (h->hits > CMP_MAP_RTN_H) {
 

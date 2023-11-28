@@ -10,7 +10,9 @@
     - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
       of exiting with an error message
     - allow -S/-M naming up to 50 characters (from 24)
-    - added scale support to CMPLOG (-l S)
+    - CMPLOG:
+      - added scale support (-l S)
+      - skip unhelpful insertions (u8)
     - added --version and --help command line parameters
     - fixed endless loop when reading malformed dictionaries
     - new custom mutator function: post_run - thanks to yangzao!
