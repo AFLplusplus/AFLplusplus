@@ -1379,7 +1379,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         new_vall += (scale_len << 2) + 3;
         ilen = scale_len + 5;
 
-        if (ilen <= its_len) {
+        if (ilen <= its_len && ilen > 1) {
 
           u8 tmpbuf[32];
           memcpy(tmpbuf, buf + idx, ilen);
@@ -1403,7 +1403,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (do_call) {
 
-      if (ilen <= its_len) {
+      if (ilen <= its_len && ilen > 1) {
 
         u8 tmpbuf[32];
         memcpy(tmpbuf, buf + idx, ilen);
@@ -1421,7 +1421,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  // here we add and subract 1 from the value, but only if it is not an
+  // here we add and subtract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
   //       16 = modified float, 32 = modified integer (modified = wont match
