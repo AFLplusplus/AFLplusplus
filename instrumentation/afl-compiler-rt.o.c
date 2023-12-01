@@ -183,7 +183,7 @@ static u8 _is_sancov;
 
 /* Debug? */
 
-static u32 __afl_debug;
+/*static*/ u32 __afl_debug;
 
 /* Already initialized markers */
 
