@@ -101,7 +101,7 @@ u8        *__afl_dictionary;
 u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
-int        __afl_sharedmem_fuzzing __attribute__((weak));
+int        __afl_sharedmem_fuzzing = 1;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
