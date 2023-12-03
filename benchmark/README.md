@@ -32,7 +32,7 @@ python3 benchmark.py
  [*] multicore test-instr-persist-shmem run 2 of 2, execs/s: 1175584.09
  [*] Average execs/sec for this test across all runs was: 1177703.38
  [*] Results have been written to the benchmark-results.jsonl file.
- [*] Results have been written to the COMPARISON file.
+ [*] Results have been written to the COMPARISON.md file.
 ```
 
 By default, the script will use a number of parallel fuzzers equal to your
@@ -43,8 +43,8 @@ The script will use multicore fuzzing instead of singlecore by default (change
 with `--mode singlecore`) and use a persistent-mode shared memory harness for
 optimal speed (change with `--target test-instr`).
 
-Feel free to submit the resulting line for your CPU added to the COMPARISON
-file back to aflplusplus in a pull request.
+Feel free to submit the resulting line for your CPU added to the COMPARISON.md
+and benchmark-results.jsonl files back to AFL++ in a pull request.
 
 Each run writes results to [benchmark-results.jsonl](benchmark-results.jsonl)
 in [JSON Lines](https://jsonlines.org/) format, ready to be pulled in to other

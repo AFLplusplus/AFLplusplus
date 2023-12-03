@@ -186,14 +186,14 @@ async def save_benchmark_results() -> None:
         json.dump(asdict(results), jsonfile, sort_keys=True)
         jsonfile.write("\n")
         print(blue(f" [*] Results have been written to the {jsonfile.name} file."))
-    with open("COMPARISON", "r+") as comparisonfile:
+    with open("COMPARISON.md", "r+") as comparisonfile:
         described_config = await describe_afl_config()
         aflconfig = described_config.ljust(12)
         if results.hardware is None:
             return
         cpu_model = results.hardware.cpu_model.ljust(51)
         if cpu_model in comparisonfile.read():
-            print(blue(f" [*] Results have not been written to the COMPARISON file; this CPU is already present."))
+            print(blue(f" [*] Results have not been written to the COMPARISON.md file; this CPU is already present."))
             return
         cpu_mhz = str(round(results.hardware.cpu_fastest_core_mhz)).ljust(5)
         if not "test-instr-persist-shmem" in results.targets or \
@@ -206,8 +206,8 @@ async def save_benchmark_results() -> None:
         multi = str(round(results.targets["test-instr-persist-shmem"]["multicore"].execs_per_sec)).ljust(9)
         cores = str(args.fuzzers).ljust(7)
         comparisonfile.write(f"{cpu_model} | {cpu_mhz} | {cores} | {single} | {multi} | {aflconfig} |\n")
-        print(blue(f" [*] Results have been written to the COMPARISON file."))
-    with open("COMPARISON", "r") as comparisonfile:
+        print(blue(f" [*] Results have been written to the COMPARISON.md file."))
+    with open("COMPARISON.md", "r") as comparisonfile:
         print(comparisonfile.read())
 
 
