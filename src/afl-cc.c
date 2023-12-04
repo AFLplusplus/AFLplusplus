@@ -1150,16 +1150,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     // in case LLVM is installed not via a package manager or "make install"
     // e.g. compiled download or compiled from github then its ./lib directory
     // might not be in the search path. Add it if so.
-    u8 *libdir = strdup(LLVM_LIBDIR);
+    const char *libdir = LLVM_LIBDIR;
     if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
         strncmp(libdir, "/lib", 4)) {
 
-      cc_params[cc_par_cnt++] = "-Wl,-rpath";
-      cc_params[cc_par_cnt++] = libdir;
-
-    } else {
-
-      free(libdir);
+      u8 *libdir_opt = strdup("-Wl,-rpath=" LLVM_LIBDIR);
+      cc_params[cc_par_cnt++] = libdir_opt;
 
     }
 
