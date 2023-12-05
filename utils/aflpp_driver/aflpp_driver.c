@@ -279,7 +279,9 @@ __attribute__((weak)) int main(int argc, char **argv) {
 
   */
 
-  if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
+  if (argc < 2 || strncmp(argv[1], "-h", 2) == 0 ||
+      strcmp(argv[1], "--help") == 0) {
+
     printf(
         "============================== INFO ================================\n"
         "This binary is built for afl++.\n"
@@ -296,6 +298,14 @@ __attribute__((weak)) int main(int argc, char **argv) {
         "option\n"
         "===================================================================\n",
         argv[0], argv[0]);
+    if (argc == 2 &&
+        (strncmp(argv[1], "-h", 2) == 0 || strcmp(argv[1], "--help") == 0)) {
+
+      exit(0);
+
+    }
+
+  }
 
   return LLVMFuzzerRunDriver(&argc, &argv, LLVMFuzzerTestOneInput);
 
