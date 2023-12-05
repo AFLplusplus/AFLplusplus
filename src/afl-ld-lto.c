@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
   if (getenv("AFL_LD_PASSTHROUGH") != NULL) passthrough = 1;
   if (getenv("AFL_REAL_LD") != NULL) real_ld = getenv("AFL_REAL_LD");
 
-  if (!afl_path || !*afl_path) afl_path = "/usr/local/lib/afl";
+  if (!afl_path || !*afl_path) afl_path = AFL_PATH;
 
   setenv("AFL_LD_CALLER", "1", 1);
 

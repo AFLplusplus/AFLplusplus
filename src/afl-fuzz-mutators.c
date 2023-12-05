@@ -397,6 +397,18 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
+  /* "afl_custom_post_run", optional */
+  mutator->afl_custom_post_run = dlsym(dh, "afl_custom_post_run");
+  if (!mutator->afl_custom_post_run) {
+
+    ACTF("optional symbol 'afl_custom_post_run' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_post_run'.");
+
+  }
+
   /* "afl_custom_queue_new_entry", optional */
   mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
   if (!mutator->afl_custom_queue_new_entry) {
