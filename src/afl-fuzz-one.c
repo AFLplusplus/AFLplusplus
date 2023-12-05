@@ -1723,7 +1723,7 @@ skip_interest:
 
   for (i = 0; i <= (u32)len; ++i) {
 
-    if (!skip_eff_map[i]) continue;
+    if (!skip_eff_map[i % len]) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
