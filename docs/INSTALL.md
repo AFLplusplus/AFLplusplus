@@ -11,13 +11,6 @@ docker pull aflplusplus/aflplusplus:latest
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
-Or for convinince to run in the current directory:
-
-```shell
-docker pull aflplusplus/aflplusplus:latest
-docker run -ti -v $(pwd):/src aflplusplus/aflplusplus
-```
-
 This image is automatically generated when a push to the stable branch happens.
 You will find your target source code in `/src` in the container.
 
