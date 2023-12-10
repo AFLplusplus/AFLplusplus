@@ -2313,7 +2313,7 @@ int main(int argc, char **argv, char **envp) {
             "0x10000\n"
             "  AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
             "functions\n"
-            "    into this file\n"
+            "    into this file (LTO mode)\n"
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
