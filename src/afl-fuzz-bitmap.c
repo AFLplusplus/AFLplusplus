@@ -465,50 +465,45 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0,
-     need_hash = 1;
+  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0;
   s32 fd;
   u64 cksum = 0;
 
-  /* Update path frequency. */
-
-  /* Generating a hash on every input is super expensive. Bad idea and should
-     only be used for special schedules */
-  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
-
-    classify_counts(&afl->fsrv);
-    classified = 1;
-    need_hash = 0;
-
-    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-
-    /* Saturated increment */
-    if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
-      afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
-
-  }
-
   if (likely(fault == afl->crash_mode)) {
 
-    /* Keep only if there are new bits in the map, add to queue for
-       future fuzzing, etc. */
+    new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
 
-    if (likely(classified)) {
+    if (unlikely(new_bits)) {
 
-      new_bits = has_new_bits(afl, afl->virgin_bits);
+      classified = 1;
 
     } else {
 
-      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+      // Update path frequency.
+      if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-      if (unlikely(new_bits)) { classified = 1; }
+        // We would need classify_counts(&afl->fsrv); but it is expensive
+        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-    }
+        // Saturated increment
+        if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
+          afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
 
-    if (likely(!new_bits)) {
+      }
 
       if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
       return 0;
+
+    }
+
+    // Update path frequency.
+    if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+      // Saturated increment
+      if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
+        afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
 
     }
 
@@ -582,23 +577,6 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     }
 
-    if (unlikely(need_hash && new_bits)) {
-
-      /* due to classify counts we have to recalculate the checksum */
-      afl->queue_top->exec_cksum =
-          hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      need_hash = 0;
-
-    }
-
-    /* For AFLFast schedules we update the new queue entry */
-    if (likely(cksum)) {
-
-      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
-      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
-
-    }
-
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
@@ -634,12 +612,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (unlikely(!classified)) {
-
-          classify_counts(&afl->fsrv);
-          classified = 1;
-
-        }
+        if (likely(!classified)) { classify_counts(&afl->fsrv); }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
@@ -697,7 +670,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         }
 
         new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
-        classify_counts(&afl->fsrv);
+        if (likely(!classified)) { classify_counts(&afl->fsrv); }
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if
@@ -759,12 +732,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (unlikely(!classified)) {
-
-          classify_counts(&afl->fsrv);
-          classified = 1;
-
-        }
+        if (likely(!classified)) { classify_counts(&afl->fsrv); }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
