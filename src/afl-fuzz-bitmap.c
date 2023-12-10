@@ -462,7 +462,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
       // We would need classify_counts(&afl->fsrv); but it is expensive
-      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       // Saturated increment
       if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
