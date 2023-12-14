@@ -292,6 +292,7 @@ __attribute__((weak)) int main(int argc, char **argv) {
         "afl-fuzz will run N iterations before re-spawning the process "
         "(default: "
         "INT_MAX)\n"
+        "You can also use AFL_FUZZER_LOOPCOUNT to set N\n"
         "For stdin input processing, pass '-' as single command line option.\n"
         "For file input processing, pass '@@' as single command line option.\n"
         "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
@@ -376,6 +377,12 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
   } else {
 
     N = INT_MAX;
+
+  }
+
+  if (getenv("AFL_FUZZER_LOOPCOUNT")) {
+
+    N = atoi(getenv("AFL_FUZZER_LOOPCOUNT"));
 
   }
 
