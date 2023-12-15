@@ -395,12 +395,16 @@ static void process_params(u32 argc, char **argv) {
 
   }
 
+  // reset
+  have_instr_list = 0;
+  have_c = 0;
+
   if (lto_mode && argc > 1) {
 
     u32 idx;
     for (idx = 1; idx < argc; idx++) {
 
-      if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+      if (!strncasecmp(argv[idx], "-fpic", 5)) { have_pic = 1; }
 
     }
 
@@ -688,6 +692,18 @@ static void process_params(u32 argc, char **argv) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   cc_params = ck_alloc(MAX_PARAMS_NUM * sizeof(u8 *));
+
+  for (u32 c = 1; c < argc; ++c) {
+
+    if (!strcmp(argv[c], "-c")) have_c = 1;
+    if (!strncmp(argv[c], "-fsanitize-coverage-", 20) &&
+        strstr(argv[c], "list=")) {
+
+      have_instr_list = 1;
+
+    }
+
+  }
 
   if (lto_mode) {
 
@@ -1125,24 +1141,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
-    if (lto_mode && argc > 1) {
-
-      u32 idx;
-      for (idx = 1; idx < argc; idx++) {
-
-        if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
-
-      }
-
-    }
-
   }
 
   /* Inspect the command line parameters. */
 
   process_params(argc, argv);
 
-  if (!have_pic) { cc_params[cc_par_cnt++] = "-fPIC"; }
+  if (!have_pic) {
+
+    cc_params[cc_par_cnt++] = "-fPIC";
+    have_pic = 1;
+
+  }
 
   if (compiler_mode != GCC_PLUGIN && compiler_mode != GCC &&
       !getenv("AFL_LLVM_NO_RPATH")) {
@@ -2303,7 +2313,7 @@ int main(int argc, char **argv, char **envp) {
             "0x10000\n"
             "  AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
             "functions\n"
-            "    into this file\n"
+            "    into this file (LTO mode)\n"
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
