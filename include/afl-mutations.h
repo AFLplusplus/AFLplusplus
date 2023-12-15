@@ -2456,14 +2456,14 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         }
 
-        char buf[20];
-        snprintf(buf, sizeof(buf), "%" PRId64, val);
+        char numbuf[32];
+        snprintf(numbuf, sizeof(buf), "%" PRId64, val);
         u32 old_len = off2 - off;
-        u32 new_len = strlen(buf);
+        u32 new_len = strlen(numbuf);
 
         if (old_len == new_len) {
 
-          memcpy(buf + off, buf, new_len);
+          memcpy(buf + off, numbuf, new_len);
 
         } else {
 
@@ -2473,7 +2473,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
           /* Inserted part */
 
-          memcpy(tmp_buf + off, buf, new_len);
+          memcpy(tmp_buf + off, numbuf, new_len);
 
           /* Tail */
           memcpy(tmp_buf + off + new_len, buf + off2, len - off2);
@@ -2509,9 +2509,9 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         u64  val = rand_next(afl);
-        char buf[20];
-        snprintf(buf, sizeof(buf), "%llu", val);
-        memcpy(buf + pos, buf, len);
+        char numbuf[32];
+        snprintf(numbuf, sizeof(numbuf), "%llu", val);
+        memcpy(buf + pos, numbuf, len);
 
         break;
 

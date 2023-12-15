@@ -5,6 +5,7 @@
 
 ### Version ++4.09a (dev)
   - afl-fuzz:
+    - fixed the new mutation implementation for two bugs
     - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
       before terminating.
     - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
@@ -23,6 +24,8 @@
     - option -n will not use color in the output
   - instrumentation:
     - fix for a few string compare transform functions for LAF
+    - we are instrumenting __cxx internal functions again. this might break
+      a few targets, please report if so.
   - frida_mode:
     - fixes support for large map offsets
   - support for AFL_FUZZER_LOOPCOUNT for afl.rs and LLVMFuzzerTestOneInput
