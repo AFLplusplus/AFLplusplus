@@ -250,11 +250,13 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #endif
 
   u64   cur_time = get_cur_time();
-  u8    fn[PATH_MAX];
+  u8    fn_tmp[PATH_MAX];
+  u8    fn_final[PATH_MAX];
   FILE *f;
 
-  snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
-  f = create_ffile(fn);
+  snprintf(fn_tmp, PATH_MAX, "%s/.fuzzer_stats_tmp", afl->out_dir);
+  snprintf(fn_final, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
+  f = create_ffile(fn_tmp);
 
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
@@ -286,6 +288,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
+  u64 runtime = afl->prev_run_time + cur_time - afl->start_time;
+  if (!runtime) { runtime = 1; }
 
   fprintf(
       f,
@@ -334,17 +338,14 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
       "command_line      : %s\n",
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
-      (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
+      runtime / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
       afl->longest_find_time > cur_time - afl->last_find_time
           ? afl->longest_find_time / 1000
           : ((afl->start_time == 0 || afl->last_find_time == 0)
                  ? 0
                  : (cur_time - afl->last_find_time) / 1000),
-      afl->fsrv.total_execs,
-      afl->fsrv.total_execs /
-          ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
-           1000),
+      afl->fsrv.total_execs, afl->fsrv.total_execs / ((double)(runtime) / 1000),
       afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
       afl->max_depth, afl->current_entry, afl->pending_favored,
@@ -412,6 +413,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   }
 
   fclose(f);
+  rename(fn_tmp, fn_final);
 
 }
 
@@ -778,10 +780,29 @@ void show_stats_normal(afl_state_t *afl) {
   if (unlikely(!banner[0])) {
 
     char *si = "";
+    char *fuzzer_name;
+
     if (afl->sync_id) { si = afl->sync_id; }
     memset(banner, 0, sizeof(banner));
-    banner_len = (afl->crash_mode ? 20 : 18) + strlen(VERSION) + strlen(si) +
-                 strlen(afl->power_name) + 4 + 6;
+
+    banner_len = strlen(VERSION) + strlen(si) + strlen(afl->power_name) + 4 + 6;
+
+    if (afl->crash_mode) {
+
+      fuzzer_name = "peruvian were-rabbit";
+
+    } else {
+
+      fuzzer_name = "american fuzzy lop";
+      if (banner_len + strlen(fuzzer_name) + strlen(afl->use_banner) > 75) {
+
+        fuzzer_name = "AFL";
+
+      }
+
+    }
+
+    banner_len += strlen(fuzzer_name);
 
     if (strlen(afl->use_banner) + banner_len > 75) {
 
@@ -798,19 +819,18 @@ void show_stats_normal(afl_state_t *afl) {
     if (afl->fsrv.nyx_mode) {
 
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-               afl->crash_mode ? cPIN "peruvian were-rabbit"
-                               : cYEL "american fuzzy lop",
-               si, afl->use_banner, afl->power_name);
+               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN
+               "[%s] - Nyx",
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
+               afl->power_name);
 
     } else {
 
 #endif
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
-               afl->crash_mode ? cPIN "peruvian were-rabbit"
-                               : cYEL "american fuzzy lop",
-               si, afl->use_banner, afl->power_name);
+               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
+               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
+               afl->power_name);
 
 #ifdef __linux__
 
@@ -1039,7 +1059,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
-          (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (afl->saved_tmouts >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-20s" bSTG bV "\n", tmp);
 
@@ -1871,7 +1891,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
-          (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (afl->saved_tmouts >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "                    burned pizzas : " cRST "%-20s" bSTG bV
                      "\n",

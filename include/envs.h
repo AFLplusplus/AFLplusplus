@@ -59,6 +59,7 @@ static char *afl_environment_variables[] = {
     "AFL_EXIT_ON_TIME",
     "AFL_EXIT_ON_SEED_ISSUES",
     "AFL_FAST_CAL",
+    "AFL_FINAL_SYNC",
     "AFL_FORCE_UI",
     "AFL_FRIDA_DEBUG_MAPS",
     "AFL_FRIDA_DRIVER_NO_HOOK",
@@ -112,6 +113,7 @@ static char *afl_environment_variables[] = {
     "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
     "AFL_IGNORE_PROBLEMS",
     "AFL_IGNORE_PROBLEMS_COVERAGE",
+    "AFL_IGNORE_SEED_PROBLEMS",
     "AFL_IGNORE_TIMEOUTS",
     "AFL_IGNORE_UNKNOWN_ENVS",
     "AFL_IMPORT_FIRST",
@@ -160,6 +162,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_MAP_DYNAMIC",
     "AFL_LLVM_NGRAM_SIZE",
     "AFL_NGRAM_SIZE",
+    "AFL_LLVM_NO_RPATH",
     "AFL_LLVM_NOT_ZERO",
     "AFL_LLVM_INSTRUMENT_FILE",
     "AFL_LLVM_THREADSAFE_INST",
@@ -169,6 +172,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_LTO_DONTWRITEID",
     "AFL_LLVM_LTO_SKIPINIT"
     "AFL_LLVM_LTO_STARTID",
+    "AFL_FUZZER_LOOPCOUNT",
     "AFL_NO_ARITH",
     "AFL_NO_AUTODICT",
     "AFL_NO_BUILTIN",
@@ -177,6 +181,7 @@ static char *afl_environment_variables[] = {
     "AFL_NO_COLOUR",
 #endif
     "AFL_NO_CPU_RED",
+    "AFL_NO_CFG_FUZZING",  // afl.rs rust crate option
     "AFL_NO_CRASH_README",
     "AFL_NO_FORKSRV",
     "AFL_NO_UI",

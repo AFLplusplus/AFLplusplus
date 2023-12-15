@@ -197,6 +197,7 @@ typedef struct afl_forkserver {
   u32                   nyx_id;          /* nyx runner id (0 -> master)      */
   u32                   nyx_bind_cpu_id; /* nyx runner cpu id                */
   char                 *nyx_aux_string;
+  u32                   nyx_aux_string_len;
   bool                  nyx_use_tmp_workdir;
   char                 *nyx_tmp_workdir_path;
   s32                   nyx_log_fd;

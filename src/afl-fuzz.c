@@ -176,6 +176,7 @@ static void usage(u8 *argv0, int more_help) {
       "                  pacemaker mode (minutes of no new finds). 0 = "
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
+      "                  Note: this option is usually not very effective\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
@@ -265,6 +266,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
       "AFL_EXIT_ON_TIME: exit when no new coverage is found within the specified time\n"
+      "AFL_EXIT_ON_SEED_ISSUES: exit on any kind of seed issues\n"
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60\n"
       "                      minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
@@ -275,6 +277,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
       "AFL_IGNORE_PROBLEMS_COVERAGE: if set in addition to AFL_IGNORE_PROBLEMS - also\n"
       "                              ignore those libs for coverage\n"
+      "AFL_IGNORE_SEED_PROBLEMS: skip over crashes and timeouts in the seeds instead of\n"
+      "                          exiting\n"
       "AFL_IGNORE_TIMEOUTS: do not process or save any timeouts\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
@@ -299,6 +303,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
+      "AFL_NO_WARN_INSTABILITY: no warn about instability issues on startup calibration\n"
       "AFL_NO_UI: switch status screen off\n"
       "AFL_NYX_AUX_SIZE: size of the Nyx auxiliary buffer. Must be a multiple of 4096.\n"
       "                  Increase this value in case the crash reports are truncated.\n"
@@ -328,6 +333,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
+      "AFL_FINAL_SYNC: sync a final time when exiting (will delay the exit!)\n"
       "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
@@ -373,6 +379,10 @@ static void usage(u8 *argv0, int more_help) {
 
 #ifdef NO_SPLICING
   SAYF("Compiled with NO_SPLICING.\n");
+#endif
+
+#ifdef FANCY_BOXES_NO_UTF
+  SAYF("Compiled without UTF-8 support for line rendering in status screen.\n");
 #endif
 
 #ifdef PROFILING
@@ -476,6 +486,22 @@ int main(int argc, char **argv_orig, char **envp) {
   struct timeval  tv;
   struct timezone tz;
 
+  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
+
+  if (argc > 1 && strcmp(argv_orig[1], "--version") == 0) {
+
+    printf("afl-fuzz" VERSION "\n");
+    exit(0);
+
+  }
+
+  if (argc > 1 && strcmp(argv_orig[1], "--help") == 0) {
+
+    usage(argv_orig[0], 1);
+    exit(0);
+
+  }
+
   #if defined USE_COLOR && defined ALWAYS_COLORED
   if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
 
@@ -505,8 +531,6 @@ int main(int argc, char **argv_orig, char **envp) {
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a large online community\n");
 
-  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
-
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
@@ -529,6 +553,10 @@ int main(int argc, char **argv_orig, char **envp) {
         } else if (!stricmp(optarg, "bin") || !stricmp(optarg, "binary")) {
 
           afl->input_mode = 2;
+
+        } else if (!stricmp(optarg, "def") || !stricmp(optarg, "default")) {
+
+          afl->input_mode = 0;
 
         } else {
 
@@ -1138,6 +1166,10 @@ int main(int argc, char **argv_orig, char **envp) {
             case 'A':
               afl->cmplog_enable_arith = 1;
               break;
+            case 's':
+            case 'S':
+              afl->cmplog_enable_scale = 1;
+              break;
             case 't':
             case 'T':
               afl->cmplog_enable_transform = 1;
@@ -1332,6 +1364,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->sync_id && strcmp(afl->sync_id, "addseeds") == 0) {
+
+    FATAL("-M/-S name 'addseeds' is a reserved name, choose something else");
+
+  }
+
   if (afl->is_main_node == 1 && afl->schedule != FAST &&
       afl->schedule != EXPLORE) {
 
@@ -1486,9 +1524,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->sync_id) {
 
-    if (strlen(afl->sync_id) > 24) {
+    if (strlen(afl->sync_id) > 50) {
 
-      FATAL("sync_id max length is 24 characters");
+      FATAL("sync_id max length is 50 characters");
 
     }
 
@@ -2363,7 +2401,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    ACTF("skipping initial seed calibration due option override");
+    ACTF("skipping initial seed calibration due option override!");
     usleep(1000);
 
   }
@@ -2701,22 +2739,52 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (unlikely(prev_queued_items < afl->queued_items ||
-                     afl->reinit_table)) {
+        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
 
-          // we have new queue entries since the last run, recreate alias table
-          prev_queued_items = afl->queued_items;
-          create_alias_table(afl);
+          afl->current_entry = afl->smallest_favored;
+
+          /*
+
+                    } else {
+
+                      for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
+             {
+
+                        if (unlikely(afl->queue_buf[iter]->favored &&
+                                     !afl->queue_buf[iter]->was_fuzzed)) {
+
+                          afl->current_entry = iter;
+                          break;
+
+                        }
+
+                      }
+
+          */
+
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+        } else {
+
+          if (unlikely(prev_queued_items < afl->queued_items ||
+                       afl->reinit_table)) {
+
+            // we have new queue entries since the last run, recreate alias
+            // table
+            prev_queued_items = afl->queued_items;
+            create_alias_table(afl);
+
+          }
+
+          do {
+
+            afl->current_entry = select_next_queue_entry(afl);
+
+          } while (unlikely(afl->current_entry >= afl->queued_items));
+
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
 
         }
-
-        do {
-
-          afl->current_entry = select_next_queue_entry(afl);
-
-        } while (unlikely(afl->current_entry >= afl->queued_items));
-
-        afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
 
@@ -2782,7 +2850,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0 &&
                !afl->non_instrumented_mode) &&
-        unlikely(cur_time > afl->last_find_time + afl->switch_fuzz_mode)) {
+        unlikely(cur_time > (likely(afl->last_find_time) ? afl->last_find_time
+                                                         : afl->start_time) +
+                                afl->switch_fuzz_mode)) {
 
       if (afl->afl_env.afl_no_ui) {
 
@@ -2898,6 +2968,16 @@ stop_fuzzing:
        time_spent_working / 1000000,
        time_spent_working / afl->fsrv.total_execs);
   #endif
+
+  if (afl->afl_env.afl_final_sync) {
+
+    SAYF(cYEL "[!] " cRST
+              "\nPerforming final sync, this make take some time ...\n");
+    sync_fuzzers(afl);
+    write_bitmap(afl);
+    SAYF(cYEL "[!] " cRST "Done!\n\n");
+
+  }
 
   if (afl->is_main_node) {
 

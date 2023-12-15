@@ -7,7 +7,7 @@ You can use the [Dockerfile](../Dockerfile) or just pull directly from the
 Docker Hub (for x86_64 and arm64):
 
 ```shell
-docker pull aflplusplus/aflplusplus:
+docker pull aflplusplus/aflplusplus:latest
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
@@ -87,6 +87,7 @@ These build options exist:
 * INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
+* NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)
 * NO_UNICORN_ARM64 - disable building unicorn on arm64

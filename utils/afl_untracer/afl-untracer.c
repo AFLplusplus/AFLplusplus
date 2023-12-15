@@ -53,7 +53,9 @@
 #include <pthread.h>
 
 #include <sys/mman.h>
-#include <sys/shm.h>
+#if !defined(__HAIKU__)
+  #include <sys/shm.h>
+#endif
 #include <sys/wait.h>
 #include <sys/types.h>
 
@@ -66,6 +68,9 @@
   #include <sys/sysctl.h>
   #include <sys/user.h>
   #include <sys/procctl.h>
+#elif defined(__HAIKU__)
+  #include <kernel/OS.h>
+  #include <kernel/image.h>
 #else
   #error "Unsupported platform"
 #endif
@@ -229,6 +234,30 @@ void read_library_information(void) {
     }
 
     start += size;
+
+  }
+
+#elif defined(__HAIKU__)
+  image_info ii;
+  int32      c = 0;
+
+  while (get_next_image_info(0, &c, &ii) == B_OK) {
+
+    liblist[liblist_cnt].name = (u8 *)strdup(ii.name);
+    liblist[liblist_cnt].addr_start = (u64)ii.text;
+    liblist[liblist_cnt].addr_end = (u64)((char *)ii.text + ii.text_size);
+
+    if (debug) {
+
+      fprintf(stderr, "%s:%lx (%lx-%lx)\n", liblist[liblist_cnt].name,
+              (unsigned long)(liblist[liblist_cnt].addr_end -
+                              liblist[liblist_cnt].addr_start),
+              (unsigned long)liblist[liblist_cnt].addr_start,
+              (unsigned long)(liblist[liblist_cnt].addr_end - 1));
+
+    }
+
+    liblist_cnt++;
 
   }
 
@@ -655,6 +684,9 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 #elif defined(__FreeBSD__) && defined(__LP64__)
   ctx->uc_mcontext.mc_rip -= 1;
   addr = ctx->uc_mcontext.mc_rip;
+#elif defined(__HAIKU__) && defined(__x86_64__)
+  ctx->uc_mcontext.rip -= 1;
+  addr = ctx->uc_mcontext.rip;
 #else
   #error "Unsupported platform"
 #endif

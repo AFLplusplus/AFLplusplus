@@ -317,7 +317,7 @@ void parse_fsanitize(char *string) {
 
   char *p, *ptr = string + strlen("-fsanitize=");
   char *new = malloc(strlen(string) + 1);
-  char *tmp = malloc(strlen(ptr));
+  char *tmp = malloc(strlen(ptr) + 1);
   u32   count = 0, len, ende = 0;
 
   if (!new || !tmp) { FATAL("could not acquire memory"); }
@@ -395,12 +395,16 @@ static void process_params(u32 argc, char **argv) {
 
   }
 
+  // reset
+  have_instr_list = 0;
+  have_c = 0;
+
   if (lto_mode && argc > 1) {
 
     u32 idx;
     for (idx = 1; idx < argc; idx++) {
 
-      if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+      if (!strncasecmp(argv[idx], "-fpic", 5)) { have_pic = 1; }
 
     }
 
@@ -688,6 +692,18 @@ static void process_params(u32 argc, char **argv) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   cc_params = ck_alloc(MAX_PARAMS_NUM * sizeof(u8 *));
+
+  for (u32 c = 1; c < argc; ++c) {
+
+    if (!strcmp(argv[c], "-c")) have_c = 1;
+    if (!strncmp(argv[c], "-fsanitize-coverage-", 20) &&
+        strstr(argv[c], "list=")) {
+
+      have_instr_list = 1;
+
+    }
+
+  }
 
   if (lto_mode) {
 
@@ -1125,38 +1141,33 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
-    if (lto_mode && argc > 1) {
-
-      u32 idx;
-      for (idx = 1; idx < argc; idx++) {
-
-        if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
-
-      }
-
-    }
-
   }
 
   /* Inspect the command line parameters. */
 
   process_params(argc, argv);
 
-  if (!have_pic) { cc_params[cc_par_cnt++] = "-fPIC"; }
+  if (!have_pic) {
 
-  // in case LLVM is installed not via a package manager or "make install"
-  // e.g. compiled download or compiled from github then its ./lib directory
-  // might not be in the search path. Add it if so.
-  u8 *libdir = strdup(LLVM_LIBDIR);
-  if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
-      strncmp(libdir, "/lib", 4)) {
+    cc_params[cc_par_cnt++] = "-fPIC";
+    have_pic = 1;
 
-    cc_params[cc_par_cnt++] = "-Wl,-rpath";
-    cc_params[cc_par_cnt++] = libdir;
+  }
 
-  } else {
+  if (compiler_mode != GCC_PLUGIN && compiler_mode != GCC &&
+      !getenv("AFL_LLVM_NO_RPATH")) {
 
-    free(libdir);
+    // in case LLVM is installed not via a package manager or "make install"
+    // e.g. compiled download or compiled from github then its ./lib directory
+    // might not be in the search path. Add it if so.
+    const char *libdir = LLVM_LIBDIR;
+    if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
+        strncmp(libdir, "/lib", 4)) {
+
+      u8 *libdir_opt = strdup("-Wl,-rpath=" LLVM_LIBDIR);
+      cc_params[cc_par_cnt++] = libdir_opt;
+
+    }
 
   }
 
@@ -2118,6 +2129,8 @@ int main(int argc, char **argv, char **envp) {
         "  [LLVM] LLVM:             %s%s\n"
         "      PCGUARD              %s      yes yes     module yes yes    "
         "yes\n"
+        "      NATIVE               AVAILABLE      no  yes     no     no  "
+        "part.  yes\n"
         "      CLASSIC              %s      no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
@@ -2137,10 +2150,10 @@ int main(int argc, char **argv, char **envp) {
         "no\n\n",
         have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
+        have_llvm ? "AVAILABLE" : "unavailable!",
+        have_llvm ? "AVAILABLE" : "unavailable!",
         have_lto ? "AVAILABLE" : "unavailable!",
         compiler_mode == LTO ? " [SELECTED]" : "",
-        LLVM_MAJOR >= 7 ? "DEFAULT" : "       ",
-        LLVM_MAJOR >= 7 ? "       " : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
         have_gcc ? "AVAILABLE" : "unavailable!",
@@ -2287,7 +2300,9 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CTX: use full context sensitive coverage (for "
             "CLASSIC)\n"
             "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
-            "CLASSIC)\n");
+            "CLASSIC)\n"
+            "  AFL_LLVM_NO_RPATH: disable rpath setting for custom LLVM "
+            "locations\n");
 
 #ifdef AFL_CLANG_FLTO
       if (have_lto)
@@ -2298,7 +2313,7 @@ int main(int argc, char **argv, char **envp) {
             "0x10000\n"
             "  AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
             "functions\n"
-            "    into this file\n"
+            "    into this file (LTO mode)\n"
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "

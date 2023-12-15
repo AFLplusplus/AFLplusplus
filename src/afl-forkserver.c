@@ -272,6 +272,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
   fsrv_to->child_kill_signal = from->child_kill_signal;
+  fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
 
   // These are forkserver specific.
@@ -614,14 +615,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (getenv("AFL_NYX_AUX_SIZE") != NULL) {
 
+      fsrv->nyx_aux_string_len = atoi(getenv("AFL_NYX_AUX_SIZE"));
+
       if (fsrv->nyx_handlers->nyx_config_set_aux_buffer_size(
-              nyx_config, atoi(getenv("AFL_NYX_AUX_SIZE"))) != 1) {
+              nyx_config, fsrv->nyx_aux_string_len) != 1) {
 
         NYX_PRE_FATAL(fsrv,
                       "Invalid AFL_NYX_AUX_SIZE value set (must be a multiple "
                       "of 4096) ...");
 
       }
+
+    } else {
+
+      fsrv->nyx_aux_string_len = 0x1000;
 
     }
 
@@ -672,8 +679,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    fsrv->nyx_runner =
-        fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
+    fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_id);
 
     ck_free(workdir_path);
     ck_free(outdir_path_absolute);
@@ -696,8 +702,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     fsrv->nyx_handlers->nyx_option_set_timeout(fsrv->nyx_runner, 2, 0);
     fsrv->nyx_handlers->nyx_option_apply(fsrv->nyx_runner);
 
-    fsrv->nyx_aux_string = malloc(0x1000);
-    memset(fsrv->nyx_aux_string, 0, 0x1000);
+    fsrv->nyx_aux_string = malloc(fsrv->nyx_aux_string_len);
+    memset(fsrv->nyx_aux_string, 0, fsrv->nyx_aux_string_len);
 
     /* dry run */
     fsrv->nyx_handlers->nyx_set_afl_input(fsrv->nyx_runner, "INIT", 4);

@@ -44,8 +44,10 @@ static gboolean lib_find_exe(const GumModuleDetails *details,
 
   lib_details_t *lib_details = (lib_details_t *)user_data;
 
-  memcpy(lib_details->name, details->name, PATH_MAX);
-  memcpy(lib_details->path, details->path, PATH_MAX);
+  strncpy(lib_details->name, details->name, PATH_MAX);
+  strncpy(lib_details->path, details->path, PATH_MAX);
+  lib_details->name[PATH_MAX] = '\0';
+  lib_details->path[PATH_MAX] = '\0';
   lib_details->base_address = details->range->base_address;
   lib_details->size = details->range->size;
   return FALSE;

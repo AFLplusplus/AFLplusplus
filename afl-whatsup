@@ -18,64 +18,98 @@
 # instances of afl-fuzz.
 #
 
-echo "$0 status check tool for afl-fuzz by Michal Zalewski"
-echo
 test "$1" = "-h" -o "$1" = "-hh" && {
+  echo "$0 status check tool for afl-fuzz by Michal Zalewski"
+  echo
   echo "Usage: $0 [-s] [-d] afl_output_directory"
   echo
   echo Options:
-  echo "  -s  -  skip details and output summary results only"
   echo "  -d  -  include dead fuzzer stats"
+  echo "  -m  -  just show minimal stats"
+  echo "  -n  -  no color output"
+  echo "  -s  -  skip details and output summary results only"
   echo
   exit 1
 }
 
-unset SUMMARY_ONLY
+unset MINIMAL_ONLY
+unset NO_COLOR
 unset PROCESS_DEAD
+unset SUMMARY_ONLY
+unset RED
+unset GREEN
+unset YELLOW
+unset BLUE
+unset NC
+unset RESET
 
-while [ "$1" = "-s" -o "$1" = "-d" ]; do
+if [ -z "$TERM" ]; then export TERM=vt220; fi
 
-  if [ "$1" = "-s" ]; then
-    SUMMARY_ONLY=1
-  fi
-
+while [ "$1" = "-d" -o "$1" = "-m"  -o "$1" = "-n"  -o "$1" = "-s" ]; do
+  
   if [ "$1" = "-d" ]; then
     PROCESS_DEAD=1
   fi
   
+  if [ "$1" = "-m" ]; then
+    MINIMAL_ONLY=1
+  fi
+  
+  if [ "$1" = "-n" ]; then
+    NO_COLOR=1
+  fi
+  
+  if [ "$1" = "-s" ]; then
+    SUMMARY_ONLY=1
+  fi
+  
   shift
-
+  
 done
 
 DIR="$1"
 
-if [ "$DIR" = "" ]; then
-
-  echo "Usage: $0 [-s] [-d] afl_output_directory" 1>&2
+if [ "$DIR" = "" -o "$DIR" = "-h" -o "$DIR" = "--help" ]; then
+  
+  echo "$0 status check tool for afl-fuzz by Michal Zalewski" 1>&2
+  echo 1>&2
+  echo "Usage: $0 [-d] [-m] [-n] [-s] afl_output_directory" 1>&2
   echo 1>&2
   echo Options: 1>&2
-  echo "  -s  -  skip details and output summary results only" 1>&2
   echo "  -d  -  include dead fuzzer stats" 1>&2
+  echo "  -m  -  just show minimal stats" 1>&2
+  echo "  -n  -  no color output" 1>&2
+  echo "  -s  -  skip details and output summary results only" 1>&2
   echo 1>&2
   exit 1
+  
+fi
 
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "$0 status check tool for afl-fuzz by Michal Zalewski"
+  echo
 fi
 
 cd "$DIR" || exit 1
 
 if [ -d queue ]; then
-
+  
   echo "[-] Error: parameter is an individual output directory, not a sync dir." 1>&2
   exit 1
-
+  
 fi
 
-RED=`tput setaf 9 1 1 2>/dev/null`
-GREEN=`tput setaf 2 1 1 2>/dev/null`
-BLUE=`tput setaf 4 1 1 2>/dev/null`
-YELLOW=`tput setaf 11 1 1 2>/dev/null`
-NC=`tput sgr0`
-RESET="$NC"
+BC=`which bc 2>/dev/null`
+FUSER=`which fuser 2>/dev/null`
+
+if [ -z "$NO_COLOR" ]; then
+  RED=`tput setaf 9 1 1 2>/dev/null`
+  GREEN=`tput setaf 2 1 1 2>/dev/null`
+  BLUE=`tput setaf 4 1 1 2>/dev/null`
+  YELLOW=`tput setaf 11 1 1 2>/dev/null`
+  NC=`tput sgr0`
+  RESET="$NC"
+fi
 
 CUR_TIME=`date +%s`
 
@@ -83,6 +117,7 @@ TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-wha
 
 ALIVE_CNT=0
 DEAD_CNT=0
+START_CNT=0
 
 TOTAL_TIME=0
 TOTAL_EXECS=0
@@ -91,6 +126,7 @@ TOTAL_CRASHES=0
 TOTAL_HANGS=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
+TOTAL_COVERAGE=
 
 # Time since last find / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
@@ -99,11 +135,11 @@ FMT_CRASH="none seen yet"
 FMT_HANG="none seen yet"
 
 if [ "$SUMMARY_ONLY" = "" ]; then
-
+  
   echo "Individual fuzzers"
   echo "=================="
   echo
-
+  
 fi
 
 fmt_duration()
@@ -112,22 +148,22 @@ fmt_duration()
   if [ $1 -le 0 ]; then
     return 1
   fi
-
+  
   local duration=$((CUR_TIME - $1))
   local days=$((duration / 60 / 60 / 24))
   local hours=$(((duration / 60 / 60) % 24))
   local minutes=$(((duration / 60) % 60))
   local seconds=$((duration % 60))
-
+  
   if [ $duration -le 0 ]; then
     DUR_STRING="0 seconds"
-  elif [ $duration -eq 1 ]; then
+    elif [ $duration -eq 1 ]; then
     DUR_STRING="1 second"
-  elif [ $days -gt 0 ]; then
+    elif [ $days -gt 0 ]; then
     DUR_STRING="$days days, $hours hours"
-  elif [ $hours -gt 0 ]; then
+    elif [ $hours -gt 0 ]; then
     DUR_STRING="$hours hours, $minutes minutes"
-  elif [ $minutes -gt 0 ]; then
+    elif [ $minutes -gt 0 ]; then
     DUR_STRING="$minutes minutes, $seconds seconds"
   else
     DUR_STRING="$seconds seconds"
@@ -138,112 +174,187 @@ FIRST=true
 TOTAL_WCOP=
 TOTAL_LAST_FIND=0
 
-for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
-
-  sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
-  . "$TMP"
-  DIR=$(dirname "$i")
-  DIR=${DIR##*/} 
-  RUN_UNIX=$run_time
-  RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
-  RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
-
-  test -n "$cycles_wo_finds" && {
-    test -z "$FIRST" && TOTAL_WCOP="${TOTAL_WCOP}/"
-    TOTAL_WCOP="${TOTAL_WCOP}${cycles_wo_finds}"
-    FIRST=
-  }
-
-  if [ "$SUMMARY_ONLY" = "" ]; then
-
-    echo ">>> $afl_banner instance: $DIR ($RUN_DAYS days, $RUN_HRS hrs) fuzzer PID: $fuzzer_pid <<<"
-    echo
-
-  fi
-
-  if ! kill -0 "$fuzzer_pid" 2>/dev/null; then
-
-    if [ "$SUMMARY_ONLY" = "" ]; then
-
-      echo "  Instance is dead or running remotely, skipping."
-      echo
-
+for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
+  
+  DIR=$(dirname "$j")
+  i=$DIR/fuzzer_stats
+  
+  if [ -f "$i" ]; then
+    
+    sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
+    . "$TMP"
+    DIRECTORY=$DIR
+    DIR=${DIR##*/}
+    RUN_UNIX=$run_time
+    RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
+    RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
+    COVERAGE=$(echo $bitmap_cvg|tr -d %)
+    if [ -n "$TOTAL_COVERAGE" -a -n "$COVERAGE" -a -n "$BC" ]; then
+      if [ "$(echo "$TOTAL_COVERAGE < $COVERAGE" | bc)" -eq 1 ]; then
+        TOTAL_COVERAGE=$COVERAGE
+      fi
     fi
-
-    DEAD_CNT=$((DEAD_CNT + 1))
-    last_find=0
-
-    if [ "$PROCESS_DEAD" = "" ]; then
-
-      continue
-
-    fi
-
-  fi
-
-  ALIVE_CNT=$((ALIVE_CNT + 1))
-
-  EXEC_SEC=0
-  test -z "$RUN_UNIX" -o "$RUN_UNIX" = 0 || EXEC_SEC=$((execs_done / RUN_UNIX))
-  PATH_PERC=$((cur_item * 100 / corpus_count))
-
-  TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
-  TOTAL_EPS=$((TOTAL_EPS + EXEC_SEC))
-  TOTAL_EXECS=$((TOTAL_EXECS + execs_done))
-  TOTAL_CRASHES=$((TOTAL_CRASHES + saved_crashes))
-  TOTAL_HANGS=$((TOTAL_HANGS + saved_hangs))
-  TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
-  TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
-
-  if [ "$last_find" -gt "$TOTAL_LAST_FIND" ]; then
-    TOTAL_LAST_FIND=$last_find
-  fi
-
-  if [ "$SUMMARY_ONLY" = "" ]; then
-
-    # Warnings in red
-    TIMEOUT_PERC=$((exec_timeout * 100 / execs_done))
-    if [ $TIMEOUT_PERC -ge 10 ]; then
-      echo "  ${RED}timeout_ratio $TIMEOUT_PERC%${NC}"
-    fi
-
-    if [ $EXEC_SEC -eq 0 ]; then
-      echo "  ${YELLOW}no data yet, 0 execs/sec${NC}"
-    elif [ $EXEC_SEC -lt 100 ]; then
-      echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
-    fi
-
-    fmt_duration $last_find && FMT_FIND=$DUR_STRING
-    fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
-    fmt_duration $last_hang && FMT_HANG=$DUR_STRING
-    FMT_CWOP="not available"
+    if [ -z "$TOTAL_COVERAGE" ]; then TOTAL_COVERAGE=$COVERAGE ; fi
+    
     test -n "$cycles_wo_finds" && {
-      test "$cycles_wo_finds" = 0 && FMT_CWOP="$cycles_wo_finds"
-      test "$cycles_wo_finds" -gt 10 && FMT_CWOP="${YELLOW}$cycles_wo_finds${NC}"
-      test "$cycles_wo_finds" -gt 50 && FMT_CWOP="${RED}$cycles_wo_finds${NC}"
+      test -z "$FIRST" && TOTAL_WCOP="${TOTAL_WCOP}/"
+      TOTAL_WCOP="${TOTAL_WCOP}${cycles_wo_finds}"
+      FIRST=
     }
-
-    echo "  last_find       : $FMT_FIND"
-    echo "  last_crash      : $FMT_CRASH"
-    echo "  last_hang       : $FMT_HANG"
-    echo "  cycles_wo_finds : $FMT_CWOP"
-
-    CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
-    MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
-
-    echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
-    echo "  cycles $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, items $cur_item/$corpus_count (${PATH_PERC}%)"
-
-    if [ "$saved_crashes" = "0" ]; then
-      echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, no crashes yet"
-    else
-      echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, crashes saved $saved_crashes (!)"
+    
+    if [ "$SUMMARY_ONLY" = "" ]; then
+      
+      echo ">>> $afl_banner instance: $DIR ($RUN_DAYS days, $RUN_HRS hrs) fuzzer PID: $fuzzer_pid <<<"
+      echo
+      
+    fi
+    
+    if ! kill -0 "$fuzzer_pid" 2>/dev/null; then
+      
+      IS_STARTING=
+      IS_DEAD=
+      
+      if [ -e "$i" ] && [ -e "$j" ] && [ -n "$FUSER" ]; then
+        
+        if [ "$i" -ot "$j" ]; then
+          
+          # fuzzer_setup is newer than fuzzer_stats, maybe the instance is starting?
+          TMP_PID=`fuser -v "$DIRECTORY" 2>&1 | grep afl-fuzz`
+          
+          if [ -n "$TMP_PID" ]; then
+            
+            if [ "$SUMMARY_ONLY" = "" ]; then
+              
+              echo "  Instance is still starting up, skipping."
+              echo
+              
+            fi
+            
+            START_CNT=$((START_CNT + 1))
+            last_find=0
+            IS_STARTING=1
+            
+            if [ "$PROCESS_DEAD" = "" ]; then
+              
+              continue
+              
+            fi
+            
+          fi
+          
+        fi
+        
+      fi
+      
+      if [ -z "$IS_STARTING" ]; then
+        
+        if [ "$SUMMARY_ONLY" = "" ]; then
+          
+          echo "  Instance is dead or running remotely, skipping."
+          echo
+          
+        fi
+        
+        DEAD_CNT=$((DEAD_CNT + 1))
+        IS_DEAD=1
+        last_find=0
+        
+        if [ "$PROCESS_DEAD" = "" ]; then
+          
+          continue
+          
+        fi
+        
+      fi
+      
+    fi
+    
+    ALIVE_CNT=$((ALIVE_CNT + 1))
+    
+    EXEC_SEC=0
+    test -z "$RUN_UNIX" -o "$RUN_UNIX" = 0 || EXEC_SEC=$((execs_done / RUN_UNIX))
+    PATH_PERC=$((cur_item * 100 / corpus_count))
+    
+    TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
+    TOTAL_EPS=$((TOTAL_EPS + EXEC_SEC))
+    TOTAL_EXECS=$((TOTAL_EXECS + execs_done))
+    TOTAL_CRASHES=$((TOTAL_CRASHES + saved_crashes))
+    TOTAL_HANGS=$((TOTAL_HANGS + saved_hangs))
+    TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
+    TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
+    
+    if [ "$last_find" -gt "$TOTAL_LAST_FIND" ]; then
+      TOTAL_LAST_FIND=$last_find
+    fi
+    
+    if [ "$SUMMARY_ONLY" = "" ]; then
+      
+      # Warnings in red
+      TIMEOUT_PERC=$((exec_timeout * 100 / execs_done))
+      if [ $TIMEOUT_PERC -ge 10 ]; then
+        echo "  ${RED}timeout_ratio $TIMEOUT_PERC%${NC}"
+      fi
+      
+      if [ $EXEC_SEC -eq 0 ]; then
+        echo "  ${YELLOW}no data yet, 0 execs/sec${NC}"
+        elif [ $EXEC_SEC -lt 100 ]; then
+        echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
+      fi
+      
+      fmt_duration $last_find && FMT_FIND=$DUR_STRING
+      fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
+      fmt_duration $last_hang && FMT_HANG=$DUR_STRING
+      FMT_CWOP="not available"
+      test -n "$cycles_wo_finds" && {
+        test "$cycles_wo_finds" = 0 && FMT_CWOP="$cycles_wo_finds"
+        test "$cycles_wo_finds" -gt 10 && FMT_CWOP="${YELLOW}$cycles_wo_finds${NC}"
+        test "$cycles_wo_finds" -gt 50 && FMT_CWOP="${RED}$cycles_wo_finds${NC}"
+      }
+      
+      echo "  last_find       : $FMT_FIND"
+      echo "  last_crash      : $FMT_CRASH"
+      if [ -z "$MINIMAL_ONLY" ]; then
+        echo "  last_hang       : $FMT_HANG"
+        echo "  cycles_wo_finds : $FMT_CWOP"
+      fi
+      echo "  coverage        : $COVERAGE%"
+      
+      if [ -z "$MINIMAL_ONLY" ]; then
+        
+        CPU_USAGE=$(ps aux | grep -w $fuzzer_pid | grep -v grep | awk '{print $3}')
+        MEM_USAGE=$(ps aux | grep -w $fuzzer_pid | grep -v grep | awk '{print $4}')
+        
+        echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
+        
+      fi
+      
+      echo "  cycles $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, items $cur_item/$corpus_count (${PATH_PERC}%)"
+      
+      if [ "$saved_crashes" = "0" ]; then
+        echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, no crashes yet"
+      else
+        echo "  pending $pending_favs/$pending_total, coverage $bitmap_cvg, crashes saved $saved_crashes (!)"
+      fi
+      
+      echo
+      
     fi
 
-    echo
+  else
+
+    if [ ! -e "$i" -a -e "$j" ]; then
+
+      if [ '!' "$PROCESS_DEAD" = "" ]; then
+        ALIVE_CNT=$((ALIVE_CNT + 1))
+      fi
+      START_CNT=$((START_CNT + 1))
+      last_find=0
+      IS_STARTING=1
+      
+    fi
 
   fi
-
+  
 done
 
 # Formatting for total time, time since last find, crash, and hang
@@ -254,7 +365,7 @@ EXECS_MILLION=$((TOTAL_EXECS / 1000 / 1000))
 EXECS_THOUSAND=$((TOTAL_EXECS / 1000 % 1000))
 if [ $EXECS_MILLION -gt 9 ]; then
   FMT_EXECS="$EXECS_MILLION millions"
-elif [ $EXECS_MILLION -gt 0 ]; then
+  elif [ $EXECS_MILLION -gt 0 ]; then
   FMT_EXECS="$EXECS_MILLION millions, $EXECS_THOUSAND thousands"
 else
   FMT_EXECS="$EXECS_THOUSAND thousands"
@@ -271,40 +382,56 @@ fmt_duration $TOTAL_LAST_FIND && TOTAL_LAST_FIND=$DUR_STRING
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
 if [ "$PROCESS_DEAD" = "" ]; then
-
+  
   TXT="excluded from stats"
-
+  
 else
-
+  
   TXT="included in stats"
-  ALIVE_CNT=$(($ALIVE_CNT - $DEAD_CNT))
-
+  ALIVE_CNT=$(($ALIVE_CNT - $DEAD_CNT - $START_CNT))
+  
 fi
 
 echo "Summary stats"
 echo "============="
-echo
+if [ -z "$SUMMARY_ONLY" -o -z "$MINIMAL_ONLY" ]; then
+  echo
+fi
+
 echo "       Fuzzers alive : $ALIVE_CNT"
+
+if [ ! "$START_CNT" = "0" ]; then
+  echo "         Starting up : $START_CNT ($TXT)"
+fi
 
 if [ ! "$DEAD_CNT" = "0" ]; then
   echo "      Dead or remote : $DEAD_CNT ($TXT)"
 fi
 
 echo "      Total run time : $FMT_TIME"
-echo "         Total execs : $FMT_EXECS"
-echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "         Total execs : $FMT_EXECS"
+  echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+fi
 if [ "$ALIVE_CNT" -gt "0" ]; then
   echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
 fi
-echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
-
-if [ "$ALIVE_CNT" -gt "1" ]; then
-  echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 fi
 
+if [ "$ALIVE_CNT" -gt "1" -o -n "$MINIMAL_ONLY" ]; then
+  if [ "$ALIVE_CNT" -gt "0" ]; then
+    echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
+  fi
+fi
+
+echo "    Coverage reached : ${TOTAL_COVERAGE}%"
 echo "       Crashes saved : $TOTAL_CRASHES"
-echo "         Hangs saved : $TOTAL_HANGS"
-echo "Cycles without finds : $TOTAL_WCOP"
+if [ -z "$MINIMAL_ONLY" ]; then
+  echo "         Hangs saved : $TOTAL_HANGS"
+  echo "Cycles without finds : $TOTAL_WCOP"
+fi
 echo "  Time without finds : $TOTAL_LAST_FIND"
 echo
 

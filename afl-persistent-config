@@ -2,7 +2,7 @@
 # written by jhertz
 # 
 
-test "$1" = "-h" -o "$1" = "-hh" && {
+test "$1" = "-h" -o "$1" = "-hh" -o "$1" = "--help" && {
   echo 'afl-persistent-config'
   echo
   echo $0
@@ -16,6 +16,11 @@ test "$1" = "-h" -o "$1" = "-hh" && {
   echo configuration options.
   exit 0
 }
+
+if [ $# -ne 0 ]; then
+  echo "ERROR: Unknown option(s): $@"
+  exit 1
+fi
 
 echo
 echo "WARNING: This scripts makes permanent configuration changes to the system to"
@@ -98,9 +103,9 @@ if [[ "$PLATFORM" = "Linux" ]] ; then
   echo "Checks passed."
 
   test -d /etc/sysctl.d || echo Error: /etc/sysctl.d directory not found, cannot install shmem config
-  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing && {
-    echo "Installing /etc/sysctl.d/99-fuzzing"
-    cat << EOF > /etc/sysctl.d/99-fuzzing
+  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing.conf && {
+    echo "Installing /etc/sysctl.d/99-fuzzing.conf"
+    cat << EOF > /etc/sysctl.d/99-fuzzing.conf
 kernel.core_uses_pid=0
 kernel.core_pattern=core
 kernel.randomize_va_space=0

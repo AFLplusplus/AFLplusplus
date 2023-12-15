@@ -48,7 +48,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
 #ifndef USEMMAP
@@ -183,7 +183,7 @@ static u8 _is_sancov;
 
 /* Debug? */
 
-static u32 __afl_debug;
+/*static*/ u32 __afl_debug;
 
 /* Already initialized markers */
 
@@ -667,7 +667,8 @@ static void __afl_map_shm(void) {
 
   if (id_str) {
 
-    if ((__afl_dummy_fd[1] = open("/dev/null", O_WRONLY)) < 0) {
+    // /dev/null doesn't work so we use /dev/urandom
+    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
 
       if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
 
@@ -871,7 +872,7 @@ static void __afl_start_snapshots(void) {
 
     if (__afl_debug) {
 
-      fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+      fprintf(stderr, "DEBUG: target forkserver recv: %08x\n", was_killed);
 
     }
 
@@ -1138,7 +1139,7 @@ static void __afl_start_forkserver(void) {
 
     if (__afl_debug) {
 
-      fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+      fprintf(stderr, "DEBUG: target forkserver recv: %08x\n", was_killed);
 
     }
 
@@ -1471,6 +1472,7 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
     __afl_debug = 1;
     fprintf(stderr, "DEBUG: debug enabled\n");
+    fprintf(stderr, "DEBUG: AFL++ afl-compiler-rt" VERSION "\n");
 
   }
 
@@ -1699,11 +1701,12 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (__afl_debug) {
 
-    fprintf(stderr,
-            "Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
-            "after_fs=%u\n",
-            start, stop, (unsigned long)(stop - start),
-            __afl_already_initialized_forkserver);
+    fprintf(
+        stderr,
+        "DEBUG: Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
+        "after_fs=%u\n",
+        start, stop, (unsigned long)(stop - start),
+        __afl_already_initialized_forkserver);
 
   }
 
@@ -1801,7 +1804,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       u8 ignore_dso_after_fs = !!getenv("AFL_IGNORE_PROBLEMS_COVERAGE");
       if (__afl_debug && ignore_dso_after_fs) {
 
-        fprintf(stderr, "Ignoring coverage from dynamically loaded code\n");
+        fprintf(stderr,
+                "DEBUG: Ignoring coverage from dynamically loaded code\n");
 
       }
 
@@ -1871,7 +1875,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   if (__afl_debug) {
 
     fprintf(stderr,
-            "Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc = %u\n",
+            "DEBUG: Done __sanitizer_cov_trace_pc_guard_init: __afl_final_loc "
+            "= %u\n",
             __afl_final_loc);
 
   }
@@ -1882,7 +1887,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
       if (__afl_debug) {
 
-        fprintf(stderr, "Reinit shm necessary (+%u)\n",
+        fprintf(stderr, "DEBUG: Reinit shm necessary (+%u)\n",
                 __afl_final_loc - __afl_map_size);
 
       }
@@ -1904,6 +1909,10 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
+
+  return;
+
+  /*
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
@@ -1930,6 +1939,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
+
+  */
 
 }
 
@@ -2137,13 +2148,13 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  //__cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  //__cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
@@ -2252,11 +2263,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-#ifndef __HAIKU__
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#else
+#ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
-#endif  // HAIKU
+#elif defined(__OpenBSD__)
+  long r = write(__afl_dummy_fd[1], ptr, len);
+#else
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+#endif  // HAIKU, OPENBSD
 
   if (r <= 0 || r > len) return 0;
 
@@ -2294,7 +2307,7 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   int len1 = strnlen(ptr1, len0);
   if (len1 < 31) len1 = area_is_valid(ptr1, len1 + 1);
   int len2 = strnlen(ptr2, len0);
-  if (len2 < 31) len2 = area_is_valid(ptr1, len2 + 1);
+  if (len2 < 31) len2 = area_is_valid(ptr2, len2 + 1);
   int l = MAX(len1, len2);
   if (l < 2) return;
 

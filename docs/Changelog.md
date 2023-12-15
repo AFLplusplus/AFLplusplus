@@ -3,6 +3,38 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.09c (release)
+  - afl-fuzz:
+    - fixed the new mutation implementation for two bugs
+    - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
+      before terminating.
+    - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
+      of exiting with an error message
+    - allow -S/-M naming up to 50 characters (from 24)
+    - CMPLOG:
+      - added scale support (-l S)
+      - skip unhelpful insertions (u8)
+    - added --version and --help command line parameters
+    - fixed endless loop when reading malformed dictionaries
+    - new custom mutator function: post_run - thanks to yangzao!
+  - afl-whatsup:
+    - detect instanced that are starting up and show them as such as not dead
+    - now also shows coverage reached
+    - option -m shows only very relevant stats
+    - option -n will not use color in the output
+  - instrumentation:
+    - fix for a few string compare transform functions for LAF
+    - we are instrumenting __cxx internal functions again. this might break
+      a few targets, please report if so.
+  - frida_mode:
+    - fixes support for large map offsets
+  - support for AFL_FUZZER_LOOPCOUNT for afl.rs and LLVMFuzzerTestOneInput
+  - afl-cmin/afl-cmin.bash: prevent unneeded file errors
+  - added new tool afl-addseeds that adds new seeds to a running campaign
+  - added benchmark/benchmark.py if you want to see how good your fuzzing
+    speed is in comparison to other setups.
+
+
 ### Version ++4.08c (release)
   - afl-fuzz:
     - new mutation engine: mutations that favor discovery more paths are
@@ -18,7 +50,6 @@
     - -l X option to enable base64 transformation solving
     - allow to disable CMPLOG with '-c -' (e.g. afl.rs enforces '-c 0' on
       every instance which is counterproductive).
-
   - afl-cmin/afl-cmin.bash:
     - fixed a bug inherited from vanilla AFL where a coverage of
       map[123] = 11 would be the same as map[1123] = 1
@@ -35,7 +66,6 @@
     - renamed utils/get_symbol_addr.sh to utils/frida_get_symbol_addr.sh
   - qemu_mode:
     - added qemu_mode/utils/qemu_get_symbol_addr.sh
-
 
 ### Version ++4.07c (release)
   - afl-fuzz:
@@ -64,7 +94,6 @@
   - two new custom mutators are now available:
     - TritonDSE in custom_mutators/aflpp_tritondse
     - SymQEMU in custom_mutators/symqemu
-
 
 ### Version ++4.06c (release)
   - afl-fuzz:

@@ -1,4 +1,3 @@
-
 /*
    american fuzzy lop++ - fuzzer header
    ------------------------------------
@@ -158,6 +157,7 @@ struct queue_entry {
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
+
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
       passed_det,                       /* Deterministic stages passed?     */
@@ -169,17 +169,15 @@ struct queue_entry {
       disabled;                         /* Is disabled from fuzz selection  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level,                       /* Number of fuzzing iterations     */
-      n_fuzz_entry                      /* offset in n_fuzz                 */
 #ifdef INTROSPECTION
-      ,
       stats_selected,                   /* stats: how often selected        */
       stats_skipped,                    /* stats: how often skipped         */
       stats_finds,                      /* stats: # of saved finds          */
       stats_crashes,                    /* stats: # of saved crashes        */
-      stats_tmouts                      /* stats: # of saved timeouts       */
+      stats_tmouts,                     /* stats: # of saved timeouts       */
 #endif
-      ;
+      fuzz_level,                       /* Number of fuzzing iterations     */
+      n_fuzz_entry;                     /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
@@ -347,6 +345,7 @@ enum {
   /* 13 */ PY_FUNC_DESCRIBE,
   /* 14 */ PY_FUNC_FUZZ_SEND,
   /* 15 */ PY_FUNC_SPLICE_OPTOUT,
+  /* 16 */ PY_FUNC_POST_RUN,
   PY_FUNC_COUNT
 
 };
@@ -402,7 +401,8 @@ typedef struct afl_env_vars {
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
-      afl_post_process_keep_original, afl_crashing_seeds_as_new_crash;
+      afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
+      afl_final_sync, afl_ignore_seed_problems;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -611,6 +611,7 @@ typedef struct afl_state {
 
   u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
+  s64 smallest_favored;                 /* smallest queue id favored        */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
 
@@ -675,7 +676,7 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
-  u8  cmplog_enable_arith, cmplog_enable_transform,
+  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
 
   struct afl_pass_stat *pass_stats;
@@ -1021,6 +1022,16 @@ struct custom_mutator {
   void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
 
   /**
+   * This method can be used if you want to run some code or scripts each time
+   * AFL++ executes the target with afl-fuzz.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init by this custom mutator
+   */
+  void (*afl_custom_post_run)(void *data);
+
+  /**
    * Allow for additional analysis (e.g. calling a different tool that does a
    * different kind of coverage and saves this for the custom mutator).
    *
@@ -1075,6 +1086,7 @@ void                   finalize_py_module(void *);
 
 u32         fuzz_count_py(void *, const u8 *, size_t);
 void        fuzz_send_py(void *, const u8 *, size_t);
+void        post_run_py(void *);
 size_t      post_process_py(void *, u8 *, size_t, u8 **);
 s32         init_trim_py(void *, u8 *, size_t);
 s32         post_trim_py(void *, u8);
