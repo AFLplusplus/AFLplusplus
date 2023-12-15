@@ -288,6 +288,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
+  u64 runtime = afl->prev_run_time + cur_time - afl->start_time;
+  if (!runtime) { runtime = 1; }
 
   fprintf(
       f,
@@ -336,17 +338,14 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
       "command_line      : %s\n",
       (afl->start_time - afl->prev_run_time) / 1000, cur_time / 1000,
-      (afl->prev_run_time + cur_time - afl->start_time) / 1000, (u32)getpid(),
+      runtime / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
       afl->longest_find_time > cur_time - afl->last_find_time
           ? afl->longest_find_time / 1000
           : ((afl->start_time == 0 || afl->last_find_time == 0)
                  ? 0
                  : (cur_time - afl->last_find_time) / 1000),
-      afl->fsrv.total_execs,
-      afl->fsrv.total_execs /
-          ((double)(afl->prev_run_time + get_cur_time() - afl->start_time) /
-           1000),
+      afl->fsrv.total_execs, afl->fsrv.total_execs / ((double)(runtime) / 1000),
       afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
       afl->max_depth, afl->current_entry, afl->pending_favored,
@@ -1060,7 +1059,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
-          (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (afl->saved_tmouts >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-20s" bSTG bV "\n", tmp);
 
@@ -1892,7 +1891,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   sprintf(tmp, "%s (%s%s saved)", u_stringify_int(IB(0), afl->total_tmouts),
           u_stringify_int(IB(1), afl->saved_tmouts),
-          (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (afl->saved_tmouts >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "                    burned pizzas : " cRST "%-20s" bSTG bV
                      "\n",

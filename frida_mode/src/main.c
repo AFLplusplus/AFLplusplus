@@ -49,10 +49,10 @@ extern void __libc_init(void *raw_args, void (*onexit)(void) __unused,
                         int (*slingshot)(int, char **, char **),
                         structors_array_t const *const structors);
 #else
-extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
-                              char **ubp_av, void (*init)(void),
-                              void (*fini)(void), void (*rtld_fini)(void),
-                              void(*stack_end));
+extern int __libc_start_main(int (*main)(int, char **, char **), int argc,
+                             char **ubp_av, void (*init)(void),
+                             void (*fini)(void), void (*rtld_fini)(void),
+                             void(*stack_end));
 #endif
 
 typedef int (*main_fn_t)(int argc, char **argv, char **envp);

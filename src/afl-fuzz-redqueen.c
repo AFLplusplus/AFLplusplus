@@ -40,7 +40,7 @@ enum {
   IS_FP = 8,       // is a floating point, not an integer
   /* --- below are internal settings, not from target cmplog */
   IS_FP_MOD = 16,    // arithemtic changed floating point
-  IS_INT_MOD = 32,   // arithmetic changed interger
+  IS_INT_MOD = 32,   // arithmetic changed integer
   IS_TRANSFORM = 64  // transformed integer
 
 };
@@ -775,6 +775,13 @@ static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 }
 
+#ifdef WORD_SIZE_64
+static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+                               u128 pattern, u128 repl, u128 o_pattern,
+                               u128 changed_val, u8 attr, u32 idx,
+                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                               u32 len, u8 do_reverse, u8 lvl, u8 *status);
+#endif
 static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
@@ -806,6 +813,29 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
           o_pattern, pattern, repl, changed_val, idx, taint_len,
           hshape, attr);
   */
+
+  u8 bytes;
+
+  switch (hshape) {
+
+    case 0:
+    case 1:
+      bytes = 1;
+      break;
+    case 2:
+      bytes = 2;
+      break;
+    case 3:
+    case 4:
+      bytes = 4;
+      break;
+    default:
+      bytes = 8;
+
+  }
+
+  // necessary for preventing heap access overflow
+  bytes = MIN(bytes, len - idx);
 
   //  reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
@@ -895,29 +925,6 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (pattern != o_pattern && repl == changed_val && attr <= IS_EQUAL) {
 
       u64 b_val, o_b_val, mask;
-      u8  bytes;
-
-      switch (hshape) {
-
-        case 0:
-        case 1:
-          bytes = 1;
-          break;
-        case 2:
-          bytes = 2;
-          break;
-        case 3:
-        case 4:
-          bytes = 4;
-          break;
-        default:
-          bytes = 8;
-
-      }
-
-      // necessary for preventing heap access overflow
-      bytes = MIN(bytes, len - idx);
-
       switch (bytes) {
 
         case 0:                        // cannot happen
@@ -1285,7 +1292,136 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  // here we add and subract 1 from the value, but only if it is not an
+  // If 'S' is set for cmplog mode then we try a scale encoding of the value.
+  // Currently we can only handle bytes up to 1 << 55 on 32 bit and 1 << 119
+  // on 64 bit systems.
+  // Caveat: This implementation here works only on little endian systems.
+
+  if (attr < IS_FP && (afl->cmplog_enable_scale || lvl >= LVL3) &&
+      repl == changed_val) {
+
+    u8  do_call = 1;
+    u64 new_val = repl << 2;
+    u32 ilen = 0;
+
+    if (changed_val <= 255) {
+
+      ilen = 1;
+
+    } else if (new_val <= 65535) {
+
+      new_val += 1;  // two byte mode
+      ilen = 2;
+
+    } else if (new_val <= 4294967295) {
+
+      new_val += 2;  // four byte mode
+      ilen = 4;
+
+    } else {
+
+#ifndef WORD_SIZE_64
+      if (repl <= 0x00ffffffffffffff) {
+
+        new_val = repl << 8;
+        u8  scale_len = 0;
+        u64 tmp_val = repl;
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
+
+      } else {
+
+        do_call = 0;
+
+      }
+
+#else
+      {
+
+        u128 new_vall = ((u128)repl) << 8;
+        u8   scale_len = 0;
+        u128 tmp_val = (u128)repl;
+
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_vall += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
+
+        if (ilen <= its_len && ilen > 1) {
+
+          u8 tmpbuf[32];
+          memcpy(tmpbuf, buf + idx, ilen);
+          memcpy(buf + idx, (char *)&new_vall, ilen);
+
+          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+  #ifdef CMPLOG_COMBINE
+          if (*status == 1) { memcpy(cbuf + idx, (char *)&new_vall, ilen); }
+  #endif
+          memcpy(buf + idx, tmpbuf, ilen);
+
+        };
+
+        do_call = 0;
+
+      }
+
+#endif
+
+    }
+
+    if (do_call) {
+
+      if (ilen <= its_len && ilen > 1) {
+
+        u8 tmpbuf[32];
+        memcpy(tmpbuf, buf + idx, ilen);
+        memcpy(buf + idx, (char *)&new_val, ilen);
+
+        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef CMPLOG_COMBINE
+        if (*status == 1) { memcpy(cbuf + idx, (char *)&new_val, ilen); }
+#endif
+        memcpy(buf + idx, tmpbuf, ilen);
+
+      };
+
+    }
+
+  }
+
+  // here we add and subtract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
   //       16 = modified float, 32 = modified integer (modified = wont match
@@ -1551,6 +1687,77 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
     }
 
+    // Scale encoding only works on little endian systems
+
+    if (attr < IS_FP && attr < 32 &&
+        (afl->cmplog_enable_scale || lvl >= LVL3)) {
+
+      u128 new_val = repl << 2;
+      u128 max_scale = (u128)1 << 120;
+      u32  ilen = 0;
+      u8   do_call = 1;
+
+      if (new_val <= 255) {
+
+        ilen = 1;
+
+      } else if (new_val <= 65535) {
+
+        new_val += 1;  // two byte mode
+        ilen = 2;
+
+      } else if (new_val <= 4294967295) {
+
+        new_val += 2;  // four byte mode
+        ilen = 4;
+
+      } else if (repl < max_scale) {
+
+        new_val = (u128)repl << 8;
+        u8   scale_len = 0;
+        u128 tmp_val = (u128)repl;
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
+
+      } else {
+
+        do_call = 0;
+
+      }
+
+      if (do_call && ilen <= its_len) {
+
+        u8 tmpbuf[32];
+        memcpy(tmpbuf, buf + idx, ilen);
+        memcpy(buf + idx, (char *)&new_val, ilen);
+
+        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+  #ifdef CMPLOG_COMBINE
+        if (*status == 1) { memcpy(cbuf + idx, (char *)&new_val, ilen); }
+  #endif
+        memcpy(buf + idx, tmpbuf, ilen);
+
+      };
+
+    }
+
   }
 
   return 0;
@@ -1621,7 +1828,7 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
   for (k = 0; k < size; ++k) {
 
   #else
-  u32    off = 16 - size;
+  u32 off = 16 - size;
   for (k = 16 - size; k < 16; ++k) {
 
   #endif
@@ -1698,6 +1905,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   }
 
 #endif
+
+  if (hshape < 2) { return 0; }
 
   for (i = 0; i < loggeds; ++i) {
 
@@ -2490,6 +2699,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8                 status = 0, found_one = 0;
 
   hshape = SHAPE_BYTES(h->shape);
+
+  if (hshape < 2) { return 0; }
 
   if (h->hits > CMP_MAP_RTN_H) {
 

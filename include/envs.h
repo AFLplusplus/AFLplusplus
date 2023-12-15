@@ -162,6 +162,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_MAP_DYNAMIC",
     "AFL_LLVM_NGRAM_SIZE",
     "AFL_NGRAM_SIZE",
+    "AFL_LLVM_NO_RPATH",
     "AFL_LLVM_NOT_ZERO",
     "AFL_LLVM_INSTRUMENT_FILE",
     "AFL_LLVM_THREADSAFE_INST",
@@ -171,6 +172,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_LTO_DONTWRITEID",
     "AFL_LLVM_LTO_SKIPINIT"
     "AFL_LLVM_LTO_STARTID",
+    "AFL_FUZZER_LOOPCOUNT",
     "AFL_NO_ARITH",
     "AFL_NO_AUTODICT",
     "AFL_NO_BUILTIN",
