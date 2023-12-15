@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.09a (dev)
+### Version ++4.09c (release)
   - afl-fuzz:
     - fixed the new mutation implementation for two bugs
     - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
