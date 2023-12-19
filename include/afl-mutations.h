@@ -2490,12 +2490,13 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
       case MUT_INSERTASCIINUM: {
 
-        u32 len = 1 + rand_below(afl, 8);
+        u32 ins_len = 1 + rand_below(afl, 8);
         u32 pos = rand_below(afl, len);
 
         /* Insert ascii number. */
-        if (unlikely(len < pos + len)) {
+        if (unlikely(len < pos + ins_len)) {
 
+          // no retry if we have a small input
           if (unlikely(len < 8)) {
 
             break;
@@ -2511,7 +2512,20 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         u64  val = rand_next(afl);
         char numbuf[32];
         snprintf(numbuf, sizeof(numbuf), "%llu", val);
-        memcpy(buf + pos, numbuf, len);
+        size_t val_len = strlen(numbuf), off;
+
+        if (ins_len > val_len) {
+
+          ins_len = val_len;
+          off = 0;
+
+        } else {
+
+          off = val_len - ins_len;
+
+        }
+
+        memcpy(buf + pos, numbuf + off, ins_len);
 
         break;
 
