@@ -32,7 +32,7 @@
 #include <inttypes.h>
 #include "afl-fuzz.h"
 
-#define MUT_STRATEGY_ARRAY_SIZE 255
+#define MUT_STRATEGY_ARRAY_SIZE 256
 
 enum {
 
@@ -1069,6 +1069,7 @@ u32 mutation_strategy_exploration_binary[MUT_STRATEGY_ARRAY_SIZE] = {
     MUT_RAND8,
     MUT_RAND8,
     MUT_RAND8,
+    MUT_CLONE_COPY,
     MUT_CLONE_COPY,
     MUT_CLONE_COPY,
     MUT_CLONE_COPY,

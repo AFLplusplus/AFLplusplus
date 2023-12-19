@@ -4,8 +4,11 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.10a (dev)
-  - default power schedule is now EXPLORE, due a fix in fast schedules
-    explore is slightly better now.
+  - afl-fuzz:
+    - default power schedule is now EXPLORE, due a fix in fast schedules
+      explore is slightly better now.
+    - fixed minor issues in the mutation engine, thanks to @futhewo for
+      reporting!
 
 
 ### Version ++4.09c (release)
