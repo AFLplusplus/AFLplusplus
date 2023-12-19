@@ -32,7 +32,7 @@
 #include <inttypes.h>
 #include "afl-fuzz.h"
 
-#define MUT_STRATEGY_ARRAY_SIZE 256
+#define MUT_STRATEGY_ARRAY_SIZE 255
 
 enum {
 
