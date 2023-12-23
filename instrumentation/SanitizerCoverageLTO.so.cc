@@ -696,12 +696,12 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                         FT->getReturnType()->isIntegerTy(32) &&
                         FT->getParamType(0) == FT->getParamType(1) &&
                         FT->getParamType(0) ==
-                            IntegerType::getInt8PtrTy(M.getContext());
+                            IntegerType::getInt8Ty(M.getContext())->getPointerTo(0);
             isStrcasecmp &= FT->getNumParams() == 2 &&
                             FT->getReturnType()->isIntegerTy(32) &&
                             FT->getParamType(0) == FT->getParamType(1) &&
                             FT->getParamType(0) ==
-                                IntegerType::getInt8PtrTy(M.getContext());
+                                IntegerType::getInt8Ty(M.getContext())->getPointerTo(0);
             isMemcmp &= FT->getNumParams() == 3 &&
                         FT->getReturnType()->isIntegerTy(32) &&
                         FT->getParamType(0)->isPointerTy() &&
@@ -711,13 +711,13 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                          FT->getReturnType()->isIntegerTy(32) &&
                          FT->getParamType(0) == FT->getParamType(1) &&
                          FT->getParamType(0) ==
-                             IntegerType::getInt8PtrTy(M.getContext()) &&
+                             IntegerType::getInt8Ty(M.getContext())->getPointerTo(0) &&
                          FT->getParamType(2)->isIntegerTy();
             isStrncasecmp &= FT->getNumParams() == 3 &&
                              FT->getReturnType()->isIntegerTy(32) &&
                              FT->getParamType(0) == FT->getParamType(1) &&
                              FT->getParamType(0) ==
-                                 IntegerType::getInt8PtrTy(M.getContext()) &&
+                                 IntegerType::getInt8Ty(M.getContext())->getPointerTo(0) &&
                              FT->getParamType(2)->isIntegerTy();
             isStdString &= FT->getNumParams() >= 2 &&
                            FT->getParamType(0)->isPointerTy() &&
@@ -1241,7 +1241,11 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   if (F.empty()) return;
   if (F.getName().find(".module_ctor") != std::string::npos)
     return;  // Should not instrument sanitizer init functions.
+#if LLVM_VERSION_MAJOR >= 18
+  if (F.getName().starts_with("__sanitizer_"))
+#else
   if (F.getName().startswith("__sanitizer_"))
+#endif
     return;  // Don't instrument __sanitizer_* callbacks.
   // Don't touch available_externally functions, their actual body is elsewhere.
   if (F.getLinkage() == GlobalValue::AvailableExternallyLinkage) return;
@@ -1493,7 +1497,7 @@ GlobalVariable *ModuleSanitizerCoverageLTO::CreateFunctionLocalArrayInSection(
       Array->setComdat(Comdat);
 #endif
   Array->setSection(getSectionName(Section));
-  Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
+  Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedValue()));
   GlobalsToAppendToUsed.push_back(Array);
   GlobalsToAppendToCompilerUsed.push_back(Array);
   MDNode *MD = MDNode::get(F.getContext(), ValueAsMetadata::get(&F));
