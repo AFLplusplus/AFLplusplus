@@ -9,6 +9,8 @@
       explore is slightly better now.
     - fixed minor issues in the mutation engine, thanks to @futhewo for
       reporting!
+  - instrumentation:
+    - LLVM 18 support, thanks to @devnexen!
 
 
 ### Version ++4.09c (release)
