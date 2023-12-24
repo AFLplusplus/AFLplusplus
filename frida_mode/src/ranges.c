@@ -653,7 +653,7 @@ void ranges_init(void) {
   /*
    * After step 4 we have the total ranges to be instrumented, we now subtract
    * that either from the original ranges of the modules or from the whole
-   * memory if AFL_INST_NO_DYNAMIC_LOAD to configure the stalker.
+   * memory if AFL_FRIDA_INST_NO_DYNAMIC_LOAD to configure the stalker.
    */
   if (ranges_inst_dynamic_load) {
 

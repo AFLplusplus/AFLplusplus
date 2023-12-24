@@ -3,6 +3,16 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.10a (dev)
+  - afl-fuzz:
+    - default power schedule is now EXPLORE, due a fix in fast schedules
+      explore is slightly better now.
+    - fixed minor issues in the mutation engine, thanks to @futhewo for
+      reporting!
+  - instrumentation:
+    - LLVM 18 support, thanks to @devnexen!
+
+
 ### Version ++4.09c (release)
   - afl-fuzz:
     - fixed the new mutation implementation for two bugs
@@ -33,7 +43,6 @@
   - added new tool afl-addseeds that adds new seeds to a running campaign
   - added benchmark/benchmark.py if you want to see how good your fuzzing
     speed is in comparison to other setups.
-
 
 ### Version ++4.08c (release)
   - afl-fuzz:
