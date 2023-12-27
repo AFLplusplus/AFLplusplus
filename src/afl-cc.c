@@ -1139,6 +1139,26 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
+        getenv("AFL_LLVM_INJECTIONS_SQL") ||
+        getenv("AFL_LLVM_INJECTIONS_LDAP") ||
+        getenv("AFL_LLVM_INJECTIONS_XSS")) {
+
+#if LLVM_MAJOR >= 11
+  #if LLVM_MAJOR < 16
+      cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-fpass-plugin=%s/injection-pass.so", obj_path);
+#else
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = alloc_printf("%s/injection-pass.so", obj_path);
+#endif
+
+    }
+
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
   }
