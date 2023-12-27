@@ -196,6 +196,19 @@ in the specified file.
 For more information, see
 [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
 
+#### INJECTIONS
+
+This feature is able to find simple injection vulnerabilities in insecure
+calls to mysql/mariadb/nosql/postgresql/ldap and XSS in libxml2.
+
+  - Setting `AFL_LLVM_INJECTIONS_ALL` will enable all injection hooking
+
+  - Setting `AFL_LLVM_INJECTIONS_SQL` will enable SQL injection hooking
+
+  - Setting `AFL_LLVM_INJECTIONS_LDAP` will enable LDAP injection hooking
+
+  - Setting `AFL_LLVM_INJECTIONS_XSS` will enable XSS injection hooking
+
 #### LAF-INTEL
 
 This great feature will split compares into series of single byte comparisons to
