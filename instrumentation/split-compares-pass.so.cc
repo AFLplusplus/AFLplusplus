@@ -1584,7 +1584,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
               CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, t_f0, t_f1);
 #if LLVM_MAJOR >= 16
           icmp_fraction_result->insertInto(negative_bb, negative_bb->end());
-          icmp_fraction_result2->insertInto(positive_bb, negative_bb->end());
+          icmp_fraction_result2->insertInto(positive_bb, positive_bb->end());
 #else
           negative_bb->getInstList().push_back(icmp_fraction_result);
           positive_bb->getInstList().push_back(icmp_fraction_result2);
@@ -1598,7 +1598,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
               CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, t_f0, t_f1);
 #if LLVM_MAJOR >= 16
           icmp_fraction_result->insertInto(negative_bb, negative_bb->end());
-          icmp_fraction_result2->insertInto(positive_bb, negative_bb->end());
+          icmp_fraction_result2->insertInto(positive_bb, positive_bb->end());
 #else
           negative_bb->getInstList().push_back(icmp_fraction_result);
           positive_bb->getInstList().push_back(icmp_fraction_result2);
