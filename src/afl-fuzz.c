@@ -138,7 +138,7 @@ static void usage(u8 *argv0, int more_help) {
       "to\n"
       "                  exploit mode, and back on new coverage (default: %u)\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
-      "                  fast(default), explore, exploit, seek, rare, mmopt, "
+      "                  explore(default), fast, exploit, seek, rare, mmopt, "
       "coe, lin\n"
       "                  quad -- see docs/FAQ.md for more information\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
