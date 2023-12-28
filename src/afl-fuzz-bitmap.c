@@ -459,6 +459,17 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(fault == FSRV_RUN_TMOUT && afl->afl_env.afl_ignore_timeouts)) {
 
+    if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
+      classify_counts(&afl->fsrv);
+      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+      // Saturated increment
+      if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
+        afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
+
+    }
+
     return 0;
 
   }

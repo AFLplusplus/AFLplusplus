@@ -5,6 +5,10 @@ instrumentation-guided genetic algorithm. It uses a modified form of edge
 coverage to effortlessly pick up subtle, local-scale changes to program control
 flow.
 
+Note: If you are interested in a more current up-to-date deep dive how AFL++
+works then we commend this blog post:
+[https://blog.ritsec.club/posts/afl-under-hood/](https://blog.ritsec.club/posts/afl-under-hood/)
+
 Simplifying a bit, the overall algorithm can be summed up as:
 
 1) Load user-supplied initial test cases into the queue.
