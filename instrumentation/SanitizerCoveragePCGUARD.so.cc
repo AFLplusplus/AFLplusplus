@@ -952,6 +952,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 #endif
         {
 
+          // fprintf(stderr, "UNHANDLED: %u\n", t->getTypeID());
           unhandled++;
           continue;
 
