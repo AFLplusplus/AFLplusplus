@@ -11,6 +11,11 @@
       reporting!
   - instrumentation:
     - LLVM 18 support, thanks to @devnexen!
+    - compcov/LAF-intel:
+      - floating point splitting bug fix by @hexcoder
+      - due a bug in LLVM 17 integer splitting is disabled!
+      - when splitting floats was selected, integers were always split as well,
+        fixed to require AFL_LLVM_LAF_SPLIT_COMPARES as it should
 
 
 ### Version ++4.09c (release)
