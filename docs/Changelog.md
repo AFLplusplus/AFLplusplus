@@ -11,6 +11,8 @@
       reporting!
   - instrumentation:
     - LLVM 18 support, thanks to @devnexen!
+    - Injection (SQL, LDAP, XSS) feature now available, see
+      `instrumentation/README.injections.md` how to activate/use/expand.
     - compcov/LAF-intel:
       - floating point splitting bug fix by @hexcoder
       - due a bug in LLVM 17 integer splitting is disabled!
