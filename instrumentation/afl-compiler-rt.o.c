@@ -2672,12 +2672,13 @@ void __afl_set_persistent_mode(u8 mode) {
 
 }
 
+// Marker: ADD_TO_INJECTIONS
+
 void __afl_injection_sql(u8 *buf) {
 
   if (likely(buf)) {
 
-    if (unlikely(strcasestr((char *)buf, "1'\" OR \"1\"=\"1") ||
-                 strcasestr((char *)buf, "1\"' OR '1'='1"))) {
+    if (unlikely(strstr((char *)buf, "'\"\"'"))) {
 
       fprintf(stderr, "ALERT: Detected SQL injection in query: %s\n", buf);
       abort();
@@ -2692,7 +2693,7 @@ void __afl_injection_ldap(u8 *buf) {
 
   if (likely(buf)) {
 
-    if (unlikely(strcasestr((char *)buf, "*)(FUZZ=*))(|"))) {
+    if (unlikely(strstr((char *)buf, "*)(1=*))(|"))) {
 
       fprintf(stderr, "ALERT: Detected LDAP injection in query: %s\n", buf);
       abort();
@@ -2707,7 +2708,7 @@ void __afl_injection_xss(u8 *buf) {
 
   if (likely(buf)) {
 
-    if (unlikely(strcasestr((char *)buf, "\";FUZZ;\""))) {
+    if (unlikely(strstr((char *)buf, "1\"><\""))) {
 
       fprintf(stderr, "ALERT: Detected XSS injection in content: %s\n", buf);
       abort();
