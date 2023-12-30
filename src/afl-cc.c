@@ -1139,6 +1139,26 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
+        getenv("AFL_LLVM_INJECTIONS_SQL") ||
+        getenv("AFL_LLVM_INJECTIONS_LDAP") ||
+        getenv("AFL_LLVM_INJECTIONS_XSS")) {
+
+#if LLVM_MAJOR >= 11
+  #if LLVM_MAJOR < 16
+      cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
+  #endif
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-fpass-plugin=%s/injection-pass.so", obj_path);
+#else
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = alloc_printf("%s/injection-pass.so", obj_path);
+#endif
+
+    }
+
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
   }
@@ -2275,6 +2295,10 @@ int main(int argc, char **argv, char **envp) {
             "comparisons\n"
             "  AFL_LLVM_DICT2FILE_NO_MAIN: skip parsing main() for the "
             "dictionary\n"
+            "  AFL_LLVM_INJECTIONS_ALL: enables all injections hooking\n"
+            "  AFL_LLVM_INJECTIONS_SQL: enables SQL injections hooking\n"
+            "  AFL_LLVM_INJECTIONS_LDAP: enables LDAP injections hooking\n"
+            "  AFL_LLVM_INJECTIONS_XSS: enables XSS injections hooking\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
