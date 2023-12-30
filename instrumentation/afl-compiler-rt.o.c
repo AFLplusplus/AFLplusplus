@@ -92,6 +92,8 @@ extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,
                            size_t bufferSize);
 #endif  // HAIKU
 
+char *strcasestr(const char *haystack, const char *needle);
+
 static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
@@ -2667,6 +2669,53 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 void __afl_set_persistent_mode(u8 mode) {
 
   is_persistent = mode;
+
+}
+
+// Marker: ADD_TO_INJECTIONS
+
+void __afl_injection_sql(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "'\"\"'"))) {
+
+      fprintf(stderr, "ALERT: Detected SQL injection in query: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_ldap(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "*)(1=*))(|"))) {
+
+      fprintf(stderr, "ALERT: Detected LDAP injection in query: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_xss(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "1\"><\""))) {
+
+      fprintf(stderr, "ALERT: Detected XSS injection in content: %s\n", buf);
+      abort();
+
+    }
+
+  }
 
 }
 
