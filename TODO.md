@@ -10,14 +10,6 @@
  - when trimming then perform crash detection
  - either -L0 and/or -p mmopt results in zero new coverage
 
-afl-clang-fast  -Iapps -I. -Iinclude -Iapps/include  -pthread -m64 -fsanitize=address -fno-omit-frame-pointer -g -Wa,--noexecstack -Qunused-arguments -fno-inline-functions -g -pthread -Wno-unused-command-line-argument -O3 -fno-sanitize=alignment -DOPENSSL_BUILDING_OPENSSL -DPEDANTIC -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -MMD -MF apps/openssl-bin-speed.d.tmp -MT apps/openssl-bin-speed.o -c -o apps/openssl-bin-speed.o apps/speed.c
-afl-cc++4.10a by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: LLVM-PCGUARD
-Split-compare-newpass by laf.intel@gmail.com, extended by heiko@hexco.de (splitting icmp to 8 bit)
-Split-floatingpoint-compare-pass: 2 FP comparisons split
-724 comparisons found
-SanitizerCoveragePCGUARD++4.10a
-[+] Instrumented 7356 locations with no collisions (non-hardened mode) of which are 99 handled and 7 unhandled selects.
-
 
 ## Should
 
