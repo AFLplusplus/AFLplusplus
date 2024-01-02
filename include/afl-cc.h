@@ -140,7 +140,7 @@ typedef struct aflcc_state {
 
 } aflcc_state_t;
 
-void aflcc_state_init(aflcc_state_t *);
+void aflcc_state_init(aflcc_state_t *, u8 *argv0);
 
 u8 *getthecwd();
 

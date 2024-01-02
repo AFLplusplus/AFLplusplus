@@ -15,37 +15,7 @@
 
  */
 
-#define AFL_MAIN
-
-#include "common.h"
-#include "config.h"
-#include "types.h"
-#include "debug.h"
-#include "alloc-inl.h"
-#include "llvm-alternative-coverage.h"
-
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <limits.h>
-#include <assert.h>
-#include <ctype.h>
-#include <sys/stat.h>
-
-#if (LLVM_MAJOR - 0 == 0)
-  #undef LLVM_MAJOR
-#endif
-#if !defined(LLVM_MAJOR)
-  #define LLVM_MAJOR 0
-#endif
-#if (LLVM_MINOR - 0 == 0)
-  #undef LLVM_MINOR
-#endif
-#if !defined(LLVM_MINOR)
-  #define LLVM_MINOR 0
-#endif
+#include "afl-cc.h"
 
 static u8  *obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
@@ -55,9 +25,8 @@ static u8   llvm_fullpath[PATH_MAX];
 static u8   instrument_mode, instrument_opt_mode, ngram_size, ctx_k, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0, need_aflpplib = 0;
 static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
-static u8  *lto_flag = AFL_CLANG_FLTO, *argvnull;
+static u8  *lto_flag = AFL_CLANG_FLTO;
 static u8   debug;
-static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin;                                             /* dummy */
 static int  passthrough;
@@ -122,196 +91,6 @@ char compiler_mode_string[7][12] = {
     "GCC",        "CLANG",    ""
 
 };
-
-u8 *getthecwd() {
-
-  if (getcwd(cwd, sizeof(cwd)) == NULL) {
-
-    static u8 fail[] = "";
-    return fail;
-
-  }
-
-  return cwd;
-
-}
-
-/* Try to find a specific runtime we need, returns NULL on fail. */
-
-/*
-  in find_object() we look here:
-
-  1. if obj_path is already set we look there first
-  2. then we check the $AFL_PATH environment variable location if set
-  3. next we check argv[0] if it has path information and use it
-    a) we also check ../lib/afl
-  4. if 3. failed we check /proc (only Linux, Android, NetBSD, DragonFly, and
-     FreeBSD with procfs)
-    a) and check here in ../lib/afl too
-  5. we look into the AFL_PATH define (usually /usr/local/lib/afl)
-  6. we finally try the current directory
-
-  if all these attempts fail - we return NULL and the caller has to decide
-  what to do.
-*/
-
-static u8 *find_object(u8 *obj, u8 *argv0) {
-
-  u8 *afl_path = getenv("AFL_PATH");
-  u8 *slash = NULL, *tmp;
-
-  if (afl_path) {
-
-    tmp = alloc_printf("%s/%s", afl_path, obj);
-
-    if (debug) DEBUGF("Trying %s\n", tmp);
-
-    if (!access(tmp, R_OK)) {
-
-      obj_path = afl_path;
-      return tmp;
-
-    }
-
-    ck_free(tmp);
-
-  }
-
-  if (argv0) {
-
-    slash = strrchr(argv0, '/');
-
-    if (slash) {
-
-      u8 *dir = ck_strdup(argv0);
-
-      slash = strrchr(dir, '/');
-      *slash = 0;
-
-      tmp = alloc_printf("%s/%s", dir, obj);
-
-      if (debug) DEBUGF("Trying %s\n", tmp);
-
-      if (!access(tmp, R_OK)) {
-
-        obj_path = dir;
-        return tmp;
-
-      }
-
-      ck_free(tmp);
-      tmp = alloc_printf("%s/../lib/afl/%s", dir, obj);
-
-      if (debug) DEBUGF("Trying %s\n", tmp);
-
-      if (!access(tmp, R_OK)) {
-
-        u8 *dir2 = alloc_printf("%s/../lib/afl", dir);
-        obj_path = dir2;
-        ck_free(dir);
-        return tmp;
-
-      }
-
-      ck_free(tmp);
-      ck_free(dir);
-
-    }
-
-#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__linux__) || \
-    defined(__ANDROID__) || defined(__NetBSD__)
-  #define HAS_PROC_FS 1
-#endif
-#ifdef HAS_PROC_FS
-    else {
-
-      char *procname = NULL;
-  #if defined(__FreeBSD__) || defined(__DragonFly__)
-      procname = "/proc/curproc/file";
-  #elif defined(__linux__) || defined(__ANDROID__)
-      procname = "/proc/self/exe";
-  #elif defined(__NetBSD__)
-      procname = "/proc/curproc/exe";
-  #endif
-      if (procname) {
-
-        char    exepath[PATH_MAX];
-        ssize_t exepath_len = readlink(procname, exepath, sizeof(exepath));
-        if (exepath_len > 0 && exepath_len < PATH_MAX) {
-
-          exepath[exepath_len] = 0;
-          slash = strrchr(exepath, '/');
-
-          if (slash) {
-
-            *slash = 0;
-            tmp = alloc_printf("%s/%s", exepath, obj);
-
-            if (!access(tmp, R_OK)) {
-
-              u8 *dir = alloc_printf("%s", exepath);
-              obj_path = dir;
-              return tmp;
-
-            }
-
-            ck_free(tmp);
-            tmp = alloc_printf("%s/../lib/afl/%s", exepath, obj);
-
-            if (debug) DEBUGF("Trying %s\n", tmp);
-
-            if (!access(tmp, R_OK)) {
-
-              u8 *dir = alloc_printf("%s/../lib/afl/", exepath);
-              obj_path = dir;
-              return tmp;
-
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-#endif
-#undef HAS_PROC_FS
-
-  }
-
-  tmp = alloc_printf("%s/%s", AFL_PATH, obj);
-
-  if (debug) DEBUGF("Trying %s\n", tmp);
-
-  if (!access(tmp, R_OK)) {
-
-    obj_path = AFL_PATH;
-    return tmp;
-
-  }
-
-  ck_free(tmp);
-
-  tmp = alloc_printf("./%s", obj);
-
-  if (debug) DEBUGF("Trying %s\n", tmp);
-
-  if (!access(tmp, R_OK)) {
-
-    obj_path = ".";
-    return tmp;
-
-  }
-
-  ck_free(tmp);
-
-  if (debug) DEBUGF("Trying ... giving up\n");
-
-  return NULL;
-
-}
 
 void parse_fsanitize(char *string) {
 
@@ -1535,17 +1314,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 int main(int argc, char **argv, char **envp) {
 
+  aflcc_state_t *aflcc = malloc(sizeof(aflcc_state_t));
+  aflcc_state_init(aflcc, (u8 *)argv[0]);
+
+  check_environment_vars(envp);
+
+  find_built_deps(aflcc);
+
   int   i;
   char *callname = argv[0], *ptr = NULL;
-
-  if (getenv("AFL_DEBUG")) {
-
-    debug = 1;
-    if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
-
-  } else if (getenv("AFL_QUIET"))
-
-    be_quiet = 1;
 
   if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST") ||
       getenv("AFL_LLVM_ALLOWLIST") || getenv("AFL_LLVM_DENYLIST") ||
@@ -1555,52 +1332,9 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
-
-    passthrough = 1;
-    if (!debug) { be_quiet = 1; }
-
-  }
+  if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) { passthrough = 1; }
 
   if ((ptr = strrchr(callname, '/')) != NULL) callname = ptr + 1;
-  argvnull = (u8 *)argv[0];
-  check_environment_vars(envp);
-
-  if ((ptr = find_object("as", argv[0])) != NULL) {
-
-    have_gcc = 1;
-    ck_free(ptr);
-
-  }
-
-#if (LLVM_MAJOR >= 3)
-
-  if ((ptr = find_object("SanitizerCoverageLTO.so", argv[0])) != NULL) {
-
-    have_lto = 1;
-    ck_free(ptr);
-
-  }
-
-  if ((ptr = find_object("cmplog-routines-pass.so", argv[0])) != NULL) {
-
-    have_llvm = 1;
-    ck_free(ptr);
-
-  }
-
-#endif
-
-#ifdef __ANDROID__
-  have_llvm = 1;
-#endif
-
-  if ((ptr = find_object("afl-gcc-pass.so", argv[0])) != NULL) {
-
-    have_gcc_plugin = 1;
-    ck_free(ptr);
-
-  }
 
 #if (LLVM_MAJOR >= 3)
 
@@ -2541,17 +2275,6 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (debug) {
-
-    DEBUGF("cd '%s';", getthecwd());
-    for (i = 0; i < argc; i++)
-      SAYF(" '%s'", argv[i]);
-    SAYF("\n");
-    fflush(stdout);
-    fflush(stderr);
-
-  }
-
   if (getenv("AFL_LLVM_LAF_ALL")) {
 
     setenv("AFL_LLVM_LAF_SPLIT_SWITCHES", "1", 1);
@@ -2564,47 +2287,25 @@ int main(int argc, char **argv, char **envp) {
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
                 getenv("AFL_GCC_CMPLOG");
 
-#if !defined(__ANDROID__) && !defined(ANDROID)
-  ptr = find_object("afl-compiler-rt.o", argv[0]);
-
-  if (!ptr) {
-
-    FATAL(
-        "Unable to find 'afl-compiler-rt.o'. Please set the AFL_PATH "
-        "environment variable.");
-
-  }
-
-  if (debug) { DEBUGF("rt=%s obj_path=%s\n", ptr, obj_path); }
-
-  ck_free(ptr);
-#endif
+  if (aflcc->debug) debugf_args(argc, argv);
 
   edit_params(argc, argv, envp);
 
-  if (debug) {
+  if (aflcc->debug)
+    debugf_args((s32)aflcc->cc_par_cnt, (char **)aflcc->cc_params);
 
-    DEBUGF("cd '%s';", getthecwd());
-    for (i = 0; i < (s32)cc_par_cnt; i++)
-      SAYF(" '%s'", cc_params[i]);
-    SAYF("\n");
-    fflush(stdout);
-    fflush(stderr);
+  if (aflcc->passthrough) {
 
-  }
-
-  if (passthrough) {
-
-    argv[0] = cc_params[0];
-    execvp(cc_params[0], (char **)argv);
+    argv[0] = aflcc->cc_params[0];
+    execvp(aflcc->cc_params[0], (char **)argv);
 
   } else {
 
-    execvp(cc_params[0], (char **)cc_params);
+    execvp(aflcc->cc_params[0], (char **)aflcc->cc_params);
 
   }
 
-  FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
+  FATAL("Oops, failed to execute '%s' - check your PATH", aflcc->cc_params[0]);
 
   return 0;
 
