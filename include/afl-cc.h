@@ -246,16 +246,17 @@ typedef enum {
 
 /* compiler driver generic */
 
-param_st parse_misc_params(aflcc_state_t *, u8 *, u8);
 param_st parse_fsanitize(aflcc_state_t *, u8 *, u8);
+void add_sanitizers(aflcc_state_t *, char **envp);
+void add_optimized_pcguard(aflcc_state_t *);
+void add_native_pcguard(aflcc_state_t *);
+
+param_st parse_misc_params(aflcc_state_t *, u8 *, u8);
 
 void add_misc_params(aflcc_state_t *);
-void add_sanitizers(aflcc_state_t *, char **envp);
 void add_no_builtin(aflcc_state_t *);
 void add_assembler(aflcc_state_t *);
 void add_gcc_plugin(aflcc_state_t *);
-void add_optimized_pcguard(aflcc_state_t *);
-void add_native_pcguard(aflcc_state_t *);
 
 /* for linking */
 

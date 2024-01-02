@@ -17,71 +17,6 @@
 
 #include "afl-cc.h"
 
-void parse_fsanitize(char *string) {
-
-  char *p, *ptr = string + strlen("-fsanitize=");
-  char *new = malloc(strlen(string) + 1);
-  char *tmp = malloc(strlen(ptr) + 1);
-  u32   count = 0, len, ende = 0;
-
-  if (!new || !tmp) { FATAL("could not acquire memory"); }
-  strcpy(new, "-fsanitize=");
-
-  do {
-
-    p = strchr(ptr, ',');
-    if (!p) {
-
-      p = ptr + strlen(ptr) + 1;
-      ende = 1;
-
-    }
-
-    len = p - ptr;
-    if (len) {
-
-      strncpy(tmp, ptr, len);
-      tmp[len] = 0;
-      // fprintf(stderr, "Found: %s\n", tmp);
-      ptr += len + 1;
-      if (*tmp) {
-
-        u32 copy = 1;
-        if (!strcmp(tmp, "fuzzer")) {
-
-          need_aflpplib = 1;
-          copy = 0;
-
-        } else if (!strncmp(tmp, "fuzzer", 6)) {
-
-          copy = 0;
-
-        }
-
-        if (copy) {
-
-          if (count) { strcat(new, ","); }
-          strcat(new, tmp);
-          ++count;
-
-        }
-
-      }
-
-    } else {
-
-      ptr++;                                    /*fprintf(stderr, "NO!\n"); */
-
-    }
-
-  } while (!ende);
-
-  strcpy(string, new);
-  // fprintf(stderr, "string: %s\n", string);
-  // fprintf(stderr, "new: %s\n", new);
-
-}
-
 static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
@@ -910,102 +845,27 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     // #if LLVM_MAJOR >= 13
     //     // Use the old pass manager in LLVM 14 which the AFL++ passes still
-    //     use. cc_params[cc_par_cnt++] = "-flegacy-pass-manager";
+    //     use. insert_param(aflcc, "-flegacy-pass-manager");
     // #endif
 
-    if (lto_mode && !have_c) {
+    if (aflcc->lto_mode && !aflcc->have_c) {
 
       add_lto_linker(aflcc);
       add_lto_passes(aflcc);
 
     } else {
 
-      if (instrument_mode == INSTRUMENT_PCGUARD) {
+      if (aflcc->instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 13
-  #if defined __ANDROID__ || ANDROID
-        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-        instrument_mode = INSTRUMENT_LLVMNATIVE;
-  #else
-        if (have_instr_list) {
+        add_optimized_pcguard(aflcc);
 
-          if (!be_quiet)
-            SAYF(
-                "Using unoptimized trace-pc-guard, due usage of "
-                "-fsanitize-coverage-allow/denylist, you can use "
-                "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
-          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-          instrument_mode = INSTRUMENT_LLVMNATIVE;
+      } else if (aflcc->instrument_mode == INSTRUMENT_LLVMNATIVE) {
 
-        } else {
-
-    #if LLVM_MAJOR >= 13                            /* use new pass manager */
-      #if LLVM_MAJOR < 16
-          cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
-      #endif
-          cc_params[cc_par_cnt++] = alloc_printf(
-              "-fpass-plugin=%s/SanitizerCoveragePCGUARD.so", obj_path);
-    #else
-          cc_params[cc_par_cnt++] = "-Xclang";
-          cc_params[cc_par_cnt++] = "-load";
-          cc_params[cc_par_cnt++] = "-Xclang";
-          cc_params[cc_par_cnt++] =
-              alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
-    #endif
-
-        }
-
-  #endif
-#else
-  #if LLVM_MAJOR >= 4
-        if (!be_quiet)
-          SAYF(
-              "Using unoptimized trace-pc-guard, upgrade to LLVM 13+ for "
-              "enhanced version.\n");
-        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-        instrument_mode = INSTRUMENT_LLVMNATIVE;
-  #else
-        FATAL("pcguard instrumentation requires LLVM 4.0.1+");
-  #endif
-#endif
-
-      } else if (instrument_mode == INSTRUMENT_LLVMNATIVE) {
-
-#if LLVM_MAJOR >= 4
-        if (instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
-
-  #if LLVM_MAJOR >= 6
-          cc_params[cc_par_cnt++] =
-              "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table";
-  #else
-          FATAL("pcguard instrumentation with pc-table requires LLVM 6.0.1+");
-  #endif
-
-        } else {
-
-          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-
-        }
-
-#else
-        FATAL("pcguard instrumentation requires LLVM 4.0.1+");
-#endif
+        add_native_pcguard(aflcc);
 
       } else {
 
-#if LLVM_MAJOR >= 11                                /* use new pass manager */
-  #if LLVM_MAJOR < 16
-        cc_params[cc_par_cnt++] = "-fexperimental-new-pass-manager";
-  #endif
-        cc_params[cc_par_cnt++] =
-            alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
-#else
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
-#endif
+        load_llvm_pass(aflcc, "afl-llvm-pass.so");
 
       }
 
