@@ -214,7 +214,7 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       if (getenv("AFL_HARDEN"))
         FATAL("ASAN and AFL_HARDEN are mutually exclusive");
 
-      set_fortification(aflcc, 0);
+      add_defs_fortify(aflcc, 0);
       insert_param(aflcc, "-fsanitize=address");
 
     } else if (getenv("AFL_USE_MSAN")) {
@@ -224,7 +224,7 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       if (getenv("AFL_HARDEN"))
         FATAL("MSAN and AFL_HARDEN are mutually exclusive");
 
-      set_fortification(aflcc, 0);
+      add_defs_fortify(aflcc, 0);
       insert_param(aflcc, "-fsanitize=memory");
 
     }
@@ -250,7 +250,7 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
   if (getenv("AFL_USE_LSAN")) {
 
     insert_param(aflcc, "-fsanitize=leak");
-    add_lsan_ctrl(aflcc);
+    add_defs_lsan_ctrl(aflcc);
 
   }
 
