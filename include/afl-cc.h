@@ -229,9 +229,11 @@ void add_real_argv0(aflcc_state_t *);
 
 /* for preprocessor */
 
-void add_macro(aflcc_state_t *);
-void add_fortification(aflcc_state_t *, u8);
-void add_lsan_ctrl(aflcc_state_t *);
+void add_defs_common(aflcc_state_t *);
+void add_defs_selective_instr(aflcc_state_t *);
+void add_defs_persistent_mode(aflcc_state_t *);
+void add_defs_fortify(aflcc_state_t *, u8);
+void add_defs_lsan_ctrl(aflcc_state_t *);
 
 /* compiler driver generic */
 
