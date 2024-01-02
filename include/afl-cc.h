@@ -235,8 +235,6 @@ void add_defs_persistent_mode(aflcc_state_t *);
 void add_defs_fortify(aflcc_state_t *, u8);
 void add_defs_lsan_ctrl(aflcc_state_t *);
 
-/* compiler driver generic */
-
 typedef enum {
 
   PARAM_MISS,  // not matched
@@ -246,24 +244,27 @@ typedef enum {
 
 } param_st;
 
+/* compiler driver generic */
+
 param_st parse_misc_params(aflcc_state_t *, u8 *, u8);
 param_st parse_fsanitize(aflcc_state_t *, u8 *, u8);
-param_st parse_linker_params(aflcc_state_t *, u8 *, u8, 
-                              u8 *skip_next, char **argv);
 
 void add_misc_params(aflcc_state_t *);
 void add_sanitizers(aflcc_state_t *, char **envp);
 void add_no_builtin(aflcc_state_t *);
 void add_assembler(aflcc_state_t *);
 void add_gcc_plugin(aflcc_state_t *);
-void add_lto_passes(aflcc_state_t *);
 void add_optimized_pcguard(aflcc_state_t *);
 void add_native_pcguard(aflcc_state_t *);
 
-/* for linker */
+/* for linking */
 
-void add_runtime(aflcc_state_t *);
+param_st parse_linking_params(aflcc_state_t *, u8 *, u8, 
+                              u8 *skip_next, char **argv);
+
 void add_lto_linker(aflcc_state_t *);
+void add_lto_passes(aflcc_state_t *);
+void add_runtime(aflcc_state_t *);
 
 #endif
 
