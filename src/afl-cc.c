@@ -312,16 +312,24 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
 
   char *cname = NULL;
 
-  if ((cname = strrchr(aflcc->argv0, '/')) != NULL)
+  if ((cname = strrchr(aflcc->argv0, '/')) != NULL) {
+
     cname++;
-  else
+
+  } else {
+
     cname = aflcc->argv0;
+
+  }
 
   aflcc->callname = cname;
 
   if (strlen(cname) > 2 && (strncmp(cname + strlen(cname) - 2, "++", 2) == 0 ||
-                            strstr(cname, "-g++") != NULL))
+                            strstr(cname, "-g++") != NULL)) {
+
     aflcc->plusplus_mode = 1;
+
+  }
 
   /* debug */
 
@@ -330,13 +338,17 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
     aflcc->debug = 1;
     if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
 
-  } else if (getenv("AFL_QUIET"))
+  } else if (getenv("AFL_QUIET")) {
 
     be_quiet = 1;
 
-  if ((getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) && (!aflcc->debug))
+  }
+
+  if ((getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) && (!aflcc->debug)) {
 
     be_quiet = 1;
+
+  }
 
 }
 
@@ -474,7 +486,6 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
   if (!access(tmp, R_OK)) { return tmp; }
 
   ck_free(tmp);
-
   tmp = alloc_printf("./%s", obj);
 
   if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
@@ -619,7 +630,7 @@ void compiler_mode_by_environ(aflcc_state_t *aflcc) {
 
   char *ptr = getenv("AFL_CC_COMPILER");
 
-  if (!ptr) return;
+  if (!ptr) { return; }
 
   if (aflcc->compiler_mode) {
 
@@ -820,7 +831,7 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
 // compiler_mode would also be set if depended by the instrument_mode
 static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
-  if (!getenv("AFL_LLVM_INSTRUMENT")) return;
+  if (!getenv("AFL_LLVM_INSTRUMENT")) { return; }
 
   u8 *ptr2 = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
 
@@ -1003,8 +1014,11 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
     if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
 
       u8 *ptr3 = ptr2 + strlen("ngram");
-      while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
+      while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9')) {
+
         ptr3++;
+
+      }
 
       if (!*ptr3) {
 
@@ -1016,11 +1030,16 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
       }
 
       aflcc->ngram_size = atoi(ptr3);
-      if (aflcc->ngram_size < 2 || aflcc->ngram_size > NGRAM_SIZE_MAX)
+
+      if (aflcc->ngram_size < 2 || aflcc->ngram_size > NGRAM_SIZE_MAX) {
+
         FATAL(
             "NGRAM instrumentation option must be between 2 and "
             "NGRAM_SIZE_MAX (%u)",
             NGRAM_SIZE_MAX);
+
+      }
+
       aflcc->instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
       u8 *ptr4 = alloc_printf("%u", aflcc->ngram_size);
       setenv("AFL_LLVM_NGRAM_SIZE", ptr4, 1);
@@ -1592,7 +1611,7 @@ static u8 fsanitize_fuzzer_comma(char *string) {
 
     } else {
 
-      ptr++;                                    /*fprintf(stderr, "NO!\n"); */
+      ptr++;
 
     }
 
@@ -2206,7 +2225,7 @@ void add_gcc_plugin(aflcc_state_t *aflcc) {
 void add_misc_params(aflcc_state_t *aflcc) {
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("LAF_TRANSFORM_COMPARES") || getenv("AFL_LLVM_LAF_ALL") ||
+      getenv("AFL_LLVM_LAF_ALL") || getenv("AFL_LLVM_CMPLOG") ||
       aflcc->lto_mode) {
 
     insert_param(aflcc, "-fno-builtin-strcmp");
@@ -2253,6 +2272,7 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
 
+// MACRO START
 #define SCAN_KEEP(dst, src) \
   do {                      \
                             \
@@ -2268,6 +2288,8 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
     }                       \
                             \
   } while (0)
+
+  // MACRO END
 
   if (!strncasecmp(cur_argv, "-fpic", 5)) {
 
