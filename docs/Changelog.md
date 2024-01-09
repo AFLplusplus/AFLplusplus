@@ -11,6 +11,7 @@
       reporting!
   - afl-cc:
     - large rewrite by @SonicStark which fixes a few corner cases, thanks!
+    - LTO mode now requires llvm 12+
   - instrumentation:
     - LLVM 18 support, thanks to @devnexen!
     - Injection (SQL, LDAP, XSS) feature now available, see
