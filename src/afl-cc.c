@@ -2059,7 +2059,6 @@ void add_lto_passes(aflcc_state_t *aflcc) {
 #endif
 
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
-  insert_param(aflcc, aflcc->lto_flag);
 
 }
 
@@ -2295,10 +2294,6 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     SCAN_KEEP(aflcc->have_pic, 1);
 
-  } else if (cur_argv[0] != '-') {
-
-    SCAN_KEEP(aflcc->non_dash, 1);
-
   } else if (!strcmp(cur_argv, "-m32") ||
 
              !strcmp(cur_argv, "armv7a-linux-androideabi")) {
@@ -2373,6 +2368,14 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
       final_ = PARAM_DROP;
 
     }
+
+  } else if (cur_argv[0] != '-') {
+
+    /* It's a weak, loose pattern, with very different purpose
+     than others. We handle it at last, cautiously and robustly. */
+
+    if (scan && cur_argv[0] != '@')  // response file support
+      aflcc->non_dash = 1;
 
   }
 
@@ -2912,10 +2915,16 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     //     use. insert_param(aflcc, "-flegacy-pass-manager");
     // #endif
 
-    if (aflcc->lto_mode && !aflcc->have_c) {
+    if (aflcc->lto_mode) {
 
-      add_lto_linker(aflcc);
-      add_lto_passes(aflcc);
+      insert_param(aflcc, aflcc->lto_flag);
+
+      if (!aflcc->have_c) {
+
+        add_lto_linker(aflcc);
+        add_lto_passes(aflcc);
+
+      }
 
     } else {
 
