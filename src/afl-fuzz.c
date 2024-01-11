@@ -2231,6 +2231,30 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
+  if (unlikely(afl->custom_mutators_count)) {
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_fuzz_run) {
+
+        if (!afl->fsrv.custom_fuzz_run) {
+
+          afl->fsrv.custom_fuzz_run = el->afl_custom_fuzz_run;
+          afl->fsrv.custom_mutator_data = el->data;
+          afl->fsrv.shm_id = afl->shm.shm_id;
+
+        } else {
+
+          FATAL("Only one afl_custom_fuzz_run is allowed!");
+
+        }
+
+      }
+
+    });
+
+  }
+
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
       !afl->afl_env.afl_skip_bin_check) {
@@ -2282,6 +2306,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->fsrv.map_size = new_map_size;
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      afl->fsrv.shm_id = afl->shm.shm_id;
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);

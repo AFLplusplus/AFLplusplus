@@ -187,6 +187,12 @@ typedef struct afl_forkserver {
 
   u8 persistent_mode;
 
+  /* A duplicate since struct custom_mutator and struct sharedmem_t is
+   * unavaliable in forkserver.h */
+  void *custom_mutator_data;
+  u8 (*custom_fuzz_run)(void *, u32, s32, u32);
+  s32 shm_id;
+
 #ifdef __linux__
   nyx_plugin_handler_t *nyx_handlers;
   char                 *out_dir_path;    /* path to the output directory     */

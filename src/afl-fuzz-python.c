@@ -249,6 +249,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_FUZZ_SEND] =
         PyObject_GetAttrString(py_module, "fuzz_send");
+    py_functions[PY_FUNC_FUZZ_RUN] =
+        PyObject_GetAttrString(py_module, "fuzz_run");
     py_functions[PY_FUNC_POST_RUN] =
         PyObject_GetAttrString(py_module, "post_run");
     py_functions[PY_FUNC_SPLICE_OPTOUT] =
@@ -467,6 +469,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_FUZZ_SEND]) {
 
     mutator->afl_custom_fuzz_send = fuzz_send_py;
+
+  }
+
+  if (py_functions[PY_FUNC_FUZZ_RUN]) {
+
+    mutator->afl_custom_fuzz_run = fuzz_run_py;
 
   }
 
@@ -930,6 +938,61 @@ void fuzz_send_py(void *py_mutator, const u8 *buf, size_t buf_size) {
   Py_DECREF(py_args);
 
   if (py_value != NULL) { Py_DECREF(py_value); }
+
+}
+
+u8 fuzz_run_py(void *py_mutator, u32 timeout, s32 shm_id, u32 map_size) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(3);
+
+  py_value = PyLong_FromSize_t(timeout);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyLong_FromLong(shm_id);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 1, py_value);
+
+  py_value = PyLong_FromSize_t(map_size);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 2, py_value);
+
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ_RUN], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+
+    long result = PyLong_AsLong(py_value);
+    Py_DECREF(py_value);
+    return (u8)result;
+
+  } else {
+
+    PyErr_Print();
+    FATAL("Call failed");
+
+  }
 
 }
 

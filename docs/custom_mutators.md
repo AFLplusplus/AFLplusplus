@@ -58,7 +58,8 @@ int afl_custom_post_trim(void *data, unsigned char success);
 size_t afl_custom_havoc_mutation(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, size_t max_size);
 unsigned char afl_custom_havoc_mutation_probability(void *data);
 unsigned char afl_custom_queue_get(void *data, const unsigned char *filename);
-void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
+void afl_custom_fuzz_send(void *data, const u8 *buf, size_t buf_size);
+u8 afl_custom_fuzz_run(void *data, unsigned int timeout, int shm_id, unsigned int map_size);
 u8 afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
 const char* afl_custom_introspection(my_mutator_t *data);
 void afl_custom_deinit(void *data);
@@ -104,6 +105,9 @@ def queue_get(filename):
     return True
 
 def fuzz_send(buf):
+    pass
+
+def fuzz_run(timeout, shm_id, map_size):
     pass
 
 def queue_new_entry(filename_new_queue, filename_orig_queue):
@@ -199,6 +203,16 @@ def deinit():  # optional for Python
     e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
     that you start the target with afl-fuzz.
     Example: [custom_mutators/examples/custom_send.c](../custom_mutators/examples/custom_send.c)
+
+
+- `fuzz_run` (optional):
+
+    This method can be used if you want to run target yourself, i.e. totally disable forkserver.
+    This is useful when running a daemon, only start and connect once on init, then send command on each run,
+    result in a similar situation with persistent mode.
+    You need to set `__AFL_SHM_ID` and `AFL_MAP_SIZE` environ variables in an execve.
+    Each time called, AFL++ will clear the trace_bits for you, so you don't need to bother with this.
+    Note: only one `fuzz_run` is allowed, even with many custom mutators.
 
 - `queue_new_entry` (optional):
 

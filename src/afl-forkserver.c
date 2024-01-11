@@ -229,6 +229,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
   fsrv->dev_urandom_fd = -1;
+  fsrv->shm_id = -1;
 
   /* Settings */
   fsrv->use_stdin = true;
@@ -238,6 +239,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
   fsrv->child_kill_signal = SIGKILL;
+  fsrv->custom_mutator_data = NULL;
+  fsrv->custom_fuzz_run = NULL;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -274,6 +277,9 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+  fsrv_to->custom_mutator_data = from->custom_mutator_data;
+  fsrv_to->custom_fuzz_run = from->custom_fuzz_run;
+  fsrv_to->shm_id = from->shm_id;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -522,6 +528,9 @@ static void report_error_and_exit(int error) {
 
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
+
+  // Don't start forkserver if we have a custom_fuzz_run.
+  if (fsrv->custom_fuzz_run) { return; }
 
   int   st_pipe[2], ctl_pipe[2];
   s32   status;
@@ -1608,7 +1617,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     enum NyxReturnValue ret_val =
         fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner);
 
-    fsrv->total_execs++;
+    ++fsrv->total_execs;
 
     switch (ret_val) {
 
@@ -1664,6 +1673,13 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   memset(fsrv->trace_bits, 0, fsrv->map_size);
   MEM_BARRIER();
 #endif
+
+  if (fsrv->custom_fuzz_run) {
+
+    return fsrv->custom_fuzz_run(fsrv->custom_mutator_data, timeout,
+                                 fsrv->shm_id, fsrv->map_size);
+
+  }
 
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */

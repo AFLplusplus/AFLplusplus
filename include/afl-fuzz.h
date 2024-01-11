@@ -346,6 +346,7 @@ enum {
   /* 14 */ PY_FUNC_FUZZ_SEND,
   /* 15 */ PY_FUNC_SPLICE_OPTOUT,
   /* 16 */ PY_FUNC_POST_RUN,
+  /* 17 */ PY_FUNC_FUZZ_RUN,
   PY_FUNC_COUNT
 
 };
@@ -1022,6 +1023,27 @@ struct custom_mutator {
   void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
 
   /**
+   * Run program myself. Don't use either forkserver or execve of AFL.
+   * Use together with afl_custom_fuzz_send to get full control of data and run.
+   * @param data pointer returned in afl_custom_init by this custom mutator
+   * @param timeout timeout passed in afl-fuzz argument, in ms
+   * @param shm_id shared memory id, can be set in environ variable for child
+   * @param map_size shared memory map size, can be set in environ variable for
+   * child
+   * @return Program status like afl_fsrv_run_target returns.
+   * typedef enum fsrv_run_result {
+
+   *   FSRV_RUN_OK = 0,
+   *   FSRV_RUN_TMOUT,
+   *   FSRV_RUN_CRASH,
+   *   FSRV_RUN_ERROR,
+   *   FSRV_RUN_NOINST,
+   *   FSRV_RUN_NOBITS,
+   * } fsrv_run_result_t;
+   */
+  u8 (*afl_custom_fuzz_run)(void *data, u32 timeout, s32 shm_id, u32 map_size);
+
+  /**
    * This method can be used if you want to run some code or scripts each time
    * AFL++ executes the target with afl-fuzz.
    *
@@ -1044,6 +1066,7 @@ struct custom_mutator {
    */
   u8 (*afl_custom_queue_new_entry)(void *data, const u8 *filename_new_queue,
                                    const u8 *filename_orig_queue);
+
   /**
    * Deinitialize the custom mutator.
    *
@@ -1086,6 +1109,7 @@ void                   finalize_py_module(void *);
 
 u32         fuzz_count_py(void *, const u8 *, size_t);
 void        fuzz_send_py(void *, const u8 *, size_t);
+u8          fuzz_run_py(void *, u32, s32, u32);
 void        post_run_py(void *);
 size_t      post_process_py(void *, u8 *, size_t, u8 **);
 s32         init_trim_py(void *, u8 *, size_t);
