@@ -73,7 +73,7 @@ def init(seed):
 def fuzz_count(buf):
     return cnt
 
-def splice_optout()
+def splice_optout():
     pass
 
 def fuzz(buf, add_buf, max_size):
