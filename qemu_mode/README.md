@@ -193,12 +193,39 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-## 12) Other features
+## 12) Coverage information
+
+Coverage information about a run of a target binary can be obtained using a
+dedicated QEMU user mode plugin enabled at runtime: the `drcov.c` plugin
+collects coverage information from the target binary and writes it in the Drcov
+format. This file can then be loaded using tools such as
+[lighthouse](https://github.com/gaasedelen/lighthouse),
+[lightkeeper](https://github.com/WorksButNotTested/lightkeeper) or
+[Cartographer](https://github.com/nccgroup/Cartographer).
+
+To compile the QEMU TCG plugins, run the following command from the `qemuafl`
+directory:
+
+```
+make plugins
+```
+
+Plugins can be loaded using either the `QEMU_PLUGIN` environment variable or
+using the `-plugin` option. For example:
+
+```
+afl-qemu-trace -plugin qemuafl/build/contrib/plugins/libdrcov.so,arg=filename=/tmp/target.drcov.trace <target> <args>
+```
+
+This would execute the target binary with the provided arguments and, once done,
+would write coverage information at `/tmp/target.drcov.trace`.
+
+## 13) Other features
 
 With `AFL_QEMU_FORCE_DFL`, you force QEMU to ignore the registered signal
 handlers of the target.
 
-## 13) Gotchas, feedback, bugs
+## 14) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanups on mutated test cases, see
 `afl_custom_post_process` in custom_mutators/examples/example.c for a viable
@@ -217,7 +244,7 @@ program may be utilizing. In particular, it does not appear to have full support
 for AVX2/FMA3. Using binaries for older CPUs or recompiling them with
 `-march=core2`, can help.
 
-## 14) Alternatives: static rewriting
+## 15) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate them
 at run time, can be a faster alternative. That said, static rewriting is fraught
