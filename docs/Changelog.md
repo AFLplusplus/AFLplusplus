@@ -21,6 +21,10 @@
       - due a bug in LLVM 17 integer splitting is disabled there!
       - when splitting floats was selected, integers were always split as well,
         fixed to require AFL_LLVM_LAF_SPLIT_COMPARES or _ALL as it should
+  - qemu_mode:
+    - plugins are now activated by default and a new module is included that
+      produces drcov compatible traces for lighthouse/lightkeeper/...
+      thanks to @JRomainG to submitting!
 
 
 ### Version ++4.09c (release)
