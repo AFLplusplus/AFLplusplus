@@ -199,7 +199,8 @@ Coverage information about a run of a target binary can be obtained using a
 dedicated QEMU user mode plugin enabled at runtime: the `drcov.c` plugin
 collects coverage information from the target binary and writes it in the Drcov
 format. This file can then be loaded using tools such as
-[lighthouse](https://github.com/gaasedelen/lighthouse) or
+[lighthouse](https://github.com/gaasedelen/lighthouse),
+[lightkeeper](https://github.com/WorksButNotTested/lightkeeper) or
 [Cartographer](https://github.com/nccgroup/Cartographer).
 
 To compile the QEMU TCG plugins, run the following command from the `qemuafl`
