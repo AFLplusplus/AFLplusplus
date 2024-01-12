@@ -1962,6 +1962,7 @@ param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
     }
 
   } else if (!strcmp(cur_argv, "-Wl,-z,defs") ||
+
              !strcmp(cur_argv, "-Wl,--no-undefined") ||
              !strcmp(cur_argv, "-Wl,-no-undefined") ||
              !strcmp(cur_argv, "--no-undefined") ||
@@ -3030,3 +3031,4 @@ int main(int argc, char **argv, char **envp) {
   return 0;
 
 }
+
