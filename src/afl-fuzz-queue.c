@@ -26,6 +26,9 @@
 #include <limits.h>
 #include <ctype.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #ifdef _STANDALONE_MODULE
 void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
@@ -33,6 +36,56 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
   return;
 
 }
+
+
+static const u8 aes_sbox[256] = {
+    0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+    0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+    0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+    0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+    0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+    0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+    0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+    0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+    0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+    0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+    0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+    0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+    0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+    0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
+};
+
+u32 feistel(u32 input, uint16_t key) {
+    uint16_t left = input >> 16;
+    uint16_t right = input & 0xFFFF;
+
+    
+
+    // Apply the AES S-box to the lower and upper 8 bits of the right half
+    uint8_t lower_right = right & 0xFF;
+    uint8_t upper_right = (right >> 8) & 0xFF;
+    lower_right = aes_sbox[lower_right];
+    upper_right = aes_sbox[upper_right];
+
+    // Recombine the modified lower and upper halves of the right half
+    right = ((uint16_t)upper_right << 8) | lower_right;
+   // XOR the right half with the key for this round
+    right ^= key;  // Key is now of type uint16_t
+    // Swap left and right halves and recombine
+    return ((u32)right << 16) | left;
+}
+
+
+
+
+
+
+
+
+
+
 
 void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
                                     u8 *a, u8 *b) {
@@ -155,15 +208,15 @@ void create_alias_table(afl_state_t *afl) {
 
     }
 
-    if (unlikely(afl->schedule == MMOPT) && afl->queued_discovered) {
+        if (unlikely(afl->schedule == Ccbit) && afl->queued_discovered) {
 
-      u32 cnt = afl->queued_discovered >= 5 ? 5 : afl->queued_discovered;
+      u32 gnt = afl->queued_discovered >= 2 ? 2 : afl->queued_discovered;
 
-      for (i = n - cnt; i < n; i++) {
+      for (i = n - gnt; i < n; i++) {
 
         struct queue_entry *q = afl->queue_buf[i];
 
-        if (likely(!q->disabled)) { q->weight *= 2.0; }
+        if (likely(!q->disabled)) { q->weight *= 3.0; }
 
       }
 
@@ -903,6 +956,15 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   u32 avg_bitmap_size = afl->total_bitmap_size / bitmap_entries;
   u32 perf_score = 100;
 
+
+//-----------------------------------------------
+// Update maximum bitmap size if necessary
+  u32 current_bitmap_size = afl->total_bitmap_size;
+  static u32 max_bitmap_size = 0;  // Initialize with 0 at the start
+
+  if (current_bitmap_size > max_bitmap_size) {
+    max_bitmap_size = current_bitmap_size;
+  }
   /* Adjust score based on execution speed of this path, compared to the
      global average. Multiplier ranges from 0.1x to 3x. Fast inputs are
      less expensive to fuzz, so we're giving them more air time. */
@@ -913,68 +975,43 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (likely(afl->schedule < RARE) && likely(!afl->fixed_seed)) {
-
+if (likely(afl->schedule < RARE) && likely(!afl->fixed_seed)) {
     if (q->exec_us * 0.1 > avg_exec_us) {
-
-      perf_score = 10;
-
+        perf_score = 10;
     } else if (q->exec_us * 0.25 > avg_exec_us) {
-
-      perf_score = 25;
-
+        perf_score = 25;
     } else if (q->exec_us * 0.5 > avg_exec_us) {
-
-      perf_score = 50;
-
+        perf_score = 50;
     } else if (q->exec_us * 0.75 > avg_exec_us) {
-
-      perf_score = 75;
-
+        perf_score = 75;
     } else if (q->exec_us * 4 < avg_exec_us) {
-
-      perf_score = 300;
-
+        if (q->bitmap_size * 0.5 > avg_bitmap_size) {
+            perf_score = 310;
+        } else {
+            perf_score = 300;
+        }
     } else if (q->exec_us * 3 < avg_exec_us) {
-
-      perf_score = 200;
-
+        perf_score = 200;
     } else if (q->exec_us * 2 < avg_exec_us) {
-
-      perf_score = 150;
-
+        perf_score = 150;
     }
+    
+    // Adjust score based on bitmap size
+    if (q->bitmap_size * 3 < avg_bitmap_size) {
+        perf_score *= 0.25;
+    } else if (q->bitmap_size * 2 < avg_bitmap_size) {
+        perf_score *= 0.5;
+    } else if (q->bitmap_size * 1.5 < avg_bitmap_size) {
+        perf_score *= 0.75;
+    } else if (q->bitmap_size * 0.75 > avg_bitmap_size) {
+        perf_score *= 1.5;
+    } else if (q->bitmap_size * 0.5 > avg_bitmap_size) {
+        perf_score *= 2;
+    } else if (q->bitmap_size * 0.3 > avg_bitmap_size) {
+        perf_score *= 3;
+    }
+}
 
-  }
-
-  /* Adjust score based on bitmap size. The working theory is that better
-     coverage translates to better targets. Multiplier from 0.25x to 3x. */
-
-  if (q->bitmap_size * 0.3 > avg_bitmap_size) {
-
-    perf_score *= 3;
-
-  } else if (q->bitmap_size * 0.5 > avg_bitmap_size) {
-
-    perf_score *= 2;
-
-  } else if (q->bitmap_size * 0.75 > avg_bitmap_size) {
-
-    perf_score *= 1.5;
-
-  } else if (q->bitmap_size * 3 < avg_bitmap_size) {
-
-    perf_score *= 0.25;
-
-  } else if (q->bitmap_size * 2 < avg_bitmap_size) {
-
-    perf_score *= 0.5;
-
-  } else if (q->bitmap_size * 1.5 < avg_bitmap_size) {
-
-    perf_score *= 0.75;
-
-  }
 
   /* Adjust score based on handicap. Handicap is proportional to how late
      in the game we learned about this path. Latecomers are allowed to run
@@ -1117,21 +1154,11 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       factor =
           q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;
-
-    case MMOPT:
-      /* -- this was a more complex setup, which is good, but competed with
-         -- rare. the simpler algo however is good when rare is not.
-        // the newer the entry, the higher the pref_score
-        perf_score *= (1 + (double)((double)q->depth /
-        (double)afl->queued_items));
-        // with special focus on the last 8 entries
-        if (afl->max_depth - q->depth < 8) perf_score *= (1 + ((8 -
-        (afl->max_depth - q->depth)) / 5));
-      */
-      // put focus on the last 5 entries
-      if (afl->max_depth - q->depth < 5) { perf_score *= 2; }
-
-      break;
+    
+    case Ccbit:
+    
+      if ((afl->max_depth - q->depth < 5)&&(max_bitmap_size - q->bitmap_size > 0.3 * avg_bitmap_size)) { perf_score *= 3; }
+      break;  
 
     case RARE:
 
@@ -1157,10 +1184,13 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  // MOpt mode
-  if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3) {
 
-    perf_score *= 2;
+
+//  Ccbit mode   
+
+  if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3 && (max_bitmap_size - q->bitmap_size > 0.3 * avg_bitmap_size)) {
+
+    perf_score *= 3;
 
   } else if (afl->schedule != COE && perf_score < 1) {
 
@@ -1168,6 +1198,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     perf_score = 1;
 
   }
+
 
   /* Make sure that we don't go over limit. */
 
@@ -1332,7 +1363,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
         // undesirable because q_testcase_max_cache_count grows sometimes
         // although the number of items in the cache will not change hence
         // more and more loops
-        tid = rand_below(afl, afl->q_testcase_max_cache_count);
+        tid = feistel(rand_below(afl, afl->q_testcase_max_cache_count), (rand_below(afl, 16)>>8 & 0xffff));
 
       } while (afl->q_testcase_cache[tid] == NULL ||
 
