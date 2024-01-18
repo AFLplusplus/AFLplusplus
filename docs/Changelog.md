@@ -25,6 +25,7 @@
     - plugins are now activated by default and a new module is included that
       produces drcov compatible traces for lighthouse/lightkeeper/...
       thanks to @JRomainG to submitting!
+  - updated the custom grammar mutator
 
 
 ### Version ++4.09c (release)
