@@ -1812,6 +1812,10 @@ int main(int argc, char **argv_orig, char **envp) {
   check_cpu_governor(afl);
   #endif
 
+  #ifdef __APPLE__
+  setenv("DYLD_NO_PIE", "1", 0);
+  #endif
+
   if (getenv("LD_PRELOAD")) {
 
     WARNF(
