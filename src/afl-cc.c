@@ -629,9 +629,9 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
 
     aflcc->compiler_mode = CLANG;
 
-  }
-
 #endif
+
+  }
 
 }
 
@@ -1283,7 +1283,7 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
       aflcc->instrument_mode = INSTRUMENT_PCGUARD;
 
 #else
-      aflcc->instrument_mode = INSTRUMENT_AFL;
+    aflcc->instrument_mode = INSTRUMENT_AFL;
 #endif
 
   }
@@ -1557,8 +1557,8 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
 #else
-        "__attribute__((visibility(\"default\"))) "
-        "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
+      "__attribute__((visibility(\"default\"))) "
+      "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
 #endif                                                        /* ^__APPLE__ */
       // if afl is connected, we run _A times, else once.
       "_L(__afl_connected ? _A : 1); })");
@@ -1573,8 +1573,8 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
       "__attribute__((visibility(\"default\"))) "
       "void _I(void) __asm__(\"___afl_manual_init\"); "
 #else
-        "__attribute__((visibility(\"default\"))) "
-        "void _I(void) __asm__(\"__afl_manual_init\"); "
+      "__attribute__((visibility(\"default\"))) "
+      "void _I(void) __asm__(\"__afl_manual_init\"); "
 #endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)");
 
@@ -1888,12 +1888,12 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
     FATAL("pcguard instrumentation with pc-table requires LLVM 6.0.1+");
 #else
   #if LLVM_MAJOR == 0
-      WARNF(
-          "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
-          " otherwise the compiler will fail");
+    WARNF(
+        "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
+        " otherwise the compiler will fail");
   #endif
-      insert_param(aflcc,
-                   "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table");
+    insert_param(aflcc,
+                 "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table");
 #endif
 
   } else {
@@ -1902,11 +1902,11 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
     FATAL("pcguard instrumentation requires LLVM 4.0.1+");
 #else
   #if LLVM_MAJOR == 0
-      WARNF(
-          "pcguard instrumentation requires LLVM 4.0.1+"
-          " otherwise the compiler will fail");
+    WARNF(
+        "pcguard instrumentation requires LLVM 4.0.1+"
+        " otherwise the compiler will fail");
   #endif
-      insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
+    insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
 #endif
 
   }
@@ -1948,16 +1948,16 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 #else     // LLVM_MAJOR < 13
   #if LLVM_MAJOR >= 4
 
-    if (!be_quiet)
-      SAYF(
-          "Using unoptimized trace-pc-guard, upgrade to LLVM 13+ for "
-          "enhanced version.\n");
-    insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
-    aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
+  if (!be_quiet)
+    SAYF(
+        "Using unoptimized trace-pc-guard, upgrade to LLVM 13+ for "
+        "enhanced version.\n");
+  insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
+  aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
 
   #else
 
-    FATAL("pcguard instrumentation requires LLVM 4.0.1+");
+  FATAL("pcguard instrumentation requires LLVM 4.0.1+");
 
   #endif
 #endif
@@ -2161,7 +2161,7 @@ void add_lto_linker(aflcc_state_t *aflcc) {
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
   insert_param(aflcc, alloc_printf("--ld-path=%s", ld_path));
 #else
-    insert_param(aflcc, alloc_printf("-fuse-ld=%s", ld_path));
+  insert_param(aflcc, alloc_printf("-fuse-ld=%s", ld_path));
 #endif
   free(ld_path);
 
@@ -2174,11 +2174,11 @@ void add_lto_passes(aflcc_state_t *aflcc) {
   insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,--load-pass-plugin=%s",
                 0);
 #elif defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
-    insert_param(aflcc, "-Wl,--lto-legacy-pass-manager");
-    insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
+  insert_param(aflcc, "-Wl,--lto-legacy-pass-manager");
+  insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #else
-    insert_param(aflcc, "-fno-experimental-new-pass-manager");
-    insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
+  insert_param(aflcc, "-fno-experimental-new-pass-manager");
+  insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #endif
 
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
@@ -2776,7 +2776,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
     SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
   #endif
 #else
-      SAYF("Compiled with shmat support.\n");
+    SAYF("Compiled with shmat support.\n");
 #endif
     SAYF("\n");
 
