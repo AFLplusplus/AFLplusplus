@@ -167,7 +167,7 @@ typedef struct aflcc_state {
 
   u8 cmplog_mode;
 
-  u8 have_instr_env, have_gcc, have_llvm, have_gcc_plugin, have_lto,
+  u8 have_instr_env, have_gcc, have_clang, have_llvm, have_gcc_plugin, have_lto,
       have_optimized_pcguard, have_instr_list;
 
   u8 fortify_set, asan_set, x_set, bit_mode, preprocessor_only, have_unroll,
@@ -504,12 +504,19 @@ void find_built_deps(aflcc_state_t *aflcc) {
 
   char *ptr = NULL;
 
+#if defined(__x86_64__)
   if ((ptr = find_object(aflcc, "as")) != NULL) {
 
+  #ifndef __APPLE__
+    // on OSX clang masquerades as GCC
     aflcc->have_gcc = 1;
+  #endif
+    aflcc->have_clang = 1;
     ck_free(ptr);
 
   }
+
+#endif
 
   if ((ptr = find_object(aflcc, "SanitizerCoveragePCGUARD.so")) != NULL) {
 
@@ -604,11 +611,17 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
 
     aflcc->compiler_mode = GCC_PLUGIN;
 
+#if defined(__x86_64__)
+
   } else if (strncmp(aflcc->callname, "afl-gcc", 7) == 0 ||
 
              strncmp(aflcc->callname, "afl-g++", 7) == 0) {
 
     aflcc->compiler_mode = GCC;
+
+#endif
+
+#if defined(__x86_64__)
 
   } else if (strcmp(aflcc->callname, "afl-clang") == 0 ||
 
@@ -617,6 +630,8 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
     aflcc->compiler_mode = CLANG;
 
   }
+
+#endif
 
 }
 
@@ -660,13 +675,21 @@ void compiler_mode_by_environ(aflcc_state_t *aflcc) {
 
       aflcc->compiler_mode = GCC_PLUGIN;
 
+#if defined(__x86_64__)
+
     } else if (strcasecmp(ptr, "GCC") == 0) {
 
       aflcc->compiler_mode = GCC;
 
+#endif
+
+#if defined(__x86_64__)
+
     } else if (strcasecmp(ptr, "CLANG") == 0) {
 
       aflcc->compiler_mode = CLANG;
+
+#endif
 
     } else
 
@@ -751,13 +774,21 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 
         aflcc->compiler_mode = GCC_PLUGIN;
 
+#if defined(__x86_64__)
+
       } else if (strcasecmp(ptr, "GCC") == 0) {
 
         aflcc->compiler_mode = GCC;
 
+#endif
+
+#if defined(__x86_64__)
+
       } else if (strncasecmp(ptr, "CLANG", 5) == 0) {
 
         aflcc->compiler_mode = CLANG;
+
+#endif
 
       } else
 
@@ -929,6 +960,7 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
     }
 
+#if defined(__x86_64__)
     if (strcasecmp(ptr2, "gcc") == 0) {
 
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_GCC)
@@ -943,6 +975,9 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
     }
 
+#endif
+
+#if defined(__x86_64__)
     if (strcasecmp(ptr2, "clang") == 0) {
 
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_CLANG)
@@ -956,6 +991,8 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
       aflcc->compiler_mode = CLANG;
 
     }
+
+#endif
 
     if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0 ||
         strncasecmp(ptr2, "kctx-", strlen("c-ctx-")) == 0 ||
@@ -1130,15 +1167,44 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
     else if (aflcc->have_gcc_plugin)
       aflcc->compiler_mode = GCC_PLUGIN;
     else if (aflcc->have_gcc)
-#ifdef __APPLE__
-      // on OSX clang masquerades as GCC
-      aflcc->compiler_mode = CLANG;
-#else
       aflcc->compiler_mode = GCC;
-#endif
+    else if (aflcc->have_clang)
+      aflcc->compiler_mode = CLANG;
     else if (aflcc->have_lto)
       aflcc->compiler_mode = LTO;
     else
+      FATAL("no compiler mode available");
+
+  }
+
+  switch (aflcc->compiler_mode) {
+
+    case GCC:
+      if (!aflcc->have_gcc) FATAL("afl-gcc not available on your platform!");
+      break;
+    case CLANG:
+      if (!aflcc->have_clang)
+        FATAL("afl-clang not available on your platform!");
+      break;
+    case LLVM:
+      if (!aflcc->have_llvm)
+        FATAL(
+            "LLVM mode is not available, please install LLVM 13+ and recompile "
+            "AFL++");
+      break;
+    case GCC_PLUGIN:
+      if (!aflcc->have_gcc_plugin)
+        FATAL(
+            "GCC_PLUGIN mode is not available, install gcc plugin support and "
+            "recompile AFL++");
+      break;
+    case LTO:
+      if (!aflcc->have_lto)
+        FATAL(
+            "LTO mode is not available, please install LLVM 13+ and lld of the "
+            "same version and recompile AFL++");
+      break;
+    default:
       FATAL("no compiler mode available");
 
   }
@@ -1217,7 +1283,7 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
       aflcc->instrument_mode = INSTRUMENT_PCGUARD;
 
 #else
-    aflcc->instrument_mode = INSTRUMENT_AFL;
+      aflcc->instrument_mode = INSTRUMENT_AFL;
 #endif
 
   }
@@ -1491,8 +1557,8 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
 #else
-      "__attribute__((visibility(\"default\"))) "
-      "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
+        "__attribute__((visibility(\"default\"))) "
+        "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
 #endif                                                        /* ^__APPLE__ */
       // if afl is connected, we run _A times, else once.
       "_L(__afl_connected ? _A : 1); })");
@@ -1507,8 +1573,8 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
       "__attribute__((visibility(\"default\"))) "
       "void _I(void) __asm__(\"___afl_manual_init\"); "
 #else
-      "__attribute__((visibility(\"default\"))) "
-      "void _I(void) __asm__(\"__afl_manual_init\"); "
+        "__attribute__((visibility(\"default\"))) "
+        "void _I(void) __asm__(\"__afl_manual_init\"); "
 #endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)");
 
@@ -1618,8 +1684,6 @@ static u8 fsanitize_fuzzer_comma(char *string) {
   } while (!ende);
 
   strcpy(string, new);
-  // fprintf(stderr, "string: %s\n", string);
-  // fprintf(stderr, "new: %s\n", new);
 
   ck_free(tmp);
   ck_free(new);
@@ -1824,12 +1888,12 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
     FATAL("pcguard instrumentation with pc-table requires LLVM 6.0.1+");
 #else
   #if LLVM_MAJOR == 0
-    WARNF(
-        "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
-        " otherwise the compiler will fail");
+      WARNF(
+          "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
+          " otherwise the compiler will fail");
   #endif
-    insert_param(aflcc,
-                 "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table");
+      insert_param(aflcc,
+                   "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table");
 #endif
 
   } else {
@@ -1838,11 +1902,11 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
     FATAL("pcguard instrumentation requires LLVM 4.0.1+");
 #else
   #if LLVM_MAJOR == 0
-    WARNF(
-        "pcguard instrumentation requires LLVM 4.0.1+"
-        " otherwise the compiler will fail");
+      WARNF(
+          "pcguard instrumentation requires LLVM 4.0.1+"
+          " otherwise the compiler will fail");
   #endif
-    insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
+      insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
 #endif
 
   }
@@ -1884,16 +1948,16 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 #else     // LLVM_MAJOR < 13
   #if LLVM_MAJOR >= 4
 
-  if (!be_quiet)
-    SAYF(
-        "Using unoptimized trace-pc-guard, upgrade to LLVM 13+ for "
-        "enhanced version.\n");
-  insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
-  aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
+    if (!be_quiet)
+      SAYF(
+          "Using unoptimized trace-pc-guard, upgrade to LLVM 13+ for "
+          "enhanced version.\n");
+    insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
+    aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
 
   #else
 
-  FATAL("pcguard instrumentation requires LLVM 4.0.1+");
+    FATAL("pcguard instrumentation requires LLVM 4.0.1+");
 
   #endif
 #endif
@@ -2097,7 +2161,7 @@ void add_lto_linker(aflcc_state_t *aflcc) {
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
   insert_param(aflcc, alloc_printf("--ld-path=%s", ld_path));
 #else
-  insert_param(aflcc, alloc_printf("-fuse-ld=%s", ld_path));
+    insert_param(aflcc, alloc_printf("-fuse-ld=%s", ld_path));
 #endif
   free(ld_path);
 
@@ -2110,11 +2174,11 @@ void add_lto_passes(aflcc_state_t *aflcc) {
   insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,--load-pass-plugin=%s",
                 0);
 #elif defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 13
-  insert_param(aflcc, "-Wl,--lto-legacy-pass-manager");
-  insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
+    insert_param(aflcc, "-Wl,--lto-legacy-pass-manager");
+    insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #else
-  insert_param(aflcc, "-fno-experimental-new-pass-manager");
-  insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
+    insert_param(aflcc, "-fno-experimental-new-pass-manager");
+    insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #endif
 
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
@@ -2503,7 +2567,11 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         aflcc->compiler_mode == LTO ? " [SELECTED]" : "",
         aflcc->have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         aflcc->compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
-        aflcc->have_gcc ? "AVAILABLE" : "unavailable!",
+        aflcc->have_gcc && aflcc->have_clang
+            ? "AVAILABLE"
+            : (aflcc->have_gcc
+                   ? "GCC ONLY "
+                   : (aflcc->have_clang ? "CLANG ONLY" : "unavailable!")),
         (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG)
             ? " [SELECTED]"
             : "");
@@ -2708,7 +2776,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
     SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
   #endif
 #else
-    SAYF("Compiled with shmat support.\n");
+      SAYF("Compiled with shmat support.\n");
 #endif
     SAYF("\n");
 
