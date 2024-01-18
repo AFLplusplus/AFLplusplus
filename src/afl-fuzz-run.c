@@ -169,20 +169,16 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (unlikely(afl->custom_mutators_count)) {
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+      if (el->afl_custom_fuzz_send) {
 
-        if (el->afl_custom_fuzz_send) {
+        el->afl_custom_fuzz_send(el->data, *mem, new_size);
+        sent = 1;
 
-          el->afl_custom_fuzz_send(el->data, *mem, new_size);
-          sent = 1;
+      }
 
-        }
-
-      });
-
-    }
+    });
 
     if (likely(!sent)) {
 
@@ -203,7 +199,7 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-  } else {
+  } else {                                   /* !afl->custom_mutators_count */
 
     if (unlikely(len < afl->min_length && !fix)) {
 
@@ -215,27 +211,8 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (unlikely(afl->custom_mutators_count)) {
-
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-        if (el->afl_custom_fuzz_send) {
-
-          el->afl_custom_fuzz_send(el->data, *mem, len);
-          sent = 1;
-
-        }
-
-      });
-
-    }
-
-    if (likely(!sent)) {
-
-      /* boring uncustom. */
-      afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
-
-    }
+    /* boring uncustom. */
+    afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
 
   }
 
