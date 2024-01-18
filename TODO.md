@@ -9,9 +9,6 @@
  - afl-fuzz multicore wrapper script
  - when trimming then perform crash detection
  - either -L0 and/or -p mmopt results in zero new coverage
- - DYLD_NO_PIE=1
- - sudo nvram boot-args="no_aslr=1"
-
 
 
 ## Should
