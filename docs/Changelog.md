@@ -9,15 +9,23 @@
       explore is slightly better now.
     - fixed minor issues in the mutation engine, thanks to @futhewo for
       reporting!
+  - afl-cc:
+    - large rewrite by @SonicStark which fixes a few corner cases, thanks!
+    - LTO mode now requires llvm 12+
   - instrumentation:
     - LLVM 18 support, thanks to @devnexen!
     - Injection (SQL, LDAP, XSS) feature now available, see
       `instrumentation/README.injections.md` how to activate/use/expand.
     - compcov/LAF-intel:
       - floating point splitting bug fix by @hexcoder
-      - due a bug in LLVM 17 integer splitting is disabled!
+      - due a bug in LLVM 17 integer splitting is disabled there!
       - when splitting floats was selected, integers were always split as well,
-        fixed to require AFL_LLVM_LAF_SPLIT_COMPARES as it should
+        fixed to require AFL_LLVM_LAF_SPLIT_COMPARES or _ALL as it should
+  - qemu_mode:
+    - plugins are now activated by default and a new module is included that
+      produces drcov compatible traces for lighthouse/lightkeeper/...
+      thanks to @JRomainG to submitting!
+  - updated the custom grammar mutator
 
 
 ### Version ++4.09c (release)

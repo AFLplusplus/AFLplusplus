@@ -38,6 +38,7 @@ fi
 
 echo
 PLATFORM=`uname -s`
+ARCH=`uname -m`
 
 # check that we're on Mac
 if [[ "$PLATFORM" = "Darwin" ]] ; then
@@ -86,6 +87,13 @@ if [[ "$PLATFORM" = "Darwin" ]] ; then
   </dict>
 </plist>
 EOF
+
+  if [[ "$ARCH" = "x86_64" ]]; then
+    echo "Disabling ASLR system wide"
+    nvram boot-args="no_aslr=1"
+  else
+    echo NOTICE: on ARM64 we do not know currently how to disable system wide ASLR, please report if you know how.
+  fi
 
   echo
   echo "Reboot and enjoy your fuzzing"

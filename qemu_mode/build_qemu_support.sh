@@ -132,7 +132,10 @@ echo "Building for CPU target $CPU_TARGET"
 
 # --enable-pie seems to give a couple of exec's a second performance
 # improvement, much to my surprise. Not sure how universal this is..
+# --enable-plugins allows loading TCG plugins at runtime, for example to obtain
+# coverage information, and does not seem to negatively impact performance
 QEMU_CONF_FLAGS=" \
+  --enable-plugins \
   --audio-drv-list= \
   --disable-blobs \
   --disable-bochs \
@@ -162,7 +165,6 @@ QEMU_CONF_FLAGS=" \
   --disable-numa \
   --disable-opengl \
   --disable-parallels \
-  --disable-plugins \
   --disable-qcow1 \
   --disable-qed \
   --disable-rbd \
