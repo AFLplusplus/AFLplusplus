@@ -627,6 +627,13 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   }
 
+  if (debug) {
+
+    fprintf(stderr, "SanitizerCoveragePCGUARD: instrumenting %s in %s\n",
+            F.getName().str().c_str(), F.getParent()->getName().str().c_str());
+
+  }
+
   InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
   // InjectTraceForCmp(F, CmpTraceTargets);
   // InjectTraceForSwitch(F, SwitchTraceTargets);
