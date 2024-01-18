@@ -1982,7 +1982,7 @@ param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
   } else if (!strcmp(cur_argv, "-z") || !strcmp(cur_argv, "-Wl,-z")) {
 
     u8 *param = *(argv + 1);
-    if (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs")) {
+    if (param && (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs"))) {
 
       *skip_next = 1;
 
@@ -1993,6 +1993,64 @@ param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
       } else {
 
         final_ = PARAM_DROP;
+
+      }
+
+    }
+
+  }
+
+  // Try to warn user for some unsupported cases
+  if (scan && final_ == PARAM_MISS) {
+
+    u8 *ptr_ = NULL;
+
+    if (!strcmp(cur_argv, "-Xlinker") && (ptr_ = *(argv + 1))) {
+
+      if (!strcmp(ptr_, "defs")) {
+
+        WARNF("'-Xlinker' 'defs' detected. This may result in a bad link.");
+
+      } else if (strstr(ptr_, "-no-undefined")) {
+
+        WARNF(
+            "'-Xlinker' '%s' detected. The latter option may be dropped and "
+            "result in a bad link.",
+            ptr_);
+
+      }
+
+    } else if (!strncmp(cur_argv, "-Wl,", 4) &&
+
+               (u8 *)strrchr(cur_argv, ',') != (cur_argv + 3)) {
+
+      ptr_ = cur_argv + 4;
+
+      if (strstr(ptr_, "-shared") || strstr(ptr_, "-dynamiclib")) {
+
+        WARNF(
+            "'%s': multiple link options after '-Wl,' may break shared "
+            "linking.",
+            ptr_);
+
+      }
+
+      if (strstr(ptr_, "-r,") || strstr(ptr_, "-i,") || strstr(ptr_, ",-r") ||
+          strstr(ptr_, ",-i") || strstr(ptr_, "--relocatable")) {
+
+        WARNF(
+            "'%s': multiple link options after '-Wl,' may break partial "
+            "linking.",
+            ptr_);
+
+      }
+
+      if (strstr(ptr_, "defs") || strstr(ptr_, "no-undefined")) {
+
+        WARNF(
+            "'%s': multiple link options after '-Wl,' may enable report "
+            "unresolved symbol references and result in a bad link.",
+            ptr_);
 
       }
 
