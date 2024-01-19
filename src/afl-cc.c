@@ -1180,11 +1180,11 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
   switch (aflcc->compiler_mode) {
 
     case GCC:
-      if (!aflcc->have_gcc) FATAL("afl-gcc not available on your platform!");
+      if (!aflcc->have_gcc) FATAL("afl-gcc is not available on your platform!");
       break;
     case CLANG:
       if (!aflcc->have_clang)
-        FATAL("afl-clang not available on your platform!");
+        FATAL("afl-clang is not available on your platform!");
       break;
     case LLVM:
       if (!aflcc->have_llvm)
@@ -2538,11 +2538,11 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "MODES:                                  NCC PERSIST DICT   LAF "
         "CMPLOG SELECT\n"
         "  [LLVM] LLVM:             %s%s\n"
-        "      PCGUARD              %s      yes yes     module yes yes    "
+        "      PCGUARD              %s    yes yes     module yes yes    "
         "yes\n"
-        "      NATIVE               AVAILABLE      no  yes     no     no  "
+        "      NATIVE               AVAILABLE    no  yes     no     no  "
         "part.  yes\n"
-        "      CLASSIC              %s      no  yes     module yes yes    "
+        "      CLASSIC              %s    no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
         "        - CALLER\n"
