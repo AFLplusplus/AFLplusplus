@@ -26,6 +26,7 @@
       produces drcov compatible traces for lighthouse/lightkeeper/...
       thanks to @JRomainG to submitting!
   - updated the custom grammar mutator
+  - document afl-cmin does not work on macOS
 
 
 ### Version ++4.09c (release)
