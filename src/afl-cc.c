@@ -611,25 +611,17 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
 
     aflcc->compiler_mode = GCC_PLUGIN;
 
-#if defined(__x86_64__)
-
   } else if (strncmp(aflcc->callname, "afl-gcc", 7) == 0 ||
 
              strncmp(aflcc->callname, "afl-g++", 7) == 0) {
 
     aflcc->compiler_mode = GCC;
 
-#endif
-
-#if defined(__x86_64__)
-
   } else if (strcmp(aflcc->callname, "afl-clang") == 0 ||
 
              strcmp(aflcc->callname, "afl-clang++") == 0) {
 
     aflcc->compiler_mode = CLANG;
-
-#endif
 
   }
 
@@ -675,21 +667,13 @@ void compiler_mode_by_environ(aflcc_state_t *aflcc) {
 
       aflcc->compiler_mode = GCC_PLUGIN;
 
-#if defined(__x86_64__)
-
     } else if (strcasecmp(ptr, "GCC") == 0) {
 
       aflcc->compiler_mode = GCC;
 
-#endif
-
-#if defined(__x86_64__)
-
     } else if (strcasecmp(ptr, "CLANG") == 0) {
 
       aflcc->compiler_mode = CLANG;
-
-#endif
 
     } else
 
@@ -774,21 +758,13 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 
         aflcc->compiler_mode = GCC_PLUGIN;
 
-#if defined(__x86_64__)
-
       } else if (strcasecmp(ptr, "GCC") == 0) {
 
         aflcc->compiler_mode = GCC;
 
-#endif
-
-#if defined(__x86_64__)
-
       } else if (strncasecmp(ptr, "CLANG", 5) == 0) {
 
         aflcc->compiler_mode = CLANG;
-
-#endif
 
       } else
 
@@ -960,7 +936,6 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
     }
 
-#if defined(__x86_64__)
     if (strcasecmp(ptr2, "gcc") == 0) {
 
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_GCC)
@@ -975,9 +950,6 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
     }
 
-#endif
-
-#if defined(__x86_64__)
     if (strcasecmp(ptr2, "clang") == 0) {
 
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_CLANG)
@@ -991,8 +963,6 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
       aflcc->compiler_mode = CLANG;
 
     }
-
-#endif
 
     if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0 ||
         strncasecmp(ptr2, "kctx-", strlen("c-ctx-")) == 0 ||
