@@ -1,11 +1,15 @@
 #!/usr/bin/env sh
+SYS=$(uname -s)
+test "$SYS" = "Darwin" && {
+  echo Error: afl-cmin does not work on Apple currently. please use afl-cmin.bash instead.
+  exit 1
+}
 export AFL_QUIET=1
 export ASAN_OPTIONS=detect_leaks=0
 THISPATH=`dirname ${0}`
 export PATH="${THISPATH}:$PATH"
 awk -f - -- ${@+"$@"} <<'EOF'
 #!/usr/bin/awk -f
-
 # awk script to minimize a test corpus of input files
 #
 # based on afl-cmin bash script written by Michal Zalewski
@@ -259,22 +263,20 @@ BEGIN {
   # Do a sanity check to discourage the use of /tmp, since we can't really
   # handle this safely from an awk script.
 
-  #if (!ENVIRON["AFL_ALLOW_TMP"]) {
-  #  dirlist[0] = in_dir
-  #  dirlist[1] = target_bin
-  #  dirlist[2] = out_dir
-  #  dirlist[3] = stdin_file
-  #  "pwd" | getline dirlist[4] # current directory
-  #  for (dirind in dirlist) {
-  #    dir = dirlist[dirind]
-  #
-  #      if (dir ~ /^(\/var)?\/tmp/) {
-  #        print "[-] Error: do not use this script in /tmp or /var/tmp." > "/dev/stderr"
-  #        exit 1
-  #      }
-  #    }
-  #  delete dirlist
-  #}
+  if (!ENVIRON["AFL_ALLOW_TMP"]) {
+    dirlist[0] = in_dir
+    dirlist[1] = target_bin
+    dirlist[2] = out_dir
+    dirlist[3] = stdin_file
+    "pwd" | getline dirlist[4] # current directory
+    for (dirind in dirlist) {
+      dir = dirlist[dirind]
+      if (dir ~ /^(\/var)?\/tmp/) {
+        print "[-] Warning: do not use this script in /tmp or /var/tmp for security reasons." > "/dev/stderr"
+      }
+    }
+    delete dirlist
+  }
 
   if (threads && stdin_file) {
     print "[-] Error: -T and -f cannot be used together." > "/dev/stderr"
@@ -430,7 +432,7 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "(cd "in_dir" && find . \\( ! -name \".*\" -a -type d \\) -o -type f -exec stat "stat_format" \\{\\} + | sort -k1n -k2r)"
+  cmdline = "(cd "in_dir" && find . \\( ! -name \".*\" -a -type d \\) -o -type f -exec stat "stat_format" \\{\\} + | sort -k1n -k2r) | grep -Ev '^0'"
   #cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
   #cmdline = "(cd "in_dir" && stat "stat_format" *) | sort -k1n -k2r"
   #cmdline = "(cd "in_dir" && ls | xargs stat "stat_format" ) | sort -k1n -k2r"

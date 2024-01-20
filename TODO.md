@@ -7,10 +7,21 @@
  - cmplog rtn sanity check on fixed length? + no length 1
  - afl-showmap -f support
  - afl-fuzz multicore wrapper script
+ - when trimming then perform crash detection
+ - either -L0 and/or -p mmopt results in zero new coverage
+
 
 ## Should
 
+<<<<<<< Updated upstream
  - add value_profile but only enable after 15 minutes without finds?
+=======
+ - afl-showmap -f support
+ - afl-fuzz multicore wrapper script
+ - UI revamp
+ - hardened_usercopy=0 page_alloc.shuffle=0
+ - add value_profile but only enable after 15 minutes without finds
+>>>>>>> Stashed changes
  - afl-crash-analysis
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values

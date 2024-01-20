@@ -98,12 +98,27 @@ void set_sanitizer_defaults() {
   }
 
   /* LSAN does not support abort_on_error=1. (is this still true??) */
+  u8 should_detect_leaks = 0;
 
   if (!have_lsan_options) {
 
     u8 buf[2048] = "";
     if (!have_san_options) { strcpy(buf, default_options); }
-    strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=1:malloc_context_size=30:");
+    if (have_asan_options) {
+
+      if (NULL != strstr(have_asan_options, "detect_leaks=0")) {
+
+        strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=0:malloc_context_size=0:");
+
+      } else {
+
+        should_detect_leaks = 1;
+        strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=1:malloc_context_size=30:");
+
+      }
+
+    }
+
     setenv("LSAN_OPTIONS", buf, 1);
 
   }
@@ -112,7 +127,15 @@ void set_sanitizer_defaults() {
 
   if (!have_lsan_options) {
 
-    strcat(default_options, "detect_leaks=0:malloc_context_size=0:");
+    if (should_detect_leaks) {
+
+      strcat(default_options, "detect_leaks=1:malloc_context_size=30:");
+
+    } else {
+
+      strcat(default_options, "detect_leaks=0:malloc_context_size=0:");
+
+    }
 
   }
 

@@ -97,11 +97,15 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   static constexpr const char *ignoreSubstringList[] = {
 
-      "__asan", "__msan",       "__ubsan",    "__lsan",  "__san", "__sanitize",
-      "__cxx",  "DebugCounter", "DwarfDebug", "DebugLoc"
+      "__asan",     "__msan",       "__ubsan",    "__lsan",  "__san",
+      "__sanitize", "DebugCounter", "DwarfDebug", "DebugLoc"
 
   };
 
+  // This check is very sensitive, we must be sure to not include patterns
+  // that are part of user-written C++ functions like the ones including
+  // std::string as parameter (see #1927) as the mangled type is inserted in the
+  // mangled name of the user-written function
   for (auto const &ignoreListFunc : ignoreSubstringList) {
 
     // hexcoder: F->getName().contains() not avaiilable in llvm 3.8.0
@@ -197,7 +201,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded allowlist with %zu file and %zu function entries\n",
-             allowListFiles.size(), allowListFunctions.size());
+             allowListFiles.size() / 4, allowListFunctions.size() / 4);
 
   }
 
@@ -272,7 +276,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded denylist with %zu file and %zu function entries\n",
-             denyListFiles.size(), denyListFunctions.size());
+             denyListFiles.size() / 4, denyListFunctions.size() / 4);
 
   }
 

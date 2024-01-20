@@ -48,7 +48,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
 #ifndef USEMMAP
@@ -91,6 +91,8 @@
 extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,
                            size_t bufferSize);
 #endif  // HAIKU
+
+char *strcasestr(const char *haystack, const char *needle);
 
 static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
@@ -183,7 +185,7 @@ static u8 _is_sancov;
 
 /* Debug? */
 
-static u32 __afl_debug;
+/*static*/ u32 __afl_debug;
 
 /* Already initialized markers */
 
@@ -1923,6 +1925,10 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
 
+  return;
+
+  /*
+
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -1948,6 +1954,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
+
+  */
 
 }
 
@@ -2155,13 +2163,13 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  //__cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  //__cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
@@ -2270,11 +2278,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-#ifndef __HAIKU__
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#else
+#ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
-#endif  // HAIKU
+#elif defined(__OpenBSD__)
+  long r = write(__afl_dummy_fd[1], ptr, len);
+#else
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+#endif  // HAIKU, OPENBSD
 
   if (r <= 0 || r > len) return 0;
 
@@ -2679,6 +2689,53 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 void __afl_set_persistent_mode(u8 mode) {
 
   is_persistent = mode;
+
+}
+
+// Marker: ADD_TO_INJECTIONS
+
+void __afl_injection_sql(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "'\"\"'"))) {
+
+      fprintf(stderr, "ALERT: Detected SQL injection in query: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_ldap(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "*)(1=*))(|"))) {
+
+      fprintf(stderr, "ALERT: Detected LDAP injection in query: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_xss(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "1\"><\""))) {
+
+      fprintf(stderr, "ALERT: Detected XSS injection in content: %s\n", buf);
+      abort();
+
+    }
+
+  }
 
 }
 

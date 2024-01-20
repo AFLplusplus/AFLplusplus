@@ -60,6 +60,23 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
+  /* If post_run() function is defined in custom mutator, the function will be
+     called each time after AFL++ executes the target program. */
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (unlikely(el->afl_custom_post_run)) {
+
+        el->afl_custom_post_run(el->data);
+
+      }
+
+    });
+
+  }
+
 #ifdef PROFILING
   clock_gettime(CLOCK_REALTIME, &spec);
   time_spent_start = (spec.tv_sec * 1000000000) + spec.tv_nsec;
@@ -152,20 +169,16 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (unlikely(afl->custom_mutators_count)) {
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+      if (el->afl_custom_fuzz_send) {
 
-        if (el->afl_custom_fuzz_send) {
+        el->afl_custom_fuzz_send(el->data, *mem, new_size);
+        sent = 1;
 
-          el->afl_custom_fuzz_send(el->data, *mem, new_size);
-          sent = 1;
+      }
 
-        }
-
-      });
-
-    }
+    });
 
     if (likely(!sent)) {
 
@@ -186,7 +199,7 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-  } else {
+  } else {                                   /* !afl->custom_mutators_count */
 
     if (unlikely(len < afl->min_length && !fix)) {
 
@@ -198,27 +211,8 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (unlikely(afl->custom_mutators_count)) {
-
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-        if (el->afl_custom_fuzz_send) {
-
-          el->afl_custom_fuzz_send(el->data, *mem, len);
-          sent = 1;
-
-        }
-
-      });
-
-    }
-
-    if (likely(!sent)) {
-
-      /* boring uncustom. */
-      afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
-
-    }
+    /* boring uncustom. */
+    afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
 
   }
 
@@ -918,7 +912,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
      detected, it will still work to some extent, so we don't check for
      this. */
 
-  if (q->len < 5) { return 0; }
+  if (unlikely(q->len < 5)) { return 0; }
 
   afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
