@@ -25,6 +25,7 @@
     - plugins are now activated by default and a new module is included that
       produces drcov compatible traces for lighthouse/lightkeeper/...
       thanks to @JRomainG to submitting!
+  - updated Nyx checkout (fixes a bug)
   - updated the custom grammar mutator
   - document afl-cmin does not work on macOS
 
