@@ -165,7 +165,7 @@ static void usage(u8 *argv0, int more_help) {
       "\n"
 
       "Mutator settings:\n"
-      "  -a            - target input format, \"text\" or \"binary\" (default: "
+      "  -a type       - target input format, \"text\" or \"binary\" (default: "
       "generic)\n"
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
