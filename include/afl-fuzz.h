@@ -124,6 +124,10 @@
   #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
+#ifdef AFL_PERSISTENT_RECORD
+  #define RECORD_PREFIX "RECORD:" 
+#endif
+
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
 
 // Little helper to access the ptr to afl->##name_buf - for use in afl_realloc.
