@@ -1591,6 +1591,11 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
 
+#ifdef AFL_PERSISTENT_RECORD
+  fsrv_run_result_t retval = FSRV_RUN_OK;
+  char *persistent_out_fmt;
+#endif
+
 #ifdef __linux__
   if (fsrv->nyx_mode) {
 
@@ -1684,7 +1689,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-#ifdef AFL_PERSISTENT_RECORD
+#ifdef AFL_eERSISTENT_RECORD
   // end of persistent loop?
   if (unlikely(fsrv->persistent_record &&
                fsrv->persistent_record_pid != fsrv->child_pid)) {
@@ -1790,8 +1795,14 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   if (unlikely(fsrv->last_run_timed_out)) {
 
     fsrv->last_kill_signal = fsrv->child_kill_signal;
-    return FSRV_RUN_TMOUT;
 
+#ifndef AFL_PERSISTENT_RECORD
+    return FSRV_RUN_TMOUT;
+#else
+    retval = FSRV_RUN_TMOUT;
+    persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u";
+    goto store_persistent_record;
+#endif
   }
 
   /* Did we crash?
@@ -1811,48 +1822,58 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
-#ifdef AFL_PERSISTENT_RECORD
-    if (unlikely(fsrv->persistent_record)) {
-
-      char fn[PATH_MAX];
-      u32  i, writecnt = 0;
-      for (i = 0; i < fsrv->persistent_record; ++i) {
-
-        u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
-        u8 *data = fsrv->persistent_record_data[entry];
-        u32 len = fsrv->persistent_record_len[entry];
-        if (likely(len && data)) {
-
-          snprintf(fn, sizeof(fn), "%s/RECORD:%06u,cnt:%06u",
-                   fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
-                   writecnt++);
-          int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-          if (fd >= 0) {
-
-            ck_write(fd, data, len, fn);
-            close(fd);
-
-          }
-
-        }
-
-      }
-
-      ++fsrv->persistent_record_cnt;
-
-    }
-
-#endif
-
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
+
+#ifndef AFL_PERSISTENT_RECORD
     return FSRV_RUN_CRASH;
+#else
+    retval = FSRV_RUN_CRASH;
+    persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u";
+    goto store_persistent_record;
+#endif
 
   }
 
   /* success :) */
   return FSRV_RUN_OK;
+
+#ifdef AFL_PERSISTENT_RECORD
+store_persistent_record:
+  if (unlikely(retval == FSRV_RUN_CRASH || retval == FSRV_RUN_TMOUT)  &&
+      unlikely(fsrv->persistent_record)) {
+
+    char fn[PATH_MAX];
+    u32  i, writecnt = 0;
+    for (i = 0; i < fsrv->persistent_record; ++i) {
+
+      u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
+      u8 *data = fsrv->persistent_record_data[entry];
+      u32 len = fsrv->persistent_record_len[entry];
+      if (likely(len && data)) {
+
+        snprintf(fn, sizeof(fn), persistent_out_fmt,
+                 fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
+                 writecnt++);
+        int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+        if (fd >= 0) {
+
+          ck_write(fd, data, len, fn);
+          close(fd);
+
+        }
+
+      }
+
+    }
+
+    ++fsrv->persistent_record_cnt;
+
+  }
+
+  return retval;
+#endif
 
 }
 

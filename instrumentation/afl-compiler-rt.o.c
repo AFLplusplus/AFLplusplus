@@ -83,6 +83,10 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
+#ifdef AFL_PERSISTENT_REPLAY
+#include "persistent_replay.h"
+#endif
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
@@ -1337,6 +1341,38 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   static u8  first_pass = 1;
   static u32 cycle_cnt;
+
+#ifdef AFL_PERSISTENT_REPLAY
+
+#ifndef PATH_MAX
+  #define PATH_MAX 4096
+#endif
+
+  static u8  inited = 0;
+  char tcase[PATH_MAX];
+
+  if( unlikely(is_replay_record) ){
+
+      if (!inited){
+        cycle_cnt = replay_record_cnt;
+        inited = 1;
+      }
+
+      snprintf(tcase, PATH_MAX, "%s/%s",
+                  replay_record_dir ? replay_record_dir : "./",
+                  record_list[replay_record_cnt-cycle_cnt]->d_name);
+
+      if (record_arg) {
+        *record_arg = tcase;
+      } else {
+        int fd = open(tcase, O_RDONLY);
+        dup2(fd, 0);
+        close(fd);
+      }
+    return cycle_cnt--;
+  } else
+
+#endif  
 
   if (first_pass) {
 

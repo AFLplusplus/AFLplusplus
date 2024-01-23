@@ -1915,6 +1915,9 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
   }
 
+#ifdef AFL_PERSISTENT_RECORD
+  delete_files(fn, RECORD_PREFIX);
+#endif
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
@@ -1947,6 +1950,9 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
   }
 
+#ifdef AFL_PERSISTENT_RECORD
+  delete_files(fn, RECORD_PREFIX);
+#endif
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
