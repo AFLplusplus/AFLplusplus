@@ -170,8 +170,10 @@ typedef struct aflcc_state {
   u8 have_instr_env, have_gcc, have_clang, have_llvm, have_gcc_plugin, have_lto,
       have_optimized_pcguard, have_instr_list;
 
-  u8 fortify_set, asan_set, x_set, bit_mode, preprocessor_only, have_unroll,
-      have_o, have_pic, have_c, shared_linking, partial_linking, non_dash;
+  u8 fortify_set, x_set, bit_mode, preprocessor_only, have_unroll, have_o,
+      have_pic, have_c, shared_linking, partial_linking, non_dash, have_fp,
+      have_flto, have_hidden, have_fortify, have_fcf, have_staticasan,
+      have_asan, have_msan, have_ubsan, have_lsan, have_tsan, have_cfisan;
 
   // u8 *march_opt;
   u8  need_aflpplib;
@@ -1553,6 +1555,8 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
 /* Control  _FORTIFY_SOURCE */
 void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
 
+  if (aflcc->have_fortify) { return; }
+
   switch (action) {
 
     case 1:
@@ -1666,6 +1670,42 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
 
+  if (strstr(cur_argv, "=address") || strstr(cur_argv, ",address")) {
+
+    aflcc->have_asan = 1;
+
+  }
+
+  if (strstr(cur_argv, "=memory") || strstr(cur_argv, ",memory")) {
+
+    aflcc->have_msan = 1;
+
+  }
+
+  if (strstr(cur_argv, "=undefined") || strstr(cur_argv, ",undefined")) {
+
+    aflcc->have_ubsan = 1;
+
+  }
+
+  if (strstr(cur_argv, "=thread") || strstr(cur_argv, ",thread")) {
+
+    aflcc->have_tsan = 1;
+
+  }
+
+  if (strstr(cur_argv, "=leak") || strstr(cur_argv, ",leak")) {
+
+    aflcc->have_lsan = 1;
+
+  }
+
+  if (strstr(cur_argv, "=cfi") || strstr(cur_argv, ",cfi")) {
+
+    aflcc->have_cfisan = 1;
+
+  }
+
   if (!strncmp(cur_argv, "-fsanitize-coverage-", 20) &&
       strstr(cur_argv, "list=")) {
 
@@ -1745,19 +1785,14 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   }
 
-  if (!strcmp(cur_argv, "-fsanitize=address") ||
-      !strcmp(cur_argv, "-fsanitize=memory")) {
+  if (final_ == PARAM_MISS) {
 
     if (scan) {
 
-      // "-fsanitize=undefined,address" may be un-treated, but it's OK.
-      aflcc->asan_set = 1;
       final_ = PARAM_SCAN;
 
     } else {
 
-      // It's impossible that final_ is PARAM_DROP before,
-      // so no checks are needed here.
       final_ = PARAM_KEEP;
 
     }
@@ -1772,74 +1807,113 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
 void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
-  if (!aflcc->asan_set) {
+  if (getenv("AFL_USE_ASAN") || aflcc->have_asan) {
 
-    if (getenv("AFL_USE_ASAN")) {
+    if (getenv("AFL_USE_MSAN") || aflcc->have_msan)
+      FATAL("ASAN and MSAN are mutually exclusive");
 
-      if (getenv("AFL_USE_MSAN")) FATAL("ASAN and MSAN are mutually exclusive");
+    if (getenv("AFL_HARDEN"))
+      FATAL("ASAN and AFL_HARDEN are mutually exclusive");
 
-      if (getenv("AFL_HARDEN"))
-        FATAL("ASAN and AFL_HARDEN are mutually exclusive");
+    if (aflcc->compiler_mode == GCC_PLUGIN && !aflcc->have_staticasan) {
 
-      add_defs_fortify(aflcc, 0);
-      insert_param(aflcc, "-fsanitize=address");
-
-    } else if (getenv("AFL_USE_MSAN")) {
-
-      if (getenv("AFL_USE_ASAN")) FATAL("ASAN and MSAN are mutually exclusive");
-
-      if (getenv("AFL_HARDEN"))
-        FATAL("MSAN and AFL_HARDEN are mutually exclusive");
-
-      add_defs_fortify(aflcc, 0);
-      insert_param(aflcc, "-fsanitize=memory");
+      insert_param(aflcc, "-static-libasan");
 
     }
 
+    add_defs_fortify(aflcc, 0);
+    if (!aflcc->have_asan) { insert_param(aflcc, "-fsanitize=address"); }
+    aflcc->have_asan = 1;
+
+  } else if (getenv("AFL_USE_MSAN") || aflcc->have_msan) {
+
+    if (getenv("AFL_USE_ASAN") || aflcc->have_asan)
+      FATAL("ASAN and MSAN are mutually exclusive");
+
+    if (getenv("AFL_HARDEN"))
+      FATAL("MSAN and AFL_HARDEN are mutually exclusive");
+
+    add_defs_fortify(aflcc, 0);
+    insert_param(aflcc, "-fsanitize=memory");
+    aflcc->have_msan = 1;
+
   }
 
-  if (getenv("AFL_USE_UBSAN")) {
+  if (getenv("AFL_USE_UBSAN") || aflcc->have_ubsan) {
 
-    insert_param(aflcc, "-fsanitize=undefined");
-    insert_param(aflcc, "-fsanitize-undefined-trap-on-error");
-    insert_param(aflcc, "-fno-sanitize-recover=all");
-    insert_param(aflcc, "-fno-omit-frame-pointer");
+    if (!aflcc->have_ubsan) {
+
+      insert_param(aflcc, "-fsanitize=undefined");
+      insert_param(aflcc, "-fsanitize-undefined-trap-on-error");
+      insert_param(aflcc, "-fno-sanitize-recover=all");
+
+    }
+
+    if (!aflcc->have_fp) {
+
+      insert_param(aflcc, "-fno-omit-frame-pointer");
+      aflcc->have_fp = 1;
+
+    }
+
+    aflcc->have_ubsan = 1;
 
   }
 
-  if (getenv("AFL_USE_TSAN")) {
+  if (getenv("AFL_USE_TSAN") || aflcc->have_tsan) {
 
-    insert_param(aflcc, "-fsanitize=thread");
-    insert_param(aflcc, "-fno-omit-frame-pointer");
+    if (!aflcc->have_fp) {
+
+      insert_param(aflcc, "-fno-omit-frame-pointer");
+      aflcc->have_fp = 1;
+
+    }
+
+    if (!aflcc->have_tsan) { insert_param(aflcc, "-fsanitize=thread"); }
+    aflcc->have_tsan = 1;
 
   }
 
-  if (getenv("AFL_USE_LSAN")) {
+  if (getenv("AFL_USE_LSAN") && !aflcc->have_lsan) {
 
     insert_param(aflcc, "-fsanitize=leak");
     add_defs_lsan_ctrl(aflcc);
+    aflcc->have_lsan = 1;
 
   }
 
-  if (getenv("AFL_USE_CFISAN")) {
+  if (getenv("AFL_USE_CFISAN") || aflcc->have_cfisan) {
 
     if (aflcc->compiler_mode == GCC_PLUGIN || aflcc->compiler_mode == GCC) {
 
-      insert_param(aflcc, "-fcf-protection=full");
+      if (!aflcc->have_fcf) { insert_param(aflcc, "-fcf-protection=full"); }
 
     } else {
 
-      if (!aflcc->lto_mode) {
+      if (!aflcc->lto_mode && !aflcc->have_flto) {
 
         uint32_t i = 0, found = 0;
-        while (envp[i] != NULL && !found)
+        while (envp[i] != NULL && !found) {
+
           if (strncmp("-flto", envp[i++], 5) == 0) found = 1;
-        if (!found) insert_param(aflcc, "-flto");
+
+        }
+
+        if (!found) { insert_param(aflcc, "-flto"); }
+        aflcc->have_flto = 1;
 
       }
 
-      insert_param(aflcc, "-fsanitize=cfi");
-      insert_param(aflcc, "-fvisibility=hidden");
+      if (!aflcc->have_cfisan) { insert_param(aflcc, "-fsanitize=cfi"); }
+
+      if (!aflcc->have_hidden) {
+
+        insert_param(aflcc, "-fvisibility=hidden");
+        aflcc->have_hidden = 1;
+
+      }
+
+      aflcc->have_cfisan = 1;
 
     }
 
@@ -2416,6 +2490,32 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   } else if (!strcmp(cur_argv, "-c")) {
 
     SCAN_KEEP(aflcc->have_c, 1);
+
+  } else if (!strcmp(cur_argv, "-static-libasan")) {
+
+    SCAN_KEEP(aflcc->have_staticasan, 1);
+
+  } else if (!strcmp(cur_argv, "-fno-omit-frame-pointer")) {
+
+    SCAN_KEEP(aflcc->have_fp, 1);
+
+  } else if (!strcmp(cur_argv, "-fvisibility=hidden")) {
+
+    SCAN_KEEP(aflcc->have_hidden, 1);
+
+  } else if (!strcmp(cur_argv, "-flto") || !strcmp(cur_argv, "-flto=full")) {
+
+    SCAN_KEEP(aflcc->have_flto, 1);
+
+  } else if (!strncmp(cur_argv, "-D_FORTIFY_SOURCE",
+
+                      strlen("-D_FORTIFY_SOURCE"))) {
+
+    SCAN_KEEP(aflcc->have_fortify, 1);
+
+  } else if (!strncmp(cur_argv, "-fcf-protection", strlen("-fcf-protection"))) {
+
+    SCAN_KEEP(aflcc->have_cfisan, 1);
 
   } else if (!strncmp(cur_argv, "-O", 2)) {
 
