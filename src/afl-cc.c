@@ -1572,6 +1572,8 @@ void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
       break;
 
   }
+  
+  aflcc->have_fortify = 1;
 
 }
 
