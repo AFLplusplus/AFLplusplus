@@ -192,14 +192,10 @@ u8 *find_object(aflcc_state_t *, u8 *obj);
 
 void find_built_deps(aflcc_state_t *);
 
-static inline void limit_params(aflcc_state_t *aflcc, u32 add) {
-
-  if (aflcc->cc_par_cnt + add >= MAX_PARAMS_NUM)
-    FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM.");
-
-}
-
 static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
+
+  if (unlikely(aflcc->cc_par_cnt + 1 >= MAX_PARAMS_NUM))
+    FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM.");
 
   aflcc->cc_params[aflcc->cc_par_cnt++] = param;
 
@@ -1572,7 +1568,7 @@ void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
       break;
 
   }
-  
+
   aflcc->have_fortify = 1;
 
 }
@@ -1672,41 +1668,42 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
 
-  if (strstr(cur_argv, "=address") || strstr(cur_argv, ",address")) {
+// MACRO START
+#define HAVE_SANITIZER_SCAN_KEEP(v, k)        \
+  do {                                        \
+                                              \
+    if (strstr(cur_argv, "=" STRINGIFY(k)) || \
+        strstr(cur_argv, "," STRINGIFY(k))) { \
+                                              \
+      if (scan) {                             \
+                                              \
+        aflcc->have_##v = 1;                  \
+        final_ = PARAM_SCAN;                  \
+                                              \
+      } else {                                \
+                                              \
+        final_ = PARAM_KEEP;                  \
+                                              \
+      }                                       \
+                                              \
+    }                                         \
+                                              \
+  } while (0)
 
-    aflcc->have_asan = 1;
+  // MACRO END
+
+  if (!strncmp(cur_argv, "-fsanitize=", strlen("-fsanitize="))) {
+
+    HAVE_SANITIZER_SCAN_KEEP(asan, address);
+    HAVE_SANITIZER_SCAN_KEEP(msan, memory);
+    HAVE_SANITIZER_SCAN_KEEP(ubsan, undefined);
+    HAVE_SANITIZER_SCAN_KEEP(tsan, thread);
+    HAVE_SANITIZER_SCAN_KEEP(lsan, leak);
+    HAVE_SANITIZER_SCAN_KEEP(cfisan, cfi);
 
   }
 
-  if (strstr(cur_argv, "=memory") || strstr(cur_argv, ",memory")) {
-
-    aflcc->have_msan = 1;
-
-  }
-
-  if (strstr(cur_argv, "=undefined") || strstr(cur_argv, ",undefined")) {
-
-    aflcc->have_ubsan = 1;
-
-  }
-
-  if (strstr(cur_argv, "=thread") || strstr(cur_argv, ",thread")) {
-
-    aflcc->have_tsan = 1;
-
-  }
-
-  if (strstr(cur_argv, "=leak") || strstr(cur_argv, ",leak")) {
-
-    aflcc->have_lsan = 1;
-
-  }
-
-  if (strstr(cur_argv, "=cfi") || strstr(cur_argv, ",cfi")) {
-
-    aflcc->have_cfisan = 1;
-
-  }
+#undef HAVE_SANITIZER_SCAN_KEEP
 
   if (!strncmp(cur_argv, "-fsanitize-coverage-", 20) &&
       strstr(cur_argv, "list=")) {
@@ -1718,7 +1715,7 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     } else {
 
-      final_ = PARAM_KEEP;  // may be set to DROP next
+      final_ = PARAM_KEEP;
 
     }
 
@@ -1782,20 +1779,6 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
       if (!be_quiet) { WARNF("Found '%s' - stripping!", cur_argv); }
       final_ = PARAM_DROP;
-
-    }
-
-  }
-
-  if (final_ == PARAM_MISS) {
-
-    if (scan) {
-
-      final_ = PARAM_SCAN;
-
-    } else {
-
-      final_ = PARAM_KEEP;
 
     }
 
@@ -2879,8 +2862,6 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
 static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
                            char **argv) {
-
-  limit_params(aflcc, argc);
 
   // for (u32 x = 0; x < argc; ++x) fprintf(stderr, "[%u] %s\n", x, argv[x]);
 
