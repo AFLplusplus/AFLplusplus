@@ -173,7 +173,8 @@ typedef struct aflcc_state {
   u8 fortify_set, x_set, bit_mode, preprocessor_only, have_unroll, have_o,
       have_pic, have_c, shared_linking, partial_linking, non_dash, have_fp,
       have_flto, have_hidden, have_fortify, have_fcf, have_staticasan,
-      have_asan, have_msan, have_ubsan, have_lsan, have_tsan, have_cfisan;
+      have_rust_asanrt, have_asan, have_msan, have_ubsan, have_lsan, have_tsan,
+      have_cfisan;
 
   // u8 *march_opt;
   u8  need_aflpplib;
@@ -1908,6 +1909,14 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
 void add_native_pcguard(aflcc_state_t *aflcc) {
 
+  /* If there is a rust ASan runtime on the command line, it is likely we're
+   * linking from rust and adding native flags requiring the sanitizer runtime
+   * will trigger native clang to add yet another runtime, causing linker
+   * errors. For now we shouldn't add instrumentation here, we're linking
+   * anyway.
+   */
+  if (aflcc->have_rust_asanrt) { return; }
+
   /* If llvm-config doesn't figure out LLVM_MAJOR, just
    go on anyway and let compiler complain if doesn't work. */
 
@@ -2479,6 +2488,10 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   } else if (!strcmp(cur_argv, "-static-libasan")) {
 
     SCAN_KEEP(aflcc->have_staticasan, 1);
+
+  } else if (strstr(cur_argv, "librustc") && strstr(cur_argv, "_rt.asan.a")) {
+
+    SCAN_KEEP(aflcc->have_rust_asanrt, 1);
 
   } else if (!strcmp(cur_argv, "-fno-omit-frame-pointer")) {
 
