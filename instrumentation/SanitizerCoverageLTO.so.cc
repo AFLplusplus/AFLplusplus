@@ -1453,6 +1453,24 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     }
 
+    // we have to set __afl_ctx 0 for all indirect calls
+    for (auto &IN : BB) {
+
+      if (auto *Call = dyn_cast<CallInst>(&IN)) {
+
+        if (Call->isIndirectCall()) {
+
+          IRBuilder<> Builder(IN.getContext());
+          Builder.SetInsertPoint(IN.getParent(), IN.getIterator());
+          StoreInst *StoreCtx = Builder.CreateStore(Zero, AFLContext);
+          StoreCtx->setMetadata("nosanitize", N);
+
+        }
+
+      }
+
+    }
+
   }
 
   inst_in_this_func = inst - inst_save;
@@ -1569,18 +1587,18 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
                 Value *x, *y;
 
                 Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                Value *val11 = IRB.CreateAdd(val1, CTX_add);
+                Value *val11 = IRB.CreateAdd(val1, CTX_load);
                 Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                Value *val22 = IRB.CreateAdd(val2, CTX_add);
+                Value *val22 = IRB.CreateAdd(val2, CTX_load);
                 x = IRB.CreateInsertElement(GuardPtr1, val11, (uint64_t)0);
                 y = IRB.CreateInsertElement(GuardPtr2, val22, (uint64_t)0);
 
                 for (uint64_t i = 1; i < elements; i++) {
 
                   val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                  val11 = IRB.CreateAdd(val1, CTX_add);
+                  val11 = IRB.CreateAdd(val1, CTX_load);
                   val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                  val11 = IRB.CreateAdd(val1, CTX_add);
+                  val11 = IRB.CreateAdd(val1, CTX_load);
                   x = IRB.CreateInsertElement(GuardPtr1, val11, i);
                   y = IRB.CreateInsertElement(GuardPtr2, val22, i);
 
@@ -1628,12 +1646,13 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
             if (use_threadsafe_counters) {
 
-              IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx,
-                                  One,
+              auto nosan = IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
+                                               MapPtrIdx, One,
 #if LLVM_VERSION_MAJOR >= 13
-                                  llvm::MaybeAlign(1),
+                                               llvm::MaybeAlign(1),
 #endif
-                                  llvm::AtomicOrdering::Monotonic);
+                                               llvm::AtomicOrdering::Monotonic);
+              ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(nosan);
 
             } else {
 
@@ -1684,14 +1703,13 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   if (inst_in_this_func && call_counter > 1) {
 
     extra_ctx_inst += inst_in_this_func * (call_counter - 1);
-    afl_global_id += inst_in_this_func * (call_counter - 1);
+    afl_global_id += extra_ctx_inst;
 
   }
 
   /*
-    fprintf(stderr, "FUNCTION: %s\n", F.getName().str().c_str());
-    int n = 0;
-    for (auto &BB : F) {
+    fprintf(stderr, "FUNCTION: %s [%u]\n", F.getName().str().c_str(),
+    extra_ctx_inst); int n = 0; for (auto &BB : F) {
 
       fprintf(stderr, "BB %d\n", n++);
       for (auto &IN : BB) {
