@@ -1920,34 +1920,26 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
   /* If llvm-config doesn't figure out LLVM_MAJOR, just
    go on anyway and let compiler complain if doesn't work. */
 
-  if (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
-
 #if LLVM_MAJOR > 0 && LLVM_MAJOR < 6
-    FATAL("pcguard instrumentation with pc-table requires LLVM 6.0.1+");
+  FATAL("pcguard instrumentation with pc-table requires LLVM 6.0.1+");
 #else
   #if LLVM_MAJOR == 0
-    WARNF(
-        "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
-        " otherwise the compiler will fail");
+  WARNF(
+      "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
+      " otherwise the compiler will fail");
   #endif
+  if (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
+
     insert_param(aflcc,
                  "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table");
-#endif
 
   } else {
 
-#if LLVM_MAJOR > 0 && LLVM_MAJOR < 4
-    FATAL("pcguard instrumentation requires LLVM 4.0.1+");
-#else
-  #if LLVM_MAJOR == 0
-    WARNF(
-        "pcguard instrumentation requires LLVM 4.0.1+"
-        " otherwise the compiler will fail");
-  #endif
-    insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
-#endif
+    insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard,pc-table");
 
   }
+
+#endif
 
 }
 
