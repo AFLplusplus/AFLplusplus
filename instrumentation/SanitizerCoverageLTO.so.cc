@@ -249,7 +249,7 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         afl_global_id = 0;
   uint32_t                         unhandled = 0;
   uint32_t                         select_cnt = 0;
-  uint32_t                         instrument_ctx = 0;
+  uint32_t                         instrument_ctx = 1;
   uint32_t                         extra_ctx_inst = 0;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
@@ -1480,6 +1480,18 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   IsLeafFunc = true;
   skip_next = 0;
+
+  if (CTX_add == NULL) {
+
+      auto BB = &F.getEntryBlock();
+      fprintf(stderr, "NULL %s %p\n", F.getName().str().c_str(), BB);
+      if (!BB) { exit(-1); }
+      BasicBlock::iterator IP = BB->getFirstInsertionPt();
+      IRBuilder<>          IRB(&(*IP));
+      CTX_add = IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
+      auto nosan = IRB.CreateStore(Zero, CTX_add);
+      nosan->setMetadata("nosanitize", N);
+  }
 
   for (auto &BB : F) {
 
