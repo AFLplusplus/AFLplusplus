@@ -1299,7 +1299,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   bool                     IsLeafFunc = true;
   uint32_t                 skip_next = 0;
   uint32_t                 call_counter = 0;
-  uint32_t                 inst_save = inst;
+  uint32_t                 inst_save = inst, save_global = afl_global_id;
   uint32_t                 inst_in_this_func = 0;
   LLVMContext             &Context = F.getContext();
 
@@ -1332,15 +1332,13 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       SelectInst *selectInst = nullptr;
 
-      if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN)) && 1 == 0) {
+      if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
-        uint32_t vector_cnt = 0;
-        Value   *condition = selectInst->getCondition();
-        auto     t = condition->getType();
+        Value *condition = selectInst->getCondition();
+        auto   t = condition->getType();
 
         if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
-          skip_next = 1;
           inst += 2;
 
         } else
@@ -1352,8 +1350,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           if (tt) {
 
             uint32_t elements = tt->getElementCount().getFixedValue();
-            vector_cnt = elements;
-            inst += vector_cnt * 2;
+            inst += elements * 2;
 
           }
 
@@ -1365,12 +1362,6 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           continue;
 
         }
-
-        skip_next = 1;
-
-      } else {
-
-        skip_next = 0;
 
       }
 
@@ -1478,19 +1469,22 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   // Now the real instrumentation
 
-  IsLeafFunc = true;
-  skip_next = 0;
-
   if (CTX_add == NULL) {
 
-      auto BB = &F.getEntryBlock();
+    auto BB = &F.getEntryBlock();
+    if (!BB) {
+
       fprintf(stderr, "NULL %s %p\n", F.getName().str().c_str(), BB);
-      if (!BB) { exit(-1); }
-      BasicBlock::iterator IP = BB->getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-      CTX_add = IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
-      auto nosan = IRB.CreateStore(Zero, CTX_add);
-      nosan->setMetadata("nosanitize", N);
+      exit(-1);
+
+    }
+
+    BasicBlock::iterator IP = BB->getFirstInsertionPt();
+    IRBuilder<>          IRB(&(*IP));
+    CTX_add = IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
+    auto nosan = IRB.CreateStore(Zero, CTX_add);
+    nosan->setMetadata("nosanitize", N);
+
   }
 
   for (auto &BB : F) {
@@ -1590,6 +1584,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
               uint32_t elements = tt->getElementCount().getFixedValue();
               vector_cnt = elements;
               inst += vector_cnt * 2;
+
               if (elements) {
 
                 FixedVectorType *GuardPtr1 =
@@ -1713,6 +1708,15 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   // InjectCoverageForIndirectCalls(F, IndirCalls);
 
   if (inst_in_this_func && call_counter > 1) {
+
+    if (inst_in_this_func != afl_global_id - save_global) {
+
+      fprintf(
+          stderr,
+          "BUG! inst_in_this_func %u != afl_global_id %u - save_global %u\n",
+          inst_in_this_func, afl_global_id, save_global);
+
+    }
 
     extra_ctx_inst += inst_in_this_func * (call_counter - 1);
     afl_global_id += extra_ctx_inst;
@@ -1883,7 +1887,7 @@ bool ModuleSanitizerCoverageLTO::Fake_InjectCoverage(
 
     }
 
-    inst++;  // InjectCoverageAtBlock()
+    ++inst;  // InjectCoverageAtBlock()
 
   }
 
@@ -2017,7 +2021,7 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
 
     // done :)
 
-    inst++;
+    ++inst;
     // AFL++ END
 
     /*
