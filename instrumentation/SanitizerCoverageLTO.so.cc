@@ -261,6 +261,7 @@ class ModuleSanitizerCoverageLTO
   IntegerType                     *Int32Tyi = NULL;
   IntegerType                     *Int64Tyi = NULL;
   ConstantInt                     *Zero = NULL;
+  ConstantInt                     *Zero32 = NULL;
   ConstantInt                     *One = NULL;
   AllocaInst                      *CTX_add = NULL;
   LLVMContext                     *Ct = NULL;
@@ -513,6 +514,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
       GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
   Zero = ConstantInt::get(Int8Tyi, 0);
+  Zero32 = ConstantInt::get(Int32Tyi, 0);
   One = ConstantInt::get(Int8Tyi, 1);
 
   initInstrumentList();
@@ -1426,7 +1428,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
       if (inst == inst_save || call_counter < 2) {
 
         fprintf(stderr, "%s: ZERO!\n", F.getName().str().c_str());
-        CTX_offset = Zero;
+        CTX_offset = Zero32;
 
       } else {
 
@@ -1453,7 +1455,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           IRBuilder<> Builder(IN.getContext());
           Builder.SetInsertPoint(IN.getParent(), IN.getIterator());
-          StoreInst *StoreCtx = Builder.CreateStore(Zero, AFLContext);
+          StoreInst *StoreCtx = Builder.CreateStore(Zero32, AFLContext);
           StoreCtx->setMetadata("nosanitize", N);
 
         }
@@ -1474,7 +1476,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
     auto BB = &F.getEntryBlock();
     if (!BB) {
 
-      fprintf(stderr, "NULL %s %p\n", F.getName().str().c_str(), BB);
+      fprintf(stderr, "NULL entry %s %p\n", F.getName().str().c_str(), BB);
       exit(-1);
 
     }
@@ -1482,7 +1484,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
     BasicBlock::iterator IP = BB->getFirstInsertionPt();
     IRBuilder<>          IRB(&(*IP));
     CTX_add = IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
-    auto nosan = IRB.CreateStore(Zero, CTX_add);
+    auto nosan = IRB.CreateStore(Zero32, CTX_add);
     nosan->setMetadata("nosanitize", N);
 
   }
