@@ -3022,6 +3022,11 @@ stop_fuzzing:
   if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
+
+#ifdef INTROSPECTION
+  fclose(afl->fsrv.det_plot_file);
+#endif 
+
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);

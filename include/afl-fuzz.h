@@ -1288,22 +1288,7 @@ double rand_next_percent(afl_state_t *afl);
 u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
 u8 is_det_timeout(u64, u8);
 
-#ifdef __cplusplus
-extern "C" {
-
-#endif
-
 void plot_profile_data(afl_state_t *, struct queue_entry *);
-// u8 should_det_fuzz(afl_state_t *, struct queue_entry *);
-// u32 current_undet_bits(afl_state_t *, struct queue_entry *);
-// u8 is_det_timeout(u64, u8);
-// double estimate_inf_execs(afl_state_t *, u8 *);
-
-#ifdef __cplusplus
-
-}
-
-#endif
 
 /**** Inline routines ****/
 
