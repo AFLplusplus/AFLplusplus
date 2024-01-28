@@ -29,28 +29,6 @@ u8 is_det_timeout(u64 cur_ms, u8 is_flip) {
 
 }
 
-static u64 estimate_det_time(afl_state_t *afl) {
-
-  struct queue_entry *q = afl->queue_cur;
-
-  u64 det_power = 0;
-
-  det_power += (q->len << 3);
-  det_power += ((q->len << 3) - 1);
-  det_power += ((q->len << 3) - 3);
-  det_power += (q->len * 3 - 4);
-  det_power += 2 * q->len * ARITH_MAX;
-  det_power += 4 * (q->len - 1) * ARITH_MAX;
-  det_power += 4 * (q->len - 3) * ARITH_MAX;
-  det_power += q->len * sizeof(interesting_8);
-  det_power += 2 * (q->len - 1) * (sizeof(interesting_16) >> 1);
-  det_power += 2 * (q->len - 3) * (sizeof(interesting_32) >> 2);
-  det_power += 2 * afl->extras_cnt * q->len;
-  det_power += MIN(afl->a_extras_cnt, (u32)USE_AUTO_EXTRAS) * q->len;
-
-  return det_power * q->exec_us;
-
-}
 
 /* decide if the seed should be deterministically fuzzed */
 
