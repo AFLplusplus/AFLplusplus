@@ -536,7 +536,6 @@ endif
 .PHONY: code-format
 code-format:
 	./.custom-format.py -i src/*.c
-	./.custom-format.py -i src/*.cc
 	./.custom-format.py -i include/*.h
 	./.custom-format.py -i instrumentation/*.h
 	./.custom-format.py -i instrumentation/*.cc
