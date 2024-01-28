@@ -51,3 +51,4 @@ void plot_profile_data(afl_state_t *afl, struct queue_entry *q) {
   fflush(profile_fd);
 
 }
+

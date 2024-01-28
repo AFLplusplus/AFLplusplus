@@ -551,7 +551,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
       before_havoc_findings, before_havoc_edges;
   u8 is_logged = 0;
 
-
   if (!afl->skip_deterministic) {
 
     if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
@@ -559,7 +558,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
       goto abandon_entry;
 
     }
-  
+
   }
 
   u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map;
