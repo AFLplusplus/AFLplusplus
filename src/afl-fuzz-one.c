@@ -551,10 +551,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
       before_havoc_findings, before_havoc_edges;
   u8 is_logged = 0;
 
-  if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
 
-    goto abandon_entry;
+  if (!afl->skip_deterministic) {
 
+    if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
+
+      goto abandon_entry;
+
+    }
+  
   }
 
   u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map;
@@ -566,8 +571,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* if skipdet decide to skip the seed or no interesting bytes found,
      we skip the whole deterministic stage as well */
 
-  if (likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) ||
-      likely(afl->queue_cur->passed_det) ||
+  if (likeyly(afl->skip_deterministic) || likely(afl->queue_cur->passed_det) ||
+      likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
                   ? afl->queue_cur->depth * 30
