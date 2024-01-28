@@ -29,7 +29,6 @@ u8 is_det_timeout(u64 cur_ms, u8 is_flip) {
 
 }
 
-
 /* decide if the seed should be deterministically fuzzed */
 
 u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {

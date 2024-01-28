@@ -2241,11 +2241,7 @@ void setup_dirs_fds(afl_state_t *afl) {
   afl->fsrv.det_plot_file = fdopen(fd, "w");
   if (!afl->fsrv.det_plot_file) { PFATAL("fdopen() failed"); }
 
-  if (afl->in_place_resume) {
-
-    fseek(afl->fsrv.det_plot_file, 0, SEEK_END);
-
-  }
+  if (afl->in_place_resume) { fseek(afl->fsrv.det_plot_file, 0, SEEK_END); }
 
 #endif
 

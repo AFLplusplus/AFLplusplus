@@ -3023,9 +3023,9 @@ stop_fuzzing:
 
   fclose(afl->fsrv.plot_file);
 
-#ifdef INTROSPECTION
+  #ifdef INTROSPECTION
   fclose(afl->fsrv.det_plot_file);
-#endif 
+  #endif
 
   destroy_queue(afl);
   destroy_extras(afl);

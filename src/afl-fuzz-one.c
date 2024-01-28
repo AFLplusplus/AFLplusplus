@@ -554,7 +554,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
       before_havoc_findings, before_havoc_edges;
   u8 is_logged = 0;
 
-#endif 
+#endif
   if (!afl->skip_deterministic) {
 
     if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
@@ -3507,7 +3507,7 @@ retry_splicing:
   afl->havoc_prof->total_det_time += afl->havoc_prof->det_stage_time;
 
   plot_profile_data(afl, afl->queue_cur);
-  
+
 #endif
 
 /* we are through with this queue entry - for this iteration */
