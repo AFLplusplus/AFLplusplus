@@ -685,10 +685,11 @@ void destroy_queue(afl_state_t *afl) {
 
       if (q->skipdet_e->done_inf_map) ck_free(q->skipdet_e->done_inf_map);
       if (q->skipdet_e->skip_eff_map) ck_free(q->skipdet_e->skip_eff_map);
-    
+
       ck_free(q->skipdet_e);
-    
+
     }
+
     ck_free(q);
 
   }

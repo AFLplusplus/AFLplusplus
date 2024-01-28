@@ -151,9 +151,8 @@ struct tainted {
 
 struct inf_profile {
 
-  u32 inf_skipped_bytes;                /* Inference Stage Profiling         */
-  u64 inf_execs_cost,
-      inf_time_cost;
+  u32 inf_skipped_bytes;               /* Inference Stage Profiling         */
+  u64 inf_execs_cost, inf_time_cost;
 
 };
 
@@ -161,44 +160,36 @@ struct inf_profile {
 struct havoc_profile {
 
   u32 queued_det_stage,                 /* Det/Havoc Stage Profiling        */
-      queued_havoc_stage,
-      total_queued_det,
-      edge_det_stage,
-      edge_havoc_stage,
+      queued_havoc_stage, total_queued_det, edge_det_stage, edge_havoc_stage,
       total_det_edge;
-  
-  u64 det_stage_time,
-      havoc_stage_time, 
-      total_det_time;
+
+  u64 det_stage_time, havoc_stage_time, total_det_time;
 
 };
 
 struct skipdet_entry {
 
-  u8 continue_inf,
-     done_eff;
-  u32 undet_bits,
-      quick_eff_bytes;
+  u8  continue_inf, done_eff;
+  u32 undet_bits, quick_eff_bytes;
 
   u8 *skip_eff_map,                     /* we'v finish the eff_map          */
-     *done_inf_map;                     /* some bytes are not done yet      */
-  
+      *done_inf_map;                    /* some bytes are not done yet      */
+
 };
 
 struct skipdet_global {
 
-  u8  use_skip_havoc;
-  
+  u8 use_skip_havoc;
+
   u32 undet_bits_threshold;
 
   u64 last_cov_undet;
 
   u8 *virgin_det_bits;                  /* global fuzzed bits               */
-  
-  struct inf_profile *inf_prof;
-  
-};
 
+  struct inf_profile *inf_prof;
+
+};
 
 struct queue_entry {
 
@@ -842,7 +833,6 @@ typedef struct afl_state {
 
   struct skipdet_global *skipdet_g;
 
-
 #ifdef INTROSPECTION
   char  mutation[8072];
   char  m_tmp[4096];
@@ -1295,13 +1285,14 @@ double rand_next_percent(afl_state_t *afl);
 
 /* SkipDet Functions */
 
-u8 skip_deterministic_stage(afl_state_t *, u8*, u8*, u32, u64);
+u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
 u8 is_det_timeout(u64, u8);
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
- 
+
+#endif
+
 void plot_profile_data(afl_state_t *, struct queue_entry *);
 // u8 should_det_fuzz(afl_state_t *, struct queue_entry *);
 // u32 current_undet_bits(afl_state_t *, struct queue_entry *);
@@ -1309,9 +1300,10 @@ void plot_profile_data(afl_state_t *, struct queue_entry *);
 // double estimate_inf_execs(afl_state_t *, u8 *);
 
 #ifdef __cplusplus
-}
-#endif
 
+}
+
+#endif
 
 /**** Inline routines ****/
 

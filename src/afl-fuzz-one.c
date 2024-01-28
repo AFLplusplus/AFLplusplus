@@ -545,13 +545,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  u64 before_det_time = get_cur_time(), 
-      before_havoc_time;
+  u64 before_det_time = get_cur_time(), before_havoc_time;
   u32 before_det_findings = afl->queued_items,
       before_det_edges = count_non_255_bytes(afl, afl->virgin_bits),
       before_havoc_findings, before_havoc_edges;
   u8 is_logged = 0;
-
 
   if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
 
@@ -565,10 +563,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
-  /* if skipdet decide to skip the seed or no interesting bytes found, 
+  /* if skipdet decide to skip the seed or no interesting bytes found,
      we skip the whole deterministic stage as well */
 
-  if (likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) || 
+  if (likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) ||
       likely(afl->queue_cur->passed_det) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
@@ -879,7 +877,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* If the effector map is more than EFF_MAX_PERC dense, just flag the
      whole thing as worth fuzzing, since we wouldn't be saving much time
      anyway. */
-  
+
   memset(eff_map, 1, EFF_ALEN(len));
   afl->blocks_eff_select += EFF_ALEN(len);
 
@@ -1854,7 +1852,7 @@ skip_user_extras:
     if (!skip_eff_map[i % len]) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
-    
+
     afl->stage_cur_byte = i;
 
     for (j = 0; j < afl->a_extras_cnt; ++j) {
@@ -2063,7 +2061,7 @@ custom_mutator_stage:
 havoc_stage:
 
   if (!is_logged) {
-    
+
     is_logged = 1;
     before_havoc_findings = afl->queued_items;
     before_havoc_edges = count_non_255_bytes(afl, afl->virgin_bits);
@@ -3481,11 +3479,14 @@ retry_splicing:
 
   ret_val = 0;
 
-  afl->havoc_prof->queued_det_stage = before_havoc_findings - before_det_findings;
-  afl->havoc_prof->queued_havoc_stage = afl->queued_items - before_havoc_findings;
+  afl->havoc_prof->queued_det_stage =
+      before_havoc_findings - before_det_findings;
+  afl->havoc_prof->queued_havoc_stage =
+      afl->queued_items - before_havoc_findings;
   afl->havoc_prof->total_queued_det += afl->havoc_prof->queued_det_stage;
   afl->havoc_prof->edge_det_stage = before_havoc_edges - before_det_edges;
-  afl->havoc_prof->edge_havoc_stage = count_non_255_bytes(afl, afl->virgin_bits) - before_havoc_edges;
+  afl->havoc_prof->edge_havoc_stage =
+      count_non_255_bytes(afl, afl->virgin_bits) - before_havoc_edges;
   afl->havoc_prof->total_det_edge += afl->havoc_prof->edge_det_stage;
   afl->havoc_prof->det_stage_time = before_havoc_time - before_det_time;
   afl->havoc_prof->havoc_stage_time = get_cur_time() - before_havoc_time;
