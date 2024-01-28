@@ -111,6 +111,8 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 
+static u8 __afl_cmplog_max_len = 16;
+
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
 
@@ -1929,7 +1931,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   /*
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (likely(!__afl_cmp_map)) return;
+  if (unlikely(arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -1961,7 +1964,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (likely(!__afl_cmp_map)) return;
+  if (unlikely(arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -1999,7 +2003,8 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook4 arg0=%x arg1=%x attr=%u\n", arg1, arg2, attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (likely(!__afl_cmp_map)) return;
+  if (unlikely(arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -2037,7 +2042,8 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (likely(!__afl_cmp_map)) return;
+  if (unlikely(arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -2080,7 +2086,8 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   // (u64)(arg1 >> 64), (u64)arg1, (u64)(arg2 >> 64), (u64)arg2, size + 1,
   // attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (likely(!__afl_cmp_map)) return;
+  if (unlikely(arg1 == arg2 || size > __afl_cmplog_max_len)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -2124,6 +2131,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
   if (likely(!__afl_cmp_map)) return;
+  if (16 > __afl_cmplog_max_len) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -2161,17 +2169,20 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 #endif
 
+/*
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  __cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  __cmplog_ins_hook1(arg1, arg2, 0);
 
 }
+
+*/
 
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
 
@@ -2317,14 +2328,14 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_cmp_map)) return;
-  if (unlikely(!len)) return;
+  if (unlikely(!len || len > __afl_cmplog_max_len)) return;
   int len0 = MIN(len, 31 + _CMPLOG_EXTRA);
   int len1 = strnlen(ptr1, len0);
   if (len1 < 31 + _CMPLOG_EXTRA) len1 = area_is_valid(ptr1, len1 + 1);
   int len2 = strnlen(ptr2, len0);
   if (len2 < 31 + _CMPLOG_EXTRA) len2 = area_is_valid(ptr2, len2 + 1);
   int l = MAX(len1, len2);
-  if (l < 2) return;
+  if (l < 2 || l > __afl_cmplog_max_len) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -2370,7 +2381,7 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   int len1 = strnlen(ptr1, 30) + 1;
   int len2 = strnlen(ptr2, 30) + 1;
   int l = MAX(len1, len2);
-  if (l < 3) return;
+  if (l < 2 || l > __afl_cmplog_max_len) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
@@ -2410,26 +2421,30 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 /* hook function for all other func(ptr, ptr, ...) variants */
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
-  fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
+  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
 
-  u32 i;
+  if (likely(!__afl_cmp_map)) return;
   if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 ||
       area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0)
     return;
-  fprintf(stderr, "rtn arg0=");
-  for (i = 0; i < 32; i++)
-    fprintf(stderr, "%02x", ptr1[i]);
-  fprintf(stderr, " arg1=");
-  for (i = 0; i < 32; i++)
-    fprintf(stderr, "%02x", ptr2[i]);
-  fprintf(stderr, "\n");
 
-  if (likely(!__afl_cmp_map)) return;
+  /*
+    u32 i;
+    fprintf(stderr, "rtn arg0=");
+    for (i = 0; i < 32; i++)
+      fprintf(stderr, "%02x", ptr1[i]);
+    fprintf(stderr, " arg1=");
+    for (i = 0; i < 32; i++)
+      fprintf(stderr, "%02x", ptr2[i]);
+    fprintf(stderr, "\n");
+  */
+
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 31 + _CMPLOG_EXTRA)) <= 0 ||
       (l2 = area_is_valid(ptr2, 31 + _CMPLOG_EXTRA)) <= 0)
     return;
   int len = MIN(31 + _CMPLOG_EXTRA, MIN(l1, l2));
+  if (likely(len > __afl_cmplog_max_len)) return;
 
   // fprintf(stderr, "RTN2 %u\n", len);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -2464,7 +2479,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
 
-  fprintf(stderr, "RTN3 len %u\n", len);
+  // fprintf(stderr, "RTN3 len %u\n", len);
 
 }
 
@@ -2473,12 +2488,16 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
    information and pass it on to the standard binary rtn hook */
 void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
-  fprintf(stderr, "__cmplog_rtn_hook_n %llu, %p %p\n", len, ptr1, ptr2);
+  // fprintf(stderr, "__cmplog_rtn_hook_n %llu, %p %p\n", len, ptr1, ptr2);
+  if (likely(!__afl_cmp_map)) return;
+  if (likely(len > __afl_cmplog_max_len)) return;
 
-  u32 i;
   if (area_is_valid(ptr1, 31 + _CMPLOG_EXTRA) <= 0 ||
       area_is_valid(ptr2, 31 + _CMPLOG_EXTRA) <= 0)
     return;
+
+  /*
+  u32 i;
   fprintf(stderr, "rtn_n len=%llu arg0=", len);
   for (i = 0; i < len; i++)
     fprintf(stderr, "%02x", ptr1[i]);
@@ -2486,14 +2505,12 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   for (i = 0; i < len; i++)
     fprintf(stderr, "%02x", ptr2[i]);
   fprintf(stderr, "\n");
+  */
 
   //(void)(len);
   __cmplog_rtn_hook(ptr1, ptr2);
 
 #if 0
-  /*
-  */
-
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!len)) return;
