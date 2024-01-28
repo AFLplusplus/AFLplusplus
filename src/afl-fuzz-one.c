@@ -545,12 +545,16 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  u64 before_det_time = get_cur_time(), before_havoc_time;
+  u64 before_det_time = get_cur_time();
+#ifdef INTROSPECTION
+
+  u64 before_havoc_time;
   u32 before_det_findings = afl->queued_items,
       before_det_edges = count_non_255_bytes(afl, afl->virgin_bits),
       before_havoc_findings, before_havoc_edges;
   u8 is_logged = 0;
 
+#endif 
   if (!afl->skip_deterministic) {
 
     if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
@@ -570,7 +574,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* if skipdet decide to skip the seed or no interesting bytes found,
      we skip the whole deterministic stage as well */
 
-  if (likeyly(afl->skip_deterministic) || likely(afl->queue_cur->passed_det) ||
+  if (likely(afl->skip_deterministic) || likely(afl->queue_cur->passed_det) ||
       likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
@@ -2064,6 +2068,8 @@ custom_mutator_stage:
 
 havoc_stage:
 
+#ifdef INTROSPECTION
+
   if (!is_logged) {
 
     is_logged = 1;
@@ -2072,6 +2078,8 @@ havoc_stage:
     before_havoc_time = get_cur_time();
 
   }
+
+#endif
 
   if (unlikely(afl->custom_only)) {
 
@@ -3483,6 +3491,8 @@ retry_splicing:
 
   ret_val = 0;
 
+#ifdef INTROSPECTION
+
   afl->havoc_prof->queued_det_stage =
       before_havoc_findings - before_det_findings;
   afl->havoc_prof->queued_havoc_stage =
@@ -3497,6 +3507,8 @@ retry_splicing:
   afl->havoc_prof->total_det_time += afl->havoc_prof->det_stage_time;
 
   plot_profile_data(afl, afl->queue_cur);
+  
+#endif
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
