@@ -955,14 +955,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'D':                                    /* enforce deterministic */
-
-        afl->skip_deterministic = 0;
-        break;
-
-      case 'd':                                       /* skip deterministic */
+      case 'D':                                         /* no deterministic */
 
         afl->skip_deterministic = 1;
+        break;
+
+      case 'd':                                    /* partial deterministic */
+
+        afl->skip_deterministic = 0;
         break;
 
       case 'B':                                              /* load bitmap */
