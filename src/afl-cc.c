@@ -2311,6 +2311,11 @@ void add_runtime(aflcc_state_t *aflcc) {
 
     }
 
+  #if __AFL_CODE_COVERAGE
+    // Required for dladdr used in afl-compiler-rt.o
+    insert_param(aflcc, "-ldl");
+  #endif
+
   #if !defined(__APPLE__) && !defined(__sun)
     if (!aflcc->shared_linking && !aflcc->partial_linking)
       insert_object(aflcc, "dynamic_list.txt", "-Wl,--dynamic-list=%s", 0);
