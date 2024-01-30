@@ -1915,6 +1915,15 @@ int main(int argc, char **argv_orig, char **envp) {
   bind_to_free_cpu(afl);
   #endif                                                   /* HAVE_AFFINITY */
 
+  #ifdef __linux__
+  if (afl->fsrv.nyx_mode && afl->fsrv.nyx_bind_cpu_id == 0xFFFFFFFF) {
+
+    afl->fsrv.nyx_bind_cpu_id = 0;
+
+  }
+
+  #endif
+
   #ifdef __HAIKU__
   /* Prioritizes performance over power saving */
   set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
