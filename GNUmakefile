@@ -66,6 +66,10 @@ ifdef MSAN_BUILD
   override LDFLAGS += -fsanitize=memory
 endif
 
+ifdef CODE_COVERAGE
+  override CFLAGS += -D__AFL_CODE_COVERAGE=1
+endif
+
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full

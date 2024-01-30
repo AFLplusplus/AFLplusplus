@@ -7,7 +7,12 @@ where doing this dynamically without requiring a new build can be beneficial.
 Especially when dealing with larger builds, it is much more convenient to
 select the target code locations at runtime instead of doing so at build time.
 
-There are two ways of doing this in AFL++:
+There are two ways of doing this in AFL++. Both approaches require a build of
+AFL++ with `CODE_COVERAGE=1`, so make sure to build AFL++ first by invoking
+
+`CODE_COVERAGE=1 make`
+
+Once you have built AFL++, you can choose out of two approaches:
 
 ## Simple Selection with `AFL_PC_FILTER`
 
