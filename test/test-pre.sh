@@ -20,7 +20,7 @@ echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does 
 test -e ./test-all.sh || cd $(dirname $0) || exit 1
 test -e ./test-all.sh || { echo Error: you must be in the test/ directory ; exit 1 ; }
 export AFL_PATH=`pwd`/..
-export AFL_NO_AFFINITY=1 # workaround for travis that fails for no avail cores 
+export AFL_TRY_AFFINITY=1 # workaround for travis that fails for no avail cores
 
 echo 1 > test.1
 echo 1 > test.2
