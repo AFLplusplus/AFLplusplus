@@ -1521,7 +1521,7 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
       "({ static volatile const char *_B __attribute__((used,unused)); "
       " _B = (const char*)\"" PERSIST_SIG
       "\"; "
-      "extern int __afl_connected;"
+      "extern __attribute__((visibility(\"default\"))) int __afl_connected;"
 #ifdef __APPLE__
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"___afl_persistent_loop\"); "
