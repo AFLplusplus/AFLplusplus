@@ -5,7 +5,7 @@
 $ECHO "$BLUE[*] Testing: nyx_mode"
 
 test -e ../libnyx.so && {
-  ../afl-cc -o test-instr ../test-instr.c >/dev/null 2>&1
+  ../afl-cc -o test-instr ../test-instr.c > errors 2>&1
   test -e test-instr && {
     {
       rm -rf nyx-test in out
@@ -58,6 +58,9 @@ test -e ../libnyx.so && {
       #rm -rf test-instr in out errors nyx-test
     }
   } || {
+    echo CUT------------------------------------------------------------------CUT
+    cat errors
+    echo CUT------------------------------------------------------------------CUT
     $ECHO "$RED[!] afl-cc compilation of test targets failed - what is going on??"
     CODE=1
   }
