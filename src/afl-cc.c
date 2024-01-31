@@ -2896,134 +2896,248 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
     if (PARAM_MISS != parse_linking_params(aflcc, cur, scan, &skip_next, argv))
       continue;
 
+    /* Response file support -----BEGIN-----
+      We have two choices - move everything to the command line or
+      rewrite the response files to temporary files and delete them
+      afterwards. We choose the first for easiness.
+      For clang, llvm::cl::ExpandResponseFiles does this, however it
+      only has C++ interface. And for gcc there is expandargv in libiberty,
+      written in C, but we can't simply copy-paste since its LGPL licensed.
+      So here we use an equivalent FSM as alternative, and try to be compatible
+      with the two above. See:
+        - https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html
+        - driver::expand_at_files in gcc.git/gcc/gcc.c
+        - expandargv in gcc.git/libiberty/argv.c
+        - llvm-project.git/clang/tools/driver/driver.cpp
+        - ExpandResponseFiles in llvm-project.git/llvm/lib/Support/CommandLine.cpp
+    */
     if (*cur == '@') {
 
-      // response file support.
-      // we have two choices - move everything to the command line or
-      // rewrite the response files to temporary files and delete them
-      // afterwards. We choose the first for easiness.
-      // We do *not* support quotes in the rsp files to cope with spaces in
-      // filenames etc! If you need that then send a patch!
       u8 *filename = cur + 1;
       if (aflcc->debug) { DEBUGF("response file=%s\n", filename); }
-      FILE       *f = fopen(filename, "r");
-      struct stat st;
 
       // Check not found or empty? let the compiler complain if so.
-      if (!f || fstat(fileno(f), &st) < 0 || st.st_size < 1) {
+      FILE *f = fopen(filename, "r");
+      if (!f) {
 
         if (!scan) insert_param(aflcc, cur);
         continue;
 
       }
 
-      u8    *tmpbuf = malloc(st.st_size + 2), *ptr;
-      char **args = malloc(sizeof(char *) * (st.st_size >> 1));
-      int    count = 1, cont = 0, cont_act = 0;
+      struct stat st;
+      if (fstat(fileno(f), &st) || !S_ISREG(st.st_mode) || st.st_size < 1) {
 
-      while (fgets(tmpbuf, st.st_size + 1, f)) {
+        fclose(f);
+        if (!scan) insert_param(aflcc, cur);
+        continue;
 
-        ptr = tmpbuf;
-        // fprintf(stderr, "1: %s\n", ptr);
-        //  no leading whitespace
-        while (isspace(*ptr)) {
+      }
 
-          ++ptr;
-          cont_act = 0;
+      // Limit the number of response files, the max value
+      // just keep consistent with expandargv. Only do this in
+      // scan mode, and not touch rsp_count anymore in the next.
+      static u32 rsp_count = 2000;
+      if (scan) {
 
-        }
+        if (rsp_count == 0) FATAL("Too many response files provided!");
 
-        // no comments, no empty lines
-        if (*ptr == '#' || *ptr == '\n' || !*ptr) { continue; }
-        // remove LF
-        if (ptr[strlen(ptr) - 1] == '\n') { ptr[strlen(ptr) - 1] = 0; }
-        // remove CR
-        if (*ptr && ptr[strlen(ptr) - 1] == '\r') { ptr[strlen(ptr) - 1] = 0; }
-        // handle \ at end of line
-        if (*ptr && ptr[strlen(ptr) - 1] == '\\') {
+        --rsp_count;
 
-          cont = 1;
-          ptr[strlen(ptr) - 1] = 0;
+      }
 
-        }
+      // argc, argv acquired from this rsp file. Note that
+      // process_params ignores argv[0], we need to put a const "" here.
+      u32    argc_read = 1;
+      char **argv_read = ck_alloc(sizeof(char *));
+      argv_read[0] = "";
 
-        // fprintf(stderr, "2: %s\n", ptr);
+      char *arg_buf = NULL;
+      u64   arg_len = 0;
 
-        // remove whitespace at end
-        while (*ptr && isspace(ptr[strlen(ptr) - 1])) {
+      enum fsm_state {
 
-          ptr[strlen(ptr) - 1] = 0;
-          cont = 0;
+        fsm_whitespace,    // whitespace seen so far
+        fsm_double_quote,  // have unpaired double quote
+        fsm_single_quote,  // have unpaired single quote
+        fsm_backslash,     // a backslash is seen with no unpaired quote
+        fsm_normal         // a normal char is seen
 
-        }
+      };
 
-        // fprintf(stderr, "3: %s\n", ptr);
-        if (*ptr) {
+      // Workaround to append c to arg buffer, and append the buffer to argv
+#define ARG_ALLOC(c)                                             \
+  do {                                                           \
+                                                                 \
+    ++arg_len;                                                   \
+    arg_buf = ck_realloc(arg_buf, (arg_len + 1) * sizeof(char)); \
+    arg_buf[arg_len] = '\0';                                     \
+    arg_buf[arg_len - 1] = (char)c;                              \
+                                                                 \
+  } while (0)
 
-          do {
+#define ARG_STORE()                                                \
+  do {                                                             \
+                                                                   \
+    ++argc_read;                                                   \
+    argv_read = ck_realloc(argv_read, argc_read * sizeof(char *)); \
+    argv_read[argc_read - 1] = arg_buf;                            \
+    arg_buf = NULL;                                                \
+    arg_len = 0;                                                   \
+                                                                   \
+  } while (0)
 
-            u8 *value = ptr;
-            while (*ptr && !isspace(*ptr)) {
+      int cur_chr = (int)' ';  // init as whitespace, as a good start :)
+      enum fsm_state state_ = fsm_whitespace;
 
-              ++ptr;
+      while (cur_chr != EOF) {
+
+        switch (state_) {
+
+          case fsm_whitespace:
+
+            if (arg_buf) {
+
+              ARG_STORE();
+              break;
 
             }
 
-            while (*ptr && isspace(*ptr)) {
+            if (isspace(cur_chr)) {
 
-              *ptr++ = 0;
+              cur_chr = fgetc(f);
 
-            }
+            } else if (cur_chr == (int)'\'') {
 
-            if (cont_act) {
+              state_ = fsm_single_quote;
+              cur_chr = fgetc(f);
 
-              u32 len = strlen(args[count - 1]) + strlen(value) + 1;
-              u8 *tmp = malloc(len);
-              snprintf(tmp, len, "%s%s", args[count - 1], value);
-              free(args[count - 1]);
-              args[count - 1] = tmp;
-              cont_act = 0;
+            } else if (cur_chr == (int)'"') {
+
+              state_ = fsm_double_quote;
+              cur_chr = fgetc(f);
+
+            } else if (cur_chr == (int)'\\') {
+
+              state_ = fsm_backslash;
+              cur_chr = fgetc(f);
 
             } else {
 
-              args[count++] = strdup(value);
+              state_ = fsm_normal;
 
             }
 
-          } while (*ptr);
+            break;
 
-        }
+          case fsm_normal:
 
-        if (cont) {
+            if (isspace(cur_chr)) {
 
-          cont_act = 1;
-          cont = 0;
+              state_ = fsm_whitespace;
+
+            } else if (cur_chr == (int)'\'') {
+
+              state_ = fsm_single_quote;
+              cur_chr = fgetc(f);
+
+            } else if (cur_chr == (int)'\"') {
+
+              state_ = fsm_double_quote;
+              cur_chr = fgetc(f);
+
+            } else if (cur_chr == (int)'\\') {
+
+              state_ = fsm_backslash;
+              cur_chr = fgetc(f);
+
+            } else {
+
+              ARG_ALLOC(cur_chr);
+              cur_chr = fgetc(f);
+
+            }
+
+            break;
+
+          case fsm_backslash:
+
+            ARG_ALLOC(cur_chr);
+            cur_chr = fgetc(f);
+            state_ = fsm_normal;
+
+            break;
+
+          case fsm_single_quote:
+
+            if (cur_chr == (int)'\\') {
+
+              cur_chr = fgetc(f);
+              if (cur_chr == EOF) break;
+              ARG_ALLOC(cur_chr);
+
+            } else if (cur_chr == (int)'\'') {
+
+              state_ = fsm_normal;
+
+            } else {
+
+              ARG_ALLOC(cur_chr);
+
+            }
+
+            cur_chr = fgetc(f);
+            break;
+
+          case fsm_double_quote:
+
+            if (cur_chr == (int)'\\') {
+
+              cur_chr = fgetc(f);
+              if (cur_chr == EOF) break;
+              ARG_ALLOC(cur_chr);
+
+            } else if (cur_chr == (int)'"') {
+
+              state_ = fsm_normal;
+
+            } else {
+
+              ARG_ALLOC(cur_chr);
+
+            }
+
+            cur_chr = fgetc(f);
+            break;
+
+          default:
+            break;
 
         }
 
       }
 
-      if (count) { process_params(aflcc, scan, count, args); }
+      if (arg_buf) { ARG_STORE(); }  // save the pending arg after EOF
 
-      // we cannot free args[] unless we don't need
-      // to keep any reference in cc_params
+#undef ARG_ALLOC
+#undef ARG_STORE
+
+      if (argc_read > 1) { process_params(aflcc, scan, argc_read, argv_read); }
+
+      // We cannot free argv_read[] unless we don't need to keep any
+      // reference in cc_params. Never free argv[0], the const "".
       if (scan) {
 
-        if (count) do {
+        while (argc_read > 1)
+          ck_free(argv_read[--argc_read]);
 
-            free(args[--count]);
-
-          } while (count);
-
-        free(args);
+        ck_free(argv_read);
 
       }
-
-      free(tmpbuf);
 
       continue;
 
-    }
+    }                                /* Response file support -----END----- */
 
     if (!scan) insert_param(aflcc, cur);
 
