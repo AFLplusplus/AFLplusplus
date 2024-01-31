@@ -15,7 +15,7 @@
     - workaround for ASAN with gcc_plugin mode
   - instrumentation:
     - LLVM 18 support, thanks to @devnexen!
-    - Injection (SQL, LDAP, XSS) feature now available, see
+    - Injection (SQL, LDAP, XSS) fuzzing feature now available, see
       `instrumentation/README.injections.md` how to activate/use/expand.
     - compcov/LAF-intel:
       - floating point splitting bug fix by @hexcoder
@@ -28,9 +28,9 @@
     - plugins are now activated by default and a new module is included that
       produces drcov compatible traces for lighthouse/lightkeeper/...
       thanks to @JRomainG to submitting!
-  - updated Nyx checkout (fixes a bug)
+  - updated Nyx checkout (fixes a bug) and some QOL
   - updated the custom grammar mutator
-  - document afl-cmin does not work on macOS
+  - document afl-cmin does not work on macOS (but afl-cmin.bash does)
 
 
 ### Version ++4.09c (release)
