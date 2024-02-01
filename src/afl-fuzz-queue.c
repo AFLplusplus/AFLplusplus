@@ -664,6 +664,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
+  q->skipdet_e = (struct skipdet_entry *)ck_alloc(sizeof(struct skipdet_entry));
+
 }
 
 /* Destroy the entire queue. */
@@ -679,6 +681,15 @@ void destroy_queue(afl_state_t *afl) {
     q = afl->queue_buf[i];
     ck_free(q->fname);
     ck_free(q->trace_mini);
+    if (q->skipdet_e) {
+
+      if (q->skipdet_e->done_inf_map) ck_free(q->skipdet_e->done_inf_map);
+      if (q->skipdet_e->skip_eff_map) ck_free(q->skipdet_e->skip_eff_map);
+
+      ck_free(q->skipdet_e);
+
+    }
+
     ck_free(q);
 
   }

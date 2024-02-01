@@ -2236,6 +2236,21 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   fflush(afl->fsrv.plot_file);
 
+#ifdef INTROSPECTION
+
+  tmp = alloc_printf("%s/plot_det_data", afl->out_dir);
+
+  int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+  if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+  ck_free(tmp);
+
+  afl->fsrv.det_plot_file = fdopen(fd, "w");
+  if (!afl->fsrv.det_plot_file) { PFATAL("fdopen() failed"); }
+
+  if (afl->in_place_resume) { fseek(afl->fsrv.det_plot_file, 0, SEEK_END); }
+
+#endif
+
   /* ignore errors */
 
 }
