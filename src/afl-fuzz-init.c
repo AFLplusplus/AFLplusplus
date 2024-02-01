@@ -124,6 +124,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
     }
 
     WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
+  #ifdef __linux__
+    if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = 0; }
+  #endif
     return;
 
   }
@@ -151,6 +154,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
     } else {
 
       OKF("CPU binding request using -b %d successful.", afl->cpu_to_bind);
+  #ifdef __linux__
+      if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = afl->cpu_to_bind; }
+  #endif
 
     }
 

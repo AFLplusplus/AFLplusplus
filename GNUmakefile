@@ -66,6 +66,10 @@ ifdef MSAN_BUILD
   override LDFLAGS += -fsanitize=memory
 endif
 
+ifdef CODE_COVERAGE
+  override CFLAGS += -D__AFL_CODE_COVERAGE=1
+endif
+
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -395,7 +399,7 @@ help:
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
-	@echo NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)
+	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
@@ -649,16 +653,16 @@ endif
 	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_CORESIGHT
+ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
 	-$(MAKE) -C coresight_mode
-    endif
   endif
-  ifeq "$(SYS)" "Linux"
-    ifndef NO_NYX
+endif
+ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
-    endif
-  endif
+endif
+endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
   ifeq "$(ARCH)" "aarch64"
     ifndef NO_UNICORN_ARM64

@@ -1,11 +1,15 @@
 #!/usr/bin/env sh
+SYS=$(uname -s)
+test "$SYS" = "Darwin" && {
+  echo Error: afl-cmin does not work on Apple currently. please use afl-cmin.bash instead.
+  exit 1
+}
 export AFL_QUIET=1
 export ASAN_OPTIONS=detect_leaks=0
 THISPATH=`dirname ${0}`
 export PATH="${THISPATH}:$PATH"
 awk -f - -- ${@+"$@"} <<'EOF'
 #!/usr/bin/awk -f
-
 # awk script to minimize a test corpus of input files
 #
 # based on afl-cmin bash script written by Michal Zalewski

@@ -201,7 +201,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded allowlist with %zu file and %zu function entries\n",
-             allowListFiles.size(), allowListFunctions.size());
+             allowListFiles.size() / 4, allowListFunctions.size() / 4);
 
   }
 
@@ -276,7 +276,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded denylist with %zu file and %zu function entries\n",
-             denyListFiles.size(), denyListFunctions.size());
+             denyListFiles.size() / 4, denyListFunctions.size() / 4);
 
   }
 

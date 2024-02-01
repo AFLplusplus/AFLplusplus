@@ -2,6 +2,8 @@
 
 . ./test-pre.sh
 
+OS=$(uname -s)
+
 $ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
@@ -123,7 +125,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   # now we want to be sure that afl-fuzz is working
   # make sure crash reporter is disabled on Mac OS X
-  (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+  (test "$OS" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
     CODE=1
     true
@@ -146,18 +148,22 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       }
     }
     test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" || {
+      mkdir -p in2
       echo 000000000000000000000000 > in/in2
       echo 111 > in/in3
-      mkdir -p in2
-      ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
-      CNT=`ls in2/* 2>/dev/null | wc -l`
-      case "$CNT" in
-        *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
-            CODE=1
-            ;;
-      esac
-      rm -f in2/in*
+      test "$OS" = "Darwin" && {
+        $ECHO "$GREY[*] afl-cmin not available on macOS, cannot test afl-cmin"
+      } || {
+        ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+        CNT=`ls in2/* 2>/dev/null | wc -l`
+        case "$CNT" in
+          *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+          *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+              CODE=1
+              ;;
+        esac
+        rm -f in2/in*
+      }
       export AFL_QUIET=1
       if type bash >/dev/null ; then {
         ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
