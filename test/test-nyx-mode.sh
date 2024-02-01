@@ -42,9 +42,8 @@ test -e ../libnyx.so && {
             rm -rf errors nyx-test test-instr in out
           } || {
             echo CUT------------------------------------------------------------------CUT
-            afl-cc
-            afl-cc -v
-            clang -v
+            ../afl-cc
+            ../afl-cc -v
             cat errors
             echo CUT------------------------------------------------------------------CUT
             $ECHO "$RED[!] afl-fuzz is not working correctly with nyx_mode"
