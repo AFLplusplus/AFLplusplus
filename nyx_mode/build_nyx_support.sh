@@ -9,6 +9,14 @@ echo
 
 echo "[*] Performing basic sanity checks..."
 
+if [ "$CI" = "true" ]; then
+
+  echo "[-] Error: nyx_mode cannot be tested in the Github CI, skipping ..."
+  exit 0
+
+fi
+
+
 if [ -n "$NO_NYX" ]; then
 
   echo "[-] Error: the NO_NYX environment variable is set, please unset."
