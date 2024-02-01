@@ -30,6 +30,11 @@ if [ ! "$(uname -m)" = "x86_64" ]; then
 
 fi
 
+cargo help > /dev/null 2>&1 || {
+   echo "[-] Error: Rust is not installed."
+   exit 0
+}
+
 echo "[*] Making sure all Nyx is checked out"
 
 
