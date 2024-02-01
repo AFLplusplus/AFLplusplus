@@ -1458,11 +1458,13 @@ void add_real_argv0(aflcc_state_t *aflcc) {
   } else {
 
     u8 *alt_cc = getenv("AFL_CC");
+printf("AFL_CC=%s\n", alt_cc);
 
     if (!alt_cc) {
 
       if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == GCC_PLUGIN) {
 
+printf("is gcc %d == %d || %d == %d\n", aflcc->compiler_mode, GCC, aflcc->compiler_mode, GCC_PLUGIN);
         alt_cc = "gcc";
 
       } else if (aflcc->compiler_mode == CLANG) {
@@ -1477,6 +1479,8 @@ void add_real_argv0(aflcc_state_t *aflcc) {
         else
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANG_BIN);
         alt_cc = llvm_fullpath;
+
+printf("use_bindir=%s llvm_fullpath=%s\n", USE_BINDIR ? "true" : "false", llvm_fullpath);
 
       }
 
