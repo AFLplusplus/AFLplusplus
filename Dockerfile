@@ -88,7 +88,7 @@ ARG TEST_BUILD
 
 RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
     make clean && make distrib && \
-    ([ "${TEST_BUILD}" ] || (make install && make clean)) && \
+    ([ "${TEST_BUILD}" ] || (make install)) && \
     mv GNUmakefile.bak GNUmakefile
 
 RUN echo "set encoding=utf-8" > /root/.vimrc && \
