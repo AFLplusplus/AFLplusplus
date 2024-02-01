@@ -16,8 +16,8 @@ ENV NO_CORESIGHT=1
 ENV NO_NYX=1
 
 ### Only change these if you know what you are doing:
-# LLVM 15 does not look good so we stay at 14 to still have LTO
-ENV LLVM_VERSION=14
+# Current recommended LLVM version is 16
+ENV LLVM_VERSION=16
 # GCC 12 is producing compile errors for some targets so we stay at GCC 11
 ENV GCC_VERSION=11
 
