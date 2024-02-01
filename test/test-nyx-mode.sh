@@ -3,7 +3,11 @@
 . ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: nyx_mode"
-env
+
+test "$CI" = "true" && {
+  $ECHO "$YELLOW[-] nyx_mode cannot be tested in the Github CI, skipping ..."
+  exit 0
+}
 
 unset AFL_CC
 
