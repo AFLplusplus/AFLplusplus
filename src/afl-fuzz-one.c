@@ -331,7 +331,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u32 i;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum, _prev_cksum;
-  u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
+  u32 splice_cycle = 0, perf_score = 100, orig_perf;
 
   u8 ret_val = 1, doing_det = 0;
 
@@ -848,7 +848,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   if (EFF_APOS(len - 1) != 0) {
 
     eff_map[EFF_APOS(len - 1)] = 1;
-    ++eff_cnt;
 
   }
 
