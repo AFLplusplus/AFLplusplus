@@ -1019,7 +1019,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (status >= 0x41464c00 && status <= 0x41464cff) {
 
-      FATAL("Target uses the new forkserver model, you need to switch to a newer afl-fuzz too!");
+      FATAL(
+          "Target uses the new forkserver model, you need to switch to a newer "
+          "afl-fuzz too!");
 
     }
 
