@@ -45,7 +45,7 @@ endif
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's/svn//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
 LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-8]\.' && echo 1 || echo 0 )
 LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[8-9]|^2[0-9]' && echo 1 || echo 0 )
 LLVM_TOO_OLD = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[1-9]\.|^1[012]\.' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )

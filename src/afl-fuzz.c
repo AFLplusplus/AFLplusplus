@@ -170,7 +170,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -D            - enable deterministic fuzzing (once per queue entry)\n"
+      "  -D            - enable (a new) effective deterministic fuzzing\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new finds). 0 = "
@@ -955,14 +955,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'D':                                         /* no deterministic */
-
-        afl->skip_deterministic = 1;
-        break;
-
-      case 'd':                                    /* partial deterministic */
+      case 'D':                                    /* partial deterministic */
 
         afl->skip_deterministic = 0;
+        break;
+
+      case 'd':                                         /* no deterministic */
+
+        // this is the default and currently a lot of infrastructure enforces
+        // it (e.g. clusterfuzz, fuzzbench) based on that this feature
+        // originally was bad performance wise. We now have a better
+        // implementation, hence if it is activated, we do not want to
+        // deactivate it by such setups.
+
+        // afl->skip_deterministic = 1;
         break;
 
       case 'B':                                              /* load bitmap */
@@ -1424,11 +1430,11 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   #endif
+
+  // silently disable deterministic mutation if custom mutators are used
   if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
 
-    FATAL(
-        "Using -D determinstic fuzzing is incompatible with "
-        "AFL_CUSTOM_MUTATOR_ONLY!");
+    afl->skip_deterministic = 1;
 
   }
 

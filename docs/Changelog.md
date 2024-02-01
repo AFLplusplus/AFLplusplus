@@ -9,6 +9,8 @@
       explore is slightly better now.
     - fixed minor issues in the mutation engine, thanks to @futhewo for
       reporting!
+    - better deterministic fuzzing is now available, benchmarks have shown
+      to improve fuzzing. Enable with -D. Thanks to @kdsjZh for the PR!
   - afl-cc:
     - large rewrite by @SonicStark which fixes a few corner cases, thanks!
     - LTO mode now requires llvm 12+
