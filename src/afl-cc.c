@@ -51,7 +51,7 @@
   #define MAX_PARAMS_NUM 2048
 #endif
 
-/* Global declarations */
+/** Global declarations -----BEGIN----- **/
 
 typedef enum {
 
@@ -187,12 +187,11 @@ typedef struct aflcc_state {
 
 void aflcc_state_init(aflcc_state_t *, u8 *argv0);
 
-/* Try to find a specific runtime we need, the path to obj would be
-   allocated and returned. Otherwise it returns NULL on fail. */
 u8 *find_object(aflcc_state_t *, u8 *obj);
 
 void find_built_deps(aflcc_state_t *);
 
+/* Insert param into the new argv, raise error if MAX_PARAMS_NUM exceeded. */
 static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
 
   if (unlikely(aflcc->cc_par_cnt + 1 >= MAX_PARAMS_NUM))
@@ -202,6 +201,13 @@ static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
 
 }
 
+/*
+  Insert a param which contains path to the object file. It uses find_object to
+  get the path based on the name `obj`, and then uses a sprintf like method to
+  format it with `fmt`. If `fmt` is NULL, the inserted arg is same as the path.
+  If `msg` provided, it should be an error msg raised if the path can't be
+  found. `obj` must not be NULL.
+*/
 static inline void insert_object(aflcc_state_t *aflcc, u8 *obj, u8 *fmt,
                                  u8 *msg) {
 
@@ -231,6 +237,7 @@ static inline void insert_object(aflcc_state_t *aflcc, u8 *obj, u8 *fmt,
 
 }
 
+/* Insert params into the new argv, make clang load the pass. */
 static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
@@ -291,8 +298,12 @@ void add_lto_linker(aflcc_state_t *);
 void add_lto_passes(aflcc_state_t *);
 void add_runtime(aflcc_state_t *);
 
-/* Working state */
+/** Global declarations -----END----- **/
 
+/*
+  Init global state struct. We also extract the callname,
+  check debug options and if in C++ mode here.
+*/
 void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
 
   // Default NULL/0 is a good start
@@ -352,7 +363,7 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
 }
 
 /*
-  in find_object() we look here:
+  Try to find a specific runtime we need, in here:
 
   1. firstly we check the $AFL_PATH environment variable location if set
   2. next we check argv[0] if it has path information and use it
@@ -366,7 +377,6 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
   if all these attempts fail - we return NULL and the caller has to decide
   what to do. Otherwise the path to obj would be allocated and returned.
 */
-
 u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
 
   u8 *argv0 = aflcc->argv0;
@@ -499,6 +509,10 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
 
 }
 
+/*
+  Deduce some info about compiler toolchains in current system,
+  from the building results of AFL++
+*/
 void find_built_deps(aflcc_state_t *aflcc) {
 
   char *ptr = NULL;
@@ -571,8 +585,9 @@ void find_built_deps(aflcc_state_t *aflcc) {
 
 }
 
-/* compiler_mode & instrument_mode selecting */
+/** compiler_mode & instrument_mode selecting -----BEGIN----- **/
 
+/* Select compiler_mode by callname, such as "afl-clang-fast", etc. */
 void compiler_mode_by_callname(aflcc_state_t *aflcc) {
 
   if (strncmp(aflcc->callname, "afl-clang-fast", 14) == 0) {
@@ -626,6 +641,10 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Select compiler_mode by env AFL_CC_COMPILER. And passthrough mode can be
+  regarded as a special compiler_mode, so we check for it here, too.
+*/
 void compiler_mode_by_environ(aflcc_state_t *aflcc) {
 
   if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
@@ -682,7 +701,13 @@ void compiler_mode_by_environ(aflcc_state_t *aflcc) {
 
 }
 
-// If it can be inferred, instrument_mode would also be set
+/*
+  Select compiler_mode by command line options --afl-...
+  If it can be inferred, instrument_mode would also be set.
+  This can supersedes previous result based on callname
+  or AFL_CC_COMPILER. And "--afl_noopt"/"--afl-noopt" will
+  be overwritten by "-g".
+*/
 void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 
   char *ptr = NULL;
@@ -775,6 +800,12 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 
 }
 
+/*
+  Select instrument_mode by those envs in old style:
+  - USE_TRACE_PC, AFL_USE_TRACE_PC, AFL_LLVM_USE_TRACE_PC, AFL_TRACE_PC
+  - AFL_LLVM_CALLER, AFL_LLVM_CTX, AFL_LLVM_CTX_K
+  - AFL_LLVM_NGRAM_SIZE
+*/
 static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
 
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
@@ -834,7 +865,11 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
 
 }
 
-// compiler_mode would also be set if depended by the instrument_mode
+/*
+  Select instrument_mode by env 'AFL_LLVM_INSTRUMENT'.
+  Previous compiler_mode will be superseded, if required by some
+  values of instrument_mode.
+*/
 static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
   if (!getenv("AFL_LLVM_INSTRUMENT")) { return; }
@@ -1058,6 +1093,11 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Select instrument_mode by envs, the top wrapper. We check
+  have_instr_env firstly, then call instrument_mode_old_environ
+  and instrument_mode_new_environ sequentially.
+*/
 void instrument_mode_by_environ(aflcc_state_t *aflcc) {
 
   if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST") ||
@@ -1081,6 +1121,10 @@ void instrument_mode_by_environ(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Workaround to ensure CALLER, CTX, K-CTX and NGRAM
+  instrumentation were used correctly.
+*/
 static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
   if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
@@ -1116,6 +1160,11 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Last step of compiler_mode & instrument_mode selecting.
+  We have a few of workarounds here, to check any corner cases,
+  prepare for a series of fallbacks, and raise warnings or errors.
+*/
 void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 
   if (aflcc->instrument_opt_mode &&
@@ -1320,6 +1369,10 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 
 }
 
+/*
+  Print welcome message on screen, giving brief notes about
+  compiler_mode and instrument_mode.
+*/
 void mode_notification(aflcc_state_t *aflcc) {
 
   char *ptr2 = alloc_printf(" + NGRAM-%u", aflcc->ngram_size);
@@ -1358,6 +1411,17 @@ void mode_notification(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Set argv[0] required by execvp. It can be
+  - specified by env AFL_CXX
+  - g++ or clang++
+  - CLANGPP_BIN or LLVM_BINDIR/clang++
+  when in C++ mode, or
+  - specified by env AFL_CC
+  - gcc or clang
+  - CLANG_BIN or LLVM_BINDIR/clang
+  otherwise.
+*/
 void add_real_argv0(aflcc_state_t *aflcc) {
 
   static u8 llvm_fullpath[PATH_MAX];
@@ -1424,7 +1488,9 @@ void add_real_argv0(aflcc_state_t *aflcc) {
 
 }
 
-/* Macro defs for the preprocessor */
+/** compiler_mode & instrument_mode selecting -----END----- **/
+
+/** Macro defs for the preprocessor -----BEGIN----- **/
 
 void add_defs_common(aflcc_state_t *aflcc) {
 
@@ -1433,8 +1499,11 @@ void add_defs_common(aflcc_state_t *aflcc) {
 
 }
 
-/* See instrumentation/README.instrument_list.md#
-    2-selective-instrumentation-with-_afl_coverage-directives */
+/*
+  __afl_coverage macro defs. See
+  instrumentation/README.instrument_list.md#
+  2-selective-instrumentation-with-_afl_coverage-directives
+*/
 void add_defs_selective_instr(aflcc_state_t *aflcc) {
 
   if (aflcc->plusplus_mode) {
@@ -1468,9 +1537,11 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
 
 }
 
-/* As documented in instrumentation/README.persistent_mode.md, deferred
-    forkserver initialization and persistent mode are not available in afl-gcc
-    and afl-clang. */
+/*
+  Macro defs for persistent mode. As documented in
+  instrumentation/README.persistent_mode.md, deferred forkserver initialization
+  and persistent mode are not available in afl-gcc and afl-clang.
+*/
 void add_defs_persistent_mode(aflcc_state_t *aflcc) {
 
   if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG) return;
@@ -1549,7 +1620,11 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
 
 }
 
-/* Control  _FORTIFY_SOURCE */
+/*
+  Control macro def of _FORTIFY_SOURCE. It will do nothing
+  if we detect this routine has been called previously, or
+  the macro already here in these existing args.
+*/
 void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
 
   if (aflcc->have_fortify) { return; }
@@ -1574,6 +1649,7 @@ void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
 
 }
 
+/* Macro defs of __AFL_LEAK_CHECK, __AFL_LSAN_ON and __AFL_LSAN_OFF */
 void add_defs_lsan_ctrl(aflcc_state_t *aflcc) {
 
   insert_param(aflcc, "-includesanitizer/lsan_interface.h");
@@ -1586,7 +1662,9 @@ void add_defs_lsan_ctrl(aflcc_state_t *aflcc) {
 
 }
 
-/* About fsanitize (including PCGUARD features) */
+/** Macro defs for the preprocessor -----END----- **/
+
+/** About -fsanitize -----BEGIN----- **/
 
 /* For input "-fsanitize=...", it:
 
@@ -1665,6 +1743,16 @@ static u8 fsanitize_fuzzer_comma(char *string) {
 
 }
 
+/*
+  Parse and process possible -fsanitize related args, return PARAM_MISS
+  if nothing matched. We have 3 main tasks here for these args:
+  - Check which one of those sanitizers present here.
+  - Check if libfuzzer present. We need to block the request of enable
+    libfuzzer, and link harness with our libAFLDriver.a later.
+  - Check if SanCov allow/denylist options present. We need to try switching
+    to LLVMNATIVE instead of using our optimized PCGUARD anyway. If we
+    can't make it finally for various reasons, just drop these options.
+*/
 param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
@@ -1706,22 +1794,8 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
 #undef HAVE_SANITIZER_SCAN_KEEP
 
-  if (!strncmp(cur_argv, "-fsanitize-coverage-", 20) &&
-      strstr(cur_argv, "list=")) {
-
-    if (scan) {
-
-      aflcc->have_instr_list = 1;
-      final_ = PARAM_SCAN;
-
-    } else {
-
-      final_ = PARAM_KEEP;
-
-    }
-
-  }
-
+  // We can't use a "else if" there, because some of the following
+  // matching rules overlap with those in the if-statement above.
   if (!strcmp(cur_argv, "-fsanitize=fuzzer")) {
 
     if (scan) {
@@ -1761,25 +1835,27 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     }
 
-  } else if ((!strncmp(cur_argv, "-fsanitize=fuzzer-",
+  } else if (!strncmp(cur_argv, "-fsanitize-coverage-", 20) &&
 
-                       strlen("-fsanitize=fuzzer-")) ||
-              !strncmp(cur_argv, "-fsanitize-coverage",
-                       strlen("-fsanitize-coverage"))) &&
-             (strncmp(cur_argv, "sanitize-coverage-allow",
-                      strlen("sanitize-coverage-allow")) &&
-              strncmp(cur_argv, "sanitize-coverage-deny",
-                      strlen("sanitize-coverage-deny")) &&
-              aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE)) {
+             strstr(cur_argv, "list=")) {
 
     if (scan) {
 
+      aflcc->have_instr_list = 1;
       final_ = PARAM_SCAN;
 
     } else {
 
-      if (!be_quiet) { WARNF("Found '%s' - stripping!", cur_argv); }
-      final_ = PARAM_DROP;
+      if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE) {
+
+        if (!be_quiet) { WARNF("Found '%s' - stripping!", cur_argv); }
+        final_ = PARAM_DROP;
+
+      } else {
+
+        final_ = PARAM_KEEP;
+
+      }
 
     }
 
@@ -1791,6 +1867,16 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
 }
 
+/*
+  Add params for sanitizers. Here we need to consider:
+  - Use static runtime for asan, as much as possible.
+  - ASAN, MSAN, AFL_HARDEN are mutually exclusive.
+  - Add options if not found there, on request of AFL_USE_ASAN, AFL_USE_MSAN,
+  etc.
+  - Update have_* so that functions called after this can have correct context.
+    However this also means any functions called before should NOT depend on
+  these have_*, otherwise they may not work as expected.
+*/
 void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   if (getenv("AFL_USE_ASAN") || aflcc->have_asan) {
@@ -1820,7 +1906,7 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       FATAL("MSAN and AFL_HARDEN are mutually exclusive");
 
     add_defs_fortify(aflcc, 0);
-    insert_param(aflcc, "-fsanitize=memory");
+    if (!aflcc->have_msan) { insert_param(aflcc, "-fsanitize=memory"); }
     aflcc->have_msan = 1;
 
   }
@@ -1907,6 +1993,7 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
 }
 
+/* Add params to enable LLVM SanCov, the native PCGUARD */
 void add_native_pcguard(aflcc_state_t *aflcc) {
 
   /* If there is a rust ASan runtime on the command line, it is likely we're
@@ -1943,6 +2030,11 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Add params to launch our optimized PCGUARD on request.
+  It will fallback to use the native PCGUARD in some cases. If so, plz
+  bear in mind that instrument_mode will be set to INSTRUMENT_LLVMNATIVE.
+*/
 void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
 #if LLVM_MAJOR >= 13
@@ -1959,7 +2051,7 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
       SAYF(
           "Using unoptimized trace-pc-guard, due usage of "
           "-fsanitize-coverage-allow/denylist, you can use "
-          "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
+          "AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST instead.\n");
 
     insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
     aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
@@ -1994,8 +2086,14 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
 }
 
-/* Linking behaviors */
+/** About -fsanitize -----END----- **/
 
+/** Linking behaviors -----BEGIN----- **/
+
+/*
+  Parse and process possible linking stage related args,
+  return PARAM_MISS if nothing matched.
+*/
 param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
                               u8 *skip_next, char **argv) {
 
@@ -2158,6 +2256,7 @@ param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
 
 }
 
+/* Add params to specify the linker used in LTO */
 void add_lto_linker(aflcc_state_t *aflcc) {
 
   unsetenv("AFL_LD");
@@ -2197,6 +2296,7 @@ void add_lto_linker(aflcc_state_t *aflcc) {
 
 }
 
+/* Add params to launch SanitizerCoverageLTO.so when linking  */
 void add_lto_passes(aflcc_state_t *aflcc) {
 
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 15
@@ -2215,6 +2315,7 @@ void add_lto_passes(aflcc_state_t *aflcc) {
 
 }
 
+/* Add params to link with libAFLDriver.a on request */
 static void add_aflpplib(aflcc_state_t *aflcc) {
 
   if (!aflcc->need_aflpplib) return;
@@ -2250,6 +2351,7 @@ static void add_aflpplib(aflcc_state_t *aflcc) {
 
 }
 
+/* Add params to link with runtimes depended by our instrumentation */
 void add_runtime(aflcc_state_t *aflcc) {
 
   if (aflcc->preprocessor_only || aflcc->have_c || !aflcc->non_dash) {
@@ -2345,8 +2447,14 @@ void add_runtime(aflcc_state_t *aflcc) {
 
 }
 
-/* Misc */
+/** Linking behaviors -----END----- **/
 
+/** Miscellaneous routines -----BEGIN----- **/
+
+/*
+  Add params to make compiler driver use our afl-as
+  as assembler, required by the vanilla instrumentation.
+*/
 void add_assembler(aflcc_state_t *aflcc) {
 
   u8 *afl_as = find_object(aflcc, "as");
@@ -2363,6 +2471,7 @@ void add_assembler(aflcc_state_t *aflcc) {
 
 }
 
+/* Add params to launch the gcc plugins for instrumentation. */
 void add_gcc_plugin(aflcc_state_t *aflcc) {
 
   if (aflcc->cmplog_mode) {
@@ -2379,6 +2488,7 @@ void add_gcc_plugin(aflcc_state_t *aflcc) {
 
 }
 
+/* Add some miscellaneous params required by our instrumentation. */
 void add_misc_params(aflcc_state_t *aflcc) {
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
@@ -2425,6 +2535,10 @@ void add_misc_params(aflcc_state_t *aflcc) {
 
 }
 
+/*
+  Parse and process a variety of args under our matching rules,
+  return PARAM_MISS if nothing matched.
+*/
 param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
@@ -2575,6 +2689,9 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
 }
 
+/** Miscellaneous routines -----END----- **/
+
+/* Print help message on request */
 static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
@@ -2870,6 +2987,24 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
 }
 
+/*
+  Process params passed to afl-cc.
+
+  We have two working modes, *scan* and *non-scan*. In scan mode,
+  the main task is to set some variables in aflcc according to current argv[i],
+  while in non-scan mode, is to choose keep or drop current argv[i].
+
+  We have several matching routines being called sequentially in the while-loop,
+  and each of them try to parse and match current argv[i] according to their own
+  rules. If one miss match, the next will then take over. In non-scan mode, each
+  argv[i] mis-matched by all the routines will be kept.
+
+  These routines are:
+  1. parse_misc_params
+  2. parse_fsanitize
+  3. parse_linking_params
+  4. `if (*cur == '@') {...}`, i.e., parse response files
+*/
 static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
                            char **argv) {
 
@@ -2896,134 +3031,249 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
     if (PARAM_MISS != parse_linking_params(aflcc, cur, scan, &skip_next, argv))
       continue;
 
+    /* Response file support -----BEGIN-----
+      We have two choices - move everything to the command line or
+      rewrite the response files to temporary files and delete them
+      afterwards. We choose the first for easiness.
+      For clang, llvm::cl::ExpandResponseFiles does this, however it
+      only has C++ interface. And for gcc there is expandargv in libiberty,
+      written in C, but we can't simply copy-paste since its LGPL licensed.
+      So here we use an equivalent FSM as alternative, and try to be compatible
+      with the two above. See:
+        - https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html
+        - driver::expand_at_files in gcc.git/gcc/gcc.c
+        - expandargv in gcc.git/libiberty/argv.c
+        - llvm-project.git/clang/tools/driver/driver.cpp
+        - ExpandResponseFiles in
+          llvm-project.git/llvm/lib/Support/CommandLine.cpp
+    */
     if (*cur == '@') {
 
-      // response file support.
-      // we have two choices - move everything to the command line or
-      // rewrite the response files to temporary files and delete them
-      // afterwards. We choose the first for easiness.
-      // We do *not* support quotes in the rsp files to cope with spaces in
-      // filenames etc! If you need that then send a patch!
       u8 *filename = cur + 1;
       if (aflcc->debug) { DEBUGF("response file=%s\n", filename); }
-      FILE       *f = fopen(filename, "r");
-      struct stat st;
 
       // Check not found or empty? let the compiler complain if so.
-      if (!f || fstat(fileno(f), &st) < 0 || st.st_size < 1) {
+      FILE *f = fopen(filename, "r");
+      if (!f) {
 
         if (!scan) insert_param(aflcc, cur);
         continue;
 
       }
 
-      u8    *tmpbuf = malloc(st.st_size + 2), *ptr;
-      char **args = malloc(sizeof(char *) * (st.st_size >> 1));
-      int    count = 1, cont = 0, cont_act = 0;
+      struct stat st;
+      if (fstat(fileno(f), &st) || !S_ISREG(st.st_mode) || st.st_size < 1) {
 
-      while (fgets(tmpbuf, st.st_size + 1, f)) {
+        fclose(f);
+        if (!scan) insert_param(aflcc, cur);
+        continue;
 
-        ptr = tmpbuf;
-        // fprintf(stderr, "1: %s\n", ptr);
-        //  no leading whitespace
-        while (isspace(*ptr)) {
+      }
 
-          ++ptr;
-          cont_act = 0;
+      // Limit the number of response files, the max value
+      // just keep consistent with expandargv. Only do this in
+      // scan mode, and not touch rsp_count anymore in the next.
+      static u32 rsp_count = 2000;
+      if (scan) {
 
-        }
+        if (rsp_count == 0) FATAL("Too many response files provided!");
 
-        // no comments, no empty lines
-        if (*ptr == '#' || *ptr == '\n' || !*ptr) { continue; }
-        // remove LF
-        if (ptr[strlen(ptr) - 1] == '\n') { ptr[strlen(ptr) - 1] = 0; }
-        // remove CR
-        if (*ptr && ptr[strlen(ptr) - 1] == '\r') { ptr[strlen(ptr) - 1] = 0; }
-        // handle \ at end of line
-        if (*ptr && ptr[strlen(ptr) - 1] == '\\') {
+        --rsp_count;
 
-          cont = 1;
-          ptr[strlen(ptr) - 1] = 0;
+      }
 
-        }
+      // argc, argv acquired from this rsp file. Note that
+      // process_params ignores argv[0], we need to put a const "" here.
+      u32    argc_read = 1;
+      char **argv_read = ck_alloc(sizeof(char *));
+      argv_read[0] = "";
 
-        // fprintf(stderr, "2: %s\n", ptr);
+      char *arg_buf = NULL;
+      u64   arg_len = 0;
 
-        // remove whitespace at end
-        while (*ptr && isspace(ptr[strlen(ptr) - 1])) {
+      enum fsm_state {
 
-          ptr[strlen(ptr) - 1] = 0;
-          cont = 0;
+        fsm_whitespace,    // whitespace seen so far
+        fsm_double_quote,  // have unpaired double quote
+        fsm_single_quote,  // have unpaired single quote
+        fsm_backslash,     // a backslash is seen with no unpaired quote
+        fsm_normal         // a normal char is seen
 
-        }
+      };
 
-        // fprintf(stderr, "3: %s\n", ptr);
-        if (*ptr) {
+      // Workaround to append c to arg buffer, and append the buffer to argv
+#define ARG_ALLOC(c)                                             \
+  do {                                                           \
+                                                                 \
+    ++arg_len;                                                   \
+    arg_buf = ck_realloc(arg_buf, (arg_len + 1) * sizeof(char)); \
+    arg_buf[arg_len] = '\0';                                     \
+    arg_buf[arg_len - 1] = (char)c;                              \
+                                                                 \
+  } while (0)
 
-          do {
+#define ARG_STORE()                                                \
+  do {                                                             \
+                                                                   \
+    ++argc_read;                                                   \
+    argv_read = ck_realloc(argv_read, argc_read * sizeof(char *)); \
+    argv_read[argc_read - 1] = arg_buf;                            \
+    arg_buf = NULL;                                                \
+    arg_len = 0;                                                   \
+                                                                   \
+  } while (0)
 
-            u8 *value = ptr;
-            while (*ptr && !isspace(*ptr)) {
+      int cur_chr = (int)' ';  // init as whitespace, as a good start :)
+      enum fsm_state state_ = fsm_whitespace;
 
-              ++ptr;
+      while (cur_chr != EOF) {
+
+        switch (state_) {
+
+          case fsm_whitespace:
+
+            if (arg_buf) {
+
+              ARG_STORE();
+              break;
 
             }
 
-            while (*ptr && isspace(*ptr)) {
+            if (isspace(cur_chr)) {
 
-              *ptr++ = 0;
+              cur_chr = fgetc(f);
 
-            }
+            } else if (cur_chr == (int)'\'') {
 
-            if (cont_act) {
+              state_ = fsm_single_quote;
+              cur_chr = fgetc(f);
 
-              u32 len = strlen(args[count - 1]) + strlen(value) + 1;
-              u8 *tmp = malloc(len);
-              snprintf(tmp, len, "%s%s", args[count - 1], value);
-              free(args[count - 1]);
-              args[count - 1] = tmp;
-              cont_act = 0;
+            } else if (cur_chr == (int)'"') {
+
+              state_ = fsm_double_quote;
+              cur_chr = fgetc(f);
+
+            } else if (cur_chr == (int)'\\') {
+
+              state_ = fsm_backslash;
+              cur_chr = fgetc(f);
 
             } else {
 
-              args[count++] = strdup(value);
+              state_ = fsm_normal;
 
             }
 
-          } while (*ptr);
+            break;
 
-        }
+          case fsm_normal:
 
-        if (cont) {
+            if (isspace(cur_chr)) {
 
-          cont_act = 1;
-          cont = 0;
+              state_ = fsm_whitespace;
+
+            } else if (cur_chr == (int)'\'') {
+
+              state_ = fsm_single_quote;
+              cur_chr = fgetc(f);
+
+            } else if (cur_chr == (int)'\"') {
+
+              state_ = fsm_double_quote;
+              cur_chr = fgetc(f);
+
+            } else if (cur_chr == (int)'\\') {
+
+              state_ = fsm_backslash;
+              cur_chr = fgetc(f);
+
+            } else {
+
+              ARG_ALLOC(cur_chr);
+              cur_chr = fgetc(f);
+
+            }
+
+            break;
+
+          case fsm_backslash:
+
+            ARG_ALLOC(cur_chr);
+            cur_chr = fgetc(f);
+            state_ = fsm_normal;
+
+            break;
+
+          case fsm_single_quote:
+
+            if (cur_chr == (int)'\\') {
+
+              cur_chr = fgetc(f);
+              if (cur_chr == EOF) break;
+              ARG_ALLOC(cur_chr);
+
+            } else if (cur_chr == (int)'\'') {
+
+              state_ = fsm_normal;
+
+            } else {
+
+              ARG_ALLOC(cur_chr);
+
+            }
+
+            cur_chr = fgetc(f);
+            break;
+
+          case fsm_double_quote:
+
+            if (cur_chr == (int)'\\') {
+
+              cur_chr = fgetc(f);
+              if (cur_chr == EOF) break;
+              ARG_ALLOC(cur_chr);
+
+            } else if (cur_chr == (int)'"') {
+
+              state_ = fsm_normal;
+
+            } else {
+
+              ARG_ALLOC(cur_chr);
+
+            }
+
+            cur_chr = fgetc(f);
+            break;
+
+          default:
+            break;
 
         }
 
       }
 
-      if (count) { process_params(aflcc, scan, count, args); }
+      if (arg_buf) { ARG_STORE(); }  // save the pending arg after EOF
 
-      // we cannot free args[] unless we don't need
-      // to keep any reference in cc_params
+#undef ARG_ALLOC
+#undef ARG_STORE
+
+      if (argc_read > 1) { process_params(aflcc, scan, argc_read, argv_read); }
+
+      // We cannot free argv_read[] unless we don't need to keep any
+      // reference in cc_params. Never free argv[0], the const "".
       if (scan) {
 
-        if (count) do {
+        while (argc_read > 1)
+          ck_free(argv_read[--argc_read]);
 
-            free(args[--count]);
-
-          } while (count);
-
-        free(args);
+        ck_free(argv_read);
 
       }
-
-      free(tmpbuf);
 
       continue;
 
-    }
+    }                                /* Response file support -----END----- */
 
     if (!scan) insert_param(aflcc, cur);
 
@@ -3031,8 +3281,7 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
 
 }
 
-/* Copy argv to cc_params, making the necessary edits. */
-
+/* Process each of the existing argv, also add a few new args. */
 static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
                         char **envp) {
 
@@ -3173,7 +3422,6 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 }
 
 /* Main entry point */
-
 int main(int argc, char **argv, char **envp) {
 
   aflcc_state_t *aflcc = malloc(sizeof(aflcc_state_t));
