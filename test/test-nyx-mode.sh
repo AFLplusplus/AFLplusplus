@@ -6,9 +6,12 @@ $ECHO "$BLUE[*] Testing: nyx_mode"
 
 ls -al ../libnyx.so ../afl-* ../*.so
 ../afl-cc -h
-../afl-clang-fast -h
 ../afl-clang-fast -v
-
+echo AFL-CC
+AFL_DEBUG=1 ../afl-cc -v -o test-inst ../test-instr.c 2>&1
+echo AFL-CLANG-FAST
+AFL_DEBUG=1 ../afl-clang-fast -v -o test-inst ../test-instr.c 2>&1
+ls -l test-instr
 test -e ../libnyx.so && {
   ../afl-cc -o test-instr ../test-instr.c > errors 2>&1
   test -e test-instr && {
