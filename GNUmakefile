@@ -653,16 +653,16 @@ endif
 	# -$(MAKE) -C utils/plot_ui
 	-$(MAKE) -C frida_mode
 ifneq "$(SYS)" "Darwin"
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_CORESIGHT
+ifeq "$(ARCH)" "aarch64"
+  ifndef NO_CORESIGHT
 	-$(MAKE) -C coresight_mode
-    endif
   endif
-  ifeq "$(SYS)" "Linux"
-    ifndef NO_NYX
+endif
+ifeq "$(SYS)" "Linux"
+ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
-    endif
-  endif
+endif
+endif
 	-cd qemu_mode && sh ./build_qemu_support.sh
   ifeq "$(ARCH)" "aarch64"
     ifndef NO_UNICORN_ARM64

@@ -1458,13 +1458,11 @@ void add_real_argv0(aflcc_state_t *aflcc) {
   } else {
 
     u8 *alt_cc = getenv("AFL_CC");
-printf("AFL_CC=%s\n", alt_cc);
 
     if (!alt_cc) {
 
       if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == GCC_PLUGIN) {
 
-printf("is gcc %d == %d || %d == %d\n", aflcc->compiler_mode, GCC, aflcc->compiler_mode, GCC_PLUGIN);
         alt_cc = "gcc";
 
       } else if (aflcc->compiler_mode == CLANG) {
@@ -1479,8 +1477,6 @@ printf("is gcc %d == %d || %d == %d\n", aflcc->compiler_mode, GCC, aflcc->compil
         else
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANG_BIN);
         alt_cc = llvm_fullpath;
-
-printf("use_bindir=%s llvm_fullpath=%s\n", USE_BINDIR ? "true" : "false", llvm_fullpath);
 
       }
 
@@ -3443,28 +3439,18 @@ int main(int argc, char **argv, char **envp) {
 
   mode_final_checkout(aflcc, argc, argv);
 
-  printf("DEBUGXXX0: param0=%s aflcc->compiler_mode=%d aflcc->instrument_mode=%d\n", aflcc->cc_params[0], aflcc->compiler_mode, aflcc->instrument_mode);
-
   process_params(aflcc, 1, argc, argv);
 
   maybe_usage(aflcc, argc, argv);
-
-  printf("DEBUGXXX1: param0=%s aflcc->compiler_mode=%d aflcc->instrument_mode=%d\n", aflcc->cc_params[0], aflcc->compiler_mode, aflcc->instrument_mode);
 
   mode_notification(aflcc);
 
   if (aflcc->debug) debugf_args(argc, argv);
 
-  printf("DEBUGXXX2: param0=%s aflcc->compiler_mode=%d aflcc->instrument_mode=%d\n", aflcc->cc_params[0], aflcc->compiler_mode, aflcc->instrument_mode);
-
   edit_params(aflcc, argc, argv, envp);
-
-  printf("DEBUGXXX3: param0=%s aflcc->compiler_mode=%d aflcc->instrument_mode=%d\n", aflcc->cc_params[0], aflcc->compiler_mode, aflcc->instrument_mode);
 
   if (aflcc->debug)
     debugf_args((s32)aflcc->cc_par_cnt, (char **)aflcc->cc_params);
-
-  printf("DEBUGXXX4: param0=%s aflcc->compiler_mode=%d aflcc->instrument_mode=%d\n", aflcc->cc_params[0], aflcc->compiler_mode, aflcc->instrument_mode);
 
   if (aflcc->passthrough) {
 

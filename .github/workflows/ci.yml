@@ -32,7 +32,7 @@ jobs:
       - name: install gcc plugin
         run: sudo apt-get install -y -m -f --install-suggests $(readlink /usr/bin/gcc)-plugin-dev
       - name: build afl++
-        run: make distrib ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-12
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-12; make distrib ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-12
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
  # macos:
