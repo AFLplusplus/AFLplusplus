@@ -9,6 +9,13 @@ echo
 
 echo "[*] Performing basic sanity checks..."
 
+if [ -n "$NO_SPLICING" ]; then
+
+  echo "[-] Error: the NO_NYX environment variable is set, please unset."
+  exit 0
+
+fi
+
 if [ ! "$(uname -s)" = "Linux" ]; then
 
   echo "[-] Error: Nyx mode is only available on Linux."
