@@ -33,8 +33,7 @@ jobs:
       - name: install gcc plugin
         run: sudo apt-get install -y -m -f --install-suggests $(readlink /usr/bin/gcc)-plugin-dev
       - name: build afl++
-        run: make distrib ASAN_BUILD=1
-        # NO_NYX=1
+        run: make distrib ASAN_BUILD=1 NO_NYX=1
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
  # macos:
