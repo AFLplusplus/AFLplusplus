@@ -194,8 +194,9 @@ class ModuleSanitizerCoverageLTO
  private:
   void instrumentFunction(Function &F, DomTreeCallback DTCallback,
                           PostDomTreeCallback PDTCallback);
-  void InjectCoverageForIndirectCalls(Function               &F,
-                                      ArrayRef<Instruction *> IndirCalls);
+  /*  void            InjectCoverageForIndirectCalls(Function               &F,
+                                                   ArrayRef<Instruction *>
+     IndirCalls);*/
   bool InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks,
                       bool IsLeafFunc = true);
   bool Fake_InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks,
@@ -263,12 +264,12 @@ class ModuleSanitizerCoverageLTO
   ConstantInt                     *Zero = NULL;
   ConstantInt                     *Zero32 = NULL;
   ConstantInt                     *One = NULL;
-  AllocaInst                      *CTX_add = NULL;
   LLVMContext                     *Ct = NULL;
   Module                          *Mo = NULL;
-  GlobalVariable                  *AFLMapPtr = NULL;
   GlobalVariable                  *AFLContext = NULL;
+  GlobalVariable                  *AFLMapPtr = NULL;
   Value                           *MapPtrFixed = NULL;
+  AllocaInst                      *CTX_add = NULL;
   std::ofstream                    dFile;
   size_t                           found = 0;
   // AFL++ END
@@ -427,7 +428,11 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   setvbuf(stdout, NULL, _IONBF, 0);
   if (getenv("AFL_DEBUG")) { debug = 1; }
   if (getenv("AFL_LLVM_DICT2FILE_NO_MAIN")) { autodictionary_no_main = 1; }
-  if (getenv("AFL_LLVM_CALLER")) { instrument_ctx = 1; }
+  if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_CTX")) {
+
+    instrument_ctx = 1;
+
+  }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
@@ -435,9 +440,11 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
               "%s by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n",
          instrument_ctx ? " (CTX mode)" : "");
 
-  } else
+  } else {
 
     be_quiet = 1;
+
+  }
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
@@ -611,12 +618,12 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                 }
 
                 dictionary.push_back(std::string((char *)&val, len));
-                found++;
+                ++found;
 
                 if (val2) {
 
                   dictionary.push_back(std::string((char *)&val2, len));
-                  found++;
+                  ++found;
 
                 }
 
@@ -943,7 +950,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                  '\0') {
 
                               thestring.append("\0", 1);  // add null byte
-                              optLen++;
+                              ++optLen;
 
                             }
 
@@ -1094,7 +1101,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
       for (auto token : dictionary) {
 
         memlen += token.length();
-        count++;
+        ++count;
 
       }
 
@@ -1115,7 +1122,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
             ptrhld.get()[offset++] = (uint8_t)token.length();
             memcpy(ptrhld.get() + offset, token.c_str(), token.length());
             offset += token.length();
-            count++;
+            ++count;
 
           }
 
@@ -1162,7 +1169,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
       WARNF("No instrumentation targets found.");
     else {
 
-      char modeline[100];
+      char modeline[128];
       snprintf(modeline, sizeof(modeline), "%s%s%s%s%s%s",
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
@@ -1170,10 +1177,16 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+      char buf[64] = {};
+      if (instrument_ctx) {
 
-      OKF("Instrumented %u locations (%u selects) with %u extra map entries "
-          "for CTX (%s mode).",
-          inst, select_cnt, extra_ctx_inst, modeline);
+        snprintf(buf, sizeof(buf), " with %u extra map entries for CTX",
+                 extra_ctx_inst);
+
+      }
+
+      OKF("Instrumented %u locations (%u selects)%s (%s mode).", inst,
+          select_cnt, buf, modeline);
 
     }
 
@@ -1254,6 +1267,52 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
 
 }
 
+/// return the number of calls to this function
+u32 countCallers(Function *F) {
+
+  u32 callers = 0;
+
+  if (!F) { return 0; }
+
+  for (auto *U : F->users()) {
+
+    if (auto *CI = dyn_cast<CallInst>(U)) { ++callers; }
+
+  }
+
+  return callers;
+
+}
+
+/// return the calling function of a function - only if there is a single caller
+Function *returnOnlyCaller(Function *F) {
+
+  Function *caller = NULL;
+
+  if (!F) { return NULL; }
+
+  for (auto *U : F->users()) {
+
+    if (auto *CI = dyn_cast<CallInst>(U)) {
+
+      if (caller == NULL) {
+
+        caller = CI->getParent()->getParent();
+
+      } else {
+
+        return NULL;
+
+      }
+
+    }
+
+  }
+
+  return caller;
+
+}
+
 void ModuleSanitizerCoverageLTO::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
@@ -1287,6 +1346,37 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   // AFL++ START
   if (!F.size()) return;
+
+  LLVMContext &Context = F.getContext();
+  MDNode      *N = MDNode::get(Context, MDString::get(Context, "nosanitize"));
+
+  if (instrument_ctx) {
+
+    // we have to set __afl_ctx 0 for all indirect calls in all functions, even
+    // those not to be instrumented.
+    for (auto &BB : F) {
+
+      for (auto &IN : BB) {
+
+        if (auto *Call = dyn_cast<CallInst>(&IN)) {
+
+          if (Call->isIndirectCall()) {
+
+            IRBuilder<> Builder(IN.getContext());
+            Builder.SetInsertPoint(IN.getParent(), IN.getIterator());
+            StoreInst *StoreCtx = Builder.CreateStore(Zero32, AFLContext);
+            StoreCtx->setMetadata("nosanitize", N);
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
   if (!isInInstrumentList(&F, FMNAME)) return;
   // AFL++ END
 
@@ -1300,207 +1390,238 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   const PostDominatorTree *PDT = PDTCallback(F);
   bool                     IsLeafFunc = true;
   uint32_t                 skip_next = 0;
-  uint32_t                 call_counter = 0;
+  uint32_t                 call_counter = 0, call_depth = 0;
   uint32_t                 inst_save = inst, save_global = afl_global_id;
   uint32_t                 inst_in_this_func = 0;
-  LLVMContext             &Context = F.getContext();
+  Function                *caller = NULL;
 
-  MDNode *N = MDNode::get(Context, MDString::get(Context, "nosanitize"));
   CTX_add = NULL;
 
-  fprintf(stderr, "Function: %s\n", F.getName().str().c_str());
+  if (debug) fprintf(stderr, "Function: %s\n", F.getName().str().c_str());
 
-  // Fake instrumentation so we can count how much there will be in this
-  // function
+  if (instrument_ctx) {
 
-  for (auto &BB : F) {
+    caller = &F;
+    call_counter = countCallers(caller);
+    Function *callee = caller;
 
-    for (auto &IN : BB) {
+    if (call_counter == 1) {
 
-      CallInst *callInst = nullptr;
+      ++call_depth;
 
-      if ((callInst = dyn_cast<CallInst>(&IN))) {
+      while (((caller = returnOnlyCaller(callee)) || 1 == 1) &&
+             (call_counter = countCallers(callee)) == 1) {
 
-        Function *Callee = callInst->getCalledFunction();
-        if (!Callee) continue;
-        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
-        StringRef FuncName = Callee->getName();
-
-        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
-
-        ++inst;
+        if (debug && caller && callee)
+          fprintf(stderr, "DEBUG: another depth: %s <- %s [%u]\n",
+                  callee->getName().str().c_str(),
+                  caller->getName().str().c_str(), call_depth);
+        ++call_depth;
+        callee = caller;
 
       }
 
-      SelectInst *selectInst = nullptr;
+      if (!caller && callee) {
 
-      if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+        caller = callee;
+        if (debug)
+          fprintf(stderr, "DEBUG: depth found: %s <- %s [count=%u, depth=%u]\n",
+                  caller->getName().str().c_str(), F.getName().str().c_str(),
+                  call_counter, call_depth);
 
-        Value *condition = selectInst->getCondition();
-        auto   t = condition->getType();
+      }
 
-        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+    }
 
-          inst += 2;
+    if (debug && call_counter < 2) {
 
-        } else
+      fprintf(stderr, "Function %s only %u (%s)\n", F.getName().str().c_str(),
+              call_counter, caller->getName().str().c_str());
 
-#if LLVM_VERSION_MAJOR >= 14
-            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+    }
 
-          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
-          if (tt) {
+    if (call_counter == 1) {
 
-            uint32_t elements = tt->getElementCount().getFixedValue();
-            inst += elements * 2;
+      call_counter = 0;
+      caller = NULL;
+
+    }
+
+    if (debug) {
+
+      fprintf(stderr, "DEBUG: result: Function=%s callers=%u depth=%u\n",
+              F.getName().str().c_str(), call_counter, call_depth);
+
+    }
+
+    if (call_counter > 1) {
+
+      // Fake instrumentation so we can count how many instrumentations there
+      // will be in this function
+      for (auto &BB : F) {
+
+        for (auto &IN : BB) {
+
+          CallInst *callInst = nullptr;
+
+          if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+            Function *Callee = callInst->getCalledFunction();
+            if (!Callee) continue;
+            if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+            StringRef FuncName = Callee->getName();
+
+            if (FuncName.compare(StringRef("__afl_coverage_interesting")))
+              continue;
+
+            ++inst;
 
           }
 
-        } else
+          SelectInst *selectInst = nullptr;
+
+          if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+
+            Value *condition = selectInst->getCondition();
+            auto   t = condition->getType();
+
+            if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+              inst += 2;
+
+            } else
+
+#if LLVM_VERSION_MAJOR >= 14
+                if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+              FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+              if (tt) {
+
+                uint32_t elements = tt->getElementCount().getFixedValue();
+                inst += elements * 2;
+
+              }
+
+            } else
 
 #endif
-        {
+            {
 
-          continue;
+              continue;
 
-        }
-
-      }
-
-    }
-
-    if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
-      BlocksToInstrument.push_back(&BB);
-    /*
-        if (Options.IndirectCalls)
-          for (auto &Inst : BB) {
-
-    fprintf(stderr, "FUCK TODO\n");
-            CallBase *CB = dyn_cast<CallBase>(&Inst);
-            if (CB && !CB->getCalledFunction()) IndirCalls.push_back(&Inst);
-    /// XXX TODO!!!! set 0 !
+            }
 
           }
 
-    */
-
-  }
-
-  Fake_InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
-
-  // CTX init
-
-  for (auto &BB : F) {
-
-    if (instrument_ctx && &BB == &F.getEntryBlock()) {
-
-      // we insert a CTX value in all our callers:
-      IRBuilder<> Builder(Context);
-      for (auto *U : F.users()) {
-
-        if (auto *CI = dyn_cast<CallInst>(U)) {
-
-          fprintf(stderr, "Insert %s [%u] -> %s\n",
-                  CI->getParent()->getParent()->getName().str().c_str(),
-                  call_counter, F.getName().str().c_str());
-          Builder.SetInsertPoint(CI);
-          StoreInst *StoreCtx = Builder.CreateStore(
-              ConstantInt::get(Type::getInt32Ty(Context), call_counter++),
-              AFLContext);
-          StoreCtx->setMetadata("nosanitize", N);
-
         }
+
+        if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
+          BlocksToInstrument.push_back(&BB);
 
       }
 
-      // We read the CTX for this call
-      Value               *CTX_offset;
-      BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-      LoadInst            *PrevCtxLoad = IRB.CreateLoad(
+      Fake_InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
+
+      if (debug)
+        fprintf(stderr, "DEBUG: CTX: %u instrumentations\n", inst - inst_save);
+
+      // we only instrument functions that have more than one instrumented block
+      if (inst > inst_save + 1) {
+
+        inst_in_this_func = inst - inst_save;
+        bool done = false;
+
+        // in rare occasions there can be multiple entry points per function
+        for (auto &BB : F) {
+
+          if (&BB == &F.getEntryBlock() && done == false) {
+
+            // we insert a CTX value in all our callers:
+            IRBuilder<> Builder(Context);
+            CallInst   *CI = NULL;
+            Function   *F2 = NULL;
+            uint32_t    instrumented_calls = 0;
+
+            for (auto *U : caller->users()) {
+
+              if ((CI = dyn_cast<CallInst>(U))) {
+
+                F2 = CI->getParent()->getParent();
+                if (debug)
+                  fprintf(stderr,
+                          "DEBUG: CTX call insert %s [%u/%u] -> %s/%s\n",
+                          F2->getName().str().c_str(), instrumented_calls + 1,
+                          call_counter, caller->getName().str().c_str(),
+                          F.getName().str().c_str());
+
+                Builder.SetInsertPoint(CI);
+                StoreInst *StoreCtx = Builder.CreateStore(
+                    ConstantInt::get(Type::getInt32Ty(Context),
+                                     instrumented_calls++),
+                    AFLContext);
+                StoreCtx->setMetadata("nosanitize", N);
+
+              }
+
+            }
+
+            if (instrumented_calls != call_counter) {
+
+              fprintf(stderr, "BUG! %s/%s <=> %u vs %u\n",
+                      caller->getName().str().c_str(),
+                      F.getName().str().c_str(), instrumented_calls,
+                      call_counter);
+              exit(-1);
+
+            }
+
+            done = true;
+
+          }
+
+          // in all entrypoints we have to load the CTX value
+          if (&BB == &F.getEntryBlock()) {
+
+            Value               *CTX_offset;
+            BasicBlock::iterator IP = BB.getFirstInsertionPt();
+            IRBuilder<>          IRB(&(*IP));
+            LoadInst            *PrevCtxLoad = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-          IRB.getInt32Ty(),
+                IRB.getInt32Ty(),
 #endif
-          AFLContext);
+                AFLContext);
+            PrevCtxLoad->setMetadata("nosanitize", N);
 
-      PrevCtxLoad->setMetadata("nosanitize", N);
+            CTX_offset = IRB.CreateMul(
+                ConstantInt::get(Type::getInt32Ty(Context), inst_in_this_func),
+                PrevCtxLoad, "CTXmul", false, true);
 
-      if (inst == inst_save || call_counter < 2) {
+            CTX_add =
+                IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
+            auto nosan = IRB.CreateStore(CTX_offset, CTX_add);
+            nosan->setMetadata("nosanitize", N);
 
-        fprintf(stderr, "%s: ZERO!\n", F.getName().str().c_str());
-        CTX_offset = Zero32;
+            if (debug)
+              fprintf(
+                  stderr, "DEBUG: extra CTX instrumentations for %s: %u * %u\n",
+                  F.getName().str().c_str(), inst - inst_save, call_counter);
 
-      } else {
-
-        fprintf(stderr, "%s: %u * %u\n", F.getName().str().c_str(),
-                inst - inst_save, call_counter);
-        CTX_offset = IRB.CreateMul(
-            ConstantInt::get(Type::getInt32Ty(Context), inst - inst_save),
-            PrevCtxLoad, "CTXmul", false, true);
-
-      }
-
-      CTX_add = IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
-      auto nosan = IRB.CreateStore(CTX_offset, CTX_add);
-      nosan->setMetadata("nosanitize", N);
-
-    }
-
-    // we have to set __afl_ctx 0 for all indirect calls
-    for (auto &IN : BB) {
-
-      if (auto *Call = dyn_cast<CallInst>(&IN)) {
-
-        if (Call->isIndirectCall()) {
-
-          IRBuilder<> Builder(IN.getContext());
-          Builder.SetInsertPoint(IN.getParent(), IN.getIterator());
-          StoreInst *StoreCtx = Builder.CreateStore(Zero32, AFLContext);
-          StoreCtx->setMetadata("nosanitize", N);
+          }
 
         }
 
+        inst = inst_save;
+
       }
 
     }
-
-  }
-
-  inst_in_this_func = inst - inst_save;
-  inst = inst_save;
-
-  // Now the real instrumentation
-
-  if (CTX_add == NULL) {
-
-    auto BB = &F.getEntryBlock();
-    if (!BB) {
-
-      fprintf(stderr, "NULL entry %s %p\n", F.getName().str().c_str(), BB);
-      exit(-1);
-
-    }
-
-    BasicBlock::iterator IP = BB->getFirstInsertionPt();
-    IRBuilder<>          IRB(&(*IP));
-    CTX_add = IRB.CreateAlloca(Type::getInt32Ty(Context), nullptr, "CTX_add");
-    auto nosan = IRB.CreateStore(Zero32, CTX_add);
-    nosan->setMetadata("nosanitize", N);
 
   }
 
   for (auto &BB : F) {
 
-    // fprintf(stderr, "BB: %s\n", BB.getName().str().c_str());
-
     for (auto &IN : BB) {
 
-      /*
-            std::string              Str;
-            llvm::raw_string_ostream RSO(Str);
-            IN.print(RSO);
-            errs() << RSO.str() << "\n";
-      */
       CallInst *callInst = nullptr;
 
       if ((callInst = dyn_cast<CallInst>(&IN))) {
@@ -1523,16 +1644,21 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
         if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
 
-        IRBuilder<> Builder(Context);
-        Value      *val = ConstantInt::get(Int32Ty, ++afl_global_id);
-        LoadInst   *CTX_load = Builder.CreateLoad(
+        Value *val = ConstantInt::get(Int32Ty, ++afl_global_id);
+        if (CTX_add) {
+
+          IRBuilder<> Builder(Context);
+          LoadInst   *CTX_load = Builder.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-            Builder.getInt32Ty(),
+              Builder.getInt32Ty(),
 #endif
-            CTX_add);
-        ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CTX_load);
-        Value *val2 = Builder.CreateAdd(val, CTX_load);
-        callInst->setOperand(1, val2);
+              CTX_add);
+          ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CTX_load);
+          val = Builder.CreateAdd(val, CTX_load);
+
+        }
+
+        callInst->setOperand(1, val);
         ++inst;
 
       }
@@ -1545,164 +1671,191 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
             IN.print(os);
             fprintf(stderr, "X(%u): %s\n", skip_next, os.str().c_str());
       */
-      if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+      if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
 
-        if (!skip_next) {
+        uint32_t    vector_cnt = 0;
+        Value      *condition = selectInst->getCondition();
+        Value      *result;
+        auto        t = condition->getType();
+        IRBuilder<> IRB(selectInst->getNextNode());
 
-          uint32_t    vector_cnt = 0;
-          Value      *condition = selectInst->getCondition();
-          Value      *result;
-          auto        t = condition->getType();
-          IRBuilder<> IRB(selectInst->getNextNode());
+        ++select_cnt;
 
-          // fprintf(stderr, "ADDING!!!\n");
-          LoadInst *CTX_load = IRB.CreateLoad(
+        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
+          Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
+          Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
+          if (CTX_add) {
+
+            LoadInst *CTX_load = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-              IRB.getInt32Ty(),
+                IRB.getInt32Ty(),
 #endif
-              CTX_add);
-          ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CTX_load);
-
-          ++select_cnt;
-
-          if (t->getTypeID() == llvm::Type::IntegerTyID) {
-
-            Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
-            Value *val11 = IRB.CreateAdd(val1, CTX_load);
-            Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
-            Value *val22 = IRB.CreateAdd(val2, CTX_load);
-            result = IRB.CreateSelect(condition, val11, val22);
-            skip_next = 1;
-            inst += 2;
-
-          } else
-
-#if LLVM_VERSION_MAJOR >= 14
-              if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
-
-            FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
-            if (tt) {
-
-              uint32_t elements = tt->getElementCount().getFixedValue();
-              vector_cnt = elements;
-              inst += vector_cnt * 2;
-
-              if (elements) {
-
-                FixedVectorType *GuardPtr1 =
-                    FixedVectorType::get(Int32Ty, elements);
-                FixedVectorType *GuardPtr2 =
-                    FixedVectorType::get(Int32Ty, elements);
-                Value *x, *y;
-
-                Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                Value *val11 = IRB.CreateAdd(val1, CTX_load);
-                Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                Value *val22 = IRB.CreateAdd(val2, CTX_load);
-                x = IRB.CreateInsertElement(GuardPtr1, val11, (uint64_t)0);
-                y = IRB.CreateInsertElement(GuardPtr2, val22, (uint64_t)0);
-
-                for (uint64_t i = 1; i < elements; i++) {
-
-                  val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                  val11 = IRB.CreateAdd(val1, CTX_load);
-                  val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
-                  val11 = IRB.CreateAdd(val1, CTX_load);
-                  x = IRB.CreateInsertElement(GuardPtr1, val11, i);
-                  y = IRB.CreateInsertElement(GuardPtr2, val22, i);
-
-                }
-
-                result = IRB.CreateSelect(condition, x, y);
-                skip_next = 1;
-
-              }
-
-            }
-
-          } else
-
-#endif
-          {
-
-            unhandled++;
-            continue;
+                CTX_add);
+            val1 = IRB.CreateAdd(val1, CTX_load);
+            val2 = IRB.CreateAdd(val2, CTX_load);
 
           }
 
-          uint32_t vector_cur = 0;
-          /* Load SHM pointer */
-          LoadInst *MapPtr =
-              IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
-          ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
-
-          while (1) {
-
-            /* Get CurLoc */
-            Value *MapPtrIdx = nullptr;
-
-            /* Load counter for CurLoc */
-            if (!vector_cnt) {
-
-              MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, result);
-
-            } else {
-
-              auto element = IRB.CreateExtractElement(result, vector_cur++);
-              MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, element);
-
-            }
-
-            if (use_threadsafe_counters) {
-
-              auto nosan = IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
-                                               MapPtrIdx, One,
-#if LLVM_VERSION_MAJOR >= 13
-                                               llvm::MaybeAlign(1),
-#endif
-                                               llvm::AtomicOrdering::Monotonic);
-              ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(nosan);
-
-            } else {
-
-              LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
-              ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(Counter);
-
-              /* Update bitmap */
-
-              Value *Incr = IRB.CreateAdd(Counter, One);
-
-              if (skip_nozero == NULL) {
-
-                auto cf = IRB.CreateICmpEQ(Incr, Zero);
-                auto carry = IRB.CreateZExt(cf, Int8Ty);
-                Incr = IRB.CreateAdd(Incr, carry);
-
-              }
-
-              auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
-              ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(nosan);
-
-            }
-
-            if (!vector_cnt || vector_cnt == vector_cur) { break; }
-
-          }
-
+          result = IRB.CreateSelect(condition, val1, val2);
           skip_next = 1;
+          inst += 2;
 
-        } else {
+        } else
 
-          skip_next = 0;
+#if LLVM_VERSION_MAJOR >= 14
+            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+          if (tt) {
+
+            uint32_t elements = tt->getElementCount().getFixedValue();
+            vector_cnt = elements;
+            inst += vector_cnt * 2;
+            if (elements) {
+
+              FixedVectorType *GuardPtr1 =
+                  FixedVectorType::get(Int32Ty, elements);
+              FixedVectorType *GuardPtr2 =
+                  FixedVectorType::get(Int32Ty, elements);
+              Value *x, *y;
+
+              Value *val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
+              Value *val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
+              if (CTX_add) {
+
+                LoadInst *CTX_load = IRB.CreateLoad(
+  #if LLVM_VERSION_MAJOR >= 14
+                    IRB.getInt32Ty(),
+  #endif
+                    CTX_add);
+                val1 = IRB.CreateAdd(val1, CTX_load);
+                val2 = IRB.CreateAdd(val2, CTX_load);
+
+              }
+
+              x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
+              y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+              for (uint64_t i = 1; i < elements; i++) {
+
+                val1 = ConstantInt::get(Int32Ty, ++afl_global_id);
+                val2 = ConstantInt::get(Int32Ty, ++afl_global_id);
+                /*if (CTX_add) { // already loaded I guess
+
+                  LoadInst *CTX_load = IRB.CreateLoad(
+  #if LLVM_VERSION_MAJOR >= 14
+                      IRB.getInt32Ty(),
+  #endif
+                      CTX_add);
+                  val1 = IRB.CreateAdd(val1, CTX_load);
+                  val2 = IRB.CreateAdd(val2, CTX_load);
+
+                }*/
+
+                x = IRB.CreateInsertElement(GuardPtr1, val1, i);
+                y = IRB.CreateInsertElement(GuardPtr2, val2, i);
+
+              }
+
+              result = IRB.CreateSelect(condition, x, y);
+              skip_next = 1;
+
+            }
+
+          }
+
+        } else
+
+#endif
+        {
+
+          ++unhandled;
+          continue;
 
         }
+
+        uint32_t vector_cur = 0;
+        /* Load SHM pointer */
+        LoadInst *MapPtr =
+            IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+        ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
+
+        while (1) {
+
+          /* Get CurLoc */
+          Value *MapPtrIdx = nullptr;
+
+          /* Load counter for CurLoc */
+          if (!vector_cnt) {
+
+            MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, result);
+
+          } else {
+
+            auto element = IRB.CreateExtractElement(result, vector_cur++);
+            MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, element);
+
+          }
+
+          if (use_threadsafe_counters) {
+
+            IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                                llvm::MaybeAlign(1),
+#endif
+                                llvm::AtomicOrdering::Monotonic);
+
+          } else {
+
+            LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
+            ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(Counter);
+
+            /* Update bitmap */
+
+            Value *Incr = IRB.CreateAdd(Counter, One);
+
+            if (skip_nozero == NULL) {
+
+              auto cf = IRB.CreateICmpEQ(Incr, Zero);
+              auto carry = IRB.CreateZExt(cf, Int8Ty);
+              Incr = IRB.CreateAdd(Incr, carry);
+
+            }
+
+            auto nosan = IRB.CreateStore(Incr, MapPtrIdx);
+            ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(nosan);
+
+          }
+
+          if (!vector_cnt || vector_cnt == vector_cur) { break; }
+
+        }
+
+        skip_next = 1;
+
+      } else {
+
+        skip_next = 0;
 
       }
 
     }
 
-    //    if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
-    //      BlocksToInstrument.push_back(&BB);
+    // if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
+    //   BlocksToInstrument.push_back(&BB);
+
+    /*
+        for (auto &Inst : BB) {
+
+          if (Options.IndirectCalls) {
+
+            CallBase *CB = dyn_cast<CallBase>(&Inst);
+            if (CB && !CB->getCalledFunction()) IndirCalls.push_back(&Inst);
+
+          }
+
+        }*/
 
   }
 
@@ -1717,6 +1870,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           stderr,
           "BUG! inst_in_this_func %u != afl_global_id %u - save_global %u\n",
           inst_in_this_func, afl_global_id, save_global);
+      exit(-1);
 
     }
 
@@ -1724,24 +1878,6 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
     afl_global_id += extra_ctx_inst;
 
   }
-
-  /*
-    fprintf(stderr, "FUNCTION: %s [%u]\n", F.getName().str().c_str(),
-    extra_ctx_inst); int n = 0; for (auto &BB : F) {
-
-      fprintf(stderr, "BB %d\n", n++);
-      for (auto &IN : BB) {
-
-        std::string              Str;
-        llvm::raw_string_ostream RSO(Str);
-        IN.print(RSO);
-        errs() << RSO.str() << "\n";
-
-      }
-
-    }
-
-  */
 
 }
 
@@ -1867,7 +2003,6 @@ bool ModuleSanitizerCoverageLTO::InjectCoverage(
 
 }
 
-// Fake InjectCoverage to count the instrumentations
 bool ModuleSanitizerCoverageLTO::Fake_InjectCoverage(
     Function &F, ArrayRef<BasicBlock *> AllBlocks, bool IsLeafFunc) {
 
@@ -1875,7 +2010,6 @@ bool ModuleSanitizerCoverageLTO::Fake_InjectCoverage(
 
   for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
 
-    // AFL++ START
     if (BlockList.size()) {
 
       int skip = 0;
@@ -1904,6 +2038,7 @@ bool ModuleSanitizerCoverageLTO::Fake_InjectCoverage(
 //     The cache is used to speed up recording the caller-callee pairs.
 // The address of the caller is passed implicitly via caller PC.
 // CacheSize is encoded in the name of the run-time function.
+/*
 void ModuleSanitizerCoverageLTO::InjectCoverageForIndirectCalls(
     Function &F, ArrayRef<Instruction *> IndirCalls) {
 
@@ -1921,6 +2056,8 @@ void ModuleSanitizerCoverageLTO::InjectCoverageForIndirectCalls(
   }
 
 }
+
+*/
 
 void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
                                                        BasicBlock &BB,
@@ -1968,13 +2105,19 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
     /* Set the ID of the inserted basic block */
 
     ConstantInt *CurLoc = ConstantInt::get(Int32Tyi, afl_global_id);
-    LoadInst    *CTX_load = IRB.CreateLoad(
+    Value       *val = CurLoc;
+
+    if (CTX_add) {
+
+      LoadInst *CTX_load = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-        IRB.getInt32Ty(),
+          IRB.getInt32Ty(),
 #endif
-        CTX_add);
-    ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CTX_load);
-    Value *offset = IRB.CreateAdd(CurLoc, CTX_load);
+          CTX_add);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CTX_load);
+      val = IRB.CreateAdd(CurLoc, CTX_load);
+
+    }
 
     /* Load SHM pointer */
 
@@ -1982,13 +2125,13 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
 
     if (map_addr) {
 
-      MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtrFixed, offset);
+      MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtrFixed, val);
 
     } else {
 
       LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
       ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
-      MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, offset);
+      MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, val);
 
     }
 
