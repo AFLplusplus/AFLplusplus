@@ -9,7 +9,7 @@ echo
 
 echo "[*] Performing basic sanity checks..."
 
-if [ -n "$NO_SPLICING" ]; then
+if [ -n "$NO_NYX" ]; then
 
   echo "[-] Error: the NO_NYX environment variable is set, please unset."
   exit 0
