@@ -4,9 +4,11 @@
 
 $ECHO "$BLUE[*] Testing: nyx_mode"
 
-env|grep -E 'NYX|AFL'
-ls -al ../libnyx.so
-ls -al ../afl-cc ../*.so
+ls -al ../libnyx.so ../afl-* ../*.so
+../afl-cc -h
+../afl-clang-fast -h
+../afl-clang-fast -v
+
 test -e ../libnyx.so && {
   ../afl-cc -o test-instr ../test-instr.c > errors 2>&1
   test -e test-instr && {
