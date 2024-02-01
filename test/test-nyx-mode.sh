@@ -4,7 +4,10 @@
 
 $ECHO "$BLUE[*] Testing: nyx_mode"
 
+echo AFL_CC=$AFL_CC
+unset AFL_CC
 apt-cache search clang|grep -E '^clang-1'
+apt-cache search gcc|grep -E '^gcc-1'
 ls -al ../libnyx.so ../afl-* ../*.so
 ../afl-cc -h
 echo AFL-CC
