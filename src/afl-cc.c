@@ -51,6 +51,9 @@
   #define MAX_PARAMS_NUM 2048
 #endif
 
+#undef LLVM_MAJOR
+#define LLVM_MAJOR 10
+
 /** Global declarations -----BEGIN----- **/
 
 typedef enum {
@@ -3451,6 +3454,8 @@ int main(int argc, char **argv, char **envp) {
 
   if (aflcc->debug)
     debugf_args((s32)aflcc->cc_par_cnt, (char **)aflcc->cc_params);
+
+  printf("DEBUGXXX: param0=%s aflcc->compiler_mode=%d aflcc->instrument_mode=%d\n", aflcc->cc_params[0], aflcc->compiler_mode, aflcc->instrument_mode);
 
   if (aflcc->passthrough) {
 
