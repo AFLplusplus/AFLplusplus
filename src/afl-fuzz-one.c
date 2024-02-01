@@ -329,7 +329,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u32 len, temp_len;
   u32 j;
   u32 i;
-  u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
+  u8 *in_buf, *out_buf, *orig_in, *ex_tmp;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum, _prev_cksum;
   u32 splice_cycle = 0, perf_score = 100, orig_perf;
 
@@ -824,33 +824,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
 
-  /* Effector map setup. These macros calculate:
-
-     EFF_APOS      - position of a particular file offset in the map.
-     EFF_ALEN      - length of a map with a particular number of bytes.
-     EFF_SPAN_ALEN - map span for a sequence of bytes.
-
-   */
-
-#define EFF_APOS(_p) ((_p) >> EFF_MAP_SCALE2)
-#define EFF_REM(_x) ((_x) & ((1 << EFF_MAP_SCALE2) - 1))
-#define EFF_ALEN(_l) (EFF_APOS(_l) + !!EFF_REM(_l))
-#define EFF_SPAN_ALEN(_p, _l) (EFF_APOS((_p) + (_l)-1) - EFF_APOS(_p) + 1)
-
-  /* Initialize effector map for the next step (see comments below). Always
-     flag first and last byte as doing something. */
-
-  eff_map = afl_realloc(AFL_BUF_PARAM(eff), EFF_ALEN(len));
-  if (unlikely(!eff_map)) { PFATAL("alloc"); }
-  memset(eff_map, 0, EFF_ALEN(len));
-  eff_map[0] = 1;
-
-  if (EFF_APOS(len - 1) != 0) {
-
-    eff_map[EFF_APOS(len - 1)] = 1;
-
-  }
-
   /* Walking byte. */
 
   afl->stage_name = "bitflip 8/8";
@@ -881,14 +854,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  /* If the effector map is more than EFF_MAX_PERC dense, just flag the
-     whole thing as worth fuzzing, since we wouldn't be saving much time
-     anyway. */
+  /* New effective bytes calculation. */
 
-  memset(eff_map, 1, EFF_ALEN(len));
-  afl->blocks_eff_select += EFF_ALEN(len);
+  for (i = 0; i < len; i++) {
 
-  afl->blocks_eff_total += EFF_ALEN(len);
+    if (skip_eff_map[i]) afl->blocks_eff_select += 1;
+
+  }
+
+  afl->blocks_eff_total += len;
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
@@ -912,13 +886,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   for (i = 0; i < len - 1; ++i) {
 
     /* Let's consult the effector map... */
-
-    if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)]) {
-
-      --afl->stage_max;
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -962,13 +929,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   for (i = 0; i < len - 3; ++i) {
 
     /* Let's consult the effector map... */
-    if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
-        !eff_map[EFF_APOS(i + 2)] && !eff_map[EFF_APOS(i + 3)]) {
-
-      --afl->stage_max;
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -1022,13 +982,6 @@ skip_bitflip:
     u8 orig = out_buf[i];
 
     /* Let's consult the effector map... */
-
-    if (!eff_map[EFF_APOS(i)]) {
-
-      afl->stage_max -= 2 * ARITH_MAX;
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -1113,13 +1066,6 @@ skip_bitflip:
     u16 orig = *(u16 *)(out_buf + i);
 
     /* Let's consult the effector map... */
-
-    if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)]) {
-
-      afl->stage_max -= 4 * ARITH_MAX;
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -1250,14 +1196,6 @@ skip_bitflip:
     u32 orig = *(u32 *)(out_buf + i);
 
     /* Let's consult the effector map... */
-
-    if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
-        !eff_map[EFF_APOS(i + 2)] && !eff_map[EFF_APOS(i + 3)]) {
-
-      afl->stage_max -= 4 * ARITH_MAX;
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -1393,13 +1331,6 @@ skip_arith:
 
     /* Let's consult the effector map... */
 
-    if (!eff_map[EFF_APOS(i)]) {
-
-      afl->stage_max -= sizeof(interesting_8);
-      continue;
-
-    }
-
     if (!skip_eff_map[i]) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
@@ -1459,13 +1390,6 @@ skip_arith:
     u16 orig = *(u16 *)(out_buf + i);
 
     /* Let's consult the effector map... */
-
-    if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)]) {
-
-      afl->stage_max -= sizeof(interesting_16);
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -1554,14 +1478,6 @@ skip_arith:
     u32 orig = *(u32 *)(out_buf + i);
 
     /* Let's consult the effector map... */
-
-    if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
-        !eff_map[EFF_APOS(i + 2)] && !eff_map[EFF_APOS(i + 3)]) {
-
-      afl->stage_max -= sizeof(interesting_32) >> 1;
-      continue;
-
-    }
 
     if (!skip_eff_map[i]) continue;
 
@@ -1678,9 +1594,7 @@ skip_interest:
       if ((afl->extras_cnt > afl->max_det_extras &&
            rand_below(afl, afl->extras_cnt) >= afl->max_det_extras) ||
           afl->extras[j].len > len - i ||
-          !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
-          !memchr(eff_map + EFF_APOS(i), 1,
-                  EFF_SPAN_ALEN(i, afl->extras[j].len))) {
+          !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len)) {
 
         --afl->stage_max;
         continue;
@@ -1806,9 +1720,7 @@ skip_user_extras:
       /* See the comment in the earlier code; extras are sorted by size. */
 
       if (afl->a_extras[j].len > len - i ||
-          !memcmp(afl->a_extras[j].data, out_buf + i, afl->a_extras[j].len) ||
-          !memchr(eff_map + EFF_APOS(i), 1,
-                  EFF_SPAN_ALEN(i, afl->a_extras[j].len))) {
+          !memcmp(afl->a_extras[j].data, out_buf + i, afl->a_extras[j].len)) {
 
         --afl->stage_max;
         continue;
