@@ -12,20 +12,25 @@
   - afl-cc:
     - large rewrite by @SonicStark which fixes a few corner cases, thanks!
     - LTO mode now requires llvm 12+
+    - workaround for ASAN with gcc_plugin mode
   - instrumentation:
     - LLVM 18 support, thanks to @devnexen!
-    - Injection (SQL, LDAP, XSS) feature now available, see
+    - Injection (SQL, LDAP, XSS) fuzzing feature now available, see
       `instrumentation/README.injections.md` how to activate/use/expand.
     - compcov/LAF-intel:
       - floating point splitting bug fix by @hexcoder
       - due a bug in LLVM 17 integer splitting is disabled there!
       - when splitting floats was selected, integers were always split as well,
         fixed to require AFL_LLVM_LAF_SPLIT_COMPARES or _ALL as it should
+    - dynamic instrumentation filtering for LLVM NATIVE, thanks @Mozilla!
+      see utils/dynamic_covfilter/README.md
   - qemu_mode:
     - plugins are now activated by default and a new module is included that
       produces drcov compatible traces for lighthouse/lightkeeper/...
       thanks to @JRomainG to submitting!
+  - updated Nyx checkout (fixes a bug) and some QOL
   - updated the custom grammar mutator
+  - document afl-cmin does not work on macOS (but afl-cmin.bash does)
 
 
 ### Version ++4.09c (release)
