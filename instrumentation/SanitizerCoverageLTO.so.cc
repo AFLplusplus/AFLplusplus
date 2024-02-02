@@ -250,7 +250,7 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         afl_global_id = 0;
   uint32_t                         unhandled = 0;
   uint32_t                         select_cnt = 0;
-  uint32_t                         instrument_ctx = 1;
+  uint32_t                         instrument_ctx = 0;
   uint32_t                         extra_ctx_inst = 0;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
@@ -771,12 +771,12 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
             else
               Str2 = TmpStr.str();
 
-            if (debug)
+            /*if (debug)
               fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",
                       FuncName.c_str(), Str1P, Str1P->getName().str().c_str(),
                       Str1.c_str(), HasStr1 == true ? "true" : "false", Str2P,
                       Str2P->getName().str().c_str(), Str2.c_str(),
-                      HasStr2 == true ? "true" : "false");
+                      HasStr2 == true ? "true" : "false");*/
 
             // we handle the 2nd parameter first because of llvm memcpy
             if (!HasStr2) {
@@ -1398,10 +1398,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   CTX_add = NULL;
 
-  if (debug)
-    fprintf(stderr,
-            "Function: %s (%u %u) XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n",
-            F.getName().str().c_str(), inst, afl_global_id);
+  if (debug) fprintf(stderr, "Function: %s\n", F.getName().str().c_str());
 
   if (instrument_ctx) {
 
@@ -1613,7 +1610,6 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           }
 
-          // bool loaded = false, multicall = false;
           for (auto &IN : BB) {
 
             // check all calls and where callee count == 1 instrument
@@ -1627,15 +1623,14 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
                   fprintf(stderr, "DEBUG: %s call to %s with only one caller\n",
                           F.getName().str().c_str(),
                           Callee->getName().str().c_str());
-                /* if (loaded == false || multicall == true) { // } */
+
                 IRBuilder<> Builder(IN.getContext());
                 Builder.SetInsertPoint(callInst);
                 StoreInst *StoreCtx =
                     Builder.CreateStore(PrevCtxLoad, AFLContext);
                 StoreCtx->setMetadata("nosanitize", N);
-                // multicall = false; loaded = true;
 
-              }  // else { multicall = true; }
+              }
 
             }
 
