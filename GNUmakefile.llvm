@@ -51,7 +51,7 @@ LLVM_TOO_OLD = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[1-9]
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_NEWER_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[6-9]' && echo 1 || echo 0 )
 LLVM_13_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[3-9]' && echo 1 || echo 0 )
-LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]' && echo 1 || echo 0 )
+LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[2-9]' && echo 1 || echo 0 )
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
@@ -95,12 +95,12 @@ ifeq "$(LLVM_NEWER_API)" "1"
 endif
 
 ifeq "$(LLVM_HAVE_LTO)" "1"
-  $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
+  $(info [+] llvm_mode detected llvm 12+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 11, afl-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 12, afl-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE_XCODE)" "1"
@@ -341,7 +341,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o 
-PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so
+PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so ./injection-pass.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -467,6 +467,9 @@ endif
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+
+./injection-pass.so:	instrumentation/injection-pass.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 .PHONY: document

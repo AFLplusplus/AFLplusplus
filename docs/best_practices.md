@@ -60,7 +60,8 @@ the fuzzing.
 So create a new `main()` that just reads the test case and calls the
 functionality for processing the input that the GUI program is using.
 
-### Fuzzing a network service 对网络服务进行模糊测试
+### Fuzzing a network service
+对网络服务进行模糊测试
 
 Fuzzing a network service does not work "out of the box".
 对网络服务进行模糊测试并不能“开箱即用”。
@@ -102,7 +103,8 @@ allows you to define network state with different type of data packets.
 
 ## Improvements
 
-### Improving speed 提高速度
+### Improving speed
+提高速度
 
 1. Use [llvm_mode](../instrumentation/README.llvm.md): afl-clang-lto (llvm >=
    11) or afl-clang-fast (llvm >= 9 recommended).
@@ -132,7 +134,8 @@ allows you to define network state with different type of data packets.
    使用多核心 ([fuzzing_in_depth.md:3c) Using multiple cores](fuzzing_in_depth.md#c-using-multiple-cores))!
 
 
-### Improving stability 提升稳定性
+### Improving stability
+提升稳定性
 
 For fuzzing, a 100% stable target that covers all edges is the best case. A 90%
 stable target that covers all edges is, however, better than a 100% stable

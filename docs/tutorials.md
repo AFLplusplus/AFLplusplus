@@ -47,6 +47,9 @@ structure is), these links have you covered (some are outdated though):
 * Superion for AFL++:
   [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
+For a very in-depth explanation on how AFL++ works check out:
+[https://blog.ritsec.club/posts/afl-under-hood/](https://blog.ritsec.club/posts/afl-under-hood/)
+
 ## Video Tutorials
 
 * [Install AFL++ Ubuntu (在Ubuntu安装AFL++)](https://www.youtube.com/watch?v=5dCvhkbi3RA)

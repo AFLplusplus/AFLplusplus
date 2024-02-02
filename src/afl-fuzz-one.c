@@ -1894,6 +1894,7 @@ custom_mutator_stage:
   LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
     if (el->afl_custom_fuzz) {
+
       havoc_queued = afl->queued_items;
 
       afl->current_custom_fuzz = el;

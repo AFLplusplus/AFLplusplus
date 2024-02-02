@@ -679,8 +679,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    fsrv->nyx_runner =
-        fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_bind_cpu_id);
+    fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_id);
 
     ck_free(workdir_path);
     ck_free(outdir_path_absolute);
@@ -1017,6 +1016,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
      Otherwise, try to figure out what went wrong. */
 
   if (rlen == 4) {
+
+    if (status >= 0x41464c00 && status <= 0x41464cff) {
+
+      FATAL("Target uses the new forkserver model, you need to switch to a newer afl-fuzz too!");
+
+    }
 
     if (!be_quiet) { OKF("All right - fork server is up."); }
 

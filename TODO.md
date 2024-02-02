@@ -2,15 +2,21 @@
 
 ## Must
 
+ - UI revamp
+ - hardened_usercopy=0 page_alloc.shuffle=0
+ - add value_profile but only enable after 15 minutes without finds
+ - cmplog max len, cmplog max items envs?
  - adapt MOpt to new mutation engine
- - Update afl->pending_not_fuzzed for MOpt
- - cmplog rtn sanity check on fixed length? + no length 1
+   - Update afl->pending_not_fuzzed for MOpt
+ - cmplog rtn sanity check on fixed length? currently we ignore the length
  - afl-showmap -f support
  - afl-fuzz multicore wrapper script
+ - when trimming then perform crash detection
+ - problem: either -L0 and/or -p mmopt results in zero new coverage
+
 
 ## Should
 
- - add value_profile but only enable after 15 minutes without finds?
  - afl-crash-analysis
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values

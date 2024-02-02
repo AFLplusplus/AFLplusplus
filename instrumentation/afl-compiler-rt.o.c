@@ -22,6 +22,10 @@
     #define __USE_GNU
   #endif
   #include <dlfcn.h>
+
+__attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
+                                                    char  *out_buf,
+                                                    size_t out_buf_size);
 #endif
 
 #ifdef __ANDROID__
@@ -48,7 +52,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
 #ifndef USEMMAP
@@ -92,6 +96,8 @@ extern ssize_t _kern_write(int fd, off_t pos, const void *buffer,
                            size_t bufferSize);
 #endif  // HAIKU
 
+char *strcasestr(const char *haystack, const char *needle);
+
 static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
@@ -122,8 +128,8 @@ struct afl_module_info_t {
   uintptr_t base_address;
 
   // PC Guard start/stop
-  u32 start;
-  u32 stop;
+  u32 *start;
+  u32 *stop;
 
   // PC Table begin/end
   const uintptr_t *pcs_beg;
@@ -145,6 +151,18 @@ afl_module_info_t *__afl_module_info = NULL;
 
 u32        __afl_pcmap_size = 0;
 uintptr_t *__afl_pcmap_ptr = NULL;
+
+typedef struct {
+
+  uintptr_t start;
+  u32       len;
+
+} FilterPCEntry;
+
+u32            __afl_filter_pcs_size = 0;
+FilterPCEntry *__afl_filter_pcs = NULL;
+u8            *__afl_filter_pcs_module = NULL;
+
 #endif  // __AFL_CODE_COVERAGE
 
 /* 1 if we are running in afl, and the forkserver was started, else 0 */
@@ -183,7 +201,7 @@ static u8 _is_sancov;
 
 /* Debug? */
 
-static u32 __afl_debug;
+/*static*/ u32 __afl_debug;
 
 /* Already initialized markers */
 
@@ -1585,14 +1603,115 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 }
 
 #ifdef __AFL_CODE_COVERAGE
-void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
-                              const uintptr_t *pcs_end) {
+void afl_read_pc_filter_file(const char *filter_file) {
 
-  if (__afl_debug) {
+  FILE *file;
+  char  ch;
 
-    fprintf(stderr, "DEBUG: __sanitizer_cov_pcs_init called\n");
+  file = fopen(filter_file, "r");
+  if (file == NULL) {
+
+    perror("Error opening file");
+    return;
 
   }
+
+  // Check how many PCs we expect to read
+  while ((ch = fgetc(file)) != EOF) {
+
+    if (ch == '\n') { __afl_filter_pcs_size++; }
+
+  }
+
+  // Rewind to actually read the PCs
+  fseek(file, 0, SEEK_SET);
+
+  __afl_filter_pcs = malloc(__afl_filter_pcs_size * sizeof(FilterPCEntry));
+  if (!__afl_filter_pcs) {
+
+    perror("Error allocating PC array");
+    return;
+
+  }
+
+  for (size_t i = 0; i < __afl_filter_pcs_size; i++) {
+
+    fscanf(file, "%lx", &(__afl_filter_pcs[i].start));
+    ch = fgetc(file);  // Read tab
+    fscanf(file, "%u", &(__afl_filter_pcs[i].len));
+    ch = fgetc(file);  // Read tab
+
+    if (!__afl_filter_pcs_module) {
+
+      // Read the module name and store it.
+      // TODO: We only support one module here right now although
+      // there is technically no reason to support multiple modules
+      // in one go.
+      size_t max_module_len = 255;
+      size_t i = 0;
+      __afl_filter_pcs_module = malloc(max_module_len);
+      while (i < max_module_len - 1 &&
+             (__afl_filter_pcs_module[i] = fgetc(file)) != '\t') {
+
+        ++i;
+
+      }
+
+      __afl_filter_pcs_module[i] = '\0';
+      fprintf(stderr, "DEBUGXXX: Read module name %s\n",
+              __afl_filter_pcs_module);
+
+    }
+
+    while ((ch = fgetc(file)) != '\n' && ch != EOF)
+      ;
+
+  }
+
+  fclose(file);
+
+}
+
+u32 locate_in_pcs(uintptr_t needle, u32 *index) {
+
+  size_t lower_bound = 0;
+  size_t upper_bound = __afl_filter_pcs_size - 1;
+
+  while (lower_bound < __afl_filter_pcs_size && lower_bound <= upper_bound) {
+
+    size_t current_index = lower_bound + (upper_bound - lower_bound) / 2;
+
+    if (__afl_filter_pcs[current_index].start <= needle) {
+
+      if (__afl_filter_pcs[current_index].start +
+              __afl_filter_pcs[current_index].len >
+          needle) {
+
+        // Hit
+        *index = current_index;
+        return 1;
+
+      } else {
+
+        lower_bound = current_index + 1;
+
+      }
+
+    } else {
+
+      if (!current_index) { break; }
+      upper_bound = current_index - 1;
+
+    }
+
+  }
+
+  return 0;
+
+}
+
+void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
+                              const uintptr_t *pcs_end) {
 
   // If for whatever reason, we cannot get dlinfo here, then pc_guard_init also
   // couldn't get it and we'd end up attributing to the wrong module.
@@ -1603,6 +1722,16 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
             "WARNING: Ignoring __sanitizer_cov_pcs_init callback due to "
             "missing module info\n");
     return;
+
+  }
+
+  if (__afl_debug) {
+
+    fprintf(
+        stderr,
+        "DEBUG: (%u) __sanitizer_cov_pcs_init called for module %s with %ld "
+        "PCs\n",
+        getpid(), dlinfo.dli_fname, pcs_end - pcs_beg);
 
   }
 
@@ -1621,33 +1750,77 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
   }
 
+  if (strcmp(dlinfo.dli_fname, last_module_info->name)) {
+
+    // This can happen with modules being loaded after the forkserver
+    // where we decide to not track the module. In that case we must
+    // not track it here either.
+    fprintf(
+        stderr,
+        "WARNING: __sanitizer_cov_pcs_init module info mismatch: %s vs %s\n",
+        dlinfo.dli_fname, last_module_info->name);
+    return;
+
+  }
+
   last_module_info->pcs_beg = pcs_beg;
   last_module_info->pcs_end = pcs_end;
+
+  // This is a direct filter based on symbolizing inside the runtime.
+  // It should only be used with smaller binaries to avoid long startup
+  // times. Currently, this only supports a single token to scan for.
+  const char *pc_filter = getenv("AFL_PC_FILTER");
+
+  // This is a much faster PC filter based on pre-symbolized input data
+  // that is sorted for fast lookup through binary search. This method
+  // of filtering is suitable even for very large binaries.
+  const char *pc_filter_file = getenv("AFL_PC_FILTER_FILE");
+  if (pc_filter_file && !__afl_filter_pcs) {
+
+    afl_read_pc_filter_file(pc_filter_file);
+
+  }
 
   // Now update the pcmap. If this is the last module coming in, after all
   // pre-loaded code, then this will also map all of our delayed previous
   // modules.
-
-  if (!__afl_pcmap_ptr) { return; }
-
+  //
   for (afl_module_info_t *mod_info = __afl_module_info; mod_info;
        mod_info = mod_info->next) {
 
     if (mod_info->mapped) { continue; }
 
+    if (!mod_info->start) {
+
+      fprintf(stderr,
+              "ERROR: __sanitizer_cov_pcs_init called with mod_info->start == "
+              "NULL (%s)\n",
+              mod_info->name);
+      abort();
+
+    }
+
     PCTableEntry *start = (PCTableEntry *)(mod_info->pcs_beg);
     PCTableEntry *end = (PCTableEntry *)(mod_info->pcs_end);
+
+    if (!*mod_info->stop) { continue; }
 
     u32 in_module_index = 0;
 
     while (start < end) {
 
-      if (mod_info->start + in_module_index >= __afl_map_size) {
+      if (*mod_info->start + in_module_index >= __afl_map_size) {
 
-        fprintf(stderr, "ERROR: __sanitizer_cov_pcs_init out of bounds?!\n");
+        fprintf(stderr,
+                "ERROR: __sanitizer_cov_pcs_init out of bounds?! Start: %u "
+                "Stop: %u Map Size: %u (%s)\n",
+                *mod_info->start, *mod_info->stop, __afl_map_size,
+                mod_info->name);
         abort();
 
       }
+
+      u32 orig_start_index = *mod_info->start;
 
       uintptr_t PC = start->PC;
 
@@ -1658,7 +1831,58 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
       // Calculate relative offset in module
       PC = PC - mod_info->base_address;
 
-      __afl_pcmap_ptr[mod_info->start + in_module_index] = PC;
+      if (__afl_pcmap_ptr) {
+
+        __afl_pcmap_ptr[orig_start_index + in_module_index] = PC;
+
+      }
+
+      if (pc_filter) {
+
+        char PcDescr[1024];
+        // This function is a part of the sanitizer run-time.
+        // To use it, link with AddressSanitizer or other sanitizer.
+        __sanitizer_symbolize_pc((void *)start->PC, "%p %F %L", PcDescr,
+                                 sizeof(PcDescr));
+
+        if (strstr(PcDescr, pc_filter)) {
+
+          if (__afl_debug)
+            fprintf(
+                stderr,
+                "DEBUG: Selective instrumentation match: %s (PC %p Index %u)\n",
+                PcDescr, (void *)start->PC,
+                *(mod_info->start + in_module_index));
+          // No change to guard needed
+
+        } else {
+
+          // Null out the guard to disable this edge
+          *(mod_info->start + in_module_index) = 0;
+
+        }
+
+      }
+
+      if (__afl_filter_pcs && strstr(mod_info->name, __afl_filter_pcs_module)) {
+
+        u32 result_index;
+        if (locate_in_pcs(PC, &result_index)) {
+
+          if (__afl_debug)
+            fprintf(stderr,
+                    "DEBUG: Selective instrumentation match: (PC %lx File "
+                    "Index %u PC Index %u)\n",
+                    PC, result_index, in_module_index);
+
+        } else {
+
+          // Null out the guard to disable this edge
+          *(mod_info->start + in_module_index) = 0;
+
+        }
+
+      }
 
       start++;
       in_module_index++;
@@ -1669,8 +1893,10 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     if (__afl_debug) {
 
-      fprintf(stderr, "DEBUG: __sanitizer_cov_pcs_init initialized %u PCs\n",
-              in_module_index);
+      fprintf(stderr,
+              "DEBUG: __sanitizer_cov_pcs_init successfully mapped %s with %u "
+              "PCs\n",
+              mod_info->name, in_module_index);
 
     }
 
@@ -1704,9 +1930,9 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     fprintf(
         stderr,
         "DEBUG: Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
-        "after_fs=%u\n",
+        "after_fs=%u *start=%u\n",
         start, stop, (unsigned long)(stop - start),
-        __afl_already_initialized_forkserver);
+        __afl_already_initialized_forkserver, *start);
 
   }
 
@@ -1738,8 +1964,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       mod_info->id = last_module_info ? last_module_info->id + 1 : 0;
       mod_info->name = strdup(dlinfo.dli_fname);
       mod_info->base_address = (uintptr_t)dlinfo.dli_fbase;
-      mod_info->start = 0;
-      mod_info->stop = 0;
+      mod_info->start = NULL;
+      mod_info->stop = NULL;
       mod_info->pcs_beg = NULL;
       mod_info->pcs_end = NULL;
       mod_info->mapped = 0;
@@ -1755,8 +1981,12 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
       }
 
-      fprintf(stderr, "[pcmap] Module: %s Base Address: %p\n", dlinfo.dli_fname,
-              dlinfo.dli_fbase);
+      if (__afl_debug) {
+
+        fprintf(stderr, "[pcmap] Module: %s Base Address: %p\n",
+                dlinfo.dli_fname, dlinfo.dli_fbase);
+
+      }
 
     }
 
@@ -1859,12 +2089,17 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 #ifdef __AFL_CODE_COVERAGE
   if (mod_info) {
 
-    mod_info->start = *orig_start;
-    mod_info->stop = *(stop - 1);
+    if (!mod_info->start) {
+
+      mod_info->start = orig_start;
+      mod_info->stop = stop - 1;
+
+    }
+
     if (__afl_debug) {
 
       fprintf(stderr, "DEBUG: [pcmap] Start Index: %u Stop Index: %u\n",
-              mod_info->start, mod_info->stop);
+              *(mod_info->start), *(mod_info->stop));
 
     }
 
@@ -1910,6 +2145,10 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
 
+  return;
+
+  /*
+
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -1935,6 +2174,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
+
+  */
 
 }
 
@@ -2142,13 +2383,13 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  //__cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  //__cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
@@ -2257,11 +2498,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-#ifndef __HAIKU__
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#else
+#ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
-#endif  // HAIKU
+#elif defined(__OpenBSD__)
+  long r = write(__afl_dummy_fd[1], ptr, len);
+#else
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+#endif  // HAIKU, OPENBSD
 
   if (r <= 0 || r > len) return 0;
 
@@ -2659,6 +2902,53 @@ void __afl_coverage_interesting(u8 val, u32 id) {
 void __afl_set_persistent_mode(u8 mode) {
 
   is_persistent = mode;
+
+}
+
+// Marker: ADD_TO_INJECTIONS
+
+void __afl_injection_sql(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "'\"\"'"))) {
+
+      fprintf(stderr, "ALERT: Detected SQL injection in query: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_ldap(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "*)(1=*))(|"))) {
+
+      fprintf(stderr, "ALERT: Detected LDAP injection in query: %s\n", buf);
+      abort();
+
+    }
+
+  }
+
+}
+
+void __afl_injection_xss(u8 *buf) {
+
+  if (likely(buf)) {
+
+    if (unlikely(strstr((char *)buf, "1\"><\""))) {
+
+      fprintf(stderr, "ALERT: Detected XSS injection in content: %s\n", buf);
+      abort();
+
+    }
+
+  }
 
 }
 

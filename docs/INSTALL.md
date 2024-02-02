@@ -10,7 +10,7 @@ Docker Hub (for x86_64 and arm64):
 Docker Hub拉取（适用于x86_64和arm64）：
 
 ```shell
-docker pull aflplusplus/aflplusplus:
+docker pull aflplusplus/aflplusplus:latest
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
 
@@ -61,12 +61,15 @@ make source-only
 These build targets exist:
 这些构建目标存在：
 
-* all: the main AFL++ binaries and llvm/gcc instrumentation(主要的AFL++二进制文件和llvm/gcc编译器插桩)
-* binary-only: everything for binary-only fuzzing(仅针对二进制的模糊测试的所有内容): frida_mode, nyx_mode,
+* all: the main AFL++ binaries and llvm/gcc instrumentation
+(主要的AFL++二进制文件和llvm/gcc编译器插桩)
+* binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode,
   qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator,
   libtokencap
-* source-only: everything for source code fuzzing(针对源代码模糊测试的所有内容): nyx_mode, libdislocator,
+* binary-only: (仅针对二进制的模糊测试的所有内容)
+* source-only: everything for source code fuzzing: nyx_mode, libdislocator,
   libtokencap
+* source-only: (针对源代码模糊测试的所有内容)
 * distrib: everything (for both binary-only and source code fuzzing)
 * distrib: 所有内容（包括针对二进制和源代码的模糊测试）
 * man: creates simple man pages from the help option of the programs

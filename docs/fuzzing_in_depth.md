@@ -20,11 +20,13 @@ Fuzzing source code is a three-step process:
    that input was processed on a new path in the target binary.
    通过随机改变输入并评估该输入是否在目标二进制文件中的新路径上处理，对目标执行模糊测试。
 
-## 0. Common sense risks 常识性风险
+## 0. Common sense risks
+常识性风险
 
 Please keep in mind that, similarly to many other computationally-intensive
 tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
 请记住，与许多其他计算密集型任务类似，模糊测试可能会给您的硬件和操作系统带来压力。如下：
+
 - Your CPU will run hot and will need adequate cooling. In most cases, if
   cooling is insufficient or stops working properly, CPU speeds will be
   automatically throttled. That said, especially when fuzzing on less suitable
