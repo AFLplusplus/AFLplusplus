@@ -1103,8 +1103,6 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
   }
 
-  fprintf(stderr, "X %u %u\n", aflcc->compiler_mode, LTO);
-
   if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM &&
       !((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
         aflcc->compiler_mode == LTO))
