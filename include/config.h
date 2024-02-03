@@ -10,7 +10,7 @@
                      Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.10a"
+#define VERSION "++4.10c"
 
 /******************************************************
  *                                                    *
@@ -51,6 +51,18 @@
 
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600
+
+/* SkipDet's global configuration */
+
+#define MINIMAL_BLOCK_SIZE 64
+#define SMALL_DET_TIME (60 * 1000 * 1000U)
+#define MAXIMUM_INF_EXECS (16 * 1024U)
+#define MAXIMUM_QUICK_EFF_EXECS (64 * 1024U)
+#define THRESHOLD_DEC_TIME (20 * 60 * 1000U)
+
+/* Set the Prob of selecting eff_bytes 3 times more than original,
+   Now disabled */
+#define EFF_HAVOC_RATE 3
 
 /* CMPLOG/REDQUEEN TUNING
  *

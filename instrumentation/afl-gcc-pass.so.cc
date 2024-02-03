@@ -2,7 +2,7 @@
 
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2023 AdaCore
+   Copyright 2019-2024 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL
    LLVM pass by Laszlo Szekeres <lszekeres@google.com> and Michal

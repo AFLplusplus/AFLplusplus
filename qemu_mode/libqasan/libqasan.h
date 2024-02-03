@@ -1,5 +1,5 @@
 /*******************************************************************************
-Copyright (c) 2019-2023, Andrea Fioraldi
+Copyright (c) 2019-2024, Andrea Fioraldi
 
 
 Redistribution and use in source and binary forms, with or without

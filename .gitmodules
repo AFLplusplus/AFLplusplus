@@ -19,9 +19,9 @@
 [submodule "nyx_mode/libnyx"]
 	path = nyx_mode/libnyx
 	url = https://github.com/nyx-fuzz/libnyx.git
-[submodule "nyx_mode/QEMU-Nyx"]
-	path = nyx_mode/QEMU-Nyx
-	url = https://github.com/nyx-fuzz/qemu-nyx.git
 [submodule "nyx_mode/packer"]
 	path = nyx_mode/packer
 	url = https://github.com/nyx-fuzz/packer.git
+[submodule "nyx_mode/QEMU-Nyx"]
+	path = nyx_mode/QEMU-Nyx
+	url = https://github.com/nyx-fuzz/QEMU-Nyx
