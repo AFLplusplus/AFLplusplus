@@ -10,7 +10,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -169,20 +169,16 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (unlikely(afl->custom_mutators_count)) {
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+      if (el->afl_custom_fuzz_send) {
 
-        if (el->afl_custom_fuzz_send) {
+        el->afl_custom_fuzz_send(el->data, *mem, new_size);
+        sent = 1;
 
-          el->afl_custom_fuzz_send(el->data, *mem, new_size);
-          sent = 1;
+      }
 
-        }
-
-      });
-
-    }
+    });
 
     if (likely(!sent)) {
 
@@ -203,7 +199,7 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-  } else {
+  } else {                                   /* !afl->custom_mutators_count */
 
     if (unlikely(len < afl->min_length && !fix)) {
 
@@ -215,27 +211,8 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
     }
 
-    if (unlikely(afl->custom_mutators_count)) {
-
-      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-        if (el->afl_custom_fuzz_send) {
-
-          el->afl_custom_fuzz_send(el->data, *mem, len);
-          sent = 1;
-
-        }
-
-      });
-
-    }
-
-    if (likely(!sent)) {
-
-      /* boring uncustom. */
-      afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
-
-    }
+    /* boring uncustom. */
+    afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
 
   }
 

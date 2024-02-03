@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -499,6 +499,44 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           afl->plot_prev_ed, t_bytes);                     /* ignore errors */
 
   fflush(afl->fsrv.plot_file);
+
+}
+
+/* Log deterministic stage efficiency */
+
+void plot_profile_data(afl_state_t *afl, struct queue_entry *q) {
+
+  u64 current_ms = get_cur_time() - afl->start_time;
+
+  u32    current_edges = count_non_255_bytes(afl, afl->virgin_bits);
+  double det_finding_rate = (double)afl->havoc_prof->total_det_edge * 100.0 /
+                            (double)current_edges,
+         det_time_rate = (double)afl->havoc_prof->total_det_time * 100.0 /
+                         (double)current_ms;
+
+  u32 ndet_bits = 0;
+  for (u32 i = 0; i < afl->fsrv.map_size; i++) {
+
+    if (afl->skipdet_g->virgin_det_bits[i]) ndet_bits += 1;
+
+  }
+
+  double det_fuzzed_rate = (double)ndet_bits * 100.0 / (double)current_edges;
+
+  fprintf(afl->fsrv.det_plot_file,
+          "[%02lld:%02lld:%02lld] fuzz %d (%d), find %d/%d among %d(%02.2f) "
+          "and spend %lld/%lld(%02.2f), cover %02.2f yet, %d/%d undet bits, "
+          "continue %d.\n",
+          current_ms / 1000 / 3600, (current_ms / 1000 / 60) % 60,
+          (current_ms / 1000) % 60, afl->current_entry, q->fuzz_level,
+          afl->havoc_prof->edge_det_stage, afl->havoc_prof->edge_havoc_stage,
+          current_edges, det_finding_rate,
+          afl->havoc_prof->det_stage_time / 1000,
+          afl->havoc_prof->havoc_stage_time / 1000, det_time_rate,
+          det_fuzzed_rate, q->skipdet_e->undet_bits,
+          afl->skipdet_g->undet_bits_threshold, q->skipdet_e->continue_inf);
+
+  fflush(afl->fsrv.det_plot_file);
 
 }
 

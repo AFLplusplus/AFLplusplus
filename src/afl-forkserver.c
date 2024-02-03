@@ -13,7 +13,7 @@
 
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -1016,6 +1016,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
      Otherwise, try to figure out what went wrong. */
 
   if (rlen == 4) {
+
+    if (status >= 0x41464c00 && status <= 0x41464cff) {
+
+      FATAL(
+          "Target uses the new forkserver model, you need to switch to a newer "
+          "afl-fuzz too!");
+
+    }
 
     if (!be_quiet) { OKF("All right - fork server is up."); }
 

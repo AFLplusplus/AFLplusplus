@@ -166,7 +166,7 @@ static void afl_print_env(void) {
 
   if (fd < 0) {
 
-    FWARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    FWARNF("Failed to open /proc/self/environ, errno: (%d)", errno);
     return;
 
   }
@@ -174,7 +174,7 @@ static void afl_print_env(void) {
   ssize_t bytes_read = read(fd, buffer, PROC_MAX - 1);
   if (bytes_read < 0) {
 
-    FFATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
+    FFATAL("Failed to read /proc/self/environ, errno: (%d)", errno);
 
   }
 

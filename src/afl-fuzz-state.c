@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,9 +89,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->w_end = 0.3;
   afl->g_max = 5000;
   afl->period_pilot_tmp = 5000.0;
-  afl->schedule = FAST;                 /* Power schedule (default: FAST)   */
+  afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
   afl->havoc_max_mult = HAVOC_MAX_MULT;
-
   afl->clear_screen = 1;                /* Window resized?                  */
   afl->havoc_div = 1;                   /* Cycle count divisor for havoc    */
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
@@ -140,6 +139,14 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->fsrv.dev_null_fd = -1;
   afl->fsrv.child_pid = -1;
   afl->fsrv.out_dir_fd = -1;
+
+  /* Init SkipDet */
+  afl->skipdet_g =
+      (struct skipdet_global *)ck_alloc(sizeof(struct skipdet_global));
+  afl->skipdet_g->inf_prof =
+      (struct inf_profile *)ck_alloc(sizeof(struct inf_profile));
+  afl->havoc_prof =
+      (struct havoc_profile *)ck_alloc(sizeof(struct havoc_profile));
 
   init_mopt_globals(afl);
 

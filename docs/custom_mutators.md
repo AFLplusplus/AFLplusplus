@@ -73,7 +73,7 @@ def init(seed):
 def fuzz_count(buf):
     return cnt
 
-def splice_optout()
+def splice_optout():
     pass
 
 def fuzz(buf, add_buf, max_size):
@@ -198,7 +198,7 @@ def deinit():  # optional for Python
     This method can be used if you want to send data to the target yourself,
     e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
     that you start the target with afl-fuzz.
-    Example: [custom_mutators/examples/custom_send.c](custom_mutators/examples/custom_send.c)
+    Example: [custom_mutators/examples/custom_send.c](../custom_mutators/examples/custom_send.c)
 
 - `queue_new_entry` (optional):
 
