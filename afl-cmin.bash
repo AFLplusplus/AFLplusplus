@@ -7,7 +7,7 @@
 #
 # Copyright 2014, 2015 Google Inc. All rights reserved.
 #
-# Copyright 2019-2023 AFLplusplus
+# Copyright 2019-2024 AFLplusplus
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
