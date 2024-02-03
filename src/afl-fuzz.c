@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -D            - enable deterministic fuzzing (once per queue entry)\n"
+      "  -D            - enable (a new) effective deterministic fuzzing\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new finds). 0 = "
@@ -955,14 +955,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'D':                                    /* enforce deterministic */
+      case 'D':                                    /* partial deterministic */
 
         afl->skip_deterministic = 0;
         break;
 
-      case 'd':                                       /* skip deterministic */
+      case 'd':                                         /* no deterministic */
 
-        afl->skip_deterministic = 1;
+        // this is the default and currently a lot of infrastructure enforces
+        // it (e.g. clusterfuzz, fuzzbench) based on that this feature
+        // originally was bad performance wise. We now have a better
+        // implementation, hence if it is activated, we do not want to
+        // deactivate it by such setups.
+
+        // afl->skip_deterministic = 1;
         break;
 
       case 'B':                                              /* load bitmap */
@@ -1424,11 +1430,11 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   #endif
+
+  // silently disable deterministic mutation if custom mutators are used
   if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
 
-    FATAL(
-        "Using -D determinstic fuzzing is incompatible with "
-        "AFL_CUSTOM_MUTATOR_ONLY!");
+    afl->skip_deterministic = 1;
 
   }
 
@@ -3031,6 +3037,11 @@ stop_fuzzing:
   if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
+
+  #ifdef INTROSPECTION
+  fclose(afl->fsrv.det_plot_file);
+  #endif
+
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);

@@ -3,12 +3,14 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.10a (dev)
+### Version ++4.10c (release)
   - afl-fuzz:
     - default power schedule is now EXPLORE, due a fix in fast schedules
       explore is slightly better now.
     - fixed minor issues in the mutation engine, thanks to @futhewo for
       reporting!
+    - better deterministic fuzzing is now available, benchmarks have shown
+      to improve fuzzing. Enable with -D. Thanks to @kdsjZh for the PR!
   - afl-cc:
     - large rewrite by @SonicStark which fixes a few corner cases, thanks!
     - LTO mode now requires llvm 12+
@@ -31,7 +33,6 @@
   - updated Nyx checkout (fixes a bug) and some QOL
   - updated the custom grammar mutator
   - document afl-cmin does not work on macOS (but afl-cmin.bash does)
-
 
 ### Version ++4.09c (release)
   - afl-fuzz:
