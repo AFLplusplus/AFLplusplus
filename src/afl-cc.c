@@ -2830,7 +2830,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
-          "  AFL_NOOP: behave like a normal compiler (to pass configure "
+          "  AFL_NOOPT: behave like a normal compiler (to pass configure "
           "tests)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
