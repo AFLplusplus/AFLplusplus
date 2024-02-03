@@ -251,6 +251,7 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         unhandled = 0;
   uint32_t                         select_cnt = 0;
   uint32_t                         instrument_ctx = 0;
+  uint32_t                         instrument_ctx_max_depth = 0;
   uint32_t                         extra_ctx_inst = 0;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
@@ -428,9 +429,28 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   setvbuf(stdout, NULL, _IONBF, 0);
   if (getenv("AFL_DEBUG")) { debug = 1; }
   if (getenv("AFL_LLVM_DICT2FILE_NO_MAIN")) { autodictionary_no_main = 1; }
-  if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_CTX")) {
+  if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_CTX") ||
+      getenv("AFL_LLVM_LTO_CALLER") || getenv("AFL_LLVM_LTO_CTX")) {
 
     instrument_ctx = 1;
+
+  }
+
+  if (getenv("AFL_LLVM_LTO_CALLER_DEPTH")) {
+
+    instrument_ctx_max_depth = atoi(getenv("AFL_LLVM_LTO_CALLER_DEPTH"));
+
+  } else if (getenv("AFL_LLVM_LTO_CTX_DEPTH")) {
+
+    instrument_ctx_max_depth = atoi(getenv("AFL_LLVM_LTO_CTX_DEPTH"));
+
+  } else if (getenv("AFL_LLVM_CALLER_DEPTH")) {
+
+    instrument_ctx_max_depth = atoi(getenv("AFL_LLVM_CALLER_DEPTH"));
+
+  } else if (getenv("AFL_LLVM_CTX_DEPTH")) {
+
+    instrument_ctx_max_depth = atoi(getenv("AFL_LLVM_CTX_DEPTH"));
 
   }
 
@@ -1406,11 +1426,12 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
     call_counter = countCallers(caller);
     Function *callee = caller;
 
-    if (call_counter == 1) {
+    if (call_counter == 1 && instrument_ctx_max_depth) {
 
       ++call_depth;
 
-      while (((caller = returnOnlyCaller(callee)) || 1 == 1) &&
+      while (instrument_ctx_max_depth >= call_depth &&
+             ((caller = returnOnlyCaller(callee)) || 1 == 1) &&
              (call_counter = countCallers(callee)) == 1) {
 
         if (debug && caller && callee)
