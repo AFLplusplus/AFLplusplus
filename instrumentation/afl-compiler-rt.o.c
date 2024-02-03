@@ -264,7 +264,7 @@ static void send_forkserver_error(int error) {
 
   u32 status;
   if (!error || error > 0xffff) return;
-  status = (FS_OPT_ERROR | FS_OPT_SET_ERROR(error));
+  status = (FS_NEW_ERROR | error);
   if (write(FORKSRV_FD + 1, (char *)&status, 4) != 4) { return; }
 
 }
@@ -367,45 +367,17 @@ static void __afl_map_shm(void) {
       if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) { val = atoi(ptr); }
       if (val < __afl_final_loc) {
 
-        if (__afl_final_loc > FS_OPT_MAX_MAPSIZE) {
+        if (__afl_final_loc > MAP_INITIAL_SIZE && !getenv("AFL_QUIET")) {
 
-          if (!getenv("AFL_QUIET"))
-            fprintf(stderr,
-                    "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u "
-                    "to be able to run this instrumented program!\n",
-                    __afl_final_loc);
-
-          if (id_str) {
-
-            send_forkserver_error(FS_ERROR_MAP_SIZE);
-            exit(-1);
-
-          }
-
-        } else {
-
-          if (__afl_final_loc > MAP_INITIAL_SIZE && !getenv("AFL_QUIET")) {
-
-            fprintf(stderr,
-                    "Warning: AFL++ tools might need to set AFL_MAP_SIZE to %u "
-                    "to be able to run this instrumented program if this "
-                    "crashes!\n",
-                    __afl_final_loc);
-
-          }
+          fprintf(stderr,
+                  "Warning: AFL++ tools might need to set AFL_MAP_SIZE to %u "
+                  "to be able to run this instrumented program if this "
+                  "crashes!\n",
+                  __afl_final_loc);
 
         }
 
       }
-
-    }
-
-  } else {
-
-    if (getenv("AFL_DUMP_MAP_SIZE")) {
-
-      printf("%u\n", MAP_SIZE);
-      exit(-1);
 
     }
 
@@ -474,14 +446,13 @@ static void __afl_map_shm(void) {
 
   if (__afl_debug) {
 
-    fprintf(
-        stderr,
-        "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
-        "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
-        "__afl_final_loc %u, __afl_map_size %u, max_size_forkserver %u/0x%x\n",
-        id_str == NULL ? "<null>" : id_str, __afl_area_ptr, __afl_area_initial,
-        __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE, __afl_final_loc,
-        __afl_map_size, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+    fprintf(stderr,
+            "DEBUG: (1) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+            "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE %u, "
+            "__afl_final_loc %u, __afl_map_size %u\n",
+            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
+            __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
+            __afl_final_loc, __afl_map_size);
 
   }
 
@@ -639,12 +610,10 @@ static void __afl_map_shm(void) {
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
-            "%u, __afl_final_loc %u, __afl_map_size %u, "
-            "max_size_forkserver %u/0x%x\n",
+            "%u, __afl_final_loc %u, __afl_map_size %u",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
             __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, __afl_map_size, FS_OPT_MAX_MAPSIZE,
-            FS_OPT_MAX_MAPSIZE);
+            __afl_final_loc, __afl_map_size);
 
   }
 
@@ -855,242 +824,6 @@ void write_error_with_location(char *text, char *filename, int linenumber) {
 
 }
 
-#ifdef __linux__
-static void __afl_start_snapshots(void) {
-
-  static u8 tmp[4] = {0, 0, 0, 0};
-  u32       status = 0;
-  u32       already_read_first = 0;
-  u32       was_killed;
-
-  u8 child_stopped = 0;
-
-  void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
-
-  /* Phone home and tell the parent that we're OK. If parent isn't there,
-     assume we're not running in forkserver mode and just execute program. */
-
-  status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT | FS_OPT_NEWCMPLOG);
-  if (__afl_sharedmem_fuzzing) { status |= FS_OPT_SHDMEM_FUZZ; }
-  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
-    status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len && __afl_dictionary) { status |= FS_OPT_AUTODICT; }
-  memcpy(tmp, &status, 4);
-
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
-
-  if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
-
-    if (read(FORKSRV_FD, &was_killed, 4) != 4) {
-
-      write_error("read to afl-fuzz");
-      _exit(1);
-
-    }
-
-    if (__afl_debug) {
-
-      fprintf(stderr, "DEBUG: target forkserver recv: %08x\n", was_killed);
-
-    }
-
-    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
-        (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
-
-      __afl_map_shm_fuzz();
-
-    }
-
-    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
-            (FS_OPT_ENABLED | FS_OPT_AUTODICT) &&
-        __afl_dictionary_len && __afl_dictionary) {
-
-      // great lets pass the dictionary through the forkserver FD
-      u32 len = __afl_dictionary_len, offset = 0;
-      s32 ret;
-
-      if (write(FORKSRV_FD + 1, &len, 4) != 4) {
-
-        write(2, "Error: could not send dictionary len\n",
-              strlen("Error: could not send dictionary len\n"));
-        _exit(1);
-
-      }
-
-      while (len != 0) {
-
-        ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
-
-        if (ret < 1) {
-
-          write(2, "Error: could not send dictionary\n",
-                strlen("Error: could not send dictionary\n"));
-          _exit(1);
-
-        }
-
-        len -= ret;
-        offset += ret;
-
-      }
-
-    } else {
-
-      // uh this forkserver does not understand extended option passing
-      // or does not want the dictionary
-      if (!__afl_fuzz_ptr) already_read_first = 1;
-
-    }
-
-  }
-
-  while (1) {
-
-    int status;
-
-    if (already_read_first) {
-
-      already_read_first = 0;
-
-    } else {
-
-      /* Wait for parent by reading from the pipe. Abort if read fails. */
-      if (read(FORKSRV_FD, &was_killed, 4) != 4) {
-
-        write_error("reading from afl-fuzz");
-        _exit(1);
-
-      }
-
-    }
-
-  #ifdef _AFL_DOCUMENT_MUTATIONS
-    if (__afl_fuzz_ptr) {
-
-      static uint32_t counter = 0;
-      char            fn[32];
-      sprintf(fn, "%09u:forkserver", counter);
-      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
-      if (fd_doc >= 0) {
-
-        if (write(fd_doc, __afl_fuzz_ptr, *__afl_fuzz_len) != *__afl_fuzz_len) {
-
-          fprintf(stderr, "write of mutation file failed: %s\n", fn);
-          unlink(fn);
-
-        }
-
-        close(fd_doc);
-
-      }
-
-      counter++;
-
-    }
-
-  #endif
-
-    /* If we stopped the child in persistent mode, but there was a race
-       condition and afl-fuzz already issued SIGKILL, write off the old
-       process. */
-
-    if (child_stopped && was_killed) {
-
-      child_stopped = 0;
-      if (waitpid(child_pid, &status, 0) < 0) {
-
-        write_error("child_stopped && was_killed");
-        _exit(1);  // TODO why exit?
-
-      }
-
-    }
-
-    if (!child_stopped) {
-
-      /* Once woken up, create a clone of our process. */
-
-      child_pid = fork();
-      if (child_pid < 0) {
-
-        write_error("fork");
-        _exit(1);
-
-      }
-
-      /* In child process: close fds, resume execution. */
-
-      if (!child_pid) {
-
-        //(void)nice(-20);  // does not seem to improve
-
-        signal(SIGCHLD, old_sigchld_handler);
-        signal(SIGTERM, old_sigterm_handler);
-
-        close(FORKSRV_FD);
-        close(FORKSRV_FD + 1);
-
-        if (!afl_snapshot_take(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS |
-                               AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT)) {
-
-          raise(SIGSTOP);
-
-        }
-
-        __afl_area_ptr[0] = 1;
-        memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-
-        return;
-
-      }
-
-    } else {
-
-      /* Special handling for persistent mode: if the child is alive but
-         currently stopped, simply restart it with SIGCONT. */
-
-      kill(child_pid, SIGCONT);
-      child_stopped = 0;
-
-    }
-
-    /* In parent process: write PID to pipe, then wait for child. */
-
-    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) {
-
-      write_error("write to afl-fuzz");
-      _exit(1);
-
-    }
-
-    if (waitpid(child_pid, &status, WUNTRACED) < 0) {
-
-      write_error("waitpid");
-      _exit(1);
-
-    }
-
-    /* In persistent mode, the child stops itself with SIGSTOP to indicate
-       a successful run. In this case, we want to wake it up without forking
-       again. */
-
-    if (WIFSTOPPED(status)) child_stopped = 1;
-
-    /* Relay wait status to pipe, then loop back. */
-
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) {
-
-      write_error("writing to afl-fuzz");
-      _exit(1);
-
-    }
-
-  }
-
-}
-
-#endif
-
 /* Fork server logic. */
 
 static void __afl_start_forkserver(void) {
@@ -1103,113 +836,92 @@ static void __afl_start_forkserver(void) {
   old_sigterm_handler = orig_action.sa_handler;
   signal(SIGTERM, at_exit);
 
-#ifdef __linux__
-  if (/*!is_persistent &&*/ !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
-      afl_snapshot_init() >= 0) {
-
-    __afl_start_snapshots();
-    return;
-
-  }
-
-#endif
-
-  u8  tmp[4] = {0, 0, 0, 0};
-  u32 status_for_fsrv = 0;
   u32 already_read_first = 0;
   u32 was_killed;
+  u32 version = 0x41464c00 + FS_NEW_VERSION_MAX;
+  u32 tmp = version ^ 0xffffffff, status2, status = version;
+  u8 *msg = (u8 *)&status;
+  u8 *reply = (u8 *)&status2;
 
   u8 child_stopped = 0;
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
-  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE) {
-
-    status_for_fsrv |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-
-  }
-
-  if (__afl_dictionary_len && __afl_dictionary) {
-
-    status_for_fsrv |= FS_OPT_AUTODICT;
-
-  }
-
-  if (__afl_sharedmem_fuzzing) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
-  if (status_for_fsrv) {
-
-    status_for_fsrv |= (FS_OPT_ENABLED | FS_OPT_NEWCMPLOG);
-
-  }
-
-  memcpy(tmp, &status_for_fsrv, 4);
-
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
+  // return because possible non-forkserver usage
+  if (write(FORKSRV_FD + 1, msg, 4) != 4) { return; }
 
-  __afl_connected = 1;
+  if (read(FORKSRV_FD, reply, 4) != 4) { _exit(1); }
+  if (tmp != status2) {
 
-  if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
+    write_error("wrong forkserver message from AFL++ tool");
+    _exit(1);
 
-    if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+  }
 
-    if (__afl_debug) {
+  // send the set/requested options to forkserver
+  status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
+  if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
+  if (__afl_dictionary_len && __afl_dictionary) {
 
-      fprintf(stderr, "DEBUG: target forkserver recv: %08x\n", was_killed);
+    status |= FS_NEW_OPT_AUTODICT;
+
+  }
+
+  if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+
+  // Now send the parameters for the set options, increasing by option number
+
+  // FS_NEW_OPT_MAPSIZE - we always send the map size
+  status = __afl_map_size;
+  if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+
+  // FS_NEW_OPT_SHDMEM_FUZZ - no data
+
+  // FS_NEW_OPT_AUTODICT - send autodictionary
+  if (__afl_dictionary_len && __afl_dictionary) {
+
+    // pass the dictionary through the forkserver FD
+    u32 len = __afl_dictionary_len, offset = 0;
+
+    if (write(FORKSRV_FD + 1, &len, 4) != 4) {
+
+      write(2, "Error: could not send dictionary len\n",
+            strlen("Error: could not send dictionary len\n"));
+      _exit(1);
 
     }
 
-    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
-        (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
+    while (len != 0) {
 
-      __afl_map_shm_fuzz();
+      s32 ret;
+      ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
 
-    }
+      if (ret < 1) {
 
-    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
-            (FS_OPT_ENABLED | FS_OPT_AUTODICT) &&
-        __afl_dictionary_len && __afl_dictionary) {
-
-      // great lets pass the dictionary through the forkserver FD
-      u32 len = __afl_dictionary_len, offset = 0;
-
-      if (write(FORKSRV_FD + 1, &len, 4) != 4) {
-
-        write(2, "Error: could not send dictionary len\n",
-              strlen("Error: could not send dictionary len\n"));
+        write_error("could not send dictionary");
         _exit(1);
 
       }
 
-      while (len != 0) {
-
-        s32 ret;
-        ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
-
-        if (ret < 1) {
-
-          write(2, "Error: could not send dictionary\n",
-                strlen("Error: could not send dictionary\n"));
-          _exit(1);
-
-        }
-
-        len -= ret;
-        offset += ret;
-
-      }
-
-    } else {
-
-      // uh this forkserver does not understand extended option passing
-      // or does not want the dictionary
-      if (!__afl_fuzz_ptr) already_read_first = 1;
+      len -= ret;
+      offset += ret;
 
     }
 
   }
+
+  // send welcome message as final message
+  status = version;
+  if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+
+  // END forkserver handshake
+
+  __afl_connected = 1;
+
+  if (__afl_sharedmem_fuzzing) { __afl_map_shm_fuzz(); }
 
   while (1) {
 
@@ -1225,7 +937,7 @@ static void __afl_start_forkserver(void) {
 
       if (read(FORKSRV_FD, &was_killed, 4) != 4) {
 
-        // write_error("read from afl-fuzz");
+        write_error("read from AFL++ tool");
         _exit(1);
 
       }

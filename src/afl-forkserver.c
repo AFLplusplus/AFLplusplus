@@ -1030,6 +1030,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
      *  send any data anymore - except a future option requires this.
      */
 
+    if ((status & FS_NEW_ERROR) == FS_NEW_ERROR) {
+
+      report_error_and_exit(status & 0x0000ffff);
+
+    }
+
     if (status >= 0x41464c00 && status <= 0x41464cff) {
 
       u32 version = status - 0x41464c00;
@@ -1047,6 +1053,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      u32 keep = status;
       status ^= 0xffffffff;
       if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
@@ -1064,7 +1071,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if (getenv("AFL_DEBUG")) {
 
-        ACTF("Forkserver options received: (%08x)", status);
+        ACTF("Forkserver options received: (0x%08x)", status);
 
       }
 
@@ -1178,7 +1185,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       u32 status2;
       rlen = read(fsrv->fsrv_st_fd, &status2, 4);
 
-      if (status2 != status) { FATAL("Error in forkserver communication"); }
+      if (status2 != keep) {
+
+        FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);
+
+      }
 
     } else {
 
