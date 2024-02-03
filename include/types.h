@@ -49,6 +49,13 @@ typedef uint128_t         u128;
 #define FS_ERROR_OLD_CMPLOG 32
 #define FS_ERROR_OLD_CMPLOG_QEMU 64
 
+/* New Forkserver */
+#define FS_NEW_VERSION_MIN 1
+#define FS_NEW_VERSION_MAX 1
+#define FS_NEW_OPT_MAPSIZE     0x00000001  // parameter: 32 bit value
+#define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002  // paramter: none
+#define FS_NEW_OPT_AUTODICT    0x00000800  // autodictionary data
+
 /* Reporting options */
 #define FS_OPT_ENABLED 0x80000001
 #define FS_OPT_MAPSIZE 0x40000000
