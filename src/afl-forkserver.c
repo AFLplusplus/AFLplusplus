@@ -1105,6 +1105,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         fsrv->map_size = tmp_map_size;
 
+      } else {
+
+        fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+
       }
 
       if ((status & FS_NEW_OPT_SHDMEM_FUZZ)) {
@@ -1207,6 +1211,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
         report_error_and_exit(FS_OPT_GET_ERROR(status));
+
+      if (fsrv->cmplog_binary) {
+
+        FATAL("Target was recompiled with outdated CMPLOG, recompile it!\n");
+
+      }
 
       if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
