@@ -956,9 +956,11 @@ int main(int argc, char **argv_orig, char **envp) {
       break;
 
       case 'd':
-      case 'D':                                    /* old deterministic */
+      case 'D':                                        /* old deterministic */
 
-        WARNF("Parameters -d and -D are deprecated, a new enhanced deterministic fuzzing is active by default, to disable it use -z");
+        WARNF(
+            "Parameters -d and -D are deprecated, a new enhanced deterministic "
+            "fuzzing is active by default, to disable it use -z");
         break;
 
       case 'z':                                         /* no deterministic */

@@ -11,7 +11,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -2219,15 +2219,15 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
-      ol0 > 31 || ol1 > 31) {
+  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 32 || l1 > 32 ||
+      ol0 > 32 || ol1 > 32) {
 
     l0 = ol0 = hshape;
 
   }
 
   u8  lmax = MAX(l0, ol0);
-  u8  save[40];
+  u8  save[80];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
   u32 its_len = MIN(MIN(lmax, hshape), len - idx);
   its_len = MIN(its_len, taint_len);
@@ -2330,7 +2330,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
     u32 tob64 = 0, fromb64 = 0;
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
     u32 to_0 = 0, to_x = 0, to_slash = 0, to_up = 0;
-    u8  xor_val[32], arith_val[32], tmp[48];
+    u8  xor_val[64], arith_val[64], tmp[64];
 
     idx = saved_idx;
     its_len = saved_its_len;
