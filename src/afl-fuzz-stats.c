@@ -1112,7 +1112,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   } else if (likely(afl->skip_deterministic)) {
 
-    strcpy(tmp, "disabled (default, enable with -D)");
+    strcpy(tmp, "disabled (-z switch used)");
 
   } else {
 
