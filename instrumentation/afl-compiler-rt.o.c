@@ -186,7 +186,7 @@ __thread u32        __afl_prev_ctx;
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 
-static u8 __afl_cmplog_max_len = 16;
+static u8 __afl_cmplog_max_len = 32;  // 16-32
 
 /* Child pid? */
 
@@ -735,6 +735,13 @@ static void __afl_map_shm(void) {
   if (!__afl_cmp_map && getenv("AFL_CMPLOG_DEBUG")) {
 
     __afl_cmp_map_backup = __afl_cmp_map = malloc(sizeof(struct cmp_map));
+
+  }
+
+  if (getenv("AFL_CMPLOG_MAX_LEN")) {
+
+    int tmp = atoi(getenv("AFL_CMPLOG_MAX_LEN"));
+    if (tmp >= 16 && tmp <= 32) { __afl_cmplog_max_len = tmp; }
 
   }
 
