@@ -125,7 +125,7 @@
 #endif                                                    /* ^!SIMPLE_FILES */
 
 #ifdef AFL_PERSISTENT_RECORD
-  #define RECORD_PREFIX "RECORD:" 
+  #define RECORD_PREFIX "RECORD:"
 #endif
 
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */

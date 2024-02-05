@@ -83,10 +83,14 @@
    will be kept and written to the crash/ directory as RECORD:... files.
    Note that every crash will be written, not only unique ones! */
 
-//  #define AFL_PERSISTENT_RECORD
+#define AFL_PERSISTENT_RECORD
 
-/* Builds compiler-rt with support to replay persistent records */
-//  #define AFL_PERSISTENT_REPLAY
+/* Adds support in compiler-rt to replay persistent records */
+#define AFL_PERSISTENT_REPLAY
+
+/* Adds support in compiler-rt to replay persistent records in @@-style
+ * harnesses */
+//  #define AFL_PERSISTENT_REPLAY_ARGPARSE
 
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined

@@ -84,7 +84,7 @@
 #include <fcntl.h>
 
 #ifdef AFL_PERSISTENT_REPLAY
-#include "persistent_replay.h"
+  #include "persistent_replay.h"
 #endif
 
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
@@ -1344,37 +1344,49 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
 #ifdef AFL_PERSISTENT_REPLAY
 
-#ifndef PATH_MAX
-  #define PATH_MAX 4096
-#endif
+  #ifndef PATH_MAX
+    #define PATH_MAX 4096
+  #endif
 
-  static u8  inited = 0;
-  char tcase[PATH_MAX];
+  static u8 inited = 0;
+  char      tcase[PATH_MAX];
 
-  if( unlikely(is_replay_record) ){
+  if (unlikely(is_replay_record)) {
 
-      if (!inited){
-        cycle_cnt = replay_record_cnt;
-        inited = 1;
-      }
+    if (!inited) {
 
-      snprintf(tcase, PATH_MAX, "%s/%s",
-                  replay_record_dir ? replay_record_dir : "./",
-                  record_list[replay_record_cnt-cycle_cnt]->d_name);
+      cycle_cnt = replay_record_cnt;
+      inited = 1;
 
-      if (record_arg) {
-        *record_arg = tcase;
-      } else {
-        int fd = open(tcase, O_RDONLY);
-        dup2(fd, 0);
-        close(fd);
-      }
+    }
+
+    snprintf(tcase, PATH_MAX, "%s/%s",
+             replay_record_dir ? replay_record_dir : "./",
+             record_list[replay_record_cnt - cycle_cnt]->d_name);
+
+  #ifdef AFL_PERSISTENT_REPLAY_ARGPARSE
+    if (record_arg) {
+
+      *record_arg = tcase;
+
+    } else
+
+  #endif  // AFL_PERSISTENT_REPLAY_ARGPARSE
+    {
+
+      int fd = open(tcase, O_RDONLY);
+      dup2(fd, 0);
+      close(fd);
+
+    }
+
     return cycle_cnt--;
+
   } else
 
-#endif  
+#endif
 
-  if (first_pass) {
+      if (first_pass) {
 
     /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
        On subsequent calls, the parent will take care of that, but on the first
