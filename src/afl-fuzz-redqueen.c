@@ -87,6 +87,11 @@ static u32 hshape;
 static u64 screen_update;
 static u64 last_update;
 
+// hashmap functions
+void hashmap_reset();
+bool hashmap_search_and_add(uint8_t type, uint64_t key);
+bool hashmap_search_and_add_ptr(uint8_t type, u8 *key);
+
 static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
   struct range *r = ck_alloc_nozero(sizeof(struct range));
@@ -795,7 +800,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u64 *o_buf_64 = (u64 *)&orig_buf[idx];
   u32 *o_buf_32 = (u32 *)&orig_buf[idx];
   u16 *o_buf_16 = (u16 *)&orig_buf[idx];
-  u8  *o_buf_8 = &orig_buf[idx];
+  // u8  *o_buf_8 = &orig_buf[idx];
 
   u32 its_len = MIN(len - idx, taint_len);
 
@@ -836,6 +841,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   // necessary for preventing heap access overflow
   bytes = MIN(bytes, len - idx);
+  if (unlikely(bytes <= 1)) { return 0; }
 
   //  reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
@@ -1266,6 +1272,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
+    /*
     if (*status != 1) {  // u8
 
       // if (its_len >= 1)
@@ -1289,6 +1296,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       }
 
     }
+
+    */
 
   }
 
@@ -1881,6 +1890,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   hshape = SHAPE_BYTES(h->shape);
 
+  if (hshape < 2) { return 0; }
+
   if (h->hits > CMP_MAP_H) {
 
     loggeds = CMP_MAP_H;
@@ -1905,8 +1916,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   }
 
 #endif
-
-  if (hshape < 2) { return 0; }
 
   for (i = 0; i < loggeds; ++i) {
 
@@ -1942,6 +1951,16 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
         goto cmp_fuzz_next_iter;
 
       }
+
+    }
+
+    // TODO: add attribute? not sure
+    if (hshape <= 8 && !hashmap_search_and_add(hshape - 1, o->v0) &&
+        !hashmap_search_and_add(hshape - 1, orig_o->v0) &&
+        !hashmap_search_and_add(hshape - 1, o->v1) &&
+        !hashmap_search_and_add(hshape - 1, orig_o->v1)) {
+
+      continue;
 
     }
 
@@ -2615,12 +2634,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
           }
 
-          memcpy(buf + idx, tmp, hlen + 1 + off);
+          u32 tmp_l = hlen + 1 + off;
+          memcpy(buf + idx, tmp, tmp_l);
           if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-          tmp[hlen + 1 + off] = 0;
+          tmp[tmp_l] = 0;
           // fprintf(stderr, "RTN ATTEMPT idx=%u len=%u fromhex %u %s %s result
           // %u\n", idx, len, fromhex, tmp, repl, *status);
-          memcpy(buf + idx, save, hlen + 1 + off);
+          memcpy(buf + idx, save, tmp_l);
 
         }
 
@@ -2754,6 +2774,15 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       fprintf(stderr, "%02x", orig_o->v1[j]);
     fprintf(stderr, "\n");
 #endif
+
+    if (hshape <= 8 && !hashmap_search_and_add_ptr(hshape - 1, o->v0) &&
+        !hashmap_search_and_add_ptr(hshape - 1, orig_o->v0) &&
+        !hashmap_search_and_add_ptr(hshape - 1, o->v1) &&
+        !hashmap_search_and_add_ptr(hshape - 1, orig_o->v1)) {
+
+      continue;
+
+    }
 
     t = taint;
     while (t->next) {
@@ -3020,6 +3049,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   // Start insertion loop
+
+  hashmap_reset();
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
