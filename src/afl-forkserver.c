@@ -1593,7 +1593,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
 #ifdef AFL_PERSISTENT_RECORD
   fsrv_run_result_t retval = FSRV_RUN_OK;
-  char *persistent_out_fmt;
+  char             *persistent_out_fmt;
 #endif
 
 #ifdef __linux__
@@ -1803,6 +1803,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u";
     goto store_persistent_record;
 #endif
+
   }
 
   /* Did we crash?
@@ -1841,7 +1842,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
 #ifdef AFL_PERSISTENT_RECORD
 store_persistent_record:
-  if (unlikely(retval == FSRV_RUN_CRASH || retval == FSRV_RUN_TMOUT)  &&
+  if (unlikely(retval == FSRV_RUN_CRASH || retval == FSRV_RUN_TMOUT) &&
       unlikely(fsrv->persistent_record)) {
 
     char fn[PATH_MAX];

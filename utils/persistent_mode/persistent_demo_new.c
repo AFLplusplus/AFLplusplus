@@ -31,8 +31,8 @@
 
 /* this lets the source compile without afl-clang-fast/lto */
 #ifndef __AFL_FUZZ_TESTCASE_LEN
-#define AFL_COMPAT
-#include "persistent_replay.h"
+  #define AFL_COMPAT
+  #include "persistent_replay.h"
 #endif
 
 __AFL_FUZZ_INIT();
@@ -86,8 +86,6 @@ int main(int argc, char **argv) {
               if (buf[5] == '!') {
 
                 printf("six\n");
-                char *nullo = NULL+1;
-                *nullo = 'p';
                 abort();
 
               }

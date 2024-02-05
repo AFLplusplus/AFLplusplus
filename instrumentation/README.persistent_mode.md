@@ -196,3 +196,31 @@ Then as first line after the `__AFL_LOOP` while loop:
 ```
 
 And that is all!
+
+## 6) Persistent record, and replay
+
+If your software under test requires keeping a state between persistent loop iterations (i.e., a stateful network stack), you can use the `AFL_PERSISTENT_RECORD` variable as described in the [environment variables documentation](../docs/env_variables.md).
+
+To easily replay a crashing, or hanging record, you can use the persistent replay functionality by compiling AFL++ after uncommenting the `AFL_PERSISTENT_REPLAY` define  in [config.h](../include/config.h).
+
+You can then run the test binary specifying the record number via the AFL_PERSISTENT_REPLAY environment variable (i.e., `RECORD:XXXXX`` -> `AFL_PERSISTENT_REPLAY=XXXXX`).
+The directory where the record files live can be specified via the `AFL_PERSISTENT_DIR` environment varilable, otherwise by default it will be considered the current directory (`./`).
+
+If your harness reads the input files from arguments using the special `@@` argument you will need to define `AFL_PERSISTENT_ARGPARSE` in  `config.h`, or before including the `persistent_replay.h` header file as show before.
+In order to offer transparent support to harnesses using the `@@` command line argument, arguments are parsed by the `__afl_record_replay_init` init function. Since not all systems support passing arguments to initializers, this functionality is disabled by default, it's recommendable to use the `__AFL_FUZZ_TESTCASE_BUF/__AFL_FUZZ_TESTCASE_LEN` shared memory mechanism instead.
+
+### 7) Drop in replay functionality
+
+To use the replay functionality without having to use `afl-cc` you can just define `AFL_COMPAT` and include the [include/persistent_replay.h](../include/persistent_replay.h) self contained header file that provides a drop-in replacement for the persistent loop mechanism.
+
+```c
+#ifndef __AFL_FUZZ_TESTCASE_LEN
+  #define AFL_COMPAT
+  // #define AFL_PERSISTENT_REPLAY_ARGPARSE
+  #include "persistent_replay.h"
+#endif
+
+__AFL_FUZZ_INIT();
+```
+
+A simple example is provided in [persistent_demo_new.c](../utils/persistent_mode/persistent_demo_new.c).
