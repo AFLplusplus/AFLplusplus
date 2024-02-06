@@ -105,5 +105,8 @@ utils/persistent_mode/persistent_demo
 utils/persistent_mode/persistent_demo_new
 utils/persistent_mode/persistent_demo_new_compat
 utils/persistent_mode/test-instr
+utils/replay_record/persistent_demo_replay
+utils/replay_record/persistent_demo_replay_compat
+utils/replay_record/persistent_demo_replay_argparse
 utils/plot_ui/afl-plot-ui
 vuln_prog
