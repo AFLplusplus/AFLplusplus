@@ -83,8 +83,8 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#ifdef AFL_PERSISTENT_REPLAY
-  #include "persistent_replay.h"
+#ifdef AFL_PERSISTENT_RECORD
+  #include "afl-persistent-replay.h"
 #endif
 
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
@@ -1342,51 +1342,11 @@ int __afl_persistent_loop(unsigned int max_cnt) {
   static u8  first_pass = 1;
   static u32 cycle_cnt;
 
-#ifdef AFL_PERSISTENT_REPLAY
-
-  #ifndef PATH_MAX
-    #define PATH_MAX 4096
-  #endif
-
-  static u8 inited = 0;
-  char      tcase[PATH_MAX];
-
-  if (unlikely(is_replay_record)) {
-
-    if (!inited) {
-
-      cycle_cnt = replay_record_cnt;
-      inited = 1;
-
-    }
-
-    snprintf(tcase, PATH_MAX, "%s/%s",
-             replay_record_dir ? replay_record_dir : "./",
-             record_list[replay_record_cnt - cycle_cnt]->d_name);
-
-  #ifdef AFL_PERSISTENT_REPLAY_ARGPARSE
-    if (record_arg) {
-
-      *record_arg = tcase;
-
-    } else
-
-  #endif  // AFL_PERSISTENT_REPLAY_ARGPARSE
-    {
-
-      int fd = open(tcase, O_RDONLY);
-      dup2(fd, 0);
-      close(fd);
-
-    }
-
-    return cycle_cnt--;
-
-  } else
-
+#ifdef AFL_PERSISTENT_RECORD
+  char tcase[PATH_MAX];
 #endif
 
-      if (first_pass) {
+  if (first_pass) {
 
     /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
        On subsequent calls, the parent will take care of that, but on the first
@@ -1397,13 +1357,58 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     __afl_area_ptr[0] = 1;
     memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
-    cycle_cnt = max_cnt;
     first_pass = 0;
     __afl_selective_coverage_temp = 1;
+
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(is_replay_record)) {
+
+      cycle_cnt = replay_record_cnt;
+      goto persistent_record;
+
+    } else
+
+#endif
+    {
+
+      cycle_cnt = max_cnt;
+
+    }
 
     return 1;
 
   } else if (--cycle_cnt) {
+
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(is_replay_record)) {
+
+    persistent_record:
+
+      snprintf(tcase, PATH_MAX, "%s/%s",
+               replay_record_dir ? replay_record_dir : "./",
+               record_list[replay_record_cnt - cycle_cnt]->d_name);
+
+  #ifdef AFL_PERSISTENT_REPLAY_ARGPARSE
+      if (unlikely(record_arg)) {
+
+        *record_arg = tcase;
+
+      } else
+
+  #endif  // AFL_PERSISTENT_REPLAY_ARGPARSE
+      {
+
+        int fd = open(tcase, O_RDONLY);
+        dup2(fd, 0);
+        close(fd);
+
+      }
+
+      return 1;
+
+    }
+
+#endif
 
     raise(SIGSTOP);
 
