@@ -1955,10 +1955,10 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     }
 
     // TODO: add attribute? not sure
-    if (hshape <= 8 && !hashmap_search_and_add(hshape - 1, o->v0) &&
-        !hashmap_search_and_add(hshape - 1, orig_o->v0) &&
-        !hashmap_search_and_add(hshape - 1, o->v1) &&
-        !hashmap_search_and_add(hshape - 1, orig_o->v1)) {
+    if (hshape <= 8 && hashmap_search_and_add(hshape - 1, o->v0) &&
+        hashmap_search_and_add(hshape - 1, orig_o->v0) &&
+        hashmap_search_and_add(hshape - 1, o->v1) &&
+        hashmap_search_and_add(hshape - 1, orig_o->v1)) {
 
       continue;
 
@@ -2775,10 +2775,10 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     fprintf(stderr, "\n");
 #endif
 
-    if (hshape <= 8 && !hashmap_search_and_add_ptr(hshape - 1, o->v0) &&
-        !hashmap_search_and_add_ptr(hshape - 1, orig_o->v0) &&
-        !hashmap_search_and_add_ptr(hshape - 1, o->v1) &&
-        !hashmap_search_and_add_ptr(hshape - 1, orig_o->v1)) {
+    if (hshape <= 8 && hashmap_search_and_add_ptr(hshape - 1, o->v0) &&
+        hashmap_search_and_add_ptr(hshape - 1, orig_o->v0) &&
+        hashmap_search_and_add_ptr(hshape - 1, o->v1) &&
+        hashmap_search_and_add_ptr(hshape - 1, orig_o->v1)) {
 
       continue;
 
