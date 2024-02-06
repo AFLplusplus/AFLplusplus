@@ -1689,7 +1689,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-#ifdef AFL_eERSISTENT_RECORD
+#ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
   if (unlikely(fsrv->persistent_record &&
                fsrv->persistent_record_pid != fsrv->child_pid)) {
