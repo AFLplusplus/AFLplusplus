@@ -231,7 +231,7 @@ static void random_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
     do {
 
-      c= feistel(afl, ((rand_below(afl, 256)) & 0xff));
+      c= feistel(buf[i], ((rand_below(afl, 256)) & 0xff));
 
     } while (c == buf[i]);
 
