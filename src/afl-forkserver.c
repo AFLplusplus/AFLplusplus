@@ -1796,13 +1796,18 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
     fsrv->last_kill_signal = fsrv->child_kill_signal;
 
-#ifndef AFL_PERSISTENT_RECORD
-    return FSRV_RUN_TMOUT;
-#else
-    retval = FSRV_RUN_TMOUT;
-    persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u";
-    goto store_persistent_record;
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(fsrv->persistent_record)) {
+
+      retval = FSRV_RUN_TMOUT;
+      persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u";
+      goto store_persistent_record;
+
+    }
+
 #endif
+
+    return FSRV_RUN_TMOUT;
 
   }
 
@@ -1827,13 +1832,18 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
 
-#ifndef AFL_PERSISTENT_RECORD
-    return FSRV_RUN_CRASH;
-#else
-    retval = FSRV_RUN_CRASH;
-    persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u";
-    goto store_persistent_record;
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(fsrv->persistent_record)) {
+
+      retval = FSRV_RUN_CRASH;
+      persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u";
+      goto store_persistent_record;
+
+    }
+
 #endif
+
+    return FSRV_RUN_CRASH;
 
   }
 
@@ -1841,39 +1851,37 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   return FSRV_RUN_OK;
 
 #ifdef AFL_PERSISTENT_RECORD
-store_persistent_record:
-  if (unlikely(retval == FSRV_RUN_CRASH || retval == FSRV_RUN_TMOUT) &&
-      unlikely(fsrv->persistent_record)) {
+store_persistent_record: {
 
-    char fn[PATH_MAX];
-    u32  i, writecnt = 0;
-    for (i = 0; i < fsrv->persistent_record; ++i) {
+  char fn[PATH_MAX];
+  u32  i, writecnt = 0;
+  for (i = 0; i < fsrv->persistent_record; ++i) {
 
-      u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
-      u8 *data = fsrv->persistent_record_data[entry];
-      u32 len = fsrv->persistent_record_len[entry];
-      if (likely(len && data)) {
+    u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
+    u8 *data = fsrv->persistent_record_data[entry];
+    u32 len = fsrv->persistent_record_len[entry];
+    if (likely(len && data)) {
 
-        snprintf(fn, sizeof(fn), persistent_out_fmt,
-                 fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
-                 writecnt++);
-        int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-        if (fd >= 0) {
+      snprintf(fn, sizeof(fn), persistent_out_fmt, fsrv->persistent_record_dir,
+               fsrv->persistent_record_cnt, writecnt++);
+      int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+      if (fd >= 0) {
 
-          ck_write(fd, data, len, fn);
-          close(fd);
-
-        }
+        ck_write(fd, data, len, fn);
+        close(fd);
 
       }
 
     }
 
-    ++fsrv->persistent_record_cnt;
-
   }
 
+  ++fsrv->persistent_record_cnt;
+
   return retval;
+
+}
+
 #endif
 
 }
