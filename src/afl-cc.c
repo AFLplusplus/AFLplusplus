@@ -1148,12 +1148,16 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
   }
 
-  if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM)
+  if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM &&
+      !((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+        aflcc->compiler_mode == LTO))
     FATAL("CTX, CALLER and NGRAM can only be used in LLVM mode");
 
   if (aflcc->instrument_opt_mode &&
       aflcc->instrument_opt_mode != INSTRUMENT_OPT_CODECOV &&
-      aflcc->instrument_mode != INSTRUMENT_CLASSIC)
+      aflcc->instrument_mode != INSTRUMENT_CLASSIC &&
+      !(aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER &&
+        aflcc->compiler_mode == LTO))
     FATAL(
         "CALLER, CTX and NGRAM instrumentation options can only be used with "
         "the LLVM CLASSIC instrumentation mode.");
@@ -2917,11 +2921,12 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
             "  AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
             "functions\n"
             "    into this file (LTO mode)\n"
+            "  AFL_LLVM_LTO_CALLER: activate CALLER/CTX instrumentation\n"
+            "  AFL_LLVM_LTO_CALLER_DEPTH: skip how many empty functions\n"
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
-            "a "
-            "bb\n"
+            "a bb\n"
             "  AFL_REAL_LD: use this lld linker instead of the compiled in "
             "path\n"
             "  AFL_LLVM_LTO_SKIPINIT: don't inject initialization code "

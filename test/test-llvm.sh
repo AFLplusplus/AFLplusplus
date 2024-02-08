@@ -62,7 +62,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       $ECHO "$RED[!] llvm_mode threadsafe instrumentation failed"
       CODE=1
     }
-    rm -f test-instr.ts.0 test-instr.ts.1
+    rm -f test-instr.ts.0 test-instr.ts.1 test-instr.ts
   } || {
     $ECHO "$RED[!] llvm_mode (threadsafe) failed"
     CODE=1
