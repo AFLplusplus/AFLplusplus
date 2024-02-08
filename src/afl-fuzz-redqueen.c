@@ -29,6 +29,7 @@
 #include "cmplog.h"
 
 // #define _DEBUG
+// #define USE_HASHMAP
 // #define CMPLOG_INTROSPECTION
 
 // CMP attribute enum
@@ -87,10 +88,12 @@ static u32 hshape;
 static u64 screen_update;
 static u64 last_update;
 
+#ifdef USE_HASHMAP
 // hashmap functions
 void hashmap_reset();
 bool hashmap_search_and_add(uint8_t type, uint64_t key);
 bool hashmap_search_and_add_ptr(uint8_t type, u8 *key);
+#endif
 
 static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
@@ -1954,6 +1957,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
+#ifdef USE_HASHMAP
     // TODO: add attribute? not sure
     if (hshape <= 8 && hashmap_search_and_add(hshape - 1, o->v0) &&
         hashmap_search_and_add(hshape - 1, orig_o->v0) &&
@@ -1963,6 +1967,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       continue;
 
     }
+#endif
 
 #ifdef _DEBUG
     fprintf(stderr, "Handling: %llx->%llx vs %llx->%llx attr=%u shape=%u\n",
@@ -2775,6 +2780,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     fprintf(stderr, "\n");
 #endif
 
+#ifdef USE_HASHMAP
     if (hshape <= 8 && hashmap_search_and_add_ptr(hshape - 1, o->v0) &&
         hashmap_search_and_add_ptr(hshape - 1, orig_o->v0) &&
         hashmap_search_and_add_ptr(hshape - 1, o->v1) &&
@@ -2783,6 +2789,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       continue;
 
     }
+#endif
 
     t = taint;
     while (t->next) {
@@ -3050,7 +3057,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   // Start insertion loop
 
+#ifdef USE_HASHMAP
   hashmap_reset();
+#endif
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
