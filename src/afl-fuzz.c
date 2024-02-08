@@ -1236,6 +1236,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        afl->old_seed_selection = 1;
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
         if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
