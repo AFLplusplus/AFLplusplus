@@ -3,6 +3,16 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.20a (dev)
+  - afl-fuzz:
+    - the new deterministic fuzzing feature is now activated by default,
+      deactivate with -z. Parameters -d and -D are ignored.
+  - afl-cc:
+    - added collision free caller instrumentation to LTO mode. activate with
+      `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
+      block functions with `AFL_LLVM_LTO_CALLER_DEPTH` (default 0)
+
+
 ### Version ++4.10c (release)
   - afl-fuzz:
     - default power schedule is now EXPLORE, due a fix in fast schedules

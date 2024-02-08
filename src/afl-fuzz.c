@@ -170,7 +170,6 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -D            - enable (a new) effective deterministic fuzzing\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new finds). 0 = "
@@ -213,7 +212,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
-      // "  -d            - skip deterministic fuzzing in -M mode\n"
+      "  -z            - skip the enhanced deterministic fuzzing\n"
+      "                  (note that the old -d and -D flags are ignored.)\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -543,7 +543,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
                        "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
-                       "T:UV:WXx:YZ")) > 0) {
+                       "T:UV:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -959,20 +959,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'D':                                    /* partial deterministic */
+      case 'd':
+      case 'D':                                        /* old deterministic */
 
-        afl->skip_deterministic = 0;
+        WARNF(
+            "Parameters -d and -D are deprecated, a new enhanced deterministic "
+            "fuzzing is active by default, to disable it use -z");
         break;
 
-      case 'd':                                         /* no deterministic */
+      case 'z':                                         /* no deterministic */
 
-        // this is the default and currently a lot of infrastructure enforces
-        // it (e.g. clusterfuzz, fuzzbench) based on that this feature
-        // originally was bad performance wise. We now have a better
-        // implementation, hence if it is activated, we do not want to
-        // deactivate it by such setups.
-
-        // afl->skip_deterministic = 1;
+        afl->skip_deterministic = 1;
         break;
 
       case 'B':                                              /* load bitmap */
