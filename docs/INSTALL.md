@@ -69,14 +69,15 @@ These build targets exist:
 
 [Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html),
 you can also build statically linked versions of the AFL++ binaries by passing
-the `STATIC=1` argument to make:
+the `PERFORMANCE=1` argument to make:
 
 ```shell
-make STATIC=1
+make PERFORMANCE=1
 ```
 
 These build options exist:
 
+* PERFORMANCE - compile with performance options that make the binary not transferable to other systems. Recommended!
 * STATIC - compile AFL++ static
 * CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)
 * ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes

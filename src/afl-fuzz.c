@@ -401,6 +401,10 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS.\n");
 #endif
 
+#ifdef _AFL_SPECIAL_PERFORMANCE
+  SAYF("Compiled with special performance options for this specific system, it might not work on other platforms!\n");
+#endif
+
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);

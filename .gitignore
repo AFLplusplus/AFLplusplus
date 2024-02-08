@@ -99,6 +99,7 @@ unicorn_mode/samples/*/\.test-*
 utils/afl_network_proxy/afl-network-client
 utils/afl_network_proxy/afl-network-server
 utils/afl_proxy/afl-proxy
+utils/bench/hash
 utils/optimin/build
 utils/optimin/optimin
 utils/persistent_mode/persistent_demo
