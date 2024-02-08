@@ -2182,7 +2182,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
+    afl->fsrv.persistent_record_dir = alloc_printf("%s", afl->out_dir);
 
   }
 

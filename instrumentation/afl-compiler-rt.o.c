@@ -87,6 +87,10 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <sys/mman.h>
 #include <fcntl.h>
 
+#ifdef AFL_PERSISTENT_RECORD
+  #include "afl-persistent-replay.h"
+#endif
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
@@ -1354,6 +1358,10 @@ int __afl_persistent_loop(unsigned int max_cnt) {
   static u8  first_pass = 1;
   static u32 cycle_cnt;
 
+#ifdef AFL_PERSISTENT_RECORD
+  char tcase[PATH_MAX];
+#endif
+
   if (first_pass) {
 
     /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
@@ -1365,13 +1373,58 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     __afl_area_ptr[0] = 1;
     memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
-    cycle_cnt = max_cnt;
     first_pass = 0;
     __afl_selective_coverage_temp = 1;
+
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(is_replay_record)) {
+
+      cycle_cnt = replay_record_cnt;
+      goto persistent_record;
+
+    } else
+
+#endif
+    {
+
+      cycle_cnt = max_cnt;
+
+    }
 
     return 1;
 
   } else if (--cycle_cnt) {
+
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(is_replay_record)) {
+
+    persistent_record:
+
+      snprintf(tcase, PATH_MAX, "%s/%s",
+               replay_record_dir ? replay_record_dir : "./",
+               record_list[replay_record_cnt - cycle_cnt]->d_name);
+
+  #ifdef AFL_PERSISTENT_REPLAY_ARGPARSE
+      if (unlikely(record_arg)) {
+
+        *record_arg = tcase;
+
+      } else
+
+  #endif  // AFL_PERSISTENT_REPLAY_ARGPARSE
+      {
+
+        int fd = open(tcase, O_RDONLY);
+        dup2(fd, 0);
+        close(fd);
+
+      }
+
+      return 1;
+
+    }
+
+#endif
 
     raise(SIGSTOP);
 
