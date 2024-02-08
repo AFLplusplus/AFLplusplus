@@ -456,9 +456,17 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
+    char buf[64] = {};
+    if (instrument_ctx) {
+
+      snprintf(buf, sizeof(buf), " (CTX mode, depth %u)\n",
+               instrument_ctx_max_depth);
+
+    }
+
     SAYF(cCYA "afl-llvm-lto" VERSION cRST
               "%s by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n",
-         instrument_ctx ? " (CTX mode)" : "");
+         buf);
 
   } else {
 
