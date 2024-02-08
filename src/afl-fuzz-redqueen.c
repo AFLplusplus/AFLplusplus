@@ -107,11 +107,12 @@ static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
 }
 
-static struct range *pop_biggest_range(struct range **ranges) {
+static struct range *pop_biggest_range(struct range **ranges, int *num_ranges) {
 
   struct range *r = *ranges;
   struct range *rmax = NULL;
   u32           max_size = 0;
+  u32           count = 0;
 
   while (r) {
 
@@ -129,9 +130,11 @@ static struct range *pop_biggest_range(struct range **ranges) {
     }
 
     r = r->next;
+    ++count;
 
   }
 
+  *num_ranges = count;
   return rmax;
 
 }
@@ -332,7 +335,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   }
 
-  while ((rng = pop_biggest_range(&ranges)) != NULL &&
+  u32 range_count = 0;
+  while ((rng = pop_biggest_range(&ranges, &range_count)) != NULL &&
          afl->stage_cur < afl->stage_max) {
 
     u32 s = 1 + rng->end - rng->start;
@@ -362,6 +366,23 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
         ranges = add_range(ranges, rng->start, rng->start - 1 + s / 2);
         ranges = add_range(ranges, rng->start + s / 2, rng->end);
+
+        /* Check the number of *remaining* execs for colorization; since
+          each represents a previously split range, and may be split
+          again, we break when emptying the queue would consume *half*
+          the timeout */
+        if (range_count * afl->queue_cur->exec_us >
+            CMPLOG_COLORIZATION_TIME_MAX / 2 * 1000000) {
+
+          if (afl->afl_env.afl_no_ui) {
+
+            WARNF("Colorization taking too long, skipping.");
+
+          }
+
+          goto checksum_fail;
+
+        }
 
       }
 
@@ -1840,7 +1861,7 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
   for (k = 0; k < size; ++k) {
 
   #else
-  u32 off = 16 - size;
+  u32    off = 16 - size;
   for (k = 16 - size; k < 16; ++k) {
 
   #endif
