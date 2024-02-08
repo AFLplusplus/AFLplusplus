@@ -43,8 +43,8 @@
 
 #pragma once
 #if defined(_MSC_VER) && _MSC_VER > 1800
-#pragma warning(disable : 4464) /* relative include path contains '..' */
-#endif                          /* MSVC */
+  #pragma warning(disable : 4464)    /* relative include path contains '..' */
+#endif                                                              /* MSVC */
 #include "t1ha.h"
 
 /***************************************************************************/
@@ -59,18 +59,19 @@ extern const uint64_t t1ha_refval_2atonce[81];
 extern const uint64_t t1ha_refval_2atonce128[81];
 extern const uint64_t t1ha_refval_2stream[81];
 extern const uint64_t t1ha_refval_2stream128[81];
-#endif /* T1HA2_DISABLED */
+#endif                                                    /* T1HA2_DISABLED */
 
 #ifndef T1HA1_DISABLED
 extern const uint64_t t1ha_refval_64le[81];
 extern const uint64_t t1ha_refval_64be[81];
-#endif /* T1HA1_DISABLED */
+#endif                                                    /* T1HA1_DISABLED */
 
 #ifndef T1HA0_DISABLED
 extern const uint64_t t1ha_refval_32le[81];
 extern const uint64_t t1ha_refval_32be[81];
-#if T1HA0_AESNI_AVAILABLE
+  #if T1HA0_AESNI_AVAILABLE
 extern const uint64_t t1ha_refval_ia32aes_a[81];
 extern const uint64_t t1ha_refval_ia32aes_b[81];
-#endif /* T1HA0_AESNI_AVAILABLE */
-#endif /* T1HA0_DISABLED */
+  #endif                                           /* T1HA0_AESNI_AVAILABLE */
+#endif                                                    /* T1HA0_DISABLED */
+

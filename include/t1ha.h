@@ -172,56 +172,56 @@
 #define T1HA_VERSION_RELEASE 1
 
 #ifndef __has_attribute
-#define __has_attribute(x) (0)
+  #define __has_attribute(x) (0)
 #endif
 
 #ifndef __has_include
-#define __has_include(x) (0)
+  #define __has_include(x) (0)
 #endif
 
 #ifndef __GNUC_PREREQ
-#if defined(__GNUC__) && defined(__GNUC_MINOR__)
-#define __GNUC_PREREQ(maj, min)                                                \
-  ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
-#else
-#define __GNUC_PREREQ(maj, min) 0
-#endif
-#endif /* __GNUC_PREREQ */
+  #if defined(__GNUC__) && defined(__GNUC_MINOR__)
+    #define __GNUC_PREREQ(maj, min) \
+      ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
+  #else
+    #define __GNUC_PREREQ(maj, min) 0
+  #endif
+#endif                                                     /* __GNUC_PREREQ */
 
 #ifndef __CLANG_PREREQ
-#ifdef __clang__
-#define __CLANG_PREREQ(maj, min)                                               \
-  ((__clang_major__ << 16) + __clang_minor__ >= ((maj) << 16) + (min))
-#else
-#define __CLANG_PREREQ(maj, min) (0)
-#endif
-#endif /* __CLANG_PREREQ */
+  #ifdef __clang__
+    #define __CLANG_PREREQ(maj, min) \
+      ((__clang_major__ << 16) + __clang_minor__ >= ((maj) << 16) + (min))
+  #else
+    #define __CLANG_PREREQ(maj, min) (0)
+  #endif
+#endif                                                    /* __CLANG_PREREQ */
 
 #ifndef __LCC_PREREQ
-#ifdef __LCC__
-#define __LCC_PREREQ(maj, min)                                                 \
-  ((__LCC__ << 16) + __LCC_MINOR__ >= ((maj) << 16) + (min))
-#else
-#define __LCC_PREREQ(maj, min) (0)
-#endif
-#endif /* __LCC_PREREQ */
+  #ifdef __LCC__
+    #define __LCC_PREREQ(maj, min) \
+      ((__LCC__ << 16) + __LCC_MINOR__ >= ((maj) << 16) + (min))
+  #else
+    #define __LCC_PREREQ(maj, min) (0)
+  #endif
+#endif                                                      /* __LCC_PREREQ */
 
 /*****************************************************************************/
 
 #ifdef _MSC_VER
-/* Avoid '16' bytes padding added after data member 't1ha_context::total'
- * and other warnings from std-headers if warning-level > 3. */
-#pragma warning(push, 3)
+  /* Avoid '16' bytes padding added after data member 't1ha_context::total'
+   * and other warnings from std-headers if warning-level > 3. */
+  #pragma warning(push, 3)
 #endif
 
 #if defined(__cplusplus) && __cplusplus >= 201103L
-#include <climits>
-#include <cstddef>
-#include <cstdint>
+  #include <climits>
+  #include <cstddef>
+  #include <cstdint>
 #else
-#include <limits.h>
-#include <stddef.h>
-#include <stdint.h>
+  #include <limits.h>
+  #include <stddef.h>
+  #include <stdint.h>
 #endif
 
 /*****************************************************************************/
@@ -234,18 +234,18 @@
     defined(__INTEL__) || defined(__x86_64) || defined(__x86_64__) ||          \
     defined(__amd64__) || defined(__amd64) || defined(_M_X64) ||               \
     defined(_M_AMD64) || defined(__IA32__) || defined(__INTEL__)
-#ifndef __ia32__
-/* LY: define neutral __ia32__ for x86 and x86-64 archs */
-#define __ia32__ 1
-#endif /* __ia32__ */
-#if !defined(__amd64__) && (defined(__x86_64) || defined(__x86_64__) ||        \
-                            defined(__amd64) || defined(_M_X64))
-/* LY: define trusty __amd64__ for all AMD64/x86-64 arch */
-#define __amd64__ 1
-#endif /* __amd64__ */
-#endif /* all x86 */
+  #ifndef __ia32__
+    /* LY: define neutral __ia32__ for x86 and x86-64 archs */
+    #define __ia32__ 1
+  #endif                                                        /* __ia32__ */
+  #if !defined(__amd64__) && (defined(__x86_64) || defined(__x86_64__) || \
+                              defined(__amd64) || defined(_M_X64))
+    /* LY: define trusty __amd64__ for all AMD64/x86-64 arch */
+    #define __amd64__ 1
+  #endif                                                       /* __amd64__ */
+#endif                                                           /* all x86 */
 
-#if !defined(__BYTE_ORDER__) || !defined(__ORDER_LITTLE_ENDIAN__) ||           \
+#if !defined(__BYTE_ORDER__) || !defined(__ORDER_LITTLE_ENDIAN__) || \
     !defined(__ORDER_BIG_ENDIAN__)
 
 /* *INDENT-OFF* */
@@ -267,160 +267,168 @@
     defined(__NETBSD__) || defined(__NetBSD__) ||                              \
     defined(HAVE_SYS_PARAM_H) || __has_include(<sys/param.h>)
 #include <sys/param.h>
-#endif /* OS */
+#endif                                                                /* OS */
 
 /* *INDENT-ON* */
 /* clang-format on */
 
-#if defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && defined(__BIG_ENDIAN)
-#define __ORDER_LITTLE_ENDIAN__ __LITTLE_ENDIAN
-#define __ORDER_BIG_ENDIAN__ __BIG_ENDIAN
-#define __BYTE_ORDER__ __BYTE_ORDER
-#elif defined(_BYTE_ORDER) && defined(_LITTLE_ENDIAN) && defined(_BIG_ENDIAN)
-#define __ORDER_LITTLE_ENDIAN__ _LITTLE_ENDIAN
-#define __ORDER_BIG_ENDIAN__ _BIG_ENDIAN
-#define __BYTE_ORDER__ _BYTE_ORDER
-#else
-#define __ORDER_LITTLE_ENDIAN__ 1234
-#define __ORDER_BIG_ENDIAN__ 4321
+  #if defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && defined(__BIG_ENDIAN)
+    #define __ORDER_LITTLE_ENDIAN__ __LITTLE_ENDIAN
+    #define __ORDER_BIG_ENDIAN__ __BIG_ENDIAN
+    #define __BYTE_ORDER__ __BYTE_ORDER
+  #elif defined(_BYTE_ORDER) && defined(_LITTLE_ENDIAN) && defined(_BIG_ENDIAN)
+    #define __ORDER_LITTLE_ENDIAN__ _LITTLE_ENDIAN
+    #define __ORDER_BIG_ENDIAN__ _BIG_ENDIAN
+    #define __BYTE_ORDER__ _BYTE_ORDER
+  #else
+    #define __ORDER_LITTLE_ENDIAN__ 1234
+    #define __ORDER_BIG_ENDIAN__ 4321
 
-#if defined(__LITTLE_ENDIAN__) ||                                              \
-    (defined(_LITTLE_ENDIAN) && !defined(_BIG_ENDIAN)) ||                      \
-    defined(__ARMEL__) || defined(__THUMBEL__) || defined(__AARCH64EL__) ||    \
-    defined(__MIPSEL__) || defined(_MIPSEL) || defined(__MIPSEL) ||            \
-    defined(_M_ARM) || defined(_M_ARM64) || defined(__e2k__) ||                \
-    defined(__elbrus_4c__) || defined(__elbrus_8c__) || defined(__bfin__) ||   \
-    defined(__BFIN__) || defined(__ia64__) || defined(_IA64) ||                \
-    defined(__IA64__) || defined(__ia64) || defined(_M_IA64) ||                \
-    defined(__itanium__) || defined(__ia32__) || defined(__CYGWIN__) ||        \
-    defined(_WIN64) || defined(_WIN32) || defined(__TOS_WIN__) ||              \
-    defined(__WINDOWS__)
-#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
+    #if defined(__LITTLE_ENDIAN__) ||                                        \
+        (defined(_LITTLE_ENDIAN) && !defined(_BIG_ENDIAN)) ||                \
+        defined(__ARMEL__) || defined(__THUMBEL__) ||                        \
+        defined(__AARCH64EL__) || defined(__MIPSEL__) || defined(_MIPSEL) || \
+        defined(__MIPSEL) || defined(_M_ARM) || defined(_M_ARM64) ||         \
+        defined(__e2k__) || defined(__elbrus_4c__) ||                        \
+        defined(__elbrus_8c__) || defined(__bfin__) || defined(__BFIN__) ||  \
+        defined(__ia64__) || defined(_IA64) || defined(__IA64__) ||          \
+        defined(__ia64) || defined(_M_IA64) || defined(__itanium__) ||       \
+        defined(__ia32__) || defined(__CYGWIN__) || defined(_WIN64) ||       \
+        defined(_WIN32) || defined(__TOS_WIN__) || defined(__WINDOWS__)
+      #define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
 
-#elif defined(__BIG_ENDIAN__) ||                                               \
-    (defined(_BIG_ENDIAN) && !defined(_LITTLE_ENDIAN)) ||                      \
-    defined(__ARMEB__) || defined(__THUMBEB__) || defined(__AARCH64EB__) ||    \
-    defined(__MIPSEB__) || defined(_MIPSEB) || defined(__MIPSEB) ||            \
-    defined(__m68k__) || defined(M68000) || defined(__hppa__) ||               \
-    defined(__hppa) || defined(__HPPA__) || defined(__sparc__) ||              \
-    defined(__sparc) || defined(__370__) || defined(__THW_370__) ||            \
-    defined(__s390__) || defined(__s390x__) || defined(__SYSC_ZARCH__)
-#define __BYTE_ORDER__ __ORDER_BIG_ENDIAN__
+    #elif defined(__BIG_ENDIAN__) ||                                         \
+        (defined(_BIG_ENDIAN) && !defined(_LITTLE_ENDIAN)) ||                \
+        defined(__ARMEB__) || defined(__THUMBEB__) ||                        \
+        defined(__AARCH64EB__) || defined(__MIPSEB__) || defined(_MIPSEB) || \
+        defined(__MIPSEB) || defined(__m68k__) || defined(M68000) ||         \
+        defined(__hppa__) || defined(__hppa) || defined(__HPPA__) ||         \
+        defined(__sparc__) || defined(__sparc) || defined(__370__) ||        \
+        defined(__THW_370__) || defined(__s390__) || defined(__s390x__) ||   \
+        defined(__SYSC_ZARCH__)
+      #define __BYTE_ORDER__ __ORDER_BIG_ENDIAN__
 
-#else
-#error __BYTE_ORDER__ should be defined.
-#endif /* Arch */
+    #else
+      #error __BYTE_ORDER__ should be defined.
+    #endif                                                          /* Arch */
 
-#endif
+  #endif
 #endif /* __BYTE_ORDER__ || __ORDER_LITTLE_ENDIAN__ || __ORDER_BIG_ENDIAN__ */
 
 /*****************************************************************************/
 
 #ifndef __dll_export
-#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-#if defined(__GNUC__) || __has_attribute(dllexport)
-#define __dll_export __attribute__((dllexport))
-#else
-#define __dll_export __declspec(dllexport)
-#endif
-#elif defined(__GNUC__) || __has_attribute(__visibility__)
-#define __dll_export __attribute__((__visibility__("default")))
-#else
-#define __dll_export
-#endif
-#endif /* __dll_export */
+  #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+    #if defined(__GNUC__) || __has_attribute(dllexport)
+      #define __dll_export __attribute__((dllexport))
+    #else
+      #define __dll_export __declspec(dllexport)
+    #endif
+  #elif defined(__GNUC__) || __has_attribute(__visibility__)
+    #define __dll_export __attribute__((__visibility__("default")))
+  #else
+    #define __dll_export
+  #endif
+#endif                                                      /* __dll_export */
 
 #ifndef __dll_import
-#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-#if defined(__GNUC__) || __has_attribute(dllimport)
-#define __dll_import __attribute__((dllimport))
-#else
-#define __dll_import __declspec(dllimport)
-#endif
-#elif defined(__GNUC__) || __has_attribute(__visibility__)
-#define __dll_import __attribute__((__visibility__("default")))
-#else
-#define __dll_import
-#endif
-#endif /* __dll_import */
+  #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+    #if defined(__GNUC__) || __has_attribute(dllimport)
+      #define __dll_import __attribute__((dllimport))
+    #else
+      #define __dll_import __declspec(dllimport)
+    #endif
+  #elif defined(__GNUC__) || __has_attribute(__visibility__)
+    #define __dll_import __attribute__((__visibility__("default")))
+  #else
+    #define __dll_import
+  #endif
+#endif                                                      /* __dll_import */
 
 #ifndef __force_inline
-#ifdef _MSC_VER
-#define __force_inline __forceinline
-#elif __GNUC_PREREQ(3, 2) || __has_attribute(__always_inline__)
-#define __force_inline __inline __attribute__((__always_inline__))
-#else
-#define __force_inline __inline
-#endif
-#endif /* __force_inline */
+  #ifdef _MSC_VER
+    #define __force_inline __forceinline
+  #elif __GNUC_PREREQ(3, 2) || __has_attribute(__always_inline__)
+    #define __force_inline __inline __attribute__((__always_inline__))
+  #else
+    #define __force_inline __inline
+  #endif
+#endif                                                    /* __force_inline */
 
 #ifndef T1HA_API
-#if defined(t1ha_EXPORTS)
-#define T1HA_API __dll_export
-#elif defined(t1ha_IMPORTS)
-#define T1HA_API __dll_import
-#else
-#define T1HA_API
-#endif
-#endif /* T1HA_API */
+  #if defined(t1ha_EXPORTS)
+    #define T1HA_API __dll_export
+  #elif defined(t1ha_IMPORTS)
+    #define T1HA_API __dll_import
+  #else
+    #define T1HA_API
+  #endif
+#endif                                                          /* T1HA_API */
 
 #if defined(_MSC_VER) && defined(__ia32__)
-#define T1HA_ALIGN_PREFIX __declspec(align(32)) /* required only for SIMD */
+  #define T1HA_ALIGN_PREFIX __declspec(align(32)) /* required only for SIMD */
 #else
-#define T1HA_ALIGN_PREFIX
-#endif /* _MSC_VER */
+  #define T1HA_ALIGN_PREFIX
+#endif                                                          /* _MSC_VER */
 
 #if defined(__GNUC__) && defined(__ia32__)
-#define T1HA_ALIGN_SUFFIX                                                      \
-  __attribute__((__aligned__(32))) /* required only for SIMD */
+  #define T1HA_ALIGN_SUFFIX \
+    __attribute__((__aligned__(32)))              /* required only for SIMD */
 #else
-#define T1HA_ALIGN_SUFFIX
-#endif /* GCC x86 */
+  #define T1HA_ALIGN_SUFFIX
+#endif                                                           /* GCC x86 */
 
 #ifndef T1HA_USE_INDIRECT_FUNCTIONS
-/* GNU ELF indirect functions usage control. For more info please see
- * https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
- * and https://sourceware.org/glibc/wiki/GNU_IFUNC */
-#if defined(__ELF__) && defined(__amd64__) &&                                  \
-    (__has_attribute(__ifunc__) ||                                             \
-     (!defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 4 &&             \
-      !defined(__SANITIZE_ADDRESS__) && !defined(__SSP_ALL__)))
-/* Enable gnu_indirect_function by default if :
- *  - ELF AND x86_64
- *  - attribute(__ifunc__) is available OR
- *    GCC >= 4 WITHOUT -fsanitize=address NOR -fstack-protector-all */
-#define T1HA_USE_INDIRECT_FUNCTIONS 1
-#else
-#define T1HA_USE_INDIRECT_FUNCTIONS 0
-#endif
-#endif /* T1HA_USE_INDIRECT_FUNCTIONS */
+  /* GNU ELF indirect functions usage control. For more info please see
+   * https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
+   * and https://sourceware.org/glibc/wiki/GNU_IFUNC */
+  #if defined(__ELF__) && defined(__amd64__) &&                      \
+      (__has_attribute(__ifunc__) ||                                 \
+       (!defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 4 && \
+        !defined(__SANITIZE_ADDRESS__) && !defined(__SSP_ALL__)))
+    /* Enable gnu_indirect_function by default if :
+     *  - ELF AND x86_64
+     *  - attribute(__ifunc__) is available OR
+     *    GCC >= 4 WITHOUT -fsanitize=address NOR -fstack-protector-all */
+    #define T1HA_USE_INDIRECT_FUNCTIONS 1
+  #else
+    #define T1HA_USE_INDIRECT_FUNCTIONS 0
+  #endif
+#endif                                       /* T1HA_USE_INDIRECT_FUNCTIONS */
 
 #if __GNUC_PREREQ(4, 0)
-#pragma GCC visibility push(hidden)
-#endif /* __GNUC_PREREQ(4,0) */
+  #pragma GCC visibility push(hidden)
+#endif                                                /* __GNUC_PREREQ(4,0) */
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 typedef union T1HA_ALIGN_PREFIX t1ha_state256 {
-  uint8_t bytes[32];
+
+  uint8_t  bytes[32];
   uint32_t u32[8];
   uint64_t u64[4];
   struct {
+
     uint64_t a, b, c, d;
+
   } n;
+
 } t1ha_state256_t T1HA_ALIGN_SUFFIX;
 
 typedef struct t1ha_context {
+
   t1ha_state256_t state;
   t1ha_state256_t buffer;
-  size_t partial;
-  uint64_t total;
+  size_t          partial;
+  uint64_t        total;
+
 } t1ha_context_t;
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif
 
 /******************************************************************************
@@ -443,37 +451,37 @@ T1HA_API int t1ha_selfcheck__t1ha2_atonce(void);
 T1HA_API int t1ha_selfcheck__t1ha2_atonce128(void);
 T1HA_API int t1ha_selfcheck__t1ha2_stream(void);
 T1HA_API int t1ha_selfcheck__t1ha2(void);
-#endif /* T1HA2_DISABLED */
+#endif                                                    /* T1HA2_DISABLED */
 
 #ifndef T1HA1_DISABLED
 T1HA_API int t1ha_selfcheck__t1ha1_le(void);
 T1HA_API int t1ha_selfcheck__t1ha1_be(void);
 T1HA_API int t1ha_selfcheck__t1ha1(void);
-#endif /* T1HA1_DISABLED */
+#endif                                                    /* T1HA1_DISABLED */
 
 #ifndef T1HA0_DISABLED
 T1HA_API int t1ha_selfcheck__t1ha0_32le(void);
 T1HA_API int t1ha_selfcheck__t1ha0_32be(void);
 T1HA_API int t1ha_selfcheck__t1ha0(void);
 
-/* Define T1HA0_AESNI_AVAILABLE to 0 for disable AES-NI support. */
-#ifndef T1HA0_AESNI_AVAILABLE
-#if defined(__e2k__) ||                                                        \
-    (defined(__ia32__) && (!defined(_M_IX86) || _MSC_VER > 1800))
-#define T1HA0_AESNI_AVAILABLE 1
-#else
-#define T1HA0_AESNI_AVAILABLE 0
-#endif
-#endif /* ifndef T1HA0_AESNI_AVAILABLE */
+  /* Define T1HA0_AESNI_AVAILABLE to 0 for disable AES-NI support. */
+  #ifndef T1HA0_AESNI_AVAILABLE
+    #if defined(__e2k__) || \
+        (defined(__ia32__) && (!defined(_M_IX86) || _MSC_VER > 1800))
+      #define T1HA0_AESNI_AVAILABLE 1
+    #else
+      #define T1HA0_AESNI_AVAILABLE 0
+    #endif
+  #endif                                    /* ifndef T1HA0_AESNI_AVAILABLE */
 
-#if T1HA0_AESNI_AVAILABLE
+  #if T1HA0_AESNI_AVAILABLE
 T1HA_API int t1ha_selfcheck__t1ha0_ia32aes_noavx(void);
 T1HA_API int t1ha_selfcheck__t1ha0_ia32aes_avx(void);
-#ifndef __e2k__
+    #ifndef __e2k__
 T1HA_API int t1ha_selfcheck__t1ha0_ia32aes_avx2(void);
-#endif
-#endif /* if T1HA0_AESNI_AVAILABLE */
-#endif /* T1HA0_DISABLED */
+    #endif
+  #endif                                        /* if T1HA0_AESNI_AVAILABLE */
+#endif                                                    /* T1HA0_DISABLED */
 
 /******************************************************************************
  *
@@ -521,7 +529,7 @@ T1HA_API void t1ha2_update(t1ha_context_t *__restrict ctx,
 T1HA_API uint64_t t1ha2_final(t1ha_context_t *__restrict ctx,
                               uint64_t *__restrict extra_result /* optional */);
 
-#endif /* T1HA2_DISABLED */
+#endif                                                    /* T1HA2_DISABLED */
 
 /******************************************************************************
  *
@@ -546,7 +554,7 @@ T1HA_API uint64_t t1ha1_le(const void *data, size_t length, uint64_t seed);
 /* The big-endian variant. */
 T1HA_API uint64_t t1ha1_be(const void *data, size_t length, uint64_t seed);
 
-#endif /* T1HA1_DISABLED */
+#endif                                                    /* T1HA1_DISABLED */
 
 /******************************************************************************
  *
@@ -589,131 +597,142 @@ uint64_t t1ha0_32le(const void *data, size_t length, uint64_t seed);
 /* The big-endian variant for 32-bit CPU. */
 uint64_t t1ha0_32be(const void *data, size_t length, uint64_t seed);
 
-/* Define T1HA0_AESNI_AVAILABLE to 0 for disable AES-NI support. */
-#ifndef T1HA0_AESNI_AVAILABLE
-#if defined(__e2k__) ||                                                        \
-    (defined(__ia32__) && (!defined(_M_IX86) || _MSC_VER > 1800))
-#define T1HA0_AESNI_AVAILABLE 1
-#else
-#define T1HA0_AESNI_AVAILABLE 0
-#endif
-#endif /* T1HA0_AESNI_AVAILABLE */
+  /* Define T1HA0_AESNI_AVAILABLE to 0 for disable AES-NI support. */
+  #ifndef T1HA0_AESNI_AVAILABLE
+    #if defined(__e2k__) || \
+        (defined(__ia32__) && (!defined(_M_IX86) || _MSC_VER > 1800))
+      #define T1HA0_AESNI_AVAILABLE 1
+    #else
+      #define T1HA0_AESNI_AVAILABLE 0
+    #endif
+  #endif                                           /* T1HA0_AESNI_AVAILABLE */
 
-/* Define T1HA0_RUNTIME_SELECT to 0 for disable dispatching t1ha0 at runtime. */
-#ifndef T1HA0_RUNTIME_SELECT
-#if T1HA0_AESNI_AVAILABLE && !defined(__e2k__)
-#define T1HA0_RUNTIME_SELECT 1
-#else
-#define T1HA0_RUNTIME_SELECT 0
-#endif
-#endif /* T1HA0_RUNTIME_SELECT */
+  /* Define T1HA0_RUNTIME_SELECT to 0 for disable dispatching t1ha0 at runtime.
+   */
+  #ifndef T1HA0_RUNTIME_SELECT
+    #if T1HA0_AESNI_AVAILABLE && !defined(__e2k__)
+      #define T1HA0_RUNTIME_SELECT 1
+    #else
+      #define T1HA0_RUNTIME_SELECT 0
+    #endif
+  #endif                                            /* T1HA0_RUNTIME_SELECT */
 
-#if !T1HA0_RUNTIME_SELECT && !defined(T1HA0_USE_DEFINE)
-#if defined(__LCC__)
-#define T1HA0_USE_DEFINE 1
-#else
-#define T1HA0_USE_DEFINE 0
-#endif
-#endif /* T1HA0_USE_DEFINE */
+  #if !T1HA0_RUNTIME_SELECT && !defined(T1HA0_USE_DEFINE)
+    #if defined(__LCC__)
+      #define T1HA0_USE_DEFINE 1
+    #else
+      #define T1HA0_USE_DEFINE 0
+    #endif
+  #endif                                                /* T1HA0_USE_DEFINE */
 
-#if T1HA0_AESNI_AVAILABLE
+  #if T1HA0_AESNI_AVAILABLE
 uint64_t t1ha0_ia32aes_noavx(const void *data, size_t length, uint64_t seed);
 uint64_t t1ha0_ia32aes_avx(const void *data, size_t length, uint64_t seed);
-#ifndef __e2k__
+    #ifndef __e2k__
 uint64_t t1ha0_ia32aes_avx2(const void *data, size_t length, uint64_t seed);
-#endif
-#endif /* T1HA0_AESNI_AVAILABLE */
+    #endif
+  #endif                                           /* T1HA0_AESNI_AVAILABLE */
 
-#if T1HA0_RUNTIME_SELECT
+  #if T1HA0_RUNTIME_SELECT
 typedef uint64_t (*t1ha0_function_t)(const void *, size_t, uint64_t);
 T1HA_API t1ha0_function_t t1ha0_resolve(void);
-#if T1HA_USE_INDIRECT_FUNCTIONS
+    #if T1HA_USE_INDIRECT_FUNCTIONS
 T1HA_API uint64_t t1ha0(const void *data, size_t length, uint64_t seed);
-#else
+    #else
 /* Otherwise function pointer will be used.
  * Unfortunately this may cause some overhead calling. */
 T1HA_API extern uint64_t (*t1ha0_funcptr)(const void *data, size_t length,
                                           uint64_t seed);
 static __force_inline uint64_t t1ha0(const void *data, size_t length,
                                      uint64_t seed) {
+
   return t1ha0_funcptr(data, length, seed);
+
 }
-#endif /* T1HA_USE_INDIRECT_FUNCTIONS */
 
-#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    #endif                                   /* T1HA_USE_INDIRECT_FUNCTIONS */
 
-#if T1HA0_USE_DEFINE
+  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 
-#if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) &&                \
-    (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
-#if defined(T1HA1_DISABLED)
-#define t1ha0 t1ha2_atonce
-#else
-#define t1ha0 t1ha1_be
-#endif /* T1HA1_DISABLED */
-#else  /* 32/64 */
-#define t1ha0 t1ha0_32be
-#endif /* 32/64 */
+    #if T1HA0_USE_DEFINE
 
-#else /* T1HA0_USE_DEFINE */
+      #if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) && \
+          (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
+        #if defined(T1HA1_DISABLED)
+          #define t1ha0 t1ha2_atonce
+        #else
+          #define t1ha0 t1ha1_be
+        #endif                                            /* T1HA1_DISABLED */
+      #else                                                        /* 32/64 */
+        #define t1ha0 t1ha0_32be
+      #endif                                                       /* 32/64 */
+
+    #else                                               /* T1HA0_USE_DEFINE */
 
 static __force_inline uint64_t t1ha0(const void *data, size_t length,
                                      uint64_t seed) {
-#if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) &&                \
-    (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
-#if defined(T1HA1_DISABLED)
+
+      #if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) && \
+          (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
+        #if defined(T1HA1_DISABLED)
   return t1ha2_atonce(data, length, seed);
-#else
+        #else
   return t1ha1_be(data, length, seed);
-#endif /* T1HA1_DISABLED */
-#else  /* 32/64 */
+        #endif                                            /* T1HA1_DISABLED */
+      #else                                                        /* 32/64 */
   return t1ha0_32be(data, length, seed);
-#endif /* 32/64 */
+      #endif                                                       /* 32/64 */
+
 }
 
-#endif /* !T1HA0_USE_DEFINE */
+    #endif                                             /* !T1HA0_USE_DEFINE */
 
-#else /* !T1HA0_RUNTIME_SELECT && __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__ */
+  #else  /* !T1HA0_RUNTIME_SELECT && __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__ */
 
-#if T1HA0_USE_DEFINE
+    #if T1HA0_USE_DEFINE
 
-#if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) &&                \
-    (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
-#if defined(T1HA1_DISABLED)
-#define t1ha0 t1ha2_atonce
-#else
-#define t1ha0 t1ha1_le
-#endif /* T1HA1_DISABLED */
-#else  /* 32/64 */
-#define t1ha0 t1ha0_32le
-#endif /* 32/64 */
+      #if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) && \
+          (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
+        #if defined(T1HA1_DISABLED)
+          #define t1ha0 t1ha2_atonce
+        #else
+          #define t1ha0 t1ha1_le
+        #endif                                            /* T1HA1_DISABLED */
+      #else                                                        /* 32/64 */
+        #define t1ha0 t1ha0_32le
+      #endif                                                       /* 32/64 */
 
-#else
+    #else
 
 static __force_inline uint64_t t1ha0(const void *data, size_t length,
                                      uint64_t seed) {
-#if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) &&                \
-    (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
-#if defined(T1HA1_DISABLED)
+
+      #if (UINTPTR_MAX > 0xffffFFFFul || ULONG_MAX > 0xffffFFFFul) && \
+          (!defined(T1HA1_DISABLED) || !defined(T1HA2_DISABLED))
+        #if defined(T1HA1_DISABLED)
   return t1ha2_atonce(data, length, seed);
-#else
+        #else
   return t1ha1_le(data, length, seed);
-#endif /* T1HA1_DISABLED */
-#else  /* 32/64 */
+        #endif                                            /* T1HA1_DISABLED */
+      #else                                                        /* 32/64 */
   return t1ha0_32le(data, length, seed);
-#endif /* 32/64 */
+      #endif                                                       /* 32/64 */
+
 }
 
-#endif /* !T1HA0_USE_DEFINE */
+    #endif                                             /* !T1HA0_USE_DEFINE */
 
-#endif /* !T1HA0_RUNTIME_SELECT */
+  #endif                                           /* !T1HA0_RUNTIME_SELECT */
 
-#endif /* T1HA0_DISABLED */
+#endif                                                    /* T1HA0_DISABLED */
 
 #ifdef __cplusplus
+
 }
+
 #endif
 
 #if __GNUC_PREREQ(4, 0)
-#pragma GCC visibility pop
-#endif /* __GNUC_PREREQ(4,0) */
+  #pragma GCC visibility pop
+#endif                                                /* __GNUC_PREREQ(4,0) */
+

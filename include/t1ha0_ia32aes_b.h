@@ -47,27 +47,34 @@
 #if T1HA0_AESNI_AVAILABLE
 
 uint64_t T1HA_IA32AES_NAME(const void *data, uint32_t len) {
+
   uint64_t a = 0;
   uint64_t b = len;
 
   if (likely(len > 32)) {
+
     __m128i x = _mm_set_epi64x(a, b);
     __m128i y = _mm_aesenc_si128(x, _mm_set_epi64x(prime_0, prime_1));
 
-    const __m128i *v = (const __m128i *)data;
+    const __m128i       *v = (const __m128i *)data;
     const __m128i *const detent =
         (const __m128i *)((const uint8_t *)data + (len & ~15ul));
     data = detent;
 
     if (len & 16) {
+
       x = _mm_add_epi64(x, _mm_loadu_si128(v++));
       y = _mm_aesenc_si128(x, y);
+
     }
+
     len &= 15;
 
     if (v + 7 < detent) {
+
       __m128i salt = y;
       do {
+
         __m128i t = _mm_aesenc_si128(_mm_loadu_si128(v++), salt);
         t = _mm_aesdec_si128(t, _mm_loadu_si128(v++));
         t = _mm_aesdec_si128(t, _mm_loadu_si128(v++));
@@ -82,86 +89,95 @@ uint64_t T1HA_IA32AES_NAME(const void *data, uint32_t len) {
         t = _mm_aesenc_si128(x, t);
         x = _mm_add_epi64(y, x);
         y = t;
+
       } while (v + 7 < detent);
+
     }
 
     while (v < detent) {
+
       __m128i v0y = _mm_add_epi64(y, _mm_loadu_si128(v++));
       __m128i v1x = _mm_sub_epi64(x, _mm_loadu_si128(v++));
       x = _mm_aesdec_si128(x, v0y);
       y = _mm_aesdec_si128(y, v1x);
+
     }
 
     x = _mm_add_epi64(_mm_aesdec_si128(x, _mm_aesenc_si128(y, x)), y);
-#if defined(__x86_64__) || defined(_M_X64)
-#if defined(__SSE4_1__) || defined(__AVX__)
+  #if defined(__x86_64__) || defined(_M_X64)
+    #if defined(__SSE4_1__) || defined(__AVX__)
     a = _mm_extract_epi64(x, 0);
     b = _mm_extract_epi64(x, 1);
-#else
+    #else
     a = _mm_cvtsi128_si64(x);
     b = _mm_cvtsi128_si64(_mm_unpackhi_epi64(x, x));
-#endif
-#else
-#if defined(__SSE4_1__) || defined(__AVX__)
+    #endif
+  #else
+    #if defined(__SSE4_1__) || defined(__AVX__)
     a = (uint32_t)_mm_extract_epi32(x, 0) | (uint64_t)_mm_extract_epi32(x, 1)
                                                 << 32;
     b = (uint32_t)_mm_extract_epi32(x, 2) | (uint64_t)_mm_extract_epi32(x, 3)
                                                 << 32;
-#else
+    #else
     a = (uint32_t)_mm_cvtsi128_si32(x);
     a |= (uint64_t)_mm_cvtsi128_si32(_mm_shuffle_epi32(x, 1)) << 32;
     x = _mm_unpackhi_epi64(x, x);
     b = (uint32_t)_mm_cvtsi128_si32(x);
     b |= (uint64_t)_mm_cvtsi128_si32(_mm_shuffle_epi32(x, 1)) << 32;
-#endif
-#endif
-#ifdef __AVX__
+    #endif
+  #endif
+  #ifdef __AVX__
     _mm256_zeroupper();
-#elif !(defined(_X86_64_) || defined(__x86_64__) || defined(_M_X64) ||         \
-        defined(__e2k__))
+  #elif !(defined(_X86_64_) || defined(__x86_64__) || defined(_M_X64) || \
+          defined(__e2k__))
     _mm_empty();
-#endif
+  #endif
+
   }
 
   const uint64_t *v = (const uint64_t *)data;
   switch (len) {
-  default:
-    mixup64(&a, &b, fetch64_le_unaligned(v++), prime_4);
-  /* fall through */
-  case 24:
-  case 23:
-  case 22:
-  case 21:
-  case 20:
-  case 19:
-  case 18:
-  case 17:
-    mixup64(&b, &a, fetch64_le_unaligned(v++), prime_3);
-  /* fall through */
-  case 16:
-  case 15:
-  case 14:
-  case 13:
-  case 12:
-  case 11:
-  case 10:
-  case 9:
-    mixup64(&a, &b, fetch64_le_unaligned(v++), prime_2);
-  /* fall through */
-  case 8:
-  case 7:
-  case 6:
-  case 5:
-  case 4:
-  case 3:
-  case 2:
-  case 1:
-    mixup64(&b, &a, tail64_le_unaligned(v, len), prime_1);
-  /* fall through */
-  case 0:
-    return final64(a, b);
+
+    default:
+      mixup64(&a, &b, fetch64_le_unaligned(v++), prime_4);
+    /* fall through */
+    case 24:
+    case 23:
+    case 22:
+    case 21:
+    case 20:
+    case 19:
+    case 18:
+    case 17:
+      mixup64(&b, &a, fetch64_le_unaligned(v++), prime_3);
+    /* fall through */
+    case 16:
+    case 15:
+    case 14:
+    case 13:
+    case 12:
+    case 11:
+    case 10:
+    case 9:
+      mixup64(&a, &b, fetch64_le_unaligned(v++), prime_2);
+    /* fall through */
+    case 8:
+    case 7:
+    case 6:
+    case 5:
+    case 4:
+    case 3:
+    case 2:
+    case 1:
+      mixup64(&b, &a, tail64_le_unaligned(v, len), prime_1);
+    /* fall through */
+    case 0:
+      return final64(a, b);
+
   }
+
 }
 
-#endif /* T1HA0_AESNI_AVAILABLE */
+#endif                                             /* T1HA0_AESNI_AVAILABLE */
 #undef T1HA_IA32AES_NAME
+
