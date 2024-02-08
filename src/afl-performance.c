@@ -3,17 +3,16 @@
 #include "types.h"
 
 #ifdef _HAVE_AVX2
-#define T1HA0_AESNI_AVAILABLE 1
-#define T1HA_USE_FAST_ONESHOT_READ 1
-#define T1HA_USE_INDIRECT_FUNCTIONS 1
-#define T1HA_IA32AES_NAME XXH3_64bits
-#include "t1ha0_ia32aes_b.h"
+  #define T1HA0_AESNI_AVAILABLE 1
+  #define T1HA_USE_FAST_ONESHOT_READ 1
+  #define T1HA_USE_INDIRECT_FUNCTIONS 1
+  #define T1HA_IA32AES_NAME XXH3_64bits
+  #include "t1ha0_ia32aes_b.h"
 #else
-#define XXH_INLINE_ALL
-#include "xxhash.h"
-#undef XXH_INLINE_ALL
+  #define XXH_INLINE_ALL
+  #include "xxhash.h"
+  #undef XXH_INLINE_ALL
 #endif
-
 
 void rand_set_seed(afl_state_t *afl, s64 init_seed) {
 

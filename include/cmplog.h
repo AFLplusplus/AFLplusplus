@@ -41,13 +41,12 @@
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
 
-struct cmp_header {
+struct cmp_header {  // 16 bit = 2 bytes
 
   unsigned hits : 6;       // up to 63 entries, we have CMP_MAP_H = 32
-  unsigned shape : 5;      // 31+1 bytes
-  unsigned type : 1;       // 4, we use 3: none, rtn, cmp
+  unsigned shape : 5;      // 31+1 bytes max
+  unsigned type : 1;       // 2: cmp, rtn
   unsigned attribute : 4;  // 16 for arithmetic comparison types
-  //unsigned reserved : 6;
 
 } __attribute__((packed));
 
