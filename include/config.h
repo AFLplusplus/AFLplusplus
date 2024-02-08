@@ -97,6 +97,11 @@
 
 // #define AFL_PERSISTENT_RECORD
 
+/* Adds support in compiler-rt to replay persistent records in @@-style
+ * harnesses */
+
+//  #define AFL_PERSISTENT_REPLAY_ARGPARSE
+
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined
  * ALWAYS_COLORED The env var. AFL_NO_COLOR will have no effect
