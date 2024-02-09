@@ -1220,7 +1220,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
         report_error_and_exit(FS_OPT_GET_ERROR(status));
 
-      if (fsrv->cmplog_binary) {
+      if (fsrv->cmplog_binary && !fsrv->qemu_mode) {
 
         FATAL("Target was compiled with outdated CMPLOG, recompile it!\n");
 
