@@ -96,9 +96,9 @@ These build options exist:
 
 e.g.: `make LLVM_CONFIG=llvm-config-14`
 
-## MacOS X on x86 and arm64 (M1)
+## macOS on x86_64 and arm64
 
-MacOS has some gotchas due to the idiosyncrasies of the platform.
+macOS has some gotchas due to the idiosyncrasies of the platform.
 
 To build AFL, install llvm (and perhaps gcc) from brew and follow the general
 instructions for Linux. If possible, avoid Xcode at all cost.
@@ -107,17 +107,20 @@ instructions for Linux. If possible, avoid Xcode at all cost.
 brew install wget git make cmake llvm gdb coreutils
 ```
 
+Depending on your macOS system + brew version, brew may be installed in different places.
+You can check with `brew info llvm` to know where, then create a variable for it:
+
+```shell
+export HOMEBREW_BASE="/opt/homebrew/opt"
+# or
+export HOMEBREW_BASE="/usr/local/opt"
+```
+
 Be sure to setup `PATH` to point to the correct clang binaries and use the
 freshly installed clang, clang++, llvm-config, gmake and coreutils, e.g.:
 
 ```shell
-# Depending on your MacOS system + brew version it is either
-export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
-# or
-export PATH="/usr/local/opt/llvm/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
-# you can check with "brew info llvm"
-
-export PATH="/usr/local/bin:$PATH"
+export PATH="$HOMEBREW_BASE/coreutils/libexec/gnubin:/usr/local/bin:$HOMEBREW_BASE/llvm/bin:$PATH"
 export CC=clang
 export CXX=clang++
 gmake
@@ -130,9 +133,9 @@ sudo gmake install
 `afl-gcc` will fail unless you have GCC installed, but that is using outdated
 instrumentation anyway. `afl-clang` might fail too depending on your PATH setup.
 But you don't want neither, you want `afl-clang-fast` anyway :) Note that
-`afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on MacOS.
+`afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on macOS.
 
-The crash reporting daemon that comes by default with MacOS X will cause
+The crash reporting daemon that comes by default with macOS will cause
 problems with fuzzing. You need to turn it off:
 
 ```
@@ -145,16 +148,16 @@ and definitely don't look POSIX-compliant. This means two things:
 
   - Fuzzing will be probably slower than on Linux. In fact, some folks report
     considerable performance gains by running the jobs inside a Linux VM on
-    MacOS X.
+    macOS.
   - Some non-portable, platform-specific code may be incompatible with the AFL++
     forkserver. If you run into any problems, set `AFL_NO_FORKSRV=1` in the
     environment before starting afl-fuzz.
 
-User emulation mode of QEMU does not appear to be supported on MacOS X, so
+User emulation mode of QEMU does not appear to be supported on macOS, so
 black-box instrumentation mode (`-Q`) will not work. However, FRIDA mode (`-O`)
-works on both x86 and arm64 MacOS boxes.
+works on both x86 and arm64 macOS boxes.
 
-MacOS X supports SYSV shared memory used by AFL's instrumentation, but the
+macOS supports SYSV shared memory used by AFL's instrumentation, but the
 default settings aren't usable with AFL++. The default settings on 10.14 seem to
 be:
 
