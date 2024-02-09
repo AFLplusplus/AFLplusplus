@@ -21,6 +21,9 @@ training, then we can highly recommend the following:
 
 * [https://github.com/antonio-morales/Fuzzing101](https://github.com/antonio-morales/Fuzzing101)
 
+A good workflow overview (like our [fuzzing_in_depth.md](fuzzing_in_depth.md)):
+* [https://appsec.guide/docs/fuzzing/c-cpp/aflpp/](https://appsec.guide/docs/fuzzing/c-cpp/aflpp/)
+
 Here is a good workflow description (and tutorial) for qemu_mode:
 
 * [https://airbus-seclab.github.io/AFLplusplus-blogpost/](https://airbus-seclab.github.io/AFLplusplus-blogpost/)
