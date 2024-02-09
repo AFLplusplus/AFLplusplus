@@ -201,7 +201,7 @@ echo "[*] Installing Unicorn python bindings..."
 cd unicorn/bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicornafl using --user"
-  THREADS=$CORES $PYTHONBIN -m pip install --user --force .|| exit 1
+  THREADS=$CORES $PYTHONBIN -m pip install --user --break-system-packages --force .|| exit 1
 else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
   THREADS=$CORES $PYTHONBIN -m pip install --force .|| exit 1
@@ -211,7 +211,7 @@ echo "[*] Installing Unicornafl python bindings..."
 cd bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicornafl using --user"
-  THREADS=$CORES $PYTHONBIN -m pip install --user --force .|| exit 1
+  THREADS=$CORES $PYTHONBIN -m pip install --user --break-system-packages --force .|| exit 1
 else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
   THREADS=$CORES $PYTHONBIN -m pip install --force .|| exit 1

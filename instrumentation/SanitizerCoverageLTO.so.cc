@@ -1673,12 +1673,12 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     inst = inst_save;
 
-  }
+    /* if (debug)
+       fprintf(stderr, "Next instrumentation (%u-%u=%u %u-%u=%u)\n", inst,
+               inst_save, inst - inst_save, afl_global_id, save_global,
+               afl_global_id - save_global);*/
 
-  /*  if (debug)
-      fprintf(stderr, "Next instrumentation (%u-%u=%u %u-%u=%u)\n", inst,
-              inst_save, inst - inst_save, afl_global_id, save_global,
-              afl_global_id - save_global);*/
+  }
 
   for (auto &BB : F) {
 
@@ -1932,8 +1932,9 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     }
 
-    // if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
-    //   BlocksToInstrument.push_back(&BB);
+    if (!instrument_ctx)
+      if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
+        BlocksToInstrument.push_back(&BB);
 
     /*
         for (auto &Inst : BB) {
