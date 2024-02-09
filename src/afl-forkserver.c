@@ -1197,9 +1197,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     } else {
 
-      WARNF(
-          "Old fork server model is used by the target, this still works "
-          "though.");
+      if (!fsrv->qemu_mode && !fsrv->cs_mode
+#ifdef __linux__
+          && !fsrv->nyx_mode
+#endif
+      ) {
+
+        WARNF(
+            "Old fork server model is used by the target, this still works "
+            "though.");
+
+      }
 
       if (!be_quiet) { OKF("All right - old fork server is up."); }
 
