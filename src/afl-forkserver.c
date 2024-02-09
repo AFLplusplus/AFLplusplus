@@ -1222,7 +1222,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if (fsrv->cmplog_binary) {
 
-        FATAL("Target was recompiled with outdated CMPLOG, recompile it!\n");
+        FATAL("Target was compiled with outdated CMPLOG, recompile it!\n");
 
       }
 
