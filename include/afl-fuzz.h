@@ -605,6 +605,9 @@ typedef struct afl_state {
 #define N_FUZZ_SIZE (1 << 21)
   u32 *n_fuzz;
 
+  /* CMPLOG colorless feature */
+  u64 cmplog_color_items, cmplog_color_fail, cmplog_color_depth;
+
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
 

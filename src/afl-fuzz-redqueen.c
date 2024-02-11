@@ -314,6 +314,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   afl->stage_short = "colorization";
   afl->stage_max = (len << 1);
   afl->stage_cur = 0;
+  ++(afl->cmplog_color_items);
 
   // in colorization we do not classify counts, hence we have to calculate
   // the original checksum.
@@ -371,12 +372,24 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
           each represents a previously split range, and may be split
           again, we break when emptying the queue would consume *half*
           the timeout */
-        if (range_count * afl->queue_cur->exec_us >
-            CMPLOG_COLORIZATION_TIME_MAX / 2 * 1000000) {
+        if ((range_count * afl->queue_cur->exec_us) >
+            ((CMPLOG_COLORIZATION_TIME_MAX_START << afl->cmplog_color_depth) /
+             2 * 1000000)) {
 
           if (afl->afl_env.afl_no_ui) {
 
             WARNF("Colorization taking too long, skipping.");
+
+          }
+
+          ++(afl->cmplog_color_fail);
+
+          if (afl->cmplog_color_depth < 5 && afl->cmplog_color_items > 4 &&
+              (afl->cmplog_color_items / afl->cmplog_color_fail) < 2) {
+
+            ++(afl->cmplog_color_depth);
+            afl->cmplog_color_items = 0;
+            afl->cmplog_color_fail = 0;
 
           }
 
@@ -1861,7 +1874,7 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
   for (k = 0; k < size; ++k) {
 
   #else
-  u32    off = 16 - size;
+  u32 off = 16 - size;
   for (k = 16 - size; k < 16; ++k) {
 
   #endif
