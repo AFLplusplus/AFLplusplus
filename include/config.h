@@ -85,6 +85,9 @@
 /* Maximum allowed fails per CMP value. Default: 96 */
 #define CMPLOG_FAIL_MAX 96
 
+/* Maximum time (sec) for colorization of a single input */
+#define CMPLOG_COLORIZATION_TIME_MAX 180
+
 /* -------------------------------------*/
 /* Now non-cmplog configuration options */
 /* -------------------------------------*/
