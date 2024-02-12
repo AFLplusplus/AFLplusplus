@@ -86,7 +86,7 @@
 #define CMPLOG_FAIL_MAX 96
 
 /* Starting timeout (in seconds) for the CMPLOG colorization phase. Upon
-   multiple timeouts this value will be doubled 5 times each.
+   multiple timeouts this value will be doubled 4 times each.
    So: 60 seconds => 960 seconds max. Good values are 30-120 seconds.  */
 #define CMPLOG_COLORIZATION_TIME_MAX_START 60ULL
 
