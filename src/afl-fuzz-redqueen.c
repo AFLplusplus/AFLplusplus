@@ -382,14 +382,19 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
           }
 
-          ++(afl->cmplog_color_fail);
+          if (unlikely(afl->cmplog_color_depth < 4)) {
 
-          if (afl->cmplog_color_depth < 5 && afl->cmplog_color_items > 4 &&
-              (afl->cmplog_color_items / afl->cmplog_color_fail) < 2) {
+            ++(afl->cmplog_color_fail);
 
-            ++(afl->cmplog_color_depth);
-            afl->cmplog_color_items = 0;
-            afl->cmplog_color_fail = 0;
+            if (likely(afl->cmplog_color_items > 4) &&
+                unlikely(afl->cmplog_color_items / afl->cmplog_color_fail) <
+                    2) {
+
+              ++(afl->cmplog_color_depth);
+              afl->cmplog_color_items = 0;
+              afl->cmplog_color_fail = 0;
+
+            }
 
           }
 
