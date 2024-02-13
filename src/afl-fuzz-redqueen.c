@@ -378,7 +378,10 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
           if (afl->afl_env.afl_no_ui) {
 
-            WARNF("Colorization taking too long, skipping.");
+            WARNF(
+                "Colorization took too long, skipping (%llu/%llu, depth %llu).",
+                afl->cmplog_color_fail + 1, afl->cmplog_color_items,
+                afl->cmplog_color_depth);
 
           }
 
