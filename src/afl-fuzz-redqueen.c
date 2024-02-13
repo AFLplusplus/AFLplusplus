@@ -394,6 +394,13 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
               afl->cmplog_color_items = 0;
               afl->cmplog_color_fail = 0;
 
+              if (afl->afl_env.afl_no_ui) {
+
+                WARNF("Increasing colorization time depth to %llu.",
+                      afl->cmplog_color_depth);
+
+              }
+
             }
 
           }
