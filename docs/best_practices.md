@@ -104,7 +104,7 @@ allows you to define network state with different type of data packets.
    file directory on a tempfs location, see
    [env_variables.md](env_variables.md).
 5. Improve Linux kernel performance: modify `/etc/default/grub`, set
-   `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off
+   `GRUB_CMDLINE_LINUX="ibpb=off ibrs=off kpti=off l1tf=off mds=off
    mitigations=off no_stf_barrier noibpb noibrs nopcid nopti
    nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off
    spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then
