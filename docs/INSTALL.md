@@ -21,7 +21,7 @@ If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
 NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-14` with
-whatever llvm version is available. We recommend llvm 13, 14, 15 or 16.
+whatever llvm version is available. We recommend llvm 13 or newer.
 
 ```shell
 sudo apt-get update
@@ -67,7 +67,7 @@ These build targets exist:
 * unit: perform unit tests (based on cmocka)
 * help: shows these build options
 
-[Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html),
+[Unless you are on macOS](https://developer.apple.com/library/archive/qa/qa1118/_index.html),
 you can also build statically linked versions of the AFL++ binaries by passing
 the `PERFORMANCE=1` argument to make:
 
@@ -77,10 +77,10 @@ make PERFORMANCE=1
 
 These build options exist:
 
-* PERFORMANCE - compile with performance options that make the binary not transferable to other systems. Recommended!
-* STATIC - compile AFL++ static
-* CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)
-* ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
+* PERFORMANCE - compile with performance options that make the binary not transferable to other systems. Recommended (except on macOS)!
+* STATIC - compile AFL++ static (does not work on macOS)
+* CODE_COVERAGE - compile the target for code coverage (see [README.llvm.md](../instrumentation/README.llvm.md))
+* ASAN_BUILD - compiles AFL++ with address sanitizer for debug purposes
 * UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 * DEBUG - no optimization, -ggdb3, all warnings and -Werror
 * LLVM_DEBUG - shows llvm deprecation warnings
@@ -92,7 +92,7 @@ These build options exist:
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)
 * NO_UNICORN_ARM64 - disable building unicorn on arm64
-* AFL_NO_X86 - if compiling on non-intel/amd platforms
+* AFL_NO_X86 - if compiling on non-Intel/AMD platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)
 
 e.g.: `make LLVM_CONFIG=llvm-config-14`
@@ -101,8 +101,19 @@ e.g.: `make LLVM_CONFIG=llvm-config-14`
 
 macOS has some gotchas due to the idiosyncrasies of the platform.
 
-To build AFL, install llvm (and perhaps gcc) from brew and follow the general
-instructions for Linux. If possible, avoid Xcode at all cost.
+macOS supports SYSV shared memory used by AFL++'s instrumentation, but the
+default settings aren't sufficient. Before even building, increase
+them by running the provided script:
+
+```shell
+sudo afl-system-config
+```
+
+See
+[https://www.spy-hill.com/help/apple/SharedMemory.html](https://www.spy-hill.com/help/apple/SharedMemory.html)
+for documentation for the shared memory settings and how to make them permanent.
+
+Next, to build AFL++, install the following packages from brew:
 
 ```shell
 brew install wget git make cmake llvm gdb coreutils
@@ -113,38 +124,37 @@ You can check with `brew info llvm` to know where, then create a variable for it
 
 ```shell
 export HOMEBREW_BASE="/opt/homebrew/opt"
-# or
+```
+
+or
+
+```shell
 export HOMEBREW_BASE="/usr/local/opt"
 ```
 
-Be sure to setup `PATH` to point to the correct clang binaries and use the
-freshly installed clang, clang++, llvm-config, gmake and coreutils, e.g.:
+Set `PATH` to point to the brew clang, clang++, llvm-config, gmake and coreutils.
+Also use the brew clang compiler; the Xcode clang compiler must not be used.
 
 ```shell
 export PATH="$HOMEBREW_BASE/coreutils/libexec/gnubin:/usr/local/bin:$HOMEBREW_BASE/llvm/bin:$PATH"
 export CC=clang
 export CXX=clang++
-gmake
-cd frida_mode
-gmake
-cd ..
-sudo gmake install
 ```
 
-`afl-gcc` will fail unless you have GCC installed, but that is using outdated
-instrumentation anyway. `afl-clang` might fail too depending on your PATH setup.
-But you don't want neither, you want `afl-clang-fast` anyway :) Note that
-`afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on macOS.
+Then build following the general Linux instructions.
+
+If everything worked, you should then have `afl-clang-fast` installed, which you can check with:
+
+```shell
+which afl-clang-fast
+```
+
+Note that `afl-clang-lto`, `afl-gcc-fast` and `qemu_mode` are not working on macOS.
 
 The crash reporting daemon that comes by default with macOS will cause
-problems with fuzzing. You need to turn it off:
+problems with fuzzing. You need to turn it off, which you can do with `afl-system-config`.
 
-```
-launchctl unload -w /System/Library/LaunchAgents/com.apple.ReportCrash.plist
-sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.ReportCrash.Root.plist
-```
-
-The `fork()` semantics on OS X are a bit unusual compared to other unix systems
+The `fork()` semantics on macOS are a bit unusual compared to other unix systems
 and definitely don't look POSIX-compliant. This means two things:
 
   - Fuzzing will be probably slower than on Linux. In fact, some folks report
@@ -157,39 +167,3 @@ and definitely don't look POSIX-compliant. This means two things:
 User emulation mode of QEMU does not appear to be supported on macOS, so
 black-box instrumentation mode (`-Q`) will not work. However, FRIDA mode (`-O`)
 works on both x86 and arm64 macOS boxes.
-
-macOS supports SYSV shared memory used by AFL's instrumentation, but the
-default settings aren't usable with AFL++. The default settings on 10.14 seem to
-be:
-
-```bash
-$ ipcs -M
-IPC status from <running system> as of XXX
-shminfo:
-        shmmax: 4194304 (max shared memory segment size)
-        shmmin:       1 (min shared memory segment size)
-        shmmni:      32 (max number of shared memory identifiers)
-        shmseg:       8 (max shared memory segments per process)
-        shmall:    1024 (max amount of shared memory in pages)
-```
-
-To temporarily change your settings to something minimally usable with AFL++,
-run these commands as root:
-
-```bash
-sysctl kern.sysv.shmmax=8388608
-sysctl kern.sysv.shmall=4096
-```
-
-If you're running more than one instance of AFL, you likely want to make
-`shmall` bigger and increase `shmseg` as well:
-
-```bash
-sysctl kern.sysv.shmmax=8388608
-sysctl kern.sysv.shmseg=48
-sysctl kern.sysv.shmall=98304
-```
-
-See
-[http://www.spy-hill.com/help/apple/SharedMemory.html](http://www.spy-hill.com/help/apple/SharedMemory.html)
-for documentation for these settings and how to make them permanent.
