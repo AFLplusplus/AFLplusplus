@@ -2379,7 +2379,11 @@ void add_runtime(aflcc_state_t *aflcc) {
     if (aflcc->plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
         strncmp(libdir, "/lib", 4)) {
 
+#ifdef __APPLE__
+      u8 *libdir_opt = strdup("-Wl,-rpath," LLVM_LIBDIR);
+#else
       u8 *libdir_opt = strdup("-Wl,-rpath=" LLVM_LIBDIR);
+#endif
       insert_param(aflcc, libdir_opt);
 
     }
