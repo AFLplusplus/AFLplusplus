@@ -148,6 +148,9 @@ class UnicornSimpleHeap(object):
         return new_chunk_addr
 
     def free(self, addr):
+        if addr == 0:
+            return False
+        
         for chunk in self._chunks:
             if chunk.is_buffer_in_chunk(addr, 1):
                 if self._debug_print:
@@ -159,7 +162,8 @@ class UnicornSimpleHeap(object):
                 self._uc.mem_unmap(chunk.actual_addr, chunk.total_size)
                 self._chunks.remove(chunk)
                 return True
-        return False
+        # Freed an object that doesn't exist. Maybe 'dobule-free' or 'invalid free' vulnerability here.
+        self._uc.force_crash(UcError(UC_ERR_FETCH_UNMAPPED))
 
     # Implements basic guard-page functionality
     def __check_mem_access(self, uc, access, address, size, value, user_data):
