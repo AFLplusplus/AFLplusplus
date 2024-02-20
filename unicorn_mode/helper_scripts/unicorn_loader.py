@@ -101,6 +101,10 @@ class UnicornSimpleHeap(object):
         #    - Allocate at least 1 4k page of memory to make Unicorn happy
         #    - Add guard pages at the start and end of the region
         total_chunk_size = UNICORN_PAGE_SIZE + ALIGN_PAGE_UP(size) + UNICORN_PAGE_SIZE
+
+        if size == 0:
+            retrun 0
+        
         # Gross but efficient way to find space for the chunk:
         chunk = None
         for addr in range(self.HEAP_MIN_ADDR, self.HEAP_MAX_ADDR, UNICORN_PAGE_SIZE):
