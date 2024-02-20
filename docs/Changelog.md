@@ -26,6 +26,9 @@
     - added collision free caller instrumentation to LTO mode. activate with
       `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
       block functions with `AFL_LLVM_LTO_CALLER_DEPTH` (default 0)
+  - afl-whatsup:
+    - Now also displays current average speed
+    - small bugfixes
   - Minor edits to afl-persistent-config
   - Prevent temporary files being left behind on aborted afl-whatsup
   - More CPU benchmarks added to benchmark/
