@@ -103,7 +103,7 @@ class UnicornSimpleHeap(object):
         total_chunk_size = UNICORN_PAGE_SIZE + ALIGN_PAGE_UP(size) + UNICORN_PAGE_SIZE
 
         if size == 0:
-            retrun 0
+            return 0
         
         # Gross but efficient way to find space for the chunk:
         chunk = None
