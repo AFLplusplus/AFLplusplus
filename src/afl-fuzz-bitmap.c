@@ -528,14 +528,18 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
     queue_fn =
-        alloc_printf("%s/queue/id:%06u,%s", afl->out_dir, afl->queued_items,
+        alloc_printf("%s/queue/id:%06u,%s%s%s", afl->out_dir, afl->queued_items,
                      describe_op(afl, new_bits + is_timeout,
-                                 NAME_MAX - strlen("id:000000,")));
+                                 NAME_MAX - strlen("id:000000,")),
+                     afl->file_extension ? "." : "",
+                     afl->file_extension ? (const char*)afl->file_extension : "");
 
 #else
 
     queue_fn =
-        alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_items);
+        alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_items,
+                     afl->file_extension ? "." : "",
+                     afl->file_extension ? (const char*)afl->file_extension : "");
 
 #endif                                                    /* ^!SIMPLE_FILES */
     fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
@@ -739,14 +743,18 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s", afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s%s%s", afl->out_dir,
                afl->saved_hangs,
-               describe_op(afl, 0, NAME_MAX - strlen("id:000000,")));
+               describe_op(afl, 0, NAME_MAX - strlen("id:000000,")),
+               afl->file_extension ? "." : "",
+               afl->file_extension ? (const char*)afl->file_extension : "");
 
 #else
 
-      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu", afl->out_dir,
-               afl->saved_hangs);
+      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu%s%s", afl->out_dir,
+               afl->saved_hangs,
+               afl->file_extension ? "." : "",
+               afl->file_extension ? (const char*)afl->file_extension : "");
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -792,14 +800,18 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s", afl->out_dir,
                afl->saved_crashes, afl->fsrv.last_kill_signal,
-               describe_op(afl, 0, NAME_MAX - strlen("id:000000,sig:00,")));
+               describe_op(afl, 0, NAME_MAX - strlen("id:000000,sig:00,")),
+               afl->file_extension ? "." : "",
+               afl->file_extension ? (const char*)afl->file_extension : "");
 
 #else
 
-      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir,
-               afl->saved_crashes, afl->fsrv.last_kill_signal);
+      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u%s%s", afl->out_dir,
+               afl->saved_crashes, afl->fsrv.last_kill_signal,
+               afl->file_extension ? "." : "",
+               afl->file_extension ? (const char*)afl->file_extension : "");
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
