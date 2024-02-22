@@ -2493,8 +2493,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       for (entry = 0; entry < afl->queued_items; ++entry)
         if (!afl->queue_buf[entry]->disabled)
-          if (afl->queue_buf[entry]->exec_us > max_ms)
-            max_ms = afl->queue_buf[entry]->exec_us;
+          if ((afl->queue_buf[entry]->exec_us/1000) > max_ms)
+            max_ms = afl->queue_buf[entry]->exec_us/1000;
 
       afl->fsrv.exec_tmout = max_ms;
       afl->timeout_given = 1;
