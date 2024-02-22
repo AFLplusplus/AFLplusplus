@@ -111,7 +111,7 @@ def dump_regs():
     reg_state = {}
     for reg in pwndbg.gdblib.regs.all:
         reg_val = pwndbg.gdblib.regs[reg]
-        if not reg_val:
+        if reg_val is None:
             continue
         # current dumper script looks for register values to be hex strings
         #         reg_str = "0x{:08x}".format(reg_val)
