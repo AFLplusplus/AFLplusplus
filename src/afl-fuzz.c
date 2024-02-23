@@ -2496,8 +2496,7 @@ int main(int argc, char **argv_orig, char **envp) {
           if ((afl->queue_buf[entry]->exec_us/1000) > max_ms)
             max_ms = afl->queue_buf[entry]->exec_us/1000;
       
-      if (max_ms > afl->fsrv.exec_tmout)
-        afl->fsrv.exec_tmout = max_ms;
+      afl->fsrv.exec_tmout = max_ms;
       afl->timeout_given = 1;
 
     }
