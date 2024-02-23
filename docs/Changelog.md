@@ -22,6 +22,7 @@
     - small improvements to CMPLOG/redqueen
     - workround for a bug with MOpt -L when used with -M - in the future
       we will either remove or rewrite MOpt.
+    - fix for `-t xxx+` feature
   - afl-cc:
     - added collision free caller instrumentation to LTO mode. activate with
       `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
