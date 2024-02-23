@@ -1931,7 +1931,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if (exec_ms > timeout) {
 
-    /* If there was no response from forkserver after timeout seconds,
+    /* If there was no response from forkserver after timeout milliseconds,
     we kill the child. The forkserver should inform us afterwards */
 
     s32 tmp_pid = fsrv->child_pid;
