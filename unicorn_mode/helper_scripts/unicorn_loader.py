@@ -87,9 +87,10 @@ class UnicornSimpleHeap(object):
 
     _uc = None  # Unicorn engine instance to interact with
     _chunks = []  # List of all known chunks
+    _chunks_freed = [] # List of all freed chunks
     _debug_print = False  # True to print debug information
 
-    def __init__(self, uc, debug_print=False):
+    def __init__(self, uc, debug_print=False， uaf_check=False):
         self._uc = uc
         self._debug_print = debug_print
 
@@ -111,6 +112,13 @@ class UnicornSimpleHeap(object):
             try:
                 self._uc.mem_map(addr, total_chunk_size, UC_PROT_READ | UC_PROT_WRITE)
                 chunk = self.HeapChunk(addr, total_chunk_size, size)
+
+                if self.uaf_check:
+                    for chunk_freed in self._chunks_freed:
+                        if chunk_freed.is_buffer_in_chunk(chunk.data_addr, 1):
+                            self._chunks_freed.remove(chunk_freed)
+                            break
+
                 if self._debug_print:
                     print(
                         "Allocating 0x{0:x}-byte chunk @ 0x{1:016x}".format(
@@ -164,6 +172,10 @@ class UnicornSimpleHeap(object):
                         )
                     )
                 self._uc.mem_unmap(chunk.actual_addr, chunk.total_size)
+
+                if self.uaf_check:
+                    self._chunks_freed.append(chunk)
+                    
                 self._chunks.remove(chunk)
                 return True
         # Freed an object that doesn't exist. Maybe 'dobule-free' or 'invalid free' vulnerability here.
@@ -186,6 +198,15 @@ class UnicornSimpleHeap(object):
                         )
                     # Force a memory-based crash
                     uc.force_crash(UcError(UC_ERR_READ_PROT))
+
+        if self.uaf_check:
+            for chunk in self._chunks_freed:
+                if address >= chunk.actual_addr and (
+                    (address + size) <= (chunk.actual_addr + chunk.total_size)
+                ):
+                    if chunk.is_buffer_in_chunk(address, size):
+                        print("Use-after-free @ 0x{0:016x}".format(address))
+                        uc.force_crash(UcError(UC_ERR_FETCH_UNMAPPED))
 
 
 # ---------------------------
