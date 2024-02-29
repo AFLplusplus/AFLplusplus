@@ -1157,22 +1157,22 @@ void perform_dry_run(afl_state_t *afl) {
 
 #ifndef SIMPLE_FILES
 
-          snprintf(crash_fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s%s",
-                   afl->out_dir, afl->saved_crashes, afl->fsrv.last_kill_signal,
-                   describe_op(afl, 0,
-                               NAME_MAX - strlen("id:000000,sig:00,") -
-                                   strlen(use_name)),
-                   use_name,
-                   afl->file_extension ? "." : "",
-                   afl->file_extension ? (const char*)afl->file_extension : "");
+          snprintf(
+              crash_fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s%s",
+              afl->out_dir, afl->saved_crashes, afl->fsrv.last_kill_signal,
+              describe_op(
+                  afl, 0,
+                  NAME_MAX - strlen("id:000000,sig:00,") - strlen(use_name)),
+              use_name, afl->file_extension ? "." : "",
+              afl->file_extension ? (const char *)afl->file_extension : "");
 
 #else
 
-          snprintf(crash_fn, PATH_MAX, "%s/crashes/id_%06llu_%02u%s%s",
-                   afl->out_dir, afl->saved_crashes,
-                   afl->fsrv.last_kill_signal,
-                   afl->file_extension ? "." : "",
-                   afl->file_extension ? (const char*)afl->file_extension : "");
+          snprintf(
+              crash_fn, PATH_MAX, "%s/crashes/id_%06llu_%02u%s%s", afl->out_dir,
+              afl->saved_crashes, afl->fsrv.last_kill_signal,
+              afl->file_extension ? "." : "",
+              afl->file_extension ? (const char *)afl->file_extension : "");
 
 #endif
 
@@ -1443,9 +1443,9 @@ void pivot_inputs(afl_state_t *afl) {
       u32 src_id;
 
       afl->resuming_fuzz = 1;
-      nfn = alloc_printf("%s/queue/%s%s%s", afl->out_dir, rsl,
-                         afl->file_extension ? "." : "",
-                         afl->file_extension ? (const char*)afl->file_extension : "");
+      nfn = alloc_printf(
+          "%s/queue/%s%s%s", afl->out_dir, rsl, afl->file_extension ? "." : "",
+          afl->file_extension ? (const char *)afl->file_extension : "");
 
       /* Since we're at it, let's also get the parent and figure out the
          appropriate depth for this entry. */
@@ -1485,16 +1485,17 @@ void pivot_inputs(afl_state_t *afl) {
 
       }
 
-      nfn = alloc_printf("%s/queue/id:%06u,time:0,execs:%llu,orig:%s%s%s",
-                         afl->out_dir, id, afl->fsrv.total_execs, use_name,
-                         afl->file_extension ? "." : "",
-                         afl->file_extension ? (const char*)afl->file_extension : "");
+      nfn = alloc_printf(
+          "%s/queue/id:%06u,time:0,execs:%llu,orig:%s%s%s", afl->out_dir, id,
+          afl->fsrv.total_execs, use_name, afl->file_extension ? "." : "",
+          afl->file_extension ? (const char *)afl->file_extension : "");
 
 #else
 
-      nfn = alloc_printf("%s/queue/id_%06u%s%s", afl->out_dir, id,
-                         afl->file_extension ? "." : "",
-                         afl->file_extension ? (const char*)afl->file_extension : "");
+      nfn = alloc_printf(
+          "%s/queue/id_%06u%s%s", afl->out_dir, id,
+          afl->file_extension ? "." : "",
+          afl->file_extension ? (const char *)afl->file_extension : "");
 
 #endif                                                    /* ^!SIMPLE_FILES */
 

@@ -724,7 +724,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
     /* autodict in Nyx mode */
-    if (!ignore_autodict) {
+    if (!ignore_autodict && fsrv->add_extra_func) {
 
       char *x =
           alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
@@ -1111,7 +1111,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
-      if ((status & FS_NEW_OPT_SHDMEM_FUZZ)) {
+      if ((status & FS_NEW_OPT_SHDMEM_FUZZ) && fsrv->add_extra_func &&
+          !ignore_autodict) {
 
         if (fsrv->support_shmem_fuzz) {
 
@@ -1129,6 +1130,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       }
 
       if ((status & FS_NEW_OPT_AUTODICT)) {
+
+        // even if we do not need the dictionary we have to read it
 
         u32 dict_size;
         if (read(fsrv->fsrv_st_fd, &dict_size, 4) != 4) {
@@ -1173,14 +1176,24 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         offset = 0;
         while (offset < dict_size && (u8)dict[offset] + offset < dict_size) {
 
-          fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
-                               (u8)dict[offset]);
+          if (!ignore_autodict && fsrv->add_extra_func) {
+
+            fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                                 (u8)dict[offset]);
+            count++;
+
+          }
+
           offset += (1 + dict[offset]);
-          count++;
 
         }
 
-        if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
+        if (!be_quiet && count) {
+
+          ACTF("Loaded %u autodictionary entries", count);
+
+        }
+
         ck_free(dict);
 
       }
@@ -2067,7 +2080,7 @@ store_persistent_record: {
       snprintf(fn, sizeof(fn), persistent_out_fmt, fsrv->persistent_record_dir,
                fsrv->persistent_record_cnt, writecnt++,
                afl->file_extension ? "." : "",
-               afl->file_extension ? (const char*)afl->file_extension : "");
+               afl->file_extension ? (const char *)afl->file_extension : "");
       int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
       if (fd >= 0) {
 
