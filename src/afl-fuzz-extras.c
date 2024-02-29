@@ -742,10 +742,10 @@ void save_auto(afl_state_t *afl) {
 
   for (i = 0; i < MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
-    u8 *fn =
-        alloc_printf("%s/queue/.state/auto_extras/auto_%06u%s%s", afl->out_dir, i,
-                     afl->file_extension ? "." : "",
-                     afl->file_extension ? (const char*)afl->file_extension : "");
+    u8 *fn = alloc_printf(
+        "%s/queue/.state/auto_extras/auto_%06u%s%s", afl->out_dir, i,
+        afl->file_extension ? "." : "",
+        afl->file_extension ? (const char *)afl->file_extension : "");
 
     s32 fd;
 
