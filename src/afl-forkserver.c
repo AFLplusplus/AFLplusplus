@@ -2002,7 +2002,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     if (unlikely(fsrv->persistent_record)) {
 
       retval = FSRV_RUN_TMOUT;
-      persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u";
+      persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u%s%s";
       goto store_persistent_record;
 
     }
@@ -2038,7 +2038,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     if (unlikely(fsrv->persistent_record)) {
 
       retval = FSRV_RUN_CRASH;
-      persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u";
+      persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u%s%s";
       goto store_persistent_record;
 
     }
@@ -2065,7 +2065,9 @@ store_persistent_record: {
     if (likely(len && data)) {
 
       snprintf(fn, sizeof(fn), persistent_out_fmt, fsrv->persistent_record_dir,
-               fsrv->persistent_record_cnt, writecnt++);
+               fsrv->persistent_record_cnt, writecnt++,
+               afl->file_extension ? "." : "",
+               afl->file_extension ? (const char*)afl->file_extension : "");
       int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
       if (fd >= 0) {
 
