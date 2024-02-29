@@ -108,7 +108,7 @@ function usage() {
 "\n" \
 "Execution control settings:\n" \
 "  -T tasks      - how many parallel tasks to run (default: 1, all=nproc)\n" \
-"  -f file       - location read by the fuzzed program (stdin)\n" \
+"  -f file       - location read by the fuzzed program (default: stdin)\n" \
 "  -m megs       - memory limit for child process ("mem_limit" MB)\n" \
 "  -t msec       - run time limit for child process (default: 5000)\n" \
 "  -O            - use binary-only instrumentation (FRIDA mode)\n" \
