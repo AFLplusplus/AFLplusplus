@@ -2493,17 +2493,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
       for (entry = 0; entry < afl->queued_items; ++entry)
         if (!afl->queue_buf[entry]->disabled)
-          if ((afl->queue_buf[entry]->exec_us/1000) > max_ms)
-            max_ms = afl->queue_buf[entry]->exec_us/1000;
-      
+          if ((afl->queue_buf[entry]->exec_us / 1000) > max_ms)
+            max_ms = afl->queue_buf[entry]->exec_us / 1000;
+
       // Add 20% as a safety margin, capped to exec_tmout given in -t option
       max_ms *= 1.2;
-      if(max_ms > afl->fsrv.exec_tmout)
-        max_ms = afl->fsrv.exec_tmout;
-      
+      if (max_ms > afl->fsrv.exec_tmout) max_ms = afl->fsrv.exec_tmout;
+
       // Ensure that there is a sensible timeout even for very fast binaries
-      if(max_ms < 5)
-        max_ms = 5;
+      if (max_ms < 5) max_ms = 5;
 
       afl->fsrv.exec_tmout = max_ms;
       afl->timeout_given = 1;
