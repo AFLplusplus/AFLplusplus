@@ -207,7 +207,7 @@ static __maybe_unused __always_inline unsigned e2k_add64carry_first(
   return (unsigned)__builtin_e2k_addcd_c(base, addend, 0);
 
 }
-\
+
       #define add64carry_first(base, addend, sum) \
         e2k_add64carry_first(base, addend, sum)
 
@@ -218,7 +218,7 @@ static __maybe_unused __always_inline unsigned e2k_add64carry_next(
   return (unsigned)__builtin_e2k_addcd_c(base, addend, carry);
 
 }
-\
+
       #define add64carry_next(carry, base, addend, sum) \
         e2k_add64carry_next(carry, base, addend, sum)
 
@@ -230,7 +230,7 @@ static __maybe_unused __always_inline void e2k_add64carry_last(unsigned  carry,
   *sum = __builtin_e2k_addcd(base, addend, carry);
 
 }
-\
+
       #define add64carry_last(carry, base, addend, sum) \
         e2k_add64carry_last(carry, base, addend, sum)
     #endif                                                 /* __iset__ >= 5 */
@@ -311,7 +311,7 @@ static __forceinline char msvc32_add64carry_first(uint64_t  base,
                          base_32h, addend_32h, sum32 + 1);
 
 }
-\
+
       #define add64carry_first(base, addend, sum) \
         msvc32_add64carry_first(base, addend, sum)
 
@@ -328,7 +328,7 @@ static __forceinline char msvc32_add64carry_next(char carry, uint64_t base,
                          base_32h, addend_32h, sum32 + 1);
 
 }
-\
+
       #define add64carry_next(carry, base, addend, sum) \
         msvc32_add64carry_next(carry, base, addend, sum)
 
@@ -345,7 +345,7 @@ static __forceinline void msvc32_add64carry_last(char carry, uint64_t base,
                   addend_32h, sum32 + 1);
 
 }
-\
+
       #define add64carry_last(carry, base, addend, sum) \
         msvc32_add64carry_last(carry, base, addend, sum)
     #endif                                    /* _MSC_FULL_VER >= 190024231 */
@@ -454,7 +454,7 @@ typedef struct {
   uint64_t unaligned_64;
 
 } __attribute__((__packed__)) t1ha_unaligned_proxy;
-\
+
     #define read_unaligned(ptr, bits)                                   \
       (((const t1ha_unaligned_proxy *)((const uint8_t *)(ptr)-offsetof( \
             t1ha_unaligned_proxy, unaligned_##bits)))                   \
@@ -539,6 +539,7 @@ static __always_inline const uint64_t *__attribute__((
         (void)(ptr);      \
                           \
       } while (0)
+
   #endif
 #endif                                                          /* prefetch */
 

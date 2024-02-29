@@ -180,19 +180,19 @@ struct afl_cmptrs_pass : afl_base_pass {
     c = DECL_CONTEXT(c);
     if (c && TREE_CODE(c) != TRANSLATION_UNIT_DECL) return false;
 
-    /* Check that the first nonstatic data member of the record type
+    /* Check that the first nonstatic named data member of the record type
        is named _M_dataplus.  */
     for (c = TYPE_FIELDS(t); c; c = DECL_CHAIN(c))
-      if (TREE_CODE(c) == FIELD_DECL) break;
+      if (TREE_CODE(c) == FIELD_DECL && DECL_NAME(c)) break;
     if (!c || !integer_zerop(DECL_FIELD_BIT_OFFSET(c)) ||
         strcmp(IDENTIFIER_POINTER(DECL_NAME(c)), "_M_dataplus") != 0)
       return false;
 
-    /* Check that the second nonstatic data member of the record type
+    /* Check that the second nonstatic named data member of the record type
        is named _M_string_length.  */
     tree f2;
     for (f2 = DECL_CHAIN(c); f2; f2 = DECL_CHAIN(f2))
-      if (TREE_CODE(f2) == FIELD_DECL) break;
+      if (TREE_CODE(f2) == FIELD_DECL && DECL_NAME(f2)) break;
     if (!f2                       /* No need to check this field's offset.  */
         || strcmp(IDENTIFIER_POINTER(DECL_NAME(f2)), "_M_string_length") != 0)
       return false;
@@ -208,9 +208,12 @@ struct afl_cmptrs_pass : afl_base_pass {
         strcmp(IDENTIFIER_POINTER(TYPE_IDENTIFIER(c)), "_Alloc_hider") != 0)
       return false;
 
-    /* And its first data member is named _M_p.  */
+    /* And its first nonstatic named data member should be named _M_p.
+       There may be (unnamed) subobjects from empty base classes.  We
+       skip the subobjects, then check the offset of the first data
+       member. */
     for (c = TYPE_FIELDS(c); c; c = DECL_CHAIN(c))
-      if (TREE_CODE(c) == FIELD_DECL) break;
+      if (TREE_CODE(c) == FIELD_DECL && DECL_NAME(c)) break;
     if (!c || !integer_zerop(DECL_FIELD_BIT_OFFSET(c)) ||
         strcmp(IDENTIFIER_POINTER(DECL_NAME(c)), "_M_p") != 0)
       return false;

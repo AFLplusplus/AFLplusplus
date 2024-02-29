@@ -1734,7 +1734,7 @@ XXH128_hashFromCanonical(XXH_NOESCAPE const XXH128_canonical_t *src);
  * These declarations should only be used with static linking.
  * Never use them in association with dynamic linking!
  *****************************************************************************
-*/
+ */
 
 /*
  * These definitions are only present to allow static allocation
@@ -2399,9 +2399,9 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecretandSeed(
     #define XXH_NO_STREAM
     #undef XXH_NO_STREAM                                  /* don't actually */
   #endif                                                     /* XXH_DOXYGEN */
-/*!
- * @}
- */
+                         /*!
+                          * @}
+                          */
 
   #ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command \
                                      line for example */
@@ -2614,6 +2614,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           _Static_assert((c), m);                  \
                                                    \
         } while (0)
+
     #elif defined(__cplusplus) && (__cplusplus >= 201103L)         /* C++11 */
       #define XXH_STATIC_ASSERT_WITH_MESSAGE(c, m) \
         do {                                       \
@@ -2621,6 +2622,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           static_assert((c), m);                   \
                                                    \
         } while (0)
+
     #else
       #define XXH_STATIC_ASSERT_WITH_MESSAGE(c, m) \
         do {                                       \
@@ -2632,6 +2634,7 @@ static void *XXH_memcpy(void *dest, const void *src, size_t size) {
           };                                       \
                                                    \
         } while (0)
+
     #endif
     #define XXH_STATIC_ASSERT(c) XXH_STATIC_ASSERT_WITH_MESSAGE((c), #c)
   #endif
@@ -2850,7 +2853,7 @@ static int XXH_isLittleEndian(void) {
   return one.c[0];
 
 }
-\
+
       #define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
     #endif
   #endif
@@ -4679,6 +4682,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b) {
             acc = svadd_u64_x(mask, acc, mul);                               \
                                                                              \
           } while (0)
+
       #endif                                       /* XXH_VECTOR == XXH_SVE */
 
       /* prefetch
@@ -4737,12 +4741,14 @@ static const xxh_u8 XXH3_kSecret[XXH_SECRET_DEFAULT_SIZE] = {
 
 };
 
-static const xxh_u64 PRIME_MX1 = 0x165667919E3779F9ULL; /*!<
-                                                           0b0001011001010110011001111001000110011110001101110111100111111001
-                                                         */
-static const xxh_u64 PRIME_MX2 = 0x9FB21C651E98DF25ULL; /*!<
-                                                           0b1001111110110010000111000110010100011110100110001101111100100101
-                                                         */
+static const xxh_u64 PRIME_MX1 =
+    0x165667919E3779F9ULL; /*!<
+                              0b0001011001010110011001111001000110011110001101110111100111111001
+                            */
+static const xxh_u64 PRIME_MX2 =
+    0x9FB21C651E98DF25ULL; /*!<
+                              0b1001111110110010000111000110010100011110100110001101111100100101
+                            */
 
       #ifdef XXH_OLD_NAMES
         #define kSecret XXH3_kSecret
@@ -7854,7 +7860,7 @@ XXH3_128bits_digest(XXH_NOESCAPE const XXH3_state_t *state) {
 }
 
       #endif                                              /* !XXH_NO_STREAM */
-    /* 128-bit utility functions */
+             /* 128-bit utility functions */
 
       #include <string.h>                                 /* memcmp, memcpy */
 

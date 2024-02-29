@@ -828,7 +828,8 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
   }
 
   if (getenv("AFL_LLVM_CTX")) aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CTX;
-  if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_LTO_CALLER") || getenv("AFL_LLVM_LTO_CTX"))
+  if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_LTO_CALLER") ||
+      getenv("AFL_LLVM_LTO_CTX"))
     aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
