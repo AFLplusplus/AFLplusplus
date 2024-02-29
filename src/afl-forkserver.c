@@ -1152,12 +1152,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        while (dict_size != 0) {
+        while (offset < dict_size) {
 
-          rlen = read(fsrv->fsrv_st_fd, dict + offset, dict_size);
+          rlen = read(fsrv->fsrv_st_fd, dict + offset, dict_size - offset);
           if (rlen > 0) {
 
-            dict_size -= rlen;
             offset += rlen;
 
           } else {
@@ -1165,7 +1164,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
             FATAL(
                 "Reading autodictionary fail at position %u with %u bytes "
                 "left.",
-                offset, dict_size);
+                offset, dict_size - offset);
 
           }
 
