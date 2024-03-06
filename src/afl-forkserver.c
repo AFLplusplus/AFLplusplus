@@ -1840,6 +1840,8 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
       case Timeout:
         return FSRV_RUN_TMOUT;
       case InvalidWriteToPayload:
+        if (!!getenv("AFL_NYX_HANDLE_INVALID_WRITE")) { return FSRV_RUN_CRASH; }
+
         /* ??? */
         FATAL("FixMe: Nyx InvalidWriteToPayload handler is missing");
         break;
