@@ -1644,7 +1644,8 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
       }
 
-      if (__afl_filter_pcs && !mod_info->next && strstr(mod_info->name, __afl_filter_pcs_module)) {
+      if (__afl_filter_pcs && !mod_info->next &&
+          strstr(mod_info->name, __afl_filter_pcs_module)) {
 
         u32 result_index;
         if (locate_in_pcs(PC, &result_index)) {
@@ -1669,11 +1670,7 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     }
 
-    if (__afl_pcmap_ptr) {
-
-      mod_info->mapped = 1;
-
-    }
+    if (__afl_pcmap_ptr) { mod_info->mapped = 1; }
 
     if (__afl_debug) {
 
