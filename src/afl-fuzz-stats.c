@@ -876,6 +876,10 @@ void show_stats_normal(afl_state_t *afl) {
 
 #endif
 
+    if (banner_pad)
+      for (u32 i = 0; i < banner_pad; ++i)
+        strcat(banner, " ");
+
   }
 
   SAYF("\n%s\n", banner);
