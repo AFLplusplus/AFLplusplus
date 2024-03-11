@@ -24,7 +24,7 @@ unsigned char fuzz_buf[FUZZ_BUF_SIZE];
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
-  static unsigned int       cycle_cnt = 1;
+  static unsigned int       cycle_cnt = 2;
   static unsigned short int inited = 0;
   char                      tcase[PATH_MAX];
 
@@ -32,7 +32,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     if (!inited) {
 
-      cycle_cnt = replay_record_cnt;
+      cycle_cnt = replay_record_cnt+1;
       inited = 1;
 
     }
