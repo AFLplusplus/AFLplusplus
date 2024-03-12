@@ -8,7 +8,7 @@
     backward compatible to old compiled targets if they are not built
     for CMPLOG/Redqueen, but new compiled targets will not work with
     old afl-fuzz versions!
-  ! Recompiled all targets that are instrumented for CMPLOG/Redqueen!
+  ! Recompile all targets that are instrumented for CMPLOG/Redqueen!
   - AFL++ now supports up to 4 billion coverage edges, up from 6 million.
   - New compile option: `make PERFORMANCE=1` - this will enable special
     CPU dependent optimizations that make everything more performant - but
@@ -23,7 +23,7 @@
     - workround for a bug with MOpt -L when used with -M - in the future
       we will either remove or rewrite MOpt.
     - fix for `-t xxx+` feature
-    - -e extension option now saves the queue items crashes etc. with the
+    - -e extension option now saves the queue items, crashes, etc. with the
       extension too
   - afl-cc:
     - added collision free caller instrumentation to LTO mode. activate with
