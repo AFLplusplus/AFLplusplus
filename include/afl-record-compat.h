@@ -28,7 +28,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
   static unsigned short int inited = 0;
   char                      tcase[PATH_MAX];
 
-  if (is_replay_record) {
+  if (is_replay_record && cycle_cnt) {
 
     if (!inited) {
 
@@ -59,7 +59,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   }
 
-  return --cycle_cnt;
+  return cycle_cnt--;
 
 }
 
