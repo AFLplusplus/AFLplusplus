@@ -2073,6 +2073,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  /* Simply code if AFL_TMPDIR is used or not */
+  if (!afl->afl_env.afl_tmpdir) {
+
+    afl->tmp_dir = afl->out_dir;
+
+  } else {
+
+    afl->tmp_dir = afl->afl_env.afl_tmpdir;
+
+  }
+
   write_setup_file(afl, argc, argv);
 
   setup_cmdline_file(afl, argv + optind);
@@ -2085,8 +2096,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
-  if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
-      !afl->in_place_resume) {
+  if (afl->afl_env.afl_tmpdir && !afl->in_place_resume) {
 
     char tmpfile[PATH_MAX];
 
@@ -2110,10 +2120,6 @@ int main(int argc, char **argv_orig, char **envp) {
           tmpfile);
 
     }
-
-  } else {
-
-    afl->tmp_dir = afl->out_dir;
 
   }
 
@@ -3068,7 +3074,7 @@ stop_fuzzing:
   afl_fsrv_deinit(&afl->fsrv);
 
   /* remove tmpfile */
-  if (afl->tmp_dir != NULL && !afl->in_place_resume && afl->fsrv.out_file) {
+  if (!afl->in_place_resume && afl->fsrv.out_file) {
 
     (void)unlink(afl->fsrv.out_file);
 
