@@ -648,7 +648,10 @@ typedef struct afl_state {
       longest_find_time,                /* Longest time taken for a find    */
       exit_on_time,                     /* Delay to exit if no new paths    */
       sync_time,                        /* Sync time (ms)                   */
-      switch_fuzz_mode;                 /* auto or fixed fuzz mode          */
+      switch_fuzz_mode,                 /* auto or fixed fuzz mode          */
+      calibration_time_us,              /* Time spend on calibration        */
+      sync_time_us,                     /* Time spend on sync               */
+      trim_time_us;                     /* Time spend on trimming           */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -1215,6 +1218,10 @@ void show_stats_normal(afl_state_t *);
 void show_stats_pizza(afl_state_t *);
 void show_init_stats(afl_state_t *);
 
+void update_calibration_time(afl_state_t *afl, u64* time);
+void update_trim_time(afl_state_t *afl, u64* time);
+void update_sync_time(afl_state_t *afl, u64* time);
+
 /* StatsD */
 
 void statsd_setup_format(afl_state_t *afl);
@@ -1402,4 +1409,3 @@ void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
 #endif
 
 #endif
-
