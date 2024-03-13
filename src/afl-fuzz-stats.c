@@ -133,6 +133,10 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
 }
 
+static bool starts_with(char* key, char* line) {
+  return strncmp(key, line, strlen(key)) == 0;
+}
+
 /* load some of the existing stats file when resuming.*/
 void load_stats_file(afl_state_t *afl) {
 
@@ -175,65 +179,54 @@ void load_stats_file(afl_state_t *afl) {
       strcpy(keystring, lstartptr);
       lptr++;
       char *nptr;
-      switch (lineno) {
+      if (starts_with("run_time", keystring)){
+        afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
+      }
+      if (starts_with("cycles_done", keystring)){
+        afl->queue_cycle =
+            strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
+      }
+      if (starts_with("calibration_time", keystring)){
+        afl->calibration_time_us = strtoull(lptr, &nptr, 10) * 1000000;
+      }
+      if (starts_with("sync_time", keystring)){
+        afl->sync_time_us = strtoull(lptr, &nptr, 10) * 1000000;
+      }
+      if (starts_with("trim_time", keystring)){
+        afl->trim_time_us = strtoull(lptr, &nptr, 10) * 1000000;
+      }
+      if (starts_with("execs_done", keystring)){
+        afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
+      }
+      if (starts_with("corpus_count", keystring)) {
 
-        case 3:
-          if (!strcmp(keystring, "run_time          "))
-            afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
-          break;
-        case 5:
-          if (!strcmp(keystring, "cycles_done       "))
-            afl->queue_cycle =
-                strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
-          break;
-        case 7:
-          if (!strcmp(keystring, "execs_done        "))
-            afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
-          break;
-        case 10:
-          if (!strcmp(keystring, "corpus_count      ")) {
+        u32 corpus_count = strtoul(lptr, &nptr, 10);
+        if (corpus_count != afl->queued_items) {
 
-            u32 corpus_count = strtoul(lptr, &nptr, 10);
-            if (corpus_count != afl->queued_items) {
+          WARNF(
+              "queue/ has been modified -- things might not work, you're "
+              "on your own!");
 
-              WARNF(
-                  "queue/ has been modified -- things might not work, you're "
-                  "on your own!");
-
-            }
-
-          }
-
-          break;
-        case 12:
-          if (!strcmp(keystring, "corpus_found      "))
-            afl->queued_discovered = strtoul(lptr, &nptr, 10);
-          break;
-        case 13:
-          if (!strcmp(keystring, "corpus_imported   "))
-            afl->queued_imported = strtoul(lptr, &nptr, 10);
-          break;
-        case 14:
-          if (!strcmp(keystring, "max_depth         "))
-            afl->max_depth = strtoul(lptr, &nptr, 10);
-          break;
-        case 21:
-          if (!strcmp(keystring, "saved_crashes    "))
-            afl->saved_crashes = strtoull(lptr, &nptr, 10);
-          break;
-        case 22:
-          if (!strcmp(keystring, "saved_hangs      "))
-            afl->saved_hangs = strtoull(lptr, &nptr, 10);
-          break;
-        default:
-          break;
+        }
 
       }
-
+      if (starts_with("corpus_found", keystring)){
+        afl->queued_discovered = strtoul(lptr, &nptr, 10);
+      }
+      if (starts_with("corpus_imported", keystring)){
+        afl->queued_imported = strtoul(lptr, &nptr, 10);
+      }
+      if (starts_with("max_depth", keystring)) {
+        afl->max_depth = strtoul(lptr, &nptr, 10);
+      }
+      if (starts_with("saved_crashes", keystring)) {
+        afl->saved_crashes = strtoull(lptr, &nptr, 10);
+      }
+      if (starts_with("saved_hangs", keystring)) {
+        afl->saved_hangs = strtoull(lptr, &nptr, 10);
+      }
     }
-
   }
-
   if (afl->saved_crashes) { write_crash_readme(afl); }
 
   return;
@@ -300,6 +293,10 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "cycles_done       : %llu\n"
       "cycles_wo_finds   : %llu\n"
       "time_wo_finds     : %llu\n"
+      "fuzz_time         : %llu\n"
+      "calibration_time  : %llu\n"
+      "sync_time         : %llu\n"
+      "trim_time         : %llu\n"
       "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
       "execs_ps_last_min : %0.02f\n"
@@ -345,6 +342,10 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           : ((afl->start_time == 0 || afl->last_find_time == 0)
                  ? 0
                  : (cur_time - afl->last_find_time) / 1000),
+      (runtime - (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us) / 1000) / 1000,
+      afl->calibration_time_us / 1000000,
+      afl->sync_time_us / 1000000,
+      afl->trim_time_us / 1000000,
       afl->fsrv.total_execs, afl->fsrv.total_execs / ((double)(runtime) / 1000),
       afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
@@ -414,7 +415,6 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   fclose(f);
   rename(fn_tmp, fn_final);
-
 }
 
 #ifdef INTROSPECTION
@@ -2438,4 +2438,20 @@ void show_init_stats(afl_state_t *afl) {
 #undef IB
 
 }
+void update_calibration_time(afl_state_t *afl, u64* time){
+  u64 cur =  get_cur_time_us();
+  afl->calibration_time_us += cur-*time;
+  *time = cur;
+}
 
+void update_trim_time(afl_state_t *afl, u64* time){
+  u64 cur =  get_cur_time_us();
+  afl->trim_time_us += cur-*time;
+  *time = cur;
+}
+
+void update_sync_time(afl_state_t *afl, u64* time){
+  u64 cur =  get_cur_time_us();
+  afl->sync_time_us += cur-*time;
+  *time = cur;
+}
