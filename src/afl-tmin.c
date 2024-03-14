@@ -82,7 +82,7 @@ static u8 crash_mode,                  /* Crash-centric mode?               */
     remove_shm = 1,                    /* remove shmem on exit?             */
     debug;                             /* debug mode                        */
 
-static u32 del_len_limit;              /* Minimum block deletion length     */
+static u32 del_len_limit = 1;          /* Minimum block deletion length     */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -423,7 +423,6 @@ next_pass:
 
   del_len = next_pow2(in_len / TRIM_START_STEPS);
   stage_o_len = in_len;
-  if (!del_len_limit) { del_len_limit = 1; }
 
   ACTF(cBRI "Stage #1: " cRST "Removing blocks of data...");
 
@@ -1070,7 +1069,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         del_len_limit = atoi(optarg);
 
-        if (del_len_limit < 1 || del_len_limit >= TMIN_MAX_FILE) {
+        if (del_len_limit < 1 || del_len_limit > TMIN_MAX_FILE) {
 
           FATAL("Value of -l out of range between 1 and TMIN_MAX_FILE");
 
