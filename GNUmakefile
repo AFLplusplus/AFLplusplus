@@ -52,7 +52,7 @@ endif
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
   override CFLAGS += $(ASAN_CFLAGS)
-  LDFLAGS += $(ASAN_LDFLAGS)
+  override LDFLAGS += $(ASAN_LDFLAGS)
 endif
 ifdef UBSAN_BUILD
   $(info Compiling UBSAN version of binaries)
@@ -106,22 +106,22 @@ ifneq "$(SYS)" "Darwin"
  #  SPECIAL_PERFORMANCE += -march=native
  #endif
  #ifndef DEBUG
- #  CFLAGS_OPT += -D_FORTIFY_SOURCE=1
+ #  override CFLAGS_OPT += -D_FORTIFY_SOURCE=1
  #endif
 else
   # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
   SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
-  LDFLAGS += $(SDK_LD)
+  override LDFLAGS += $(SDK_LD)
 endif
 
 COMPILER_TYPE=$(shell $(CC) --version|grep "Free Software Foundation")
 ifneq "$(COMPILER_TYPE)" ""
   #$(info gcc is being used)
-  CFLAGS_OPT += -Wno-error=format-truncation -Wno-format-truncation
+  override CFLAGS_OPT += -Wno-error=format-truncation -Wno-format-truncation
 endif
 
 ifeq "$(SYS)" "SunOS"
-  LDFLAGS = -lkstat -lrt -lsocket -lnsl
+  override LDFLAGS = -lkstat -lrt -lsocket -lnsl
 endif
 
 ifdef STATIC
@@ -131,8 +131,8 @@ ifdef STATIC
   PYFLAGS=
   PYTHON_INCLUDE = /
 
-  CFLAGS_OPT += -static
-  LDFLAGS += -lm -lpthread -lz -lutil
+  override CFLAGS_OPT += -static
+  override LDFLAGS += -lm -lpthread -lz -lutil
 endif
 
 ifdef PROFILING
@@ -759,7 +759,7 @@ endif
 	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-13 and clang-13 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
-	test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
+	@test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
 endif
 ifeq "$(SYS)" "Linux"
 ifndef NO_NYX
