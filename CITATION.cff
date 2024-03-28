@@ -27,5 +27,5 @@ keywords:
   - qemu
   - llvm
   - unicorn-emulator
-  - securiy
+  - security
 license: AGPL-3.0-or-later
