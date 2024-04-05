@@ -118,7 +118,7 @@ llvmGetPassPluginInfo() {
   #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
   #endif
-            PB.registerOptimizerLastEPCallback(
+            PB.registerOptimizerEarlyEPCallback(
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(CmplogSwitches());
