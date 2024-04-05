@@ -33,6 +33,7 @@
   - afl-whatsup:
     - now also displays current average speed
     - small bugfixes
+  - Fixes for aflpp custom mutator and standalone tool
   - Minor edits to afl-persistent-config
   - Prevent temporary files being left behind on aborted afl-whatsup
   - More CPU benchmarks added to benchmark/
