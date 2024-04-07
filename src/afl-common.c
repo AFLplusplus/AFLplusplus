@@ -64,20 +64,20 @@ u8  last_intr = 0;
  *   FAST on such systems when COARSE is not already defined.
  * - macOS has no support of CLOCK_MONOTONIC_COARSE clock type.
  */
-#if defined (OS_DARWIN) || defined (OS_SUNOS)
-#    define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
-#elif defined (OS_FREEBSD)
-#    define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST
+#if defined(OS_DARWIN) || defined(OS_SUNOS)
+  #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#elif defined(OS_FREEBSD)
+  #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST
 #endif
 
 /* Convert seconds to milliseconds. */
-#define SEC_TO_MS(sec) ((sec)*1000)
+#define SEC_TO_MS(sec) ((sec) * 1000)
 /* Convert seconds to microseconds. */
-#define SEC_TO_US(sec) ((sec)*1000000)
+#define SEC_TO_US(sec) ((sec) * 1000000)
 /* Convert nanoseconds to milliseconds. */
-#define NS_TO_MS(ns)   ((ns)/1000000)
+#define NS_TO_MS(ns) ((ns) / 1000000)
 /* Convert nanoseconds to microseconds. */
-#define NS_TO_US(ns)   ((ns)/1000)
+#define NS_TO_US(ns) ((ns) / 1000)
 
 void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen) {
@@ -994,27 +994,35 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 /* Get unix time in milliseconds */
 
 inline u64 get_cur_time(void) {
+
   struct timespec ts;
-  int rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+  int             rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
   if (rc == -1) {
-    PFATAL("Failed to obtain timestamp (errno = %i: %s)\n",
-           errno, strerror(errno));
+
+    PFATAL("Failed to obtain timestamp (errno = %i: %s)\n", errno,
+           strerror(errno));
+
   }
 
   return SEC_TO_MS((uint64_t)ts.tv_sec) + NS_TO_MS((uint64_t)ts.tv_nsec);
+
 }
 
 /* Get unix time in microseconds */
 
 u64 get_cur_time_us(void) {
+
   struct timespec ts;
-  int rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+  int             rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
   if (rc == -1) {
-    PFATAL("Failed to obtain timestamp (errno = %i: %s)\n",
-           errno, strerror(errno));
+
+    PFATAL("Failed to obtain timestamp (errno = %i: %s)\n", errno,
+           strerror(errno));
+
   }
 
   return SEC_TO_US((uint64_t)ts.tv_sec) + NS_TO_US((uint64_t)ts.tv_nsec);
+
 }
 
 /* Describe integer. The buf should be
