@@ -1369,6 +1369,13 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 
   }
 
+  if (getenv("AFL_LLVM_DICT2FILE") &&
+      (getenv("AFL_LLVM_LAF_SPLIT_SWITCHES") ||
+       getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+       getenv("AFL_LLVM_LAF_SPLIT_FLOATS") ||
+       getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")))
+    FATAL("AFL_LLVM_DICT2FILE is incompatible with AFL_LLVM_LAF_*");
+
   aflcc->cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
                        getenv("AFL_GCC_CMPLOG");
 

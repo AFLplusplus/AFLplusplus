@@ -89,7 +89,7 @@ class CompareTransform : public ModulePass {
 
   #endif
 
-    return "cmplog transform";
+    return "compcov transform";
 
   }
 
@@ -123,7 +123,11 @@ llvmGetPassPluginInfo() {
     #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
     #endif
+    #if LLVM_VERSION_MAJOR >= 16
+            PB.registerOptimizerEarlyEPCallback(
+    #else
             PB.registerOptimizerLastEPCallback(
+    #endif
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(CompareTransform());
@@ -746,6 +750,8 @@ bool CompareTransform::runOnModule(Module &M) {
 
 #endif
 
+  bool ret = false;
+
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     printf(
         "Running compare-transform-pass by laf.intel@gmail.com, extended by "
@@ -753,11 +759,7 @@ bool CompareTransform::runOnModule(Module &M) {
   else
     be_quiet = 1;
 
-#if LLVM_MAJOR >= 11                                /* use new pass manager */
-  auto PA = PreservedAnalyses::all();
-#endif
-
-  transformCmps(M, true, true, true, true, true);
+  if (transformCmps(M, true, true, true, true, true) == true) ret = true;
   verifyModule(M);
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
@@ -767,9 +769,18 @@ bool CompareTransform::runOnModule(Module &M) {
                    
                        }*/
 
-  return PA;
+  if (ret == true) {
+
+    return PreservedAnalyses();
+
+  } else {
+
+    return PreservedAnalyses::all();
+
+  }
+
 #else
-  return true;
+  return ret;
 #endif
 
 }

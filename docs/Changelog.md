@@ -29,6 +29,7 @@
     - added collision free caller instrumentation to LTO mode. activate with
       `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
       block functions with `AFL_LLVM_LTO_CALLER_DEPTH` (default 0)
+    - fixes for COMPCOV/LAF and most other modules
     - fix for GCC_PLUGIN cmplog that broke on std::strings
   - afl-whatsup:
     - now also displays current average speed
