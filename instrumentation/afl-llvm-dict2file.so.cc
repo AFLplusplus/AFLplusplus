@@ -746,7 +746,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
   auto PA = PreservedAnalyses::all();
   return PA;
 #else
-  return true;
+  return false;
 #endif
 
 }

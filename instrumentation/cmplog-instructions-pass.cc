@@ -680,13 +680,16 @@ bool CmpLogInstructions::runOnModule(Module &M) {
     printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
   else
     be_quiet = 1;
-  hookInstrs(M);
+  bool ret = hookInstrs(M);
   verifyModule(M);
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
-  return PreservedAnalyses::all();
+  if (ret == false)
+    return PreservedAnalyses::all();
+  else
+    return PreservedAnalyses();
 #else
-  return true;
+  return ret;
 #endif
 
 }

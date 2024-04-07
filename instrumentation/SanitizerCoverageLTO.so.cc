@@ -341,7 +341,7 @@ llvmGetPassPluginInfo() {
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
 #if LLVM_VERSION_MAJOR >= 15
-            PB.registerFullLinkTimeOptimizationLastEPCallback(
+            PB.registerFullLinkTimeOptimizationEarlyEPCallback(
 #else
             PB.registerOptimizerLastEPCallback(
 #endif
@@ -1304,7 +1304,12 @@ u32 countCallers(Function *F) {
 
   for (auto *U : F->users()) {
 
-    if (auto *CI = dyn_cast<CallInst>(U)) { ++callers; }
+    if (auto *CI = dyn_cast<CallInst>(U)) {
+
+      ++callers;
+      (void)(CI);
+
+    }
 
   }
 
