@@ -32,6 +32,9 @@
 #ifndef __USE_GNU
   #define __USE_GNU
 #endif
+#ifdef __APPLE__
+#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#endif
 #include <string.h>
 #include <strings.h>
 #include <math.h>
