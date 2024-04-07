@@ -64,7 +64,8 @@ u8  last_intr = 0;
  *   FAST on such systems when COARSE is not already defined.
  * - macOS has no support of CLOCK_MONOTONIC_COARSE clock type.
  */
-#if defined(OS_DARWIN) || defined(OS_SUNOS)
+#if defined(OS_DARWIN) || defined(OS_SUNOS) || defined(__APPLE__) || \
+    defined(__sun) || defined(__NetBSD__)
   #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
 #elif defined(OS_FREEBSD)
   #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST
