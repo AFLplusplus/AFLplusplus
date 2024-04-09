@@ -1111,8 +1111,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
-      if ((status & FS_NEW_OPT_SHDMEM_FUZZ) && fsrv->add_extra_func &&
-          !ignore_autodict) {
+      if (status & FS_NEW_OPT_SHDMEM_FUZZ) {
 
         if (fsrv->support_shmem_fuzz) {
 
@@ -1129,7 +1128,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
-      if ((status & FS_NEW_OPT_AUTODICT)) {
+      if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it
 
