@@ -505,7 +505,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
-    // update the time spend in calibration after each execution, as those may be slow
+    // update the time spend in calibration after each execution, as those may
+    // be slow
     update_calibration_time(afl, &calibration_start_us);
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
@@ -680,7 +681,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
   while ((sd_ent = readdir(sd))) {
 
-    // since sync can take substantial amounts of time, update time spend every iteration
+    // since sync can take substantial amounts of time, update time spend every
+    // iteration
     update_sync_time(afl, &sync_start_us);
 
     u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
@@ -870,7 +872,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
   if (afl->foreign_sync_cnt) read_foreign_testcases(afl, 0);
 
-  //add time in sync one last time
+  // add time in sync one last time
   update_sync_time(afl, &sync_start_us);
 
   afl->last_sync_time = get_cur_time();
@@ -910,7 +912,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     }
 
-    if (custom_trimmed) { fault = trimmed_case; goto abort_trimming; }
+    if (custom_trimmed) {
+
+      fault = trimmed_case;
+      goto abort_trimming;
+
+    }
 
   }
 
@@ -924,7 +931,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
      detected, it will still work to some extent, so we don't check for
      this. */
 
-  if (unlikely(q->len < 5)) { fault = 0; goto abort_trimming; }
+  if (unlikely(q->len < 5)) {
+
+    fault = 0;
+    goto abort_trimming;
+
+  }
 
   afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
@@ -986,7 +998,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
         /* Let's save a clean trace, which will be needed by
            update_bitmap_score once we're done with the trimming stuff. */
-
         if (!needs_write) {
 
           needs_write = 1;
@@ -1001,7 +1012,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
       /* Since this can be slow, update the screen every now and then. */
-
       if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
       ++afl->stage_cur;
 
@@ -1119,3 +1129,4 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
+

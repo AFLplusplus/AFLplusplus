@@ -5,8 +5,9 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                     Dominik Meier <mail@dmnk.co>,
+                     Andrea Fioraldi <andreafioraldi@gmail.com>, and
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2024 AFLplusplus Project. All rights reserved.
@@ -199,7 +200,8 @@ static void usage(u8 *argv0, int more_help) {
 
       "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
-      "  -V seconds    - fuzz for a specified time then terminate\n"
+      "  -V seconds    - fuzz for a specified time then terminate (fuzz time "
+      "only!)\n"
       "  -E execs      - fuzz for an approx. no. of total executions then "
       "terminate\n"
       "                  Note: not precise and can have several more "
@@ -2543,8 +2545,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   // (void)nice(-20);  // does not improve the speed
-  // real start time, we reset, so this works correctly with -V
-  afl->start_time = get_cur_time();
 
   #ifdef INTROSPECTION
   u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
@@ -2565,6 +2565,9 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
+  // real start time, we reset, so this works correctly with -V
+  afl->start_time = get_cur_time();
+
   while (likely(!afl->stop_soon)) {
 
     cull_queue(afl);
@@ -2584,6 +2587,13 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         sync_fuzzers(afl);
+
+        if (!afl->queue_cycle && afl->afl_env.afl_import_first) {
+
+          // real start time, we reset, so this works correctly with -V
+          afl->start_time = get_cur_time();
+
+        }
 
       }
 
@@ -3099,3 +3109,4 @@ stop_fuzzing:
 }
 
 #endif                                                          /* !AFL_LIB */
+

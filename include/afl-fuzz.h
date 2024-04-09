@@ -5,9 +5,9 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
-                     Andrea Fioraldi <andreafioraldi@gmail.com>,
-                     Dominik Maier <mail@dmnk.co>
+                     Dominik Maier <mail@dmnk.co>,
+                     Andrea Fioraldi <andreafioraldi@gmail.com>, and
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2024 AFLplusplus Project. All rights reserved.
@@ -1218,9 +1218,9 @@ void show_stats_normal(afl_state_t *);
 void show_stats_pizza(afl_state_t *);
 void show_init_stats(afl_state_t *);
 
-void update_calibration_time(afl_state_t *afl, u64* time);
-void update_trim_time(afl_state_t *afl, u64* time);
-void update_sync_time(afl_state_t *afl, u64* time);
+void update_calibration_time(afl_state_t *afl, u64 *time);
+void update_trim_time(afl_state_t *afl, u64 *time);
+void update_sync_time(afl_state_t *afl, u64 *time);
 
 /* StatsD */
 
@@ -1409,3 +1409,4 @@ void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
 #endif
 
 #endif
+
