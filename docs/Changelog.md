@@ -25,6 +25,8 @@
     - fix for `-t xxx+` feature
     - -e extension option now saves the queue items, crashes, etc. with the
       extension too
+    - fixes for trimmming, correct -V time and reading stats on resume by eqv
+      thanks a lot!
   - afl-cc:
     - added collision free caller instrumentation to LTO mode. activate with
       `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
