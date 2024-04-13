@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.20a (dev)
+### Version ++4.20c (release)
   ! A new forkserver communication model is now introduced. afl-fuzz is
     backward compatible to old compiled targets if they are not built
     for CMPLOG/Redqueen, but new compiled targets will not work with
