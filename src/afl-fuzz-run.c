@@ -409,6 +409,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   u32 use_tmout = afl->fsrv.exec_tmout;
   u8 *old_sn = afl->stage_name;
 
+  u64 calibration_start_us = get_cur_time_us();
   if (unlikely(afl->shm.cmplog_mode)) { q->exec_cksum = 0; }
 
   /* Be a bit more generous about timeouts when resuming sessions, or when
@@ -503,6 +504,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
+
+    // update the time spend in calibration after each execution, as those may
+    // be slow
+    update_calibration_time(afl, &calibration_start_us);
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
@@ -650,6 +655,7 @@ abort_calibration:
 
   if (!first_run) { show_stats(afl); }
 
+  update_calibration_time(afl, &calibration_start_us);
   return fault;
 
 }
@@ -669,10 +675,15 @@ void sync_fuzzers(afl_state_t *afl) {
   afl->stage_max = afl->stage_cur = 0;
   afl->cur_depth = 0;
 
+  u64 sync_start_us = get_cur_time_us();
   /* Look at the entries created for every other fuzzer in the sync directory.
    */
 
   while ((sd_ent = readdir(sd))) {
+
+    // since sync can take substantial amounts of time, update time spend every
+    // iteration
+    update_sync_time(afl, &sync_start_us);
 
     u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
     u32 min_accept = 0, next_min_accept = 0;
@@ -811,7 +822,7 @@ void sync_fuzzers(afl_state_t *afl) {
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
-        (void)write_to_testcase(afl, (void **)&mem, st.st_size, 1);
+        u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
 
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
@@ -819,7 +830,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
         afl->syncing_party = sd_ent->d_name;
         afl->queued_imported +=
-            save_if_interesting(afl, mem, st.st_size, fault);
+            save_if_interesting(afl, mem, new_len, fault);
         afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
@@ -861,6 +872,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
   if (afl->foreign_sync_cnt) read_foreign_testcases(afl, 0);
 
+  // add time in sync one last time
+  update_sync_time(afl, &sync_start_us);
+
   afl->last_sync_time = get_cur_time();
   afl->last_sync_cycle = afl->queue_cycle;
 
@@ -872,8 +886,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
 u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
+  u8  needs_write = 0, fault = 0;
   u32 orig_len = q->len;
-
+  u64 trim_start_us = get_cur_time_us();
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
@@ -897,11 +912,15 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     }
 
-    if (custom_trimmed) return trimmed_case;
+    if (custom_trimmed) {
+
+      fault = trimmed_case;
+      goto abort_trimming;
+
+    }
 
   }
 
-  u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
   u32 remove_len;
   u32 len_p2;
@@ -912,7 +931,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
      detected, it will still work to some extent, so we don't check for
      this. */
 
-  if (unlikely(q->len < 5)) { return 0; }
+  if (unlikely(q->len < 5)) {
+
+    fault = 0;
+    goto abort_trimming;
+
+  }
 
   afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
@@ -946,6 +970,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
+      update_trim_time(afl, &trim_start_us);
+
       if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
@@ -972,7 +998,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
         /* Let's save a clean trace, which will be needed by
            update_bitmap_score once we're done with the trimming stuff. */
-
         if (!needs_write) {
 
           needs_write = 1;
@@ -987,7 +1012,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
       /* Since this can be slow, update the screen every now and then. */
-
       if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
       ++afl->stage_cur;
 
@@ -1039,8 +1063,9 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   }
 
 abort_trimming:
-
   afl->bytes_trim_out += q->len;
+  update_trim_time(afl, &trim_start_us);
+
   return fault;
 
 }

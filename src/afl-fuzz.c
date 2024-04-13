@@ -5,8 +5,9 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                     Dominik Meier <mail@dmnk.co>,
+                     Andrea Fioraldi <andreafioraldi@gmail.com>, and
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2024 AFLplusplus Project. All rights reserved.
@@ -170,7 +171,6 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -D            - enable (a new) effective deterministic fuzzing\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new finds). 0 = "
@@ -200,7 +200,8 @@ static void usage(u8 *argv0, int more_help) {
 
       "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
-      "  -V seconds    - fuzz for a specified time then terminate\n"
+      "  -V seconds    - fuzz for a specified time then terminate (fuzz time "
+      "only!)\n"
       "  -E execs      - fuzz for an approx. no. of total executions then "
       "terminate\n"
       "                  Note: not precise and can have several more "
@@ -213,7 +214,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
-      // "  -d            - skip deterministic fuzzing in -M mode\n"
+      "  -z            - skip the enhanced deterministic fuzzing\n"
+      "                  (note that the old -d and -D flags are ignored.)\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -401,6 +403,12 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS.\n");
 #endif
 
+#ifdef _AFL_SPECIAL_PERFORMANCE
+  SAYF(
+      "Compiled with special performance options for this specific system, it "
+      "might not work on other platforms!\n");
+#endif
+
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);
@@ -539,7 +547,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
                        "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
-                       "T:UV:WXx:YZ")) > 0) {
+                       "T:UV:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -955,20 +963,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'D':                                    /* partial deterministic */
+      case 'd':
+      case 'D':                                        /* old deterministic */
 
-        afl->skip_deterministic = 0;
+        WARNF(
+            "Parameters -d and -D are deprecated, a new enhanced deterministic "
+            "fuzzing is active by default, to disable it use -z");
         break;
 
-      case 'd':                                         /* no deterministic */
+      case 'z':                                         /* no deterministic */
 
-        // this is the default and currently a lot of infrastructure enforces
-        // it (e.g. clusterfuzz, fuzzbench) based on that this feature
-        // originally was bad performance wise. We now have a better
-        // implementation, hence if it is activated, we do not want to
-        // deactivate it by such setups.
-
-        // afl->skip_deterministic = 1;
+        afl->skip_deterministic = 1;
         break;
 
       case 'B':                                              /* load bitmap */
@@ -1232,6 +1237,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        afl->old_seed_selection = 1;
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
         if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
@@ -2069,6 +2075,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  /* Simply code if AFL_TMPDIR is used or not */
+  if (!afl->afl_env.afl_tmpdir) {
+
+    afl->tmp_dir = afl->out_dir;
+
+  } else {
+
+    afl->tmp_dir = afl->afl_env.afl_tmpdir;
+
+  }
+
   write_setup_file(afl, argc, argv);
 
   setup_cmdline_file(afl, argv + optind);
@@ -2081,8 +2098,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
 
-  if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
-      !afl->in_place_resume) {
+  if (afl->afl_env.afl_tmpdir && !afl->in_place_resume) {
 
     char tmpfile[PATH_MAX];
 
@@ -2106,10 +2122,6 @@ int main(int argc, char **argv_orig, char **envp) {
           tmpfile);
 
     }
-
-  } else {
-
-    afl->tmp_dir = afl->out_dir;
 
   }
 
@@ -2182,7 +2194,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
+    afl->fsrv.persistent_record_dir = alloc_printf("%s", afl->out_dir);
 
   }
 
@@ -2489,8 +2501,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
       for (entry = 0; entry < afl->queued_items; ++entry)
         if (!afl->queue_buf[entry]->disabled)
-          if (afl->queue_buf[entry]->exec_us > max_ms)
-            max_ms = afl->queue_buf[entry]->exec_us;
+          if ((afl->queue_buf[entry]->exec_us / 1000) > max_ms)
+            max_ms = afl->queue_buf[entry]->exec_us / 1000;
+
+      // Add 20% as a safety margin, capped to exec_tmout given in -t option
+      max_ms *= 1.2;
+      if (max_ms > afl->fsrv.exec_tmout) max_ms = afl->fsrv.exec_tmout;
+
+      // Ensure that there is a sensible timeout even for very fast binaries
+      if (max_ms < 5) max_ms = 5;
 
       afl->fsrv.exec_tmout = max_ms;
       afl->timeout_given = 1;
@@ -2526,8 +2545,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   // (void)nice(-20);  // does not improve the speed
-  // real start time, we reset, so this works correctly with -V
-  afl->start_time = get_cur_time();
 
   #ifdef INTROSPECTION
   u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
@@ -2548,6 +2565,9 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
 
+  // real start time, we reset, so this works correctly with -V
+  afl->start_time = get_cur_time();
+
   while (likely(!afl->stop_soon)) {
 
     cull_queue(afl);
@@ -2567,6 +2587,13 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         sync_fuzzers(afl);
+
+        if (!afl->queue_cycle && afl->afl_env.afl_import_first) {
+
+          // real start time, we reset, so this works correctly with -V
+          afl->start_time = get_cur_time();
+
+        }
 
       }
 
@@ -3057,7 +3084,7 @@ stop_fuzzing:
   afl_fsrv_deinit(&afl->fsrv);
 
   /* remove tmpfile */
-  if (afl->tmp_dir != NULL && !afl->in_place_resume && afl->fsrv.out_file) {
+  if (!afl->in_place_resume && afl->fsrv.out_file) {
 
     (void)unlink(afl->fsrv.out_file);
 

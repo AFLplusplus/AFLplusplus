@@ -5,6 +5,7 @@ on:
     branches:
       - stable
       - dev
+      - 420
   pull_request:
     branches:
       - dev # No need for stable-pull-request, as that equals dev-push

@@ -63,7 +63,7 @@ test -e ../afl-qemu-trace && {
           {
             export AFL_PRELOAD=../libcompcov.so
             export AFL_COMPCOV_LEVEL=2
-            ../afl-fuzz -m ${MEM_LIMIT} -V07 -Q -i in -o out -- ./test-compcov >>errors 2>&1
+            AFL_NO_UI=1 ../afl-fuzz -V07 -Q -i in -o out -- ./test-compcov 2>&1
             unset AFL_PRELOAD
             unset AFL_COMPCOV_LEVEL
           } >>errors 2>&1
@@ -88,7 +88,7 @@ test -e ../afl-qemu-trace && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for qemu_mode cmplog, this will take approx 10 seconds"
         {
-          ../afl-fuzz -m none -V07 -Q -c 0 -l 3 -i in -o out -- ./test-compcov >>errors 2>&1
+          ../afl-fuzz -V07 -Q -c 0 -l 3 -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode cmplog"

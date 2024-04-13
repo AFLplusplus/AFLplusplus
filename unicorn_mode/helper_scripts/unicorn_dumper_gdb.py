@@ -89,8 +89,8 @@ def dump_arch_info():
 
 def dump_regs():
     reg_state = {}
-    for reg in current_arch.all_registers:
-        reg_val = get_register(reg)
+    for reg in gef.arch.registers:
+        reg_val = gef.arch.register(reg)
         reg_state[reg.strip().strip("$")] = reg_val
 
     return reg_state
@@ -101,7 +101,9 @@ def dump_process_memory(output_dir):
     final_segment_list = []
 
     # GEF:
-    vmmap = get_process_maps()
+    vmmap = gef.memory.maps
+    memory = GefMemoryManager()
+    
     if not vmmap:
         print("No address mapping information found")
         return final_segment_list
@@ -126,7 +128,7 @@ def dump_process_memory(output_dir):
         if entry.is_readable() and not "(deleted)" in entry.path:
             try:
                 # Compress and dump the content to a file
-                seg_content = read_memory(entry.page_start, entry.size)
+                seg_content = memory.read(entry.page_start, entry.size)
                 if seg_content == None:
                     print(
                         "Segment empty: @0x{0:016x} (size:UNKNOWN) {1}".format(

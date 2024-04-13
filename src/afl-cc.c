@@ -828,7 +828,8 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
   }
 
   if (getenv("AFL_LLVM_CTX")) aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CTX;
-  if (getenv("AFL_LLVM_CALLER"))
+  if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_LTO_CALLER") ||
+      getenv("AFL_LLVM_LTO_CTX"))
     aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
@@ -1148,12 +1149,16 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
   }
 
-  if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM)
+  if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM &&
+      !((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+        aflcc->compiler_mode == LTO))
     FATAL("CTX, CALLER and NGRAM can only be used in LLVM mode");
 
   if (aflcc->instrument_opt_mode &&
       aflcc->instrument_opt_mode != INSTRUMENT_OPT_CODECOV &&
-      aflcc->instrument_mode != INSTRUMENT_CLASSIC)
+      aflcc->instrument_mode != INSTRUMENT_CLASSIC &&
+      !(aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER &&
+        aflcc->compiler_mode == LTO))
     FATAL(
         "CALLER, CTX and NGRAM instrumentation options can only be used with "
         "the LLVM CLASSIC instrumentation mode.");
@@ -1363,6 +1368,13 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
     setenv("AFL_LLVM_LAF_TRANSFORM_COMPARES", "1", 1);
 
   }
+
+  if (getenv("AFL_LLVM_DICT2FILE") &&
+      (getenv("AFL_LLVM_LAF_SPLIT_SWITCHES") ||
+       getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+       getenv("AFL_LLVM_LAF_SPLIT_FLOATS") ||
+       getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")))
+    FATAL("AFL_LLVM_DICT2FILE is incompatible with AFL_LLVM_LAF_*");
 
   aflcc->cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
                        getenv("AFL_GCC_CMPLOG");
@@ -2375,7 +2387,11 @@ void add_runtime(aflcc_state_t *aflcc) {
     if (aflcc->plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
         strncmp(libdir, "/lib", 4)) {
 
+#ifdef __APPLE__
+      u8 *libdir_opt = strdup("-Wl,-rpath," LLVM_LIBDIR);
+#else
       u8 *libdir_opt = strdup("-Wl,-rpath=" LLVM_LIBDIR);
+#endif
       insert_param(aflcc, libdir_opt);
 
     }
@@ -2917,11 +2933,12 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
             "  AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
             "functions\n"
             "    into this file (LTO mode)\n"
+            "  AFL_LLVM_LTO_CALLER: activate CALLER/CTX instrumentation\n"
+            "  AFL_LLVM_LTO_CALLER_DEPTH: skip how many empty functions\n"
             "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
             "global var\n"
             "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
-            "a "
-            "bb\n"
+            "a bb\n"
             "  AFL_REAL_LD: use this lld linker instead of the compiled in "
             "path\n"
             "  AFL_LLVM_LTO_SKIPINIT: don't inject initialization code "

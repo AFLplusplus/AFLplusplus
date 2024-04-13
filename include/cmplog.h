@@ -38,18 +38,15 @@
 
 #define SHAPE_BYTES(x) (x + 1)
 
-#define CMP_TYPE_INS 1
-#define CMP_TYPE_RTN 2
+#define CMP_TYPE_INS 0
+#define CMP_TYPE_RTN 1
 
-struct cmp_header {
+struct cmp_header {  // 16 bit = 2 bytes
 
-  unsigned hits : 24;
-  unsigned id : 24;
-  unsigned shape : 5;
-  unsigned type : 2;
-  unsigned attribute : 4;
-  unsigned overflow : 1;
-  unsigned reserved : 4;
+  unsigned hits : 6;       // up to 63 entries, we have CMP_MAP_H = 32
+  unsigned shape : 5;      // 31+1 bytes max
+  unsigned type : 1;       // 2: cmp, rtn
+  unsigned attribute : 4;  // 16 for arithmetic comparison types
 
 } __attribute__((packed));
 
@@ -59,14 +56,17 @@ struct cmp_operands {
   u64 v1;
   u64 v0_128;
   u64 v1_128;
+  u64 unused;
+  u8  unused1;
+  u8  unused2;
 
 } __attribute__((packed));
 
 struct cmpfn_operands {
 
-  u8 v0[31];
+  u8 v0[32];
   u8 v0_len;
-  u8 v1[31];
+  u8 v1[32];
   u8 v1_len;
 
 } __attribute__((packed));

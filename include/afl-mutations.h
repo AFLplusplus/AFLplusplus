@@ -30,9 +30,12 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
-#include "afl-fuzz.h"
 
 #define MUT_STRATEGY_ARRAY_SIZE 256
+
+s8  interesting_8[] = {INTERESTING_8};
+s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
+s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
 enum {
 

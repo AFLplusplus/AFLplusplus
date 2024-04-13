@@ -3,6 +3,45 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.20c (release)
+  ! A new forkserver communication model is now introduced. afl-fuzz is
+    backward compatible to old compiled targets if they are not built
+    for CMPLOG/Redqueen, but new compiled targets will not work with
+    old afl-fuzz versions!
+  ! Recompile all targets that are instrumented for CMPLOG/Redqueen!
+  - AFL++ now supports up to 4 billion coverage edges, up from 6 million.
+  - New compile option: `make PERFORMANCE=1` - this will enable special
+    CPU dependent optimizations that make everything more performant - but
+    the binaries will likely won't work on different platforms. Also
+    enables a faster hasher if the CPU requirements are met.
+  - The persistent record feature (see config.h) was expanded to also
+    support replay, thanks to @quarta-qti !
+  - afl-fuzz:
+    - the new deterministic fuzzing feature is now activated by default,
+      deactivate with -z. Parameters -d and -D are ignored.
+    - small improvements to CMPLOG/redqueen
+    - workround for a bug with MOpt -L when used with -M - in the future
+      we will either remove or rewrite MOpt.
+    - fix for `-t xxx+` feature
+    - -e extension option now saves the queue items, crashes, etc. with the
+      extension too
+    - fixes for trimmming, correct -V time and reading stats on resume by eqv
+      thanks a lot!
+  - afl-cc:
+    - added collision free caller instrumentation to LTO mode. activate with
+      `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
+      block functions with `AFL_LLVM_LTO_CALLER_DEPTH` (default 0)
+    - fixes for COMPCOV/LAF and most other modules
+    - fix for GCC_PLUGIN cmplog that broke on std::strings
+  - afl-whatsup:
+    - now also displays current average speed
+    - small bugfixes
+  - Fixes for aflpp custom mutator and standalone tool
+  - Minor edits to afl-persistent-config
+  - Prevent temporary files being left behind on aborted afl-whatsup
+  - More CPU benchmarks added to benchmark/
+
+
 ### Version ++4.10c (release)
   - afl-fuzz:
     - default power schedule is now EXPLORE, due a fix in fast schedules

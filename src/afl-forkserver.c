@@ -389,7 +389,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
   while (1) {
 
     uint32_t was_killed;
-    int      status;
+    u32      status;
 
     /* Wait for parent by reading from the pipe. Exit if read fails. */
 
@@ -524,7 +524,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
 
   int   st_pipe[2], ctl_pipe[2];
-  s32   status;
+  u32   status;
   s32   rlen;
   char *ignore_autodict = getenv("AFL_NO_AUTODICT");
 
@@ -724,7 +724,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
     /* autodict in Nyx mode */
-    if (!ignore_autodict) {
+    if (!ignore_autodict && fsrv->add_extra_func) {
 
       char *x =
           alloc_printf("%s/workdir/dump/afl_autodict.txt", fsrv->out_dir_path);
@@ -1017,83 +1017,68 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (rlen == 4) {
 
+    /*
+     *  The new fork server model works like this:
+     *    Client: sends "AFLx" in little endian, with x being the forkserver
+     *            protocol version.
+     *    Server: replies with XOR of the message or exits with an error if it
+     *            is not a supported version.
+     *    Client: sends 32 bit of options and then sends all parameters of
+     *            the options, one after another, increasing by option number.
+     *            Ends with "AFLx".
+     *  After the initial protocol version confirmation the server does not
+     *  send any data anymore - except a future option requires this.
+     */
+
+    if ((status & FS_NEW_ERROR) == FS_NEW_ERROR) {
+
+      report_error_and_exit(status & 0x0000ffff);
+
+    }
+
     if (status >= 0x41464c00 && status <= 0x41464cff) {
 
-      FATAL(
-          "Target uses the new forkserver model, you need to switch to a newer "
-          "afl-fuzz too!");
+      u32 version = status - 0x41464c00;
 
-    }
+      if (!version) {
 
-    if (!be_quiet) { OKF("All right - fork server is up."); }
+        FATAL(
+            "Fork server version is not assigned, this should not happen. "
+            "Recompile target.");
 
-    if (getenv("AFL_DEBUG")) {
+      } else if (version < FS_NEW_VERSION_MIN || version > FS_NEW_VERSION_MAX) {
 
-      ACTF("Extended forkserver functions received (%08x).", status);
-
-    }
-
-    if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
-      report_error_and_exit(FS_OPT_GET_ERROR(status));
-
-    if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
-
-      // workaround for recent AFL++ versions
-      if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
-        status = (status & 0xf0ffffff);
-
-      if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
-
-        if (fsrv->qemu_mode || fsrv->frida_mode) {
-
-          report_error_and_exit(FS_ERROR_OLD_CMPLOG_QEMU);
-
-        } else {
-
-          report_error_and_exit(FS_ERROR_OLD_CMPLOG);
-
-        }
+        FATAL(
+            "Fork server version is not not supported.  Recompile the target.");
 
       }
 
-      if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
+      u32 keep = status;
+      status ^= 0xffffffff;
+      if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
-        fsrv->snapshot = 1;
-        if (!be_quiet) { ACTF("Using SNAPSHOT feature."); }
-
-      }
-
-      if ((status & FS_OPT_SHDMEM_FUZZ) == FS_OPT_SHDMEM_FUZZ) {
-
-        if (fsrv->support_shmem_fuzz) {
-
-          fsrv->use_shmem_fuzz = 1;
-          if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
-
-          if ((status & FS_OPT_AUTODICT) == 0 || ignore_autodict) {
-
-            u32 send_status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
-            if (write(fsrv->fsrv_ctl_fd, &send_status, 4) != 4) {
-
-              FATAL("Writing to forkserver failed.");
-
-            }
-
-          }
-
-        } else {
-
-          FATAL(
-              "Target requested sharedmem fuzzing, but we failed to enable "
-              "it.");
-
-        }
+        FATAL("Writing to forkserver failed.");
 
       }
 
-      if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
+      if (!be_quiet) {
 
-        u32 tmp_map_size = FS_OPT_GET_MAPSIZE(status);
+        OKF("All right - new fork server model v%u is up.", version);
+
+      }
+
+      rlen = read(fsrv->fsrv_st_fd, &status, 4);
+
+      if (getenv("AFL_DEBUG")) {
+
+        ACTF("Forkserver options received: (0x%08x)", status);
+
+      }
+
+      if ((status & FS_NEW_OPT_MAPSIZE)) {
+
+        u32 tmp_map_size;
+        rlen = read(fsrv->fsrv_st_fd, &tmp_map_size, 4);
 
         if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
 
@@ -1110,7 +1095,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "AFL++ is set with (%u). Either set AFL_MAP_SIZE=%u and restart "
+              "AFL++ is set with (%u). Either set AFL_MAP_SIZE=%u and "
+              "restart "
               " afl-fuzz, or change MAP_SIZE_POW2 in config.h and recompile "
               "afl-fuzz",
               tmp_map_size, fsrv->map_size, tmp_map_size);
@@ -1119,22 +1105,261 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         fsrv->map_size = tmp_map_size;
 
+      } else {
+
+        fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+
       }
 
-      if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
+      if (status & FS_NEW_OPT_SHDMEM_FUZZ) {
 
-        if (!ignore_autodict) {
+        if (fsrv->support_shmem_fuzz) {
 
-          if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
+          fsrv->use_shmem_fuzz = 1;
+          if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
 
-            // this is not afl-fuzz - or it is cmplog - we deny and return
+        } else {
+
+          FATAL(
+              "Target requested sharedmem fuzzing, but we failed to enable "
+              "it.");
+
+        }
+
+      }
+
+      if (status & FS_NEW_OPT_AUTODICT) {
+
+        // even if we do not need the dictionary we have to read it
+
+        u32 dict_size;
+        if (read(fsrv->fsrv_st_fd, &dict_size, 4) != 4) {
+
+          FATAL("Reading from forkserver failed.");
+
+        }
+
+        if (dict_size < 2 || dict_size > 0xffffff) {
+
+          FATAL("Dictionary has an illegal size: %d", dict_size);
+
+        }
+
+        u32 offset = 0, count = 0;
+        u8 *dict = ck_alloc(dict_size);
+        if (dict == NULL) {
+
+          FATAL("Could not allocate %u bytes of autodictionary memory",
+                dict_size);
+
+        }
+
+        while (offset < dict_size) {
+
+          rlen = read(fsrv->fsrv_st_fd, dict + offset, dict_size - offset);
+          if (rlen > 0) {
+
+            offset += rlen;
+
+          } else {
+
+            FATAL(
+                "Reading autodictionary fail at position %u with %u bytes "
+                "left.",
+                offset, dict_size - offset);
+
+          }
+
+        }
+
+        offset = 0;
+        while (offset < dict_size && (u8)dict[offset] + offset < dict_size) {
+
+          if (!ignore_autodict && fsrv->add_extra_func) {
+
+            fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                                 (u8)dict[offset]);
+            count++;
+
+          }
+
+          offset += (1 + dict[offset]);
+
+        }
+
+        if (!be_quiet && count) {
+
+          ACTF("Loaded %u autodictionary entries", count);
+
+        }
+
+        ck_free(dict);
+
+      }
+
+      u32 status2;
+      rlen = read(fsrv->fsrv_st_fd, &status2, 4);
+
+      if (status2 != keep) {
+
+        FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);
+
+      }
+
+    } else {
+
+      if (!fsrv->qemu_mode && !fsrv->cs_mode
+#ifdef __linux__
+          && !fsrv->nyx_mode
+#endif
+      ) {
+
+        WARNF(
+            "Old fork server model is used by the target, this still works "
+            "though.");
+
+      }
+
+      if (!be_quiet) { OKF("All right - old fork server is up."); }
+
+      if (getenv("AFL_DEBUG")) {
+
+        ACTF("Extended forkserver functions received (%08x).", status);
+
+      }
+
+      if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
+        report_error_and_exit(FS_OPT_GET_ERROR(status));
+
+      if (fsrv->cmplog_binary && !fsrv->qemu_mode) {
+
+        FATAL("Target was compiled with outdated CMPLOG, recompile it!\n");
+
+      }
+
+      if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
+
+        // workaround for recent AFL++ versions
+        if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) ==
+            FS_OPT_OLD_AFLPP_WORKAROUND)
+          status = (status & 0xf0ffffff);
+
+        if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
+
+          if (fsrv->qemu_mode || fsrv->frida_mode) {
+
+            report_error_and_exit(FS_ERROR_OLD_CMPLOG_QEMU);
+
+          } else {
+
+            report_error_and_exit(FS_ERROR_OLD_CMPLOG);
+
+          }
+
+        }
+
+        if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
+
+          fsrv->snapshot = 1;
+          if (!be_quiet) { ACTF("Using SNAPSHOT feature."); }
+
+        }
+
+        if ((status & FS_OPT_SHDMEM_FUZZ) == FS_OPT_SHDMEM_FUZZ) {
+
+          if (fsrv->support_shmem_fuzz) {
+
+            fsrv->use_shmem_fuzz = 1;
+            if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
+
+            if ((status & FS_OPT_AUTODICT) == 0 || ignore_autodict) {
+
+              u32 send_status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+              if (write(fsrv->fsrv_ctl_fd, &send_status, 4) != 4) {
+
+                FATAL("Writing to forkserver failed.");
+
+              }
+
+            }
+
+          } else {
+
+            FATAL(
+                "Target requested sharedmem fuzzing, but we failed to enable "
+                "it.");
+
+          }
+
+        }
+
+        if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
+
+          u32 tmp_map_size = FS_OPT_GET_MAPSIZE(status);
+
+          if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
+
+          fsrv->real_map_size = tmp_map_size;
+
+          if (tmp_map_size % 64) {
+
+            tmp_map_size = (((tmp_map_size + 63) >> 6) << 6);
+
+          }
+
+          if (!be_quiet) { ACTF("Target map size: %u", fsrv->real_map_size); }
+          if (tmp_map_size > fsrv->map_size) {
+
+            FATAL(
+                "Target's coverage map size of %u is larger than the one this "
+                "AFL++ is set with (%u). Either set AFL_MAP_SIZE=%u and "
+                "restart "
+                " afl-fuzz, or change MAP_SIZE_POW2 in config.h and recompile "
+                "afl-fuzz",
+                tmp_map_size, fsrv->map_size, tmp_map_size);
+
+          }
+
+          fsrv->map_size = tmp_map_size;
+
+        }
+
+        if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
+
+          if (!ignore_autodict) {
+
+            if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
+
+              // this is not afl-fuzz - or it is cmplog - we deny and return
+              if (fsrv->use_shmem_fuzz) {
+
+                status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+
+              } else {
+
+                status = (FS_OPT_ENABLED);
+
+              }
+
+              if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
+
+                FATAL("Writing to forkserver failed.");
+
+              }
+
+              return;
+
+            }
+
+            if (!be_quiet) { ACTF("Using AUTODICT feature."); }
+
             if (fsrv->use_shmem_fuzz) {
 
-              status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+              status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
 
             } else {
 
-              status = (FS_OPT_ENABLED);
+              status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
 
             }
 
@@ -1144,81 +1369,62 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
             }
 
-            return;
+            if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
 
-          }
-
-          if (!be_quiet) { ACTF("Using AUTODICT feature."); }
-
-          if (fsrv->use_shmem_fuzz) {
-
-            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
-
-          } else {
-
-            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
-
-          }
-
-          if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
-
-            FATAL("Writing to forkserver failed.");
-
-          }
-
-          if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
-
-            FATAL("Reading from forkserver failed.");
-
-          }
-
-          if (status < 2 || (u32)status > 0xffffff) {
-
-            FATAL("Dictionary has an illegal size: %d", status);
-
-          }
-
-          u32 offset = 0, count = 0;
-          u32 len = status;
-          u8 *dict = ck_alloc(len);
-          if (dict == NULL) {
-
-            FATAL("Could not allocate %u bytes of autodictionary memory", len);
-
-          }
-
-          while (len != 0) {
-
-            rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
-            if (rlen > 0) {
-
-              len -= rlen;
-              offset += rlen;
-
-            } else {
-
-              FATAL(
-                  "Reading autodictionary fail at position %u with %u bytes "
-                  "left.",
-                  offset, len);
+              FATAL("Reading from forkserver failed.");
 
             }
 
+            if (status < 2 || (u32)status > 0xffffff) {
+
+              FATAL("Dictionary has an illegal size: %d", status);
+
+            }
+
+            u32 offset = 0, count = 0;
+            u32 len = status;
+            u8 *dict = ck_alloc(len);
+            if (dict == NULL) {
+
+              FATAL("Could not allocate %u bytes of autodictionary memory",
+                    len);
+
+            }
+
+            while (len != 0) {
+
+              rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
+              if (rlen > 0) {
+
+                len -= rlen;
+                offset += rlen;
+
+              } else {
+
+                FATAL(
+                    "Reading autodictionary fail at position %u with %u bytes "
+                    "left.",
+                    offset, len);
+
+              }
+
+            }
+
+            offset = 0;
+            while (offset < (u32)status &&
+                   (u8)dict[offset] + offset < (u32)status) {
+
+              fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                                   (u8)dict[offset]);
+              offset += (1 + dict[offset]);
+              count++;
+
+            }
+
+            if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
+            ck_free(dict);
+
           }
-
-          offset = 0;
-          while (offset < (u32)status &&
-                 (u8)dict[offset] + offset < (u32)status) {
-
-            fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
-                                 (u8)dict[offset]);
-            offset += (1 + dict[offset]);
-            count++;
-
-          }
-
-          if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
-          ck_free(dict);
 
         }
 
@@ -1599,6 +1805,11 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
 
+#ifdef AFL_PERSISTENT_RECORD
+  fsrv_run_result_t retval = FSRV_RUN_OK;
+  char             *persistent_out_fmt;
+#endif
+
 #ifdef __linux__
   if (fsrv->nyx_mode) {
 
@@ -1628,6 +1839,8 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
       case Timeout:
         return FSRV_RUN_TMOUT;
       case InvalidWriteToPayload:
+        if (!!getenv("AFL_NYX_HANDLE_INVALID_WRITE")) { return FSRV_RUN_CRASH; }
+
         /* ??? */
         FATAL("FixMe: Nyx InvalidWriteToPayload handler is missing");
         break;
@@ -1661,7 +1874,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
      territory. */
 
 #ifdef __linux__
-  if (!fsrv->nyx_mode) {
+  if (likely(!fsrv->nyx_mode)) {
 
     memset(fsrv->trace_bits, 0, fsrv->map_size);
     MEM_BARRIER();
@@ -1731,7 +1944,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if (exec_ms > timeout) {
 
-    /* If there was no response from forkserver after timeout seconds,
+    /* If there was no response from forkserver after timeout milliseconds,
     we kill the child. The forkserver should inform us afterwards */
 
     s32 tmp_pid = fsrv->child_pid;
@@ -1798,6 +2011,18 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   if (unlikely(fsrv->last_run_timed_out)) {
 
     fsrv->last_kill_signal = fsrv->child_kill_signal;
+
+#ifdef AFL_PERSISTENT_RECORD
+    if (unlikely(fsrv->persistent_record)) {
+
+      retval = FSRV_RUN_TMOUT;
+      persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u%s%s";
+      goto store_persistent_record;
+
+    }
+
+#endif
+
     return FSRV_RUN_TMOUT;
 
   }
@@ -1819,48 +2044,63 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
+    /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
+    fsrv->last_kill_signal =
+        WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
+
 #ifdef AFL_PERSISTENT_RECORD
     if (unlikely(fsrv->persistent_record)) {
 
-      char fn[PATH_MAX];
-      u32  i, writecnt = 0;
-      for (i = 0; i < fsrv->persistent_record; ++i) {
-
-        u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
-        u8 *data = fsrv->persistent_record_data[entry];
-        u32 len = fsrv->persistent_record_len[entry];
-        if (likely(len && data)) {
-
-          snprintf(fn, sizeof(fn), "%s/RECORD:%06u,cnt:%06u",
-                   fsrv->persistent_record_dir, fsrv->persistent_record_cnt,
-                   writecnt++);
-          int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-          if (fd >= 0) {
-
-            ck_write(fd, data, len, fn);
-            close(fd);
-
-          }
-
-        }
-
-      }
-
-      ++fsrv->persistent_record_cnt;
+      retval = FSRV_RUN_CRASH;
+      persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u%s%s";
+      goto store_persistent_record;
 
     }
 
 #endif
 
-    /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
-    fsrv->last_kill_signal =
-        WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
     return FSRV_RUN_CRASH;
 
   }
 
   /* success :) */
   return FSRV_RUN_OK;
+
+#ifdef AFL_PERSISTENT_RECORD
+store_persistent_record: {
+
+  char fn[PATH_MAX];
+  u32  i, writecnt = 0;
+  for (i = 0; i < fsrv->persistent_record; ++i) {
+
+    u32 entry = (i + fsrv->persistent_record_idx) % fsrv->persistent_record;
+    u8 *data = fsrv->persistent_record_data[entry];
+    u32 len = fsrv->persistent_record_len[entry];
+    if (likely(len && data)) {
+
+      snprintf(fn, sizeof(fn), persistent_out_fmt, fsrv->persistent_record_dir,
+               fsrv->persistent_record_cnt, writecnt++,
+               afl->file_extension ? "." : "",
+               afl->file_extension ? (const char *)afl->file_extension : "");
+      int fd = open(fn, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+      if (fd >= 0) {
+
+        ck_write(fd, data, len, fn);
+        close(fd);
+
+      }
+
+    }
+
+  }
+
+  ++fsrv->persistent_record_cnt;
+
+  return retval;
+
+}
+
+#endif
 
 }
 
