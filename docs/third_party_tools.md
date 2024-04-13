@@ -5,6 +5,10 @@
 * [afl-rs](https://github.com/rust-fuzz/afl.rs) - AFL++ for RUST
 * [WASM](https://github.com/fgsect/WAFL) - AFL++ for WASM
 
+## Starting multiple AFL++ instances in parallel with recommended settings:
+* [https://github.com/0xricksanchez/AFL_Runner](https://github.com/0xricksanchez/AFL_Runner)
+* [https://github.com/MegaManSec/AFLplusplus-Parallel-Gen](https://github.com/MegaManSec/AFLplusplus-Parallel-Gen)
+
 ## Speeding up fuzzing
 
 * [libfiowrapper](https://github.com/marekzmyslowski/libfiowrapper) - if the

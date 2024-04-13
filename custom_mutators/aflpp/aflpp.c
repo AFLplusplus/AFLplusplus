@@ -1,3 +1,4 @@
+#include "afl-fuzz.h"
 #include "afl-mutations.h"
 
 typedef struct my_mutator {

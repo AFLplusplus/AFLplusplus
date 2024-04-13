@@ -114,6 +114,7 @@ fi
 CUR_TIME=`date +%s`
 
 TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || exit 1
+trap "rm -f $TMP" 1 2 3 13 15
 
 ALIVE_CNT=0
 DEAD_CNT=0
@@ -122,6 +123,7 @@ START_CNT=0
 TOTAL_TIME=0
 TOTAL_EXECS=0
 TOTAL_EPS=0
+TOTAL_EPLM=0
 TOTAL_CRASHES=0
 TOTAL_HANGS=0
 TOTAL_PFAV=0
@@ -181,6 +183,8 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
   
   if [ -f "$i" ]; then
     
+    IS_STARTING=
+    IS_DEAD=
     sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
     . "$TMP"
     DIRECTORY=$DIR
@@ -210,9 +214,6 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
     fi
     
     if ! kill -0 "$fuzzer_pid" 2>/dev/null; then
-      
-      IS_STARTING=
-      IS_DEAD=
       
       if [ -e "$i" ] && [ -e "$j" ] && [ -n "$FUSER" ]; then
         
@@ -272,11 +273,15 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
     ALIVE_CNT=$((ALIVE_CNT + 1))
     
     EXEC_SEC=0
+    EXEC_MIN=0
     test -z "$RUN_UNIX" -o "$RUN_UNIX" = 0 || EXEC_SEC=$((execs_done / RUN_UNIX))
     PATH_PERC=$((cur_item * 100 / corpus_count))
+
+    test "$IS_DEAD" = 1 || EXEC_MIN=$(echo $execs_ps_last_min|sed 's/\..*//')
     
     TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
     TOTAL_EPS=$((TOTAL_EPS + EXEC_SEC))
+    TOTAL_EPLM=$((TOTAL_EPLM + EXEC_MIN))
     TOTAL_EXECS=$((TOTAL_EXECS + execs_done))
     TOTAL_CRASHES=$((TOTAL_CRASHES + saved_crashes))
     TOTAL_HANGS=$((TOTAL_HANGS + saved_hangs))
@@ -398,41 +403,44 @@ if [ -z "$SUMMARY_ONLY" -o -z "$MINIMAL_ONLY" ]; then
   echo
 fi
 
-echo "       Fuzzers alive : $ALIVE_CNT"
+echo "        Fuzzers alive : $ALIVE_CNT"
 
 if [ ! "$START_CNT" = "0" ]; then
-  echo "         Starting up : $START_CNT ($TXT)"
+  echo "          Starting up : $START_CNT ($TXT)"
 fi
 
 if [ ! "$DEAD_CNT" = "0" ]; then
-  echo "      Dead or remote : $DEAD_CNT ($TXT)"
+  echo "       Dead or remote : $DEAD_CNT ($TXT)"
 fi
 
-echo "      Total run time : $FMT_TIME"
+echo "       Total run time : $FMT_TIME"
 if [ -z "$MINIMAL_ONLY" ]; then
-  echo "         Total execs : $FMT_EXECS"
-  echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+  echo "          Total execs : $FMT_EXECS"
+  echo "     Cumulative speed : $TOTAL_EPS execs/sec"
+  if [ "$ALIVE_CNT" -gt "0" ]; then
+    echo "  Total average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
+  fi
 fi
 if [ "$ALIVE_CNT" -gt "0" ]; then
-  echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
+  echo "Current average speed : $TOTAL_EPLM execs/sec"
 fi
 if [ -z "$MINIMAL_ONLY" ]; then
-  echo "       Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
+  echo "        Pending items : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 fi
 
 if [ "$ALIVE_CNT" -gt "1" -o -n "$MINIMAL_ONLY" ]; then
   if [ "$ALIVE_CNT" -gt "0" ]; then
-    echo "  Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
+    echo "   Pending per fuzzer : $((TOTAL_PFAV/ALIVE_CNT)) faves, $((TOTAL_PENDING/ALIVE_CNT)) total (on average)"
   fi
 fi
 
-echo "    Coverage reached : ${TOTAL_COVERAGE}%"
-echo "       Crashes saved : $TOTAL_CRASHES"
+echo "     Coverage reached : ${TOTAL_COVERAGE}%"
+echo "        Crashes saved : $TOTAL_CRASHES"
 if [ -z "$MINIMAL_ONLY" ]; then
-  echo "         Hangs saved : $TOTAL_HANGS"
-  echo "Cycles without finds : $TOTAL_WCOP"
+  echo "          Hangs saved : $TOTAL_HANGS"
+  echo " Cycles without finds : $TOTAL_WCOP"
 fi
-echo "  Time without finds : $TOTAL_LAST_FIND"
+echo "   Time without finds : $TOTAL_LAST_FIND"
 echo
 
 exit 0
