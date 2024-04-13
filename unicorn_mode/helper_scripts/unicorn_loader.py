@@ -21,10 +21,10 @@ import zlib
 
 # Unicorn imports
 from unicornafl import *
-from unicornafl.arm_const import *
-from unicornafl.arm64_const import *
-from unicornafl.x86_const import *
-from unicornafl.mips_const import *
+from unicorn.arm_const import *
+from unicorn.arm64_const import *
+from unicorn.x86_const import *
+from unicorn.mips_const import *
 
 # If Capstone libraries are availible (only check once)
 try:
@@ -87,9 +87,10 @@ class UnicornSimpleHeap(object):
 
     _uc = None  # Unicorn engine instance to interact with
     _chunks = []  # List of all known chunks
+    _chunks_freed = [] # List of all freed chunks
     _debug_print = False  # True to print debug information
 
-    def __init__(self, uc, debug_print=False):
+    def __init__(self, uc, debug_print=False， uaf_check=False):
         self._uc = uc
         self._debug_print = debug_print
 
@@ -101,12 +102,23 @@ class UnicornSimpleHeap(object):
         #    - Allocate at least 1 4k page of memory to make Unicorn happy
         #    - Add guard pages at the start and end of the region
         total_chunk_size = UNICORN_PAGE_SIZE + ALIGN_PAGE_UP(size) + UNICORN_PAGE_SIZE
+
+        if size == 0:
+            return 0
+        
         # Gross but efficient way to find space for the chunk:
         chunk = None
         for addr in range(self.HEAP_MIN_ADDR, self.HEAP_MAX_ADDR, UNICORN_PAGE_SIZE):
             try:
                 self._uc.mem_map(addr, total_chunk_size, UC_PROT_READ | UC_PROT_WRITE)
                 chunk = self.HeapChunk(addr, total_chunk_size, size)
+
+                if self.uaf_check:
+                    for chunk_freed in self._chunks_freed:
+                        if chunk_freed.is_buffer_in_chunk(chunk.data_addr, 1):
+                            self._chunks_freed.remove(chunk_freed)
+                            break
+
                 if self._debug_print:
                     print(
                         "Allocating 0x{0:x}-byte chunk @ 0x{1:016x}".format(
@@ -148,6 +160,9 @@ class UnicornSimpleHeap(object):
         return new_chunk_addr
 
     def free(self, addr):
+        if addr == 0:
+            return False
+        
         for chunk in self._chunks:
             if chunk.is_buffer_in_chunk(addr, 1):
                 if self._debug_print:
@@ -157,9 +172,14 @@ class UnicornSimpleHeap(object):
                         )
                     )
                 self._uc.mem_unmap(chunk.actual_addr, chunk.total_size)
+
+                if self.uaf_check:
+                    self._chunks_freed.append(chunk)
+                    
                 self._chunks.remove(chunk)
                 return True
-        return False
+        # Freed an object that doesn't exist. Maybe 'dobule-free' or 'invalid free' vulnerability here.
+        self._uc.force_crash(UcError(UC_ERR_FETCH_UNMAPPED))
 
     # Implements basic guard-page functionality
     def __check_mem_access(self, uc, access, address, size, value, user_data):
@@ -178,6 +198,15 @@ class UnicornSimpleHeap(object):
                         )
                     # Force a memory-based crash
                     uc.force_crash(UcError(UC_ERR_READ_PROT))
+
+        if self.uaf_check:
+            for chunk in self._chunks_freed:
+                if address >= chunk.actual_addr and (
+                    (address + size) <= (chunk.actual_addr + chunk.total_size)
+                ):
+                    if chunk.is_buffer_in_chunk(address, size):
+                        print("Use-after-free @ 0x{0:016x}".format(address))
+                        uc.force_crash(UcError(UC_ERR_FETCH_UNMAPPED))
 
 
 # ---------------------------

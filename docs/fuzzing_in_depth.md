@@ -958,7 +958,7 @@ too long for your overall available fuzz run time.
    campaign but not good for short CI runs.
 
 How this can look like can, e.g., be seen at AFL++'s setup in Google's
-[oss-fuzz](https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-builder/compile_afl)
+[previous oss-fuzz version](https://github.com/google/oss-fuzz/blob/3e2c5312417d1a6f9564472f3df1fd27759b289d/infra/base-images/base-builder/compile_afl)
 and
 [clusterfuzz](https://github.com/google/clusterfuzz/blob/master/src/clusterfuzz/_internal/bot/fuzzers/afl/launcher.py).
 

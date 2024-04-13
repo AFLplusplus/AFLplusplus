@@ -1,8 +1,5 @@
+#include "afl-fuzz.h"
 #include "afl-mutations.h"
-
-s8  interesting_8[] = {INTERESTING_8};
-s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
-s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
 typedef struct my_mutator {
 
@@ -155,7 +152,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  if (verbose) fprintf(stderr, "Mutation output length: %zu\n", outlen);
+  if (verbose) fprintf(stderr, "Mutation output length: %u\n", outlen);
 
   if (fwrite(outbuf, 1, outlen, out) != outlen) {
     fprintf(stderr, "Warning: incomplete write.\n");

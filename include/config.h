@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.10c"
+#define VERSION "++4.20c"
 
 /******************************************************
  *                                                    *
@@ -96,6 +96,11 @@
    Note that every crash will be written, not only unique ones! */
 
 // #define AFL_PERSISTENT_RECORD
+
+/* Adds support in compiler-rt to replay persistent records in @@-style
+ * harnesses */
+
+//  #define AFL_PERSISTENT_REPLAY_ARGPARSE
 
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined

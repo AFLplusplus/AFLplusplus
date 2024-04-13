@@ -137,7 +137,11 @@ llvmGetPassPluginInfo() {
     #if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
     #endif
+    #if LLVM_VERSION_MAJOR >= 16
+            PB.registerOptimizerEarlyEPCallback(
+    #else
             PB.registerOptimizerLastEPCallback(
+    #endif
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(SplitSwitchesTransform());
@@ -516,11 +520,7 @@ bool SplitSwitchesTransform::runOnModule(Module &M) {
   else
     be_quiet = 1;
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-  auto PA = PreservedAnalyses::all();
-#endif
-
-  splitSwitches(M);
+  bool ret = splitSwitches(M);
   verifyModule(M);
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
@@ -530,9 +530,12 @@ bool SplitSwitchesTransform::runOnModule(Module &M) {
                            
                                }*/
 
-  return PA;
+  if (ret == false)
+    return PreservedAnalyses::all();
+  else
+    return PreservedAnalyses();
 #else
-  return true;
+  return ret;
 #endif
 
 }

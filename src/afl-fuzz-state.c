@@ -28,10 +28,6 @@
 #include "afl-fuzz.h"
 #include "envs.h"
 
-s8  interesting_8[] = {INTERESTING_8};
-s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
-s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
-
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
                                           "fast",    "coe",   "lin",
                                           "quad",    "rare",  "seek"};
@@ -102,7 +98,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_update_freq = 1;
   afl->stats_file_update_freq_msecs = STATS_UPDATE_SEC * 1000;
   afl->stats_avg_exec = 0;
-  afl->skip_deterministic = 1;
+  afl->skip_deterministic = 0;
   afl->sync_time = SYNC_TIME;
   afl->cmplog_lvl = 2;
   afl->min_length = 1;
