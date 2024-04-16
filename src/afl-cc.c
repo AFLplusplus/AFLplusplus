@@ -2475,9 +2475,9 @@ void add_runtime(aflcc_state_t *aflcc) {
 */
 void add_assembler(aflcc_state_t *aflcc) {
 
-  u8 *afl_as = find_object(aflcc, "as");
+  u8 *afl_as = find_object(aflcc, "afl-as");
 
-  if (!afl_as) FATAL("Cannot find 'as' (symlink to 'afl-as').");
+  if (!afl_as) FATAL("Cannot find 'afl-as'.");
 
   u8 *slash = strrchr(afl_as, '/');
   if (slash) *slash = 0;
