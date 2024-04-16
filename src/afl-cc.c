@@ -464,6 +464,8 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
             *slash = 0;
             tmp = alloc_printf("%s/%s", exepath, obj);
 
+            if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
             if (!access(tmp, R_OK)) { return tmp; }
 
             ck_free(tmp);
