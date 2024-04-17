@@ -17,6 +17,10 @@
 
 #define AFL_MAIN
 
+#ifndef _GNU_SOURCE
+  #define _GNU_SOURCE 1
+#endif
+
 #include "common.h"
 #include "config.h"
 #include "types.h"
@@ -32,7 +36,9 @@
 #include <limits.h>
 #include <assert.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #if (LLVM_MAJOR - 0 == 0)
   #undef LLVM_MAJOR
@@ -520,7 +526,7 @@ void find_built_deps(aflcc_state_t *aflcc) {
   char *ptr = NULL;
 
 #if defined(__x86_64__)
-  if ((ptr = find_object(aflcc, "as")) != NULL) {
+  if ((ptr = find_object(aflcc, "afl-as")) != NULL) {
 
   #ifndef __APPLE__
     // on OSX clang masquerades as GCC
@@ -2481,6 +2487,53 @@ void add_assembler(aflcc_state_t *aflcc) {
 
   u8 *slash = strrchr(afl_as, '/');
   if (slash) *slash = 0;
+
+  // Search for 'as' may be unreliable in some cases (see #2058)
+  // so use 'afl-as' instead, because 'as' is usually a symbolic link,
+  // or can be a renamed copy of 'afl-as' created in the same dir.
+  // Now we should verify if the compiler can find the 'as' we need.
+
+#define AFL_AS_ERR "(should be a symlink or copy of 'afl-as')"
+
+  u8 *afl_as_dup = alloc_printf("%s/as", afl_as);
+
+  int fd = open(afl_as_dup, O_RDONLY);
+  if (fd < 0) { PFATAL("Unable to open '%s' " AFL_AS_ERR, afl_as_dup); }
+
+  struct stat st;
+  if (fstat(fd, &st) < 0) {
+
+    PFATAL("Unable to fstat '%s' " AFL_AS_ERR, afl_as_dup);
+
+  }
+
+  u32 f_len = st.st_size;
+
+  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (f_data == MAP_FAILED) {
+
+    PFATAL("Unable to mmap file '%s' " AFL_AS_ERR, afl_as_dup);
+
+  }
+
+  close(fd);
+
+  // "AFL_AS" is a const str passed to getenv in afl-as.c
+  if (!memmem(f_data, f_len, "AFL_AS", strlen("AFL_AS") + 1)) {
+
+    FATAL(
+        "Looks like '%s' is not a valid symlink or copy of '%s/afl-as'. "
+        "It is a prerequisite to override system-wide 'as' for "
+        "instrumentation.",
+        afl_as_dup, afl_as);
+
+  }
+
+  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+
+  ck_free(afl_as_dup);
+
+#undef AFL_AS_ERR
 
   insert_param(aflcc, "-B");
   insert_param(aflcc, afl_as);
