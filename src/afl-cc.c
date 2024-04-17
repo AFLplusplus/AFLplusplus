@@ -1591,8 +1591,10 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
   insert_param(aflcc,
                "-D__AFL_FUZZ_INIT()="
                "int __afl_sharedmem_fuzzing = 1;"
-               "extern unsigned int *__afl_fuzz_len;"
-               "extern unsigned char *__afl_fuzz_ptr;"
+               "extern __attribute__((visibility(\"default\"))) "
+               "unsigned int *__afl_fuzz_len;"
+               "extern __attribute__((visibility(\"default\"))) "
+               "unsigned char *__afl_fuzz_ptr;"
                "unsigned char __afl_fuzz_alt[1048576];"
                "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;");
 
