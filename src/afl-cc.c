@@ -1269,12 +1269,7 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
         aflcc->instrument_mode == INSTRUMENT_PCGUARD) {
 
       aflcc->lto_mode = 1;
-      // force CFG
-      // if (!aflcc->instrument_mode) {
-
       aflcc->instrument_mode = INSTRUMENT_PCGUARD;
-
-      // }
 
     } else if (aflcc->instrument_mode == INSTRUMENT_CLASSIC) {
 

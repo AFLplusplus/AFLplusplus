@@ -4,7 +4,8 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.21a (dev)
-  * your PR? :-)
+  * afl-cc:
+    - fixes for LTO and outdated afl-gcc mode
 
 
 ### Version ++4.20c (release)
