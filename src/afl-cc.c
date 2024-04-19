@@ -2490,10 +2490,10 @@ void add_assembler(aflcc_state_t *aflcc) {
   u8 *slash = strrchr(afl_as, '/');
   if (slash) *slash = 0;
 
-  // Search for 'as' may be unreliable in some cases (see #2058)
-  // so use 'afl-as' instead, because 'as' is usually a symbolic link,
-  // or can be a renamed copy of 'afl-as' created in the same dir.
-  // Now we should verify if the compiler can find the 'as' we need.
+    // Search for 'as' may be unreliable in some cases (see #2058)
+    // so use 'afl-as' instead, because 'as' is usually a symbolic link,
+    // or can be a renamed copy of 'afl-as' created in the same dir.
+    // Now we should verify if the compiler can find the 'as' we need.
 
 #define AFL_AS_ERR "(should be a symlink or copy of 'afl-as')"
 
