@@ -914,6 +914,11 @@ void perform_dry_run(afl_state_t *afl) {
 
     res = calibrate_case(afl, q, use_mem, 0, 1);
 
+    /* For AFLFast schedules we update the queue entry */
+    if (likely(q->exec_cksum)) {
+      q->n_fuzz_entry = q->exec_cksum % N_FUZZ_SIZE;
+    }
+     
     if (afl->stop_soon) { return; }
 
     if (res == afl->crash_mode || res == FSRV_RUN_NOBITS) {
