@@ -4,6 +4,8 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.21a (dev)
+  * afl-fuzz
+    - fix AFL_PERSISTENT_RECORD
   * afl-cc:
     - fixes for LTO and outdated afl-gcc mode
 
