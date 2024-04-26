@@ -5,7 +5,7 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
@@ -458,6 +458,24 @@ void bind_to_free_cpu(afl_state_t *afl) {
 }
 
 #endif                                                     /* HAVE_AFFINITY */
+
+/* transforms spaces in a string to underscores (inplace) */
+
+static void no_spaces(u8 *string) {
+
+  if (string) {
+
+    u8 *ptr = string;
+    while (*ptr != 0) {
+
+      if (*ptr == ' ') { *ptr = '_'; }
+      ++ptr;
+
+    }
+
+  }
+
+}
 
 /* Shuffle an array of pointers. Might be slightly biased. */
 
@@ -914,6 +932,11 @@ void perform_dry_run(afl_state_t *afl) {
 
     res = calibrate_case(afl, q, use_mem, 0, 1);
 
+    /* For AFLFast schedules we update the queue entry */
+    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE) && likely(q->exec_cksum)) {
+      q->n_fuzz_entry = q->exec_cksum % N_FUZZ_SIZE;
+    }
+     
     if (afl->stop_soon) { return; }
 
     if (res == afl->crash_mode || res == FSRV_RUN_NOBITS) {
@@ -1376,10 +1399,10 @@ void perform_dry_run(afl_state_t *afl) {
 static void link_or_copy(u8 *old_path, u8 *new_path) {
 
   s32 i = link(old_path, new_path);
+  if (!i) { return; }
+
   s32 sfd, dfd;
   u8 *tmp;
-
-  if (!i) { return; }
 
   sfd = open(old_path, O_RDONLY);
   if (sfd < 0) { PFATAL("Unable to open '%s'", old_path); }
@@ -1489,6 +1512,9 @@ void pivot_inputs(afl_state_t *afl) {
           "%s/queue/id:%06u,time:0,execs:%llu,orig:%s%s%s", afl->out_dir, id,
           afl->fsrv.total_execs, use_name, afl->file_extension ? "." : "",
           afl->file_extension ? (const char *)afl->file_extension : "");
+
+      u8 *pos = strrchr(nfn, '/');
+      no_spaces(pos + 30);
 
 #else
 
