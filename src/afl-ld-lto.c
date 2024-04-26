@@ -5,7 +5,7 @@
   Written by Marc Heuse <mh@mh-sec.de> for AFL++
 
   Maintained by Marc Heuse <mh@mh-sec.de>,
-                Heiko Eißfeldt <heiko.eissfeldt@hexco.de>
+                Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
                 Andrea Fioraldi <andreafioraldi@gmail.com>
                 Dominik Maier <domenukk@gmail.com>
 

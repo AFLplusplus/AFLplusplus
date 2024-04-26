@@ -3,6 +3,18 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.21a (dev)
+  * afl-fuzz
+    - fix AFL_PERSISTENT_RECORD
+    - prevent filenames in the queue that have spaces
+    - minor fix for FAST schedules
+  * afl-cc:
+    - fixes for LTO and outdated afl-gcc mode
+    - ensure shared memory variables are visible in weird build setups
+  * afl-cmin
+    - work with input files that have a space
+
+
 ### Version ++4.20c (release)
   ! A new forkserver communication model is now introduced. afl-fuzz is
     backward compatible to old compiled targets if they are not built

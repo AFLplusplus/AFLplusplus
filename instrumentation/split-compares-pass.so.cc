@@ -1,7 +1,7 @@
 /*
  * Copyright 2016 laf-intel
- * extended for floating point by Heiko Eißfeldt
- * adapted to new pass manager by Heiko Eißfeldt
+ * extended for floating point by Heiko Eissfeldt
+ * adapted to new pass manager by Heiko Eissfeldt
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

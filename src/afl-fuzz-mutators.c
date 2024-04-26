@@ -5,7 +5,7 @@
    Originally written by Shengtuo Hu
 
    Now maintained by  Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
                         Dominik Maier <mail@dmnk.co>
 

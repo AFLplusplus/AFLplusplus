@@ -5,8 +5,9 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                     Dominik Meier <mail@dmnk.co>,
+                     Andrea Fioraldi <andreafioraldi@gmail.com>, and
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2024 AFLplusplus Project. All rights reserved.
@@ -382,8 +383,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                  ? 0
                  : (cur_time - afl->last_find_time) / 1000),
       (runtime -
-       (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us) /
-           1000) /
+       ((afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us) /
+        1000)) /
           1000,
       afl->calibration_time_us / 1000000, afl->sync_time_us / 1000000,
       afl->trim_time_us / 1000000, afl->fsrv.total_execs,
