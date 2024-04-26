@@ -6,8 +6,11 @@
 ### Version ++4.21a (dev)
   * afl-fuzz
     - fix AFL_PERSISTENT_RECORD
+    - prevent filenames in the queue that have spaces
   * afl-cc:
     - fixes for LTO and outdated afl-gcc mode
+  * afl-cmin
+    - work with input files that have a space
 
 
 ### Version ++4.20c (release)

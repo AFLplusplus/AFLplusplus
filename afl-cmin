@@ -13,7 +13,7 @@ awk -f - -- ${@+"$@"} <<'EOF'
 # awk script to minimize a test corpus of input files
 #
 # based on afl-cmin bash script written by Michal Zalewski
-# rewritten by Heiko Eißfeldt (hexcoder-)
+# rewritten by Heiko Eissfeldt (hexcoder-)
 # tested with:
 #   gnu awk (x86 Linux)
 #   bsd awk (x86 *BSD)
@@ -603,8 +603,8 @@ BEGIN {
     # create path for the trace file from afl-showmap
     tracefile_path = trace_dir"/"fn
     # ensure the file size is not zero
-    cmd = "du -b "tracefile_path
-    "ls -l "tracefile_path
+    cmd = "du -b \""tracefile_path"\""
+    # "ls -l \""tracefile_path"\""
     cmd | getline output
     close(cmd)
     split(output, result, "\t")
