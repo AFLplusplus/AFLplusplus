@@ -459,6 +459,24 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
 #endif                                                     /* HAVE_AFFINITY */
 
+/* transforms spaces in a string to underscores (inplace) */
+
+static void no_spaces(u8 *string) {
+
+  if (string) {
+
+    u8 *ptr = string;
+    while (*ptr != 0) {
+
+      if (*ptr == ' ') { *ptr = '_'; }
+      ++ptr;
+
+    }
+
+  }
+
+}
+
 /* Shuffle an array of pointers. Might be slightly biased. */
 
 static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
@@ -1381,10 +1399,10 @@ void perform_dry_run(afl_state_t *afl) {
 static void link_or_copy(u8 *old_path, u8 *new_path) {
 
   s32 i = link(old_path, new_path);
+  if (!i) { return; }
+
   s32 sfd, dfd;
   u8 *tmp;
-
-  if (!i) { return; }
 
   sfd = open(old_path, O_RDONLY);
   if (sfd < 0) { PFATAL("Unable to open '%s'", old_path); }
@@ -1494,6 +1512,9 @@ void pivot_inputs(afl_state_t *afl) {
           "%s/queue/id:%06u,time:0,execs:%llu,orig:%s%s%s", afl->out_dir, id,
           afl->fsrv.total_execs, use_name, afl->file_extension ? "." : "",
           afl->file_extension ? (const char *)afl->file_extension : "");
+
+      u8 *pos = strrchr(nfn, '/');
+      no_spaces(pos + 30);
 
 #else
 

@@ -152,6 +152,7 @@ Minimization settings:
   -e            - solve for edge coverage only, ignore hit counts
 
 For additional tips, please consult README.md.
+This script cannot read filenames that end with a space ' '.
 
 Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
