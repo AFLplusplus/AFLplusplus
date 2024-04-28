@@ -2764,15 +2764,15 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 #ifdef _DEBUG
     u32                j;
     struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
-    fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
+    fprintf(stderr, "RTN N hits=%u shape=%u attr=%u v0=", h->hits,
             hshape, h->attribute);
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", o->v0[j]);
     fprintf(stderr, " v1=");
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", o->v1[j]);
-    fprintf(stderr, "\nRTN O hits=%u id=%u shape=%u attr=%u o0=", hh->hits,
-            hh->id, hshape, hh->attribute);
+    fprintf(stderr, "\nRTN O hits=%u shape=%u attr=%u o0=", hh->hits,
+             hshape, hh->attribute);
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", orig_o->v0[j]);
     fprintf(stderr, " o1=");
@@ -3273,4 +3273,3 @@ exit_its:
   return r;
 
 }
-
