@@ -108,9 +108,10 @@ void set_sanitizer_defaults() {
   u8 *have_lsan_options = getenv("LSAN_OPTIONS");
   u8  have_san_options = 0;
   u8  default_options[1024] =
-      "detect_odr_violation=0:abort_on_error=1:symbolize=0:allocator_may_"
-      "return_null=1:handle_segv=0:handle_sigbus=0:handle_abort=0:handle_"
-      "sigfpe=0:handle_sigill=0:";
+      "detect_odr_violation=0:abort_on_error=1:symbolize=0:"
+      "allocator_may_return_null=1:handle_segv=0:handle_sigbus=0:"
+      "handle_abort=0:handle_sigfpe=0:handle_sigill=0:"
+      "detect_stack_use_after_return=0:check_initialization_order=0:";
 
   if (have_asan_options || have_ubsan_options || have_msan_options ||
       have_lsan_options) {
