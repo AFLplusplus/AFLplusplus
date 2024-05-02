@@ -5,6 +5,7 @@
 
 ### Version ++4.21a (dev)
   * afl-fuzz
+    - added AFL_DISABLE_REDUNDANT for huge queues
     - fix AFL_PERSISTENT_RECORD
     - prevent filenames in the queue that have spaces
     - minor fix for FAST schedules
@@ -13,6 +14,7 @@
     - ensure shared memory variables are visible in weird build setups
   * afl-cmin
     - work with input files that have a space
+  * enhanced the ASAN configuration
 
 
 ### Version ++4.20c (release)
