@@ -111,7 +111,13 @@ if [ -z "$NO_COLOR" ]; then
   RESET="$NC"
 fi
 
-CUR_TIME=`date +%s`
+PLATFORM=`uname -s`
+if [ "$PLATFORM" = "Linux" ] ; then
+  CUR_TIME=`cat /proc/uptime | awk '{printf "%.0f\n", $1}'`
+else
+  # This will lead to inacurate results but will prevent the script from breaking on platforms other than Linux
+  CUR_TIME=`date +%s`
+fi
 
 TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || exit 1
 trap "rm -f $TMP" 1 2 3 13 15
