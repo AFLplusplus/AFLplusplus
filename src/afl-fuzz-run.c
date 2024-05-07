@@ -771,6 +771,8 @@ void sync_fuzzers(afl_state_t *afl) {
     afl->stage_cur = 0;
     afl->stage_max = 0;
 
+    show_stats(afl);
+
     /* For every file queued by this fuzzer, parse ID and see if we have
        looked at it before; exec a test case if not. */
 
@@ -830,6 +832,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
         afl->syncing_party = sd_ent->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
+        show_stats(afl);
         afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
