@@ -9,6 +9,7 @@
     - fix AFL_PERSISTENT_RECORD
     - prevent filenames in the queue that have spaces
     - minor fix for FAST schedules
+    - more frequent stats update when syncing (todo: check performance impact)
   * afl-cc:
     - fixes for LTO and outdated afl-gcc mode
     - ensure shared memory variables are visible in weird build setups

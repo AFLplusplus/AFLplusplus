@@ -577,6 +577,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
       afl->stage_cur = 0;
       afl->stage_max = 0;
 
+      show_stats(afl);
+
       for (i = 0; i < (u32)nl_cnt; ++i) {
 
         struct stat st;
@@ -655,7 +657,12 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_mtime > mtime_max) mtime_max = st.st_mtime;
+        if (st.st_mtime > mtime_max) {
+
+          mtime_max = st.st_mtime;
+          show_stats(afl);
+
+        }
 
       }
 
