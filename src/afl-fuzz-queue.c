@@ -371,9 +371,8 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
     s32 fd;
 
     if (unlikely(afl->afl_env.afl_disable_redundant)) { q->disabled = 1; }
-    fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
-    if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
-    close(fd);
+    fd = permissive_create(afl, fn);
+    if (fd >= 0) { close(fd); }
 
   } else {
 
