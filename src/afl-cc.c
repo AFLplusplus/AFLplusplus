@@ -525,7 +525,7 @@ void find_built_deps(aflcc_state_t *aflcc) {
 
   char *ptr = NULL;
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__i386__)
   if ((ptr = find_object(aflcc, "afl-as")) != NULL) {
 
   #ifndef __APPLE__
