@@ -577,6 +577,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
       afl->stage_cur = 0;
       afl->stage_max = 0;
 
+      show_stats(afl);
+
       for (i = 0; i < (u32)nl_cnt; ++i) {
 
         struct stat st;
@@ -655,7 +657,12 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_mtime > mtime_max) mtime_max = st.st_mtime;
+        if (st.st_mtime > mtime_max) {
+
+          mtime_max = st.st_mtime;
+          show_stats(afl);
+
+        }
 
       }
 
@@ -933,10 +940,13 @@ void perform_dry_run(afl_state_t *afl) {
     res = calibrate_case(afl, q, use_mem, 0, 1);
 
     /* For AFLFast schedules we update the queue entry */
-    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE) && likely(q->exec_cksum)) {
+    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE) &&
+        likely(q->exec_cksum)) {
+
       q->n_fuzz_entry = q->exec_cksum % N_FUZZ_SIZE;
+
     }
-     
+
     if (afl->stop_soon) { return; }
 
     if (res == afl->crash_mode || res == FSRV_RUN_NOBITS) {

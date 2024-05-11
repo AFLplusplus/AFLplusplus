@@ -264,6 +264,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
       "AFL_DEBUG_CHILD: do not suppress stdout/stderr from target\n"
+      "AFL_DISABLE_REDUNDANT: disable any queue item that is redundant\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
