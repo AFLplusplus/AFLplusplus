@@ -11,6 +11,7 @@
     - minor fix for FAST schedules
     - more frequent stats update when syncing (todo: check performance impact)
   * afl-cc:
+    - re-enable i386 support that was accidently disabled
     - fixes for LTO and outdated afl-gcc mode
     - ensure shared memory variables are visible in weird build setups
   * afl-cmin
