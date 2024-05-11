@@ -486,7 +486,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     dFile.open(ptr, std::ofstream::out | std::ofstream::app);
-    if (dFile.is_open()) WARNF("Cannot access document file %s", ptr);
+    if (!dFile.is_open()) WARNF("Cannot access document file %s", ptr);
 
   }
 

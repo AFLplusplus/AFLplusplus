@@ -525,7 +525,7 @@ void find_built_deps(aflcc_state_t *aflcc) {
 
   char *ptr = NULL;
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__i386__)
   if ((ptr = find_object(aflcc, "afl-as")) != NULL) {
 
   #ifndef __APPLE__
@@ -1911,7 +1911,13 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
     }
 
     add_defs_fortify(aflcc, 0);
-    if (!aflcc->have_asan) { insert_param(aflcc, "-fsanitize=address"); }
+    if (!aflcc->have_asan) {
+
+      insert_param(aflcc, "-fsanitize=address");
+      insert_param(aflcc, "-fno-common");
+
+    }
+
     aflcc->have_asan = 1;
 
   } else if (getenv("AFL_USE_MSAN") || aflcc->have_msan) {
