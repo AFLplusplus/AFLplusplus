@@ -1028,6 +1028,68 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   if (needs_write) {
 
+    // run afl_custom_post_process
+
+    if (unlikely(afl->custom_mutators_count) &&
+        likely(!afl->afl_env.afl_post_process_keep_original)) {
+
+      ssize_t new_size = q->len;
+      u8     *new_mem = in_buf;
+      u8     *new_buf = NULL;
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_post_process) {
+
+          new_size = el->afl_custom_post_process(el->data, new_mem, new_size,
+                                                 &new_buf);
+
+          if (unlikely(!new_buf || new_size <= 0)) {
+
+            new_size = 0;
+            new_buf = new_mem;
+
+          } else {
+
+            new_mem = new_buf;
+
+          }
+
+        }
+
+      });
+
+      if (unlikely(!new_size)) {
+
+        new_size = q->len;
+        new_mem = in_buf;
+
+      }
+
+      if (unlikely(new_size < afl->min_length)) {
+
+        new_size = afl->min_length;
+
+      } else if (unlikely(new_size > afl->max_length)) {
+
+        new_size = afl->max_length;
+
+      }
+
+      q->len = new_size;
+
+      if (new_mem != in_buf && new_mem != NULL) {
+
+        new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
+        if (unlikely(!new_buf)) { PFATAL("alloc"); }
+        memcpy(new_buf, new_mem, new_size);
+
+        in_buf = new_buf;
+
+      }
+
+    }
+
     s32 fd;
 
     if (unlikely(afl->no_unlink)) {
