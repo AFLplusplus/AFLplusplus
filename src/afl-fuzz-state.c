@@ -295,6 +295,9 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
           } else if (!strncmp(env, "AFL_DISABLE_REDUNDANT",
 
+                              afl_environment_variable_len) ||
+                     !strncmp(env, "AFL_NO_REDUNDANT",
+
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_disable_redundant =
