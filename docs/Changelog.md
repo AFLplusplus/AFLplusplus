@@ -13,6 +13,7 @@
   * afl-cc:
     - re-enable i386 support that was accidently disabled
     - fixes for LTO and outdated afl-gcc mode
+    - fix COMPCOV split compare for old LLVMs
     - ensure shared memory variables are visible in weird build setups
   * afl-cmin
     - work with input files that have a space
