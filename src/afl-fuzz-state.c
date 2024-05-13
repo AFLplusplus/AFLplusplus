@@ -626,6 +626,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             }
 
+          } else if (!strncmp(env, "AFL_SHA1_FILENAMES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_sha1_filenames =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           }
 
         } else {
