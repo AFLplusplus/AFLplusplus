@@ -1778,7 +1778,13 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
             auto op0 = CI->getOperand(0);
             auto op1 = CI->getOperand(1);
+            // has to valid operands
             if (!op0 || !op1) { continue; }
+            // has exactly one constant and one variable
+            int constants = 0;
+            if (dyn_cast<ConstantInt>(op0)) { ++constants; }
+            if (dyn_cast<ConstantInt>(op1)) { ++constants; }
+            if (constants != 1) { continue; }
 
             auto iTy1 = dyn_cast<IntegerType>(op0->getType());
             if (iTy1 && isa<IntegerType>(op1->getType())) {
