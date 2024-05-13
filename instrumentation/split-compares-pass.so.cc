@@ -266,8 +266,11 @@ bool SplitComparesTransform::simplifyFPCompares(Module &M) {
 
             /* this is probably not needed but we do it anyway */
             if (TyOp0 != TyOp1) { continue; }
-
             if (TyOp0->isArrayTy() || TyOp0->isVectorTy()) { continue; }
+            int constants = 0;
+            if (llvm::isa<llvm::Constant>(op0)) { ++constants; }
+            if (llvm::isa<llvm::Constant>(op1)) { ++constants; }
+            if (constants != 1) { continue; }
 
             fcomps.push_back(selectcmpInst);
 
