@@ -7,6 +7,7 @@
   * afl-fuzz
     - added AFL_DISABLE_REDUNDANT for huge queues
     - fix AFL_PERSISTENT_RECORD
+    - run custom_post_process after standard trimming
     - prevent filenames in the queue that have spaces
     - minor fix for FAST schedules
     - more frequent stats update when syncing (todo: check performance impact)

@@ -197,7 +197,8 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     for I in char short int long "long long"; do
       for BITS in 8 16 32 64; do
         bin="$testcase-split-$I-$BITS.compcov" 
-        AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -fsigned-char -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
+        #AFL_LLVM_INSTRUMENT=AFL 
+        AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -fsigned-char -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
         if ! test -e "$bin"; then
             cat test.out
             $ECHO "$RED[!] llvm_mode laf-intel/compcov integer splitting failed! ($testcase with type $I split to $BITS)!";
@@ -269,7 +270,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -l 3 -m none -V30 -i in -o out -c ./test-cmplog -- ./test-c >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c ./test-cmplog -- ./test-c >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
