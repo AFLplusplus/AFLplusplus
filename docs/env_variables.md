@@ -550,6 +550,9 @@ checks or alter some of the more exotic semantics of the tool:
     use a custom afl-qemu-trace or if you need to modify the afl-qemu-trace
     arguments.
 
+  - `AFL_SHA1_FILENAMES` causes AFL++ to generate files named by the SHA1 hash
+    of their contents, rather than use the standard `id:000000,...` names.
+
   - `AFL_SHUFFLE_QUEUE` randomly reorders the input queue on startup. Requested
     by some users for unorthodox parallelized fuzzing setups, but not advisable
     otherwise.

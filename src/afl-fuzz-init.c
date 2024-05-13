@@ -1190,14 +1190,27 @@ void perform_dry_run(afl_state_t *afl) {
 
 #ifndef SIMPLE_FILES
 
-          snprintf(
-              crash_fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s%s",
-              afl->out_dir, afl->saved_crashes, afl->fsrv.last_kill_signal,
-              describe_op(
-                  afl, 0,
-                  NAME_MAX - strlen("id:000000,sig:00,") - strlen(use_name)),
-              use_name, afl->file_extension ? "." : "",
-              afl->file_extension ? (const char *)afl->file_extension : "");
+          if (!afl->afl_env.afl_sha1_filenames) {
+
+            snprintf(
+                crash_fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s%s",
+                afl->out_dir, afl->saved_crashes, afl->fsrv.last_kill_signal,
+                describe_op(
+                    afl, 0,
+                    NAME_MAX - strlen("id:000000,sig:00,") - strlen(use_name)),
+                use_name, afl->file_extension ? "." : "",
+                afl->file_extension ? (const char *)afl->file_extension : "");
+
+          } else {
+
+            const char *hex = sha1_hex(use_mem, read_len);
+            snprintf(
+                crash_fn, PATH_MAX, "%s/crashes/%s%s%s", afl->out_dir, hex,
+                afl->file_extension ? "." : "",
+                afl->file_extension ? (const char *)afl->file_extension : "");
+            ck_free((char *)hex);
+
+          }
 
 #else
 
@@ -1518,10 +1531,23 @@ void pivot_inputs(afl_state_t *afl) {
 
       }
 
-      nfn = alloc_printf(
-          "%s/queue/id:%06u,time:0,execs:%llu,orig:%s%s%s", afl->out_dir, id,
-          afl->fsrv.total_execs, use_name, afl->file_extension ? "." : "",
-          afl->file_extension ? (const char *)afl->file_extension : "");
+      if (!afl->afl_env.afl_sha1_filenames) {
+
+        nfn = alloc_printf(
+            "%s/queue/id:%06u,time:0,execs:%llu,orig:%s%s%s", afl->out_dir, id,
+            afl->fsrv.total_execs, use_name, afl->file_extension ? "." : "",
+            afl->file_extension ? (const char *)afl->file_extension : "");
+
+      } else {
+
+        const char *hex = sha1_hex_for_file(q->fname, q->len);
+        nfn = alloc_printf(
+            "%s/queue/%s%s%s", afl->out_dir, hex,
+            afl->file_extension ? "." : "",
+            afl->file_extension ? (const char *)afl->file_extension : "");
+        ck_free((char *)hex);
+
+      }
 
       u8 *pos = strrchr(nfn, '/');
       no_spaces(pos + 30);
@@ -1738,10 +1764,11 @@ double get_runnable_processes(void) {
 
 void nuke_resume_dir(afl_state_t *afl) {
 
-  u8 *fn;
+  u8 *const case_prefix = afl->afl_env.afl_sha1_filenames ? "" : CASE_PREFIX;
+  u8       *fn;
 
   fn = alloc_printf("%s/_resume/.state/deterministic_done", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   fn = alloc_printf("%s/_resume/.state/auto_extras", afl->out_dir);
@@ -1749,11 +1776,11 @@ void nuke_resume_dir(afl_state_t *afl) {
   ck_free(fn);
 
   fn = alloc_printf("%s/_resume/.state/redundant_edges", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   fn = alloc_printf("%s/_resume/.state/variable_behavior", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   fn = alloc_printf("%s/_resume/.state", afl->out_dir);
@@ -1761,7 +1788,7 @@ void nuke_resume_dir(afl_state_t *afl) {
   ck_free(fn);
 
   fn = alloc_printf("%s/_resume", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   return;
@@ -1778,8 +1805,9 @@ dir_cleanup_failed:
 
 static void handle_existing_out_dir(afl_state_t *afl) {
 
-  FILE *f;
-  u8   *fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
+  u8 *const case_prefix = afl->afl_env.afl_sha1_filenames ? "" : CASE_PREFIX;
+  FILE     *f;
+  u8       *fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
 
   /* See if the output directory is locked. If yes, bail out. If not,
      create a lock that will persist for the lifetime of the process
@@ -1901,7 +1929,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   /* Next, we need to clean up <afl->out_dir>/queue/.state/ subdirectories: */
 
   fn = alloc_printf("%s/queue/.state/deterministic_done", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   fn = alloc_printf("%s/queue/.state/auto_extras", afl->out_dir);
@@ -1909,11 +1937,11 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   ck_free(fn);
 
   fn = alloc_printf("%s/queue/.state/redundant_edges", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   fn = alloc_printf("%s/queue/.state/variable_behavior", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   /* Then, get rid of the .state subdirectory itself (should be empty by now)
@@ -1924,7 +1952,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   ck_free(fn);
 
   fn = alloc_printf("%s/queue", afl->out_dir);
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   /* All right, let's do <afl->out_dir>/crashes/id:* and
@@ -1971,7 +1999,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 #ifdef AFL_PERSISTENT_RECORD
   delete_files(fn, RECORD_PREFIX);
 #endif
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   fn = alloc_printf("%s/hangs", afl->out_dir);
@@ -2006,7 +2034,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 #ifdef AFL_PERSISTENT_RECORD
   delete_files(fn, RECORD_PREFIX);
 #endif
-  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
   /* And now, for some finishing touches. */
