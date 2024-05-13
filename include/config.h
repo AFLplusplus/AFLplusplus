@@ -50,7 +50,9 @@
 #define STRATEGY_SWITCH_TIME 1000
 
 /* Default file permission umode when creating files (default: 0600) */
+#ifndef DEFAULT_PERMISSION
 #define DEFAULT_PERMISSION 0600
+#endif
 
 /* SkipDet's global configuration */
 
