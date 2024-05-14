@@ -468,6 +468,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     bool        nullCheck = false;
     Function   *Callee = callInst->getCalledFunction();
 
+    /*
     fprintf(stderr, "%s - %s - %s\n",
             callInst->getParent()
                 ->getParent()
@@ -476,7 +477,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                 .str()
                 .c_str(),
             callInst->getParent()->getParent()->getName().str().c_str(),
-            Callee ? Callee->getName().str().c_str() : "NULL");
+            Callee ? Callee->getName().str().c_str() : "NULL");*/
 
     if (Callee) {
 
