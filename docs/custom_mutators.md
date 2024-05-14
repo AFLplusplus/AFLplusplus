@@ -266,6 +266,11 @@ trimmed input. Here's a quick API description:
 Omitting any of three trimming methods will cause the trimming to be disabled
 and trigger a fallback to the built-in default trimming routine.
 
+**IMPORTANT** If you have a custom post process mutator that needs to be run
+after trimming, you must call it yourself at the end of your successful
+trimming!
+
+
 ### Environment Variables
 
 Optionally, the following environment variables are supported:

@@ -1565,7 +1565,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setenv("__AFL_OUT_DIR", afl->out_dir, 1);
 
-  if (get_afl_env("AFL_DISABLE_TRIM")) { afl->disable_trim = 1; }
+  if (get_afl_env("AFL_DISABLE_TRIM") || get_afl_env("AFL_NO_TRIM")) {
+
+    afl->disable_trim = 1;
+
+  }
 
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI")) {
 
@@ -1801,7 +1805,8 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_realloc(AFL_BUF_PARAM(ex), min_alloc);
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
-
+  afl->fsrv.max_length = afl->max_length;
+   
   #ifdef __linux__
   if (!afl->fsrv.nyx_mode) {
 
