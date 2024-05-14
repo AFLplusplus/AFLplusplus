@@ -178,7 +178,7 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
 void classify_counts(afl_forkserver_t *fsrv) {
 
   u8       *mem = fsrv->trace_bits;
-  const u8 *map = binary_mode ? count_class_binary : count_class_human;
+  const u8 *map = (binary_mode || collect_coverage) ? count_class_binary : count_class_human;
 
   u32 i = map_size;
 
@@ -242,9 +242,6 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
     if (fsrv->trace_bits[i]) {
 
-      total += fsrv->trace_bits[i];
-      if (fsrv->trace_bits[i] > highest) highest = fsrv->trace_bits[i];
-      // if (!coverage_map[i]) { coverage_map[i] = 1; }
       coverage_map[i] |= fsrv->trace_bits[i];
 
     }
@@ -1677,7 +1674,6 @@ int main(int argc, char **argv_orig, char **envp) {
       if ((coverage_map = (u8 *)malloc(map_size + 64)) == NULL)
         FATAL("coult not grab memory");
       edges_only = false;
-      raw_instr_output = true;
 
     }
 
