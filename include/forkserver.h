@@ -188,6 +188,8 @@ typedef struct afl_forkserver {
 
   u8 persistent_mode;
 
+  u32 max_length;
+
 #ifdef __linux__
   nyx_plugin_handler_t *nyx_handlers;
   char                 *out_dir_path;    /* path to the output directory     */
