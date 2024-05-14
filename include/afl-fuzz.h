@@ -452,7 +452,8 @@ typedef struct afl_env_vars {
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
-      afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant;
+      afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
+      afl_sha1_filenames;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -1403,6 +1404,32 @@ void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q, u8 *in,
 /* Add a new queue entry directly to the cache */
 
 void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
+
+/* Compute the SHA1 hash of `data`, which is of `len` bytes, and return the
+ * result as a `\0`-terminated hex string, which the caller much `ck_free`. */
+char *sha1_hex(const u8 *data, size_t len);
+
+/* Apply `sha1_hex` to the first `len` bytes of data of the file at `fname`. */
+char *sha1_hex_for_file(const char *fname, u32 len);
+
+/* Create file `fn`, but allow it to already exist if `AFL_SHA1_FILENAMES` is
+ * enabled. */
+static inline int permissive_create(afl_state_t *afl, const char *fn) {
+
+  int fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  if (unlikely(fd < 0)) {
+
+    if (!(afl->afl_env.afl_sha1_filenames && errno == EEXIST)) {
+
+      PFATAL("Unable to create '%s'", fn);
+
+    }
+
+  }
+
+  return fd;
+
+}
 
 #if TESTCASE_CACHE == 1
   #error define of TESTCASE_CACHE must be zero or larger than 1

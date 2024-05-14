@@ -464,7 +464,7 @@
 /* Do not change this unless you really know what you are doing. */
 
 #define MAP_SIZE (1U << MAP_SIZE_POW2)
-#if MAP_SIZE <= 65536
+#if MAP_SIZE <= 2097152
   #define MAP_INITIAL_SIZE (2 << 20)  // = 2097152
 #else
   #define MAP_INITIAL_SIZE MAP_SIZE

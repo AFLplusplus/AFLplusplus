@@ -295,6 +295,9 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
           } else if (!strncmp(env, "AFL_DISABLE_REDUNDANT",
 
+                              afl_environment_variable_len) ||
+                     !strncmp(env, "AFL_NO_REDUNDANT",
+
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_disable_redundant =
@@ -625,6 +628,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
               afl->stats_file_update_freq_msecs = stats_update_freq_sec * 1000;
 
             }
+
+          } else if (!strncmp(env, "AFL_SHA1_FILENAMES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_sha1_filenames =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           }
 
