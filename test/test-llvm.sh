@@ -264,13 +264,12 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   rm -f test-compcov test.out instrumentlist.txt
   AFL_LLVM_CMPLOG=1 ../afl-clang-fast -o test-cmplog test-cmplog.c > /dev/null 2>&1
-  ../afl-clang-fast -O0 -o test-c test-cmplog.c > /dev/null 2>&1
   test -e test-cmplog && {
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode cmplog, this will take approx 10 seconds"
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c ./test-cmplog -- ./test-c >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c 0 -- ./test-cmplog >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
@@ -285,7 +284,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
     INCOMPLETE=1
   }
-  rm -rf errors test-cmplog test-c in core.*
+  rm -rf errors test-cmplog in core.*
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
