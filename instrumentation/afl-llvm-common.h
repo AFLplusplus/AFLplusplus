@@ -12,6 +12,7 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
+
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
 typedef long double max_align_t;
 #endif
@@ -24,6 +25,19 @@ typedef long double max_align_t;
 #include "llvm/Support/MathExtras.h"
 #if LLVM_VERSION_MAJOR < 17
   #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
+
+#if LLVM_VERSION_MAJOR > 12
+  #include "llvm/Support/raw_ostream.h"
+  #include "llvm/Analysis/LoopInfo.h"
+  #include "llvm/Analysis/LoopPass.h"
+  #include "llvm/IR/Function.h"
+  #include "llvm/Pass.h"
+  #include "llvm/IR/InstIterator.h"
+  #include "llvm/IR/Instructions.h"
+  #include "llvm/IR/Operator.h"
+  #include "llvm/IR/Dominators.h"
+  #include "llvm/Analysis/PostDominators.h"
 #endif
 
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -57,6 +71,9 @@ unsigned long long int calculateCollisions(uint32_t edges);
 void                   scanForDangerousFunctions(llvm::Module *M);
 unsigned int           calcCyclomaticComplexity(llvm::Function       *F,
                                                 const llvm::LoopInfo *LI);
+unsigned int calcVulnerabilityScore(llvm::Function *F, const llvm::LoopInfo *LI,
+                                    const llvm::DominatorTree     *DT,
+                                    const llvm::PostDominatorTree *PDT);
 
 #ifndef IS_EXTERN
   #define IS_EXTERN

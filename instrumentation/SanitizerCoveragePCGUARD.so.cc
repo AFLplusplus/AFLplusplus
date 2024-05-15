@@ -200,7 +200,7 @@ class ModuleSanitizerCoverageAFL
 
   SanitizerCoverageOptions Options;
 
-  uint32_t        instr = 0, selects = 0, unhandled = 0, dump_cc = 0;
+  uint32_t instr = 0, selects = 0, unhandled = 0, dump_cc = 0, dump_vc = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt    *One = NULL;
   ConstantInt    *Zero = NULL;
@@ -351,6 +351,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   if (getenv("AFL_DEBUG")) { debug = 1; }
 
   if (getenv("AFL_DUMP_CYCLOMATIC_COMPLEXITY")) { dump_cc = 1; }
+
+  if (getenv("AFL_DUMP_VULNERABILITY_COMPLEXITY")) { dump_vc = 1; }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
@@ -663,6 +665,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   // InjectTraceForSwitch(F, SwitchTraceTargets);
 
   if (dump_cc) { calcCyclomaticComplexity(&F, LI); }
+  if (dump_vc) { calcVulnerabilityScore(&F, LI, DT, PDT); }
 
 }
 
