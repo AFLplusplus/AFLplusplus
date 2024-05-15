@@ -70,6 +70,8 @@
 #endif
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
 
 #include "config.h"
 #include "debug.h"
@@ -119,6 +121,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
 }
 
+using LoopInfoCallback = function_ref<const LoopInfo *(Function &F)>;
 using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
 using PostDomTreeCallback =
     function_ref<const PostDominatorTree *(Function &F)>;
@@ -135,11 +138,13 @@ class ModuleSanitizerCoverageAFL
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
   bool              instrumentModule(Module &M, DomTreeCallback DTCallback,
-                                     PostDomTreeCallback PDTCallback);
+                                     PostDomTreeCallback PDTCallback,
+                                     LoopInfoCallback    LCallback);
 
  private:
   void instrumentFunction(Function &F, DomTreeCallback DTCallback,
-                          PostDomTreeCallback PDTCallback);
+                          PostDomTreeCallback PDTCallback,
+                          LoopInfoCallback    LCallback);
   void InjectTraceForCmp(Function &F, ArrayRef<Instruction *> CmpTraceTargets);
   void InjectTraceForSwitch(Function               &F,
                             ArrayRef<Instruction *> SwitchTraceTargets);
@@ -233,8 +238,10 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
 
   ModuleSanitizerCoverageAFL ModuleSancov(Options);
+
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
+
+  auto DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
     return &FAM.getResult<DominatorTreeAnalysis>(F);
 
@@ -246,9 +253,21 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
 
   };
 
-  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
+  auto LoopCallback = [&FAM](Function &F) -> const LoopInfo * {
+
+    return &FAM.getResult<LoopAnalysis>(F);
+
+  };
+
+  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback, LoopCallback)) {
+
     return PreservedAnalyses::none();
-  return PreservedAnalyses::all();
+
+  } else {
+
+    return PreservedAnalyses::all();
+
+  }
 
 }
 
@@ -324,7 +343,8 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
 }
 
 bool ModuleSanitizerCoverageAFL::instrumentModule(
-    Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+    Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback,
+    LoopInfoCallback LCallback) {
 
   setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -429,7 +449,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
       M.getOrInsertFunction(SanCovTracePCGuardName, VoidTy, Int32PtrTy);
 
   for (auto &F : M)
-    instrumentFunction(F, DTCallback, PDTCallback);
+    instrumentFunction(F, DTCallback, PDTCallback, LCallback);
 
   Function *Ctor = nullptr;
 
@@ -568,7 +588,8 @@ static bool IsInterestingCmp(ICmpInst *CMP, const DominatorTree *DT,
 #endif
 
 void ModuleSanitizerCoverageAFL::instrumentFunction(
-    Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+    Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback,
+    LoopInfoCallback LCallback) {
 
   if (F.empty()) return;
   if (!isInInstrumentList(&F, FMNAME)) return;
@@ -604,6 +625,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   const DominatorTree     *DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
+  const LoopInfo          *LI = LCallback(F);
   bool                     IsLeafFunc = true;
 
   for (auto &BB : F) {
@@ -640,7 +662,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   // InjectTraceForCmp(F, CmpTraceTargets);
   // InjectTraceForSwitch(F, SwitchTraceTargets);
 
-  if (dump_cc) { calcCyclomaticComplexity(&F); }
+  if (dump_cc) { calcCyclomaticComplexity(&F, LI); }
 
 }
 

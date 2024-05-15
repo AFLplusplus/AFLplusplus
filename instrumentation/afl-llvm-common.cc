@@ -15,6 +15,8 @@
 #include <cmath>
 
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Analysis/LoopPass.h>
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -26,11 +28,39 @@ static std::list<std::string> allowListFunctions;
 static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
 
-unsigned int calcCyclomaticComplexity(llvm::Function *F) {
+static void countNestedLoops(Loop *L, int depth, unsigned int &loopCount,
+                             unsigned int &nestedLoopCount,
+                             unsigned int &maxNestingLevel) {
+
+  loopCount++;
+  if (!L->getSubLoops().empty()) {
+
+    // Increment nested loop count by the number of sub-loops
+    nestedLoopCount += L->getSubLoops().size();
+    // Update maximum nesting level
+    if (depth > maxNestingLevel) { maxNestingLevel = depth; }
+
+    // Recursively count sub-loops
+    for (Loop *SubLoop : L->getSubLoops()) {
+
+      countNestedLoops(SubLoop, depth + 1, loopCount, nestedLoopCount,
+                       maxNestingLevel);
+
+    }
+
+  }
+
+}
+
+unsigned int calcCyclomaticComplexity(llvm::Function       *F,
+                                      const llvm::LoopInfo *LI) {
 
   unsigned int numBlocks = 0;
   unsigned int numEdges = 0;
   unsigned int numCalls = 0;
+  unsigned int numLoops = 0;
+  unsigned int numNestedLoops = 0;
+  unsigned int maxLoopNesting = 0;
 
   // Iterate through each basic block in the function
   for (BasicBlock &BB : *F) {
@@ -55,15 +85,25 @@ unsigned int calcCyclomaticComplexity(llvm::Function *F) {
 
   }
 
+  for (Loop *L : *LI) {
+
+    countNestedLoops(L, 1, numLoops, numNestedLoops, maxLoopNesting);
+
+  }
+
   // Cyclomatic Complexity V(G) = E - N + 2P
   // For a single function, P (number of connected components) is 1
   // Calls are considered to be an edge
-  unsigned int CC = 2 + numCalls + numEdges - numBlocks;
+  unsigned int CC = 2 + numCalls + numEdges - numBlocks + numLoops +
+                    numNestedLoops + maxLoopNesting;
 
   // if (debug) {
 
-  fprintf(stderr, "CyclomaticComplexity for %s: %u\n",
-          F->getName().str().c_str(), CC);
+  fprintf(stderr,
+          "CyclomaticComplexity for %s: %u (calls=%u edges=%u blocks=%u "
+          "loops=%u nested_loops=%u max_loop_nesting_level=%u)\n",
+          F->getName().str().c_str(), CC, numCalls, numEdges, numBlocks,
+          numLoops, numNestedLoops, maxLoopNesting);
 
   //}
 
