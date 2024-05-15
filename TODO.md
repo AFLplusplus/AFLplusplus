@@ -11,6 +11,7 @@
  - afl-showmap -f support
  - afl-fuzz multicore wrapper script
  - when trimming then perform crash detection
+ - cyclomatic complexity: 2 + calls + edges - blocks
 
 
 ## Should
