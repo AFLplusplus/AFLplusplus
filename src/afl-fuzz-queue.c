@@ -60,6 +60,7 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 }
 
+#define DEBUG_QUEUE 1
 double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size,
                       double avg_top_size, double avg_score) {
@@ -73,15 +74,46 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
 
   }
 
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "WEIGHT id=%u fname=%s start_weight=1.0\n", q->id, q->fname);
+  fprintf(stderr, "  after step 1: %.2f (log10(hits))\n", weight);
+#endif
   if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after step 2: %.2f (exec_us)\n", weight);
+#endif
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after step 3: %.2f (log(bitmap_size))\n", weight);
+#endif
   weight *= (1 + (q->tc_ref / avg_top_size));
-  if (unlikely(avg_score != 0.0)) { weight *= (log(q->score) / avg_score); }
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after step 4: %.2f (top_size)\n", weight);
+#endif
+  if (unlikely(avg_score != 0.0)) { weight *= (q->score / avg_score); }
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after step 5: %.2f (score)\n", weight);
+#endif
 
   if (unlikely(weight < 0.1)) { weight = 0.1; }
-  if (unlikely(q->favored)) { weight *= 5; }
-  if (unlikely(!q->was_fuzzed)) { weight *= 2; }
-  if (unlikely(q->fs_redundant)) { weight *= 0.8; }
+  if (unlikely(q->favored)) {
+
+    weight += 1;
+    weight *= 5;
+
+  }
+
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after step 6: %.2f (favored)\n", weight);
+#endif
+  if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after step 7: %.2f (was_fuzzed)\n", weight);
+#endif
+  if (unlikely(q->fs_redundant)) { weight *= 0.75; }
+#ifdef DEBUG_QUEUE
+  fprintf(stderr, "  after final step: %.2f (fs_redundant)\n", weight);
+#endif
 
   return weight;
 
@@ -133,7 +165,7 @@ void create_alias_table(afl_state_t *afl) {
         avg_exec_us += q->exec_us;
         avg_bitmap_size += log(q->bitmap_size);
         avg_top_size += q->tc_ref;
-        if (exploit) { avg_score += q->score; }
+        if (exploit) { avg_score += /*log(*/ q->score /*)*/; }
         ++active;
 
       }
