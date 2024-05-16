@@ -13,13 +13,15 @@
     - more frequent stats update when syncing (todo: check performance impact)
   * afl-cc:
     - re-enable i386 support that was accidently disabled
-    - fixes for LTO and outdated afl-gcc mode
+    - fixes for LTO and outdated afl-gcc mode for i386
     - fix COMPCOV split compare for old LLVMs
     - disable xml/curl/g_ string transform functions because we do not check
       for null pointers ... TODO
     - ensure shared memory variables are visible in weird build setups
   * afl-cmin
     - work with input files that have a space
+  * afl-showmap
+    - minor fix to collect coverage -C (thanks to @bet4it)
   * enhanced the ASAN configuration
 
 
