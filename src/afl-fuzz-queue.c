@@ -62,7 +62,7 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size,
-                      double avg_top_size) {
+                      double avg_top_size, double avg_score) {
 
   double weight = 1.0;
 
@@ -76,6 +76,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
   weight *= (log(q->bitmap_size) / avg_bitmap_size);
   weight *= (1 + (q->tc_ref / avg_top_size));
+  if (avg_score != 0.0) { weight *= (log(q->score) / avg_score); }
 
   if (unlikely(weight < 0.1)) { weight = 0.1; }
   if (unlikely(q->favored)) { weight *= 5; }
@@ -90,7 +91,8 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
 
 void create_alias_table(afl_state_t *afl) {
 
-  u32    n = afl->queued_items, i = 0, nSmall = 0, nLarge = n - 1;
+  u32 n = afl->queued_items, i = 0, nSmall = 0, nLarge = n - 1,
+      explore = afl->fuzz_mode;
   double sum = 0;
 
   double *P = (double *)afl_realloc(AFL_BUF_PARAM(out), n * sizeof(double));
@@ -118,6 +120,7 @@ void create_alias_table(afl_state_t *afl) {
     double avg_exec_us = 0.0;
     double avg_bitmap_size = 0.0;
     double avg_top_size = 0.0;
+    double avg_score = 0.0;
     u32    active = 0;
 
     for (i = 0; i < n; i++) {
@@ -130,6 +133,7 @@ void create_alias_table(afl_state_t *afl) {
         avg_exec_us += q->exec_us;
         avg_bitmap_size += log(q->bitmap_size);
         avg_top_size += q->tc_ref;
+        if (!explore) { avg_score += q->score; }
         ++active;
 
       }
@@ -140,14 +144,16 @@ void create_alias_table(afl_state_t *afl) {
     avg_bitmap_size /= active;
     avg_top_size /= active;
 
+    if (!explore) { avg_score /= active; }
+
     for (i = 0; i < n; i++) {
 
       struct queue_entry *q = afl->queue_buf[i];
 
       if (likely(!q->disabled)) {
 
-        q->weight =
-            compute_weight(afl, q, avg_exec_us, avg_bitmap_size, avg_top_size);
+        q->weight = compute_weight(afl, q, avg_exec_us, avg_bitmap_size,
+                                   avg_top_size, avg_score);
         q->perf_score = calculate_score(afl, q);
         sum += q->weight;
 
@@ -596,6 +602,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->trace_mini = NULL;
   q->testcase_buf = NULL;
   q->mother = afl->queue_cur;
+  q->score = afl->current_score;
 
 #ifdef INTROSPECTION
   q->bitsmap_size = afl->bitsmap_size;

@@ -251,6 +251,8 @@ struct queue_entry {
 
   struct skipdet_entry *skipdet_e;
 
+  u32 score;                            /* complexity/vulnerability score   */
+
 };
 
 struct extra_data {
@@ -831,6 +833,9 @@ typedef struct afl_state {
 
   /* How often did we evict from the cache (for statistics only) */
   u32 q_testcase_evictions;
+
+  /* current complexity/vulnerability score received */
+  u32 current_score;
 
   /* Refs to each queue entry with cached testcase (for eviction, if cache_count
    * is too large) */

@@ -481,6 +481,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   s32 fd;
   u64 cksum = 0;
 
+  // will be classified away otherwise
+  afl->current_score = *(u32 *)((u8 *)afl->fsrv.trace_bits + 1);
+
   /* Update path frequency. */
 
   /* Generating a hash on every input is super expensive. Bad idea and should
