@@ -666,8 +666,8 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   unsigned int score = 0;
 
-  if (dump_cc) { score = calcCyclomaticComplexity(&F, LI); }
-  if (dump_vc) { score = calcVulnerabilityScore(&F, LI, DT, PDT); }
+  if (dump_cc) { score += calcCyclomaticComplexity(&F, LI); }
+  if (dump_vc) { score += calcVulnerabilityScore(&F, LI, DT, PDT); }
 
   if (score) {
 
