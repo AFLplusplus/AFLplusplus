@@ -3069,23 +3069,32 @@ stop_fuzzing:
 
   if (getenv("AFL_DUMP_QUEUE_ON_EXIT")) {
 
-    fprintf(stderr, "\nQUEUE DUMP:\n");
-    for (u32 k = 0; k < afl->queued_items; ++k) {
+    for (u32 mode = 0; mode < 2; mode++) {
 
-      struct queue_entry *q = afl->queue_buf[k];
-      fprintf(
-          stderr,
-          "item=%u fname=%s len=%u exec_us=%llu has_new_cov=%u var_behavior=%u "
-          "favored=%u fs_redundant=%u disabled=%u bitmap_size=%u fuzz_level=%u "
-          "mother=%d perf_score=%.2f weight=%.2f score=%u\n",
-          k, q->fname, q->len, q->exec_us, q->has_new_cov, q->var_behavior,
-          q->favored, q->fs_redundant, q->disabled, q->bitmap_size,
-          q->fuzz_level, q->mother == NULL ? -1 : (int)q->mother->id,
-          q->perf_score, q->weight, q->score);
+      afl->fuzz_mode = mode;
+      create_alias_table(afl);
+      fprintf(stderr, "\nQUEUE DUMP MODE: %u\n", mode);
+
+      for (u32 k = 0; k < afl->queued_items; ++k) {
+
+        struct queue_entry *q = afl->queue_buf[k];
+        fprintf(stderr,
+                "item=%u fname=%s len=%u exec_us=%llu has_new_cov=%u "
+                "var_behavior=%u "
+                "favored=%u fs_redundant=%u disabled=%u bitmap_size=%u "
+                "fuzz_level=%u "
+                "mother=%d perf_score=%.2f weight=%.2f score=%u\n",
+                k, q->fname, q->len, q->exec_us, q->has_new_cov,
+                q->var_behavior, q->favored, q->fs_redundant, q->disabled,
+                q->bitmap_size, q->fuzz_level,
+                q->mother == NULL ? -1 : (int)q->mother->id, q->perf_score,
+                q->weight, q->score);
+
+      }
+
+      fprintf(stderr, "\n");
 
     }
-
-    fprintf(stderr, "\n");
 
   }
 
