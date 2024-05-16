@@ -1806,7 +1806,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
   afl->fsrv.max_length = afl->max_length;
-   
+
   #ifdef __linux__
   if (!afl->fsrv.nyx_mode) {
 
@@ -3064,6 +3064,28 @@ stop_fuzzing:
     u8 path[PATH_MAX];
     sprintf(path, "%s/is_main_node", afl->out_dir);
     unlink(path);
+
+  }
+
+  if (getenv("AFL_DUMP_QUEUE_ON_EXIT")) {
+
+    fprintf(stderr, "\nQUEUE DUMP:\n");
+    for (u32 k = 0; k < afl->queued_items; ++k) {
+
+      struct queue_entry *q = afl->queue_buf[k];
+      fprintf(
+          stderr,
+          "item=%u fname=%s len=%u exec_us=%llu has_new_cov=%u var_behavior=%u "
+          "favored=%u fs_redundant=%u disabled=%u bitmap_size=%u fuzz_level=%u "
+          "mother=%d perf_score=%.2f weight=%.2f score=%u\n",
+          k, q->fname, q->len, q->exec_us, q->has_new_cov, q->var_behavior,
+          q->favored, q->fs_redundant, q->disabled, q->bitmap_size,
+          q->fuzz_level, q->mother == NULL ? -1 : (int)q->mother->id,
+          q->perf_score, q->weight, q->score);
+
+    }
+
+    fprintf(stderr, "\n");
 
   }
 
