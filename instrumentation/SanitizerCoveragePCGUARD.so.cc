@@ -664,8 +664,50 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   // InjectTraceForCmp(F, CmpTraceTargets);
   // InjectTraceForSwitch(F, SwitchTraceTargets);
 
-  if (dump_cc) { calcCyclomaticComplexity(&F, LI); }
-  if (dump_vc) { calcVulnerabilityScore(&F, LI, DT, PDT); }
+  unsigned int score = 0;
+
+  if (dump_cc) { score = calcCyclomaticComplexity(&F, LI); }
+  if (dump_vc) { score = calcVulnerabilityScore(&F, LI, DT, PDT); }
+
+  if (score) {
+
+    BasicBlock::iterator IP = F.getEntryBlock().getFirstInsertionPt();
+    IRBuilder<>          builder(&*IP);
+
+    // Access the int32 value at u8 offset 1 (unaligned access)
+    LoadInst *MapPtr =
+        builder.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+    llvm::Value *CastToInt8Ptr =
+        builder.CreateBitCast(MapPtr, llvm::PointerType::get(Int8Ty, 0));
+    llvm::Value *Int32Ptr = builder.CreateGEP(
+        Int8Ty, CastToInt8Ptr, llvm::ConstantInt::get(Int32Ty, 1));
+    llvm::Value *CastToInt32Ptr =
+        builder.CreateBitCast(Int32Ptr, llvm::PointerType::get(Int32Ty, 0));
+
+    // Load the unaligned int32 value
+    llvm::LoadInst *Load = builder.CreateLoad(Int32Ty, CastToInt32Ptr);
+    Load->setAlignment(llvm::Align(1));
+
+    // Value to add
+    llvm::Value *ValueToAdd = llvm::ConstantInt::get(Int32Ty, score);
+
+    // Perform addition and check for wrap around
+    llvm::Value *Add =
+        builder.CreateAdd(Load, ValueToAdd, "addValue", true, true);
+
+    // Check if addition wrapped (unsigned)
+    llvm::Value *DidWrap = builder.CreateICmpULT(Add, Load, "didWrap");
+
+    // Select the maximum value if there was a wrap, otherwise use the result
+    llvm::Value *MaxInt32 = llvm::ConstantInt::get(Int32Ty, UINT32_MAX);
+    llvm::Value *Result =
+        builder.CreateSelect(DidWrap, MaxInt32, Add, "selectMaxOrResult");
+
+    // Store the result back at the same unaligned offset
+    llvm::StoreInst *Store = builder.CreateStore(Result, CastToInt32Ptr);
+    Store->setAlignment(llvm::Align(1));
+
+  }
 
 }
 
