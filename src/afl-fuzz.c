@@ -3069,7 +3069,7 @@ stop_fuzzing:
 
   if (getenv("AFL_DUMP_QUEUE_ON_EXIT")) {
 
-    for (u32 mode = 0; mode < 2; mode++) {
+    for (u32 mode = 0; mode < 1; mode++) {
 
       afl->fuzz_mode = mode;
       create_alias_table(afl);
