@@ -2868,7 +2868,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+      u64 execs_before = afl->fsrv.total_execs;
       skipped_fuzz = fuzz_one(afl);
+      afl->queue_cur->total_execs += afl->fsrv.total_execs - execs_before;
   #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
 
@@ -3079,11 +3081,11 @@ stop_fuzzing:
 
         struct queue_entry *q = afl->queue_buf[k];
         fprintf(stderr,
-                "item=%u fname=%s len=%u exec_us=%llu has_new_cov=%u "
+                "item=%u fname=%s len=%u exec_us=%llu total_execs=%llu has_new_cov=%u "
                 "var_behavior=%u favored=%u fs_redundant=%u disabled=%u "
                 "bitmap_size=%u tc_ref=%u fuzz_level=%u was_fuzzed=%u "
                 "mother=%d perf_score=%.2f weight=%.2f score=%u\n",
-                k, q->fname, q->len, q->exec_us, q->has_new_cov,
+                k, q->fname, q->len, q->exec_us, q->total_execs, q->has_new_cov,
                 q->var_behavior, q->favored, q->fs_redundant, q->disabled,
                 q->bitmap_size, q->tc_ref, q->fuzz_level, q->was_fuzzed,
                 q->mother == NULL ? -1 : (int)q->mother->id, q->perf_score,

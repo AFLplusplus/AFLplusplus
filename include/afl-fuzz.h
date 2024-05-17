@@ -252,6 +252,7 @@ struct queue_entry {
   struct skipdet_entry *skipdet_e;
 
   u32 score;                            /* complexity/vulnerability score   */
+  u64 total_execs;                      /* total executes of this item      */
 
 };
 
