@@ -2794,11 +2794,11 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "MODES:                                  NCC PERSIST DICT   LAF "
         "CMPLOG SELECT\n"
         "  [LLVM] LLVM:             %s%s\n"
-        "      PCGUARD              %s    yes yes     module yes yes    "
+        "      PCGUARD              %s yes yes     module yes yes    "
         "yes\n"
         "      NATIVE               AVAILABLE    no  yes     no     no  "
         "part.  yes\n"
-        "      CLASSIC              %s    no  yes     module yes yes    "
+        "      CLASSIC              %s no  yes     module yes yes    "
         "yes\n"
         "        - NORMAL\n"
         "        - CALLER\n"
@@ -2815,10 +2815,10 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "  [GCC/CLANG] simple gcc/clang: %s%s\n"
         "      CLASSIC              DEFAULT      no  no      no     no  no     "
         "no\n\n",
-        aflcc->have_llvm ? "AVAILABLE" : "unavailable!",
+        aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
         aflcc->compiler_mode == LLVM ? " [SELECTED]" : "",
-        aflcc->have_llvm ? "AVAILABLE" : "unavailable!",
-        aflcc->have_llvm ? "AVAILABLE" : "unavailable!",
+        aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
+        aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
         aflcc->have_lto ? "AVAILABLE" : "unavailable!",
         aflcc->compiler_mode == LTO ? " [SELECTED]" : "",
         aflcc->have_gcc_plugin ? "AVAILABLE" : "unavailable!",

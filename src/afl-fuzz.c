@@ -1806,7 +1806,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
   afl->fsrv.max_length = afl->max_length;
-   
+
   #ifdef __linux__
   if (!afl->fsrv.nyx_mode) {
 
@@ -2593,13 +2593,6 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         sync_fuzzers(afl);
-
-        if (!afl->queue_cycle && afl->afl_env.afl_import_first) {
-
-          // real start time, we reset, so this works correctly with -V
-          afl->start_time = get_cur_time();
-
-        }
 
       }
 
