@@ -606,6 +606,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   }
 
   q->exec_us = diff_us / afl->stage_max;
+  if (unlikely(!q->exec_us)) { q->exec_us = 1; }
+
   q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
   q->handicap = handicap;
   q->cal_failed = 0;
@@ -1193,4 +1195,3 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
-
