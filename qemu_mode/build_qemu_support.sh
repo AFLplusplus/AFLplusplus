@@ -202,6 +202,8 @@ QEMU_CONF_FLAGS=" \
   --disable-xfsctl \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
+  --extra-cflags=-Wno-int-conversion \
+  --disable-werror \
   "
 
 if [ -n "${CROSS_PREFIX}" ]; then
@@ -243,7 +245,6 @@ if [ "$DEBUG" = "1" ]; then
     --enable-debug-stack-usage \
     --enable-debug-tcg \
     --enable-qom-cast-debug \
-    --enable-werror \
     "
 
 else
@@ -254,7 +255,6 @@ else
     --disable-debug-tcg \
     --disable-qom-cast-debug \
     --disable-stack-protector \
-    --disable-werror \
     --disable-docs \
     "
 
