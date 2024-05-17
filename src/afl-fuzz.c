@@ -2593,6 +2593,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         sync_fuzzers(afl);
+
       }
 
       ++afl->queue_cycle;
@@ -3107,3 +3108,4 @@ stop_fuzzing:
 }
 
 #endif                                                          /* !AFL_LIB */
+
