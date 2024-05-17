@@ -11,6 +11,11 @@
     - prevent filenames in the queue that have spaces
     - minor fix for FAST schedules
     - more frequent stats update when syncing (todo: check performance impact)
+    - now timing of calibration, trimming and syncing is measured seperately,
+      thanks to @eqv!
+    - -V timing is now accurately the fuzz time (without syncing), before
+      long calibration times and syncing could result in now fuzzing being
+      made when the time was already run out until then, thanks to @eqv!
   * afl-cc:
     - re-enable i386 support that was accidently disabled
     - fixes for LTO and outdated afl-gcc mode for i386
