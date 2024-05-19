@@ -23,6 +23,7 @@
     - disable xml/curl/g_ string transform functions because we do not check
       for null pointers ... TODO
     - ensure shared memory variables are visible in weird build setups
+    - compatability to new LLVM 19 changes
   * afl-cmin
     - work with input files that have a space
   * afl-showmap
@@ -67,7 +68,6 @@
   - Minor edits to afl-persistent-config
   - Prevent temporary files being left behind on aborted afl-whatsup
   - More CPU benchmarks added to benchmark/
-
 
 ### Version ++4.10c (release)
   - afl-fuzz:
