@@ -14,7 +14,7 @@
 #include <fstream>
 #include <cmath>
 
-#if LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR >= 13
   #include "llvm/Support/raw_ostream.h"
   #include "llvm/Analysis/LoopInfo.h"
   #include "llvm/Analysis/LoopPass.h"
@@ -38,7 +38,27 @@ static std::list<std::string> allowListFunctions;
 static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
 
-#if LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR >= 13
+  // Leopard complexity calculations
+
+  // Cyclomatic weights
+  #define C1_WEIGHT 1.0
+  #define C2_WEIGHT 1.0
+  #define C3_WEIGHT 1.0
+  #define C4_WEIGHT 1.0
+
+  // Vulnerability weights
+  #define V1_WEIGHT 1.0
+  #define V2_WEIGHT 1.0
+  #define V3_WEIGHT 1.0
+  #define V4_WEIGHT 1.0
+  #define V5_WEIGHT 1.0
+  #define V6_WEIGHT 1.0
+  #define V7_WEIGHT 1.0
+  #define V8_WEIGHT 1.0
+  #define V9_WEIGHT 1.0
+  #define V10_WEIGHT 1.0
+
 static void countNestedLoops(Loop *L, int depth, unsigned int &loopCount,
                              unsigned int &nestedLoopCount,
                              unsigned int &maxNestingLevel) {
@@ -105,20 +125,23 @@ unsigned int calcCyclomaticComplexity(llvm::Function       *F,
   // Cyclomatic Complexity V(G) = E - N + 2P
   // For a single function, P (number of connected components) is 1
   // Calls are considered to be an edge
-  unsigned int CC = 2 + numCalls + numEdges - numBlocks + numLoops +
-                    numNestedLoops + maxLoopNesting;
+  unsigned int cc =
+      (unsigned int)(C1_WEIGHT * (double)(2 + numCalls + numEdges - numBlocks) +
+                     C2_WEIGHT * (double)numLoops +
+                     C3_WEIGHT * (double)numNestedLoops +
+                     C4_WEIGHT * (double)maxLoopNesting);
 
   // if (debug) {
 
   fprintf(stderr,
           "CyclomaticComplexity for %s: %u (calls=%u edges=%u blocks=%u "
           "loops=%u nested_loops=%u max_loop_nesting_level=%u)\n",
-          F->getName().str().c_str(), CC, numCalls, numEdges, numBlocks,
+          F->getName().str().c_str(), cc, numCalls, numEdges, numBlocks,
           numLoops, numNestedLoops, maxLoopNesting);
 
   //}
 
-  return CC;
+  return cc;
 
 }
 
@@ -126,7 +149,7 @@ unsigned int calcVulnerabilityScore(llvm::Function *F, const llvm::LoopInfo *LI,
                                     const llvm::DominatorTree     *DT,
                                     const llvm::PostDominatorTree *PDT) {
 
-  unsigned int Score = 0;
+  unsigned int score = 0;
   // V1 and V2
   unsigned paramCount = F->arg_size();
   unsigned calledParamCount = 0;
@@ -254,10 +277,16 @@ unsigned int calcVulnerabilityScore(llvm::Function *F, const llvm::LoopInfo *LI,
 
   }
 
-  Score = paramCount + calledParamCount + pointerArithCount +
-          totalPointerArithParams + maxPointerArithVars + maxNestingLevel +
-          maxControlDependentControls + maxDataDependentControls +
-          ifWithoutElseCount + controlPredicateVarCount;
+  score = (unsigned int)(V1_WEIGHT * (double)paramCount +
+                         V2_WEIGHT * (double)calledParamCount +
+                         V3_WEIGHT * (double)pointerArithCount +
+                         V4_WEIGHT * (double)totalPointerArithParams +
+                         V5_WEIGHT * (double)maxPointerArithVars +
+                         V6_WEIGHT * (double)maxNestingLevel +
+                         V7_WEIGHT * (double)maxControlDependentControls +
+                         V8_WEIGHT * (double)maxDataDependentControls +
+                         V9_WEIGHT * (double)ifWithoutElseCount +
+                         V10_WEIGHT * (double)controlPredicateVarCount);
 
   fprintf(stderr,
           "VulnerabilityScore for %s: %u (paramCount=%u "
@@ -265,13 +294,13 @@ unsigned int calcVulnerabilityScore(llvm::Function *F, const llvm::LoopInfo *LI,
           "maxPointerArithVars=%u|maxNestingLevel=%u "
           "maxControlDependentControls=%u maxDataDependentControls=%u "
           "ifWithoutElseCount=%u controlPredicateVarCount=%u)\n",
-          F->getName().str().c_str(), Score, paramCount, calledParamCount,
+          F->getName().str().c_str(), score, paramCount, calledParamCount,
           pointerArithCount, totalPointerArithParams, maxPointerArithVars,
           maxNestingLevel, maxControlDependentControls,
           maxDataDependentControls, ifWithoutElseCount,
           controlPredicateVarCount);
 
-  return Score;
+  return score;
 
 }
 
@@ -342,7 +371,11 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   for (auto const &ignoreListFunc : ignoreList) {
 
+#if LLVM_VERSION_MAJOR >= 19
+    if (F->getName().starts_with(ignoreListFunc)) { return true; }
+#else
     if (F->getName().startswith(ignoreListFunc)) { return true; }
+#endif
 
   }
 
