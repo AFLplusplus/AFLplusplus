@@ -54,6 +54,12 @@
   #define nullptr 0
 #endif
 
+#if LLVM_MAJOR >= 19
+  #define STARTSWITH starts_with
+#else
+  #define STARTSWITH startswith
+#endif
+
 #include <set>
 #include "afl-llvm-common.h"
 
@@ -532,10 +538,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     }
 
     if (!isSizedcmp) needs_null = true;
-    if (Callee->getName().startswith("g_") ||
-        Callee->getName().startswith("curl_") ||
-        Callee->getName().startswith("Curl_") ||
-        Callee->getName().startswith("xml"))
+    if (Callee->getName().STARTSWITH("g_") ||
+        Callee->getName().STARTSWITH("curl_") ||
+        Callee->getName().STARTSWITH("Curl_") ||
+        Callee->getName().STARTSWITH("xml"))
       nullCheck = true;
 
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
