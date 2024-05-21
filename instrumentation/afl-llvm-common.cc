@@ -28,6 +28,8 @@
   #include "llvm/Analysis/PostDominators.h"
 #endif
 
+// #define LEOPARD_USE_WEIGHTS 1
+
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
 
@@ -39,25 +41,44 @@ static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
 
 #if LLVM_VERSION_MAJOR >= 13
-  // Leopard complexity calculations
+// Leopard complexity calculations
 
-  // Cyclomatic weights
-  #define C1_WEIGHT 1.0
-  #define C2_WEIGHT 1.0
-  #define C3_WEIGHT 1.0
-  #define C4_WEIGHT 1.0
+  #ifndef LEOPARD_USE_WEIGHTS
+    #define C1_WEIGHT 1.0
+    #define C2_WEIGHT 1.0
+    #define C3_WEIGHT 1.0
+    #define C4_WEIGHT 1.0
+    #define V1_WEIGHT 1.0
+    #define V2_WEIGHT 1.0
+    #define V3_WEIGHT 1.0
+    #define V4_WEIGHT 1.0
+    #define V5_WEIGHT 1.0
+    #define V6_WEIGHT 1.0
+    #define V7_WEIGHT 1.0
+    #define V8_WEIGHT 1.0
+    #define V9_WEIGHT 1.0
+    #define V10_WEIGHT 1.0
+    #define V11_WEIGHT 1.0
+  #else
+    // Cyclomatic weights
+    #define C1_WEIGHT 1.0
+    #define C2_WEIGHT 1.0
+    #define C3_WEIGHT 1.0
+    #define C4_WEIGHT 1.0
 
-  // Vulnerability weights
-  #define V1_WEIGHT 1.0
-  #define V2_WEIGHT 1.0
-  #define V3_WEIGHT 1.0
-  #define V4_WEIGHT 1.0
-  #define V5_WEIGHT 1.0
-  #define V6_WEIGHT 1.0
-  #define V7_WEIGHT 1.0
-  #define V8_WEIGHT 1.0
-  #define V9_WEIGHT 1.0
-  #define V10_WEIGHT 1.0
+    // Vulnerability weights
+    #define V1_WEIGHT 1.5
+    #define V2_WEIGHT 3.25
+    #define V3_WEIGHT 4.25
+    #define V4_WEIGHT 3.0
+    #define V5_WEIGHT 4.25
+    #define V6_WEIGHT 7.75
+    #define V7_WEIGHT 2.5
+    #define V8_WEIGHT 2.5
+    #define V9_WEIGHT 4.0
+    #define V10_WEIGHT 5.25
+    #define V11_WEIGHT 3.5
+  #endif
 
 static void countNestedLoops(Loop *L, int depth, unsigned int &loopCount,
                              unsigned int &nestedLoopCount,
@@ -282,11 +303,12 @@ unsigned int calcVulnerabilityScore(llvm::Function *F, const llvm::LoopInfo *LI,
                          V3_WEIGHT * (double)pointerArithCount +
                          V4_WEIGHT * (double)totalPointerArithParams +
                          V5_WEIGHT * (double)maxPointerArithVars +
-                         V6_WEIGHT * (double)maxNestingLevel +
-                         V7_WEIGHT * (double)maxControlDependentControls +
-                         V8_WEIGHT * (double)maxDataDependentControls +
-                         V9_WEIGHT * (double)ifWithoutElseCount +
-                         V10_WEIGHT * (double)controlPredicateVarCount);
+                         V6_WEIGHT * (double)nestedControlStructCount +
+                         V7_WEIGHT * (double)maxNestingLevel +
+                         V8_WEIGHT * (double)maxControlDependentControls +
+                         V9_WEIGHT * (double)maxDataDependentControls +
+                         V10_WEIGHT * (double)ifWithoutElseCount +
+                         V11_WEIGHT * (double)controlPredicateVarCount);
 
   fprintf(stderr,
           "VulnerabilityScore for %s: %u (paramCount=%u "
