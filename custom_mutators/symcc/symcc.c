@@ -287,7 +287,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
     struct stat st;
     u8 *        fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
 
-    if (done == 0) {
+    if (!done) {
 
       if (stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
 
@@ -299,13 +299,12 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
           *out_buf = data->mutator_buf;
 
           close(fd);
+          unlink(fn);
           done = 1;
 
         }
 
       }
-
-      unlink(fn);
 
     }
 
