@@ -2366,8 +2366,7 @@ static void add_aflpplib(aflcc_state_t *aflcc) {
     insert_param(aflcc, afllib);
 
 #ifdef __APPLE__
-    insert_param(aflcc, "-Wl,-undefined");
-    insert_param(aflcc, "dynamic_lookup");
+    insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
 #endif
 
   }
