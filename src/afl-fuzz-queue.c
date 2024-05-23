@@ -60,53 +60,53 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 }
 
-//#define DEBUG_QUEUE 1
+// #define DEBUG_QUEUE 1
 double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size,
                       double avg_top_size, double avg_score) {
 
   double weight = 1.0;
-/*
-  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  /*
+    if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    u32 hits = afl->n_fuzz[q->n_fuzz_entry];
-    if (likely(hits)) { weight /= (log10(hits) + 1); }
+      u32 hits = afl->n_fuzz[q->n_fuzz_entry];
+      if (likely(hits)) { weight /= (log10(hits) + 1); }
 
-  }
+    }
 
-#ifdef DEBUG_QUEUE
-  fprintf(stderr, "WEIGHT id=%u fname=%s start_weight=1.0\n", q->id, q->fname);
-  fprintf(stderr, "  after step 1: %.2f (log10(hits))\n", weight);
-#endif
-  if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
-#ifdef DEBUG_QUEUE
-  fprintf(stderr, "  after step 2: %.2f (exec_us)\n", weight);
-#endif
-  weight *= (log(q->bitmap_size) / avg_bitmap_size);
-#ifdef DEBUG_QUEUE
-  fprintf(stderr, "  after step 3: %.2f (log(bitmap_size))\n", weight);
-#endif
-  weight *= (1 + (q->tc_ref / avg_top_size));
-#ifdef DEBUG_QUEUE
-  fprintf(stderr, "  after step 4: %.2f (top_size)\n", weight);
-#endif
-  if (unlikely(avg_score != 0.0)) { weight *= (q->score / avg_score); }
-#ifdef DEBUG_QUEUE
-  fprintf(stderr, "  after step 5: %.2f (score)\n", weight);
-#endif
+  #ifdef DEBUG_QUEUE
+    fprintf(stderr, "WEIGHT id=%u fname=%s start_weight=1.0\n", q->id,
+  q->fname); fprintf(stderr, "  after step 1: %.2f (log10(hits))\n", weight);
+  #endif
+    if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
+  #ifdef DEBUG_QUEUE
+    fprintf(stderr, "  after step 2: %.2f (exec_us)\n", weight);
+  #endif
+    weight *= (log(q->bitmap_size) / avg_bitmap_size);
+  #ifdef DEBUG_QUEUE
+    fprintf(stderr, "  after step 3: %.2f (log(bitmap_size))\n", weight);
+  #endif
+    weight *= (1 + (q->tc_ref / avg_top_size));
+  #ifdef DEBUG_QUEUE
+    fprintf(stderr, "  after step 4: %.2f (top_size)\n", weight);
+  #endif
+    if (unlikely(avg_score != 0.0)) { weight *= (q->score / avg_score); }
+  #ifdef DEBUG_QUEUE
+    fprintf(stderr, "  after step 5: %.2f (score)\n", weight);
+  #endif
 
-  if (unlikely(weight < 0.1)) { weight = 0.1; }
-  if (unlikely(q->favored)) {
+    if (unlikely(weight < 0.1)) { weight = 0.1; }
+    if (unlikely(q->favored)) {
 
-    weight += 1;
-    weight *= 5;
+      weight += 1;
+      weight *= 5;
 
-  }
+    }
 
-#ifdef DEBUG_QUEUE
-  fprintf(stderr, "  after step 6: %.2f (favored)\n", weight);
-#endif
-*/
+  #ifdef DEBUG_QUEUE
+    fprintf(stderr, "  after step 6: %.2f (favored)\n", weight);
+  #endif
+  */
   if (unlikely(!q->was_fuzzed)) { weight *= 3; }
 #ifdef DEBUG_QUEUE
   fprintf(stderr, "  after step 7: %.2f (was_fuzzed)\n", weight);
@@ -635,6 +635,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->trace_mini = NULL;
   q->testcase_buf = NULL;
   q->mother = afl->queue_cur;
+  afl->queue_cur->found++;
   q->score = afl->current_score;
   if (unlikely(!q->score)) { q->score = 1; }
 
