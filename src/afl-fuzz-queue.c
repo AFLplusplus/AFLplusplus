@@ -1301,7 +1301,8 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
     static u32 do_once = 0;  // because even threaded we would want this. WIP
 
     while (unlikely(
-        afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size ||
+        (afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size &&
+         afl->q_testcase_cache_count > 1) ||
         afl->q_testcase_cache_count >= afl->q_testcase_max_cache_entries - 1)) {
 
       /* We want a max number of entries to the cache that we learn.
