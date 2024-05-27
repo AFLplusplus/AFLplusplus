@@ -111,3 +111,5 @@ utils/replay_record/persistent_demo_replay_compat
 utils/replay_record/persistent_demo_replay_argparse
 utils/plot_ui/afl-plot-ui
 vuln_prog
+env.tmp
+env.txt

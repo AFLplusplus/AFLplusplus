@@ -1,11 +1,12 @@
 #include "common.h"
 
+#ifdef DEBUG
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
 #define LOGSZ 100
 char dbg[LOGSZ];
+#endif
 void log_q( const char* format, ... ) {
     #ifdef DEBUG
     va_list args;

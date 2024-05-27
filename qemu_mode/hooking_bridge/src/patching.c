@@ -62,22 +62,19 @@ void set_signal_callback( void (*cb)(int));
 void patch_block_trans_cb(struct qemu_plugin_tb *tb){
     unsigned long long addr;
     addr = qemu_plugin_tb_vaddr(tb);
+    log_q("trans addr 0x%llx\n", addr);
 
-    if (addr == config->main_addr){
+    if (addr == config->entry_addr){
         //NOTE This means we cannot put a BP in the first basic block
-        gdb_accept_init(200);        
+        gdb_accept_init(-1);        
         for (int i = 0; i < config->num_hooks; i++){
-            // sprintf(cbuf,"at 0x%llx hooking 0x%llx\n", addr, config->hooks[i]);
-            // qemu_plugin_outs(cbuf);
-
-            log_q("at 0x%llx hooking 0x%llx\n", addr, config->hooks[i]);
+            log_q("hooking 0x%llx\n", addr, config->hooks[i]);
             gdb_breakpoint_insert(0,config->hooks[i],1);
         }
     }
 
 }
-//TODO return char
-void handle_signal_callback(int sig){ //return -1 if signal not handled else 0
+void handle_signal_callback(int sig){
     log_q("handle signal %u\n", sig);
 
     if (single_stepped){
@@ -90,7 +87,7 @@ void handle_signal_callback(int sig){ //return -1 if signal not handled else 0
 
     r_reg(RIP,cbuf);
     gen_addr = *(unsigned long long*)cbuf;
-    log_q("break - to hook hook_%016llx\n", gen_addr);
+    log_q("break - to hook_%016llx\n", gen_addr);
 
     sprintf(cbuf,"hook_%016llx",gen_addr);
     //TODO maybe find a way to put the hook function pointers in the TCG data structure instead of this dlsym call
@@ -103,7 +100,7 @@ void handle_signal_callback(int sig){ //return -1 if signal not handled else 0
     returned = hook();
     log_q("return to %llx; remove bp %d\n", returned->addr, returned->remove_bp);
 
-    if (returned->remove_bp || (returned->addr == gen_addr) ){ //force removal of bp in returning to the same address, otherwise hook will be called again
+    if (returned->remove_bp || (returned->addr == gen_addr) ){ //* force removal of bp in returning to the same address, otherwise hook will be called again
         gdb_breakpoint_remove(0,gen_addr,1); 
     }
 
@@ -111,7 +108,7 @@ void handle_signal_callback(int sig){ //return -1 if signal not handled else 0
         single_stepped = 1;
         cpu_single_step(cpu, get_sstep_flags());
     }else{
-        //no need to rexecute the IP instruction
+        //* no need to rexecute the IP instruction
         gdb_set_cpu_pc(returned->addr);
     }
 

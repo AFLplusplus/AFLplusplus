@@ -21,7 +21,7 @@ void q_log(char *buf);
 //TODO Unfortunately we cannot break on the first block after main at this time. I suspect this is trivial. Will look into it later. 
 struct conf{
     unsigned char arch;
-    unsigned long long main_addr;
+    unsigned long long entry_addr;
     unsigned long long* hooks;
     unsigned long long num_hooks;
 };

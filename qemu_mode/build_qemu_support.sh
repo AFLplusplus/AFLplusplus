@@ -295,13 +295,13 @@ echo "[+] Successfully created '../afl-qemu-trace'."
 if [ "$ENABLE_HOOKING" = "1" ];then
   echo "[+] Enabling hooking"
   if [ "$DEBUG" = "1" ];then
-    CF="-D DEBUG"
+    DF="-D DEBUG"
   else
-    CF=
+    DF=
   fi
   set -u
   cd ./hooking_bridge || exit 255
-  make CFLAGS=$CF GLIB_H=$GLIB_H GLIB_CONFIG_H=$GLIB_CONFIG_H
+  make CFLAGS="$DF" GLIB_H="$GLIB_H" GLIB_CONFIG_H="$GLIB_CONFIG_H"
   set +u
   cd ..
 fi
