@@ -17,11 +17,11 @@ int w_reg(unsigned char reg, char *src);
 //NOTE hook function must be named hook_<16 hex character at_addr>
 //NOTE must define function `struct conf* configure()`
 struct conf{
-    unsigned char arch;
+    unsigned char IP_reg_num;
     unsigned long long entry_addr;
     unsigned long long* hooks;
     unsigned long long num_hooks;
-};
+}conf;
 
 struct ret{
     unsigned long long addr;

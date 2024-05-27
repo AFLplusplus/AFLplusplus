@@ -1,11 +1,9 @@
-// #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <dlfcn.h>
 #include <glib.h>
 
 #include "common.h"
-#include "arch.h"
 #include "exports.h"
 
 void *handle;
@@ -31,22 +29,18 @@ void gdb_continue(void);
 #pragma endregion GDB Imports
 
 //region API
-// Returns 0 on success, -1 on error
 int r_mem(unsigned long long addr, unsigned long long len, void *dest){
     return target_memory_rw_debug(cpu, addr, dest, len, 0);
 }
-// Returns 0 on success, -1 on error
 int w_mem(unsigned long long addr, unsigned long long len, void *src){
     return target_memory_rw_debug(cpu, addr, src, len, 1);
 }
-// Returns num of bytes read
 int r_reg(unsigned char reg, void *dest){
     g_byte_array_steal(out,NULL);
     int op = gdb_read_register(cpu, out, reg);
     memcpy(dest,out->data,out->len);
     return op;
 }
-// Returns num of bytes written
 int w_reg(unsigned char reg, char *src){
     return gdb_write_register(cpu, src, reg);
 }
@@ -85,7 +79,7 @@ void handle_signal_callback(int sig){
         return;
     }
 
-    r_reg(RIP,cbuf);
+    r_reg(config->IP_reg_num,cbuf);
     gen_addr = *(unsigned long long*)cbuf;
     log_q("break - to hook_%016llx\n", gen_addr);
 

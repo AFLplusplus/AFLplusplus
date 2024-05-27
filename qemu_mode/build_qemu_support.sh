@@ -301,6 +301,7 @@ if [ "$ENABLE_HOOKING" = "1" ];then
   fi
   set -u
   cd ./hooking_bridge || exit 255
+  mkdir -p ./build
   make CFLAGS="$DF" GLIB_H="$GLIB_H" GLIB_CONFIG_H="$GLIB_CONFIG_H"
   set +u
   cd ..
