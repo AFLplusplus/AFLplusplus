@@ -291,6 +291,22 @@ ls -l ../afl-qemu-trace || exit 1
 
 echo "[+] Successfully created '../afl-qemu-trace'."
 
+#### Hooking support
+if [ "$ENABLE_HOOKING" = "1" ];then
+  echo "[+] Enabling hooking"
+  if [ "$DEBUG" = "1" ];then
+    CF="-D DEBUG"
+  else
+    CF=
+  fi
+  set -u
+  cd ./hooking_bridge || exit 255
+  make CFLAGS=$CF GLIB_H=$GLIB_H GLIB_CONFIG_H=$GLIB_CONFIG_H
+  set +u
+  cd ..
+fi
+#### End of hooking support
+
 if [ "$ORIG_CPU_TARGET" = "" ]; then
 
   echo "[*] Testing the build..."
