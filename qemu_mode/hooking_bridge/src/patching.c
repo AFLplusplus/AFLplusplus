@@ -127,6 +127,7 @@ void patch_vpu_init_cb(unsigned int vcpu_index){
 
 void patch_init(char *hook_lib){
 
+    //TODO make OS agnostic, remove dlopen
     handle = dlopen(hook_lib, RTLD_NOW);
     if (!handle){
         fprintf(stderr,"DLOPEN Error: %s\n", dlerror());
