@@ -342,7 +342,12 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   for (auto const &ignoreListFunc : ignoreList) {
 
+
+#if LLVM_VERSION_MAJOR < 19
     if (F->getName().startswith(ignoreListFunc)) { return true; }
+#else
+    if (F->getName().starts_with(ignoreListFunc)) { return true; }
+#endif
 
   }
 

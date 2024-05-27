@@ -3072,6 +3072,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_max = 0;
   afl->stage_cur = 0;
 
+  afl->queue_cur->cmp = afl->queue_cur->fcmp = afl->queue_cur->rtn = 0;
+
   u32 lvl = (afl->queue_cur->colorized ? 0 : LVL1) +
             (afl->cmplog_lvl == CMPLOG_LVL_MAX ? LVL3 : 0);
 
@@ -3086,6 +3088,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
+
+    if (afl->shm.cmp_map->headers[k].type != CMP_TYPE_INS)
+      afl->queue_cur->rtn++;
+    else if (unlikely((afl->shm.cmp_map->headers[k].attribute & 8) == 8))
+      afl->queue_cur->fcmp++;
+    else
+      afl->queue_cur->cmp++;
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 

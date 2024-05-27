@@ -107,7 +107,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
     fprintf(stderr, "  after step 6: %.2f (favored)\n", weight);
   #endif
   */
-  if (unlikely(!q->was_fuzzed)) { weight *= 3; }
+  if (unlikely(!q->was_fuzzed)) { weight *= 5; }
 #ifdef DEBUG_QUEUE
   fprintf(stderr, "  after step 7: %.2f (was_fuzzed)\n", weight);
 #endif
@@ -635,6 +635,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->trace_mini = NULL;
   q->testcase_buf = NULL;
   q->mother = afl->queue_cur;
+  q->cmp = q->fcmp = q->rtn = -1;
+
   afl->queue_cur->found++;
   q->score = afl->current_score;
   if (unlikely(!q->score)) { q->score = 1; }

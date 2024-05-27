@@ -531,11 +531,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
+#if LLVM_VERSION_MAJOR < 19
+  #define FUCKLLVM startswith
+#else
+  #define FUCKLLVM starts_with
+#endif
+
     if (!isSizedcmp) needs_null = true;
-    if (Callee->getName().startswith("g_") ||
-        Callee->getName().startswith("curl_") ||
-        Callee->getName().startswith("Curl_") ||
-        Callee->getName().startswith("xml"))
+    if (Callee->getName().FUCKLLVM("g_") ||
+        Callee->getName().FUCKLLVM("curl_") ||
+        Callee->getName().FUCKLLVM("Curl_") ||
+        Callee->getName().FUCKLLVM("xml"))
       nullCheck = true;
 
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;

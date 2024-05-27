@@ -201,6 +201,7 @@ struct queue_entry {
   u32 len;                              /* Input length                     */
   u32 id;                               /* entry number in queue_buf        */
   u32 found;
+  s32 cmp, fcmp, rtn;
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
