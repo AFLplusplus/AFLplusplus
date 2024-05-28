@@ -6,14 +6,12 @@
 int r_mem(unsigned long long addr, unsigned long long len, void *dest);
 // // Returns 0 on success
 int w_mem(unsigned long long addr, unsigned long long len, void *src);
-// //NOTE Lookup arch.h for architecture and corresponding register names 
 // Returns num of bytes read; 
 int r_reg(unsigned char reg, void *dest);
 // // Returns num of bytes written
 int w_reg(unsigned char reg, char *src);
 
 
-//NOTE Lookup arch.h for architecture and corresponding register names 
 //NOTE hook function must be named hook_<16 hex character at_addr>
 //NOTE must define function `struct conf* configure()`
 struct conf{

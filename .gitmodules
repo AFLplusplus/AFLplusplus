@@ -6,7 +6,7 @@
 	url = https://github.com/AFLplusplus/Grammar-Mutator
 [submodule "qemu_mode/qemuafl"]
 	path = qemu_mode/qemuafl
-	url = https://github.com/AFLplusplus/qemuafl
+	url = https://github.com/CowBoy4mH3LL/qemuafl
 [submodule "custom_mutators/gramatron/json-c"]
 	path = custom_mutators/gramatron/json-c
 	url = https://github.com/json-c/json-c
