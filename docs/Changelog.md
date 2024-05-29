@@ -27,6 +27,7 @@
   * afl-cmin
     - work with input files that have a space
   * afl-showmap
+    - fix memory leak on shmem testcase usage (thanks to @ndrewh)
     - minor fix to collect coverage -C (thanks to @bet4it)
   * enhanced the ASAN configuration
 
