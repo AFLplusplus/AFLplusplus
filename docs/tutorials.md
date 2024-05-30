@@ -8,6 +8,7 @@ Here are some good write-ups to show how to effectively use AFL++:
 
 * [https://aflplus.plus/docs/tutorials/libxml2_tutorial/](https://aflplus.plus/docs/tutorials/libxml2_tutorial/)
 * [https://bananamafia.dev/post/gb-fuzz/](https://bananamafia.dev/post/gb-fuzz/)
+* [https://bushido-sec.com/index.php/2023/06/19/the-art-of-fuzzing/](https://bushido-sec.com/index.php/2023/06/19/the-art-of-fuzzing/)
 * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
 * [https://securitylab.github.com/research/fuzzing-software-2](https://securitylab.github.com/research/fuzzing-software-2)
 * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
@@ -19,6 +20,13 @@ If you do not want to follow a tutorial but rather try an exercise type of
 training, then we can highly recommend the following:
 
 * [https://github.com/antonio-morales/Fuzzing101](https://github.com/antonio-morales/Fuzzing101)
+
+A good workflow overview (like our [fuzzing_in_depth.md](fuzzing_in_depth.md)):
+* [https://appsec.guide/docs/fuzzing/c-cpp/aflpp/](https://appsec.guide/docs/fuzzing/c-cpp/aflpp/)
+
+Here is a good workflow description (and tutorial) for qemu_mode:
+
+* [https://airbus-seclab.github.io/AFLplusplus-blogpost/](https://airbus-seclab.github.io/AFLplusplus-blogpost/)
 
 Here is good workflow description for frida_mode:
 
@@ -35,6 +43,9 @@ structure is), these links have you covered (some are outdated though):
   [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
 * Superion for AFL++:
   [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
+
+For a very in-depth explanation on how AFL++ works check out:
+[https://blog.ritsec.club/posts/afl-under-hood/](https://blog.ritsec.club/posts/afl-under-hood/)
 
 ## Video Tutorials
 

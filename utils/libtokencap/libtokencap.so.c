@@ -6,7 +6,7 @@
    Originally written by Michal Zalewski
 
    Copyright 2016 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@
 #elif defined __HAIKU__
   #include <kernel/image.h>
 #elif defined __sun
-  /* For map addresses the old struct is enough */
+/* For map addresses the old struct is enough */
   #include <sys/procfs.h>
   #include <limits.h>
 #endif
@@ -81,7 +81,11 @@ void *(*__libc_memmem)(const void *haystack, size_t haystack_len,
 
 #define MAX_MAPPINGS 1024
 
-static struct mapping { void *st, *en; } __tokencap_ro[MAX_MAPPINGS];
+static struct mapping {
+
+  void *st, *en;
+
+} __tokencap_ro[MAX_MAPPINGS];
 
 static u32   __tokencap_ro_cnt;
 static u8    __tokencap_ro_loaded;
@@ -164,7 +168,7 @@ static void __tokencap_load_mappings(void) {
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
   #if defined   __FreeBSD__
-  int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
+  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
   #elif defined __OpenBSD__
   int mib[] = {CTL_KERN, KERN_PROC_VMMAP, __tokencap_pid};
   #elif defined __NetBSD__
@@ -205,7 +209,7 @@ static void __tokencap_load_mappings(void) {
   #if defined __FreeBSD__ || defined __NetBSD__
 
     #if defined   __FreeBSD__
-    size_t                size = region->kve_structsize;
+    size_t size = region->kve_structsize;
 
     if (size == 0) break;
     #elif defined __NetBSD__

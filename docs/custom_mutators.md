@@ -73,7 +73,7 @@ def init(seed):
 def fuzz_count(buf):
     return cnt
 
-def splice_optout()
+def splice_optout():
     pass
 
 def fuzz(buf, add_buf, max_size):
@@ -125,8 +125,9 @@ def deinit():  # optional for Python
 
 - `queue_get` (optional):
 
-    This method determines whether the custom fuzzer should fuzz the current
-    queue entry or not
+    This method determines whether AFL++ should fuzz the current
+    queue entry or not: all defined custom mutators as well as
+    all AFL++'s mutators.
 
 - `fuzz_count` (optional):
 
@@ -145,12 +146,15 @@ def deinit():  # optional for Python
 
 - `fuzz` (optional):
 
-    This method performs custom mutations on a given input. It also accepts an
-    additional test case. Note that this function is optional - but it makes
-    sense to use it. You would only skip this if `post_process` is used to fix
-    checksums etc. so if you are using it, e.g., as a post processing library.
-    Note that a length > 0 *must* be returned!
-    The returned output buffer is under **your** memory management!
+    This method performs your custom mutations on a given input.
+    The add_buf is the contents of another queue item that can be used for
+    splicing - or anything else - and can also be ignored. If you are not
+    using this additional data then define `splice_optout` (see above).
+    This function is optional.
+    Returing a length of 0 is valid and is interpreted as skipping this
+    one mutation result.
+    For non-Python: the returned output buffer is under **your** memory
+    management!
 
 - `describe` (optional):
 
@@ -194,7 +198,7 @@ def deinit():  # optional for Python
     This method can be used if you want to send data to the target yourself,
     e.g. via IPC. This replaces some usage of utils/afl_proxy but requires
     that you start the target with afl-fuzz.
-    Example: [custom_mutators/examples/custom_send.c](custom_mutators/examples/custom_send.c)
+    Example: [custom_mutators/examples/custom_send.c](../custom_mutators/examples/custom_send.c)
 
 - `queue_new_entry` (optional):
 
@@ -261,6 +265,11 @@ trimmed input. Here's a quick API description:
 
 Omitting any of three trimming methods will cause the trimming to be disabled
 and trigger a fallback to the built-in default trimming routine.
+
+**IMPORTANT** If you have a custom post process mutator that needs to be run
+after trimming, you must call it yourself at the end of your successful
+trimming!
+
 
 ### Environment Variables
 

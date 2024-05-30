@@ -1,10 +1,10 @@
 # American Fuzzy Lop plus plus (AFL++)
 
-<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/master/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
+<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/aflpp_bg.svg" alt="AFL++ logo" width="250" heigh="250">
 
-Release version: [4.06c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [4.20c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.07a
+GitHub version: 4.21a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -12,12 +12,13 @@ Repository:
 AFL++ is maintained by:
 
 * Marc "van Hauser" Heuse <mh@mh-sec.de>
-* Andrea Fioraldi <andreafioraldi@gmail.com>
 * Dominik Maier <mail@dmnk.co>
-* Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>
+* Andrea Fioraldi <andreafioraldi@gmail.com>
+* Heiko "hexcoder-" Eissfeldt <heiko.eissfeldt@hexco.de>
+* frida_mode is maintained by @Worksbutnottested
 * Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
-Originally developed by Michał "lcamtuf" Zalewski.
+Originally developed by Michal "lcamtuf" Zalewski.
 
 AFL++ is a superior fork to Google's AFL - more speed, more and better
 mutations, more and better instrumentation, custom module support, etc.
@@ -228,7 +229,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Thomas Rooijakkers                    David Carlier
     Ruben ten Hove                        Joey Jiao
     fuzzah                                @intrigus-lgtm
-    Yaakov Saxon
+    Yaakov Saxon                          Sergej Schumilo
   ```
 
 </details>

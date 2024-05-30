@@ -5,12 +5,12 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
-                     Andrea Fioraldi <andreafioraldi@gmail.com>,
-                     Dominik Maier <mail@dmnk.co>
+                     Dominik Maier <mail@dmnk.co>,
+                     Andrea Fioraldi <andreafioraldi@gmail.com>, and
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 #define MESSAGES_TO_STDOUT
 
 #ifndef _GNU_SOURCE
-  #define _GNU_SOURCE 1
+  #define _GNU_SOURCE
 #endif
 #ifndef _FILE_OFFSET_BITS
   #define _FILE_OFFSET_BITS 64
@@ -124,6 +124,10 @@
   #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
+#ifdef AFL_PERSISTENT_RECORD
+  #define RECORD_PREFIX "RECORD:"
+#endif
+
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
 
 // Little helper to access the ptr to afl->##name_buf - for use in afl_realloc.
@@ -149,6 +153,48 @@ struct tainted {
 
 };
 
+struct inf_profile {
+
+  u32 inf_skipped_bytes;               /* Inference Stage Profiling         */
+  u64 inf_execs_cost, inf_time_cost;
+
+};
+
+/* ToDo: add cmplog profile as well */
+struct havoc_profile {
+
+  u32 queued_det_stage,                 /* Det/Havoc Stage Profiling        */
+      queued_havoc_stage, total_queued_det, edge_det_stage, edge_havoc_stage,
+      total_det_edge;
+
+  u64 det_stage_time, havoc_stage_time, total_det_time;
+
+};
+
+struct skipdet_entry {
+
+  u8  continue_inf, done_eff;
+  u32 undet_bits, quick_eff_bytes;
+
+  u8 *skip_eff_map,                     /* we'v finish the eff_map          */
+      *done_inf_map;                    /* some bytes are not done yet      */
+
+};
+
+struct skipdet_global {
+
+  u8 use_skip_havoc;
+
+  u32 undet_bits_threshold;
+
+  u64 last_cov_undet;
+
+  u8 *virgin_det_bits;                  /* global fuzzed bits               */
+
+  struct inf_profile *inf_prof;
+
+};
+
 struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
@@ -157,6 +203,7 @@ struct queue_entry {
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
+
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
       passed_det,                       /* Deterministic stages passed?     */
@@ -168,22 +215,21 @@ struct queue_entry {
       disabled;                         /* Is disabled from fuzz selection  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level,                       /* Number of fuzzing iterations     */
-      n_fuzz_entry                      /* offset in n_fuzz                 */
 #ifdef INTROSPECTION
-      ,
       stats_selected,                   /* stats: how often selected        */
       stats_skipped,                    /* stats: how often skipped         */
       stats_finds,                      /* stats: # of saved finds          */
       stats_crashes,                    /* stats: # of saved crashes        */
-      stats_tmouts                      /* stats: # of saved timeouts       */
+      stats_tmouts,                     /* stats: # of saved timeouts       */
 #endif
-      ;
+      fuzz_level,                       /* Number of fuzzing iterations     */
+      n_fuzz_entry;                     /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum,                       /* Checksum of the execution trace  */
+      custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
@@ -202,6 +248,8 @@ struct queue_entry {
   struct tainted *taint;                /* Taint information from CmpLog    */
 
   struct queue_entry *mother;           /* queue entry this based on        */
+
+  struct skipdet_entry *skipdet_e;
 
 };
 
@@ -247,6 +295,8 @@ enum {
   /* 19 */ STAGE_CUSTOM_MUTATOR,
   /* 20 */ STAGE_COLORIZATION,
   /* 21 */ STAGE_ITS,
+  /* 22 */ STAGE_INF,
+  /* 23 */ STAGE_QUICK,
 
   STAGE_NUM_MAX
 
@@ -345,6 +395,7 @@ enum {
   /* 13 */ PY_FUNC_DESCRIBE,
   /* 14 */ PY_FUNC_FUZZ_SEND,
   /* 15 */ PY_FUNC_SPLICE_OPTOUT,
+  /* 16 */ PY_FUNC_POST_RUN,
   PY_FUNC_COUNT
 
 };
@@ -400,7 +451,9 @@ typedef struct afl_env_vars {
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
-      afl_post_process_keep_original;
+      afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
+      afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
+      afl_sha1_filenames;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -493,7 +546,8 @@ typedef struct afl_state {
       *orig_cmdline,                    /* Original command line            */
       *infoexec;                       /* Command to execute on a new crash */
 
-  u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
+  u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
+      stats_update_freq;                /* Stats update frequency (execs)   */
 
   u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
@@ -502,14 +556,12 @@ typedef struct afl_state {
       custom_splice_optout,             /* Custom mutator no splice buffer  */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
-      pizza_is_served;                  /* pizza mode                       */
-
-  u32 stats_update_freq;                /* Stats update frequency (execs)   */
-
-  u8 schedule;                          /* Power schedule (default: EXPLORE)*/
-  u8 havoc_max_mult;
-
-  u8 skip_deterministic,                /* Skip deterministic stages?       */
+      pizza_is_served,                  /* pizza mode                       */
+      input_mode,                       /* target wants text inputs         */
+      fuzz_mode,          /* coverage/exploration or crash/exploitation mode */
+      schedule,                         /* Power schedule (default: EXPLORE)*/
+      havoc_max_mult,                   /* havoc multiplier                 */
+      skip_deterministic,               /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
       non_instrumented_mode,            /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
@@ -596,7 +648,11 @@ typedef struct afl_state {
       last_hang_time,                   /* Time for most recent hang (ms)   */
       longest_find_time,                /* Longest time taken for a find    */
       exit_on_time,                     /* Delay to exit if no new paths    */
-      sync_time;                        /* Sync time (ms)                   */
+      sync_time,                        /* Sync time (ms)                   */
+      switch_fuzz_mode,                 /* auto or fixed fuzz mode          */
+      calibration_time_us,              /* Time spend on calibration        */
+      sync_time_us,                     /* Time spend on sync               */
+      trim_time_us;                     /* Time spend on trimming           */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -609,6 +665,7 @@ typedef struct afl_state {
 
   u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
+  s64 smallest_favored;                 /* smallest queue id favored        */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
 
@@ -673,7 +730,8 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
-  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_random_colorization;
+  u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
+      cmplog_enable_xtreme_transform, cmplog_random_colorization;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
@@ -777,6 +835,11 @@ typedef struct afl_state {
   /* Refs to each queue entry with cached testcase (for eviction, if cache_count
    * is too large) */
   struct queue_entry **q_testcase_cache;
+
+  /* Global Profile Data for deterministic/havoc-splice stage */
+  struct havoc_profile *havoc_prof;
+
+  struct skipdet_global *skipdet_g;
 
 #ifdef INTROSPECTION
   char  mutation[8072];
@@ -1018,6 +1081,16 @@ struct custom_mutator {
   void (*afl_custom_fuzz_send)(void *data, const u8 *buf, size_t buf_size);
 
   /**
+   * This method can be used if you want to run some code or scripts each time
+   * AFL++ executes the target with afl-fuzz.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init by this custom mutator
+   */
+  void (*afl_custom_post_run)(void *data);
+
+  /**
    * Allow for additional analysis (e.g. calling a different tool that does a
    * different kind of coverage and saves this for the custom mutator).
    *
@@ -1072,6 +1145,7 @@ void                   finalize_py_module(void *);
 
 u32         fuzz_count_py(void *, const u8 *, size_t);
 void        fuzz_send_py(void *, const u8 *, size_t);
+void        post_run_py(void *);
 size_t      post_process_py(void *, u8 *, size_t, u8 **);
 s32         init_trim_py(void *, u8 *, size_t);
 s32         post_trim_py(void *, u8);
@@ -1145,6 +1219,10 @@ void show_stats_normal(afl_state_t *);
 void show_stats_pizza(afl_state_t *);
 void show_init_stats(afl_state_t *);
 
+void update_calibration_time(afl_state_t *afl, u64 *time);
+void update_trim_time(afl_state_t *afl, u64 *time);
+void update_sync_time(afl_state_t *afl, u64 *time);
+
 /* StatsD */
 
 void statsd_setup_format(afl_state_t *afl);
@@ -1202,6 +1280,7 @@ u8     check_if_text_buf(u8 *buf, u32 len);
 #ifndef AFL_SHOWMAP
 void setup_signal_handlers(void);
 #endif
+char *get_fuzzing_state(afl_state_t *afl);
 
 /* CmpLog */
 
@@ -1215,6 +1294,13 @@ AFL_RAND_RETURN rand_next(afl_state_t *afl);
 
 /* probability between 0.0 and 1.0 */
 double rand_next_percent(afl_state_t *afl);
+
+/* SkipDet Functions */
+
+u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
+u8 is_det_timeout(u64, u8);
+
+void plot_profile_data(afl_state_t *, struct queue_entry *);
 
 /**** Inline routines ****/
 
@@ -1318,6 +1404,32 @@ void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q, u8 *in,
 /* Add a new queue entry directly to the cache */
 
 void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
+
+/* Compute the SHA1 hash of `data`, which is of `len` bytes, and return the
+ * result as a `\0`-terminated hex string, which the caller much `ck_free`. */
+char *sha1_hex(const u8 *data, size_t len);
+
+/* Apply `sha1_hex` to the first `len` bytes of data of the file at `fname`. */
+char *sha1_hex_for_file(const char *fname, u32 len);
+
+/* Create file `fn`, but allow it to already exist if `AFL_SHA1_FILENAMES` is
+ * enabled. */
+static inline int permissive_create(afl_state_t *afl, const char *fn) {
+
+  int fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  if (unlikely(fd < 0)) {
+
+    if (!(afl->afl_env.afl_sha1_filenames && errno == EEXIST)) {
+
+      PFATAL("Unable to create '%s'", fn);
+
+    }
+
+  }
+
+  return fd;
+
+}
 
 #if TESTCASE_CACHE == 1
   #error define of TESTCASE_CACHE must be zero or larger than 1

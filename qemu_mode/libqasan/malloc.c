@@ -1,5 +1,5 @@
 /*******************************************************************************
-Copyright (c) 2019-2023, Andrea Fioraldi
+Copyright (c) 2019-2024, Andrea Fioraldi
 
 
 Redistribution and use in source and binary forms, with or without
@@ -80,8 +80,8 @@ static unsigned char __tmp_alloc_zone[TMP_ZONE_SIZE];
 #else
 
 // From dlmalloc.c
-void                     *dlmalloc(size_t);
-void                      dlfree(void *);
+void *dlmalloc(size_t);
+void  dlfree(void *);
   #define backend_malloc dlmalloc
   #define backend_free dlfree
 

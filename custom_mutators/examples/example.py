@@ -133,6 +133,11 @@ def fuzz(buf, add_buf, max_size):
 #     @return: The buffer containing the test case after
 #     '''
 #     return buf
+# def post_run():
+#     '''
+#     Called after each time the execution of the target program by AFL++
+#     '''
+#     pass
 #
 # def havoc_mutation(buf, max_size):
 #     '''

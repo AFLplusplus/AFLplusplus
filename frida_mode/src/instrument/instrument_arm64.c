@@ -22,7 +22,7 @@ gboolean           instrument_cache_enabled = FALSE;
 gsize              instrument_cache_size = 0;
 static GHashTable *coverage_blocks = NULL;
 
-__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_SIZE];
+__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_INITIAL_SIZE];
 
   #pragma pack(push, 1)
 typedef struct {
@@ -76,6 +76,45 @@ typedef struct {
 
 } afl_log_code_asm_t;
 
+typedef struct {
+
+  uint32_t b_imm8;                                          /* br #XX (end) */
+
+  uint32_t restoration_prolog;                 /* ldp x16, x17, [sp], #0x90 */
+
+  uint32_t stp_x0_x1;                           /* stp x0, x1, [sp, #-0xa0] */
+
+  uint32_t ldr_x0_p_prev_loc_1;                          /* ldr x0, #0xXXXX */
+  uint32_t ldr_x1_ptr_x0;                                   /* ldr x1, [x0] */
+
+  uint32_t ldr_x0_p_area_offset;                         /* ldr x0, #0xXXXX */
+  uint32_t eor_x0_x1_x0;                                  /* eor x0, x1, x0 */
+  uint32_t ldr_x1_p_area_ptr;                            /* ldr x1, #0xXXXX */
+  uint32_t add_x0_x1_x0;                                  /* add x0, x1, x0 */
+
+  uint32_t ldrb_w1_x0;                                     /* ldrb w1, [x0] */
+  uint32_t add_w1_w1_1;                                   /* add w1, w1, #1 */
+  uint32_t add_w1_w1_w1_lsr_8;                    /* add x1, x1, x1, lsr #8 */
+
+  uint32_t strb_w1_ptr_x0;                                 /* strb w1, [x0] */
+
+  uint32_t ldr_x0_p_prev_loc_2;                          /* ldr x0, #0xXXXX */
+  uint32_t ldr_x1_p_area_offset_ror;                     /* ldr x1, #0xXXXX */
+  uint32_t str_x1_ptr_x0;                                   /* str x1, [x0] */
+
+  uint32_t ldp_x0_x1;                           /* ldp x0, x1, [sp, #-0xa0] */
+
+  uint32_t b_end;                                          /* skip the data */
+
+  uint64_t area_ptr;
+  uint64_t prev_loc_ptr;
+  uint64_t area_offset;
+  uint64_t area_offset_ror;
+
+  uint8_t end[0];
+
+} afl_log_code_asm_long_t;
+
   #pragma pack(pop)
 
 typedef union {
@@ -84,6 +123,13 @@ typedef union {
   uint8_t            bytes[0];
 
 } afl_log_code;
+
+typedef union {
+
+  afl_log_code_asm_long_t code;
+  uint8_t                 bytes[0];
+
+} afl_log_code_long;
 
 static const afl_log_code_asm_t template =
     {
@@ -114,6 +160,46 @@ static const afl_log_code_asm_t template =
         .str_x1_ptr_x0 = 0xf9000001,
 
         .ldp_x0_x1 = 0xa97607e0,
+
+}
+
+;
+
+static const afl_log_code_asm_long_t template_long =
+    {.b_imm8 = 0x1400001a,
+
+     .restoration_prolog = 0xa8c947f0,         /* ldp x16, x17, [sp], #0x90 */
+
+     .stp_x0_x1 = 0xa93607e0,                   /* stp x0, x1, [sp, #-0xa0] */
+
+     .ldr_x0_p_prev_loc_1 = 0x58000220,                  /* ldr x0, #0xXXXX */
+     .ldr_x1_ptr_x0 = 0xf9400001,                           /* ldr x1, [x0] */
+
+     .ldr_x0_p_area_offset = 0x58000220,                 /* ldr x0, #0xXXXX */
+     .eor_x0_x1_x0 = 0xca000020,                          /* eor x0, x1, x0 */
+     .ldr_x1_p_area_ptr = 0x58000161,                    /* ldr x1, #0xXXXX */
+     .add_x0_x1_x0 = 0x8b000020,                          /* add x0, x1, x0 */
+
+     .ldrb_w1_x0 = 0x39400001,                             /* ldrb w1, [x0] */
+     .add_w1_w1_1 = 0x11000421,                           /* add w1, w1, #1 */
+     .add_w1_w1_w1_lsr_8 = 0x8b412021,            /* add x1, x1, x1, lsr #8 */
+
+     .strb_w1_ptr_x0 = 0x39000001,                         /* strb w1, [x0] */
+
+     .ldr_x0_p_prev_loc_2 = 0x580000e0,                  /* ldr x0, #0xXXXX */
+     .ldr_x1_p_area_offset_ror = 0x58000141,             /* ldr x1, #0xXXXX */
+     .str_x1_ptr_x0 = 0xf9000001,                           /* str x1, [x0] */
+
+     .ldp_x0_x1 = 0xa97607e0,                   /* ldp x0, x1, [sp, #-0xa0] */
+
+     .b_end = 0x14000009,                                  /* skip the data */
+
+     .area_ptr = 0x0,
+     .prev_loc_ptr = 0x0,
+     .area_offset = 0x0,
+     .area_offset_ror = 0x0,
+
+     .end = {}
 
 }
 
@@ -266,16 +352,22 @@ static gboolean instrument_coverage_in_range(gssize offset) {
 
 }
 
-static void instrument_patch_ardp(guint32 *patch, GumAddress insn,
+static bool instrument_patch_ardp(guint32 *patch, GumAddress insn,
                                   GumAddress target) {
 
-  if (!PAGE_ALIGNED(target)) { FATAL("Target not page aligned"); }
+  if (!PAGE_ALIGNED(target)) {
+
+    FWARNF("Target not page aligned");
+    return false;
+
+  }
 
   gssize distance = target - (GUM_ADDRESS(insn) & PAGE_MASK);
   if (!instrument_coverage_in_range(distance)) {
 
-    FATAL("Patch out of range 0x%016lX->0x%016lX = 0x%016lX", insn, target,
-          distance);
+    FVERBOSE("Patch out of range 0x%016lX->0x%016lX = 0x%016lX", insn, target,
+             distance);
+    return false;
 
   }
 
@@ -283,6 +375,103 @@ static void instrument_patch_ardp(guint32 *patch, GumAddress insn,
   guint32 imm_high = ((distance >> 14) & 0x7FFFF) << 5;
   *patch |= imm_low;
   *patch |= imm_high;
+  return true;
+
+}
+
+bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
+                             guint64 area_offset, gsize area_offset_ror) {
+
+  afl_log_code code = {0};
+  code.code = template;
+
+  /*
+   * Given our map is allocated on a 64KB boundary and our map is a multiple of
+   * 64KB in size, then it should also end on a 64 KB boundary. It is followed
+   * by our previous_pc, so this too should be 64KB aligned.
+   */
+  g_assert(PAGE_ALIGNED(instrument_previous_pc_addr));
+  g_assert(PAGE_ALIGNED(__afl_area_ptr));
+
+  if (!instrument_patch_ardp(
+          &code.code.adrp_x0_prev_loc1,
+          code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc1),
+          GUM_ADDRESS(instrument_previous_pc_addr))) {
+
+    return false;
+
+  }
+
+  /*
+   * The mov instruction supports up to a 16-bit offset. If our offset is out of
+   * range, then it can end up clobbering the op-code portion of the instruction
+   * rather than just the operands. So return false and fall back to the
+   * alternative instrumentation.
+   */
+  if (area_offset > UINT16_MAX) { return false; }
+
+  code.code.mov_x0_curr_loc |= area_offset << 5;
+
+  if (!instrument_patch_ardp(
+          &code.code.adrp_x1_area_ptr,
+          code_addr + offsetof(afl_log_code, code.adrp_x1_area_ptr),
+          GUM_ADDRESS(__afl_area_ptr))) {
+
+    return false;
+
+  }
+
+  if (!instrument_patch_ardp(
+          &code.code.adrp_x0_prev_loc2,
+          code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc2),
+          GUM_ADDRESS(instrument_previous_pc_addr))) {
+
+    return false;
+
+  }
+
+  code.code.mov_x1_curr_loc_shr_1 |= (area_offset_ror << 5);
+
+  if (instrument_suppress) {
+
+    gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+
+  } else {
+
+    size_t offset = offsetof(afl_log_code, code.stp_x0_x1);
+    gum_arm64_writer_put_bytes(cw, &code.bytes[offset],
+                               sizeof(afl_log_code) - offset);
+
+  }
+
+  return true;
+
+}
+
+bool instrument_write_inline_long(GumArm64Writer *cw, GumAddress code_addr,
+                                  guint64 area_offset, gsize area_offset_ror) {
+
+  afl_log_code_long code = {0};
+  code.code = template_long;
+
+  code.code.area_ptr = GUM_ADDRESS(__afl_area_ptr);
+  code.code.prev_loc_ptr = GUM_ADDRESS(instrument_previous_pc_addr);
+  code.code.area_offset = area_offset;
+  code.code.area_offset_ror = GUM_ADDRESS(area_offset_ror);
+
+  if (instrument_suppress) {
+
+    gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code_long));
+
+  } else {
+
+    size_t offset = offsetof(afl_log_code_long, code.stp_x0_x1);
+    gum_arm64_writer_put_bytes(cw, &code.bytes[offset],
+                               sizeof(afl_log_code_long) - offset);
+
+  }
+
+  return true;
 
 }
 
@@ -312,6 +501,8 @@ void instrument_coverage_optimize(const cs_insn    *instr,
   }
 
   // gum_arm64_writer_put_brk_imm(cw, 0x0);
+  // uint32_t jmp_dot = 0x14000000;
+  // gum_arm64_writer_put_bytes(cw, (guint8 *)&jmp_dot, sizeof(jmp_dot));
 
   if (instrument_suppress) { instrument_coverage_suppress_init(); }
 
@@ -343,47 +534,19 @@ void instrument_coverage_optimize(const cs_insn    *instr,
 
   }
 
-  code.code = template;
-
-  /*
-   * Given our map is allocated on a 64KB boundary and our map is a multiple of
-   * 64KB in size, then it should also end on a 64 KB boundary. It is followed
-   * by our previous_pc, so this too should be 64KB aligned.
-   */
-  g_assert(PAGE_ALIGNED(instrument_previous_pc_addr));
-  g_assert(PAGE_ALIGNED(__afl_area_ptr));
-
-  instrument_patch_ardp(
-      &code.code.adrp_x0_prev_loc1,
-      code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc1),
-      GUM_ADDRESS(instrument_previous_pc_addr));
-
-  code.code.mov_x0_curr_loc |= area_offset << 5;
-
-  instrument_patch_ardp(
-      &code.code.adrp_x1_area_ptr,
-      code_addr + offsetof(afl_log_code, code.adrp_x1_area_ptr),
-      GUM_ADDRESS(__afl_area_ptr));
-
   map_size_pow2 = util_log2(__afl_map_size);
   area_offset_ror = util_rotate(area_offset, 1, map_size_pow2);
 
-  instrument_patch_ardp(
-      &code.code.adrp_x0_prev_loc2,
-      code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc2),
-      GUM_ADDRESS(instrument_previous_pc_addr));
+  code.code = template;
 
-  code.code.mov_x1_curr_loc_shr_1 |= (area_offset_ror << 5);
+  if (!instrument_write_inline(cw, code_addr, area_offset, area_offset_ror)) {
 
-  if (instrument_suppress) {
+    if (!instrument_write_inline_long(cw, code_addr, area_offset,
+                                      area_offset_ror)) {
 
-    gum_arm64_writer_put_bytes(cw, code.bytes, sizeof(afl_log_code));
+      FATAL("Failed to write inline instrumentation");
 
-  } else {
-
-    size_t offset = offsetof(afl_log_code, code.stp_x0_x1);
-    gum_arm64_writer_put_bytes(cw, &code.bytes[offset],
-                               sizeof(afl_log_code) - offset);
+    }
 
   }
 

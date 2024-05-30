@@ -7,12 +7,12 @@
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com> and
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,6 +81,8 @@ static u8 crash_mode,                  /* Crash-centric mode?               */
     remove_out_file,                   /* remove out_file on exit?          */
     remove_shm = 1,                    /* remove shmem on exit?             */
     debug;                             /* debug mode                        */
+
+static u32 del_len_limit = 1;          /* Minimum block deletion length     */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -480,7 +482,7 @@ next_del_blksize:
 
   }
 
-  if (del_len > 1 && in_len >= 1) {
+  if (del_len > del_len_limit && in_len >= 1) {
 
     del_len /= 2;
     goto next_del_blksize;
@@ -796,8 +798,9 @@ static void usage(u8 *argv0) {
       "Minimization settings:\n"
 
       "  -e            - solve for edge coverage only, ignore hit counts\n"
-      "  -x            - treat non-zero exit codes as crashes\n\n"
-      "  -H            - minimize a hang (hang mode)\n"
+      "  -l bytes      - set minimum block deletion length to speed up minimization\n"
+      "  -x            - treat non-zero exit codes as crashes\n"
+      "  -H            - minimize a hang (hang mode)\n\n"
 
       "For additional tips, please consult %s/README.md.\n\n"
 
@@ -829,8 +832,9 @@ static void usage(u8 *argv0) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32    opt;
-  u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
+  s32 opt;
+  u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
+     del_limit_given = 0;
   char **use_argv;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
@@ -846,7 +850,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeAOQUWXYHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
 
     switch (opt) {
 
@@ -1053,6 +1057,24 @@ int main(int argc, char **argv_orig, char **envp) {
         if (mask_bitmap) { FATAL("Multiple -B options not supported"); }
         mask_bitmap = ck_alloc(map_size);
         read_bitmap(optarg, mask_bitmap, map_size);
+        break;
+
+      case 'l':
+        if (del_limit_given) { FATAL("Multiple -l options not supported"); }
+        del_limit_given = 1;
+
+        if (!optarg) { FATAL("Wrong usage of -l"); }
+
+        if (optarg[0] == '-') { FATAL("Dangerously low value of -l"); }
+
+        del_len_limit = atoi(optarg);
+
+        if (del_len_limit < 1 || del_len_limit > TMIN_MAX_FILE) {
+
+          FATAL("Value of -l out of range between 1 and TMIN_MAX_FILE");
+
+        }
+
         break;
 
       case 'h':

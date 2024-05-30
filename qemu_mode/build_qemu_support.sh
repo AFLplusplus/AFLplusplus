@@ -13,7 +13,7 @@
 # counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 #
 # Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
-# Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+# Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,10 @@ echo "Building for CPU target $CPU_TARGET"
 
 # --enable-pie seems to give a couple of exec's a second performance
 # improvement, much to my surprise. Not sure how universal this is..
+# --enable-plugins allows loading TCG plugins at runtime, for example to obtain
+# coverage information, and does not seem to negatively impact performance
 QEMU_CONF_FLAGS=" \
+  --enable-plugins \
   --audio-drv-list= \
   --disable-blobs \
   --disable-bochs \
@@ -162,7 +165,6 @@ QEMU_CONF_FLAGS=" \
   --disable-numa \
   --disable-opengl \
   --disable-parallels \
-  --disable-plugins \
   --disable-qcow1 \
   --disable-qed \
   --disable-rbd \
@@ -200,6 +202,8 @@ QEMU_CONF_FLAGS=" \
   --disable-xfsctl \
   --target-list="${CPU_TARGET}-linux-user" \
   --without-default-devices \
+  --extra-cflags=-Wno-int-conversion \
+  --disable-werror \
   "
 
 if [ -n "${CROSS_PREFIX}" ]; then
@@ -213,8 +217,10 @@ if [ "$STATIC" = "1" ]; then
   echo Building STATIC binary
 
   # static PIE causes https://github.com/AFLplusplus/AFLplusplus/issues/892
+  # plugin support requires dynamic linking
   QEMU_CONF_FLAGS="$QEMU_CONF_FLAGS \
     --static --disable-pie \
+    --disable-plugins \
     --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
     "
 
@@ -239,7 +245,6 @@ if [ "$DEBUG" = "1" ]; then
     --enable-debug-stack-usage \
     --enable-debug-tcg \
     --enable-qom-cast-debug \
-    --enable-werror \
     "
 
 else
@@ -250,7 +255,6 @@ else
     --disable-debug-tcg \
     --disable-qom-cast-debug \
     --disable-stack-protector \
-    --disable-werror \
     --disable-docs \
     "
 

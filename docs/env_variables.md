@@ -135,6 +135,12 @@ subset of the settings discussed in section 1, with the exception of:
   - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
     created.
 
+  - LLVM modes compiling C++ will normally set rpath in the binary if LLVM is
+    not in a usual location (/usr or /lib). Setting `AFL_LLVM_NO_RPATH=1`
+    disables this behaviour in case it isn't desired. For example, the compiling
+    toolchain might be in a custom location, but the target machine has LLVM
+    runtime libs in the search path.
+
 Then there are a few specific features that are only available in
 instrumentation mode:
 
@@ -190,6 +196,19 @@ in the specified file.
 For more information, see
 [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
 
+#### INJECTIONS
+
+This feature is able to find simple injection vulnerabilities in insecure
+calls to mysql/mariadb/nosql/postgresql/ldap and XSS in libxml2.
+
+  - Setting `AFL_LLVM_INJECTIONS_ALL` will enable all injection hooking
+
+  - Setting `AFL_LLVM_INJECTIONS_SQL` will enable SQL injection hooking
+
+  - Setting `AFL_LLVM_INJECTIONS_LDAP` will enable LDAP injection hooking
+
+  - Setting `AFL_LLVM_INJECTIONS_XSS` will enable XSS injection hooking
+
 #### LAF-INTEL
 
 This great feature will split compares into series of single byte comparisons to
@@ -229,6 +248,9 @@ use (which only ever the author of this LTO implementation will use). These are
 used if several separated instrumentations are performed which are then later
 combined.
 
+  - `AFL_LLVM_LTO_CALLER` activates collision free CALLER instrumentation
+  - `AFL_LLVM_LTO_CALLER` sets the maximum mumber of single block functions
+    to dig deeper into a real function. Default 0.
   - `AFL_LLVM_DOCUMENT_IDS=file` will document to a file which edge ID was given
     to which function. This helps to identify functions with variable bytes or
     which functions were touched by an input.
@@ -327,6 +349,9 @@ checks or alter some of the more exotic semantics of the tool:
     (`-i in`). This is an important feature to set when resuming a fuzzing
     session.
 
+  - `AFL_IGNORE_SEED_PROBLEMS` will skip over crashes and timeouts in the seeds
+    instead of exiting.
+
   - Setting `AFL_CRASH_EXITCODE` sets the exit code AFL++ treats as crash. For
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
     return code (i.e. `exit(-1)` got called), will be treated as if a crash had
@@ -356,6 +381,9 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_DISABLE_TRIM` tells afl-fuzz not to trim test cases. This is
     usually a bad idea!
 
+  - Setting `AFL_DISABLE_REDUNDANT` disables any queue items that are redundant.
+    This can be useful with huge queues.
+
   - Setting `AFL_KEEP_TIMEOUTS` will keep longer running inputs if they reach
     new coverage
 
@@ -364,6 +392,9 @@ checks or alter some of the more exotic semantics of the tool:
 
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
+
+  - `AFL_CRASHING_SEEDS_AS_NEW_CRASH` will treat crashing seeds as new crash. these 
+    crashes will be written to crashes folder as op:dry_run, and orig:<seed_file_name>.
 
   - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
     within a specified period of time (in seconds). May be convenient for some
@@ -409,10 +440,15 @@ checks or alter some of the more exotic semantics of the tool:
     set `AFL_IGNORE_PROBLEMS`. If you additionally want to also ignore coverage
     from late loaded libraries, you can set `AFL_IGNORE_PROBLEMS_COVERAGE`.
 
-  - When running in the `-M` or `-S` mode, setting `AFL_IMPORT_FIRST` causes the
-    fuzzer to import test cases from other instances before doing anything else.
-    This makes the "own finds" counter in the UI more accurate. Beyond counter
-    aesthetics, not much else should change.
+  - When running with multiple afl-fuzz or with `-F`,  setting `AFL_IMPORT_FIRST`
+    causes the fuzzer to import test cases from other instances before doing
+    anything else. This makes the "own finds" counter in the UI more accurate.
+
+  - When running with multiple afl-fuzz or with `-F`,  setting `AFL_FINAL_SYNC`
+    will cause the fuzzer to perform a final import of test cases when
+    terminating. This is beneficial for `-M` main fuzzers to ensure it has all
+    unique test cases and hence you only need to `afl-cmin` this single
+    queue.
 
   - Setting `AFL_INPUT_LEN_MIN` and `AFL_INPUT_LEN_MAX` are an alternative to
     the afl-fuzz -g/-G command line option to control the minimum/maximum
@@ -514,6 +550,9 @@ checks or alter some of the more exotic semantics of the tool:
     use a custom afl-qemu-trace or if you need to modify the afl-qemu-trace
     arguments.
 
+  - `AFL_SHA1_FILENAMES` causes AFL++ to generate files named by the SHA1 hash
+    of their contents, rather than use the standard `id:000000,...` names.
+
   - `AFL_SHUFFLE_QUEUE` randomly reorders the input queue on startup. Requested
     by some users for unorthodox parallelized fuzzing setups, but not advisable
     otherwise.
@@ -585,7 +624,8 @@ checks or alter some of the more exotic semantics of the tool:
     Note that this is not a compile time option but a runtime option :-)
 
   - Set `AFL_PIZZA_MODE` to 1 to enable the April 1st stats menu, set to -1
-    to disable although it is 1st of April.
+    to disable although it is 1st of April. 0 is the default and means enable
+    on the 1st of April automatically.
 
   - If you need a specific interval to update fuzzer_stats file, you can
     set `AFL_FUZZER_STATS_UPDATE_INTERVAL` to the interval in seconds you'd
@@ -618,6 +658,14 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - Setting `AFL_INST_LIBS` causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
+
+  - You can use `AFL_QEMU_INST_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to just
+    instrument specific memory locations, e.g. a specific library.
+    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
+
+  - You can use `AFL_QEMU_EXCLUDE_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to **NOT**
+    instrument specific memory locations, e.g. a specific library.
+    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
 
   - It is possible to set `AFL_INST_RATIO` to skip the instrumentation on some
     of the basic blocks, which can be useful when dealing with very complex

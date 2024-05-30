@@ -26,6 +26,51 @@ static std::list<std::string> allowListFunctions;
 static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
 
+unsigned int calcCyclomaticComplexity(llvm::Function *F) {
+
+  unsigned int numBlocks = 0;
+  unsigned int numEdges = 0;
+  unsigned int numCalls = 0;
+
+  // Iterate through each basic block in the function
+  for (BasicBlock &BB : *F) {
+
+    // count all nodes == basic blocks
+    numBlocks++;
+    // Count the number of successors (outgoing edges)
+    for (BasicBlock *Succ : successors(&BB)) {
+
+      // count edges for CC
+      numEdges++;
+      (void)(Succ);
+
+    }
+
+    for (Instruction &I : BB) {
+
+      // every call is also an edge, so we need to count the calls too
+      if (isa<CallInst>(&I) || isa<InvokeInst>(&I)) { numCalls++; }
+
+    }
+
+  }
+
+  // Cyclomatic Complexity V(G) = E - N + 2P
+  // For a single function, P (number of connected components) is 1
+  // Calls are considered to be an edge
+  unsigned int CC = 2 + numCalls + numEdges - numBlocks;
+
+  // if (debug) {
+
+  fprintf(stderr, "CyclomaticComplexity for %s: %u\n",
+          F->getName().str().c_str(), CC);
+
+  //}
+
+  return CC;
+
+}
+
 char *getBBName(const llvm::BasicBlock *BB) {
 
   static char *name;
@@ -97,11 +142,15 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
   static constexpr const char *ignoreSubstringList[] = {
 
-      "__asan", "__msan",       "__ubsan",    "__lsan",  "__san", "__sanitize",
-      "__cxx",  "DebugCounter", "DwarfDebug", "DebugLoc"
+      "__asan",     "__msan",       "__ubsan",    "__lsan",  "__san",
+      "__sanitize", "DebugCounter", "DwarfDebug", "DebugLoc"
 
   };
 
+  // This check is very sensitive, we must be sure to not include patterns
+  // that are part of user-written C++ functions like the ones including
+  // std::string as parameter (see #1927) as the mangled type is inserted in the
+  // mangled name of the user-written function
   for (auto const &ignoreListFunc : ignoreSubstringList) {
 
     // hexcoder: F->getName().contains() not avaiilable in llvm 3.8.0
@@ -197,7 +246,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded allowlist with %zu file and %zu function entries\n",
-             allowListFiles.size(), allowListFunctions.size());
+             allowListFiles.size() / 4, allowListFunctions.size() / 4);
 
   }
 
@@ -272,7 +321,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded denylist with %zu file and %zu function entries\n",
-             denyListFiles.size(), denyListFunctions.size());
+             denyListFiles.size() / 4, denyListFunctions.size() / 4);
 
   }
 

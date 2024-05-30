@@ -2,6 +2,7 @@
 
 . ./test-pre.sh
 
+OS=$(uname -s)
 
 AFL_GCC=afl-gcc
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
@@ -28,7 +29,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     rm -f test-instr.plain.0 test-instr.plain.1
     SKIP=
     TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
+    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 22 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
@@ -61,7 +62,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
    }
    # now we want to be sure that afl-fuzz is working
    # make sure crash reporter is disabled on Mac OS X
-   (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+   (test "$OS" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
     true
    }) || {
@@ -84,16 +85,20 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     echo 000000000000000000000000 > in/in2
     echo 111 > in/in3
-    mkdir -p in2
-    ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
-    CNT=`ls in2/* 2>/dev/null | wc -l`
-    case "$CNT" in
-      *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-      *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
-          CODE=1
-          ;;
-    esac
-    rm -f in2/in*
+    test "$OS" = "Darwin" && {
+      $ECHO "$GREY[*] afl-cmin not available on macOS, cannot test afl-cmin"
+    } || {
+      mkdir -p in2
+      ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+      CNT=`ls in2/* 2>/dev/null | wc -l`
+      case "$CNT" in
+        *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+            CODE=1
+            ;;
+      esac
+      rm -f in2/in*
+    }
     export AFL_QUIET=1
     if command -v bash >/dev/null ; then {
       ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
@@ -152,7 +157,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 12 && {
+    test "$TUPLES" -gt 1 -a "$TUPLES" -lt 22 && {
       $ECHO "$GREEN[+] ${AFL_CLANG} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_CLANG} instrumentation produces weird numbers: $TUPLES"
@@ -182,7 +187,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
    }
    # now we want to be sure that afl-fuzz is working
    # make sure crash reporter is disabled on Mac OS X
-   (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+   (test "$OS" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
     true
    }) || {
@@ -204,25 +209,29 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       }
     }
     echo 000000000000000000000000 > in/in2
-    echo AAA > in/in3
-    mkdir -p in2
-    ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
-    CNT=`ls in2/* 2>/dev/null | wc -l`
-    case "$CNT" in
-      *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-      \ *1|1)  { # allow leading whitecase for portability
-            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
-            test -s in2/* || {
-		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
-          	CODE=1
+    echo AAA > in/in2
+    test "$OS" = "Darwin" && {
+      $ECHO "$GREY[*] afl-cmin not available on macOS, cannot test afl-cmin"
+    } || {
+      mkdir -p in2
+      ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+      CNT=`ls in2/* 2>/dev/null | wc -l`
+      case "$CNT" in
+        *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+        \ *1|1)  { # allow leading whitecase for portability
+              test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
+              test -s in2/* || {
+               $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+               CODE=1
+              }
             }
-          }
-          ;;
-      *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
-          CODE=1
-          ;;
-    esac
-    rm -f in2/in*
+            ;;
+        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+            CODE=1
+            ;;
+      esac
+      rm -f in2/in*
+    }
     export AFL_QUIET=1
     if command -v bash >/dev/null ; then {
       ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null

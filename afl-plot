@@ -75,8 +75,17 @@ outputdir=`get_abs_path "$2"`
 
 if [ ! -f "$inputdir/plot_data" ]; then
 
-  echo "[-] Error: input directory is not valid (missing 'plot_data')." 1>&2
-  exit 1
+  if [ -f "$inputdir/default/plot_data" ]; then
+
+    echo "[-] Error: input directory is not valid (missing 'plot_data'), likely you mean $inputdir/default?" 1>&2
+    exit 1
+
+  else
+
+    echo "[-] Error: input directory is not valid (missing 'plot_data')." 1>&2
+    exit 1
+
+  fi
 
 fi
 
@@ -141,7 +150,7 @@ set output '$outputdir/high_freq.png'
 $GNUPLOT_SETUP
 
 plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'corpus count' linecolor rgb '#000000' fillstyle transparent solid 0.2 noborder, \\
-     '' using 1:3 with filledcurve x1 title 'current fuzz item' linecolor rgb '#f0f0f0' fillstyle transparent solid 0.5 noborder, \\
+     '' using 1:3 with filledcurve x1 title 'current item' linecolor rgb '#f0f0f0' fillstyle transparent solid 0.5 noborder, \\
      '' using 1:5 with lines title 'pending items' linecolor rgb '#0090ff' linewidth 3, \\
      '' using 1:6 with lines title 'pending favs' linecolor rgb '#c00080' linewidth 3, \\
      '' using 1:2 with lines title 'cycles done' linecolor rgb '#c000f0' linewidth 3

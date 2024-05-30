@@ -49,10 +49,10 @@ extern void __libc_init(void *raw_args, void (*onexit)(void) __unused,
                         int (*slingshot)(int, char **, char **),
                         structors_array_t const *const structors);
 #else
-extern int  __libc_start_main(int (*main)(int, char **, char **), int argc,
-                              char **ubp_av, void (*init)(void),
-                              void (*fini)(void), void (*rtld_fini)(void),
-                              void(*stack_end));
+extern int __libc_start_main(int (*main)(int, char **, char **), int argc,
+                             char **ubp_av, void (*init)(void),
+                             void (*fini)(void), void (*rtld_fini)(void),
+                             void(*stack_end));
 #endif
 
 typedef int (*main_fn_t)(int argc, char **argv, char **envp);
@@ -166,7 +166,7 @@ static void afl_print_env(void) {
 
   if (fd < 0) {
 
-    FWARNF("Failed to open /proc/self/cmdline, errno: (%d)", errno);
+    FWARNF("Failed to open /proc/self/environ, errno: (%d)", errno);
     return;
 
   }
@@ -174,7 +174,7 @@ static void afl_print_env(void) {
   ssize_t bytes_read = read(fd, buffer, PROC_MAX - 1);
   if (bytes_read < 0) {
 
-    FFATAL("Failed to read /proc/self/cmdline, errno: (%d)", errno);
+    FFATAL("Failed to read /proc/self/environ, errno: (%d)", errno);
 
   }
 
@@ -197,7 +197,7 @@ static void afl_print_env(void) {
 
 }
 
-__attribute__((visibility("default"))) void afl_frida_start(void) {
+void afl_frida_config(void) {
 
   FOKF(cRED "**********************");
   FOKF(cRED "* " cYEL "******************" cRED " *");
@@ -225,9 +225,7 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
 
   js_start();
 
-  /* Initialize */
   output_init();
-
   embedded_init();
   entry_init();
   instrument_init();
@@ -240,9 +238,32 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   ranges_init();
   stats_init();
 
-  /* Start */
+}
+
+void afl_frida_run(void) {
+
   stalker_start();
   entry_start();
+
+}
+
+__attribute__((visibility("default"))) void afl_frida_start(void) {
+
+  afl_frida_config();
+  afl_frida_run();
+
+}
+
+typedef void *(*entry_func_t)(size_t a1, size_t a2, size_t a3, size_t a4,
+                              size_t a5, size_t a6);
+
+static void *on_entry(size_t a1, size_t a2, size_t a3, size_t a4, size_t a5,
+                      size_t a6) {
+
+  intercept_unhook(GSIZE_TO_POINTER(entry_point));
+  afl_frida_run();
+  entry_func_t entry = (entry_func_t)entry_point;
+  return entry(a1, a2, a3, a4, a5, a6);
 
 }
 
@@ -254,7 +275,17 @@ static int on_main(int argc, char **argv, char **envp) {
 
   intercept_unhook_self();
 
-  afl_frida_start();
+  afl_frida_config();
+
+  if (entry_point == 0) {
+
+    afl_frida_run();
+
+  } else {
+
+    intercept_hook(GSIZE_TO_POINTER(entry_point), on_entry, NULL);
+
+  }
 
   if (js_main_hook != NULL) {
 

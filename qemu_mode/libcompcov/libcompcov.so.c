@@ -5,7 +5,7 @@
 
    Written and maintained by Andrea Fioraldi <andreafioraldi@gmail.com>
 
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,7 +68,11 @@ static int debug_fd = -1;
 
 #define MAX_MAPPINGS 1024
 
-static struct mapping { void *st, *en; } __compcov_ro[MAX_MAPPINGS];
+static struct mapping {
+
+  void *st, *en;
+
+} __compcov_ro[MAX_MAPPINGS];
 
 static u32 __compcov_ro_cnt;
 

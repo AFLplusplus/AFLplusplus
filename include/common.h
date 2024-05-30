@@ -5,12 +5,12 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
                      Andrea Fioraldi <andreafioraldi@gmail.com>,
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -114,6 +114,11 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val);
    Returns a pointer to buf for convenience. */
 
 u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms);
+
+/* Unsafe describe time delta as simple string.
+   Returns a pointer to buf for convenience. */
+
+u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 
 /* Unsafe Describe integer. The buf sizes are not checked.
    This is unsafe but fast.

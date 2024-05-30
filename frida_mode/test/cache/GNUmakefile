@@ -11,7 +11,7 @@ QEMU_OUT:=$(BUILD_DIR)qemu-out
 FRIDA_OUT:=$(BUILD_DIR)frida-out
 
 ADDR_BIN:=$(ROOT)frida_mode/build/addr
-GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/get_symbol_addr.sh
+GET_SYMBOL_ADDR:=$(ROOT)frida_mode/util/frida_get_symbol_addr.sh
 
 AFLPP_FRIDA_DRIVER_HOOK_OBJ=$(ROOT)frida_mode/build/frida_hook.so
 

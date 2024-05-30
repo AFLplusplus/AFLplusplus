@@ -44,13 +44,14 @@ endif
 
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's/svn//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
-LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-7]\.' && echo 1 || echo 0 )
-LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[5-9]' && echo 1 || echo 0 )
+LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' | sed 's/rc.*//' )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[0-2]\.|^3.[0-8]\.' && echo 1 || echo 0 )
+LLVM_TOO_NEW = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^19|^2[0-9]' && echo 1 || echo 0 )
+LLVM_TOO_OLD = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^[1-9]\.|^1[012]\.' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_NEWER_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[6-9]' && echo 1 || echo 0 )
-LLVM_10_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]|^10\.[1-9]|^10\.0.[1-9]' && echo 1 || echo 0 )
-LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[1-9]' && echo 1 || echo 0 )
+LLVM_13_OK = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[3-9]' && echo 1 || echo 0 )
+LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | grep -E -q '^1[2-9]' && echo 1 || echo 0 )
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
@@ -69,6 +70,12 @@ ifeq "$(LLVM_TOO_NEW)" "1"
   $(warning you are using an in-development llvm version - this might break llvm_mode!)
 endif
 
+ifeq "$(LLVM_TOO_OLD)" "1"
+  $(warning you are using an outdated LLVM version! Please use at least LLVM 13 or newer!)
+  $(shell sleep 2)
+endif
+
+# No switching the meaning of LLVM_TOO_OLD
 LLVM_TOO_OLD=1
 
 ifeq "$(LLVM_MAJOR)" "9"
@@ -87,18 +94,13 @@ ifeq "$(LLVM_NEWER_API)" "1"
   LLVM_STDCXX = c++17
 endif
 
-ifeq "$(LLVM_TOO_OLD)" "1"
-  $(info [!] llvm_mode detected an old version of llvm, upgrade to at least 9 or preferable 11!)
-  $(shell sleep 1)
-endif
-
 ifeq "$(LLVM_HAVE_LTO)" "1"
-  $(info [+] llvm_mode detected llvm 11+, enabling afl-lto LTO implementation)
+  $(info [+] llvm_mode detected llvm 12+, enabling afl-lto LTO implementation)
   LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 11, afl-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 12, afl-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE_XCODE)" "1"
@@ -260,7 +262,8 @@ else
         AFL_CLANG_DEBUG_PREFIX =
 endif
 
-CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
+CFLAGS          ?= -O3 -funroll-loops -fPIC
+# -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
                    -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
@@ -285,7 +288,8 @@ ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=1
+CXXFLAGS          ?= -O3 -funroll-loops -fPIC
+# -D_FORTIFY_SOURCE=1
 override CXXFLAGS += -Wall -g -I ./include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros -Wno-deprecated-copy-with-dtor \
                      -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
@@ -296,7 +300,7 @@ endif
 ifneq "$(LLVM_CONFIG)" ""
   CLANG_CFL += -I$(shell dirname $(LLVM_CONFIG))/../include
 endif
-CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
+CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fno-exceptions -fPIC $(CXXFLAGS) $(CPPFLAGS) -Wno-deprecated-declarations
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 # wasm fuzzing: disable thread-local storage and unset LLVM debug flag
@@ -337,7 +341,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o 
-PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so
+PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so ./injection-pass.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -422,7 +426,7 @@ endif
 	$(CXX) $(CLANG_CPPFL) -Wdeprecated -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./SanitizerCoveragePCGUARD.so: instrumentation/SanitizerCoveragePCGUARD.so.cc instrumentation/afl-llvm-common.o | test_deps
-ifeq "$(LLVM_10_OK)" "1"
+ifeq "$(LLVM_13_OK)" "1"
 	-$(CXX) $(CLANG_CPPFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) -Wno-deprecated-copy-dtor -Wdeprecated instrumentation/afl-llvm-common.o
 endif
 
@@ -463,6 +467,9 @@ endif
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+
+./injection-pass.so:	instrumentation/injection-pass.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 .PHONY: document

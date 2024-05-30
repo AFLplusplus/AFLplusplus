@@ -12,7 +12,7 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -173,6 +173,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
     }
 
     out_file = alloc_printf("%s/.afl-input-temp-%u", use_dir, getpid());
+    fsrv->out_file = out_file;
 
   }
 

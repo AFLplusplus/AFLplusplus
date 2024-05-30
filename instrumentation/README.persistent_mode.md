@@ -196,3 +196,33 @@ Then as first line after the `__AFL_LOOP` while loop:
 ```
 
 And that is all!
+
+## 6) Persistent record, and replay
+
+If your software under test requires keeping a state between persistent loop iterations (i.e., a stateful network stack), you can use the `AFL_PERSISTENT_RECORD` variable as described in the [environment variables documentation](../docs/env_variables.md).
+
+When `AFL_PERSISTENT_RECORD` is enabled, replay functionality is also included in the compiler-rt library. To replay a specific record, assign the record number to the AFL_PERSISTENT_REPLAY environment variable (i.e., `RECORD:XXXXX`` -> `AFL_PERSISTENT_REPLAY=XXXXX`), and run the test binary as you would normally do.
+The directory where the record files live can be specified via the `AFL_PERSISTENT_DIR` environment varilable, otherwise by default it will be considered the current directory (`./`).
+
+If your harness reads the input files from arguments using the special `@@` argument you will need to include support by enabling `AFL_PERSISTENT_ARGPARSE` in  `config.h`.
+
+In order to offer transparent support to harnesses using the `@@` command line argument, arguments are parsed by the `__afl_record_replay_init` init function. Since not all systems support passing arguments to initializers, this functionality is disabled by default, it's recommendable to use the `__AFL_FUZZ_TESTCASE_BUF/__AFL_FUZZ_TESTCASE_LEN` shared memory mechanism instead.
+
+## 7) Drop-in persistent loop replay replacement
+
+To use the replay functionality without having to use `afl-cc`, include the [include/record_compat.h](../include/afl-record_compat.h) header file. Together with the [include/afl-persistent-replay.h](../include/afl-persistent-replay.h) header included in it, `afl-record-compat.h` provides a drop-in replacement for the persistent loop mechanism.
+
+```c
+#ifndef __AFL_FUZZ_TESTCASE_LEN
+  // #define AFL_PERSISTENT_REPLAY_ARGPARSE
+  #include "afl-record-compat.h"
+#endif
+
+__AFL_FUZZ_INIT();
+```
+
+A simple example is provided in [persistent_demo_replay.c](../utils/replay_record/persistent_demo_replay.c).
+
+Be aware that the [afl-record-compat.h](../include/afl-record-compat.h) header should only be included in a single compilation unit, or you will end up with clobbered functions and variables.
+
+If you need a cleaner solution, you'll have to move the functions and variables defined in [include/record_compat.h](../include/afl-record-compat.h) and [include/afl-persistent-replay.h](../include/afl-persistent-replay.h) in a C file, and add the relevant declarations to a header file. After including the new header file, the compilation unit resulting from compiling the C file can then be linked with your program.

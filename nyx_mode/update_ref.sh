@@ -41,7 +41,7 @@ cd ..
 rm "$UC_VERSION_FILE"
 echo "$NEW_VERSION" > "$UC_VERSION_FILE"
 
-echo "Done. New XXX version is $NEW_VERSION."
+echo "Done. New libnyx version is $NEW_VERSION."
 
 
 UC_VERSION_FILE='./PACKER_VERSION'
@@ -68,7 +68,7 @@ cd ..
 rm "$UC_VERSION_FILE"
 echo "$NEW_VERSION" > "$UC_VERSION_FILE"
 
-echo "Done. New XXX version is $NEW_VERSION."
+echo "Done. New packer version is $NEW_VERSION."
 
 
 UC_VERSION_FILE='./QEMU_NYX_VERSION'
@@ -95,5 +95,5 @@ cd ..
 rm "$UC_VERSION_FILE"
 echo "$NEW_VERSION" > "$UC_VERSION_FILE"
 
-echo "Done. New XXX version is $NEW_VERSION."
+echo "Done. New QEMU-Nyx version is $NEW_VERSION."
 

@@ -3,7 +3,7 @@
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
-   Copyright 2019-2023 AdaCore
+   Copyright 2019-2024 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL++
    LLVM CmpLog Routines pass by Andrea Fioraldi
@@ -157,6 +157,9 @@ struct afl_cmptrs_pass : afl_base_pass {
     /* We expect it to be a record type.  */
     if (TREE_CODE(t) != RECORD_TYPE) return false;
 
+    /* The type has an identifier.  */
+    if (!TYPE_IDENTIFIER(t)) return false;
+
     /* The type of the template is basic_string.  */
     if (strcmp(IDENTIFIER_POINTER(TYPE_IDENTIFIER(t)), "basic_string") != 0)
       return false;
@@ -177,19 +180,19 @@ struct afl_cmptrs_pass : afl_base_pass {
     c = DECL_CONTEXT(c);
     if (c && TREE_CODE(c) != TRANSLATION_UNIT_DECL) return false;
 
-    /* Check that the first nonstatic data member of the record type
+    /* Check that the first nonstatic named data member of the record type
        is named _M_dataplus.  */
     for (c = TYPE_FIELDS(t); c; c = DECL_CHAIN(c))
-      if (TREE_CODE(c) == FIELD_DECL) break;
+      if (TREE_CODE(c) == FIELD_DECL && DECL_NAME(c)) break;
     if (!c || !integer_zerop(DECL_FIELD_BIT_OFFSET(c)) ||
         strcmp(IDENTIFIER_POINTER(DECL_NAME(c)), "_M_dataplus") != 0)
       return false;
 
-    /* Check that the second nonstatic data member of the record type
+    /* Check that the second nonstatic named data member of the record type
        is named _M_string_length.  */
     tree f2;
     for (f2 = DECL_CHAIN(c); f2; f2 = DECL_CHAIN(f2))
-      if (TREE_CODE(f2) == FIELD_DECL) break;
+      if (TREE_CODE(f2) == FIELD_DECL && DECL_NAME(f2)) break;
     if (!f2                       /* No need to check this field's offset.  */
         || strcmp(IDENTIFIER_POINTER(DECL_NAME(f2)), "_M_string_length") != 0)
       return false;
@@ -201,13 +204,16 @@ struct afl_cmptrs_pass : afl_base_pass {
     /* Now go back to the first data member.  Its type should be a
        record type named _Alloc_hider.  */
     c = TREE_TYPE(c);
-    if (!c || TREE_CODE(c) != RECORD_TYPE ||
+    if (!c || TREE_CODE(c) != RECORD_TYPE || !TYPE_IDENTIFIER(t) ||
         strcmp(IDENTIFIER_POINTER(TYPE_IDENTIFIER(c)), "_Alloc_hider") != 0)
       return false;
 
-    /* And its first data member is named _M_p.  */
+    /* And its first nonstatic named data member should be named _M_p.
+       There may be (unnamed) subobjects from empty base classes.  We
+       skip the subobjects, then check the offset of the first data
+       member. */
     for (c = TYPE_FIELDS(c); c; c = DECL_CHAIN(c))
-      if (TREE_CODE(c) == FIELD_DECL) break;
+      if (TREE_CODE(c) == FIELD_DECL && DECL_NAME(c)) break;
     if (!c || !integer_zerop(DECL_FIELD_BIT_OFFSET(c)) ||
         strcmp(IDENTIFIER_POINTER(DECL_NAME(c)), "_M_p") != 0)
       return false;

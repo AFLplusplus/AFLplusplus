@@ -771,8 +771,8 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
       #include "/usr/include/malloc.h"
     #else                                      /* HAVE_USR_INCLUDE_MALLOC_H */
       #ifndef STRUCT_MALLINFO_DECLARED
-        /* HP-UX (and others?) redefines mallinfo unless _STRUCT_MALLINFO is
-         * defined */
+      /* HP-UX (and others?) redefines mallinfo unless _STRUCT_MALLINFO is
+       * defined */
         #define _STRUCT_MALLINFO
         #define STRUCT_MALLINFO_DECLARED 1
 struct mallinfo {
@@ -1660,10 +1660,10 @@ extern size_t getpagesize();
   #define is_aligned(A) (((size_t)((A)) & (CHUNK_ALIGN_MASK)) == 0)
 
   /* the number of bytes to offset an address to align it */
-  #define align_offset(A)                                         \
-    ((((size_t)(A)&CHUNK_ALIGN_MASK) == 0)                        \
-         ? 0                                                      \
-         : ((MALLOC_ALIGNMENT - ((size_t)(A)&CHUNK_ALIGN_MASK)) & \
+  #define align_offset(A)                                           \
+    ((((size_t)(A) & CHUNK_ALIGN_MASK) == 0)                        \
+         ? 0                                                        \
+         : ((MALLOC_ALIGNMENT - ((size_t)(A) & CHUNK_ALIGN_MASK)) & \
             CHUNK_ALIGN_MASK))
 
   /* -------------------------- MMAP preliminaries ------------------------- */
@@ -1715,10 +1715,10 @@ static FORCEINLINE int unixmunmap(void *ptr, size_t size) {
         #define MUNMAP_DEFAULT(a, s) unixmunmap((a), (s))
 
       #else                                                /* MAP_ANONYMOUS */
-        /*
-           Nearly all versions of mmap support MAP_ANONYMOUS, so the following
-           is unlikely to be needed, but is supplied just in case.
-        */
+      /*
+         Nearly all versions of mmap support MAP_ANONYMOUS, so the following
+         is unlikely to be needed, but is supplied just in case.
+      */
         #define MMAP_FLAGS (MAP_PRIVATE)
 static int dev_zero_fd = -1;       /* Cached file descriptor for /dev/zero. */
         #define MMAP_DEFAULT(s)                                        \
@@ -1762,7 +1762,7 @@ static FORCEINLINE void *win32direct_mmap(size_t size) {
 static FORCEINLINE int win32munmap(void *ptr, size_t size) {
 
   MEMORY_BASIC_INFORMATION minfo;
-  char *cptr = (char *)ptr;
+  char                    *cptr = (char *)ptr;
 
   while (size) {
 
@@ -1965,7 +1965,7 @@ static FORCEINLINE void x86_clear_lock(int *sl) {
 
       #endif                                     /* ... gcc spins locks ... */
 
-      /* How to yield for a spin lock */
+    /* How to yield for a spin lock */
       #define SPINS_PER_YIELD 63
       #if defined(_MSC_VER)
         #define SLEEP_EX_DURATION 50               /* delay for yield/sleep */
@@ -2008,11 +2008,11 @@ static MLOCK_T malloc_global_mutex = 0;
           #define CURRENT_THREAD GetCurrentThreadId()
           #define EQ_OWNER(X, Y) ((X) == (Y))
         #else
-          /*
-            Note: the following assume that pthread_t is a type that can be
-            initialized to (casted) zero. If this is not the case, you will need
-            to somehow redefine these or not use spin locks.
-          */
+        /*
+          Note: the following assume that pthread_t is a type that can be
+          initialized to (casted) zero. If this is not the case, you will need
+          to somehow redefine these or not use spin locks.
+        */
           #define THREAD_ID_T pthread_t
           #define CURRENT_THREAD pthread_self()
           #define EQ_OWNER(X, Y) pthread_equal(X, Y)
@@ -2169,7 +2169,7 @@ static int pthread_init_lock(MLOCK_T *lk) {
 
     #endif                                            /* ... lock types ... */
 
-    /* Common code for all lock types */
+  /* Common code for all lock types */
     #define USE_LOCK_BIT (2U)
 
     #ifndef ACQUIRE_MALLOC_GLOBAL_LOCK
@@ -3077,7 +3077,7 @@ static size_t traverse_and_check(mstate m);
   /* The size of the smallest chunk held in bin with index i */
   #define minsize_for_tree_index(i)                 \
     ((SIZE_T_ONE << (((i) >> 1) + TREEBIN_SHIFT)) | \
-     (((size_t)((i)&SIZE_T_ONE)) << (((i) >> 1) + TREEBIN_SHIFT - 1)))
+     (((size_t)((i) & SIZE_T_ONE)) << (((i) >> 1) + TREEBIN_SHIFT - 1)))
 
   /* ------------------------ Operations on bin maps ----------------------- */
 
@@ -3245,7 +3245,7 @@ static size_t traverse_and_check(mstate m);
 
   #else                                                          /* FOOTERS */
 
-    /* Set foot of inuse chunk to be xor of mstate and seed */
+  /* Set foot of inuse chunk to be xor of mstate and seed */
     #define mark_inuse_foot(M, p, s)                 \
       (((mchunkptr)((char *)(p) + (s)))->prev_foot = \
            ((size_t)(M) ^ mparams.magic))

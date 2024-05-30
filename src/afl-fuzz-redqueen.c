@@ -7,7 +7,7 @@
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
@@ -28,8 +28,9 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-//#define _DEBUG
-//#define CMPLOG_INTROSPECTION
+// #define _DEBUG
+// #define USE_HASHMAP
+// #define CMPLOG_INTROSPECTION
 
 // CMP attribute enum
 enum {
@@ -40,7 +41,7 @@ enum {
   IS_FP = 8,       // is a floating point, not an integer
   /* --- below are internal settings, not from target cmplog */
   IS_FP_MOD = 16,    // arithemtic changed floating point
-  IS_INT_MOD = 32,   // arithmetic changed interger
+  IS_INT_MOD = 32,   // arithmetic changed integer
   IS_TRANSFORM = 64  // transformed integer
 
 };
@@ -87,6 +88,13 @@ static u32 hshape;
 static u64 screen_update;
 static u64 last_update;
 
+#ifdef USE_HASHMAP
+// hashmap functions
+void hashmap_reset();
+bool hashmap_search_and_add(uint8_t type, uint64_t key);
+bool hashmap_search_and_add_ptr(uint8_t type, u8 *key);
+#endif
+
 static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
   struct range *r = ck_alloc_nozero(sizeof(struct range));
@@ -129,7 +137,6 @@ static struct range *pop_biggest_range(struct range **ranges) {
 }
 
 #ifdef _DEBUG
-// static int  logging = 0;
 static void dump(char *txt, u8 *buf, u32 len) {
 
   u32 i;
@@ -140,6 +147,7 @@ static void dump(char *txt, u8 *buf, u32 len) {
 
 }
 
+/*
 static void dump_file(char *path, char *name, u32 counter, u8 *buf, u32 len) {
 
   char fn[4096];
@@ -154,6 +162,8 @@ static void dump_file(char *path, char *name, u32 counter, u8 *buf, u32 len) {
   }
 
 }
+
+*/
 
 #endif
 
@@ -379,7 +389,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
     }
 
-    if (++afl->stage_cur % screen_update == 0) { show_stats(afl); };
+    if (unlikely(++afl->stage_cur % screen_update == 0)) { show_stats(afl); };
 
   }
 
@@ -571,7 +581,6 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
 }
 
-//#ifdef CMPLOG_SOLVE_TRANSFORM
 static int strntoll(const char *str, size_t sz, char **end, int base,
                     long long *out) {
 
@@ -656,7 +665,6 @@ static int is_hex(const char *str) {
 
 }
 
-#ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
 // tests 4 bytes at location
 static int is_base64(const char *str) {
 
@@ -732,12 +740,14 @@ static u32 from_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 }
 
-static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
+static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
   u32 i, j, v;
-  u32 len = (dst_len >> 2) * 3;
+  //  u32 len = (dst_len >> 2) * 3;
+  u32 len = (dst_len / 3) * 4;
+  if (dst_len % 3) len += 4;
 
-  for (i = 0, j = 0; i < len; i += 3, j += 4) {
+  for (i = 0, j = 0; j < len; i += 3, j += 4) {
 
     v = src[i];
     v = i + 1 < len ? v << 8 | src[i + 1] : v << 8;
@@ -745,7 +755,8 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
     dst[j] = base64_encode_table[(v >> 18) & 0x3F];
     dst[j + 1] = base64_encode_table[(v >> 12) & 0x3F];
-    if (i + 1 < len) {
+
+    if (i + 1 < dst_len) {
 
       dst[j + 2] = base64_encode_table[(v >> 6) & 0x3F];
 
@@ -755,7 +766,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
     }
 
-    if (i + 2 < len) {
+    if (i + 2 < dst_len) {
 
       dst[j + 3] = base64_encode_table[v & 0x3F];
 
@@ -767,12 +778,18 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
   }
 
+  dst[len] = 0;
+  return len;
+
 }
 
+#ifdef WORD_SIZE_64
+static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+                               u128 pattern, u128 repl, u128 o_pattern,
+                               u128 changed_val, u8 attr, u32 idx,
+                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                               u32 len, u8 do_reverse, u8 lvl, u8 *status);
 #endif
-
-//#endif
-
 static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
@@ -786,53 +803,89 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u64 *o_buf_64 = (u64 *)&orig_buf[idx];
   u32 *o_buf_32 = (u32 *)&orig_buf[idx];
   u16 *o_buf_16 = (u16 *)&orig_buf[idx];
-  u8  *o_buf_8 = &orig_buf[idx];
+  // u8  *o_buf_8 = &orig_buf[idx];
 
   u32 its_len = MIN(len - idx, taint_len);
 
-  if (afl->fsrv.total_execs - last_update > screen_update) {
+  if (unlikely(afl->fsrv.total_execs - last_update > screen_update)) {
 
     show_stats(afl);
     last_update = afl->fsrv.total_execs;
 
   }
 
-  // fprintf(stderr,
-  //         "Encode: %llx->%llx into %llx(<-%llx) at idx=%u "
-  //         "taint_len=%u shape=%u attr=%u\n",
-  //         o_pattern, pattern, repl, changed_val, idx, taint_len,
-  //         hshape, attr);
+  /*
+  fprintf(stderr,
+          "Encode: %llx->%llx into %llx(<-%llx) at idx=%u "
+          "taint_len=%u shape=%u attr=%u\n",
+          o_pattern, pattern, repl, changed_val, idx, taint_len,
+          hshape, attr);
+  */
 
-  //#ifdef CMPLOG_SOLVE_TRANSFORM
-  // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
+  u8 bytes;
+
+  switch (hshape) {
+
+    case 0:
+    case 1:
+      bytes = 1;
+      break;
+    case 2:
+      bytes = 2;
+      break;
+    case 3:
+    case 4:
+      bytes = 4;
+      break;
+    default:
+      bytes = 8;
+
+  }
+
+  // necessary for preventing heap access overflow
+  bytes = MIN(bytes, len - idx);
+  if (unlikely(bytes <= 1)) { return 0; }
+
+  //  reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
 
     u8                *endptr;
     u8                 use_num = 0, use_unum = 0;
-    unsigned long long unum;
-    long long          num;
+    unsigned long long unum = 0;
+    long long          num = 0;
 
-    if (afl->queue_cur->is_ascii) {
+    // if (afl->queue_cur->is_ascii) {
 
-      endptr = buf_8;
-      if (strntoll(buf_8, len - idx, (char **)&endptr, 0, &num)) {
+    // we first check if our input are ascii numbers that are transformed to
+    // an integer and used for comparison:
 
-        if (!strntoull(buf_8, len - idx, (char **)&endptr, 0, &unum))
-          use_unum = 1;
+    endptr = buf_8;
+    if (strntoll(buf_8, len - idx, (char **)&endptr, 0, &num)) {
 
-      } else
+      if (!strntoull(buf_8, len - idx, (char **)&endptr, 0, &unum)) {
 
-        use_num = 1;
+        use_unum = 1;
+
+      }
+
+    } else {
+
+      use_num = 1;
 
     }
 
+    //}
+
 #ifdef _DEBUG
     if (idx == 0)
-      fprintf(stderr, "ASCII is=%u use_num=%u use_unum=%u idx=%u %llx==%llx\n",
-              afl->queue_cur->is_ascii, use_num, use_unum, idx, num, pattern);
+      fprintf(stderr,
+              "ASCII is=%u use_num=%u>%lld use_unum=%u>%llu idx=%u "
+              "pattern=0x%llx\n",
+              afl->queue_cur->is_ascii, use_num, num, use_unum, unum, idx,
+              pattern);
 #endif
 
-    // num is likely not pattern as atoi("AAA") will be zero...
+    // atoi("AAA") == 0 so !num means we have to investigate
     if (use_num && ((u64)num == pattern || !num)) {
 
       u8     tmp_buf[32];
@@ -881,29 +934,6 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (pattern != o_pattern && repl == changed_val && attr <= IS_EQUAL) {
 
       u64 b_val, o_b_val, mask;
-      u8  bytes;
-
-      switch (hshape) {
-
-        case 0:
-        case 1:
-          bytes = 1;
-          break;
-        case 2:
-          bytes = 2;
-          break;
-        case 3:
-        case 4:
-          bytes = 4;
-          break;
-        default:
-          bytes = 8;
-
-      }
-
-      // necessary for preventing heap access overflow
-      bytes = MIN(bytes, len - idx);
-
       switch (bytes) {
 
         case 0:                        // cannot happen
@@ -961,10 +991,12 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       // test for arithmetic, eg. "if ((user_val - 0x1111) == 0x1234) ..."
       s64 diff = pattern - b_val;
       s64 o_diff = o_pattern - o_b_val;
-      /* fprintf(stderr, "DIFF1 idx=%03u shape=%02u %llx-%llx=%lx\n", idx,
-                 hshape, o_pattern, o_b_val, o_diff);
-         fprintf(stderr, "DIFF1 %016llx %llx-%llx=%lx\n", repl, pattern,
-                 b_val, diff); */
+      /*
+             fprintf(stderr, "DIFF1 idx=%03u shape=%02u %llx-%llx=%lx\n", idx,
+                       hshape, o_pattern, o_b_val, o_diff);
+               fprintf(stderr, "DIFF1 %016llx %llx-%llx=%lx\n", repl, pattern,
+                       b_val, diff);
+      */
       if (diff == o_diff && diff) {
 
         // this could be an arithmetic transformation
@@ -1120,7 +1152,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  //#endif
+  // #endif
 
   // we only allow this for ascii2integer (above) so leave if this is the case
   if (unlikely(pattern == o_pattern)) { return 0; }
@@ -1243,6 +1275,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
+    /*
     if (*status != 1) {  // u8
 
       // if (its_len >= 1)
@@ -1267,15 +1300,145 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
+    */
+
   }
 
-  // here we add and subract 1 from the value, but only if it is not an
+  // If 'S' is set for cmplog mode then we try a scale encoding of the value.
+  // Currently we can only handle bytes up to 1 << 55 on 32 bit and 1 << 119
+  // on 64 bit systems.
+  // Caveat: This implementation here works only on little endian systems.
+
+  if (attr < IS_FP && (afl->cmplog_enable_scale || lvl >= LVL3) &&
+      repl == changed_val) {
+
+    u8  do_call = 1;
+    u64 new_val = repl << 2;
+    u32 ilen = 0;
+
+    if (changed_val <= 255) {
+
+      ilen = 1;
+
+    } else if (new_val <= 65535) {
+
+      new_val += 1;  // two byte mode
+      ilen = 2;
+
+    } else if (new_val <= 4294967295) {
+
+      new_val += 2;  // four byte mode
+      ilen = 4;
+
+    } else {
+
+#ifndef WORD_SIZE_64
+      if (repl <= 0x00ffffffffffffff) {
+
+        new_val = repl << 8;
+        u8  scale_len = 0;
+        u64 tmp_val = repl;
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
+
+      } else {
+
+        do_call = 0;
+
+      }
+
+#else
+      {
+
+        u128 new_vall = ((u128)repl) << 8;
+        u8   scale_len = 0;
+        u128 tmp_val = (u128)repl;
+
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_vall += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
+
+        if (ilen <= its_len && ilen > 1) {
+
+          u8 tmpbuf[32];
+          memcpy(tmpbuf, buf + idx, ilen);
+          memcpy(buf + idx, (char *)&new_vall, ilen);
+
+          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+  #ifdef CMPLOG_COMBINE
+          if (*status == 1) { memcpy(cbuf + idx, (char *)&new_vall, ilen); }
+  #endif
+          memcpy(buf + idx, tmpbuf, ilen);
+
+        };
+
+        do_call = 0;
+
+      }
+
+#endif
+
+    }
+
+    if (do_call) {
+
+      if (ilen <= its_len && ilen > 1) {
+
+        u8 tmpbuf[32];
+        memcpy(tmpbuf, buf + idx, ilen);
+        memcpy(buf + idx, (char *)&new_val, ilen);
+
+        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef CMPLOG_COMBINE
+        if (*status == 1) { memcpy(cbuf + idx, (char *)&new_val, ilen); }
+#endif
+        memcpy(buf + idx, tmpbuf, ilen);
+
+      };
+
+    }
+
+  }
+
+  // here we add and subtract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
   //       16 = modified float, 32 = modified integer (modified = wont match
   //                                                   in original buffer)
 
-  //#ifdef CMPLOG_SOLVE_ARITHMETIC
   if (!afl->cmplog_enable_arith || lvl < LVL3 || attr == IS_TRANSFORM) {
 
     return 0;
@@ -1440,8 +1603,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  //#endif                                           /*
-  // CMPLOG_SOLVE_ARITHMETIC
+  // #endif                                           /*
+  //  CMPLOG_SOLVE_ARITHMETIC
 
   return 0;
 
@@ -1455,7 +1618,7 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                                u32 len, u8 do_reverse, u8 lvl, u8 *status) {
 
-  if (afl->fsrv.total_execs - last_update > screen_update) {
+  if (unlikely(afl->fsrv.total_execs - last_update > screen_update)) {
 
     show_stats(afl);
     last_update = afl->fsrv.total_execs;
@@ -1536,6 +1699,77 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
     }
 
+    // Scale encoding only works on little endian systems
+
+    if (attr < IS_FP && attr < 32 &&
+        (afl->cmplog_enable_scale || lvl >= LVL3)) {
+
+      u128 new_val = repl << 2;
+      u128 max_scale = (u128)1 << 120;
+      u32  ilen = 0;
+      u8   do_call = 1;
+
+      if (new_val <= 255) {
+
+        ilen = 1;
+
+      } else if (new_val <= 65535) {
+
+        new_val += 1;  // two byte mode
+        ilen = 2;
+
+      } else if (new_val <= 4294967295) {
+
+        new_val += 2;  // four byte mode
+        ilen = 4;
+
+      } else if (repl < max_scale) {
+
+        new_val = (u128)repl << 8;
+        u8   scale_len = 0;
+        u128 tmp_val = (u128)repl;
+        while (tmp_val) {
+
+          tmp_val >>= 8;
+          ++scale_len;
+
+        }  // scale_len will be >= 4;
+
+        if (scale_len >= 4) {
+
+          scale_len -= 4;
+
+        } else {
+
+          scale_len = 0;
+
+        };
+
+        new_val += (scale_len << 2) + 3;
+        ilen = scale_len + 5;
+
+      } else {
+
+        do_call = 0;
+
+      }
+
+      if (do_call && ilen <= its_len) {
+
+        u8 tmpbuf[32];
+        memcpy(tmpbuf, buf + idx, ilen);
+        memcpy(buf + idx, (char *)&new_val, ilen);
+
+        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+  #ifdef CMPLOG_COMBINE
+        if (*status == 1) { memcpy(cbuf + idx, (char *)&new_val, ilen); }
+  #endif
+        memcpy(buf + idx, tmpbuf, ilen);
+
+      };
+
+    }
+
   }
 
   return 0;
@@ -1606,7 +1840,7 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
   for (k = 0; k < size; ++k) {
 
   #else
-  u32    off = 16 - size;
+  u32 off = 16 - size;
   for (k = 16 - size; k < 16; ++k) {
 
   #endif
@@ -1658,6 +1892,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8  s_v0_dec = 1, s_v1_dec = 1;
 
   hshape = SHAPE_BYTES(h->shape);
+
+  if (hshape < 2) { return 0; }
 
   if (h->hits > CMP_MAP_H) {
 
@@ -1720,6 +1956,19 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       }
 
     }
+
+#ifdef USE_HASHMAP
+    // TODO: add attribute? not sure
+    if (hshape <= 8 && hashmap_search_and_add(hshape - 1, o->v0) &&
+        hashmap_search_and_add(hshape - 1, orig_o->v0) &&
+        hashmap_search_and_add(hshape - 1, o->v1) &&
+        hashmap_search_and_add(hshape - 1, orig_o->v1)) {
+
+      continue;
+
+    }
+
+#endif
 
 #ifdef _DEBUG
     fprintf(stderr, "Handling: %llx->%llx vs %llx->%llx attr=%u shape=%u\n",
@@ -1948,11 +2197,11 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 #ifndef CMPLOG_COMBINE
   (void)(cbuf);
 #endif
-  //#ifndef CMPLOG_SOLVE_TRANSFORM
-  //  (void)(changed_val);
-  //#endif
+  // #ifndef CMPLOG_SOLVE_TRANSFORM
+  //   (void)(changed_val);
+  // #endif
 
-  if (afl->fsrv.total_execs - last_update > screen_update) {
+  if (unlikely(afl->fsrv.total_execs - last_update > screen_update)) {
 
     show_stats(afl);
     last_update = afl->fsrv.total_execs;
@@ -1988,28 +2237,34 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   if (l0 >= 0x80 || ol0 >= 0x80) {
 
-    l0 -= 0x80;
-    l1 -= 0x80;
-    ol0 -= 0x80;
-    ol1 -= 0x80;
+    if (l0 >= 0x80) { l0 -= 0x80; }
+    if (l1 >= 0x80) { l1 -= 0x80; }
+    if (ol0 >= 0x80) { ol0 -= 0x80; }
+    if (ol1 >= 0x80) { ol1 -= 0x80; }
 
   }
 
-  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 31 || l1 > 31 ||
-      ol0 > 31 || ol1 > 31) {
+  if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 32 || l1 > 32 ||
+      ol0 > 32 || ol1 > 32) {
 
     l0 = ol0 = hshape;
 
   }
 
   u8  lmax = MAX(l0, ol0);
-  u8  save[40];
+  u8  save[80];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
   u32 its_len = MIN(MIN(lmax, hshape), len - idx);
   its_len = MIN(its_len, taint_len);
   u32 saved_its_len = its_len;
 
+  // fprintf(stderr, "its_len=%u repl=%s\n", its_len, repl);
+
+  if (its_len <= 1) { return 0; }
+
   if (lvl & LVL3) {
+
+    if (memcmp(changed_val, repl, its_len) != 0) { return 0; }
 
     u32 max_to = MIN(4U, idx);
     if (!(lvl & LVL1) && max_to) { from = 1; }
@@ -2021,27 +2276,32 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   (void)(j);
 
 #ifdef _DEBUG
-  fprintf(stderr, "RTN T idx=%u lvl=%02x is_txt=%u shape=%u/%u ", idx, lvl,
-          o->v0_len >= 0x80 ? 1 : 0, hshape, l0);
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", orig_buf[idx + j]);
-  fprintf(stderr, " -> ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", o_pattern[j]);
-  fprintf(stderr, " <= ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", repl[j]);
-  fprintf(stderr, "\n");
-  fprintf(stderr, "                ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", buf[idx + j]);
-  fprintf(stderr, " -> ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", pattern[j]);
-  fprintf(stderr, " <= ");
-  for (j = 0; j < 8; j++)
-    fprintf(stderr, "%02x", changed_val[j]);
-  fprintf(stderr, "\n");
+  if (idx == 0) {
+
+    fprintf(stderr, "RTN T idx=%u lvl=%02x is_txt=%u shape=%u/%u ", idx, lvl,
+            o->v0_len >= 0x80 ? 1 : 0, hshape, l0);
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", orig_buf[idx + j]);
+    fprintf(stderr, " -> ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", o_pattern[j]);
+    fprintf(stderr, " <= ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", repl[j]);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "                ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", buf[idx + j]);
+    fprintf(stderr, " -> ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", pattern[j]);
+    fprintf(stderr, " <= ");
+    for (j = 0; j < 8; j++)
+      fprintf(stderr, "%02x", changed_val[j]);
+    fprintf(stderr, "\n");
+
+  }
+
 #endif
 
   // Try to match the replace value up to 4 bytes before the current idx.
@@ -2049,6 +2309,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   //   if (memcmp(user_val, "TEST") == 0)
   //     if (memcmp(user_val, "TEST-VALUE") == 0) ...
   // We only do this in lvl 3, otherwise we only do direct matching
+
+  // fprintf(stderr, "XXXX FROMB64 saved_idx=%u its_len=%u from=%u to=%u FROMHEX
+  // repl=%s\n", saved_idx, saved_its_len, from, to, repl);
 
   for (pre = from; pre <= to; pre++) {
 
@@ -2059,7 +2322,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       for (i = 0; i < its_len; ++i) {
 
-        if ((pattern[i] != buf[idx + i] && o_pattern[i] != orig_buf[idx + i]) ||
+        if ((pattern[i] != buf[idx + i] || o_pattern[i] != orig_buf[idx + i]) ||
             *status == 1) {
 
           break;
@@ -2089,12 +2352,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
 
     u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, fromhex = 0;
-#ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
     u32 tob64 = 0, fromb64 = 0;
-#endif
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
     u32 to_0 = 0, to_x = 0, to_slash = 0, to_up = 0;
-    u8  xor_val[32], arith_val[32], tmp[48];
+    u8  xor_val[64], arith_val[64], tmp[64];
 
     idx = saved_idx;
     its_len = saved_its_len;
@@ -2144,7 +2405,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       }
 
-      if (i < 16 && is_hex(repl + (i << 1))) {
+      if (afl->cmplog_enable_xtreme_transform && i < 16 &&
+          is_hex(repl + (i << 1))) {
 
         ++tohex;
 
@@ -2163,9 +2425,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       }
 
-      if ((i % 2)) {
+      if (afl->cmplog_enable_xtreme_transform && (i % 2) == 1) {
 
-        if (len > idx + i + 1 && is_hex(orig_buf + idx + i)) {
+        if (len > idx + i + 1 && is_hex(orig_buf + idx + i - 1)) {
 
           fromhex += 2;
 
@@ -2187,20 +2449,23 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       }
 
-#ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
-      if (i % 3 == 2 && i < 24) {
+      if (afl->cmplog_enable_xtreme_transform) {
 
-        if (is_base64(repl + ((i / 3) << 2))) tob64 += 3;
+        if (i % 3 == 2 && i < 24) {
+
+          if (is_base64(repl + ((i / 3) << 2))) tob64 += 3;
+
+        }
+
+        // fprintf(stderr, "X FROMB64 idx=%u i=%u repl=%s\n", saved_idx, i,
+        // repl);
+        if (i % 4 == 3 && i < 24) {
+
+          if (is_base64(orig_buf + idx + i - 3)) fromb64 += 4;
+
+        }
 
       }
-
-      if (i % 4 == 3 && i < 24) {
-
-        if (is_base64(orig_buf + idx + i - 3)) fromb64 += 4;
-
-      }
-
-#endif
 
       if ((o_pattern[i] ^ orig_buf[idx + i]) == xor_val[i] && xor_val[i]) {
 
@@ -2229,45 +2494,70 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
       }
 
 #ifdef _DEBUG
-      fprintf(stderr,
-              "RTN idx=%u loop=%u xor=%u arith=%u tolower=%u toupper=%u "
-              "tohex=%u fromhex=%u to_0=%u to_slash=%u to_x=%u "
-              "from_0=%u from_slash=%u from_x=%u\n",
-              idx, i, xor, arith, tolower, toupper, tohex, fromhex, to_0,
-              to_slash, to_x, from_0, from_slash, from_x);
-  #ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
-      fprintf(stderr, "RTN idx=%u loop=%u tob64=%u from64=%u\n", tob64,
-              fromb64);
-  #endif
-#endif
+      if (idx == 0) {
 
-#ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
-      // input is base64 and converted to binary? convert repl to base64!
-      if ((i % 4) == 3 && i < 24 && fromb64 > i) {
+        fprintf(stderr, "RTN Z %s %s %s %s repl=%s\n", buf, pattern, orig_buf,
+                o_pattern, repl);
+        fprintf(
+            stderr,
+            "RTN Z idx=%u len=%u loop=%u xor=%u arith=%u tolower=%u toupper=%u "
+            "tohex=%u fromhex=%u to_0=%u to_slash=%u to_x=%u "
+            "from_0=%u from_slash=%u from_x=%u\n",
+            idx, its_len, i, xor, arith, tolower, toupper, tohex, fromhex, to_0,
+            to_slash, to_x, from_0, from_slash, from_x);
+        if (afl->cmplog_enable_xtreme_transform) {
 
-        to_base64(repl, tmp, i + 1);
-        memcpy(buf + idx, tmp, i + 1);
-        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        // fprintf(stderr, "RTN ATTEMPT fromb64 %u result %u\n", fromb64,
-        // *status);
+          fprintf(stderr, "RTN Z idx=%u loop=%u tob64=%u from64=%u\n", idx, i,
+                  tob64, fromb64);
 
-      }
-
-      // input is converted to base64? decode repl with base64!
-      if ((i % 3) == 2 && i < 24 && tob64 > i) {
-
-        u32 olen = from_base64(repl, tmp, i + 1);
-        memcpy(buf + idx, tmp, olen);
-        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        // fprintf(stderr, "RTN ATTEMPT tob64 %u idx=%u result %u\n", tob64,
-        // idx, *status);
+        }
 
       }
 
 #endif
+
+      if (afl->cmplog_enable_xtreme_transform) {
+
+        // input is base64 and converted to binary? convert repl to base64!
+        // fprintf(stderr, "FROMB64 idx=%u i=%u %% 4 == 3 && i < 24 &&
+        // fromb64=%u > i, repl=%s\n", saved_idx, i, fromb64, repl);
+        if ((i % 4) == 3 && i < 24 && fromb64 > i) {
+
+          for (u32 hlen = i; hlen + saved_idx < len && hlen <= its_len;
+               ++hlen) {
+
+            u32 res = to_base64(repl, tmp, hlen);
+            // fprintf(stderr, "FROMB64 GOGO! idx=%u repl=%s tmp[%u]=%s
+            // hlen=%u\n", saved_idx, repl, res, tmp, hlen);
+            if (res + saved_idx < len) {
+
+              memcpy(buf + idx, tmp, res);
+              if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+              // fprintf(stderr, "RTN ATTEMPT FROMB64 idx=%u fromb64 %u %s %s
+              // result %u\n",       saved_idx,      fromb64,      tmp, repl,
+              // *status);
+
+            }
+
+          }
+
+        }
+
+        // input is converted to base64? decode repl with base64!
+        if ((i % 3) == 2 && i < 24 && tob64 > i) {
+
+          u32 olen = from_base64(repl, tmp, i + 1);
+          memcpy(buf + idx, tmp, olen);
+          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+          // fprintf(stderr, "RTN ATTEMPT tob64 %u idx=%u result %u\n", tob64,
+          // idx, *status);
+
+        }
+
+      }
 
       // input is converted to hex? convert repl to binary!
-      if (i < 16 && tohex > i) {
+      if (afl->cmplog_enable_xtreme_transform && i < 16 && tohex > i) {
 
         u32 off;
         if (to_slash + to_x + to_0 == 2) {
@@ -2292,8 +2582,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
       }
 
       // input is hex and converted to binary? convert repl to hex!
-      if (i && (i % 2) && i < 16 && fromhex &&
-          fromhex + from_slash + from_x + from_0 > i) {
+      if (afl->cmplog_enable_xtreme_transform && (i % 2) == 1 && i < 16 &&
+          fromhex && fromhex + from_slash + from_x + from_0 > i) {
 
         u8 off = 0;
         if (from_slash && from_x) {
@@ -2328,31 +2618,37 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
         }
 
-        if (to_up == 1) {
+        for (u32 hlen = i; hlen <= (i << 1) && hlen + idx < len; hlen += i) {
 
-          for (j = 0; j <= (i >> 1); j++) {
+          if (to_up == 1) {
 
-            tmp[off + (j << 1)] = hex_table_up[repl[j] >> 4];
-            tmp[off + (j << 1) + 1] = hex_table_up[repl[j] % 16];
+            for (j = 0; j <= (hlen >> 1); j++) {
+
+              tmp[off + (j << 1)] = hex_table_up[repl[j] >> 4];
+              tmp[off + (j << 1) + 1] = hex_table_up[repl[j] % 16];
+
+            }
+
+          } else {
+
+            for (j = 0; j <= (hlen >> 1); j++) {
+
+              tmp[off + (j << 1)] = hex_table_low[repl[j] >> 4];
+              tmp[off + (j << 1) + 1] = hex_table_low[repl[j] % 16];
+
+            }
 
           }
 
-        } else {
-
-          for (j = 0; j <= (i >> 1); j++) {
-
-            tmp[off + (j << 1)] = hex_table_low[repl[j] >> 4];
-            tmp[off + (j << 1) + 1] = hex_table_low[repl[j] % 16];
-
-          }
+          u32 tmp_l = hlen + 1 + off;
+          memcpy(buf + idx, tmp, tmp_l);
+          if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+          tmp[tmp_l] = 0;
+          // fprintf(stderr, "RTN ATTEMPT idx=%u len=%u fromhex %u %s %s result
+          // %u\n", idx, len, fromhex, tmp, repl, *status);
+          memcpy(buf + idx, save, tmp_l);
 
         }
-
-        memcpy(buf + idx, tmp, i + 1 + off);
-        if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        // fprintf(stderr, "RTN ATTEMPT fromhex %u result %u\n", fromhex,
-        // *status);
-        memcpy(buf + idx, save, i + 1 + off);
 
       }
 
@@ -2401,11 +2697,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       if ((i >= 7 &&
            (i >= xor&&i >= arith &&i >= tolower &&i >= toupper &&i > tohex &&i >
-                (fromhex + from_0 + from_x + from_slash + 1)
-#ifdef CMPLOG_SOLVE_TRANSFORM_BASE64
-            && i > tob64 + 3 && i > fromb64 + 4
-#endif
-            )) ||
+                (fromhex + from_0 + from_x + from_slash + 1) &&
+            (afl->cmplog_enable_xtreme_transform && i > tob64 + 3 &&
+             i > fromb64 + 4))) ||
           repl[i] != changed_val[i] || *status == 1) {
 
         break;
@@ -2418,8 +2712,6 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  //#endif
-
   return 0;
 
 }
@@ -2429,10 +2721,12 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   struct tainted    *t;
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  u32                i, j, idx, have_taint = 1, taint_len, loggeds;
+  u32                i, idx, have_taint = 1, taint_len, loggeds;
   u8                 status = 0, found_one = 0;
 
   hshape = SHAPE_BYTES(h->shape);
+
+  if (hshape < 2) { return 0; }
 
   if (h->hits > CMP_MAP_RTN_H) {
 
@@ -2452,36 +2746,52 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     struct cmpfn_operands *orig_o =
         &((struct cmpfn_operands *)afl->orig_cmp_map->log[key])[i];
 
-    // opt not in the paper
-    for (j = 0; j < i; ++j) {
-
-      if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j], o,
-                  sizeof(struct cmpfn_operands))) {
-
-        goto rtn_fuzz_next_iter;
-
-      }
-
-    }
-
     /*
+        // opt not in the paper
+        for (j = 0; j < i; ++j) {
+
+          if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j],
+       o, sizeof(struct cmpfn_operands))) {
+
+            goto rtn_fuzz_next_iter;
+
+          }
+
+        }
+
+    */
+
+#ifdef _DEBUG
+    u32                j;
     struct cmp_header *hh = &afl->orig_cmp_map->headers[key];
-    fprintf(stderr, "RTN N hits=%u id=%u shape=%u attr=%u v0=", h->hits, h->id,
-            hshape, h->attribute);
+    fprintf(stderr, "RTN N hits=%u shape=%u attr=%u v0=", h->hits, hshape,
+            h->attribute);
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", o->v0[j]);
     fprintf(stderr, " v1=");
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", o->v1[j]);
-    fprintf(stderr, "\nRTN O hits=%u id=%u shape=%u attr=%u o0=", hh->hits,
-            hh->id, hshape, hh->attribute);
+    fprintf(stderr, "\nRTN O hits=%u shape=%u attr=%u o0=", hh->hits, hshape,
+            hh->attribute);
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", orig_o->v0[j]);
     fprintf(stderr, " o1=");
     for (j = 0; j < 8; j++)
       fprintf(stderr, "%02x", orig_o->v1[j]);
     fprintf(stderr, "\n");
-    */
+#endif
+
+#ifdef USE_HASHMAP
+    if (hshape <= 8 && hashmap_search_and_add_ptr(hshape - 1, o->v0) &&
+        hashmap_search_and_add_ptr(hshape - 1, orig_o->v0) &&
+        hashmap_search_and_add_ptr(hshape - 1, o->v1) &&
+        hashmap_search_and_add_ptr(hshape - 1, orig_o->v1)) {
+
+      continue;
+
+    }
+
+#endif
 
     t = taint;
     while (t->next) {
@@ -2515,7 +2825,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       status = 0;
 
 #ifdef _DEBUG
-      int w;
+      u32 w;
       fprintf(stderr, "key=%u idx=%u len=%u o0=", key, idx, hshape);
       for (w = 0; w < hshape; ++w)
         fprintf(stderr, "%02x", orig_o->v0[w]);
@@ -2592,6 +2902,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
       // o->v0, v1_len, o->v1);
 
+      // Note that this check differs from the line 1901, for RTN we are more
+      // opportunistic for adding to the dictionary than cmps
       if (!memcmp(o->v0, orig_o->v0, v0_len) ||
           (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
         maybe_add_auto(afl, o->v0, v0_len);
@@ -2603,7 +2915,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
-  rtn_fuzz_next_iter:
+    // rtn_fuzz_next_iter:
     afl->stage_cur++;
 
   }
@@ -2747,6 +3059,10 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   // Start insertion loop
 
+#ifdef USE_HASHMAP
+  hashmap_reset();
+#endif
+
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
@@ -2816,12 +3132,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       }
 
-    } else if ((lvl & LVL1)
-
-               //#ifdef CMPLOG_SOLVE_TRANSFORM
-               || ((lvl & LVL3) && afl->cmplog_enable_transform)
-               //#endif
-    ) {
+    } else if ((lvl & LVL1) || ((lvl & LVL3) && afl->cmplog_enable_transform)) {
 
       if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {
 
