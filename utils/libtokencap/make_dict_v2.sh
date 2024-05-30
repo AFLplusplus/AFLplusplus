@@ -1,5 +1,3 @@
-#!/bin/bash
-
 #default values
 timeout_sec=5
 LD_PRELOAD_PATH="/home/${USER}/AFLplusplus/utils/libtokencap/libtokencap.so"
