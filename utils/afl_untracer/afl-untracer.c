@@ -4,7 +4,7 @@
 
    Written by Marc Heuse <mh@mh-sec.de>
 
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,9 @@
 #include <pthread.h>
 
 #include <sys/mman.h>
-#include <sys/shm.h>
+#if !defined(__HAIKU__)
+  #include <sys/shm.h>
+#endif
 #include <sys/wait.h>
 #include <sys/types.h>
 
@@ -66,6 +68,9 @@
   #include <sys/sysctl.h>
   #include <sys/user.h>
   #include <sys/procctl.h>
+#elif defined(__HAIKU__)
+  #include <kernel/OS.h>
+  #include <kernel/image.h>
 #else
   #error "Unsupported platform"
 #endif
@@ -232,6 +237,30 @@ void read_library_information(void) {
 
   }
 
+#elif defined(__HAIKU__)
+  image_info ii;
+  int32      c = 0;
+
+  while (get_next_image_info(0, &c, &ii) == B_OK) {
+
+    liblist[liblist_cnt].name = (u8 *)strdup(ii.name);
+    liblist[liblist_cnt].addr_start = (u64)ii.text;
+    liblist[liblist_cnt].addr_end = (u64)((char *)ii.text + ii.text_size);
+
+    if (debug) {
+
+      fprintf(stderr, "%s:%lx (%lx-%lx)\n", liblist[liblist_cnt].name,
+              (unsigned long)(liblist[liblist_cnt].addr_end -
+                              liblist[liblist_cnt].addr_start),
+              (unsigned long)liblist[liblist_cnt].addr_start,
+              (unsigned long)(liblist[liblist_cnt].addr_end - 1));
+
+    }
+
+    liblist_cnt++;
+
+  }
+
 #endif
 
 }
@@ -288,7 +317,7 @@ library_list_t *find_library(char *name) {
 #pragma GCC optimize("O0")
 void        breakpoint(void) {
 
-         if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
+  if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
 
 }
 
@@ -655,6 +684,9 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 #elif defined(__FreeBSD__) && defined(__LP64__)
   ctx->uc_mcontext.mc_rip -= 1;
   addr = ctx->uc_mcontext.mc_rip;
+#elif defined(__HAIKU__) && defined(__x86_64__)
+  ctx->uc_mcontext.rip -= 1;
+  addr = ctx->uc_mcontext.rip;
 #else
   #error "Unsupported platform"
 #endif

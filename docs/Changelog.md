@@ -3,7 +3,167 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.07a (dev)
+### Version ++4.21a (dev)
+  * afl-fuzz
+    - added AFL_DISABLE_REDUNDANT for huge queues
+    - fix AFL_PERSISTENT_RECORD
+    - run custom_post_process after standard trimming
+    - prevent filenames in the queue that have spaces
+    - minor fix for FAST schedules
+    - more frequent stats update when syncing (todo: check performance impact)
+    - now timing of calibration, trimming and syncing is measured seperately,
+      thanks to @eqv!
+    - -V timing is now accurately the fuzz time (without syncing), before
+      long calibration times and syncing could result in now fuzzing being
+      made when the time was already run out until then, thanks to @eqv!
+  * afl-cc:
+    - re-enable i386 support that was accidently disabled
+    - fixes for LTO and outdated afl-gcc mode for i386
+    - fix COMPCOV split compare for old LLVMs
+    - disable xml/curl/g_ string transform functions because we do not check
+      for null pointers ... TODO
+    - ensure shared memory variables are visible in weird build setups
+  * afl-cmin
+    - work with input files that have a space
+  * afl-showmap
+    - minor fix to collect coverage -C (thanks to @bet4it)
+  * enhanced the ASAN configuration
+
+
+### Version ++4.20c (release)
+  ! A new forkserver communication model is now introduced. afl-fuzz is
+    backward compatible to old compiled targets if they are not built
+    for CMPLOG/Redqueen, but new compiled targets will not work with
+    old afl-fuzz versions!
+  ! Recompile all targets that are instrumented for CMPLOG/Redqueen!
+  - AFL++ now supports up to 4 billion coverage edges, up from 6 million.
+  - New compile option: `make PERFORMANCE=1` - this will enable special
+    CPU dependent optimizations that make everything more performant - but
+    the binaries will likely won't work on different platforms. Also
+    enables a faster hasher if the CPU requirements are met.
+  - The persistent record feature (see config.h) was expanded to also
+    support replay, thanks to @quarta-qti !
+  - afl-fuzz:
+    - the new deterministic fuzzing feature is now activated by default,
+      deactivate with -z. Parameters -d and -D are ignored.
+    - small improvements to CMPLOG/redqueen
+    - workround for a bug with MOpt -L when used with -M - in the future
+      we will either remove or rewrite MOpt.
+    - fix for `-t xxx+` feature
+    - -e extension option now saves the queue items, crashes, etc. with the
+      extension too
+    - fixes for trimmming, correct -V time and reading stats on resume by eqv
+      thanks a lot!
+  - afl-cc:
+    - added collision free caller instrumentation to LTO mode. activate with
+      `AFL_LLVM_LTO_CALLER=1`. You can set a max depth to go through single
+      block functions with `AFL_LLVM_LTO_CALLER_DEPTH` (default 0)
+    - fixes for COMPCOV/LAF and most other modules
+    - fix for GCC_PLUGIN cmplog that broke on std::strings
+  - afl-whatsup:
+    - now also displays current average speed
+    - small bugfixes
+  - Fixes for aflpp custom mutator and standalone tool
+  - Minor edits to afl-persistent-config
+  - Prevent temporary files being left behind on aborted afl-whatsup
+  - More CPU benchmarks added to benchmark/
+
+
+### Version ++4.10c (release)
+  - afl-fuzz:
+    - default power schedule is now EXPLORE, due a fix in fast schedules
+      explore is slightly better now.
+    - fixed minor issues in the mutation engine, thanks to @futhewo for
+      reporting!
+    - better deterministic fuzzing is now available, benchmarks have shown
+      to improve fuzzing. Enable with -D. Thanks to @kdsjZh for the PR!
+  - afl-cc:
+    - large rewrite by @SonicStark which fixes a few corner cases, thanks!
+    - LTO mode now requires llvm 12+
+    - workaround for ASAN with gcc_plugin mode
+  - instrumentation:
+    - LLVM 18 support, thanks to @devnexen!
+    - Injection (SQL, LDAP, XSS) fuzzing feature now available, see
+      `instrumentation/README.injections.md` how to activate/use/expand.
+    - compcov/LAF-intel:
+      - floating point splitting bug fix by @hexcoder
+      - due a bug in LLVM 17 integer splitting is disabled there!
+      - when splitting floats was selected, integers were always split as well,
+        fixed to require AFL_LLVM_LAF_SPLIT_COMPARES or _ALL as it should
+    - dynamic instrumentation filtering for LLVM NATIVE, thanks @Mozilla!
+      see utils/dynamic_covfilter/README.md
+  - qemu_mode:
+    - plugins are now activated by default and a new module is included that
+      produces drcov compatible traces for lighthouse/lightkeeper/...
+      thanks to @JRomainG to submitting!
+  - updated Nyx checkout (fixes a bug) and some QOL
+  - updated the custom grammar mutator
+  - document afl-cmin does not work on macOS (but afl-cmin.bash does)
+
+### Version ++4.09c (release)
+  - afl-fuzz:
+    - fixed the new mutation implementation for two bugs
+    - added `AFL_FINAL_SYNC` which forces a final fuzzer sync (also for `-F`)
+      before terminating.
+    - added AFL_IGNORE_SEED_PROBLEMS to skip over seeds that time out instead
+      of exiting with an error message
+    - allow -S/-M naming up to 50 characters (from 24)
+    - CMPLOG:
+      - added scale support (-l S)
+      - skip unhelpful insertions (u8)
+    - added --version and --help command line parameters
+    - fixed endless loop when reading malformed dictionaries
+    - new custom mutator function: post_run - thanks to yangzao!
+  - afl-whatsup:
+    - detect instanced that are starting up and show them as such as not dead
+    - now also shows coverage reached
+    - option -m shows only very relevant stats
+    - option -n will not use color in the output
+  - instrumentation:
+    - fix for a few string compare transform functions for LAF
+    - we are instrumenting __cxx internal functions again. this might break
+      a few targets, please report if so.
+  - frida_mode:
+    - fixes support for large map offsets
+  - support for AFL_FUZZER_LOOPCOUNT for afl.rs and LLVMFuzzerTestOneInput
+  - afl-cmin/afl-cmin.bash: prevent unneeded file errors
+  - added new tool afl-addseeds that adds new seeds to a running campaign
+  - added benchmark/benchmark.py if you want to see how good your fuzzing
+    speed is in comparison to other setups.
+
+### Version ++4.08c (release)
+  - afl-fuzz:
+    - new mutation engine: mutations that favor discovery more paths are
+      prefered until no new finds for 10 minutes then switching to mutations
+      that favor triggering crashes. Modes and switch time can be configured
+      with `-P`. Also input mode for the target can be defined with `-a` to
+      be `text` or `binary` (defaults to `generic`)
+    - new custom mutator that has the new afl++ engine (so it can easily
+      incorporated into new custom mutators), and also comes with a standalone
+      command line tool! See custom_mutators/aflpp/standalone/
+    - display the state of the fuzzing run in the UI :-)
+    - fix timeout setting if '+' is used or a session is restarted
+    - -l X option to enable base64 transformation solving
+    - allow to disable CMPLOG with '-c -' (e.g. afl.rs enforces '-c 0' on
+      every instance which is counterproductive).
+  - afl-cmin/afl-cmin.bash:
+    - fixed a bug inherited from vanilla AFL where a coverage of
+      map[123] = 11 would be the same as map[1123] = 1
+    - warn on crashing inputs
+    - adjust threads if less inputs than threads specified
+  - afl-cc:
+    - fixed an off-by-one instrumentation of iselect, hurting coverage a bit.
+      Thanks to @amykweon for spotting and fixing!
+    - @toka fixed a bug in laf-intel signed integer comparison splitting,
+      thanks a lot!!
+    - more LLVM compatability
+  - frida_mode:
+    - support for long form instrumentation on x86_x64 and arm64
+    - renamed utils/get_symbol_addr.sh to utils/frida_get_symbol_addr.sh
+  - qemu_mode:
+    - added qemu_mode/utils/qemu_get_symbol_addr.sh
+
+### Version ++4.07c (release)
   - afl-fuzz:
     - reverse reading the seeds only on restarts (increases performance)
     - new env `AFL_POST_PROCESS_KEEP_ORIGINAL` to keep the orignal
@@ -15,15 +175,21 @@
     - new env `AFL_LLVM_LTO_SKIPINIT` to support the AFL++ based WASM
       (https://github.com/fgsect/WAFL) project
     - error and print help if afl-clan-lto is used with lto=thin
+    - rewrote our PCGUARD pass to be compatible with LLVM 15+ shenanigans,
+      requires LLVM 13+ now instead of 10.0.1+
+    - fallback to native LLVM PCGUARD if our PCGUARD is unavailable
+    - fixed a crash in GCC CMPLOG
   - afl-showmap:
     - added custom mutator post_process and send support
     - add `-I filelist` option, an alternative to `-i in_dir`
   - afl-cmin + afl-cmin.bash:
     - `-T threads` parallel task support, can be a huge speedup!
   - qemu_mode:
-    - Persistent mode +QASAN support for ppc32 tragets by @worksbutnottested
+    - Persistent mode + QASAN support for ppc32 targets by @worksbutnottested
   - a new grammar custom mutator atnwalk was submitted by @voidptr127 !
-
+  - two new custom mutators are now available:
+    - TritonDSE in custom_mutators/aflpp_tritondse
+    - SymQEMU in custom_mutators/symqemu
 
 ### Version ++4.06c (release)
   - afl-fuzz:

@@ -8,7 +8,7 @@ HARNESS_BUILD_DIR:=$(BUILD_DIR)harness/
 PNGTEST_BUILD_DIR:=$(BUILD_DIR)pngtest/
 
 LIBZ_FILE:=$(LIBZ_BUILD_DIR)zlib-1.2.13.tar.gz
-LIBZ_URL:=http://www.zlib.net/zlib-1.2.13.tar.gz
+LIBZ_URL:=http://www.zlib.net/fossils/zlib-1.2.13.tar.gz
 LIBZ_DIR:=$(LIBZ_BUILD_DIR)zlib-1.2.13/
 LIBZ_PC:=$(LIBZ_DIR)zlib.pc
 LIBZ_LIB:=$(LIBZ_DIR)libz.a

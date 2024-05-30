@@ -16,6 +16,8 @@
 
 . ./test-frida-mode.sh
 
+. ./test-nyx-mode.sh
+
 . ./test-unicorn-mode.sh
 
 . ./test-custom-mutators.sh

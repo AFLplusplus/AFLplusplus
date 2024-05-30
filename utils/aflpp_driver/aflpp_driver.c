@@ -279,7 +279,9 @@ __attribute__((weak)) int main(int argc, char **argv) {
 
   */
 
-  if (argc < 2 || strncmp(argv[1], "-h", 2) == 0)
+  if (argc < 2 || strncmp(argv[1], "-h", 2) == 0 ||
+      strcmp(argv[1], "--help") == 0) {
+
     printf(
         "============================== INFO ================================\n"
         "This binary is built for afl++.\n"
@@ -290,12 +292,21 @@ __attribute__((weak)) int main(int argc, char **argv) {
         "afl-fuzz will run N iterations before re-spawning the process "
         "(default: "
         "INT_MAX)\n"
+        "You can also use AFL_FUZZER_LOOPCOUNT to set N\n"
         "For stdin input processing, pass '-' as single command line option.\n"
         "For file input processing, pass '@@' as single command line option.\n"
         "To use with afl-cmin or afl-cmin.bash pass '-' as single command line "
         "option\n"
         "===================================================================\n",
         argv[0], argv[0]);
+    if (argc == 2 &&
+        (strncmp(argv[1], "-h", 2) == 0 || strcmp(argv[1], "--help") == 0)) {
+
+      exit(0);
+
+    }
+
+  }
 
   return LLVMFuzzerRunDriver(&argc, &argv, LLVMFuzzerTestOneInput);
 
@@ -366,6 +377,12 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
   } else {
 
     N = INT_MAX;
+
+  }
+
+  if (getenv("AFL_FUZZER_LOOPCOUNT")) {
+
+    N = atoi(getenv("AFL_FUZZER_LOOPCOUNT"));
 
   }
 

@@ -23,7 +23,7 @@ typedef long double max_align_t;
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #if LLVM_VERSION_MAJOR < 17
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
 
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -55,6 +55,7 @@ void  initInstrumentList();
 bool  isInInstrumentList(llvm::Function *F, std::string Filename);
 unsigned long long int calculateCollisions(uint32_t edges);
 void                   scanForDangerousFunctions(llvm::Module *M);
+unsigned int           calcCyclomaticComplexity(llvm::Function *F);
 
 #ifndef IS_EXTERN
   #define IS_EXTERN

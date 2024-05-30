@@ -5,11 +5,11 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
@@ -80,6 +80,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   if (unlikely(weight < 0.1)) { weight = 0.1; }
   if (unlikely(q->favored)) { weight *= 5; }
   if (unlikely(!q->was_fuzzed)) { weight *= 2; }
+  if (unlikely(q->fs_redundant)) { weight *= 0.8; }
 
   return weight;
 
@@ -369,9 +370,9 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
     s32 fd;
 
-    fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
-    if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
-    close(fd);
+    if (unlikely(afl->afl_env.afl_disable_redundant)) { q->disabled = 1; }
+    fd = permissive_create(afl, fn);
+    if (fd >= 0) { close(fd); }
 
   } else {
 
@@ -612,7 +613,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
-  if (likely(q->len > 4)) afl->ready_for_splicing_count++;
+  if (likely(q->len > 4)) { ++afl->ready_for_splicing_count; }
 
   ++afl->queued_items;
   ++afl->active_items;
@@ -663,6 +664,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
+  q->skipdet_e = (struct skipdet_entry *)ck_alloc(sizeof(struct skipdet_entry));
+
 }
 
 /* Destroy the entire queue. */
@@ -678,6 +681,15 @@ void destroy_queue(afl_state_t *afl) {
     q = afl->queue_buf[i];
     ck_free(q->fname);
     ck_free(q->trace_mini);
+    if (q->skipdet_e) {
+
+      if (q->skipdet_e->done_inf_map) ck_free(q->skipdet_e->done_inf_map);
+      if (q->skipdet_e->skip_eff_map) ck_free(q->skipdet_e->skip_eff_map);
+
+      ck_free(q->skipdet_e);
+
+    }
+
     ck_free(q);
 
   }
@@ -701,12 +713,19 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fav_factor;
   u64 fuzz_p2;
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE))
+  if (likely(afl->schedule >= FAST && afl->schedule < RARE)) {
+
     fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
-  else if (unlikely(afl->schedule == RARE))
+
+  } else if (unlikely(afl->schedule == RARE)) {
+
     fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
-  else
+
+  } else {
+
     fuzz_p2 = q->fuzz_level;
+
+  }
 
   if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
@@ -729,11 +748,21 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         /* Faster-executing or smaller test cases are favored. */
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
-        if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
+
+        if (likely(afl->schedule >= FAST && afl->schedule < RARE)) {
+
+          top_rated_fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
+
+        } else if (unlikely(afl->schedule == RARE)) {
+
           top_rated_fuzz_p2 =
               next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
-        else
+
+        } else {
+
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
+
+        }
 
         if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
@@ -746,30 +775,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         }
 
-        if (fuzz_p2 > top_rated_fuzz_p2) {
+        if (likely(fuzz_p2 > top_rated_fuzz_p2)) { continue; }
 
-          continue;
-
-        } else if (fuzz_p2 == top_rated_fuzz_p2) {
-
-          if (fav_factor > top_rated_fav_factor) { continue; }
-
-        }
-
-        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
-
-          if (fav_factor > afl->top_rated[i]->len << 2) { continue; }
-
-        } else {
-
-          if (fav_factor >
-              afl->top_rated[i]->exec_us * afl->top_rated[i]->len) {
-
-            continue;
-
-          }
-
-        }
+        if (likely(fav_factor > top_rated_fav_factor)) { continue; }
 
         /* Looks like we're going to win. Decrease ref count for the
            previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
@@ -834,6 +842,8 @@ void cull_queue(afl_state_t *afl) {
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
 
+  afl->smallest_favored = -1;
+
   for (i = 0; i < afl->fsrv.map_size; ++i) {
 
     if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7)))) {
@@ -857,7 +867,16 @@ void cull_queue(afl_state_t *afl) {
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;
 
-        if (!afl->top_rated[i]->was_fuzzed) { ++afl->pending_favored; }
+        if (!afl->top_rated[i]->was_fuzzed) {
+
+          ++afl->pending_favored;
+          if (unlikely(afl->smallest_favored < 0)) {
+
+            afl->smallest_favored = (s64)afl->top_rated[i]->id;
+
+          }
+
+        }
 
       }
 
@@ -874,6 +893,8 @@ void cull_queue(afl_state_t *afl) {
     }
 
   }
+
+  afl->reinit_table = 1;
 
 }
 

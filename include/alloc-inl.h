@@ -5,12 +5,12 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
                      Andrea Fioraldi <andreafioraldi@gmail.com>,
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -322,7 +322,7 @@ static inline void DFL_ck_free(void *mem) {
 static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
   void *ret;
-  u32 old_size = 0;
+  u32   old_size = 0;
 
   if (!size) {
 
@@ -392,7 +392,7 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 static inline u8 *DFL_ck_strdup(u8 *str) {
 
   void *ret;
-  u32 size;
+  u32   size;
 
   if (!str) return NULL;
 
@@ -438,14 +438,14 @@ struct TRK_obj {
 
   void *ptr;
   char *file, *func;
-  u32 line;
+  u32   line;
 
 };
 
     #ifdef AFL_MAIN
 
 struct TRK_obj *TRK[ALLOC_BUCKETS];
-u32 TRK_cnt[ALLOC_BUCKETS];
+u32             TRK_cnt[ALLOC_BUCKETS];
 
       #define alloc_report() TRK_report()
 

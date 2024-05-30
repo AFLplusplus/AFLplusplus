@@ -1,11 +1,24 @@
 # TODO list for AFL++
 
+## Must
+
+ - hardened_usercopy=0 page_alloc.shuffle=0
+ - add value_profile but only enable after 15 minutes without finds
+ - cmplog max items env?
+ - adapt MOpt to new mutation engine
+   - Update afl->pending_not_fuzzed for MOpt
+ - cmplog rtn sanity check on fixed length? currently we ignore the length
+ - afl-showmap -f support
+ - afl-fuzz multicore wrapper script
+ - when trimming then perform crash detection
+ - cyclomatic complexity: 2 + calls + edges - blocks
+
+
 ## Should
 
- - splicing selection weighted?
+ - afl-crash-analysis
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
- - Update afl->pending_not_fuzzed for MOpt
  - afl-plot to support multiple plot_data
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
@@ -24,8 +37,7 @@ QEMU mode/FRIDA mode:
  - non colliding instrumentation
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
    AFL_COMPCOV_LEVEL?)
- - add AFL_QEMU_EXITPOINT (maybe multiple?), maybe pointless as there is
-   persistent mode
+ - add AFL_QEMU_EXITPOINT (maybe multiple?)
 
 ## Ideas
 

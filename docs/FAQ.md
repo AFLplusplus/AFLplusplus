@@ -29,8 +29,8 @@ If you find an interesting or important question missing, submit it via
   which then implemented their own research and features, making it now by far
   the most flexible and feature rich guided fuzzer available as open source. And
   in independent fuzzing benchmarks it is one of the best fuzzers available,
-  e.g., [Fuzzbench
-  Report](https://www.fuzzbench.com/reports/2020-08-03/index.html).
+  e.g.,
+  [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html).
 </p></details>
 
 <details>
@@ -101,6 +101,42 @@ If you find an interesting or important question missing, submit it via
 
   Every line between two blocks is an `edge`. Note that a few basic block loop
   to itself, this too would be an edge.
+</p></details>
+
+<details>
+  <summary id="should-you-ever-stop-afl-fuzz-minimize-the-corpus-and-restart">Should you ever stop afl-fuzz, minimize the corpus and restart?</summary><p>
+
+  To stop afl-fuzz, minimize it's corpus and restart you would usually do:
+
+  ```
+  Control-C  # to terminate afl-fuzz
+  $ afl-cmin -T nproc -i out/default/queue -o minimized_queue -- ./target
+  $ AFL_FAST_CAL=1 AFL_CMPLOG_ONLY_NEW=1 afl-fuzz -i minimized_queue -o out2 [other options] -- ./target
+  ```
+
+  If this improves fuzzing or not is debated and no consensus has been reached
+  or in-depth analysis been performed.
+
+  On the pro side:
+    * The queue/corpus is reduced (up to 20%) by removing intermediate paths
+      that are maybe not needed anymore.
+
+  On the con side:
+    * Fuzzing time is lost for the time the fuzzing is stopped, minimized and
+      restarted.
+
+  The the big question:
+    * Does a minimized queue/corpus improve finding new coverage or does it
+      hinder it?
+
+  The AFL++ team's own limited analysis seem to to show that keeping
+  intermediate paths help to find more coverage, at least for afl-fuzz.
+
+  For honggfuzz in comparison it is a good idea to restart it from time to
+  time if you have other fuzzers (e.g: AFL++) running in parallel to sync
+  the finds of other fuzzers to honggfuzz as it has no syncing feature like
+  AFL++ or libfuzzer.
+
 </p></details>
 
 ## Targets
@@ -278,4 +314,55 @@ If you find an interesting or important question missing, submit it via
   Depending how the target works it might also crash afterwards.
 
   Solution: just do an `export AFL_MAP_SIZE=(the value in the warning)`.
+</p></details>
+
+<details>
+  <summary id="linker-errors">Linker errors.</summary><p>
+
+  If you compile C++ harnesses and see `undefined reference` errors for
+  variables named `__afl_...`, e.g.:
+
+  ```
+  /usr/bin/ld: /tmp/test-d3085f.o: in function `foo::test()':
+  test.cpp:(.text._ZN3fooL4testEv[_ZN3fooL4testEv]+0x35): undefined reference to `foo::__afl_connected'
+  clang: error: linker command failed with exit code 1 (use -v to see invocation)
+  ```
+
+  Then you use AFL++ macros like `__AFL_LOOP` within a namespace and this
+  will not work.
+
+  Solution: Move that harness portion to the global namespace, e.g. before:
+  ```
+  #include <cstdio>
+  namespace foo {
+    static void test() {
+      while(__AFL_LOOP(1000)) {
+        foo::function();
+      }
+    }
+  }
+
+  int main(int argc, char** argv) {
+    foo::test();
+    return 0;
+  }
+  ```
+  after:
+  ```
+  #include <cstdio>
+  static void mytest() {
+    while(__AFL_LOOP(1000)) {
+      foo::function();
+    }
+  }
+  namespace foo {
+    static void test() {
+      mytest();
+    }
+  }
+  int main(int argc, char** argv) {
+    foo::test();
+    return 0;
+  }
+  ```
 </p></details>

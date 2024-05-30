@@ -2,6 +2,8 @@
 
 . ./test-pre.sh
 
+OS=$(uname -s)
+
 $ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
@@ -60,7 +62,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       $ECHO "$RED[!] llvm_mode threadsafe instrumentation failed"
       CODE=1
     }
-    rm -f test-instr.ts.0 test-instr.ts.1
+    rm -f test-instr.ts.0 test-instr.ts.1 test-instr.ts
   } || {
     $ECHO "$RED[!] llvm_mode (threadsafe) failed"
     CODE=1
@@ -123,7 +125,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   # now we want to be sure that afl-fuzz is working
   # make sure crash reporter is disabled on Mac OS X
-  (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+  (test "$OS" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
     $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
     CODE=1
     true
@@ -146,18 +148,22 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       }
     }
     test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" || {
+      mkdir -p in2
       echo 000000000000000000000000 > in/in2
       echo 111 > in/in3
-      mkdir -p in2
-      ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
-      CNT=`ls in2/* 2>/dev/null | wc -l`
-      case "$CNT" in
-        *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
-            CODE=1
-            ;;
-      esac
-      rm -f in2/in*
+      test "$OS" = "Darwin" && {
+        $ECHO "$GREY[*] afl-cmin not available on macOS, cannot test afl-cmin"
+      } || {
+        ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+        CNT=`ls in2/* 2>/dev/null | wc -l`
+        case "$CNT" in
+          *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+          *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+              CODE=1
+              ;;
+        esac
+        rm -f in2/in*
+      }
       export AFL_QUIET=1
       if type bash >/dev/null ; then {
         ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
@@ -191,7 +197,8 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     for I in char short int long "long long"; do
       for BITS in 8 16 32 64; do
         bin="$testcase-split-$I-$BITS.compcov" 
-        AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -fsigned-char -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
+        #AFL_LLVM_INSTRUMENT=AFL 
+        AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES_BITW=$BITS AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -fsigned-char -DINT_TYPE="$I" -o "$bin" "$testcase" > test.out 2>&1;
         if ! test -e "$bin"; then
             cat test.out
             $ECHO "$RED[!] llvm_mode laf-intel/compcov integer splitting failed! ($testcase with type $I split to $BITS)!";
@@ -257,13 +264,12 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   rm -f test-compcov test.out instrumentlist.txt
   AFL_LLVM_CMPLOG=1 ../afl-clang-fast -o test-cmplog test-cmplog.c > /dev/null 2>&1
-  ../afl-clang-fast -o test-c test-cmplog.c > /dev/null 2>&1
   test -e test-cmplog && {
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode cmplog, this will take approx 10 seconds"
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -m none -V30 -i in -o out -c./test-cmplog -- ./test-c >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c 0 -- ./test-cmplog >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
@@ -278,7 +284,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
     INCOMPLETE=1
   }
-  rm -rf errors test-cmplog test-c in core.*
+  rm -rf errors test-cmplog in core.*
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {

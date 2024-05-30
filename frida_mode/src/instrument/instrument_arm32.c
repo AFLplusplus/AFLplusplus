@@ -15,7 +15,7 @@ static GHashTable *coverage_blocks = NULL;
 
 extern __thread guint64 instrument_previous_pc;
 
-__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_SIZE];
+__attribute__((aligned(0x1000))) static guint8 area_ptr_dummy[MAP_INITIAL_SIZE];
 
   #pragma pack(push, 1)
 typedef struct {

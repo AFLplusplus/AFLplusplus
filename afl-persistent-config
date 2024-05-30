@@ -2,7 +2,7 @@
 # written by jhertz
 # 
 
-test "$1" = "-h" -o "$1" = "-hh" && {
+test "$1" = "-h" -o "$1" = "-hh" -o "$1" = "--help" && {
   echo 'afl-persistent-config'
   echo
   echo $0
@@ -16,6 +16,11 @@ test "$1" = "-h" -o "$1" = "-hh" && {
   echo configuration options.
   exit 0
 }
+
+if [ $# -ne 0 ]; then
+  echo "ERROR: Unknown option(s): $@"
+  exit 1
+fi
 
 echo
 echo "WARNING: This scripts makes permanent configuration changes to the system to"
@@ -33,6 +38,7 @@ fi
 
 echo
 PLATFORM=`uname -s`
+ARCH=`uname -m`
 
 # check that we're on Mac
 if [[ "$PLATFORM" = "Darwin" ]] ; then
@@ -82,6 +88,13 @@ if [[ "$PLATFORM" = "Darwin" ]] ; then
 </plist>
 EOF
 
+  if [[ "$ARCH" = "x86_64" ]]; then
+    echo "Disabling ASLR system wide"
+    nvram boot-args="no_aslr=1"
+  else
+    echo NOTICE: on ARM64 we do not know currently how to disable system wide ASLR, please report if you know how.
+  fi
+
   echo
   echo "Reboot and enjoy your fuzzing"
   exit 0
@@ -98,9 +111,9 @@ if [[ "$PLATFORM" = "Linux" ]] ; then
   echo "Checks passed."
 
   test -d /etc/sysctl.d || echo Error: /etc/sysctl.d directory not found, cannot install shmem config
-  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing && {
-    echo "Installing /etc/sysctl.d/99-fuzzing"
-    cat << EOF > /etc/sysctl.d/99-fuzzing
+  test -d /etc/sysctl.d -a '!' -e /etc/sysctl.d/99-fuzzing.conf && {
+    echo "Installing /etc/sysctl.d/99-fuzzing.conf"
+    cat << EOF > /etc/sysctl.d/99-fuzzing.conf
 kernel.core_uses_pid=0
 kernel.core_pattern=core
 kernel.randomize_va_space=0
@@ -111,16 +124,25 @@ kernel.sched_latency_ns=250000000
 EOF
   }
 
-  grep -E -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null || echo Error: /etc/default/grub with GRUB_CMDLINE_LINUX_DEFAULT is not present, cannot set boot options
-  grep -E -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null && {
-    grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | grep -E -q 'noibrs pcid nopti' || {
+  grub_try_disable_mitigation () {
+    KEY="$1"
+    if ! grep -E "^$KEY=" /etc/default/grub | grep -E -q 'noibrs pcid nopti'; then
       echo "Configuring performance boot options"
-      LINE=`grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | sed 's/^GRUB_CMDLINE_LINUX_DEFAULT=//' | tr -d '"'`
-      OPTIONS="$LINE ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs pcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=on pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx=on tsx_async_abort=off mitigations=off audit=0 hardened_usercopy=off ssbd=force-off"
-      echo Setting boot options in /etc/default/grub to GRUB_CMDLINE_LINUX_DEFAULT=\"$OPTIONS\"
-      sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$OPTIONS\"|" /etc/default/grub
-    }
+      LINE=`grep -E "^$KEY=" /etc/default/grub | sed "s/^$KEY=//" | tr -d '"'`
+      OPTIONS="$LINE ibpb=off ibrs=off kpti=off l1tf=off spec_rstack_overflow=off mds=off no_stf_barrier noibpb noibrs pcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=on pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off srbds=off noexec=off noexec32=off tsx=on tsx=on tsx_async_abort=off mitigations=off audit=0 hardened_usercopy=off ssbd=force-off"
+      echo Setting boot options in /etc/default/grub to $KEY=\"$OPTIONS\"
+      sed -i "s|^$KEY=.*|$KEY=\"$OPTIONS\"|" /etc/default/grub
+    fi
   }
+
+
+  if grep -E -q '^GRUB_CMDLINE_LINUX=' /etc/default/grub || grep -E -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
+    grub_try_disable_mitigation "GRUB_CMDLINE_LINUX_DEFAULT"
+    # We also overwrite GRUB_CMDLINE_LINUX because some distributions already overwrite GRUB_CMDLINE_LINUX_DEFAULT
+    grub_try_disable_mitigation "GRUB_CMDLINE_LINUX"
+  else
+    echo "Error: /etc/default/grub with GRUB_CMDLINE_LINUX is not present, cannot set boot options"
+  fi
 
   echo
   echo "Reboot and enjoy your fuzzing"

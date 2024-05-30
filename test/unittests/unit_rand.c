@@ -67,6 +67,7 @@ static void test_rand_below(void **state) {
     rand_set_seed(&afl, 1337);
 
     afl.fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    if (afl.fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
 
     assert(!(rand_below(&afl, 9000) > 9000));
     assert_int_equal(rand_below(&afl, 1), 0);

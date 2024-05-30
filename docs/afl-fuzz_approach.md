@@ -5,6 +5,10 @@ instrumentation-guided genetic algorithm. It uses a modified form of edge
 coverage to effortlessly pick up subtle, local-scale changes to program control
 flow.
 
+Note: If you are interested in a more current up-to-date deep dive how AFL++
+works then we commend this blog post:
+[https://blog.ritsec.club/posts/afl-under-hood/](https://blog.ritsec.club/posts/afl-under-hood/)
+
 Simplifying a bit, the overall algorithm can be summed up as:
 
 1) Load user-supplied initial test cases into the queue.
@@ -419,8 +423,8 @@ the process. Be sure to consult this file especially if any UI elements are
 highlighted in red.
 
 The fuzzing process will continue until you press Ctrl-C. At a minimum, you want
-to allow the fuzzer to complete one queue cycle, which may take anywhere from a
-couple of hours to a week or so.
+to allow the fuzzer to at least one queue cycle without any new finds, which may
+take anywhere from a couple of hours to a week or so.
 
 There are three subdirectories created within the output directory and updated
 in real-time:

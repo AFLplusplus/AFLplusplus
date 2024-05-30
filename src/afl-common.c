@@ -5,11 +5,11 @@
    Originally written by Michal Zalewski
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #endif
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 #include <math.h>
 #include <sys/mman.h>
 
@@ -57,6 +58,27 @@ u8  last_intr = 0;
 #ifndef AFL_PATH
   #define AFL_PATH "/usr/local/lib/afl/"
 #endif
+
+/* - Some BSD (i.e.: FreeBSD) offer the FAST clock source as
+ *   equivalent to Linux COARSE clock source. Aliasing COARSE to
+ *   FAST on such systems when COARSE is not already defined.
+ * - macOS has no support of CLOCK_MONOTONIC_COARSE clock type.
+ */
+#if defined(OS_DARWIN) || defined(OS_SUNOS) || defined(__APPLE__) || \
+    defined(__sun) || defined(__NetBSD__)
+  #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#elif defined(OS_FREEBSD)
+  #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST
+#endif
+
+/* Convert seconds to milliseconds. */
+#define SEC_TO_MS(sec) ((sec) * 1000)
+/* Convert seconds to microseconds. */
+#define SEC_TO_US(sec) ((sec) * 1000000)
+/* Convert nanoseconds to milliseconds. */
+#define NS_TO_MS(ns) ((ns) / 1000000)
+/* Convert nanoseconds to microseconds. */
+#define NS_TO_US(ns) ((ns) / 1000)
 
 void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen) {
@@ -86,9 +108,10 @@ void set_sanitizer_defaults() {
   u8 *have_lsan_options = getenv("LSAN_OPTIONS");
   u8  have_san_options = 0;
   u8  default_options[1024] =
-      "detect_odr_violation=0:abort_on_error=1:symbolize=0:allocator_may_"
-      "return_null=1:handle_segv=0:handle_sigbus=0:handle_abort=0:handle_"
-      "sigfpe=0:handle_sigill=0:";
+      "detect_odr_violation=0:abort_on_error=1:symbolize=0:"
+      "allocator_may_return_null=1:handle_segv=0:handle_sigbus=0:"
+      "handle_abort=0:handle_sigfpe=0:handle_sigill=0:"
+      "detect_stack_use_after_return=0:check_initialization_order=0:";
 
   if (have_asan_options || have_ubsan_options || have_msan_options ||
       have_lsan_options) {
@@ -98,12 +121,27 @@ void set_sanitizer_defaults() {
   }
 
   /* LSAN does not support abort_on_error=1. (is this still true??) */
+  u8 should_detect_leaks = 0;
 
   if (!have_lsan_options) {
 
     u8 buf[2048] = "";
     if (!have_san_options) { strcpy(buf, default_options); }
-    strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=1:malloc_context_size=30:");
+    if (have_asan_options) {
+
+      if (NULL != strstr(have_asan_options, "detect_leaks=0")) {
+
+        strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=0:malloc_context_size=0:");
+
+      } else {
+
+        should_detect_leaks = 1;
+        strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=1:malloc_context_size=30:");
+
+      }
+
+    }
+
     setenv("LSAN_OPTIONS", buf, 1);
 
   }
@@ -112,7 +150,15 @@ void set_sanitizer_defaults() {
 
   if (!have_lsan_options) {
 
-    strcat(default_options, "detect_leaks=0:malloc_context_size=0:");
+    if (should_detect_leaks) {
+
+      strcat(default_options, "detect_leaks=1:malloc_context_size=30:");
+
+    } else {
+
+      strcat(default_options, "detect_leaks=0:malloc_context_size=0:");
+
+    }
 
   }
 
@@ -403,7 +449,7 @@ u8 *find_binary(u8 *fname) {
 
           FATAL(
               "Unexpected overflow when processing ENV. This should never "
-              "happend.");
+              "had happened.");
 
         }
 
@@ -949,14 +995,18 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 /* Get unix time in milliseconds */
 
-u64 get_cur_time(void) {
+inline u64 get_cur_time(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timespec ts;
+  int             rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+  if (rc == -1) {
 
-  gettimeofday(&tv, &tz);
+    PFATAL("Failed to obtain timestamp (errno = %i: %s)\n", errno,
+           strerror(errno));
 
-  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
+  }
+
+  return SEC_TO_MS((uint64_t)ts.tv_sec) + NS_TO_MS((uint64_t)ts.tv_nsec);
 
 }
 
@@ -964,12 +1014,16 @@ u64 get_cur_time(void) {
 
 u64 get_cur_time_us(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timespec ts;
+  int             rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+  if (rc == -1) {
 
-  gettimeofday(&tv, &tz);
+    PFATAL("Failed to obtain timestamp (errno = %i: %s)\n", errno,
+           strerror(errno));
 
-  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
+  }
+
+  return SEC_TO_US((uint64_t)ts.tv_sec) + NS_TO_US((uint64_t)ts.tv_nsec);
 
 }
 
@@ -1291,6 +1345,35 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
     u_stringify_int(val_buf, t_d);
     sprintf(buf, "%s days, %d hrs, %d min, %d sec", val_buf, t_h, t_m, t_s);
+
+  }
+
+  return buf;
+
+}
+
+/* Unsafe describe time delta as simple string.
+   Returns a pointer to buf for convenience. */
+
+u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
+
+  if (!event_ms) {
+
+    sprintf(buf, "00:00:00");
+
+  } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+
+    delta = cur_ms - event_ms;
+
+    t_d = delta / 1000 / 60 / 60 / 24;
+    t_h = (delta / 1000 / 60 / 60) % 24;
+    t_m = (delta / 1000 / 60) % 60;
+    t_s = (delta / 1000) % 60;
+
+    sprintf(buf, "%d:%02d:%02d:%02d", t_d, t_h, t_m, t_s);
 
   }
 

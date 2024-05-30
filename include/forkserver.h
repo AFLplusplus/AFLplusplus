@@ -7,12 +7,12 @@
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
                      Andrea Fioraldi <andreafioraldi@gmail.com>,
                      Dominik Maier <mail@dmnk.co>>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,6 +86,8 @@ typedef struct {
                                  uint32_t size);
 
   bool (*nyx_remove_work_dir)(const char *workdir);
+  bool (*nyx_config_set_aux_buffer_size)(void    *config,
+                                         uint32_t aux_buffer_size);
 
 } nyx_plugin_handler_t;
 
@@ -124,7 +126,8 @@ typedef struct afl_forkserver {
   u8 *out_file,                         /* File to fuzz, if any             */
       *target_path;                     /* Path of the target               */
 
-  FILE *plot_file;                      /* Gnuplot output file              */
+  FILE *plot_file,                      /* Gnuplot output file              */
+      *det_plot_file;
 
   /* Note: last_run_timed_out is u32 to send it to the child as 4 byte array */
   u32 last_run_timed_out;               /* Traced process timed out?        */
@@ -185,6 +188,8 @@ typedef struct afl_forkserver {
 
   u8 persistent_mode;
 
+  u32 max_length;
+
 #ifdef __linux__
   nyx_plugin_handler_t *nyx_handlers;
   char                 *out_dir_path;    /* path to the output directory     */
@@ -195,8 +200,10 @@ typedef struct afl_forkserver {
   u32                   nyx_id;          /* nyx runner id (0 -> master)      */
   u32                   nyx_bind_cpu_id; /* nyx runner cpu id                */
   char                 *nyx_aux_string;
+  u32                   nyx_aux_string_len;
   bool                  nyx_use_tmp_workdir;
   char                 *nyx_tmp_workdir_path;
+  s32                   nyx_log_fd;
 #endif
 
 } afl_forkserver_t;

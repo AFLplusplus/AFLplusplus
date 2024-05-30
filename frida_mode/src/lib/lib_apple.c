@@ -17,8 +17,8 @@ static gboolean lib_get_main_module(const GumModuleDetails *details,
 
   GumDarwinModule **ret = (GumDarwinModule **)user_data;
   GumDarwinModule  *module = gum_darwin_module_new_from_memory(
-       details->path, mach_task_self(), details->range->base_address,
-       GUM_DARWIN_MODULE_FLAGS_NONE, NULL);
+      details->path, mach_task_self(), details->range->base_address,
+      GUM_DARWIN_MODULE_FLAGS_NONE, NULL);
 
   FVERBOSE("Found main module: %s", module->name);
 

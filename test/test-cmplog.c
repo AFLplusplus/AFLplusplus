@@ -8,16 +8,11 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *buf, size_t i) {
 
-  if (i < 30) return -1;
+  if (i < 15) return -1;
   if (buf[0] != 'A') return 0;
-  if (buf[1] != 'B') return 0;
-  if (buf[2] != 'C') return 0;
-  if (buf[3] != 'D') return 0;
-  int *icmp = (int *)(buf + 4);
+  int *icmp = (int *)(buf + 1);
   if (*icmp != 0x69694141) return 0;
-  if (memcmp(buf + 8, "1234", 4) || memcmp(buf + 12, "EFGH", 4)) return 0;
-  if (strncmp(buf + 16, "IJKL", 4) == 0 && strcmp(buf + 20, "DEADBEEF") == 0)
-    abort();
+  if (memcmp(buf + 5, "1234EF", 6) == 0) abort();
   return 0;
 
 }

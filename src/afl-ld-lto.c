@@ -5,11 +5,11 @@
   Written by Marc Heuse <mh@mh-sec.de> for AFL++
 
   Maintained by Marc Heuse <mh@mh-sec.de>,
-                Heiko Eißfeldt <heiko.eissfeldt@hexco.de>
+                Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
                 Andrea Fioraldi <andreafioraldi@gmail.com>
                 Dominik Maier <domenukk@gmail.com>
 
-  Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+  Copyright 2019-2024 AFLplusplus Project. All rights reserved.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@
 */
 
 #define AFL_MAIN
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+  #define _GNU_SOURCE
+#endif
 
 #include "config.h"
 #include "types.h"
@@ -37,6 +39,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -44,11 +47,6 @@
 #include <sys/time.h>
 
 #include <dirent.h>
-
-#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || \
-    defined(__DragonFly__)
-  #include <limits.h>
-#endif
 
 #ifdef __APPLE__
   #include <sys/syslimits.h>
@@ -280,7 +278,7 @@ int main(int argc, char **argv) {
   if (getenv("AFL_LD_PASSTHROUGH") != NULL) passthrough = 1;
   if (getenv("AFL_REAL_LD") != NULL) real_ld = getenv("AFL_REAL_LD");
 
-  if (!afl_path || !*afl_path) afl_path = "/usr/local/lib/afl";
+  if (!afl_path || !*afl_path) afl_path = AFL_PATH;
 
   setenv("AFL_LD_CALLER", "1", 1);
 

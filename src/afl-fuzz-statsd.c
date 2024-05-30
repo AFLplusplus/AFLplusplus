@@ -223,7 +223,7 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
   char tags[MAX_TAG_LEN * 2] = {0};
   if (afl->statsd_tags_format) {
 
-    snprintf(tags, MAX_TAG_LEN * 2, afl->statsd_tags_format, afl->use_banner,
+    snprintf(tags, MAX_TAG_LEN * 2, afl->statsd_tags_format, afl->sync_id,
              VERSION);
 
   }
