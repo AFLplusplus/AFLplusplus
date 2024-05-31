@@ -578,7 +578,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
 
     fsrv->nyx_handlers->nyx_config_set_workdir_path(nyx_config, workdir_path);
-    fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config, fsrv->max_length);
+    fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config,
+                                                         fsrv->max_length);
     fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config,
                                                                      true);
 
