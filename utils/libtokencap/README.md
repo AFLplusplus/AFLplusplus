@@ -69,3 +69,21 @@ need to be changed for other OSes.
 
 Current supported OSes are: Linux, Darwin, FreeBSD (thanks to @devnexen)
 
+Also, the following example (make_dict_v2.sh) shows how to use a script to capture tokens from the 
+files in the target output directory, 
+and then generate a dictionary file from those tokens.
+
+#### usage:
+```bash
+./make_dict_v2.sh -p /path/to/libtokencap.so -b /path/to/target/program -o /path/to/target/output -t 5
+```
+#### description opts:
+- ```-o``` : Path to target output directory ;
+- ```-b``` : Path to target program binary ;
+- ```-p``` : Path to LD_PRELOAD library ;
+- ```-t``` : Timeout in seconds
+ 
+#### output:
+The script generates a temporary token file (```temp_output.txt```) in the current working directory, 
+containing tokens captured during the execution of the target binary.
+A sorted and unique token dictionary file is created in the same directory as the target output, with a ```*.dict``` extension.
