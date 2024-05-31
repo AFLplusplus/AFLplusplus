@@ -1,32 +1,28 @@
-#default values
-timeout_sec=5
-LD_PRELOAD_PATH="/home/${USER}/AFLplusplus/utils/libtokencap/libtokencap.so"
-
 #help
 usage() {
-    echo "Usage: $0 -o <target_output> -b <target_bin> [-t <timeout_sec>] [-p <LD_PRELOAD_PATH>]"
+    echo "Usage: $0 -o <target_output> -b <target_bin> -p <LD_PRELOAD_PATH> [-t <timeout_sec>]"
     echo "Options:"
     echo "  -o  Path to target output directory"
     echo "  -b  Path to target program binary"
-    echo "  -t  Timeout in seconds (default: 5)"
-    echo "  -p  Path to LD_PRELOAD library (default: ${LD_PRELOAD_PATH})"
+    echo "  -p  Path to LD_PRELOAD library"
+    echo "  -t  Timeout in seconds"
     exit 1
 }
 
 #parse cli options
-while getopts ":o:b:t:p:" opt; do
+while getopts ":o:b:p:t:" opt; do
     case $opt in
         o) target_output="$OPTARG" ;;
         b) target_bin="$OPTARG" ;;
-        t) timeout_sec="$OPTARG" ;;
         p) LD_PRELOAD_PATH="$OPTARG" ;;
+        t) timeout_sec="$OPTARG" ;;
         \?) echo "Invalid option: -$OPTARG" >&2; usage ;;
-        :) echo "Option -$OPTARG requires an args" >&2; usage ;;
+        :) echo "Option -$OPTARG requires an argument." >&2; usage ;;
     esac
 done
 
 #check options
-if [ -z "$target_output" ] || [ -z "$target_bin" ]; then
+if [ -z "$target_output" ] || [ -z "$target_bin" ] || [ -z "$LD_PRELOAD_PATH" ]; then
     echo "Error: Missing mandatory opts" >&2
     usage
 fi
