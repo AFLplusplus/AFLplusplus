@@ -999,7 +999,7 @@ inline u64 get_cur_time(void) {
 
   struct timespec ts;
   int             rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
-  if (rc == -1) {
+  if (unlikely(rc == -1)) {
 
     PFATAL("Failed to obtain timestamp (errno = %i: %s)\n", errno,
            strerror(errno));
@@ -1012,11 +1012,11 @@ inline u64 get_cur_time(void) {
 
 /* Get unix time in microseconds */
 
-u64 get_cur_time_us(void) {
+inline u64 get_cur_time_us(void) {
 
   struct timespec ts;
   int             rc = clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
-  if (rc == -1) {
+  if (unlikely(rc == -1)) {
 
     PFATAL("Failed to obtain timestamp (errno = %i: %s)\n", errno,
            strerror(errno));
