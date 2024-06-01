@@ -229,7 +229,7 @@ static void at_exit_handler(void) {
     if (shm.map) afl_shm_deinit(&shm);
     if ((shm_fuzz && shm_fuzz->shmemfuzz_mode) || fsrv->use_shmem_fuzz) {
 
-      deinit_shmem(fsrv, shm_fuzz);
+      shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
     }
 
@@ -1702,7 +1702,6 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz) {
 
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
-      shm_fuzz->shmemfuzz_mode = 0;
 
     }
 
@@ -1740,7 +1739,6 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz) {
 
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
-      shm_fuzz->shmemfuzz_mode = 0;
 
     }
 
@@ -1792,12 +1790,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   remove_shm = false;
   afl_shm_deinit(&shm);
-  if (fsrv->use_shmem_fuzz) {
-
-    shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
-    shm_fuzz->shmemfuzz_mode = 0;
-
-  }
+  if (fsrv->use_shmem_fuzz) { shm_fuzz = deinit_shmem(fsrv, shm_fuzz); }
 
   u32 ret;
 
