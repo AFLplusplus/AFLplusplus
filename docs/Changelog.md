@@ -5,6 +5,9 @@
 
 ### Version ++4.21a (dev)
   * afl-fuzz
+    - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
+      do a switch from gettimeofday() to clock_gettime() which should be rather
+      three times faster. The reason for this is unknown.
     - added AFL_DISABLE_REDUNDANT for huge queues
     - fix AFL_PERSISTENT_RECORD
     - run custom_post_process after standard trimming
