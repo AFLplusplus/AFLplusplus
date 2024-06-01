@@ -139,6 +139,10 @@
   #define AFL_RAND_RETURN u32
 #endif
 
+#ifndef INTERESTING_32_LEN
+  #error INTERESTING_32_LEN not defined - BUG!
+#endif
+
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32

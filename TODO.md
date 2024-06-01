@@ -17,6 +17,7 @@
 ## Should
 
  - afl-crash-analysis
+ - cmplog: add loop count resolving (byte -> loop cnt change, calc special values)
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
  - afl-plot to support multiple plot_data

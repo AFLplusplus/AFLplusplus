@@ -322,7 +322,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
   u64 runtime_ms = afl->prev_run_time + cur_time - afl->start_time;
-  u64 overhead_ms = (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us) / 1000;
+  u64 overhead_ms =
+      (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us) / 1000;
   if (!runtime_ms) { runtime_ms = 1; }
 
   fprintf(
@@ -632,7 +633,8 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (afl->most_time_key && afl->queue_cycle) {
 
-    if (afl->most_time * 1000 + afl->sync_time_us / 1000 < cur_ms - afl->start_time) {
+    if (afl->most_time * 1000 + afl->sync_time_us / 1000 <
+        cur_ms - afl->start_time) {
 
       afl->most_time_key = 2;
       afl->stop_soon = 2;
@@ -1329,7 +1331,9 @@ void show_stats_normal(afl_state_t *afl) {
 
     sprintf(tmp, "disabled, ");
 
-  } else if (unlikely(!afl->bytes_trim_out)) {
+  } else if (unlikely(!afl->bytes_trim_out ||
+
+                      afl->bytes_trim_in <= afl->bytes_trim_out)) {
 
     sprintf(tmp, "n/a, ");
 
@@ -1346,7 +1350,9 @@ void show_stats_normal(afl_state_t *afl) {
 
     strcat(tmp, "disabled");
 
-  } else if (unlikely(!afl->blocks_eff_total)) {
+  } else if (unlikely(!afl->blocks_eff_total ||
+
+                      afl->blocks_eff_select >= afl->blocks_eff_total)) {
 
     strcat(tmp, "n/a");
 
@@ -1462,7 +1468,8 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (afl->most_time_key && afl->queue_cycle) {
 
-    if (afl->most_time * 1000 + afl->sync_time_us / 1000 < cur_ms - afl->start_time) {
+    if (afl->most_time * 1000 + afl->sync_time_us / 1000 <
+        cur_ms - afl->start_time) {
 
       afl->most_time_key = 2;
       afl->stop_soon = 2;
@@ -2503,3 +2510,4 @@ void update_sync_time(afl_state_t *afl, u64 *time) {
   *time = cur;
 
 }
+

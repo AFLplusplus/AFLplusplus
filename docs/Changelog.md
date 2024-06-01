@@ -5,6 +5,9 @@
 
 ### Version ++4.21a (dev)
   * afl-fuzz
+    - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
+      do a switch from gettimeofday() to clock_gettime() which should be rather
+      three times faster. The reason for this is unknown.
     - added AFL_DISABLE_REDUNDANT for huge queues
     - fix AFL_PERSISTENT_RECORD
     - run custom_post_process after standard trimming
@@ -23,9 +26,11 @@
     - disable xml/curl/g_ string transform functions because we do not check
       for null pointers ... TODO
     - ensure shared memory variables are visible in weird build setups
+    - compatability to new LLVM 19 changes
   * afl-cmin
     - work with input files that have a space
   * afl-showmap
+    - fix memory leak on shmem testcase usage (thanks to @ndrewh)
     - minor fix to collect coverage -C (thanks to @bet4it)
   * enhanced the ASAN configuration
 
@@ -63,11 +68,12 @@
   - afl-whatsup:
     - now also displays current average speed
     - small bugfixes
-  - Fixes for aflpp custom mutator and standalone tool
+  - custom mutators:
+    - fixes for aflpp custom mutator and standalone tool
+    - important fix to the symcc custom mutator
   - Minor edits to afl-persistent-config
   - Prevent temporary files being left behind on aborted afl-whatsup
   - More CPU benchmarks added to benchmark/
-
 
 ### Version ++4.10c (release)
   - afl-fuzz:
