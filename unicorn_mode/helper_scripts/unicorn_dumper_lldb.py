@@ -136,7 +136,7 @@ def overlap_alignments(segments, memory):
 
 # https://github.com/llvm-mirror/llvm/blob/master/include/llvm/ADT/Triple.h
 def get_arch():
-    arch, arch_vendor, arch_os = lldb.target.GetTriple().split("-")
+    arch, arch_vendor, arch_os, *arch_remains = lldb.debugger.GetSelectedTarget().GetTriple().split("-")
     if arch == "x86_64":
         return "x64"
     elif arch == "x86" or arch == "i386":
@@ -165,7 +165,7 @@ def dump_arch_info():
 
 def dump_regs():
     reg_state = {}
-    for reg_list in lldb.frame.GetRegisters():
+    for reg_list in lldb.debugger.GetSelectedTarget().GetProcess().GetSelectedThread().GetSelectedFrame().GetRegisters():
         if "general purpose registers" in reg_list.GetName().lower():
             for reg in reg_list:
                 reg_state[reg.GetName()] = int(reg.GetValue(), 16)
@@ -180,8 +180,9 @@ def get_section_info(sec):
     module_name = sec.addr.module.file.GetFilename()
     module_name = module_name if module_name is not None else ""
     long_name = module_name + "." + name
+    load_addr = sec.addr.GetLoadAddress(lldb.debugger.GetSelectedTarget())
 
-    return sec.addr.load_addr, (sec.addr.load_addr + sec.size), sec.size, long_name
+    return load_addr, (load_addr + sec.size), sec.size, long_name
 
 
 def dump_process_memory(output_dir):
@@ -191,7 +192,7 @@ def dump_process_memory(output_dir):
 
     # 1st pass:
     # Loop over the segments, fill in the segment info dictionary
-    for module in lldb.target.module_iter():
+    for module in lldb.debugger.GetSelectedTarget().module_iter():
         for seg_ea in module.section_iter():
             seg_info = {"module": module.file.GetFilename()}
             (
@@ -201,8 +202,8 @@ def dump_process_memory(output_dir):
                 seg_info["name"],
             ) = get_section_info(seg_ea)
             # TODO: Ugly hack for -1 LONG address on 32-bit
-            if seg_info["start"] >= sys.maxint or seg_size <= 0:
-                print "Throwing away page: {}".format(seg_info["name"])
+            if seg_info["start"] >= sys.maxsize or seg_size <= 0:
+                print ("Throwing away page: {}".format(seg_info["name"]))
                 continue
 
             # Page-align segment
@@ -212,7 +213,7 @@ def dump_process_memory(output_dir):
             raw_segment_list.append(seg_info)
 
     # Add the stack memory region (just hardcode 0x1000 around the current SP)
-    sp = lldb.frame.GetSP()
+    sp = lldb.debugger.GetSelectedTarget().GetProcess().GetSelectedThread().GetSelectedFrame().GetSP()
     start_sp = ALIGN_PAGE_DOWN(sp)
     raw_segment_list.append(
         {"start": start_sp, "end": start_sp + 0x1000, "name": "STACK"}
@@ -228,7 +229,7 @@ def dump_process_memory(output_dir):
     start_addr = -1
     next_region_addr = 0
     while next_region_addr > start_addr:
-        err = lldb.process.GetMemoryRegionInfo(next_region_addr, mem_info)
+        err = lldb.debugger.GetSelectedTarget().GetProcess().GetMemoryRegionInfo(next_region_addr, mem_info)
         # TODO: Should check err.success.  If False, what do we do?
         if not err.success:
             break
@@ -267,7 +268,7 @@ def dump_process_memory(output_dir):
             region_name = seg_info["name"]
             # Compress and dump the content to a file
             err = lldb.SBError()
-            seg_content = lldb.process.ReadMemory(
+            seg_content = lldb.debugger.GetSelectedTarget().GetProcess().ReadMemory(
                 start_addr, end_addr - start_addr, err
             )
             if seg_content == None:
@@ -340,11 +341,12 @@ def main():
         index_file.close()
         print ("Done.")
 
-    except Exception, e:
+    except Exception as e:
         print ("!!! ERROR:\n\t{}".format(repr(e)))
 
 
 if __name__ == "__main__":
+    lldb.debugger = lldb.SBDebugger.Create()
     main()
 elif lldb.debugger:
     main()

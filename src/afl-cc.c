@@ -2366,8 +2366,7 @@ static void add_aflpplib(aflcc_state_t *aflcc) {
     insert_param(aflcc, afllib);
 
 #ifdef __APPLE__
-    insert_param(aflcc, "-Wl,-undefined");
-    insert_param(aflcc, "dynamic_lookup");
+    insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
 #endif
 
   }
@@ -2844,7 +2843,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "  The best is LTO but it often needs RANLIB and AR settings outside "
         "of afl-cc.\n\n");
 
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_MAJOR >= 11 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   #define NATIVE_MSG                                                   \
     "  LLVM-NATIVE:  use llvm's native PCGUARD instrumentation (less " \
     "performant)\n"

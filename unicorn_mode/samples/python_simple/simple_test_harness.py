@@ -119,7 +119,7 @@ def main():
     binary_code = binary_file.read()
     binary_file.close()
 
-    # Apply constraints to the mutated input
+    # Assert that the binary size is within limits
     if len(binary_code) > CODE_SIZE_MAX:
         print("Binary code is too large (> {} bytes)".format(CODE_SIZE_MAX))
         return

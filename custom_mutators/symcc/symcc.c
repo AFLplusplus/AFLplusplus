@@ -22,10 +22,10 @@ afl_state_t *afl_struct;
 typedef struct my_mutator {
 
   afl_state_t *afl;
-  u8 *         mutator_buf;
-  u8 *         out_dir;
-  u8 *         tmp_dir;
-  u8 *         target;
+  u8          *mutator_buf;
+  u8          *out_dir;
+  u8          *tmp_dir;
+  u8          *target;
   uint32_t     seed;
 
 } my_mutator_t;
@@ -101,7 +101,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
 /* When a new queue entry is added we run this input with the symcc
    instrumented binary */
-uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
+uint8_t afl_custom_queue_new_entry(my_mutator_t  *data,
                                    const uint8_t *filename_new_queue,
                                    const uint8_t *filename_orig_queue) {
 
@@ -176,7 +176,7 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
 
     struct dirent **nl;
     int32_t         items = scandir(data->tmp_dir, &nl, NULL, NULL);
-    u8 *            origin_name = basename(filename_new_queue);
+    u8             *origin_name = basename(filename_new_queue);
     int32_t         i;
     if (items > 0) {
 
@@ -187,8 +187,8 @@ uint8_t afl_custom_queue_new_entry(my_mutator_t * data,
         DBG("test=%s\n", fn);
         if (stat(source_name, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
 
-          u8 *destination_name =
-              alloc_printf("%s/%s.%s", data->out_dir, origin_name, nl[i]->d_name);
+          u8 *destination_name = alloc_printf("%s/%s.%s", data->out_dir,
+                                              origin_name, nl[i]->d_name);
           rename(source_name, destination_name);
           ck_free(destination_name);
           DBG("found=%s\n", source_name);
@@ -248,7 +248,7 @@ uint32_t afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf,
     for (i = 0; i < (u32)items; ++i) {
 
       struct stat st;
-      u8 *        fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
+      u8         *fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
       DBG("test=%s\n", fn);
       if (stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
 
@@ -282,12 +282,12 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   if (items <= 0) return 0;
 
-  for (i = 0; i < (u32)items; ++i) {
+  for (i = 0; i < (s32)items; ++i) {
 
-    struct stat st;
-    u8 *        fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
+    if (!done) {
 
-    if (done == 0) {
+      struct stat st;
+      u8         *fn = alloc_printf("%s/%s", data->out_dir, nl[i]->d_name);
 
       if (stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
 
@@ -306,10 +306,10 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
       }
 
       unlink(fn);
+      ck_free(fn);
 
     }
 
-    ck_free(fn);
     free(nl[i]);
 
   }
