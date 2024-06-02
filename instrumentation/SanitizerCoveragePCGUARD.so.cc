@@ -660,14 +660,10 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   }
 
-  InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
-  // InjectTraceForCmp(F, CmpTraceTargets);
-  // InjectTraceForSwitch(F, SwitchTraceTargets);
-
   unsigned int score = 0;
 
-  if (dump_cc) { score = calcCyclomaticComplexity(&F, LI); }
-  if (dump_vc) { score = calcVulnerabilityScore(&F, LI, DT, PDT); }
+  if (dump_cc) { score += calcCyclomaticComplexity(&F, LI); }
+  if (dump_vc) { score += calcVulnerabilityScore(&F, LI, DT, PDT); }
 
   if (score) {
 
@@ -708,6 +704,10 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
     Store->setAlignment(llvm::Align(1));
 
   }
+
+  InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
+  // InjectTraceForCmp(F, CmpTraceTargets);
+  // InjectTraceForSwitch(F, SwitchTraceTargets);
 
 }
 

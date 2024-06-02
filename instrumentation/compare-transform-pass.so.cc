@@ -57,6 +57,12 @@
 #include <set>
 #include "afl-llvm-common.h"
 
+#if LLVM_MAJOR >= 19
+  #define STARTSWITH starts_with
+#else
+  #define STARTSWITH startswith
+#endif
+
 using namespace llvm;
 
 namespace {
@@ -531,17 +537,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
-#if LLVM_VERSION_MAJOR < 19
-  #define FUCKLLVM startswith
-#else
-  #define FUCKLLVM starts_with
-#endif
-
     if (!isSizedcmp) needs_null = true;
-    if (Callee->getName().FUCKLLVM("g_") ||
-        Callee->getName().FUCKLLVM("curl_") ||
-        Callee->getName().FUCKLLVM("Curl_") ||
-        Callee->getName().FUCKLLVM("xml"))
+    if (Callee->getName().STARTSWITH("g_") ||
+        Callee->getName().STARTSWITH("curl_") ||
+        Callee->getName().STARTSWITH("Curl_") ||
+        Callee->getName().STARTSWITH("xml"))
       nullCheck = true;
 
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;

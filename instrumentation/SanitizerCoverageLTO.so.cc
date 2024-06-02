@@ -60,6 +60,8 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
 
 #include "config.h"
 #include "debug.h"
@@ -172,6 +174,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
 }
 
+using LoopInfoCallback = function_ref<const LoopInfo *(Function &F)>;
 using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
 using PostDomTreeCallback =
     function_ref<const PostDominatorTree *(Function &F)>;
@@ -187,13 +190,15 @@ class ModuleSanitizerCoverageLTO
   }
 
   bool instrumentModule(Module &M, DomTreeCallback DTCallback,
-                        PostDomTreeCallback PDTCallback);
+                        PostDomTreeCallback PDTCallback,
+                        LoopInfoCallback    LCallback);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
   void instrumentFunction(Function &F, DomTreeCallback DTCallback,
-                          PostDomTreeCallback PDTCallback);
+                          PostDomTreeCallback PDTCallback,
+                          LoopInfoCallback    LCallback);
   /*  void            InjectCoverageForIndirectCalls(Function               &F,
                                                    ArrayRef<Instruction *>
      IndirCalls);*/
@@ -250,6 +255,7 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         afl_global_id = 0;
   uint32_t                         unhandled = 0;
   uint32_t                         select_cnt = 0;
+  uint32_t                         dump_cc = 0, dump_vc = 0;
   uint32_t                         instrument_ctx = 0;
   uint32_t                         instrument_ctx_max_depth = 0;
   uint32_t                         extra_ctx_inst = 0;
@@ -291,6 +297,7 @@ class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
 
   }
 
@@ -319,7 +326,15 @@ class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
     };
 
-    return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
+    auto LoopCallback = [this](Function &F) -> const LoopInfo * {
+
+      return &this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+    };
+
+    ModuleSancov.instrumentModule(M, DTCallback, PDTCallback, LoopCallback);
+
+    return 1;
 
   }
 
@@ -372,15 +387,21 @@ PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module                &M,
 
   };
 
-  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
-    return PreservedAnalyses::none();
+  auto LoopCallback = [&FAM](Function &F) -> const LoopInfo * {
 
-  return PreservedAnalyses::all();
+    return &FAM.getResult<LoopAnalysis>(F);
+
+  };
+
+  ModuleSancov.instrumentModule(M, DTCallback, PDTCallback, LoopCallback);
+
+  return PreservedAnalyses::none();
 
 }
 
 bool ModuleSanitizerCoverageLTO::instrumentModule(
-    Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+    Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback,
+    LoopInfoCallback LCallback) {
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
   /*
@@ -473,6 +494,10 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
     be_quiet = 1;
 
   }
+
+  if (getenv("AFL_DUMP_CYCLOMATIC_COMPLEXITY")) { dump_cc = 1; }
+
+  if (getenv("AFL_DUMP_VULNERABILITY_COMPLEXITY")) { dump_vc = 1; }
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
@@ -1057,7 +1082,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   //    M.getOrInsertFunction(SanCovTracePCGuardName, VoidTy, Int32PtrTy);
 
   for (auto &F : M)
-    instrumentFunction(F, DTCallback, PDTCallback);
+    instrumentFunction(F, DTCallback, PDTCallback, LCallback);
 
   // AFL++ START
   if (dFile.is_open()) dFile.close();
@@ -1347,7 +1372,8 @@ Function *returnOnlyCaller(Function *F) {
 }
 
 void ModuleSanitizerCoverageLTO::instrumentFunction(
-    Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+    Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback,
+    LoopInfoCallback LCallback) {
 
   if (F.empty()) return;
   if (F.getName().find(".module_ctor") != std::string::npos)
@@ -1421,6 +1447,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   const DominatorTree     *DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
+  const LoopInfo          *LI = LCallback(F);
   bool                     IsLeafFunc = true;
   uint32_t                 skip_next = 0;
   uint32_t                 call_counter = 0, call_depth = 0;
@@ -1952,6 +1979,51 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           }
 
         }*/
+
+  }
+
+  unsigned int score = 0;
+
+  if (dump_cc) { score += calcCyclomaticComplexity(&F, LI); }
+  if (dump_vc) { score += calcVulnerabilityScore(&F, LI, DT, PDT); }
+
+  if (score) {
+
+    BasicBlock::iterator IP = F.getEntryBlock().getFirstInsertionPt();
+    IRBuilder<>          builder(&*IP);
+
+    // Access the int32 value at u8 offset 1 (unaligned access)
+    LoadInst *MapPtr =
+        builder.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+    llvm::Value *CastToInt8Ptr =
+        builder.CreateBitCast(MapPtr, llvm::PointerType::get(Int8Ty, 0));
+    llvm::Value *Int32Ptr = builder.CreateGEP(
+        Int8Ty, CastToInt8Ptr, llvm::ConstantInt::get(Int32Ty, 1));
+    llvm::Value *CastToInt32Ptr =
+        builder.CreateBitCast(Int32Ptr, llvm::PointerType::get(Int32Ty, 0));
+
+    // Load the unaligned int32 value
+    llvm::LoadInst *Load = builder.CreateLoad(Int32Ty, CastToInt32Ptr);
+    Load->setAlignment(llvm::Align(1));
+
+    // Value to add
+    llvm::Value *ValueToAdd = llvm::ConstantInt::get(Int32Ty, score);
+
+    // Perform addition and check for wrap around
+    llvm::Value *Add =
+        builder.CreateAdd(Load, ValueToAdd, "addValue", true, true);
+
+    // Check if addition wrapped (unsigned)
+    llvm::Value *DidWrap = builder.CreateICmpULT(Add, Load, "didWrap");
+
+    // Select the maximum value if there was a wrap, otherwise use the result
+    llvm::Value *MaxInt32 = llvm::ConstantInt::get(Int32Ty, UINT32_MAX);
+    llvm::Value *Result =
+        builder.CreateSelect(DidWrap, MaxInt32, Add, "selectMaxOrResult");
+
+    // Store the result back at the same unaligned offset
+    llvm::StoreInst *Store = builder.CreateStore(Result, CastToInt32Ptr);
+    Store->setAlignment(llvm::Align(1));
 
   }
 
