@@ -83,6 +83,8 @@ static u32 tcnt, highest;              /* tuple content information         */
 
 static u32 in_len;                     /* Input data length                 */
 
+static u32 score;
+
 static u32 map_size = MAP_SIZE, timed_out = 0;
 
 static bool quiet_mode,                /* Hide non-essential messages?      */
@@ -238,6 +240,13 @@ static void at_exit_handler(void) {
 static void analyze_results(afl_forkserver_t *fsrv) {
 
   u32 i;
+
+  if (unlikely((score = *(u32 *)((u8 *)fsrv->trace_bits + 1)) > 0)) {
+
+    memset(fsrv->trace_bits + 1, 0, 4);
+
+  }
+
   for (i = 0; i < map_size; i++) {
 
     if (fsrv->trace_bits[i]) {
@@ -266,6 +275,12 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   if (!outfile || !*outfile) {
 
     FATAL("Output filename not set (Bug in AFL++?)");
+
+  }
+
+  if (unlikely((score = *(u32 *)((u8 *)fsrv->trace_bits + 1)) > 0)) {
+
+    memset(fsrv->trace_bits + 1, 0, 4);
 
   }
 
@@ -1766,11 +1781,19 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Captured %u tuples (map size %u, highest value %u, total values %llu) "
         "in '%s'." cRST,
         tcnt, fsrv->real_map_size, highest, total, out_file);
-    if (collect_coverage)
+    if (collect_coverage) {
+
       OKF("A coverage of %u edges were achieved out of %u existing (%.02f%%) "
           "with %llu input files.",
           tcnt, map_size, ((float)tcnt * 100) / (float)map_size,
           fsrv->total_execs);
+
+    } else if (score > 0) {
+
+      OKF("Path score is %u (cyclomatic and/or vulnerability scoring).\n",
+          score);
+
+    }
 
   }
 
