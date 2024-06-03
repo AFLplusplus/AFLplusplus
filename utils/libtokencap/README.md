@@ -75,15 +75,15 @@ and then generate a dictionary file from those tokens.
 
 #### usage:
 ```bash
-./generate_libtoken_dict.sh -p /path/to/libtokencap.so -b /path/to/target/program -o /path/to/target/output -t 5
+./generate_libtoken_dict.sh -p /path/to/libtokencap.so -b /path/to/target/program -o /path/to/target/output -t 5 -- [-program_args]
 ```
 #### description opts:
 - ```-o``` : Path to target output directory ;
 - ```-b``` : Path to target program binary ;
 - ```-p``` : Path to LD_PRELOAD library ;
-- ```-t``` : Timeout in seconds
+- ```-t``` : Timeout in seconds ;
+- ```-- [-program_args]```: Any additional arguments required by the target binary can be specified after ```--```.
  
 #### output:
-The script generates a temporary token file (```temp_output.txt```) in the current working directory, 
-containing tokens captured during the execution of the target binary.
-A sorted and unique token dictionary file is created in the same directory as the target output, with a ```*.dict``` extension.
+A sorted and unique token dictionary file with the extension ``*.dict`` 
+is created in the same directory as the target output containing tokens captured during the execution of the target binary.
