@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <math.h>
+#include <xgboost/c_api.h>
 
 #ifdef _STANDALONE_MODULE
 void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
@@ -117,7 +118,7 @@ void create_alias_table(afl_state_t *afl) {
 
     double avg_exec_us = 0.0;
     double avg_bitmap_size = 0.0;
-    double avg_top_size = 0.0;
+    double avg_len = 0.0;
     u32    active = 0;
 
     for (i = 0; i < n; i++) {
@@ -128,8 +129,8 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         avg_exec_us += q->exec_us;
-        avg_bitmap_size += log(q->bitmap_size);
-        avg_top_size += q->tc_ref;
+        avg_bitmap_size += q->bitmap_size;
+        avg_len += q->len;
         ++active;
 
       }
@@ -138,7 +139,10 @@ void create_alias_table(afl_state_t *afl) {
 
     avg_exec_us /= active;
     avg_bitmap_size /= active;
-    avg_top_size /= active;
+    avg_len /= active;
+
+    float *table = malloc((active + 1) * 3 * sizeof(float));
+    float *pentry = table;
 
     for (i = 0; i < n; i++) {
 
@@ -146,28 +150,47 @@ void create_alias_table(afl_state_t *afl) {
 
       if (likely(!q->disabled)) {
 
-        q->weight =
-            compute_weight(afl, q, avg_exec_us, avg_bitmap_size, avg_top_size);
+        *pentry++ = q->len / avg_len;
+        *pentry++ = q->exec_us / avg_exec_us;
+        *pentry++ = q->bitmap_size / avg_bitmap_size;
         q->perf_score = calculate_score(afl, q);
-        sum += q->weight;
 
       }
 
     }
 
-    if (unlikely(afl->schedule == MMOPT) && afl->queued_discovered) {
+    DMatrixHandle dtest;
+    BoosterHandle booster;
 
-      u32 cnt = afl->queued_discovered >= 5 ? 5 : afl->queued_discovered;
+    // Erstellen einer DMatrix aus dem Array
+    XGDMatrixCreateFromMat((float *)table, 3, active, -1, &dtest);
+    XGBoosterCreate(&dtest, 1, &booster);
+    XGBoosterLoadModel(booster, "./model.bin");
+    
+        bst_ulong out_len;
+    const float *predictions;
+    XGBoosterPredict(booster, dtest, 0, 0, 0, &out_len, &predictions);
 
-      for (i = n - cnt; i < n; i++) {
+    // Ausgabe der Vorhersagen
+    int count = 0;
+    for (i = 0; i < n; i++) {
 
-        struct queue_entry *q = afl->queue_buf[i];
+      struct queue_entry *q = afl->queue_buf[i];
 
-        if (likely(!q->disabled)) { q->weight *= 2.0; }
+      if (likely(!q->disabled)) {
+
+        fprintf(stderr, "Prediction[%u] = %f\n", i, predictions[count]);
+        afl->queue_buf[i]->weight = predictions[count++];
+        sum += predictions[count++];
 
       }
 
     }
+
+    // Freigeben der Ressourcen
+    XGBoosterFree(booster);
+    XGDMatrixFree(dtest);
+    free(table);
 
     for (i = 0; i < n; i++) {
 
