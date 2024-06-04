@@ -69,3 +69,21 @@ need to be changed for other OSes.
 
 Current supported OSes are: Linux, Darwin, FreeBSD (thanks to @devnexen)
 
+Also, the following example (generate_libtoken_dict.sh) shows how to use a script to capture tokens from the 
+files in the target output directory, 
+and then generate a dictionary file from those tokens.
+
+#### usage:
+```bash
+./generate_libtoken_dict.sh -p /path/to/libtokencap.so -b /path/to/target/program -o /path/to/target/output -t 5 -- [-program_args]
+```
+#### description opts:
+- ```-o``` : Path to target output directory ;
+- ```-b``` : Path to target program binary ;
+- ```-p``` : Path to LD_PRELOAD library ;
+- ```-t``` : Timeout in seconds ;
+- ```-- [-program_args]```: Any additional arguments required by the target binary can be specified after ```--```.
+ 
+#### output:
+A sorted and unique token dictionary file with the extension ``*.dict`` 
+is created in the same directory as the target output containing tokens captured during the execution of the target binary.
