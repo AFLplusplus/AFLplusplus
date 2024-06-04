@@ -666,6 +666,8 @@ abort_calibration:
 
 void sync_fuzzers(afl_state_t *afl) {
 
+  if (unlikely(afl->afl_env.afl_no_sync)) { return; }
+
   DIR           *sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0, synced = 0, entries = 0;
