@@ -2487,7 +2487,7 @@ void show_init_stats(afl_state_t *afl) {
 
 }
 
-void update_calibration_time(afl_state_t *afl, u64 *time) {
+inline void update_calibration_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->calibration_time_us += cur - *time;
@@ -2495,7 +2495,7 @@ void update_calibration_time(afl_state_t *afl, u64 *time) {
 
 }
 
-void update_trim_time(afl_state_t *afl, u64 *time) {
+inline void update_trim_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->trim_time_us += cur - *time;
@@ -2503,7 +2503,7 @@ void update_trim_time(afl_state_t *afl, u64 *time) {
 
 }
 
-void update_sync_time(afl_state_t *afl, u64 *time) {
+inline void update_sync_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->sync_time_us += cur - *time;

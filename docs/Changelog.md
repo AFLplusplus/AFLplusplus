@@ -10,6 +10,7 @@
       three times faster. The reason for this is unknown.
     - added AFL_DISABLE_REDUNDANT for huge queues
     - fix AFL_PERSISTENT_RECORD
+    - added `AFL_NO_SYNC` environment variable that does what you think it does
     - run custom_post_process after standard trimming
     - prevent filenames in the queue that have spaces
     - minor fix for FAST schedules
@@ -32,6 +33,7 @@
   * afl-showmap
     - fix memory leak on shmem testcase usage (thanks to @ndrewh)
     - minor fix to collect coverage -C (thanks to @bet4it)
+  * libtokencap: script generate_libtoken_dict.sh added by @a-shvedov 
   * enhanced the ASAN configuration
 
 

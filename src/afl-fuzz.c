@@ -335,6 +335,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
       "AFL_FINAL_SYNC: sync a final time when exiting (will delay the exit!)\n"
       "AFL_NO_CRASH_README: do not create a README in the crashes directory\n"
