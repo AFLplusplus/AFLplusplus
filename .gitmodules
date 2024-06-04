@@ -25,3 +25,7 @@
 [submodule "nyx_mode/QEMU-Nyx"]
 	path = nyx_mode/QEMU-Nyx
 	url = https://github.com/nyx-fuzz/QEMU-Nyx
+[submodule "xgboost"]
+	path = xgboost
+	url = https://github.com/dmlc/xgboost
+	branch = 742c19f
