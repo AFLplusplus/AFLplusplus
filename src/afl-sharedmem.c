@@ -239,15 +239,15 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
     /* configure the size of the shared memory segment */
-    if (ftruncate(shm->cmplog_g_shm_fd, map_size)) {
+    if (ftruncate(shm->cmplog_g_shm_fd, sizeof(struct cmp_map))) {
 
       PFATAL("setup_shm(): cmplog ftruncate() failed");
 
     }
 
     /* map the shared memory segment to the address space of the process */
-    shm->cmp_map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                        shm->cmplog_g_shm_fd, 0);
+    shm->cmp_map = mmap(0, sizeof(struct cmp_map), PROT_READ | PROT_WRITE,
+                        MAP_SHARED, shm->cmplog_g_shm_fd, 0);
     if (shm->cmp_map == MAP_FAILED) {
 
       close(shm->cmplog_g_shm_fd);
