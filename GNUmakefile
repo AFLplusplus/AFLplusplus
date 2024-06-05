@@ -474,7 +474,7 @@ src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 libxgboost.so:
 	git submodule init
 	git submodule update --recursive
-	mkdir -p xgboost/build && cd xgboost/build && cmake -DUSE_OPENMP=OFF -DHIDE_CXX_SYMBOLS=ON .. && make && cp -v ../lib/libxgboost.so ../..
+	mkdir -p xgboost/build && cd xgboost && git submodule init && git submodule update --recursive && cd build && cmake -DUSE_OPENMP=OFF -DHIDE_CXX_SYMBOLS=ON .. && make && cp -v ../lib/libxgboost.so ../..
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/hashmap.c libxgboost.so | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -Wno-shift-count-overflow $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/hashmap.c -o $@ $(PYFLAGS) $(LDFLAGS) -I./xgboost/include -lm -L. -lxgboost
