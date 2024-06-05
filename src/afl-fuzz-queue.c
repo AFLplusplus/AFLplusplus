@@ -178,7 +178,7 @@ void create_alias_table(afl_state_t *afl) {
       struct queue_entry *q = afl->queue_buf[i];
 
       if (likely(!q->disabled)) {
-
+        if (unlikely(afl->debug))
         fprintf(stderr, "Prediction[%u] = %f\n", i, predictions[count]);
         afl->queue_buf[i]->weight = predictions[count++];
         sum += predictions[count++];
