@@ -486,7 +486,7 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
 
   if ((tmp = strrchr(fname, '.'))) {
 
-    if (!strcasecmp(tmp, ".so") || !strcasecmp(tmp, ".dylib")) { perm = R_OK; }
+    if (!strcasecmp(tmp, ".bin") || !strcasecmp(tmp, ".so") || !strcasecmp(tmp, ".dylib")) { perm = R_OK; }
 
   }
 
