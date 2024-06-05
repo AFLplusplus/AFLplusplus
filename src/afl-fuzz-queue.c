@@ -165,7 +165,8 @@ void create_alias_table(afl_state_t *afl) {
     // Erstellen einer DMatrix aus dem Array
     XGDMatrixCreateFromMat((float *)table, 3, active, -1, &dtest);
     XGBoosterCreate(&dtest, 1, &booster);
-    XGBoosterLoadModel(booster, "./model.bin");
+    if (XGBoosterLoadModel(booster, "./model.bin"))
+      PFATAL("mode.bin not found!");
     
         bst_ulong out_len;
     const float *predictions;
