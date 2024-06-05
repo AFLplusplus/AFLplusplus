@@ -2943,26 +2943,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (likely(!afl->stop_soon && afl->sync_id)) {
 
-      if (likely(afl->skip_deterministic)) {
+      if (unlikely(afl->is_main_node)) {
 
-        if (unlikely(afl->is_main_node)) {
+        if (unlikely(cur_time > (afl->sync_time >> 1) + afl->last_sync_time)) {
 
-          if (unlikely(cur_time >
-                       (afl->sync_time >> 1) + afl->last_sync_time)) {
+          if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
 
-            if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
-
-              sync_fuzzers(afl);
-
-            }
-
-          }
-
-        } else {
-
-          if (unlikely(cur_time > afl->sync_time + afl->last_sync_time)) {
-
-            if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+            sync_fuzzers(afl);
 
           }
 
@@ -2970,7 +2957,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
       } else {
 
-        sync_fuzzers(afl);
+        if (unlikely(cur_time > afl->sync_time + afl->last_sync_time)) {
+
+          if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+
+        }
 
       }
 
