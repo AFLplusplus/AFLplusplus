@@ -2587,7 +2587,7 @@ int main(int argc, char **argv_orig, char **envp) {
                     (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
                    afl->sync_id)) {
 
-        if (!afl->queue_cycle && afl->afl_env.afl_import_first) {
+        if (unlikely(!afl->queue_cycle && afl->afl_env.afl_import_first)) {
 
           OKF("Syncing queues from other fuzzer instances first ...");
 
@@ -2598,6 +2598,12 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       ++afl->queue_cycle;
+      if (afl->afl_env.afl_no_ui) {
+
+        ACTF("Entering queue cycle %llu\n", afl->queue_cycle);
+
+      }
+
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_items = 0;
 
@@ -2606,7 +2612,7 @@ int main(int argc, char **argv_orig, char **envp) {
       // queue is fully cycled.
       time_t     cursec = time(NULL);
       struct tm *curdate = localtime(&cursec);
-      if (likely(!afl->afl_env.afl_pizza_mode)) {
+      if (unlikely(!afl->afl_env.afl_pizza_mode)) {
 
         if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
 
@@ -2648,13 +2654,6 @@ int main(int argc, char **argv_orig, char **envp) {
           seek_to = 0;
 
         }
-
-      }
-
-      if (unlikely(afl->not_on_tty)) {
-
-        ACTF("Entering queue cycle %llu.", afl->queue_cycle);
-        fflush(stdout);
 
       }
 
