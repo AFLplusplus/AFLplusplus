@@ -8,9 +8,12 @@
     - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
       do a switch from gettimeofday() to clock_gettime() which should be rather
       three times faster. The reason for this is unknown.
+    - new queue selection algorithm based on 2 core years of queue data
+      analysis. gives a noticable improvement on coverage although the results
+      seem counterintuitive :-)
     - added AFL_DISABLE_REDUNDANT for huge queues
-    - fix AFL_PERSISTENT_RECORD
     - added `AFL_NO_SYNC` environment variable that does what you think it does
+    - fix AFL_PERSISTENT_RECORD
     - run custom_post_process after standard trimming
     - prevent filenames in the queue that have spaces
     - minor fix for FAST schedules
@@ -33,6 +36,7 @@
   * afl-showmap
     - fix memory leak on shmem testcase usage (thanks to @ndrewh)
     - minor fix to collect coverage -C (thanks to @bet4it)
+  * Fixed a shmem mmap bug (that rarely came up on MacOS)
   * libtokencap: script generate_libtoken_dict.sh added by @a-shvedov 
   * enhanced the ASAN configuration
 
