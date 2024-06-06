@@ -60,63 +60,6 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 }
 
-inline double compute_weight(afl_state_t *afl, struct queue_entry *q,
-                             double avg_exec_us, double avg_bitmap_size,
-                             double avg_len) {
-
-  double weight = 1.0;
-
-  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
-
-    u32 hits = afl->n_fuzz[q->n_fuzz_entry];
-    if (likely(hits)) { weight /= (log10(hits) + 1); }
-
-  }
-
-  if (likely(afl->schedule < RARE)) {
-
-    double t = q->exec_us / avg_exec_us;
-    if (likely(t < 0.1)) {
-
-      // nothing
-
-    } else if (likely(t <= 0.25))
-
-      weight *= 0.9;
-    else if (likely(t <= 0.5)) {
-
-      // nothing
-
-    } else if (likely(t < 1.0))
-
-      weight *= 1.15;
-    else if (unlikely(t > 2.5 && t < 5.0))
-      weight *= 1.1;
-    // else nothing
-
-  }
-
-  double l = q->len / avg_len;
-  if (likely(l < 0.1))
-    weight *= 0.75;
-  else if (likely(l < 0.25))
-    weight *= 1.1;
-  else if (unlikely(l >= 10))
-    weight *= 1.1;
-
-  double bms = q->bitmap_size / avg_bitmap_size;
-  if (likely(bms < 0.5))
-    weight *= (1.0 + ((bms - 0.5) / 2));
-  else if (unlikely(bms > 1.33))
-    weight *= 1.1;
-
-  if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
-  if (unlikely(q->fs_redundant)) { weight *= 0.75; }
-
-  return weight;
-
-}
-
 /* create the alias table that allows weighted random selection - expensive */
 
 void create_alias_table(afl_state_t *afl) {
@@ -177,8 +120,59 @@ void create_alias_table(afl_state_t *afl) {
 
       if (likely(!q->disabled)) {
 
-        q->weight =
-            compute_weight(afl, q, avg_exec_us, avg_bitmap_size, avg_len);
+        double weight = 1.0;
+        {  // inline does result in a compile error with LTO, weird
+
+          if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
+            u32 hits = afl->n_fuzz[q->n_fuzz_entry];
+            if (likely(hits)) { weight /= (log10(hits) + 1); }
+
+          }
+
+          if (likely(afl->schedule < RARE)) {
+
+            double t = q->exec_us / avg_exec_us;
+            if (likely(t < 0.1)) {
+
+              // nothing
+
+            } else if (likely(t <= 0.25))
+
+              weight *= 0.9;
+            else if (likely(t <= 0.5)) {
+
+              // nothing
+
+            } else if (likely(t < 1.0))
+
+              weight *= 1.15;
+            else if (unlikely(t > 2.5 && t < 5.0))
+              weight *= 1.1;
+            // else nothing
+
+          }
+
+          double l = q->len / avg_len;
+          if (likely(l < 0.1))
+            weight *= 0.75;
+          else if (likely(l < 0.25))
+            weight *= 1.1;
+          else if (unlikely(l >= 10))
+            weight *= 1.1;
+
+          double bms = q->bitmap_size / avg_bitmap_size;
+          if (likely(bms < 0.5))
+            weight *= (1.0 + ((bms - 0.5) / 2));
+          else if (unlikely(bms > 1.33))
+            weight *= 1.1;
+
+          if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
+          if (unlikely(q->fs_redundant)) { weight *= 0.75; }
+
+        }
+
+        q->weight = weight;
         q->perf_score = calculate_score(afl, q);
         sum += q->weight;
 
