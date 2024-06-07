@@ -2,7 +2,6 @@
 
 ## Must
 
- - review: queue_testcase_store_mem and queue_testcase_get
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
  - cmplog max items env?
