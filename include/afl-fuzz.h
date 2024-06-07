@@ -1227,6 +1227,7 @@ void show_init_stats(afl_state_t *);
 void update_calibration_time(afl_state_t *afl, u64 *time);
 void update_trim_time(afl_state_t *afl, u64 *time);
 void update_sync_time(afl_state_t *afl, u64 *time);
+void update_cmplog_time(afl_state_t *afl, u64 *time);
 
 /* StatsD */
 
