@@ -656,6 +656,7 @@ typedef struct afl_state {
       switch_fuzz_mode,                 /* auto or fixed fuzz mode          */
       calibration_time_us,              /* Time spend on calibration        */
       sync_time_us,                     /* Time spend on sync               */
+      cmplog_time_us,                   /* Time spend on cmplog             */
       trim_time_us;                     /* Time spend on trimming           */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
