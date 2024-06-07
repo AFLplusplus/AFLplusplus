@@ -51,6 +51,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#include "hash.h"
+
 u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
@@ -164,6 +166,22 @@ void set_sanitizer_defaults() {
   /* Envs for QASan */
   setenv("QASAN_MAX_CALL_STACK", "0", 0);
   setenv("QASAN_SYMBOLIZE", "0", 0);
+
+}
+
+u64 get_binary_hash(u8 *fn) {
+
+  int fd = open(fn, O_RDONLY);
+  if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
+  struct stat st;
+  if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
+  u32 f_len = st.st_size;
+  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
+  close(fd);
+  u64 hash = hash64(f_data, f_len, 0);
+  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+  return hash;
 
 }
 
