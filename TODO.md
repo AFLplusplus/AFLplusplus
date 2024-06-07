@@ -2,6 +2,7 @@
 
 ## Must
 
+ - fast restart of afl-fuzz if cmdline + target hash is the same
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
  - cmplog max items env?
