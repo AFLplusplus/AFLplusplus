@@ -1472,7 +1472,7 @@ int main(int argc, char **argv_orig, char **envp) {
   configure_afl_kill_signals(
       &afl->fsrv, afl->afl_env.afl_child_kill_signal,
       afl->afl_env.afl_fsrv_kill_signal,
-      (afl->fsrv.qemu_mode || afl->unicorn_mode || afl->non_instrumented_mode
+      (afl->fsrv.qemu_mode || afl->unicorn_mode || afl->fsrv.use_fauxsrv
   #ifdef __linux__
        || afl->fsrv.nyx_mode
   #endif
