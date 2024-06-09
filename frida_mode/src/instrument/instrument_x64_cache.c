@@ -49,14 +49,23 @@ void instrument_cache_init(void) {
 
   if (setrlimit(RLIMIT_AS, &data_limit) != 0) {
 
-    FFATAL("Failed to setrlimit: %d", errno);
+    FWARNF("Failed to setrlimit: %d, you may need root or CAP_SYS_RESOURCE",
+           errno);
 
   }
 
   map_base =
       gum_memory_allocate(NULL, instrument_cache_size, instrument_cache_size,
                           GUM_PAGE_READ | GUM_PAGE_WRITE);
-  if (map_base == MAP_FAILED) { FFATAL("Failed to map segment: %d", errno); }
+  if (map_base == MAP_FAILED) {
+
+    FFATAL(
+        "Failed to map segment: %d. This can be caused by failure to setrlimit."
+        "Disabling or reducing the size of the allocation using "
+        "AFL_FRIDA_INST_NO_CACHE or AFL_FRIDA_INST_CACHE_SIZE may help",
+        errno);
+
+  }
 
   FOKF(cBLU "Instrumentation" cRST " - " cGRN "cache addr:" cYEL " [0x%016lX]",
        GUM_ADDRESS(map_base));

@@ -279,6 +279,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_final_sync =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_NO_SYNC",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_sync =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_ONLY",
 
                               afl_environment_variable_len)) {
@@ -762,8 +769,9 @@ void afl_states_stop(void) {
     if (el->fsrv.fsrv_pid > 0) {
 
       kill(el->fsrv.fsrv_pid, el->fsrv.fsrv_kill_signal);
+      usleep(100);
       /* Make sure the forkserver does not end up as zombie. */
-      waitpid(el->fsrv.fsrv_pid, NULL, 0);
+      waitpid(el->fsrv.fsrv_pid, NULL, WNOHANG);
 
     }
 
