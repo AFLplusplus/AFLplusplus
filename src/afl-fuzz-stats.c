@@ -207,6 +207,12 @@ void load_stats_file(afl_state_t *afl) {
 
       }
 
+      if (starts_with("cmplog_time", keystring)) {
+
+        afl->cmplog_time_us = strtoull(lptr, &nptr, 10) * 1000000;
+
+      }
+
       if (starts_with("trim_time", keystring)) {
 
         afl->trim_time_us = strtoull(lptr, &nptr, 10) * 1000000;
@@ -322,8 +328,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
   u64 runtime_ms = afl->prev_run_time + cur_time - afl->start_time;
-  u64 overhead_ms =
-      (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us) / 1000;
+  u64 overhead_ms = (afl->calibration_time_us + afl->sync_time_us +
+                     afl->trim_time_us + afl->cmplog_time_us) /
+                    1000;
   if (!runtime_ms) { runtime_ms = 1; }
 
   fprintf(
@@ -337,6 +344,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "time_wo_finds     : %llu\n"
       "fuzz_time         : %llu\n"
       "calibration_time  : %llu\n"
+      "cmplog_time       : %llu\n"
       "sync_time         : %llu\n"
       "trim_time         : %llu\n"
       "execs_done        : %llu\n"
@@ -385,8 +393,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                  ? 0
                  : (cur_time - afl->last_find_time) / 1000),
       (runtime_ms - MIN(runtime_ms, overhead_ms)) / 1000,
-      afl->calibration_time_us / 1000000, afl->sync_time_us / 1000000,
-      afl->trim_time_us / 1000000, afl->fsrv.total_execs,
+      afl->calibration_time_us / 1000000, afl->cmplog_time_us / 1000000,
+      afl->sync_time_us / 1000000, afl->trim_time_us / 1000000,
+      afl->fsrv.total_execs,
       afl->fsrv.total_execs / ((double)(runtime_ms) / 1000),
       afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
@@ -2487,7 +2496,7 @@ void show_init_stats(afl_state_t *afl) {
 
 }
 
-void update_calibration_time(afl_state_t *afl, u64 *time) {
+inline void update_calibration_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->calibration_time_us += cur - *time;
@@ -2495,7 +2504,7 @@ void update_calibration_time(afl_state_t *afl, u64 *time) {
 
 }
 
-void update_trim_time(afl_state_t *afl, u64 *time) {
+inline void update_trim_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->trim_time_us += cur - *time;
@@ -2503,10 +2512,18 @@ void update_trim_time(afl_state_t *afl, u64 *time) {
 
 }
 
-void update_sync_time(afl_state_t *afl, u64 *time) {
+inline void update_sync_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->sync_time_us += cur - *time;
+  *time = cur;
+
+}
+
+inline void update_cmplog_time(afl_state_t *afl, u64 *time) {
+
+  u64 cur = get_cur_time_us();
+  afl->cmplog_time_us += cur - *time;
   *time = cur;
 
 }

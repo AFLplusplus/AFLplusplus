@@ -588,6 +588,9 @@ checks or alter some of the more exotic semantics of the tool:
     between fuzzing instances synchronization. Default sync time is 30 minutes,
     note that time is halved for -M main nodes.
 
+  - `AFL_NO_SYNC` disables any syncing whatsoever and takes priority on all
+    other syncing parameters.
+
   - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables for
     the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz
     ... `. This exists mostly for things like `LD_LIBRARY_PATH` but it would

@@ -194,24 +194,23 @@ static gboolean print_ranges_callback(const GumRangeDetails *details,
 
   if (details->file == NULL) {
 
-    FVERBOSE("\t0x%016" G_GINT64_MODIFIER "x-0x%016" G_GINT64_MODIFIER
-             "X %c%c%c",
-             details->range->base_address,
-             details->range->base_address + details->range->size,
-             details->protection & GUM_PAGE_READ ? 'R' : '-',
-             details->protection & GUM_PAGE_WRITE ? 'W' : '-',
-             details->protection & GUM_PAGE_EXECUTE ? 'X' : '-');
+    OKF("\t0x%016" G_GINT64_MODIFIER "x-0x%016" G_GINT64_MODIFIER "X %c%c%c",
+        details->range->base_address,
+        details->range->base_address + details->range->size,
+        details->protection & GUM_PAGE_READ ? 'R' : '-',
+        details->protection & GUM_PAGE_WRITE ? 'W' : '-',
+        details->protection & GUM_PAGE_EXECUTE ? 'X' : '-');
 
   } else {
 
-    FVERBOSE("\t0x%016" G_GINT64_MODIFIER "x-0x%016" G_GINT64_MODIFIER
-             "X %c%c%c %s(0x%016" G_GINT64_MODIFIER "x)",
-             details->range->base_address,
-             details->range->base_address + details->range->size,
-             details->protection & GUM_PAGE_READ ? 'R' : '-',
-             details->protection & GUM_PAGE_WRITE ? 'W' : '-',
-             details->protection & GUM_PAGE_EXECUTE ? 'X' : '-',
-             details->file->path, details->file->offset);
+    OKF("\t0x%016" G_GINT64_MODIFIER "x-0x%016" G_GINT64_MODIFIER
+        "X %c%c%c %s(0x%016" G_GINT64_MODIFIER "x)",
+        details->range->base_address,
+        details->range->base_address + details->range->size,
+        details->protection & GUM_PAGE_READ ? 'R' : '-',
+        details->protection & GUM_PAGE_WRITE ? 'W' : '-',
+        details->protection & GUM_PAGE_EXECUTE ? 'X' : '-', details->file->path,
+        details->file->offset);
 
   }
 
@@ -581,7 +580,7 @@ static GArray *merge_ranges(GArray *a) {
 
 void ranges_print_debug_maps(void) {
 
-  FVERBOSE("Maps");
+  OKF("Maps");
   gum_process_enumerate_ranges(GUM_PAGE_NO_ACCESS, print_ranges_callback, NULL);
 
 }

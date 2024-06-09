@@ -322,7 +322,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   memcpy(backup, buf, len);
   memcpy(changed, buf, len);
-  if (afl->cmplog_random_colorization) {
+  if (likely(afl->cmplog_random_colorization)) {
 
     random_replace(afl, changed, len);
 
@@ -402,6 +402,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   u32 i = 1;
   u32 positions = 0;
+
   while (i) {
 
   restart:
@@ -2937,7 +2938,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 // afl->queue_cur->exec_cksum
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
-  u8 r = 1;
+  u64 cmplog_start_us = get_cur_time_us();
+  u8  r = 1;
   if (unlikely(!afl->pass_stats)) {
 
     afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
@@ -2965,7 +2967,12 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   if (!afl->queue_cur->taint || !afl->queue_cur->cmplog_colorinput) {
 
-    if (unlikely(colorization(afl, buf, len, &taint))) { return 1; }
+    if (unlikely(colorization(afl, buf, len, &taint))) {
+
+      update_cmplog_time(afl, &cmplog_start_us);
+      return 1;
+
+    }
 
     // no taint? still try, create a dummy to prevent again colorization
     if (!taint) {
@@ -2974,6 +2981,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       fprintf(stderr, "TAINT FAILED\n");
 #endif
       afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+      update_cmplog_time(afl, &cmplog_start_us);
       return 0;
 
     }
@@ -2994,16 +3002,19 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
+  update_cmplog_time(afl, &cmplog_start_us);
+
   struct tainted *t = taint;
 
+#ifdef _DEBUG
   while (t) {
 
-#ifdef _DEBUG
     fprintf(stderr, "T: idx=%u len=%u\n", t->pos, t->len);
-#endif
     t = t->next;
 
   }
+
+#endif
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   u64 start_time = get_cur_time();
@@ -3025,6 +3036,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     }
 
+    update_cmplog_time(afl, &cmplog_start_us);
     return 1;
 
   }
@@ -3048,6 +3060,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     }
 
+    update_cmplog_time(afl, &cmplog_start_us);
     return 1;
 
   }
@@ -3066,6 +3079,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+  update_cmplog_time(afl, &cmplog_start_us);
 
   afl->stage_name = "input-to-state";
   afl->stage_short = "its";
@@ -3142,33 +3156,35 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     }
 
+    update_cmplog_time(afl, &cmplog_start_us);
+
   }
 
   r = 0;
 
 exit_its:
 
-  if (afl->cmplog_lvl == CMPLOG_LVL_MAX) {
+  // if (afl->cmplog_lvl == CMPLOG_LVL_MAX) {
 
-    afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+  afl->queue_cur->colorized = CMPLOG_LVL_MAX;
 
-    if (afl->queue_cur->cmplog_colorinput) {
+  if (afl->queue_cur->cmplog_colorinput) {
 
-      ck_free(afl->queue_cur->cmplog_colorinput);
+    ck_free(afl->queue_cur->cmplog_colorinput);
 
-    }
+  }
 
-    while (taint) {
+  while (taint) {
 
-      t = taint->next;
-      ck_free(taint);
-      taint = t;
+    t = taint->next;
+    ck_free(taint);
+    taint = t;
 
-    }
+  }
 
-    afl->queue_cur->taint = NULL;
+  afl->queue_cur->taint = NULL;
 
-  } else {
+  /*} else {
 
     afl->queue_cur->colorized = LVL2;
 
@@ -3182,7 +3198,7 @@ exit_its:
 
     }
 
-  }
+  }*/
 
 #ifdef CMPLOG_COMBINE
   if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
@@ -3270,6 +3286,7 @@ exit_its:
 
 #endif
 
+  update_cmplog_time(afl, &cmplog_start_us);
   return r;
 
 }

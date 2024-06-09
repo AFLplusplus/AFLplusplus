@@ -457,7 +457,7 @@ typedef struct afl_env_vars {
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames;
+      afl_sha1_filenames, afl_no_sync;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -656,6 +656,7 @@ typedef struct afl_state {
       switch_fuzz_mode,                 /* auto or fixed fuzz mode          */
       calibration_time_us,              /* Time spend on calibration        */
       sync_time_us,                     /* Time spend on sync               */
+      cmplog_time_us,                   /* Time spend on cmplog             */
       trim_time_us;                     /* Time spend on trimming           */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
@@ -1226,6 +1227,7 @@ void show_init_stats(afl_state_t *);
 void update_calibration_time(afl_state_t *afl, u64 *time);
 void update_trim_time(afl_state_t *afl, u64 *time);
 void update_sync_time(afl_state_t *afl, u64 *time);
+void update_cmplog_time(afl_state_t *afl, u64 *time);
 
 /* StatsD */
 
@@ -1276,6 +1278,7 @@ void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
+u64    get_binary_hash(u8 *fn);
 void   check_if_tty(afl_state_t *);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);

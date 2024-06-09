@@ -3,12 +3,16 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.21a (dev)
+### Version ++4.21c (release)
   * afl-fuzz
     - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
       do a switch from gettimeofday() to clock_gettime() which should be rather
       three times faster. The reason for this is unknown.
+    - new queue selection algorithm based on 2 core years of queue data
+      analysis. gives a noticable improvement on coverage although the results
+      seem counterintuitive :-)
     - added AFL_DISABLE_REDUNDANT for huge queues
+    - added `AFL_NO_SYNC` environment variable that does what you think it does
     - fix AFL_PERSISTENT_RECORD
     - run custom_post_process after standard trimming
     - prevent filenames in the queue that have spaces
@@ -19,6 +23,9 @@
     - -V timing is now accurately the fuzz time (without syncing), before
       long calibration times and syncing could result in now fuzzing being
       made when the time was already run out until then, thanks to @eqv!
+    - fix -n uninstrumented mode when ending fuzzing
+    - enhanced the ASAN configuration
+    - make afl-fuzz use less memory with cmplog and fix a memleak
   * afl-cc:
     - re-enable i386 support that was accidently disabled
     - fixes for LTO and outdated afl-gcc mode for i386
@@ -32,7 +39,8 @@
   * afl-showmap
     - fix memory leak on shmem testcase usage (thanks to @ndrewh)
     - minor fix to collect coverage -C (thanks to @bet4it)
-  * enhanced the ASAN configuration
+  * Fixed a shmem mmap bug (that rarely came up on MacOS)
+  * libtokencap: script generate_libtoken_dict.sh added by @a-shvedov 
 
 
 ### Version ++4.20c (release)
