@@ -23,6 +23,7 @@
     - -V timing is now accurately the fuzz time (without syncing), before
       long calibration times and syncing could result in now fuzzing being
       made when the time was already run out until then, thanks to @eqv!
+    - fix -n uninstrumented mode when ending fuzzing
     - make afl-fuzz use less memory with cmplog and fix a memleak
   * afl-cc:
     - re-enable i386 support that was accidently disabled

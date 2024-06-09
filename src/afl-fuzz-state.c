@@ -769,8 +769,9 @@ void afl_states_stop(void) {
     if (el->fsrv.fsrv_pid > 0) {
 
       kill(el->fsrv.fsrv_pid, el->fsrv.fsrv_kill_signal);
+      usleep(100);
       /* Make sure the forkserver does not end up as zombie. */
-      waitpid(el->fsrv.fsrv_pid, NULL, 0);
+      waitpid(el->fsrv.fsrv_pid, NULL, WNOHANG);
 
     }
 
