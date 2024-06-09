@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.21a (dev)
+### Version ++4.21c (release)
   * afl-fuzz
     - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
       do a switch from gettimeofday() to clock_gettime() which should be rather
@@ -24,6 +24,7 @@
       long calibration times and syncing could result in now fuzzing being
       made when the time was already run out until then, thanks to @eqv!
     - fix -n uninstrumented mode when ending fuzzing
+    - enhanced the ASAN configuration
     - make afl-fuzz use less memory with cmplog and fix a memleak
   * afl-cc:
     - re-enable i386 support that was accidently disabled
@@ -40,7 +41,6 @@
     - minor fix to collect coverage -C (thanks to @bet4it)
   * Fixed a shmem mmap bug (that rarely came up on MacOS)
   * libtokencap: script generate_libtoken_dict.sh added by @a-shvedov 
-  * enhanced the ASAN configuration
 
 
 ### Version ++4.20c (release)
