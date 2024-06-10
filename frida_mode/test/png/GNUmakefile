@@ -48,7 +48,7 @@ all: $(TEST_BIN)
 	CFLAGS="-m32" LDFLAGS="-m32" make $(TEST_BIN)
 
 arm:
-	CFLAGS="-marm" LDFLAGS="-marm" CC="arm-linux-gnueabihf-gcc" CXX="arm-linux-gnueabihf-g++" make $(TEST_BIN)
+	CFLAGS="-marm" LDFLAGS="-marm" CC="arm-linux-gnueabihf-gcc" CXX="arm-linux-gnueabihf-g++" PNG_ARCH="arm" make $(TEST_BIN)
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -93,8 +93,7 @@ $(LIBZ_PC): | $(LIBZ_DIR)
 	cd $(LIBZ_DIR) && \
 	CFLAGS="$(CFLAGS) -fPIC" \
 		./configure \
-			--static \
-			--archs="$(ARCH)"
+			--static 
 
 $(LIBZ_LIB): | $(LIBZ_PC)
 	CFLAGS="$(CFLAGS) -fPIC" \
@@ -120,7 +119,7 @@ $(LIBPNG_MAKEFILE): $(LIBZ_LIB) | $(LIBPNG_DIR)
 		CFLAGS="$(CFLAGS) -I$(LIBZ_DIR)" \
 		LDFLAGS="-L$(LIBZ_DIR)" \
 			./configure \
-				--host="$(ARCH)"
+				--host="$(PNG_ARCH)"
 
 $(LIBPNG_LIB): $(LIBPNG_MAKEFILE)
 	CFLAGS="$(CFLAGS) -I$(LIBZ_DIR)" \
