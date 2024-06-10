@@ -5,6 +5,8 @@
 
 ### Version ++4.22a (dev)
   - frida_mode:
+    - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
+      a function entry
     - AFL_DEBUG is now the same as AFL_FRIDA_VERBOSE
     - AFL_FRIDA_DEBUG_MAPS now works as expected
 
