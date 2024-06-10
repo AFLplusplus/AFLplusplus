@@ -17,7 +17,6 @@ typedef struct {
 } persistent_ctx_t;
 
 static persistent_ctx_t saved_regs = {0};
-static gpointer         saved_ret = NULL;
 static gpointer         persistent_loop = NULL;
 
 gboolean persistent_is_supported(void) {
@@ -245,20 +244,18 @@ static void instrument_persitent_save_ret(GumX86Writer *cw) {
 void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
-   *  SAVE RET
-   *  POP RET
+   *  SAVE RET (Used to write the epilogue if persistent_ret is not set)
    *  SAVE REGS
-   * loop:
+   * loop: (Save address of where the eiplogue should jump back to)
    *  CALL instrument_afl_persistent_loop
-   *  TEST EAX, EAX
-   *  JZ end:
-   *  call hook (optionally)
+   *  CALL hook (optionally)
    *  RESTORE REGS
-   *  push ret = loop;
    *  INSTRUMENTED PERSISTENT FUNC
    */
 
   GumX86Writer *cw = output->writer.x86;
+
+  FVERBOSE("Persistent loop reached");
 
   /*
    * If we haven't set persistent_ret, then assume that we are dealing with a
