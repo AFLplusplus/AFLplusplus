@@ -119,7 +119,7 @@ static void instrument_persitent_restore_regs(GumX86Writer     *cw,
 
 static void instrument_afl_persistent_loop_func(void) {
 
-  if (__afl_persistent_loop(persistent_count) == 0) { _exit(0);};
+  if (__afl_persistent_loop(persistent_count) == 0) { _exit(0); };
 
   if (instrument_previous_pc_addr == NULL) {
 
@@ -135,6 +135,7 @@ static void instrument_afl_persistent_loop(GumX86Writer *cw) {
 
   gum_x86_writer_put_call_address_with_arguments(
       cw, GUM_CALL_CAPI, GUM_ADDRESS(instrument_afl_persistent_loop_func), 0);
+
 }
 
 static void persistent_prologue_hook(GumX86Writer *cw, persistent_ctx_t *regs) {
@@ -167,7 +168,8 @@ static void instrument_persitent_save_ret(GumX86Writer *cw) {
   gum_x86_writer_put_push_reg(cw, GUM_X86_EAX);
   gum_x86_writer_put_push_reg(cw, GUM_X86_EBX);
 
-  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_EAX, GUM_ADDRESS(&persistent_ret));
+  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_EAX,
+                                     GUM_ADDRESS(&persistent_ret));
   gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_X86_EBX, GUM_X86_ESP,
                                             offset);
   gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_X86_EAX, GUM_X86_EBX);
@@ -218,6 +220,7 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
 
   /* The original instrumented code is emitted here. */
+
 }
 
 void persistent_epilogue_arch(GumStalkerOutput *output) {
@@ -227,10 +230,11 @@ void persistent_epilogue_arch(GumStalkerOutput *output) {
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
 
   /* The stack should be aligned when we re-enter our loop */
-  gum_x86_writer_put_and_reg_u32 (cw, GUM_X86_ESP, 0xfffffff0);
-  gum_x86_writer_put_sub_reg_imm (cw, GUM_X86_ESP, 0x4);
+  gum_x86_writer_put_and_reg_u32(cw, GUM_X86_ESP, 0xfffffff0);
+  gum_x86_writer_put_sub_reg_imm(cw, GUM_X86_ESP, 0x4);
 
-  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_EAX, GUM_ADDRESS(&persistent_loop));
+  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_EAX,
+                                     GUM_ADDRESS(&persistent_loop));
   gum_x86_writer_put_jmp_reg_ptr(cw, GUM_X86_EAX);
 
 }
