@@ -110,7 +110,11 @@ gboolean util_verbose_enabled(void) {
   if (!initialized) {
 
     initialized = TRUE;
-    if (getenv("AFL_FRIDA_VERBOSE") != NULL) { util_verbose = TRUE; }
+    if (getenv("AFL_FRIDA_VERBOSE") || getenv("AFL_DEBUG")) {
+
+      util_verbose = TRUE;
+
+    }
 
   }
 

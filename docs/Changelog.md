@@ -4,7 +4,9 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.22a (dev)
-  - 
+  - frida_mode:
+    - AFL_DEBUG is now the same as AFL_FRIDA_VERBOSE
+    - AFL_FRIDA_DEBUG_MAPS now works as expected
 
 
 ### Version ++4.21c (release)
