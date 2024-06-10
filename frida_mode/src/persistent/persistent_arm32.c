@@ -33,7 +33,7 @@
 // r15 - pc
 
 static GumCpuContext saved_regs = {0};
-static gpointer      saved_lr = NULL;
+static gpointer      persistent_loop = NULL;
 
 gboolean persistent_is_supported(void) {
 
@@ -141,17 +141,10 @@ static void instrument_persitent_restore_regs(GumArmWriter  *cw,
 
 }
 
-static void instrument_exit(GumArmWriter *cw) {
+static void instrument_afl_persistent_loop_func(void) {
 
-  gum_arm_writer_put_sub_reg_reg_reg(cw, ARM_REG_R0, ARM_REG_R0, ARM_REG_R0);
-  gum_arm_writer_put_call_address_with_arguments(cw, GUM_ADDRESS(_exit), 1,
-                                                 GUM_ARG_REGISTER, ARM_REG_R0);
+  if (__afl_persistent_loop(persistent_count) == 0) { _exit(0); }
 
-}
-
-static int instrument_afl_persistent_loop_func(void) {
-
-  int ret = __afl_persistent_loop(persistent_count);
   if (instrument_previous_pc_addr == NULL) {
 
     FATAL("instrument_previous_pc_addr uninitialized");
@@ -159,7 +152,6 @@ static int instrument_afl_persistent_loop_func(void) {
   }
 
   *instrument_previous_pc_addr = instrument_hash_zero;
-  return ret;
 
 }
 
@@ -203,7 +195,8 @@ static void instrument_persitent_save_lr(GumArmWriter *cw) {
   gum_arm_writer_put_str_reg_reg_offset(cw, ARM_REG_R0, ARM_REG_SP,
                                         GUM_RED_ZONE_SIZE);
 
-  gum_arm_writer_put_ldr_reg_address(cw, ARM_REG_R0, GUM_ADDRESS(&saved_lr));
+  gum_arm_writer_put_ldr_reg_address(cw, ARM_REG_R0,
+                                     GUM_ADDRESS(&persistent_ret));
   gum_arm_writer_put_str_reg_reg_offset(cw, ARM_REG_LR, ARM_REG_R0, 0);
 
   gum_arm_writer_put_ldr_reg_reg_offset(cw, ARM_REG_R0, ARM_REG_SP,
@@ -214,65 +207,35 @@ static void instrument_persitent_save_lr(GumArmWriter *cw) {
 void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
+   *  SAVE RET (Used to write the epilogue if persistent_ret is not set)
    *  SAVE REGS
-   *  SAVE RET
-   *  POP RET
-   * loop:
+   * loop: (Save address of where the eiplogue should jump back to)
    *  CALL instrument_afl_persistent_loop
-   *  TEST EAX, EAX
-   *  JZ end:
-   *  call hook (optionally)
+   *  CALL hook (optionally)
    *  RESTORE REGS
-   *  call original
-   *  jmp loop:
-   *
-   * end:
-   *  JMP SAVED RET
-   *
-   * original:
    *  INSTRUMENTED PERSISTENT FUNC
    */
 
   GumArmWriter *cw = output->writer.arm;
 
-  gconstpointer loop = cw->code + 1;
-
   FVERBOSE("Persistent loop reached");
 
+  if (persistent_ret == 0) { instrument_persitent_save_lr(cw); }
+
+  /* Save the current context */
   instrument_persitent_save_regs(cw, &saved_regs);
 
-  /* loop: */
-  gum_arm_writer_put_label(cw, loop);
+  /* Store a pointer to where we should return for our next iteration */
+  persistent_loop = gum_arm_writer_cur(cw);
 
-  /* call instrument_prologue_func */
+  /* call __afl_persistent_loop and _exit if zero. Also reset our previous_pc */
   instrument_afl_persistent_loop(cw);
-
-  /* jz done */
-  gconstpointer done = cw->code + 1;
-  gum_arm_writer_put_cmp_reg_imm(cw, ARM_REG_R0, 0);
-  gum_arm_writer_put_b_cond_label(cw, ARM_CC_EQ, done);
 
   /* Optionally call the persistent hook */
   persistent_prologue_hook(cw, &saved_regs);
 
+  /* Restore our CPU context before we continue execution */
   instrument_persitent_restore_regs(cw, &saved_regs);
-  gconstpointer original = cw->code + 1;
-  /* call original */
-
-  gum_arm_writer_put_bl_label(cw, original);
-
-  /* jmp loop */
-  gum_arm_writer_put_b_label(cw, loop);
-
-  /* done: */
-  gum_arm_writer_put_label(cw, done);
-
-  instrument_exit(cw);
-
-  /* original: */
-  gum_arm_writer_put_label(cw, original);
-
-  instrument_persitent_save_lr(cw);
 
   if (persistent_debug) { gum_arm_writer_put_breakpoint(cw); }
 
@@ -284,7 +247,8 @@ void persistent_epilogue_arch(GumStalkerOutput *output) {
 
   if (persistent_debug) { gum_arm_writer_put_breakpoint(cw); }
 
-  gum_arm_writer_put_ldr_reg_address(cw, ARM_REG_R0, GUM_ADDRESS(&saved_lr));
+  gum_arm_writer_put_ldr_reg_address(cw, ARM_REG_R0,
+                                     GUM_ADDRESS(&persistent_loop));
 
   gum_arm_writer_put_ldr_reg_reg_offset(cw, ARM_REG_R0, ARM_REG_R0, 0);
 

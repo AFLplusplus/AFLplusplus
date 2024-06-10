@@ -17,7 +17,7 @@ typedef struct {
 } persistent_ctx_t;
 
 static persistent_ctx_t saved_regs = {0};
-static gpointer         saved_ret = NULL;
+static gpointer         persistent_loop = NULL;
 
 gboolean persistent_is_supported(void) {
 
@@ -162,17 +162,10 @@ static void instrument_persitent_restore_regs(GumX86Writer     *cw,
 
 }
 
-static void instrument_exit(GumX86Writer *cw) {
+static void instrument_afl_persistent_loop_func(void) {
 
-  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX, GUM_ADDRESS(_exit));
-  gum_x86_writer_put_mov_reg_u32(cw, GUM_X86_RDI, 0);
-  gum_x86_writer_put_call_reg(cw, GUM_X86_RAX);
+  if (__afl_persistent_loop(persistent_count) == 0) { _exit(0); }
 
-}
-
-static int instrument_afl_persistent_loop_func(void) {
-
-  int ret = __afl_persistent_loop(persistent_count);
   if (instrument_previous_pc_addr == NULL) {
 
     FATAL("instrument_previous_pc_addr uninitialized");
@@ -180,7 +173,6 @@ static int instrument_afl_persistent_loop_func(void) {
   }
 
   *instrument_previous_pc_addr = instrument_hash_zero;
-  return ret;
 
 }
 
@@ -190,7 +182,6 @@ static void instrument_afl_persistent_loop(GumX86Writer *cw) {
                                         -(GUM_RED_ZONE_SIZE));
   gum_x86_writer_put_call_address_with_arguments(
       cw, GUM_CALL_CAPI, GUM_ADDRESS(instrument_afl_persistent_loop_func), 0);
-  gum_x86_writer_put_test_reg_reg(cw, GUM_X86_RAX, GUM_X86_RAX);
 
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_X86_RSP, GUM_X86_RSP,
                                         (GUM_RED_ZONE_SIZE));
@@ -235,7 +226,8 @@ static void instrument_persitent_save_ret(GumX86Writer *cw) {
   gum_x86_writer_put_push_reg(cw, GUM_X86_RAX);
   gum_x86_writer_put_push_reg(cw, GUM_X86_RBX);
 
-  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX, GUM_ADDRESS(&saved_ret));
+  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX,
+                                     GUM_ADDRESS(&persistent_ret));
   gum_x86_writer_put_mov_reg_reg_offset_ptr(cw, GUM_X86_RBX, GUM_X86_RSP,
                                             offset);
   gum_x86_writer_put_mov_reg_ptr_reg(cw, GUM_X86_RAX, GUM_X86_RBX);
@@ -252,69 +244,43 @@ static void instrument_persitent_save_ret(GumX86Writer *cw) {
 void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /*
+   *  SAVE RET (Used to write the epilogue if persistent_ret is not set)
    *  SAVE REGS
-   *  SAVE RET
-   *  POP RET
-   * loop:
+   * loop: (Save address of where the eiplogue should jump back to)
    *  CALL instrument_afl_persistent_loop
-   *  TEST EAX, EAX
-   *  JZ end:
-   *  call hook (optionally)
+   *  CALL hook (optionally)
    *  RESTORE REGS
-   *  call original
-   *  jmp loop:
-   *
-   * end:
-   *  JMP SAVED RET
-   *
-   * original:
    *  INSTRUMENTED PERSISTENT FUNC
    */
 
   GumX86Writer *cw = output->writer.x86;
 
-  gconstpointer loop = cw->code + 1;
-
   FVERBOSE("Persistent loop reached");
 
-  /* Pop the return value */
-  gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_X86_RSP, GUM_X86_RSP, 8);
+  /*
+   * If we haven't set persistent_ret, then assume that we are dealing with a
+   * function and we should loop when that function returns.
+   */
+  if (persistent_ret == 0) { instrument_persitent_save_ret(cw); }
 
+  /* Save the current context */
   instrument_persitent_save_regs(cw, &saved_regs);
 
-  /* loop: */
-  gum_x86_writer_put_label(cw, loop);
+  /* Store a pointer to where we should return for our next iteration */
+  persistent_loop = gum_x86_writer_cur(cw);
 
-  /* call instrument_prologue_func */
+  /* call __afl_persistent_loop and _exit if zero. Also reset our previous_pc */
   instrument_afl_persistent_loop(cw);
-
-  /* jz done */
-  gconstpointer done = cw->code + 1;
-  gum_x86_writer_put_jcc_near_label(cw, X86_INS_JE, done, GUM_UNLIKELY);
 
   /* Optionally call the persistent hook */
   persistent_prologue_hook(cw, &saved_regs);
 
+  /* Restore our CPU context before we continue execution */
   instrument_persitent_restore_regs(cw, &saved_regs);
-  gconstpointer original = cw->code + 1;
-  /* call original */
-
-  gum_x86_writer_put_call_near_label(cw, original);
-
-  /* jmp loop */
-  gum_x86_writer_put_jmp_near_label(cw, loop);
-
-  /* done: */
-  gum_x86_writer_put_label(cw, done);
-
-  instrument_exit(cw);
-
-  /* original: */
-  gum_x86_writer_put_label(cw, original);
-
-  instrument_persitent_save_ret(cw);
 
   if (persistent_debug) { gum_x86_writer_put_breakpoint(cw); }
+
+  /* The original instrumented code is emitted here. */
 
 }
 
@@ -331,7 +297,8 @@ void persistent_epilogue_arch(GumStalkerOutput *output) {
   gum_x86_writer_put_lea_reg_reg_offset(cw, GUM_X86_RSP, GUM_X86_RSP, -8);
   gum_x86_writer_put_label(cw, zero);
 
-  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX, GUM_ADDRESS(&saved_ret));
+  gum_x86_writer_put_mov_reg_address(cw, GUM_X86_RAX,
+                                     GUM_ADDRESS(&persistent_loop));
   gum_x86_writer_put_jmp_reg_ptr(cw, GUM_X86_RAX);
 
 }
