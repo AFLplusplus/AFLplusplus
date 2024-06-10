@@ -2101,44 +2101,104 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  write_setup_file(afl, argc, argv);
-
   setup_cmdline_file(afl, argv + optind);
+  check_binary(afl, argv[optind]);
 
-  read_testcases(afl, NULL);
-  // read_foreign_testcases(afl, 1); for the moment dont do this
-  OKF("Loaded a total of %u seeds.", afl->queued_items);
+  u64 prev_target_hash = 0;
+  s32 fast_resume = 0, fr_fd = -1;
 
-  pivot_inputs(afl);
+  if (afl->in_place_resume) {
 
-  if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
+    u8 fn[PATH_MAX], buf[32];
+    snprintf(fn, PATH_MAX, "%s/target_hash", afl->out_dir);
+    fr_fd = open(fn, O_RDONLY);
+    if (fr_fd >= 0) {
 
-  if (afl->afl_env.afl_tmpdir && !afl->in_place_resume) {
+      if (read(fr_fd, buf, 32) >= 16) {
 
-    char tmpfile[PATH_MAX];
+        sscanf(buf, "%p", (void**)&prev_target_hash);
 
-    if (afl->file_extension) {
+      }
 
-      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
-               afl->file_extension);
-
-    } else {
-
-      snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
-
-    }
-
-    /* there is still a race condition here, but well ... */
-    if (access(tmpfile, F_OK) != -1) {
-
-      FATAL(
-          "AFL_TMPDIR already has an existing temporary input file: %s - if "
-          "this is not from another instance, then just remove the file.",
-          tmpfile);
+      close(fr_fd);
 
     }
 
   }
+
+
+  write_setup_file(afl, argc, argv);
+
+  if (afl->in_place_resume) {
+
+    u64 target_hash = get_binary_hash(afl->fsrv.target_path);
+
+    if (!target_hash || prev_target_hash != target_hash) {
+
+      ACTF("Target binary is different, cannot perform FAST RESUME!");
+
+    } else {
+
+      u8 fn[PATH_MAX];
+      snprintf(fn, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
+      if ((fr_fd = open(fn, O_RDONLY)) >= 0) {
+
+        OKF("Performing FAST RESUME");
+        // fast_resume = 1;
+
+      } else {
+
+        ACTF("fastresume.bin not found, cannot perform FAST RESUME!");
+
+      }
+
+    }
+
+  }
+
+  if (fast_resume) {
+
+    // XXX
+
+  } else {
+
+    read_testcases(afl, NULL);
+
+    pivot_inputs(afl);
+
+    if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
+
+    if (afl->afl_env.afl_tmpdir && !afl->in_place_resume) {
+
+      char tmpfile[PATH_MAX];
+
+      if (afl->file_extension) {
+
+        snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
+                 afl->file_extension);
+
+      } else {
+
+        snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
+
+      }
+
+      /* there is still a race condition here, but well ... */
+      if (access(tmpfile, F_OK) != -1) {
+
+        FATAL(
+            "AFL_TMPDIR already has an existing temporary input file: %s - if "
+            "this is not from another instance, then just remove the file.",
+            tmpfile);
+
+      }
+
+    }
+
+  }
+
+  // read_foreign_testcases(afl, 1); for the moment dont do this
+  OKF("Loaded a total of %u seeds.", afl->queued_items);
 
   /* If we don't have a file name chosen yet, use a safe default. */
 
@@ -2195,8 +2255,6 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
   }
-
-  check_binary(afl, argv[optind]);
 
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
