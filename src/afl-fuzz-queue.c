@@ -401,7 +401,7 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   } else {
 
-    if (unlink(fn)) { PFATAL("Unable to remove '%s'", fn); }
+    if (unlink(fn)) { /*PFATAL("Unable to remove '%s'", fn);*/ }
 
   }
 
@@ -699,11 +699,10 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
 void destroy_queue(afl_state_t *afl) {
 
-  u32 i;
+  u32                 i;
+  struct queue_entry *q;
 
   for (i = 0; i < afl->queued_items; i++) {
-
-    struct queue_entry *q;
 
     q = afl->queue_buf[i];
     ck_free(q->fname);

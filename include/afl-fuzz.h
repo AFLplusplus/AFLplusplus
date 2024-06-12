@@ -236,7 +236,6 @@ struct queue_entry {
       custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
-  u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
 #ifdef INTROSPECTION
@@ -246,13 +245,11 @@ struct queue_entry {
   double perf_score,                    /* performance score                */
       weight;
 
-  u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
-
-  u8             *cmplog_colorinput;    /* the result buf of colorization   */
-  struct tainted *taint;                /* Taint information from CmpLog    */
-
-  struct queue_entry *mother;           /* queue entry this based on        */
-
+  struct queue_entry *mother;            /* queue entry this based on        */
+  u8                 *trace_mini;        /* Trace bytes, if kept             */
+  u8                 *testcase_buf;      /* The testcase buffer, if loaded.  */
+  u8                 *cmplog_colorinput; /* the result buf of colorization   */
+  struct tainted     *taint;             /* Taint information from CmpLog    */
   struct skipdet_entry *skipdet_e;
 
 };
