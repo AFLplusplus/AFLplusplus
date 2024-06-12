@@ -59,7 +59,7 @@ static inline unsigned int hash(uint64_t key) {
 bool hashmap_search_and_add(uint8_t type, uint64_t key) {
 
   if (unlikely(type >= 8)) return false;
-  uint64_t     val = (key & 0xf8ffffffffffffff) + (type << 56);
+  uint64_t     val = (key & 0xf8ffffffffffffff) + ((uint64_t)type << 56);
   unsigned int index = hash(val);
   HashNode    *node = _hashmap->table[index];
   while (node) {
