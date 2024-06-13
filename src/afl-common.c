@@ -59,43 +59,6 @@ u8  last_intr = 0;
   #define AFL_PATH "/usr/local/lib/afl/"
 #endif
 
-/* Convert seconds to milliseconds. */
-#define SEC_TO_MS(sec) ((sec) * 1000)
-/* Convert seconds to microseconds. */
-#define SEC_TO_US(sec) ((sec) * 1000000)
-/* Convert nanoseconds to milliseconds. */
-#define NS_TO_MS(ns) ((ns) / 1000000)
-/* Convert nanoseconds to microseconds. */
-#define NS_TO_US(ns) ((ns) / 1000)
-/* Convert seconds to milliseconds. */
-#define SEC_TO_MS(sec) ((sec) * 1000)
-/* Convert seconds to microseconds. */
-#define SEC_TO_US(sec) ((sec) * 1000000)
-/* Convert nanoseconds to milliseconds. */
-#define NS_TO_MS(ns) ((ns) / 1000000)
-/* Convert nanoseconds to microseconds. */
-#define NS_TO_US(ns) ((ns) / 1000)
-/* Convert nanoseconds to microseconds. */
-#define US_TO_MS(us) ((us) / 1000)
-/* Convert seconds to milliseconds. */
-#define SEC_TO_MS(sec) ((sec) * 1000)
-/* Convert seconds to microseconds. */
-#define SEC_TO_US(sec) ((sec) * 1000000)
-/* Convert nanoseconds to milliseconds. */
-#define NS_TO_MS(ns) ((ns) / 1000000)
-/* Convert nanoseconds to microseconds. */
-#define NS_TO_US(ns) ((ns) / 1000)
-/* Convert seconds to milliseconds. */
-#define SEC_TO_MS(sec) ((sec) * 1000)
-/* Convert seconds to microseconds. */
-#define SEC_TO_US(sec) ((sec) * 1000000)
-/* Convert nanoseconds to milliseconds. */
-#define NS_TO_MS(ns) ((ns) / 1000000)
-/* Convert nanoseconds to microseconds. */
-#define NS_TO_US(ns) ((ns) / 1000)
-/* Convert nanoseconds to microseconds. */
-#define US_TO_MS(us) ((us) / 1000)
-
 void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen) {
 
@@ -1013,9 +976,12 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 inline u64 get_cur_time(void) {
 
-  struct timespec ts;
-  (void)clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (u64)(SEC_TO_MS((uint64_t)ts.tv_sec) + NS_TO_MS((uint64_t)ts.tv_nsec));
+  struct timeval  tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
 
 }
 
@@ -1023,9 +989,12 @@ inline u64 get_cur_time(void) {
 
 inline u64 get_cur_time_us(void) {
 
-  struct timespec ts;
-  (void)clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (u64)(SEC_TO_US((uint64_t)ts.tv_sec) + NS_TO_US((uint64_t)ts.tv_nsec));
+  struct timeval  tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
 
 }
 

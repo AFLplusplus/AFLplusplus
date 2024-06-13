@@ -4,10 +4,6 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.22a (dev)
-  - afl-fuzz:
-    - the reason for the regression in 4.20c has been found, COARSE timing
-      is measuring too broad for our purpose, MONOTONIC is fine and better
-      than gettimeofday() so switching to this
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
