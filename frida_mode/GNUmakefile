@@ -214,6 +214,9 @@ all: $(FRIDA_TRACE) $(FRIDA_TRACE_LIB) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QE
 arm:
 	CFLAGS="-marm" LDFLAGS="-marm" ARCH="armhf" TARGET_CC=arm-linux-gnueabihf-gcc TARGET_CXX=arm-linux-gnueabihf-g++ make all
 
+arm64:
+	ARCH="arm64" TARGET_CC=aarch64-linux-gnu-gcc TARGET_CXX=aarch64-linux-gnu-g++ make all
+
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 

@@ -3,6 +3,14 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.22a (dev)
+  - frida_mode:
+    - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
+      a function entry
+    - AFL_DEBUG is now the same as AFL_FRIDA_VERBOSE
+    - AFL_FRIDA_DEBUG_MAPS now works as expected
+
+
 ### Version ++4.21c (release)
   * afl-fuzz
     - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
@@ -41,7 +49,6 @@
     - minor fix to collect coverage -C (thanks to @bet4it)
   * Fixed a shmem mmap bug (that rarely came up on MacOS)
   * libtokencap: script generate_libtoken_dict.sh added by @a-shvedov 
-
 
 ### Version ++4.20c (release)
   ! A new forkserver communication model is now introduced. afl-fuzz is

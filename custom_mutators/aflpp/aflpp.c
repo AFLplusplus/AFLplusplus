@@ -48,7 +48,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
     u8 *ptr = realloc(data->buf, max_size);
 
-    if (ptr) {
+    if (!ptr) {
 
       return 0;
 
