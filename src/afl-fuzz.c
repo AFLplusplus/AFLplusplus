@@ -960,7 +960,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        if (afl->fsrv.mem_limit < 5) { FATAL("Dangerously low value of -m"); }
+        if (afl->fsrv.mem_limit && afl->fsrv.mem_limit < 5) {
+
+          FATAL("Dangerously low value of -m");
+
+        }
 
         if (sizeof(rlim_t) == 4 && afl->fsrv.mem_limit > 2000) {
 
