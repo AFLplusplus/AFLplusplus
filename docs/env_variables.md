@@ -514,6 +514,8 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_NO_SNAPSHOT` will advise afl-fuzz not to use the snapshot feature if
     the snapshot lkm is loaded.
 
+  - `AFL_NO_FASTRESUME` will not try to read or write a fast resume file.
+
   - Setting `AFL_NO_UI` inhibits the UI altogether and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
