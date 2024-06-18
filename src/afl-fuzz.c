@@ -181,7 +181,7 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
       "compiled\n"
-      "                  for CmpLog then use '-c 0'. To disable Cmplog use '-c "
+      "                  for CmpLog then use '-c 0'. To disable CMPLOG use '-c "
       "-'.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
@@ -335,6 +335,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "AFL_NO_FASTRESUME: do not read or write a fast resume file\n"
       "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
       "AFL_FINAL_SYNC: sync a final time when exiting (will delay the exit!)\n"
@@ -2105,13 +2106,80 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  setup_cmdline_file(afl, argv + optind);
+  check_binary(afl, argv[optind]);
+
+  u64 prev_target_hash = 0;
+  s32 fast_resume = 0, fr_fd = -1;
+
+  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
+
+    u8 fn[PATH_MAX], buf[32];
+    snprintf(fn, PATH_MAX, "%s/target_hash", afl->out_dir);
+    fr_fd = open(fn, O_RDONLY);
+    if (fr_fd >= 0) {
+
+      if (read(fr_fd, buf, 32) >= 16) {
+
+        sscanf(buf, "%p", (void **)&prev_target_hash);
+
+      }
+
+      close(fr_fd);
+
+    }
+
+  }
+
   write_setup_file(afl, argc, argv);
 
-  setup_cmdline_file(afl, argv + optind);
+  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
+
+    u64 target_hash = get_binary_hash(afl->fsrv.target_path);
+
+    if (!target_hash || prev_target_hash != target_hash) {
+
+      ACTF("Target binary is different, cannot perform FAST RESUME!");
+
+    } else {
+
+      u8 fn[PATH_MAX];
+      snprintf(fn, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
+      if ((fr_fd = open(fn, O_RDONLY)) >= 0) {
+
+        u8   ver_string[8];
+        u64 *ver = (u64 *)ver_string;
+        u64  expect_ver =
+            afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+
+        if (read(fr_fd, ver_string, sizeof(ver_string)) != sizeof(ver_string))
+          WARNF("Emtpy fastresume.bin, ignoring, cannot perform FAST RESUME");
+        else if (expect_ver != *ver)
+          WARNF(
+              "Different AFL++ version or feature usage, cannot perform FAST "
+              "RESUME");
+        else {
+
+          OKF("Will perform FAST RESUME");
+          fast_resume = 1;
+
+        }
+
+      } else {
+
+        ACTF("fastresume.bin not found, cannot perform FAST RESUME!");
+
+      }
+
+      // If the fast resume file is not valid we will be unable to start, so
+      // we remove the file but keep the file descriptor open.
+      unlink(fn);
+
+    }
+
+  }
 
   read_testcases(afl, NULL);
-  // read_foreign_testcases(afl, 1); for the moment dont do this
-  OKF("Loaded a total of %u seeds.", afl->queued_items);
 
   pivot_inputs(afl);
 
@@ -2143,6 +2211,9 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
   }
+
+  // read_foreign_testcases(afl, 1); for the moment dont do this
+  OKF("Loaded a total of %u seeds.", afl->queued_items);
 
   /* If we don't have a file name chosen yet, use a safe default. */
 
@@ -2199,8 +2270,6 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
   }
-
-  check_binary(afl, argv[optind]);
 
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
@@ -2420,7 +2489,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    OKF("Cmplog forkserver successfully started");
+    OKF("CMPLOG forkserver successfully started");
 
   }
 
@@ -2458,29 +2527,102 @@ int main(int argc, char **argv_orig, char **envp) {
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
 
-  // after we have the correct bitmap size we can read the bitmap -B option
-  // and set the virgin maps
-  if (afl->in_bitmap) {
+  if (unlikely(fast_resume)) {
 
-    read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
+    u64 resume_start = get_cur_time_us();
+    // if we get here then we should abort on errors
+    ck_read(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
+    ck_read(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
+    ck_read(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
+    ck_read(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
+
+    u8                  res[1] = {0};
+    u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
+    u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
+    u32                 r = 8 + afl->fsrv.map_size * 4;
+    u32                 q_len = o_end - o_start;
+    u32                 m_len = (afl->fsrv.map_size >> 3);
+    struct queue_entry *q;
+
+    for (u32 i = 0; i < afl->queued_items; i++) {
+
+      q = afl->queue_buf[i];
+      ck_read(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+      ck_read(fr_fd, res, 1, "check map");
+      if (res[0]) {
+
+        q->trace_mini = ck_alloc(m_len);
+        ck_read(fr_fd, q->trace_mini, m_len, "trace_mini");
+        r += q_len + m_len + 1;
+
+      } else {
+
+        r += q_len + 1;
+
+      }
+
+      afl->total_bitmap_size += q->bitmap_size;
+      ++afl->total_bitmap_entries;
+      update_bitmap_score(afl, q);
+
+      if (q->was_fuzzed) { --afl->pending_not_fuzzed; }
+
+      if (q->disabled) {
+
+        if (!q->was_fuzzed) { --afl->pending_not_fuzzed; }
+        --afl->active_items;
+
+      }
+
+      if (q->var_behavior) { ++afl->queued_variable; }
+      if (q->favored) {
+
+        ++afl->queued_favored;
+        if (!q->was_fuzzed) { ++afl->pending_favored; }
+
+      }
+
+    }
+
+    u8 buf[4];
+    if (read(fr_fd, buf, 3) > 0) {
+
+      FATAL("invalid trailing data in fastresume.bin");
+
+    }
+
+    OKF("Successfully loaded fastresume.bin (%u bytes)!", r);
+    close(fr_fd);
+    afl->reinit_table = 1;
+    update_calibration_time(afl, &resume_start);
 
   } else {
 
-    memset(afl->virgin_bits, 255, map_size);
+    // after we have the correct bitmap size we can read the bitmap -B option
+    // and set the virgin maps
+    if (afl->in_bitmap) {
 
-  }
+      read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
 
-  memset(afl->virgin_tmout, 255, map_size);
-  memset(afl->virgin_crash, 255, map_size);
+    } else {
 
-  if (likely(!afl->afl_env.afl_no_startup_calibration)) {
+      memset(afl->virgin_bits, 255, map_size);
 
-    perform_dry_run(afl);
+    }
 
-  } else {
+    memset(afl->virgin_tmout, 255, map_size);
+    memset(afl->virgin_crash, 255, map_size);
 
-    ACTF("skipping initial seed calibration due option override!");
-    usleep(1000);
+    if (likely(!afl->afl_env.afl_no_startup_calibration)) {
+
+      perform_dry_run(afl);
+
+    } else {
+
+      ACTF("Skipping initial seed calibration due option override!");
+      usleep(1000);
+
+    }
 
   }
 
@@ -3070,6 +3212,66 @@ stop_fuzzing:
   #ifdef INTROSPECTION
   fclose(afl->fsrv.det_plot_file);
   #endif
+
+  if (!afl->afl_env.afl_no_fastresume) {
+  /* create fastresume.bin */
+  u8 fr[PATH_MAX];
+  snprintf(fr, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
+  ACTF("Writing %s ...", fr);
+  if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
+      0) {
+
+    u8   ver_string[8];
+    u32  w = 0;
+    u64 *ver = (u64 *)ver_string;
+    *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+
+    w += write(fr_fd, ver_string, sizeof(ver_string));
+
+    w += write(fr_fd, afl->virgin_bits, afl->fsrv.map_size);
+    w += write(fr_fd, afl->virgin_tmout, afl->fsrv.map_size);
+    w += write(fr_fd, afl->virgin_crash, afl->fsrv.map_size);
+    w += write(fr_fd, afl->var_bytes, afl->fsrv.map_size);
+
+    u8                  on[1] = {1}, off[1] = {0};
+    u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
+    u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
+    u32                 q_len = o_end - o_start;
+    u32                 m_len = (afl->fsrv.map_size >> 3);
+    struct queue_entry *q;
+
+    afl->pending_not_fuzzed = afl->queued_items;
+    afl->active_items = afl->queued_items;
+
+    for (u32 i = 0; i < afl->queued_items; i++) {
+
+      q = afl->queue_buf[i];
+      ck_write(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+      if (!q->trace_mini) {
+
+        ck_write(fr_fd, off, 1, "no_mini");
+        w += q_len + 1;
+
+      } else {
+
+        ck_write(fr_fd, on, 1, "yes_mini");
+        ck_write(fr_fd, q->trace_mini, m_len, "trace_mini");
+        w += q_len + m_len + 1;
+
+      }
+
+    }
+
+    close(fr_fd);
+    afl->var_byte_count = count_bytes(afl, afl->var_bytes);
+    OKF("Written fastresume.bin with %u bytes!", w);
+
+  } else {
+
+    WARNF("Could not create fastresume.bin");
+
+  }
+  }
 
   destroy_queue(afl);
   destroy_extras(afl);
