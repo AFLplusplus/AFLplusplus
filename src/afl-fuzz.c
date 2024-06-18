@@ -335,6 +335,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "AFL_NO_FASTRESUME: do not read or write a fast resume file\n"
       "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
       "AFL_FINAL_SYNC: sync a final time when exiting (will delay the exit!)\n"
@@ -2107,7 +2108,7 @@ int main(int argc, char **argv_orig, char **envp) {
   u64 prev_target_hash = 0;
   s32 fast_resume = 0, fr_fd = -1;
 
-  if (afl->in_place_resume) {
+  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
     u8 fn[PATH_MAX], buf[32];
     snprintf(fn, PATH_MAX, "%s/target_hash", afl->out_dir);
@@ -2128,7 +2129,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   write_setup_file(afl, argc, argv);
 
-  if (afl->in_place_resume) {
+  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
     u64 target_hash = get_binary_hash(afl->fsrv.target_path);
 
@@ -2165,6 +2166,10 @@ int main(int argc, char **argv_orig, char **envp) {
         ACTF("fastresume.bin not found, cannot perform FAST RESUME!");
 
       }
+
+      // If the fast resume file is not valid we will be unable to start, so
+      // we remove the file but keep the file descriptor open.
+      unlink(fn);
 
     }
 
@@ -3204,9 +3209,11 @@ stop_fuzzing:
   fclose(afl->fsrv.det_plot_file);
   #endif
 
+  if (!afl->afl_env.afl_no_fastresume) {
   /* create fastresume.bin */
   u8 fr[PATH_MAX];
   snprintf(fr, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
+  ACTF("Writing %s ...", fr);
   if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
       0) {
 
@@ -3259,6 +3266,7 @@ stop_fuzzing:
 
     WARNF("Could not create fastresume.bin");
 
+  }
   }
 
   destroy_queue(afl);
