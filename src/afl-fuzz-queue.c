@@ -401,7 +401,9 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   } else {
 
-    if (unlink(fn)) { /*PFATAL("Unable to remove '%s'", fn);*/ }
+    if (unlink(fn)) {                 /*PFATAL("Unable to remove '%s'", fn);*/
+
+    }
 
   }
 
