@@ -3214,63 +3214,65 @@ stop_fuzzing:
   #endif
 
   if (!afl->afl_env.afl_no_fastresume) {
-  /* create fastresume.bin */
-  u8 fr[PATH_MAX];
-  snprintf(fr, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
-  ACTF("Writing %s ...", fr);
-  if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
-      0) {
 
-    u8   ver_string[8];
-    u32  w = 0;
-    u64 *ver = (u64 *)ver_string;
-    *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+    /* create fastresume.bin */
+    u8 fr[PATH_MAX];
+    snprintf(fr, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
+    ACTF("Writing %s ...", fr);
+    if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
+        0) {
 
-    w += write(fr_fd, ver_string, sizeof(ver_string));
+      u8   ver_string[8];
+      u32  w = 0;
+      u64 *ver = (u64 *)ver_string;
+      *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
 
-    w += write(fr_fd, afl->virgin_bits, afl->fsrv.map_size);
-    w += write(fr_fd, afl->virgin_tmout, afl->fsrv.map_size);
-    w += write(fr_fd, afl->virgin_crash, afl->fsrv.map_size);
-    w += write(fr_fd, afl->var_bytes, afl->fsrv.map_size);
+      w += write(fr_fd, ver_string, sizeof(ver_string));
 
-    u8                  on[1] = {1}, off[1] = {0};
-    u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
-    u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
-    u32                 q_len = o_end - o_start;
-    u32                 m_len = (afl->fsrv.map_size >> 3);
-    struct queue_entry *q;
+      w += write(fr_fd, afl->virgin_bits, afl->fsrv.map_size);
+      w += write(fr_fd, afl->virgin_tmout, afl->fsrv.map_size);
+      w += write(fr_fd, afl->virgin_crash, afl->fsrv.map_size);
+      w += write(fr_fd, afl->var_bytes, afl->fsrv.map_size);
 
-    afl->pending_not_fuzzed = afl->queued_items;
-    afl->active_items = afl->queued_items;
+      u8                  on[1] = {1}, off[1] = {0};
+      u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
+      u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
+      u32                 q_len = o_end - o_start;
+      u32                 m_len = (afl->fsrv.map_size >> 3);
+      struct queue_entry *q;
 
-    for (u32 i = 0; i < afl->queued_items; i++) {
+      afl->pending_not_fuzzed = afl->queued_items;
+      afl->active_items = afl->queued_items;
 
-      q = afl->queue_buf[i];
-      ck_write(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
-      if (!q->trace_mini) {
+      for (u32 i = 0; i < afl->queued_items; i++) {
 
-        ck_write(fr_fd, off, 1, "no_mini");
-        w += q_len + 1;
+        q = afl->queue_buf[i];
+        ck_write(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+        if (!q->trace_mini) {
 
-      } else {
+          ck_write(fr_fd, off, 1, "no_mini");
+          w += q_len + 1;
 
-        ck_write(fr_fd, on, 1, "yes_mini");
-        ck_write(fr_fd, q->trace_mini, m_len, "trace_mini");
-        w += q_len + m_len + 1;
+        } else {
+
+          ck_write(fr_fd, on, 1, "yes_mini");
+          ck_write(fr_fd, q->trace_mini, m_len, "trace_mini");
+          w += q_len + m_len + 1;
+
+        }
 
       }
 
+      close(fr_fd);
+      afl->var_byte_count = count_bytes(afl, afl->var_bytes);
+      OKF("Written fastresume.bin with %u bytes!", w);
+
+    } else {
+
+      WARNF("Could not create fastresume.bin");
+
     }
 
-    close(fr_fd);
-    afl->var_byte_count = count_bytes(afl, afl->var_bytes);
-    OKF("Written fastresume.bin with %u bytes!", w);
-
-  } else {
-
-    WARNF("Could not create fastresume.bin");
-
-  }
   }
 
   destroy_queue(afl);
