@@ -3130,6 +3130,28 @@ stop_fuzzing:
   write_bitmap(afl);
   save_auto(afl);
 
+  #ifdef __AFL_CODE_COVERAGE
+  if (afl->fsrv.persistent_trace_bits) {
+
+    char cfn[4096];
+    snprintf(cfn, sizeof(cfn), "%s/covmap.dump", afl->out_dir);
+
+    FILE *cov_fd;
+    if ((cov_fd = fopen(cfn, "w")) == NULL) {
+
+      PFATAL("could not create '%s'", cfn);
+
+    }
+
+    // Write the real map size, as the map size must exactly match the pointer
+    // map in length.
+    fwrite(afl->fsrv.persistent_trace_bits, 1, afl->fsrv.real_map_size, cov_fd);
+    fclose(cov_fd);
+
+  }
+
+  #endif
+
   if (afl->pizza_is_served) {
 
     SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,

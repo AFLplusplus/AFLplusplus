@@ -252,6 +252,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = false;
 
+#ifdef __AFL_CODE_COVERAGE
+  fsrv->persistent_trace_bits = NULL;
+#endif
+
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
 
@@ -277,6 +281,10 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+
+#ifdef __AFL_CODE_COVERAGE
+  fsrv_to->persistent_trace_bits = from->persistent_trace_bits;
+#endif
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
