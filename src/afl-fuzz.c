@@ -1873,6 +1873,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
           OKF("Using Frida Address Sanitizer Mode");
 
+          if (afl->fsrv.mem_limit) {
+
+            WARNF("in the Frida Address Sanitizer Mode we disable all memory limits");
+            afl->fsrv.mem_limit = 0;
+
+          }
+
           fasan_check_afl_preload(afl_preload);
 
           setenv("ASAN_OPTIONS", "detect_leaks=false", 1);
