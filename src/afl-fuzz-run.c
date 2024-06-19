@@ -60,6 +60,27 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
+#ifdef __AFL_CODE_COVERAGE
+  if (unlikely(!fsrv->persistent_trace_bits)) {
+
+    // On the first run, we allocate the persistent map to collect coverage.
+    fsrv->persistent_trace_bits = (u8 *)malloc(fsrv->map_size);
+    memset(fsrv->persistent_trace_bits, 0, fsrv->map_size);
+
+  }
+
+  for (u32 i = 0; i < fsrv->map_size; ++i) {
+
+    if (fsrv->persistent_trace_bits[i] != 255 && fsrv->trace_bits[i]) {
+
+      fsrv->persistent_trace_bits[i]++;
+
+    }
+
+  }
+
+#endif
+
   /* If post_run() function is defined in custom mutator, the function will be
      called each time after AFL++ executes the target program. */
 
