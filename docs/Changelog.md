@@ -9,6 +9,7 @@
       with `-i -` or `AFL_AUTORESUME=1` and the target binary has not changed
       then a dump will be loaded and the calibration phase skipped.
       to disable this feature set `AFL_NO_FASTRESUME=1`
+      zlib compression is used if zlib is found at compile time
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry

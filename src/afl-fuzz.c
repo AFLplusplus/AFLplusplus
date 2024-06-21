@@ -36,6 +36,67 @@
   #include <sys/ipc.h>
   #include <sys/shm.h>
 #endif
+#ifdef HAVE_ZLIB
+
+  #define ck_gzread(fd, buf, len, fn)                            \
+    do {                                                         \
+                                                                 \
+      s32 _len = (s32)(len);                                     \
+      s32 _res = gzread(fd, buf, _len);                          \
+      if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
+                                                                 \
+    } while (0)
+
+  #define ck_gzwrite(fd, buf, len, fn)                                    \
+    do {                                                                  \
+                                                                          \
+      if (len <= 0) break;                                                \
+      s32 _written = 0, _off = 0, _len = (s32)(len);                      \
+                                                                          \
+      do {                                                                \
+                                                                          \
+        s32 _res = gzwrite(fd, (buf) + _off, _len);                       \
+        if (_res != _len && (_res > 0 && _written + _res != _len)) {      \
+                                                                          \
+          if (_res > 0) {                                                 \
+                                                                          \
+            _written += _res;                                             \
+            _len -= _res;                                                 \
+            _off += _res;                                                 \
+                                                                          \
+          } else {                                                        \
+                                                                          \
+            RPFATAL(_res, "Short write to %s (%d of %d bytes)", fn, _res, \
+                    _len);                                                \
+                                                                          \
+          }                                                               \
+                                                                          \
+        } else {                                                          \
+                                                                          \
+          break;                                                          \
+                                                                          \
+        }                                                                 \
+                                                                          \
+      } while (1);                                                        \
+                                                                          \
+                                                                          \
+                                                                          \
+    } while (0)
+
+  #include <zlib.h>
+  #define ZLIBOPEN gzopen
+  #define ZLIBREAD ck_gzread
+  #define NZLIBREAD gzread
+  #define ZLIBWRITE ck_gzwrite
+  #define ZLIBCLOSE gzclose
+  #define ZLIB_EXTRA "9"
+#else
+  #define ZLIBOPEN open
+  #define NZLIBREAD read
+  #define ZLIBREAD ck_read
+  #define ZLIBWRITE ck_write
+  #define ZLIBCLOSE close
+#endif
 
 #ifdef __APPLE__
   #include <sys/qos.h>
@@ -1875,7 +1936,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
           if (afl->fsrv.mem_limit) {
 
-            WARNF("in the Frida Address Sanitizer Mode we disable all memory limits");
+            WARNF(
+                "in the Frida Address Sanitizer Mode we disable all memory "
+                "limits");
             afl->fsrv.mem_limit = 0;
 
           }
@@ -2117,22 +2180,27 @@ int main(int argc, char **argv_orig, char **envp) {
   check_binary(afl, argv[optind]);
 
   u64 prev_target_hash = 0;
-  s32 fast_resume = 0, fr_fd = -1;
+  s32 fast_resume = 0;
+  #ifdef HAVE_ZLIB
+  gzFile fr_fd = NULL;
+  #else
+  s32 fr_fd = -1;
+  #endif
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
     u8 fn[PATH_MAX], buf[32];
     snprintf(fn, PATH_MAX, "%s/target_hash", afl->out_dir);
-    fr_fd = open(fn, O_RDONLY);
-    if (fr_fd >= 0) {
+    s32 fd = open(fn, O_RDONLY);
+    if (fd >= 0) {
 
-      if (read(fr_fd, buf, 32) >= 16) {
+      if (read(fd, buf, 32) >= 16) {
 
         sscanf(buf, "%p", (void **)&prev_target_hash);
 
       }
 
-      close(fr_fd);
+      close(fd);
 
     }
 
@@ -2152,14 +2220,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
       u8 fn[PATH_MAX];
       snprintf(fn, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
+  #ifdef HAVE_ZLIB
+      if ((fr_fd = ZLIBOPEN(fn, "rb")) != NULL) {
+
+  #else
       if ((fr_fd = open(fn, O_RDONLY)) >= 0) {
+
+  #endif
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
         u64  expect_ver =
             afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
 
-        if (read(fr_fd, ver_string, sizeof(ver_string)) != sizeof(ver_string))
+        if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
+            sizeof(ver_string))
           WARNF("Emtpy fastresume.bin, ignoring, cannot perform FAST RESUME");
         else if (expect_ver != *ver)
           WARNF(
@@ -2538,10 +2613,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u64 resume_start = get_cur_time_us();
     // if we get here then we should abort on errors
-    ck_read(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
-    ck_read(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
-    ck_read(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
-    ck_read(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
+    ZLIBREAD(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
+    ZLIBREAD(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
+    ZLIBREAD(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
+    ZLIBREAD(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
 
     u8                  res[1] = {0};
     u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
@@ -2554,12 +2629,12 @@ int main(int argc, char **argv_orig, char **envp) {
     for (u32 i = 0; i < afl->queued_items; i++) {
 
       q = afl->queue_buf[i];
-      ck_read(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
-      ck_read(fr_fd, res, 1, "check map");
+      ZLIBREAD(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+      ZLIBREAD(fr_fd, res, 1, "check map");
       if (res[0]) {
 
         q->trace_mini = ck_alloc(m_len);
-        ck_read(fr_fd, q->trace_mini, m_len, "trace_mini");
+        ZLIBREAD(fr_fd, q->trace_mini, m_len, "trace_mini");
         r += q_len + m_len + 1;
 
       } else {
@@ -2592,14 +2667,14 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     u8 buf[4];
-    if (read(fr_fd, buf, 3) > 0) {
+    if (NZLIBREAD(fr_fd, buf, 3) > 0) {
 
       FATAL("invalid trailing data in fastresume.bin");
 
     }
 
     OKF("Successfully loaded fastresume.bin (%u bytes)!", r);
-    close(fr_fd);
+    ZLIBCLOSE(fr_fd);
     afl->reinit_table = 1;
     update_calibration_time(afl, &resume_start);
 
@@ -3248,20 +3323,24 @@ stop_fuzzing:
     u8 fr[PATH_MAX];
     snprintf(fr, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
     ACTF("Writing %s ...", fr);
+  #ifdef HAVE_ZLIB
+    if ((fr_fd = ZLIBOPEN(fr, "wb9")) != NULL) {
+
+  #else
     if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
-        0) {
+  #endif
 
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
       *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
 
-      w += write(fr_fd, ver_string, sizeof(ver_string));
-
-      w += write(fr_fd, afl->virgin_bits, afl->fsrv.map_size);
-      w += write(fr_fd, afl->virgin_tmout, afl->fsrv.map_size);
-      w += write(fr_fd, afl->virgin_crash, afl->fsrv.map_size);
-      w += write(fr_fd, afl->var_bytes, afl->fsrv.map_size);
+      ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
+      ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
+      ZLIBWRITE(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
+      ZLIBWRITE(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
+      ZLIBWRITE(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
+      w += sizeof(ver_string) + afl->fsrv.map_size * 4;
 
       u8                  on[1] = {1}, off[1] = {0};
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
@@ -3276,23 +3355,23 @@ stop_fuzzing:
       for (u32 i = 0; i < afl->queued_items; i++) {
 
         q = afl->queue_buf[i];
-        ck_write(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+        ZLIBWRITE(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
         if (!q->trace_mini) {
 
-          ck_write(fr_fd, off, 1, "no_mini");
+          ZLIBWRITE(fr_fd, off, 1, "no_mini");
           w += q_len + 1;
 
         } else {
 
-          ck_write(fr_fd, on, 1, "yes_mini");
-          ck_write(fr_fd, q->trace_mini, m_len, "trace_mini");
+          ZLIBWRITE(fr_fd, on, 1, "yes_mini");
+          ZLIBWRITE(fr_fd, q->trace_mini, m_len, "trace_mini");
           w += q_len + m_len + 1;
 
         }
 
       }
 
-      close(fr_fd);
+      ZLIBCLOSE(fr_fd);
       afl->var_byte_count = count_bytes(afl, afl->var_bytes);
       OKF("Written fastresume.bin with %u bytes!", w);
 
