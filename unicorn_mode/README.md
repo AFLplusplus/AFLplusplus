@@ -144,7 +144,7 @@ The following examples exist at the time of writing:
   blocks
 - persistent: A C example using persistent mode for maximum speed, and resetting
   the target state between each iteration
-- simple: A simple Python example
+- python_simple: A simple Python example
 - speedtest/c: The C harness for an example target, used to compare C, Python,
   and Rust bindings and fix speed issues
 - speedtest/python: Fuzzing the same target in Python
