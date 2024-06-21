@@ -409,8 +409,6 @@ static inline const char *colorfilter(const char *x) {
                                                                               \
     } while (1);                                                              \
                                                                               \
-                                                                              \
-                                                                              \
   } while (0)
 
 #define ck_read(fd, buf, len, fn)                              \
