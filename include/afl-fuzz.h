@@ -116,6 +116,10 @@
   #include <TargetConditionals.h>
 #endif
 
+#ifndef __has_builtin
+  #define __has_builtin(x) 0
+#endif
+
 #undef LIST_FOREACH                                 /* clashes with FreeBSD */
 #include "list.h"
 #ifndef SIMPLE_FILES
