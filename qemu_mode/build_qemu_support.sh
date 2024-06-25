@@ -291,23 +291,6 @@ ls -l ../afl-qemu-trace || exit 1
 
 echo "[+] Successfully created '../afl-qemu-trace'."
 
-#### Hooking support
-if [ "$ENABLE_HOOKING" = "1" ];then
-  echo "[+] Enabling hooking"
-  if [ "$DEBUG" = "1" ];then
-    DF="-D DEBUG"
-  else
-    DF=
-  fi
-  set -u
-  cd ./hooking_bridge || exit 255
-  mkdir -p ./build
-  make CFLAGS="$DF" GLIB_H="$GLIB_H" GLIB_CONFIG_H="$GLIB_CONFIG_H"
-  set +u
-  cd ..
-fi
-#### End of hooking support
-
 if [ "$ORIG_CPU_TARGET" = "" ]; then
 
   echo "[*] Testing the build..."
@@ -402,6 +385,19 @@ else
   echo "[+] Building libqasan ..."
   make -C libqasan CC="$CROSS $CROSS_FLAGS" && echo "[+] libqasan ready"
 fi
+
+#### Hooking support
+if [ "$ENABLE_HOOKING" = "1" ];then
+  echo "[+] ENABLING HOOKING"
+  set -eu
+  cd ./hooking_bridge || exit 255
+  mkdir -p ./build
+  echo "[+] Hook compiler = $CROSS"
+  make CC="$CROSS $CROSS_FLAGS" GLIB_H="$GLIB_H" GLIB_CONFIG_H="$GLIB_CONFIG_H"
+  set +eu
+  cd ..
+fi
+#### End of hooking support
 
 echo "[+] All done for qemu_mode, enjoy!"
 

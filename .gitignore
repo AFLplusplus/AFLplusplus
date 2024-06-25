@@ -113,3 +113,4 @@ utils/plot_ui/afl-plot-ui
 vuln_prog
 qemu_mode/hooking_bridge/env*
 qemu_mode/hooking_bridge/build/
+venv
