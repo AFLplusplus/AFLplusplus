@@ -463,7 +463,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(fault == FSRV_RUN_TMOUT && afl->afl_env.afl_ignore_timeouts)) {
 
-    if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
       classify_counts(&afl->fsrv);
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -489,7 +489,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   /* Generating a hash on every input is super expensive. Bad idea and should
      only be used for special schedules */
-  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
     classify_counts(&afl->fsrv);
     classified = 1;

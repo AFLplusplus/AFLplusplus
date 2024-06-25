@@ -123,7 +123,7 @@ void create_alias_table(afl_state_t *afl) {
         double weight = 1.0;
         {  // inline does result in a compile error with LTO, weird
 
-          if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+          if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
             u32 hits = afl->n_fuzz[q->n_fuzz_entry];
             if (likely(hits)) { weight /= (log10(hits) + 1); }
@@ -133,39 +133,127 @@ void create_alias_table(afl_state_t *afl) {
           if (likely(afl->schedule < RARE)) {
 
             double t = q->exec_us / avg_exec_us;
+
             if (likely(t < 0.1)) {
 
               // nothing
 
-            } else if (likely(t <= 0.25))
+            } else if (likely(t <= 0.25)) {
 
-              weight *= 0.9;
-            else if (likely(t <= 0.5)) {
+              weight *= 0.95;
+
+            } else if (likely(t <= 0.5)) {
 
               // nothing
 
-            } else if (likely(t < 1.0))
+            } else if (likely(t <= 0.75)) {
+
+              weight *= 1.05;
+
+            } else if (likely(t <= 1.0)) {
+
+              weight *= 1.1;
+
+            } else if (likely(t < 1.25)) {
+
+              weight *= 0.2;  // WTF ??? makes no sense
+
+            } else if (likely(t <= 1.5)) {
+
+              // nothing
+
+            } else if (likely(t <= 2.0)) {
+
+              weight *= 1.1;
+
+            } else if (likely(t <= 2.5)) {
+
+            } else if (likely(t <= 5.0)) {
 
               weight *= 1.15;
-            else if (unlikely(t > 2.5 && t < 5.0))
+
+            } else if (likely(t <= 20.0)) {
+
               weight *= 1.1;
-            // else nothing
+              // else nothing
+
+            }
 
           }
 
           double l = q->len / avg_len;
-          if (likely(l < 0.1))
-            weight *= 0.75;
-          else if (likely(l < 0.25))
-            weight *= 1.1;
-          else if (unlikely(l >= 10))
-            weight *= 1.1;
+          if (likely(l < 0.1)) {
+
+            weight *= 0.5;
+
+          } else if (likely(l <= 0.5)) {
+
+            // nothing
+
+          } else if (likely(l <= 1.25)) {
+
+            weight *= 1.05;
+
+          } else if (likely(l <= 1.75)) {
+
+            // nothing
+
+          } else if (likely(l <= 2.0)) {
+
+            weight *= 0.95;
+
+          } else if (likely(l <= 5.0)) {
+
+            // nothing
+
+          } else if (likely(l <= 10.0)) {
+
+            weight *= 1.05;
+
+          } else {
+
+            weight *= 1.15;
+
+          }
 
           double bms = q->bitmap_size / avg_bitmap_size;
-          if (likely(bms < 0.5))
-            weight *= (1.0 + ((bms - 0.5) / 2));
-          else if (unlikely(bms > 1.33))
-            weight *= 1.1;
+          if (likely(bms < 0.1)) {
+
+            weight *= 0.01;
+
+          } else if (likely(bms <= 0.25)) {
+
+            weight *= 0.55;
+
+          } else if (likely(bms <= 0.5)) {
+
+            // nothing
+
+          } else if (likely(bms <= 0.75)) {
+
+            weight *= 1.2;
+
+          } else if (likely(bms <= 1.25)) {
+
+            weight *= 1.3;
+
+          } else if (likely(bms <= 1.75)) {
+
+            weight *= 1.25;
+
+          } else if (likely(bms <= 2.0)) {
+
+            // nothing
+
+          } else if (likely(bms <= 2.5)) {
+
+            weight *= 1.3;
+
+          } else {
+
+            weight *= 0.75;
+
+          }
 
           if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
           if (unlikely(q->fs_redundant)) { weight *= 0.75; }
@@ -741,7 +829,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fav_factor;
   u64 fuzz_p2;
 
-  if (likely(afl->schedule >= FAST && afl->schedule < RARE)) {
+  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
     fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
 
@@ -777,7 +865,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
 
-        if (likely(afl->schedule >= FAST && afl->schedule < RARE)) {
+        if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
           top_rated_fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
 
