@@ -389,12 +389,12 @@ fi
 #### Hooking support
 if [ "$ENABLE_HOOKING" = "1" ];then
   echo "[+] ENABLING HOOKING"
-  set -eu
+  set -e
   cd ./hooking_bridge || exit 255
   mkdir -p ./build
   echo "[+] Hook compiler = $CROSS"
   make CC="$CROSS $CROSS_FLAGS" GLIB_H="$GLIB_H" GLIB_CONFIG_H="$GLIB_CONFIG_H"
-  set +eu
+  set +e
   cd ..
 fi
 #### End of hooking support

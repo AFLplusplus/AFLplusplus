@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "common.h"
 
 QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 
@@ -9,7 +10,6 @@ static void finish_cb(qemu_plugin_id_t id, void *userdata) {
 
 }
 
-/* execution hooks are placed within the respective translation hooks */
 static void block_trans_cb(qemu_plugin_id_t id, struct qemu_plugin_tb *tb) {
 
   patch_block_trans_cb(tb);
@@ -25,8 +25,6 @@ static void vpu_init_cb(qemu_plugin_id_t id, unsigned int vcpu_index) {
 QEMU_PLUGIN_EXPORT
 int qemu_plugin_install(qemu_plugin_id_t id, const qemu_info_t *info, int argc,
                         char **argv) {
-
-  // fprintf(stderr, "argc: %d argv: %s -- %s\n",argc, argv[0], argv[1]);
 
   patch_init(argv[0]);
   qemu_plugin_register_vcpu_init_cb(id, vpu_init_cb);

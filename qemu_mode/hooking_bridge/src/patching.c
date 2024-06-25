@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <glib.h>
-
+#include "common.h"
 #include "exports.h"
 
 void        *handle;
