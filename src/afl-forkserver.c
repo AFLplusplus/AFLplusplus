@@ -292,6 +292,9 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
 
+  fsrv_to->late_send = from->late_send;
+  fsrv_to->custom_data_ptr = from->custom_data_ptr;
+
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func or ->persistent_record*
 
@@ -1949,6 +1952,13 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           "shared memory available).");
 
     FATAL("Fork server is misbehaving (OOM?)");
+
+  }
+
+  if (unlikely(fsrv->late_send)) {
+
+    fsrv->late_send(fsrv->custom_data_ptr, fsrv->custom_input,
+                    fsrv->custom_input_len);
 
   }
 

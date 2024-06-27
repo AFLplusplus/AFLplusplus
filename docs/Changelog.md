@@ -11,6 +11,8 @@
       to disable this feature set `AFL_NO_FASTRESUME=1`
       zlib compression is used if zlib is found at compile time
     - improved seed selection algorithm
+    - added `AFL_CUSTOM_MUTATOR_LATE_SEND=1` to call the custom send()
+      function after the target has been restarted.
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry

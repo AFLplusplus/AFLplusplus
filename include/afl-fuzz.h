@@ -449,8 +449,9 @@ extern char *power_names[POWER_SCHEDULES_NUM];
 typedef struct afl_env_vars {
 
   u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
-      afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
-      afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
+      afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only,
+      afl_custom_mutator_late_send, afl_no_ui, afl_force_ui,
+      afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,

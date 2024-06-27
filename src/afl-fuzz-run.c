@@ -194,7 +194,17 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
       if (el->afl_custom_fuzz_send) {
 
-        el->afl_custom_fuzz_send(el->data, *mem, new_size);
+        if (!afl->afl_env.afl_custom_mutator_late_send) {
+
+          el->afl_custom_fuzz_send(el->data, *mem, new_size);
+
+        } else {
+
+          afl->fsrv.custom_input = *mem;
+          afl->fsrv.custom_input_len = new_size;
+
+        }
+
         sent = 1;
 
       }
