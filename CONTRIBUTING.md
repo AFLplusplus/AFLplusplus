@@ -34,6 +34,7 @@ file in one the following folders:
 * [docs/](docs/) (this is where you can find most of our docs content)
 * [frida_mode/](frida_mode/)
 * [instrumentation/](instrumentation/)
+* [nyx_mode/](nyx_mode/)
 * [qemu_mode/](qemu_mode/)
 * [unicorn_mode/](unicorn_mode/)
 
