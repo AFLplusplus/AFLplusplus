@@ -368,6 +368,10 @@ checks or alter some of the more exotic semantics of the tool:
     XML or other highly flexible structured input. For details, see
     [custom_mutators.md](custom_mutators.md).
 
+  - Setting `AFL_CUSTOM_MUTATOR_LATE_SEND` will call the afl_custom_fuzz_send()
+    function after the target has been restarted. (This is needed for e.g. TCP
+    services.)
+
   - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule every time
     a cycle is finished.
 

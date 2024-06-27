@@ -2142,6 +2142,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->custom_mutators_count && afl->afl_env.afl_custom_mutator_late_send) {
+
+    u32 count_send = 0;
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_fuzz_send) {
+
+        if (count_send) {
+
+          FATAL(
+              "You can only have one custom send() function if you are using "
+              "AFL_CUSTOM_MUTATOR_LATE_SEND!");
+
+        }
+
+        afl->fsrv.late_send = el->afl_custom_fuzz_send;
+        afl->fsrv.custom_data_ptr = el->data;
+        count_send = 1;
+
+      }
+
+    });
+
+  }
+
   if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
 
     if (afl->custom_only) {
