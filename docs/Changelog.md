@@ -18,6 +18,8 @@
       a function entry
     - AFL_DEBUG is now the same as AFL_FRIDA_VERBOSE
     - AFL_FRIDA_DEBUG_MAPS now works as expected
+  - custom mutators:
+    - custom_send_tcp custom mutator added, thanks to @dergoegge
 
 
 ### Version ++4.21c (release)
