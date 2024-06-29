@@ -2,6 +2,7 @@
 
 ## Must
 
+ - in CLASSIC mode - do old forkserver model
  - docs: AFL_DISABLE_REDUNDANT (large/slow/LAF)
  - check for null ptr for xml/curl/g_ string transform functions
  - hardened_usercopy=0 page_alloc.shuffle=0
