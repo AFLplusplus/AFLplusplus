@@ -20,6 +20,10 @@
     - AFL_FRIDA_DEBUG_MAPS now works as expected
   - custom mutators:
     - custom_send_tcp custom mutator added, thanks to @dergoegge
+  - afl-cc
+    - new runtime (!) variable: `AFL_OLD_FORKSERVER` to use the old vanilla
+      AFL type forkserver. Useful for symcc/symqemu/nautilus/etc. with
+      AFL_LLVM_INSTRUMENT=CLASSIC
 
 
 ### Version ++4.21c (release)
