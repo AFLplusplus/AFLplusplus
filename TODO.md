@@ -2,6 +2,9 @@
 
 ## Must
 
+ - in CLASSIC mode - do old forkserver model
+ - docs: AFL_DISABLE_REDUNDANT (large/slow/LAF)
+ - check for null ptr for xml/curl/g_ string transform functions
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
  - cmplog max items env?
@@ -11,12 +14,12 @@
  - afl-showmap -f support
  - afl-fuzz multicore wrapper script
  - when trimming then perform crash detection
- - cyclomatic complexity: 2 + calls + edges - blocks
 
 
 ## Should
 
  - afl-crash-analysis
+ - cmplog: add loop count resolving (byte -> loop cnt change, calc special values)
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
  - afl-plot to support multiple plot_data

@@ -225,8 +225,13 @@ static void at_exit_handler(void) {
 
   if (remove_shm) {
 
+    remove_shm = false;
     if (shm.map) afl_shm_deinit(&shm);
-    if (fsrv->use_shmem_fuzz) deinit_shmem(fsrv, shm_fuzz);
+    if ((shm_fuzz && shm_fuzz->shmemfuzz_mode) || fsrv->use_shmem_fuzz) {
+
+      shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
+
+    }
 
   }
 
@@ -1527,6 +1532,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
+  atexit(at_exit_handler);
+
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
   shm_fuzz->shmemfuzz_mode = true;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
@@ -1676,8 +1683,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    atexit(at_exit_handler);
-
     if (get_afl_env("AFL_DEBUG")) {
 
       int j = optind;
@@ -1694,8 +1699,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     map_size = fsrv->map_size;
 
-    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz) {
+
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
+
+    }
 
     if (in_dir) {
 
@@ -1728,8 +1736,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz) {
+
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
+
+    }
 
 #ifdef __linux__
     if (!fsrv->nyx_mode) {
@@ -1777,9 +1788,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  remove_shm = 0;
+  remove_shm = false;
   afl_shm_deinit(&shm);
-  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
+  if (fsrv->use_shmem_fuzz) { shm_fuzz = deinit_shmem(fsrv, shm_fuzz); }
 
   u32 ret;
 

@@ -368,6 +368,10 @@ checks or alter some of the more exotic semantics of the tool:
     XML or other highly flexible structured input. For details, see
     [custom_mutators.md](custom_mutators.md).
 
+  - Setting `AFL_CUSTOM_MUTATOR_LATE_SEND` will call the afl_custom_fuzz_send()
+    function after the target has been restarted. (This is needed for e.g. TCP
+    services.)
+
   - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule every time
     a cycle is finished.
 
@@ -514,6 +518,8 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_NO_SNAPSHOT` will advise afl-fuzz not to use the snapshot feature if
     the snapshot lkm is loaded.
 
+  - `AFL_NO_FASTRESUME` will not try to read or write a fast resume file.
+
   - Setting `AFL_NO_UI` inhibits the UI altogether and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
@@ -587,6 +593,9 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_SYNC_TIME` allows you to specify a different minimal time (in minutes)
     between fuzzing instances synchronization. Default sync time is 30 minutes,
     note that time is halved for -M main nodes.
+
+  - `AFL_NO_SYNC` disables any syncing whatsoever and takes priority on all
+    other syncing parameters.
 
   - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables for
     the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz

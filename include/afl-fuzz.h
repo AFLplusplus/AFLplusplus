@@ -116,6 +116,10 @@
   #include <TargetConditionals.h>
 #endif
 
+#ifndef __has_builtin
+  #define __has_builtin(x) 0
+#endif
+
 #undef LIST_FOREACH                                 /* clashes with FreeBSD */
 #include "list.h"
 #ifndef SIMPLE_FILES
@@ -137,6 +141,10 @@
   #define AFL_RAND_RETURN u64
 #else
   #define AFL_RAND_RETURN u32
+#endif
+
+#ifndef INTERESTING_32_LEN
+  #error INTERESTING_32_LEN not defined - BUG!
 #endif
 
 extern s8  interesting_8[INTERESTING_8_LEN];
@@ -232,7 +240,6 @@ struct queue_entry {
       custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
-  u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
 #ifdef INTROSPECTION
@@ -242,13 +249,11 @@ struct queue_entry {
   double perf_score,                    /* performance score                */
       weight;
 
-  u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
-
-  u8             *cmplog_colorinput;    /* the result buf of colorization   */
-  struct tainted *taint;                /* Taint information from CmpLog    */
-
-  struct queue_entry *mother;           /* queue entry this based on        */
-
+  struct queue_entry *mother;            /* queue entry this based on        */
+  u8                 *trace_mini;        /* Trace bytes, if kept             */
+  u8                 *testcase_buf;      /* The testcase buffer, if loaded.  */
+  u8                 *cmplog_colorinput; /* the result buf of colorization   */
+  struct tainted     *taint;             /* Taint information from CmpLog    */
   struct skipdet_entry *skipdet_e;
 
 };
@@ -444,8 +449,9 @@ extern char *power_names[POWER_SCHEDULES_NUM];
 typedef struct afl_env_vars {
 
   u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
-      afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
-      afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
+      afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only,
+      afl_custom_mutator_late_send, afl_no_ui, afl_force_ui,
+      afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
       afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
@@ -453,7 +459,7 @@ typedef struct afl_env_vars {
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames;
+      afl_sha1_filenames, afl_no_sync, afl_no_fastresume;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -652,6 +658,7 @@ typedef struct afl_state {
       switch_fuzz_mode,                 /* auto or fixed fuzz mode          */
       calibration_time_us,              /* Time spend on calibration        */
       sync_time_us,                     /* Time spend on sync               */
+      cmplog_time_us,                   /* Time spend on cmplog             */
       trim_time_us;                     /* Time spend on trimming           */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
@@ -1222,6 +1229,7 @@ void show_init_stats(afl_state_t *);
 void update_calibration_time(afl_state_t *afl, u64 *time);
 void update_trim_time(afl_state_t *afl, u64 *time);
 void update_sync_time(afl_state_t *afl, u64 *time);
+void update_cmplog_time(afl_state_t *afl, u64 *time);
 
 /* StatsD */
 
@@ -1272,6 +1280,7 @@ void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
+u64    get_binary_hash(u8 *fn);
 void   check_if_tty(afl_state_t *);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);

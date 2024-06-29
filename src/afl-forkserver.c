@@ -252,6 +252,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = false;
 
+#ifdef __AFL_CODE_COVERAGE
+  fsrv->persistent_trace_bits = NULL;
+#endif
+
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
 
@@ -278,11 +282,18 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
 
+#ifdef __AFL_CODE_COVERAGE
+  fsrv_to->persistent_trace_bits = from->persistent_trace_bits;
+#endif
+
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
+
+  fsrv_to->late_send = from->late_send;
+  fsrv_to->custom_data_ptr = from->custom_data_ptr;
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func or ->persistent_record*
@@ -578,7 +589,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
 
     fsrv->nyx_handlers->nyx_config_set_workdir_path(nyx_config, workdir_path);
-    fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config, fsrv->max_length);
+    fsrv->nyx_handlers->nyx_config_set_input_buffer_size(nyx_config,
+                                                         fsrv->max_length);
     fsrv->nyx_handlers->nyx_config_set_input_buffer_write_protection(nyx_config,
                                                                      true);
 
@@ -1654,7 +1666,8 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   if (fsrv->fsrv_pid > 0) {
 
     kill(fsrv->fsrv_pid, fsrv->fsrv_kill_signal);
-    waitpid(fsrv->fsrv_pid, NULL, 0);
+    usleep(25);
+    waitpid(fsrv->fsrv_pid, NULL, WNOHANG);
 
   }
 
@@ -1939,6 +1952,13 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           "shared memory available).");
 
     FATAL("Fork server is misbehaving (OOM?)");
+
+  }
+
+  if (unlikely(fsrv->late_send)) {
+
+    fsrv->late_send(fsrv->custom_data_ptr, fsrv->custom_input,
+                    fsrv->custom_input_len);
 
   }
 

@@ -75,9 +75,13 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
 
     }
 
+#if __has_builtin(__builtin_popcount)
+    ret += __builtin_popcount(v);
+#else
     v -= ((v >> 1) & 0x55555555);
     v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
     ret += (((v + (v >> 4)) & 0xF0F0F0F) * 0x01010101) >> 24;
+#endif
 
   }
 
@@ -459,7 +463,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(fault == FSRV_RUN_TMOUT && afl->afl_env.afl_ignore_timeouts)) {
 
-    if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
       classify_counts(&afl->fsrv);
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -485,7 +489,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   /* Generating a hash on every input is super expensive. Bad idea and should
      only be used for special schedules */
-  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
     classify_counts(&afl->fsrv);
     classified = 1;

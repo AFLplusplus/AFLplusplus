@@ -60,6 +60,27 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
+#ifdef __AFL_CODE_COVERAGE
+  if (unlikely(!fsrv->persistent_trace_bits)) {
+
+    // On the first run, we allocate the persistent map to collect coverage.
+    fsrv->persistent_trace_bits = (u8 *)malloc(fsrv->map_size);
+    memset(fsrv->persistent_trace_bits, 0, fsrv->map_size);
+
+  }
+
+  for (u32 i = 0; i < fsrv->map_size; ++i) {
+
+    if (fsrv->persistent_trace_bits[i] != 255 && fsrv->trace_bits[i]) {
+
+      fsrv->persistent_trace_bits[i]++;
+
+    }
+
+  }
+
+#endif
+
   /* If post_run() function is defined in custom mutator, the function will be
      called each time after AFL++ executes the target program. */
 
@@ -173,7 +194,17 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
 
       if (el->afl_custom_fuzz_send) {
 
-        el->afl_custom_fuzz_send(el->data, *mem, new_size);
+        if (!afl->afl_env.afl_custom_mutator_late_send) {
+
+          el->afl_custom_fuzz_send(el->data, *mem, new_size);
+
+        } else {
+
+          afl->fsrv.custom_input = *mem;
+          afl->fsrv.custom_input_len = new_size;
+
+        }
+
         sent = 1;
 
       }
@@ -665,6 +696,8 @@ abort_calibration:
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(afl_state_t *afl) {
+
+  if (unlikely(afl->afl_env.afl_no_sync)) { return; }
 
   DIR           *sd;
   struct dirent *sd_ent;
@@ -1195,3 +1228,4 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
+

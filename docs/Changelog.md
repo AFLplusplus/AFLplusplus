@@ -3,9 +3,35 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.21a (dev)
+### Version ++4.22a (dev)
+  - afl-fuzz:
+    - fastresume feature added. if you abort fuzzing and resume fuzzing
+      with `-i -` or `AFL_AUTORESUME=1` and the target binary has not changed
+      then a dump will be loaded and the calibration phase skipped.
+      to disable this feature set `AFL_NO_FASTRESUME=1`
+      zlib compression is used if zlib is found at compile time
+    - improved seed selection algorithm
+    - added `AFL_CUSTOM_MUTATOR_LATE_SEND=1` to call the custom send()
+      function after the target has been restarted.
+  - frida_mode:
+    - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
+      a function entry
+    - AFL_DEBUG is now the same as AFL_FRIDA_VERBOSE
+    - AFL_FRIDA_DEBUG_MAPS now works as expected
+  - custom mutators:
+    - custom_send_tcp custom mutator added, thanks to @dergoegge
+
+
+### Version ++4.21c (release)
   * afl-fuzz
+    - fixed a regression in afl-fuzz that resulted in a 5-10% performace loss
+      do a switch from gettimeofday() to clock_gettime() which should be rather
+      three times faster. The reason for this is unknown.
+    - new queue selection algorithm based on 2 core years of queue data
+      analysis. gives a noticable improvement on coverage although the results
+      seem counterintuitive :-)
     - added AFL_DISABLE_REDUNDANT for huge queues
+    - added `AFL_NO_SYNC` environment variable that does what you think it does
     - fix AFL_PERSISTENT_RECORD
     - run custom_post_process after standard trimming
     - prevent filenames in the queue that have spaces
@@ -16,6 +42,9 @@
     - -V timing is now accurately the fuzz time (without syncing), before
       long calibration times and syncing could result in now fuzzing being
       made when the time was already run out until then, thanks to @eqv!
+    - fix -n uninstrumented mode when ending fuzzing
+    - enhanced the ASAN configuration
+    - make afl-fuzz use less memory with cmplog and fix a memleak
   * afl-cc:
     - re-enable i386 support that was accidently disabled
     - fixes for LTO and outdated afl-gcc mode for i386
@@ -27,9 +56,10 @@
   * afl-cmin
     - work with input files that have a space
   * afl-showmap
+    - fix memory leak on shmem testcase usage (thanks to @ndrewh)
     - minor fix to collect coverage -C (thanks to @bet4it)
-  * enhanced the ASAN configuration
-
+  * Fixed a shmem mmap bug (that rarely came up on MacOS)
+  * libtokencap: script generate_libtoken_dict.sh added by @a-shvedov 
 
 ### Version ++4.20c (release)
   ! A new forkserver communication model is now introduced. afl-fuzz is

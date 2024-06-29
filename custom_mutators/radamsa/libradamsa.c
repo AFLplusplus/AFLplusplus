@@ -3707,7 +3707,7 @@ typedef intptr_t     wdiff;
   1024 * 1024 * 8         /* static malloc'd heap size if used as a library */
 #define FBITS 24             /* bits in fixnum, on the way to 24 and beyond */
 #define FMAX                                                       \
-  ((1 << FBITS) - 1)  /* maximum fixnum (and most negative fixnum) \
+  ((1U << FBITS) - 1)  /* maximum fixnum (and most negative fixnum) \
                        */
 #define MAXOBJ 0xffff                /* max words in tuple including header */
 #define MAXPAYL                                                \

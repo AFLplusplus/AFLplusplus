@@ -13,7 +13,7 @@ Just type `make` to build `atnwalk.so`.
 **NOTE:** The commands below just demonstrate an example how running ATNwalk looks like and require a working [testbed](https://github.com/atnwalk/testbed)
 
 ```bash
-# create the required a random seed first
+# create the required random seed first
 mkdir -p ~/campaign/example/seeds
 cd ~/campaign/example/seeds
 head -c1 /dev/urandom | ~/atnwalk/build/javascript/bin/decode -wb > seed.decoded 2> seed.encoded

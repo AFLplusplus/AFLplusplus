@@ -33,15 +33,15 @@ u8 is_det_timeout(u64 cur_ms, u8 is_flip) {
 
 u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
 
-  if (!afl->skipdet_g->virgin_det_bits) {
+  if (unlikely(!afl->skipdet_g->virgin_det_bits)) {
 
     afl->skipdet_g->virgin_det_bits =
         (u8 *)ck_alloc(sizeof(u8) * afl->fsrv.map_size);
 
   }
 
-  if (!q->favored || q->passed_det) return 0;
-  if (!q->trace_mini) return 0;
+  if (likely(!q->favored || q->passed_det)) return 0;
+  if (unlikely(!q->trace_mini)) return 0;
 
   if (!afl->skipdet_g->last_cov_undet)
     afl->skipdet_g->last_cov_undet = get_cur_time();
@@ -122,7 +122,8 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
   afl->stage_cur = 0;
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  u8 *inf_eff_map = (u8 *)ck_alloc(sizeof(u8) * len);
+  static u8 *inf_eff_map;
+  inf_eff_map = (u8 *)ck_realloc(inf_eff_map, sizeof(u8) * len);
   memset(inf_eff_map, 1, sizeof(u8) * len);
 
   if (common_fuzz_stuff(afl, orig_buf, len)) { return 0; }

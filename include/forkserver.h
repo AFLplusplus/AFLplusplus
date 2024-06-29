@@ -206,6 +206,15 @@ typedef struct afl_forkserver {
   s32                   nyx_log_fd;
 #endif
 
+#ifdef __AFL_CODE_COVERAGE
+  u8 *persistent_trace_bits;                   /* Persistent copy of bitmap */
+#endif
+
+  void *custom_data_ptr;
+  u8   *custom_input;
+  u32   custom_input_len;
+  void (*late_send)(void *, const u8 *, size_t);
+
 } afl_forkserver_t;
 
 typedef enum fsrv_run_result {

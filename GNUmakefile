@@ -441,6 +441,14 @@ test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
 endif
 
+ifeq "$(shell echo '$(HASH)include <zlib.h>@int main() {return 0; }' | tr @ '\n' | $(CC) $(CFLAGS) -Werror -x c - -lz -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  override SPECIAL_PERFORMANCE += -DHAVE_ZLIB
+  override LDFLAGS += -lz
+  $(info [+] ZLIB detected)
+else
+  $(info [!] Warning: no ZLIB detected)
+endif
+
 .PHONY: test_python
 ifeq "$(PYTHON_OK)" "1"
 test_python:
@@ -471,8 +479,8 @@ src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
-afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/hashmap.c | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -Wno-shift-count-overflow $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/hashmap.c -o $@ $(PYFLAGS) $(LDFLAGS) -lm
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)

@@ -95,6 +95,26 @@ inline u64 hash64(u8 *key, u32 len, u64 seed) {
 
 }
 
+/* Hash a file */
+
+u64 get_binary_hash(u8 *fn) {
+
+  if (!fn) { return 0; }
+  int fd = open(fn, O_RDONLY);
+  if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
+  struct stat st;
+  if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
+  u32 f_len = st.st_size;
+  if (!f_len) { return 0; }
+  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
+  close(fd);
+  u64 hash = hash64(f_data, f_len, 0);
+  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+  return hash;
+
+}
+
 // Public domain SHA1 implementation copied from:
 // https://github.com/x42/liboauth/blob/7001b8256cd654952ec2515b055d2c5b243be600/src/sha1.c
 

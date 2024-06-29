@@ -180,7 +180,8 @@ size_t fail_fatal(int fd_socket, uint8_t **out_buf) {
 
   if (fd_socket != -1) { close(fd_socket); }
   *out_buf = NULL;
-  return 0;
+  fprintf(stderr, "atnwalk.socket not found in current directory!\n");
+  exit(-1);
 
 }
 
