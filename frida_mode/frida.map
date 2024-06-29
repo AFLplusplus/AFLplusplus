@@ -45,6 +45,7 @@
     js_api_set_stdout;
     js_api_set_traceable;
     js_api_set_verbose;
+    js_api_ijon_set;
 
   local:
     *;
