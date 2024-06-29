@@ -1528,7 +1528,8 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
                  "extern \"C\" void __afl_coverage_discard();"
                  "extern \"C\" void __afl_coverage_skip();"
                  "extern \"C\" void __afl_coverage_on();"
-                 "extern \"C\" void __afl_coverage_off();");
+                 "extern \"C\" void __afl_coverage_off();"
+                 "extern \"C\" void __afl_ijon_set(unsigned int);");
 
   } else {
 
@@ -1537,7 +1538,8 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
                  "void __afl_coverage_discard();"
                  "void __afl_coverage_skip();"
                  "void __afl_coverage_on();"
-                 "void __afl_coverage_off();");
+                 "void __afl_coverage_off();"
+                 "void __afl_ijon_set(unsigned int);");
 
   }
 
@@ -1549,6 +1551,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   insert_param(aflcc, "-D__AFL_COVERAGE_OFF()=__afl_coverage_off()");
   insert_param(aflcc, "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()");
   insert_param(aflcc, "-D__AFL_COVERAGE_SKIP()=__afl_coverage_skip()");
+  insert_param(aflcc, "-D__AFL_IJON_SET(_A)=__afl_ijon_set(_A)");
 
 }
 

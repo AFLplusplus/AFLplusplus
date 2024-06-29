@@ -30,6 +30,7 @@
   "__afl_selective_coverage_temp";
   "__afl_sharedmem_fuzzing";
   "__afl_trace";
+  "__afl_ijon_set";
   "__cmplog_ins_hook1";
   "__cmplog_ins_hook16";
   "__cmplog_ins_hook2";
