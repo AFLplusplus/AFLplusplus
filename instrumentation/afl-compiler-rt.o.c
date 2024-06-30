@@ -2761,11 +2761,5 @@ void __afl_injection_xss(u8 *buf) {
 
 }
 
-void __afl_ijon_set(u32 edge) {
-
-  __afl_area_ptr[edge % __afl_map_size] |= 1;
-
-}
-
 #undef write_error
 
