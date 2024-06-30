@@ -60,7 +60,7 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 }
 
-#define DEBUG_QUEUE 1
+//#define DEBUG_QUEUE 1
 double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size,
                       double avg_top_size, double avg_score) {
