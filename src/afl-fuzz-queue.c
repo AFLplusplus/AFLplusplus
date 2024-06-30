@@ -65,7 +65,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size,
                       double avg_top_size, double avg_score) {
 
-  if (unlikely(afl->fuzz_mode && avg_score > 0)) {
+  if (unlikely(0)) {
 
     return q->score / avg_score;
 
