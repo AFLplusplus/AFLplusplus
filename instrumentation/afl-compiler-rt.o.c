@@ -118,6 +118,7 @@ u32 __afl_map_size = MAP_SIZE;
 u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
+u32 __afl_old_forkserver;
 
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
@@ -616,7 +617,7 @@ static void __afl_map_shm(void) {
     fprintf(stderr,
             "DEBUG: (2) id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
             "__afl_area_ptr_dummy %p, __afl_map_addr 0x%llx, MAP_SIZE "
-            "%u, __afl_final_loc %u, __afl_map_size %u",
+            "%u, __afl_final_loc %u, __afl_map_size %u\n",
             id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
             __afl_area_initial, __afl_area_ptr_dummy, __afl_map_addr, MAP_SIZE,
             __afl_final_loc, __afl_map_size);
@@ -856,7 +857,7 @@ static void __afl_start_forkserver(void) {
   signal(SIGTERM, at_exit);
 
   u32 already_read_first = 0;
-  u32 was_killed;
+  u32 was_killed = 0;
   u32 version = 0x41464c00 + FS_NEW_VERSION_MAX;
   u32 tmp = version ^ 0xffffffff, status2, status = version;
   u8 *msg = (u8 *)&status;
@@ -866,75 +867,95 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
+  if (getenv("AFL_OLD_FORKSERVER")) {
+
+    __afl_old_forkserver = 1;
+    status = 0;
+
+    if (__afl_final_loc && __afl_final_loc > MAP_SIZE) {
+
+      fprintf(stderr,
+              "Warning: AFL_OLD_FORKSERVER is used with a target compiled with "
+              "non-colliding coverage instead of AFL_LLVM_INSTRUMENT=CLASSIC - "
+              "this target may crash!\n");
+
+    }
+
+  }
+
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
   // return because possible non-forkserver usage
   if (write(FORKSRV_FD + 1, msg, 4) != 4) { return; }
 
-  if (read(FORKSRV_FD, reply, 4) != 4) { _exit(1); }
-  if (tmp != status2) {
+  if (!__afl_old_forkserver) {
 
-    write_error("wrong forkserver message from AFL++ tool");
-    _exit(1);
+    if (read(FORKSRV_FD, reply, 4) != 4) { _exit(1); }
+    if (tmp != status2) {
 
-  }
-
-  // send the set/requested options to forkserver
-  status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
-  if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
-  if (__afl_dictionary_len && __afl_dictionary) {
-
-    status |= FS_NEW_OPT_AUTODICT;
-
-  }
-
-  if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
-
-  // Now send the parameters for the set options, increasing by option number
-
-  // FS_NEW_OPT_MAPSIZE - we always send the map size
-  status = __afl_map_size;
-  if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
-
-  // FS_NEW_OPT_SHDMEM_FUZZ - no data
-
-  // FS_NEW_OPT_AUTODICT - send autodictionary
-  if (__afl_dictionary_len && __afl_dictionary) {
-
-    // pass the dictionary through the forkserver FD
-    u32 len = __afl_dictionary_len, offset = 0;
-
-    if (write(FORKSRV_FD + 1, &len, 4) != 4) {
-
-      write(2, "Error: could not send dictionary len\n",
-            strlen("Error: could not send dictionary len\n"));
+      write_error("wrong forkserver message from AFL++ tool");
       _exit(1);
 
     }
 
-    while (len != 0) {
+    // send the set/requested options to forkserver
+    status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
+    if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
+    if (__afl_dictionary_len && __afl_dictionary) {
 
-      s32 ret;
-      ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
+      status |= FS_NEW_OPT_AUTODICT;
 
-      if (ret < 1) {
+    }
 
-        write_error("could not send dictionary");
+    if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+
+    // Now send the parameters for the set options, increasing by option number
+
+    // FS_NEW_OPT_MAPSIZE - we always send the map size
+    status = __afl_map_size;
+    if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+
+    // FS_NEW_OPT_SHDMEM_FUZZ - no data
+
+    // FS_NEW_OPT_AUTODICT - send autodictionary
+    if (__afl_dictionary_len && __afl_dictionary) {
+
+      // pass the dictionary through the forkserver FD
+      u32 len = __afl_dictionary_len, offset = 0;
+
+      if (write(FORKSRV_FD + 1, &len, 4) != 4) {
+
+        write(2, "Error: could not send dictionary len\n",
+              strlen("Error: could not send dictionary len\n"));
         _exit(1);
 
       }
 
-      len -= ret;
-      offset += ret;
+      while (len != 0) {
+
+        s32 ret;
+        ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
+
+        if (ret < 1) {
+
+          write_error("could not send dictionary");
+          _exit(1);
+
+        }
+
+        len -= ret;
+        offset += ret;
+
+      }
 
     }
 
-  }
+    // send welcome message as final message
+    status = version;
+    if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
 
-  // send welcome message as final message
-  status = version;
-  if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+  }
 
   // END forkserver handshake
 
