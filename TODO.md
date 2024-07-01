@@ -2,8 +2,7 @@
 
 ## Must
 
- - in CLASSIC mode - do old forkserver model
- - docs: AFL_DISABLE_REDUNDANT (large/slow/LAF)
+ - ijon support?
  - check for null ptr for xml/curl/g_ string transform functions
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
