@@ -4,11 +4,29 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.22a (dev)
+  - afl-fuzz:
+    - fastresume feature added. if you abort fuzzing and resume fuzzing
+      with `-i -` or `AFL_AUTORESUME=1` and the target binary has not changed
+      then a dump will be loaded and the calibration phase skipped.
+      to disable this feature set `AFL_NO_FASTRESUME=1`
+      zlib compression is used if zlib is found at compile time
+    - improved seed selection algorithm
+    - added `AFL_CUSTOM_MUTATOR_LATE_SEND=1` to call the custom send()
+      function after the target has been restarted.
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
     - AFL_DEBUG is now the same as AFL_FRIDA_VERBOSE
     - AFL_FRIDA_DEBUG_MAPS now works as expected
+  - qemu_mode:
+    - new hooks supported (optional), see qemu_mode/hooking_bridge - thanks to
+      @CowBoy4mH3LL
+  - custom mutators:
+    - custom_send_tcp custom mutator added, thanks to @dergoegge
+  - afl-cc
+    - new runtime (!) variable: `AFL_OLD_FORKSERVER` to use the old vanilla
+      AFL type forkserver. Useful for symcc/symqemu/nautilus/etc. with
+      AFL_LLVM_INSTRUMENT=CLASSIC
 
 
 ### Version ++4.21c (release)

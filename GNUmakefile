@@ -441,6 +441,14 @@ test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
 endif
 
+ifeq "$(shell echo '$(HASH)include <zlib.h>@int main() {return 0; }' | tr @ '\n' | $(CC) $(CFLAGS) -Werror -x c - -lz -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  override SPECIAL_PERFORMANCE += -DHAVE_ZLIB
+  override LDFLAGS += -lz
+  $(info [+] ZLIB detected)
+else
+  $(info [!] Warning: no ZLIB detected)
+endif
+
 .PHONY: test_python
 ifeq "$(PYTHON_OK)" "1"
 test_python:

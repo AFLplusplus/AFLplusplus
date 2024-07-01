@@ -252,6 +252,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = false;
 
+#ifdef __AFL_CODE_COVERAGE
+  fsrv->persistent_trace_bits = NULL;
+#endif
+
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
 
@@ -278,11 +282,18 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
 
+#ifdef __AFL_CODE_COVERAGE
+  fsrv_to->persistent_trace_bits = from->persistent_trace_bits;
+#endif
+
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
+
+  fsrv_to->late_send = from->late_send;
+  fsrv_to->custom_data_ptr = from->custom_data_ptr;
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func or ->persistent_record*
@@ -1941,6 +1952,13 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
           "shared memory available).");
 
     FATAL("Fork server is misbehaving (OOM?)");
+
+  }
+
+  if (unlikely(fsrv->late_send)) {
+
+    fsrv->late_send(fsrv->custom_data_ptr, fsrv->custom_input,
+                    fsrv->custom_input_len);
 
   }
 
