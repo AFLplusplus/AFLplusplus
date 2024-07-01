@@ -1019,7 +1019,7 @@ void perform_dry_run(afl_state_t *afl) {
 
           }
 
-          if (!q->was_fuzzed) {
+          if (unlikely(!q->was_fuzzed)) {
 
             q->was_fuzzed = 1;
             afl->reinit_table = 1;

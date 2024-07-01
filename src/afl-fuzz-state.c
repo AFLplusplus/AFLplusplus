@@ -286,11 +286,25 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_no_sync =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_NO_FASTRESUME",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_fastresume =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_ONLY",
 
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_custom_mutator_only =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_LATE_SEND",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_custom_mutator_late_send =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_CMPLOG_ONLY_NEW",

@@ -76,7 +76,13 @@ char *get_fuzzing_state(afl_state_t *afl) {
 
 void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
-  u8 fn[PATH_MAX];
+  u8 fn[PATH_MAX], fn2[PATH_MAX];
+
+  snprintf(fn2, PATH_MAX, "%s/target_hash", afl->out_dir);
+  FILE *f2 = create_ffile(fn2);
+  fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
+  fclose(f2);
+
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
   u32   i;
