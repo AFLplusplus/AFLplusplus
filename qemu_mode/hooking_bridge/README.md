@@ -22,7 +22,7 @@ Run build_qemu_support.sh as you do to compile qemuafl, additionally with three 
         return &to_ret;
     }
     ```
-    i. Hook functions must be named as `hook_<left padded hook location>`. Here, `<left padded hook location>` means `<hook location>` left padded with 0's to until the `(system word length)/4` number of hex characters, e.g. 16 on a 64 bit machine. The unpaded part of `<hook location>` is the absolute address where you want to place the hook. It is basically the file base address (which does not change in QEMU as of now) plus the instruction offset where the hooks is to be placed. The hook function must return a `struct ret *`, which is touched upon later.
+    i. Hook functions must be named as `hook_<left padded hook location>`. Here, `<left padded hook location>` means `<hook location>` left padded with 0's to until 16 hex characters. The unpaded part of `<hook location>` is the absolute address where you want to place the hook. It is basically the file base address (which does not change in QEMU as of now) plus the instruction offset where the hooks is to be placed. The hook function must return a `struct ret *`, which is touched upon later.
 
     ii. Most likely you will need to access memory or registers in the hook. So we provide four functions
     ```C
@@ -76,11 +76,6 @@ Run build_qemu_support.sh as you do to compile qemuafl, additionally with three 
 
 ## Running with hooks
 Set `QEMU_PLUGIN="file=<AFL download path>qemu_mode/hooking_bridge/build/plugin.so,arg=<your hook .so>"` before running AFL++ in QEMU mode. Note `<your hook .so>` is the absolute path to your hooks library. 
-
-## Contributing
-* If you want to enable debugging
-    * Compile with an additional `DEBUG=1` switch.
-    * Akin to QEMU's own documentation, set `QEMU_LOG=plugin QEMU_LOG_FILENAME=<your plugin log path>` before you run.
 
 ## Current limitations
 1. Cannot be used to debug (-g option) when using the bridge as it uses the gdbstub internally. This is not a problem if used with AFL++, so not such a big issue.
