@@ -455,13 +455,13 @@ void deunicode_extras(afl_state_t *afl) {
 
         case 2:
           if (!afl->extras[i].data[j]) { ++z3; }
-          // fall through
+          __attribute__((fallthrough));
         case 0:
           if (!afl->extras[i].data[j]) { ++z1; }
           break;
         case 3:
           if (!afl->extras[i].data[j]) { ++z4; }
-          // fall through
+          __attribute__((fallthrough));
         case 1:
           if (!afl->extras[i].data[j]) { ++z2; }
           break;
