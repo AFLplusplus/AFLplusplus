@@ -12,7 +12,7 @@ fi
 
 
 
-if [ ! test -e $DIR/harness]; then
+if [ ! -e $DIR/harness ]; then
   echo "[!] harness not found in $DIR"
   exit 1
 fi
