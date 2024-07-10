@@ -2815,7 +2815,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // (void)nice(-20);  // does not improve the speed
 
   #ifdef INTROSPECTION
-  u32 prev_saved_crashes = 0, prev_saved_tmouts = 0;
+  u32 prev_saved_crashes = 0, prev_saved_tmouts = 0, stat_prev_queued_items = 0;
   #endif
   u32 prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
   u8  skipped_fuzz;
@@ -3132,10 +3132,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
       } else {
 
-        if (unlikely(afl->queued_items > prev_queued_items)) {
+        if (unlikely(afl->queued_items > stat_prev_queued_items)) {
 
-          afl->queue_cur->stats_finds += afl->queued_items - prev_queued_items;
-          prev_queued_items = afl->queued_items;
+          afl->queue_cur->stats_finds +=
+              afl->queued_items - stat_prev_queued_items;
+          stat_prev_queued_items = afl->queued_items;
 
         }
 
