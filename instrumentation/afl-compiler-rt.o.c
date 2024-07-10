@@ -2704,7 +2704,7 @@ void __afl_coverage_skip() {
 // mark this area as especially interesting
 void __afl_coverage_interesting(u8 val, u32 id) {
 
-  __afl_area_ptr[id] = val;
+  __afl_area_ptr[id % __afl_map_size] = val;
 
 }
 

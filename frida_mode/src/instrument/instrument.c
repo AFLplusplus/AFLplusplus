@@ -451,7 +451,7 @@ void instrument_regs_format(int fd, char *format, ...) {
 
 void ijon_set(uint32_t edge) {
 
-  __afl_area_ptr[edge % __afl_map_size] |= 1;
+  __afl_coverage_interesting(1, edge);
 
 }
 
