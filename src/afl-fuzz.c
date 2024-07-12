@@ -1610,17 +1610,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  if (afl->sync_id) {
-
-    if (strlen(afl->sync_id) > 50) {
-
-      FATAL("sync_id max length is 50 characters");
-
-    }
-
-    fix_up_sync(afl);
-
-  }
+  if (afl->sync_id) { fix_up_sync(afl); }
 
   if (!strcmp(afl->in_dir, afl->out_dir)) {
 

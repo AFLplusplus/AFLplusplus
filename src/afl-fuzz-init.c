@@ -2717,7 +2717,11 @@ void fix_up_sync(afl_state_t *afl) {
 
   }
 
-  if (strlen(afl->sync_id) > 32) { FATAL("Fuzzer ID too long"); }
+  if (strlen(afl->sync_id) > 50) {
+
+    FATAL("sync_id max length is 50 characters");
+
+  }
 
   x = alloc_printf("%s/%s", afl->out_dir, afl->sync_id);
 
