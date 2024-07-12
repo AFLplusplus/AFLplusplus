@@ -241,6 +241,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
   fsrv->child_kill_signal = SIGKILL;
+  fsrv->max_length = MAX_FILE;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
