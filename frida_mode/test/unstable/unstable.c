@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
+#include <time.h>
 
 #ifdef __APPLE__
   #define TESTINSTR_SECTION
@@ -22,17 +22,21 @@
   #define TESTINSTR_SECTION __attribute__((section(".testinstr")))
 #endif
 
-void LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+void LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   if (size < 1) return;
 
-  struct timeval tv = {0};
-  if (gettimeofday(&tv, NULL) < 0) return;
+  struct timespec spec = {0};
+  if (clock_gettime(CLOCK_REALTIME, &spec) < 0) return;
 
-  if ((tv.tv_usec % 2) == 0) {
-    printf ("Hooray all even\n");
+  if ((spec.tv_nsec % 2) == 0) {
+
+    printf("Hooray all even\n");
+
   } else {
-    printf ("Hmm that's odd\n");
+
+    printf("Hmm that's odd\n");
+
   }
 
   // we support three input cases
@@ -45,26 +49,33 @@ void LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
 }
 
-void run_test(char * file) {
+void run_test(char *file) {
+
   fprintf(stderr, "Running: %s\n", file);
   FILE *f = fopen(file, "r");
   assert(f);
   fseek(f, 0, SEEK_END);
   size_t len = ftell(f);
   fseek(f, 0, SEEK_SET);
-  unsigned char *buf = (unsigned char*)malloc(len);
-  size_t n_read = fread(buf, 1, len, f);
+  unsigned char *buf = (unsigned char *)malloc(len);
+  size_t         n_read = fread(buf, 1, len, f);
   fclose(f);
   assert(n_read == len);
   LLVMFuzzerTestOneInput(buf, len);
   free(buf);
   fprintf(stderr, "Done:    %s: (%zd bytes)\n", file, n_read);
+
 }
 
 int main(int argc, char **argv) {
+
   srand(1);
   fprintf(stderr, "StandaloneFuzzTargetMain: running %d inputs\n", argc - 1);
   for (int i = 1; i < argc; i++) {
+
     run_test(argv[i]);
+
   }
+
 }
+

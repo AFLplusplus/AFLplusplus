@@ -64,7 +64,6 @@
 #include <netinet/in.h>
 
 #include <sys/wait.h>
-#include <sys/time.h>
 #ifndef USEMMAP
   #include <sys/shm.h>
 #endif
