@@ -8,8 +8,8 @@
 state *create_pda(u8 *automaton_file) {
 
   struct json_object *parsed_json;
-  state *             pda;
-  json_object *       source_obj, *attr;
+  state              *pda;
+  json_object        *source_obj, *attr;
   int                 arraylen, ii, ii2, trigger_len, error;
 
   printf("\n[GF] Automaton file passed:%s", automaton_file);
@@ -41,7 +41,7 @@ state *create_pda(u8 *automaton_file) {
   enum json_type type;
   json_object_object_foreach(source_obj, key, val) {
 
-    state *  state_ptr;
+    state   *state_ptr;
     trigger *trigger_ptr;
     int      offset;
 
@@ -97,12 +97,12 @@ state *create_pda(u8 *automaton_file) {
 
 void SanityCheck(char *automaton_path) {
 
-  state *        pda = create_pda(automaton_path);
+  state         *pda = create_pda(automaton_path);
   int            count = 0, state;
   Get_Dupes_Ret *getdupesret;
-  IdxMap_new *   statemap;
-  IdxMap_new *   statemap_ptr;
-  terminal *     term_ptr;
+  IdxMap_new    *statemap;
+  IdxMap_new    *statemap_ptr;
+  terminal      *term_ptr;
 
   while (count < NUMINPUTS) {
 
@@ -117,12 +117,9 @@ void SanityCheck(char *automaton_path) {
 
 int main(int argc, char *argv[]) {
 
-  char *         mode;
-  char *         automaton_path;
-  char *         output_dir = NULL;
-  struct timeval tv;
-  struct timeval tz;
-  // gettimeofday(&tv, &tz);
+  char *mode;
+  char *automaton_path;
+  char *output_dir = NULL;
   srand(1337);
   if (argc == 3) {
 
