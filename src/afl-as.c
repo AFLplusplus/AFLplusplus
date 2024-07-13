@@ -52,7 +52,6 @@
 #include <fcntl.h>
 
 #include <sys/wait.h>
-#include <sys/time.h>
 
 static u8 **as_params;              /* Parameters passed to the real 'as'   */
 
@@ -557,8 +556,7 @@ int main(int argc, char **argv) {
   int status;
   u8 *inst_ratio_str = getenv("AFL_INST_RATIO");
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timespec spec;
 
   clang_mode = !!getenv(CLANG_ENV_VAR);
 
@@ -609,9 +607,9 @@ int main(int argc, char **argv) {
 
   }
 
-  gettimeofday(&tv, &tz);
+  clock_gettime(CLOCK_REALTIME, &spec);
 
-  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  rand_seed = spec.tv_sec ^ spec.tv_nsec ^ getpid();
   // in fast systems where pids can repeat in the same seconds we need this
   for (i = 1; (s32)i < argc; i++)
     for (j = 0; j < strlen(argv[i]); j++)
