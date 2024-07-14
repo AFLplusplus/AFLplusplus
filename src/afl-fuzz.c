@@ -555,7 +555,8 @@ int main(int argc, char **argv_orig, char **envp) {
   char  *frida_afl_preload = NULL;
   char **use_argv;
 
-  struct timespec spec;
+  struct timeval  tv;
+  struct timezone tz;
 
   doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
 
@@ -602,8 +603,8 @@ int main(int argc, char **argv_orig, char **envp) {
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a large online community\n");
 
-  clock_gettime(CLOCK_REALTIME, &spec);
-  rand_set_seed(afl, spec.tv_sec ^ spec.tv_nsec ^ getpid());
+  gettimeofday(&tv, &tz);
+  rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 

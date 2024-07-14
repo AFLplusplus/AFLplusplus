@@ -976,11 +976,12 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 inline u64 get_cur_time(void) {
 
-  struct timespec spec;
+  struct timeval  tv;
+  struct timezone tz;
 
-  clock_gettime(CLOCK_REALTIME, &spec);
+  gettimeofday(&tv, &tz);
 
-  return (spec.tv_sec * 1000ULL) + (spec.tv_nsec / 1000000ULL);
+  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
 
 }
 
@@ -988,17 +989,19 @@ inline u64 get_cur_time(void) {
 
 inline u64 get_cur_time_us(void) {
 
-  struct timespec spec;
+  struct timeval  tv;
+  struct timezone tz;
 
-  clock_gettime(CLOCK_REALTIME, &spec);
+  gettimeofday(&tv, &tz);
 
-  return (spec.tv_sec * 1000000ULL) + (spec.tv_nsec / 1000ULL);
+  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
 
 }
 
 /* Describe integer. The buf should be
    at least 6 bytes to fit all ints we randomly see.
    Will return buf for convenience. */
+
 u8 *stringify_int(u8 *buf, size_t len, u64 val) {
 \
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \

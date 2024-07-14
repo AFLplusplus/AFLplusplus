@@ -32,12 +32,12 @@
 #include "debug.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <list>
 #include <string>
 #include <fstream>
+#include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
@@ -211,13 +211,14 @@ bool AFLCoverage::runOnModule(Module &M) {
   IntegerType *IntLocTy =
       IntegerType::getIntNTy(C, sizeof(PREV_LOC_T) * CHAR_BIT);
 #endif
-  struct timespec spec;
+  struct timeval  tv;
+  struct timezone tz;
   u32             rand_seed;
   unsigned int    cur_loc = 0;
 
   /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
-  clock_gettime(CLOCK_REALTIME, &spec);
-  rand_seed = spec.tv_sec ^ spec.tv_nsec ^ getpid();
+  gettimeofday(&tv, &tz);
+  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
   AFL_SR(rand_seed);
 
   /* Show a banner */
