@@ -196,11 +196,12 @@ void afl_custom_splice_optout(void *data) {
 
 inline u64 get_cur_time(void) {
 
-  struct timespec spec;
+  struct timeval  tv;
+  struct timezone tz;
 
-  clock_gettime(CLOCK_REALTIME, &spec);
+  gettimeofday(&tv, &tz);
 
-  return (spec.tv_sec * 1000ULL) + (spec.tv_nsec / 1000000ULL);
+  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
 
 }
 
