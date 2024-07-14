@@ -316,3 +316,9 @@ __attribute__((visibility("default"))) void js_api_set_verbose(void) {
 
 }
 
+__attribute__((visibility("default"))) void js_api_ijon_set(uint32_t edge) {
+
+  ijon_set(edge);
+
+}
+

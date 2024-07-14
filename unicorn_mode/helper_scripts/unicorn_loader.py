@@ -90,7 +90,7 @@ class UnicornSimpleHeap(object):
     _chunks_freed = [] # List of all freed chunks
     _debug_print = False  # True to print debug information
 
-    def __init__(self, uc, debug_print=False， uaf_check=False):
+    def __init__(self, uc, debug_print=False, uaf_check=False):
         self._uc = uc
         self._debug_print = debug_print
 

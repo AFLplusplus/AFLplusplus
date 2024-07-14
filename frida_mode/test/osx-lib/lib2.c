@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <string.h>
 
-
 void __attribute__((noinline)) crashme(const uint8_t *Data, size_t Size) {
 
   if (Size < 1) return;
@@ -55,7 +54,6 @@ void __attribute__((noinline)) crashme(const uint8_t *Data, size_t Size) {
       break;
 
   }
-
 
 }
 
