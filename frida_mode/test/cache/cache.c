@@ -6,46 +6,45 @@
 
 void LLVMFuzzerTestOneInput(char *buf, int len);
 
-__asm__ (
-  "LLVMFuzzerTestOneInput:\n"
-  ".func LLVMFuzzerTestOneInput\n"
-  ".global LLVMFuzzerTestOneInput\n"
-  "    jmpq *jmp_offset(%rip)\n"
-  "    nop\n"
-  "    nop\n"
-  "call_target:\n"
-  "    ret\n"
-  "    nop\n"
-  "    nop\n"
-  "jmp_target:\n"
-  "    callq *call_offset(%rip)\n"
-  "    nop\n"
-  "    nop\n"
-  "    leaq rax_offset(%rip), %rax\n"
-  "    jmp (%rax)\n"
-  "    nop\n"
-  "    ud2\n"
-  "    nop\n"
-  "rax_target:\n"
-  "    ret\n"
-  "\n"
-  "\n"
-  ".global jmp_offset\n"
-  ".p2align 3\n"
-  "jmp_offset:\n"
-  "    .quad jmp_target\n"
-  "call_offset:\n"
-  "    .quad call_target\n"
-  "rax_offset:\n"
-  "    .quad rax_target\n"
-);
+__asm__(
+    "LLVMFuzzerTestOneInput:\n"
+    ".func LLVMFuzzerTestOneInput\n"
+    ".global LLVMFuzzerTestOneInput\n"
+    "    jmpq *jmp_offset(%rip)\n"
+    "    nop\n"
+    "    nop\n"
+    "call_target:\n"
+    "    ret\n"
+    "    nop\n"
+    "    nop\n"
+    "jmp_target:\n"
+    "    callq *call_offset(%rip)\n"
+    "    nop\n"
+    "    nop\n"
+    "    leaq rax_offset(%rip), %rax\n"
+    "    jmp (%rax)\n"
+    "    nop\n"
+    "    ud2\n"
+    "    nop\n"
+    "rax_target:\n"
+    "    ret\n"
+    "\n"
+    "\n"
+    ".global jmp_offset\n"
+    ".p2align 3\n"
+    "jmp_offset:\n"
+    "    .quad jmp_target\n"
+    "call_offset:\n"
+    "    .quad call_target\n"
+    "rax_offset:\n"
+    "    .quad rax_target\n");
 
 int main(int argc, char **argv) {
 
-  char * file;
+  char  *file;
   int    fd = -1;
   off_t  len;
-  char * buf = NULL;
+  char  *buf = NULL;
   size_t n_read;
   int    result = -1;
 

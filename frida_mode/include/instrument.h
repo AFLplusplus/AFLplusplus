@@ -22,7 +22,7 @@ extern guint64  instrument_fixed_seed;
 
 extern uint8_t *__afl_area_ptr;
 extern uint32_t __afl_map_size;
-extern void __afl_coverage_interesting(uint8_t, uint32_t);
+extern void     __afl_coverage_interesting(uint8_t, uint32_t);
 
 extern __thread guint64 *instrument_previous_pc_addr;
 

@@ -6,8 +6,8 @@
 
 static bool cmov_test(char *x, char *y, size_t len) {
 
-  register char * __rdi __asm__("rdi") = x;
-  register char * __rsi __asm__("rsi") = y;
+  register char  *__rdi __asm__("rdi") = x;
+  register char  *__rsi __asm__("rsi") = y;
   register size_t __rcx __asm__("rcx") = len;
 
   register long __rax __asm__("rax");
@@ -49,10 +49,10 @@ void LLVMFuzzerTestOneInput(char *buf, int len) {
 
 int main(int argc, char **argv) {
 
-  char * file;
+  char  *file;
   int    fd = -1;
   off_t  len;
-  char * buf = NULL;
+  char  *buf = NULL;
   size_t n_read;
   int    result = -1;
 
