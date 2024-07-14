@@ -18,7 +18,7 @@
 
 void LLVMFuzzerTestOneInput(char *buf, int len) {
 
-  printf (">>> LLVMFuzzerTestOneInput >>>\n");
+  printf(">>> LLVMFuzzerTestOneInput >>>\n");
   if (len < 1) return;
   buf[len] = 0;
 
@@ -40,10 +40,10 @@ void slow() {
 
 int main(int argc, char **argv) {
 
-  char * file;
+  char  *file;
   int    fd = -1;
   off_t  len;
-  char * buf = NULL;
+  char  *buf = NULL;
   size_t n_read;
   int    result = -1;
 
