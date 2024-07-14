@@ -36,7 +36,7 @@ struct x86_64_regs {
 void afl_persistent_hook(struct x86_64_regs *regs, uint64_t guest_base,
                          uint8_t *input_buf, uint32_t input_buf_len) {
 
-  (void)guest_base; /* unused */
+  (void)guest_base;                                               /* unused */
   memcpy((void *)regs->rdi, input_buf, input_buf_len);
   regs->rsi = input_buf_len;
 
@@ -76,14 +76,15 @@ struct x86_regs {
 void afl_persistent_hook(struct x86_regs *regs, uint64_t guest_base,
                          uint8_t *input_buf, uint32_t input_buf_len) {
 
-  (void)guest_base; /* unused */
+  (void)guest_base;                                               /* unused */
   void **esp = (void **)regs->esp;
-  void * arg1 = esp[1];
+  void  *arg1 = esp[1];
   void **arg2 = &esp[2];
   memcpy(arg1, input_buf, input_buf_len);
   *arg2 = (void *)input_buf_len;
 
 }
+
 #elif defined(__aarch64__)
 
 struct arm64_regs {
@@ -177,9 +178,10 @@ struct arm64_regs {
 void afl_persistent_hook(struct arm64_regs *regs, uint64_t guest_base,
                          uint8_t *input_buf, uint32_t input_buf_len) {
 
-  (void)guest_base; /* unused */
+  (void)guest_base;                                               /* unused */
   memcpy((void *)regs->x0, input_buf, input_buf_len);
   regs->x1 = input_buf_len;
+
 }
 
 #else
@@ -193,3 +195,4 @@ int afl_persistent_hook_init(void) {
   return 1;
 
 }
+

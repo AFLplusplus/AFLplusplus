@@ -20,22 +20,32 @@ void LLVMFuzzerTestOneInput(char *buf, int len) {
 
   int ret = 0;
   for (int i = 0; i < 1000; i++) {
-    switch(buf[i]) {
-      case 'A': ret += 2; break;
-      case '1': ret += 3; break;
-      default: ret++;
+
+    switch (buf[i]) {
+
+      case 'A':
+        ret += 2;
+        break;
+      case '1':
+        ret += 3;
+        break;
+      default:
+        ret++;
+
     }
+
   }
+
   printf("ret: %d\n", ret);
 
 }
 
 int main(int argc, char **argv) {
 
-  char * file;
+  char  *file;
   int    fd = -1;
   off_t  len;
-  char * buf = NULL;
+  char  *buf = NULL;
   size_t n_read;
   int    result = -1;
 

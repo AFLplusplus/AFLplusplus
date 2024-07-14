@@ -22,6 +22,7 @@ extern guint64  instrument_fixed_seed;
 
 extern uint8_t *__afl_area_ptr;
 extern uint32_t __afl_map_size;
+extern void     __afl_coverage_interesting(uint8_t, uint32_t);
 
 extern __thread guint64 *instrument_previous_pc_addr;
 
@@ -71,6 +72,8 @@ void instrument_cache_insert(gpointer real_address, gpointer code_address);
 void instrument_cache(const cs_insn *instr, GumStalkerOutput *output);
 void instrument_write_regs(GumCpuContext *cpu_context, gpointer user_data);
 void instrument_regs_format(int fd, char *format, ...);
+
+void ijon_set(uint32_t edge);
 
 #endif
 

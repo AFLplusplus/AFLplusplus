@@ -41,7 +41,7 @@ int run(char *file) {
 
   int    fd = -1;
   off_t  len;
-  char * buf = NULL;
+  char  *buf = NULL;
   size_t n_read;
   int    result = -1;
 
