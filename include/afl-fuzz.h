@@ -338,15 +338,16 @@ enum {
 
 enum {
 
-  /* 00 */ EXPLORE, /* AFL default, Exploration-based constant schedule */
-  /* 01 */ MMOPT,   /* Modified MOPT schedule           */
-  /* 02 */ EXPLOIT, /* AFL's exploitation-based const.  */
-  /* 03 */ FAST,    /* Exponential schedule             */
-  /* 04 */ COE,     /* Cut-Off Exponential schedule     */
-  /* 05 */ LIN,     /* Linear schedule                  */
-  /* 06 */ QUAD,    /* Quadratic schedule               */
-  /* 07 */ RARE,    /* Rare edges                       */
-  /* 08 */ SEEK,    /* EXPLORE that ignores timings     */
+  /* 00 */ EXPLORE, /* AFL default, exploration-based constant schedule */
+  /* 01 */ EXPLOIT, /* AFL's exploitation-based const.   */
+  /* 02 */ WEIGHT,  /* Based on seed weighting algorithm */
+  /* 03 */ MMOPT,   /* Modified MOPT schedule            */
+  /* 04 */ FAST,    /* Exponential schedule              */
+  /* 05 */ COE,     /* Cut-Off Exponential schedule      */
+  /* 06 */ LIN,     /* Linear schedule                   */
+  /* 07 */ QUAD,    /* Quadratic schedule                */
+  /* 08 */ RARE,    /* Rare edges                        */
+  /* 09 */ SEEK,    /* EXPLORE that ignores timings      */
 
   POWER_SCHEDULES_NUM
 

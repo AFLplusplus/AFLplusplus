@@ -745,6 +745,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->schedule = EXPLOIT;
 
+        } else if (!stricmp(optarg, "weight")) {
+
+          afl->schedule = WEIGHT;
+
         } else if (!stricmp(optarg, "lin")) {
 
           afl->schedule = LIN;
