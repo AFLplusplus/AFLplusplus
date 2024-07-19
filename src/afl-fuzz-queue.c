@@ -1022,12 +1022,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   if (likely(afl->schedule == WEIGHT)) {
 
-    u32 val = 100;
+    u32 val = 200;
 
-    if (unlikely(q->favored)) { val = val << 1; }
-    if (unlikely(!q->was_fuzzed)) { val = val << 1; }
-
-    return val * q->weight;
+    return val * (q->weight * 2);
 
   }
 
