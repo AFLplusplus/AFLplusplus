@@ -1696,6 +1696,9 @@ int main(int argc, char **argv_orig, char **envp) {
     case EXPLORE:
       OKF("Using exploration-based constant power schedule (EXPLORE)");
       break;
+    case WEIGHT:
+      OKF("Using weight-based power schedule (WEIGHT)");
+      break;
     default:
       FATAL("Unknown power schedule");
       break;
