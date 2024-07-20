@@ -1026,7 +1026,13 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
     double mul = 1.0 + ((q->weight - 1.0) * 2.0);
 
-    return (val * mul);
+    if (unlikely(mul < 0.01)) { return 10; }
+
+    u32 ret = val * mul;
+
+    if (unlikely(ret < 10)) { return 10; }
+
+    return ret;
 
   }
 
