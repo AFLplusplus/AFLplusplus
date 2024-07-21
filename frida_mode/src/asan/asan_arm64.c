@@ -39,15 +39,15 @@ static void asan_callout(GumCpuContext *ctx, gpointer user_data) {
 
   address = base + index + mem->disp;
 
-  if ((operand->access & CS_AC_READ) == CS_AC_READ) {
-
-    asan_loadN(address, asan_ctx->size);
-
-  }
-
   if ((operand->access & CS_AC_WRITE) == CS_AC_WRITE) {
 
     asan_storeN(address, asan_ctx->size);
+
+  }
+
+  if ((operand->access & CS_AC_READ) == CS_AC_READ) {
+
+    asan_loadN(address, asan_ctx->size);
 
   }
 
