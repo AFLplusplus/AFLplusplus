@@ -87,243 +87,32 @@ void create_alias_table(afl_state_t *afl) {
   memset((void *)Small, 0, n * sizeof(u32));
   memset((void *)Large, 0, n * sizeof(u32));
 
-  if (likely(afl->schedule < RARE)) {
+  for (i = 0; i < n; i++) {
 
-    double avg_exec_us = 0.0;
-    double avg_bitmap_size = 0.0;
-    double avg_len = 0.0;
-    u32    active = 0;
+    struct queue_entry *q = afl->queue_buf[i];
 
-    for (i = 0; i < n; i++) {
+    // disabled entries might have timings and bitmap values
+    if (likely(!q->disabled)) {
 
-      struct queue_entry *q = afl->queue_buf[i];
-
-      // disabled entries might have timings and bitmap values
-      if (likely(!q->disabled)) {
-
-        avg_exec_us += q->exec_us;
-        avg_bitmap_size += log(q->bitmap_size);
-        avg_len += q->len;
-        ++active;
-
-      }
+      q->weight = q->perf_score = calculate_score(afl, q);
+      if (unlikely(!q->was_fuzzed)) { q->weight *= 2.0; }
+      if (unlikely(q->fs_redundant)) { q->weight *= 0.75; }
+      sum += q->weight;
 
     }
 
-    avg_exec_us /= active;
-    avg_bitmap_size /= active;
-    avg_len /= active;
+  }
 
-    for (i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
 
-      struct queue_entry *q = afl->queue_buf[i];
+    // weight is always 0 for disabled entries
+    if (unlikely(afl->queue_buf[i]->disabled)) {
 
-      if (likely(!q->disabled)) {
+      P[i] = 0;
 
-        double weight = 1.0;
-        {  // inline does result in a compile error with LTO, weird
+    } else {
 
-          if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
-
-            u32 hits = afl->n_fuzz[q->n_fuzz_entry];
-            if (likely(hits)) { weight /= (log10(hits) + 1); }
-
-          }
-
-          if (likely(afl->schedule < RARE)) {
-
-            double t = q->exec_us / avg_exec_us;
-
-            if (likely(t < 0.1)) {
-
-              // nothing
-
-            } else if (likely(t <= 0.25)) {
-
-              weight *= 0.95;
-
-            } else if (likely(t <= 0.5)) {
-
-              // nothing
-
-            } else if (likely(t <= 0.75)) {
-
-              weight *= 1.05;
-
-            } else if (likely(t <= 1.0)) {
-
-              weight *= 1.1;
-
-            } else if (likely(t < 1.25)) {
-
-              weight *= 0.2;  // WTF ??? makes no sense
-
-            } else if (likely(t <= 1.5)) {
-
-              // nothing
-
-            } else if (likely(t <= 2.0)) {
-
-              weight *= 1.1;
-
-            } else if (likely(t <= 2.5)) {
-
-            } else if (likely(t <= 5.0)) {
-
-              weight *= 1.15;
-
-            } else if (likely(t <= 20.0)) {
-
-              weight *= 1.1;
-              // else nothing
-
-            }
-
-          }
-
-          double l = q->len / avg_len;
-          if (likely(l < 0.1)) {
-
-            weight *= 0.5;
-
-          } else if (likely(l <= 0.5)) {
-
-            // nothing
-
-          } else if (likely(l <= 1.25)) {
-
-            weight *= 1.05;
-
-          } else if (likely(l <= 1.75)) {
-
-            // nothing
-
-          } else if (likely(l <= 2.0)) {
-
-            weight *= 0.95;
-
-          } else if (likely(l <= 5.0)) {
-
-            // nothing
-
-          } else if (likely(l <= 10.0)) {
-
-            weight *= 1.05;
-
-          } else {
-
-            weight *= 1.15;
-
-          }
-
-          double bms = q->bitmap_size / avg_bitmap_size;
-          if (likely(bms < 0.1)) {
-
-            weight *= 0.01;
-
-          } else if (likely(bms <= 0.25)) {
-
-            weight *= 0.55;
-
-          } else if (likely(bms <= 0.5)) {
-
-            // nothing
-
-          } else if (likely(bms <= 0.75)) {
-
-            weight *= 1.2;
-
-          } else if (likely(bms <= 1.25)) {
-
-            weight *= 1.3;
-
-          } else if (likely(bms <= 1.75)) {
-
-            weight *= 1.25;
-
-          } else if (likely(bms <= 2.0)) {
-
-            // nothing
-
-          } else if (likely(bms <= 2.5)) {
-
-            weight *= 1.3;
-
-          } else {
-
-            weight *= 0.75;
-
-          }
-
-          if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
-          if (unlikely(q->fs_redundant)) { weight *= 0.75; }
-
-        }
-
-        q->weight = weight;
-        q->perf_score = calculate_score(afl, q);
-        sum += q->weight;
-
-      }
-
-    }
-
-    if (unlikely(afl->schedule == MMOPT) && afl->queued_discovered) {
-
-      u32 cnt = afl->queued_discovered >= 5 ? 5 : afl->queued_discovered;
-
-      for (i = n - cnt; i < n; i++) {
-
-        struct queue_entry *q = afl->queue_buf[i];
-
-        if (likely(!q->disabled)) { q->weight *= 2.0; }
-
-      }
-
-    }
-
-    for (i = 0; i < n; i++) {
-
-      // weight is always 0 for disabled entries
-      if (unlikely(afl->queue_buf[i]->disabled)) {
-
-        P[i] = 0;
-
-      } else {
-
-        P[i] = (afl->queue_buf[i]->weight * n) / sum;
-
-      }
-
-    }
-
-  } else {
-
-    for (i = 0; i < n; i++) {
-
-      struct queue_entry *q = afl->queue_buf[i];
-
-      if (likely(!q->disabled)) {
-
-        q->perf_score = calculate_score(afl, q);
-        sum += q->perf_score;
-
-      }
-
-    }
-
-    for (i = 0; i < n; i++) {
-
-      // perf_score is always 0 for disabled entries
-      if (unlikely(afl->queue_buf[i]->disabled)) {
-
-        P[i] = 0;
-
-      } else {
-
-        P[i] = (afl->queue_buf[i]->perf_score * n) / sum;
-
-      }
+      P[i] = (afl->queue_buf[i]->weight * n) / sum;
 
     }
 
