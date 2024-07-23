@@ -6,6 +6,7 @@
 *.pyc
 *.so
 *.swp
+.DS_Store
 .sync_tmp
 .test
 .test2
