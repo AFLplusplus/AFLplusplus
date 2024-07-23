@@ -852,7 +852,7 @@ void instrument_coverage_unstable_find_output(void) {
       relative = g_build_path("/", link, NULL);
 
     }
-    
+
     gchar *cmdline = g_build_path("/", relative, "cmdline", NULL);
     if (!g_file_test(cmdline, G_FILE_TEST_EXISTS)) {
 
@@ -877,6 +877,8 @@ void instrument_coverage_unstable_find_output(void) {
   }
 
   g_dir_close(dir);
+  g_free(instance_name);
+  g_free(path_tmp);
   g_free(fds_name);
 
   if (unstable_coverage_fuzzer_stats == NULL) {
