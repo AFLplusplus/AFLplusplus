@@ -53,21 +53,24 @@ struct cmp_header {  // 16 bit = 2 bytes
 struct cmp_operands {
 
   u64 v0;
-  u64 v1;
   u64 v0_128;
+  u64 v0_256_0;  // u256 is unsupported by any compiler for now, so future use
+  u64 v0_256_1;
+  u64 v1;
   u64 v1_128;
-  u64 unused;
-  u8  unused1;
-  u8  unused2;
+  u64 v1_256_0;
+  u64 v1_256_1;
+  u8  unused[8];
 
 } __attribute__((packed));
 
 struct cmpfn_operands {
 
   u8 v0[32];
-  u8 v0_len;
   u8 v1[32];
+  u8 v0_len;
   u8 v1_len;
+  u8 unused[6];
 
 } __attribute__((packed));
 

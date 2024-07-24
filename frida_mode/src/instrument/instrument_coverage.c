@@ -818,6 +818,9 @@ void instrument_coverage_unstable_find_output(void) {
 
   GDir *dir = g_dir_open(fds_name, 0, NULL);
 
+  gchar *path_tmp = getenv("AFL_CUSTOM_INFO_OUT");
+  gchar *instance_name = g_path_get_basename(path_tmp);
+
   FVERBOSE("Coverage Unstable - fds: %s", fds_name);
 
   for (const gchar *filename = g_dir_read_name(dir); filename != NULL;
@@ -829,7 +832,7 @@ void instrument_coverage_unstable_find_output(void) {
     if (link == NULL) { FFATAL("Failed to read link: %s", fullname); }
 
     gchar *basename = g_path_get_basename(link);
-    if (g_strcmp0(basename, "default") != 0) {
+    if (g_strcmp0(basename, instance_name) != 0) {
 
       g_free(basename);
       g_free(link);
@@ -874,6 +877,8 @@ void instrument_coverage_unstable_find_output(void) {
   }
 
   g_dir_close(dir);
+  g_free(instance_name);
+  g_free(path_tmp);
   g_free(fds_name);
 
   if (unstable_coverage_fuzzer_stats == NULL) {

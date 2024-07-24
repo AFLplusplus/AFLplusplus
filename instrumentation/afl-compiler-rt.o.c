@@ -872,7 +872,7 @@ static void __afl_start_forkserver(void) {
     __afl_old_forkserver = 1;
     status = 0;
 
-    if (__afl_final_loc && __afl_final_loc > MAP_SIZE) {
+    if (__afl_final_loc > MAP_SIZE) {
 
       fprintf(stderr,
               "Warning: AFL_OLD_FORKSERVER is used with a target compiled with "
@@ -969,13 +969,13 @@ static void __afl_start_forkserver(void) {
 
     /* Wait for parent by reading from the pipe. Abort if read fails. */
 
-    if (already_read_first) {
+    if (unlikely(already_read_first)) {
 
       already_read_first = 0;
 
     } else {
 
-      if (read(FORKSRV_FD, &was_killed, 4) != 4) {
+      if (unlikely(read(FORKSRV_FD, &was_killed, 4) != 4)) {
 
         write_error("read from AFL++ tool");
         _exit(1);
@@ -1014,10 +1014,10 @@ static void __afl_start_forkserver(void) {
        condition and afl-fuzz already issued SIGKILL, write off the old
        process. */
 
-    if (child_stopped && was_killed) {
+    if (unlikely(child_stopped && was_killed)) {
 
       child_stopped = 0;
-      if (waitpid(child_pid, &status, 0) < 0) {
+      if (unlikely(waitpid(child_pid, &status, 0) < 0)) {
 
         write_error("child_stopped && was_killed");
         _exit(1);
@@ -1026,12 +1026,12 @@ static void __afl_start_forkserver(void) {
 
     }
 
-    if (!child_stopped) {
+    if (unlikely(!child_stopped)) {
 
       /* Once woken up, create a clone of our process. */
 
       child_pid = fork();
-      if (child_pid < 0) {
+      if (unlikely(child_pid < 0)) {
 
         write_error("fork");
         _exit(1);
@@ -1040,7 +1040,7 @@ static void __afl_start_forkserver(void) {
 
       /* In child process: close fds, resume execution. */
 
-      if (!child_pid) {
+      if (unlikely(!child_pid)) {  // just to signal afl-fuzz faster
 
         //(void)nice(-20);
 
@@ -1065,14 +1065,15 @@ static void __afl_start_forkserver(void) {
 
     /* In parent process: write PID to pipe, then wait for child. */
 
-    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) {
+    if (unlikely(write(FORKSRV_FD + 1, &child_pid, 4) != 4)) {
 
       write_error("write to afl-fuzz");
       _exit(1);
 
     }
 
-    if (waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) < 0) {
+    if (unlikely(waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) <
+                 0)) {
 
       write_error("waitpid");
       _exit(1);
@@ -1083,11 +1084,11 @@ static void __afl_start_forkserver(void) {
        a successful run. In this case, we want to wake it up without forking
        again. */
 
-    if (WIFSTOPPED(status)) child_stopped = 1;
+    if (likely(WIFSTOPPED(status))) { child_stopped = 1; }
 
     /* Relay wait status to pipe, then loop back. */
 
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) {
+    if (unlikely(write(FORKSRV_FD + 1, &status, 4) != 4)) {
 
       write_error("writing to afl-fuzz");
       _exit(1);
