@@ -61,7 +61,6 @@ LLVM_HAVE_LTO                := $(shell test $(LLVM_MAJOR) -ge 12 && echo 1 || e
 LLVM_BINDIR                  := $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR                  := $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX                  := gnu++11
-LLVM_APPLE_XCODE             := $(shell $(CC) -v 2>&1 | grep -q Apple && echo 1 || echo 0)
 LLVM_LTO                     := 0
 LLVM_UNSUPPORTED             := $(shell echo "$(LLVMVER)" | grep -E -q '^[0-2]\.|^3\.[0-8]\.' && echo 1 || echo 0)
 # Uncomment to see the values assigned above
@@ -112,16 +111,17 @@ ifeq "$(LLVM_LTO)" "0"
   $(info [+] llvm_mode detected llvm < 12, afl-lto LTO will not be build.)
 endif
 
-ifeq "$(LLVM_APPLE_XCODE)" "1"
-  $(warning llvm_mode will not compile with Xcode clang...)
-endif
-
 # We were using llvm-config --bindir to get the location of clang, but
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
 
 CC         = $(LLVM_BINDIR)/clang
 CXX        = $(LLVM_BINDIR)/clang++
+
+LLVM_APPLE_XCODE             := $(shell $(CC) -v 2>&1 | grep -q Apple && echo 1 || echo 0)
+ifeq "$(LLVM_APPLE_XCODE)" "1"
+  $(warning llvm_mode will not compile with Xcode clang...)
+endif
 
 # llvm-config --bindir may not providing a valid path, so ...
 ifeq "$(shell test -e $(CC) || echo 1 )" "1"
