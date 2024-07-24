@@ -13,6 +13,8 @@
     - improved seed selection algorithm
     - added `AFL_CUSTOM_MUTATOR_LATE_SEND=1` to call the custom send()
       function after the target has been restarted.
+    - because of bad math and undefined behaviour fixes we have to change
+      the CMPLOG map. **YOU NEED TO RECOMPILE CMPLOG TARGETS**
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
