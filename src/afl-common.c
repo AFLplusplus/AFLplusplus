@@ -108,7 +108,7 @@ void set_sanitizer_defaults() {
     if (!have_san_options) { strcpy(buf, default_options); }
     if (have_asan_options) {
 
-      if (NULL != strstr(have_asan_options, "detect_leaks=0")) {
+      if (NULL != strstr(have_asan_options, "detect_leaks=0") || NULL != strstr(have_asan_options, "detect_leaks=false")) {
 
         strcat(buf, "exitcode=" STRINGIFY(LSAN_ERROR) ":fast_unwind_on_malloc=0:print_suppressions=0:detect_leaks=0:malloc_context_size=0:");
 

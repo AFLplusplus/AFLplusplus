@@ -476,6 +476,17 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   q->fs_redundant = state;
 
+  if (likely(q->fs_redundant)) {
+
+    if (unlikely(q->trace_mini)) {
+
+      ck_free(q->trace_mini);
+      q->trace_mini = NULL;
+
+    }
+
+  }
+
   sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir,
           strrchr((char *)q->fname, '/') + 1);
 
@@ -901,7 +912,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         if (!--afl->top_rated[i]->tc_ref) {
 
           ck_free(afl->top_rated[i]->trace_mini);
-          afl->top_rated[i]->trace_mini = 0;
+          afl->top_rated[i]->trace_mini = NULL;
 
         }
 
