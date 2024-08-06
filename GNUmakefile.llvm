@@ -48,18 +48,25 @@ else
   LLVM_CONFIG ?= $(call detect_newest,llvm-config)
 endif
 
-override LLVM_RAW_VER        := $(shell $(LLVM_CONFIG) --version 2>/dev/null)
-LLVMVER                      := $(subst svn,,$(subst git,,$(LLVM_RAW_VER)))
-LLVM_MAJOR                   := $(firstword $(subst ., ,$(LLVMVER)))
-LLVM_MINOR                   := $(firstword $(subst ., ,$(subst $(LLVM_MAJOR).,,$(LLVMVER))))
-LLVM_TOO_NEW                 := $(shell test $(LLVM_MAJOR) -gt $(LLVM_TOO_NEW_DEFAULT) && echo 1 || echo 0)
-LLVM_TOO_OLD                 := $(shell test $(LLVM_MAJOR) -lt $(LLVM_TOO_OLD_DEFAULT) && echo 1 || echo 0)
-LLVM_NEW_API                 := $(shell test $(LLVM_MAJOR) -ge 10 && echo 1 || echo 0)
-LLVM_NEWER_API               := $(shell test $(LLVM_MAJOR) -ge 16 && echo 1 || echo 0)
-LLVM_13_OK                   := $(shell test $(LLVM_MAJOR) -ge 13 && echo 1 || echo 0)
-LLVM_HAVE_LTO                := $(shell test $(LLVM_MAJOR) -ge 12 && echo 1 || echo 0)
-LLVM_BINDIR                  := $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
-LLVM_LIBDIR                  := $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
+ifneq "$(LLVM_CONFIG)" ""
+  override LLVM_RAW_VER        := $(shell $(LLVM_CONFIG) --version 2>/dev/null)
+  LLVMVER                      := $(subst svn,,$(subst git,,$(LLVM_RAW_VER)))
+
+  LLVM_BINDIR                  := $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
+  LLVM_LIBDIR                  := $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
+endif
+
+ifneq "$(LLVMVER)" ""
+  LLVM_MAJOR                   := $(firstword $(subst ., ,$(LLVMVER)))
+  LLVM_MINOR                   := $(firstword $(subst ., ,$(subst $(LLVM_MAJOR).,,$(LLVMVER))))
+  LLVM_TOO_NEW                 := $(shell test $(LLVM_MAJOR) -gt $(LLVM_TOO_NEW_DEFAULT) && echo 1 || echo 0)
+  LLVM_TOO_OLD                 := $(shell test $(LLVM_MAJOR) -lt $(LLVM_TOO_OLD_DEFAULT) && echo 1 || echo 0)
+  LLVM_NEW_API                 := $(shell test $(LLVM_MAJOR) -ge 10 && echo 1 || echo 0)
+  LLVM_NEWER_API               := $(shell test $(LLVM_MAJOR) -ge 16 && echo 1 || echo 0)
+  LLVM_13_OK                   := $(shell test $(LLVM_MAJOR) -ge 13 && echo 1 || echo 0)
+  LLVM_HAVE_LTO                := $(shell test $(LLVM_MAJOR) -ge 12 && echo 1 || echo 0)
+endif
+
 LLVM_STDCXX                  := gnu++11
 LLVM_LTO                     := 0
 LLVM_UNSUPPORTED             := $(shell echo "$(LLVMVER)" | grep -E -q '^[0-2]\.|^3\.[0-8]\.' && echo 1 || echo 0)
