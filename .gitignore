@@ -112,3 +112,5 @@ utils/replay_record/persistent_demo_replay_compat
 utils/replay_record/persistent_demo_replay_argparse
 utils/plot_ui/afl-plot-ui
 vuln_prog
+argv_fuzz_demo
+argv_fuzz_persistent_demo
