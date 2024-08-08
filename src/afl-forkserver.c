@@ -1338,6 +1338,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           fsrv->map_size = tmp_map_size;
 
+        } else {
+           
+           fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+           
         }
 
         if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
@@ -1444,6 +1448,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
+      } else {
+
+         // The binary is most likely instrumented using AFL's tool, and we will set map_size to MAP_SIZE.
+         fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+         
       }
 
     }
