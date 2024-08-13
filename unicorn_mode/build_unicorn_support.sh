@@ -218,7 +218,7 @@ else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
   THREADS=$CORES $PYTHONBIN setup.py install --force || exit 1
 fi
-echo '[*] If needed, you can (re)install the bindings in `./unicornafl/bindings/python` using `pip install --force .`'
+echo '[*] If needed, you can (re)install the bindings in `./unicornafl/bindings/python` using `python setup.py install --force .`'
 
 cd ../../ || exit 1
 
