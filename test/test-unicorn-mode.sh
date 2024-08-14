@@ -34,8 +34,8 @@ test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/Makefile && 
       cd ../unicorn_mode/samples/persistent
       make >>errors 2>&1
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode (persistent), this will take approx 25 seconds"
-      AFL_DEBUG_CHILD=1 ../../../afl-fuzz -m none -V15 -U -i sample_inputs -o out -d -- ./harness @@ >>errors 2>&1
-      test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
+      AFL_DEBUG_CHILD=1 ../../../afl-fuzz -m none -V15 -U -i sample_inputs -o out -- ./harness @@ >>errors 2>&1
+      test -n "$( ls out/default/queue/id:000006* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode (persistent)"
       } || {
         echo CUT------------------------------------------------------------------CUT
