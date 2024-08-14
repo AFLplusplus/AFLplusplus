@@ -973,7 +973,8 @@ void cull_queue(afl_state_t *afl) {
 
   for (i = 0; i < afl->fsrv.map_size; ++i) {
 
-    if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7)))) {
+    if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7))) &&
+        afl->top_rated[i]->trace_mini) {
 
       u32 j = len;
 
