@@ -23,6 +23,8 @@
   - qemu_mode:
     - new hooks supported (optional), see qemu_mode/hooking_bridge - thanks to
       @CowBoy4mH3LL
+  - unicorn_mode:
+    - fix install and forkserver (thanks aarnav!)
   - custom mutators:
     - custom_send_tcp custom mutator added, thanks to @dergoegge
   - afl-cc
