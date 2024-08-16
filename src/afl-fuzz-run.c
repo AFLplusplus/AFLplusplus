@@ -216,17 +216,17 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
       /* everything as planned. use the potentially new data. */
       afl_fsrv_write_to_testcase(&afl->fsrv, *mem, new_size);
 
-      if (likely(!afl->afl_env.afl_post_process_keep_original)) {
+    }
 
-        len = new_size;
+    if (likely(!afl->afl_env.afl_post_process_keep_original)) {
 
-      } else {
+      len = new_size;
 
-        /* restore the original memory which was saved in new_mem */
-        *mem = new_mem;
-        afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+    } else {
 
-      }
+      /* restore the original memory which was saved in new_mem */
+      *mem = new_mem;
+      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
 
     }
 
