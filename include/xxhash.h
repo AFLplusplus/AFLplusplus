@@ -6616,12 +6616,14 @@ static XXH64_hash_t XXH3_mergeAccs(const xxh_u64 *XXH_RESTRICT acc,
 
 }
 
-      #define XXH3_INIT_ACC                                              \
-        {                                                                \
-                                                                         \
-          XXH_PRIME32_3, XXH_PRIME64_1, XXH_PRIME64_2, XXH_PRIME64_3,    \
-              XXH_PRIME64_4, XXH_PRIME32_2, XXH_PRIME64_5, XXH_PRIME32_1 \
-                                                                         \
+      #define XXH3_INIT_ACC                              \
+        {                                                \
+                                                         \
+                                                         \
+            XXH_PRIME32_3, XXH_PRIME64_1, XXH_PRIME64_2, \
+            XXH_PRIME64_3, XXH_PRIME64_4, XXH_PRIME32_2, \
+            XXH_PRIME64_5, XXH_PRIME32_1                 \
+                                                         \
         }
 
 XXH_FORCE_INLINE XXH64_hash_t XXH3_hashLong_64b_internal(

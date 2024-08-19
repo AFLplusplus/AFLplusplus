@@ -2237,6 +2237,7 @@ int main(int argc, char **argv_orig, char **envp) {
       snprintf(fn, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
   #ifdef HAVE_ZLIB
       if ((fr_fd = ZLIBOPEN(fn, "rb")) != NULL) {
+
   #else
       if ((fr_fd = open(fn, O_RDONLY)) >= 0) {
 
@@ -3340,9 +3341,11 @@ stop_fuzzing:
     ACTF("Writing %s ...", fr);
   #ifdef HAVE_ZLIB
     if ((fr_fd = ZLIBOPEN(fr, "wb9")) != NULL) {
+
   #else
     if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
         0) {
+
   #endif
 
       u8   ver_string[8];

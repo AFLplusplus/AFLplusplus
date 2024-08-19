@@ -167,7 +167,7 @@ static void __tokencap_load_mappings(void) {
 
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
-  #if defined   __FreeBSD__
+  #if defined __FreeBSD__
   int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
   #elif defined __OpenBSD__
   int mib[] = {CTL_KERN, KERN_PROC_VMMAP, __tokencap_pid};
@@ -183,7 +183,7 @@ static void __tokencap_load_mappings(void) {
 
   #if defined __FreeBSD__ || defined __NetBSD__
   len = len * 4 / 3;
-  #elif defined                      __OpenBSD__
+  #elif defined __OpenBSD__
   len -= len % sizeof(struct kinfo_vmentry);
   #endif
 
@@ -208,7 +208,7 @@ static void __tokencap_load_mappings(void) {
 
   #if defined __FreeBSD__ || defined __NetBSD__
 
-    #if defined   __FreeBSD__
+    #if defined __FreeBSD__
     size_t size = region->kve_structsize;
 
     if (size == 0) break;
