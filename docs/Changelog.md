@@ -23,12 +23,15 @@
   - qemu_mode:
     - new hooks supported (optional), see qemu_mode/hooking_bridge - thanks to
       @CowBoy4mH3LL
+  - unicorn_mode:
+    - fix install and forkserver (thanks aarnav!)
   - custom mutators:
     - custom_send_tcp custom mutator added, thanks to @dergoegge
   - afl-cc
     - new runtime (!) variable: `AFL_OLD_FORKSERVER` to use the old vanilla
       AFL type forkserver. Useful for symcc/symqemu/nautilus/etc. with
       AFL_LLVM_INSTRUMENT=CLASSIC
+  - code formatting updated to llvm 18
 
 
 ### Version ++4.21c (release)

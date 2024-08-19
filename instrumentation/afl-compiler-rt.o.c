@@ -886,10 +886,10 @@ static void __afl_start_forkserver(void) {
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  // return because possible non-forkserver usage
-  if (write(FORKSRV_FD + 1, msg, 4) != 4) { return; }
-
   if (!__afl_old_forkserver) {
+
+    // return because possible non-forkserver usage
+    if (write(FORKSRV_FD + 1, msg, 4) != 4) { return; }
 
     if (read(FORKSRV_FD, reply, 4) != 4) { _exit(1); }
     if (tmp != status2) {

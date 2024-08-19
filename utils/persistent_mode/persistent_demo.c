@@ -34,7 +34,7 @@
 /* To ensure checks are not optimized out it is recommended to disable
    code optimization for the fuzzer harness main() */
 #pragma clang optimize off
-#pragma GCC            optimize("O0")
+#pragma GCC optimize("O0")
 
 int main(int argc, char **argv) {
 

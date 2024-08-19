@@ -455,9 +455,10 @@ typedef struct {
 
 } __attribute__((__packed__)) t1ha_unaligned_proxy;
 
-    #define read_unaligned(ptr, bits)                                   \
-      (((const t1ha_unaligned_proxy *)((const uint8_t *)(ptr)-offsetof( \
-            t1ha_unaligned_proxy, unaligned_##bits)))                   \
+    #define read_unaligned(ptr, bits)                                 \
+      (((const t1ha_unaligned_proxy *)((const uint8_t *)(ptr) -       \
+                                       offsetof(t1ha_unaligned_proxy, \
+                                                unaligned_##bits)))   \
            ->unaligned_##bits)
   #elif defined(_MSC_VER)
     #pragma warning(                                                 \
@@ -477,9 +478,10 @@ typedef struct {
 } t1ha_unaligned_proxy;
 
     #pragma pack(pop)
-    #define read_unaligned(ptr, bits)                                   \
-      (((const t1ha_unaligned_proxy *)((const uint8_t *)(ptr)-offsetof( \
-            t1ha_unaligned_proxy, unaligned_##bits)))                   \
+    #define read_unaligned(ptr, bits)                                 \
+      (((const t1ha_unaligned_proxy *)((const uint8_t *)(ptr) -       \
+                                       offsetof(t1ha_unaligned_proxy, \
+                                                unaligned_##bits)))   \
            ->unaligned_##bits)
   #endif
 #endif                                                    /* read_unaligned */
@@ -496,21 +498,24 @@ typedef struct {
   #elif __has_attribute(__assume_aligned__)
 
 static __always_inline const uint16_t *__attribute__((
-    __assume_aligned__(ALIGNMENT_16))) cast_aligned_16(const void *ptr) {
+    __assume_aligned__(ALIGNMENT_16)))
+cast_aligned_16(const void *ptr) {
 
   return (const uint16_t *)ptr;
 
 }
 
 static __always_inline const uint32_t *__attribute__((
-    __assume_aligned__(ALIGNMENT_32))) cast_aligned_32(const void *ptr) {
+    __assume_aligned__(ALIGNMENT_32)))
+cast_aligned_32(const void *ptr) {
 
   return (const uint32_t *)ptr;
 
 }
 
 static __always_inline const uint64_t *__attribute__((
-    __assume_aligned__(ALIGNMENT_64))) cast_aligned_64(const void *ptr) {
+    __assume_aligned__(ALIGNMENT_64)))
+cast_aligned_64(const void *ptr) {
 
   return (const uint64_t *)ptr;
 

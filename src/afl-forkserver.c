@@ -307,8 +307,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-static u32 __attribute__((hot))
-read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms, volatile u8 *stop_soon_p) {
+static u32 __attribute__((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
+                                               volatile u8 *stop_soon_p) {
 
   fd_set readfds;
   FD_ZERO(&readfds);
@@ -1338,6 +1338,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           fsrv->map_size = tmp_map_size;
 
+        } else {
+
+          fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+
         }
 
         if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
@@ -1443,6 +1447,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           }
 
         }
+
+      } else {
+
+        // The binary is most likely instrumented using AFL's tool, and we will
+        // set map_size to MAP_SIZE.
+        fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
 
       }
 
@@ -1695,8 +1705,8 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 /* Delete the current testcase and write the buf to the testcase file */
 
-void __attribute__((hot))
-afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
+void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
+                                                     u8 *buf, size_t len) {
 
 #ifdef __linux__
   if (unlikely(fsrv->nyx_mode)) {
@@ -1814,9 +1824,8 @@ afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t __attribute__((hot))
-afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
-                    volatile u8 *stop_soon_p) {
+fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
+    afl_forkserver_t *fsrv, u32 timeout, volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;

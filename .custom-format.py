@@ -24,7 +24,7 @@ import importlib.metadata
 
 # string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # TODO: for future use
 
-CURRENT_LLVM = os.getenv('LLVM_VERSION', 17)
+CURRENT_LLVM = os.getenv('LLVM_VERSION', 18)
 CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
 
 

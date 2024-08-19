@@ -41,8 +41,9 @@ u64 time_spent_working = 0;
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t __attribute__((hot))
-fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
+fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
+                                                       afl_forkserver_t *fsrv,
+                                                       u32 timeout) {
 
 #ifdef PROFILING
   static u64      time_spent_start = 0;
@@ -111,8 +112,8 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
    old file is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is
    rewound and truncated. */
 
-u32 __attribute__((hot))
-write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
+u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
+                                           u32 len, u32 fix) {
 
   u8 sent = 0;
 
@@ -216,17 +217,17 @@ write_to_testcase(afl_state_t *afl, void **mem, u32 len, u32 fix) {
       /* everything as planned. use the potentially new data. */
       afl_fsrv_write_to_testcase(&afl->fsrv, *mem, new_size);
 
-      if (likely(!afl->afl_env.afl_post_process_keep_original)) {
+    }
 
-        len = new_size;
+    if (likely(!afl->afl_env.afl_post_process_keep_original)) {
 
-      } else {
+      len = new_size;
 
-        /* restore the original memory which was saved in new_mem */
-        *mem = new_mem;
-        afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+    } else {
 
-      }
+      /* restore the original memory which was saved in new_mem */
+      *mem = new_mem;
+      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
 
     }
 
@@ -1173,8 +1174,8 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-u8 __attribute__((hot))
-common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
+u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
+                                          u32 len) {
 
   u8 fault;
 
