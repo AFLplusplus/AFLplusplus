@@ -963,9 +963,9 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
+  SAYF(SET_G1 bSTG bLT bH                         bSTOP cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2                 bRT "\n");
+       " overall results " bSTG bH2               bH2 bRT "\n");
 
   if (afl->non_instrumented_mode) {
 
@@ -1007,7 +1007,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   u_stringify_time_diff(time_tmp, afl->prev_run_time + cur_ms, afl->start_time);
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
-                "  cycles done : %s%-5s " bSTG              bV "\n",
+                "  cycles done : %s%-5s " bSTG bV "\n",
        time_tmp, tmp, u_stringify_int(IB(0), afl->queue_cycle - 1));
 
   /* We want to warn people about not seeing new paths after a full cycle,
@@ -1047,7 +1047,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   u_stringify_time_diff(time_tmp, cur_ms, afl->last_crash_time);
   SAYF(bV bSTOP "last saved crash : " cRST "%-33s " bSTG bV bSTOP
-                "saved crashes : %s%-6s" bSTG               bV "\n",
+                "saved crashes : %s%-6s" bSTG bV "\n",
        time_tmp, crash_color, tmp);
 
   sprintf(tmp, "%s%s", u_stringify_int(IB(0), afl->saved_hangs),
@@ -1055,12 +1055,12 @@ void show_stats_normal(afl_state_t *afl) {
 
   u_stringify_time_diff(time_tmp, cur_ms, afl->last_hang_time);
   SAYF(bV bSTOP " last saved hang : " cRST "%-33s " bSTG bV bSTOP
-                "  saved hangs : " cRST "%-6s" bSTG         bV "\n",
+                "  saved hangs : " cRST "%-6s" bSTG bV "\n",
        time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP                                              cCYA
+  SAYF(bVR bH                                              bSTOP cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage" bSTG bHT bH20 bH2                         bVL "\n");
+       " map coverage" bSTG bHT bH20                       bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -1091,9 +1091,9 @@ void show_stats_normal(afl_state_t *afl) {
 
   SAYF(bSTOP " count coverage : " cRST "%-19s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP                                             cCYA
+  SAYF(bVR bH                                             bSTOP cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2                  bVL "\n");
+       " findings in depth " bSTG bH10 bH5                bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->queued_favored),
           ((double)afl->queued_favored) * 100 / afl->queued_items);
@@ -1101,7 +1101,7 @@ void show_stats_normal(afl_state_t *afl) {
   /* Yeah... it's still going on... halp? */
 
   SAYF(bV bSTOP "  now trying : " cRST "%-22s " bSTG bV bSTOP
-                " favored items : " cRST "%-20s" bSTG   bV "\n",
+                " favored items : " cRST "%-20s" bSTG bV "\n",
        afl->stage_name, tmp);
 
   if (!afl->stage_max) {
@@ -1130,13 +1130,13 @@ void show_stats_normal(afl_state_t *afl) {
   if (afl->crash_mode) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-22s " bSTG bV bSTOP
-                  "   new crashes : %s%-20s" bSTG         bV "\n",
+                  "   new crashes : %s%-20s" bSTG bV "\n",
          u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-22s " bSTG bV bSTOP
-                  " total crashes : %s%-20s" bSTG         bV "\n",
+                  " total crashes : %s%-20s" bSTG bV "\n",
          u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
 
   }
@@ -1189,7 +1189,7 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP
-                "    levels : " cRST "%-10s" bSTG       bV "\n",
+                "    levels : " cRST "%-10s" bSTG bV "\n",
        tmp, u_stringify_int(IB(0), afl->max_depth));
 
   if (unlikely(!afl->skip_deterministic)) {
@@ -1205,7 +1205,7 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
-                "   pending : " cRST "%-10s" bSTG       bV "\n",
+                "   pending : " cRST "%-10s" bSTG bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
 
   if (unlikely(!afl->skip_deterministic)) {
@@ -1221,7 +1221,7 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP
-                "  pend fav : " cRST "%-10s" bSTG       bV "\n",
+                "  pend fav : " cRST "%-10s" bSTG bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_favored));
 
   if (unlikely(!afl->skip_deterministic)) {
@@ -1237,7 +1237,7 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(bV bSTOP "  known ints : " cRST "%-36s " bSTG bV bSTOP
-                " own finds : " cRST "%-10s" bSTG       bV "\n",
+                " own finds : " cRST "%-10s" bSTG bV "\n",
        tmp, u_stringify_int(IB(0), afl->queued_discovered));
 
   if (unlikely(!afl->skip_deterministic)) {
@@ -1263,7 +1263,7 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(bV bSTOP "  dictionary : " cRST "%-36s " bSTG bV bSTOP
-                "  imported : " cRST "%-10s" bSTG       bV "\n",
+                "  imported : " cRST "%-10s" bSTG bV "\n",
        tmp,
        afl->sync_id ? u_stringify_int(IB(0), afl->queued_imported)
                     : (u8 *)"n/a");
@@ -1451,8 +1451,8 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* Last line */
 
-  SAYF(SET_G1 "\n" bSTG bLB bH cCYA          bSTOP " strategy:" cPIN
-              " %s " bSTG bH10 cCYA          bSTOP " state:" cPIN
+  SAYF(SET_G1 "\n" bSTG bLB bH               cCYA bSTOP " strategy:" cPIN
+              " %s " bSTG bH10               cCYA bSTOP " state:" cPIN
               " %s " bSTG bH2 bRB bSTOP cRST RESET_G1,
        afl->fuzz_mode == 0 ? "explore" : "exploit", get_fuzzing_state(afl));
 
@@ -1821,8 +1821,8 @@ void show_stats_pizza(afl_state_t *afl) {
   }
 
   u_stringify_time_diff(time_tmp, afl->prev_run_time + cur_ms, afl->start_time);
-  SAYF(bV                                                               bSTOP
-       "                         open time : " cRST "%-37s " bSTG bV    bSTOP
+  SAYF(bV bSTOP
+       "                         open time : " cRST "%-37s " bSTG bV bSTOP
        "                     seasons done : %s%-5s               " bSTG bV "\n",
        time_tmp, tmp, u_stringify_int(IB(0), afl->queue_cycle - 1));
 
@@ -1865,7 +1865,7 @@ void show_stats_pizza(afl_state_t *afl) {
           (afl->saved_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
   u_stringify_time_diff(time_tmp, cur_ms, afl->last_crash_time);
-  SAYF(bV                                                                bSTOP
+  SAYF(bV bSTOP
        "                last ordered pizza : " cRST "%-33s     " bSTG bV bSTOP
        "                         at table : %s%-6s              " bSTG bV "\n",
        time_tmp, crash_color, tmp);
@@ -1874,15 +1874,15 @@ void show_stats_pizza(afl_state_t *afl) {
           (afl->saved_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   u_stringify_time_diff(time_tmp, cur_ms, afl->last_hang_time);
-  SAYF(bV                                                                bSTOP
+  SAYF(bV bSTOP
        "  last conversation with customers : " cRST "%-33s     " bSTG bV bSTOP
        "                 number of Peroni : " cRST "%-6s              " bSTG bV
        "\n",
        time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP                                           cCYA
+  SAYF(bVR bH                                           bSTOP cCYA
        " Baking progress  " bSTG bH30 bH20 bH5 bH bX bH bSTOP cCYA
-       " Pizzeria busyness" bSTG bH30 bH5 bH bH               bVL "\n");
+       " Pizzeria busyness" bSTG bH30 bH5 bH            bH bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -1918,8 +1918,8 @@ void show_stats_pizza(afl_state_t *afl) {
   SAYF(bSTOP "                   count coverage : " cRST "%-19s " bSTG bV "\n",
        tmp);
 
-  SAYF(bVR bH bSTOP                                              cCYA
-       " Pizzas almost ready " bSTG bH30 bH20 bH2 bH bX bH bSTOP cCYA
+  SAYF(bVR bH                                                 bSTOP cCYA
+       " Pizzas almost ready " bSTG bH30 bH20 bH2 bH bX bH    bSTOP cCYA
        " Types of pizzas cooking " bSTG bH10 bH5 bH2 bH10 bH2 bH bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->queued_favored),
@@ -1928,7 +1928,7 @@ void show_stats_pizza(afl_state_t *afl) {
   /* Yeah... it's still going on... halp? */
 
   SAYF(bV bSTOP "                     now preparing : " cRST
-                "%-22s                " bSTG bV                          bSTOP
+                "%-22s                " bSTG bV bSTOP
                 "                favourite topping : " cRST "%-20s" bSTG bV
                 "\n",
        afl->stage_name, tmp);
@@ -1961,14 +1961,14 @@ void show_stats_pizza(afl_state_t *afl) {
   if (afl->crash_mode) {
 
     SAYF(bV bSTOP "                      total pizzas : " cRST
-                  "%-22s                " bSTG bV              bSTOP
+                  "%-22s                " bSTG bV bSTOP
                   "      pizzas with pineapple : %s%-20s" bSTG bV "\n",
          u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
 
   } else {
 
     SAYF(bV bSTOP "                      total pizzas : " cRST
-                  "%-22s                " bSTG bV                    bSTOP
+                  "%-22s                " bSTG bV bSTOP
                   "      total pizzas with pineapple : %s%-20s" bSTG bV "\n",
          u_stringify_int(IB(0), afl->fsrv.total_execs), crash_color, tmp);
 
@@ -2005,7 +2005,7 @@ void show_stats_pizza(afl_state_t *afl) {
   /* Aaaalmost there... hold on! */
 
   SAYF(bVR bH cCYA bSTOP " Promotional campaign on TikTok yields " bSTG bH30 bH2
-           bH bH2 bX bH bSTOP                                       cCYA
+           bH bH2 bX bH                                          bSTOP cCYA
                          " Customer type " bSTG bH5 bH2 bH30 bH2 bH bVL "\n");
 
   if (unlikely(afl->custom_only)) {
@@ -2028,8 +2028,8 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  SAYF(bV                                                                 bSTOP
-       "                pizzas for celiac  : " cRST "%-36s  " bSTG bV     bSTOP
+  SAYF(bV bSTOP
+       "                pizzas for celiac  : " cRST "%-36s  " bSTG bV bSTOP
        "                           levels : " cRST "%-10s          " bSTG bV
        "\n",
        tmp, u_stringify_int(IB(0), afl->max_depth));
@@ -2046,8 +2046,8 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  SAYF(bV                                                                 bSTOP
-       "                   pizzas for kids : " cRST "%-36s  " bSTG bV     bSTOP
+  SAYF(bV bSTOP
+       "                   pizzas for kids : " cRST "%-36s  " bSTG bV bSTOP
        "                   pizzas to make : " cRST "%-10s          " bSTG bV
        "\n",
        tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
@@ -2064,8 +2064,8 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  SAYF(bV                                                                 bSTOP
-       "                      pizza bianca : " cRST "%-36s  " bSTG bV     bSTOP
+  SAYF(bV bSTOP
+       "                      pizza bianca : " cRST "%-36s  " bSTG bV bSTOP
        "                       nice table : " cRST "%-10s          " bSTG bV
        "\n",
        tmp, u_stringify_int(IB(0), afl->pending_favored));
@@ -2082,8 +2082,8 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  SAYF(bV                                                                 bSTOP
-       "               recurring customers : " cRST "%-36s  " bSTG bV     bSTOP
+  SAYF(bV bSTOP
+       "               recurring customers : " cRST "%-36s  " bSTG bV bSTOP
        "                    new customers : " cRST "%-10s          " bSTG bV
        "\n",
        tmp, u_stringify_int(IB(0), afl->queued_discovered));
@@ -2110,8 +2110,8 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  SAYF(bV                                                                 bSTOP
-       "                        dictionary : " cRST "%-36s  " bSTG bV     bSTOP
+  SAYF(bV bSTOP
+       "                        dictionary : " cRST "%-36s  " bSTG bV bSTOP
        "       patrons from old resturant : " cRST "%-10s          " bSTG bV
        "\n",
        tmp,

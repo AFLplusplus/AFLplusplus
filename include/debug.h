@@ -314,8 +314,8 @@ static inline const char *colorfilter(const char *x) {
 #define FATAL(x...)                                                      \
   do {                                                                   \
                                                                          \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
-         "\n[-] PROGRAM ABORT : " cRST   x);                               \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW    cRST cLRD                         \
+         "\n[-] PROGRAM ABORT : " cRST x);                               \
     SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
          __FILE__, (u32)__LINE__);                                       \
     exit(1);                                                             \
@@ -327,8 +327,8 @@ static inline const char *colorfilter(const char *x) {
 #define ABORT(x...)                                                      \
   do {                                                                   \
                                                                          \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
-         "\n[-] PROGRAM ABORT : " cRST   x);                               \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW    cRST cLRD                         \
+         "\n[-] PROGRAM ABORT : " cRST x);                               \
     SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __func__, \
          __FILE__, (u32)__LINE__);                                       \
     abort();                                                             \
@@ -341,8 +341,8 @@ static inline const char *colorfilter(const char *x) {
   do {                                                                 \
                                                                        \
     fflush(stdout);                                                    \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                          \
-         "\n[-]  SYSTEM ERROR : " cRST   x);                             \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW    cRST cLRD                       \
+         "\n[-]  SYSTEM ERROR : " cRST x);                             \
     SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
          __FILE__, (u32)__LINE__);                                     \
     SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \

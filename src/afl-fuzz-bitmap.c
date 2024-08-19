@@ -456,8 +456,8 @@ void write_crash_readme(afl_state_t *afl) {
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
-u8 __attribute__((hot))
-save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
+u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
+                                            u32 len, u8 fault) {
 
   if (unlikely(len == 0)) { return 0; }
 

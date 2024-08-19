@@ -3344,6 +3344,8 @@ stop_fuzzing:
 
   #else
     if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
+        0) {
+
   #endif
 
       u8   ver_string[8];
