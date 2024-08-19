@@ -155,7 +155,7 @@ typedef int128_t s128;
   ({                                           \
                                                \
     char *d = (char *)(_x), *s = (char *)(_y); \
-    u32   i, l = (_l)-1;                       \
+    u32   i, l = (_l) - 1;                     \
     for (i = 0; i <= l; i++)                   \
       d[l - i] = s[i];                         \
                                                \

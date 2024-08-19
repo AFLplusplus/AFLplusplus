@@ -31,6 +31,7 @@
     - new runtime (!) variable: `AFL_OLD_FORKSERVER` to use the old vanilla
       AFL type forkserver. Useful for symcc/symqemu/nautilus/etc. with
       AFL_LLVM_INSTRUMENT=CLASSIC
+  - code formatting updated to llvm 18
 
 
 ### Version ++4.21c (release)
