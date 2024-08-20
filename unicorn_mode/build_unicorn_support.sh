@@ -199,7 +199,7 @@ echo "[+] Build process successful!"
 
 echo "[*] Installing Unicorn python bindings..."
 XOPT=
-$PYTHONBIN -m pip install --help 2>/dev/null | grep -q break-system-packages && XOPT=--break-system-packages
+#$PYTHONBIN -m pip install --help 2>/dev/null | grep -q break-system-packages && XOPT=--break-system-packages
 cd unicorn/bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicornafl using --user"
