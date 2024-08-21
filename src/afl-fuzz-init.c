@@ -2455,7 +2455,7 @@ void check_crash_handling(void) {
         "    To avoid having crashes misinterpreted as timeouts, please \n"
         "    temporarily modify /proc/sys/kernel/core_pattern, like so:\n\n"
 
-        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n\n");
+        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n");
 
     if (!getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")) {
 
