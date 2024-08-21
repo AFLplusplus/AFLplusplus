@@ -2449,14 +2449,14 @@ void check_crash_handling(void) {
         "    between stumbling upon a crash and having this information "
         "relayed to the\n"
         "    fuzzer via the standard waitpid() API.\n"
-        "    If you're experimenting (so missed crashes don't matter), set "
+        "    If you're just experimenting, set "
         "'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.\n\n"
 
         "    To avoid having crashes misinterpreted as timeouts, please \n"
         "    temporarily modify /proc/sys/kernel/core_pattern, like so:\n\n"
 
         "    core_cmd=\"$(cat /proc/sys/kernel/core_pattern)\"\n"
-        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n"
+        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n\n"
        
         "    After fuzz testing is complete, restore the core handling:\n\n"
 
