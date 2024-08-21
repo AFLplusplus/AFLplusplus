@@ -2455,12 +2455,7 @@ void check_crash_handling(void) {
         "    To avoid having crashes misinterpreted as timeouts, please \n"
         "    temporarily modify /proc/sys/kernel/core_pattern, like so:\n\n"
 
-        "    core_cmd=\"$(cat /proc/sys/kernel/core_pattern)\"\n"
-        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n\n"
-       
-        "    After fuzz testing is complete, restore the core handling:\n\n"
-
-        "    echo \"$core_cmd\" | sudo tee /proc/sys/kernel/core_pattern\n");
+        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n\n");
 
     if (!getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")) {
 
