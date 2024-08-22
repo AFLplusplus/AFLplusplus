@@ -2443,20 +2443,19 @@ void check_crash_handling(void) {
 
     SAYF(
         "\n" cLRD "[-] " cRST
-        "Hmm, your system is configured to send core dump notifications to an\n"
+        "Your system is configured to send core dump notifications to an\n"
         "    external utility. This will cause issues: there will be an "
         "extended delay\n"
         "    between stumbling upon a crash and having this information "
         "relayed to the\n"
         "    fuzzer via the standard waitpid() API.\n"
-        "    If you're just testing, set "
+        "    If you're just experimenting, set "
         "'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.\n\n"
 
-        "    To avoid having crashes misinterpreted as timeouts, please log in "
-        "as root\n"
-        "    and temporarily modify /proc/sys/kernel/core_pattern, like so:\n\n"
+        "    To avoid having crashes misinterpreted as timeouts, please \n"
+        "    temporarily modify /proc/sys/kernel/core_pattern, like so:\n\n"
 
-        "    echo core >/proc/sys/kernel/core_pattern\n");
+        "    echo core | sudo tee /proc/sys/kernel/core_pattern\n");
 
     if (!getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")) {
 
