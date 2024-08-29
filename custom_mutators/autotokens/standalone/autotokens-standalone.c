@@ -5,7 +5,7 @@
 #include <getopt.h>
 
 static int            max_havoc = 16, verbose;
-static unsigned char *dict;
+static unsigned char *dict, *mh = "16";
 
 extern int module_disabled;
 
@@ -29,6 +29,9 @@ int main(int argc, char *argv[]) {
     printf("  -v      verbose debug output to stderr.\n");
     printf("  -m val  max mutations (1-val, val default is 16)\n");
     printf("  -x file dictionary file (AFL++ format)\n");
+    printf("You can set the following environment variable parameters:\n");
+    printf("AUTOTOKENS_COMMENT` - what character or string starts a comment which will be\n");
+    printf("                      removed. Default: \"/* ... */\"\n");
     return 0;
 
   }
@@ -43,6 +46,7 @@ int main(int argc, char *argv[]) {
 
       case 'm':
         max_havoc = atoi(optarg);
+        mh = optarg;
         break;
       case 'v':
         verbose = 1;
@@ -127,6 +131,7 @@ int main(int argc, char *argv[]) {
   /* configure autotokens */
   setenv("AUTOTOKENS_LEARN_DICT", "1", 0);
   setenv("AUTOTOKENS_CREATE_FROM_THIN_AIR", "1", 0);
+  setenv("AUTOTOKENS_CHANGE_MAX", mh, 0);
 
   /* fake AFL++ state */
   afl_state_t *afl = (afl_state_t *)calloc(1, sizeof(afl_state_t));
