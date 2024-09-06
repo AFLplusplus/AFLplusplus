@@ -110,15 +110,7 @@ The environment variable is `AFL_QEMU_PERSISTENT_EXITS`.
 
 ### 2.7) Snapshot
 
-`AFL_QEMU_SNAPSHOT=address` is just a "syntactical sugar" environment variable
-that is equivalent to the following set of variables:
-
-```
-AFL_QEMU_PERSISTENT_ADDR=address
-AFL_QEMU_PERSISTENT_GPR=1
-AFL_QEMU_PERSISTENT_MEM=1
-AFL_QEMU_PERSISTENT_EXITS=1
-```
+obsolete
 
 ## 3) Optional parameters
 
