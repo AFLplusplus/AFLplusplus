@@ -495,7 +495,9 @@ static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
 }
 
 /* Read all testcases from foreign input directories, then queue them for
-   testing. Called at startup and at sync intervals.
+   testing. Called at sync intervals. Use env AFL_IMPORT_FIRST to sync at
+   startup (but may delay the startup depending on the amount of fails
+   and speed of execution).
    Does not descend into subdirectories! */
 
 void read_foreign_testcases(afl_state_t *afl, int first) {
