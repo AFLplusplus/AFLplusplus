@@ -48,7 +48,7 @@ When working on the docs, please keep the following guidelines in mind:
   * Don't: fuzzing-network-service.md
 * Use a maximum of 80 characters per line to make reading in a console easier.
 * Make all pull requests against `dev`, see
-  [#how-to-submit-a-pull-request-to-afl](#how-to-submit-a-pull-request-to-afl).
+  [#how-to-submit-a-pull-request](#how-to-submit-a-pull-request).
 
 And finally, here are some best practices for writing docs content:
 
