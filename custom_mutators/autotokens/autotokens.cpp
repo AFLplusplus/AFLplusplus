@@ -39,6 +39,7 @@ extern "C" {
 #ifndef AFL_TXT_MAX_LEN
   #define AFL_TXT_MAX_LEN 65535
 #endif
+#define AUTOTOKENS_TXT_MIN_LEN 1
 
 #if AUTOTOKENS_SPLICE_MIN >= AUTOTOKENS_SIZE_MIN
   #error SPLICE_MIN must be lower than SIZE_MIN
@@ -57,8 +58,9 @@ typedef struct my_mutator {
   if (unlikely(debug)) fprintf
 #define IFDEBUG if (unlikely(debug))
 
+int module_disabled = 0;
+
 static afl_state *afl_ptr;
-static int        module_disabled = 0;
 static int        auto_disable = AUTOTOKENS_AUTO_DISABLE;
 static int        debug = AUTOTOKENS_DEBUG;
 static int        only_fav = AUTOTOKENS_ONLY_FAV;
@@ -104,9 +106,9 @@ static void first_run(void *data) {
   if (afl_ptr->custom_only || !auto_disable) { return; }
 
   if (unlikely(afl_ptr->active_items == 1 &&
-               afl_ptr->queue_cur->len < AFL_TXT_MIN_LEN)) {
+               afl_ptr->queue_cur->len < AUTOTOKENS_TXT_MIN_LEN)) {
 
-    if (afl_ptr->extras_cnt > 8) {
+    if (afl_ptr->extras_cnt) {
 
       u32 valid = 0;
 
@@ -237,7 +239,7 @@ extern "C" u32 afl_custom_fuzz_count(void *data, const u8 *buf,
 
 }
 
-extern "C" size_t afl_custom_fuzz(my_mutator_t *data, u8 *buf, size_t buf_size,
+extern "C" size_t afl_custom_fuzz(void *data, u8 *buf, size_t buf_size,
                                   u8 **out_buf, u8 *add_buf,
                                   size_t add_buf_size, size_t max_size) {
 
@@ -655,6 +657,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     if (current_id > whitespace_ids + 6 && afl_ptr->active_items == 1 &&
         afl_ptr->queue_cur->len < AFL_TXT_MIN_LEN) {
 
+    retry_thin_air:
       DEBUGF(stderr, "Creating an entry from thin air...\n");
       structure = new vector<u32>();
       u32 item, prev, cnt = current_id >> 1;
@@ -684,8 +687,6 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     }
 
-    create_from_thin_air = 0;
-
   }
 
   if (entry == file_mapping.end()) {
@@ -693,7 +694,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
     // this input file was not analyzed for tokens yet, so let's do it!
     size_t len = afl_ptr->queue_cur->len;
 
-    if (len < AFL_TXT_MIN_LEN) {
+    if (len < AUTOTOKENS_TXT_MIN_LEN) {
 
       file_mapping[fn] = structure;  // NULL ptr so we don't read the file again
       s = NULL;
@@ -895,6 +896,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
     if (tokens.size() < AUTOTOKENS_SIZE_MIN) {
 
+      if (create_from_thin_air) { goto retry_thin_air; }
       file_mapping[fn] = NULL;
       s = NULL;
       DEBUGF(stderr, "too few tokens\n");
@@ -955,7 +957,7 @@ extern "C" unsigned char afl_custom_queue_get(void                *data,
 
 }
 
-extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
+extern "C" void *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   (void)(seed);
   my_mutator_t *data = (my_mutator_t *)calloc(1, sizeof(my_mutator_t));
@@ -1070,7 +1072,7 @@ extern "C" my_mutator_t *afl_custom_init(afl_state *afl, unsigned int seed) {
   id_to_token[current_id] = "'";
   ++current_id;
 
-  return data;
+  return (void *)data;
 
 }
 

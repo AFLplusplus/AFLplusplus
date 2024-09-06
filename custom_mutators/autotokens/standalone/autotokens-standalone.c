@@ -5,107 +5,11 @@
 #include <getopt.h>
 
 static int            max_havoc = 16, verbose;
-static unsigned char *dict;
+static unsigned char *dict, *mh = "16";
 
-typedef struct my_mutator {
+extern int module_disabled;
 
-  afl_state_t *afl;
-  u8          *buf;
-  u32          buf_size;
-
-} my_mutator_t;
-
-my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
-
-  (void)seed;
-
-  my_mutator_t *data = calloc(1, sizeof(my_mutator_t));
-  if (!data) {
-
-    perror("afl_custom_init alloc");
-    return NULL;
-
-  }
-
-  if ((data->buf = malloc(1024 * 1024)) == NULL) {
-
-    perror("afl_custom_init alloc");
-    return NULL;
-
-  } else {
-
-    data->buf_size = 1024 * 1024;
-
-  }
-
-  /* fake AFL++ state */
-  data->afl = calloc(1, sizeof(afl_state_t));
-  data->afl->queue_cycle = 1;
-  data->afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-  if (data->afl->fsrv.dev_urandom_fd < 0) {
-
-    PFATAL("Unable to open /dev/urandom");
-
-  }
-
-  rand_set_seed(data->afl, getpid());
-
-  if (dict) {
-
-    load_extras(data->afl, dict);
-    if (verbose)
-      fprintf(stderr, "Loaded dictionary: %s (%u entries)\n", dict,
-              data->afl->extras_cnt);
-
-  }
-
-  return data;
-
-}
-
-/* here we run the AFL++ mutator, which is the best! */
-
-size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                       u8 **out_buf, uint8_t *add_buf, size_t add_buf_size,
-                       size_t max_size) {
-
-  if (max_size > data->buf_size) {
-
-    u8 *ptr = realloc(data->buf, max_size);
-
-    if (!ptr) {
-
-      return 0;
-
-    } else {
-
-      data->buf = ptr;
-      data->buf_size = max_size;
-
-    }
-
-  }
-
-  u32 havoc_steps = 1 + rand_below(data->afl, max_havoc);
-  if (verbose) fprintf(stderr, "Havoc steps: %u\n", havoc_steps);
-
-  /* set everything up, costly ... :( */
-  memcpy(data->buf, buf, buf_size);
-
-  /* the mutation */
-  u32 out_buf_len;
-  do {
-
-    out_buf_len = afl_mutate(data->afl, data->buf, buf_size, havoc_steps, false,
-                             true, add_buf, add_buf_size, max_size);
-
-  } while (out_buf_len == buf_size && memcmp(buf, data->buf, buf_size) == 0);
-
-  /* return size of mutated data */
-  *out_buf = data->buf;
-  return out_buf_len;
-
-}
+void *afl_custom_init(afl_state_t *, unsigned int);
 
 int main(int argc, char *argv[]) {
 
@@ -115,12 +19,8 @@ int main(int argc, char *argv[]) {
         "Syntax: %s [-v] [-m maxmutations] [-x dict] [inputfile [outputfile "
         "[splicefile]]]\n\n",
         argv[0]);
-    printf(
-        "Reads a testcase from stdin when no input file (or '-') is "
-        "specified,\n");
-    printf(
-        "mutates according to AFL++'s mutation engine, and write to stdout "
-        "when '-' or\n");
+    printf("Reads a testcase from a file (not stdin!),\n");
+    printf("writes to stdout when '-' or\n");
     printf(
         "no output filename is given. As an optional third parameter you can "
         "give a file\n");
@@ -129,6 +29,9 @@ int main(int argc, char *argv[]) {
     printf("  -v      verbose debug output to stderr.\n");
     printf("  -m val  max mutations (1-val, val default is 16)\n");
     printf("  -x file dictionary file (AFL++ format)\n");
+    printf("You can set the following environment variable parameters:\n");
+    printf("AUTOTOKENS_COMMENT` - what character or string starts a comment which will be\n");
+    printf("                      removed. Default: \"/* ... */\"\n");
     return 0;
 
   }
@@ -143,6 +46,7 @@ int main(int argc, char *argv[]) {
 
       case 'm':
         max_havoc = atoi(optarg);
+        mh = optarg;
         break;
       case 'v':
         verbose = 1;
@@ -164,8 +68,6 @@ int main(int argc, char *argv[]) {
     exit(-1);
 
   }
-
-  my_mutator_t *data = afl_custom_init(NULL, 0);
 
   if (argc > optind && strcmp(argv[optind], "-") != 0) {
 
@@ -225,6 +127,44 @@ int main(int argc, char *argv[]) {
     if (verbose) fprintf(stderr, "Mutation splice length: %zu\n", splicelen);
 
   }
+
+  /* configure autotokens */
+  setenv("AUTOTOKENS_LEARN_DICT", "1", 0);
+  setenv("AUTOTOKENS_CREATE_FROM_THIN_AIR", "1", 0);
+  setenv("AUTOTOKENS_CHANGE_MAX", mh, 0);
+
+  /* fake AFL++ state */
+  afl_state_t *afl = (afl_state_t *)calloc(1, sizeof(afl_state_t));
+  afl->queue_cycle = afl->havoc_div = afl->active_items = afl->queued_items = 1;
+  afl->shm.cmplog_mode = 0;
+  afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
+
+  rand_set_seed(afl, getpid());
+
+  if (dict) {
+
+    load_extras(afl, dict);
+    if (verbose)
+      fprintf(stderr, "Loaded dictionary: %s (%u entries)\n", dict,
+              afl->extras_cnt);
+
+  }
+
+  // setup a fake queue entry
+  afl->queue_buf = malloc(64);
+  afl->queue_buf[0] = afl->queue_cur =
+      (struct queue_entry *)malloc(sizeof(struct queue_entry));
+  afl->queue_cur->testcase_buf = inbuf;
+  afl->queue_cur->fname = (u8 *)argv[optind];
+  afl->queue_cur->len = inlen;
+  afl->queue_cur->perf_score = 100;
+  afl->queue_cur->favored = afl->queue_cur->is_ascii = 1;
+  // afl->custom_only = 1;
+
+  void *data = (void *)afl_custom_init(afl, (u32)0);
+
+  u8 res = afl_custom_queue_get(inbuf, (u8 *)argv[optind]);
 
   if (verbose) fprintf(stderr, "Mutation input length: %zu\n", inlen);
   unsigned int outlen = afl_custom_fuzz(data, inbuf, inlen, &outbuf, splicebuf,
