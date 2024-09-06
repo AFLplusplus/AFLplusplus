@@ -99,10 +99,7 @@ be lost at the second execution of the loop.
 
 ### 2.5) Resetting the memory state
 
-This option restores the memory state using the AFL++ Snapshot LKM if loaded.
-Otherwise, all the writeable pages are restored.
-
-To enable this option, set `AFL_QEMU_PERSISTENT_MEM=1`.
+(obsolete chapter)
 
 ### 2.6) Reset on exit()
 
