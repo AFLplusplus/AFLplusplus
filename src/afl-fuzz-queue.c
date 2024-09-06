@@ -455,9 +455,8 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
   if (symlink(ldest, fn)) {
 
-    s32 fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
-    if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
-    close(fd);
+    s32 fd = permissive_create(afl, fn);
+    if (fd >= 0) { close(fd); }
 
   }
 
