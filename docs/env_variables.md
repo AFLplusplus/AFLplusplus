@@ -610,7 +610,7 @@ checks or alter some of the more exotic semantics of the tool:
     see [rpc_statsd.md](rpc_statsd.md).
 
   - `AFL_SYNC_TIME` allows you to specify a different minimal time (in minutes)
-    between fuzzing instances synchronization. Default sync time is 30 minutes,
+    between fuzzing instances synchronization. Default sync time is 20 minutes,
     note that time is halved for -M main nodes.
 
   - `AFL_NO_SYNC` disables any syncing whatsoever and takes priority on all
