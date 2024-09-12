@@ -1505,7 +1505,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
-    OKF("AFL++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
+    OKF("AFL++ Nyx mode is enabled (developed and maintained by Sergej Schumilo)");
     OKF("Nyx is open source, get it at https://github.com/Nyx-Fuzz");
 
   }
