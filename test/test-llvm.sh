@@ -269,9 +269,9 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c 0 -- ./test-cmplog >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_SHA1_FILENAMES=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c 0 -- ./test-cmplog >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" && {
+    test -n "$( ls out/default/crashes/* out/default/hangs/* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -280,6 +280,10 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode cmplog"
       CODE=1
     }
+    test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" && {
+      $ECHO "$RED[!] filenames are not SHA1"
+      CODE=1
+    } || true
   } || {
     $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
     INCOMPLETE=1
