@@ -11,3 +11,4 @@
 |AMD Ryzen 9 6900HS with Radeon Graphics             | 4745  | 16      | 135501     | 991133    | both         |
 |AMD Ryzen 9 7950X3D 16-Core Processor               | 5400  | 32      | 71566      | 1566279   | system       |
 |AMD Ryzen 9 7950X3D 16-Core Processor               | 5478  | 32      | 161960     | 2173959   | both         |
+|Ampere Altra Q80-30                                 | 0     | 80      | 54477      | 1604482   | system       |
