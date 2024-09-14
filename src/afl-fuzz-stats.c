@@ -80,7 +80,18 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
   snprintf(fn2, PATH_MAX, "%s/target_hash", afl->out_dir);
   FILE *f2 = create_ffile(fn2);
+
+#ifdef __linux__
+  if (afl->fsrv.nyx_mode) {
+    nyx_load_target_hash(&afl->fsrv);
+    fprintf(f2, "%llx\n", afl->fsrv.nyx_target_hash64);
+  }
+  else {
+    fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
+  }
+#else
   fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
+#endif
   fclose(f2);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
