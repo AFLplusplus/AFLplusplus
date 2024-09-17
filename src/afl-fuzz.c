@@ -598,6 +598,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (debug) { afl->fsrv.debug = true; }
   read_afl_environment(afl, envp);
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
+  if (afl->shm.vp_mode) { afl->fsrv.vp_map_control = afl->shm.vp_map->control; }
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -609,9 +610,10 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
   // still available: HjJkKqruvwz
-  while ((opt = getopt(argc, argv,
-                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
-                       "T:UV:WXx:YzZ")) > 0) {
+  while (
+      (opt = getopt(argc, argv,
+                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:k:l:L:m:M:nNo:Op:P:QRs:S:t:"
+                    "T:UV:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -715,6 +717,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->shm.cmplog_mode = 1;
           afl->cmplog_binary = ck_strdup(optarg);
+
+        }
+
+        break;
+
+      }
+
+      case 'k': {
+
+        afl->shm.vp_mode = atoi(optarg) + 1;
+        if (afl->shm.vp_mode < 1 || afl->shm.vp_mode > 2) {
+
+          FATAL("-k option value must be either 0 or 1.");
 
         }
 
@@ -1497,7 +1512,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("AFL++ is maintained by Marc \"van Hauser\" Heuse, Dominik Maier, Andrea "
-      "Fioraldi and Heiko \"hexcoder\" Eißfeldt");
+      "Fioraldi and Heiko \"hexcoder\" Eissfeldt");
   OKF("AFL++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
   OKF("NOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md");
@@ -1505,7 +1520,8 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
-    OKF("AFL++ Nyx mode is enabled (developed and maintained by Sergej Schumilo)");
+    OKF("AFL++ Nyx mode is enabled (developed and maintained by Sergej "
+        "Schumilo)");
     OKF("Nyx is open source, get it at https://github.com/Nyx-Fuzz");
 
   }
@@ -1699,6 +1715,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (afl->shm.cmplog_mode) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
+  if (afl->shm.vp_mode) {
+
+    OKF("Value Profile mode activated");
+    if (afl->shm.vp_mode > 1) { setenv("__AFL_VP_ALT", "1", 1); }
+
+  }
 
   /* Dynamically allocate memory for AFLFast schedules */
   if (afl->schedule >= FAST && afl->schedule <= RARE) {
@@ -2225,23 +2247,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
-#ifdef __linux__
+  #ifdef __linux__
     u64 target_hash = 0;
     if (afl->fsrv.nyx_mode) {
+
       nyx_load_target_hash(&afl->fsrv);
       target_hash = afl->fsrv.nyx_target_hash64;
-    }
-    else {
+
+    } else {
+
       target_hash = get_binary_hash(afl->fsrv.target_path);
+
     }
-#else
+
+  #else
     u64 target_hash = get_binary_hash(afl->fsrv.target_path);
-#endif
+  #endif
 
     if ((!target_hash || prev_target_hash != target_hash)
-#ifdef __linux__
-      || (afl->fsrv.nyx_mode && target_hash == 0)
-#endif
+  #ifdef __linux__
+        || (afl->fsrv.nyx_mode && target_hash == 0)
+  #endif
     ) {
 
       ACTF("Target binary is different, cannot perform FAST RESUME!");
@@ -2260,7 +2286,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
-        u64  expect_ver =
+        // TODO VP
+        u64 expect_ver =
             afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
@@ -2461,6 +2488,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->argv = use_argv;
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
+  if (afl->shm.vp_mode) { afl->fsrv.vp_map_control = afl->shm.vp_map->control; }
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
@@ -2513,6 +2541,12 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->fsrv.map_size = new_map_size;
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      if (afl->shm.vp_mode) {
+
+        afl->fsrv.vp_map_control = afl->shm.vp_map->control;
+
+      }
+
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -2593,6 +2627,12 @@ int main(int argc, char **argv_orig, char **envp) {
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      if (afl->shm.vp_mode) {
+
+        afl->fsrv.vp_map_control = afl->shm.vp_map->control;
+
+      }
+
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -3307,9 +3347,10 @@ stop_fuzzing:
     u8  time_tmp[64];
     u_stringify_time_diff(time_tmp, get_cur_time(), afl->start_time);
     ACTF(
-        "Statistics: %u new corpus items found, %.02f%% coverage achieved, "
+        "Statistics: %u new corpus items found (%u active), %.02f%% coverage "
+        "achieved, "
         "%llu crashes saved, %llu timeouts saved, total runtime %s",
-        afl->queued_discovered,
+        afl->queued_discovered, afl->active_items,
         ((double)t_bytes * 100) / afl->fsrv.real_map_size, afl->saved_crashes,
         afl->saved_hangs, time_tmp);
 
@@ -3366,6 +3407,7 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
+      // TODO VP
       *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
 
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");

@@ -231,6 +231,77 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   Function *cmplogHookIns8 = cast<Function>(c8);
 #endif
 
+  if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+
+    c2 = M.getOrInsertFunction("__valueprofile_hook2", VoidTy, Int16Ty, Int16Ty,
+                               Int8Ty
+#if LLVM_VERSION_MAJOR < 5
+                               ,
+                               NULL
+#endif
+    );
+#if LLVM_VERSION_MAJOR >= 9
+    cmplogHookIns2 = c2;
+#else
+    cmplogHookIns2 = cast<Function>(c2);
+#endif
+
+    c4 = M.getOrInsertFunction("__valueprofile_hook4", VoidTy, Int32Ty, Int32Ty,
+                               Int8Ty
+#if LLVM_VERSION_MAJOR < 5
+                               ,
+                               NULL
+#endif
+    );
+#if LLVM_VERSION_MAJOR >= 9
+    cmplogHookIns4 = c4;
+#else
+    cmplogHookIns4 = cast<Function>(c4);
+#endif
+
+    c8 = M.getOrInsertFunction("__valueprofile_hook8", VoidTy, Int64Ty, Int64Ty,
+                               Int8Ty
+#if LLVM_VERSION_MAJOR < 5
+                               ,
+                               NULL
+#endif
+    );
+#if LLVM_VERSION_MAJOR >= 9
+    cmplogHookIns8 = c8;
+#else
+    cmplogHookIns8 = cast<Function>(c8);
+#endif
+
+    /*
+        c16 = M.getOrInsertFunction("__valueprofile_hook16", VoidTy, Int128Ty,
+                                    Int128Ty, Int8Ty
+    #if LLVM_VERSION_MAJOR < 5
+                                    ,
+                                    NULL
+    #endif
+        );
+    #if LLVM_VERSION_MAJOR < 9
+        cmplogHookIns16 = cast<Function>(c16);
+    #else
+        cmplogHookIns16 = c16;
+    #endif
+
+        cN = M.getOrInsertFunction("__valueprofile_hookN", VoidTy, Int128Ty,
+                                   Int128Ty, Int8Ty, Int8Ty
+    #if LLVM_VERSION_MAJOR < 5
+                                   ,
+                                   NULL
+    #endif
+        );
+    #if LLVM_VERSION_MAJOR >= 9
+        cmplogHookInsN = cN;
+    #else
+        cmplogHookInsN = cast<Function>(cN);
+    #endif
+    */
+
+  }
+
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
 
   if (!AFLCmplogPtr) {
@@ -438,9 +509,15 @@ bool CmplogSwitches::runOnModule(Module &M) {
 
 #endif
 
-  if (getenv("AFL_QUIET") == NULL)
-    printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
-  else
+  if (getenv("AFL_QUIET") == NULL) {
+
+    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE"))
+      printf("Running valueprofile-instruction-pass by AFL++ team\n");
+    else
+      printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
+
+  } else
+
     be_quiet = 1;
   bool ret = hookInstrs(M);
   verifyModule(M);

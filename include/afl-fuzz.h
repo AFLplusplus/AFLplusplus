@@ -42,6 +42,7 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
+#include "valueprofile.h"
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
@@ -210,7 +211,8 @@ struct queue_entry {
   u32 id;                               /* entry number in queue_buf        */
 
   u8 colorized,                         /* Do not run redqueen stage again  */
-      cal_failed;                       /* Calibration failed?              */
+      cal_failed,                       /* Calibration failed?              */
+      really_interesting;               /* really has coverage (VP)         */
 
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
@@ -854,6 +856,8 @@ typedef struct afl_state {
   FILE *introspection_file;
   u32   bitsmap_size;
 #endif
+
+  u32 vp_ptr[VP_MAP_SIZE];
 
 } afl_state_t;
 

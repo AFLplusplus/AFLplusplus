@@ -979,13 +979,13 @@ void perform_dry_run(afl_state_t *afl) {
           q->cal_failed = CAL_CHANCES;
           q->disabled = 1;
           q->perf_score = 0;
+          --afl->active_items;
 
           if (!q->was_fuzzed) {
 
             q->was_fuzzed = 1;
             afl->reinit_table = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_items;
 
           }
 
@@ -1026,10 +1026,10 @@ void perform_dry_run(afl_state_t *afl) {
             q->was_fuzzed = 1;
             afl->reinit_table = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_items;
 
           }
 
+          --afl->active_items;
           q->disabled = 1;
           q->perf_score = 0;
 
@@ -1153,12 +1153,12 @@ void perform_dry_run(afl_state_t *afl) {
 
         /* Remove from fuzzing queue but keep for splicing */
 
+        --afl->active_items;
         if (!q->was_fuzzed) {
 
           q->was_fuzzed = 1;
           afl->reinit_table = 1;
           --afl->pending_not_fuzzed;
-          --afl->active_items;
 
         }
 
@@ -1354,10 +1354,10 @@ void perform_dry_run(afl_state_t *afl) {
             p->was_fuzzed = 1;
             afl->reinit_table = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_items;
 
           }
 
+          --afl->active_items;
           p->disabled = 1;
           p->perf_score = 0;
 
@@ -1375,10 +1375,10 @@ void perform_dry_run(afl_state_t *afl) {
             q->was_fuzzed = 1;
             afl->reinit_table = 1;
             --afl->pending_not_fuzzed;
-            --afl->active_items;
 
           }
 
+          --afl->active_items;
           q->disabled = 1;
           q->perf_score = 0;
 

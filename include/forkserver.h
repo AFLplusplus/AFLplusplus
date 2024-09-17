@@ -32,6 +32,7 @@
 #include <stdbool.h>
 
 #include "types.h"
+#include "valueprofile.h"
 
 #ifdef __linux__
 /**
@@ -182,7 +183,8 @@ typedef struct afl_forkserver {
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);
 
-  u8 *afl_ptr;                          /* for autodictionary: afl ptr      */
+  u8  *afl_ptr;                         /* for autodictionary: afl ptr      */
+  u32 *vp_map_control;
 
   void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
 
@@ -248,7 +250,6 @@ void              afl_fsrv_kill(afl_forkserver_t *fsrv);
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv);
 #endif
-
 
 #ifdef __APPLE__
   #define MSG_FORK_ON_APPLE                                                    \

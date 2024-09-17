@@ -52,7 +52,9 @@ typedef struct sharedmem {
 
   int             cmplog_mode;
   int             shmemfuzz_mode;
+  int             vp_mode;
   struct cmp_map *cmp_map;
+  struct vp_map  *vp_map;
 
 } sharedmem_t;
 

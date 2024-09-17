@@ -34,6 +34,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
+#include "valueprofile.h"
 #include "llvm-alternative-coverage.h"
 
 #define XXH_INLINE_ALL
@@ -119,6 +120,17 @@ u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 u32 __afl_old_forkserver;
+u32 __afl_vp_strat = 1;
+
+#if __has_builtin(__builtin_popcountll)
+  #define VP_POPCOUNT __builtin_popcountll
+#else
+  #define VP_POPCOUNT my_popcountll
+#endif
+#define VP_STRAT_1(x, y) (VP_POPCOUNT((x) ^ (y)))
+#define VP_STRAT_2(x, y) ((x) > (y) ? (x) - (y) : (y) - (x))
+#define VP_STRAT(x, y) \
+  (__afl_vp_strat == 1 ? VP_STRAT_1((x), (y)) : VP_STRAT_2((x), (y)))
 
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
@@ -188,6 +200,8 @@ __thread PREV_LOC_T __afl_prev_caller[CTX_MAX_K];
 __thread u32        __afl_prev_ctx;
 #endif
 
+struct vp_map *__afl_vp_map;
+
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 
@@ -224,6 +238,20 @@ u32 __afl_already_initialized_init;
 static int __afl_dummy_fd[2] = {2, 2};
 
 /* ensure we kill the child on termination */
+
+uint64_t my_popcountll(uint64_t val) {
+
+  uint64_t count = 0;
+  while (val) {
+
+    count += val & 1;
+    val >>= 1;
+
+  }
+
+  return count;
+
+}
 
 static void at_exit(int signal) {
 
@@ -355,6 +383,7 @@ static void __afl_map_shm(void) {
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
   char *id_str = getenv(SHM_ENV_VAR);
+  char *vp_mode = getenv("__AFL_VP_MODE");
 
   if (__afl_final_loc) {
 
@@ -714,6 +743,12 @@ static void __afl_map_shm(void) {
 
     }
 
+    if (vp_mode && __afl_cmp_map) {
+
+      __afl_vp_map = (struct vp_map *)__afl_cmp_map;
+
+    }
+
   }
 
 #ifdef __AFL_CODE_COVERAGE
@@ -749,6 +784,8 @@ static void __afl_map_shm(void) {
     if (tmp >= 16 && tmp <= 32) { __afl_cmplog_max_len = tmp; }
 
   }
+
+  if (getenv("__AFL_VP_ALT")) { __afl_vp_strat = 2; }
 
 }
 
@@ -2189,6 +2226,185 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 #endif
 
+inline void __valueprofile_hook_generic(uint64_t arg1, uint64_t arg2,
+                                        uint8_t attr, uint8_t bits) {
+
+  if (likely(!__afl_vp_map)) return;
+
+  if (attr > 1) return;  // only !=|== for now!
+
+  u64 val = VP_STRAT(arg1, arg2);
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val, attr);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+
+  while (__afl_vp_map->header[k].len != bits &&
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_CMP)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8 update = 0;
+
+  if (val < __afl_vp_map->header[k].value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    __afl_vp_map->header[k].len = bits;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    __afl_vp_map->header[k].value = val;
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
+
+}
+
+void __valueprofile_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
+
+  __valueprofile_hook_generic((uint64_t)arg1, (uint64_t)arg2, attr, 16);
+
+}
+
+void __valueprofile_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
+
+  __valueprofile_hook_generic((uint64_t)arg1, (uint64_t)arg2, attr, 32);
+
+}
+
+void __valueprofile_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
+
+  __valueprofile_hook_generic((uint64_t)arg1, (uint64_t)arg2, attr, 64);
+
+}
+
+;
+#ifdef WORD_SIZE_64
+void __valueprofile_hook_generic_n(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                                   uint8_t bits);
+
+inline void __valueprofile_hook_generic_n(uint128_t arg1, uint128_t arg2,
+                                          uint8_t attr, uint8_t bits) {
+
+  if (likely(!__afl_vp_map)) return;
+
+  if (attr > 1) return;  // only ==|!= for now!
+
+  uint128_t val;
+
+  if (__afl_vp_strat == 1) {
+
+    val = (uint128_t)VP_STRAT_1(((uint64_t)(arg1 >> 64)),
+                                ((uint64_t)(arg2 >> 64)));
+    val += (uint128_t)VP_STRAT_1(((uint64_t)arg1), ((uint64_t)arg2));
+
+  } else {
+
+    val = (arg1 > arg2 ? arg1 - arg2 : arg2 - arg1);
+
+  }
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+
+  while (__afl_vp_map->header[k].len != bits &&
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_CMP)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8        update = 0;
+  uint128_t old_val = (uint128_t)__afl_vp_map->header[k].value +
+                      (uint128_t)__afl_vp_map->header[k].value_ext;
+
+  if (val < old_val) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    __afl_vp_map->header[k].len = bits;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+
+    __afl_vp_map->header[k].value = (uint64_t)val;
+    __afl_vp_map->header[k].value_ext = (uint64_t)(val >> 64);
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
+
+}
+
+// support for u24 to u120 via llvm _ExitInt(). size is in bytes minus 1
+void __valueprofile_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                          uint8_t bits) {
+
+  if (bits <= 64) {
+
+    __valueprofile_hook_generic((uint64_t)arg1, (uint64_t)arg2, attr, bits);
+
+  } else {
+
+    __valueprofile_hook_generic_n((uint128_t)arg1, (uint128_t)arg2, attr, bits);
+
+  }
+
+}
+
+void __valueprofile_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
+
+  __valueprofile_hook_generic_n(arg1, arg2, attr, 128);
+
+}
+
+#endif
+
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
   //__cmplog_ins_hook1(arg1, arg2, 0);
@@ -2664,6 +2880,104 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
 }
 
+/* VALUE PROFILE */
+
+/* hook for string with length functions, eg. strncmp, strncasecmp etc.
+   Note that we ignore the len parameter and take longer strings if present. */
+void __valueprofile_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
+  if (likely(!__afl_vp_map)) return;
+  if (unlikely(len < 2 || len > 16)) return;
+
+  // TODO
+
+}
+
+/* hook for string functions, eg. strcmp, strcasecmp etc. */
+void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
+
+  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
+  if (likely(!__afl_vp_map)) return;
+  if (unlikely(!ptr1 || !ptr2)) return;
+  int len1 = strnlen(ptr1, 16) + 1;
+  int len2 = strnlen(ptr2, 16) + 1;
+  if (len1 > 16) len1 = 0;
+  if (len2 > 16) len2 = 0;
+  if (len1 < 2 || len2 < 2) return;
+
+  // TODO
+
+}
+
+/* hook function for all other func(ptr, ptr, ...) variants */
+void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
+
+  int l1, l2;
+  if ((l1 = area_is_valid(ptr1, 16)) <= 0 ||
+      (l2 = area_is_valid(ptr2, 16)) <= 0)
+    return;
+  int len = MIN(16, MIN(l1, l2));
+  if (len < 2) return;
+
+  // TODO
+
+}
+
+/* hook for func(ptr, ptr, len, ...) looking functions.
+   Note that for the time being we ignore len as this could be wrong
+   information and pass it on to the standard binary rtn hook */
+void __valueprofile_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  (void)(len);
+  __valueprofile_rtn_hook(ptr1, ptr2);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
+
+  if (likely(!__afl_vp_map)) return;
+  if (area_is_valid(stdstring, 16) <= 1 || area_is_valid(cstring, 16) <= 1)
+    return;
+
+  __valueprofile_rtn_hook(get_gcc_stdstring(stdstring), cstring);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_stdstring(u8 *stdstring1,
+                                                u8 *stdstring2) {
+
+  if (likely(!__afl_vp_map)) return;
+  if (area_is_valid(stdstring1, 16) <= 1 || area_is_valid(stdstring2, 16) <= 1)
+    return;
+
+  __valueprofile_rtn_hook(get_gcc_stdstring(stdstring1),
+                          get_gcc_stdstring(stdstring2));
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
+
+  if (likely(!__afl_vp_map)) return;
+  if (area_is_valid(stdstring, 16) <= 1 || area_is_valid(cstring, 16) <= 1)
+    return;
+
+  __valueprofile_rtn_hook(get_llvm_stdstring(stdstring), cstring);
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_stdstring(u8 *stdstring1,
+                                                 u8 *stdstring2) {
+
+  if (likely(!__afl_vp_map)) return;
+  if (area_is_valid(stdstring1, 16) <= 1 || area_is_valid(stdstring2, 16) <= 1)
+    return;
+
+  __valueprofile_rtn_hook(get_llvm_stdstring(stdstring1),
+                          get_llvm_stdstring(stdstring2));
+
+}
+
 /* COVERAGE manipulation features */
 
 // this variable is then used in the shm setup to create an additional map
@@ -2698,6 +3012,7 @@ void __afl_coverage_on() {
 // discard all coverage up to this point
 void __afl_coverage_discard() {
 
+  // TODO VP
   memset(__afl_area_ptr_backup, 0, __afl_map_size);
   __afl_area_ptr_backup[0] = 1;
 

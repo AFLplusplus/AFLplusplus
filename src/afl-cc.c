@@ -1380,7 +1380,9 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
     FATAL("AFL_LLVM_DICT2FILE is incompatible with AFL_LLVM_LAF_*");
 
   aflcc->cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
-                       getenv("AFL_GCC_CMPLOG");
+                       getenv("AFL_GCC_CMPLOG") ||
+                       getenv("AFL_LLVM_VALUEPROFILE") ||
+                       getenv("AFL_LLVM_VALUE_PROFILE");
 
 }
 
@@ -3460,7 +3462,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     if (aflcc->cmplog_mode) {
 
       load_llvm_pass(aflcc, "cmplog-instructions-pass.so");
-      load_llvm_pass(aflcc, "cmplog-routines-pass.so");
+      //      load_llvm_pass(aflcc, "cmplog-routines-pass.so");
 
     }
 

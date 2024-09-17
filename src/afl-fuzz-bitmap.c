@@ -481,7 +481,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
   u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0,
-     need_hash = 1;
+     need_hash = 1, is_really_interesting = 1;
   s32 fd;
   u64 cksum = 0;
 
@@ -517,6 +517,16 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
 
       if (unlikely(new_bits)) { classified = 1; }
+
+    }
+
+    if (unlikely(afl->shm.vp_mode)) {
+
+      if (unlikely(afl->shm.vp_map->control[0])) {  // map updates
+        is_really_interesting = new_bits;
+        new_bits = 1;
+
+      }
 
     }
 
@@ -567,6 +577,57 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     }
 
     add_to_queue(afl, queue_fn, len, 0);
+
+    if (unlikely(afl->shm.vp_mode && afl->shm.vp_map->control[0])) {
+
+      afl->queue_top->really_interesting = is_really_interesting;
+      u32 items = afl->shm.vp_map->control[0];
+      for (u32 item = 1; item <= items; ++item) {
+
+        u32 old, index = afl->shm.vp_map->control[item];
+        if ((old = afl->vp_ptr[index])) {  // seen before
+          // evict the old one if possible
+          if (!afl->queue_buf[old]->really_interesting) {
+
+            // candidate to evict, check if it is not the best partial solve
+            // for anything else
+            u32 n, delete = 1;
+            for (n = 0; n < VP_MAP_SIZE; ++n) {
+
+              if (unlikely(afl->vp_ptr[n] == old && n != index)) {
+
+                delete = 0;
+                break;
+
+              }
+
+            }
+
+            if (delete) {
+
+              struct queue_entry *q = afl->queue_buf[old];
+              q->disabled = 1;
+              --afl->active_items;
+
+              if (!q->was_fuzzed) {
+
+                q->was_fuzzed = 1;
+                afl->reinit_table = 1;
+                --afl->pending_not_fuzzed;
+
+              }
+
+            }
+
+          }
+
+        }
+
+        afl->vp_ptr[index] = afl->queue_top->id;
+
+      }
+
+    }
 
     if (unlikely(afl->fuzz_mode) &&
         likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {

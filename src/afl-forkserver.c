@@ -302,6 +302,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->late_send = from->late_send;
   fsrv_to->custom_data_ptr = from->custom_data_ptr;
+  fsrv_to->vp_map_control = from->vp_map_control;
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func or ->persistent_record*
@@ -536,12 +537,15 @@ static void report_error_and_exit(int error) {
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv) {
-  void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
-  fsrv->nyx_target_hash64 = fsrv->nyx_handlers->nyx_get_target_hash64(nyx_config);
-  fsrv->nyx_handlers->nyx_config_free(nyx_config);
-}
-#endif
 
+  void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
+  fsrv->nyx_target_hash64 =
+      fsrv->nyx_handlers->nyx_get_target_hash64(nyx_config);
+  fsrv->nyx_handlers->nyx_config_free(nyx_config);
+
+}
+
+#endif
 
 /* Spins up fork server. The idea is explained here:
 
@@ -883,7 +887,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     struct rlimit r;
 
-    if (!fsrv->cmplog_binary) {
+    if (!fsrv->cmplog_binary && !fsrv->vp_map_control) {
 
       unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
 
@@ -1918,14 +1922,21 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 #ifdef __linux__
   if (likely(!fsrv->nyx_mode)) {
 
+#endif
+
     memset(fsrv->trace_bits, 0, fsrv->map_size);
+    if (unlikely(fsrv->vp_map_control)) {
+
+      memset(fsrv->vp_map_control, 0, sizeof(int) * (VP_MAP_SIZE + 1));
+
+    }
+
     MEM_BARRIER();
+
+#ifdef __linux__
 
   }
 
-#else
-  memset(fsrv->trace_bits, 0, fsrv->map_size);
-  MEM_BARRIER();
 #endif
 
   /* we have the fork server (or faux server) up and running
