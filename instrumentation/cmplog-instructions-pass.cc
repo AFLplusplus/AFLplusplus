@@ -61,6 +61,7 @@
 #include "afl-llvm-common.h"
 
 using namespace llvm;
+static int vp_mode = 0;
 
 namespace {
 
@@ -164,6 +165,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
+  Type        *floatTy = Type::getFloatTy(C);
+  Type        *doubleTy = Type::getDoubleTy(C);
 
   /*
   #if LLVM_VERSION_MAJOR >= 9
@@ -275,7 +278,15 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Function *cmplogHookInsN = cast<Function>(cN);
 #endif
 
-  if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee vp_float;
+  FunctionCallee vp_double;
+#else
+  Function *vp_float;
+  Function *vp_double;
+#endif
+
+  if (vp_mode) {
 
     c2 = M.getOrInsertFunction("__valueprofile_hook2", VoidTy, Int16Ty, Int16Ty,
                                Int8Ty
@@ -303,6 +314,42 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
     cmplogHookIns4 = cast<Function>(c4);
 #endif
 
+#if LLVM_VERSION_MAJOR >= 9
+    FunctionCallee
+#else
+    Constant *
+#endif
+        cfloat = M.getOrInsertFunction("__valueprofile_hook_float", VoidTy,
+                                       floatTy, floatTy, Int8Ty
+#if LLVM_VERSION_MAJOR < 5
+                                       ,
+                                       NULL
+#endif
+        );
+#if LLVM_VERSION_MAJOR >= 9
+    vp_float = cfloat;
+#else
+    vp_float = cast<Function>(cfloat);
+#endif
+
+#if LLVM_VERSION_MAJOR >= 9
+    FunctionCallee
+#else
+    Constant *
+#endif
+        cdouble = M.getOrInsertFunction("__valueprofile_hook_float", VoidTy,
+                                        doubleTy, doubleTy, Int8Ty
+#if LLVM_VERSION_MAJOR < 5
+                                        ,
+                                        NULL
+#endif
+        );
+#if LLVM_VERSION_MAJOR >= 9
+    vp_double = cdouble;
+#else
+    vp_double = cast<Function>(cdouble);
+#endif
+
     c8 = M.getOrInsertFunction("__valueprofile_hook8", VoidTy, Int64Ty, Int64Ty,
                                Int8Ty
 #if LLVM_VERSION_MAJOR < 5
@@ -310,6 +357,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                NULL
 #endif
     );
+    fprintf(stderr, "OVERWRITING cmplogHookIns8\n");
 #if LLVM_VERSION_MAJOR >= 9
     cmplogHookIns8 = c8;
 #else
@@ -355,10 +403,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   }
 
   Value *Null;
-  //if (debug)
-  //  Null = AFLCmplogPtr;
-  //else
-    Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
+  // if (debug)
+  //   Null = AFLCmplogPtr;
+  // else
+  Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -655,68 +703,88 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         if (!skip) {
 
-          // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
-          // cmpInst->getFunction()->getName() << ")\n";
-
-          // first bitcast to integer type of the same bitsize as the original
-          // type (this is a nop, if already integer)
-          Value *op0_i = IRB.CreateBitCast(
-              op0, IntegerType::get(C, ty0->getPrimitiveSizeInBits()));
-          // then create a int cast, which does zext, trunc or bitcast. In our
-          // case usually zext to the next larger supported type (this is a nop
-          // if already the right type)
-          Value *V0 =
-              IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size), false);
-          args.push_back(V0);
-          Value *op1_i = IRB.CreateBitCast(
-              op1, IntegerType::get(C, ty1->getPrimitiveSizeInBits()));
-          Value *V1 =
-              IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size), false);
-          args.push_back(V1);
-
-          // errs() << "[CMPLOG] casted parameters:\n0: " << *V0 << "\n1: " <<
-          // *V1
-          // << "\n";
-
           ConstantInt *attribute = ConstantInt::get(Int8Ty, attr);
-          args.push_back(attribute);
+          ConstantInt *bitsize = ConstantInt::get(Int8Ty, (max_size / 8) - 1);
 
-          if (cast_size != max_size) {
+          if (is_fp && vp_mode && (cast_size == 32 || cast_size == 64)) {
 
-            ConstantInt *bitsize = ConstantInt::get(Int8Ty, (max_size / 8) - 1);
+            Value *opf0 = selectcmpInst->getOperand(0);
+            Value *opf1 = selectcmpInst->getOperand(1);
+            args.push_back(opf0);
+            args.push_back(opf1);
+            args.push_back(attribute);
+
+            switch (cast_size) {
+
+              case 32:
+                IRB.CreateCall(vp_float, args);
+                break;
+              case 64:
+                IRB.CreateCall(vp_double, args);
+                break;
+
+            }
+
+          } else {
+
+            // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
+            // cmpInst->getFunction()->getName() << ")\n";
+
+            // first bitcast to integer type of the same bitsize as the original
+            // type (this is a nop, if already integer)
+            Value *op0_i = IRB.CreateBitCast(
+                op0, IntegerType::get(C, ty0->getPrimitiveSizeInBits()));
+            // then create a int cast, which does zext, trunc or bitcast. In our
+            // case usually zext to the next larger supported type (this is a
+            // nop if already the right type)
+            Value *V0 =
+                IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size), false);
+            args.push_back(V0);
+            Value *op1_i = IRB.CreateBitCast(
+                op1, IntegerType::get(C, ty1->getPrimitiveSizeInBits()));
+            Value *V1 =
+                IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size), false);
+            args.push_back(V1);
+
+            // errs() << "[CMPLOG] casted parameters:\n0: " << *V0 << "\n1: " <<
+            // *V1
+            // << "\n";
+
+            args.push_back(attribute);
             args.push_back(bitsize);
 
-          }
+            // fprintf(stderr, "_ExtInt(%u) castTo %u with attr %u didcast
+            // %u\n",
+            //         max_size, cast_size, attr);
 
-          // fprintf(stderr, "_ExtInt(%u) castTo %u with attr %u didcast %u\n",
-          //         max_size, cast_size, attr);
+            switch (cast_size) {
 
-          switch (cast_size) {
+              case 8:
+                // IRB.CreateCall(cmplogHookIns1, args);
+                break;
+              case 16:
+                IRB.CreateCall(cmplogHookIns2, args);
+                break;
+              case 32:
+                IRB.CreateCall(cmplogHookIns4, args);
+                break;
+              case 64:
+                IRB.CreateCall(cmplogHookIns8, args);
+                break;
+              case 128:
+                if (max_size == 128) {
 
-            case 8:
-              // IRB.CreateCall(cmplogHookIns1, args);
-              break;
-            case 16:
-              IRB.CreateCall(cmplogHookIns2, args);
-              break;
-            case 32:
-              IRB.CreateCall(cmplogHookIns4, args);
-              break;
-            case 64:
-              IRB.CreateCall(cmplogHookIns8, args);
-              break;
-            case 128:
-              if (max_size == 128) {
+                  IRB.CreateCall(cmplogHookIns16, args);
 
-                IRB.CreateCall(cmplogHookIns16, args);
+                } else {
 
-              } else {
+                  IRB.CreateCall(cmplogHookInsN, args);
 
-                IRB.CreateCall(cmplogHookInsN, args);
+                }
 
-              }
+                break;
 
-              break;
+            }
 
           }
 
@@ -750,11 +818,20 @@ bool CmpLogInstructions::runOnModule(Module &M) {
 #endif
 
   if (getenv("AFL_QUIET") == NULL) {
-    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE"))
-      printf("running valueprofile-instruction-pass by AFL++ team\n");
-   else
+
+    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+
+      printf("Running valueprofile-instruction-pass by AFL++ team\n");
+      vp_mode = 1;
+
+    } else {
+
       printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
+
+    }
+
   } else
+
     be_quiet = 1;
   bool ret = hookInstrs(M);
   verifyModule(M);

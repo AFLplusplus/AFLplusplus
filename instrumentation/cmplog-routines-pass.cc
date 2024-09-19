@@ -59,6 +59,8 @@
 #include <set>
 #include "afl-llvm-common.h"
 
+static int vp_mode = 0;
+
 using namespace llvm;
 
 namespace {
@@ -288,109 +290,110 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   Function *cmplogHookFnStr = cast<Function>(c7);
 #endif
 
-  if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+  if (vp_mode) {
 
-      c = M.getOrInsertFunction("__valueprofile_rtn_hook", VoidTy, i8PtrTy, i8PtrTy
+    c = M.getOrInsertFunction("__valueprofile_rtn_hook", VoidTy, i8PtrTy,
+                              i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
+                              ,
+                              NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogHookFn = c;
+    cmplogHookFn = c;
 #else
-  cmplogHookFn = cast<Function>(c);
-#endif
-
-      c1 = M.getOrInsertFunction("__valueprofile_rtn_llvm_stdstring_stdstring",
-                                 VoidTy, i8PtrTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
-  cmplogLlvmStdStd = c1;
-#else
-  cmplogLlvmStdStd = cast<Function>(c1);
+    cmplogHookFn = cast<Function>(c);
 #endif
 
-      c2 = M.getOrInsertFunction("__valueprofile_rtn_llvm_stdstring_cstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
+    c1 = M.getOrInsertFunction("__valueprofile_rtn_llvm_stdstring_stdstring",
+                               VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
+                               ,
+                               NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogLlvmStdC = c2;
+    cmplogLlvmStdStd = c1;
 #else
-  cmplogLlvmStdC = cast<Function>(c2);
+    cmplogLlvmStdStd = cast<Function>(c1);
 #endif
 
-      c3 = M.getOrInsertFunction("__valueprofile_rtn_gcc_stdstring_stdstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
+    c2 = M.getOrInsertFunction("__valueprofile_rtn_llvm_stdstring_cstring",
+                               VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
+                               ,
+                               NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogGccStdStd = c3;
+    cmplogLlvmStdC = c2;
 #else
-  cmplogGccStdStd = cast<Function>(c3);
+    cmplogLlvmStdC = cast<Function>(c2);
 #endif
 
-      c4 = M.getOrInsertFunction("__valueprofile_rtn_gcc_stdstring_cstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
+    c3 = M.getOrInsertFunction("__valueprofile_rtn_gcc_stdstring_stdstring",
+                               VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
+                               ,
+                               NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogGccStdC = c4;
+    cmplogGccStdStd = c3;
 #else
-  cmplogGccStdC = cast<Function>(c4);
+    cmplogGccStdStd = cast<Function>(c3);
 #endif
 
-      c5 = M.getOrInsertFunction("__valueprofile_rtn_hook_n", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int64Ty
+    c4 = M.getOrInsertFunction("__valueprofile_rtn_gcc_stdstring_cstring",
+                               VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
+                               ,
+                               NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogHookFnN = c5;
+    cmplogGccStdC = c4;
 #else
-  cmplogHookFnN = cast<Function>(c5);
+    cmplogGccStdC = cast<Function>(c4);
 #endif
 
-      c6 = M.getOrInsertFunction("__valueprofile_rtn_hook_strn", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int64Ty
+    c5 = M.getOrInsertFunction("__valueprofile_rtn_hook_n", VoidTy, i8PtrTy,
+                               i8PtrTy, Int64Ty
 #if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
+                               ,
+                               NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogHookFnStrN = c6;
+    cmplogHookFnN = c5;
 #else
-  cmplogHookFnStrN = cast<Function>(c6);
+    cmplogHookFnN = cast<Function>(c5);
 #endif
 
-      c7 = M.getOrInsertFunction("__valueprofile_rtn_hook_str", VoidTy, i8PtrTy,
-                                 i8PtrTy
+    c6 = M.getOrInsertFunction("__valueprofile_rtn_hook_strn", VoidTy, i8PtrTy,
+                               i8PtrTy, Int64Ty
 #if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
+                               ,
+                               NULL
 #endif
-      );
+    );
 #if LLVM_VERSION_MAJOR >= 9
-  cmplogHookFnStr = c7;
+    cmplogHookFnStrN = c6;
 #else
-  cmplogHookFnStr = cast<Function>(c7);
+    cmplogHookFnStrN = cast<Function>(c6);
+#endif
+
+    c7 = M.getOrInsertFunction("__valueprofile_rtn_hook_str", VoidTy, i8PtrTy,
+                               i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                               ,
+                               NULL
+#endif
+    );
+#if LLVM_VERSION_MAJOR >= 9
+    cmplogHookFnStr = c7;
+#else
+    cmplogHookFnStr = cast<Function>(c7);
 #endif
 
   }
@@ -862,12 +865,24 @@ bool CmpLogRoutines::runOnModule(Module &M) {
 #endif
 
   if (getenv("AFL_QUIET") == NULL) {
-    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE"))
+
+    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+
+      vp_mode = 1;
       printf("Running valueprofile-routines-pass by AFL++ team\n");
-    else
+
+    } else {
+
       printf("Running cmplog-routines-pass by andreafioraldi@gmail.com\n");
-  } else
+
+    }
+
+  } else {
+
     be_quiet = 1;
+
+  }
+
   bool ret = hookRtns(M);
   verifyModule(M);
 

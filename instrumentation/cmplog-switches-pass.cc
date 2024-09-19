@@ -512,7 +512,7 @@ bool CmplogSwitches::runOnModule(Module &M) {
   if (getenv("AFL_QUIET") == NULL) {
 
     if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE"))
-      printf("Running valueprofile-instruction-pass by AFL++ team\n");
+      printf("Running valueprofile-switches-pass by AFL++ team\n");
     else
       printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
 

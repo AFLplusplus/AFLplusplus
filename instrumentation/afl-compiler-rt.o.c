@@ -2405,6 +2405,130 @@ void __valueprofile_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 #endif
 
+void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map)) return;
+
+  if (attr > 1) return;  // only !=|== for now!
+
+  float val = VP_STRAT_2(arg1, arg2);  // popcount is the wrong way to do
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val, attr);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+  u8 bits = 32;
+
+  while (__afl_vp_map->header[k].len != bits &&
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_FCMP)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8    update = 0;
+  float old_value;
+  memcpy((void *)&old_value, (void *)&__afl_vp_map->header[k].value,
+         sizeof(float));
+
+  if (val < old_value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_FCMP;
+    __afl_vp_map->header[k].len = bits;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    memcpy((void *)&__afl_vp_map->header[k].value, &val, sizeof(float));
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
+
+}
+
+void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map)) return;
+
+  if (attr > 1) return;  // only !=|== for now!
+
+  double val = VP_STRAT_2(arg1, arg2);  // popcount is the wrong thing here
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val, attr);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+  u8 bits = 64;
+
+  while (__afl_vp_map->header[k].len != bits &&
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_FCMP)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8     update = 0;
+  double old_value;
+  memcpy((void *)&old_value, (void *)&__afl_vp_map->header[k].value,
+         sizeof(double));
+
+  if (val < old_value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_FCMP;
+    __afl_vp_map->header[k].len = bits;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    memcpy((void *)&__afl_vp_map->header[k].value, &val, sizeof(double));
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
+
+}
+
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
   //__cmplog_ins_hook1(arg1, arg2, 0);
@@ -2419,56 +2543,87 @@ void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook2(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook2(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook2(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook2(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook4(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook4(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook4(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook4(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook8(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook8(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook8(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook8(arg1, arg2, 0);
 
 }
 
 #ifdef WORD_SIZE_64
 void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook16(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook16(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook16(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook16(arg1, arg2, 0);
 
 }
 
 #endif
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
+
+  if (unlikely(__afl_vp_map)) {
+
+    fprintf(stderr, "TODO!!!\n");
+    return;
+
+  }
 
   if (likely(!__afl_cmp_map)) return;
 
@@ -2886,11 +3041,77 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
    Note that we ignore the len parameter and take longer strings if present. */
 void __valueprofile_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
-  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
+  // fprintf(stderr, "STR %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_vp_map)) return;
   if (unlikely(len < 2 || len > 16)) return;
 
-  // TODO
+  u64 val = 0;
+  u8 *p1 = ptr1, *p2 = ptr2;
+  while (*p1 == *p2 && val < len) {
+
+    ++val;
+    ++p1;
+    ++p2;
+
+  }
+
+  if (val == len) {
+
+    val = 0;
+
+  } else {
+
+    val = ((len - val) << 8) + VP_STRAT_1(*p1, *p2);
+
+  }
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+
+  while (__afl_vp_map->header[k].len != len &&
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_STR)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8 update = 0;
+
+  if (val < __afl_vp_map->header[k].value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    __afl_vp_map->header[k].len = len;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    __afl_vp_map->header[k].value = val;
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
 
 }
 
@@ -2900,13 +3121,80 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   if (likely(!__afl_vp_map)) return;
   if (unlikely(!ptr1 || !ptr2)) return;
-  int len1 = strnlen(ptr1, 16) + 1;
-  int len2 = strnlen(ptr2, 16) + 1;
-  if (len1 > 16) len1 = 0;
-  if (len2 > 16) len2 = 0;
-  if (len1 < 2 || len2 < 2) return;
+  int len1 = strnlen(ptr1, 17);
+  int len2 = strnlen(ptr2, 17);
+  int len = MAX(len1, len2);
+  if (len > 16 || len < 2) return;
 
   // TODO
+
+  u64 val = 0;
+  u8 *p1 = ptr1, *p2 = ptr2;
+  while (*p1 == *p2 && val < len) {
+
+    ++val;
+    ++p1;
+    ++p2;
+
+  }
+
+  if (val == len) {
+
+    val = 0;
+
+  } else {
+
+    val = ((len - val) << 8) + VP_STRAT_1(*p1, *p2);
+
+  }
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+
+  while (/* we cannot match with length */
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_STR)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8 update = 0;
+
+  if (val < __afl_vp_map->header[k].value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    //__afl_vp_map->header[k].len = len;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    __afl_vp_map->header[k].value = val;
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
 
 }
 
@@ -2914,11 +3202,11 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   int l1, l2;
-  if ((l1 = area_is_valid(ptr1, 16)) <= 0 ||
-      (l2 = area_is_valid(ptr2, 16)) <= 0)
+  if ((l1 = area_is_valid(ptr1, 17)) <= 0 ||
+      (l2 = area_is_valid(ptr2, 17)) <= 0)
     return;
-  int len = MIN(16, MIN(l1, l2));
-  if (len < 2) return;
+  int len = MAX(l1, l2);
+  if (len < 2 || len > 16) return;
 
   // TODO
 
