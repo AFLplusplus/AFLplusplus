@@ -3126,8 +3126,6 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   int len = MAX(len1, len2);
   if (len > 16 || len < 2) return;
 
-  // TODO
-
   u64 val = 0;
   u8 *p1 = ptr1, *p2 = ptr2;
   while (*p1 == *p2 && val < len) {
@@ -3208,7 +3206,73 @@ void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
   int len = MAX(l1, l2);
   if (len < 2 || len > 16) return;
 
-  // TODO
+  u64 val = 0;
+  u8 *p1 = ptr1, *p2 = ptr2;
+  while (*p1 == *p2 && val < len) {
+
+    ++val;
+    ++p1;
+    ++p2;
+
+  }
+
+  if (val == len) {
+
+    val = 0;
+
+  } else {
+
+    val = ((len - val) << 8) + VP_STRAT_1(*p1, *p2);
+
+  }
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+
+  while (/* we cannot match with length */
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_STR)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8 update = 0;
+
+  if (val < __afl_vp_map->header[k].value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    //__afl_vp_map->header[k].len = len;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    __afl_vp_map->header[k].value = val;
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
 
 }
 
