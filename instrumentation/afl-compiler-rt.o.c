@@ -2409,16 +2409,28 @@ void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr) {
 
   if (likely(!__afl_vp_map)) return;
 
-  if (attr > 1) return;  // only !=|== for now!
+  if (attr > 9) return;  // only !=|== for now!
 
-  float val = VP_STRAT_2(arg1, arg2);  // popcount is the wrong way to do
+  u8    bits = 32;
+  float val;
+  if (__afl_vp_strat == 1) {
+
+    u64 tmp1 = 0, tmp2 = 0;
+    memcpy((void *)&tmp1, (void *)&arg1, bits / 8);
+    memcpy((void *)&tmp2, (void *)&arg2, bits / 8);
+    val = VP_STRAT_1(tmp1, tmp2);
+
+  } else {
+
+    val = VP_STRAT_2(arg1, arg2);
+
+  }
 
   // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val, attr);
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
                   (VP_MAP_SIZE - 1));
-  u8 bits = 32;
 
   while (__afl_vp_map->header[k].len != bits &&
          (__afl_vp_map->header[k].type != 0 &&
@@ -2439,8 +2451,8 @@ void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr) {
 
   u8    update = 0;
   float old_value;
-  memcpy((void *)&old_value, (void *)&__afl_vp_map->header[k].value,
-         sizeof(float));
+
+  memcpy((void *)&old_value, (void *)&__afl_vp_map->header[k].value, bits / 8);
 
   if (val < old_value) {  // better solve
 
@@ -2459,9 +2471,9 @@ void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr) {
     u32 offset = __afl_vp_map->control[0];
     __afl_vp_map->control[++offset] = k;
     __afl_vp_map->control[0] = offset;
-    memcpy((void *)&__afl_vp_map->header[k].value, &val, sizeof(float));
+    memcpy((void *)&__afl_vp_map->header[k].value, &val, bits / 8);
 
-    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+    if (val == 0.0) { __afl_vp_map->header[k].status = 1; }  // solved
 
   }
 
@@ -2471,16 +2483,28 @@ void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr) {
 
   if (likely(!__afl_vp_map)) return;
 
-  if (attr > 1) return;  // only !=|== for now!
+  if (attr > 9) return;  // only !=|== for now!
 
-  double val = VP_STRAT_2(arg1, arg2);  // popcount is the wrong thing here
+  u8     bits = 64;
+  double val;
+  if (__afl_vp_strat == 1) {
+
+    u64 tmp1 = 0, tmp2 = 0;
+    memcpy((void *)&tmp1, (void *)&arg1, bits / 8);
+    memcpy((void *)&tmp2, (void *)&arg2, bits / 8);
+    val = VP_STRAT_1(tmp1, tmp2);
+
+  } else {
+
+    val = VP_STRAT_2(arg1, arg2);
+
+  }
 
   // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val, attr);
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
                   (VP_MAP_SIZE - 1));
-  u8 bits = 64;
 
   while (__afl_vp_map->header[k].len != bits &&
          (__afl_vp_map->header[k].type != 0 &&
@@ -2501,8 +2525,8 @@ void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr) {
 
   u8     update = 0;
   double old_value;
-  memcpy((void *)&old_value, (void *)&__afl_vp_map->header[k].value,
-         sizeof(double));
+
+  memcpy((void *)&old_value, (void *)&__afl_vp_map->header[k].value, bits / 8);
 
   if (val < old_value) {  // better solve
 
@@ -2521,9 +2545,9 @@ void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr) {
     u32 offset = __afl_vp_map->control[0];
     __afl_vp_map->control[++offset] = k;
     __afl_vp_map->control[0] = offset;
-    memcpy((void *)&__afl_vp_map->header[k].value, &val, sizeof(double));
+    memcpy((void *)&__afl_vp_map->header[k].value, &val, bits / 8);
 
-    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+    if (val == 0.0) { __afl_vp_map->header[k].status = 1; }  // solved
 
   }
 
@@ -3096,7 +3120,7 @@ void __valueprofile_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   } else if (!__afl_vp_map->header[k].type) {  // new comparison
 
-    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    __afl_vp_map->header[k].type = VP_TYPE_STR;
     __afl_vp_map->header[k].len = len;
     update = 1;
 
@@ -3152,7 +3176,7 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
                   (VP_MAP_SIZE - 1));
 
-  while (/* we cannot match with length */
+  while (                                    /* we cannot match with length */
          (__afl_vp_map->header[k].type != 0 &&
           __afl_vp_map->header[k].type != VP_TYPE_STR)) {
 
@@ -3177,7 +3201,7 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   } else if (!__afl_vp_map->header[k].type) {  // new comparison
 
-    __afl_vp_map->header[k].type = VP_TYPE_CMP;
+    __afl_vp_map->header[k].type = VP_TYPE_STR;
     //__afl_vp_map->header[k].len = len;
     update = 1;
 
@@ -3198,6 +3222,8 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
 /* hook function for all other func(ptr, ptr, ...) variants */
 void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
+
+  return;  // TODO VP - not useful currently!
 
   int l1, l2;
   if ((l1 = area_is_valid(ptr1, 17)) <= 0 ||
@@ -3232,7 +3258,89 @@ void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
                   (VP_MAP_SIZE - 1));
 
-  while (/* we cannot match with length */
+  while (                                    /* we cannot match with length */
+         (__afl_vp_map->header[k].type != 0 &&
+          __afl_vp_map->header[k].type != VP_TYPE_RTN)) {
+
+    if (unlikely(++k >= VP_MAP_SIZE)) { k = 0; }
+
+  }  // get a matching entry in the map
+
+  if (__afl_vp_map->header[k].status) { return; }  // solved already
+
+  // 0, 1, fffe, ffff
+  /*
+  if (!__afl_vp_map->header[k].type && (
+     ...
+     )) { return; } // we do not care
+  */
+
+  u8 update = 0;
+
+  if (val < __afl_vp_map->header[k].value) {  // better solve
+
+    update = 1;
+
+  } else if (!__afl_vp_map->header[k].type) {  // new comparison
+
+    __afl_vp_map->header[k].type = VP_TYPE_RTN;
+    //__afl_vp_map->header[k].len = len;
+    update = 1;
+
+  }
+
+  if (unlikely(update)) {
+
+    u32 offset = __afl_vp_map->control[0];
+    __afl_vp_map->control[++offset] = k;
+    __afl_vp_map->control[0] = offset;
+    __afl_vp_map->header[k].value = val;
+
+    if (!val) { __afl_vp_map->header[k].status = 1; }  // solved
+
+  }
+
+}
+
+/* hook for func(ptr, ptr, len, ...) looking functions.
+   Note that for the time being we ignore len as this could be wrong
+   information and pass it on to the standard binary rtn hook */
+void __valueprofile_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  int l1, l2;
+  if ((l1 = area_is_valid(ptr1, 17)) <= 0 ||
+      (l2 = area_is_valid(ptr2, 17)) <= 0)
+    return;
+  len = MIN(len, MAX(l1, l2));
+  if (len < 2 || len > 16) return;
+
+  u64 val = 0;
+  u8 *p1 = ptr1, *p2 = ptr2;
+  while (*p1 == *p2 && val < len) {
+
+    ++val;
+    ++p1;
+    ++p2;
+
+  }
+
+  if (val == len) {
+
+    val = 0;
+
+  } else {
+
+    val = ((len - val) << 8) + VP_STRAT_1(*p1, *p2);
+
+  }
+
+  // fprintf(stderr, "VP: %p, %p = %p attr=%u\n", arg1, arg2, val);
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
+                  (VP_MAP_SIZE - 1));
+
+  while (__afl_vp_map->header[k].len != len &&
          (__afl_vp_map->header[k].type != 0 &&
           __afl_vp_map->header[k].type != VP_TYPE_STR)) {
 
@@ -3257,8 +3365,8 @@ void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   } else if (!__afl_vp_map->header[k].type) {  // new comparison
 
-    __afl_vp_map->header[k].type = VP_TYPE_CMP;
-    //__afl_vp_map->header[k].len = len;
+    __afl_vp_map->header[k].type = VP_TYPE_STR;
+    __afl_vp_map->header[k].len = len;
     update = 1;
 
   }
@@ -3276,29 +3384,20 @@ void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
 }
 
-/* hook for func(ptr, ptr, len, ...) looking functions.
-   Note that for the time being we ignore len as this could be wrong
-   information and pass it on to the standard binary rtn hook */
-void __valueprofile_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
-
-  (void)(len);
-  __valueprofile_rtn_hook(ptr1, ptr2);
-
-}
-
 void __valueprofile_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (likely(!__afl_vp_map)) return;
   if (area_is_valid(stdstring, 16) <= 1 || area_is_valid(cstring, 16) <= 1)
     return;
 
-  __valueprofile_rtn_hook(get_gcc_stdstring(stdstring), cstring);
+  __valueprofile_rtn_hook_str(get_gcc_stdstring(stdstring), cstring);
 
 }
 
 void __valueprofile_rtn_gcc_stdstring_stdstring(u8 *stdstring1,
                                                 u8 *stdstring2) {
 
+  return;  // TODO VP - get stringlength
   if (likely(!__afl_vp_map)) return;
   if (area_is_valid(stdstring1, 16) <= 1 || area_is_valid(stdstring2, 16) <= 1)
     return;
@@ -3314,13 +3413,14 @@ void __valueprofile_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
   if (area_is_valid(stdstring, 16) <= 1 || area_is_valid(cstring, 16) <= 1)
     return;
 
-  __valueprofile_rtn_hook(get_llvm_stdstring(stdstring), cstring);
+  __valueprofile_rtn_hook_str(get_llvm_stdstring(stdstring), cstring);
 
 }
 
 void __valueprofile_rtn_llvm_stdstring_stdstring(u8 *stdstring1,
                                                  u8 *stdstring2) {
 
+  return;  // TODO VP - get stringlength
   if (likely(!__afl_vp_map)) return;
   if (area_is_valid(stdstring1, 16) <= 1 || area_is_valid(stdstring2, 16) <= 1)
     return;

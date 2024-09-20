@@ -357,7 +357,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                                NULL
 #endif
     );
-    fprintf(stderr, "OVERWRITING cmplogHookIns8\n");
 #if LLVM_VERSION_MAJOR >= 9
     cmplogHookIns8 = c8;
 #else

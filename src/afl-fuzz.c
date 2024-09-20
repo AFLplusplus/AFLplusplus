@@ -3341,7 +3341,7 @@ stop_fuzzing:
 
   }
 
-  if (afl->not_on_tty) {
+  {
 
     u32 t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
     u8  time_tmp[64];

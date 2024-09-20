@@ -3462,7 +3462,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     if (aflcc->cmplog_mode) {
 
       load_llvm_pass(aflcc, "cmplog-instructions-pass.so");
-      //      load_llvm_pass(aflcc, "cmplog-routines-pass.so");
+      load_llvm_pass(aflcc, "cmplog-routines-pass.so");
 
     }
 
