@@ -162,15 +162,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
     }
 
-    if (unlikely(new_size < afl->min_length && !fix)) {
-
-      new_size = afl->min_length;
-
-    } else if (unlikely(new_size > afl->max_length)) {
-
-      new_size = afl->max_length;
-
-    }
+    new_size = afl->queue_cur->len;
 
     if (new_mem != *mem && new_mem != NULL && new_size > 0) {
 
@@ -233,15 +225,8 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
   } else {                                   /* !afl->custom_mutators_count */
 
-    if (unlikely(len < afl->min_length && !fix)) {
 
-      len = afl->min_length;
-
-    } else if (unlikely(len > afl->max_length)) {
-
-      len = afl->max_length;
-
-    }
+    len = afl->queue_cur->len;
 
     /* boring uncustom. */
     afl_fsrv_write_to_testcase(&afl->fsrv, *mem, len);
@@ -1102,15 +1087,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       }
 
-      if (unlikely(new_size < afl->min_length)) {
-
-        new_size = afl->min_length;
-
-      } else if (unlikely(new_size > afl->max_length)) {
-
-        new_size = afl->max_length;
-
-      }
+      new_size = afl->queue_cur->len;
 
       q->len = new_size;
 
