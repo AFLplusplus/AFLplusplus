@@ -1505,7 +1505,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
-    OKF("AFL++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
+    OKF("AFL++ Nyx mode is enabled (developed and maintained by Sergej Schumilo)");
     OKF("Nyx is open source, get it at https://github.com/Nyx-Fuzz");
 
   }
@@ -2225,9 +2225,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
+#ifdef __linux__
+    u64 target_hash = 0;
+    if (afl->fsrv.nyx_mode) {
+      nyx_load_target_hash(&afl->fsrv);
+      target_hash = afl->fsrv.nyx_target_hash64;
+    }
+    else {
+      target_hash = get_binary_hash(afl->fsrv.target_path);
+    }
+#else
     u64 target_hash = get_binary_hash(afl->fsrv.target_path);
+#endif
 
-    if (!target_hash || prev_target_hash != target_hash) {
+    if ((!target_hash || prev_target_hash != target_hash)
+#ifdef __linux__
+      || (afl->fsrv.nyx_mode && target_hash == 0)
+#endif
+    ) {
 
       ACTF("Target binary is different, cannot perform FAST RESUME!");
 
