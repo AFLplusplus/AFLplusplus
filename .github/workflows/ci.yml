@@ -46,8 +46,10 @@ jobs:
         run: brew install make gcc llvm
 #     - name: fix install
 #       run: cd /usr/local/bin; ln -s gcc-11 gcc; ln -s g++-11 g++; which gcc; gcc -v
+#      - name: build
+#        run: export PATH=/usr/local/Cellar/llvm/*/":$PATH"; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; sudo -E ./afl-system-config; gmake ASAN_BUILD=1 afl-fuzz
       - name: build
-        run: export PATH=/usr/local/Cellar/llvm/*/":$PATH"; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; sudo -E ./afl-system-config; gmake ASAN_BUILD=1 afl-fuzz
+        run: sudo -E ./afl-system-config; gmake ASAN_BUILD=1 afl-fuzz
 #     - name: frida
 #       run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
 #     - name: run tests
