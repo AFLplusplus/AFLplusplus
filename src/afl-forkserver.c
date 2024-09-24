@@ -136,6 +136,12 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
       dlsym(handle, "nyx_config_set_aux_buffer_size");
   if (plugin->nyx_config_set_aux_buffer_size == NULL) { goto fail; }
 
+  plugin->nyx_get_target_hash64 = dlsym(handle, "nyx_get_target_hash64");
+  if (plugin->nyx_get_target_hash64 == NULL) { goto fail; }
+
+  plugin->nyx_config_free = dlsym(handle, "nyx_config_free");
+  if (plugin->nyx_get_target_hash64 == NULL) { goto fail; }
+
   OKF("libnyx plugin is ready!");
   return plugin;
 
@@ -224,6 +230,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->nyx_use_tmp_workdir = false;
   fsrv->nyx_tmp_workdir_path = NULL;
   fsrv->nyx_log_fd = -1;
+  fsrv->nyx_target_hash64 = 0;
 #endif
 
   // this structure needs default so we initialize it if this was not done
@@ -526,6 +533,15 @@ static void report_error_and_exit(int error) {
   }
 
 }
+
+#ifdef __linux__
+void nyx_load_target_hash(afl_forkserver_t *fsrv) {
+  void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
+  fsrv->nyx_target_hash64 = fsrv->nyx_handlers->nyx_get_target_hash64(nyx_config);
+  fsrv->nyx_handlers->nyx_config_free(nyx_config);
+}
+#endif
+
 
 /* Spins up fork server. The idea is explained here:
 

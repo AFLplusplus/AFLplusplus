@@ -34,23 +34,25 @@ jobs:
         run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-12; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-12 distrib
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
- # macos:
- #   runs-on: macOS-latest
- #   env:
- #     AFL_MAP_SIZE: 65536
- #     AFL_SKIP_CPUFREQ: 1
- #     AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
- #   steps:
- #     - uses: actions/checkout@v3
- #     - name: install
- #       run: brew install make gcc llvm
- #     - name: fix install
- #       run: cd /usr/local/bin; ln -s gcc-11 gcc; ln -s g++-11 g++; which gcc; gcc -v
- #     - name: build
- #       run: export PATH=/usr/local/Cellar/llvm/*/":$PATH"; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; sudo -E ./afl-system-config; gmake ASAN_BUILD=1
- #     - name: frida
- #       run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
- #     - name: run tests
- #       run: sudo -E ./afl-system-config; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export PATH=/usr/local/Cellar/llvm/*/":/usr/local/bin:$PATH"; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; gmake tests
- #     - name: force frida test for MacOS
- #       run: export AFL_PATH=`pwd`; /usr/local/bin/gcc -o test-instr test-instr.c; mkdir in; echo > in/in; AFL_NO_UI=1 ./afl-fuzz -O -i in -o out -V 5 -- ./test-instr
+  macos:
+    runs-on: macOS-latest
+    env:
+      AFL_MAP_SIZE: 65536
+      AFL_SKIP_CPUFREQ: 1
+      AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
+    steps:
+      - uses: actions/checkout@v3
+      - name: install
+        run: brew install make gcc llvm
+#     - name: fix install
+#       run: cd /usr/local/bin; ln -s gcc-11 gcc; ln -s g++-11 g++; which gcc; gcc -v
+#      - name: build
+#        run: export PATH=/usr/local/Cellar/llvm/*/":$PATH"; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; sudo -E ./afl-system-config; gmake ASAN_BUILD=1 afl-fuzz
+      - name: build
+        run: sudo -E ./afl-system-config; gmake ASAN_BUILD=1 afl-fuzz
+#     - name: frida
+#       run: export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; cd frida_mode; gmake
+#     - name: run tests
+#       run: sudo -E ./afl-system-config; export CC=/usr/local/Cellar/llvm/*/bin/clang; export CXX="$CC"++; export PATH=/usr/local/Cellar/llvm/*/":/usr/local/bin:$PATH"; export LLVM_CONFIG=/usr/local/Cellar/llvm/*/bin/llvm-config; gmake tests
+#     - name: force frida test for MacOS
+#       run: export AFL_PATH=`pwd`; /usr/local/bin/gcc -o test-instr test-instr.c; mkdir in; echo > in/in; AFL_NO_UI=1 ./afl-fuzz -O -i in -o out -V 5 -- ./test-instr

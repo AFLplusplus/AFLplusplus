@@ -99,10 +99,7 @@ be lost at the second execution of the loop.
 
 ### 2.5) Resetting the memory state
 
-This option restores the memory state using the AFL++ Snapshot LKM if loaded.
-Otherwise, all the writeable pages are restored.
-
-To enable this option, set `AFL_QEMU_PERSISTENT_MEM=1`.
+(obsolete chapter)
 
 ### 2.6) Reset on exit()
 
@@ -113,15 +110,7 @@ The environment variable is `AFL_QEMU_PERSISTENT_EXITS`.
 
 ### 2.7) Snapshot
 
-`AFL_QEMU_SNAPSHOT=address` is just a "syntactical sugar" environment variable
-that is equivalent to the following set of variables:
-
-```
-AFL_QEMU_PERSISTENT_ADDR=address
-AFL_QEMU_PERSISTENT_GPR=1
-AFL_QEMU_PERSISTENT_MEM=1
-AFL_QEMU_PERSISTENT_EXITS=1
-```
+obsolete
 
 ## 3) Optional parameters
 
