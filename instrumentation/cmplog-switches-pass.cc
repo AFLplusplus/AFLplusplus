@@ -62,6 +62,8 @@
 
 using namespace llvm;
 
+static int vp_mode = 0;
+
 namespace {
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
@@ -231,7 +233,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   Function *cmplogHookIns8 = cast<Function>(c8);
 #endif
 
-  if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+  if (vp_mode) {
 
     c2 = M.getOrInsertFunction("__valueprofile_hook2", VoidTy, Int16Ty, Int16Ty,
                                Int8Ty
@@ -509,9 +511,15 @@ bool CmplogSwitches::runOnModule(Module &M) {
 
 #endif
 
+  if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+
+    vp_mode = 1;
+
+  }
+
   if (getenv("AFL_QUIET") == NULL) {
 
-    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE"))
+    if (vp_mode)
       printf("Running valueprofile-switches-pass by AFL++ team\n");
     else
       printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");

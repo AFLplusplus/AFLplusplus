@@ -816,12 +816,17 @@ bool CmpLogInstructions::runOnModule(Module &M) {
 
 #endif
 
+  if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+
+    vp_mode = 1;
+
+  }
+
   if (getenv("AFL_QUIET") == NULL) {
 
-    if (getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE")) {
+    if (vp_mode) {
 
       printf("Running valueprofile-instruction-pass by AFL++ team\n");
-      vp_mode = 1;
 
     } else {
 
