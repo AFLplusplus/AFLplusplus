@@ -487,6 +487,9 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
+  u8 saved_afl_post_process_keep_original =
+      afl->afl_env.afl_post_process_keep_original;
+
   /* we need a dummy run if this is LTO + cmplog */
   if (unlikely(afl->shm.cmplog_mode)) {
 
@@ -660,6 +663,9 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   }
 
 abort_calibration:
+
+  afl->afl_env.afl_post_process_keep_original =
+      saved_afl_post_process_keep_original;
 
   if (new_bits == 2 && !q->has_new_cov) {
 

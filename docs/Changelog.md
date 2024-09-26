@@ -15,6 +15,7 @@
       function after the target has been restarted.
     - because of bad math and undefined behaviour fixes we have to change
       the CMPLOG map. **YOU NEED TO RECOMPILE CMPLOG TARGETS**
+    - fixed custom_post_process for calibration
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
