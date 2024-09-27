@@ -489,6 +489,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   u8 saved_afl_post_process_keep_original =
       afl->afl_env.afl_post_process_keep_original;
+  afl->afl_env.afl_post_process_keep_original = 1;
 
   /* we need a dummy run if this is LTO + cmplog */
   if (unlikely(afl->shm.cmplog_mode)) {
