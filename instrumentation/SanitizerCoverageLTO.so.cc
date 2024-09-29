@@ -50,7 +50,11 @@
 #include "llvm/Support/SpecialCaseList.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Instrumentation.h"
+#if LLVM_VERSION_MAJOR < 20
+  #include "llvm/Transforms/Instrumentation.h"
+#else
+  #include "llvm/Transforms/Utils/Instrumentation.h"
+#endif
 #if LLVM_VERSION_MAJOR < 17
   #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
