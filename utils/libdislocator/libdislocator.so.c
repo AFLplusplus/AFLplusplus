@@ -162,7 +162,7 @@ static u8     alloc_verbose,            /* Additional debug messages        */
 static _Atomic size_t total_mem;        /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
-static u32          alloc_canary;
+static u32          alloc_canary = ALLOC_CANARY;
 
 /* This is the main alloc function. It allocates one page more than necessary,
    sets that tailing page to PROT_NONE, and then increments the return address
@@ -578,6 +578,13 @@ __attribute__((constructor)) void __dislocator_init(void) {
 
 }
 
+__attribute__((destructor)) void __dislocator_fini(void) {
+
+  alloc_canary = ALLOC_CANARY; // restore to default canary value
+
+}
+
+   
 /* NetBSD fault handler specific api subset */
 
 void (*esetfunc(void (*fn)(int, const char *, ...)))(int, const char *, ...) {
