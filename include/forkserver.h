@@ -249,7 +249,6 @@ void              afl_fsrv_kill(afl_forkserver_t *fsrv);
 void nyx_load_target_hash(afl_forkserver_t *fsrv);
 #endif
 
-
 #ifdef __APPLE__
   #define MSG_FORK_ON_APPLE                                                    \
     "    - On MacOS X, the semantics of fork() syscalls are non-standard and " \
