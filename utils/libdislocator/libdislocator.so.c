@@ -580,11 +580,10 @@ __attribute__((constructor)) void __dislocator_init(void) {
 
 __attribute__((destructor)) void __dislocator_fini(void) {
 
-  alloc_canary = ALLOC_CANARY; // restore to default canary value
+  alloc_canary = ALLOC_CANARY;  // restore to default canary value
 
 }
 
-   
 /* NetBSD fault handler specific api subset */
 
 void (*esetfunc(void (*fn)(int, const char *, ...)))(int, const char *, ...) {
