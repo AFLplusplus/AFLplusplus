@@ -83,12 +83,16 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
 #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
+
     nyx_load_target_hash(&afl->fsrv);
     fprintf(f2, "%llx\n", afl->fsrv.nyx_target_hash64);
-  }
-  else {
+
+  } else {
+
     fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
+
   }
+
 #else
   fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
 #endif
