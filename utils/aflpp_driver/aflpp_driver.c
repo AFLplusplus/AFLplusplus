@@ -400,7 +400,7 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
   size_t prev_length = 0;
 
   // for speed only insert asan functions if the target is linked with asan
-  if (__asan_region_is_poisoned) {
+  if (unlikely(__asan_region_is_poisoned)) {
 
     while (__afl_persistent_loop(N)) {
 
@@ -437,7 +437,12 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
     while (__afl_persistent_loop(N)) {
 
-      callback(__afl_fuzz_ptr, *__afl_fuzz_len);
+      if (unlikely(callback(__afl_fuzz_ptr, *__afl_fuzz_len) == -1)) {
+
+        memset(__afl_area_ptr, 0, __afl_map_size);
+        __afl_area_ptr[0] = 1;
+
+      }
 
     }
 
