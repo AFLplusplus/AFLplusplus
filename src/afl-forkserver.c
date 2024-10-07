@@ -536,12 +536,15 @@ static void report_error_and_exit(int error) {
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv) {
-  void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
-  fsrv->nyx_target_hash64 = fsrv->nyx_handlers->nyx_get_target_hash64(nyx_config);
-  fsrv->nyx_handlers->nyx_config_free(nyx_config);
-}
-#endif
 
+  void *nyx_config = fsrv->nyx_handlers->nyx_config_load(fsrv->target_path);
+  fsrv->nyx_target_hash64 =
+      fsrv->nyx_handlers->nyx_get_target_hash64(nyx_config);
+  fsrv->nyx_handlers->nyx_config_free(nyx_config);
+
+}
+
+#endif
 
 /* Spins up fork server. The idea is explained here:
 

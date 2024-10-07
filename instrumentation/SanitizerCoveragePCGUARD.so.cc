@@ -63,11 +63,16 @@
 #if LLVM_VERSION_MAJOR < 15
   #include "llvm/Support/raw_ostream.h"
 #endif
-#if LLVM_VERSION_MAJOR < 17
-  #include "llvm/Transforms/Instrumentation.h"
+#if LLVM_VERSION_MAJOR < 20
+  #if LLVM_VERSION_MAJOR < 17
+    #include "llvm/Transforms/Instrumentation.h"
+  #else
+    #include "llvm/TargetParser/Triple.h"
+  #endif
 #else
-  #include "llvm/TargetParser/Triple.h"
+  #include "llvm/Transforms/Utils/Instrumentation.h"
 #endif
+
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 

@@ -15,6 +15,7 @@
       function after the target has been restarted.
     - because of bad math and undefined behaviour fixes we have to change
       the CMPLOG map. **YOU NEED TO RECOMPILE CMPLOG TARGETS**
+    - fixed custom_post_process for calibration
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
@@ -25,9 +26,12 @@
       @CowBoy4mH3LL
   - unicorn_mode:
     - fix install and forkserver (thanks aarnav!)
+  - nyx_mode:
+    - bugfixes
   - custom mutators:
     - custom_send_tcp custom mutator added, thanks to @dergoegge
   - afl-cc
+    - fix to support pointless changes in LLVM 20
     - new runtime (!) variable: `AFL_OLD_FORKSERVER` to use the old vanilla
       AFL type forkserver. Useful for symcc/symqemu/nautilus/etc. with
       AFL_LLVM_INSTRUMENT=CLASSIC
