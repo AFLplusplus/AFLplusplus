@@ -162,7 +162,7 @@ static u8     alloc_verbose,            /* Additional debug messages        */
 static _Atomic size_t total_mem;        /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
-static u32          alloc_canary;
+static u32          alloc_canary = ALLOC_CANARY;
 
 /* This is the main alloc function. It allocates one page more than necessary,
    sets that tailing page to PROT_NONE, and then increments the return address
@@ -575,6 +575,12 @@ __attribute__((constructor)) void __dislocator_init(void) {
   hard_fail = !!getenv("AFL_LD_HARD_FAIL");
   no_calloc_over = !!getenv("AFL_LD_NO_CALLOC_OVER");
   align_allocations = !!getenv("AFL_ALIGNED_ALLOC");
+
+}
+
+__attribute__((destructor)) void __dislocator_fini(void) {
+
+  alloc_canary = ALLOC_CANARY;  // restore to default canary value
 
 }
 

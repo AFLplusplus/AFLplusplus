@@ -2413,10 +2413,11 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
 
-    if (!getenv(PERSIST_ENV_VAR)) {
+    if (!getenv(PERSIST_ENV_VAR) && !getenv("AFL_FRIDA_PERSISTENT_ADDR") &&
+        !getenv("AFL_QEMU_PERSISTENT_ADDR")) {
 
       FATAL(
-          "Target binary is not compiled in persistent mode, "
+          "Target binary is not compiled/run in persistent mode, "
           "AFL_PERSISTENT_RECORD makes no sense.");
 
     }

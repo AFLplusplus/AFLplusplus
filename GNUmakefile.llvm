@@ -327,7 +327,7 @@ endif
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(SYS)" "Darwin"
-  CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
+  CLANG_LFL += -Wl,-undefined,dynamic_lookup
   override LLVM_HAVE_LTO := 0
   override LLVM_LTO := 0
 else

@@ -1231,6 +1231,32 @@ void perform_dry_run(afl_state_t *afl) {
           ck_write(fd, use_mem, read_len, crash_fn);
           close(fd);
 
+#ifdef __linux__
+          if (afl->fsrv.nyx_mode) {
+
+            u8 crash_log_fn[PATH_MAX];
+
+            snprintf(crash_log_fn, PATH_MAX, "%s.log", crash_fn);
+            fd = open(crash_log_fn, O_WRONLY | O_CREAT | O_EXCL,
+                      DEFAULT_PERMISSION);
+            if (unlikely(fd < 0)) {
+
+              PFATAL("Unable to create '%s'", crash_log_fn);
+
+            }
+
+            u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
+                afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string,
+                afl->fsrv.nyx_aux_string_len);
+
+            ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len,
+                     crash_log_fn);
+            close(fd);
+
+          }
+
+#endif
+
           afl->last_crash_time = get_cur_time();
           afl->last_crash_execs = afl->fsrv.total_execs;
 
@@ -2865,6 +2891,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
     afl->fsrv.target_path = ck_strdup(fname);
+
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {
 
@@ -2887,6 +2914,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     }
 
 #endif
+
     if (stat(afl->fsrv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4) {
 
