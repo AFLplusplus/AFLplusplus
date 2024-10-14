@@ -424,9 +424,8 @@ checks or alter some of the more exotic semantics of the tool:
     types of automated jobs.
 
   - `AFL_EXIT_WHEN_DONE` causes afl-fuzz to terminate when all existing paths
-    have been fuzzed and there were no new finds for a while. This would be
-    normally indicated by the cycle counter in the UI turning green. May be
-    convenient for some types of automated jobs.
+    have been fuzzed and there were no new finds for a while. This is basically
+    when the fuzzing state says `state: finished`
 
   - Setting `AFL_EXPAND_HAVOC_NOW` will start in the extended havoc mode that
     includes costly mutations. afl-fuzz automatically enables this mode when
