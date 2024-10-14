@@ -2937,9 +2937,9 @@ int main(int argc, char **argv_orig, char **envp) {
                       3600 */
                    )) {
 
-        if (afl->use_splicing) {
+        ++afl->cycles_wo_finds;
 
-          ++afl->cycles_wo_finds;
+        if (afl->use_splicing) {
 
           if (unlikely(afl->shm.cmplog_mode &&
                        afl->cmplog_max_filesize < MAX_FILE)) {
