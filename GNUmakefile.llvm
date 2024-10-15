@@ -163,7 +163,7 @@ endif
 
 # sanity check.
 # Are versions of clang --version and llvm-config --version equal?
-CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ (1?[0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ ([12]?[0-9]\.[0-9]\.[0-9]).*/s//\1/p')
 
 # I disable this because it does not make sense with what we did before (marc)
 # We did exactly set these 26 lines above with these values, and it would break
