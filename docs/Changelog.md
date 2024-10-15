@@ -16,6 +16,8 @@
     - because of bad math and undefined behaviour fixes we have to change
       the CMPLOG map. **YOU NEED TO RECOMPILE CMPLOG TARGETS**
     - fixed custom_post_process for calibration
+    - fixes for AFL_EXIT_ON_TIME and AFL_EXIT_WHEN_DONE, changed behaviour of
+      AFL_EXIT_WHEN_DONE to finish when really done :-)
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
