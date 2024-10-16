@@ -98,7 +98,8 @@ typedef enum {
 
 } compiler_mode_id;
 
-static u8 cwd[4096];
+static u8   cwd[4096];
+static char opt_level = '3';
 
 char instrument_mode_string[18][18] = {
 
@@ -881,9 +882,17 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
 */
 static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
+  u8 *ptr2;
+
+  if ((ptr2 = getenv("AFL_OPT_LEVEL"))) {
+
+    opt_level = ptr2[0];  // ignore invalid data
+
+  }
+
   if (!getenv("AFL_LLVM_INSTRUMENT")) { return; }
 
-  u8 *ptr2 = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
+  ptr2 = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
 
   while (ptr2) {
 
@@ -2561,6 +2570,33 @@ void add_gcc_plugin(aflcc_state_t *aflcc) {
 
 }
 
+char *get_opt_level() {
+
+  static char levels[8][8] = {"-O0", "-O1", "-O2",    "-O3",
+                              "-Oz", "-Os", "-Ofast", "-Og"};
+  switch (opt_level) {
+
+    case '0':
+      return levels[0];
+    case '1':
+      return levels[1];
+    case '2':
+      return levels[2];
+    case 'z':
+      return levels[4];
+    case 's':
+      return levels[5];
+    case 'f':
+      return levels[6];
+    case 'g':
+      return levels[7];
+    default:
+      return levels[3];
+
+  }
+
+}
+
 /* Add some miscellaneous params required by our instrumentation. */
 void add_misc_params(aflcc_state_t *aflcc) {
 
@@ -2592,7 +2628,7 @@ void add_misc_params(aflcc_state_t *aflcc) {
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
     insert_param(aflcc, "-g");
-    if (!aflcc->have_o) insert_param(aflcc, "-O3");
+    if (!aflcc->have_o) insert_param(aflcc, get_opt_level());
     if (!aflcc->have_unroll) insert_param(aflcc, "-funroll-loops");
     // if (strlen(aflcc->march_opt) > 1 && aflcc->march_opt[0] == '-')
     //     insert_param(aflcc, aflcc->march_opt);

@@ -64,6 +64,9 @@ fairly broad use of environment variables instead:
     optimizations, set `AFL_DONT_OPTIMIZE`. However, if `-O...` and/or
     `-fno-unroll-loops` are set, these are not overridden.
 
+  - The optimization level can also be set with `AFL_OPT_LEVEL`, e.g.
+    `AFL_OPT_LEVEL=z` for `-Oz`
+
   - Setting `AFL_HARDEN` automatically adds code hardening options when invoking
     the downstream compiler. This currently includes `-D_FORTIFY_SOURCE=2` and
     `-fstack-protector-all`. The setting is useful for catching non-crashing
