@@ -821,7 +821,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       if (!access(dfn, F_OK)) { passed_det = 1; }
 
       add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
-                   passed_det);
+                   passed_det, 0);
 
       if (unlikely(afl->shm.cmplog_mode)) {
 
@@ -1438,6 +1438,18 @@ void perform_dry_run(afl_state_t *afl) {
     }
 
     afl->queue_top = afl->queue;
+
+  }
+
+  for (idx = 0; idx < afl->queued_items; idx++) {
+    q = afl->queue_buf[idx];
+    if (q){
+      q->ancestor_seed = q;
+
+      u32 map_size = afl->fsrv.map_size;
+      q->virgin_bits = ck_alloc(map_size);
+      memset(q->virgin_bits, 255, map_size);
+    }
 
   }
 

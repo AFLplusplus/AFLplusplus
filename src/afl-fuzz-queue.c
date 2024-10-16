@@ -709,7 +709,7 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
 /* Append new test case to the queue. */
 
-void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
+void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det, u8 local) {
 
   struct queue_entry *q =
       (struct queue_entry *)ck_alloc(sizeof(struct queue_entry));
@@ -728,19 +728,23 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->bitsmap_size = afl->bitsmap_size;
 #endif
 
-  if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
+  if (local == 0){
 
-  if (afl->queue_top) {
+    if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 
-    afl->queue_top = q;
+    if (afl->queue_top) {
 
-  } else {
+      afl->queue_top = q;
 
-    afl->queue = afl->queue_top = q;
+    } else {
+
+      afl->queue = afl->queue_top = q;
+
+    }
+
+    if (likely(q->len > 4)) { ++afl->ready_for_splicing_count; }
 
   }
-
-  if (likely(q->len > 4)) { ++afl->ready_for_splicing_count; }
 
   ++afl->queued_items;
   ++afl->active_items;
@@ -754,24 +758,28 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   queue_buf[afl->queued_items - 1] = q;
   q->id = afl->queued_items - 1;
 
-  u64 cur_time = get_cur_time();
+  if (local == 0){
 
-  if (likely(afl->start_time) &&
-      unlikely(afl->longest_find_time < cur_time - afl->last_find_time)) {
+    u64 cur_time = get_cur_time();
 
-    if (unlikely(!afl->last_find_time)) {
+    if (likely(afl->start_time) &&
+        unlikely(afl->longest_find_time < cur_time - afl->last_find_time)) {
 
-      afl->longest_find_time = cur_time - afl->start_time;
+      if (unlikely(!afl->last_find_time)) {
 
-    } else {
+        afl->longest_find_time = cur_time - afl->start_time;
 
-      afl->longest_find_time = cur_time - afl->last_find_time;
+      } else {
+
+        afl->longest_find_time = cur_time - afl->last_find_time;
+
+      }
 
     }
 
-  }
+    afl->last_find_time = cur_time;
 
-  afl->last_find_time = cur_time;
+  }
 
   if (afl->custom_mutators_count) {
 
@@ -792,6 +800,41 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   }
 
   q->skipdet_e = (struct skipdet_entry *)ck_alloc(sizeof(struct skipdet_entry));
+
+  if (afl->k_mode){
+
+    if(afl->queue_cur){
+      if(afl->queue_cur->ancestor_seed == NULL){
+        q->ancestor_seed = afl->queue_cur;
+      }else{
+        q->ancestor_seed = afl->queue_cur->ancestor_seed;
+      }
+    }
+
+    if(local == 0){
+      u64 rows = 50;
+      u64 cols = 1024;
+      q->otherfname = (u8 **)malloc(rows * sizeof(u8 *));
+      for (u64 i = 0; i < rows; i++) {
+          q->otherfname[i] = (u8 *)malloc(cols * sizeof(u8)); // Allocate memory for each string
+      }
+      q->otherNum = 0;
+      q->otherNodes = (u32 *)malloc(rows * sizeof(u32));
+
+      q->from_local = 0;
+    }else{
+      q->otherfname = NULL;
+      q->otherNum = 0;
+      q->otherNodes = NULL;
+
+      q->from_local = 1;
+    }
+
+    q->first_havoc = 1;
+    q->timesChange = 0;
+
+    q->pilot_mode = 1;
+  }
 
 }
 
