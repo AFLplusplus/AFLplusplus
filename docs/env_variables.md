@@ -65,7 +65,7 @@ fairly broad use of environment variables instead:
     `-fno-unroll-loops` are set, these are not overridden.
 
   - The optimization level can also be set with `AFL_OPT_LEVEL`, e.g.
-    `AFL_OPT_LEVEL=z` for `-Oz`
+    `AFL_OPT_LEVEL=z` for `-Oz`, default is `3`
 
   - Setting `AFL_HARDEN` automatically adds code hardening options when invoking
     the downstream compiler. This currently includes `-D_FORTIFY_SOURCE=2` and
