@@ -874,6 +874,8 @@ typedef struct afl_state {
   u64 totalOtherFnameNum;
   u8 normal_mode;
 
+  u8 path_aware;
+
 } afl_state_t;
 
 struct custom_mutator {
