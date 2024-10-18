@@ -16,6 +16,8 @@
     - because of bad math and undefined behaviour fixes we have to change
       the CMPLOG map. **YOU NEED TO RECOMPILE CMPLOG TARGETS**
     - fixed custom_post_process for calibration
+    - fixes for AFL_EXIT_ON_TIME and AFL_EXIT_WHEN_DONE, changed behaviour of
+      AFL_EXIT_WHEN_DONE to finish when really done :-)
   - frida_mode:
     - AFL_FRIDA_PERSISTENT_ADDR can now be be any reachable address not just
       a function entry
@@ -35,6 +37,8 @@
     - new runtime (!) variable: `AFL_OLD_FORKSERVER` to use the old vanilla
       AFL type forkserver. Useful for symcc/symqemu/nautilus/etc. with
       AFL_LLVM_INSTRUMENT=CLASSIC
+    - new compile time variable: `AFL_OPT_LEVEL` to set a specific optimization
+      level, default is `3`
   - code formatting updated to llvm 18
   - improved custom_mutators/aflpp/standalone/aflpp-standalone
   - added custom_mutators/autotokens/standalone/autotokens-standalone
