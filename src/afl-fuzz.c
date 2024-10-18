@@ -610,7 +610,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
-                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:k:l:L:m:M:nNo:Op:P:pQRs:S:t:"
+                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hHi:I:k:l:L:m:M:nNo:Op:P:QRs:S:t:"
                        "T:UV:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -689,7 +689,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->k_mode = 1;
         break;
       
-      case 'p':
+      case 'H':
         afl->path_aware = 1;
         break;
 
