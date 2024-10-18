@@ -153,7 +153,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->normal_mode = 0; // whether we should enter normal fuzzing
 
   // afl->k_mode = 1; // default setting: Using k_mode
-  afl->path_aware = 0;
 
 }
 
