@@ -1714,13 +1714,15 @@ static u8 delete_files(u8 *path, u8 *prefix) {
 
   while ((d_ent = readdir(d))) {
 
-    if (d_ent->d_name[0] != '.' &&
-        (!prefix || !strncmp(d_ent->d_name, prefix, strlen(prefix)))) {
+    if ((d_ent->d_name[0] != '.' &&
+         (!prefix || !strncmp(d_ent->d_name, prefix, strlen(prefix))))
+        /* heiko: don't forget the SHA1 files */
+        || strspn(d_ent->d_name, "0123456789abcdef") == 2 * 20 /* TODO use 2 * HASH_LENGTH */
+       ) {
 
       u8 *fname = alloc_printf("%s/%s", path, d_ent->d_name);
       if (unlink(fname)) { PFATAL("Unable to delete '%s'", fname); }
       ck_free(fname);
-
     }
 
   }
