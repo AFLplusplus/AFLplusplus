@@ -338,7 +338,8 @@ Set AFL_QUIET in the environment to silence it.\n\
 int plugin_init(struct plugin_name_args   *info,
                 struct plugin_gcc_version *version) {
 
-  if (!plugin_default_version_check(version, &gcc_version))
+  if (!plugin_default_version_check(version, &gcc_version) &&
+      !getenv("AFL_GCC_DISABLE_VERSION_CHECK"))
     FATAL(G_("GCC and plugin have incompatible versions, expected GCC %s, "
              "is %s"),
           gcc_version.basever, version->basever);
