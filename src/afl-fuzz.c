@@ -610,7 +610,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
-                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
+                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hHi:I:k:l:L:m:M:nNo:Op:P:QRs:S:t:"
                        "T:UV:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -683,6 +683,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'I':
         afl->infoexec = optarg;
+        break;
+
+      case 'k':
+        afl->k_mode = 1;
+        break;
+      
+      case 'H':
+        afl->path_aware = 1;
         break;
 
       case 'b': {                                          /* bind CPU core */
@@ -2410,6 +2418,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->start_time = get_cur_time();
 
+  srand(time(NULL));
+
   if (afl->fsrv.qemu_mode) {
 
     if (afl->use_wine) {
@@ -3133,7 +3143,100 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+      if (afl->k_mode && afl->queued_items < 2){
+        WARNF("As the number of initial seeds less than 2, we can not use k_mode\n");
+        afl->k_mode = 0; 
+      }
+
+      if (afl->k_mode){
+        if (get_cur_time() - afl->start_time < 600000 && afl->normal_mode == 0){
+          u8 find_un_try_seed = 0;
+          for (u32 idx = 0; idx < afl->queued_items; idx++) {
+            struct queue_entry *q = afl->queue_buf[idx];
+            if (q->ancestor_seed == q && q->pilot_mode){
+              afl->queue_cur = q;
+              find_un_try_seed = 1;
+              afl->current_entry = idx;
+              break;
+            }
+          }
+
+          if(find_un_try_seed == 0){ 
+            int candidates[100000];
+            int candidates_num = 0;
+            for (u32 idx = 0; idx < afl->queued_items; idx++) {
+              struct queue_entry *q = afl->queue_buf[idx];
+              if (q->ancestor_seed == q && q->first_havoc == 0){
+                candidates[candidates_num] = idx;
+                candidates_num += 1;
+              }
+            }
+
+            if (candidates_num == 0){
+              afl->normal_mode = 1;
+            }else{
+              int index = rand() % candidates_num;
+              afl->queue_cur = afl->queue_buf[candidates[index]];
+              afl->current_entry = candidates[index];
+            }
+          }
+        }else{
+
+          if (afl->path_aware){
+            int candidates[100000];
+            int candidates_num = 0;
+            for (u32 idx = 0; idx < afl->queued_items; idx++) {
+              struct queue_entry *q = afl->queue_buf[idx];
+              if (q->from_local == 0){
+                candidates[candidates_num] = idx;
+                candidates_num += 1;
+              }
+            }
+
+            if (candidates_num == 0){ 
+              int index = rand() % afl->queued_items;
+              afl->queue_cur = afl->queue_buf[index];
+              afl->current_entry = index;
+            }else{
+              int index = rand() % candidates_num;
+              afl->queue_cur = afl->queue_buf[candidates[index]];
+              afl->current_entry = candidates[index];
+            }
+
+            int candidates_samePath[100000];
+            int candidates_samePath_num = 0;
+            for (u32 idx = 0; idx < afl->queued_items; idx++) {
+              struct queue_entry *q = afl->queue_buf[idx];
+              if (q->exec_cksum == afl->queue_cur->exec_cksum){
+                candidates_samePath[candidates_samePath_num] = idx;
+                candidates_samePath_num += 1;
+              }
+            }
+
+            if (candidates_samePath_num == 0){ 
+              // do nothing
+            }else{
+              struct queue_entry *q = afl->queue_cur;
+              if (q->otherNum){
+                int index = rand() % (q->otherNum + 1);
+                if (index == 0){
+                  // nothing happen
+                }else{
+                  afl->queue_cur = afl->queue_buf[q->otherNodes[index-1]];
+                  afl->current_entry = q->otherNodes[index-1];
+                }
+              }
+            }
+          }
+        }
+      }
+
       skipped_fuzz = fuzz_one(afl);
+
+      if (afl->k_mode){
+        afl->queue_cur->pilot_mode = 0;
+      }
+
   #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
 

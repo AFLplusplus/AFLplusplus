@@ -148,6 +148,12 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   list_append(&afl_states, afl);
 
+  afl->new_edges_found_idx = 0;
+  afl->totalOtherFnameNum = 0;
+  afl->normal_mode = 0; // whether we should enter normal fuzzing
+
+  // afl->k_mode = 1; // default setting: Using k_mode
+
 }
 
 /*This sets up the environment variables for afl-fuzz into the afl_state

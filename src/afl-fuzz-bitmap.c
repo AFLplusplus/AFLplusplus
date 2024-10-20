@@ -241,6 +241,56 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 }
 
+inline u8 has_new_bits_kmode(afl_state_t *afl, u8 *virgin_map) {
+
+  afl->new_edges_found_idx = 0;
+  u32 tmp_edge = 0;
+
+#ifdef WORD_SIZE_64
+
+  u64 *current = (u64 *)afl->fsrv.trace_bits;
+  u64 *virgin = (u64 *)virgin_map;
+
+  u64 *virgin_local = NULL;
+  if(afl->queue_cur && afl->queue_cur->ancestor_seed != NULL && virgin_map == afl->virgin_bits)
+    virgin_local = (u64 *)afl->queue_cur->ancestor_seed->virgin_bits;
+
+  u32 i = ((afl->fsrv.real_map_size + 7) >> 3);
+
+#else
+
+  u32 *current = (u32 *)afl->fsrv.trace_bits;
+  u32 *virgin = (u32 *)virgin_map;
+
+  u32 *virgin_local = NULL;
+  if(afl->queue_cur && afl->queue_cur->ancestor_seed != NULL && virgin_map == afl->virgin_bits)
+    virgin_local = (u32 *)afl->queue_cur->ancestor_seed->virgin_bits;
+
+  u32 i = ((afl->fsrv.real_map_size + 3) >> 2);
+
+#endif                                                     /* ^WORD_SIZE_64 */
+
+  u8 ret = 0;
+  while (i--) {
+
+    if (unlikely(*current)) discover_word_kmode(afl, tmp_edge, &ret, current, virgin, virgin_local);
+
+    tmp_edge += 8;
+
+    current++;
+    virgin++;
+    if(virgin_local)
+      virgin_local++;
+
+  }
+
+  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
+    afl->bitmap_changed = 1;
+
+  return ret;
+
+}
+
 /* A combination of classify_counts and has_new_bits. If 0 is returned, then the
  * trace bits are kept as-is. Otherwise, the trace bits are overwritten with
  * classified values.
@@ -514,10 +564,77 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     } else {
 
-      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+      if (afl->k_mode){
 
-      if (unlikely(new_bits)) { classified = 1; }
+        u8 *virgin_map = afl->virgin_bits;
+        u8 *end = afl->fsrv.trace_bits + afl->fsrv.map_size;
 
+
+#ifdef WORD_SIZE_64
+
+        if (skim((u64 *)afl->queue_cur->ancestor_seed->virgin_bits, (u64 *)afl->fsrv.trace_bits, (u64 *)end)){
+          classify_counts(&afl->fsrv);
+          classified = 1;
+          new_bits = has_new_bits_kmode(afl, virgin_map);
+        }
+
+#else
+
+        if (skim((u32 *)afl->queue_cur->ancestor_seed->virgin_bits, (u32 *)afl->fsrv.trace_bits, (u32 *)end)){
+          classify_counts(&afl->fsrv);
+          classified = 1;
+          new_bits = has_new_bits_kmode(afl, virgin_map);
+        }
+
+#endif                                                     /* ^WORD_SIZE_64 */
+
+      }else{
+        new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
+        if (unlikely(new_bits)) { classified = 1; }
+      }
+
+    }
+
+    // for afl->new_edges_found_idx !=0, we also need to save it.
+    if(afl->k_mode && !new_bits && afl->new_edges_found_idx){ //we find local new edges/paths
+      // we just need to save it into file, but we do not need to add it to queue
+
+      u64 cksum_local = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+      // iterate all seed nodes within the queue
+      for (u32 idx = 0; idx < afl->queued_items; idx++) {
+        struct queue_entry *q = afl->queue_buf[idx];
+        if (q){
+          // It is possible that you can not find any seeds passing the same path because AFL++ only rely on the pass time of an edge instead of using path hash value
+          if(q->exec_cksum == cksum_local){
+            if(q->otherNum < 50){
+              
+              u8 *queue_fn_local = "";
+              queue_fn_local = alloc_printf(
+                "%s/queue/local_%llu,src:%06u,samePathSeed:%u,subidx:%u", afl->out_dir, afl->totalOtherFnameNum, afl->current_entry, idx, q->otherNum);
+              // printf("-> %s\n", queue_fn_local);
+              // printf("-> samePath source: %s\n\n", q->fname);
+              fd = permissive_create(afl, queue_fn_local);
+              if (likely(fd >= 0)) {
+                ck_write(fd, mem, len, queue_fn_local);
+                close(fd);
+              }
+              afl->totalOtherFnameNum += 1;
+              strcpy(q->otherfname[q->otherNum], queue_fn_local);
+              q->otherNodes[q->otherNum] = afl->queued_items;
+              q->otherNum += 1;
+
+              add_to_queue(afl, queue_fn_local, len, 0, 1);
+            }
+            break;
+          }
+        }
+
+      }
+
+      // after using afl->new_edges_found_idx, we need to reset it to 0
+      afl->new_edges_found_idx = 0;
     }
 
     if (likely(!new_bits)) {
@@ -566,7 +683,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
-    add_to_queue(afl, queue_fn, len, 0);
+    add_to_queue(afl, queue_fn, len, 0, 0);
 
     if (unlikely(afl->fuzz_mode) &&
         likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {

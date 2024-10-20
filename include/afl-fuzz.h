@@ -256,6 +256,20 @@ struct queue_entry {
   struct tainted     *taint;             /* Taint information from CmpLog    */
   struct skipdet_entry *skipdet_e;
 
+  struct queue_entry *ancestor_seed;
+  u8 initial_seed;
+  u8 *virgin_bits; 
+
+  u32 *otherNodes;
+  u8 ** otherfname;
+  u8 otherNum;
+
+  u8 first_havoc;
+  u8 timesChange;
+
+  u8 pilot_mode;
+
+  u8 from_local;
 };
 
 struct extra_data {
@@ -855,6 +869,13 @@ typedef struct afl_state {
   u32   bitsmap_size;
 #endif
 
+  u8 k_mode;
+  u64 new_edges_found_idx;
+  u64 totalOtherFnameNum;
+  u8 normal_mode;
+
+  u8 path_aware;
+
 } afl_state_t;
 
 struct custom_mutator {
@@ -1172,7 +1193,7 @@ void        deinit_py(void *);
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
 void mark_as_variable(afl_state_t *, struct queue_entry *);
 void mark_as_redundant(afl_state_t *, struct queue_entry *, u8);
-void add_to_queue(afl_state_t *, u8 *, u32, u8);
+void add_to_queue(afl_state_t *, u8 *, u32, u8, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *);
 void cull_queue(afl_state_t *);
@@ -1187,8 +1208,9 @@ u32  count_non_255_bytes(afl_state_t *, u8 *);
 void simplify_trace(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
 void discover_word(u8 *ret, u64 *current, u64 *virgin);
+void discover_word_kmode(afl_state_t *, u32 tmp_edge, u8 *ret, u64 *current, u64 *virgin, u64 *virgin_local);
 #else
-void discover_word(u8 *ret, u32 *current, u32 *virgin);
+void discover_word(afl_state_t *, u8 *ret, u32 *current, u32 *virgin);
 #endif
 void init_count_class16(void);
 void minimize_bits(afl_state_t *, u8 *, u8 *);
@@ -1197,6 +1219,7 @@ u8 *describe_op(afl_state_t *, u8, size_t);
 #endif
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
+u8 has_new_bits_kmode(afl_state_t *, u8 *);
 u8 has_new_bits_unclassified(afl_state_t *, u8 *);
 #ifndef AFL_SHOWMAP
 void classify_counts(afl_forkserver_t *);
