@@ -2958,6 +2958,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         SAYF(
             "\nGCC Plugin-specific environment variables:\n"
             "  AFL_GCC_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
+            "  AFL_GCC_DISABLE_VERSION_CHECK: disable GCC plugin version "
+            "control\n"
             "  AFL_GCC_OUT_OF_LINE: disable inlined instrumentation\n"
             "  AFL_GCC_SKIP_NEVERZERO: do not skip zero on trace counters\n"
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
