@@ -326,6 +326,11 @@ mode.
     [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
     for more information.
 
+    Setting `AFL_GCC_DISABLE_VERSION_CHECK=1` will disable the GCC plugin 
+    version check if the target GCC plugin differs from the system-installed
+    version, resolving issues caused by version mismatches between GCC and 
+    the plugin. 
+
     Setting `AFL_GCC_OUT_OF_LINE=1` will instruct afl-gcc-fast to instrument the
     code with calls to an injected subroutine instead of the much more efficient
     inline instrumentation.
