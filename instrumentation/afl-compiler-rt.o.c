@@ -630,21 +630,21 @@ static void __afl_map_shm(void) {
 
       __afl_area_ptr_dummy = (u8 *)malloc(__afl_map_size);
 
-      if (__afl_area_ptr_dummy) {
+    }
 
-        if (__afl_selective_coverage_start_off) {
+    if (__afl_area_ptr_dummy) {
 
-          __afl_area_ptr = __afl_area_ptr_dummy;
+      if (__afl_selective_coverage_start_off) {
 
-        }
-
-      } else {
-
-        fprintf(stderr, "Error: __afl_selective_coverage failed!\n");
-        __afl_selective_coverage = 0;
-        // continue;
+        __afl_area_ptr = __afl_area_ptr_dummy;
 
       }
+
+    } else {
+
+      fprintf(stderr, "Error: __afl_selective_coverage failed!\n");
+      __afl_selective_coverage = 0;
+      // continue;
 
     }
 
