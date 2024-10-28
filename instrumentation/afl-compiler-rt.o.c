@@ -367,6 +367,12 @@ static void __afl_map_shm(void) {
 
     }
 
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: AFL_MAP_SIZE=%u\n", __afl_map_size);
+
+    }
+
     if (__afl_final_loc > MAP_SIZE) {
 
       char *ptr;
