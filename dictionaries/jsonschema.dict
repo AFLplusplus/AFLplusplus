@@ -1,0 +1,120 @@
+#
+# AFL dictionary for JSON Schema
+# https://json-schema.org/
+# -----------------------
+#
+
+"\"$schema\""
+"\"$id\""
+"\"$ref\""
+"\"$defs\""
+"\"definitions\""
+"\"enum\""
+"\"const\""
+"\"type\""
+
+# Annotations
+
+"\"title\""
+"\"description\""
+"\"default\""
+"\"examples\""
+"\"$comment\""
+"\"readOnly\""
+"\"writeOnly\""
+"\"deprecated\""
+
+# Types
+
+"\"string\""
+"\"integer\""
+"\"number\""
+"\"object\""
+"\"array\""
+"\"null\""
+"\"boolean\""
+
+# String
+
+"\"minLength\""
+"\"maxLength\""
+"\"pattern\""
+"\"format\""
+"\"contentMediaType\""
+"\"contentEncoding\""
+"\"contentSchema\""
+
+# Formats
+
+"\"date-time\""
+"\"time\""
+"\"date\""
+"\"duration\""
+"\"email\""
+"\"idn-email\""
+"\"hostname\""
+"\"idn-hostname\""
+"\"ipv4\""
+"\"ipv6\""
+"\"uuid\""
+"\"uri\""
+"\"uri-reference\""
+"\"iri\""
+"\"iri-reference\""
+"\"uri-template\""
+"\"json-pointer\""
+"\"relative-json-pointer\""
+"\"regex\""
+
+# Numeric
+
+"\"multipleOf\""
+"\"minimum\""
+"\"exclusiveMinimum\""
+"\"maximum\""
+"\"exclusiveMaximum\""
+
+# Object
+
+"\"properties\""
+"\"patternProperties\""
+"\"additionalProperties\""
+"\"unevaluatedProperties\""
+"\"required\""
+"\"propertyNames\""
+"\"minProperties\""
+"\"maxProperties\""
+"\"dependencies\""
+
+# Array
+
+"\"items\""
+"\"prefixItems\""
+"\"additionalItems\""
+"\"unevaluatedItems\""
+"\"contains\""
+"\"minContains\""
+"\"maxContains\""
+"\"minItems\""
+"\"maxItems\""
+"\"uniqueItems\""
+
+# Booleans
+
+"true"
+"false"
+
+# Composition
+
+"\"allOf\""
+"\"anyOf\""
+"\"oneOf\""
+"\"not\""
+
+# Conditions
+
+"\"dependentRequired\""
+"\"dependentSchemas\""
+"\"if\""
+"\"then\""
+"\"else\""
