@@ -419,7 +419,7 @@ static void __afl_map_shm(void) {
 
     if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) { val = atoi(ptr); }
 
-    if (val > MAP_INITIAL_SIZE) {
+    if (val > MAP_INITIAL_SIZE && val > __afl_final_loc) {
 
       __afl_map_size = val;
 
