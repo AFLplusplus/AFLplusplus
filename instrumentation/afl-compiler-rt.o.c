@@ -367,6 +367,12 @@ static void __afl_map_shm(void) {
 
     }
 
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: AFL_MAP_SIZE=%u\n", __afl_map_size);
+
+    }
+
     if (__afl_final_loc > MAP_SIZE) {
 
       char *ptr;
@@ -413,7 +419,7 @@ static void __afl_map_shm(void) {
 
     if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) { val = atoi(ptr); }
 
-    if (val > MAP_INITIAL_SIZE) {
+    if (val > MAP_INITIAL_SIZE && val > __afl_final_loc) {
 
       __afl_map_size = val;
 
@@ -630,21 +636,21 @@ static void __afl_map_shm(void) {
 
       __afl_area_ptr_dummy = (u8 *)malloc(__afl_map_size);
 
-      if (__afl_area_ptr_dummy) {
+    }
 
-        if (__afl_selective_coverage_start_off) {
+    if (__afl_area_ptr_dummy) {
 
-          __afl_area_ptr = __afl_area_ptr_dummy;
+      if (__afl_selective_coverage_start_off) {
 
-        }
-
-      } else {
-
-        fprintf(stderr, "Error: __afl_selective_coverage failed!\n");
-        __afl_selective_coverage = 0;
-        // continue;
+        __afl_area_ptr = __afl_area_ptr_dummy;
 
       }
+
+    } else {
+
+      fprintf(stderr, "Error: __afl_selective_coverage failed!\n");
+      __afl_selective_coverage = 0;
+      // continue;
 
     }
 

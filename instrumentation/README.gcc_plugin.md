@@ -51,7 +51,10 @@ The idea and much of the implementation comes from Laszlo Szekeres.
 In order to leverage this mechanism, you need to have modern enough GCC (>=
 version 4.5.0) and the plugin development headers installed on your system. That
 should be all you need. On Debian machines, these headers can be acquired by
-installing the `gcc-VERSION-plugin-dev` packages.
+installing the `gcc-VERSION-plugin-dev` packages. If you're compiling a GCC 
+plugin that differs from the system-installed version and encounter issues 
+with version checks, you can use the `AFL_GCC_DISABLE_VERSION_CHECK` environment 
+variable.
 
 To build the instrumentation itself, type `make`. This will generate binaries
 called `afl-gcc-fast` and `afl-g++-fast` in the parent directory.

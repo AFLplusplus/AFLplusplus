@@ -64,6 +64,9 @@ fairly broad use of environment variables instead:
     optimizations, set `AFL_DONT_OPTIMIZE`. However, if `-O...` and/or
     `-fno-unroll-loops` are set, these are not overridden.
 
+  - The optimization level can also be set with `AFL_OPT_LEVEL`, e.g.
+    `AFL_OPT_LEVEL=z` for `-Oz`, default is `3`
+
   - Setting `AFL_HARDEN` automatically adds code hardening options when invoking
     the downstream compiler. This currently includes `-D_FORTIFY_SOURCE=2` and
     `-fstack-protector-all`. The setting is useful for catching non-crashing
@@ -323,6 +326,11 @@ mode.
     [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
     for more information.
 
+    Setting `AFL_GCC_DISABLE_VERSION_CHECK=1` will disable the GCC plugin 
+    version check if the target GCC plugin differs from the system-installed
+    version, resolving issues caused by version mismatches between GCC and 
+    the plugin. 
+
     Setting `AFL_GCC_OUT_OF_LINE=1` will instruct afl-gcc-fast to instrument the
     code with calls to an injected subroutine instead of the much more efficient
     inline instrumentation.
@@ -424,9 +432,8 @@ checks or alter some of the more exotic semantics of the tool:
     types of automated jobs.
 
   - `AFL_EXIT_WHEN_DONE` causes afl-fuzz to terminate when all existing paths
-    have been fuzzed and there were no new finds for a while. This would be
-    normally indicated by the cycle counter in the UI turning green. May be
-    convenient for some types of automated jobs.
+    have been fuzzed and there were no new finds for a while. This is basically
+    when the fuzzing state says `state: finished`
 
   - Setting `AFL_EXPAND_HAVOC_NOW` will start in the extended havoc mode that
     includes costly mutations. afl-fuzz automatically enables this mode when

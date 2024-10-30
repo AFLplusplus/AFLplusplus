@@ -495,9 +495,9 @@ static void report_error_and_exit(int error) {
       FATAL(
           "AFL_MAP_SIZE is not set and fuzzing target reports that the "
           "required size is very large. Solution: Run the fuzzing target "
-          "stand-alone with the environment variable AFL_DEBUG=1 set and set "
-          "the value for __afl_final_loc in the AFL_MAP_SIZE environment "
-          "variable for afl-fuzz.");
+          "stand-alone with the environment variable AFL_DUMP_MAP_SIZE=1 set "
+          "the displayed value in the AFL_MAP_SIZE environment variable for "
+          "afl-fuzz.");
       break;
     case FS_ERROR_MAP_ADDR:
       FATAL(

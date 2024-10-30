@@ -56,6 +56,8 @@ char *get_fuzzing_state(afl_state_t *afl) {
 
     if (unlikely(percent_cur >= 80 && percent_total >= 80)) {
 
+      if (unlikely(afl->afl_env.afl_exit_when_done)) { afl->stop_soon = 2; }
+
       return fuzzing_state[3];
 
     } else if (unlikely(percent_cur >= 55 && percent_total >= 55)) {
@@ -822,15 +824,6 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
-
-  if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
-               !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)) {
-
-    afl->stop_soon = 2;
-
-  }
-
   /* AFL_EXIT_ON_TIME. */
 
   /* If no coverage was found yet, check whether run time is greater than
@@ -998,14 +991,14 @@ void show_stats_normal(afl_state_t *afl) {
     } else
 
       /* Subsequent cycles, but we're still making finds. */
-      if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+      if (afl->cycles_wo_finds < 2 || min_wo_finds <= 30) {
 
         strcpy(tmp, cYEL);
 
       } else
 
         /* No finds for a long time and no test cases to try. */
-        if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
+        if (afl->cycles_wo_finds > 1 && !afl->pending_not_fuzzed &&
             min_wo_finds > 120) {
 
           strcpy(tmp, cLGN);
@@ -1656,15 +1649,6 @@ void show_stats_pizza(afl_state_t *afl) {
 
   }
 
-  /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
-
-  if (unlikely(!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
-               !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)) {
-
-    afl->stop_soon = 2;
-
-  }
-
   /* AFL_EXIT_ON_TIME. */
 
   /* If no coverage was found yet, check whether run time is greater than
@@ -1813,14 +1797,14 @@ void show_stats_pizza(afl_state_t *afl) {
     } else
 
       /* Subsequent cycles, but we're still making finds. */
-      if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+      if (afl->cycles_wo_finds < 2 || min_wo_finds <= 30) {
 
         strcpy(tmp, cYEL);
 
       } else
 
         /* No finds for a long time and no test cases to try. */
-        if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
+        if (afl->cycles_wo_finds > 1 && !afl->pending_not_fuzzed &&
             min_wo_finds > 120) {
 
           strcpy(tmp, cLGN);
