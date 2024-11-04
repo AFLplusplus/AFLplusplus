@@ -1,3 +1,6 @@
+# Short talk
+[Open Source Security Foundation'24]( https://www.youtube.com/watch?v=qx1PCjQ1bCA&t=307s )
+
 # Native hooking support into QEMUAFL
 * The essential idea is to have inbuilt hooking support into QEMU, instead of relying on the more expensive options UNICORN and its children.
 * This solution comprises a bridge (QEMU plugin) that connects your hooks (in a shared library (.so)) with the QEMU usermode ecosystem.
