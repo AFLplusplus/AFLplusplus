@@ -28,6 +28,7 @@
       @CowBoy4mH3LL
   - unicorn_mode:
     - fix install and forkserver (thanks aarnav!)
+    - pin unicorn version
   - nyx_mode:
     - bugfixes
   - custom mutators:
