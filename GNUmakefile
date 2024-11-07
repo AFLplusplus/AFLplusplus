@@ -19,12 +19,13 @@
 # so use a variable for '#'
 HASH=\#
 
-PREFIX     ?= /usr/local
-BIN_PATH    = $(PREFIX)/bin
-HELPER_PATH = $(PREFIX)/lib/afl
-DOC_PATH    = $(PREFIX)/share/doc/afl
-MISC_PATH   = $(PREFIX)/share/afl
-MAN_PATH    = $(PREFIX)/share/man/man8
+PREFIX      ?= /usr/local
+BIN_PATH     = $(PREFIX)/bin
+HELPER_PATH  = $(PREFIX)/lib/afl
+DOC_PATH     = $(PREFIX)/share/doc/afl
+MISC_PATH    = $(PREFIX)/share/afl
+MAN_PATH     = $(PREFIX)/share/man/man8
+INCLUDE_PATH = $(PREFIX)/include/afl
 
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
@@ -33,6 +34,7 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 
 PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-addseeds afl-system-config afl-persistent-config afl-cc
+HEADERS     = include/config.h include/types.h
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
@@ -825,6 +827,8 @@ endif
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang++
+	@mkdir -m 755 -p $${DESTDIR}$(INCLUDE_PATH)
+	install -m 644 $(HEADERS) $${DESTDIR}$(INCLUDE_PATH)
 	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
@@ -837,11 +841,13 @@ endif
 .PHONY: uninstall
 uninstall:
 	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-cs-proxy afl-qemu-trace afl-plot-ui afl-fuzz-document afl-network-client afl-network-server afl-g* afl-plot.sh afl-as afl-ld-lto afl-c* afl-lto*
+	-cd $${DESTDIR}$(INCLUDE_PATH) && rm -f $(HEADERS:include/%=%)
 	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so libnyx.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as afl-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt injections.dic
 	-rm -rf $${DESTDIR}$(MISC_PATH)/testcases $${DESTDIR}$(MISC_PATH)/dictionaries
 	-sh -c "ls docs/*.md | sed 's|^docs/|$${DESTDIR}$(DOC_PATH)/|' | xargs rm -f"
 	-cd $${DESTDIR}$(MAN_PATH) && rm -f $(MANPAGES)
 	-rmdir $${DESTDIR}$(BIN_PATH) 2>/dev/null
+	-rmdir $${DESTDIR}$(INCLUDE_PATH) 2>/dev/null
 	-rmdir $${DESTDIR}$(HELPER_PATH) 2>/dev/null
 	-rmdir $${DESTDIR}$(MISC_PATH) 2>/dev/null
 	-rmdir $${DESTDIR}$(DOC_PATH) 2>/dev/null
