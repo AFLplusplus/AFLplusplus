@@ -73,6 +73,8 @@ pub trait RawCustomMutator {
         None
     }
 
+    fn post_process<'b, 's: 'b>(&'s mut self, buffer: &'b mut [u8]) -> Option<&'b [u8]>;
+
     /*fn post_process(&self, buffer: &[u8], unsigned char **out_buf)-> usize;
     int afl_custom_init_trim(&self, buffer: &[u8]);
     size_t afl_custom_trim(&self, unsigned char **out_buf);
@@ -353,6 +355,33 @@ pub mod wrappers {
             Err(err) => panic_handler("afl_custom_queue_get", &err),
         }
     }
+
+    /// Internal function used in the macro
+    pub unsafe fn afl_custom_post_process<M: RawCustomMutator>(
+        data: *mut c_void,
+        buf: *mut u8,
+        buf_size: usize,
+        out_buf: *mut *const u8,
+    ) -> usize {
+        match catch_unwind(|| {
+            let mut context = FFIContext::<M>::from(data);
+
+            assert!(!buf.is_null(), "null buf passed to afl_custom_post_process");
+            assert!(
+                !out_buf.is_null(),
+                "null out_buf passed to afl_custom_post_process"
+            );
+            let buff_slice = slice::from_raw_parts_mut(buf, buf_size);
+            if let Some(buffer) = context.mutator.post_process(buff_slice) {
+                *out_buf = buffer.as_ptr();
+                return buffer.len();
+            }
+            0
+        }) {
+            Ok(ret) => ret,
+            Err(err) => panic_handler("afl_custom_post_process", &err),
+        }
+    }
 }
 
 /// An exported macro to defined afl_custom_init meant for insternal usage
@@ -480,6 +509,16 @@ macro_rules! export_mutator {
         pub unsafe extern "C" fn afl_custom_deinit(data: *mut ::std::os::raw::c_void) {
             $crate::wrappers::afl_custom_deinit_::<$mutator_type>(data)
         }
+
+        #[no_mangle]
+        pub unsafe extern "C" fn afl_custom_post_process(
+            data: *mut ::std::os::raw::c_void,
+            buf: *mut u8,
+            buf_size: usize,
+            out_buf: *mut *const u8,
+        ) -> usize {
+            $crate::wrappers::afl_custom_post_process::<$mutator_type>(data, buf, buf_size, out_buf)
+        }
     };
 }
 
@@ -510,6 +549,10 @@ mod sanity_test {
             _add_buff: Option<&[u8]>,
             _max_size: usize,
         ) -> Option<&'b [u8]> {
+            unimplemented!()
+        }
+
+        fn post_process<'b, 's: 'b>(&'s mut self, buffer: &'b mut [u8]) -> Option<&'b [u8]> {
             unimplemented!()
         }
     }
@@ -578,6 +621,13 @@ pub trait CustomMutator {
 
     fn introspection(&mut self) -> Result<Option<&str>, Self::Error> {
         Ok(None)
+    }
+
+    fn post_process<'b, 's: 'b>(
+        &'s mut self,
+        buffer: &'b mut [u8],
+    ) -> Result<Option<&'b [u8]>, Self::Error> {
+        Ok(Some(buffer))
     }
 }
 
@@ -675,6 +725,16 @@ where
 
     fn introspection(&mut self) -> Option<&str> {
         match self.introspection() {
+            Ok(r) => r,
+            Err(e) => {
+                Self::handle_error(e);
+                None
+            }
+        }
+    }
+
+    fn post_process<'b, 's: 'b>(&'s mut self, buffer: &'b mut [u8]) -> Option<&'b [u8]> {
+        match self.post_process(buffer) {
             Ok(r) => r,
             Err(e) => {
                 Self::handle_error(e);
