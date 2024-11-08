@@ -5,4 +5,5 @@ members = [
     "example",
     # Lain needs a nightly toolchain
     # "example_lain",
+    # "example_lain_post_process",
 ]
