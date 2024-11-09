@@ -119,7 +119,7 @@ endif
 COMPILER_TYPE=$(shell $(CC) --version|grep "Free Software Foundation")
 ifneq "$(COMPILER_TYPE)" ""
   #$(info gcc is being used)
-  override CFLAGS_OPT += -Wno-error=format-truncation -Wno-format-truncation
+  override CFLAGS_OPT += -Wno-format-truncation
 endif
 
 ifeq "$(SYS)" "SunOS"
