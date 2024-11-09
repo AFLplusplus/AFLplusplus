@@ -44,7 +44,7 @@
   - code formatting updated to llvm 18
   - improved custom_mutators/aflpp/standalone/aflpp-standalone
   - added custom_mutators/autotokens/standalone/autotokens-standalone
-
+  - AFL++ headers are now installed to $PREFIX/include/afl
 
 ### Version ++4.21c (release)
   * afl-fuzz
