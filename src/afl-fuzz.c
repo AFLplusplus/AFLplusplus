@@ -671,10 +671,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'g':
         afl->min_length = atoi(optarg);
+
+        if (afl->min_length < 0) { afl->min_length = 1; }
+        if (afl->min_length >= MAX_FILE) {
+
+          FATAL("Option -g must be beflow %u", MAX_FILE);
+
+        }
+
         break;
 
       case 'G':
         afl->max_length = atoi(optarg);
+        if (afl->max_length < 4) { afl->max_length = 4; }
+        if (afl->max_length > MAX_FILE) {
+
+          FATAL(
+              "Option -G must be beflow %u, change by editing config.h and "
+              "recompiling afl-fuzz.",
+              MAX_FILE);
+
+        }
+
         break;
 
       case 'Z':
