@@ -672,10 +672,10 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'g':
         afl->min_length = atoi(optarg);
 
-        if (afl->min_length < 0) { afl->min_length = 1; }
+        if (afl->min_length < 1) { afl->min_length = 1; }
         if (afl->min_length >= MAX_FILE) {
 
-          FATAL("Option -g must be beflow %u", MAX_FILE);
+          FATAL("Option -g must be below %lu", (long unsigned int)MAX_FILE);
 
         }
 
@@ -687,9 +687,9 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->max_length > MAX_FILE) {
 
           FATAL(
-              "Option -G must be beflow %u, change by editing config.h and "
+              "Option -G max value is %lu, change by editing config.h and "
               "recompiling afl-fuzz.",
-              MAX_FILE);
+              (long unsigned int)MAX_FILE);
 
         }
 
