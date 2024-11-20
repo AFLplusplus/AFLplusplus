@@ -30,6 +30,7 @@
 typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
+typedef uint64_t u64;
 #ifdef WORD_SIZE_64
 typedef unsigned __int128 uint128_t;
 typedef uint128_t         u128;
@@ -70,8 +71,6 @@ typedef uint128_t         u128;
 #define FS_OPT_GET_MAPSIZE(x) (((x & 0x00fffffe) >> 1) + 1)
 #define FS_OPT_SET_MAPSIZE(x) \
   (x <= 1 || x > FS_OPT_MAX_MAPSIZE ? 0 : ((x - 1) << 1))
-
-typedef unsigned long long u64;
 
 typedef int8_t  s8;
 typedef int16_t s16;
