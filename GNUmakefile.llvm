@@ -69,7 +69,7 @@ endif
 
 LLVM_STDCXX                  := gnu++11
 LLVM_LTO                     := 0
-LLVM_UNSUPPORTED             := $(shell echo "$(LLVMVER)" | grep -E -q '^[0-2]\.|^3\.[0-8]\.' && echo 1 || echo 0)
+LLVM_UNSUPPORTED             := $(shell echo "$(LLVMVER)" | grep -E -q '^[0-2]\.|^3\.[0-7]\.' && echo 1 || echo 0)
 # Uncomment to see the values assigned above
 # $(foreach var,LLVM_CONFIG LLVMVER LLVM_MAJOR LLVM_MINOR LLVM_TOO_NEW LLVM_TOO_OLD LLVM_TOO_NEW_DEFAULT LLVM_TOO_OLD_DEFAULT LLVM_NEW_API LLVM_NEWER_API LLVM_13_OK LLVM_HAVE_LTO LLVM_BINDIR LLVM_LIBDIR LLVM_STDCXX LLVM_APPLE_XCODE LLVM_LTO LLVM_UNSUPPORTED,$(warning $(var) = $($(var))))
 
@@ -508,7 +508,7 @@ document:
 .PHONY: test_build
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; ASAN_OPTIONS=detect_leaks=0 AFL_QUIET=1 AFL_PATH=. AFL_LLVM_LAF_ALL=1 ./afl-cc $(CFLAGS) $(CPPFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
+	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO AFL_LLVM_ALLOWLIST AFL_LLVM_DENYLIST; ASAN_OPTIONS=detect_leaks=0 AFL_QUIET=1 AFL_PATH=. AFL_LLVM_LAF_ALL=1 ./afl-cc $(CFLAGS) $(CPPFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr

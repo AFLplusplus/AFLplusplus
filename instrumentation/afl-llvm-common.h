@@ -8,7 +8,13 @@
 #include <list>
 #include <string>
 #include <fstream>
-#include <optional>
+
+#ifdef __has_include
+  #if __has_include(<optional>)
+    #include <optional>
+  #endif
+#endif
+
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"

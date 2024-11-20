@@ -671,10 +671,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'g':
         afl->min_length = atoi(optarg);
+
+        if (afl->min_length < 1) { afl->min_length = 1; }
+        if (afl->min_length >= MAX_FILE) {
+
+          FATAL("Option -g must be below %lu", (long unsigned int)MAX_FILE);
+
+        }
+
         break;
 
       case 'G':
         afl->max_length = atoi(optarg);
+        if (afl->max_length < 4) { afl->max_length = 4; }
+        if (afl->max_length > MAX_FILE) {
+
+          FATAL(
+              "Option -G max value is %lu, change by editing config.h and "
+              "recompiling afl-fuzz.",
+              (long unsigned int)MAX_FILE);
+
+        }
+
         break;
 
       case 'Z':

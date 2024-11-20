@@ -201,6 +201,9 @@ type. This is enough because e.g. a use-after-free bug will be picked up by ASAN
 (address sanitizer) anyway after syncing test cases from other fuzzing
 instances, so running more than one address sanitized target would be a waste.
 
+*IF* you are running a saturated corpus, then you can run up to half of the 
+instances with sanitizers.
+
 The following sanitizers have built-in support in AFL++:
 
 * ASAN = Address SANitizer, finds memory corruption vulnerabilities like

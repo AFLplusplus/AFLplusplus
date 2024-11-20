@@ -60,7 +60,7 @@ struct cmp_operands {
   u64 v1_128;
   u64 v1_256_0;
   u64 v1_256_1;
-  u8  unused[8];
+  u8  unused[8];  // 2 bits could be used for "is constant operand"
 
 } __attribute__((packed));
 
@@ -70,7 +70,7 @@ struct cmpfn_operands {
   u8 v1[32];
   u8 v0_len;
   u8 v1_len;
-  u8 unused[6];
+  u8 unused[6];  // 2 bits could be used for "is constant operand"
 
 } __attribute__((packed));
 

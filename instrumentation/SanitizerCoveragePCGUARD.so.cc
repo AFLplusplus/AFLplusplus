@@ -23,6 +23,10 @@
   #include "llvm/IR/CFG.h"
 #endif
 #include "llvm/IR/Constant.h"
+#if LLVM_VERSION_MAJOR >= 20
+  #include "llvm/IR/Constants.h"
+  #include "llvm/IR/ValueSymbolTable.h"
+#endif
 #include "llvm/IR/DataLayout.h"
 #if LLVM_VERSION_MAJOR < 15
   #include "llvm/IR/DebugInfo.h"
