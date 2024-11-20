@@ -1948,7 +1948,6 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
     if (!aflcc->have_ubsan) {
 
       insert_param(aflcc, "-fsanitize=undefined");
-      insert_param(aflcc, "-fsanitize-undefined-trap-on-error");
       insert_param(aflcc, "-fno-sanitize-recover=all");
 
     }
