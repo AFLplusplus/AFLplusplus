@@ -6,20 +6,22 @@ QEMU 5.1 with laf-intel and Redqueen, FRIDA mode, unicorn mode, gcc plugin, full
 
 ## Features and instrumentation
 
-| Feature/Instrumentation       | afl-gcc  | llvm      | gcc_plugin | FRIDA mode(9)  | QEMU mode(10)    | unicorn_mode(10) | nyx_mode(12) | coresight_mode(11) |
-| ------------------------------|:--------:|:---------:|:----------:|:--------------:|:----------------:|:----------------:|:------------:|:------------------:|
-| Threadsafe counters [A]       |          |    x(3)   |            |                |                  |                  |       x      |                    |
-| NeverZero           [B]       | x86[_64] |    x(1)   |      x     |        x       |         x        |         x        |              |                    |
-| Persistent Mode     [C]       |          |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] |         x        |              |                    |
-| LAF-Intel / CompCov [D]       |          |     x     |            |                | x86[_64]/arm[64] | x86[_64]/arm[64] |   x86[_64]   |                    |
-| CmpLog              [E]       |          |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] |                  |              |                    |
-| Selective Instrumentation [F] |          |     x     |      x     |        x       |         x        |                  |              |                    |
-| Non-Colliding Coverage    [G] |          |    x(4)   |            |                |       (x)(5)     |                  |              |                    |
-| Ngram prev_loc Coverage   [H] |          |    x(6)   |            |                |                  |                  |              |                    |
-| Context Coverage    [I]       |          |    x(6)   |            |                |                  |                  |              |                    |
-| Auto Dictionary     [J]       |          |    x(7)   |            |                |                  |                  |              |                    |
-| Snapshot Support    [K]       |          |   (x)(8)  |   (x)(8)   |                |       (x)(5)     |                  |       x      |                    |
-| Shared Memory Test cases  [L] |          |     x     |      x     | x86[_64]/arm64 |         x        |         x        |       x      |                    |
+Note that afl-gcc and afl-clang have been removed because their instrumentation is absolutely outdated.
+
+| Feature/Instrumentation       | llvm      | gcc_plugin | FRIDA mode(9)  | QEMU mode(10)    | unicorn_mode(10) | nyx_mode(12) | coresight_mode(11) |
+| ------------------------------|:---------:|:----------:|:--------------:|:----------------:|:----------------:|:------------:|:------------------:|
+| Threadsafe counters [A]       |    x(3)   |            |                |                  |                  |       x      |                    |
+| NeverZero           [B]       |    x(1)   |      x     |        x       |         x        |         x        |              |                    |
+| Persistent Mode     [C]       |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] |         x        |              |                    |
+| LAF-Intel / CompCov [D]       |     x     |            |                | x86[_64]/arm[64] | x86[_64]/arm[64] |   x86[_64]   |                    |
+| CmpLog              [E]       |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] |                  |              |                    |
+| Selective Instrumentation [F] |     x     |      x     |        x       |         x        |                  |              |                    |
+| Non-Colliding Coverage    [G] |    x(4)   |            |                |       (x)(5)     |                  |              |                    |
+| Ngram prev_loc Coverage   [H] |    x(6)   |            |                |                  |                  |              |                    |
+| Context Coverage    [I]       |    x(6)   |            |                |                  |                  |              |                    |
+| Auto Dictionary     [J]       |    x(7)   |            |                |                  |                  |              |                    |
+| Snapshot Support    [K]       |   (x)(8)  |   (x)(8)   |                |       (x)(5)     |                  |       x      |                    |
+| Shared Memory Test cases  [L] |     x     |      x     | x86[_64]/arm64 |         x        |         x        |       x      |                    |
 
 ## More information about features
 
@@ -94,7 +96,7 @@ L. Faster fuzzing and less kernel syscall overhead by in-memory fuzz testcase
 
 Among others, the following features and patches have been integrated:
 
-* NeverZero patch for afl-gcc, instrumentation, QEMU mode and unicorn_mode which
+* NeverZero for llvm/gcc instrumentation, QEMU mode and unicorn_mode which
   prevents a wrapping map value to zero, increases coverage
 * Persistent mode, deferred forkserver and in-memory fuzzing for QEMU mode
 * Unicorn mode which allows fuzzing of binaries from completely different

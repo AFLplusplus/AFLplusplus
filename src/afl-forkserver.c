@@ -552,7 +552,7 @@ void nyx_load_target_hash(afl_forkserver_t *fsrv) {
 
    In essence, the instrumentation allows us to skip execve(), and just keep
    cloning a stopped child. So, we just execute once, and then send commands
-   through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
+   through a pipe. The other part of this logic is in afl-compilter-rt.o */
 
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {

@@ -45,13 +45,9 @@ fairly broad use of environment variables instead:
           make
     ```
 
-  - Setting `AFL_AS`, `AFL_CC`, and `AFL_CXX` lets you use alternate downstream
-    compilation tools, rather than the default 'as', 'clang', or 'gcc' binaries
+  - Setting `AFL_CC`, and `AFL_CXX` lets you use alternate downstream
+    compilation tools, rather than the default 'clang', or 'gcc' binaries
     in your `$PATH`.
-
-  - If you are a weird person that wants to compile and instrument asm text
-    files, then use the `AFL_AS_FORCE_INSTRUMENT` variable:
-    `AFL_AS_FORCE_INSTRUMENT=1 afl-gcc foo.s -o foo`
 
   - Most AFL tools do not print any output if stdout/stderr are redirected. If
     you want to get the output into a file, then set the `AFL_DEBUG` environment
@@ -83,17 +79,13 @@ fairly broad use of environment variables instead:
     Setting `AFL_INST_RATIO` to 0 is a valid choice. This will instrument only
     the transitions between function entry points, but not individual branches.
 
-    Note that this is an outdated variable. A few instances (e.g., afl-gcc)
-    still support these, but state-of-the-art (e.g., LLVM LTO and LLVM PCGUARD)
-    do not need this.
+    Note that this is an outdated variable. Only LLVM CLASSIC pass can use this.
 
   - `AFL_NO_BUILTIN` causes the compiler to generate code suitable for use with
     libtokencap.so (but perhaps running a bit slower than without the flag).
 
-  - `AFL_PATH` can be used to point afl-gcc to an alternate location of afl-as.
-    One possible use of this is utils/clang_asm_normalize/, which lets you
-    instrument hand-written assembly when compiling clang code by plugging a
-    normalizer into the chain. (There is no equivalent feature for GCC.)
+  - `AFL_PATH` can be used to point a directory that contains LLVM/GCC plugins
+    for AFL++, AFL++'s runtime objects and QEMU/Frida support files.
 
   - Setting `AFL_QUIET` will prevent afl-as and afl-cc banners from being
     displayed during compilation, in case you find them distracting.

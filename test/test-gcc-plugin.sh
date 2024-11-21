@@ -81,7 +81,7 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
 
   # now for the special gcc_plugin things
   echo foobar.c > instrumentlist.txt
-  AFL_GCC_INSTRUMENT_FILE=instrumentlist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
+  AFL_COMPILER_INSTRUMENT_FILE=instrumentlist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
   test -x test-compcov && test_compcov_binary_functionality ./test-compcov && {
     echo 1 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o - -r -- ./test-compcov 2>&1 | grep -q "Captured 0 tuples" && {
       $ECHO "$GREEN[+] gcc_plugin instrumentlist feature works correctly"
