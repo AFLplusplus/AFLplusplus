@@ -1945,10 +1945,15 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   if (getenv("AFL_USE_UBSAN") || aflcc->have_ubsan) {
 
-    if (!aflcc->have_ubsan) {
+    if (!aflcc->have_ubsan) { insert_param(aflcc, "-fsanitize=undefined"); }
 
-      insert_param(aflcc, "-fsanitize=undefined");
-      insert_param(aflcc, "-fno-sanitize-recover=all");
+    if (getenv("AFL_UBSAN_VERBOSE")) {
+
+      insert_param(aflcc, "-fno-sanitize-recover=undefined");
+
+    } else {
+
+      insert_param(aflcc, "-fsanitize-trap=undefined");
 
     }
 
