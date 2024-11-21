@@ -3554,6 +3554,13 @@ int main(int argc, char **argv, char **envp) {
 
   maybe_usage(aflcc, argc, argv);
 
+  if ((aflcc->compiler_mode == CLANG || aflcc->compiler_mode == GCC) &&
+      aflcc->need_aflpplib) {
+
+    FATAL("afl-gcc/afl-clang cannot be used together with -fsanitize=fuzzer");
+
+  }
+
   mode_notification(aflcc);
 
   if (aflcc->debug) debugf_args(argc, argv);
