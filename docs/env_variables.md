@@ -115,6 +115,10 @@ fairly broad use of environment variables instead:
       conditions
     - `AFL_USE_UBSAN=1` - activates the undefined behavior sanitizer
 
+  - Setting `AFL_UBSAN_VERBOSE=1` or `AFL_CFISAN_VERBOSE=1` enables verbose output for the respective sanitizers:
+    - `AFL_UBSAN_VERBOSE=1` - outputs detailed diagnostic information when undefined behavior is detected 
+    - `AFL_CFISAN_VERBOSE=1` - outputs detailed information when control flow integrity violations occur, instead of simply terminating with "Illegal Instruction"
+
   - `TMPDIR` is used by afl-as for temporary files; if this variable is not set,
     the tool defaults to /tmp.
 
