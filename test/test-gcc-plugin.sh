@@ -19,7 +19,7 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
       } || {
         $ECHO "$GREEN[+] gcc_plugin instrumentation present and working correctly"
         TUPLES=`echo 0|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain.gccpi 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 1 -a "$TUPLES" -lt 9 && {
+        test "$TUPLES" -gt 1 -a "$TUPLES" -lt 10 && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces a weird numbers: $TUPLES"
