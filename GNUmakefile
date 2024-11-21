@@ -821,10 +821,10 @@ install: all $(MANPAGES)
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
 endif
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang++
+	#ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
+	#ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
+	#ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang
+	#ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang++
 	@mkdir -m 755 -p $${DESTDIR}$(INCLUDE_PATH)
 	install -m 644 $(HEADERS) $${DESTDIR}$(INCLUDE_PATH)
 	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
