@@ -2010,9 +2010,13 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       if (!aflcc->have_cfisan) {
 
         insert_param(aflcc, "-fsanitize=cfi");
-        insert_param(aflcc, "-fno-sanitize-trap=cfi");
-
       }
+
+      if ( getenv("AFL_CFISAN_VERBOSE") )
+		{
+        	insert_param(aflcc, "-fno-sanitize-trap=cfi");
+		}
+
 
       if (!aflcc->have_hidden) {
 
