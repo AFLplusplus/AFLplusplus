@@ -46,10 +46,9 @@ The following setup to use QEMU mode is recommended:
   `AFL_COMPCOV_LEVEL=2`), alternatively you can use FRIDA mode, just switch `-Q`
   with `-O` and remove the LAF instance
 
-Then run as many instances as you have cores left with either -Q mode or - even
-better - use a binary rewriter like Dyninst, RetroWrite, ZAFL, etc.
-The binary rewriters all have their own advantages and caveats.
-ZAFL is the best but cannot be used in a business/commercial context.
+Then run as many instances as you have cores left with either `-Q` mode or use
+a static binary rewriter like Dyninst, RetroWrite, ZAFL, etc.
+The binary rewriters all have their own advantages and caveats, but ZAFL is a good choice.
 
 If a binary rewriter works for your target then you can use afl-fuzz normally
 and it will have twice the speed compared to QEMU mode (but slower than QEMU
