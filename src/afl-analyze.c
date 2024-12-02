@@ -513,7 +513,8 @@ static void dump_hex(u32 len, u8 *b_data) {
 static void analyze() {
 
   u32 i;
-  u32 boring_len = 0, prev_xff = 0, prev_x01 = 0, prev_s10 = 0, prev_a10 = 0;
+  u32 boring_len = 0;
+  u64 prev_xff = 0, prev_x01 = 0, prev_s10 = 0, prev_a10 = 0;
 
   u8 *b_data = ck_alloc(in_len + 1);
   u8  seq_byte = 0;

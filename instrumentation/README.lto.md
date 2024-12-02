@@ -57,8 +57,8 @@ libtool: link: afl-clang-lto -g -O2 -Wall -W -o thumbnail thumbnail.o  ../libtif
 afl-clang-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de> in mode LTO
 afl-llvm-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de>
 AUTODICTIONARY: 11 strings found
-[+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
-```
+[+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-clang-fast CLASSIC) (non-hardened mode).
+s```
 
 ## Getting LLVM 12+
 
@@ -90,7 +90,7 @@ sudo make install
 
 ## How to use afl-clang-lto
 
-Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
+Just use afl-clang-lto like you did with afl-clang-fast.
 
 Also, the instrument file listing (AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST ->
 [README.instrument_list.md](README.instrument_list.md)) and laf-intel/compcov

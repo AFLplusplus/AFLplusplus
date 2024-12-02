@@ -602,7 +602,6 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
   if (strncmp(aflcc->callname, "afl-clang-fast", 14) == 0) {
 
     /* afl-clang-fast is always created there by makefile
-      just like afl-clang, burdened with special purposes:
       - If llvm-config is not available (i.e. LLVM_MAJOR is 0),
         or too old, it falls back to LLVM-NATIVE mode and let
         the actual compiler complain if doesn't work.
@@ -1220,11 +1219,8 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
   switch (aflcc->compiler_mode) {
 
     case GCC:
-      if (!aflcc->have_gcc) FATAL("afl-gcc is not available on your platform!");
       break;
     case CLANG:
-      if (!aflcc->have_clang)
-        FATAL("afl-clang is not available on your platform!");
       break;
     case LLVM:
       if (!aflcc->have_llvm)
@@ -1564,7 +1560,6 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
 /*
   Macro defs for persistent mode. As documented in
   instrumentation/README.persistent_mode.md, deferred forkserver initialization
-  and persistent mode are not available in afl-gcc and afl-clang.
 */
 void add_defs_persistent_mode(aflcc_state_t *aflcc) {
 
@@ -1945,10 +1940,15 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   if (getenv("AFL_USE_UBSAN") || aflcc->have_ubsan) {
 
-    if (!aflcc->have_ubsan) {
+    if (!aflcc->have_ubsan) { insert_param(aflcc, "-fsanitize=undefined"); }
 
-      insert_param(aflcc, "-fsanitize=undefined");
-      insert_param(aflcc, "-fno-sanitize-recover=all");
+    if (getenv("AFL_UBSAN_VERBOSE")) {
+
+      insert_param(aflcc, "-fno-sanitize-recover=undefined");
+
+    } else {
+
+      insert_param(aflcc, "-fsanitize-trap=undefined");
 
     }
 
@@ -2008,6 +2008,12 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       }
 
       if (!aflcc->have_cfisan) { insert_param(aflcc, "-fsanitize=cfi"); }
+
+      if (getenv("AFL_CFISAN_VERBOSE")) {
+
+        insert_param(aflcc, "-fno-sanitize-trap=cfi");
+
+      }
 
       if (!aflcc->have_hidden) {
 
@@ -2845,10 +2851,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "   yes\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT      no  yes     no     no  no     "
-        "yes\n"
-        "  [GCC/CLANG] simple gcc/clang: %s%s\n"
-        "      CLASSIC              DEFAULT      no  no      no     no  no     "
-        "no\n\n",
+        "yes\n\n",
         aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
         aflcc->compiler_mode == LLVM ? " [SELECTED]" : "",
         aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
@@ -2856,15 +2859,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         aflcc->have_lto ? "AVAILABLE" : "unavailable!",
         aflcc->compiler_mode == LTO ? " [SELECTED]" : "",
         aflcc->have_gcc_plugin ? "AVAILABLE" : "unavailable!",
-        aflcc->compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
-        aflcc->have_gcc && aflcc->have_clang
-            ? "AVAILABLE"
-            : (aflcc->have_gcc
-                   ? "GCC ONLY "
-                   : (aflcc->have_clang ? "CLANG ONLY" : "unavailable!")),
-        (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG)
-            ? " [SELECTED]"
-            : "");
+        aflcc->compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "");
 
     SAYF(
         "Modes:\n"
@@ -3554,14 +3549,26 @@ int main(int argc, char **argv, char **envp) {
 
   maybe_usage(aflcc, argc, argv);
 
+  if (aflcc->instrument_mode == INSTRUMENT_GCC ||
+      aflcc->instrument_mode == INSTRUMENT_CLANG) {
+
+    FATAL(
+        "afl-gcc/afl-clang are obsolete and has been removed. Use "
+        "afl-clang-fast/afl-gcc-fast for instrumentation instead.");
+
+  }
+
   mode_notification(aflcc);
 
   if (aflcc->debug) debugf_args(argc, argv);
 
   edit_params(aflcc, argc, argv, envp);
 
-  if (aflcc->debug)
+  if (aflcc->debug) {
+
     debugf_args((s32)aflcc->cc_par_cnt, (char **)aflcc->cc_params);
+
+  }
 
   if (aflcc->passthrough) {
 

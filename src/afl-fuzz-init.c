@@ -3096,9 +3096,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "This program appears to be instrumented with afl-gcc, but is being "
-         "run in\n"
-         "    QEMU mode (-Q). This is probably not what you "
+         "This program appears to be instrumented with AFL++ compilers, but is "
+         "being run\n"
+         "    in QEMU mode (-Q). This is probably not what you "
          "want -\n"
          "    this setup will be slow and offer no practical benefits.\n");
 

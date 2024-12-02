@@ -6,9 +6,6 @@
               Adrian Herrera <adrian.herrera@anu.edu.au>,
               Michal Zalewski
 
-   LLVM integration design comes from Laszlo Szekeres. C bits copied-and-pasted
-   from afl-as.c are Michal's fault.
-
    NGRAM previous location coverage comes from Adrian Herrera.
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
@@ -19,10 +16,6 @@
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
-
-   This library is plugged into LLVM when invoking clang through afl-clang-fast.
-   It tells the compiler to add code roughly equivalent to the bits discussed
-   in ../afl-as.h.
 
  */
 

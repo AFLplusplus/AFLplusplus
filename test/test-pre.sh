@@ -111,14 +111,7 @@ test -n "$TRAVIS_OS_NAME" && {
 test -e /usr/local/bin/opt && {
   test `uname -s` = 'Darwin' || export PATH="/usr/local/bin:${PATH}"
 }
-# on MacOS X we prefer afl-clang over afl-gcc, because
-# afl-gcc does not work there (it is a symlink from clang)
-test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
-  AFL_GCC=afl-clang
-} || {
-  AFL_GCC=afl-gcc
-}
-command -v gcc >/dev/null 2>&1 || AFL_GCC=afl-clang
+AFL_COMPILER=afl-clang-fast
 
 SYS=`uname -m`
 

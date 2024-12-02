@@ -168,6 +168,10 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
 void initInstrumentList() {
 
+  static int init = 0;
+  if (init) return;
+  init = 1;
+
   char *allowlist = getenv("AFL_LLVM_ALLOWLIST");
   if (!allowlist) allowlist = getenv("AFL_LLVM_INSTRUMENT_FILE");
   if (!allowlist) allowlist = getenv("AFL_LLVM_WHITELIST");
@@ -250,7 +254,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded allowlist with %zu file and %zu function entries\n",
-             allowListFiles.size() / 4, allowListFunctions.size() / 4);
+             allowListFiles.size(), allowListFunctions.size());
 
   }
 
@@ -325,7 +329,7 @@ void initInstrumentList() {
 
     if (debug)
       DEBUGF("loaded denylist with %zu file and %zu function entries\n",
-             denyListFiles.size() / 4, denyListFunctions.size() / 4);
+             denyListFiles.size(), denyListFunctions.size());
 
   }
 

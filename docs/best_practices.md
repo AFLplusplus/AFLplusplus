@@ -38,9 +38,8 @@ For PCGUARD instrumentation `abort()` is called if this is detected, for LTO
 there will either be no coverage for the instrumented dlopen()'ed libraries or
 you will see lots of crashes in the UI.
 
-Note that this is not an issue if you use the inferiour `afl-gcc-fast`,
-`afl-gcc` or`AFL_LLVM_INSTRUMENT=CLASSIC/NGRAM/CTX afl-clang-fast`
-instrumentation.
+Note that this is not an issue if you use the inferiour `afl-gcc-fast`, or
+`AFL_LLVM_INSTRUMENT=CLASSIC/NGRAM/CTX afl-clang-fast` instrumentation.
 
 ### Fuzzing a binary-only target
 

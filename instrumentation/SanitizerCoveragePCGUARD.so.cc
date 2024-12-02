@@ -310,7 +310,7 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
   Type     *PtrTy = PointerType::getUnqual(Ty);
   std::tie(CtorFunc, std::ignore) = createSanitizerCtorAndInitFunctions(
       M, CtorName, InitFunctionName, {PtrTy, PtrTy}, {SecStart, SecEnd});
-  assert(CtorFunc->getName() == CtorName);
+  // assert(CtorFunc->getName() == CtorName);
 
   if (TargetTriple.supportsCOMDAT()) {
 
