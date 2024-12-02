@@ -124,7 +124,6 @@ will keep working normally when compiled with a tool other than afl-clang-fast/
 afl-clang-lto/afl-gcc-fast.
 
 Finally, recompile the program with afl-clang-fast/afl-clang-lto/afl-gcc-fast
-(afl-gcc or afl-clang will *not* generate a deferred-initialization binary) -
 and you should be all set!
 
 ## 4) Persistent mode

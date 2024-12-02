@@ -3,7 +3,7 @@
 This file describes two different mechanisms to selectively instrument only
 specific parts in the target.
 
-Both mechanisms work for LLVM and GCC_PLUGIN, but not for afl-clang/afl-gcc.
+Both mechanisms work for LLVM and GCC_PLUGIN.
 
 ## 1) Description and purpose
 
