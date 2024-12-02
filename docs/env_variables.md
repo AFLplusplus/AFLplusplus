@@ -24,7 +24,6 @@ To select the different instrumentation modes, use one of the following options:
   - Use the `AFL_CC_COMPILER` environment variable with `MODE`. To select
     `MODE`, use one of the following values:
 
-    - `GCC` (afl-gcc/afl-g++)
     - `GCC_PLUGIN` (afl-g*-fast)
     - `LLVM` (afl-clang-fast*)
     - `LTO` (afl-clang-lto*).

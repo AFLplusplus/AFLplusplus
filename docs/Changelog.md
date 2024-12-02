@@ -4,6 +4,7 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++4.22a (dev)
+  ! afl-gcc and afl-clang funcionality is now removed !
   - afl-fuzz:
     - fastresume feature added. if you abort fuzzing and resume fuzzing
       with `-i -` or `AFL_AUTORESUME=1` and the target binary has not changed
@@ -41,7 +42,7 @@
     - new compile time variable: `AFL_OPT_LEVEL` to set a specific optimization
       level, default is `3`
     - correctly explain how to get the correct map size for large targets
-    - small fix weird LLVM defines in redhat
+    - small fix for weird LLVM defines in redhat
   - code formatting updated to llvm 18
   - improved custom_mutators/aflpp/standalone/aflpp-standalone
   - added custom_mutators/autotokens/standalone/autotokens-standalone
