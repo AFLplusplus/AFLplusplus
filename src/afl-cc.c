@@ -3549,8 +3549,8 @@ int main(int argc, char **argv, char **envp) {
 
   maybe_usage(aflcc, argc, argv);
 
-  if (aflcc->instrument_mode == INSTRUMENT_GCC || aflcc->instrument_mode ==
-                                   INSTRUMENT_CLANG) {
+  if (aflcc->instrument_mode == INSTRUMENT_GCC ||
+      aflcc->instrument_mode == INSTRUMENT_CLANG) {
 
     FATAL(
         "afl-gcc/afl-clang are obsolete and has been removed. Use "
