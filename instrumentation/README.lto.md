@@ -58,22 +58,22 @@ afl-clang-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de> in mode LTO
 afl-llvm-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de>
 AUTODICTIONARY: 11 strings found
 [+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-clang-fast CLASSIC) (non-hardened mode).
-s```
+```
 
-## Getting LLVM 12+
+## Getting LLVM 13+
 
 ### Installing llvm
 
 The best way to install LLVM is to follow [https://apt.llvm.org/](https://apt.llvm.org/)
 
-e.g. for LLVM 15:
+e.g. for LLVM 19:
 ```
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
-sudo ./llvm.sh 15 all
+sudo ./llvm.sh 19 all
 ```
 
-LLVM 12 to 18 should be available in all current Linux repositories.
+LLVM 13 to 19 should be available in all current Linux repositories.
 
 ## How to build afl-clang-lto
 
