@@ -3,6 +3,11 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+
+### Version ++4.31a (dev)
+  - your PR?
+
+
 ### Version ++4.30c (release)
   ! afl-gcc and afl-clang funcionality is now removed !
   - afl-fuzz:
