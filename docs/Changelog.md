@@ -5,7 +5,7 @@
 
 
 ### Version ++4.31a (dev)
-  - your PR?
+  - loose file and shared memory permissions on Android and iPhone
 
 
 ### Version ++4.30c (release)
