@@ -2614,6 +2614,7 @@ void add_misc_params(aflcc_state_t *aflcc) {
     insert_param(aflcc, "-fno-builtin-strcasecmp");
     insert_param(aflcc, "-fno-builtin-strncasecmp");
     insert_param(aflcc, "-fno-builtin-memcmp");
+    insert_param(aflcc, "-fno-builtin-memmem");
     insert_param(aflcc, "-fno-builtin-bcmp");
     insert_param(aflcc, "-fno-builtin-strstr");
     insert_param(aflcc, "-fno-builtin-strcasestr");

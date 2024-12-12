@@ -2670,6 +2670,89 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
 }
 
+/* llvm weak hooks */
+
+void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
+                                  size_t n, int result) {
+
+  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, (u64)n);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
+                                  const void *s2, size_t len2, void *result) {
+
+  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, len1 < len2 ? (u64)len1 : (u64)len2);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
+                                       size_t n, int result) {
+
+  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
+                                       size_t n, char *result) {
+
+  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strncmp(void *pc, const void *s1, const void *s2,
+                                   size_t n, int result) {
+
+  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strcasecmp(void *pc, const void *s1, const void *s2,
+                                      int result) {
+
+  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strcasestr(void *pc, const void *s1, const void *s2,
+                                      size_t n, char *result) {
+
+  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strcmp(void *pc, const void *s1, const void *s2,
+                                  int result) {
+
+  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  (void)pc;
+  (void)result;
+
+}
+
+void __sanitizer_weak_hook_strstr(void *pc, const void *s1, const void *s2,
+                                  char *result) {
+
+  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  (void)pc;
+  (void)result;
+
+}
+
 /* COVERAGE manipulation features */
 
 // this variable is then used in the shm setup to create an additional map

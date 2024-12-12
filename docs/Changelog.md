@@ -6,6 +6,9 @@
 
 ### Version ++4.31a (dev)
   - loose file and shared memory permissions on Android and iPhone
+  - afl-cc:
+    - added __sanitizer_weak_hook_* functions (in case that is helpful in
+      weird setups)
 
 
 ### Version ++4.30c (release)
