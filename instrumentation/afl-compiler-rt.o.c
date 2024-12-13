@@ -11,7 +11,6 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
-
 */
 
 #ifdef __AFL_CODE_COVERAGE
@@ -358,7 +357,7 @@ static void __afl_map_shm(void) {
 
   if (__afl_final_loc) {
 
-    __afl_map_size = ++__afl_final_loc;  // as we count starting 0
+    __afl_map_size = __afl_final_loc + 1;  // as we count starting 0
 
     if (getenv("AFL_DUMP_MAP_SIZE")) {
 
@@ -601,9 +600,9 @@ static void __afl_map_shm(void) {
 
     }
 
-    __afl_area_ptr_dummy = (u8 *)malloc(__afl_final_loc);
+    __afl_map_size = __afl_final_loc + 1;
+    __afl_area_ptr_dummy = (u8 *)malloc(__afl_map_size);
     __afl_area_ptr = __afl_area_ptr_dummy;
-    __afl_map_size = __afl_final_loc;
 
     if (!__afl_area_ptr_dummy) {
 

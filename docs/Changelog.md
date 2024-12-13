@@ -11,6 +11,8 @@
       compiling if LLVMFuzzerTestOneOnput is in an .a archive
     - added __sanitizer_weak_hook_* functions (in case that is helpful in
       weird setups)
+    - fix bug with large map sizes when multiple libraries are loaded after
+      the shared memory was obtained.
 
 
 ### Version ++4.30c (release)
