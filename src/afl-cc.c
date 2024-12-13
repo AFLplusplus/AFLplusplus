@@ -1764,6 +1764,41 @@ static u8 fsanitize_fuzzer_comma(char *string) {
 
 }
 
+/* Add params to link with libAFLDriver.a on request */
+static void add_aflpplib(aflcc_state_t *aflcc) {
+
+  if (!aflcc->need_aflpplib) return;
+
+  u8 *afllib = find_object(aflcc, "libAFLDriver.a");
+
+  if (!be_quiet) {
+
+    OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
+
+  }
+
+  if (!afllib) {
+
+    if (!be_quiet) {
+
+      WARNF(
+          "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
+          "the flags - this will fail!");
+
+    }
+
+  } else {
+
+    insert_param(aflcc, afllib);
+
+#ifdef __APPLE__
+    insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
+#endif
+
+  }
+
+}
+
 /*
   Parse and process possible -fsanitize related args, return PARAM_MISS
   if nothing matched. We have 3 main tasks here for these args:
@@ -1777,6 +1812,7 @@ static u8 fsanitize_fuzzer_comma(char *string) {
 param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
+  u8       insert = 0;
 
 // MACRO START
 #define HAVE_SANITIZER_SCAN_KEEP(v, k)        \
@@ -1822,6 +1858,7 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
     if (scan) {
 
       aflcc->need_aflpplib = 1;
+      insert = 1;
       final_ = PARAM_SCAN;
 
     } else {
@@ -1842,6 +1879,7 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
       if (fsanitize_fuzzer_comma(cur_argv_)) {
 
         aflcc->need_aflpplib = 1;
+        insert = 1;
         final_ = PARAM_SCAN;
 
       }
@@ -1882,7 +1920,8 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   }
 
-  if (final_ == PARAM_KEEP) insert_param(aflcc, cur_argv);
+  if (final_ == PARAM_KEEP) { insert_param(aflcc, cur_argv); }
+  if (insert) { add_aflpplib(aflcc); }
 
   return final_;
 
@@ -2352,41 +2391,6 @@ void add_lto_passes(aflcc_state_t *aflcc) {
 
 }
 
-/* Add params to link with libAFLDriver.a on request */
-static void add_aflpplib(aflcc_state_t *aflcc) {
-
-  if (!aflcc->need_aflpplib) return;
-
-  u8 *afllib = find_object(aflcc, "libAFLDriver.a");
-
-  if (!be_quiet) {
-
-    OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
-
-  }
-
-  if (!afllib) {
-
-    if (!be_quiet) {
-
-      WARNF(
-          "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
-          "the flags - this will fail!");
-
-    }
-
-  } else {
-
-    insert_param(aflcc, afllib);
-
-#ifdef __APPLE__
-    insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
-#endif
-
-  }
-
-}
-
 /* Add params to link with runtimes depended by our instrumentation */
 void add_runtime(aflcc_state_t *aflcc) {
 
@@ -2479,7 +2483,7 @@ void add_runtime(aflcc_state_t *aflcc) {
 
 #endif
 
-  add_aflpplib(aflcc);
+  add_aflpplib(aflcc);  // double insertion helps compiling
 
 #if defined(USEMMAP) && !defined(__HAIKU__) && !__APPLE__
   insert_param(aflcc, "-Wl,-lrt");
