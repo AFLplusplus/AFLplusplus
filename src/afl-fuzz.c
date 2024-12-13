@@ -3430,7 +3430,7 @@ stop_fuzzing:
 
       ZLIBCLOSE(fr_fd);
       afl->var_byte_count = count_bytes(afl, afl->var_bytes);
-      OKF("Written fastresume.bin with %u bytes!", w);
+      OKF("fastresume.bin succesfully written with %u bytes.", w);
 
     } else {
 

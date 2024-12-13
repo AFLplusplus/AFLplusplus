@@ -5,7 +5,12 @@
 
 
 ### Version ++4.31a (dev)
-  - your PR?
+  - loose file and shared memory permissions on Android and iPhone
+  - afl-cc:
+    - -fsanitize=fuzzer now inserts libAFLDriver.a addtionally early to help
+      compiling if LLVMFuzzerTestOneOnput is in an .a archive
+    - added __sanitizer_weak_hook_* functions (in case that is helpful in
+      weird setups)
 
 
 ### Version ++4.30c (release)
