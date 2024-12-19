@@ -340,9 +340,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                 cur_time - afl->last_avg_exec_update >= 60000))) {
 
     afl->last_avg_execs_saved =
-        (double)(1000 * (afl->fsrv.total_execs - afl->last_avg_execs)) /
+        (double)(1000 * (afl->fsrv.total_execs - afl->last_avg_total_execs)) /
         (double)(cur_time - afl->last_avg_exec_update);
-    afl->last_avg_execs = afl->fsrv.total_execs;
+    afl->last_avg_total_execs = afl->fsrv.total_execs;
     afl->last_avg_exec_update = cur_time;
 
   }
