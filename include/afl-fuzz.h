@@ -747,7 +747,7 @@ typedef struct afl_state {
                                   up to 256 */
 
   unsigned long long int last_avg_exec_update;
-  u64                    last_avg_execs;
+  u64                    last_avg_total_execs;
   double                 last_avg_execs_saved;
 
 /* foreign sync */
