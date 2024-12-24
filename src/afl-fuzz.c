@@ -170,7 +170,7 @@ static void at_exit() {
 
   if (pid2 > 0) {
 
-    pgrp = getpgid(pid1);
+    pgrp = getpgid(pid2);
     if (pgrp > 0) { killpg(pgrp, kill_signal); }
     kill(pid2, kill_signal);
 
