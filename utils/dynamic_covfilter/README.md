@@ -16,7 +16,7 @@ Once you have built AFL++, you can choose out of two approaches:
 
 ## Simple Selection with `AFL_PC_FILTER`
 
-This approach requires a build with `AFL_INSTRUMENTATION=llvmnative` or
+This approach requires a build with `AFL_LLVM_INSTRUMENT=llvmnative` or
 `llvmcodecov` as well as an AddressSanitizer build with debug information.
 
 By setting the environment variable `AFL_PC_FILTER` to a string, the runtime
@@ -52,7 +52,7 @@ PC. It also works well with Nyx, where symbolizing is usually disabled for the
 target process to avoid delays with frequent crashes.
 
 Similar to the previous method, This approach requires a build with 
-`AFL_INSTRUMENTATION=llvmnative` or `llvmcodecov` as well debug information.
+`AFL_LLVM_INSTRUMENT=llvmnative` or `llvmcodecov` as well debug information.
 However, it does not require the ASan runtime as it doesn't do the symbolizing
 in process. Due to the way it maps PCs to symbols, it is less accurate when it
 comes to includes and inlines (it assumes all PCs within a function belong to
