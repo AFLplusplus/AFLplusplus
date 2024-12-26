@@ -1965,8 +1965,9 @@ int main(int argc, char **argv_orig, char **envp) {
         ck_free(frida_binary);
 
         setenv("LD_PRELOAD", frida_afl_preload, 1);
+#ifdef __APPLE__
         setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
-
+#endif
       }
 
     } else {
@@ -1974,7 +1975,9 @@ int main(int argc, char **argv_orig, char **envp) {
       /* CoreSight mode uses the default behavior. */
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+#endif
 
     }
 
@@ -1992,7 +1995,9 @@ int main(int argc, char **argv_orig, char **envp) {
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
       setenv("LD_PRELOAD", frida_binary, 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+#endif
       ck_free(frida_binary);
 
     }
