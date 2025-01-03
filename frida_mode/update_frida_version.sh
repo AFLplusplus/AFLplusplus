@@ -9,5 +9,11 @@ echo Newest available version: $NEW
 
 test -z "$OLD" -o -z "$NEW" -o "$OLD" = "$NEW" && { echo Nothing to be done. ; exit 0 ; }
 
-sed -i "s/=$OLD/=$NEW/" GNUmakefile || exit 1
+# Determine the correct sed command
+case $(sed --help 2>&1) in
+  *GNU*) set sed -i;;
+  *) set sed -i '';;
+esac
+
+"$@" "s/=$OLD/=$NEW/" GNUmakefile || exit 1
 echo Successfully updated GNUmakefile
