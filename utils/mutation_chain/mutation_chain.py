@@ -6,8 +6,8 @@
 # Now you can!
 #
 # This tool is developed to support file structures for parallel fuzzing runs using the
-# naming of main/secondary as stated in the AFL docs (fuzzer01, fuzzer02 etc...)
-# In case you want to use it for single instance runs just recreate the directory structure
+# naming of main/secondary nodes as stated in the AFL docs (fuzzer01, fuzzer02 etc...)
+# In case you want to use it for single node runs just recreate the directory structure
 # which is used when parallel fuzzing is used (dump your results in a dir called fuzzer01).
 #
 # author: Maarten Dekker
@@ -88,61 +88,65 @@ def main():
     )
 
     parser.add_argument(
-        "--mode", 
+        "-m", "--mode", 
         choices = ['single', 'all'], 
         help = 'compute chain for one file or all crash files in supplied directory. In single mode the -f argument is required', 
         required = True
     )
 
     parser.add_argument(
-        "--dir",
+        "-i", "--input",
         action = 'store',
-        help = 'AFL output directory',
+        help = 'Input directory for the mutation chain tool (the fuzzer\'s output directory)',
         required = True
     )
 
     parser.add_argument(
-        "--instance",
+        "-n", "--node",
         action = 'store',
-        help = '[Only required in single mode] name of the fuzzer instance that contains the crash file supplied in the --file argument (e.g. \'fuzzer01\')',
+        help = '[Only used in single mode; optinal] name of the fuzzer node that contains the crash file supplied in the --file argument (e.g. \'fuzzer03\'). Defaults to \'fuzzer01\' if not supplied',
         required = False
     )
 
     parser.add_argument(
-        "--file",
+        "-f", "--file",
         action = 'store',
-        help = '[Only required in single mode] filename of specific crash file (e.g. \'id:000008,sig:06,src:000005,op:havoc,rep:8\')',
+        help = '[Only used in single mode; required] filename of specific crash file (e.g. \'id:000008,sig:06,src:000005,op:havoc,rep:8\')',
         required = False
     )
 
     args = parser.parse_args()
 
     if args.mode == "single":
+
+        if args.node == None:
+            args.node = "fuzzer01"
+
         if args.file == None:
             parser.error("'--mode single' requires the '--file' argument.")
-        elif args.instance == None:
-            parser.error("'--mode single' requires the '--instance' argument.")
 
+        crash_file_path = args.input + '/' + args.node + '/crashes/' + args.file
+        if not os.path.isfile(crash_file_path):
+            print("Error: \'" + crash_file_path + "\' does not exist.\nPlease verify whether the node and filename are correct.")
+            return
 
-    afl_output_directory = args.dir
-
-    # Create the interal representation of the various queues of parallel fuzzing instances
-    for dir in os.listdir(afl_output_directory):
+    # Create the interal representation of the various queues of parallel fuzzing nodes
+    for dir in os.listdir(args.input):
         if re.match("^fuzzer\\d+", dir):
-            queues[dir] = fillDictWithFilenameKeys(afl_output_directory + '/' + dir + '/queue')
+            queues[dir] = fillDictWithFilenameKeys(args.input + '/' + dir + '/queue')
 
     if args.mode == "all":
 
-        for dir in os.listdir(afl_output_directory):
+        for dir in os.listdir(args.input):
             if re.match("^fuzzer\\d+", dir):
-                for filename in os.listdir(afl_output_directory + '/' + dir + "/crashes"):
+                for filename in os.listdir(args.input + '/' + dir + "/crashes"):
                     if re.match("^id:\\d+", filename):
                         print(filename)
                         crashes[filename] = compute_mutation_chain(filename, dir, 0)
 
     elif args.mode == "single":
 
-        crashes[args.file] = compute_mutation_chain(args.file, args.instance, 0)
+        crashes[args.file] = compute_mutation_chain(args.file, args.node, 0)
 
     print(json.dumps(crashes, sort_keys=True, indent=4))
 
