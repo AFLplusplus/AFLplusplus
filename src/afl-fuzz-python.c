@@ -220,14 +220,60 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
   if (py_module != NULL) {
 
     u8 py_notrim = 0;
+  #if PY_MINOR_VERSION > 12 || PY_MAJOR_VERSION > 3
+    PyObject_GetOptionalAttrString(py_module, "init",
+                                   &py_functions[PY_FUNC_INIT]);
+  #else
     py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
+  #endif
     if (!py_functions[PY_FUNC_INIT]) {
 
       WARNF("init function not found in python module");
 
     }
 
+  #if PY_MINOR_VERSION > 12 || PY_MAJOR_VERSION > 3
+    PyObject_GetOptionalAttrString(py_module, "fuzz",
+                                   &py_functions[PY_FUNC_FUZZ]);
+  #else
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
+  #endif
+  #if PY_MINOR_VERSION > 12 || PY_MAJOR_VERSION > 3
+    if (!py_functions[PY_FUNC_FUZZ])
+      PyObject_GetOptionalAttrString(py_module, "mutate",
+                                     &py_functions[PY_FUNC_FUZZ]);
+    PyObject_GetOptionalAttrString(py_module, "describe",
+                                   &py_functions[PY_FUNC_DESCRIBE]);
+    PyObject_GetOptionalAttrString(py_module, "fuzz_count",
+                                   &py_functions[PY_FUNC_FUZZ_COUNT]);
+    PyObject_GetOptionalAttrString(py_module, "post_process",
+                                   &py_functions[PY_FUNC_POST_PROCESS]);
+    PyObject_GetOptionalAttrString(py_module, "init_trim",
+                                   &py_functions[PY_FUNC_INIT_TRIM]);
+    PyObject_GetOptionalAttrString(py_module, "post_trim",
+                                   &py_functions[PY_FUNC_POST_TRIM]);
+    PyObject_GetOptionalAttrString(py_module, "trim",
+                                   &py_functions[PY_FUNC_TRIM]);
+    PyObject_GetOptionalAttrString(py_module, "havoc_mutation",
+                                   &py_functions[PY_FUNC_HAVOC_MUTATION]);
+    PyObject_GetOptionalAttrString(
+        py_module, "havoc_mutation_probability",
+        &py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY]);
+    PyObject_GetOptionalAttrString(py_module, "queue_get",
+                                   &py_functions[PY_FUNC_QUEUE_GET]);
+    PyObject_GetOptionalAttrString(py_module, "fuzz_send",
+                                   &py_functions[PY_FUNC_FUZZ_SEND]);
+    PyObject_GetOptionalAttrString(py_module, "post_run",
+                                   &py_functions[PY_FUNC_POST_RUN]);
+    PyObject_GetOptionalAttrString(py_module, "splice_optout",
+                                   &py_functions[PY_FUNC_SPLICE_OPTOUT]);
+    PyObject_GetOptionalAttrString(py_module, "queue_new_entry",
+                                   &py_functions[PY_FUNC_QUEUE_NEW_ENTRY]);
+    PyObject_GetOptionalAttrString(py_module, "introspection",
+                                   &py_functions[PY_FUNC_INTROSPECTION]);
+    PyObject_GetOptionalAttrString(py_module, "deinit",
+                                   &py_functions[PY_FUNC_DEINIT]);
+  #else
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
     py_functions[PY_FUNC_DESCRIBE] =
@@ -253,12 +299,13 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "post_run");
     py_functions[PY_FUNC_SPLICE_OPTOUT] =
         PyObject_GetAttrString(py_module, "splice_optout");
-    if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
     py_functions[PY_FUNC_INTROSPECTION] =
         PyObject_GetAttrString(py_module, "introspection");
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
+  #endif
+    if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     if (!py_functions[PY_FUNC_DEINIT])
       WARNF("deinit function not found in python module");
 

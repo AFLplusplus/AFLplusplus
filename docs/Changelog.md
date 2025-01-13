@@ -5,7 +5,9 @@
 
 
 ### Version ++4.31a (dev)
-  - loose file and shared memory permissions on Android and iPhone
+  - afl-fuzz:
+    - Python 3.13+ support
+    - loose file and shared memory permissions on Android and iPhone
   - afl-cc:
     - -fsanitize=fuzzer now inserts libAFLDriver.a addtionally early to help
       compiling if LLVMFuzzerTestOneOnput is in an .a archive
