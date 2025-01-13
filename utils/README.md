@@ -56,6 +56,10 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - libpng_no_checksum   - a sample patch for removing CRC checks in libpng.
 
+  - mutation_chain       - a tool that backtraces the mutation chain of AFL 
+                           crash files based on the crash/queue file naming
+                           standards and outputs this in a json format.
+
   - persistent_mode      - an example of how to use the LLVM persistent process
                            mode to speed up certain fuzzing jobs.
 

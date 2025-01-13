@@ -740,14 +740,18 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
       ck_free(frida_binary);
 
       setenv("LD_PRELOAD", frida_afl_preload, 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+#endif
 
     } else {
 
       /* CoreSight mode uses the default behavior. */
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+#endif
 
     }
 
@@ -755,7 +759,9 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
     u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
     setenv("LD_PRELOAD", frida_binary, 1);
+#ifdef __APPLE__
     setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+#endif
     ck_free(frida_binary);
 
   }

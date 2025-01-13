@@ -5,7 +5,12 @@
 
 
 ### Version ++4.31a (dev)
-  - loose file and shared memory permissions on Android and iPhone
+  - afl-fuzz:
+    - Python 3.13+ support
+    - loose file and shared memory permissions on Android and iPhone
+    - splicing is now DISABLED by default because research showed
+      it is counterproductive. New command line parameter `-u` to enable
+      it. Splicing is auto-enabled if two cycles without finds happen.
   - afl-cc:
     - -fsanitize=fuzzer now inserts libAFLDriver.a addtionally early to help
       compiling if LLVMFuzzerTestOneOnput is in an .a archive

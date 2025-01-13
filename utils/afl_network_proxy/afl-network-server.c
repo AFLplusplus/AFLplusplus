@@ -233,7 +233,9 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
     } else {
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+#endif
 
     }
 

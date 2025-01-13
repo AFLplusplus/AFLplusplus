@@ -238,6 +238,7 @@ static void usage(u8 *argv0, int more_help) {
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
       "                  Note: this option is usually not very effective\n"
+      "  -u            - enable testcase splicing\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
@@ -443,10 +444,6 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with ASAN_BUILD.\n");
 #endif
 
-#ifdef NO_SPLICING
-  SAYF("Compiled with NO_SPLICING.\n");
-#endif
-
 #ifdef FANCY_BOXES_NO_UTF
   SAYF("Compiled without UTF-8 support for line rendering in status screen.\n");
 #endif
@@ -611,7 +608,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
                        "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
-                       "T:UV:WXx:YzZ")) > 0) {
+                       "T:uUV:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -697,6 +694,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Z':
         afl->old_seed_selection = 1;
+        break;
+
+      case 'u':
+        afl->use_splicing = 1;
         break;
 
       case 'I':
@@ -1965,7 +1966,9 @@ int main(int argc, char **argv_orig, char **envp) {
         ck_free(frida_binary);
 
         setenv("LD_PRELOAD", frida_afl_preload, 1);
+  #ifdef __APPLE__
         setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+  #endif
 
       }
 
@@ -1974,7 +1977,9 @@ int main(int argc, char **argv_orig, char **envp) {
       /* CoreSight mode uses the default behavior. */
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+  #ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+  #endif
 
     }
 
@@ -1992,7 +1997,9 @@ int main(int argc, char **argv_orig, char **envp) {
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
       setenv("LD_PRELOAD", frida_binary, 1);
+  #ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+  #endif
       ck_free(frida_binary);
 
     }
@@ -2957,64 +2964,55 @@ int main(int argc, char **argv_orig, char **envp) {
 
         ++afl->cycles_wo_finds;
 
-        if (afl->use_splicing) {
+        if (unlikely(afl->shm.cmplog_mode &&
+                     afl->cmplog_max_filesize < MAX_FILE)) {
 
-          if (unlikely(afl->shm.cmplog_mode &&
-                       afl->cmplog_max_filesize < MAX_FILE)) {
+          afl->cmplog_max_filesize <<= 4;
 
-            afl->cmplog_max_filesize <<= 4;
+        }
 
-          }
+        switch (afl->expand_havoc) {
 
-          switch (afl->expand_havoc) {
+          case 0:
+            // this adds extra splicing mutation options to havoc mode
+            afl->expand_havoc = 1;
+            break;
+          case 1:
+            // if we did not use splicing (default) then activate it
+            afl->use_splicing = 1;
 
-            case 0:
-              // this adds extra splicing mutation options to havoc mode
-              afl->expand_havoc = 1;
-              break;
-            case 1:
-              // add MOpt mutator
-              /*
-              if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                  !afl->python_only) {
+            // add MOpt mutator
+            /*
+            if (afl->limit_time_sig == 0 && !afl->custom_only &&
+                !afl->python_only) {
 
-                afl->limit_time_sig = -1;
-                afl->limit_time_puppet = 0;
+              afl->limit_time_sig = -1;
+              afl->limit_time_puppet = 0;
 
-              }
+            }
 
-              */
-              afl->expand_havoc = 2;
-              if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
-              break;
-            case 2:
-              // increase havoc mutations per fuzz attempt
-              afl->havoc_stack_pow2++;
-              afl->expand_havoc = 3;
-              break;
-            case 3:
-              // further increase havoc mutations per fuzz attempt
-              afl->havoc_stack_pow2++;
-              afl->expand_havoc = 4;
-              break;
-            case 4:
-              afl->expand_havoc = 5;
-              // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
-              // 3;
-              break;
-            case 5:
-              // nothing else currently
-              break;
-
-          }
-
-        } else {
-
-  #ifndef NO_SPLICING
-          afl->use_splicing = 1;
-  #else
-          afl->use_splicing = 0;
-  #endif
+            */
+            afl->expand_havoc = 2;
+            if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
+            break;
+          case 2:
+            // increase havoc mutations per fuzz attempt
+            afl->havoc_stack_pow2++;
+            afl->expand_havoc = 3;
+            break;
+          case 3:
+            // further increase havoc mutations per fuzz attempt
+            afl->havoc_stack_pow2++;
+            afl->expand_havoc = 4;
+            break;
+          case 4:
+            afl->expand_havoc = 5;
+            // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
+            // 3;
+            break;
+          case 5:
+            // nothing else currently
+            break;
 
         }
 
