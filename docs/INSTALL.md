@@ -90,7 +90,6 @@ These build options exist:
 * PROFILING - compile afl-fuzz with profiling information
 * INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support
-* NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)

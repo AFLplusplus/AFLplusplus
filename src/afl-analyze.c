@@ -698,6 +698,7 @@ static void set_up_environment(char **argv) {
 #ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
 #endif
+
     } else {
 
       /* CoreSight mode uses the default behavior. */

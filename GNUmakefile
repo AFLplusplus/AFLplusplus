@@ -41,10 +41,6 @@ ARCH = $(shell uname -m)
 
 $(info [*] Compiling AFL++ for OS $(SYS) on ARCH $(ARCH))
 
-ifdef NO_SPLICING
-  override CFLAGS_OPT += -DNO_SPLICING
-endif
-
 ifdef NO_UTF
   override CFLAGS_OPT += -DFANCY_BOXES_NO_UTF
 endif
@@ -65,6 +61,10 @@ ifdef MSAN_BUILD
   override CFLAGS += -fsanitize=memory -fno-omit-frame-pointer
   override LDFLAGS += -fsanitize=memory
 endif
+ifdef NO_SPLICING
+  $(info The NO_SPLICING parameter is deprecated)
+endif
+
 
 ifdef CODE_COVERAGE
   override CFLAGS += -D__AFL_CODE_COVERAGE=1
@@ -408,7 +408,6 @@ help:
 	@echo PROFILING - compile afl-fuzz with profiling information
 	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
-	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
