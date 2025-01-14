@@ -2964,6 +2964,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         ++afl->cycles_wo_finds;
 
+#if 0
         if (unlikely(afl->shm.cmplog_mode &&
                      afl->cmplog_max_filesize < MAX_FILE)) {
 
@@ -3015,7 +3016,7 @@ int main(int argc, char **argv_orig, char **envp) {
             break;
 
         }
-
+#endif
       } else {
 
         afl->cycles_wo_finds = 0;
