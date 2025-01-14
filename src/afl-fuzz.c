@@ -2978,9 +2978,6 @@ int main(int argc, char **argv_orig, char **envp) {
             afl->expand_havoc = 1;
             break;
           case 1:
-            // if we did not use splicing (default) then activate it
-            afl->use_splicing = 1;
-
             // add MOpt mutator
             /*
             if (afl->limit_time_sig == 0 && !afl->custom_only &&
@@ -3011,7 +3008,8 @@ int main(int argc, char **argv_orig, char **envp) {
             // 3;
             break;
           case 5:
-            // nothing else currently
+            // if we did not use splicing (default) then activate it
+            afl->use_splicing = 1;
             break;
 
         }
