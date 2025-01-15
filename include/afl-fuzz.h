@@ -508,8 +508,7 @@ typedef struct afl_state {
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
-  s32 limit_time_puppet, SPLICE_CYCLES_puppet, limit_time_sig, key_puppet,
-      key_module;
+  s32 SPLICE_CYCLES_puppet, limit_time_sig, pacemaker_mode, key_module;
 
   double w_init, w_end, w_now;
 

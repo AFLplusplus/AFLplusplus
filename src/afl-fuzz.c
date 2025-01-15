@@ -1306,43 +1306,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'L': {                                              /* MOpt mode */
 
-        if (afl->limit_time_sig) { FATAL("Multiple -L options not supported"); }
-
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
-        if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1) {
-
-          FATAL("Bad syntax used for -L");
-
-        }
-
-        if (afl->limit_time_puppet == -1) {
-
-          afl->limit_time_sig = -1;
-          afl->limit_time_puppet = 0;
-
-        } else if (afl->limit_time_puppet < 0) {
-
-          FATAL("-L value must be between 0 and 2000000 or -1");
-
-        } else {
-
-          afl->limit_time_sig = 1;
-
-        }
-
-        afl->old_seed_selection = 1;
-        u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
-
-        if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
-
-          FATAL("limit_time overflow");
-
-        }
-
-        afl->limit_time_puppet = limit_time_puppet2;
         afl->swarm_now = 0;
-        if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
+        afl->pacemaker_mode = 1;
 
         int j;
         int tmp_swarm = 0;
@@ -2981,17 +2948,21 @@ int main(int argc, char **argv_orig, char **envp) {
             // if we did not use splicing (default) then activate it
             afl->use_splicing = 1;
 
-            // add MOpt mutator
-            /*
-            if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                !afl->python_only) {
+            // switch MOpt mutator
+            if (!afl->custom_only) {
 
-              afl->limit_time_sig = -1;
-              afl->limit_time_puppet = 0;
+              if (afl->pacemaker_mode) {
+
+                afl->pacemaker_mode = 0;
+
+              } else {
+
+                afl->pacemaker_mode = 1;
+
+              }
 
             }
 
-            */
             afl->expand_havoc = 2;
             if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
             break;
@@ -3011,7 +2982,21 @@ int main(int argc, char **argv_orig, char **envp) {
             // 3;
             break;
           case 5:
-            // nothing else currently
+            // switch MOpt mutator back
+            if (!afl->custom_only) {
+
+              if (afl->pacemaker_mode) {
+
+                afl->pacemaker_mode = 0;
+
+              } else {
+
+                afl->pacemaker_mode = 1;
+
+              }
+
+            }
+
             break;
 
         }
