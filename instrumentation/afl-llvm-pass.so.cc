@@ -110,8 +110,7 @@ class AFLCoverage : public ModulePass {
 }  // namespace
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
+extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
 
   return {LLVM_PLUGIN_API_VERSION, "AFLCoverage", "v0.1",
           /* lambda to insert our pass into the pass pipeline. */
@@ -122,7 +121,11 @@ llvmGetPassPluginInfo() {
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
     #endif
     #if LLVM_VERSION_MAJOR >= 16
+      #if LLVM_VERSION_MAJOR >= 20
+            PB.registerPipelineStartEPCallback(
+      #else
             PB.registerOptimizerEarlyEPCallback(
+      #endif
     #else
             PB.registerOptimizerLastEPCallback(
     #endif

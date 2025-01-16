@@ -2974,13 +2974,10 @@ int main(int argc, char **argv_orig, char **envp) {
         switch (afl->expand_havoc) {
 
           case 0:
-            // this adds extra splicing mutation options to havoc mode
+            // do nothing the first time
             afl->expand_havoc = 1;
             break;
           case 1:
-            // if we did not use splicing (default) then activate it
-            afl->use_splicing = 1;
-
             // add MOpt mutator
             /*
             if (afl->limit_time_sig == 0 && !afl->custom_only &&
@@ -2992,8 +2989,9 @@ int main(int argc, char **argv_orig, char **envp) {
             }
 
             */
-            afl->expand_havoc = 2;
+            /* increase cmplog level to 2 if we run with level 1 */
             if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
+            afl->expand_havoc = 2;
             break;
           case 2:
             // increase havoc mutations per fuzz attempt
@@ -3006,9 +3004,9 @@ int main(int argc, char **argv_orig, char **envp) {
             afl->expand_havoc = 4;
             break;
           case 4:
-            afl->expand_havoc = 5;
             // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
             // 3;
+            afl->expand_havoc = 5;
             break;
           case 5:
             // nothing else currently
