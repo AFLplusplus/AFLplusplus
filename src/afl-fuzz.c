@@ -2987,6 +2987,7 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->limit_time_puppet = 0;
 
             }
+
             */
             /* increase cmplog level to 2 if we run with level 1 */
             if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
