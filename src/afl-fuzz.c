@@ -261,7 +261,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -n             - fuzz without instrumentation (non-instrumented mode)\n"
       "  -x dict_file   - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n"
-      "  -a san_binary  - Specify the extra sanitizer instrumented binaries,\n"
+      "  -w san_binary  - Specify the extra sanitizer instrumented binaries,\n"
       "                   can be specified multiple times.\n\n"
 
       "Test settings:\n"
