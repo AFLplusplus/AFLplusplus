@@ -228,7 +228,7 @@ bool AFLCoverage::runOnModule(Module &M) {
     if (debug) {
       fprintf(stderr, "Intrument disabled\n");
     }
-    return PA;
+    return PreservedAnalyses::all();
   }
 #else
   if (getenv("AFL_SAN_NO_INST")) {
