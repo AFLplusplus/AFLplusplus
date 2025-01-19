@@ -247,7 +247,7 @@ static inline void insert_object(aflcc_state_t *aflcc, u8 *obj, u8 *fmt,
 /* Insert params into the new argv, make clang load the pass. */
 static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
   if (getenv("AFL_SAN_NO_INST")) {
-    if (debug) {
+    if (!be_quiet) {
       DEBUGF("Instrument disabled\n");
     }
     return;
@@ -2091,7 +2091,7 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
    */
   if (aflcc->have_rust_asanrt) { return; }
   if (getenv("AFL_SAN_NO_INST")) {
-    if (debug) {
+    if (!be_quiet) {
       DEBUGF("Instrument disabled\n");
     }
     return;
@@ -2131,7 +2131,7 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
 void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
 if (getenv("AFL_SAN_NO_INST")) {
-  if (debug) {
+  if (!be_quiet) {
     DEBUGF("Instrument disabled\n");
   }
   return;

@@ -511,7 +511,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8 san_fault = 0;
   u8 san_idx = 0;
   u8 feed_san = 0;
-  u8 crashed = 0;
 
   afl->san_case_status = 0;
 
