@@ -2069,11 +2069,6 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       }
 
       aflcc->have_cfisan = 1;
-
-      if (getenv("AFL_SAN_RECOVER")) {
-          cc_params[cc_par_cnt++] = "-fsanitize-recover=all";
-      }
-
     }
 
   }
