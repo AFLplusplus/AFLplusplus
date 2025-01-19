@@ -72,6 +72,22 @@ inline void classify_counts(afl_forkserver_t *fsrv) {
 
 }
 
+inline void classify_counts_mem(u64* mem, u32 size) {
+
+  u32  i = (size >> 3);
+
+  while (i--) {
+
+    /* Optimize for sparse bitmaps. */
+
+    if (unlikely(*mem)) { *mem = classify_word(*mem); }
+
+    mem++;
+
+  }
+
+}
+
 /* Updates the virgin bits, then reflects whether a new count or a new tuple is
  * seen in ret. */
 inline void discover_word(u8 *ret, u64 *current, u64 *virgin) {

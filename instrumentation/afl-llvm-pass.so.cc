@@ -223,6 +223,22 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   if (getenv("AFL_DEBUG")) debug = 1;
 
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  if (getenv("AFL_SAN_NO_INST")) {
+    if (debug) {
+      fprintf(stderr, "Intrument disabled\n");
+    }
+    return PA;
+  }
+#else
+  if (getenv("AFL_SAN_NO_INST")) {
+    if (debug) {
+      fprintf(stderr, "Intrument disabled\n");
+    }
+    return true;
+  }
+#endif
+
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-llvm-pass" VERSION cRST

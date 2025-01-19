@@ -159,6 +159,8 @@ typedef struct afl_forkserver {
 
   bool debug;                           /* debug mode?                      */
 
+  u8 san_but_not_instrumented;          /* Is it sanitizer enabled but not instrumented? */
+
   bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
   u8   crash_exitcode;                  /* The crash exitcode specified     */
 
@@ -167,6 +169,7 @@ typedef struct afl_forkserver {
   u8 *shmem_fuzz;                       /* allocated memory for fuzzing     */
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
+  char *asanfuzz_binary;                /* the name of the ASAN binary      */
 
   /* persistent mode replay functionality */
   u32 persistent_record;                /* persistent replay setting        */

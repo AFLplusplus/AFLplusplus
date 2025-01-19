@@ -386,6 +386,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "bitmap_cvg        : %0.02f%%\n"
       "saved_crashes     : %llu\n"
       "saved_hangs       : %llu\n"
+      "total_tmout       : %llu\n"
       "last_find         : %llu\n"
       "last_crash        : %llu\n"
       "last_hang         : %llu\n"
@@ -424,7 +425,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
       afl->max_depth, afl->current_entry, afl->pending_favored,
       afl->pending_not_fuzzed, stability, bitmap_cvg, afl->saved_crashes,
-      afl->saved_hangs, afl->last_find_time / 1000, afl->last_crash_time / 1000,
+      afl->saved_hangs, afl->total_tmouts, afl->last_find_time / 1000, afl->last_crash_time / 1000,
       afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifndef __HAIKU__
@@ -457,6 +458,16 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           ? ""
           : "default",
       afl->orig_cmdline);
+
+  if (afl->san_binary_length) {
+    for (u8 i = 0; i < afl->san_binary_length; i++) {
+      fprintf(f,
+             "extra_binary      : %s\n"
+             "total_execs       : %llu\n",
+             afl->san_binary[i],
+             afl->san_fsrvs[i].total_execs);
+    }
+  }
 
   /* ignore errors */
 
@@ -541,7 +552,7 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                  afl->plot_prev_md == afl->max_depth &&
                  afl->plot_prev_ed == afl->fsrv.total_execs) ||
                 !afl->queue_cycle ||
-                get_cur_time() - afl->start_time <= 60000))) {
+                get_cur_time() - afl->start_time <= 1000))) {
 
     return;
 
@@ -565,12 +576,19 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   fprintf(afl->fsrv.plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
-          "%u\n",
+          "%u, %llu, %u",
           ((afl->prev_run_time + get_cur_time() - afl->start_time) / 1000),
           afl->queue_cycle - 1, afl->current_entry, afl->queued_items,
           afl->pending_not_fuzzed, afl->pending_favored, bitmap_cvg,
           afl->saved_crashes, afl->saved_hangs, afl->max_depth, eps,
-          afl->plot_prev_ed, t_bytes);                     /* ignore errors */
+          afl->plot_prev_ed, t_bytes, afl->total_crashes, (u32)afl->san_binary_length);                     /* ignore errors */
+  
+
+  for (u32 i = 0; i < afl->san_binary_length; i++) {
+    fprintf(afl->fsrv.plot_file, ", %llu", afl->san_fsrvs[i].total_execs);
+  }
+
+  fprintf(afl->fsrv.plot_file, "\n");
 
   fflush(afl->fsrv.plot_file);
 

@@ -425,3 +425,15 @@ char *sha1_hex_for_file(const char *fname, u32 len) {
 
 }
 
+#ifdef _DEBUG
+u32 hash32_xxh32(u8 *key, u32 len, u32 seed) {
+
+#else
+inline u32 hash32_xxh32(u8 *key, u32 len, u32 seed) {
+
+#endif
+
+  (void)seed;
+  return (u32)XXH32(key, len, seed);
+
+}

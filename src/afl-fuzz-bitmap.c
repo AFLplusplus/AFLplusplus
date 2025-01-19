@@ -25,6 +25,9 @@
 
 #include "afl-fuzz.h"
 #include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "asanfuzz.h"
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
@@ -297,6 +300,9 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   u8 is_timeout = 0;
+  u8 san_crash_only = (afl->san_case_status & SAN_CRASH_ONLY);
+  u8 non_cov_incr = (afl->san_case_status & NON_COV_INCREASE_BUG);
+
 
   if (new_bits & 0xf0) {
 
@@ -388,6 +394,10 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (new_bits == 2) { strcat(ret, ",+cov"); }
 
+  if (san_crash_only) { strcat(ret, ",+san"); }
+
+  if (non_cov_incr) { strcat(ret, ",+noncov"); }
+
   if (unlikely(strlen(ret) >= max_description_len))
     FATAL("describe string is too long");
 
@@ -452,6 +462,19 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
+static void bitmap_set(u8* map, u32 index) {
+  map[index / 8] |= (1u << ( index % 8 ));
+}
+
+// static u8 bitmap_clear(u8* map, u32 index) {
+//   map[index / 8] &= ~(1u << (index % 8));
+// }
+
+static u8 bitmap_read(u8* map, u32 index) {
+  return (map[index / 8] >> (index % 8)) & 1;
+}
+
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
@@ -484,6 +507,22 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
      need_hash = 1;
   s32 fd;
   u64 cksum = 0;
+  u32 cksum_simplified = 0, cksum_unique = 0;
+  u8 san_fault = 0;
+  u8 san_idx = 0;
+  u8 feed_san = 0;
+  u8 crashed = 0;
+
+  afl->san_case_status = 0;
+
+  /* Mask out var bytes */
+  if (unlikely(afl->san_binary_length)) {
+    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
+      if (afl->var_bytes[i] && afl->fsrv.trace_bits[i]) {
+        afl->fsrv.trace_bits[i] = 1;
+      }
+    }
+  }
 
   /* Update path frequency. */
 
@@ -503,29 +542,96 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   }
 
+  /* Only "normal" inputs seem interested to us */
   if (likely(fault == afl->crash_mode)) {
 
-    /* Keep only if there are new bits in the map, add to queue for
-       future fuzzing, etc. */
+    if (unlikely(afl->san_binary_length) && likely(afl->san_abstraction == SIMPLIFY_TRACE)) {
+      memcpy(afl->san_fsrvs[0].trace_bits, afl->fsrv.trace_bits, afl->fsrv.map_size);
+      classify_counts_mem((u64*)afl->san_fsrvs[0].trace_bits, afl->fsrv.map_size);
+      simplify_trace(afl, afl->san_fsrvs[0].trace_bits);
 
-    if (likely(classified)) {
+      // cksum_simplified = hash64(afl->san_fsrvs[0].trace_bits, afl->fsrv.map_size, HASH_CONST);
+      cksum_simplified = hash32_xxh32(afl->san_fsrvs[0].trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-      new_bits = has_new_bits(afl, afl->virgin_bits);
+      if ( unlikely(!bitmap_read(afl->simplitied_n_fuzz, cksum_simplified))) {
+        feed_san = 1;
+        bitmap_set(afl->simplitied_n_fuzz, cksum_simplified);
+      }
 
-    } else {
+    }
 
+    if (unlikely(afl->san_binary_length) && unlikely(afl->san_abstraction == COVERAGE_INCREASE)) {
+
+      /* Check if the input increase the coverage */
       new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
 
-      if (unlikely(new_bits)) { classified = 1; }
+      if (unlikely(new_bits)) {
+        feed_san = 1;
+      }
+    }
 
+    if (unlikely(afl->san_binary_length) && likely(afl->san_abstraction == UNIQUE_TRACE)) {
+        cksum_unique = hash32_xxh32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+        if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum) && fault == afl->crash_mode)) {
+          feed_san = 1;
+          bitmap_set(afl->n_fuzz_dup, cksum_unique);
+        }
+    }
+
+    if (feed_san) {
+      /* The input seems interested to other sanitizers, feed it into extra binaries. */
+
+      for (san_idx = 0; san_idx < afl->san_binary_length; san_idx++) {
+
+        len = write_to_testcase(afl, &mem, len, 0);
+        san_fault = fuzz_run_target(afl, &afl->san_fsrvs[san_idx], afl->san_fsrvs[san_idx].exec_tmout);
+
+        // DEBUGF("ASAN Result: %hhd\n", asan_fault);
+
+        if (unlikely(san_fault && fault == afl->crash_mode)) {
+          /* sanitizers discovers distinct bugs! */
+          afl->san_case_status |= SAN_CRASH_ONLY;
+        }
+
+        if (san_fault == FSRV_RUN_CRASH) {
+          /* Treat this execution as fault detected by ASAN */
+          // fault = san_fault;
+
+          /* That's pretty enough, break to avoid more overhead. */
+          break;
+        } else {
+          // or keep san_fault as ok
+          san_fault = FSRV_RUN_OK;
+        }
+      }
+    }
+  }
+
+  /* If there is no crash, everything is fine. */
+  if (likely(fault == afl->crash_mode)) { 
+    
+    /* Keep only if there are new bits in the map, add to queue for
+       future fuzzing, etc. */
+    if (!unlikely(afl->san_abstraction == COVERAGE_INCREASE && feed_san)) {
+      /* If we are in coverage increasing abstraction and have fed input to sanitizers, we are
+         sure it has new bits.*/
+      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
     }
 
     if (likely(!new_bits)) {
 
-      if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
-      return 0;
-
+      if (san_fault == FSRV_RUN_OK) {
+        if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
+        return 0;
+      } else {
+        afl->san_case_status |= NON_COV_INCREASE_BUG;
+        fault = san_fault;
+        classified = new_bits;
+        goto may_save_fault;
+      }
     }
+    fault = san_fault;
+    classified = new_bits;
 
   save_to_queue:
 
@@ -653,7 +759,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     keeping = 1;
 
   }
-
+may_save_fault:
   switch (fault) {
 
     case FSRV_RUN_TMOUT:

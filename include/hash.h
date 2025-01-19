@@ -33,6 +33,8 @@
 u32 hash32(u8 *key, u32 len, u32 seed);
 u64 hash64(u8 *key, u32 len, u64 seed);
 
+u32 hash32_xxh32(u8 *key, u32 len, u32 seed);
+
 #if 0
 
 The following code is disabled because xxh3 is 30% faster
