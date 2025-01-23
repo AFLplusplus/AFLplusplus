@@ -512,21 +512,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   afl->san_case_status = 0;
 
-  /* Mask out var bytes */
-  if (unlikely(afl->san_binary_length)) {
-
-    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
-
-      if (afl->var_bytes[i] && afl->fsrv.trace_bits[i]) {
-
-        afl->fsrv.trace_bits[i] = 1;
-
-      }
-
-    }
-
-  }
-
   /* Update path frequency. */
 
   /* Generating a hash on every input is super expensive. Bad idea and should
