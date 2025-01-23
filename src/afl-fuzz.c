@@ -2243,6 +2243,14 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   setup_cmdline_file(afl, argv + optind);
+
+  // Let's check SAND sanitizers binaries a bit earlier
+  // so that we won't overwrite target_path.
+  // Lazymio: why does cmplog fsrv even work?!
+  for (u8 i = 0; i < afl->san_binary_length; i++) {
+    check_binary(afl, afl->san_binary[i]);
+  }
+
   check_binary(afl, argv[optind]);
 
   u64 prev_target_hash = 0;
@@ -2421,12 +2429,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) { setup_stdio_file(afl); }
 
-  for (u8 i = 0; i < afl->san_binary_length; i++) {
-
-    check_binary(afl, afl->san_binary[i]);
-
-  }
-
   if (afl->cmplog_binary) {
 
     if (afl->unicorn_mode) {
@@ -2586,23 +2588,23 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   san_abstraction = getenv("AFL_SAN_ABSTRACTION");
-  if (!san_abstraction || !strcmp(san_abstraction, "unique_trace")) {
+  if (!san_abstraction || !strcmp(san_abstraction, "simplify_trace")) {
 
-    afl->san_abstraction = UNIQUE_TRACE;
+    afl->san_abstraction = SIMPLIFY_TRACE;
 
   } else if (!strcmp(san_abstraction, "coverage_increase")) {
 
     afl->san_abstraction = COVERAGE_INCREASE;
 
-  } else if (!strcmp(san_abstraction, "simplify_trace")) {
+  } else if (!strcmp(san_abstraction, "unique_trace")) {
 
-    afl->san_abstraction = SIMPLIFY_TRACE;
+    afl->san_abstraction = UNIQUE_TRACE;
 
   } else {
 
     WARNF("Unkown abstraction: %s, fallback to unique trace.\n",
           san_abstraction);
-    afl->san_abstraction = UNIQUE_TRACE;
+    afl->san_abstraction = SIMPLIFY_TRACE;
 
   }
 
@@ -2622,7 +2624,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     for (u8 i = 0; i < afl->san_binary_length; i++) {
 
-      ACTF("Spawning forkserver for %s", afl->san_binary[i]);
+      ACTF("Spawning SAND forkserver for %s", afl->san_binary[i]);
       afl_fsrv_init_dup(&afl->san_fsrvs[i], &afl->fsrv);
 
       /*
@@ -2700,7 +2702,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      OKF("forkserver for %s successfully started", afl->san_binary[i]);
+      OKF("SAND forkserver for %s successfully started", afl->san_binary[i]);
 
     }
 

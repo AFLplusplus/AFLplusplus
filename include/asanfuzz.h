@@ -36,8 +36,8 @@
 #define NON_COV_INCREASE_BUG (1 << 5)
 
 enum SanitizerAbstraction {
-  UNIQUE_TRACE = 0, // Feed all unique trace to sanitizers, the most sensitive
-  SIMPLIFY_TRACE,
+  SIMPLIFY_TRACE = 0, // Feed all unique trace to sanitizers, the most sensitive
+  UNIQUE_TRACE,
   COVERAGE_INCREASE // Feed all coverage increasing cases to sanitizers, the least sensitive
 };
 
