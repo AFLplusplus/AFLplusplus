@@ -357,9 +357,9 @@ static inline const char *colorfilter(const char *x) {
   do {                     \
                            \
     if (res < 0)           \
-      ABORT(x);           \
+      PFATAL(x);           \
     else                   \
-      ABORT(x);            \
+      FATAL(x);            \
                            \
   } while (0)
 

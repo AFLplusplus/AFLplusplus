@@ -613,10 +613,9 @@ typedef struct afl_state {
 #define N_FUZZ_SIZE (1 << 21)
 #define N_FUZZ_SIZE_BITMAP (1 << 29)
   u32 *n_fuzz;
-  u8 *n_fuzz_dup;
-  u8 *classified_n_fuzz;
-  u8 *simplitied_n_fuzz;
-
+  u8  *n_fuzz_dup;
+  u8  *classified_n_fuzz;
+  u8  *simplified_n_fuzz;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
@@ -735,12 +734,12 @@ typedef struct afl_state {
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
   /* ASAN Fuzing */
-  char                      *san_binary[MAX_EXTRA_SAN_BINARY];
-  afl_forkserver_t           san_fsrvs[MAX_EXTRA_SAN_BINARY];
-  u8                         san_binary_length; /* 0 means extra san binaries not given */
-  u8                         no_saving_crash_seed;
-  u32                        san_case_status;
-  enum SanitizerAbstraction  san_abstraction;
+  char            *san_binary[MAX_EXTRA_SAN_BINARY];
+  afl_forkserver_t san_fsrvs[MAX_EXTRA_SAN_BINARY];
+  u8               san_binary_length; /* 0 means extra san binaries not given */
+  u8               no_saving_crash_seed;
+  u32              san_case_status;
+  enum SanitizerAbstraction san_abstraction;
 
   /* Custom mutators */
   struct custom_mutator *mutator;
