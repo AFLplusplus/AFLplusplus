@@ -9,7 +9,7 @@
 
 SAND introduces a new fuzzing workflow greatly reduce (or even eliminate) sanitizer overhead and combine different sanitizers in one fuzzing compaign.
 
-The key point of SAND is that: sanitizing all inputs is wasting fuzzing power, because bug-triggering inputs are extremely rare (~1%). Obviously, not all inputs worth going through sanitizers. There, if we can somehow "predict" if an input could trigger bugs (defined as "execution pattern"), we could greatly save fuzzing power by only sanitizing a small propotion of all inputs. That's exactly how SAND works.
+The key point of SAND is that: sanitizing all inputs is wasting fuzzing power, because bug-triggering inputs are extremely rare (~1%). Obviously, not all inputs worth going through sanitizers. There, if we can somehow "predict" if an input could trigger bugs (defined as "execution pattern"), we could greatly save fuzzing power by only sanitizing a small proportion of all inputs. That's exactly how SAND works.
 
 ## Usage
 
@@ -33,7 +33,7 @@ Then you get:
 
 ### Alternative execution patterns
 
-By default, SAND use the hash value of the simplified coverage map as execution pattern, i.e. if an input has a unique execution pattern, it will be sent to sanitizers for inspection. This shall work for most cases. However, if you are strongly worried about missing bugs, try `AFL_SAN_ABSTRACTION=unique_trace afl-fuzz ...`. Alternatively, you can also have `AFL_SAN_ABSTRACTION=coverage_increase`, which essentially equals to runing sanitizers on the corpus.
+By default, SAND use the hash value of the simplified coverage map as execution pattern, i.e. if an input has a unique execution pattern, it will be sent to sanitizers for inspection. This shall work for most cases. However, if you are strongly worried about missing bugs, try `AFL_SAN_ABSTRACTION=unique_trace afl-fuzz ...`. Alternatively, you can also have `AFL_SAN_ABSTRACTION=coverage_increase`, which essentially equals to running sanitizers on the corpus.
 
 ### Run as many sanitizers as possible
 
@@ -47,7 +47,7 @@ The execution pattern evaluated in our papers is targeting the common bugs, as A
 
 ### My throughput is greatly impacted
 
-Generally, this is due to too many inputs going through sanitizers, for example, because of unstable targets. You could check stats from `plot_file` to confrim this. Try to switch execution patterns as stated above.
+Generally, this is due to too many inputs going through sanitizers, for example, because of unstable targets. You could check stats from `plot_file` to confirm this. Try to switch execution patterns as stated above.
 
 ### Cmplog Compatibility
 
