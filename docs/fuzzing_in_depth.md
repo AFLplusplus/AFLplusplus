@@ -203,6 +203,9 @@ instances, so running more than one address sanitized target would be a waste.
 *IF* you are running a saturated corpus, then you can run up to half of the 
 instances with sanitizers.
 
+An alternative approach, [SAND](./SAND.md) could combine different sanitizers 
+while keeping high throughput with a few caveats.
+
 The following sanitizers have built-in support in AFL++:
 
 * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
