@@ -1,133 +1,55 @@
-# SAND
+# SAND: Decoupling Sanitization from Fuzzing for Low Overhead
 
-This repo will contain the implementation and paper for "SAND: Decoupling Sanitization from Fuzzing for Low Overhead".
+- Authors: Ziqiao Kong, Shaohua Li, Heqing Huang, Zhendong Su
+- Maintainer: [Ziqiao Kong](https://github.com/wtdcode)
+- Preprint: [arXiv](https://arxiv.org/abs/2402.16497), accepted by ICSE 2025
+- Main repo (for paper, reproduction, reference or cite): https://github.com/wtdcode/sand-aflpp
 
-Preprint is available [here](./paper.pdf) and we will have camera-reday version uploaded shortly.
+## Motivation
 
-The original AFL++ README is available [here](./README.AFLpp.md).
+SAND introduces a new fuzzing workflow greatly reduce (or even eliminate) sanitizer overhead and combine different sanitizers in one fuzzing compaign.
 
-## Branch organization
+The key point of SAND is that: sanitizing all inputs is wasting fuzzing power, because bug-triggering inputs are extremely rare (~1%). Obviously, not all inputs worth going through sanitizers. There, if we can somehow "predict" if an input could trigger bugs (defined as "execution pattern"), we could greatly save fuzzing power by only sanitizing a small propotion of all inputs. That's exactly how SAND works.
 
-- [sand](https://github.com/wtdcode/sand-aflpp/tree/sand): Forked from 4.05c, this branch contains the reference implementation used in our paper evaluation. Please use this for any evaluation against SAND.
-- [upstream](https://github.com/wtdcode/sand-aflpp/tree/upstream): Forked from AFLplusplus mainstream, this branch contains our efforts to port SAND to the latest AFLplusplus.
+## Usage
 
-Track the upstream progress [here](https://github.com/AFLplusplus/AFLplusplus/pull/2288).
+For a normal fuzzing workflow, we have:
 
-## Basic Usage
+1. Build target project with AFL_USE_ASAN=1 to get `target_asan`
+2. Fuzz the target with `afl-fuzz -i seeds -o out -- ./target_asan`
 
-To use SAND, two binaries need to be built like cmplog:
+For SAND fuzzing workflow, this is slightly different:
 
-- The native binary without any sanitizer instrumented. SAND will run it during every loop and collect coverage. 
-- The sanitizer instrumented binary but _without AFL instrumentation_. SAND use this binary to check if an interesting input triggers sanitizers. Note, this binary must have fork servers enabled so `afl-clang-fast` is still needed for compilation. We will explain how to build this below.
+1. Build target project _without_ any sanitizers to get `target_native`, which we will define as "native binary".
+2. Build target project with AFL_USE_ASAN=1 AFL_SAN_NO_INST=1 to get `target_asan`
+3. Fuzz the target with `afl-fuzz -i seeds -o out -w ./target_asan -- ./target_native`
 
-### Build
+Then you get:
 
-Docker is highly recommened to reproduce the build. Simply do:
+- almost the same performance as `afl-fuzz -i seeds -o out -- ./target_native`
+- and the same bug-finding capability as `afl-fuzz -i seeds -o out -- ./target_asan`
 
-```
-docker build -t sand .
-```
+## Tips
 
-If docker is not available, follow [The original AFL++ README](./README.AFLpp.md) to build SAND.
+### Alternative execution patterns
 
-### Simple Example
+By default, SAND use the hash value of the simplified coverage map as execution pattern, i.e. if an input has a unique execution pattern, it will be sent to sanitizers for inspection. This shall work for most cases. However, if you are strongly worried about missing bugs, try `AFL_SAN_ABSTRACTION=unique_trace afl-fuzz ...`. Alternatively, you can also have `AFL_SAN_ABSTRACTION=coverage_increase`, which essentially equals to runing sanitizers on the corpus.
 
-The following steps assume you have built the docker image and started a container. If not, do it with:
+### Run as many sanitizers as possible
 
-```
-docker run --rm -it sand
-```
+Though we just used ASAN as an example, SAND works best if you provide more sanitizers, for example, UBSAN and MSAN.
 
-Take `test_instr.c` as an example, firstly build the native binary:
+You might do it via `afl-fuzz -i seeds -o out -w ./target_asan -w ./target_msan -w ./target_ubsan -- ./target_native`. Don't worry about the slow sanitizers like MSAN, SAND could still run very fast because only rather a few inputs are sanitized.
 
-```
-afl-clang-fast test-instr.c -o ./native
-```
+### Bugs types
 
-Then build the sanitizer instrumented binary but without AFL instrumentation:
+The execution pattern evaluated in our papers is targeting the common bugs, as ASAN/MSAN/UBSAN catches. For other bug types, you probably need to define new execution patterns and re-evaluate.
 
-```
-AFL_SAN_NO_INST=1 AFL_USE_ASAN=1 afl-clang-fast test-instr.c -o ./san
-```
+### My throughput is greatly impacted
 
-Run SAND:
+Generally, this is due to too many inputs going through sanitizers, for example, because of unstable targets. You could check stats from `plot_file` to confrim this. Try to switch execution patterns as stated above.
 
-```
-mkdir /tmp/test
-echo "a" > /tmp/test/a
-# Note the "-a ./san" parameter.  
-AFL_NO_UI=1 AFL_SKIP_CPUFREQ=1 afl-fuzz -i /tmp/test -o /tmp/out -a ./san -- ./native -f @@
-```
+### Cmplog Compatibility
 
-That's it! We also have detailed usage and caveats [here](./docs/SAND.md).
+At this moment, SAND probably is not compatible with cmplog and we will fix this soon.
 
-## Evaluation Reproduction
-
-Building the evaluation images might take ~10-30 hours depending on your CPU and memory configuration.
-
-Some building process might has a dependency on the host kernel version and our evaluation environment is:
-
-```bash
-> uname -a
-Linux <redacted> 5.4.0-200-generic #220-Ubuntu SMP Fri Sep 27 13:19:16 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
-> cat /etc/issue
-<redacted> Ubuntu 20.04 (x86_64)
-```
-
-Please note, a recent kernel introduces changes that [might break ASAN instrumentation](https://github.com/google/sanitizers/issues/1614). This causes issues because the build process of some programs contains bootstraping, e.g. firstly building a helper program and further building other code by the helper program. ASAN instrumentation could crash these helper programs. A quick workaround is: `sudo sysctl vm.mmap_rnd_bits=28`
-
-### Build UNIFUZZ Image
-
-For easy experiment, we bundle all targets within the SAND image. Build it via:
-
-```bash
-docker build -t sand-unifuzz -f Dockerfile.UNIFUZZ .
-```
-
-### ASAN-- baseline
-
-Firstly, build ASAN-- with:
-
-```bash
-git clone https://github.com/wtdcode/ASAN-- debloat12
-cd debloat12 && docker build -t debloat12 -f Dockerfile_ASAN-- .
-```
-
-Likewise, build another all-in-one image for the base line:
-
-```bash
-docker build -t sand-debloat12 -f Dockerfile.ASAN-- .
-```
-
-### Merge Image
-
-For ease of experiment, it is possible to merge the two images to a single image. We provide a script [merge.sh](./merge.sh) to do so:
-
-```bash
-./merge.sh sand-debloat12 sand-unifuzz
-```
-
-This will produce an image `sand-debloat12-sand-unifuzz-merged`.
-
-### Start Experiments
-
-Assume you have built the two images above, you could refer to [experiments](./experiments/) to reproduce our fuzzing experiments.
-
-## Other AFLplusplus Schedule
-
-We use the default schedule of AFLplusplus but other schedule should be agnostic to our approach. We also evaluated SAND on the `mmopt` schedule of AFLplusplus and confirmed the similar performance.
-
-## Port SAND to other fuzzers
-
-The approach of SAND is rather simple and easy to port to other fuzzers. We once applied SAND on [Fuzzilli](https://github.com/wtdcode/sand_fuzzilli). Due to time and pages limitation, we didn't spend too much time exploring this direction.
-
-## Cite
-
-```bib
-@inproceedings{sand,
-    author = {Ziqiao Kong, Shaohua Li, Heqing Huang, Zhendong Su},
-    title = {SAND: Decoupling Sanitization from Fuzzing for LowOverhead},
-    booktitle = {IEEE/ACM International Conference on Software Engineering (ICSE)},
-    year = {2025},
-}
-```
