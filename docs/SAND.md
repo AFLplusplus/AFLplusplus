@@ -7,7 +7,7 @@
 
 ## Motivation
 
-SAND introduces a new fuzzing workflow greatly reduce (or even eliminate) sanitizer overhead and combine different sanitizers in one fuzzing compaign.
+SAND introduces a new fuzzing workflow that can greatly reduce (or even eliminate) sanitizer overhead and combine different sanitizers in one fuzzing compaign.
 
 The key point of SAND is that: sanitizing all inputs is wasting fuzzing power, because bug-triggering inputs are extremely rare (~1%). Obviously, not all inputs worth going through sanitizers. There, if we can somehow "predict" if an input could trigger bugs (defined as "execution pattern"), we could greatly save fuzzing power by only sanitizing a small proportion of all inputs. That's exactly how SAND works.
 
