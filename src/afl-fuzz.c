@@ -263,7 +263,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -x dict_file   - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n"
       "  -w san_binary  - Specify the extra sanitizer instrumented binaries,\n"
-      "                   can be specified multiple times.\n\n"
+      "                   can be specified multiple times.\n"
+      "                   Read docs/SAND.md for details.\n\n"
 
       "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
