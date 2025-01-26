@@ -3611,9 +3611,11 @@ stop_fuzzing:
   for (u8 i = 0; i < afl->san_binary_length; i++) {
 
     ck_free(afl->san_fsrvs[i].trace_bits);
-    afl_fsrv_deinit(&afl->san_fsrvs[i]);  // TODO: Is this necessary? cmplog
-                                          // fksrv seems never deinit-ed?
+    afl_fsrv_deinit(&afl->san_fsrvs[i]);
+  }
 
+  if (afl->cmplog_binary) {
+    afl_fsrv_deinit(&afl->cmplog_fsrv);
   }
 
   /* remove tmpfile */
