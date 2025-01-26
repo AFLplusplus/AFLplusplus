@@ -21,8 +21,8 @@ For a normal fuzzing workflow, we have:
 For SAND fuzzing workflow, this is slightly different:
 
 1. Build target project _without_ any sanitizers to get `target_native`, which we will define as "native binary".
-2. Build target project with AFL_USE_ASAN=1 AFL_SAN_NO_INST=1 to get `target_asan`
-3. Fuzz the target with `afl-fuzz -i seeds -o out -w ./target_asan -- ./target_native`
+2. Build target project with AFL_USE_ASAN=1 AFL_SAN_NO_INST=1 to get `target_asan`. Do note this step can be repeated for multiple sanitizers, like MSAN, UBSAN etc.
+3. Fuzz the target with `afl-fuzz -i seeds -o out -w ./target_asan -- ./target_native`. Note `-w` can be specified multiple times.
 
 Then you get:
 
