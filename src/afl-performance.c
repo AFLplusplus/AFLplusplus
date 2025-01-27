@@ -424,4 +424,3 @@ char *sha1_hex_for_file(const char *fname, u32 len) {
   return hex;
 
 }
-
