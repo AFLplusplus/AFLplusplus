@@ -461,13 +461,13 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
-static void bitmap_set(u8 *map, u32 index) {
+static inline void bitmap_set(u8 *map, u32 index) {
 
   map[index / 8] |= (1u << (index % 8));
 
 }
 
-static u8 bitmap_read(u8 *map, u32 index) {
+static inline u8 bitmap_read(u8 *map, u32 index) {
 
   return (map[index / 8] >> (index % 8)) & 1;
 
