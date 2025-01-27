@@ -20,8 +20,8 @@ For a normal fuzzing workflow, we have:
 
 For SAND fuzzing workflow, this is slightly different:
 
-1. Build target project _without_ any sanitizers to get `target_native`, which we will define as "native binary".
-2. Build target project with AFL_USE_ASAN=1 AFL_SAN_NO_INST=1 to get `target_asan`. Do note this step can be repeated for multiple sanitizers, like MSAN, UBSAN etc.
+1. Build target project _without_ any sanitizers to get `target_native`, which we will define as "native binary". It is usually done by using `afl-clang-fast/lto(++)` to compile your project _without_ `AFL_USE_ASAN/UBSAN/MSAN`.
+2. Build target project with AFL_USE_ASAN=1 AFL_SAN_NO_INST=1 to get `target_asan`. Do note this step can be repeated for multiple sanitizers, like MSAN, UBSAN etc. It is also possible to have ASAN and UBSAN to build together.
 3. Fuzz the target with `afl-fuzz -i seeds -o out -w ./target_asan -- ./target_native`. Note `-w` can be specified multiple times.
 
 Then you get:
@@ -33,7 +33,7 @@ Then you get:
 
 ### Alternative execution patterns
 
-By default, SAND use the hash value of the simplified coverage map as execution pattern, i.e. if an input has a unique execution pattern, it will be sent to sanitizers for inspection. This shall work for most cases. However, if you are strongly worried about missing bugs, try `AFL_SAN_ABSTRACTION=unique_trace afl-fuzz ...`. Alternatively, you can also have `AFL_SAN_ABSTRACTION=coverage_increase`, which essentially equals to running sanitizers on the corpus.
+By default, SAND uses the hash value of the simplified coverage map as execution pattern, i.e. if an input has a unique simplefied coverage map, it will be sent to sanitizers for inspection. This shall work for most cases. However, if you are strongly worried about missing bugs, try `AFL_SAN_ABSTRACTION=unique_trace afl-fuzz ...`, which filters inputs having a _unique coverage map_. Do note this significantly increases the number of inputs by 4-10 times, leading to much lower throughput. Alternatively, SAND also supports `AFL_SAN_ABSTRACTION=coverage_increase`, which essentially equals to running sanitizers on the corpus and thus having almost zero overhead, but at a cost of missing ~15% bugs in our evaluation.
 
 ### Run as many sanitizers as possible
 
