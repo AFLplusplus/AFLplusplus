@@ -79,8 +79,3 @@ The execution pattern evaluated in our papers is targeting the common bugs, as A
 ### My throughput is greatly impacted
 
 Generally, this is due to too many inputs going through sanitizers, for example, because of unstable targets. You could check stats from `plot_file` to confirm this. Try to switch execution patterns as stated above.
-
-### Cmplog Compatibility
-
-At this moment, SAND probably is not compatible with cmplog and we will fix this soon.
-
