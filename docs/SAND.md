@@ -20,7 +20,7 @@ For a normal fuzzing workflow, we have:
 
 For SAND fuzzing workflow, this is slightly different:
 
-1. Build target project _without_ any sanitizers to get `target_native`, which we will define as "native binary". It is usually done by using `afl-clang-fast/lto(++)` to compile your project _without_ `AFL_USE_ASAN/UBSAN/MSAN`.
+1. Build target project _without_ any sanitizers to get `target_native`, which we will define as a "native binary". It is usually done by using `afl-clang-fast/lto(++)` to compile your project _without_ `AFL_USE_ASAN/UBSAN/MSAN`.
 2. Build target project with AFL_USE_ASAN=1 AFL_SAN_NO_INST=1 to get `target_asan`. Do note this step can be repeated for multiple sanitizers, like MSAN, UBSAN etc. It is also possible to have ASAN and UBSAN to build together.
 3. Fuzz the target with `afl-fuzz -i seeds -o out -w ./target_asan -- ./target_native`. Note `-w` can be specified multiple times.
 
@@ -28,6 +28,37 @@ Then you get:
 
 - almost the same performance as `afl-fuzz -i seeds -o out -- ./target_native`
 - and the same bug-finding capability as `afl-fuzz -i seeds -o out -- ./target_asan`
+
+## Example Workflow
+
+Take [test-instr.c](../test-instr.c) as an example.
+
+1. Build the native binary
+
+```bash
+afl-clang-fast test-instr.c -o ./native
+```
+
+Just like the normal building process, except using `afl-clang-fast`
+
+2. Build the sanitizers-enabled binaries.
+
+```bash
+AFL_SAN_NO_INST=1 AFL_USE_UBSAN=1 AFL_USE_ASAN=1 afl-clang-fast test-instr.c -o ./asanubsan
+AFL_SAN_NO_INST=1 AFL_USE_MSAN=1 afl-clang-fast test-instr.c -o ./msan
+```
+
+Do note `AFL_SAN_NO_INST=1` is crucial, this enables forkservers but disables pc instrumentation. Do not reuse sanitizers-enabled binaries built _without_ `AFL_SAN_NO_INST=1`. This will mess up SAND execution pattern.
+
+3. Start fuzzing
+
+```bash
+mkdir /tmp/test
+echo "a" > /tmp/test/a
+AFL_NO_UI=1 AFL_SKIP_CPUFREQ=1 afl-fuzz -i /tmp/test -o /tmp/out -w ./asanubsan -w ./msan -- ./native @@
+```
+
+That's it!
 
 ## Tips
 
