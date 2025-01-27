@@ -2609,8 +2609,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  afl->no_saving_crash_seed = false;
-
   if (!afl->san_binary_length && san_abstraction) {
 
     WARNF(

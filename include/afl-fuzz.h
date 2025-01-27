@@ -737,7 +737,6 @@ typedef struct afl_state {
   char            *san_binary[MAX_EXTRA_SAN_BINARY];
   afl_forkserver_t san_fsrvs[MAX_EXTRA_SAN_BINARY];
   u8               san_binary_length; /* 0 means extra san binaries not given */
-  u8               no_saving_crash_seed;
   u32              san_case_status;
   enum SanitizerAbstraction san_abstraction;
 
