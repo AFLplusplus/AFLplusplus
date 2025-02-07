@@ -11,7 +11,7 @@ Run build_qemu_support.sh as you do to compile qemuafl, additionally with three 
 * `ENABLE_HOOKING=1` to compile the bridge
 * `GLIB_H` and `GLIB_CONFIG_H` point to headers `glib.h` and `glibconfig.h` to wherever they are installed on your system
 
-## Writting hooks
+## Writing hooks
 1. Create one or more hooking functions in a shared library, say `hook.so`.
 2. Include `exports.h` in your hook build. You can find this header at `<your AFL++ path>/qemu_mode/hooking_bridge/inc`.
 3. Shown below is an example which will use to walkthrough hook creation
