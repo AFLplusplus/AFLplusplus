@@ -308,7 +308,7 @@ int main(int argc, char **argv, char **envp) {
     }
     uint64_t start_address;
     if(fscanf(f, "%llx", (unsigned long long) &start_address) == EOF) {
-        puts("Start address not found in target.offests.main");
+        puts("Start address not found in target.offsets.main");
         exit(-1);
     }
     fclose(f);

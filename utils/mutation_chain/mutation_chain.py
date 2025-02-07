@@ -104,7 +104,7 @@ def main():
     parser.add_argument(
         "-n", "--node",
         action = 'store',
-        help = '[Only used in single mode; optinal] name of the fuzzer node that contains the crash file supplied in the --file argument (e.g. \'fuzzer03\'). Defaults to \'fuzzer01\' if not supplied',
+        help = '[Only used in single mode; optional] name of the fuzzer node that contains the crash file supplied in the --file argument (e.g. \'fuzzer03\'). Defaults to \'fuzzer01\' if not supplied',
         required = False
     )
 

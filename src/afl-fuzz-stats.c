@@ -2129,13 +2129,13 @@ void show_stats_pizza(afl_state_t *afl) {
 
   } else {
 
-    strcpy(tmp, "18 year aniversary mode");
+    strcpy(tmp, "18 year anniversary mode");
 
   }
 
   SAYF(bV bSTOP
        "                        dictionary : " cRST "%-36s  " bSTG bV bSTOP
-       "       patrons from old resturant : " cRST "%-10s          " bSTG bV
+       "      patrons from old restaurant : " cRST "%-10s          " bSTG bV
        "\n",
        tmp,
        afl->sync_id ? u_stringify_int(IB(0), afl->queued_imported)

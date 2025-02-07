@@ -20,11 +20,11 @@ int main(int argc, char **argv) {
   /* Request information on available (host) capabilites (optional) */
   host_config_t host_config;
   kAFL_hypercall(HYPERCALL_KAFL_GET_HOST_CONFIG, (uintptr_t)&host_config);
-  hprintf("[capablities] host_config.bitmap_size: 0x%" PRIx64 "\n",
+  hprintf("[capabilities] host_config.bitmap_size: 0x%" PRIx64 "\n",
           host_config.bitmap_size);
-  hprintf("[capablities] host_config.ijon_bitmap_size: 0x%" PRIx64 "\n",
+  hprintf("[capabilities] host_config.ijon_bitmap_size: 0x%" PRIx64 "\n",
           host_config.ijon_bitmap_size);
-  hprintf("[capablities] host_config.payload_buffer_size: 0x%" PRIx64 "x\n",
+  hprintf("[capabilities] host_config.payload_buffer_size: 0x%" PRIx64 "x\n",
           host_config.payload_buffer_size);
 
   /* this is our "bitmap" that is later shared with the fuzzer (you can also

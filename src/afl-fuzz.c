@@ -402,7 +402,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
-      "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "                        supported formats: dogstatsd, librato, signalfx, influxdb\n"
       "AFL_NO_FASTRESUME: do not read or write a fast resume file\n"
       "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
@@ -1170,7 +1170,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #else
       case 'X':
       case 'Y':
-        FATAL("Nyx mode is only availabe on linux...");
+        FATAL("Nyx mode is only available on linux...");
         break;
   #endif
       case 'A':                                           /* CoreSight mode */
@@ -2329,7 +2329,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
             sizeof(ver_string))
-          WARNF("Emtpy fastresume.bin, ignoring, cannot perform FAST RESUME");
+          WARNF("Empty fastresume.bin, ignoring, cannot perform FAST RESUME");
         else if (expect_ver != *ver)
           WARNF(
               "Different AFL++ version or feature usage, cannot perform FAST "
@@ -2603,7 +2603,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    WARNF("Unkown abstraction: %s, fallback to unique trace.\n",
+    WARNF("Unknown abstraction: %s, fallback to unique trace.\n",
           san_abstraction);
     afl->san_abstraction = SIMPLIFY_TRACE;
 
@@ -3583,7 +3583,7 @@ stop_fuzzing:
 
       ZLIBCLOSE(fr_fd);
       afl->var_byte_count = count_bytes(afl, afl->var_bytes);
-      OKF("fastresume.bin succesfully written with %u bytes.", w);
+      OKF("fastresume.bin successfully written with %u bytes.", w);
 
     } else {
 
