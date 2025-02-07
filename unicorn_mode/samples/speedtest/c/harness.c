@@ -371,7 +371,7 @@ int main(int argc, char **argv, char **envp) {
         place_input_callback, // Callback that places the input (automatically loaded from the file at filename) in the unicorninstance
         exits, // Where to exit (this is an array)
         exit_count,  // Count of end addresses
-        NULL, // Optional calback to run after each exec
+        NULL, // Optional callback to run after each exec
         false, // true, if the optional callback should be run also for non-crashes
         1000, // For persistent mode: How many rounds to run
         NULL // additional data pointer

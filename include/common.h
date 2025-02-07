@@ -76,8 +76,8 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname);
 int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal);
 
 /* Configure the signals that are used to kill the forkserver
-   and the forked childs. If `afl_kill_signal_env` or `afl_fsrv_kill_signal_env`
-   is NULL, the appropiate values are read from the environment. */
+   and the forked children. If `afl_kill_signal_env` or `afl_fsrv_kill_signal_env`
+   is NULL, the appropriate values are read from the environment. */
 void configure_afl_kill_signals(afl_forkserver_t *fsrv,
                                 char             *afl_kill_signal_env,
                                 char             *afl_fsrv_kill_signal_env,

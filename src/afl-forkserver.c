@@ -438,7 +438,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       }
 
-      // enable terminating on sigpipe in the childs
+      // enable terminating on sigpipe in the children
       struct sigaction sa;
       memset((char *)&sa, 0, sizeof(sa));
       sa.sa_handler = SIG_DFL;
@@ -878,7 +878,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* CHILD PROCESS */
 
-    // enable terminating on sigpipe in the childs
+    // enable terminating on sigpipe in the children
     struct sigaction sa;
     memset((char *)&sa, 0, sizeof(sa));
     sa.sa_handler = SIG_DFL;
