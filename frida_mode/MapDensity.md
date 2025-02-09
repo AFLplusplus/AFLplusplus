@@ -107,7 +107,7 @@ every block of code we execute, performance is critical.
 However, the design of the binary instrumentation modes of AFL++ has moved on.
 Both QEMU and FRIDA modes use a two stage process when executing a target
 application. Each block is first compiled or instrumented, and then it is
-executed. The compiled blocks can be re-used each time the target executes them.
+executed. The compiled blocks can be reused each time the target executes them.
 
 Since a blocks ID is based on its address, and this is known at compile time, we
 only need to generate this ID once per block and so this ID generation no longer

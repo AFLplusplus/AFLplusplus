@@ -452,7 +452,7 @@ void CrashResistantMerge(const Vector<std::string> &Args,
     auto ExitCode = ExecuteCommand(Cmd);
     if (!ExitCode) {
 
-      VPrintf(V, "MERGE-OUTER: succesfull in %zd attempt(s)\n", Attempt);
+      VPrintf(V, "MERGE-OUTER: succesful in %zd attempt(s)\n", Attempt);
       break;
 
     }

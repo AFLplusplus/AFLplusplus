@@ -196,7 +196,7 @@ afl-clang-fast's.
 
 RetroWrite is a static binary rewriter that can be combined with AFL++. If you
 have an x86_64 or arm64 binary that does not contain C++ exceptions and - if
-x86_64 - still has it's symbols and compiled with position independent code
+x86_64 - still has its symbols and compiled with position independent code
 (PIC/PIE), then the RetroWrite solution might be for you.
 It decompiles to ASM files which can then be instrumented with afl-gcc.
 Note that afl-gcc is only present until AFL++ v4.21c and was subsequently removed as it is obsolete.

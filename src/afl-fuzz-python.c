@@ -68,7 +68,7 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
 }
 
-  /* sorry for this makro...
+  /* sorry for this macro...
   it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
   #define BUF_PARAMS(name) (void **)&((py_mutator_t *)py_mutator)->name##_buf
 

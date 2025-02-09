@@ -143,7 +143,7 @@ test -e json-c/.libs/libjson-c.a || {
 echo
 echo
 echo "[+] Json-c successfully prepared!"
-echo "[+] Builing gramatron now."
+echo "[+] Building gramatron now."
 $CC -O3 -g -fPIC -Wno-unused-result -Wl,--allow-multiple-definition -I../../include -o gramatron.so -shared -I. -I/prg/dev/include gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c ../../src/afl-performance.o json-c/.libs/libjson-c.a || exit 1
 echo
 echo "[+] gramatron successfully built!"

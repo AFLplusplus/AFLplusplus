@@ -338,7 +338,7 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
 
   if (TargetTriple.isOSBinFormatCOFF()) {
 
-    // In COFF files, if the contructors are set as COMDAT (they are because
+    // In COFF files, if the constructors are set as COMDAT (they are because
     // COFF supports COMDAT) and the linker flag /OPT:REF (strip unreferenced
     // functions and data) is used, the constructors get stripped. To prevent
     // this, give the constructors weak ODR linkage and ensure the linker knows

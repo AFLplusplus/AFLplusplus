@@ -1,4 +1,4 @@
-# custum mutator: libradamsa
+# custom mutator: libradamsa
 
 Pretranslated radamsa library. This code belongs to the radamsa author.
 

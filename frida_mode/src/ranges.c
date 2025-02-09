@@ -37,7 +37,7 @@ static void convert_address_token(gchar *token, GumMemoryRange *range) {
 
   if (token_count != 2) {
 
-    FFATAL("Invalid range (should have two addresses seperated by a '-'): %s\n",
+    FFATAL("Invalid range (should have two addresses separated by a '-'): %s\n",
            token);
 
   }

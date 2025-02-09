@@ -512,7 +512,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   }
 
   // we make this the default as the fixed map has problems with
-  // defered forkserver, early constructors, ifuncs and maybe more
+  // deferred forkserver, early constructors, ifuncs and maybe more
   /*if (getenv("AFL_LLVM_MAP_DYNAMIC"))*/
   map_addr = 0;
 

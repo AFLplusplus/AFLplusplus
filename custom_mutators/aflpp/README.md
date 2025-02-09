@@ -1,4 +1,4 @@
-# custum mutator: AFL++
+# custom mutator: AFL++
 
 this is the AFL++ havoc mutator as a custom mutator module for AFL++.
 

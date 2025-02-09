@@ -24,7 +24,7 @@
 
  */
 
-/* This file roughly folows afl-fuzz-asanfuzz */
+/* This file roughly follows afl-fuzz-asanfuzz */
 
 #include <sys/select.h>
 

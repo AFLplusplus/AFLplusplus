@@ -247,7 +247,7 @@ used if several separated instrumentations are performed which are then later
 combined.
 
   - `AFL_LLVM_LTO_CALLER` activates collision free CALLER instrumentation
-  - `AFL_LLVM_LTO_CALLER` sets the maximum mumber of single block functions
+  - `AFL_LLVM_LTO_CALLER` sets the maximum number of single block functions
     to dig deeper into a real function. Default 0.
   - `AFL_LLVM_DOCUMENT_IDS=file` will document to a file which edge ID was given
     to which function. This helps to identify functions with variable bytes or

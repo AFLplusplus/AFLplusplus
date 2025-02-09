@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
   #if defined(__linux__)
       if (sched_setaffinity(0, sizeof(c), &c)) {
 
-        const char *error_code = "Unkown error code";
+        const char *error_code = "Unknown error code";
         if (errno == EFAULT) error_code = "EFAULT";
         if (errno == EINVAL) error_code = "EINVAL";
         if (errno == EPERM) error_code = "EPERM";

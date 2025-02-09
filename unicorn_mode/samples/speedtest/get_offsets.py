@@ -43,7 +43,7 @@ for line in objdump_output.split("\n"):
     if "<main>:" in line:
         if main_loc is not None:
             raise Exception("Found multiple main functions, odd target!")
-        # main_loc is the label, so it's parsed differntly (i.e. `0000000000001220 <main>:`)
+        # main_loc is the label, so it's parsed differently (i.e. `0000000000001220 <main>:`)
         main_loc = "0x" + line.strip().split(" ", 1)[0].strip()
     else:
         [

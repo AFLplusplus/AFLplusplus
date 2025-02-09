@@ -151,7 +151,7 @@ def deinit():  # optional for Python
     splicing - or anything else - and can also be ignored. If you are not
     using this additional data then define `splice_optout` (see above).
     This function is optional.
-    Returing a length of 0 is valid and is interpreted as skipping this
+    Returning a length of 0 is valid and is interpreted as skipping this
     one mutation result.
     For non-Python: the returned output buffer is under **your** memory
     management!

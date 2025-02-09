@@ -155,7 +155,7 @@ void destroy_custom_mutators(afl_state_t *afl) {
 
     LIST_FOREACH_CLEAR(&afl->custom_mutator_list, struct custom_mutator, {
 
-      if (!el->data) { FATAL("Deintializing NULL mutator"); }
+      if (!el->data) { FATAL("Deinitializing NULL mutator"); }
       if (el->afl_custom_deinit) el->afl_custom_deinit(el->data);
       if (el->dh) dlclose(el->dh);
 

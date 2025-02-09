@@ -6185,7 +6185,7 @@ u8 fuzz_one(afl_state_t *afl) {
 #endif
 
   /*
-     -L command line paramter => limit_time_sig value
+     -L command line parameter => limit_time_sig value
        limit_time_sig == 0 then run the default mutator
        limit_time_sig  > 0 then run MOpt
        limit_time_sig  < 0 both are run

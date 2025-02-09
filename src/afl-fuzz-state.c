@@ -764,7 +764,7 @@ void afl_state_deinit(afl_state_t *afl) {
 void afl_states_stop(void) {
 
   /* We may be inside a signal handler.
-   Set flags first, send kill signals to child proceses later. */
+   Set flags first, send kill signals to child processes later. */
   LIST_FOREACH(&afl_states, afl_state_t, {
 
     el->stop_soon = 1;

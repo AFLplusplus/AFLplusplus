@@ -1,4 +1,4 @@
-# custum mutator: symcc
+# custom mutator: symcc
 
 This uses the symcc to find new paths into the target.
 
