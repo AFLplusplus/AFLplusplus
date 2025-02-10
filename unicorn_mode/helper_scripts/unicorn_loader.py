@@ -26,7 +26,7 @@ from unicorn.arm64_const import *
 from unicorn.x86_const import *
 from unicorn.mips_const import *
 
-# If Capstone libraries are availible (only check once)
+# If Capstone libraries are available (only check once)
 try:
     from capstone import *
 

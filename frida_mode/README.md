@@ -200,10 +200,10 @@ instrumented address block translations.
 * `AFL_FRIDA_INST_NO_SUPPRESS` - Disable deterministic branch suppression.
   Deterministic branch suppression skips the preamble which generates coverage
   information at the start of each block, if the block is reached by a
-  deterministic branch. This reduces map polution, and may improve performance
+  deterministic branch. This reduces map pollution, and may improve performance
   when all the executing blocks have been prefetched and backpatching applied.
   However, in the event that backpatching is incomplete, this may incur a
-  performance penatly as branch instructions are disassembled on each branch.
+  performance penalty as branch instructions are disassembled on each branch.
 * `AFL_FRIDA_INST_SEED` - Sets the initial seed for the hash function used to
   generate block (and hence edge) IDs. Setting this to a constant value may be
   useful for debugging purposes, e.g., investigating unstable edges.
@@ -215,7 +215,7 @@ instrumented address block translations.
   coverage information for unstable edges (e.g., to be loaded within IDA
   lighthouse).
 * `AFL_FRIDA_JS_SCRIPT` - Set the script to be loaded by the FRIDA scripting
-  engine. See [Scipting.md](Scripting.md) for details.
+  engine. See [Scripting.md](Scripting.md) for details.
 * `AFL_FRIDA_OUTPUT_STDOUT` - Redirect the standard output of the target
   application to the named file (supersedes the setting of `AFL_DEBUG_CHILD`).
 * `AFL_FRIDA_OUTPUT_STDERR` - Redirect the standard error of the target

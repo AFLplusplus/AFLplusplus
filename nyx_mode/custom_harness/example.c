@@ -17,14 +17,14 @@ int main(int argc, char **argv) {
    */
   hprintf("Agent test\n");
 
-  /* Request information on available (host) capabilites (optional) */
+  /* Request information on available (host) capabilities (optional) */
   host_config_t host_config;
   kAFL_hypercall(HYPERCALL_KAFL_GET_HOST_CONFIG, (uintptr_t)&host_config);
-  hprintf("[capablities] host_config.bitmap_size: 0x%" PRIx64 "\n",
+  hprintf("[capabilities] host_config.bitmap_size: 0x%" PRIx64 "\n",
           host_config.bitmap_size);
-  hprintf("[capablities] host_config.ijon_bitmap_size: 0x%" PRIx64 "\n",
+  hprintf("[capabilities] host_config.ijon_bitmap_size: 0x%" PRIx64 "\n",
           host_config.ijon_bitmap_size);
-  hprintf("[capablities] host_config.payload_buffer_size: 0x%" PRIx64 "x\n",
+  hprintf("[capabilities] host_config.payload_buffer_size: 0x%" PRIx64 "x\n",
           host_config.payload_buffer_size);
 
   /* this is our "bitmap" that is later shared with the fuzzer (you can also
@@ -47,9 +47,9 @@ int main(int argc, char **argv) {
           */
   agent_config.agent_tracing =
       1; /* set this flag to propagade that instrumentation-based fuzzing is
-            availabe */
+            available */
   agent_config.agent_ijon_tracing = 0; /* set this flag to propagade that IJON
-                                          extension is implmented agent-wise */
+                                          extension is implemented agent-wise */
   agent_config.trace_buffer_vaddr =
       (uintptr_t)trace_buffer; /* trace "bitmap" pointer - required for
                                   instrumentation-only fuzzing */
@@ -106,8 +106,8 @@ int main(int argc, char **argv) {
             if (payload_buffer->data[3] == 'X') {
 
               ((uint8_t *)trace_buffer)[4] = 0x1;
-              /* Notifiy the hypervisor and the fuzzer that a "crash" has
-               * occured. Also a string is passed by this hypercall (this is
+              /* Notify the hypervisor and the fuzzer that a "crash" has
+               * occurred. Also a string is passed by this hypercall (this is
                * currently not supported by AFL++-Nyx) */
               kAFL_hypercall(HYPERCALL_KAFL_PANIC_EXTENDED,
                              (uintptr_t) "Something went wrong\n");

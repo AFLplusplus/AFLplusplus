@@ -1014,7 +1014,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      case 'Y':  // fallthough
+      case 'Y':  // fallthrough
 #ifdef __linux__
       case 'X':                                                 /* NYX mode */
 
@@ -1027,7 +1027,7 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 #else
       case 'X':
-        FATAL("Nyx mode is only availabe on linux...");
+        FATAL("Nyx mode is only available on linux...");
         break;
 #endif
 
@@ -1035,7 +1035,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         /* Minimizes a testcase to the minimum that still times out */
 
-        if (hang_mode) { FATAL("Multipe -H options not supported"); }
+        if (hang_mode) { FATAL("Multiple -H options not supported"); }
         if (edges_only) {
 
           FATAL("Edges only and hang mode are mutually exclusive.");

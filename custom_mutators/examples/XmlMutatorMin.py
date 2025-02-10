@@ -304,7 +304,7 @@ class XmlMutatorMin:
 
         # Log something
         if self.verbose:
-            print("Reseting tag #%i '%s'" % (rand_elem_id, rand_elem.tag))
+            print("Resetting tag #%i '%s'" % (rand_elem_id, rand_elem.tag))
 
         # Reset the node
         rand_elem.clear()

@@ -1468,7 +1468,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     }
 
-    /* Cache full. We neet to evict one or more to map one.
+    /* Cache full. We need to evict one or more to map one.
        Get a random one which is not in use */
 
     do {

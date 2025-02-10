@@ -1,4 +1,4 @@
-# custum mutator: symqemu
+# custom mutator: symqemu
 
 This uses the symcc to find new paths into the target.
 

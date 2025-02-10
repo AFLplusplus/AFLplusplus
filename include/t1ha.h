@@ -63,7 +63,7 @@
  *      // To enable unaligned access, but indicate that it significantly slow.
  *      #define T1HA_SYS_UNALIGNED_ACCESS 1
  *
- *      // To enable unaligned access, and indicate that it effecient.
+ *      // To enable unaligned access, and indicate that it's efficient.
  *      #define T1HA_SYS_UNALIGNED_ACCESS 2
  *
  *
@@ -512,7 +512,7 @@ T1HA_API uint64_t t1ha2_atonce128(uint64_t *__restrict extra_result,
                                   uint64_t seed);
 
 /* The init/update/final trinity for streaming.
- * Return 64 or 128-bit result depentently from `extra_result` argument. */
+ * Return 64 or 128-bit result dependently from `extra_result` argument. */
 T1HA_API void t1ha2_init(t1ha_context_t *ctx, uint64_t seed_x, uint64_t seed_y);
 T1HA_API void t1ha2_update(t1ha_context_t *__restrict ctx,
                            const void *__restrict data, size_t length);

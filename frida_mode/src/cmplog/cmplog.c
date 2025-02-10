@@ -166,7 +166,7 @@ gboolean cmplog_is_readable(guint64 addr, size_t size) {
    */
   if (addr < DEFAULT_MMAP_MIN_ADDR) { return false; }
 
-  /* Check our addres/length don't wrap around */
+  /* Check our address/length don't wrap around */
   if (SIZE_MAX - addr < size) { return false; }
 
   GumAddress inner_base = addr;

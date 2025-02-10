@@ -171,7 +171,7 @@ def dump_process_memory(output_dir):
 
 
 # ---------------------------------------------
-# ---- ARM Extention (dump floating point regs)
+# ---- ARM Extension (dump floating point regs)
 
 
 def dump_float(rge=32):

@@ -33,6 +33,7 @@
 #endif
 
 #include "cmplog.h"
+#include "asanfuzz.h"
 
 #ifdef PROFILING
 u64 time_spent_working = 0;

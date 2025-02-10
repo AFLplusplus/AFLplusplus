@@ -175,7 +175,7 @@ static void find_libc(void) {
 }
 
 /* Why this shit? https://twitter.com/andreafioraldi/status/1227635146452541441
-   Unfortunatly, symbol override with LD_PRELOAD is not enough to prevent libc
+   Unfortunately, symbol override with LD_PRELOAD is not enough to prevent libc
    code to call this optimized XMM-based routines.
    We patch them at runtime to call our unoptimized version of the same routine.
 */
