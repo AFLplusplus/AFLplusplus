@@ -118,8 +118,7 @@ static char *afl_environment_variables[] = {
     "AFL_CFISAN_VERBOSE", "AFL_USE_LSAN", "AFL_WINE_PATH", "AFL_NO_SNAPSHOT",
     "AFL_EXPAND_HAVOC_NOW", "AFL_USE_FASAN", "AFL_USE_QASAN",
     "AFL_PRINT_FILENAMES", "AFL_PIZZA_MODE", "AFL_NO_FASTRESUME",
-    "AFL_SAN_ABSTRACTION", "AFL_SAN_NO_INST", "AFL_SAN_RECOVER", NULL
-};
+    "AFL_SAN_ABSTRACTION", "AFL_SAN_NO_INST", "AFL_SAN_RECOVER", NULL};
 
 extern char *afl_environment_variables[];
 

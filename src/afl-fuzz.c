@@ -2249,7 +2249,9 @@ int main(int argc, char **argv_orig, char **envp) {
   // so that we won't overwrite target_path.
   // Lazymio: why does cmplog fsrv even work?!
   for (u8 i = 0; i < afl->san_binary_length; i++) {
+
     check_binary(afl, afl->san_binary[i]);
+
   }
 
   check_binary(afl, argv[optind]);
@@ -3611,11 +3613,10 @@ stop_fuzzing:
 
     ck_free(afl->san_fsrvs[i].trace_bits);
     afl_fsrv_deinit(&afl->san_fsrvs[i]);
+
   }
 
-  if (afl->cmplog_binary) {
-    afl_fsrv_deinit(&afl->cmplog_fsrv);
-  }
+  if (afl->cmplog_binary) { afl_fsrv_deinit(&afl->cmplog_fsrv); }
 
   /* remove tmpfile */
   if (!afl->in_place_resume && afl->fsrv.out_file) {

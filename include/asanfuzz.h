@@ -7,9 +7,9 @@
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
-                     Heiko Eißfeldt <heiko.eissfeldt@hexco.de>,
+                     Dominik Maier <mail@dmnk.co>,
                      Andrea Fioraldi <andreafioraldi@gmail.com>,
-                     Dominik Maier <mail@dmnk.co>
+                     Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2023 AFLplusplus Project. All rights reserved.
@@ -36,9 +36,13 @@
 #define NON_COV_INCREASE_BUG (1 << 5)
 
 enum SanitizerAbstraction {
-  SIMPLIFY_TRACE = 0, // Feed all unique trace to sanitizers, the most sensitive
+
+  SIMPLIFY_TRACE = 0,  // Feed all unique trace to sanitizers, the
+                       // most sensitive
   UNIQUE_TRACE,
-  COVERAGE_INCREASE // Feed all coverage increasing cases to sanitizers, the least sensitive
+  COVERAGE_INCREASE  // Feed all coverage increasing cases to sanitizers, the
+                     // least sensitive
+
 };
 
 /* Execs the child */

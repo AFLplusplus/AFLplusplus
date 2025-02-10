@@ -225,18 +225,20 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   if (getenv("AFL_SAN_NO_INST")) {
-    if (debug) {
-      fprintf(stderr, "Instrument disabled\n");
-    }
+
+    if (debug) { fprintf(stderr, "Instrument disabled\n"); }
     return PreservedAnalyses::all();
+
   }
+
 #else
   if (getenv("AFL_SAN_NO_INST")) {
-    if (debug) {
-      fprintf(stderr, "Instrument disabled\n");
-    }
+
+    if (debug) { fprintf(stderr, "Instrument disabled\n"); }
     return true;
+
   }
+
 #endif
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {

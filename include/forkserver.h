@@ -159,7 +159,8 @@ typedef struct afl_forkserver {
 
   bool debug;                           /* debug mode?                      */
 
-  u8 san_but_not_instrumented;          /* Is it sanitizer enabled but not instrumented? */
+  u8 san_but_not_instrumented; /* Is it sanitizer enabled but not instrumented?
+                                */
 
   bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
   u8   crash_exitcode;                  /* The crash exitcode specified     */

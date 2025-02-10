@@ -32,7 +32,8 @@
 
 void sanfuzz_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->asanfuzz_binary) {
+  if (!fsrv->qemu_mode && !fsrv->frida_mode &&
+      argv[0] != fsrv->asanfuzz_binary) {
 
     argv[0] = fsrv->asanfuzz_binary;
 
@@ -41,3 +42,4 @@ void sanfuzz_exec_child(afl_forkserver_t *fsrv, char **argv) {
   execv(fsrv->target_path, argv);
 
 }
+

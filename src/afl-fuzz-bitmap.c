@@ -543,8 +543,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       simplify_trace(afl, afl->san_fsrvs[0].trace_bits);
 
       // Note: Original SAND implementation used XXHASH32
-      cksum_simplified = hash32(afl->san_fsrvs[0].trace_bits,
-                                      afl->fsrv.map_size, HASH_CONST);
+      cksum_simplified =
+          hash32(afl->san_fsrvs[0].trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       if (unlikely(!bitmap_read(afl->simplified_n_fuzz, cksum_simplified))) {
 

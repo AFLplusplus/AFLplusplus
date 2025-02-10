@@ -97,7 +97,7 @@
 /* Maximum allowed fails per CMP value. Default: 96 */
 #define CMPLOG_FAIL_MAX 96
 
-/* 
+/*
  * Effective fuzzing with selective feeding inputs
  */
 

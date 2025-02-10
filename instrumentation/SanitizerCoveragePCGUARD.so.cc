@@ -262,15 +262,19 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
   };
 
   // TODO: Support LTO or llvm classic?
-  // Note we still need afl-compiler-rt so we just disable the instrumentation here.
+  // Note we still need afl-compiler-rt so we just disable the instrumentation
+  // here.
   if (!getenv("AFL_SAN_NO_INST")) {
+
     if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
       return PreservedAnalyses::none();
+
   } else {
-    if (getenv("AFL_DEBUG")) {
-      DEBUGF("Instrument disabled\n");
-    }
+
+    if (getenv("AFL_DEBUG")) { DEBUGF("Instrument disabled\n"); }
+
   }
+
   return PreservedAnalyses::all();
 
 }
