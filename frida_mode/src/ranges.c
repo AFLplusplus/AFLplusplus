@@ -116,6 +116,28 @@ static void convert_address_token(gchar *token, GumMemoryRange *range) {
 
 }
 
+#ifdef GUM_16_6_PLUS
+static gboolean convert_name_token_for_module(GumModule *module,
+                                              gpointer user_data) {
+
+  convert_name_ctx_t *ctx = (convert_name_ctx_t *)user_data;
+  const GumMemoryRange *range = gum_module_get_range(module);
+  const gchar          *path = gum_module_get_path(module);
+  if (path == NULL) { return true; };
+
+  if (!g_str_has_suffix(path, ctx->suffix)) { return true; };
+
+  FVERBOSE("Found module - prefix: %s, 0x%016" G_GINT64_MODIFIER
+           "x-0x%016" G_GINT64_MODIFIER "x %s",
+           ctx->suffix, range->base_address,
+           range->base_address + range->size, path);
+
+  *ctx->range = *range;
+  ctx->done = true;
+  return false;
+
+}
+#else
 static gboolean convert_name_token_for_module(const GumModuleDetails *details,
                                               gpointer user_data) {
 
@@ -134,6 +156,7 @@ static gboolean convert_name_token_for_module(const GumModuleDetails *details,
   return false;
 
 }
+#endif
 
 static void convert_name_token(gchar *token, GumMemoryRange *range) {
 
@@ -713,4 +736,3 @@ void ranges_exclude() {
   }
 
 }
-
