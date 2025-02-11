@@ -17,6 +17,22 @@ inline u32 classify_word(u32 word) {
 
 }
 
+inline void classify_counts_mem(u32 *mem, u32 size) {
+
+  u32 i = (size >> 2);
+
+  while (i--) {
+
+    /* Optimize for sparse bitmaps. */
+
+    if (unlikely(*mem)) { *mem = classify_word(*mem); }
+
+    mem++;
+
+  }
+
+}
+
 void simplify_trace(afl_state_t *afl, u8 *bytes) {
 
   u32 *mem = (u32 *)bytes;
