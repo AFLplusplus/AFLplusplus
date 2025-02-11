@@ -39,6 +39,7 @@ typedef struct {
 static guint64 text_base = 0;
 static guint64 text_limit = 0;
 
+#ifdef GUM_16_6_PLUS
 static gboolean lib_find_exe(GumModule *module,
                              gpointer  user_data) {
 
@@ -56,6 +57,22 @@ static gboolean lib_find_exe(GumModule *module,
   return FALSE;
 
 }
+#else
+static gboolean lib_find_exe(const GumModuleDetails *details,
+                             gpointer                user_data) {
+
+  lib_details_t *lib_details = (lib_details_t *)user_data;
+
+  strncpy(lib_details->name, details->name, PATH_MAX);
+  strncpy(lib_details->path, details->path, PATH_MAX);
+  lib_details->name[PATH_MAX] = '\0';
+  lib_details->path[PATH_MAX] = '\0';
+  lib_details->base_address = details->range->base_address;
+  lib_details->size = details->range->size;
+  return FALSE;
+
+}
+#endif
 
 static void lib_validate_hdr(Elf_Ehdr *hdr) {
 

@@ -12,6 +12,7 @@ extern void        gum_darwin_enumerate_modules(mach_port_t        task,
 static guint64 text_base = 0;
 static guint64 text_limit = 0;
 
+#ifdef GUM_16_6_PLUS
 static gboolean lib_get_main_module(GumModule *module,
                                     gpointer  user_data) {
 
@@ -29,6 +30,23 @@ static gboolean lib_get_main_module(GumModule *module,
   return FALSE;
 
 }
+#else
+static gboolean lib_get_main_module(const GumModuleDetails *details,
+                                    gpointer                user_data) {
+
+  GumDarwinModule **ret = (GumDarwinModule **)user_data;
+  GumDarwinModule  *module = gum_darwin_module_new_from_memory(
+      details->path, mach_task_self(), details->range->base_address,
+      GUM_DARWIN_MODULE_FLAGS_NONE, NULL);
+
+  FVERBOSE("Found main module: %s", module->name);
+
+  *ret = module;
+
+  return FALSE;
+
+}
+#endif
 
 gboolean lib_get_text_section(const GumDarwinSectionDetails *details,
                               gpointer                       user_data) {

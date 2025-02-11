@@ -262,9 +262,13 @@ static int prefetch_on_fork(void) {
 }
 
 static void prefetch_hook_fork(void) {
-
+#ifdef GUM_16_6_PLUS
   void *fork_addr =
       GSIZE_TO_POINTER(gum_module_find_global_export_by_name("fork"));
+#else
+  void *fork_addr =
+      GSIZE_TO_POINTER(gum_module_find_export_by_name(NULL, "fork"));
+#endif
   intercept_hook(fork_addr, prefetch_on_fork, NULL);
 
 }
