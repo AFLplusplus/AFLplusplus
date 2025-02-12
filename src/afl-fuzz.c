@@ -2849,6 +2849,7 @@ int main(int argc, char **argv_orig, char **envp) {
     for (u32 i = 0; i < afl->queued_items; i++) {
 
       q = afl->queue_buf[i];
+      // this is very dirty and assumes nice memory :-)
       ZLIBREAD(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
       ZLIBREAD(fr_fd, res, 1, "check map");
       if (res[0]) {

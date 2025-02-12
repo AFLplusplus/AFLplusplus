@@ -28,6 +28,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "asanfuzz.h"
+
+static u16 count_class_lookup16[65536];
+
+/* Destructively simplify trace by eliminating hit count information
+   and replacing it with 0x80 or 0x01 depending on whether the tuple
+   is hit or not. Called on every new crash or timeout, should be
+   reasonably fast. */
+static const u8 simplify_lookup[256] = {
+
+    [0] = 1, [1 ... 255] = 128
+
+};
+
+/* Destructively classify execution counts in a trace. This is used as a
+   preprocessing step for any newly acquired traces. Called on every exec,
+   must be fast. */
+
+static const u8 count_class_lookup8[256] = {
+
+    [0] = 0,
+    [1] = 1,
+    [2] = 2,
+    [3] = 4,
+    [4 ... 7] = 8,
+    [8 ... 15] = 16,
+    [16 ... 31] = 32,
+    [32 ... 127] = 64,
+    [128 ... 255] = 128
+
+};
+
+/* Import coverage processing routines. */
+
+#ifdef WORD_SIZE_64
+  #include "coverage-64.h"
+#else
+  #include "coverage-32.h"
+#endif
+
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
@@ -146,36 +185,6 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
 
 }
 
-/* Destructively simplify trace by eliminating hit count information
-   and replacing it with 0x80 or 0x01 depending on whether the tuple
-   is hit or not. Called on every new crash or timeout, should be
-   reasonably fast. */
-const u8 simplify_lookup[256] = {
-
-    [0] = 1, [1 ... 255] = 128
-
-};
-
-/* Destructively classify execution counts in a trace. This is used as a
-   preprocessing step for any newly acquired traces. Called on every exec,
-   must be fast. */
-
-const u8 count_class_lookup8[256] = {
-
-    [0] = 0,
-    [1] = 1,
-    [2] = 2,
-    [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
-    [128 ... 255] = 128
-
-};
-
-u16 count_class_lookup16[65536];
-
 void init_count_class16(void) {
 
   u32 b1, b2;
@@ -192,14 +201,6 @@ void init_count_class16(void) {
   }
 
 }
-
-/* Import coverage processing routines. */
-
-#ifdef WORD_SIZE_64
-  #include "coverage-64.h"
-#else
-  #include "coverage-32.h"
-#endif
 
 /* Check if the current execution path brings anything new to the table.
    Update virgin bits to reflect the finds. Returns 1 if the only change is
@@ -538,7 +539,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       memcpy(afl->san_fsrvs[0].trace_bits, afl->fsrv.trace_bits,
              afl->fsrv.map_size);
-      classify_counts_mem((u64 *)afl->san_fsrvs[0].trace_bits,
+      classify_counts_mem((_AFL_INTSIZEVAR *)afl->san_fsrvs[0].trace_bits,
                           afl->fsrv.map_size);
       simplify_trace(afl, afl->san_fsrvs[0].trace_bits);
 

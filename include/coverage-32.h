@@ -1,8 +1,15 @@
+#ifndef _COVERAGE_H
+
+#define _COVERAGE_H
+
 #include "config.h"
 #include "types.h"
 
-u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end);
-u32 classify_word(u32 word);
+#define _AFL_INTSIZEVAR u32
+
+u32  skim(const u32 *virgin, const u32 *current, const u32 *current_end);
+u32  classify_word(u32 word);
+void classify_counts_mem(u32 *mem, u32 size);
 
 inline u32 classify_word(u32 word) {
 
@@ -14,6 +21,22 @@ inline u32 classify_word(u32 word) {
 
   memcpy(&word, mem16, sizeof(mem16));
   return word;
+
+}
+
+inline void classify_counts_mem(u32 *mem, u32 size) {
+
+  u32 i = (size >> 2);
+
+  while (i--) {
+
+    /* Optimize for sparse bitmaps. */
+
+    if (unlikely(*mem)) { *mem = classify_word(*mem); }
+
+    mem++;
+
+  }
 
 }
 
@@ -109,4 +132,6 @@ inline u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end) {
   return 0;
 
 }
+
+#endif
 
