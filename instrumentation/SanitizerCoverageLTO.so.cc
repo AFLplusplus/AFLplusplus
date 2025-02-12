@@ -2005,8 +2005,11 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     }
 
-    extra_ctx_inst += inst_in_this_func * (call_counter - 1);
-    afl_global_id += extra_ctx_inst;
+    uint32_t extra_ctx_inst_in_this_func =
+        inst_in_this_func * (call_counter - 1);
+
+    extra_ctx_inst += extra_ctx_inst_in_this_func;
+    afl_global_id += extra_ctx_inst_in_this_func;
 
   }
 
