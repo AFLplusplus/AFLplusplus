@@ -272,12 +272,6 @@ ifeq "$(LLVM_LTO)" "1"
   endif
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fdebug-prefix-map=$(CURDIR)=llvm_mode -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-        AFL_CLANG_DEBUG_PREFIX = -fdebug-prefix-map="$(CURDIR)=llvm_mode"
-else
-        AFL_CLANG_DEBUG_PREFIX =
-endif
-
 CFLAGS          ?= -O3 -funroll-loops -fPIC
 # -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \
@@ -288,7 +282,7 @@ CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sig
                    -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
                    -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
                    -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) \
-                   -Wno-unused-function $(AFL_CLANG_DEBUG_PREFIX)
+                   -Wno-unused-function
 ifndef LLVM_DEBUG
   CFLAGS_SAFE += -Wno-deprecated
 endif
