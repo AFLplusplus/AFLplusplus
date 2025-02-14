@@ -295,6 +295,8 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
    *  CALL instrument_afl_persistent_loop
    *  CALL hook (optionally)
    *  RESTORE REGS
+   *  CALL INSTRUMENTED PERSISTENT FUNC
+   *  JMP loop
    *  INSTRUMENTED PERSISTENT FUNC
    */
 
@@ -302,15 +304,25 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   FVERBOSE("Persistent loop reached");
 
+  /* This is the location our epilogue should be written below */
   if (persistent_ret == 0) { instrument_persitent_save_lr(cw); }
 
   /* Save the current context */
   instrument_persitent_save_regs(cw, &saved_regs);
 
-  /* Store a pointer to where we should return for our next iteration */
+  /*
+   * Store a pointer to where we should return for our next iteration.
+   * This is the location our epilogue should branch to
+   */
   persistent_loop = gum_arm64_writer_cur(cw);
 
-  /* call __afl_persistent_loop and _exit if zero. Also reset our previous_pc */
+  gconstpointer loop = cw->code + 1;
+  gum_arm64_writer_put_label(cw, loop);
+
+  /*
+   * call __afl_persistent_loop which will _exit if we have reached our
+   * loop count. Also reset our previous_pc
+   */
   instrument_afl_persistent_loop(cw);
 
   /* Optionally call the persistent hook */
@@ -318,6 +330,27 @@ void persistent_prologue_arch(GumStalkerOutput *output) {
 
   /* Restore our CPU context before we continue execution */
   instrument_persitent_restore_regs(cw, &saved_regs);
+
+  gconstpointer original = cw->code + 1;
+
+  /*
+   * Call our original code, that way we regain control if our target
+   * function returns without reaching the epilogue as an additional
+   * safety net
+   */
+  gum_arm64_writer_put_bl_label(cw, original);
+
+  /*
+   * Return for our next iteration if our original function returns
+   * and control hasn't reached the epilogue for some reason
+   */
+  gum_arm64_writer_put_b_label(cw, loop);
+
+  /*
+   * The original code for our target function will be emitted
+   * immediately following this
+   */
+  gum_arm64_writer_put_label(cw, original);
 
   if (persistent_debug) { gum_arm64_writer_put_brk_imm(cw, 0); }
 
