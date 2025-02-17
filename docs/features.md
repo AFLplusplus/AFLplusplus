@@ -106,6 +106,7 @@ Among others, the following features and patches have been integrated:
 * Win32 PE binary-only fuzzing with QEMU and Wine
 * AFLfast's power schedules by Marcel Böhme:
   [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
+* The new deterministic mode [MendelFuzz](https://mpi-softsec.github.io/papers/FSE25-mendelfuzz.pdf)
 * The MOpt mutator:
   [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
 * LLVM mode Ngram coverage by Adrian Herrera
