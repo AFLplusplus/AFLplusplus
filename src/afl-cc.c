@@ -1152,7 +1152,8 @@ void instrument_mode_by_environ(aflcc_state_t *aflcc) {
 static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
   if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER)) {
+      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+      aflcc->compiler_mode != LTO) {
 
     FATAL("you cannot set CTX and CALLER together");
 
