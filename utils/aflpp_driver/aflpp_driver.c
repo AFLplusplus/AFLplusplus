@@ -392,10 +392,6 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
   __afl_manual_init();
 
-  // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
-  // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  callback(dummy_input, 4);
-
   __asan_poison_memory_region(__afl_fuzz_ptr, MAX_FILE);
   size_t prev_length = 0;
 
