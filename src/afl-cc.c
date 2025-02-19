@@ -181,7 +181,7 @@ typedef struct aflcc_state {
       have_pic, have_c, shared_linking, partial_linking, non_dash, have_fp,
       have_flto, have_hidden, have_fortify, have_fcf, have_staticasan,
       have_rust_asanrt, have_asan, have_msan, have_ubsan, have_lsan, have_tsan,
-      have_cfisan;
+      have_cfisan, have_rtsan;
 
   // u8 *march_opt;
   u8  need_aflpplib;
@@ -2032,6 +2032,11 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   }
 
+  if (getenv("AFL_USE_RTSAN") && !aflcc->have_rtsan) {
+    insert_param(aflcc, "-fsanitize=realtime");
+    aflcc->have_rtsan = 1;
+  }
+
   if (getenv("AFL_USE_CFISAN") || aflcc->have_cfisan) {
 
     if (aflcc->compiler_mode == GCC_PLUGIN || aflcc->compiler_mode == GCC) {
@@ -2972,7 +2977,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "  AFL_USE_MSAN: activate memory sanitizer\n"
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
           "  AFL_USE_TSAN: activate thread sanitizer\n"
-          "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
+          "  AFL_USE_LSAN: activate leak-checker sanitizer\n"
+          "  AFL_USE_RTSAN: activate realtime sanitizer\n");
 
       if (aflcc->have_gcc_plugin)
         SAYF(
