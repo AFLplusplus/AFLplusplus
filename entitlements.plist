@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/ PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>research.com.apple.license-to-operate</key> <true/>
+	<key>application-identifier</key> <string>aflplusplus</string>
+	<key>com.apple.asl.access_as_root</key> <true/>
+	<key>com.apple.backboardd.launchapplications</key> <true/>
+	<key>com.apple.companionappd.connect.allow</key> <true/>
+	<key>com.apple.multitasking.termination</key> <true/>
+	<key>com.apple.private.security.container-required</key> <false/>
+	<key>com.apple.seld.cm</key> <true/>
+	<key>com.apple.sh</key> <true/>
+	<key>com.apple.private.thread-set-state</key> <true/>
+	<key>com.apple.private.cs.debugger</key> <true/>
+	<key>com.apple.springboard.debugapplications</key> <true/>
+	<key>com.apple.springboard.launchapplications</key> <true/>
+	<key>com.apple.springboard.opensensitiveurl</key> <true/>
+	<key>dynamic-codesigning</key> <true/>
+	<key>get-task-allow</key> <true/>
+	<key>platform-application</key> <true/>
+	<key>run-unsigned-code</key> <true/>
+	<key>task_for_pid-allow</key> <true/>
+	<key>com.apple.private.skip-library-validation</key> <true/>
+	<key>com.apple.private.amfi.can-load-cdhash</key> <true/>
+	<key>com.apple.private.amfi.can-execute-cdhash</key> <true/>
+	<key>com.apple.private.security.no-container</key> <true/>
+</dict>
+</plist>

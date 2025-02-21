@@ -19,11 +19,15 @@ TARGET_CC?=$(CC)
 TARGET_CXX?=$(CXX)
 HOST_CC?=$(CC)
 HOST_CXX?=$(CXX)
-IS_ANDROID:=$(findstring android, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_x86:=$(findstring i686, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_x86_64:=$(findstring x86_64, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_ARM:=$(findstring arm, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_ARM64:=$(findstring aarch64, $(shell $(TARGET_CC) --version 2>/dev/null))
+TARGET_CC_INFO=$(shell $(TARGET_CC) --version)
+IS_IOS:=$(findstring ios, $(TARGET_CC_INFO))
+IS_SIMULATOR:=$(findstring sim, $(TARGET_CC_INFO))
+IS_ANDROID:=$(findstring android, $(TARGET_CC_INFO))
+IS_x86:=$(findstring i686, $(TARGET_CC_INFO))
+IS_x86_64:=$(findstring x86_64, $(TARGET_CC_INFO))
+IS_ARM:=$(findstring arm, $(TARGET_CC_INFO))
+IS_ARM64E:=$(findstring arm64e, $(TARGET_CC_INFO))
+IS_ARM64 := $(or $(findstring aarch64,$(TARGET_CC_INFO)), $(findstring arm64,$(TARGET_CC_INFO)))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
 		-D_FORTIFY_SOURCE=2 \
@@ -95,7 +99,22 @@ endif
 
 GUM_ARCH="-$(ARCH)"
 
-ifeq "$(shell uname)" "Darwin"
+ifdef IS_IOS
+ OS:=ios
+ ifdef IS_SIMULATOR
+  ifdef IS_x86_64
+   ARCH := x86_64-simulator
+  else ifdef IS_ARM64
+   ARCH := arm64-simulator
+  endif
+ else
+  ifdef IS_ARM64E
+   ARCH := arm64e
+  else ifdef IS_ARM64
+   ARCH := arm64
+  endif
+ endif
+else ifeq "$(shell uname)" "Darwin"
  OS:=macos
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
  GUM_ARCH:=""
@@ -382,6 +401,9 @@ $(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
 
 $(BIN2C): $(BIN2C_SRC)
 	$(HOST_CC) -D_GNU_SOURCE -o $@ $<
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 $(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
 	cd $(JS_DIR) && $(BIN2C) api_js $(JS) $@
@@ -422,8 +444,10 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 		$(TRACE_LDFLAGS) \
 		$(LDFLAGS) \
 		$(LDSCRIPT) \
-		-o $@ \
-
+		-o $@
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 	cp -v $(FRIDA_TRACE) $(ROOT)
 
 $(FRIDA_TRACE_LIB): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) $(AFL_PERFORMANCE_OBJ) GNUmakefile | $(BUILD_DIR)
@@ -439,9 +463,15 @@ $(FRIDA_TRACE_LIB): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $
 
 $(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(GUM_DEVIT_HEADER) | $(BUILD_DIR)
 	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 $(AFLPP_QEMU_DRIVER_HOOK_OBJ): $(AFLPP_QEMU_DRIVER_HOOK_SRC) | $(BUILD_DIR)
 	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 
