@@ -237,20 +237,21 @@ ifeq "$(LLVM_LTO)" "1"
     ifeq "$(AFL_REAL_LD)" ""
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
-      else ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
-        AFL_REAL_LD = $(shell command -v ld.lld)
-        TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
-        ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
-          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+      else
+        ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
+          AFL_REAL_LD = $(shell command -v ld.lld)
+          TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
+          ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
+            $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+          else
+            $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
+            AFL_REAL_LD=
+            LLVM_LTO = 0
+          endif
         else
-          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
-          AFL_REAL_LD=
+          $(warning ld.lld not found, cannot enable LTO mode)
           LLVM_LTO = 0
         endif
-        undefine TMP_LDLDD_VERSION
-      else
-        $(warning ld.lld not found, cannot enable LTO mode)
-        LLVM_LTO = 0
       endif
     endif
   else
