@@ -72,7 +72,7 @@ endif
 
 IS_IOS:=$(findstring ios, $(shell $(CC) --version 2>/dev/null))
 ifdef IS_IOS
-  override CFLAGS += -DTARGET_OS_IPHONE -DTARGET_OS_IOS
+  override CFLAGS += -DTARGET_OS_IPHONE -DTARGET_OS_IOS -isysroot $(IOS_SDK_PATH)
 endif
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
