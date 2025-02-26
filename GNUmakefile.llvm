@@ -237,20 +237,21 @@ ifeq "$(LLVM_LTO)" "1"
     ifeq "$(AFL_REAL_LD)" ""
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
-      else ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
-        AFL_REAL_LD = $(shell command -v ld.lld)
-        TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
-        ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
-          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+      else
+        ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
+          AFL_REAL_LD = $(shell command -v ld.lld)
+          TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
+          ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
+            $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
+          else
+            $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
+            AFL_REAL_LD=
+            LLVM_LTO = 0
+          endif
         else
-          $(warning ld.lld found in a weird location ($(AFL_REAL_LD)) and its of a different version than LLMV ($(TMP_LDLDD_VERSION) vs. $(LLVMVER)) - cannot enable LTO mode)
-          AFL_REAL_LD=
+          $(warning ld.lld not found, cannot enable LTO mode)
           LLVM_LTO = 0
         endif
-        undefine TMP_LDLDD_VERSION
-      else
-        $(warning ld.lld not found, cannot enable LTO mode)
-        LLVM_LTO = 0
       endif
     endif
   else
@@ -272,12 +273,6 @@ ifeq "$(LLVM_LTO)" "1"
   endif
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fdebug-prefix-map=$(CURDIR)=llvm_mode -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-        AFL_CLANG_DEBUG_PREFIX = -fdebug-prefix-map="$(CURDIR)=llvm_mode"
-else
-        AFL_CLANG_DEBUG_PREFIX =
-endif
-
 IS_IOS          := $(findstring ios, $(shell $(CC) --version 2>/dev/null))
 
 CFLAGS          ?= -O3 -funroll-loops -fPIC
@@ -290,7 +285,7 @@ CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sig
                    -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
                    -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
                    -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) \
-                   -Wno-unused-function $(AFL_CLANG_DEBUG_PREFIX)
+                   -Wno-unused-function
 ifndef LLVM_DEBUG
   CFLAGS_SAFE += -Wno-deprecated
 endif

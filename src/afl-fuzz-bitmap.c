@@ -29,7 +29,7 @@
 #include <stdlib.h>
 #include "asanfuzz.h"
 
-static u16 count_class_lookup16[65536];
+u16 count_class_lookup16[65536];
 
 /* Destructively simplify trace by eliminating hit count information
    and replacing it with 0x80 or 0x01 depending on whether the tuple
