@@ -114,6 +114,8 @@ ifdef IS_IOS
    ARCH := arm64
   endif
  endif
+ override CFLAGS += -isysroot $(IOS_SDK_PATH)
+ override LDFLAGS += -L$(IOS_SDK_PATH)/usr/lib
 else ifeq "$(shell uname)" "Darwin"
  OS:=macos
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
@@ -402,7 +404,9 @@ $(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
 $(BIN2C): $(BIN2C_SRC)
 	$(HOST_CC) -D_GNU_SOURCE -o $@ $<
 ifdef IS_IOS
+ifeq ($(HOST_CC),$(TARGET_CC))
 	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 endif
 
 $(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
