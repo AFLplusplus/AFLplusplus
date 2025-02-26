@@ -173,6 +173,7 @@ works on both x86 and arm64 macOS boxes.
 ## iOS on arm64 and arm64e
 
 **Option 1: Compilation on jailbroken iOS (recommended)**
+
 To compile directly on a jailbroken iOS device, it is recommended to use a jailbreak that supports Procursus,
 as Procursus provides up-to-date pre-built packages for the required tools.
 
@@ -194,6 +195,7 @@ export CXX=clang++
 Then build following the general Linux instructions.
 
 **Option 2: Cross-Compilation on macOS for Jailbroken iOS**
+
 In addition to the packages required for a macOS build, install `ldid` for signing binaries:
 
 ```shell
