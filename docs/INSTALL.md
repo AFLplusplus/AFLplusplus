@@ -169,3 +169,45 @@ and definitely don't look POSIX-compliant. This means two things:
 User emulation mode of QEMU does not appear to be supported on macOS, so
 black-box instrumentation mode (`-Q`) will not work. However, FRIDA mode (`-O`)
 works on both x86 and arm64 macOS boxes.
+
+## iOS on arm64 and arm64e
+
+**Option 1: Compilation on jailbroken iOS (recommended)**
+To compile directly on a jailbroken iOS device, it is recommended to use a jailbreak that supports Procursus,
+as Procursus provides up-to-date pre-built packages for the required tools.
+
+Ensure `openssh` is installed on your iOS device, then SSH into it.
+Install the following packages:
+
+```shell
+sudo apt install wget git make cmake clang gawk llvm ldid coreutils build-essential xz-utils
+```
+
+Configure the environment for compilation:
+
+```shell
+export IOS_SDK_PATH="/usr/share/SDKs/iPhoneOS.sdk"
+export CC=clang
+export CXX=clang++
+```
+
+Then build following the general Linux instructions.
+
+**Option 2: Cross-Compilation on macOS for Jailbroken iOS**
+In addition to the packages required for a macOS build, install `ldid` for signing binaries:
+
+```shell
+brew install ldid-procursus
+```
+
+Configure the environment for compilation:
+
+```shell
+export IOS_SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+export CC="$(xcrun --sdk iphoneos -f clang) -target arm64-apple-ios14.0"
+export CXX="$(xcrun --sdk iphoneos -f clang++) -target arm64-apple-ios14.0"
+export HOST_CC=cc
+```
+
+Then build following the general Linux instructions.
+Finally, transfer the binaries to your iOS device.
