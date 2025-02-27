@@ -20,6 +20,10 @@ endif
 
 CFLAGS := -O3 -funroll-loops -g -fPIC
 
+ifdef IOS_SDK_PATH
+  CFLAGS += -isysroot $(IOS_SDK_PATH)
+endif
+
 all:	libAFLDriver.a libAFLQemuDriver.a aflpp_qemu_driver_hook.so
 
 aflpp_driver.o:	aflpp_driver.c

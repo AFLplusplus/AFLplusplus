@@ -70,6 +70,11 @@ ifdef CODE_COVERAGE
   override CFLAGS += -D__AFL_CODE_COVERAGE=1
 endif
 
+IS_IOS:=$(findstring ios, $(shell $(CC) --version 2>/dev/null))
+ifdef IS_IOS
+  override CFLAGS += -DTARGET_OS_IPHONE -DTARGET_OS_IOS -isysroot $(IOS_SDK_PATH)
+endif
+
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -101,17 +106,19 @@ else
   SPECIAL_PERFORMANCE :=
 endif
 
-ifneq "$(SYS)" "Darwin"
- #ifeq "$(HAVE_MARCHNATIVE)" "1"
- #  SPECIAL_PERFORMANCE += -march=native
- #endif
- #ifndef DEBUG
- #  override CFLAGS_OPT += -D_FORTIFY_SOURCE=1
- #endif
-else
-  # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
-  SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
-  override LDFLAGS += $(SDK_LD)
+ifndef IS_IOS
+  ifneq "$(SYS)" "Darwin"
+   #ifeq "$(HAVE_MARCHNATIVE)" "1"
+   #  SPECIAL_PERFORMANCE += -march=native
+   #endif
+   #ifndef DEBUG
+   #  override CFLAGS_OPT += -D_FORTIFY_SOURCE=1
+   #endif
+  else
+    # On some odd MacOS system configurations, the Xcode sdk path is not set correctly
+    SDK_LD = -L$(shell xcrun --show-sdk-path)/usr/lib
+    override LDFLAGS += $(SDK_LD)
+  endif
 endif
 
 COMPILER_TYPE=$(shell $(CC) --version|grep "Free Software Foundation")
@@ -479,18 +486,33 @@ src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(LDFLAGS)
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 .PHONY: document
 document:	afl-fuzz-document
@@ -498,6 +520,9 @@ document:	afl-fuzz-document
 # document all mutations and only do one run (use with only one input file!)
 afl-fuzz-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
 	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
@@ -505,6 +530,9 @@ test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittes
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
 	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_hash.c $(AFL_FUZZ_FILES) src/afl-performance.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(SPECIAL_PERFORMANCE) -c test/unittests/unit_hash.c -o test/unittests/unit_hash.o
@@ -512,6 +540,9 @@ test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit
 unit_hash: test/unittests/unit_hash.o src/afl-performance.o
 	@$(CC) $(CFLAGS) $(SPECIAL_PERFORMANCE) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_hash $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_hash
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_rand.c $(AFL_FUZZ_FILES) src/afl-performance.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(SPECIAL_PERFORMANCE) -c test/unittests/unit_rand.c -o test/unittests/unit_rand.o
@@ -519,6 +550,9 @@ test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit
 unit_rand: test/unittests/unit_rand.o src/afl-common.o src/afl-performance.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(SPECIAL_PERFORMANCE) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_rand  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_rand
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
@@ -526,6 +560,9 @@ test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list
 unit_list: test/unittests/unit_list.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_list
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
@@ -533,6 +570,9 @@ test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unitte
 unit_preallocable: test/unittests/unit_preallocable.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 .PHONY: unit_clean
 unit_clean:
