@@ -2944,7 +2944,7 @@ int main(int argc, char **argv_orig, char **envp) {
   for (entry = 0; entry < afl->queued_items; ++entry)
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
-  if (!afl->pending_not_fuzzed || !valid_seeds) {
+  if (!valid_seeds) {
 
     FATAL("We need at least one valid input seed that does not crash!");
 
