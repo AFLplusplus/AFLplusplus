@@ -79,11 +79,11 @@ LLVM 13 to 19 should be available in all current Linux repositories.
 
 That part is easy.
 Just set `LLVM_CONFIG` to the llvm-config-VERSION and build AFL++, e.g. for
-LLVM 15:
+LLVM 19:
 
 ```
 cd ~/AFLplusplus
-export LLVM_CONFIG=llvm-config-15
+export LLVM_CONFIG=llvm-config-19
 make
 sudo make install
 ```
@@ -96,7 +96,7 @@ Also, the instrument file listing (AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST ->
 [README.instrument_list.md](README.instrument_list.md)) and laf-intel/compcov
 (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
 
-Example (note that you might need to add the version, e.g. `llvm-ar-15`:
+Example (note that you might need to add the version, e.g. `llvm-ar-19`:
 
 ```
 CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar AS=llvm-as ./configure
