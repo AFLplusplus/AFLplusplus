@@ -627,8 +627,8 @@ The other secondaries should be run like this:
 * 40% should run with `-P explore` and 20% with `-P exploit`
 * If you use `-a` then set 30% of the instances to not use `-a`; if you did
   not set `-a` (why??), then set 30% to `-a ascii` and 30% to `-a binary`.
-* run each with a different power schedule, recommended are: `fast` (default),
-  `explore`, `coe`, `lin`, `quad`, `exploit`, and `rare` which you can set with
+* run each with a different power schedule, recommended are: `explore` (default),
+  `fast`, `coe`, `lin`, `quad`, `exploit`, and `rare` which you can set with
   the `-p` option, e.g., `-p explore`. See the
   [FAQ](FAQ.md#what-are-power-schedules) for details.
 
