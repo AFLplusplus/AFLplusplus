@@ -350,11 +350,6 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
   // Do any other expensive one-time initialization here.
 
-  uint8_t dummy_input[64] = {0};
-  memcpy(dummy_input, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
-  memcpy(dummy_input + 32, (void *)AFL_DEFER_FORKSVR,
-         sizeof(AFL_DEFER_FORKSVR));
-
   int N = INT_MAX;
 
   if (!in_afl && argc == 2 && !strcmp(argv[1], "-")) {
