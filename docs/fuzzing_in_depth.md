@@ -496,6 +496,8 @@ Note:
   protection against attacks! So set strong firewall rules and only expose SSH
   as a network service if you use these (which is highly recommended).
 
+If you execute afl-fuzz in a Docker container, it is recommended to pass [`--cpuset-cpus`](https://docs.docker.com/engine/containers/resource_constraints/#configure-the-default-cfs-scheduler) option with free CPU cores to docker daemon when starting the container, or pass `AFL_NO_AFFINITY` to afl-fuzz. This is due to the fact that AFL++ will bind to a free CPU core by default, while Docker container will prevent AFL++ instance from seeing processes in other containers or host, which leads to all AFL++ instances trying to bind the same CPU core.
+
 If you have an input corpus from [step 2](#2-preparing-the-fuzzing-campaign),
 then specify this directory with the `-i` option. Otherwise, create a new
 directory and create a file with any content as test data in there.
