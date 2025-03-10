@@ -2601,7 +2601,7 @@ void check_cpu_governor(afl_state_t *afl) {
        "    afl-fuzz. To keep things moving, run these commands as root:\n\n"
 
        "    cd /sys/devices/system/cpu\n"
-       "    echo performance | tee cpu*/cpufreq/scaling_governor\n\n"
+       "    echo performance | sudo tee cpu*/cpufreq/scaling_governor\n\n"
 
        "    You can later go back to the original state by replacing "
        "'performance'\n"
