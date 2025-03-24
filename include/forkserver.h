@@ -137,6 +137,8 @@ typedef struct afl_forkserver {
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
+  u8 last_exit_code;               /* Child exit code if counted as a crash */
+
   bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
@@ -155,7 +157,7 @@ typedef struct afl_forkserver {
 
   bool no_unlink;                       /* do not unlink cur_input          */
 
-  bool uses_asan;                       /* Target uses ASAN?                */
+  u8 uses_asan;     /* Target uses ASAN/LSAN/MSAN? (bit 0/1/2 respectively) */
 
   bool debug;                           /* debug mode?                      */
 
