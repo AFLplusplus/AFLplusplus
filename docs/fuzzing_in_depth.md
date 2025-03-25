@@ -247,6 +247,12 @@ CFISAN. You might need to experiment which sanitizers you can combine in a
 target (which means more instances can be run without a sanitized target, which
 is more effective).
 
+Note that some sanitizers (MSAN and LSAN) exit with a particular exit code
+instead of aborting. afl-fuzz treats these exit codes as a crash when these
+sanitizers are enabled. If the target uses these exit codes there could be false
+positives among the saved crashes. LSAN uses exit code 23 and MSAN uses exit
+code 86.
+
 ### d) Modifying the target
 
 If the target has features that make fuzzing more difficult, e.g., checksums,
