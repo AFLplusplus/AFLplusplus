@@ -190,12 +190,25 @@ GUM_DEVKIT_VERSION=16.1.11
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
-IS_GUM_16_6_PLUS := $(shell VERSION="$(GUM_DEVKIT_VERSION)"; \
-    MAJOR=$${VERSION%%.*}; \
-    MINOR=$${VERSION#*.}; MINOR=$${MINOR%%.*}; \
-    if [ $$MAJOR -gt 16 ] || { [ $$MAJOR -eq 16 ] && [ $$MINOR -ge 6 ]; }; then \
-        echo 1; \
-    fi)
+ifeq ($(OS),macos)
+	# Extract the major version
+	GUM_VERSION_MAJOR := $(shell echo "$(GUM_DEVKIT_VERSION)" | sed -E 's/\..*//')
+	# Extract the minor version (assumes format "MAJOR.MINOR[.PATCH...]")
+	GUM_VERSION_MINOR := $(shell echo "$(GUM_DEVKIT_VERSION)" | sed -E 's/^[^.]*\.//; s/\..*//')
+
+	# Evaluate the version condition in a separate shell call
+	IS_GUM_16_6_PLUS := $(shell \
+		if (( $(GUM_VERSION_MAJOR) > 16 || ( $(GUM_VERSION_MAJOR) == 16 && $(GUM_VERSION_MINOR) >= 6 ) )); then \
+			echo 1; \
+		fi)
+else
+	IS_GUM_16_6_PLUS := $(shell VERSION="$(GUM_DEVKIT_VERSION)"; \
+		MAJOR=$${VERSION%%.*}; \
+		MINOR=$${VERSION#*.}; MINOR=$${MINOR%%.*}; \
+		if [ $$MAJOR -gt 16 ] || { [ $$MAJOR -eq 16 ] && [ $$MINOR -ge 6 ]; }; then \
+			echo 1; \
+		fi)
+endif
 
 CFLAGS += $(if $(IS_GUM_16_6_PLUS),-DGUM_16_6_PLUS)
 
