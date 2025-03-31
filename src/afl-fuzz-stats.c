@@ -604,6 +604,8 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
 void plot_profile_data(afl_state_t *afl, struct queue_entry *q) {
 
+  if (afl->skip_deterministic) { return; }
+
   u64 current_ms = get_cur_time() - afl->start_time;
 
   u32    current_edges = count_non_255_bytes(afl, afl->virgin_bits);
