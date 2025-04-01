@@ -61,6 +61,7 @@
 #endif
 #include <sys/resource.h>
 
+static afl_state_t *afl;               /* State for custom mutators         */
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
 static u8 *in_file,                    /* Minimizer input test case         */
@@ -551,6 +552,85 @@ static void minimize(afl_forkserver_t *fsrv) {
   }
 #endif
 
+// Custom mutator trimming using common API
+u8 custom_trimmer_success = 0;
+
+if (afl && afl->custom_mutators_count) {
+  LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+    if (el->afl_custom_init_trim) {
+      ACTF("Performing custom trim with %s...", el->name);
+      
+      // Initialize the trimmer
+      u32 initial_steps = el->afl_custom_init_trim(el->data, in_data, in_len, &el->trim_data);
+      
+      if (initial_steps <= 0) {
+        WARNF("Custom trimmer %s returned %u, skipping", el->name, initial_steps);
+      } else {
+        ACTF("Custom trimmer initialized, %u steps planned", initial_steps);
+        
+        u32 trim_rounds = 0;
+        u32 trimmed_successfully = 0;
+        
+        // Trim loop
+        while (el->afl_custom_trim_step(el->data, trim_rounds, &el->trim_data)) {
+          trim_rounds++;
+          
+          // Get trimmed test case size
+          size_t trimmed_size = el->afl_custom_get_trim_size(el->data, &el->trim_data);
+          
+          if (trimmed_size >= in_len) {
+            SAYF("[Custom trim] Round %u: no improvements over %zu bytes.\n", 
+                 trim_rounds, in_len);
+            continue;
+          }
+          
+          SAYF("[Custom trim] Round %u: reduced from %zu to %zu bytes.\n", 
+               trim_rounds, in_len, trimmed_size);
+          
+          // Get trimmed buffer
+          u8* trimmed_buf = el->afl_custom_get_trim_buffer(el->data, &el->trim_data);
+          
+          if (!trimmed_buf) {
+            WARNF("Custom trimmer %s returned NULL buffer, skipping", el->name);
+            continue;
+          }
+          
+          // Test if the trimmed case still works
+          if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
+            SAYF("[Custom trim] But the testcase no longer crashes - skipping this reduction.\n");
+            continue;
+          }
+          
+          // Accept the reduction
+          memcpy(in_data, trimmed_buf, trimmed_size);
+          in_len = trimmed_size;
+          
+          trimmed_successfully = 1;
+          
+          // Signal success to the mutator
+          el->afl_custom_post_trim(el->data, 1, &el->trim_data);
+        }
+        
+        // Finalize trim process
+        el->afl_custom_trim_end(el->data, &el->trim_data);
+        
+        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s", 
+             el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
+             
+        if (trimmed_successfully && !exact_mode) {
+          custom_trimmer_success = 1;
+        }
+      }
+    }
+  });
+}
+
+// Skip built-in minimization if custom trimmer is successful
+if (custom_trimmer_success) {
+  if (tmp_buf) { ck_free(tmp_buf); }
+  return;
+}
+
   /***********************
    * BLOCK NORMALIZATION *
    ***********************/
@@ -1023,33 +1103,33 @@ static void usage(u8 *argv0) {
 
 /* Main entry point */
 
-int main(int argc, char **argv_orig, char **envp) {
+  int main(int argc, char **argv_orig, char **envp) {
 
-  s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
-     del_limit_given = 0;
-  char **use_argv;
+    s32 opt;
+    u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
+      del_limit_given = 0;
+    char **use_argv;
 
-  char **argv = argv_cpy_dup(argc, argv_orig);
+    char **argv = argv_cpy_dup(argc, argv_orig);
 
-  afl_forkserver_t fsrv_var = {0};
-  if (getenv("AFL_DEBUG")) { debug = 1; }
-  fsrv = &fsrv_var;
-  afl_fsrv_init(fsrv);
-  map_size = get_map_size();
-  fsrv->map_size = map_size;
+    afl_forkserver_t fsrv_var = {0};
+    if (getenv("AFL_DEBUG")) { debug = 1; }
+    fsrv = &fsrv_var;
+    afl_fsrv_init(fsrv);
+    map_size = get_map_size();
+    fsrv->map_size = map_size;
 
-  doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
+    doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
+    SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
+    while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
 
-    switch (opt) {
+      switch (opt) {
 
-      case 'i':
+        case 'i':
 
-        if (in_file) { FATAL("Multiple -i options not supported"); }
+          if (in_file) { FATAL("Multiple -i options not supported"); }
         in_file = optarg;
         break;
 
@@ -1443,6 +1523,16 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   read_initial_file();
+
+  // Initialize AFL state for custom mutators
+  afl = calloc(1, sizeof(afl_state_t));
+  if (afl) {
+    afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
+    afl->afl_env.afl_custom_mutator_library = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+    afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+    setup_custom_mutators(afl);
+  }
 
 #ifdef __linux__
   if (!fsrv->nyx_mode) { (void)check_binary_signatures(fsrv->target_path); }
