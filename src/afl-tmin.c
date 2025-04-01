@@ -1103,33 +1103,33 @@ static void usage(u8 *argv0) {
 
 /* Main entry point */
 
-  int main(int argc, char **argv_orig, char **envp) {
+int main(int argc, char **argv_orig, char **envp) {
 
-    s32 opt;
-    u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
-      del_limit_given = 0;
-    char **use_argv;
+  s32 opt;
+  u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
+    del_limit_given = 0;
+  char **use_argv;
 
-    char **argv = argv_cpy_dup(argc, argv_orig);
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
-    afl_forkserver_t fsrv_var = {0};
-    if (getenv("AFL_DEBUG")) { debug = 1; }
-    fsrv = &fsrv_var;
-    afl_fsrv_init(fsrv);
-    map_size = get_map_size();
-    fsrv->map_size = map_size;
+  afl_forkserver_t fsrv_var = {0};
+  if (getenv("AFL_DEBUG")) { debug = 1; }
+  fsrv = &fsrv_var;
+  afl_fsrv_init(fsrv);
+  map_size = get_map_size();
+  fsrv->map_size = map_size;
 
-    doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
+  doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-    SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
+  SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
     while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
 
-      switch (opt) {
+    switch (opt) {
 
-        case 'i':
+      case 'i':
 
-          if (in_file) { FATAL("Multiple -i options not supported"); }
+        if (in_file) { FATAL("Multiple -i options not supported"); }
         in_file = optarg;
         break;
 
