@@ -667,7 +667,12 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
-      afl->foreign_syncs[iter].mtime = mtime_max;
+      if (mtime_max > afl->foreign_syncs[iter].mtime) {
+
+        afl->foreign_syncs[iter].mtime = mtime_max;
+
+      }
+
       free(nl);                                              /* not tracked */
 
     }
