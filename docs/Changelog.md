@@ -9,6 +9,8 @@
   - Small improvements to afl-*-config
   - afl-fuzz:
     - memory leak fixes by @kcwu - thanks!
+  - frida_mode:
+    - fixes for new MacOS + M4 hardware
 
 
 ### Version ++4.31c (release)
