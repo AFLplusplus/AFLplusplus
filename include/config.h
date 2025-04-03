@@ -171,7 +171,8 @@
 #define EXEC_TM_ROUND 20U
 
 /* 64bit arch MACRO */
-#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__))
+#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) || \
+     (defined(__riscv) && __riscv_xlen == 64))
   #define WORD_SIZE_64 1
 #endif
 
