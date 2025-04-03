@@ -6,6 +6,9 @@
 ### Version ++4.32a (dev)
   - Fixed a bug where after a fast restart of a full fuzzed corpus afl-fuzz
     terminates with "need at least one valid input seed that does not crash"
+  - Small improvements to afl-*-config
+  - afl-fuzz:
+    - memory leak fixes by @kcwu - thanks!
 
 
 ### Version ++4.31c (release)

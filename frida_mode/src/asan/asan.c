@@ -28,11 +28,10 @@ void asan_init(void) {
 }
 
 #ifdef GUM_16_6_PLUS
-static gboolean asan_exclude_module(GumModule *module,
-                                    gpointer  user_data) {
+static gboolean asan_exclude_module(GumModule *module, gpointer user_data) {
 
-  gchar     *symbol_name = (gchar *)user_data;
-  GumAddress address;
+  gchar                *symbol_name = (gchar *)user_data;
+  GumAddress            address;
   const GumMemoryRange *range = gum_module_get_range(module);
 
   address = gum_module_find_export_by_name(module, symbol_name);
@@ -41,14 +40,13 @@ static gboolean asan_exclude_module(GumModule *module,
   /* If the reported address of the symbol is outside of the range of the module
    * then ignore it */
   if (address < range->base_address) { return TRUE; }
-  if (address > (range->base_address + range->size)) {
-    return TRUE;
-  }
+  if (address > (range->base_address + range->size)) { return TRUE; }
 
-  ranges_add_exclude((GumMemoryRange *) range);
+  ranges_add_exclude((GumMemoryRange *)range);
   return FALSE;
 
 }
+
 #else
 static gboolean asan_exclude_module(const GumModuleDetails *details,
                                     gpointer                user_data) {
@@ -72,6 +70,7 @@ static gboolean asan_exclude_module(const GumModuleDetails *details,
   return FALSE;
 
 }
+
 #endif
 
 void asan_exclude_module_by_symbol(gchar *symbol_name) {
@@ -79,3 +78,4 @@ void asan_exclude_module_by_symbol(gchar *symbol_name) {
   gum_process_enumerate_modules(asan_exclude_module, symbol_name);
 
 }
+

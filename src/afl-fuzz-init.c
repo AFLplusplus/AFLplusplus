@@ -567,6 +567,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
+        free(nl);
         continue;
 
       }
@@ -593,6 +594,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
 
           if (first) PFATAL("Unable to access '%s'", fn2);
+          ck_free(fn2);
           continue;
 
         }
@@ -634,19 +636,16 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         // as this could add duplicates of the startup input corpus
 
         int fd = open(fn2, O_RDONLY);
-        if (fd < 0) {
+        ck_free(fn2);
 
-          ck_free(fn2);
-          continue;
-
-        }
+        if (fd < 0) { continue; }
 
         u8  fault;
         u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
         if (mem == MAP_FAILED) {
 
-          ck_free(fn2);
+          close(fd);
           continue;
 
         }
@@ -668,7 +667,12 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
-      afl->foreign_syncs[iter].mtime = mtime_max;
+      if (mtime_max > afl->foreign_syncs[iter].mtime) {
+
+        afl->foreign_syncs[iter].mtime = mtime_max;
+
+      }
+
       free(nl);                                              /* not tracked */
 
     }
@@ -1042,6 +1046,47 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (afl->crash_mode) { break; }
 
+        const u8 *msg_exit_code = "";
+
+        if (afl->fsrv.uses_asan && !afl->fsrv.last_kill_signal) {
+
+          if ((afl->fsrv.uses_asan & 4) &&
+              afl->fsrv.last_exit_code == MSAN_ERROR) {
+
+            msg_exit_code =
+                "    - The test case terminated with the exit code that is "
+                "used by MSAN to\n"
+                "      indicate an error. This is counted as a crash by "
+                "afl-fuzz because you\n"
+                "      have compiled the target with MSAN enabled. This could "
+                "be a false\n"
+                "      positive if the program returns this exit code under "
+                "normal operation.\n"
+                "      In that case, either disable MSAN or change the test "
+                "case or program\n"
+                "      to avoid generating this exit code.\n\n";
+
+          } else if ((afl->fsrv.uses_asan & 2) &&
+
+                     afl->fsrv.last_exit_code == LSAN_ERROR) {
+
+            msg_exit_code =
+                "    - The test case terminated with the exit code that is "
+                "used by LSAN to\n"
+                "      indicate an error. This is counted as a crash by "
+                "afl-fuzz because you\n"
+                "      have compiled the target with LSAN enabled. This could "
+                "be a false\n"
+                "      positive if the program returns this exit code under "
+                "normal operation.\n"
+                "      In that case, either disable LSAN or change the test "
+                "case or program\n"
+                "      to avoid generating this exit code.\n\n";
+
+          }
+
+        }
+
         if (afl->fsrv.mem_limit) {
 
           u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
@@ -1056,6 +1101,7 @@ void perform_dry_run(afl_state_t *afl) {
                "      so, please remove it. The fuzzer should be seeded with "
                "interesting\n"
                "      inputs - but not ones that cause an outright crash.\n\n"
+               "%s"
 
                "    - The current memory limit (%s) is too low for this "
                "program, causing\n"
@@ -1085,6 +1131,7 @@ void perform_dry_run(afl_state_t *afl) {
                "other options\n"
                "      fail, poke the Awesome Fuzzing Discord for "
                "troubleshooting tips.\n",
+               msg_exit_code,
                stringify_mem_size(val_buf, sizeof(val_buf),
                                   afl->fsrv.mem_limit << 20),
                afl->fsrv.mem_limit - 1);
@@ -1101,6 +1148,7 @@ void perform_dry_run(afl_state_t *afl) {
                "      so, please remove it. The fuzzer should be seeded with "
                "interesting\n"
                "      inputs - but not ones that cause an outright crash.\n\n"
+               "%s"
 
                "    - In QEMU persistent mode the selected address(es) for the "
                "loop are not\n"
@@ -1113,7 +1161,8 @@ void perform_dry_run(afl_state_t *afl) {
                "    - Least likely, there is a horrible bug in the fuzzer. If "
                "other options\n"
                "      fail, poke the Awesome Fuzzing Discord for "
-               "troubleshooting tips.\n");
+               "troubleshooting tips.\n",
+               msg_exit_code);
 
         }
 
@@ -2601,7 +2650,7 @@ void check_cpu_governor(afl_state_t *afl) {
        "    afl-fuzz. To keep things moving, run these commands as root:\n\n"
 
        "    cd /sys/devices/system/cpu\n"
-       "    echo performance | tee cpu*/cpufreq/scaling_governor\n\n"
+       "    echo performance | sudo tee cpu*/cpufreq/scaling_governor\n\n"
 
        "    You can later go back to the original state by replacing "
        "'performance'\n"
@@ -3118,11 +3167,23 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (afl_memmem(f_data, f_len, "__asan_init", 11) ||
-      afl_memmem(f_data, f_len, "__msan_init", 11) ||
-      afl_memmem(f_data, f_len, "__lsan_init", 11)) {
+  afl->fsrv.uses_asan = 0;
 
-    afl->fsrv.uses_asan = 1;
+  if (afl_memmem(f_data, f_len, "__asan_init", 11)) {
+
+    afl->fsrv.uses_asan |= 1;
+
+  }
+
+  if (afl_memmem(f_data, f_len, "__lsan_init", 11)) {
+
+    afl->fsrv.uses_asan |= 2;
+
+  }
+
+  if (afl_memmem(f_data, f_len, "__msan_init", 11)) {
+
+    afl->fsrv.uses_asan |= 4;
 
   }
 

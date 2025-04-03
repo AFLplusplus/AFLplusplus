@@ -262,6 +262,7 @@ static int prefetch_on_fork(void) {
 }
 
 static void prefetch_hook_fork(void) {
+
 #ifdef GUM_16_6_PLUS
   void *fork_addr =
       GSIZE_TO_POINTER(gum_module_find_global_export_by_name("fork"));
@@ -305,3 +306,4 @@ void prefetch_init(void) {
   iface->notify_backpatch = gum_afl_stalker_backpatcher_notify;
 
 }
+

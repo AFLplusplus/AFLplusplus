@@ -106,12 +106,16 @@ __attribute__((weak)) void __asan_unpoison_memory_region(
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 
 // Notify AFL about persistent mode.
-static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
-int                  __afl_persistent_loop(unsigned int);
+__attribute__((section(".rodata"), used,
+               retain)) static const char AFL_PERSISTENT[] =
+    "##SIG_AFL_PERSISTENT##";
+int __afl_persistent_loop(unsigned int);
 
 // Notify AFL about deferred forkserver.
-static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
-void                 __afl_manual_init();
+__attribute__((section(".rodata"), used,
+               retain)) static const char AFL_DEFER_FORKSVR[] =
+    "##SIG_AFL_DEFER_FORKSRV##";
+void __afl_manual_init();
 
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
@@ -349,11 +353,6 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
   }
 
   // Do any other expensive one-time initialization here.
-
-  uint8_t dummy_input[64] = {0};
-  memcpy(dummy_input, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
-  memcpy(dummy_input + 32, (void *)AFL_DEFER_FORKSVR,
-         sizeof(AFL_DEFER_FORKSVR));
 
   int N = INT_MAX;
 

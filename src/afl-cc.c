@@ -2033,8 +2033,10 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
   }
 
   if (getenv("AFL_USE_RTSAN") && !aflcc->have_rtsan) {
+
     insert_param(aflcc, "-fsanitize=realtime");
     aflcc->have_rtsan = 1;
+
   }
 
   if (getenv("AFL_USE_CFISAN") || aflcc->have_cfisan) {
