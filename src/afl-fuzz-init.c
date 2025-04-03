@@ -567,6 +567,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
+        free(nl);
         continue;
 
       }
@@ -593,6 +594,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
 
           if (first) PFATAL("Unable to access '%s'", fn2);
+          ck_free(fn2);
           continue;
 
         }
@@ -634,19 +636,16 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         // as this could add duplicates of the startup input corpus
 
         int fd = open(fn2, O_RDONLY);
-        if (fd < 0) {
+        ck_free(fn2);
 
-          ck_free(fn2);
-          continue;
-
-        }
+        if (fd < 0) { continue; }
 
         u8  fault;
         u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
         if (mem == MAP_FAILED) {
 
-          ck_free(fn2);
+          close(fd);
           continue;
 
         }
