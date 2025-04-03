@@ -126,7 +126,12 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
   inf_eff_map = (u8 *)ck_realloc(inf_eff_map, sizeof(u8) * len);
   memset(inf_eff_map, 1, sizeof(u8) * len);
 
-  if (common_fuzz_stuff(afl, orig_buf, len)) { return 0; }
+  if (common_fuzz_stuff(afl, orig_buf, len)) {
+
+    ck_free(inf_eff_map);
+    return 0;
+
+  }
 
   u64 prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
   u64 _prev_cksum = prev_cksum;
@@ -154,7 +159,12 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
         flip_range(out_buf, pos, flip_block_size);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) return 0;
+        if (common_fuzz_stuff(afl, out_buf, len)) {
+
+          ck_free(inf_eff_map);
+          return 0;
+
+        }
 
         flip_range(out_buf, pos, flip_block_size);
 
@@ -278,7 +288,13 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
     non_eff_bytes = (u8 *)ck_alloc(sizeof(u8) * len);
 
     // clean exec cksum
-    if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+    if (common_fuzz_stuff(afl, out_buf, len)) {
+
+      ck_free(non_eff_bytes);
+      return 0;
+
+    }
+
     prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
   }
@@ -311,7 +327,13 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
       before_skip_inf = afl->queued_items;
 
-      if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+      if (common_fuzz_stuff(afl, out_buf, len)) {
+
+        ck_free(inf_eff_map);
+        ck_free(non_eff_bytes);
+        return 0;
+
+      }
 
       out_buf[afl->stage_cur_byte] = orig;
 
@@ -356,6 +378,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
 cleanup_skipdet:
 
+  ck_free(inf_eff_map);
   if (fuzz_nearby) {
 
     u8 *nearby_bytes = (u8 *)ck_alloc(sizeof(u8) * len);

@@ -354,6 +354,7 @@ void load_extras(afl_state_t *afl, u8 *dir) {
           "Extra '%s' is too big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      ck_free(fn);
       continue;
 
     }
