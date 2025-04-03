@@ -432,7 +432,7 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "(cd "in_dir" && find . \\( ! -name \".*\" -a -type d -a ! -path \"*/plots\" -a ! -path \"*/.state\" \\) -o \\( -type f -a ! -name \"cmdline\" -a ! -name \"fastresume.bin\" -a ! -name \"fuzz_bitmap\" -a ! -name \"fuzzer_setup\" -a ! -name \"fuzzer_stats\" -a ! -name \"plot_data\" -a ! -name \"target_hash\" \\) -exec stat "stat_format" \\{\\} + | sort -k1n -k2r) | grep -Ev '^0'"
+  cmdline = "(cd "in_dir" && find . \\( ! -name \".*\" -a -type d -a ! -path \"*/.state\" \\) -o \\( -type f -a ! -name \"cmdline\" -a ! -name \"fastresume.bin\" -a ! -name \"fuzz_bitmap\" -a ! -name \"fuzzer_setup\" -a ! -name \"fuzzer_stats\" -a ! -name \"plot_data\" -a ! -name \"target_hash\" \\) -exec stat "stat_format" \\{\\} + | sort -k1n -k2r) | grep -Ev '^0'"
   #cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format" 2>/dev/null) | sort -k1n -k2r"
   #cmdline = "(cd "in_dir" && stat "stat_format" *) | sort -k1n -k2r"
   #cmdline = "(cd "in_dir" && ls | xargs stat "stat_format" ) | sort -k1n -k2r"
