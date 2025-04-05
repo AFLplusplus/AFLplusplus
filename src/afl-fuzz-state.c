@@ -44,7 +44,7 @@ static void init_mopt_globals(afl_state_t *afl) {
   core->cycles_v3 = afl->core_operator_cycles_puppet_v3;
   core->is_pilot_mode = 0;
   core->pTime = &afl->tmp_core_time;
-  core->period = period_core;
+  core->period = PERIOD_CORE;
   core->havoc_stagename = "MOpt-core-havoc";
   core->splice_stageformat = "MOpt-core-splice %u";
   core->havoc_stagenameshort = "MOpt_core_havoc";
@@ -58,7 +58,7 @@ static void init_mopt_globals(afl_state_t *afl) {
   pilot->cycles_v3 = afl->stage_cycles_puppet_v3[0];
   pilot->is_pilot_mode = 1;
   pilot->pTime = &afl->tmp_pilot_time;
-  pilot->period = period_pilot;
+  pilot->period = PERIOD_PILOT;
   pilot->havoc_stagename = "MOpt-havoc";
   pilot->splice_stageformat = "MOpt-splice %u";
   pilot->havoc_stagenameshort = "MOpt_havoc";

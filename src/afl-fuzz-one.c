@@ -33,19 +33,16 @@
 
 static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
 
-  int i_puppet, j_puppet = 0, operator_number = max_algorithm;
+  int i_puppet = 0, j_puppet = 0, OPERATOR_NUMber = max_algorithm;
 
   double range_sele =
-      (double)afl->probability_now[afl->swarm_now][operator_number - 1];
-  double sele = ((double)(rand_below(afl, 10000) * 0.0001 * range_sele));
+      (double)afl->probability_now[afl->swarm_now][OPERATOR_NUMber - 1];
+  double sele =
+      ((double)((double)rand_below(afl, 10000) * 0.0001 * range_sele));
 
-  for (i_puppet = 0; i_puppet < operator_num; ++i_puppet) {
+  if (likely(sele >= afl->probability_now[afl->swarm_now][0])) {
 
-    if (unlikely(i_puppet == 0)) {
-
-      if (sele < afl->probability_now[afl->swarm_now][i_puppet]) { break; }
-
-    } else {
+    for (i_puppet = 1; i_puppet < OPERATOR_NUM; ++i_puppet) {
 
       if (sele < afl->probability_now[afl->swarm_now][i_puppet]) {
 
@@ -58,10 +55,10 @@ static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
 
   }
 
-  if ((j_puppet == 1 &&
-       sele < afl->probability_now[afl->swarm_now][i_puppet - 1]) ||
-      (i_puppet + 1 < operator_num &&
-       sele > afl->probability_now[afl->swarm_now][i_puppet + 1])) {
+  if (unlikely((j_puppet == 1 &&
+                sele < afl->probability_now[afl->swarm_now][i_puppet - 1]) ||
+               (i_puppet + 1 < OPERATOR_NUM &&
+                sele > afl->probability_now[afl->swarm_now][i_puppet + 1]))) {
 
     FATAL("error select_algorithm");
 
@@ -3466,7 +3463,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (!MOpt_globals.is_pilot_mode) {
 
-    if (swarm_num == 1) {
+    if (SWARM_NUM == 1) {
 
       afl->key_module = 2;
       return 0;
@@ -3685,7 +3682,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   s32 temp_len_puppet;
 
-  // for (; afl->swarm_now < swarm_num; ++afl->swarm_now)
+  // for (; afl->swarm_now < SWARM_NUM; ++afl->swarm_now)
   {
 
     if (unlikely(afl->orig_hit_cnt_puppet == 0)) {
@@ -3757,7 +3754,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         afl->stage_cur_val = use_stacking;
 
-        for (i = 0; i < operator_num; ++i) {
+        for (i = 0; i < OPERATOR_NUM; ++i) {
 
           MOpt_globals.cycles_v3[i] = MOpt_globals.cycles_v2[i];
 
@@ -4427,7 +4424,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
           if (MOpt_globals.is_pilot_mode) {
 
-            for (i = 0; i < operator_num; ++i) {
+            for (i = 0; i < OPERATOR_NUM; ++i) {
 
               if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles_v3[i]) {
 
@@ -4439,7 +4436,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
           } else {
 
-            for (i = 0; i < operator_num; i++) {
+            for (i = 0; i < OPERATOR_NUM; i++) {
 
               if (afl->core_operator_cycles_puppet_v2[i] >
                   afl->core_operator_cycles_puppet_v3[i])
@@ -4616,7 +4613,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
         }
 
         afl->temp_puppet_find = afl->total_puppet_find;
-        for (i = 0; i < operator_num; ++i) {
+        for (i = 0; i < OPERATOR_NUM; ++i) {
 
           if (MOpt_globals.is_pilot_mode) {
 
@@ -4642,15 +4639,15 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
           MOpt_globals.finds[i] = MOpt_globals.finds_v2[i];
           MOpt_globals.cycles[i] = MOpt_globals.cycles_v2[i];
 
-        }                                    /* for i = 0; i < operator_num */
+        }                                    /* for i = 0; i < OPERATOR_NUM */
 
         if (MOpt_globals.is_pilot_mode) {
 
           afl->swarm_now = afl->swarm_now + 1;
-          if (afl->swarm_now == swarm_num) {
+          if (afl->swarm_now == SWARM_NUM) {
 
             afl->key_module = 1;
-            for (i = 0; i < operator_num; ++i) {
+            for (i = 0; i < OPERATOR_NUM; ++i) {
 
               afl->core_operator_cycles_puppet_v2[i] =
                   afl->core_operator_cycles_puppet[i];
@@ -4663,7 +4660,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
             double swarm_eff = 0.0;
             afl->swarm_now = 0;
-            for (i = 0; i < swarm_num; ++i) {
+            for (i = 0; i < SWARM_NUM; ++i) {
 
               if (afl->swarm_fitness[i] > swarm_eff) {
 
@@ -4674,13 +4671,13 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
             }
 
-            if (afl->swarm_now < 0 || afl->swarm_now > swarm_num - 1) {
+            if (afl->swarm_now < 0 || afl->swarm_now > SWARM_NUM - 1) {
 
               PFATAL("swarm_now error number  %d", afl->swarm_now);
 
             }
 
-          }                               /* if afl->swarm_now == swarm_num */
+          }                               /* if afl->swarm_now == SWARM_NUM */
 
           /* adjust pointers dependent on 'afl->swarm_now' */
           afl->mopt_globals_pilot.finds =
@@ -4696,7 +4693,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         } else {
 
-          for (i = 0; i < operator_num; i++) {
+          for (i = 0; i < OPERATOR_NUM; i++) {
 
             afl->core_operator_finds_puppet[i] =
                 afl->core_operator_finds_puppet_v2[i];
@@ -4739,17 +4736,17 @@ u8 pilot_fuzzing(afl_state_t *afl) {
 void pso_updating(afl_state_t *afl) {
 
   afl->g_now++;
-  if (afl->g_now > afl->g_max) { afl->g_now = 0; }
+  if (unlikely(afl->g_now > afl->g_max)) { afl->g_now = 0; }
   afl->w_now =
       (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) +
       afl->w_end;
   int tmp_swarm, i, j;
   u64 temp_operator_finds_puppet = 0;
-  for (i = 0; i < operator_num; ++i) {
+  for (i = 0; i < OPERATOR_NUM; ++i) {
 
     afl->operator_finds_puppet[i] = afl->core_operator_finds_puppet[i];
 
-    for (j = 0; j < swarm_num; ++j) {
+    for (j = 0; j < SWARM_NUM; ++j) {
 
       afl->operator_finds_puppet[i] =
           afl->operator_finds_puppet[i] + afl->stage_finds_puppet[j][i];
@@ -4761,7 +4758,7 @@ void pso_updating(afl_state_t *afl) {
 
   }
 
-  for (i = 0; i < operator_num; ++i) {
+  for (i = 0; i < OPERATOR_NUM; ++i) {
 
     if (afl->operator_finds_puppet[i]) {
 
@@ -4772,10 +4769,10 @@ void pso_updating(afl_state_t *afl) {
 
   }
 
-  for (tmp_swarm = 0; tmp_swarm < swarm_num; ++tmp_swarm) {
+  for (tmp_swarm = 0; tmp_swarm < SWARM_NUM; ++tmp_swarm) {
 
     double x_temp = 0.0;
-    for (i = 0; i < operator_num; ++i) {
+    for (i = 0; i < OPERATOR_NUM; ++i) {
 
       afl->probability_now[tmp_swarm][i] = 0.0;
       afl->v_now[tmp_swarm][i] =
@@ -4783,13 +4780,13 @@ void pso_updating(afl_state_t *afl) {
           RAND_C * (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
           RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
       afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
-      if (afl->x_now[tmp_swarm][i] > v_max) {
+      if (afl->x_now[tmp_swarm][i] > V_MAX) {
 
-        afl->x_now[tmp_swarm][i] = v_max;
+        afl->x_now[tmp_swarm][i] = V_MAX;
 
-      } else if (afl->x_now[tmp_swarm][i] < v_min) {
+      } else if (afl->x_now[tmp_swarm][i] < V_MIN) {
 
-        afl->x_now[tmp_swarm][i] = v_min;
+        afl->x_now[tmp_swarm][i] = V_MIN;
 
       }
 
@@ -4797,7 +4794,7 @@ void pso_updating(afl_state_t *afl) {
 
     }
 
-    for (i = 0; i < operator_num; ++i) {
+    for (i = 0; i < OPERATOR_NUM; ++i) {
 
       afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
       if (likely(i != 0)) {
@@ -4813,8 +4810,8 @@ void pso_updating(afl_state_t *afl) {
 
     }
 
-    if (afl->probability_now[tmp_swarm][operator_num - 1] < 0.99 ||
-        afl->probability_now[tmp_swarm][operator_num - 1] > 1.01) {
+    if (afl->probability_now[tmp_swarm][OPERATOR_NUM - 1] < 0.99 ||
+        afl->probability_now[tmp_swarm][OPERATOR_NUM - 1] > 1.01) {
 
       FATAL("ERROR probability");
 
@@ -4858,9 +4855,13 @@ u8 fuzz_one(afl_state_t *afl) {
        limit_time_sig  < 0 both are run
   */
 
-  if (afl->limit_time_sig <= 0) { key_val_lv_1 = fuzz_one_original(afl); }
+  if (likely(afl->limit_time_sig <= 0)) {
 
-  if (afl->limit_time_sig != 0) {
+    key_val_lv_1 = fuzz_one_original(afl);
+
+  }
+
+  if (unlikely(afl->limit_time_sig >= 0)) {
 
     if (afl->key_module == 0) {
 

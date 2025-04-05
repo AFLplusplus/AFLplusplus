@@ -317,14 +317,13 @@ enum {
 
 };
 
-#define operator_num 19
-#define swarm_num 5
-#define period_core 500000
+#define OPERATOR_NUM 19
+#define SWARM_NUM 5
+#define PERIOD_CORE 500000
 
 #define RAND_C (rand() % 1000 * 0.001)
-#define v_max 1
-#define v_min 0.05
-#define limit_time_bound 1.1
+#define V_MAX 1
+#define V_MIN 0.05
 #define SPLICE_CYCLES_puppet_up 25
 #define SPLICE_CYCLES_puppet_low 5
 #define STAGE_RANDOMBYTE 12
@@ -334,7 +333,7 @@ enum {
 #define STAGE_OverWriteExtra 16
 #define STAGE_InsertExtra 17
 #define STAGE_Splice 18
-#define period_pilot 50000
+#define PERIOD_PILOT 50000
 
 enum {
 
@@ -518,23 +517,23 @@ typedef struct afl_state {
   u64 tmp_core_time;
   s32 swarm_now;
 
-  double x_now[swarm_num][operator_num], L_best[swarm_num][operator_num],
-      eff_best[swarm_num][operator_num], G_best[operator_num],
-      v_now[swarm_num][operator_num], probability_now[swarm_num][operator_num],
-      swarm_fitness[swarm_num];
+  double x_now[SWARM_NUM][OPERATOR_NUM], L_best[SWARM_NUM][OPERATOR_NUM],
+      eff_best[SWARM_NUM][OPERATOR_NUM], G_best[OPERATOR_NUM],
+      v_now[SWARM_NUM][OPERATOR_NUM], probability_now[SWARM_NUM][OPERATOR_NUM],
+      swarm_fitness[SWARM_NUM];
 
-  u64 stage_finds_puppet[swarm_num][operator_num], /* Patterns found per
+  u64 stage_finds_puppet[SWARM_NUM][OPERATOR_NUM], /* Patterns found per
                                                             fuzz stage    */
-      stage_finds_puppet_v2[swarm_num][operator_num],
-      stage_cycles_puppet_v2[swarm_num][operator_num],
-      stage_cycles_puppet_v3[swarm_num][operator_num],
-      stage_cycles_puppet[swarm_num][operator_num],
-      operator_finds_puppet[operator_num],
-      core_operator_finds_puppet[operator_num],
-      core_operator_finds_puppet_v2[operator_num],
-      core_operator_cycles_puppet[operator_num],
-      core_operator_cycles_puppet_v2[operator_num],
-      core_operator_cycles_puppet_v3[operator_num]; /* Execs per fuzz stage */
+      stage_finds_puppet_v2[SWARM_NUM][OPERATOR_NUM],
+      stage_cycles_puppet_v2[SWARM_NUM][OPERATOR_NUM],
+      stage_cycles_puppet_v3[SWARM_NUM][OPERATOR_NUM],
+      stage_cycles_puppet[SWARM_NUM][OPERATOR_NUM],
+      operator_finds_puppet[OPERATOR_NUM],
+      core_operator_finds_puppet[OPERATOR_NUM],
+      core_operator_finds_puppet_v2[OPERATOR_NUM],
+      core_operator_cycles_puppet[OPERATOR_NUM],
+      core_operator_cycles_puppet_v2[OPERATOR_NUM],
+      core_operator_cycles_puppet_v3[OPERATOR_NUM]; /* Execs per fuzz stage */
 
   double period_pilot_tmp;
   s32    key_lv;

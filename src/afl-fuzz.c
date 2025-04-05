@@ -1319,12 +1319,12 @@ int main(int argc, char **argv_orig, char **envp) {
                          (afl->g_max) +
                      afl->w_end;
 
-        for (tmp_swarm = 0; tmp_swarm < swarm_num; ++tmp_swarm) {
+        for (tmp_swarm = 0; tmp_swarm < SWARM_NUM; ++tmp_swarm) {
 
           double total_puppet_temp = 0.0;
           afl->swarm_fitness[tmp_swarm] = 0.0;
 
-          for (j = 0; j < operator_num; ++j) {
+          for (j = 0; j < OPERATOR_NUM; ++j) {
 
             afl->stage_finds_puppet[tmp_swarm][j] = 0;
             afl->probability_now[tmp_swarm][j] = 0.0;
@@ -1338,7 +1338,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
           }
 
-          for (j = 0; j < operator_num; ++j) {
+          for (j = 0; j < OPERATOR_NUM; ++j) {
 
             afl->stage_cycles_puppet_v2[tmp_swarm][j] =
                 afl->stage_cycles_puppet[tmp_swarm][j];
@@ -1351,7 +1351,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
           double x_temp = 0.0;
 
-          for (j = 0; j < operator_num; ++j) {
+          for (j = 0; j < OPERATOR_NUM; ++j) {
 
             afl->probability_now[tmp_swarm][j] = 0.0;
             afl->v_now[tmp_swarm][j] =
@@ -1362,13 +1362,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
             afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
 
-            if (afl->x_now[tmp_swarm][j] > v_max) {
+            if (afl->x_now[tmp_swarm][j] > V_MAX) {
 
-              afl->x_now[tmp_swarm][j] = v_max;
+              afl->x_now[tmp_swarm][j] = V_MAX;
 
-            } else if (afl->x_now[tmp_swarm][j] < v_min) {
+            } else if (afl->x_now[tmp_swarm][j] < V_MIN) {
 
-              afl->x_now[tmp_swarm][j] = v_min;
+              afl->x_now[tmp_swarm][j] = V_MIN;
 
             }
 
@@ -1376,7 +1376,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
           }
 
-          for (j = 0; j < operator_num; ++j) {
+          for (j = 0; j < OPERATOR_NUM; ++j) {
 
             afl->x_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j] / x_temp;
             if (likely(j != 0)) {
@@ -1393,8 +1393,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
           }
 
-          if (afl->probability_now[tmp_swarm][operator_num - 1] < 0.99 ||
-              afl->probability_now[tmp_swarm][operator_num - 1] > 1.01) {
+          if (afl->probability_now[tmp_swarm][OPERATOR_NUM - 1] < 0.99 ||
+              afl->probability_now[tmp_swarm][OPERATOR_NUM - 1] > 1.01) {
 
             FATAL("ERROR probability");
 
@@ -1402,7 +1402,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        for (j = 0; j < operator_num; ++j) {
+        for (j = 0; j < OPERATOR_NUM; ++j) {
 
           afl->core_operator_finds_puppet[j] = 0;
           afl->core_operator_finds_puppet_v2[j] = 0;
