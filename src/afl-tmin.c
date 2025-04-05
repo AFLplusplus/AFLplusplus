@@ -37,6 +37,12 @@
 #include "forkserver.h"
 #include "sharedmem.h"
 #include "common.h"
+#include "afl-fuzz.h"
+#include "list.h"
+#ifdef USE_PYTHON
+#include "afl-fuzz-python.c"
+#include "afl-fuzz-mutators.c"
+#endif
 
 #include <stdio.h>
 #include <unistd.h>
@@ -56,10 +62,27 @@
 #endif
 #include <sys/stat.h>
 #include <sys/types.h>
-#ifdef USE_PYTHON
-  #include "afl-fuzz-python.h"
-#endif
 #include <sys/resource.h>
+#ifdef USE_PYTHON
+  #include <Python.h>
+#endif
+
+
+
+extern void destroy_custom_mutators(afl_state_t *);
+void list_init(list_t *list) {
+  if (list) {
+    list->element_prealloc_count = 0;
+    memset(list->element_prealloc_buf, 0, sizeof(list->element_prealloc_buf));
+  }
+}
+
+void setup_custom_mutators(afl_state_t *);
+struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
+#ifdef USE_PYTHON
+struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
+#endif
+
 
 static afl_state_t *afl;               /* State for custom mutators         */
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
@@ -77,10 +100,8 @@ static u32 in_len,                     /* Input data length                 */
 
 static u64 orig_cksum;                 /* Original checksum                 */
 
-#ifdef USE_PYTHON
-  py_mutator_t *py_mutator = NULL;
-  u8           use_py_trimmer = 0;
-#endif
+
+
 
 static u8 crash_mode,                  /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
@@ -162,7 +183,8 @@ static void apply_mask(u32 *mem, u32 *mask) {
 
 }
 
-static void classify_counts(afl_forkserver_t *fsrv) {
+
+void classify_counts(afl_forkserver_t *fsrv) {
 
   u8 *mem = fsrv->trace_bits;
   u32 i = map_size;
@@ -218,6 +240,10 @@ static void at_exit_handler(void) {
   afl_fsrv_killall();
   if (remove_out_file) unlink(out_file);
 
+  if (afl) {
+    destroy_custom_mutators(afl);
+    ck_free(afl);
+  }
 }
 
 /* Read initial file. */
@@ -375,251 +401,74 @@ static void minimize(afl_forkserver_t *fsrv) {
   u8  changed_any, prev_del;
 
   #ifdef USE_PYTHON
-    // Try to load python module
-    char *py_module = getenv("AFL_PYTHON_MODULE");
-    if (py_module) {
-      py_mutator = init_py_module(afl, py_module);
-      
-      // Check trimming functions
-      if (py_mutator && 
-          py_mutator->py_functions[PY_FUNC_INIT_TRIM] &&
-          py_mutator->py_functions[PY_FUNC_TRIM_STEP] &&
-          py_mutator->py_functions[PY_FUNC_GET_TRIM_SIZE] &&
-          py_mutator->py_functions[PY_FUNC_GET_TRIM_BUF]) {
-        use_py_trimmer = 1;
-        ACTF("Loaded Python module for custom trimming: %s", py_module);
-      }
-    }
-
-  if (use_py_trimmer) {
-    ACTF("Performing custom trim with Python mutator...");
-    
-    // Initialize the trimmer
-    PyObject *py_args, *py_value;
-    py_args = PyTuple_New(1);
-    py_value = PyByteArray_FromStringAndSize(in_data, in_len);
-    if (!py_value) {
-      Py_DECREF(py_args);
-      FATAL("Failed to convert arguments in init_trim");
-    }
-    
-    PyTuple_SetItem(py_args, 0, py_value);
-    py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_INIT_TRIM], py_args);
-    Py_DECREF(py_args);
-    
-    s32 initial_steps = 0;
-    if (py_value != NULL) {
-  #if PY_MAJOR_VERSION >= 3
-      initial_steps = (s32)PyLong_AsLong(py_value);
-  #else
-      initial_steps = (s32)PyInt_AsLong(py_value);
-  #endif
-      Py_DECREF(py_value);
-    } else {
-      PyErr_Print();
-      FATAL("Call to init_trim() failed");
-    }
-    
-    if (initial_steps <= 0) {
-      WARNF("Python init_trim returned %d, skipping custom trim", initial_steps);
-    } else {
-      ACTF("Python trimmer initialized, %d steps planned", initial_steps);
-      
-      u32 trim_rounds = 0;
-      u32 trimmed_successfully = 0;
-      
-      // Trim loop
-      while (1) {
-        // Check if we can continue trimming
-        py_args = PyTuple_New(0);
-        py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_TRIM_STEP], py_args);
-        Py_DECREF(py_args);
-        
-        u32 can_trim = 0;
-        if (py_value != NULL) {
-    #if PY_MAJOR_VERSION >= 3
-          can_trim = (u32)PyLong_AsLong(py_value);
-    #else
-          can_trim = (u32)PyInt_AsLong(py_value);
-    #endif
-          Py_DECREF(py_value);
-        } else {
-          PyErr_Print();
-          FATAL("Call to trim_step() failed");
-        }
-        
-        if (!can_trim) break;
-        
-        trim_rounds++;
-        
-        // Get trimmed test case size
-        py_args = PyTuple_New(0);
-        py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_GET_TRIM_SIZE], py_args);
-        Py_DECREF(py_args);
-        
-        size_t trimmed_size = 0;
-        if (py_value != NULL) {
-    #if PY_MAJOR_VERSION >= 3
-          trimmed_size = (size_t)PyLong_AsLong(py_value);
-    #else
-          trimmed_size = (size_t)PyInt_AsLong(py_value);
-    #endif
-          Py_DECREF(py_value);
-        } else {
-          PyErr_Print();
-          FATAL("Call to get_trim_size() failed");
-        }
-        
-        if (trimmed_size >= in_len) {
-          SAYF("[Python trim] Round %u: no improvements over %zu bytes.\n", 
-               trim_rounds, in_len);
-          continue;
-        }
-        
-        SAYF("[Python trim] Round %u: reduced from %zu to %zu bytes.\n", 
-             trim_rounds, in_len, trimmed_size);
-        
-        // Get trimmed buffer
-        py_args = PyTuple_New(0);
-        py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_GET_TRIM_BUF], py_args);
-        Py_DECREF(py_args);
-        
-        u8* trimmed_buf = NULL;
-        if (py_value != NULL) {
-          char* bytes;
-          size_t len;
-          
-          if (PyByteArray_Check(py_value)) {
-            bytes = PyByteArray_AsString(py_value);
-            len = PyByteArray_Size(py_value);
-          } else if (PyBytes_Check(py_value)) {
-            bytes = PyBytes_AsString(py_value);
-            len = PyBytes_Size(py_value);
-          } else {
-            Py_DECREF(py_value);
-            FATAL("get_trim_buf should return bytes or bytearray");
-          }
-          
-          trimmed_buf = ck_alloc(len);
-          memcpy(trimmed_buf, bytes, len);
-          Py_DECREF(py_value);
-        } else {
-          PyErr_Print();
-          FATAL("Call to get_trim_buf() failed");
-        }
-        
-        // Test if the trimmed case still works
-        if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
-          SAYF("[Python trim] But the testcase no longer crashes - skipping this reduction.\n");
-          ck_free(trimmed_buf);
-          continue;
-        }
-        
-        // Accept the reduction
-        memcpy(in_data, trimmed_buf, trimmed_size);
-        in_len = trimmed_size;
-        ck_free(trimmed_buf);
-        
-        trimmed_successfully = 1;
-        
-        // Signal success to the mutator
-        py_args = PyTuple_New(1);
-        py_value = PyBool_FromLong(1);
-        PyTuple_SetItem(py_args, 0, py_value);
-        py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_POST_TRIM], py_args);
-        Py_DECREF(py_args);
-        if (py_value != NULL) {
-          Py_DECREF(py_value);
-        }
-      }
-      
-      // Finalize trim process
-      py_args = PyTuple_New(0);
-      py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_TRIM_END], py_args);
-      Py_DECREF(py_args);
-      if (py_value != NULL) {
-        Py_DECREF(py_value);
-      }
-      
-      ACTF("Custom trimming complete after %u rounds, reduced: %s", 
-           trim_rounds, trimmed_successfully ? "yes" : "no");
-           
-      if (trimmed_successfully && !exact_mode) {
-        if (tmp_buf) { ck_free(tmp_buf); }
-        return;  // Skip standard minimization if successful
-      }
+  // Try to load python module
+  char *py_module = getenv("AFL_PYTHON_MODULE");
+  if (py_module) {
+    struct custom_mutator *py_custom_mutator = load_custom_mutator_py(afl, py_module);
+    if (py_custom_mutator) {
+      list_append(&afl->custom_mutator_list, py_custom_mutator);
+      afl->custom_mutators_count++;
+      ACTF("Loaded Python mutator module: %s", py_module);
     }
   }
 #endif
+
 
 // Custom mutator trimming using common API
 u8 custom_trimmer_success = 0;
 
 if (afl && afl->custom_mutators_count) {
   LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-    if (el->afl_custom_init_trim) {
+    if (el->afl_custom_init_trim && el->afl_custom_trim && 
+      el->afl_custom_post_trim) {
       ACTF("Performing custom trim with %s...", el->name);
       
       // Initialize the trimmer
-      u32 initial_steps = el->afl_custom_init_trim(el->data, in_data, in_len, &el->trim_data);
+      s32 initial_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
       
       if (initial_steps <= 0) {
         WARNF("Custom trimmer %s returned %u, skipping", el->name, initial_steps);
-      } else {
-        ACTF("Custom trimmer initialized, %u steps planned", initial_steps);
+        continue;
+      }
+      
+      ACTF("Custom trimmer initialized, %u steps planned", initial_steps);
+      
+      u32 trim_rounds = 0;
+      u32 trimmed_successfully = 0;
+      
+      while (1) {
+        // Get the trim buffer - appeler trim une seule fois
+        u32 trimmed_size = 0;
+        u8 *trimmed_buf = NULL;
+        trimmed_size = el->afl_custom_trim(el->data, &trimmed_buf);
+        if (!trimmed_buf || trimmed_size == 0 || trimmed_size >= in_len) break;
         
-        u32 trim_rounds = 0;
-        u32 trimmed_successfully = 0;
+        trim_rounds++;
         
-        // Trim loop
-        while (el->afl_custom_trim_step(el->data, trim_rounds, &el->trim_data)) {
-          trim_rounds++;
-          
-          // Get trimmed test case size
-          size_t trimmed_size = el->afl_custom_get_trim_size(el->data, &el->trim_data);
-          
-          if (trimmed_size >= in_len) {
-            SAYF("[Custom trim] Round %u: no improvements over %zu bytes.\n", 
-                 trim_rounds, in_len);
-            continue;
-          }
-          
-          SAYF("[Custom trim] Round %u: reduced from %zu to %zu bytes.\n", 
-               trim_rounds, in_len, trimmed_size);
-          
-          // Get trimmed buffer
-          u8* trimmed_buf = el->afl_custom_get_trim_buffer(el->data, &el->trim_data);
-          
-          if (!trimmed_buf) {
-            WARNF("Custom trimmer %s returned NULL buffer, skipping", el->name);
-            continue;
-          }
-          
-          // Test if the trimmed case still works
-          if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
-            SAYF("[Custom trim] But the testcase no longer crashes - skipping this reduction.\n");
-            continue;
-          }
-          
-          // Accept the reduction
-          memcpy(in_data, trimmed_buf, trimmed_size);
-          in_len = trimmed_size;
-          
-          trimmed_successfully = 1;
-          
-          // Signal success to the mutator
-          el->afl_custom_post_trim(el->data, 1, &el->trim_data);
+        // Test if the trimmed case still works
+        if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
+          SAYF("[Custom trim] Testcase no longer reproduces - skipping reduction.\n");
+          el->afl_custom_post_trim(el->data, 0);
+          continue;
         }
         
-        // Finalize trim process
-        el->afl_custom_trim_end(el->data, &el->trim_data);
+        // Accept the reduction
+        if (in_data) ck_free(in_data);
+        in_data = ck_alloc(trimmed_size);
+        memcpy(in_data, trimmed_buf, trimmed_size);
+        in_len = trimmed_size;
         
-        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s", 
-             el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
-             
-        if (trimmed_successfully && !exact_mode) {
-          custom_trimmer_success = 1;
-        }
+        trimmed_successfully = 1;
+        el->afl_custom_post_trim(el->data, 1);
+        
+        SAYF("[Custom trim] Successful reduction to %u bytes\n", in_len);
+      }
+      
+      ACTF("Custom trimming with %s complete after %u rounds, reduced: %s", 
+           el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
+           
+      if (trimmed_successfully && !exact_mode) {
+        custom_trimmer_success = 1;
       }
     }
   });
@@ -1013,7 +862,7 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
 /* Setup signal handlers, duh. */
 
-static void setup_signal_handlers(void) {
+void setup_signal_handlers(void) {
 
   struct sigaction sa;
 
@@ -1447,21 +1296,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   exact_mode = !!get_afl_env("AFL_TMIN_EXACT");
 
-  #ifdef USE_PYTHON
-    if (py_mutator) {
-      if (py_mutator->py_module != NULL) {
-        u32 i;
-        for (i = 0; i < PY_FUNC_COUNT; ++i) {
-          Py_XDECREF(py_mutator->py_functions[i]);
-        }
-        Py_DECREF(py_mutator->py_module);
-      }
-    
-      Py_Finalize();
-      free(py_mutator);
-    }
-  #endif
-
   if (hang_mode && exact_mode) {
 
     SAYF("AFL_TMIN_EXACT won't work for loops in hang mode, ignoring.");
@@ -1529,8 +1363,19 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl) {
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
     if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
+    
+    list_init(&afl->custom_mutator_list);
+    afl->custom_mutators_count = 0;
+    
     afl->afl_env.afl_custom_mutator_library = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
     afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+    
+    afl->fsrv = *fsrv;
+    
+    afl->shm = shm;
+    afl->out_dir = ".";  // Répertoire temporaire
+    afl->fsrv.use_shmem_fuzz = fsrv->use_shmem_fuzz;
+    
     setup_custom_mutators(afl);
   }
 
