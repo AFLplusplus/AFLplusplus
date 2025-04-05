@@ -475,7 +475,7 @@ if (afl && afl->custom_mutators_count) {
 }
 
 // Skip built-in minimization if custom trimmer is successful
-if (custom_trimmer_success) {
+if (in_len <= 1) {
   if (tmp_buf) { ck_free(tmp_buf); }
   return;
 }
@@ -1358,26 +1358,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  // Initialize AFL state for custom mutators
-  afl = calloc(1, sizeof(afl_state_t));
-  if (afl) {
-    afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-    if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
-    
-    list_init(&afl->custom_mutator_list);
-    afl->custom_mutators_count = 0;
-    
-    afl->afl_env.afl_custom_mutator_library = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
-    afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
-    
-    afl->fsrv = *fsrv;
-    
-    afl->shm = shm;
-    afl->out_dir = ".";  // Répertoire temporaire
-    afl->fsrv.use_shmem_fuzz = fsrv->use_shmem_fuzz;
-    
-    setup_custom_mutators(afl);
-  }
+// Initialize AFL state for custom mutators
+afl = calloc(1, sizeof(afl_state_t));
+if (afl) {
+  int urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
+  
+  list_init(&afl->custom_mutator_list);
+  afl->custom_mutators_count = 0;
+  
+  afl->afl_env.afl_custom_mutator_library = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+  
+  afl->shm = shm;
+  afl->out_dir = ".";  
+  
+  memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+  
+  afl->fsrv.dev_urandom_fd = urandom_fd;
+  
+  setup_custom_mutators(afl);
+}
 
 #ifdef __linux__
   if (!fsrv->nyx_mode) { (void)check_binary_signatures(fsrv->target_path); }
