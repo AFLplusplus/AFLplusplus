@@ -2843,7 +2843,7 @@ int main(int argc, char **argv_orig, char **envp) {
     u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
     u32                 r = 8 + afl->fsrv.map_size * 4;
     u32                 q_len = o_end - o_start;
-    u32                 m_len = (afl->fsrv.map_size >> 3);
+    u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
     struct queue_entry *q;
 
     for (u32 i = 0; i < afl->queued_items; i++) {
@@ -3559,7 +3559,7 @@ stop_fuzzing:
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
       u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
       u32                 q_len = o_end - o_start;
-      u32                 m_len = (afl->fsrv.map_size >> 3);
+      u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
       struct queue_entry *q;
 
       afl->pending_not_fuzzed = afl->queued_items;
