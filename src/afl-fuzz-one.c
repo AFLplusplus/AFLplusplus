@@ -1619,8 +1619,8 @@ skip_interest:
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  afl->stage_finds[STAGE_EXTRAS_UO] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_EXTRAS_UO] += afl->stage_max;
+  afl->stage_finds[STAGE_EXTRA_OVERWRITE] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_EXTRA_OVERWRITE] += afl->stage_max;
 #ifdef INTROSPECTION
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
@@ -1682,8 +1682,8 @@ skip_interest:
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  afl->stage_finds[STAGE_EXTRAS_UI] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_EXTRAS_UI] += afl->stage_max;
+  afl->stage_finds[STAGE_EXTRA_INSERT] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_EXTRA_INSERT] += afl->stage_max;
 #ifdef INTROSPECTION
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
@@ -1745,8 +1745,8 @@ skip_user_extras:
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
+  afl->stage_finds[STAGE_AUTO_EXTRA_OVERWRITE] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_AUTO_EXTRA_OVERWRITE] += afl->stage_max;
 #ifdef INTROSPECTION
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
@@ -1808,8 +1808,8 @@ skip_user_extras:
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  afl->stage_finds[STAGE_EXTRAS_AI] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_EXTRAS_AI] += afl->stage_max;
+  afl->stage_finds[STAGE_AUTO_EXTRA_INSERT] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_AUTO_EXTRA_INSERT] += afl->stage_max;
 #ifdef INTROSPECTION
   afl->queue_cur->stats_mutated += afl->stage_max;
 #endif
@@ -3721,8 +3721,6 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   }
 
-  s32 temp_len_puppet;
-
   // for (; afl->swarm_now < SWARM_NUM; ++afl->swarm_now)
   {
 
@@ -3775,18 +3773,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       havoc_queued = afl->queued_items;
 
-      u32 r_max, r;
-
-      r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
-
-      if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
-
-        /* add expensive havoc cases here, they are activated after a full
-           cycle without any finds happened */
-
-        ++r_max;
-
-      }
+      u32 r;
 
       for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
            ++afl->stage_cur) {
@@ -3808,340 +3795,355 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         for (i = 0; i < use_stacking; ++i) {
 
-          switch (r = (select_algorithm(afl, r_max))) {
+        retry_havoc_step: {
 
-            case 0:
+          u32 item;
+          switch (r = (select_algorithm(afl, STAGE_HAVOC_MAX))) {
+
+            case STAGE_FLIPBIT: {
+
               /* Flip a single bit somewhere. Spooky! */
-              FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
-              MOpt_globals.cycles_v2[STAGE_FLIP1]++;
+              u8  bit = rand_below(afl, 8);
+              u32 off = rand_below(afl, temp_len);
+              out_buf[off] ^= 1 << bit;
+
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT1");
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP-BIT_%u", bit);
               strcat(afl->mutation, afl->m_tmp);
 #endif
+              ++MOpt_globals.cycles_v2[STAGE_FLIPBIT];
               break;
 
-            case 1:
-              if (temp_len < 2) { break; }
-              temp_len_puppet = rand_below(afl, (temp_len << 3) - 1);
-              FLIP_BIT(out_buf, temp_len_puppet);
-              FLIP_BIT(out_buf, temp_len_puppet + 1);
-              MOpt_globals.cycles_v2[STAGE_FLIP2]++;
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT2");
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              break;
+            }
 
-            case 2:
-              if (temp_len < 2) { break; }
-              temp_len_puppet = rand_below(afl, (temp_len << 3) - 3);
-              FLIP_BIT(out_buf, temp_len_puppet);
-              FLIP_BIT(out_buf, temp_len_puppet + 1);
-              FLIP_BIT(out_buf, temp_len_puppet + 2);
-              FLIP_BIT(out_buf, temp_len_puppet + 3);
-              MOpt_globals.cycles_v2[STAGE_FLIP4]++;
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT4");
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              break;
+            case STAGE_INTEREST8: {
 
-            case 3:
-              if (temp_len < 4) { break; }
-              out_buf[rand_below(afl, temp_len)] ^= 0xFF;
-              MOpt_globals.cycles_v2[STAGE_FLIP8]++;
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT8");
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              break;
-
-            case 4:
-              if (temp_len < 8) { break; }
-              *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) ^= 0xFFFF;
-              MOpt_globals.cycles_v2[STAGE_FLIP16]++;
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT16");
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              break;
-
-            case 5:
-              if (temp_len < 8) { break; }
-              *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) ^= 0xFFFFFFFF;
-              MOpt_globals.cycles_v2[STAGE_FLIP32]++;
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT32");
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              break;
-
-            case 6:
-              out_buf[rand_below(afl, temp_len)] -=
-                  1 + rand_below(afl, ARITH_MAX);
-              out_buf[rand_below(afl, temp_len)] +=
-                  1 + rand_below(afl, ARITH_MAX);
-              MOpt_globals.cycles_v2[STAGE_ARITH8]++;
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8");
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              break;
-
-            case 7:
-              /* Randomly subtract from word, random endian. */
-              if (temp_len < 8) { break; }
-              if (rand_below(afl, 2)) {
-
-                u32 pos = rand_below(afl, temp_len - 1);
-                *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16-%u", pos);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-
-              } else {
-
-                u32 pos = rand_below(afl, temp_len - 1);
-                u16 num = 1 + rand_below(afl, ARITH_MAX);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16BE-%u-%u",
-                         pos, num);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u16 *)(out_buf + pos) =
-                    SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
-
-              }
-
-              /* Randomly add to word, random endian. */
-              if (rand_below(afl, 2)) {
-
-                u32 pos = rand_below(afl, temp_len - 1);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16+-%u", pos);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
-
-              } else {
-
-                u32 pos = rand_below(afl, temp_len - 1);
-                u16 num = 1 + rand_below(afl, ARITH_MAX);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16BE+-%u-%u",
-                         pos, num);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u16 *)(out_buf + pos) =
-                    SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
-
-              }
-
-              MOpt_globals.cycles_v2[STAGE_ARITH16]++;
-              break;
-
-            case 8:
-              /* Randomly subtract from dword, random endian. */
-              if (temp_len < 8) { break; }
-              if (rand_below(afl, 2)) {
-
-                u32 pos = rand_below(afl, temp_len - 3);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32_-%u", pos);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
-
-              } else {
-
-                u32 pos = rand_below(afl, temp_len - 3);
-                u32 num = 1 + rand_below(afl, ARITH_MAX);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32BE_-%u-%u",
-                         pos, num);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u32 *)(out_buf + pos) =
-                    SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
-
-              }
-
-              /* Randomly add to dword, random endian. */
-              // if (temp_len < 4) break;
-              if (rand_below(afl, 2)) {
-
-                u32 pos = rand_below(afl, temp_len - 3);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32+-%u", pos);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
-
-              } else {
-
-                u32 pos = rand_below(afl, temp_len - 3);
-                u32 num = 1 + rand_below(afl, ARITH_MAX);
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32BE+-%u-%u",
-                         pos, num);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u32 *)(out_buf + pos) =
-                    SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
-
-              }
-
-              MOpt_globals.cycles_v2[STAGE_ARITH32]++;
-              break;
-
-            case 9:
               /* Set byte to interesting value. */
-              if (temp_len < 4) { break; }
-              out_buf[rand_below(afl, temp_len)] =
-                  interesting_8[rand_below(afl, sizeof(interesting_8))];
-              MOpt_globals.cycles_v2[STAGE_INTEREST8]++;
+
+              item = rand_below(afl, sizeof(interesting_8));
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING8");
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING8_%u",
+                       item);
               strcat(afl->mutation, afl->m_tmp);
 #endif
+              out_buf[rand_below(afl, temp_len)] = interesting_8[item];
+              ++MOpt_globals.cycles_v2[STAGE_INTEREST8];
               break;
 
-            case 10:
-              /* Set word to interesting value, randomly choosing endian. */
-              if (temp_len < 8) { break; }
-              if (rand_below(afl, 2)) {
+            }
 
+            case STAGE_INTEREST16: {
+
+              /* Set word to interesting value, little endian. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              item = rand_below(afl, sizeof(interesting_16) >> 1);
 #ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16");
-                strcat(afl->mutation, afl->m_tmp);
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16_%u",
+                       item);
+              strcat(afl->mutation, afl->m_tmp);
 #endif
-                *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-                    interesting_16[rand_below(afl,
-                                              sizeof(interesting_16) >> 1)];
 
-              } else {
+              *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+                  interesting_16[item];
 
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16BE");
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-                    SWAP16(interesting_16[rand_below(
-                        afl, sizeof(interesting_16) >> 1)]);
-
-              }
-
-              MOpt_globals.cycles_v2[STAGE_INTEREST16]++;
+              ++MOpt_globals.cycles_v2[STAGE_INTEREST16];
               break;
 
-            case 11:
-              /* Set dword to interesting value, randomly choosing endian. */
+            }
 
-              if (temp_len < 8) { break; }
+            case STAGE_INTEREST16BE: {
 
-              if (rand_below(afl, 2)) {
+              /* Set word to interesting value, big endian. */
 
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              item = rand_below(afl, sizeof(interesting_16) >> 1);
 #ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32");
-                strcat(afl->mutation, afl->m_tmp);
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16BE_%u",
+                       item);
+              strcat(afl->mutation, afl->m_tmp);
 #endif
-                *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-                    interesting_32[rand_below(afl,
-                                              sizeof(interesting_32) >> 2)];
+              *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+                  SWAP16(interesting_16[item]);
 
-              } else {
-
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32BE");
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-                    SWAP32(interesting_32[rand_below(
-                        afl, sizeof(interesting_32) >> 2)]);
-
-              }
-
-              MOpt_globals.cycles_v2[STAGE_INTEREST32]++;
+              ++MOpt_globals.cycles_v2[STAGE_INTEREST16BE];
               break;
 
-            case 12:
+            }
+
+            case STAGE_INTEREST32: {
+
+              /* Set dword to interesting value, little endian. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              item = rand_below(afl, sizeof(interesting_32) >> 2);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32_%u",
+                       item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+
+              *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+                  interesting_32[item];
+
+              ++MOpt_globals.cycles_v2[STAGE_INTEREST32];
+              break;
+
+            }
+
+            case STAGE_INTEREST32BE: {
+
+              /* Set dword to interesting value, big endian. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              item = rand_below(afl, sizeof(interesting_32) >> 2);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32BE_%u",
+                       item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+                  SWAP32(interesting_32[item]);
+
+              ++MOpt_globals.cycles_v2[STAGE_INTEREST32BE];
+              break;
+
+            }
+
+            case STAGE_ARITH8_: {
+
+              /* Randomly subtract from byte. */
+
+              item = 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8-_%u", item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              out_buf[rand_below(afl, temp_len)] -= item;
+              ++MOpt_globals.cycles_v2[STAGE_ARITH8_];
+              break;
+
+            }
+
+            case STAGE_ARITH8: {
+
+              /* Randomly add to byte. */
+
+              item = 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8+_%u", item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              out_buf[rand_below(afl, temp_len)] += item;
+              ++MOpt_globals.cycles_v2[STAGE_ARITH8];
+              break;
+
+            }
+
+            case STAGE_ARITH16_: {
+
+              /* Randomly subtract from word, little endian. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 1);
+              item = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16-_%u", item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u16 *)(out_buf + pos) -= item;
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH16_];
+              break;
+
+            }
+
+            case STAGE_ARITH16BE_: {
+
+              /* Randomly subtract from word, big endian. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 1);
+              u16 num = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16BE-_%u", num);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u16 *)(out_buf + pos) =
+                  SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH16BE_];
+              break;
+
+            }
+
+            case STAGE_ARITH16: {
+
+              /* Randomly add to word, little endian. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 1);
+              item = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16+_%u", item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u16 *)(out_buf + pos) += item;
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH16];
+              break;
+
+            }
+
+            case STAGE_ARITH16BE: {
+
+              /* Randomly add to word, big endian. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 1);
+              u16 num = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16BE+__%u", num);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u16 *)(out_buf + pos) =
+                  SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH16BE];
+              break;
+
+            }
+
+            case STAGE_ARITH32_: {
+
+              /* Randomly subtract from dword, little endian. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 3);
+              item = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32-_%u", item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u32 *)(out_buf + pos) -= item;
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH32_];
+              break;
+
+            }
+
+            case STAGE_ARITH32BE_: {
+
+              /* Randomly subtract from dword, big endian. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 3);
+              u32 num = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32BE-_%u", num);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u32 *)(out_buf + pos) =
+                  SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH32BE_];
+              break;
+
+            }
+
+            case STAGE_ARITH32: {
+
+              /* Randomly add to dword, little endian. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 3);
+              item = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32+_%u", item);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u32 *)(out_buf + pos) += item;
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH32];
+              break;
+
+            }
+
+            case STAGE_ARITH32BE: {
+
+              /* Randomly add to dword, big endian. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              u32 pos = rand_below(afl, temp_len - 3);
+              u32 num = 1 + rand_below(afl, ARITH_MAX);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32BE+_%u", num);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              *(u32 *)(out_buf + pos) =
+                  SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
+
+              ++MOpt_globals.cycles_v2[STAGE_ARITH32BE];
+              break;
+
+            }
+
+            case STAGE_RAND8: {
 
               /* Just set a random byte to a random value. Because,
                  why not. We use XOR with 1-255 to eliminate the
                  possibility of a no-op. */
 
-              out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
-              MOpt_globals.cycles_v2[STAGE_RANDOMBYTE]++;
+              u32 pos = rand_below(afl, temp_len);
+              item = 1 + rand_below(afl, 255);
 #ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " RAND8");
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " RAND8_%u",
+                       out_buf[pos] ^ item);
               strcat(afl->mutation, afl->m_tmp);
 #endif
-              break;
-
-            case 13: {
-
-              /* Delete bytes. We're making this a bit more likely
-                 than insertion (the next option) in hopes of keeping
-                 files reasonably small. */
-
-              u32 del_from, del_len;
-
-              if (temp_len < 2) { break; }
-
-              /* Don't delete too much. */
-
-              del_len = choose_block_len(afl, temp_len - 1);
-
-              del_from = rand_below(afl, temp_len - del_len + 1);
-
-#ifdef INTROSPECTION
-              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " DEL-%u%u", del_from,
-                       del_len);
-              strcat(afl->mutation, afl->m_tmp);
-#endif
-              memmove(out_buf + del_from, out_buf + del_from + del_len,
-                      temp_len - del_from - del_len);
-
-              temp_len -= del_len;
-              MOpt_globals.cycles_v2[STAGE_DELETEBYTE]++;
+              out_buf[pos] ^= item;
+              ++MOpt_globals.cycles_v2[STAGE_RAND8];
               break;
 
             }
 
-            case 14:
+            case STAGE_CLONE_COPY: {
 
-              if (temp_len + HAVOC_BLK_XL < MAX_FILE) {
+              if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
 
-                /* Clone bytes (75%) or insert a block of constant bytes (25%).
-                 */
+                /* Clone bytes. */
 
-                u8  actually_clone = rand_below(afl, 4);
-                u32 clone_from, clone_to, clone_len;
-                u8 *new_buf;
-
-                if (likely(actually_clone)) {
-
-                  clone_len = choose_block_len(afl, temp_len);
-                  clone_from = rand_below(afl, temp_len - clone_len + 1);
-
-                } else {
-
-                  clone_len = choose_block_len(afl, HAVOC_BLK_XL);
-                  clone_from = 0;
-
-                }
-
-                clone_to = rand_below(afl, temp_len);
+                u32 clone_len = choose_block_len(afl, temp_len);
+                u32 clone_from = rand_below(afl, temp_len - clone_len + 1);
+                u32 clone_to = rand_below(afl, temp_len);
 
 #ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE_%s-%u-%u-%u",
-                         actually_clone ? "clone" : "insert", clone_from,
-                         clone_to, clone_len);
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s_%u_%u_%u",
+                         "COPY", clone_from, clone_to, clone_len);
                 strcat(afl->mutation, afl->m_tmp);
 #endif
-                new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
-                                      temp_len + clone_len);
+                u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                          temp_len + clone_len);
                 if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
                 /* Head */
@@ -4150,19 +4152,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
                 /* Inserted part */
 
-                if (actually_clone) {
-
-                  memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
-
-                } else {
-
-                  memset(new_buf + clone_to,
-                         rand_below(afl, 2)
-                             ? rand_below(afl, 256)
-                             : out_buf[rand_below(afl, temp_len)],
-                         clone_len);
-
-                }
+                memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
 
                 /* Tail */
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -4171,254 +4161,768 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
                 out_buf = new_buf;
                 afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
                 temp_len += clone_len;
-                MOpt_globals.cycles_v2[STAGE_Clone75]++;
+                ++MOpt_globals.cycles_v2[STAGE_CLONE_COPY];
+
+              } else if (unlikely(temp_len < 8)) {
+
+                break;
+
+              } else {
+
+                goto retry_havoc_step;
 
               }
 
               break;
 
-            case 15: {
+            }
 
-              /* Overwrite bytes with a randomly selected chunk (75%) or fixed
-                 bytes (25%). */
+            case STAGE_CLONE_FIXED: {
+
+              if (likely(temp_len + HAVOC_BLK_XL < MAX_FILE)) {
+
+                /* Insert a block of constant bytes (25%). */
+
+                u32 clone_len = choose_block_len(afl, HAVOC_BLK_XL);
+                u32 clone_to = rand_below(afl, temp_len);
+                u32 strat = rand_below(afl, 2);
+                u32 clone_from = clone_to ? clone_to - 1 : 0;
+                item = strat ? rand_below(afl, 256) : out_buf[clone_from];
+
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s_%u_%u_%u",
+                         "FIXED", strat, clone_to, clone_len);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
+                u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                          temp_len + clone_len);
+                if (unlikely(!new_buf)) { PFATAL("alloc"); }
+
+                /* Head */
+
+                memcpy(new_buf, out_buf, clone_to);
+
+                /* Inserted part */
+
+                memset(new_buf + clone_to, item, clone_len);
+
+                /* Tail */
+                memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
+                       temp_len - clone_to);
+
+                out_buf = new_buf;
+                afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+                temp_len += clone_len;
+                ++MOpt_globals.cycles_v2[STAGE_CLONE_FIXED];
+
+              } else if (unlikely(temp_len < 8)) {
+
+                break;
+
+              } else {
+
+                goto retry_havoc_step;
+
+              }
+
+              break;
+
+            }
+
+            case STAGE_OVERWRITE_COPY: {
+
+              /* Overwrite bytes with a randomly selected chunk bytes. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 copy_from, copy_to,
+                  copy_len = choose_block_len(afl, temp_len - 1);
+
+              do {
+
+                copy_from = rand_below(afl, temp_len - copy_len + 1);
+                copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+              } while (unlikely(copy_from == copy_to));
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " OVERWRITE-COPY_%u_%u_%u", copy_from, copy_to,
+                       copy_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
+
+              ++MOpt_globals.cycles_v2[STAGE_OVERWRITE_COPY];
+              break;
+
+            }
+
+            case STAGE_OVERWRITE_FIXED: {
+
+              /* Overwrite bytes with fixed bytes. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 copy_len = choose_block_len(afl, temp_len - 1);
+              u32 copy_to = rand_below(afl, temp_len - copy_len + 1);
+              u32 strat = rand_below(afl, 2);
+              u32 copy_from = copy_to ? copy_to - 1 : 0;
+              item = strat ? rand_below(afl, 256) : out_buf[copy_from];
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " OVERWRITE-FIXED_%u_%u_%u-%u", strat, item, copy_to,
+                       copy_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              memset(out_buf + copy_to, item, copy_len);
+
+              ++MOpt_globals.cycles_v2[STAGE_OVERWRITE_FIXED];
+              break;
+
+            }
+
+            case STAGE_BYTEADD: {
+
+              /* Increase byte by 1. */
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " BYTEADD_");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              out_buf[rand_below(afl, temp_len)]++;
+              ++MOpt_globals.cycles_v2[STAGE_BYTEADD];
+              break;
+
+            }
+
+            case STAGE_BYTESUB: {
+
+              /* Decrease byte by 1. */
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " BYTESUB_");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              out_buf[rand_below(afl, temp_len)]--;
+              ++MOpt_globals.cycles_v2[STAGE_BYTESUB];
+              break;
+
+            }
+
+            case STAGE_FLIP8: {
+
+              /* Flip byte with a XOR 0xff. This is the same as NEG. */
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP8_");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              out_buf[rand_below(afl, temp_len)] ^= 0xff;
+              ++MOpt_globals.cycles_v2[STAGE_FLIP8];
+              break;
+
+            }
+
+            case STAGE_SWITCH: {
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              /* Switch bytes. */
+
+              u32 to_end, switch_to, switch_len, switch_from;
+              switch_from = rand_below(afl, temp_len);
+              do {
+
+                switch_to = rand_below(afl, temp_len);
+
+              } while (unlikely(switch_from == switch_to));
+
+              if (switch_from < switch_to) {
+
+                switch_len = switch_to - switch_from;
+                to_end = temp_len - switch_to;
+
+              } else {
+
+                switch_len = switch_from - switch_to;
+                to_end = temp_len - switch_from;
+
+              }
+
+              switch_len = choose_block_len(afl, MIN(switch_len, to_end));
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SWITCH-%s_%u_%u_%u",
+                       "switch", switch_from, switch_to, switch_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), switch_len);
+              if (unlikely(!new_buf)) { PFATAL("alloc"); }
+
+              /* Backup */
+
+              memcpy(new_buf, out_buf + switch_from, switch_len);
+
+              /* Switch 1 */
+
+              memcpy(out_buf + switch_from, out_buf + switch_to, switch_len);
+
+              /* Switch 2 */
+
+              memcpy(out_buf + switch_to, new_buf, switch_len);
+
+              ++MOpt_globals.cycles_v2[STAGE_SWITCH];
+              break;
+
+            }
+
+            case STAGE_DEL: {
+
+              /* Delete bytes. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              /* Don't delete too much. */
+
+              u32 del_len = choose_block_len(afl, temp_len - 1);
+              u32 del_from = rand_below(afl, temp_len - del_len + 1);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " DEL_%u_%u", del_from,
+                       del_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              memmove(out_buf + del_from, out_buf + del_from + del_len,
+                      temp_len - del_from - del_len);
+
+              temp_len -= del_len;
+
+              ++MOpt_globals.cycles_v2[STAGE_DEL];
+              break;
+
+            }
+
+            case STAGE_SHUFFLE: {
+
+              /* Shuffle bytes. */
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              u32 len = choose_block_len(afl, temp_len - 1);
+              u32 off = rand_below(afl, temp_len - len + 1);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SHUFFLE_%u", len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+
+              for (u32 i = len - 1; i > 0; i--) {
+
+                u32 j;
+                do {
+
+                  j = rand_below(afl, i + 1);
+
+                } while (unlikely(i == j));
+
+                unsigned char temp = out_buf[off + i];
+                out_buf[off + i] = out_buf[off + j];
+                out_buf[off + j] = temp;
+
+              }
+
+              ++MOpt_globals.cycles_v2[STAGE_SHUFFLE];
+              break;
+
+            }
+
+            case STAGE_DELONE: {
+
+              /* Delete bytes. */
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              /* Don't delete too much. */
+
+              u32 del_len = 1;
+              u32 del_from = rand_below(afl, temp_len - del_len + 1);
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " DELONE_%u", del_from);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              memmove(out_buf + del_from, out_buf + del_from + del_len,
+                      temp_len - del_from - del_len);
+
+              temp_len -= del_len;
+
+              ++MOpt_globals.cycles_v2[STAGE_DELONE];
+              break;
+
+            }
+
+            case STAGE_INSERTONE: {
+
+              if (unlikely(temp_len < 2)) { break; }  // no retry
+
+              u32 clone_len = 1;
+              u32 clone_to = rand_below(afl, temp_len);
+              u32 strat = rand_below(afl, 2);
+              u32 clone_from = clone_to ? clone_to - 1 : 0;
+              item = strat ? rand_below(afl, 256) : out_buf[clone_from];
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INSERTONE_%u_%u",
+                       strat, clone_to);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              u8 *new_buf =
+                  afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len);
+              if (unlikely(!new_buf)) { PFATAL("alloc"); }
+
+              /* Head */
+
+              memcpy(new_buf, out_buf, clone_to);
+
+              /* Inserted part */
+
+              memset(new_buf + clone_to, item, clone_len);
+
+              /* Tail */
+              memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
+                     temp_len - clone_to);
+
+              out_buf = new_buf;
+              afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+              temp_len += clone_len;
+
+              ++MOpt_globals.cycles_v2[STAGE_INSERTONE];
+              break;
+
+            }
+
+            case STAGE_ASCIINUM: {
+
+              if (unlikely(temp_len < 4)) { break; }  // no retry
+
+              u32 off = rand_below(afl, temp_len), off2 = off, cnt = 0;
+
+              while (off2 + cnt < temp_len && !isdigit(out_buf[off2 + cnt])) {
+
+                ++cnt;
+
+              }
+
+              // none found, wrap
+              if (off2 + cnt == temp_len) {
+
+                off2 = 0;
+                cnt = 0;
+
+                while (cnt < off && !isdigit(out_buf[off2 + cnt])) {
+
+                  ++cnt;
+
+                }
+
+                if (cnt == off) {
+
+                  if (temp_len < 8) {
+
+                    break;
+
+                  } else {
+
+                    goto retry_havoc_step;
+
+                  }
+
+                }
+
+              }
+
+              off = off2 + cnt;
+              off2 = off + 1;
+
+              while (off2 < temp_len && isdigit(out_buf[off2])) {
+
+                ++off2;
+
+              }
+
+              s64 val = out_buf[off] - '0';
+              for (u32 i = off + 1; i < off2; ++i) {
+
+                val = (val * 10) + out_buf[i] - '0';
+
+              }
+
+              if (off && out_buf[off - 1] == '-') { val = -val; }
+
+              u32 strat = rand_below(afl, 8);
+              switch (strat) {
+
+                case 0:
+                  val++;
+                  break;
+                case 1:
+                  val--;
+                  break;
+                case 2:
+                  val *= 2;
+                  break;
+                case 3:
+                  val /= 2;
+                  break;
+                case 4:
+                  if (likely(val && (u64)val < 0x19999999)) {
+
+                    val = (u64)rand_next(afl) % (u64)((u64)val * 10);
+
+                  } else {
+
+                    val = rand_below(afl, 256);
+
+                  }
+
+                  break;
+                case 5:
+                  val += rand_below(afl, 256);
+                  break;
+                case 6:
+                  val -= rand_below(afl, 256);
+                  break;
+                case 7:
+                  val = ~(val);
+                  break;
+
+              }
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ASCIINUM_%u_%u_%u",
+                       afl->queue_cur->is_ascii, strat, off);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              // fprintf(stderr, "val: %u-%u = %ld\n", off, off2, val);
+
+              char buf[20];
+              snprintf(buf, sizeof(buf), "%" PRId64, val);
+
+              // fprintf(stderr, "BEFORE: %s\n", out_buf);
+
+              u32 old_len = off2 - off;
+              u32 new_len = strlen(buf);
+
+              if (old_len == new_len) {
+
+                memcpy(out_buf + off, buf, new_len);
+
+              } else {
+
+                u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                          temp_len + new_len - old_len);
+                if (unlikely(!new_buf)) { PFATAL("alloc"); }
+
+                /* Head */
+
+                memcpy(new_buf, out_buf, off);
+
+                /* Inserted part */
+
+                memcpy(new_buf + off, buf, new_len);
+
+                /* Tail */
+                memcpy(new_buf + off + new_len, out_buf + off2,
+                       temp_len - off2);
+
+                out_buf = new_buf;
+                afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+                temp_len += (new_len - old_len);
+
+              }
+
+              // fprintf(stderr, "AFTER : %s\n", out_buf);
+              ++MOpt_globals.cycles_v2[STAGE_ASCIINUM];
+              break;
+
+            }
+
+            case STAGE_INSERTASCIINUM: {
+
+              u32 len = 1 + rand_below(afl, 8);
+              u32 pos = rand_below(afl, temp_len);
+              /* Insert ascii number. */
+              if (unlikely(temp_len < pos + len)) {
+
+                if (unlikely(temp_len < 8)) {
+
+                  break;
+
+                } else {
+
+                  goto retry_havoc_step;
+
+                }
+
+              }
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INSERTASCIINUM_");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              u64  val = rand_next(afl);
+              char buf[20];
+              snprintf(buf, sizeof(buf), "%llu", val);
+              memcpy(out_buf + pos, buf, len);
+              ++MOpt_globals.cycles_v2[STAGE_INSERTASCIINUM];
+
+              break;
+
+            }
+
+            case STAGE_EXTRA_OVERWRITE: {
+
+              if (unlikely(!afl->extras_cnt)) { goto retry_havoc_step; }
+
+              /* Use the dictionary. */
+
+              u32 use_extra = rand_below(afl, afl->extras_cnt);
+              u32 extra_len = afl->extras[use_extra].len;
+
+              if (unlikely(extra_len > temp_len)) { goto retry_havoc_step; }
+
+              u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " EXTRA-OVERWRITE_%u_%u",
+                       insert_at, extra_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              memcpy(out_buf + insert_at, afl->extras[use_extra].data,
+                     extra_len);
+
+              ++MOpt_globals.cycles_v2[STAGE_EXTRA_OVERWRITE];
+              break;
+
+            }
+
+            case STAGE_EXTRA_INSERT: {
+
+              if (unlikely(!afl->extras_cnt)) { goto retry_havoc_step; }
+
+              u32 use_extra = rand_below(afl, afl->extras_cnt);
+              u32 extra_len = afl->extras[use_extra].len;
+              if (unlikely(temp_len + extra_len >= MAX_FILE)) {
+
+                goto retry_havoc_step;
+
+              }
+
+              u8 *ptr = afl->extras[use_extra].data;
+              u32 insert_at = rand_below(afl, temp_len + 1);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " EXTRA-INSERT_%u_%u",
+                       insert_at, extra_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+
+              out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
+              if (unlikely(!out_buf)) { PFATAL("alloc"); }
+
+              /* Tail */
+              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                      temp_len - insert_at);
+
+              /* Inserted part */
+              memcpy(out_buf + insert_at, ptr, extra_len);
+              temp_len += extra_len;
+
+              ++MOpt_globals.cycles_v2[STAGE_EXTRA_INSERT];
+              break;
+
+            }
+
+            case STAGE_AUTO_EXTRA_OVERWRITE: {
+
+              if (unlikely(!afl->a_extras_cnt)) { goto retry_havoc_step; }
+
+              /* Use the dictionary. */
+
+              u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+              u32 extra_len = afl->a_extras[use_extra].len;
+
+              if (unlikely(extra_len > temp_len)) { goto retry_havoc_step; }
+
+              u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " AUTO-EXTRA-OVERWRITE_%u_%u", insert_at, extra_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
+                     extra_len);
+
+              ++MOpt_globals.cycles_v2[STAGE_AUTO_EXTRA_OVERWRITE];
+              break;
+
+            }
+
+            case STAGE_AUTO_EXTRA_INSERT: {
+
+              if (unlikely(!afl->a_extras_cnt)) { goto retry_havoc_step; }
+
+              u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+              u32 extra_len = afl->a_extras[use_extra].len;
+              if (unlikely(temp_len + extra_len >= MAX_FILE)) {
+
+                goto retry_havoc_step;
+
+              }
+
+              u8 *ptr = afl->a_extras[use_extra].data;
+              u32 insert_at = rand_below(afl, temp_len + 1);
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " AUTO-EXTRA-INSERT_%u_%u", insert_at, extra_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+
+              out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
+              if (unlikely(!out_buf)) { PFATAL("alloc"); }
+
+              /* Tail */
+              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                      temp_len - insert_at);
+
+              /* Inserted part */
+              memcpy(out_buf + insert_at, ptr, extra_len);
+              temp_len += extra_len;
+
+              ++MOpt_globals.cycles_v2[STAGE_AUTO_EXTRA_OVERWRITE];
+              break;
+
+            }
+
+            case STAGE_SPLICE_OVERWRITE: {
+
+              if (unlikely(afl->ready_for_splicing_count <= 1)) {
+
+                goto retry_havoc_step;
+
+              }
+
+              /* Pick a random queue entry and seek to it. */
+
+              u32 tid;
+              do {
+
+                tid = rand_below(afl, afl->queued_items);
+
+              } while (unlikely(tid == afl->current_entry ||
+
+                                afl->queue_buf[tid]->len < 4));
+
+              /* Get the testcase for splicing. */
+              struct queue_entry *target = afl->queue_buf[tid];
+              u32                 new_len = target->len;
+              u8                 *new_buf = queue_testcase_get(afl, target);
+
+              /* overwrite mode */
 
               u32 copy_from, copy_to, copy_len;
 
-              if (temp_len < 2) { break; }
+              copy_len = choose_block_len(afl, new_len - 1);
+              if (copy_len > temp_len) copy_len = temp_len;
 
-              copy_len = choose_block_len(afl, temp_len - 1);
-
-              copy_from = rand_below(afl, temp_len - copy_len + 1);
+              copy_from = rand_below(afl, new_len - copy_len + 1);
               copy_to = rand_below(afl, temp_len - copy_len + 1);
 
-              if (likely(rand_below(afl, 4))) {
-
-                if (likely(copy_from != copy_to)) {
-
 #ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " OVERWRITE_COPY-%u-%u-%u", copy_from, copy_to,
-                           copy_len);
-                  strcat(afl->mutation, afl->m_tmp);
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " SPLICE-OVERWRITE_%u_%u_%u_%s", copy_from, copy_to,
+                       copy_len, target->fname);
+              strcat(afl->mutation, afl->m_tmp);
 #endif
-                  memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
+              memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
 
-                }
-
-              } else {
-
-#ifdef INTROSPECTION
-                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                         " OVERWRITE_FIXED-%u-%u-%u", copy_from, copy_to,
-                         copy_len);
-                strcat(afl->mutation, afl->m_tmp);
-#endif
-                memset(out_buf + copy_to,
-                       rand_below(afl, 2) ? rand_below(afl, 256)
-                                          : out_buf[rand_below(afl, temp_len)],
-                       copy_len);
-
-              }
-
-              MOpt_globals.cycles_v2[STAGE_OverWrite75]++;
+              ++MOpt_globals.cycles_v2[STAGE_SPLICE_OVERWRITE];
               break;
 
-            }                                                    /* case 15 */
+            }
 
-            default: {
+            case STAGE_SPLICE_INSERT: {
 
-              /* Values 16 and 17 can be selected only if there are any extras
-                 present in the dictionaries. */
+              if (unlikely(afl->ready_for_splicing_count <= 1)) {
 
-              r -= 16;
-
-              if (r == 0 && (afl->extras_cnt || afl->a_extras_cnt)) {
-
-                /* Overwrite bytes with an extra. */
-
-                if (!afl->extras_cnt ||
-                    (afl->a_extras_cnt && rand_below(afl, 2))) {
-
-                  /* No user-specified extras or odds in our favor. Let's use an
-                    auto-detected one. */
-
-                  u32 use_extra = rand_below(afl, afl->a_extras_cnt);
-                  u32 extra_len = afl->a_extras[use_extra].len;
-
-                  if (extra_len > (u32)temp_len) break;
-
-                  u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
-#ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " AUTO_EXTRA_OVERWRITE-%u-%u", insert_at, extra_len);
-                  strcat(afl->mutation, afl->m_tmp);
-#endif
-                  memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
-                         extra_len);
-
-                } else {
-
-                  /* No auto extras or odds in our favor. Use the dictionary. */
-
-                  u32 use_extra = rand_below(afl, afl->extras_cnt);
-                  u32 extra_len = afl->extras[use_extra].len;
-
-                  if (extra_len > (u32)temp_len) break;
-
-                  u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
-#ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " EXTRA_OVERWRITE-%u-%u", insert_at, extra_len);
-                  strcat(afl->mutation, afl->m_tmp);
-#endif
-                  memcpy(out_buf + insert_at, afl->extras[use_extra].data,
-                         extra_len);
-
-                }
-
-                MOpt_globals.cycles_v2[STAGE_OverWriteExtra]++;
-
-                break;
+                goto retry_havoc_step;
 
               }
 
-              /* Insert an extra. */
+              if (unlikely(temp_len + HAVOC_BLK_XL >= MAX_FILE)) {
 
-              else if (r == 1 && (afl->extras_cnt || afl->a_extras_cnt)) {
-
-                u32 use_extra, extra_len,
-                    insert_at = rand_below(afl, temp_len + 1);
-                u8 *ptr;
-
-                /* Insert an extra. Do the same dice-rolling stuff as for the
-                  previous case. */
-
-                if (!afl->extras_cnt ||
-                    (afl->a_extras_cnt && rand_below(afl, 2))) {
-
-                  use_extra = rand_below(afl, afl->a_extras_cnt);
-                  extra_len = afl->a_extras[use_extra].len;
-                  ptr = afl->a_extras[use_extra].data;
-#ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " AUTO_EXTRA_INSERT-%u-%u", insert_at, extra_len);
-                  strcat(afl->mutation, afl->m_tmp);
-#endif
-
-                } else {
-
-                  use_extra = rand_below(afl, afl->extras_cnt);
-                  extra_len = afl->extras[use_extra].len;
-                  ptr = afl->extras[use_extra].data;
-#ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " EXTRA_INSERT-%u-%u", insert_at, extra_len);
-                  strcat(afl->mutation, afl->m_tmp);
-#endif
-
-                }
-
-                if (temp_len + extra_len >= MAX_FILE) break;
-
-                out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
-                if (unlikely(!out_buf)) { PFATAL("alloc"); }
-
-                /* Tail */
-                memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
-                        temp_len - insert_at);
-
-                /* Inserted part */
-                memcpy(out_buf + insert_at, ptr, extra_len);
-
-                temp_len += extra_len;
-                MOpt_globals.cycles_v2[STAGE_InsertExtra]++;
-                break;
-
-              } else {
-
-                if (unlikely(afl->ready_for_splicing_count < 2)) break;
-
-                u32 tid;
-                do {
-
-                  tid = rand_below(afl, afl->queued_items);
-
-                } while (tid == afl->current_entry ||
-
-                         afl->queue_buf[tid]->len < 4);
-
-                /* Get the testcase for splicing. */
-                struct queue_entry *target = afl->queue_buf[tid];
-                u32                 new_len = target->len;
-                u8                 *new_buf = queue_testcase_get(afl, target);
-
-                if ((temp_len >= 2 && rand_below(afl, 2)) ||
-                    temp_len + HAVOC_BLK_XL >= MAX_FILE) {
-
-                  /* overwrite mode */
-
-                  u32 copy_from, copy_to, copy_len;
-
-                  copy_len = choose_block_len(afl, new_len - 1);
-                  if (copy_len > temp_len) copy_len = temp_len;
-
-                  copy_from = rand_below(afl, new_len - copy_len + 1);
-                  copy_to = rand_below(afl, temp_len - copy_len + 1);
-
-#ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " SPLICE_OVERWRITE-%u-%u-%u-%s", copy_from, copy_to,
-                           copy_len, target->fname);
-                  strcat(afl->mutation, afl->m_tmp);
-#endif
-                  memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
-
-                } else {
-
-                  /* insert mode */
-
-                  u32 clone_from, clone_to, clone_len;
-
-                  clone_len = choose_block_len(afl, new_len);
-                  clone_from = rand_below(afl, new_len - clone_len + 1);
-                  clone_to = rand_below(afl, temp_len + 1);
-
-                  u8 *temp_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
-                                             temp_len + clone_len + 1);
-                  if (unlikely(!temp_buf)) { PFATAL("alloc"); }
-
-#ifdef INTROSPECTION
-                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
-                           " SPLICE_INSERT-%u-%u-%u-%s", clone_from, clone_to,
-                           clone_len, target->fname);
-                  strcat(afl->mutation, afl->m_tmp);
-#endif
-                  /* Head */
-
-                  memcpy(temp_buf, out_buf, clone_to);
-
-                  /* Inserted part */
-
-                  memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
-
-                  /* Tail */
-                  memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
-                         temp_len - clone_to);
-
-                  out_buf = temp_buf;
-                  afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-                  temp_len += clone_len;
-
-                }
-
-                MOpt_globals.cycles_v2[STAGE_Splice]++;
-                break;
+                goto retry_havoc_step;
 
               }
 
-            }  // end of default:
+              /* Pick a random queue entry and seek to it. */
 
-          }                                    /* switch select_algorithm() */
+              u32 tid;
+              do {
+
+                tid = rand_below(afl, afl->queued_items);
+
+              } while (unlikely(tid == afl->current_entry ||
+
+                                afl->queue_buf[tid]->len < 4));
+
+              /* Get the testcase for splicing. */
+              struct queue_entry *target = afl->queue_buf[tid];
+              u32                 new_len = target->len;
+              u8                 *new_buf = queue_testcase_get(afl, target);
+
+              /* insert mode */
+
+              u32 clone_from, clone_to, clone_len;
+
+              clone_len = choose_block_len(afl, new_len);
+              clone_from = rand_below(afl, new_len - clone_len + 1);
+              clone_to = rand_below(afl, temp_len + 1);
+
+              u8 *temp_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                         temp_len + clone_len + 1);
+              if (unlikely(!temp_buf)) { PFATAL("alloc"); }
+
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " SPLICE-INSERT_%u_%u_%u_%s", clone_from, clone_to,
+                       clone_len, target->fname);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
+              /* Head */
+
+              memcpy(temp_buf, out_buf, clone_to);
+
+              /* Inserted part */
+
+              memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
+
+              /* Tail */
+              memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                     temp_len - clone_to);
+
+              out_buf = temp_buf;
+              afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+              temp_len += clone_len;
+
+              ++MOpt_globals.cycles_v2[STAGE_SPLICE_INSERT];
+              break;
+
+            }
+
+          }
+
+        }
 
         }                                      /* for i=0; i < use_stacking */
 

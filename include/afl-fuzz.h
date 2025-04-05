@@ -275,35 +275,62 @@ struct auto_extra_data {
 };
 
 /* Fuzzing stages */
-
 enum {
 
-  /* 00 */ STAGE_FLIP1,
-  /* 01 */ STAGE_FLIP2,
-  /* 02 */ STAGE_FLIP4,
-  /* 03 */ STAGE_FLIP8,
-  /* 04 */ STAGE_FLIP16,
-  /* 05 */ STAGE_FLIP32,
-  /* 06 */ STAGE_ARITH8,
-  /* 07 */ STAGE_ARITH16,
-  /* 08 */ STAGE_ARITH32,
-  /* 09 */ STAGE_INTEREST8,
-  /* 10 */ STAGE_INTEREST16,
-  /* 11 */ STAGE_INTEREST32,
-  /* 12 */ STAGE_EXTRAS_UO,
-  /* 13 */ STAGE_EXTRAS_UI,
-  /* 14 */ STAGE_EXTRAS_AO,
-  /* 15 */ STAGE_EXTRAS_AI,
-  /* 16 */ STAGE_HAVOC,
-  /* 17 */ STAGE_SPLICE,
-  /* 18 */ STAGE_PYTHON,
-  /* 19 */ STAGE_CUSTOM_MUTATOR,
-  /* 20 */ STAGE_COLORIZATION,
-  /* 21 */ STAGE_ITS,
-  /* 22 */ STAGE_INF,
-  /* 23 */ STAGE_QUICK,
-
-  STAGE_NUM_MAX
+  /* 00 */ STAGE_FLIPBIT,
+  /* 01 */ STAGE_INTEREST8,
+  /* 02 */ STAGE_INTEREST16,
+  /* 03 */ STAGE_INTEREST16BE,
+  /* 04 */ STAGE_INTEREST32,
+  /* 05 */ STAGE_INTEREST32BE,
+  /* 06 */ STAGE_ARITH8_,
+  /* 07 */ STAGE_ARITH8,
+  /* 08 */ STAGE_ARITH16_,
+  /* 09 */ STAGE_ARITH16BE_,
+  /* 10 */ STAGE_ARITH16,
+  /* 11 */ STAGE_ARITH16BE,
+  /* 12 */ STAGE_ARITH32_,
+  /* 13 */ STAGE_ARITH32BE_,
+  /* 14 */ STAGE_ARITH32,
+  /* 15 */ STAGE_ARITH32BE,
+  /* 16 */ STAGE_RAND8,
+  /* 17 */ STAGE_CLONE_COPY,
+  /* 18 */ STAGE_CLONE_FIXED,
+  /* 19 */ STAGE_OVERWRITE_COPY,
+  /* 20 */ STAGE_OVERWRITE_FIXED,
+  /* 21 */ STAGE_BYTEADD,
+  /* 22 */ STAGE_BYTESUB,
+  /* 23 */ STAGE_FLIP8,
+  /* 24 */ STAGE_SWITCH,
+  /* 25 */ STAGE_DEL,
+  /* 26 */ STAGE_SHUFFLE,
+  /* 27 */ STAGE_DELONE,
+  /* 28 */ STAGE_INSERTONE,
+  /* 29 */ STAGE_ASCIINUM,
+  /* 30 */ STAGE_INSERTASCIINUM,
+  /* 31 */ STAGE_EXTRA_OVERWRITE,
+  /* 32 */ STAGE_EXTRA_INSERT,
+  /* 33 */ STAGE_AUTO_EXTRA_OVERWRITE,
+  /* 34 */ STAGE_AUTO_EXTRA_INSERT,
+  /* 35 */ STAGE_SPLICE_OVERWRITE,
+  /* 36 */ STAGE_SPLICE_INSERT,
+  // max havoc mutation types
+  STAGE_HAVOC_MAX,
+  // other stages
+  STAGE_FLIP1,
+  STAGE_FLIP2,
+  STAGE_FLIP4,
+  STAGE_FLIP16,
+  STAGE_FLIP32,
+  STAGE_HAVOC,
+  STAGE_SPLICE,
+  STAGE_CUSTOM_MUTATOR,
+  STAGE_PYTHON,
+  STAGE_COLORIZATION,
+  STAGE_ITS,
+  STAGE_INF,
+  STAGE_QUICK,
+  STAGE_MAX
 
 };
 
@@ -317,23 +344,15 @@ enum {
 
 };
 
-#define OPERATOR_NUM 19
+#define OPERATOR_NUM STAGE_HAVOC_MAX
 #define SWARM_NUM 5
 #define PERIOD_CORE 500000
-
+#define PERIOD_PILOT 50000
 #define RAND_C (rand() % 1000 * 0.001)
 #define V_MAX 1
 #define V_MIN 0.05
 #define SPLICE_CYCLES_puppet_up 25
 #define SPLICE_CYCLES_puppet_low 5
-#define STAGE_RANDOMBYTE 12
-#define STAGE_DELETEBYTE 13
-#define STAGE_Clone75 14
-#define STAGE_OverWrite75 15
-#define STAGE_OverWriteExtra 16
-#define STAGE_InsertExtra 17
-#define STAGE_Splice 18
-#define PERIOD_PILOT 50000
 
 enum {
 
@@ -681,8 +700,8 @@ typedef struct afl_state {
 
   u8 stage_val_type;                    /* Value type (STAGE_VAL_*)         */
 
-  u64 stage_finds[32],                  /* Patterns found per fuzz stage    */
-      stage_cycles[32];                 /* Execs per fuzz stage             */
+  u64 stage_finds[STAGE_MAX],           /* Patterns found per fuzz stage    */
+      stage_cycles[STAGE_MAX];          /* Execs per fuzz stage             */
 
   u32 rand_cnt;                         /* Random number counter            */
 
