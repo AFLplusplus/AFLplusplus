@@ -3487,6 +3487,23 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
 #else
 
+  if (unlikely(afl->custom_mutators_count)) {
+
+    /* The custom mutator will decide to skip this test case or not. */
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_queue_get &&
+          !el->afl_custom_queue_get(el->data, afl->queue_cur->fname)) {
+
+        return 1;
+
+      }
+
+    });
+
+  }
+
   if (likely(afl->pending_favored)) {
 
     /* If we have any favored, non-fuzzed new arrivals in the queue,
@@ -3526,6 +3543,28 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     ACTF("Fuzzing test case #%u (%u total, %llu crashes saved)...",
          afl->current_entry, afl->queued_items, afl->saved_crashes);
+    fflush(stdout);
+
+  }
+
+  if (likely(afl->not_on_tty)) {
+
+    u8 time_tmp[64];
+
+    u_simplestring_time_diff(time_tmp, afl->prev_run_time + get_cur_time(),
+                             afl->start_time);
+    ACTF(
+        "MOpt-fuzzing test case #%u (%u total, %llu crashes saved, state: %s, "
+        "mode=%s, "
+        "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
+        "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s)...",
+        afl->current_entry, afl->queued_items, afl->saved_crashes,
+        get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
+        afl->queue_cur->perf_score, afl->queue_cur->weight,
+        afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
+        afl->queue_cur->exec_us,
+        likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
+        afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp);
     fflush(stdout);
 
   }
@@ -3618,7 +3657,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   if (likely(!afl->old_seed_selection))
     orig_perf = perf_score = afl->queue_cur->perf_score;
   else
-    orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
+    afl->queue_cur->perf_score = orig_perf = perf_score =
+        calculate_score(afl, afl->queue_cur);
 
   if (unlikely(perf_score <= 0 && afl->active_items > 1)) {
 
@@ -3636,10 +3676,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     } else {
 
-      if (afl->cmplog_lvl == 3 ||
-          (afl->cmplog_lvl == 2 && afl->queue_cur->tc_ref) ||
-          !(afl->fsrv.total_execs % afl->queued_items) ||
-          get_cur_time() - afl->last_find_time > 300000) {  // 300 seconds
+      if (afl->queue_cur->favored || afl->cmplog_lvl == 3 ||
+          (afl->cmplog_lvl == 2 &&
+           (afl->queue_cur->tc_ref ||
+            afl->fsrv.total_execs % afl->queued_items <= 10)) ||
+          get_cur_time() - afl->last_find_time > 250000) {  // 250 seconds
 
         if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
@@ -3653,7 +3694,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   }
 
-  /* Go to pacemker fuzzing if MOpt is doing well */
+  /* Go to pacemaker fuzzing if MOpt is doing well */
 
   afl->stage_cur_byte = -1;
 
@@ -4511,7 +4552,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
           tid = rand_below(afl, afl->queued_items);
 
-        } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+        } while (unlikely(tid == afl->current_entry ||
+
+                          afl->queue_buf[tid]->len < 4));
 
         afl->splicing_with = tid;
         target = afl->queue_buf[tid];
@@ -4735,13 +4778,14 @@ u8 pilot_fuzzing(afl_state_t *afl) {
 
 void pso_updating(afl_state_t *afl) {
 
-  afl->g_now++;
-  if (unlikely(afl->g_now > afl->g_max)) { afl->g_now = 0; }
+  int tmp_swarm, i, j;
+  u64 temp_operator_finds_puppet = 0;
+
+  if (unlikely(++afl->g_now > afl->g_max)) { afl->g_now = 0; }
   afl->w_now =
       (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) +
       afl->w_end;
-  int tmp_swarm, i, j;
-  u64 temp_operator_finds_puppet = 0;
+
   for (i = 0; i < OPERATOR_NUM; ++i) {
 
     afl->operator_finds_puppet[i] = afl->core_operator_finds_puppet[i];
