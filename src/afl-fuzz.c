@@ -232,12 +232,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -L minutes    - use MOpt(imize) mode and set the time limit for "
-      "entering the\n"
-      "                  pacemaker mode (minutes of no new finds). 0 = "
-      "immediately,\n"
-      "                  -1 = immediately and together with normal mutation.\n"
-      "                  Note: this option is usually not very effective\n"
+      "  -L value      - use MOpt(imize) mode (the value is for backwards\n"
+      "                  compatability and ignored)\n"
       "  -u            - enable testcase splicing\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
@@ -1307,7 +1303,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'L': {                                              /* MOpt mode */
 
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
-
+        afl->limit_time_sig = 1;
         afl->swarm_now = 0;
         afl->pacemaker_mode = 1;
 
@@ -1411,10 +1407,6 @@ int main(int argc, char **argv_orig, char **envp) {
           afl->core_operator_cycles_puppet_v3[j] = 0;
 
         }
-
-        WARNF(
-            "Note that the MOpt mode is not maintained and is not as effective "
-            "as normal havoc mode.");
 
       } break;
 
