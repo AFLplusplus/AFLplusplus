@@ -1452,6 +1452,18 @@ static inline int permissive_create(afl_state_t *afl, const char *fn) {
 
 }
 
+static inline void bitmap_set(u8 *map, u32 index) {
+
+  map[index / 8] |= (1u << (index % 8));
+
+}
+
+static inline u8 bitmap_read(u8 *map, u32 index) {
+
+  return (map[index / 8] >> (index % 8)) & 1;
+
+}
+
 #if TESTCASE_CACHE == 1
   #error define of TESTCASE_CACHE must be zero or larger than 1
 #endif
