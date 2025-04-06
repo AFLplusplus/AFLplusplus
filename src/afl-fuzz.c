@@ -2605,7 +2605,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    WARNF("Unknown abstraction: %s, fallback to unique trace.\n",
+    WARNF("Unknown abstraction: %s, fallback to simplified trace.\n",
           san_abstraction);
     afl->san_abstraction = SIMPLIFY_TRACE;
 
