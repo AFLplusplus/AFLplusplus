@@ -38,10 +38,11 @@
 enum SanitizerAbstraction {
 
   SIMPLIFY_TRACE = 0,  // Feed all simplified trace to sanitizers, moderate
-                       // sensitive and default for SAND.
-  UNIQUE_TRACE,        // Feed all unique trace to sanitizers, the most sensitive.
+                       // sensitive and default for SAND. Not missing bugs.
+  UNIQUE_TRACE,        // Feed all unique trace to sanitizers, the most sensitive
+                       // and not missing bugs.
   COVERAGE_INCREASE    // Feed all coverage increasing cases to sanitizers, the
-                       // least sensitive
+                       // least sensitive at a risk of missing ~20% bugs.
 
 };
 
