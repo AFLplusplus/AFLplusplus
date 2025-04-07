@@ -353,6 +353,8 @@ enum {
 
 };
 
+#define FAST_RESUME_VERSION 0x01000000
+
 /* Python stuff */
 #ifdef USE_PYTHON
 

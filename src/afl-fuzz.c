@@ -2326,8 +2326,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
-        u64  expect_ver =
-            afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+        u64  expect_ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+                         (sizeof(struct queue_entry) << 1);
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
             sizeof(ver_string))
@@ -3546,7 +3546,8 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
-      *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+      *ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+             (sizeof(struct queue_entry) << 1);
 
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
       ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");

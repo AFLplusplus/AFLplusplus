@@ -9,6 +9,7 @@
   - Small improvements to afl-*-config
   - afl-fuzz:
     - memory leak fixes by @kcwu - thanks!
+    - some more nits and small memory saves thanks to @kcwu
   - frida_mode:
     - fixes for new MacOS + M4 hardware
 
