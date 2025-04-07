@@ -924,7 +924,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
       if (!q->trace_mini) {
 
-        u32 len = (afl->fsrv.map_size >> 3);
+        u32 len = ((afl->fsrv.map_size + 7) >> 3);
         q->trace_mini = (u8 *)ck_alloc(len);
         minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
 
