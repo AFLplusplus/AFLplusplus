@@ -1187,6 +1187,7 @@ void mark_as_redundant(afl_state_t *, struct queue_entry *, u8);
 void add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *);
+void recalculate_all_scores(afl_state_t *);
 void cull_queue(afl_state_t *);
 u32  calculate_score(afl_state_t *, struct queue_entry *);
 
