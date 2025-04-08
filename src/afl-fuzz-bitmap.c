@@ -527,8 +527,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       memcpy(afl->san_fsrvs[0].trace_bits, afl->fsrv.trace_bits,
              afl->fsrv.map_size);
-      classify_counts_mem((_AFL_INTSIZEVAR *)afl->san_fsrvs[0].trace_bits,
-                          afl->fsrv.map_size);
       simplify_trace(afl, afl->san_fsrvs[0].trace_bits);
 
       // Note: Original SAND implementation used XXHASH32
