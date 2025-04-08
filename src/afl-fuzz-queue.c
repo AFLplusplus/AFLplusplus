@@ -938,6 +938,13 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+/* Recalculate the bitmap scores for all testcases in the queue.
+ 
+   This function re-runs each enabled testcase and updates its
+   bitmap score, which affects its selection probability during fuzzing.
+   It is typically used when AFL_CYCLE_SCHEDULES=1 to periodically
+   refresh the scores after a full cycle. */
+
 void recalculate_all_scores(afl_state_t *afl) {
 
   u8 *in_buf;
@@ -950,7 +957,7 @@ void recalculate_all_scores(afl_state_t *afl) {
       update_bitmap_score(afl, afl->queue_buf[i]);
     }
   }
-  
+
 }
 
 /* The second part of the mechanism discussed above is a routine that
