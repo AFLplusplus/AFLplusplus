@@ -1759,16 +1759,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
 
-  if (afl->afl_env.afl_autoresume) {
-
-    afl->autoresume = 1;
-    if (afl->in_place_resume) {
-
-      SAYF("AFL_AUTORESUME has no effect for '-i -'");
-
-    }
-
-  }
+  if (afl->afl_env.afl_autoresume) { afl->autoresume = 1; }
 
   if (afl->afl_env.afl_hang_tmout) {
 

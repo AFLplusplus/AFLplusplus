@@ -1184,8 +1184,6 @@ void        deinit_py(void *);
 /* Queue */
 
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
-void mark_as_variable(afl_state_t *, struct queue_entry *);
-void mark_as_redundant(afl_state_t *, struct queue_entry *, u8);
 void add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *);

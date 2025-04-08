@@ -682,12 +682,7 @@ abort_calibration:
 
     afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
-    if (!q->var_behavior) {
-
-      mark_as_variable(afl, q);
-      ++afl->queued_variable;
-
-    }
+    if (!q->var_behavior) { ++afl->queued_variable; }
 
   }
 

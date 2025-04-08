@@ -753,8 +753,6 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   }
 
-  // if (getenv("MYTEST")) afl->in_place_resume = 1;
-
   if (nl_cnt) {
 
     u32 done = 0;
@@ -2313,18 +2311,6 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Directory with the auto-selected dictionary entries. */
 
   tmp = alloc_printf("%s/queue/.state/auto_extras/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
-  ck_free(tmp);
-
-  /* The set of paths currently deemed redundant. */
-
-  tmp = alloc_printf("%s/queue/.state/redundant_edges/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
-  ck_free(tmp);
-
-  /* The set of paths showing variable behavior. */
-
-  tmp = alloc_printf("%s/queue/.state/variable_behavior/", afl->out_dir);
   if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 

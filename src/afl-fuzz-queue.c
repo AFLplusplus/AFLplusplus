@@ -440,38 +440,12 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
-/* Mark as variable. Create symlinks if possible to make it easier to examine
-   the files. */
-
-void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
-
-  char fn[PATH_MAX];
-  char ldest[PATH_MAX];
-
-  char *fn_name = strrchr((char *)q->fname, '/') + 1;
-
-  sprintf(ldest, "../../%s", fn_name);
-  sprintf(fn, "%s/queue/.state/variable_behavior/%s", afl->out_dir, fn_name);
-
-  if (symlink(ldest, fn)) {
-
-    s32 fd = permissive_create(afl, fn);
-    if (fd >= 0) { close(fd); }
-
-  }
-
-  q->var_behavior = 1;
-
-}
-
 /* Mark / unmark as redundant (edge-only). This is not used for restoring state,
    but may be useful for post-processing datasets. */
 
 void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   if (likely(state == q->fs_redundant)) { return; }
-
-  char fn[PATH_MAX];
 
   q->fs_redundant = state;
 
@@ -486,22 +460,9 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   }
 
-  sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir,
-          strrchr((char *)q->fname, '/') + 1);
-
   if (state) {
 
-    s32 fd;
-
     if (unlikely(afl->afl_env.afl_disable_redundant)) { q->disabled = 1; }
-    fd = permissive_create(afl, fn);
-    if (fd >= 0) { close(fd); }
-
-  } else {
-
-    if (unlink(fn)) {                 /*PFATAL("Unable to remove '%s'", fn);*/
-
-    }
 
   }
 
