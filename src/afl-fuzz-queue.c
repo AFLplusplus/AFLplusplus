@@ -938,6 +938,21 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+void recalculate_all_scores(afl_state_t *afl) {
+
+  u8 *in_buf;
+
+  for (u32 i = 0; i < afl->queued_items; i++) {
+    if (likely(!afl->queue_buf[i]->disabled)) {
+      in_buf = queue_testcase_get(afl, afl->queue_buf[i]);
+      (void)write_to_testcase(afl, in_buf, afl->queue_buf[i]->len, 1);
+      (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      update_bitmap_score(afl, afl->queue_buf[i]);
+    }
+  }
+  
+}
+
 /* The second part of the mechanism discussed above is a routine that
    goes over afl->top_rated[] entries, and then sequentially grabs winners for
    previously-unseen bytes (temp_v) and marks them as favored, at least
