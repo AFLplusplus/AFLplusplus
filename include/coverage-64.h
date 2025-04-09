@@ -63,7 +63,7 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 }
 
 inline void classify_counts(afl_forkserver_t *fsrv) {
-  classify_counts_mem((u64 *)fsrv->trace_bits, afl->map_size);
+  classify_counts_mem((u64 *)fsrv->trace_bits, fsrv->map_size);
 }
 
 inline void classify_counts_mem(u64 *mem, u32 size) {
