@@ -785,13 +785,6 @@ may_save_fault:
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (unlikely(!classified)) {
-
-          classify_counts(&afl->fsrv);
-          classified = 1;
-
-        }
-
         simplify_trace(afl, afl->fsrv.trace_bits);
 
         if (!has_new_bits(afl, afl->virgin_tmout)) { return keeping; }
@@ -924,13 +917,6 @@ may_save_fault:
       if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
       if (likely(!afl->non_instrumented_mode)) {
-
-        if (unlikely(!classified)) {
-
-          classify_counts(&afl->fsrv);
-          classified = 1;
-
-        }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
