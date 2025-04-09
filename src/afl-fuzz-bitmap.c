@@ -557,10 +557,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       // Note: SAND was evaluated under FAST schedule but should also work
       //       with other scedules.
       if (!classified) {
-        classify_counts_mem(
-        (u64*)afl->fsrv.trace_bits,
-          afl->fsrv.map_size
-        );
+        classify_counts(&afl->fsrv);
         classified = 1;
       }
       cksum_unique =
