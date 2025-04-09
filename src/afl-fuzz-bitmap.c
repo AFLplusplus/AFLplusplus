@@ -553,7 +553,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (unlikely(afl->san_binary_length) &&
         likely(afl->san_abstraction == UNIQUE_TRACE)) {
       
-      // If schedule is not FAST..EXPLORE, we need to classify here
+      // If schedule is not FAST..RARE, we need to classify counts here
       // Note: SAND was evaluated under FAST schedule but should also work
       //       with other scedules.
       if (!classified) {
