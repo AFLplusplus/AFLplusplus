@@ -106,7 +106,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
   afl->q_testcase_max_cache_entries = 64 * 1024;
-
+  afl->last_scored_idx = -1;
+  
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
 #endif                                                     /* HAVE_AFFINITY */
@@ -116,6 +117,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->virgin_crash = ck_alloc(map_size);
   afl->var_bytes = ck_alloc(map_size);
   afl->top_rated = ck_alloc(map_size * sizeof(void *));
+  afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32));
   afl->clean_trace = ck_alloc(map_size);
   afl->clean_trace_custom = ck_alloc(map_size);
   afl->first_trace = ck_alloc(map_size);

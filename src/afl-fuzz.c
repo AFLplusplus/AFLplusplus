@@ -3227,15 +3227,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (u32 i = 0; i < afl->queued_items; i++) {
-
-          if (likely(!afl->queue_buf[i]->disabled)) {
-
-            update_bitmap_score(afl, afl->queue_buf[i], false);
-
-          }
-
-        }
+        recalculate_all_scores(afl);
 
       }
 
