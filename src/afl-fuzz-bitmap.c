@@ -490,8 +490,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0,
-     need_hash = 1;
+  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, need_hash = 1;
   s32 fd;
   u64 cksum = 0;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -508,7 +507,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
     classify_counts(&afl->fsrv);
-    classified = 1;
     need_hash = 0;
 
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -632,7 +630,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
         afl->san_case_status |= NON_COV_INCREASE_BUG;
         fault = san_fault;
-        classified = new_bits;
         goto may_save_fault;
 
       }
@@ -640,7 +637,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     }
 
     fault = san_fault;
-    classified = new_bits;
 
   save_to_queue:
 

@@ -794,7 +794,8 @@ void destroy_queue(afl_state_t *afl) {
    previous contender, or if the contender has a more favorable speed x size
    factor. */
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
+                         bool have_trace) {
 
   u32 i;
   u64 fav_factor;
@@ -824,74 +825,79 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
-     winner, and how it compares to us. */
-  for (i = 0; i < afl->fsrv.map_size; ++i) {
+  if (have_trace) {
 
-    if (afl->fsrv.trace_bits[i]) {
+    /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
+       winner, and how it compares to us. */
+    for (i = 0; i < afl->fsrv.map_size; ++i) {
 
-      if (afl->top_rated[i]) {
+      if (afl->fsrv.trace_bits[i]) {
 
-        /* Faster-executing or smaller test cases are favored. */
-        u64 top_rated_fav_factor;
-        u64 top_rated_fuzz_p2;
+        if (afl->top_rated[i]) {
 
-        if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
+          /* Faster-executing or smaller test cases are favored. */
+          u64 top_rated_fav_factor;
+          u64 top_rated_fuzz_p2;
 
-          top_rated_fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
+          if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
-        } else if (unlikely(afl->schedule == RARE)) {
+            top_rated_fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
 
-          top_rated_fuzz_p2 =
-              next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
+          } else if (unlikely(afl->schedule == RARE)) {
 
-        } else {
+            top_rated_fuzz_p2 =
+                next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
 
-          top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
+          } else {
+
+            top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
+
+          }
+
+          if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+
+            top_rated_fav_factor = afl->top_rated[i]->len << 2;
+
+          } else {
+
+            top_rated_fav_factor =
+                afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
+
+          }
+
+          if (likely(fuzz_p2 > top_rated_fuzz_p2)) { continue; }
+
+          if (likely(fav_factor > top_rated_fav_factor)) { continue; }
+
+          /* Looks like we're going to win. Decrease ref count for the
+             previous winner, discard its afl->fsrv.trace_bits[] if necessary.
+           */
+
+          if (!--afl->top_rated[i]->tc_ref) {
+
+            ck_free(afl->top_rated[i]->trace_mini);
+            afl->top_rated[i]->trace_mini = NULL;
+
+          }
 
         }
 
-        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+        /* Insert ourselves as the new winner. */
 
-          top_rated_fav_factor = afl->top_rated[i]->len << 2;
+        afl->top_rated[i] = q;
+        ++q->tc_ref;
 
-        } else {
+        if (!q->trace_mini) {
 
-          top_rated_fav_factor =
-              afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
-
-        }
-
-        if (likely(fuzz_p2 > top_rated_fuzz_p2)) { continue; }
-
-        if (likely(fav_factor > top_rated_fav_factor)) { continue; }
-
-        /* Looks like we're going to win. Decrease ref count for the
-           previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
-
-        if (!--afl->top_rated[i]->tc_ref) {
-
-          ck_free(afl->top_rated[i]->trace_mini);
-          afl->top_rated[i]->trace_mini = NULL;
+          u32 len = ((afl->fsrv.map_size + 7) >> 3);
+          q->trace_mini = (u8 *)ck_alloc(len);
+          minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
 
         }
+
+        afl->score_changed = 1;
 
       }
-
-      /* Insert ourselves as the new winner. */
-
-      afl->top_rated[i] = q;
-      ++q->tc_ref;
-
-      if (!q->trace_mini) {
-
-        u32 len = ((afl->fsrv.map_size + 7) >> 3);
-        q->trace_mini = (u8 *)ck_alloc(len);
-        minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
-
-      }
-
-      afl->score_changed = 1;
 
     }
 
