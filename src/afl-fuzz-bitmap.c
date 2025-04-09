@@ -490,7 +490,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, need_hash = 1;
+  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, classified = 0, need_hash = 1;
   s32 fd;
   u64 cksum = 0;
   u32 cksum_simplified = 0, cksum_unique = 0;
