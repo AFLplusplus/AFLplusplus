@@ -63,20 +63,7 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 }
 
 inline void classify_counts(afl_forkserver_t *fsrv) {
-
-  u64 *mem = (u64 *)fsrv->trace_bits;
-  u32  i = (fsrv->map_size >> 3);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) { *mem = classify_word(*mem); }
-
-    mem++;
-
-  }
-
+  classify_counts_mem((u64 *)fsrv->trace_bits, afl->map_size);
 }
 
 inline void classify_counts_mem(u64 *mem, u32 size) {
