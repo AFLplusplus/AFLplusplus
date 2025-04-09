@@ -13,7 +13,6 @@
 
 u32  skim(const u64 *virgin, const u64 *current, const u64 *current_end);
 u64  classify_word(u64 word);
-void classify_counts_mem(u64 *mem, u32 size);
 
 inline u64 classify_word(u64 word) {
 
@@ -63,9 +62,8 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 }
 
 inline void classify_counts(afl_forkserver_t *fsrv) {
-
   u64 *mem = (u64 *)fsrv->trace_bits;
-  u32  i = (fsrv->map_size >> 3);
+  u32 i = (fsrv->map_size >> 3);
 
   while (i--) {
 
@@ -76,23 +74,6 @@ inline void classify_counts(afl_forkserver_t *fsrv) {
     mem++;
 
   }
-
-}
-
-inline void classify_counts_mem(u64 *mem, u32 size) {
-
-  u32 i = (size >> 3);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) { *mem = classify_word(*mem); }
-
-    mem++;
-
-  }
-
 }
 
 /* Updates the virgin bits, then reflects whether a new count or a new tuple is
