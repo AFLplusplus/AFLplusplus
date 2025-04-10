@@ -7,8 +7,8 @@
 
 #define _AFL_INTSIZEVAR u32
 
-u32  skim(const u32 *virgin, const u32 *current, const u32 *current_end);
-u32  classify_word(u32 word);
+u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end);
+u32 classify_word(u32 word);
 
 inline u32 classify_word(u32 word) {
 
@@ -52,8 +52,9 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 }
 
 inline void classify_counts(afl_forkserver_t *fsrv) {
+
   u32 *mem = (u32 *)fsrv->trace_bits;
-  u32 i = (fsrv->map_size >> 2);
+  u32  i = (fsrv->map_size >> 2);
 
   while (i--) {
 
@@ -64,6 +65,7 @@ inline void classify_counts(afl_forkserver_t *fsrv) {
     mem++;
 
   }
+
 }
 
 /* Updates the virgin bits, then reflects whether a new count or a new tuple is

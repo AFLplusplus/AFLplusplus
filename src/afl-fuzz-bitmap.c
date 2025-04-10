@@ -468,6 +468,7 @@ void write_crash_readme(afl_state_t *afl) {
 
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
+
   u8 classified = 0;
 
   if (unlikely(len == 0)) { return 0; }
@@ -554,14 +555,17 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     if (unlikely(afl->san_binary_length) &&
         likely(afl->san_abstraction == UNIQUE_TRACE)) {
-      
+
       // If schedule is not FAST..RARE, we need to classify counts here
       // Note: SAND was evaluated under FAST schedule but should also work
       //       with other scedules.
       if (!classified) {
+
         classify_counts(&afl->fsrv);
         classified = 1;
+
       }
+
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
       if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum) &&
@@ -625,11 +629,16 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       /* If we are in coverage increasing abstraction and have fed input to
          sanitizers, we are sure it has new bits.*/
       if (classified) {
+
         /* We could have classified the bits in SAND with UNIQUE_TRACE */
         new_bits = has_new_bits(afl, afl->virgin_bits);
+
       } else {
+
         new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
       }
+
     }
 
     if (likely(!new_bits)) {

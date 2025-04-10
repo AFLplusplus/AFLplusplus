@@ -11,8 +11,8 @@
   #include <immintrin.h>
 #endif
 
-u32  skim(const u64 *virgin, const u64 *current, const u64 *current_end);
-u64  classify_word(u64 word);
+u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end);
+u64 classify_word(u64 word);
 
 inline u64 classify_word(u64 word) {
 
@@ -62,8 +62,9 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 }
 
 inline void classify_counts(afl_forkserver_t *fsrv) {
+
   u64 *mem = (u64 *)fsrv->trace_bits;
-  u32 i = (fsrv->map_size >> 3);
+  u32  i = (fsrv->map_size >> 3);
 
   while (i--) {
 
@@ -74,6 +75,7 @@ inline void classify_counts(afl_forkserver_t *fsrv) {
     mem++;
 
   }
+
 }
 
 /* Updates the virgin bits, then reflects whether a new count or a new tuple is
