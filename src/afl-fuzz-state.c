@@ -739,6 +739,19 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
   if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
+  if (afl->cycle_schedules) {
+
+    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
+
+      if (afl->top_rated_candidates[i]) {
+        ck_free(afl->top_rated_candidates[i]);
+      }
+
+    }
+
+    ck_free(afl->top_rated_candidates);
+
+  }
 
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
