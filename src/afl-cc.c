@@ -187,9 +187,6 @@ typedef struct aflcc_state {
   u8  need_aflpplib;
   int passthrough;
 
-  u8  use_stdin;                                                   /* dummy */
-  u8 *argvnull;                                                    /* dummy */
-
 } aflcc_state_t;
 
 void aflcc_state_init(aflcc_state_t *, u8 *argv0);
