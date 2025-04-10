@@ -468,6 +468,7 @@ void write_crash_readme(afl_state_t *afl) {
 
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
+  u8 classified = 0;
 
   if (unlikely(len == 0)) { return 0; }
 
@@ -477,6 +478,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       classify_counts(&afl->fsrv);
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      classified = 1;
 
       // Saturated increment
       if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
@@ -490,7 +492,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, classified = 0, need_hash = 1;
+  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, need_hash = 1;
   s32 fd;
   u64 cksum = 0;
   u32 cksum_simplified = 0, cksum_unique = 0;
