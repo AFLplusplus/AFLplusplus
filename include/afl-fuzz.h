@@ -721,7 +721,7 @@ typedef struct afl_state {
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
-  u32 **top_rated_candidates;               /* Candidate IDs per bitmap index */
+  u32 **top_rated_candidates;             /* Candidate IDs per bitmap index */
 
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
@@ -864,7 +864,7 @@ typedef struct afl_state {
 
   struct skipdet_global *skipdet_g;
 
-  s64 last_scored_idx;  /* Index of the last queue entry re-scored */
+  s64 last_scored_idx;           /* Index of the last queue entry re-scored */
 
 #ifdef INTROSPECTION
   char  mutation[8072];

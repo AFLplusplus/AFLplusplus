@@ -1015,32 +1015,37 @@ void recalculate_all_scores(afl_state_t *afl) {
 
       for (j = 0; j < afl->fsrv.map_size; ++j) {
 
-        if (afl->fsrv.trace_bits[j])  {
+        if (afl->fsrv.trace_bits[j]) {
 
           u32 *candidate_ids = afl->top_rated_candidates[j];
-          u32 id = afl->queue_buf[i]->id;
-        
+          u32  id = afl->queue_buf[i]->id;
+
           if (!candidate_ids) {
+
             // first candidate: [count][id]
             candidate_ids = ck_alloc(sizeof(u32) * 2);
-            candidate_ids[0] = 1;         // count = 1
-            candidate_ids[1] = id;        // first ID
+            candidate_ids[0] = 1;   // count = 1
+            candidate_ids[1] = id;  // first ID
+
           } else {
+
             u32 count = candidate_ids[0];
-        
-            candidate_ids = ck_realloc(candidate_ids, sizeof(u32) * (count + 2));
-            candidate_ids[0] = count + 1;       // increment the count
-            candidate_ids[count + 1] = id;      // append the new ID to the end
-        
-            //fprintf(stderr, "enroll candidate[%u][%u] %u\n", i, j, id);
+
+            candidate_ids =
+                ck_realloc(candidate_ids, sizeof(u32) * (count + 2));
+            candidate_ids[0] = count + 1;   // increment the count
+            candidate_ids[count + 1] = id;  // append the new ID to the end
+
+            // fprintf(stderr, "enroll candidate[%u][%u] %u\n", i, j, id);
+
           }
-        
+
           afl->top_rated_candidates[j] = candidate_ids;
 
         }
+
       }
-      
- 
+
     }
 
     afl->last_scored_idx = i;
@@ -1050,17 +1055,20 @@ void recalculate_all_scores(afl_state_t *afl) {
   for (i = 0; i < afl->fsrv.map_size; ++i) {
 
     u32 *candidate_ids = afl->top_rated_candidates[i];
-    if(candidate_ids) {
+    if (candidate_ids) {
+
       u32 count = candidate_ids[0];
 
-      for(u32 k = 0; k < count; k++) {
-        u32 id = candidate_ids[k + 1];
+      for (u32 k = 0; k < count; k++) {
+
+        u32                 id = candidate_ids[k + 1];
         struct queue_entry *entry = afl->queue_buf[id];
         update_bitmap_rescore(afl, entry, i);
+
       }
-    
+
     }
-  
+
   }
 
 }

@@ -30,8 +30,8 @@ int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf) {
   int ret = 0;
   if (__cmd == IPC_RMID) {
 
-    int length = ioctl(__shmid, ASHMEM_GET_SIZE, NULL);
-    unsigned int safe_length = length >= 0 ? length : 0;
+    int               length = ioctl(__shmid, ASHMEM_GET_SIZE, NULL);
+    unsigned int      safe_length = length >= 0 ? length : 0;
     struct ashmem_pin pin = {0, safe_length};
     ret = ioctl(__shmid, ASHMEM_UNPIN, &pin);
     close(__shmid);

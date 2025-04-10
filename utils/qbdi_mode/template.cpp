@@ -80,7 +80,7 @@ static void afl_forkserver() {
 
   while (1) {
 
-    int status;
+    int          status;
     unsigned int was_killed;
     // wait for afl-fuzz
     if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
