@@ -1750,6 +1750,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->cycle_schedules) {
+
+    afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32));
+
+  }
+
   afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
   afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
@@ -3227,15 +3233,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (u32 i = 0; i < afl->queued_items; i++) {
-
-          if (likely(!afl->queue_buf[i]->disabled)) {
-
-            update_bitmap_score(afl, afl->queue_buf[i], false);
-
-          }
-
-        }
+        recalculate_all_scores(afl);
 
       }
 

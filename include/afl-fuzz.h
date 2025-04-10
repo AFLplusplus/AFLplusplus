@@ -721,6 +721,8 @@ typedef struct afl_state {
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
+  u32 **top_rated_candidates;               /* Candidate IDs per bitmap index */
+
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
 
@@ -861,6 +863,8 @@ typedef struct afl_state {
   struct havoc_profile *havoc_prof;
 
   struct skipdet_global *skipdet_g;
+
+  s64 last_scored_idx;  /* Index of the last queue entry re-scored */
 
 #ifdef INTROSPECTION
   char  mutation[8072];
@@ -1189,6 +1193,8 @@ void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *, bool);
 void cull_queue(afl_state_t *);
 u32  calculate_score(afl_state_t *, struct queue_entry *);
+void recalculate_all_scores(afl_state_t *);
+void update_bitmap_rescore(afl_state_t *, struct queue_entry *, u32);
 
 /* Bitmap */
 
