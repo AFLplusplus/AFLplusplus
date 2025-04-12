@@ -592,11 +592,11 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {
 
-            WARNF("instability detected during calibration");
+            WARNF("instability detected during calibration: %s", q->fname);
 
           } else if (afl->debug) {
 
-            DEBUGF("instability detected during calibration\n");
+            DEBUGF("instability detected during calibration: %s\n", q->fname);
 
           }
 
