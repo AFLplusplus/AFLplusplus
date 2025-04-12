@@ -2227,9 +2227,16 @@ int check_main_node_exists(afl_state_t *afl) {
     fn = alloc_printf("%s/%s/is_main_node", afl->sync_dir, sd_ent->d_name);
     int res = access(fn, F_OK);
     free(fn);
-    if (res == 0) return 1;
+    if (res == 0) {
+
+      closedir(sd);
+      return 1;
+
+    }
 
   }
+
+  closedir(sd);
 
   return 0;
 
