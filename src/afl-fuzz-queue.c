@@ -1011,7 +1011,7 @@ void recalculate_all_scores(afl_state_t *afl) {
     if (likely(!afl->queue_buf[i]->disabled)) {
 
       in_buf = queue_testcase_get(afl, afl->queue_buf[i]);
-      (void)write_to_testcase(afl, in_buf, afl->queue_buf[i]->len, 1);
+      (void)write_to_testcase(afl, (void **)&in_buf, afl->queue_buf[i]->len, 1);
       (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
       for (j = 0; j < afl->fsrv.map_size; ++j) {
