@@ -766,6 +766,7 @@ void destroy_queue(afl_state_t *afl) {
   for (i = 0; i < afl->queued_items; i++) {
 
     q = afl->queue_buf[i];
+    ck_free(q->testcase_buf);
     ck_free(q->fname);
     ck_free(q->trace_mini);
     if (q->skipdet_e) {
