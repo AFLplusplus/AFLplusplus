@@ -773,6 +773,11 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->first_trace);
   ck_free(afl->map_tmp_buf);
 
+  ck_free(afl->skipdet_g->inf_prof);
+  ck_free(afl->skipdet_g->virgin_det_bits);
+  ck_free(afl->skipdet_g);
+  ck_free(afl->havoc_prof);
+
   list_remove(&afl_states, afl);
 
 }
