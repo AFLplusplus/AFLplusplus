@@ -762,6 +762,8 @@ void afl_state_deinit(afl_state_t *afl) {
   afl_free(afl->in_buf);
   afl_free(afl->in_scratch_buf);
   afl_free(afl->ex_buf);
+  afl_free(afl->alias_table);
+  afl_free(afl->alias_probability);
 
   ck_free(afl->virgin_bits);
   ck_free(afl->virgin_tmout);

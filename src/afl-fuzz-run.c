@@ -867,7 +867,14 @@ void sync_fuzzers(afl_state_t *afl) {
 
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
-        if (afl->stop_soon) { goto close_sync; }
+        if (afl->stop_soon) {
+
+          munmap(mem, st.st_size);
+          close(fd);
+
+          goto close_sync;
+
+        }
 
         afl->syncing_party = sd_ent->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
