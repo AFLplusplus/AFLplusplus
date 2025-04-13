@@ -684,6 +684,7 @@ deepclean:	clean
 	rm -rf unicorn_mode/unicornafl
 	rm -rf qemu_mode/qemuafl
 	rm -rf nyx_mode/libnyx nyx_mode/packer nyx_mode/QEMU-Nyx
+	rm -rf .format-cache
 ifeq "$(IN_REPO)" "1"
 	git checkout coresight_mode/coresight-trace
 	git checkout unicorn_mode/unicornafl
