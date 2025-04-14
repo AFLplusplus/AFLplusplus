@@ -86,9 +86,10 @@ def custom_format(filename):
     out = ""
 
     for line in src.split("\n"):
+        define_start = False
         if line.lstrip().startswith("#"):
             if line[line.find("#") + 1:].lstrip().startswith("define"):
-                in_define = True
+                define_start = True
 
         if (
                 "/*" in line
@@ -126,9 +127,7 @@ def custom_format(filename):
                 and last_line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
-
-        if not line.endswith("\\"):
-            in_define = False
+        in_define = (define_start or in_define) and line.endswith("\\")
 
         out += line + "\n"
         last_line = line
