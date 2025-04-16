@@ -353,6 +353,8 @@ enum {
 
 };
 
+#define FAST_RESUME_VERSION 0x01000000
+
 /* Python stuff */
 #ifdef USE_PYTHON
 
@@ -719,6 +721,8 @@ typedef struct afl_state {
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
+  u32 **top_rated_candidates;             /* Candidate IDs per bitmap index */
+
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
 
@@ -859,6 +863,8 @@ typedef struct afl_state {
   struct havoc_profile *havoc_prof;
 
   struct skipdet_global *skipdet_g;
+
+  s64 last_scored_idx;           /* Index of the last queue entry re-scored */
 
 #ifdef INTROSPECTION
   char  mutation[8072];
@@ -1182,13 +1188,13 @@ void        deinit_py(void *);
 /* Queue */
 
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
-void mark_as_variable(afl_state_t *, struct queue_entry *);
-void mark_as_redundant(afl_state_t *, struct queue_entry *, u8);
 void add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
-void update_bitmap_score(afl_state_t *, struct queue_entry *);
+void update_bitmap_score(afl_state_t *, struct queue_entry *, bool);
 void cull_queue(afl_state_t *);
 u32  calculate_score(afl_state_t *, struct queue_entry *);
+void recalculate_all_scores(afl_state_t *);
+void update_bitmap_rescore(afl_state_t *, struct queue_entry *, u32);
 
 /* Bitmap */
 
@@ -1338,7 +1344,6 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
     ck_read(afl->fsrv.dev_urandom_fd, &afl->rand_seed, sizeof(afl->rand_seed),
             "/dev/urandom");
-    // srandom(afl->rand_seed[0]);
     afl->rand_cnt = (RESEED_RNG / 2) + (afl->rand_seed[1] % RESEED_RNG);
 
   }
@@ -1449,6 +1454,18 @@ static inline int permissive_create(afl_state_t *afl, const char *fn) {
   }
 
   return fd;
+
+}
+
+static inline void bitmap_set(u8 *map, u32 index) {
+
+  map[index / 8] |= (1u << (index % 8));
+
+}
+
+static inline u8 bitmap_read(u8 *map, u32 index) {
+
+  return (map[index / 8] >> (index % 8)) & 1;
 
 }
 

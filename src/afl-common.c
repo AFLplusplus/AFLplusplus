@@ -977,11 +977,10 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 inline u64 get_cur_time(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timeval tv;
 
   // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, &tz);
+  gettimeofday(&tv, NULL);
 
   return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
 
@@ -991,11 +990,10 @@ inline u64 get_cur_time(void) {
 
 inline u64 get_cur_time_us(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timeval tv;
 
   // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, &tz);
+  gettimeofday(&tv, NULL);
 
   return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
 
@@ -1006,7 +1004,7 @@ inline u64 get_cur_time_us(void) {
    Will return buf for convenience. */
 
 u8 *stringify_int(u8 *buf, size_t len, u64 val) {
-\
+
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
   do {                                                     \
                                                            \
@@ -1170,7 +1168,7 @@ u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
    Will return buf for convenience. */
 
 u8 *u_stringify_int(u8 *buf, u64 val) {
-\
+
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast) \
   do {                                                 \
                                                        \

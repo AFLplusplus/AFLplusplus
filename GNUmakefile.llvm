@@ -240,7 +240,7 @@ ifeq "$(LLVM_LTO)" "1"
       else
         ifneq "$(shell command -v ld.lld 2>/dev/null)" ""
           AFL_REAL_LD = $(shell command -v ld.lld)
-          TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | awk '{ print $$2 }')
+          TMP_LDLDD_VERSION = $(shell $(AFL_REAL_LD) --version | sed -E -ne '/^.*LLD\ ([12]?[0-9]\.[0-9]\.[0-9]).*/s//\1/p')
           ifeq "$(LLVMVER)" "$(TMP_LDLDD_VERSION)"
             $(warning ld.lld found in a weird location ($(AFL_REAL_LD)), but its the same version as LLVM so we will allow it)
           else

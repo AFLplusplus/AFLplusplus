@@ -462,24 +462,14 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
-static inline void bitmap_set(u8 *map, u32 index) {
-
-  map[index / 8] |= (1u << (index % 8));
-
-}
-
-static inline u8 bitmap_read(u8 *map, u32 index) {
-
-  return (map[index / 8] >> (index % 8)) & 1;
-
-}
-
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
+
+  u8 classified = 0;
 
   if (unlikely(len == 0)) { return 0; }
 
@@ -489,6 +479,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       classify_counts(&afl->fsrv);
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      classified = 1;
 
       // Saturated increment
       if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
@@ -502,8 +493,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, classified = 0, is_timeout = 0,
-     need_hash = 1;
+  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, need_hash = 1;
   s32 fd;
   u64 cksum = 0;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -520,7 +510,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
     classify_counts(&afl->fsrv);
-    classified = 1;
     need_hash = 0;
 
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -539,8 +528,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       memcpy(afl->san_fsrvs[0].trace_bits, afl->fsrv.trace_bits,
              afl->fsrv.map_size);
-      classify_counts_mem((_AFL_INTSIZEVAR *)afl->san_fsrvs[0].trace_bits,
-                          afl->fsrv.map_size);
       simplify_trace(afl, afl->san_fsrvs[0].trace_bits);
 
       // Note: Original SAND implementation used XXHASH32
@@ -568,6 +555,16 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     if (unlikely(afl->san_binary_length) &&
         likely(afl->san_abstraction == UNIQUE_TRACE)) {
+
+      // If schedule is not FAST..RARE, we need to classify counts here
+      // Note: SAND was evaluated under FAST schedule but should also work
+      //       with other scedules.
+      if (!classified) {
+
+        classify_counts(&afl->fsrv);
+        classified = 1;
+
+      }
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -631,7 +628,16 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       /* If we are in coverage increasing abstraction and have fed input to
          sanitizers, we are sure it has new bits.*/
-      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+      if (classified) {
+
+        /* We could have classified the bits in SAND with UNIQUE_TRACE */
+        new_bits = has_new_bits(afl, afl->virgin_bits);
+
+      } else {
+
+        new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
+      }
 
     }
 
@@ -646,7 +652,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
         afl->san_case_status |= NON_COV_INCREASE_BUG;
         fault = san_fault;
-        classified = new_bits;
         goto may_save_fault;
 
       }
@@ -654,7 +659,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     }
 
     fault = san_fault;
-    classified = new_bits;
 
   save_to_queue:
 
@@ -799,13 +803,6 @@ may_save_fault:
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (unlikely(!classified)) {
-
-          classify_counts(&afl->fsrv);
-          classified = 1;
-
-        }
-
         simplify_trace(afl, afl->fsrv.trace_bits);
 
         if (!has_new_bits(afl, afl->virgin_tmout)) { return keeping; }
@@ -938,13 +935,6 @@ may_save_fault:
       if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
       if (likely(!afl->non_instrumented_mode)) {
-
-        if (unlikely(!classified)) {
-
-          classify_counts(&afl->fsrv);
-          classified = 1;
-
-        }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 

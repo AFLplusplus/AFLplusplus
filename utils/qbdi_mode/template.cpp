@@ -11,12 +11,12 @@
 #include <dlfcn.h>
 
 #ifdef __ANDROID__
-  #include "../include/android-ashmem.h"
+  #include "../../include/android-ashmem.h"
 #endif
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include "../config.h"
+#include "../../config.h"
 
 #include <QBDI.h>
 
@@ -80,8 +80,8 @@ static void afl_forkserver() {
 
   while (1) {
 
-    int status;
-    u32 was_killed;
+    int          status;
+    unsigned int was_killed;
     // wait for afl-fuzz
     if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
 

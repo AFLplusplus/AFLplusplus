@@ -385,10 +385,6 @@ there are several things to look at:
   subsequent iterations (e.g., due to incomplete clean-up or reinitialization of
   the state) and that most of the fuzzing effort goes to waste.
 
-The paths where variable behavior is detected are marked with a matching entry
-in the `<out_dir>/queue/.state/variable_behavior/` directory, so you can look
-them up easily.
-
 ### CPU load
 
 ```
