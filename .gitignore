@@ -7,6 +7,7 @@
 *.so
 *.swp
 .DS_Store
+.format-cache
 .sync_tmp
 .test
 .test2

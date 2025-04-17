@@ -592,11 +592,11 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {
 
-            WARNF("instability detected during calibration");
+            WARNF("instability detected during calibration: %s", q->fname);
 
           } else if (afl->debug) {
 
-            DEBUGF("instability detected during calibration\n");
+            DEBUGF("instability detected during calibration: %s\n", q->fname);
 
           }
 
@@ -652,7 +652,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   afl->total_bitmap_size += q->bitmap_size;
   ++afl->total_bitmap_entries;
 
-  update_bitmap_score(afl, q);
+  update_bitmap_score(afl, q, true);
 
   /* If this case didn't result in new output from the instrumentation, tell
      parent. This is a non-critical problem, but something to warn the user
@@ -682,12 +682,7 @@ abort_calibration:
 
     afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
-    if (!q->var_behavior) {
-
-      mark_as_variable(afl, q);
-      ++afl->queued_variable;
-
-    }
+    if (!q->var_behavior) { ++afl->queued_variable; }
 
   }
 
@@ -872,7 +867,14 @@ void sync_fuzzers(afl_state_t *afl) {
 
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
-        if (afl->stop_soon) { goto close_sync; }
+        if (afl->stop_soon) {
+
+          munmap(mem, st.st_size);
+          close(fd);
+
+          goto close_sync;
+
+        }
 
         afl->syncing_party = sd_ent->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
@@ -1166,7 +1168,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     queue_testcase_retake_mem(afl, q, in_buf, q->len, orig_len);
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
-    update_bitmap_score(afl, q);
+    update_bitmap_score(afl, q, true);
 
   }
 

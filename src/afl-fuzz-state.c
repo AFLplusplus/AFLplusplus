@@ -106,6 +106,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
   afl->q_testcase_max_cache_entries = 64 * 1024;
+  afl->last_scored_idx = -1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -738,6 +739,21 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
   if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
+  if (afl->cycle_schedules) {
+
+    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
+
+      if (afl->top_rated_candidates[i]) {
+
+        ck_free(afl->top_rated_candidates[i]);
+
+      }
+
+    }
+
+    ck_free(afl->top_rated_candidates);
+
+  }
 
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
@@ -746,6 +762,8 @@ void afl_state_deinit(afl_state_t *afl) {
   afl_free(afl->in_buf);
   afl_free(afl->in_scratch_buf);
   afl_free(afl->ex_buf);
+  afl_free(afl->alias_table);
+  afl_free(afl->alias_probability);
 
   ck_free(afl->virgin_bits);
   ck_free(afl->virgin_tmout);
@@ -756,6 +774,11 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);
   ck_free(afl->map_tmp_buf);
+
+  ck_free(afl->skipdet_g->inf_prof);
+  ck_free(afl->skipdet_g->virgin_det_bits);
+  ck_free(afl->skipdet_g);
+  ck_free(afl->havoc_prof);
 
   list_remove(&afl_states, afl);
 

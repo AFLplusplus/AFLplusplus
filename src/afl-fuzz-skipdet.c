@@ -154,7 +154,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
         flip_range(out_buf, pos, flip_block_size);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) return 0;
+        if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
 
         flip_range(out_buf, pos, flip_block_size);
 
@@ -237,26 +237,26 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
   if (!skip_eff_map) {
 
-    skip_eff_map = (u8 *)ck_alloc(sizeof(u8) * len);
+    skip_eff_map = (u8 *)ck_alloc(sizeof(u8) * (len + 7) / 8);
     afl->queue_cur->skipdet_e->skip_eff_map = skip_eff_map;
 
   } else {
 
-    memset(skip_eff_map, 0, sizeof(u8) * len);
+    memset(skip_eff_map, 0, sizeof(u8) * (len + 7) / 8);
 
   }
 
   /* restore the starting point */
   if (!done_inf_map) {
 
-    done_inf_map = (u8 *)ck_alloc(sizeof(u8) * len);
+    done_inf_map = (u8 *)ck_alloc(sizeof(u8) * (len + 7) / 8);
     afl->queue_cur->skipdet_e->done_inf_map = done_inf_map;
 
   } else {
 
     for (afl->stage_cur = 0; afl->stage_cur < len; afl->stage_cur++) {
 
-      if (done_inf_map[afl->stage_cur] == 0) break;
+      if (bitmap_read(done_inf_map, afl->stage_cur) == 0) break;
 
     }
 
@@ -278,7 +278,13 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
     non_eff_bytes = (u8 *)ck_alloc(sizeof(u8) * len);
 
     // clean exec cksum
-    if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+    if (common_fuzz_stuff(afl, out_buf, len)) {
+
+      ck_free(non_eff_bytes);
+      return 0;
+
+    }
+
     prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
   }
@@ -294,7 +300,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
       afl->stage_cur_byte = afl->stage_cur;
 
       if (!inf_eff_map[afl->stage_cur_byte] ||
-          skip_eff_map[afl->stage_cur_byte])
+          bitmap_read(skip_eff_map, afl->stage_cur_byte))
         continue;
 
       if (is_det_timeout(before_det_time, 1)) { goto cleanup_skipdet; }
@@ -311,7 +317,12 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
       before_skip_inf = afl->queued_items;
 
-      if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+      if (common_fuzz_stuff(afl, out_buf, len)) {
+
+        ck_free(non_eff_bytes);
+        return 0;
+
+      }
 
       out_buf[afl->stage_cur_byte] = orig;
 
@@ -328,7 +339,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
       if (afl->queued_items != before_skip_inf) {
 
-        skip_eff_map[afl->stage_cur_byte] = 1;
+        bitmap_set(skip_eff_map, afl->stage_cur_byte);
         afl->queue_cur->skipdet_e->quick_eff_bytes += 1;
 
         if (afl->stage_max < MAXIMUM_QUICK_EFF_EXECS) { afl->stage_max *= 2; }
@@ -338,7 +349,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
       }
 
-      done_inf_map[afl->stage_cur_byte] = 1;
+      bitmap_set(done_inf_map, afl->stage_cur_byte);
 
     }
 
@@ -364,7 +375,7 @@ cleanup_skipdet:
     while (i < len) {
 
       // assume DWORD size, from i - 3 -> i + 3
-      if (skip_eff_map[i]) {
+      if (bitmap_read(skip_eff_map, i)) {
 
         u32 fill_length = (i + 3 < len) ? 7 : len - i + 2;
         memset(nearby_bytes + i - 3, 1, fill_length);
@@ -378,7 +389,7 @@ cleanup_skipdet:
 
     for (i = 0; i < len; i++) {
 
-      if (nearby_bytes[i] && !non_eff_bytes[i]) skip_eff_map[i] = 1;
+      if (nearby_bytes[i] && !non_eff_bytes[i]) bitmap_set(skip_eff_map, i);
 
     }
 

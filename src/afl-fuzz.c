@@ -1750,8 +1750,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
-  afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
+  if (afl->cycle_schedules) {
+
+    afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32));
+
+  }
+
+  if (afl->san_binary_length) {
+
+    if (afl->san_abstraction == UNIQUE_TRACE) {
+
+      afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
+
+    }
+
+    if (afl->san_abstraction == SIMPLIFY_TRACE) {
+
+      afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
+
+    }
+
+  }
 
   if (get_afl_env("AFL_NO_FORKSRV")) { afl->no_forkserver = 1; }
   if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
@@ -1759,16 +1778,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
 
-  if (afl->afl_env.afl_autoresume) {
-
-    afl->autoresume = 1;
-    if (afl->in_place_resume) {
-
-      SAYF("AFL_AUTORESUME has no effect for '-i -'");
-
-    }
-
-  }
+  if (afl->afl_env.afl_autoresume) { afl->autoresume = 1; }
 
   if (afl->afl_env.afl_hang_tmout) {
 
@@ -2326,8 +2336,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
-        u64  expect_ver =
-            afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+        u64  expect_ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+                         (sizeof(struct queue_entry) << 1);
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
             sizeof(ver_string))
@@ -2605,7 +2615,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    WARNF("Unknown abstraction: %s, fallback to unique trace.\n",
+    WARNF("Unknown abstraction: %s, fallback to simplified trace.\n",
           san_abstraction);
     afl->san_abstraction = SIMPLIFY_TRACE;
 
@@ -2843,7 +2853,7 @@ int main(int argc, char **argv_orig, char **envp) {
     u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
     u32                 r = 8 + afl->fsrv.map_size * 4;
     u32                 q_len = o_end - o_start;
-    u32                 m_len = (afl->fsrv.map_size >> 3);
+    u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
     struct queue_entry *q;
 
     for (u32 i = 0; i < afl->queued_items; i++) {
@@ -2866,7 +2876,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl->total_bitmap_size += q->bitmap_size;
       ++afl->total_bitmap_entries;
-      update_bitmap_score(afl, q);
+      update_bitmap_score(afl, q, false);
 
       if (q->was_fuzzed) { --afl->pending_not_fuzzed; }
 
@@ -3236,15 +3246,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (u32 i = 0; i < afl->queued_items; i++) {
-
-          if (likely(!afl->queue_buf[i]->disabled)) {
-
-            update_bitmap_score(afl, afl->queue_buf[i]);
-
-          }
-
-        }
+        recalculate_all_scores(afl);
 
       }
 
@@ -3546,7 +3548,8 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
-      *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+      *ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+             (sizeof(struct queue_entry) << 1);
 
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
       ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
@@ -3559,7 +3562,7 @@ stop_fuzzing:
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
       u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
       u32                 q_len = o_end - o_start;
-      u32                 m_len = (afl->fsrv.map_size >> 3);
+      u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
       struct queue_entry *q;
 
       afl->pending_not_fuzzed = afl->queued_items;
@@ -3625,6 +3628,10 @@ stop_fuzzing:
     (void)unlink(afl->fsrv.out_file);
 
   }
+
+  ck_free(afl->n_fuzz);
+  ck_free(afl->n_fuzz_dup);
+  ck_free(afl->simplified_n_fuzz);
 
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);

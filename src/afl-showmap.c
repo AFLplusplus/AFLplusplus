@@ -159,10 +159,11 @@ void show_stats(afl_state_t *afl) {
 
 }
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q, bool x) {
 
   (void)afl;
   (void)q;
+  (void)x;
 
 }
 

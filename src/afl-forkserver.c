@@ -258,7 +258,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->last_run_timed_out = false;
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
-  fsrv->uses_asan = false;
+  fsrv->uses_asan = 0;
 
 #ifdef __AFL_CODE_COVERAGE
   fsrv->persistent_trace_bits = NULL;
@@ -2087,17 +2087,19 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   /* Did we crash?
   In a normal case, (abort) WIFSIGNALED(child_status) will be set.
-  MSAN in uses_asan mode uses a special exit code as it doesn't support
+  MSAN & LSAN in uses_asan mode use special exit codes as they doesn't support
   abort_on_error. On top, a user may specify a custom AFL_CRASH_EXITCODE.
-  Handle all three cases here. */
+  Handle all four cases here. */
 
   if (unlikely(
           /* A normal crash/abort */
           (WIFSIGNALED(fsrv->child_status)) ||
-          /* special handling for msan and lsan */
-          (fsrv->uses_asan &&
-           (WEXITSTATUS(fsrv->child_status) == MSAN_ERROR ||
-            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR)) ||
+          /* special handling for msan */
+          ((fsrv->uses_asan & 4) &&
+           WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+          /* special handling for lsan */
+          ((fsrv->uses_asan & 2) &&
+           WEXITSTATUS(fsrv->child_status) == LSAN_ERROR) ||
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
@@ -2105,6 +2107,10 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
+
+    /* For a special exit code, set last_exit_code to non-zero */
+    fsrv->last_exit_code =
+        WIFSIGNALED(fsrv->child_status) ? 0 : WEXITSTATUS(fsrv->child_status);
 
 #ifdef AFL_PERSISTENT_RECORD
     if (unlikely(fsrv->persistent_record)) {

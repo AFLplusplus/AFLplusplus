@@ -6,6 +6,14 @@
 ### Version ++4.32a (dev)
   - Fixed a bug where after a fast restart of a full fuzzed corpus afl-fuzz
     terminates with "need at least one valid input seed that does not crash"
+  - Small improvements to afl-*-config
+  - afl-fuzz:
+    - memory leak fixes by @kcwu - thanks!
+    - some more nits and small memory saves thanks to @kcwu
+    - remove deprecated files from queue/.state
+    - fix bitmap update function if no current trace is present 
+  - frida_mode:
+    - fixes for new MacOS + M4 hardware
 
 
 ### Version ++4.31c (release)
