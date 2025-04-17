@@ -172,9 +172,10 @@ void show_stats(afl_state_t *afl) {
   (void)afl;
 }
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q, bool add_to_queue) {
   (void)afl;
   (void)q;
+  (void)add_to_queue;
 }
 
 fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 i) {
