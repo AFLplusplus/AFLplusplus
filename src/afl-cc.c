@@ -1534,7 +1534,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   if (aflcc->plusplus_mode) {
 
     insert_param(aflcc,
-                 "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+                 "-D__AFL_COVERAGE()=int __afl_selective_coverage __attribute__ ((weak)) = 1;"
                  "extern \"C\" void __afl_coverage_discard();"
                  "extern \"C\" void __afl_coverage_skip();"
                  "extern \"C\" void __afl_coverage_on();"
@@ -1543,7 +1543,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   } else {
 
     insert_param(aflcc,
-                 "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+                 "-D__AFL_COVERAGE()=int __afl_selective_coverage __attribute__ ((weak)) = 1;"
                  "void __afl_coverage_discard();"
                  "void __afl_coverage_skip();"
                  "void __afl_coverage_on();"
