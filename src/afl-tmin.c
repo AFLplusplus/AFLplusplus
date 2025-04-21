@@ -63,25 +63,26 @@
   #include <Python.h>
 #endif
 
-
-
 extern void destroy_custom_mutators(afl_state_t *);
-void list_init(list_t *list) {
+void        list_init(list_t *list) {
+
   if (list) {
+
     list->element_prealloc_count = 0;
     memset(list->element_prealloc_buf, 0, sizeof(list->element_prealloc_buf));
+
   }
+
 }
 
-void setup_custom_mutators(afl_state_t *);
+void                   setup_custom_mutators(afl_state_t *);
 struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 #ifdef USE_PYTHON
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
-
 static afl_state_t *afl;               /* State for custom mutators         */
-static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
+static u8          *mask_bitmap;       /* Mask for trace bits (-B)          */
 
 static u8 *in_file,                    /* Minimizer input test case         */
     *out_file, *output_file;           /* Minimizer output file             */
@@ -95,9 +96,6 @@ static u32 in_len,                     /* Input data length                 */
     map_size = MAP_SIZE;
 
 static u64 orig_cksum;                 /* Original checksum                 */
-
-
-
 
 static u8 crash_mode,                  /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
@@ -163,35 +161,48 @@ static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
 
 /* dummy functions */
 u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
+
   (void)afl;
   (void)mem;
   return a + b;
+
 }
 
 void show_stats(afl_state_t *afl) {
+
   (void)afl;
+
 }
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry *q, bool add_to_queue) {
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
+                         bool add_to_queue) {
+
   (void)afl;
   (void)q;
   (void)add_to_queue;
+
 }
 
-fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 i) {
+fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                                  u32 i) {
+
   (void)afl;
   (void)fsrv;
   (void)i;
   return 0;
+
 }
 
 #ifndef USE_PYTHON
 struct custom_mutator *load_custom_mutator_py(afl_state_t *afl, char *module) {
+
   (void)afl;
   (void)module;
   FATAL("Python support not available in this build");
   return NULL;
+
 }
+
 #endif
 
 /* Apply mask to classified bitmap (if set). */
@@ -211,7 +222,6 @@ static void apply_mask(u32 *mem, u32 *mask) {
   }
 
 }
-
 
 void classify_counts(afl_forkserver_t *fsrv) {
 
@@ -270,9 +280,12 @@ static void at_exit_handler(void) {
   if (remove_out_file) unlink(out_file);
 
   if (afl) {
+
     destroy_custom_mutators(afl);
     ck_free(afl);
+
   }
+
 }
 
 /* Read initial file. */
@@ -324,7 +337,8 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 }
 
 /* Helper function to handle custom mutators for testcase writing */
-static void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
+static void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem,
+                                           u32 len) {
 
   static u8 buf[MAX_FILE];
   u32       sent = 0;
@@ -343,10 +357,14 @@ static void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
         if (!new_buf || new_size <= 0) {
+
           return;
+
         } else {
+
           new_mem = new_buf;
           len = new_size;
+
         }
 
       }
@@ -354,15 +372,19 @@ static void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 
     });
 
     if (new_mem != mem && new_mem != NULL) {
+
       mem = buf;
       memcpy(mem, new_mem, new_size);
+
     }
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_fuzz_send) {
+
         el->afl_custom_fuzz_send(el->data, mem, len);
         sent = 1;
+
       }
 
     });
@@ -378,11 +400,10 @@ static void pre_afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *mem, u32 
 
 static u8 tmin_run_target(afl_forkserver_t *fsrv, u8 *mem, u32 len,
                           u8 first_run) {
-                            
+
   pre_afl_fsrv_write_to_testcase(fsrv, mem, len);
   fsrv_run_result_t ret =
       afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon);
-
 
   if (ret == FSRV_RUN_ERROR) { FATAL("Couldn't run child"); }
 
@@ -469,105 +490,132 @@ static u8 tmin_run_target(afl_forkserver_t *fsrv, u8 *mem, u32 len,
 /* Actually minimize! */
 
 static void minimize(afl_forkserver_t *fsrv) {
+
   static u32 alpha_map[256];
-  u8 *tmp_buf = ck_alloc_nozero(in_len);
-  u32 orig_len = in_len, stage_o_len;
-  u32 del_len, set_len, del_pos, set_pos, i, alpha_size, cur_pass = 0;
+  u8        *tmp_buf = ck_alloc_nozero(in_len);
+  u32        orig_len = in_len, stage_o_len;
+  u32        del_len, set_len, del_pos, set_pos, i, alpha_size, cur_pass = 0;
   u32 syms_removed, alpha_del0 = 0, alpha_del1, alpha_del2, alpha_d_total = 0;
   u8  changed_any, prev_del;
 
-  #ifdef USE_PYTHON
+#ifdef USE_PYTHON
   // Try to load python module
   char *py_module = getenv("AFL_PYTHON_MODULE");
   if (py_module) {
+
     // We cannot use Python custom mutators in tmin
     if (debug) WARNF("Python custom mutator support not available in afl-tmin");
+
   }
+
 #endif
 
   // Custom mutator trimming
   if (afl && afl->custom_mutators_count) {
+
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-      if (el->afl_custom_init_trim && el->afl_custom_trim && 
+
+      if (el->afl_custom_init_trim && el->afl_custom_trim &&
           el->afl_custom_post_trim) {
+
         ACTF("Performing custom trim with %s...", el->name);
-        
+
         // Initialize the trimmer
         s32 initial_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
-        
+
         if (initial_steps <= 0) {
-          WARNF("Custom trimmer %s returned %d, skipping", el->name, initial_steps);
+
+          WARNF("Custom trimmer %s returned %d, skipping", el->name,
+                initial_steps);
           continue;
+
         }
-        
+
         ACTF("Custom trimmer initialized, %d steps planned", initial_steps);
-        
+
         u32 trim_rounds = 0;
         u32 trimmed_successfully = 0;
-        
+
         // Trim loop
         s32 cur_step = 0;
         while (cur_step < initial_steps) {
-          u8* trimmed_buf = NULL;
+
+          u8    *trimmed_buf = NULL;
           size_t trimmed_size;
-          
+
           u8 *retbuf = NULL;
           trimmed_size = el->afl_custom_trim(el->data, &retbuf);
-          
+
           // If trimmed_size equals or exceeds original size, skip
           if (trimmed_size >= in_len) {
-            SAYF("[Custom trim] Round %u: no improvements over %u bytes.\n", 
+
+            SAYF("[Custom trim] Round %u: no improvements over %u bytes.\n",
                  trim_rounds, in_len);
             el->afl_custom_post_trim(el->data, 0);
             cur_step++;
             trim_rounds++;
             continue;
+
           }
-          
+
           trimmed_buf = retbuf;
-          
+
           // Test if the trimmed case still works
           if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
-            SAYF("[Custom trim] But the testcase no longer reproduces - skipping this reduction.\n");
+
+            SAYF(
+                "[Custom trim] But the testcase no longer reproduces - "
+                "skipping this reduction.\n");
             el->afl_custom_post_trim(el->data, 0);
-            if (trimmed_buf != in_data) {
-              ck_free(trimmed_buf);
-            }
+            if (trimmed_buf != in_data) { ck_free(trimmed_buf); }
+
           } else {
+
             // Accept the reduction
             u8 *old_in_data = in_data;
             in_data = trimmed_buf;
             in_len = trimmed_size;
-            
+
             trimmed_successfully = 1;
-            el->afl_custom_post_trim(el->data, 1);  
-            
+            el->afl_custom_post_trim(el->data, 1);
+
             SAYF("[Custom trim] Successful reduction to %u bytes\n", in_len);
-            
+
             if (old_in_data != in_data && old_in_data != trimmed_buf) {
+
               ck_free(old_in_data);
+
             }
+
           }
-          
+
           cur_step++;
           trim_rounds++;
+
         }
-        
-        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s", 
+
+        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s",
              el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
-             
+
         if (trimmed_successfully) {
+
           if (tmp_buf) { ck_free(tmp_buf); }
           return;  // Skip standard minimization if successful
+
         }
+
       }
+
     });
+
   }
 
   // Skip built-in minimization if in_len is too small
   if (in_len <= 1) {
+
     if (tmp_buf) { ck_free(tmp_buf); }
     return;
+
   }
 
   /***********************
@@ -1046,7 +1094,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt;
   u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
-    del_limit_given = 0;
+     del_limit_given = 0;
   char **use_argv;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
@@ -1062,7 +1110,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-    while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
 
     switch (opt) {
 
@@ -1448,25 +1496,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-// Initialize AFL state for custom mutators
-afl = calloc(1, sizeof(afl_state_t));
-if (afl) {
-  list_init(&afl->custom_mutator_list);
-  afl->custom_mutators_count = 0;
-  
-  afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-  if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
-  
-  afl->afl_env.afl_custom_mutator_library = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
-  afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
-  
-  afl->shm = shm;
-  afl->out_dir = ".";  
-  
-  memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
-  
-  setup_custom_mutators(afl);
-}
+  // Initialize AFL state for custom mutators
+  afl = calloc(1, sizeof(afl_state_t));
+  if (afl) {
+
+    list_init(&afl->custom_mutator_list);
+    afl->custom_mutators_count = 0;
+
+    afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+    if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
+
+    afl->afl_env.afl_custom_mutator_library =
+        getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+    afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
+
+    afl->shm = shm;
+    afl->out_dir = ".";
+
+    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+
+    setup_custom_mutators(afl);
+
+  }
 
 #ifdef __linux__
   if (!fsrv->nyx_mode) { (void)check_binary_signatures(fsrv->target_path); }
