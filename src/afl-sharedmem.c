@@ -142,7 +142,8 @@ void afl_shm_deinit(sharedmem_t *shm) {
 */
 
 u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
-                 unsigned char non_instrumented_mode) {
+                 unsigned char non_instrumented_mode, mode_t permission,
+                 int gid) {
 
   shm->map_size = 0;
 
@@ -181,7 +182,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
       shm->g_shm_fd =
           shm_create_largepage(shm->g_shm_file_path, shmflags, i,
-                               SHM_LARGEPAGE_ALLOC_DEFAULT, DEFAULT_PERMISSION);
+                               SHM_LARGEPAGE_ALLOC_DEFAULT, permission);
+
+      if (gid != -1 && shm->g_shm_fd != -1) {
+
+        if (fchown(shm->g_shm_fd, -1, gid) == -1) { PFATAL("fchown() failed"); }
+
+      }
 
     }
 
@@ -193,7 +200,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (shm->g_shm_fd == -1) {
 
     shm->g_shm_fd =
-        shm_open(shm->g_shm_file_path, shmflags | O_CREAT, DEFAULT_PERMISSION);
+        shm_open(shm->g_shm_file_path, shmflags | O_CREAT, permission);
+
+    if (gid != -1 && shm->g_shm_fd != -1) {
+
+      if (fchown(shm->g_shm_fd, -1, gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
   }
 
@@ -234,10 +247,14 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
              getpid(), random());
 
     /* create the shared memory segment as if it was a file */
-    shm->cmplog_g_shm_fd =
-        shm_open(shm->cmplog_g_shm_file_path, O_CREAT | O_RDWR | O_EXCL,
-                 DEFAULT_PERMISSION);
+    shm->cmplog_g_shm_fd = shm_open(shm->cmplog_g_shm_file_path,
+                                    O_CREAT | O_RDWR | O_EXCL, permission);
     if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
+    if (gid != -1) {
+
+      if (fchown(shm->g_shm_fd, -1, gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     /* configure the size of the shared memory segment */
     if (ftruncate(shm->cmplog_g_shm_fd, sizeof(struct cmp_map))) {
@@ -273,28 +290,63 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
 #else
-  u8 *shm_str;
+  u8             *shm_str;
+  struct shmid_ds shmid_ds;
 
   // for qemu+unicorn we have to increase by 8 to account for potential
   // compcov map overwrite
   shm->shm_id =
       shmget(IPC_PRIVATE, map_size == MAP_SIZE ? map_size + 8 : map_size,
-             IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+             IPC_CREAT | IPC_EXCL | permission);
   if (shm->shm_id < 0) {
 
     PFATAL("shmget() failed, try running afl-system-config");
 
   }
 
+  if (gid != -1) {
+
+    if (shmctl(shm->shm_id, IPC_STAT, &shmid_ds) == -1) {
+
+      PFATAL("shmctl(IPC_STAT) failed");
+
+    }
+
+    shmid_ds.shm_perm.gid = (gid_t)gid;
+    if (shmctl(shm->shm_id, IPC_SET, &shmid_ds) == -1) {
+
+      PFATAL("shmctl(IPC_SET) failed");
+
+    }
+
+  }
+
   if (shm->cmplog_mode) {
 
     shm->cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),
-                                IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+                                IPC_CREAT | IPC_EXCL | permission);
 
     if (shm->cmplog_shm_id < 0) {
 
       shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
       PFATAL("shmget() failed, try running afl-system-config");
+
+    }
+
+    if (gid != -1) {
+
+      if (shmctl(shm->cmplog_shm_id, IPC_STAT, &shmid_ds) == -1) {
+
+        PFATAL("shmctl(IPC_STAT) failed");
+
+      }
+
+      shmid_ds.shm_perm.gid = (gid_t)gid;
+      if (shmctl(shm->cmplog_shm_id, IPC_SET, &shmid_ds) == -1) {
+
+        PFATAL("shmctl(IPC_SET) failed");
+
+      }
 
     }
 

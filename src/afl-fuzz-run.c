@@ -258,11 +258,21 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
            afl->document_counter++,
            describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
 
-  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >=
-      0) {
+  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm)) >= 0) {
 
     if (write(doc_fd, *mem, len) != len)
       PFATAL("write to mutation file failed: %s", fn);
+
+    if (afl->chown_needed) {
+
+      if (fchown(doc_fd, -1, afl->fsrv.gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
+
+    }
+
     close(doc_fd);
 
   }
@@ -386,18 +396,22 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC,
-                DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
     } else {
 
       unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL,
-                DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
     }
 
     if (fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
   } else {
 
@@ -895,9 +909,15 @@ void sync_fuzzers(afl_state_t *afl) {
 
     sprintf(qd_synced_path, "%s/.synced/%s", afl->out_dir, sd_ent->d_name);
 
-    id_fd = open(qd_synced_path, O_RDWR | O_CREAT, DEFAULT_PERMISSION);
+    id_fd = open(qd_synced_path, O_RDWR | O_CREAT, afl->perm);
 
     if (id_fd < 0) { PFATAL("Unable to create '%s'", qd_synced_path); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(id_fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
 
@@ -1296,7 +1316,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
       if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
@@ -1311,11 +1331,17 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     } else {
 
       unlink(q->fname);                                    /* ignore errors */
-      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
       if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
       ck_write(fd, in_buf, q->len, q->fname);
+
+    }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
     }
 

@@ -683,6 +683,89 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_sha1_filenames =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_FORKSRV_UID",
+
+                              afl_environment_variable_len)) {
+
+            u8   *uid_str = (u8 *)get_afl_env(afl_environment_variables[i]);
+            char *ret;
+            int   uid = strtol(uid_str, &ret, 10);
+            if (*ret != '\0') {
+
+              WARNF("Incorrect value given to AFL_FORKSRV_UID\n");
+
+            } else {
+
+              afl->afl_env.afl_forksrv_uid_set = 1;
+              afl->afl_env.afl_forksrv_uid = uid;
+
+            }
+
+          } else if (!strncmp(env, "AFL_FORKSRV_GID",
+
+                              afl_environment_variable_len)) {
+
+            u8 *gid_str = (u8 *)get_afl_env(afl_environment_variables[i]);
+
+            // Count the number of supplementary GIDs
+            // and prepare the string for the next loop
+            afl->afl_env.afl_forksrv_nb_supl_gids = 0;
+            for (u32 i = 0; gid_str[i] != '\0'; i++) {
+
+              if (gid_str[i] == ',') {
+
+                afl->afl_env.afl_forksrv_nb_supl_gids++;
+                gid_str[i] = '\0';
+
+              }
+
+            }
+
+            if (afl->afl_env.afl_forksrv_nb_supl_gids > 0) {
+
+              afl->afl_env.afl_forksrv_supl_gids = ck_alloc(
+                  sizeof(gid_t) * afl->afl_env.afl_forksrv_nb_supl_gids);
+
+            }
+
+            for (u16 i = 0; i < afl->afl_env.afl_forksrv_nb_supl_gids + 1;
+                 i++) {
+
+              char *ret;
+              int   gid = strtol(gid_str, &ret, 10);
+
+              if (*ret != '\0') {
+
+                WARNF("Incorrect value given to AFL_FORKSRV_GID\n");
+
+                afl->afl_env.afl_forksrv_gid_set = 0;
+                afl->afl_env.afl_forksrv_gid = 0;
+                free(afl->afl_env.afl_forksrv_supl_gids);
+
+                break;
+
+              } else {
+
+                // First GID is the effective one, others are supplementary
+                // ones.
+                if (i == 0) {
+
+                  afl->afl_env.afl_forksrv_gid_set = 1;
+                  afl->afl_env.afl_forksrv_gid = gid;
+
+                } else {
+
+                  afl->afl_env.afl_forksrv_supl_gids[i - 1] = gid;
+
+                }
+
+                // Jump to next GID
+                gid_str = ret + 1;
+
+              }
+
+            }
+
           }
 
         } else {
@@ -807,6 +890,8 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->skipdet_g->virgin_det_bits);
   ck_free(afl->skipdet_g);
   ck_free(afl->havoc_prof);
+
+  ck_free(afl->afl_env.afl_forksrv_supl_gids);
 
   list_remove(&afl_states, afl);
 

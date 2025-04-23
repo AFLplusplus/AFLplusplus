@@ -686,6 +686,23 @@ checks or alter some of the more exotic semantics of the tool:
     }
     ```
 
+  - `AFL_FORKSRV_UID` allows you to specify the UID that should be used when
+    running the fork server. When setting this variable, user should ensure
+    afl-fuzz binary has enough privileges to modify the UID (e.g. CAP\_SETUID
+    capability in Linux system).
+
+  - `AFL_FORKSRV_GID` allows you to specify the GID and the supplementary group
+    IDs that should be used when running the fork server. When setting this
+    variable, user should ensure afl-fuzz binary has enough privileges to
+    modify the GIDs (e.g. CAP\_SETGID capability in Linux system).
+
+  - When both `AFL_FORKSRV_UID` and `AFL_FORKSRV_GID` are set, afl-fuzz binary
+    and the fork server no longer share any IDs. Thus, afl-fuzz binary changes
+    the group owner of the created files to ensure that the fork server can
+    still access them. In such case, user should ensure afl-fuzz binary has
+    enough privileges to modify the ownership of entities (e.g. CAP\_CHOWN
+    capability in Linux system).
+
 ## 6) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:

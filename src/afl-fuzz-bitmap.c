@@ -84,9 +84,15 @@ void write_bitmap(afl_state_t *afl) {
   afl->bitmap_changed = 0;
 
   snprintf(fname, PATH_MAX, "%s/fuzz_bitmap", afl->out_dir);
-  fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
   if (fd < 0) { PFATAL("Unable to open '%s'", fname); }
+
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
 
   ck_write(fd, afl->virgin_bits, afl->fsrv.map_size, fname);
 
@@ -429,11 +435,17 @@ void write_crash_readme(afl_state_t *afl) {
 
   sprintf(fn, "%s/crashes/README.txt", afl->out_dir);
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
   /* Do not die on errors here - that would be impolite. */
 
   if (unlikely(fd < 0)) { return; }
+
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
 
   f = fdopen(fd, "w");
 
@@ -1076,8 +1088,14 @@ may_save_fault:
     u8 fn_log[PATH_MAX];
 
     (void)(snprintf(fn_log, PATH_MAX, "%s.log", fn) + 1);
-    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
     if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
         afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string,

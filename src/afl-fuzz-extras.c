@@ -748,9 +748,15 @@ void save_auto(afl_state_t *afl) {
 
     s32 fd;
 
-    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
     if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     ck_write(fd, afl->a_extras[i].data, afl->a_extras[i].len, fn);
 
