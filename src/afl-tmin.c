@@ -1511,7 +1511,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->afl_env.afl_python_module = getenv("AFL_PYTHON_MODULE");
 
     afl->shm = shm;
-    afl->out_dir = ".";
+    afl->out_dir = dirname(in_file);
 
     memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
 
