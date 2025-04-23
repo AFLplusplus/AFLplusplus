@@ -230,7 +230,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Ruben ten Hove                        Joey Jiao
     fuzzah                                @intrigus-lgtm
     Yaakov Saxon                          Sergej Schumilo
-    Ziqiao Kong
+    Ziqiao Kong                           Ryan Berger
   ```
 
 </details>
