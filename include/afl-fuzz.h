@@ -873,6 +873,9 @@ typedef struct afl_state {
   u32   bitsmap_size;
 #endif
 
+  char *target_program;
+  char *generator_base_path;
+
 } afl_state_t;
 
 struct custom_mutator {

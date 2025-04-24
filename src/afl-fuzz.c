@@ -543,6 +543,152 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 }
 
+u8 run_gen_seeds(afl_state_t *afl, u8 init_flag) {
+
+  afl->stage_name = "G2-genseed";
+  afl->stage_short = "G2genseed";
+
+  char command[1000];
+  if (init_flag == 1) {
+
+    snprintf(command, sizeof(command),
+             "python %s/program_gen.py --output %s --program %s --input %s "
+             "--mode init >> %s/gen_log",
+             afl->generator_base_path, afl->out_dir, afl->target_program,
+             afl->in_dir, afl->out_dir);
+
+  } else {
+
+    snprintf(
+        command, sizeof(command),
+        "python %s/generator_mutation_gpt_3_5.py --output %s >> %s/mutate_log",
+        afl->generator_base_path, afl->out_dir, afl->out_dir);
+
+  }
+
+  int result = system(command);
+  if (result == 0) {
+
+    // printf("Command executed successfully.\n");
+
+  } else {
+
+    if (afl->afl_env.afl_no_ui) {
+
+      fprintf(stderr,
+              "G2 generator_mutation command failed with exit code %d.\n",
+              result);
+
+    }
+
+  }
+
+  // input: dir
+  // queue_testcase_get
+  // get buf from dir
+  DIR           *dp;
+  struct dirent *entry_tmp;
+  struct stat    file_stat;
+  char          *dir = alloc_printf("%s/gen_seeds", afl->out_dir);
+  dp = opendir(dir);
+  if (!dp) {
+
+    perror("opendir");
+    return 1;
+
+  }
+
+  u8 cnt = 0;
+
+  while ((entry_tmp = readdir(dp)) != NULL) {
+
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/%s", dir, entry_tmp->d_name);
+
+    if (stat(path, &file_stat) == 0) {
+
+      if (S_ISREG(file_stat.st_mode)) {
+
+        u32   len = (u32)file_stat.st_size;
+        char *file_name = basename(path);
+        // printf("File: %s, Length: %u bytes\n", file_name, len);
+
+        u8 *buf;
+        buf = afl_realloc((void **)&afl->testcase_buf, len);
+        int fd = open(path, O_RDONLY);
+        if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", path); }
+        ck_read(fd, buf, len, path);
+        close(fd);
+
+        // choose I: directly add to the queue as a new seed that finds new
+        // edges
+        u8 *queue_fn = "";
+        queue_fn = alloc_printf("%s/queue/id:%06u,time:0,execs:%llu,orig:%s",
+                                afl->out_dir, afl->queued_items,
+                                afl->fsrv.total_execs, file_name);
+        fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+        if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", queue_fn); }
+        ck_write(fd, buf, len, queue_fn);
+        close(fd);
+        add_to_queue(afl, queue_fn, len, 0);
+
+        if (init_flag == 0) {
+
+          struct queue_entry *q;
+          q = afl->queue_buf[afl->queued_items - 1];
+          calibrate_case(afl, q, buf, 4, 1);
+
+        }
+
+        cnt++;
+
+      }
+
+    } else {
+
+      perror("stat");
+
+    }
+
+  }
+
+  int            fileCount = 0;
+  DIR           *directory = opendir(dir);
+  struct dirent *entry;
+  while ((entry = readdir(directory)) != NULL) {
+
+    if (entry->d_type == DT_REG) {  // Check if it's a regular file
+      fileCount++;
+
+    }
+
+  }
+
+  if (fileCount) {
+
+    char remove_cmd[100];
+    snprintf(remove_cmd, sizeof(remove_cmd), "rm %s/*", dir);
+    result = system(remove_cmd);
+    if (result == 0) {
+
+      // printf("remove_cmd executed successfully.\n");
+
+    } else {
+
+      if (afl->afl_env.afl_no_ui) {
+
+        printf("G2 remove_cmd failed with exit code %d.\n", result);
+
+      }
+
+    }
+
+  }
+
+  return cnt;
+
+}
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -612,11 +758,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: HjJkKqrv
-  while (
-      (opt = getopt(argc, argv,
-                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
-                    "uUV:w:WXx:YzZ")) > 0) {
+  // still available: HjKqrv
+  while ((opt = getopt(
+              argc, argv,
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:J:k:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+              "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -1484,6 +1630,28 @@ int main(int argc, char **argv_orig, char **envp) {
             "Radamsa is now a custom mutator, please use that "
             "(custom_mutators/radamsa/).");
 
+        break;
+
+      case 'J':
+        afl->target_program = strdup(optarg);
+        if (afl->target_program == NULL) {
+
+          FATAL("No file format.");
+          exit(1);
+
+        }
+
+        break;
+
+      case 'k':
+
+        if (afl->generator_base_path) {
+
+          FATAL("Multiple -k options not supported");
+
+        }
+
+        afl->generator_base_path = optarg;
         break;
 
       default:
@@ -3041,6 +3209,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
+  u64 gen_last_update = get_cur_time();
+  u64 use_time = 0;
 
   while (likely(!afl->stop_soon)) {
 
@@ -3256,117 +3426,169 @@ int main(int argc, char **argv_orig, char **envp) {
 
     ++runs_in_current_cycle;
 
-    do {
+    if (get_cur_time() - afl->last_find_time >
+            300 * 1000 + use_time * 60 * 1000 &&
+        get_cur_time() - gen_last_update > 300 * 1000 + use_time * 60 * 1000) {
 
-      if (likely(!afl->old_seed_selection)) {
+      u8 log_path[PATH_MAX];
+      sprintf(log_path, "%s/gen_seeds_energy_log", afl->out_dir);
+      FILE *file = fopen(log_path, "a");
 
-        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+      u8 cnt = run_gen_seeds(afl, 0);
 
-          afl->current_entry = afl->smallest_favored;
+      afl->stage_name = "G2-runseed";
+      afl->stage_short = "G2runseed";
 
-          /*
+      u32 *target_seeds = (u32 *)malloc(cnt * sizeof(u32));
+      for (u32 i = 0; i < cnt; i++) {
 
-                    } else {
+        target_seeds[i] = afl->queued_items - i - 1;
+        afl->queue_cur = afl->queue_buf[target_seeds[i]];
+        // printf("%s\n", afl->queue_cur->fname);
 
-                      for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
-             {
+      }
 
-                        if (unlikely(afl->queue_buf[iter]->favored &&
-                                     !afl->queue_buf[iter]->was_fuzzed)) {
+      for (u8 i = 0; i < cnt; i++) {
 
-                          afl->current_entry = iter;
-                          break;
+        if (unlikely(prev_queued_items < afl->queued_items ||
+                     afl->reinit_table)) {
+
+          // we have new queue entries since the last run, recreate alias table
+          prev_queued_items = afl->queued_items;
+          create_alias_table(afl);
+
+        }
+
+        afl->queue_cur = afl->queue_buf[target_seeds[i]];
+        afl->current_entry = afl->queue_cur->id;
+        afl->queue_cur->favored = 1;
+
+        fuzz_one(afl);
+
+      }
+
+      gen_last_update = get_cur_time();
+      use_time += 1;
+
+      fclose(file);
+
+    } else {
+
+      do {
+
+        if (likely(!afl->old_seed_selection)) {
+
+          if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+
+            afl->current_entry = afl->smallest_favored;
+
+            /*
+
+                      } else {
+
+                        for (s32 iter = afl->queued_items - 1; iter >= 0;
+               --iter)
+               {
+
+                          if (unlikely(afl->queue_buf[iter]->favored &&
+                                       !afl->queue_buf[iter]->was_fuzzed)) {
+
+                            afl->current_entry = iter;
+                            break;
+
+                          }
 
                         }
 
-                      }
+            */
 
-          */
+            afl->queue_cur = afl->queue_buf[afl->current_entry];
 
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
+          } else {
 
-        } else {
+            if (unlikely(prev_queued_items < afl->queued_items ||
+                         afl->reinit_table)) {
 
-          if (unlikely(prev_queued_items < afl->queued_items ||
-                       afl->reinit_table)) {
+              // we have new queue entries since the last run, recreate alias
+              // table
+              prev_queued_items = afl->queued_items;
+              create_alias_table(afl);
 
-            // we have new queue entries since the last run, recreate alias
-            // table
-            prev_queued_items = afl->queued_items;
-            create_alias_table(afl);
+            }
+
+            do {
+
+              afl->current_entry = select_next_queue_entry(afl);
+
+            } while (unlikely(afl->current_entry >= afl->queued_items));
+
+            afl->queue_cur = afl->queue_buf[afl->current_entry];
 
           }
 
-          do {
-
-            afl->current_entry = select_next_queue_entry(afl);
-
-          } while (unlikely(afl->current_entry >= afl->queued_items));
-
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
-
         }
 
-      }
-
-      skipped_fuzz = fuzz_one(afl);
+        skipped_fuzz = fuzz_one(afl);
   #ifdef INTROSPECTION
-      ++afl->queue_cur->stats_selected;
+        ++afl->queue_cur->stats_selected;
 
-      if (unlikely(skipped_fuzz)) {
+        if (unlikely(skipped_fuzz)) {
 
-        ++afl->queue_cur->stats_skipped;
-
-      } else {
-
-        if (unlikely(afl->queued_items > stat_prev_queued_items)) {
-
-          afl->queue_cur->stats_finds +=
-              afl->queued_items - stat_prev_queued_items;
-          stat_prev_queued_items = afl->queued_items;
-
-        }
-
-        if (unlikely(afl->saved_crashes > prev_saved_crashes)) {
-
-          afl->queue_cur->stats_crashes +=
-              afl->saved_crashes - prev_saved_crashes;
-          prev_saved_crashes = afl->saved_crashes;
-
-        }
-
-        if (unlikely(afl->saved_tmouts > prev_saved_tmouts)) {
-
-          afl->queue_cur->stats_tmouts += afl->saved_tmouts - prev_saved_tmouts;
-          prev_saved_tmouts = afl->saved_tmouts;
-
-        }
-
-      }
-
-  #endif
-
-      if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
-
-      if (unlikely(afl->old_seed_selection)) {
-
-        while (++afl->current_entry < afl->queued_items &&
-               afl->queue_buf[afl->current_entry]->disabled) {};
-        if (unlikely(afl->current_entry >= afl->queued_items ||
-                     afl->queue_buf[afl->current_entry] == NULL ||
-                     afl->queue_buf[afl->current_entry]->disabled)) {
-
-          afl->queue_cur = NULL;
+          ++afl->queue_cur->stats_skipped;
 
         } else {
 
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
+          if (unlikely(afl->queued_items > stat_prev_queued_items)) {
+
+            afl->queue_cur->stats_finds +=
+                afl->queued_items - stat_prev_queued_items;
+            stat_prev_queued_items = afl->queued_items;
+
+          }
+
+          if (unlikely(afl->saved_crashes > prev_saved_crashes)) {
+
+            afl->queue_cur->stats_crashes +=
+                afl->saved_crashes - prev_saved_crashes;
+            prev_saved_crashes = afl->saved_crashes;
+
+          }
+
+          if (unlikely(afl->saved_tmouts > prev_saved_tmouts)) {
+
+            afl->queue_cur->stats_tmouts +=
+                afl->saved_tmouts - prev_saved_tmouts;
+            prev_saved_tmouts = afl->saved_tmouts;
+
+          }
 
         }
 
-      }
+  #endif
 
-    } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
+        if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
+
+        if (unlikely(afl->old_seed_selection)) {
+
+          while (++afl->current_entry < afl->queued_items &&
+                 afl->queue_buf[afl->current_entry]->disabled) {};
+          if (unlikely(afl->current_entry >= afl->queued_items ||
+                       afl->queue_buf[afl->current_entry] == NULL ||
+                       afl->queue_buf[afl->current_entry]->disabled)) {
+
+            afl->queue_cur = NULL;
+
+          } else {
+
+            afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+          }
+
+        }
+
+      } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
+
+    }
 
     u64 cur_time = get_cur_time();
 
