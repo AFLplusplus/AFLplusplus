@@ -420,7 +420,7 @@ bool AFLCoverage::runOnModule(Module &M) {
      __afl_prev_loc is thread-local. */
 
   GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+      new GlobalVariable(M, PointerType::get(C, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
   GlobalVariable *AFLPrevCaller;
@@ -770,7 +770,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       LoadInst *MapPtr = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
-          PointerType::get(Int8Ty, 0),
+          PointerType::get(C, 0),
 #endif
           AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));

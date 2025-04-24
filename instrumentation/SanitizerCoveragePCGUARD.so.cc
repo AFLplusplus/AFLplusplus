@@ -189,8 +189,7 @@ class ModuleSanitizerCoverageAFL
   FunctionCallee  SanCovTraceConstCmpFunction[4];
   FunctionCallee  SanCovTraceSwitchFunction;
   GlobalVariable *SanCovLowestStack;
-  Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
-      *Int16Ty, *Int8Ty, *Int8PtrTy, *Int1Ty, *Int1PtrTy, *PtrTy;
+  Type            *IntptrTy, *Int64Ty, *Int32Ty, *Int16Ty, *Int8Ty, *Int1Ty, *PtrTy;
   Module           *CurModule;
   std::string       CurModuleUniqueId;
   Triple            TargetTriple;
@@ -323,7 +322,6 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
   auto      SecStart = SecStartEnd.first;
   auto      SecEnd = SecStartEnd.second;
   Function *CtorFunc;
-  Type     *PtrTy = PointerType::getUnqual(Ty);
   std::tie(CtorFunc, std::ignore) = createSanitizerCtorAndInitFunctions(
       M, CtorName, InitFunctionName, {PtrTy, PtrTy}, {SecStart, SecEnd});
   // assert(CtorFunc->getName() == CtorName);
@@ -391,13 +389,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   FunctionBoolArray = nullptr;
   FunctionPCsArray = nullptr;
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
-  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
-  Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
-  Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
-  Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
-  Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
   Int64Ty = IRB.getInt64Ty();
   Int32Ty = IRB.getInt32Ty();
   Int16Ty = IRB.getInt16Ty();
@@ -407,7 +400,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
   LLVMContext &Ctx = M.getContext();
   AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+      new GlobalVariable(M, PtrTy, false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
@@ -442,7 +435,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
       M.getOrInsertFunction(SanCovTraceConstCmp8, VoidTy, Int64Ty, Int64Ty);
 
   SanCovTraceSwitchFunction =
-      M.getOrInsertFunction(SanCovTraceSwitchName, VoidTy, Int64Ty, Int64PtrTy);
+      M.getOrInsertFunction(SanCovTraceSwitchName, VoidTy, Int64Ty, PtrTy);
 
   Constant *SanCovLowestStackConstant =
       M.getOrInsertGlobal(SanCovLowestStackName, IntptrTy);
@@ -460,7 +453,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
   SanCovTracePC = M.getOrInsertFunction(SanCovTracePCName, VoidTy);
   SanCovTracePCGuard =
-      M.getOrInsertFunction(SanCovTracePCGuardName, VoidTy, Int32PtrTy);
+      M.getOrInsertFunction(SanCovTracePCGuardName, VoidTy);
 
   for (auto &F : M)
     instrumentFunction(F, DTCallback, PDTCallback);
@@ -469,7 +462,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
   if (FunctionGuardArray)
     Ctor = CreateInitCallsForSections(M, SanCovModuleCtorTracePcGuardName,
-                                      SanCovTracePCGuardInitName, Int32PtrTy,
+                                      SanCovTracePCGuardInitName, PtrTy,
                                       SanCovGuardsSectionName);
 
   if (Ctor && debug) {
@@ -880,7 +873,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             IRB.CreateAdd(
                 IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                 ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
-            Int32PtrTy);
+                PtrTy);
 
         LoadInst *Idx = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
         ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(Idx);
@@ -916,7 +909,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                   ConstantInt::get(
                       IntptrTy,
                       (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-              Int32PtrTy);
+                      PtrTy);
 
           auto GuardPtr2 = IRB.CreateIntToPtr(
               IRB.CreateAdd(
@@ -924,7 +917,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                   ConstantInt::get(
                       IntptrTy,
                       (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-              Int32PtrTy);
+                      PtrTy);
 
           result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
 
@@ -941,9 +934,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             if (elements) {
 
               FixedVectorType *GuardPtr1 =
-                  FixedVectorType::get(Int32PtrTy, elements);
+                  FixedVectorType::get(PtrTy, elements);
               FixedVectorType *GuardPtr2 =
-                  FixedVectorType::get(Int32PtrTy, elements);
+                  FixedVectorType::get(PtrTy, elements);
               Value *x, *y;
 
               if (!FunctionGuardArray) {
@@ -961,7 +954,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                       ConstantInt::get(
                           IntptrTy,
                           (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-                  Int32PtrTy);
+                          PtrTy);
               x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
 
               Value *val2 = IRB.CreateIntToPtr(
@@ -970,7 +963,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                       ConstantInt::get(
                           IntptrTy,
                           (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-                  Int32PtrTy);
+                          PtrTy);
               y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
 
               for (uint64_t i = 1; i < elements; i++) {
@@ -981,7 +974,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                         ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
                                                     AllBlocks.size()) *
                                                        4)),
-                    Int32PtrTy);
+                                                       PtrTy);
                 x = IRB.CreateInsertElement(x, val1, i);
 
                 val2 = IRB.CreateIntToPtr(
@@ -990,7 +983,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                         ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
                                                     AllBlocks.size()) *
                                                        4)),
-                    Int32PtrTy);
+                                                       PtrTy);
                 y = IRB.CreateInsertElement(y, val2, i);
 
               }
@@ -1017,7 +1010,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         /* Load SHM pointer */
 
         LoadInst *MapPtr =
-            IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+            IRB.CreateLoad(PtrTy, AFLMapPtr);
         ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
         while (1) {
@@ -1036,7 +1029,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           } else {
 
             auto element = IRB.CreateExtractElement(result, vector_cur++);
-            auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
+            auto elementptr = IRB.CreateIntToPtr(element, PtrTy);
             auto elementld = IRB.CreateLoad(IRB.getInt32Ty(), elementptr);
             ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(elementld);
             MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, elementld);
@@ -1156,7 +1149,7 @@ void ModuleSanitizerCoverageAFL::InjectTraceForSwitch(
           ConstantArray::get(ArrayOfInt64Ty, Initializers),
           "__sancov_gen_cov_switch_values");
       IRB.CreateCall(SanCovTraceSwitchFunction,
-                     {Cond, IRB.CreatePointerCast(GV, Int64PtrTy)});
+                     {Cond, IRB.CreatePointerCast(GV, PtrTy)});
 
     }
 
@@ -1256,14 +1249,14 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     Value *GuardPtr = IRB.CreateIntToPtr(
         IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                       ConstantInt::get(IntptrTy, Idx * 4)),
-        Int32PtrTy);
+                      PtrTy);
 
     LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
     ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(CurLoc);
 
     /* Load SHM pointer */
 
-    LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+    LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
     ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
     /* Load counter for CurLoc */
