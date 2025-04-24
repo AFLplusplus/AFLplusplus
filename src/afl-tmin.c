@@ -50,6 +50,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <libgen.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
