@@ -686,7 +686,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 #else
 
     queue_fn = alloc_printf(
-        "%s/queue/id_%06u", afl->out_dir, afl->queued_items,
+        "%s/queue/id_%06u%s%s", afl->out_dir, afl->queued_items,
         afl->file_extension ? "." : "",
         afl->file_extension ? (const char *)afl->file_extension : "");
 
