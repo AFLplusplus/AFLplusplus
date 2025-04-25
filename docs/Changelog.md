@@ -9,9 +9,15 @@
   - Small improvements to afl-*-config
   - afl-fuzz:
     - memory leak fixes by @kcwu - thanks!
-    - some more nits and small memory saves thanks to @kcwu
+    - many more nits and small memory saves thanks to @kcwu
     - remove deprecated files from queue/.state
     - fix bitmap update function if no current trace is present 
+    - fix for afl_custom_queue_get
+    - various small nits
+  - afl-cc:
+    - dropped plugin support for LLVM 13
+    - fix AFL_OLD_FORKSERVER
+    - various minor fixes
   - frida_mode:
     - fixes for new MacOS + M4 hardware
 
