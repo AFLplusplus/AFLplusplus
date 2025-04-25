@@ -356,8 +356,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
       if (el->afl_custom_queue_get &&
           !el->afl_custom_queue_get(el->data, afl->queue_cur->fname)) {
 
-        return 1;
-
+        /* Abandon the entry and return that we skipped it.
+           If we don't do this then when the entry is smallest_favored then
+           we get caught in an infinite loop calling afl_custom_queue_get
+           on smallest_favored */
+        ret_val = 1;
+        goto abandon_entry;
       }
 
     });
