@@ -1555,13 +1555,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  // silently disable deterministic mutation if custom mutators are used
-  if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
-
-    afl->skip_deterministic = 1;
-
-  }
-
   if (afl->fixed_seed) {
 
     OKF("Running with fixed seed: %u", (u32)afl->init_seed);
