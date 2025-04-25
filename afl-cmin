@@ -331,7 +331,7 @@ BEGIN {
   }
 
   if (0 == system ( "grep -aq AFL_DUMP_MAP_SIZE " target_bin )) {
-    echo "[!] Trying to obtain the map size of the target ..."
+    print "[!] Trying to obtain the map size of the target ..."
     get_map_size = "AFL_DUMP_MAP_SIZE=1 " target_bin
     get_map_size | getline mapsize
     close(get_map_size)
