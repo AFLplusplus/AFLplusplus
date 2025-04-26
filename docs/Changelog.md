@@ -15,6 +15,7 @@
     - fix for afl_custom_queue_get
     - various small nits
   - afl-cc:
+    - fix pass support for LLVM 20 (passes were run too early)
     - dropped plugin support for LLVM 13
     - fix AFL_OLD_FORKSERVER
     - various minor fixes
