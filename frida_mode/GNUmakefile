@@ -19,11 +19,15 @@ TARGET_CC?=$(CC)
 TARGET_CXX?=$(CXX)
 HOST_CC?=$(CC)
 HOST_CXX?=$(CXX)
-IS_ANDROID:=$(findstring android, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_x86:=$(findstring i686, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_x86_64:=$(findstring x86_64, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_ARM:=$(findstring arm, $(shell $(TARGET_CC) --version 2>/dev/null))
-IS_ARM64:=$(findstring aarch64, $(shell $(TARGET_CC) --version 2>/dev/null))
+TARGET_CC_INFO=$(shell $(TARGET_CC) --version)
+IS_IOS:=$(findstring ios, $(TARGET_CC_INFO))
+IS_SIMULATOR:=$(findstring sim, $(TARGET_CC_INFO))
+IS_ANDROID:=$(findstring android, $(TARGET_CC_INFO))
+IS_x86:=$(findstring i686, $(TARGET_CC_INFO))
+IS_x86_64:=$(findstring x86_64, $(TARGET_CC_INFO))
+IS_ARM:=$(findstring arm, $(TARGET_CC_INFO))
+IS_ARM64E:=$(findstring arm64e, $(TARGET_CC_INFO))
+IS_ARM64 := $(or $(findstring aarch64,$(TARGET_CC_INFO)), $(findstring arm64,$(TARGET_CC_INFO)))
 CFLAGS+=-fPIC \
 		-D_GNU_SOURCE \
 		-D_FORTIFY_SOURCE=2 \
@@ -95,7 +99,24 @@ endif
 
 GUM_ARCH="-$(ARCH)"
 
-ifeq "$(shell uname)" "Darwin"
+ifdef IS_IOS
+ OS:=ios
+ ifdef IS_SIMULATOR
+  ifdef IS_x86_64
+   ARCH := x86_64-simulator
+  else ifdef IS_ARM64
+   ARCH := arm64-simulator
+  endif
+ else
+  ifdef IS_ARM64E
+   ARCH := arm64e
+  else ifdef IS_ARM64
+   ARCH := arm64
+  endif
+ endif
+ override CFLAGS += -isysroot $(IOS_SDK_PATH)
+ override LDFLAGS += -L$(IOS_SDK_PATH)/usr/lib
+else ifeq "$(shell uname)" "Darwin"
  OS:=macos
  AFL_CFLAGS:=$(AFL_CFLAGS) -Wno-deprecated-declarations
  GUM_ARCH:=""
@@ -165,9 +186,31 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=16.0.11
+GUM_DEVKIT_VERSION=16.1.11
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
+
+ifeq ($(OS),macos)
+	# Extract the major version
+	GUM_VERSION_MAJOR := $(shell echo "$(GUM_DEVKIT_VERSION)" | sed -E 's/\..*//')
+	# Extract the minor version (assumes format "MAJOR.MINOR[.PATCH...]")
+	GUM_VERSION_MINOR := $(shell echo "$(GUM_DEVKIT_VERSION)" | sed -E 's/^[^.]*\.//; s/\..*//')
+
+	# Evaluate the version condition in a separate shell call
+	IS_GUM_16_6_PLUS := $(shell \
+		if (( $(GUM_VERSION_MAJOR) > 16 || ( $(GUM_VERSION_MAJOR) == 16 && $(GUM_VERSION_MINOR) >= 6 ) )); then \
+			echo 1; \
+		fi)
+else
+	IS_GUM_16_6_PLUS := $(shell VERSION="$(GUM_DEVKIT_VERSION)"; \
+		MAJOR=$${VERSION%%.*}; \
+		MINOR=$${VERSION#*.}; MINOR=$${MINOR%%.*}; \
+		if [ $$MAJOR -gt 16 ] || { [ $$MAJOR -eq 16 ] && [ $$MINOR -ge 6 ]; }; then \
+			echo 1; \
+		fi)
+endif
+
+CFLAGS += $(if $(IS_GUM_16_6_PLUS),-DGUM_16_6_PLUS)
 
 GUM_DEVKIT_TARBALL:=$(FRIDA_BUILD_DIR)$(GUM_DEVKIT_FILENAME)
 ifdef FRIDA_SOURCE
@@ -373,6 +416,11 @@ $(AFL_PERFORMANCE_OBJ): $(AFL_PERFORMANCE_SRC)
 
 $(BIN2C): $(BIN2C_SRC)
 	$(HOST_CC) -D_GNU_SOURCE -o $@ $<
+ifdef IS_IOS
+ifeq ($(HOST_CC),$(TARGET_CC))
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
+endif
 
 $(JS_SRC): $(JS) $(BIN2C)| $(BUILD_DIR)
 	cd $(JS_DIR) && $(BIN2C) api_js $(JS) $@
@@ -413,8 +461,10 @@ $(FRIDA_TRACE): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL
 		$(TRACE_LDFLAGS) \
 		$(LDFLAGS) \
 		$(LDSCRIPT) \
-		-o $@ \
-
+		-o $@
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 	cp -v $(FRIDA_TRACE) $(ROOT)
 
 $(FRIDA_TRACE_LIB): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $(AFL_COMPILER_RT_OBJ) $(AFL_PERFORMANCE_OBJ) GNUmakefile | $(BUILD_DIR)
@@ -430,9 +480,15 @@ $(FRIDA_TRACE_LIB): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $
 
 $(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(GUM_DEVIT_HEADER) | $(BUILD_DIR)
 	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 $(AFLPP_QEMU_DRIVER_HOOK_OBJ): $(AFLPP_QEMU_DRIVER_HOOK_SRC) | $(BUILD_DIR)
 	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+ifdef IS_IOS
+	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
 
 hook: $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ)
 

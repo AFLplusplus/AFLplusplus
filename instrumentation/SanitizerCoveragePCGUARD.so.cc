@@ -226,15 +226,27 @@ llvmGetPassPluginInfo() {
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
 #if LLVM_VERSION_MAJOR >= 16
-            PB.registerOptimizerEarlyEPCallback(
+            PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
+                                                   OptimizationLevel  OL
+  #if LLVM_VERSION_MAJOR >= 20
+                                                   ,
+                                                   ThinOrFullLTOPhase Phase
+  #endif
+                                                ) {
+
+              MPM.addPass(ModuleSanitizerCoverageAFL());
+
+            });
+
 #else
             PB.registerOptimizerLastEPCallback(
-#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
 
                   MPM.addPass(ModuleSanitizerCoverageAFL());
 
                 });
+
+#endif
 
           }};
 
@@ -257,8 +269,20 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
 
   };
 
-  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
-    return PreservedAnalyses::none();
+  // TODO: Support LTO or llvm classic?
+  // Note we still need afl-compiler-rt so we just disable the instrumentation
+  // here.
+  if (!getenv("AFL_SAN_NO_INST")) {
+
+    if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
+      return PreservedAnalyses::none();
+
+  } else {
+
+    if (getenv("AFL_DEBUG")) { DEBUGF("Instrument disabled\n"); }
+
+  }
+
   return PreservedAnalyses::all();
 
 }
@@ -326,7 +350,7 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
 
   if (TargetTriple.isOSBinFormatCOFF()) {
 
-    // In COFF files, if the contructors are set as COMDAT (they are because
+    // In COFF files, if the constructors are set as COMDAT (they are because
     // COFF supports COMDAT) and the linker flag /OPT:REF (strip unreferenced
     // functions and data) is used, the constructors get stripped. To prevent
     // this, give the constructors weak ODR linkage and ensure the linker knows

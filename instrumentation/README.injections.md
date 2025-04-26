@@ -29,7 +29,7 @@ Alternatively you can set `AFL_LLVM_INJECTIONS_ALL` to enable all.
 
 ## How to modify
 
-If you want to add more fuctions to check for e.g. SQL injections:
+If you want to add more functions to check for e.g. SQL injections:
 Add these to `instrumentation/injection-pass.cc` and recompile.
 
 If you want to test for more injection inputs:

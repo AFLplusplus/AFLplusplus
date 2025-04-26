@@ -1,5 +1,11 @@
+#ifndef _COVERAGE_H
+
+#define _COVERAGE_H
+
 #include "config.h"
 #include "types.h"
+
+#define _AFL_INTSIZEVAR u32
 
 u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end);
 u32 classify_word(u32 word);
@@ -109,4 +115,6 @@ inline u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end) {
   return 0;
 
 }
+
+#endif
 

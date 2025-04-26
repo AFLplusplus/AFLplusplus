@@ -6,7 +6,7 @@ coverage to effortlessly pick up subtle, local-scale changes to program control
 flow.
 
 Note: If you are interested in a more current up-to-date deep dive how AFL++
-works then we commend this blog post:
+works then we recommend this blog post:
 [https://blog.ritsec.club/posts/afl-under-hood/](https://blog.ritsec.club/posts/afl-under-hood/)
 
 Simplifying a bit, the overall algorithm can be summed up as:
@@ -384,10 +384,6 @@ there are several things to look at:
   may signify that the code within `__AFL_LOOP()` is not behaving correctly on
   subsequent iterations (e.g., due to incomplete clean-up or reinitialization of
   the state) and that most of the fuzzing effort goes to waste.
-
-The paths where variable behavior is detected are marked with a matching entry
-in the `<out_dir>/queue/.state/variable_behavior/` directory, so you can look
-them up easily.
 
 ### CPU load
 

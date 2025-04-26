@@ -12,7 +12,7 @@
    $ make
    $ ../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
 
-   (Re)run a simgle input with block tracing using:
+   (Re)run a single input with block tracing using:
 
    $ ./harness -t [inputfile]
 */
@@ -46,7 +46,7 @@ static const int64_t STACK_ADDRESS = (((int64_t) 0x01) << 58);
 static const int64_t STACK_SIZE = 0x10000;
 // Location where the input will be placed (make sure the emulated program knows this somehow, too ;) )
 static const int64_t INPUT_LOCATION = 0x10000;
-// Inside the location, we have an ofset in our special case
+// Inside the location, we have an offset in our special case
 static const int64_t INPUT_OFFSET = 0x16;
 // Maximum allowable size of mutated data from AFL
 static const int64_t INPUT_SIZE_MAX = 0x10000;
@@ -233,7 +233,7 @@ int main(int argc, char **argv, char **envp) {
     // build a "dummy" argv with length 2 at 0x10000:
     // 0x10000 argv[0]  NULL
     // 0x10008 argv[1]  (char *)0x10016 --. points to the next offset.
-    // 0x10016 argv[1][0], ...          <-^ contains the acutal input data. (INPUT_LOCATION + INPUT_OFFSET)
+    // 0x10016 argv[1][0], ...          <-^ contains the actual input data. (INPUT_LOCATION + INPUT_OFFSET)
 
     uc_mem_write(uc, 0x10008, "\x16\x00\x01", 3); // little endian of 0x10016, see above
 
@@ -260,7 +260,7 @@ int main(int argc, char **argv, char **envp) {
         place_input_callback, // Callback that places the input (automatically loaded from the file at filename) in the unicorninstance
         &end_address, // Where to exit (this is an array)
         1,  // Count of end addresses
-        NULL, // Optional calback to run after each exec
+        NULL, // Optional callback to run after each exec
         false, // true, if the optional callback should be run also for non-crashes
         1000, // For persistent mode: How many rounds to run
         NULL // additional data pointer

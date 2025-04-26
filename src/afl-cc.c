@@ -181,14 +181,11 @@ typedef struct aflcc_state {
       have_pic, have_c, shared_linking, partial_linking, non_dash, have_fp,
       have_flto, have_hidden, have_fortify, have_fcf, have_staticasan,
       have_rust_asanrt, have_asan, have_msan, have_ubsan, have_lsan, have_tsan,
-      have_cfisan;
+      have_cfisan, have_rtsan;
 
   // u8 *march_opt;
   u8  need_aflpplib;
   int passthrough;
-
-  u8  use_stdin;                                                   /* dummy */
-  u8 *argvnull;                                                    /* dummy */
 
 } aflcc_state_t;
 
@@ -247,9 +244,20 @@ static inline void insert_object(aflcc_state_t *aflcc, u8 *obj, u8 *fmt,
 /* Insert params into the new argv, make clang load the pass. */
 static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
 
+  if (getenv("AFL_SAN_NO_INST")) {
+
+    if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
+    return;
+
+  }
+
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
   #if LLVM_MAJOR < 16
+    #if LLVM_MAJOR < 15
+  insert_param(aflcc, "-fno-legacy-pass-manager");
+    #else
   insert_param(aflcc, "-fexperimental-new-pass-manager");
+    #endif
   #endif
   insert_object(aflcc, pass, "-fpass-plugin=%s", 0);
 #else
@@ -1145,7 +1153,8 @@ void instrument_mode_by_environ(aflcc_state_t *aflcc) {
 static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
   if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER)) {
+      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
+      aflcc->compiler_mode != LTO) {
 
     FATAL("you cannot set CTX and CALLER together");
 
@@ -1529,7 +1538,8 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   if (aflcc->plusplus_mode) {
 
     insert_param(aflcc,
-                 "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+                 "-D__AFL_COVERAGE()=int __afl_selective_coverage "
+                 "__attribute__ ((weak)) = 1;"
                  "extern \"C\" void __afl_coverage_discard();"
                  "extern \"C\" void __afl_coverage_skip();"
                  "extern \"C\" void __afl_coverage_on();"
@@ -1538,7 +1548,8 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   } else {
 
     insert_param(aflcc,
-                 "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+                 "-D__AFL_COVERAGE()=int __afl_selective_coverage "
+                 "__attribute__ ((weak)) = 1;"
                  "void __afl_coverage_discard();"
                  "void __afl_coverage_skip();"
                  "void __afl_coverage_on();"
@@ -1764,6 +1775,41 @@ static u8 fsanitize_fuzzer_comma(char *string) {
 
 }
 
+/* Add params to link with libAFLDriver.a on request */
+static void add_aflpplib(aflcc_state_t *aflcc) {
+
+  if (!aflcc->need_aflpplib) return;
+
+  u8 *afllib = find_object(aflcc, "libAFLDriver.a");
+
+  if (!be_quiet) {
+
+    OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
+
+  }
+
+  if (!afllib) {
+
+    if (!be_quiet) {
+
+      WARNF(
+          "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
+          "the flags - this will fail!");
+
+    }
+
+  } else {
+
+    insert_param(aflcc, afllib);
+
+#ifdef __APPLE__
+    insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
+#endif
+
+  }
+
+}
+
 /*
   Parse and process possible -fsanitize related args, return PARAM_MISS
   if nothing matched. We have 3 main tasks here for these args:
@@ -1777,6 +1823,7 @@ static u8 fsanitize_fuzzer_comma(char *string) {
 param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   param_st final_ = PARAM_MISS;
+  u8       insert = 0;
 
 // MACRO START
 #define HAVE_SANITIZER_SCAN_KEEP(v, k)        \
@@ -1822,6 +1869,7 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
     if (scan) {
 
       aflcc->need_aflpplib = 1;
+      insert = 1;
       final_ = PARAM_SCAN;
 
     } else {
@@ -1842,6 +1890,7 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
       if (fsanitize_fuzzer_comma(cur_argv_)) {
 
         aflcc->need_aflpplib = 1;
+        insert = 1;
         final_ = PARAM_SCAN;
 
       }
@@ -1882,7 +1931,8 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   }
 
-  if (final_ == PARAM_KEEP) insert_param(aflcc, cur_argv);
+  if (final_ == PARAM_KEEP) { insert_param(aflcc, cur_argv); }
+  if (insert) { add_aflpplib(aflcc); }
 
   return final_;
 
@@ -1985,6 +2035,13 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   }
 
+  if (getenv("AFL_USE_RTSAN") && !aflcc->have_rtsan) {
+
+    insert_param(aflcc, "-fsanitize=realtime");
+    aflcc->have_rtsan = 1;
+
+  }
+
   if (getenv("AFL_USE_CFISAN") || aflcc->have_cfisan) {
 
     if (aflcc->compiler_mode == GCC_PLUGIN || aflcc->compiler_mode == GCC) {
@@ -2040,6 +2097,12 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
    * anyway.
    */
   if (aflcc->have_rust_asanrt) { return; }
+  if (getenv("AFL_SAN_NO_INST")) {
+
+    if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
+    return;
+
+  }
 
   /* If llvm-config doesn't figure out LLVM_MAJOR, just
    go on anyway and let compiler complain if doesn't work. */
@@ -2052,6 +2115,7 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
       "pcguard instrumentation with pc-table requires LLVM 6.0.1+"
       " otherwise the compiler will fail");
   #endif
+
   if (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
 
     insert_param(aflcc,
@@ -2074,9 +2138,15 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
 */
 void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
+  if (getenv("AFL_SAN_NO_INST")) {
+
+    if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
+    return;
+
+  }
+
 #if LLVM_MAJOR >= 13
   #if defined __ANDROID__ || ANDROID
-
   insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard");
   aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
 
@@ -2097,7 +2167,11 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
     /* Since LLVM_MAJOR >= 13 we use new pass manager */
     #if LLVM_MAJOR < 16
+      #if LLVM_MAJOR < 15
+    insert_param(aflcc, "-fno-legacy-pass-manager");
+      #else
     insert_param(aflcc, "-fexperimental-new-pass-manager");
+      #endif
     #endif
     insert_object(aflcc, "SanitizerCoveragePCGUARD.so", "-fpass-plugin=%s", 0);
 
@@ -2352,41 +2426,6 @@ void add_lto_passes(aflcc_state_t *aflcc) {
 
 }
 
-/* Add params to link with libAFLDriver.a on request */
-static void add_aflpplib(aflcc_state_t *aflcc) {
-
-  if (!aflcc->need_aflpplib) return;
-
-  u8 *afllib = find_object(aflcc, "libAFLDriver.a");
-
-  if (!be_quiet) {
-
-    OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
-
-  }
-
-  if (!afllib) {
-
-    if (!be_quiet) {
-
-      WARNF(
-          "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
-          "the flags - this will fail!");
-
-    }
-
-  } else {
-
-    insert_param(aflcc, afllib);
-
-#ifdef __APPLE__
-    insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
-#endif
-
-  }
-
-}
-
 /* Add params to link with runtimes depended by our instrumentation */
 void add_runtime(aflcc_state_t *aflcc) {
 
@@ -2479,7 +2518,7 @@ void add_runtime(aflcc_state_t *aflcc) {
 
 #endif
 
-  add_aflpplib(aflcc);
+  add_aflpplib(aflcc);  // double insertion helps compiling
 
 #if defined(USEMMAP) && !defined(__HAIKU__) && !__APPLE__
   insert_param(aflcc, "-Wl,-lrt");
@@ -2614,6 +2653,7 @@ void add_misc_params(aflcc_state_t *aflcc) {
     insert_param(aflcc, "-fno-builtin-strcasecmp");
     insert_param(aflcc, "-fno-builtin-strncasecmp");
     insert_param(aflcc, "-fno-builtin-memcmp");
+    insert_param(aflcc, "-fno-builtin-memmem");
     insert_param(aflcc, "-fno-builtin-bcmp");
     insert_param(aflcc, "-fno-builtin-strstr");
     insert_param(aflcc, "-fno-builtin-strcasestr");
@@ -2946,7 +2986,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "  AFL_USE_MSAN: activate memory sanitizer\n"
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
           "  AFL_USE_TSAN: activate thread sanitizer\n"
-          "  AFL_USE_LSAN: activate leak-checker sanitizer\n");
+          "  AFL_USE_LSAN: activate leak-checker sanitizer\n"
+          "  AFL_USE_RTSAN: activate realtime sanitizer\n");
 
       if (aflcc->have_gcc_plugin)
         SAYF(
@@ -3557,6 +3598,64 @@ int main(int argc, char **argv, char **envp) {
         "afl-clang-fast/afl-gcc-fast for instrumentation instead.");
 
   }
+
+  // We only support plugins with LLVM 14 onwards
+#if LLVM_MAJOR < 14
+  if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE &&
+      aflcc->compiler_mode != GCC_PLUGIN) {
+
+    aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
+    aflcc->compiler_mode = LLVM;
+
+  }
+
+  if (aflcc->compiler_mode == LLVM) {
+
+    if (aflcc->cmplog_mode) {
+
+      WARNF("CMPLOG support requires LLVM 14+");
+      aflcc->cmplog_mode = 0;
+
+    }
+
+    if (getenv("AFL_LLVM_DICT2FILE")) {
+
+      WARNF("DICT2FILE support requires LLVM14+");
+      unsetenv("AFL_LLVM_DICT2FILE");
+
+    }
+
+    if (getenv("AFL_LLVM_LAF_SPLIT_SWITCHES") ||
+        getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+        getenv("AFL_LLVM_LAF_SPLIT_FLOATS") ||
+        getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
+        getenv("AFL_LLVM_LAF_ALL")) {
+
+      WARNF("AFL_LLVM_LAF support requires LLVM14+");
+      unsetenv("AFL_LLVM_LAF_SPLIT_SWITCHES");
+      unsetenv("AFL_LLVM_LAF_SPLIT_COMPARES");
+      unsetenv("AFL_LLVM_LAF_SPLIT_FLOATS");
+      unsetenv("AFL_LLVM_LAF_TRANSFORM_COMPARES");
+      unsetenv("AFL_LLVM_LAF_ALL");
+
+    }
+
+    if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
+        getenv("AFL_LLVM_INJECTIONS_SQL") ||
+        getenv("AFL_LLVM_INJECTIONS_LDAP") ||
+        getenv("AFL_LLVM_INJECTIONS_XSS")) {
+
+      WARNF("AFL_LLVM_INJECTIONS support requires LLVM14+");
+      unsetenv("AFL_LLVM_INJECTIONS_ALL");
+      unsetenv("AFL_LLVM_INJECTIONS_SQL");
+      unsetenv("AFL_LLVM_INJECTIONS_LDAP");
+      unsetenv("AFL_LLVM_INJECTIONS_XSS");
+
+    }
+
+  }
+
+#endif
 
   mode_notification(aflcc);
 

@@ -1,4 +1,4 @@
-# custum mutator: libfuzzer LLVMFuzzerMutate()
+# custom mutator: libfuzzer LLVMFuzzerMutate()
 
 This uses the libfuzzer LLVMFuzzerMutate() function in llvm 12.
 

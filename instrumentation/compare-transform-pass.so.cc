@@ -134,7 +134,12 @@ llvmGetPassPluginInfo() {
     #else
             PB.registerOptimizerLastEPCallback(
     #endif
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+                [](ModulePassManager &MPM, OptimizationLevel OL
+    #if LLVM_VERSION_MAJOR >= 20
+                   ,
+                   ThinOrFullLTOPhase Phase
+    #endif
+                ) {
 
                   MPM.addPass(CompareTransform());
 

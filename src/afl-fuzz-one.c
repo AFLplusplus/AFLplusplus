@@ -356,7 +356,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
       if (el->afl_custom_queue_get &&
           !el->afl_custom_queue_get(el->data, afl->queue_cur->fname)) {
 
-        return 1;
+        /* Abandon the entry and return that we skipped it.
+           If we don't do this then when the entry is smallest_favored then
+           we get caught in an infinite loop calling afl_custom_queue_get
+           on smallest_favored */
+        ret_val = 1;
+        goto abandon_entry;
 
       }
 
@@ -634,7 +639,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     afl->stage_cur_byte = afl->stage_cur >> 3;
 
-    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+    if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -754,7 +759,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     afl->stage_cur_byte = afl->stage_cur >> 3;
 
-    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+    if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -793,7 +798,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     afl->stage_cur_byte = afl->stage_cur >> 3;
 
-    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+    if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -837,7 +842,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     afl->stage_cur_byte = afl->stage_cur;
 
-    if (!skip_eff_map[afl->stage_cur_byte]) continue;
+    if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -858,7 +863,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   for (i = 0; i < len; i++) {
 
-    if (skip_eff_map[i]) afl->blocks_eff_select += 1;
+    if (bitmap_read(skip_eff_map, i)) afl->blocks_eff_select += 1;
 
   }
 
@@ -887,7 +892,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -930,7 +935,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -983,7 +988,7 @@ skip_bitflip:
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1067,7 +1072,7 @@ skip_bitflip:
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1197,7 +1202,7 @@ skip_bitflip:
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1331,7 +1336,7 @@ skip_arith:
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1391,7 +1396,7 @@ skip_arith:
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1479,7 +1484,7 @@ skip_arith:
 
     /* Let's consult the effector map... */
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1573,7 +1578,7 @@ skip_interest:
 
     u32 last_len = 0;
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1642,7 +1647,7 @@ skip_interest:
 
   for (i = 0; i <= (u32)len; ++i) {
 
-    if (!skip_eff_map[i % len]) continue;
+    if (!bitmap_read(skip_eff_map, i % len)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1708,7 +1713,7 @@ skip_user_extras:
 
     u32 last_len = 0;
 
-    if (!skip_eff_map[i]) continue;
+    if (!bitmap_read(skip_eff_map, i)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -1768,7 +1773,7 @@ skip_user_extras:
 
   for (i = 0; i <= (u32)len; ++i) {
 
-    if (!skip_eff_map[i % len]) continue;
+    if (!bitmap_read(skip_eff_map, i % len)) continue;
 
     if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
 
@@ -6185,7 +6190,7 @@ u8 fuzz_one(afl_state_t *afl) {
 #endif
 
   /*
-     -L command line paramter => limit_time_sig value
+     -L command line parameter => limit_time_sig value
        limit_time_sig == 0 then run the default mutator
        limit_time_sig  > 0 then run MOpt
        limit_time_sig  < 0 both are run

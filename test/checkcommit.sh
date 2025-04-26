@@ -6,7 +6,7 @@ test -z "$1" -o -n "$4" && {
   echo "Syntax: $0 commit-id <indir> \"<cmdline>\""
   echo
   echo "Switches to the defined commit ID, compiles with profiling and runs"
-  echo "afl-fuzz on a defind target and input directory, saving timing,"
+  echo "afl-fuzz on a defined target and input directory, saving timing,"
   echo "fuzzer_stats and profiling output to \"<commit-id>.out\""
   echo "Honors CFLAGS and LDFLAGS"
   echo

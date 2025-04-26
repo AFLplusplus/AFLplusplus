@@ -39,7 +39,7 @@ is *VERY* important to carry out these basic steps first before taking on the
 additional complexity of debugging with FRIDA mode or `afl-fuzz`.
 
 - Run your harness outside of the fuzzer, passing it a representative seed as
-  it's input `./harness <input>`.
+  its input `./harness <input>`.
 - Pass your harness multiple seeds to check that it is stable when running
   multiple tests as it will when running in fork server mode `./harness <input1>
   <intput2>`.

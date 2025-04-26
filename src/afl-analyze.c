@@ -110,8 +110,9 @@ static u8 count_class_lookup[256] = {
 
 };
 
-static void kill_child() {
+static void kill_child(int signal) {
 
+  (void)signal;
   if (fsrv.child_pid > 0) {
 
     kill(fsrv.child_pid, fsrv.child_kill_signal);
@@ -695,14 +696,18 @@ static void set_up_environment(char **argv) {
       ck_free(frida_binary);
 
       setenv("LD_PRELOAD", frida_afl_preload, 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+#endif
 
     } else {
 
       /* CoreSight mode uses the default behavior. */
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+#ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+#endif
 
     }
 
@@ -710,7 +715,9 @@ static void set_up_environment(char **argv) {
 
     u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
     setenv("LD_PRELOAD", frida_binary, 1);
+#ifdef __APPLE__
     setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+#endif
     ck_free(frida_binary);
 
   }
@@ -968,7 +975,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      case 'Y':  // fallthough
+      case 'Y':  // fallthrough
 #ifdef __linux__
       case 'X':                                                 /* NYX mode */
 
@@ -981,7 +988,7 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 #else
       case 'X':
-        FATAL("Nyx mode is only availabe on linux...");
+        FATAL("Nyx mode is only available on linux...");
         break;
 #endif
 

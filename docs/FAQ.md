@@ -106,7 +106,7 @@ If you find an interesting or important question missing, submit it via
 <details>
   <summary id="should-you-ever-stop-afl-fuzz-minimize-the-corpus-and-restart">Should you ever stop afl-fuzz, minimize the corpus and restart?</summary><p>
 
-  To stop afl-fuzz, minimize it's corpus and restart you would usually do:
+  To stop afl-fuzz, minimize its corpus and restart you would usually do:
 
   ```
   Control-C  # to terminate afl-fuzz
@@ -236,7 +236,7 @@ If you find an interesting or important question missing, submit it via
   [AFLFast](https://github.com/mboehme/aflfast), however, modified to be more
   effective and several more modes added.
 
-  The most effective modes are `-p fast` (default) and `-p explore`.
+  The most effective modes are `-p explore` (default) and `-p fast`.
 
   If you fuzz with several parallel afl-fuzz instances, then it is beneficial
   to assign a different schedule to each instance, however the majority should
@@ -274,7 +274,7 @@ If you find an interesting or important question missing, submit it via
   the existing map will be used also for the newly loaded libraries, which
   allows it to work, however, the efficiency of the fuzzing will be partially
   degraded. Note that there is additionally `AFL_IGNORE_PROBLEMS_COVERAGE` to
-  additionally tell AFL++ to ignore any coverage from the late loaded libaries.
+  additionally tell AFL++ to ignore any coverage from the late loaded libraries.
 </p></details>
 
 <details>

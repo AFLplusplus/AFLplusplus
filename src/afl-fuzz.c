@@ -25,7 +25,9 @@
  */
 
 #include "afl-fuzz.h"
+#include "alloc-inl.h"
 #include "cmplog.h"
+#include "asanfuzz.h"
 #include "common.h"
 #include <limits.h>
 #include <stdlib.h>
@@ -170,7 +172,7 @@ static void at_exit() {
 
   if (pid2 > 0) {
 
-    pgrp = getpgid(pid1);
+    pgrp = getpgid(pid2);
     if (pgrp > 0) { killpg(pgrp, kill_signal); }
     kill(pid2, kill_signal);
 
@@ -238,6 +240,7 @@ static void usage(u8 *argv0, int more_help) {
       "immediately,\n"
       "                  -1 = immediately and together with normal mutation.\n"
       "                  Note: this option is usually not very effective\n"
+      "  -u            - enable testcase splicing\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU/FRIDA or the fuzzing target is "
@@ -251,13 +254,17 @@ static void usage(u8 *argv0, int more_help) {
       "                  X=extreme transform solving, R=random colorization "
       "bytes.\n\n"
       "Fuzzing behavior settings:\n"
-      "  -Z            - sequential queue selection instead of weighted "
+      "  -Z             - sequential queue selection instead of weighted "
       "random\n"
-      "  -N            - do not unlink the fuzzing input file (for devices "
+      "  -N             - do not unlink the fuzzing input file (for devices "
       "etc.)\n"
-      "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
-      "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
-      "times)\n\n"
+      "  -n             - fuzz without instrumentation (non-instrumented "
+      "mode)\n"
+      "  -x dict_file   - fuzzer dictionary (see README.md, specify up to 4 "
+      "times)\n"
+      "  -w san_binary  - Specify the extra sanitizer instrumented binaries,\n"
+      "                   can be specified multiple times.\n"
+      "                   Read docs/SAND.md for details.\n\n"
 
       "Test settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
@@ -395,7 +402,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
-      "                        suported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "                        supported formats: dogstatsd, librato, signalfx, influxdb\n"
       "AFL_NO_FASTRESUME: do not read or write a fast resume file\n"
       "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
@@ -441,10 +448,6 @@ static void usage(u8 *argv0, int more_help) {
 
 #ifdef ASAN_BUILD
   SAYF("Compiled with ASAN_BUILD.\n");
-#endif
-
-#ifdef NO_SPLICING
-  SAYF("Compiled with NO_SPLICING.\n");
 #endif
 
 #ifdef FANCY_BOXES_NO_UTF
@@ -552,6 +555,7 @@ int main(int argc, char **argv_orig, char **envp) {
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
   char  *afl_preload;
+  char  *san_abstraction;
   char  *frida_afl_preload = NULL;
   char **use_argv;
 
@@ -608,10 +612,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: HjJkKqruvwz
-  while ((opt = getopt(argc, argv,
-                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
-                       "T:UV:WXx:YzZ")) > 0) {
+  // still available: HjJkKqrv
+  while (
+      (opt = getopt(argc, argv,
+                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+                    "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -699,6 +704,10 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->old_seed_selection = 1;
         break;
 
+      case 'u':
+        afl->use_splicing = 1;
+        break;
+
       case 'I':
         afl->infoexec = optarg;
         break;
@@ -736,6 +745,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        break;
+
+      }
+
+      case 'w': {
+
+        if (afl->san_binary_length == MAX_EXTRA_SAN_BINARY) {
+
+          FATAL("Only %d extra sanitizer instrumented binaries are supported.",
+                MAX_EXTRA_SAN_BINARY);
+
+        }
+
+        afl->shm.sanfuzz_mode = 1;
+        afl->san_binary[afl->san_binary_length++] = optarg;
         break;
 
       }
@@ -1146,7 +1170,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #else
       case 'X':
       case 'Y':
-        FATAL("Nyx mode is only availabe on linux...");
+        FATAL("Nyx mode is only available on linux...");
         break;
   #endif
       case 'A':                                           /* CoreSight mode */
@@ -1531,13 +1555,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  // silently disable deterministic mutation if custom mutators are used
-  if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
-
-    afl->skip_deterministic = 1;
-
-  }
-
   if (afl->fixed_seed) {
 
     OKF("Running with fixed seed: %u", (u32)afl->init_seed);
@@ -1726,22 +1743,35 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->cycle_schedules) {
+
+    afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32));
+
+  }
+
+  if (afl->san_binary_length) {
+
+    if (afl->san_abstraction == UNIQUE_TRACE) {
+
+      afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
+
+    }
+
+    if (afl->san_abstraction == SIMPLIFY_TRACE) {
+
+      afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
+
+    }
+
+  }
+
   if (get_afl_env("AFL_NO_FORKSRV")) { afl->no_forkserver = 1; }
   if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
   if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
 
-  if (afl->afl_env.afl_autoresume) {
-
-    afl->autoresume = 1;
-    if (afl->in_place_resume) {
-
-      SAYF("AFL_AUTORESUME has no effect for '-i -'");
-
-    }
-
-  }
+  if (afl->afl_env.afl_autoresume) { afl->autoresume = 1; }
 
   if (afl->afl_env.afl_hang_tmout) {
 
@@ -1965,7 +1995,9 @@ int main(int argc, char **argv_orig, char **envp) {
         ck_free(frida_binary);
 
         setenv("LD_PRELOAD", frida_afl_preload, 1);
+  #ifdef __APPLE__
         setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+  #endif
 
       }
 
@@ -1974,7 +2006,9 @@ int main(int argc, char **argv_orig, char **envp) {
       /* CoreSight mode uses the default behavior. */
 
       setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+  #ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+  #endif
 
     }
 
@@ -1992,7 +2026,9 @@ int main(int argc, char **argv_orig, char **envp) {
       u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
       setenv("LD_PRELOAD", frida_binary, 1);
+  #ifdef __APPLE__
       setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+  #endif
       ck_free(frida_binary);
 
     }
@@ -2211,6 +2247,16 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   setup_cmdline_file(afl, argv + optind);
+
+  // Let's check SAND sanitizers binaries a bit earlier
+  // so that we won't overwrite target_path.
+  // Lazymio: why does cmplog fsrv even work?!
+  for (u8 i = 0; i < afl->san_binary_length; i++) {
+
+    check_binary(afl, afl->san_binary[i]);
+
+  }
+
   check_binary(afl, argv[optind]);
 
   u64 prev_target_hash = 0;
@@ -2283,12 +2329,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
-        u64  expect_ver =
-            afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+        u64  expect_ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+                         (sizeof(struct queue_entry) << 1);
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
             sizeof(ver_string))
-          WARNF("Emtpy fastresume.bin, ignoring, cannot perform FAST RESUME");
+          WARNF("Empty fastresume.bin, ignoring, cannot perform FAST RESUME");
         else if (expect_ver != *ver)
           WARNF(
               "Different AFL++ version or feature usage, cannot perform FAST "
@@ -2547,6 +2593,129 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  san_abstraction = getenv("AFL_SAN_ABSTRACTION");
+  if (!san_abstraction || !strcmp(san_abstraction, "simplify_trace")) {
+
+    afl->san_abstraction = SIMPLIFY_TRACE;
+
+  } else if (!strcmp(san_abstraction, "coverage_increase")) {
+
+    afl->san_abstraction = COVERAGE_INCREASE;
+
+  } else if (!strcmp(san_abstraction, "unique_trace")) {
+
+    afl->san_abstraction = UNIQUE_TRACE;
+
+  } else {
+
+    WARNF("Unknown abstraction: %s, fallback to simplified trace.\n",
+          san_abstraction);
+    afl->san_abstraction = SIMPLIFY_TRACE;
+
+  }
+
+  if (!afl->san_binary_length && san_abstraction) {
+
+    WARNF(
+        "No extra sanitizer instrumented binaries are given, do you forget "
+        "-a?\n");
+
+  }
+
+  /* Maybe merge with cmplog but much cmplog code was already copy-paste
+   * style... */
+  if (afl->san_binary_length) {
+
+    for (u8 i = 0; i < afl->san_binary_length; i++) {
+
+      ACTF("Spawning SAND forkserver for %s", afl->san_binary[i]);
+      afl_fsrv_init_dup(&afl->san_fsrvs[i], &afl->fsrv);
+
+      /*
+       * We don't really collect trace bits for sanitizer instrumented binary so
+       * we just allocate some dummy memory here.
+       */
+      afl->san_fsrvs[i].trace_bits = ck_alloc(
+          afl->fsrv.map_size + 8); /* One more u64 according to afl_shm_init*/
+      afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
+      afl->san_fsrvs[i].san_but_not_instrumented = 1;
+
+      afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
+      afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
+      afl->san_fsrvs[i].frida_mode = afl->fsrv.frida_mode;
+      afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
+      afl->san_fsrvs[i].target_path = afl->san_binary[i];
+      afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
+
+      afl->san_fsrvs[i].child_kill_signal =
+          afl->fsrv.child_kill_signal;  // I believe cmplog also needs this.
+      afl->san_fsrvs[i].fsrv_kill_signal = afl->fsrv.fsrv_kill_signal;
+
+      if ((map_size <= DEFAULT_SHMEM_SIZE ||
+           afl->san_fsrvs[i].map_size < map_size) &&
+          !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+          !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
+          !afl->afl_env.afl_skip_bin_check) {
+
+        afl->san_fsrvs[i].map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+        char vbuf[16];
+        snprintf(vbuf, sizeof(vbuf), "%u", afl->san_fsrvs[i].map_size);
+        setenv("AFL_MAP_SIZE", vbuf, 1);
+
+      }
+
+      u32 new_map_size =
+          afl_fsrv_get_mapsize(&afl->san_fsrvs[i], afl->argv, &afl->stop_soon,
+                               afl->afl_env.afl_debug_child);
+
+      // only reinitialize when it needs to be larger
+      if (map_size < new_map_size) {
+
+        OKF("Re-initializing maps to %u bytes due to SAN instrumented binary",
+            new_map_size);
+
+        afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
+        afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
+        afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
+        afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
+        afl->top_rated =
+            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+        afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
+        afl->clean_trace_custom =
+            ck_realloc(afl->clean_trace_custom, new_map_size);
+        afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
+        afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+
+        afl_fsrv_kill(&afl->fsrv);
+        afl_fsrv_kill(&afl->san_fsrvs[i]);
+        afl_shm_deinit(&afl->shm);
+
+        afl->san_fsrvs[i].map_size = new_map_size;  // non-cmplog stays the same
+        map_size = new_map_size;
+
+        setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+        afl->fsrv.trace_bits =
+            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+        ck_free(afl->san_fsrvs[i].trace_bits);
+        afl->san_fsrvs[i].trace_bits = ck_alloc(afl->fsrv.map_size + 8);
+        afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
+        afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                       afl->afl_env.afl_debug_child);
+        afl_fsrv_start(&afl->san_fsrvs[i], afl->argv, &afl->stop_soon,
+                       afl->afl_env.afl_debug_child);
+
+      }
+
+      OKF("SAND forkserver for %s successfully started", afl->san_binary[i]);
+
+    }
+
+    OKF("All forkservers for extra sanitizers instrumented binares are up and "
+        "we have abstraction = %d",
+        afl->san_abstraction);
+
+  }
+
   if (afl->cmplog_binary) {
 
     ACTF("Spawning cmplog forkserver");
@@ -2677,12 +2846,13 @@ int main(int argc, char **argv_orig, char **envp) {
     u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
     u32                 r = 8 + afl->fsrv.map_size * 4;
     u32                 q_len = o_end - o_start;
-    u32                 m_len = (afl->fsrv.map_size >> 3);
+    u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
     struct queue_entry *q;
 
     for (u32 i = 0; i < afl->queued_items; i++) {
 
       q = afl->queue_buf[i];
+      // this is very dirty and assumes nice memory :-)
       ZLIBREAD(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
       ZLIBREAD(fr_fd, res, 1, "check map");
       if (res[0]) {
@@ -2699,7 +2869,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       afl->total_bitmap_size += q->bitmap_size;
       ++afl->total_bitmap_entries;
-      update_bitmap_score(afl, q);
+      update_bitmap_score(afl, q, false);
 
       if (q->was_fuzzed) { --afl->pending_not_fuzzed; }
 
@@ -2777,7 +2947,7 @@ int main(int argc, char **argv_orig, char **envp) {
   for (entry = 0; entry < afl->queued_items; ++entry)
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
-  if (!afl->pending_not_fuzzed || !valid_seeds) {
+  if (!valid_seeds) {
 
     FATAL("We need at least one valid input seed that does not crash!");
 
@@ -2957,64 +3127,53 @@ int main(int argc, char **argv_orig, char **envp) {
 
         ++afl->cycles_wo_finds;
 
-        if (afl->use_splicing) {
+        if (unlikely(afl->shm.cmplog_mode &&
+                     afl->cmplog_max_filesize < MAX_FILE)) {
 
-          if (unlikely(afl->shm.cmplog_mode &&
-                       afl->cmplog_max_filesize < MAX_FILE)) {
+          afl->cmplog_max_filesize <<= 4;
 
-            afl->cmplog_max_filesize <<= 4;
+        }
 
-          }
+        switch (afl->expand_havoc) {
 
-          switch (afl->expand_havoc) {
+          case 0:
+            // do nothing the first time
+            afl->expand_havoc = 1;
+            break;
+          case 1:
+            // add MOpt mutator
+            /*
+            if (afl->limit_time_sig == 0 && !afl->custom_only &&
+                !afl->python_only) {
 
-            case 0:
-              // this adds extra splicing mutation options to havoc mode
-              afl->expand_havoc = 1;
-              break;
-            case 1:
-              // add MOpt mutator
-              /*
-              if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                  !afl->python_only) {
+              afl->limit_time_sig = -1;
+              afl->limit_time_puppet = 0;
 
-                afl->limit_time_sig = -1;
-                afl->limit_time_puppet = 0;
+            }
 
-              }
-
-              */
-              afl->expand_havoc = 2;
-              if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
-              break;
-            case 2:
-              // increase havoc mutations per fuzz attempt
-              afl->havoc_stack_pow2++;
-              afl->expand_havoc = 3;
-              break;
-            case 3:
-              // further increase havoc mutations per fuzz attempt
-              afl->havoc_stack_pow2++;
-              afl->expand_havoc = 4;
-              break;
-            case 4:
-              afl->expand_havoc = 5;
-              // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
-              // 3;
-              break;
-            case 5:
-              // nothing else currently
-              break;
-
-          }
-
-        } else {
-
-  #ifndef NO_SPLICING
-          afl->use_splicing = 1;
-  #else
-          afl->use_splicing = 0;
-  #endif
+            */
+            /* increase cmplog level to 2 if we run with level 1 */
+            if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
+            afl->expand_havoc = 2;
+            break;
+          case 2:
+            // increase havoc mutations per fuzz attempt
+            afl->havoc_stack_pow2++;
+            afl->expand_havoc = 3;
+            break;
+          case 3:
+            // further increase havoc mutations per fuzz attempt
+            afl->havoc_stack_pow2++;
+            afl->expand_havoc = 4;
+            break;
+          case 4:
+            // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
+            // 3;
+            afl->expand_havoc = 5;
+            break;
+          case 5:
+            // nothing else currently
+            break;
 
         }
 
@@ -3080,15 +3239,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         // we must recalculate the scores of all queue entries
-        for (u32 i = 0; i < afl->queued_items; i++) {
-
-          if (likely(!afl->queue_buf[i]->disabled)) {
-
-            update_bitmap_score(afl, afl->queue_buf[i]);
-
-          }
-
-        }
+        recalculate_all_scores(afl);
 
       }
 
@@ -3390,7 +3541,8 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
-      *ver = afl->shm.cmplog_mode + (sizeof(struct queue_entry) << 1);
+      *ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+             (sizeof(struct queue_entry) << 1);
 
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
       ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
@@ -3403,7 +3555,7 @@ stop_fuzzing:
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
       u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
       u32                 q_len = o_end - o_start;
-      u32                 m_len = (afl->fsrv.map_size >> 3);
+      u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
       struct queue_entry *q;
 
       afl->pending_not_fuzzed = afl->queued_items;
@@ -3430,7 +3582,7 @@ stop_fuzzing:
 
       ZLIBCLOSE(fr_fd);
       afl->var_byte_count = count_bytes(afl, afl->var_bytes);
-      OKF("Written fastresume.bin with %u bytes!", w);
+      OKF("fastresume.bin successfully written with %u bytes.", w);
 
     } else {
 
@@ -3454,12 +3606,25 @@ stop_fuzzing:
 
   afl_fsrv_deinit(&afl->fsrv);
 
+  for (u8 i = 0; i < afl->san_binary_length; i++) {
+
+    ck_free(afl->san_fsrvs[i].trace_bits);
+    afl_fsrv_deinit(&afl->san_fsrvs[i]);
+
+  }
+
+  if (afl->cmplog_binary) { afl_fsrv_deinit(&afl->cmplog_fsrv); }
+
   /* remove tmpfile */
   if (!afl->in_place_resume && afl->fsrv.out_file) {
 
     (void)unlink(afl->fsrv.out_file);
 
   }
+
+  ck_free(afl->n_fuzz);
+  ck_free(afl->n_fuzz_dup);
+  ck_free(afl->simplified_n_fuzz);
 
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);

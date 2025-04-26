@@ -203,6 +203,9 @@ instances, so running more than one address sanitized target would be a waste.
 *IF* you are running a saturated corpus, then you can run up to half of the 
 instances with sanitizers.
 
+An alternative but more effective approach is to use [SAND](./SAND.md) which could
+combine different sanitizers at a much higher throughput.
+
 The following sanitizers have built-in support in AFL++:
 
 * ASAN = Address SANitizer, finds memory corruption vulnerabilities like
@@ -243,6 +246,12 @@ others often cannot work together because of target weirdness, e.g., ASAN and
 CFISAN. You might need to experiment which sanitizers you can combine in a
 target (which means more instances can be run without a sanitized target, which
 is more effective).
+
+Note that some sanitizers (MSAN and LSAN) exit with a particular exit code
+instead of aborting. afl-fuzz treats these exit codes as a crash when these
+sanitizers are enabled. If the target uses these exit codes there could be false
+positives among the saved crashes. LSAN uses exit code 23 and MSAN uses exit
+code 86.
 
 ### d) Modifying the target
 
@@ -493,6 +502,8 @@ Note:
   protection against attacks! So set strong firewall rules and only expose SSH
   as a network service if you use these (which is highly recommended).
 
+If you execute afl-fuzz in a Docker container, it is recommended to pass [`--cpuset-cpus`](https://docs.docker.com/engine/containers/resource_constraints/#configure-the-default-cfs-scheduler) option with free CPU cores to docker daemon when starting the container, or pass `AFL_NO_AFFINITY` to afl-fuzz. This is due to the fact that AFL++ will bind to a free CPU core by default, while Docker container will prevent AFL++ instance from seeing processes in other containers or host, which leads to all AFL++ instances trying to bind the same CPU core.
+
 If you have an input corpus from [step 2](#2-preparing-the-fuzzing-campaign),
 then specify this directory with the `-i` option. Otherwise, create a new
 directory and create a file with any content as test data in there.
@@ -624,8 +635,8 @@ The other secondaries should be run like this:
 * 40% should run with `-P explore` and 20% with `-P exploit`
 * If you use `-a` then set 30% of the instances to not use `-a`; if you did
   not set `-a` (why??), then set 30% to `-a ascii` and 30% to `-a binary`.
-* run each with a different power schedule, recommended are: `fast` (default),
-  `explore`, `coe`, `lin`, `quad`, `exploit`, and `rare` which you can set with
+* run each with a different power schedule, recommended are: `explore` (default),
+  `fast`, `coe`, `lin`, `quad`, `exploit`, and `rare` which you can set with
   the `-p` option, e.g., `-p explore`. See the
   [FAQ](FAQ.md#what-are-power-schedules) for details.
 

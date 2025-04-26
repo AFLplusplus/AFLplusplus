@@ -3,6 +3,44 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++4.32c (release)
+  - Fixed a bug where after a fast restart of a full fuzzed corpus afl-fuzz
+    terminates with "need at least one valid input seed that does not crash"
+  - Small improvements to afl-*-config
+  - afl-fuzz:
+    - memory leak fixes by @kcwu - thanks!
+    - many more nits and small memory saves thanks to @kcwu
+    - remove deprecated files from queue/.state
+    - fix bitmap update function if no current trace is present 
+    - fix for afl_custom_queue_get
+    - various small nits
+  - afl-cc:
+    - fix pass support for LLVM 20 (passes were run too early)
+    - dropped plugin support for LLVM 13
+    - fix AFL_OLD_FORKSERVER
+    - various minor fixes
+  - frida_mode:
+    - fixes for new MacOS + M4 hardware
+
+
+### Version ++4.31c (release)
+  - SAND mode added (docs/SAND.md) for more effecient fuzzing with sanitizers
+    (thanks to @wtdcode !)
+  - afl-fuzz:
+    - splicing phase is now DISABLED by default because research showed
+      it is counterproductive. New command line parameter `-u` to enable
+      it.
+    - Python 3.13+ support
+    - loose file and shared memory permissions on Android and iPhone
+  - afl-cc:
+    - LLVM 20 support (again - please don't change the API all the time ...)
+    - -fsanitize=fuzzer now inserts libAFLDriver.a addtionally early to help
+      compiling if LLVMFuzzerTestOneOnput is in an .a archive
+    - added __sanitizer_weak_hook_* functions (in case that is helpful in
+      weird setups)
+    - fix bug with large map sizes when multiple libraries are loaded after
+      the shared memory was obtained.
+
 ### Version ++4.30c (release)
   ! afl-gcc and afl-clang funcionality is now removed !
   - afl-fuzz:

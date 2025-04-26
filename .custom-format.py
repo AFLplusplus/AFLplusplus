@@ -21,12 +21,15 @@ import os
 # import re # TODO: for future use
 import shutil
 import importlib.metadata
+import hashlib
 
 # string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # TODO: for future use
 
 CURRENT_LLVM = os.getenv('LLVM_VERSION', 18)
 CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN", "")
 
+FORMAT_CACHE_DIR = '.format-cache'
+os.makedirs(FORMAT_CACHE_DIR, exist_ok=True)
 
 def check_clang_format_pip_version():
     """
@@ -69,6 +72,8 @@ to install via pip.")
 if CLANG_FORMAT_PIP:
     CLANG_FORMAT_BIN = shutil.which("clang-format")
 
+CLANG_FORMAT_VERSION = subprocess.check_output([CLANG_FORMAT_BIN, '--version'])
+
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):
     line = line.split(":")
@@ -86,9 +91,10 @@ def custom_format(filename):
     out = ""
 
     for line in src.split("\n"):
+        define_start = False
         if line.lstrip().startswith("#"):
             if line[line.find("#") + 1:].lstrip().startswith("define"):
-                in_define = True
+                define_start = True
 
         if (
                 "/*" in line
@@ -126,14 +132,44 @@ def custom_format(filename):
                 and last_line.strip() != ""
         ):
             line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
-
-        if not line.endswith("\\"):
-            in_define = False
+        in_define = (define_start or in_define) and line.endswith("\\")
 
         out += line + "\n"
         last_line = line
 
     return out
+
+
+def hash_code_and_formatter(code):
+    hasher = hashlib.sha256()
+
+    hasher.update(code.encode())
+    hasher.update(CLANG_FORMAT_VERSION)
+    with open(__file__, 'rb') as f:
+        hasher.update(f.read())
+
+    return hasher.hexdigest()
+
+
+def custom_format_cached(filename):
+    filename_hash = hashlib.sha256(filename.encode()).hexdigest()
+    cache_file = os.path.join(FORMAT_CACHE_DIR, filename_hash)
+
+    if os.path.exists(cache_file):
+        with open(filename) as f:
+            code = f.read()
+        code_hash = hash_code_and_formatter(code)
+        with open(cache_file) as f:
+            if f.read() == code_hash:
+                return code
+
+    code = custom_format(filename)
+
+    code_hash = hash_code_and_formatter(code)
+    with open(cache_file, 'w') as f:
+        f.write(code_hash)
+
+    return code
 
 
 args = sys.argv[1:]
@@ -151,7 +187,7 @@ if args[0] == "-i":
     args = args[1:]
 
 for filename in args:
-    code = custom_format(filename)
+    code = custom_format_cached(filename)
     if in_place:
         with open(filename, "w") as f:
             f.write(code)

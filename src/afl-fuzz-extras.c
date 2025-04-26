@@ -354,6 +354,7 @@ void load_extras(afl_state_t *afl, u8 *dir) {
           "Extra '%s' is too big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      ck_free(fn);
       continue;
 
     }
@@ -742,10 +743,8 @@ void save_auto(afl_state_t *afl) {
 
   for (i = 0; i < MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
-    u8 *fn = alloc_printf(
-        "%s/queue/.state/auto_extras/auto_%06u%s%s", afl->out_dir, i,
-        afl->file_extension ? "." : "",
-        afl->file_extension ? (const char *)afl->file_extension : "");
+    u8 *fn =
+        alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);
 
     s32 fd;
 

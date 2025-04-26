@@ -327,7 +327,16 @@ class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
     };
 
-    return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
+    if (!getenv("AFL_SAN_NO_INST")) {
+
+      return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
+
+    } else {
+
+      if (getenv("AFL_DEBUG")) { DEBUGF("Instrument disabled\n"); }
+      return false;
+
+    }
 
   }
 
@@ -380,8 +389,16 @@ PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module                &M,
 
   };
 
-  if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
-    return PreservedAnalyses::none();
+  if (!getenv("AFL_SAN_NO_INST")) {
+
+    if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
+      return PreservedAnalyses::none();
+
+  } else {
+
+    if (debug) { DEBUGF("Instrument disabled\n"); }
+
+  }
 
   return PreservedAnalyses::all();
 
@@ -500,7 +517,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   }
 
   // we make this the default as the fixed map has problems with
-  // defered forkserver, early constructors, ifuncs and maybe more
+  // deferred forkserver, early constructors, ifuncs and maybe more
   /*if (getenv("AFL_LLVM_MAP_DYNAMIC"))*/
   map_addr = 0;
 
@@ -1988,8 +2005,11 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     }
 
-    extra_ctx_inst += inst_in_this_func * (call_counter - 1);
-    afl_global_id += extra_ctx_inst;
+    uint32_t extra_ctx_inst_in_this_func =
+        inst_in_this_func * (call_counter - 1);
+
+    extra_ctx_inst += extra_ctx_inst_in_this_func;
+    afl_global_id += extra_ctx_inst_in_this_func;
 
   }
 

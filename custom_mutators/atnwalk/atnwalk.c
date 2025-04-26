@@ -409,7 +409,7 @@ size_t afl_custom_fuzz(atnwalk_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   } else {
 
-    // new_size fits into buf, so re-use it
+    // new_size fits into buf, so reuse it
     *out_buf = buf;
 
   }

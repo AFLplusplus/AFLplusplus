@@ -35,12 +35,12 @@
 // CMP attribute enum
 enum {
 
-  IS_EQUAL = 1,    // arithemtic equal comparison
+  IS_EQUAL = 1,    // arithmetic equal comparison
   IS_GREATER = 2,  // arithmetic greater comparison
   IS_LESSER = 4,   // arithmetic lesser comparison
   IS_FP = 8,       // is a floating point, not an integer
   /* --- below are internal settings, not from target cmplog */
-  IS_FP_MOD = 16,    // arithemtic changed floating point
+  IS_FP_MOD = 16,    // arithmetic changed floating point
   IS_INT_MOD = 32,   // arithmetic changed integer
   IS_TRANSFORM = 64  // transformed integer
 
@@ -68,7 +68,7 @@ enum {
 
   LVL1 = 1,  // Integer solving
   LVL2 = 2,  // unused except for setting the queue entry
-  LVL3 = 4   // expensive tranformations
+  LVL3 = 4   // expensive transformations
 
 };
 
@@ -203,7 +203,7 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
   u8  c;
   for (i = 0; i < len; ++i) {
 
-    // wont help for UTF or non-latin charsets
+    // won't help for UTF or non-latin charsets
     do {
 
       switch (buf[i]) {
@@ -1437,7 +1437,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   // here we add and subtract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
-  //       16 = modified float, 32 = modified integer (modified = wont match
+  //       16 = modified float, 32 = modified integer (modified = won't match
   //                                                   in original buffer)
 
   if (!afl->cmplog_enable_arith || lvl < LVL3 || attr == IS_TRANSFORM) {

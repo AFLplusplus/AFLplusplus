@@ -110,8 +110,7 @@ class AFLCoverage : public ModulePass {
 }  // namespace
 
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
+extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
 
   return {LLVM_PLUGIN_API_VERSION, "AFLCoverage", "v0.1",
           /* lambda to insert our pass into the pass pipeline. */
@@ -126,7 +125,12 @@ llvmGetPassPluginInfo() {
     #else
             PB.registerOptimizerLastEPCallback(
     #endif
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+                [](ModulePassManager &MPM, OptimizationLevel OL
+    #if LLVM_VERSION_MAJOR >= 20
+                   ,
+                   ThinOrFullLTOPhase Phase
+    #endif
+                ) {
 
                   MPM.addPass(AFLCoverage());
 
@@ -219,6 +223,24 @@ bool AFLCoverage::runOnModule(Module &M) {
   setvbuf(stdout, NULL, _IONBF, 0);
 
   if (getenv("AFL_DEBUG")) debug = 1;
+
+#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
+  if (getenv("AFL_SAN_NO_INST")) {
+
+    if (debug) { fprintf(stderr, "Instrument disabled\n"); }
+    return PreservedAnalyses::all();
+
+  }
+
+#else
+  if (getenv("AFL_SAN_NO_INST")) {
+
+    if (debug) { fprintf(stderr, "Instrument disabled\n"); }
+    return true;
+
+  }
+
+#endif
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 

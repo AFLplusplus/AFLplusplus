@@ -75,7 +75,7 @@ def map_arch():
         return "arm64be"
     elif "arm" in arch:
         cpsr = pwndbg.gdblib.regs["cpsr"]
-        # check endianess
+        # check endianness
         if pwndbg.gdblib.arch.endian == "big":
             # check for THUMB mode
             if cpsr & (1 << 5):

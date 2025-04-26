@@ -62,7 +62,7 @@ def do_string_analysis(corpdir, infile1):
                     or ("<" in str11)
                     or (">" in str11)
                 ):
-                    print("Space / Paranthesis String : %s" % str11)
+                    print("Space / Parenthesis String : %s" % str11)
                 else:
                     with open(corpdir + "/strcmp-str{0}".format(n), "w") as file:
                         file.write(str11)

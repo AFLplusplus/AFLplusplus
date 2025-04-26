@@ -42,7 +42,7 @@ static const int64_t STACK_ADDRESS = (((int64_t) 0x01) << 58);
 static const int64_t STACK_SIZE = 0x10000;
 // Location where the input will be placed (make sure the emulated program knows this somehow, too ;) )
 static const int64_t INPUT_LOCATION = 0x10000;
-// Inside the location, we have an ofset in our special case
+// Inside the location, we have an offset in our special case
 static const int64_t INPUT_OFFSET = 0x16;
 // Maximum allowable size of mutated data from AFL
 static const int64_t INPUT_SIZE_MAX = 0x10000;
@@ -65,7 +65,7 @@ static void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user
 
 /*
 The sample uses strlen, since we don't have a loader or libc, we'll fake it.
-We know the strlen will return the lenght of argv[1] that we just planted.
+We know the strlen will return the length of argv[1] that we just planted.
 It will be a lot faster than an actual strlen for this specific purpose.
 */
 static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
@@ -247,7 +247,7 @@ int main(int argc, char **argv, char **envp) {
         place_input_callback, // Callback that places the input (automatically loaded from the file at filename) in the unicorninstance
         &end_address, // Where to exit (this is an array)
         1,  // Count of end addresses
-        NULL, // Optional calback to run after each exec
+        NULL, // Optional callback to run after each exec
         false, // true, if the optional callback should be run also for non-crashes
         1, // For persistent mode: How many rounds to run
         NULL // additional data pointer

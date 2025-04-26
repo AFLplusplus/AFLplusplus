@@ -80,12 +80,12 @@ def fuzz(buf, add_buf, max_size):
             via_buffer = False
             log("fuzz(): Can't initialize mutator with AFL buffer")
 
-    # If init from AFL buffer wasn't succesful
+    # If init from AFL buffer wasn't successful
     if not via_buffer:
         log("fuzz(): Returning unmodified AFL buffer")
         return buf
 
-    # Sucessful initialization -> mutate
+    # Successful initialization -> mutate
     try:
         __mutator__.mutate(max=5)
         log("fuzz(): Input mutated")

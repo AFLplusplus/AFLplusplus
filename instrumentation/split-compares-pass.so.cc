@@ -112,7 +112,7 @@ class SplitComparesTransform : public ModulePass {
   /// simplify a signed comparison (signed less or greater than)
   bool simplifySignedCompare(CmpInst *IcmpInst, Module &M,
                              CmpWorklist &worklist);
-  /// splits an icmp into nested icmps recursivly until target_bitwidth is
+  /// splits an icmp into nested icmps recursively until target_bitwidth is
   /// reached
   bool splitCompare(CmpInst *I, Module &M, CmpWorklist &worklist);
 
@@ -194,7 +194,12 @@ llvmGetPassPluginInfo() {
     #else
             PB.registerOptimizerLastEPCallback(
     #endif
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+                [](ModulePassManager &MPM, OptimizationLevel OL
+    #if LLVM_VERSION_MAJOR >= 20
+                   ,
+                   ThinOrFullLTOPhase Phase
+    #endif
+                ) {
 
                   MPM.addPass(SplitComparesTransform());
 
@@ -675,7 +680,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
   PHINode *PN = nullptr;
 
-  /* now we have to destinguish between == != and > < */
+  /* now we have to distinguish between == != and > < */
   switch (pred) {
 
     case CmpInst::ICMP_EQ:
@@ -763,7 +768,7 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
       } else {
 
-        // Never gonna appen
+        // Never gonna happen
         if (!be_quiet)
           fprintf(stderr,
                   "Error: split-compare: Equals or signed not removed: %d\n",
@@ -1431,14 +1436,14 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
         case CmpInst::FCMP_UEQ:
         case CmpInst::FCMP_OEQ:
-          /* if the exponents are satifying the compare do a fraction cmp in
+          /* if the exponents are satisfying the compare do a fraction cmp in
            * middle_bb */
           BranchInst::Create(middle_bb, end_bb, icmp_exponent_result,
                              signequal2_bb);
           break;
         case CmpInst::FCMP_ONE:
         case CmpInst::FCMP_UNE:
-          /* if the exponents are satifying the compare do a fraction cmp in
+          /* if the exponents are satisfying the compare do a fraction cmp in
            * middle_bb */
           BranchInst::Create(end_bb, middle_bb, icmp_exponent_result,
                              signequal2_bb);
