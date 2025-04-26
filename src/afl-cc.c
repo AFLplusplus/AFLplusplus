@@ -3602,7 +3602,7 @@ int main(int argc, char **argv, char **envp) {
   // We only support plugins with LLVM 14 onwards
 #if LLVM_MAJOR < 14
   if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE &&
-      aflcc->instrument_mode != INSTRUMENT_GCC_PLUGIN) {
+      aflcc->compiler_mode != GCC_PLUGIN) {
 
     aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
     aflcc->compiler_mode = LLVM;
