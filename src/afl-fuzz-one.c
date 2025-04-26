@@ -362,6 +362,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
            on smallest_favored */
         ret_val = 1;
         goto abandon_entry;
+
       }
 
     });
