@@ -253,7 +253,11 @@ static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
   #if LLVM_MAJOR < 16
+    #if LLVM_MAJOR < 15
+  insert_param(aflcc, "-fno-legacy-pass-manager");
+    #else
   insert_param(aflcc, "-fexperimental-new-pass-manager");
+    #endif
   #endif
   insert_object(aflcc, pass, "-fpass-plugin=%s", 0);
 #else
@@ -1534,7 +1538,8 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   if (aflcc->plusplus_mode) {
 
     insert_param(aflcc,
-                 "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+                 "-D__AFL_COVERAGE()=int __afl_selective_coverage "
+                 "__attribute__ ((weak)) = 1;"
                  "extern \"C\" void __afl_coverage_discard();"
                  "extern \"C\" void __afl_coverage_skip();"
                  "extern \"C\" void __afl_coverage_on();"
@@ -1543,7 +1548,8 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   } else {
 
     insert_param(aflcc,
-                 "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+                 "-D__AFL_COVERAGE()=int __afl_selective_coverage "
+                 "__attribute__ ((weak)) = 1;"
                  "void __afl_coverage_discard();"
                  "void __afl_coverage_skip();"
                  "void __afl_coverage_on();"
@@ -2161,7 +2167,11 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
     /* Since LLVM_MAJOR >= 13 we use new pass manager */
     #if LLVM_MAJOR < 16
+      #if LLVM_MAJOR < 15
+    insert_param(aflcc, "-fno-legacy-pass-manager");
+      #else
     insert_param(aflcc, "-fexperimental-new-pass-manager");
+      #endif
     #endif
     insert_object(aflcc, "SanitizerCoveragePCGUARD.so", "-fpass-plugin=%s", 0);
 
@@ -3588,6 +3598,64 @@ int main(int argc, char **argv, char **envp) {
         "afl-clang-fast/afl-gcc-fast for instrumentation instead.");
 
   }
+
+  // We only support plugins with LLVM 14 onwards
+#if LLVM_MAJOR < 14
+  if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE &&
+      aflcc->compiler_mode != GCC_PLUGIN) {
+
+    aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
+    aflcc->compiler_mode = LLVM;
+
+  }
+
+  if (aflcc->compiler_mode == LLVM) {
+
+    if (aflcc->cmplog_mode) {
+
+      WARNF("CMPLOG support requires LLVM 14+");
+      aflcc->cmplog_mode = 0;
+
+    }
+
+    if (getenv("AFL_LLVM_DICT2FILE")) {
+
+      WARNF("DICT2FILE support requires LLVM14+");
+      unsetenv("AFL_LLVM_DICT2FILE");
+
+    }
+
+    if (getenv("AFL_LLVM_LAF_SPLIT_SWITCHES") ||
+        getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+        getenv("AFL_LLVM_LAF_SPLIT_FLOATS") ||
+        getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
+        getenv("AFL_LLVM_LAF_ALL")) {
+
+      WARNF("AFL_LLVM_LAF support requires LLVM14+");
+      unsetenv("AFL_LLVM_LAF_SPLIT_SWITCHES");
+      unsetenv("AFL_LLVM_LAF_SPLIT_COMPARES");
+      unsetenv("AFL_LLVM_LAF_SPLIT_FLOATS");
+      unsetenv("AFL_LLVM_LAF_TRANSFORM_COMPARES");
+      unsetenv("AFL_LLVM_LAF_ALL");
+
+    }
+
+    if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
+        getenv("AFL_LLVM_INJECTIONS_SQL") ||
+        getenv("AFL_LLVM_INJECTIONS_LDAP") ||
+        getenv("AFL_LLVM_INJECTIONS_XSS")) {
+
+      WARNF("AFL_LLVM_INJECTIONS support requires LLVM14+");
+      unsetenv("AFL_LLVM_INJECTIONS_ALL");
+      unsetenv("AFL_LLVM_INJECTIONS_SQL");
+      unsetenv("AFL_LLVM_INJECTIONS_LDAP");
+      unsetenv("AFL_LLVM_INJECTIONS_XSS");
+
+    }
+
+  }
+
+#endif
 
   mode_notification(aflcc);
 

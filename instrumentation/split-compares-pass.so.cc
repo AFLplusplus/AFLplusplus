@@ -190,15 +190,16 @@ llvmGetPassPluginInfo() {
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
     #endif
     #if LLVM_VERSION_MAJOR >= 16
-      #if LLVM_VERSION_MAJOR >= 20
-            PB.registerPipelineStartEPCallback(
-      #else
             PB.registerOptimizerEarlyEPCallback(
-      #endif
     #else
             PB.registerOptimizerLastEPCallback(
     #endif
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+                [](ModulePassManager &MPM, OptimizationLevel OL
+    #if LLVM_VERSION_MAJOR >= 20
+                   ,
+                   ThinOrFullLTOPhase Phase
+    #endif
+                ) {
 
                   MPM.addPass(SplitComparesTransform());
 

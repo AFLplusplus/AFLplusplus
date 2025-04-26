@@ -9,9 +9,16 @@
   - Small improvements to afl-*-config
   - afl-fuzz:
     - memory leak fixes by @kcwu - thanks!
-    - some more nits and small memory saves thanks to @kcwu
+    - many more nits and small memory saves thanks to @kcwu
     - remove deprecated files from queue/.state
     - fix bitmap update function if no current trace is present 
+    - fix for afl_custom_queue_get
+    - various small nits
+  - afl-cc:
+    - fix pass support for LLVM 20 (passes were run too early)
+    - dropped plugin support for LLVM 13
+    - fix AFL_OLD_FORKSERVER
+    - various minor fixes
   - frida_mode:
     - fixes for new MacOS + M4 hardware
 
@@ -22,7 +29,7 @@
   - afl-fuzz:
     - splicing phase is now DISABLED by default because research showed
       it is counterproductive. New command line parameter `-u` to enable
-      it. Splicing is auto-enabled if two cycles without finds happen.
+      it.
     - Python 3.13+ support
     - loose file and shared memory permissions on Android and iPhone
   - afl-cc:

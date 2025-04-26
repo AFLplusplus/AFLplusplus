@@ -1261,8 +1261,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      /* FIXME: We want to use -P for consistency, but it is already unused for
-       * undocumenetd feature "Another afl-cmin specific feature." */
       case 'A':                                           /* CoreSight mode */
 
 #if !defined(__aarch64__) || !defined(__linux__)
