@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++4.32a (dev)
+### Version ++4.32c (release)
   - Fixed a bug where after a fast restart of a full fuzzed corpus afl-fuzz
     terminates with "need at least one valid input seed that does not crash"
   - Small improvements to afl-*-config
