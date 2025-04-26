@@ -3,6 +3,11 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+
+### Version ++4.33a (dev)
+  - ...
+
+
 ### Version ++4.32c (release)
   - Fixed a bug where after a fast restart of a full fuzzed corpus afl-fuzz
     terminates with "need at least one valid input seed that does not crash"
@@ -21,7 +26,6 @@
     - various minor fixes
   - frida_mode:
     - fixes for new MacOS + M4 hardware
-
 
 ### Version ++4.31c (release)
   - SAND mode added (docs/SAND.md) for more effecient fuzzing with sanitizers
