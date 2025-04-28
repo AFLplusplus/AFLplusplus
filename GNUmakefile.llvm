@@ -470,7 +470,7 @@ endif
 
 ./afl-ld-lto: src/afl-ld-lto.c
 ifeq "$(LLVM_LTO)" "1"
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@ $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
