@@ -45,7 +45,7 @@ E. CmpLog is our enhanced
    implementation, see
    [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md)
 
-F. Similar and compatible to clang 13+ sancov sanitize-coverage-allow/deny but
+F. Similar and compatible to clang 14+ sancov sanitize-coverage-allow/deny but
    for all llvm versions and all our compile modes, only instrument what should
    be instrumented, for more speed, directed fuzzing and less instability; see
    [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
