@@ -28,8 +28,13 @@
 #include "envs.h"
 #include <limits.h>
 
-static char fuzzing_state[4][12] = {"started :-)", "in progress", "final phase",
-                                    "finished..."};
+//  7 is the number of characters in a color control code
+// 11 is the number of characters in the fuzzing state itself
+//  5 is the number of characters in `cRST`
+//  1 is for the null character
+static char fuzzing_state[4][7 + 11 + 5 + 1] = {
+
+    "started :-)", "in progress", "final phase", cRED "finished..." cRST};
 
 char *get_fuzzing_state(afl_state_t *afl) {
 

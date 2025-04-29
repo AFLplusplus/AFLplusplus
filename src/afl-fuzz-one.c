@@ -411,11 +411,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
     u_simplestring_time_diff(time_tmp, afl->prev_run_time + get_cur_time(),
                              afl->start_time);
     ACTF(
-        "Fuzzing test case #%u (%u total, %llu crashes saved, state: %s, "
+        "Fuzzing test case #%u (%u total, %s%llu crashes saved%s, state: %s, "
         "mode=%s, "
         "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
         "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s)...",
-        afl->current_entry, afl->queued_items, afl->saved_crashes,
+        afl->current_entry, afl->queued_items,
+        afl->saved_crashes != 0 ? cRED : "", afl->saved_crashes, cRST,
         get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
         afl->queue_cur->perf_score, afl->queue_cur->weight,
         afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
