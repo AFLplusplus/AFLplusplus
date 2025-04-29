@@ -113,14 +113,19 @@ test -e /usr/local/bin/opt && {
 }
 AFL_COMPILER=afl-clang-fast
 
-SYS=`uname -m`
-
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
 GREEN="\\033[0;32m"
 RED="\\033[0;31m"
 YELLOW="\\033[1;93m"
 RESET="\\033[0m"
+
+if test -n "$CPU_TARGET"; then
+    $ECHO "${RESET}${GREY}[*] Using environment variable CPU_TARGET=$CPU_TARGET for SYS"
+    SYS="$CPU_TARGET"
+else
+    SYS=`uname -m`
+fi
 
 MEM_LIMIT=none
 
