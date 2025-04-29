@@ -49,7 +49,11 @@ int main(int argc, char **argv) {
     if ((cnt = read(fd, buf, sizeof(buf) - 1)) < 1) {
 
       printf("Hum?\n");
+#ifdef EXIT_AT_END
+      exit(1);
+#else
       return 1;
+#endif
 
     }
 
@@ -76,6 +80,9 @@ int main(int argc, char **argv) {
       break;
 
   }
+#ifdef EXIT_AT_END
+  exit(0);
+#endif
 
   return 0;
 
