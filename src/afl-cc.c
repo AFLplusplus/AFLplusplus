@@ -2600,6 +2600,13 @@ void add_assembler(aflcc_state_t *aflcc) {
 /* Add params to launch the gcc plugins for instrumentation. */
 void add_gcc_plugin(aflcc_state_t *aflcc) {
 
+  if (getenv("AFL_SAN_NO_INST")) {
+
+    if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
+    return;
+
+  }
+
   if (aflcc->cmplog_mode) {
 
     insert_object(aflcc, "afl-gcc-cmplog-pass.so", "-fplugin=%s", 0);
