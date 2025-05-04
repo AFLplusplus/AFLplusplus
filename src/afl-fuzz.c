@@ -2307,11 +2307,7 @@ int main(int argc, char **argv_orig, char **envp) {
     u64 target_hash = get_binary_hash(afl->fsrv.target_path);
   #endif
 
-    if ((!target_hash || prev_target_hash != target_hash)
-  #ifdef __linux__
-        || (afl->fsrv.nyx_mode && target_hash == 0)
-  #endif
-    ) {
+    if (!target_hash || prev_target_hash != target_hash) {
 
       ACTF("Target binary is different, cannot perform FAST RESUME!");
 
