@@ -8,7 +8,7 @@ export AFL_QUIET=1
 export ASAN_OPTIONS=detect_leaks=0
 THISPATH=`dirname ${0}`
 export PATH="${THISPATH}:$PATH"
-awk -f - -- ${@+"$@"} <<'EOF'
+awk -v script_dir="$THISPATH" -f - -- ${@+"$@"} <<'EOF'
 #!/usr/bin/awk -f
 # awk script to minimize a test corpus of input files
 #
@@ -257,6 +257,10 @@ BEGIN {
 
   # sanity checks
   if (!prog_args[0] || !in_dir || !out_dir) usage()
+
+  if (0 == system( script_dir "/afl-cmin.py --help > /dev/null 2>&1" )) {
+    print "[*] Are you aware of the experimental afl-cmin.py that minimize corpus much faster?"
+  }
 
   target_bin = prog_args[0] 
 
