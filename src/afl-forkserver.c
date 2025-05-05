@@ -250,6 +250,16 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_kill_signal = SIGKILL;
   fsrv->max_length = MAX_FILE;
 
+  if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
+
+    fsrv->setenv = 1;
+
+  } else {
+
+    fsrv->setenv = 0;
+
+  }
+
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
@@ -877,6 +887,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (!fsrv->fsrv_pid) {
 
     /* CHILD PROCESS */
+
+    if (unlikely(fsrv->setenv)) {
+
+      setenv("AFL_FORKSERVER_PARENT", "1", 0);
+
+    }
 
     // enable terminating on sigpipe in the children
     struct sigaction sa;

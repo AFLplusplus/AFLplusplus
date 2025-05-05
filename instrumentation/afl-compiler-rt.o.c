@@ -119,6 +119,8 @@ u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 u32 __afl_old_forkserver;
 
+u8 __afl_forkserver_setenv = 0;
+
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
 
@@ -888,6 +890,12 @@ static void __afl_start_forkserver(void) {
 
   }
 
+  if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
+
+    __afl_forkserver_setenv = 1;
+
+  }
+
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
@@ -1054,6 +1062,13 @@ static void __afl_start_forkserver(void) {
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
+
+        if (unlikely(__afl_forkserver_setenv)) {
+
+          unsetenv("AFL_FORKSERVER_PARENT");
+
+        }
+
         return;
 
       }
