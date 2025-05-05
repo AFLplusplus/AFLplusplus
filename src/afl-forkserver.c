@@ -878,7 +878,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* CHILD PROCESS */
 
-    setenv("AFL_I_AM_THE_FORKSERVER", "1", 0);
+    setenv("AFL_FORKSERVER_PARENT", "1", 0);
 
     // enable terminating on sigpipe in the children
     struct sigaction sa;
