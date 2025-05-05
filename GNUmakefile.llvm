@@ -32,8 +32,8 @@ VERSION     = $(shell grep '^ *$(HASH)define VERSION ' ./config.h | cut -d '"' -
 
 SYS = $(shell uname -s)
 
-override LLVM_TOO_NEW_DEFAULT := 19
-override LLVM_TOO_OLD_DEFAULT := 13
+override LLVM_TOO_NEW_DEFAULT := 20
+override LLVM_TOO_OLD_DEFAULT := 14
 
 ifeq "$(SYS)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
