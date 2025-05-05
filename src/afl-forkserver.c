@@ -878,7 +878,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* CHILD PROCESS */
 
-    if (unlikely(getenv("AFL_PRELOAD") != NULL)) {
+    if (unlikely(getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL)) {
 
       setenv("AFL_FORKSERVER_PARENT", "1", 0);
 
