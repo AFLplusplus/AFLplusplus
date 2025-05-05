@@ -5,7 +5,16 @@
 
 
 ### Version ++4.33a (dev)
-  - ...
+  - afl-fuzz:
+    - Use `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT` if you use AFL_PRELOAD
+      to disable fork, see docs (thanks to @alexandredoyen29)
+    - Fix for FAST power schedules (introduced in 4.32c) (thanks to @kcwu)
+    - Colors for NO_UI output (thanks to @smoelius)
+    - more 64 bit archicture support by @maribu
+  - afl-cc:
+    - Fix to make AFL_SAN_NO_INST work with gcc_plugin
+  - qemuafl:
+    - better MIPS persistent mode support
 
 
 ### Version ++4.32c (release)

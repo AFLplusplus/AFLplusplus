@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
       break;
 
   }
+
 #ifdef EXIT_AT_END
   exit(0);
 #endif
