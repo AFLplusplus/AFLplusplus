@@ -1180,6 +1180,7 @@ u8          havoc_mutation_probability_py(void *);
 u8          queue_get_py(void *, const u8 *);
 const char *introspection_py(void *);
 u8          queue_new_entry_py(void *, const u8 *, const u8 *);
+void        splice_optout_py(void *);
 void        deinit_py(void *);
 
 #endif
