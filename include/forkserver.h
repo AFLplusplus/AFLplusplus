@@ -159,6 +159,8 @@ typedef struct afl_forkserver {
 
   u8 uses_asan;     /* Target uses ASAN/LSAN/MSAN? (bit 0/1/2 respectively) */
 
+  bool setenv;                  /* setenv() to discriminate the forkserver? */
+
   bool debug;                           /* debug mode?                      */
 
   u8 san_but_not_instrumented; /* Is it sanitizer enabled but not instrumented?

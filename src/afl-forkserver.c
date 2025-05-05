@@ -250,6 +250,16 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_kill_signal = SIGKILL;
   fsrv->max_length = MAX_FILE;
 
+  if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
+
+    fsrv->setenv = 1;
+
+  } else {
+
+    fsrv->setenv = 0;
+
+  }
+
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
@@ -561,7 +571,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   u32   status;
   s32   rlen;
   char *ignore_autodict = getenv("AFL_NO_AUTODICT");
-  u8    forkserver_setenv = 0;
 
 #ifdef __linux__
   if (unlikely(fsrv->nyx_mode)) {
@@ -868,12 +877,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
-
-    forkserver_setenv = 1;
-
-  }
-
   if (pipe(st_pipe) || pipe(ctl_pipe)) { PFATAL("pipe() failed"); }
 
   fsrv->last_run_timed_out = 0;
@@ -885,7 +888,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* CHILD PROCESS */
 
-    if (unlikely(forkserver_setenv)) {
+    if (unlikely(fsrv->setenv)) {
 
       setenv("AFL_FORKSERVER_PARENT", "1", 0);
 
