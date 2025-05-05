@@ -140,7 +140,7 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   if (plugin->nyx_get_target_hash64 == NULL) { goto fail; }
 
   plugin->nyx_config_free = dlsym(handle, "nyx_config_free");
-  if (plugin->nyx_get_target_hash64 == NULL) { goto fail; }
+  if (plugin->nyx_config_free == NULL) { goto fail; }
 
   OKF("libnyx plugin is ready!");
   return plugin;
