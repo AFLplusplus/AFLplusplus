@@ -1046,7 +1046,11 @@ static void __afl_start_forkserver(void) {
       /* In child process: close fds, resume execution. */
 
       if (unlikely(!child_pid)) {  // just to signal afl-fuzz faster
-        unsetenv("AFL_FORKSERVER_PARENT");
+        if (unlikely(getenv("AFL_PRELOAD") != NULL)) {
+
+          unsetenv("AFL_FORKSERVER_PARENT");
+
+        }
 
         //(void)nice(-20);
 
