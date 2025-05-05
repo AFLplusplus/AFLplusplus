@@ -664,6 +664,24 @@ checks or alter some of the more exotic semantics of the tool:
     Note that will not be exact and with slow targets it can take seconds
     until there is a slice for the time test.
 
+  - When using `AFL_PRELOAD` with a preload that disable `fork()` calls in
+    the target, the forkserver becomes unable to fork.
+    To overcome this issue, the `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT`
+    permits to be able to check in the preloaded library if the environment
+    variable `AFL_FORKSERVER_PARENT` is set, to be able to use vanilla
+    `fork()` in the forkserver, and the placeholder in the target.
+    Here is a POC :
+    ```C
+    // AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT=1 afl-fuzz ...
+    pid_t fork(void)
+    {
+        if (getenv("AFL_FORKSERVER_PARENT") == NULL)
+            return 0; // We are in the target
+        else
+            return real_fork(); // We are in the forkserver
+    }
+    ```
+
 ## 6) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:
