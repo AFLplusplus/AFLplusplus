@@ -206,7 +206,7 @@ class ModuleSanitizerCoverageAFL
 
   SanitizerCoverageOptions Options;
 
-  uint32_t        instr = 0, selects = 0, unhandled = 0, dump_cc = 0;
+  uint32_t instr = 0, selects = 0, hidden = 0, unhandled = 0, dump_cc = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt    *One = NULL;
   ConstantInt    *Zero = NULL;
@@ -506,8 +506,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       OKF("Instrumented %u locations with no collisions (%s mode) of which are "
-          "%u handled and %u unhandled selects.",
-          instr, modeline, selects, unhandled);
+          "%u handled, %u hidden and %u unhandled selects.",
+          instr, modeline, selects, hidden, unhandled);
 
     }
 
@@ -781,7 +781,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   if (AllBlocks.empty()) return false;
 
-  uint32_t        cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0;
+  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0, cnt_hidden_sel = 0,
+           cnt_hidden_sel_inc = 0;
   static uint32_t first = 1;
 
   for (auto &BB : F) {
@@ -827,6 +828,39 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           cnt_sel++;
           cnt_sel_inc += 2;
 
+          Value      *trueVal = selectInst->getTrueValue();
+          Value      *falseVal = selectInst->getFalseValue();
+          BasicBlock *bb = selectInst->getParent();
+
+          auto isFromICmpInSameBB = [bb](Value *v) -> bool {
+
+            if (Instruction *inst = dyn_cast<Instruction>(v)) {
+
+              return isa<ICmpInst>(inst) && inst->getParent() == bb;
+
+            }
+
+            return false;
+
+          };
+
+          if (isFromICmpInSameBB(trueVal)) {
+
+            cnt_hidden_sel++;
+            cnt_hidden_sel_inc += 2;
+            // fprintf(stderr, "trueval '%s'!\n",
+            // trueVal->getName().str().c_str());
+
+          }
+
+          if (isFromICmpInSameBB(falseVal)) {
+
+            cnt_hidden_sel++;
+            cnt_hidden_sel_inc += 2;
+            // fprintf(stderr, "falseval!\n");
+
+          }
+
         }
 
         else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
@@ -847,10 +881,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   }
 
-  CreateFunctionLocalArrays(F, AllBlocks, first + cnt_cov + cnt_sel_inc);
+  CreateFunctionLocalArrays(F, AllBlocks,
+                            first + cnt_cov + cnt_sel_inc + cnt_hidden_sel_inc);
 
   if (first) { first = 0; }
   selects += cnt_sel;
+  hidden += cnt_hidden_sel;
 
   uint32_t special = 0, local_selects = 0, skip_next = 0;
 
@@ -935,6 +971,71 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               Int32PtrTy);
 
           result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
+
+          Value      *trueVal = selectInst->getTrueValue();
+          Value      *falseVal = selectInst->getFalseValue();
+          BasicBlock *bb = selectInst->getParent();
+
+          auto isFromICmpInSameBB = [bb](Value *v) -> bool {
+
+            if (Instruction *inst = dyn_cast<Instruction>(v)) {
+
+              return isa<ICmpInst>(inst) && inst->getParent() == bb;
+
+            }
+
+            return false;
+
+          };
+
+          if (isFromICmpInSameBB(trueVal)) {
+
+            // fprintf(stderr, "trueval2 '%s'!\n",
+            // trueVal->getName().str().c_str());
+
+            auto GuardPtr1 = IRB.CreateIntToPtr(
+                IRB.CreateAdd(
+                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                    ConstantInt::get(
+                        IntptrTy,
+                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                Int32PtrTy);
+
+            auto GuardPtr2 = IRB.CreateIntToPtr(
+                IRB.CreateAdd(
+                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                    ConstantInt::get(
+                        IntptrTy,
+                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                Int32PtrTy);
+
+            result = IRB.CreateSelect(trueVal, GuardPtr1, GuardPtr2);
+
+          }
+
+          if (isFromICmpInSameBB(falseVal)) {
+
+            auto GuardPtr1 = IRB.CreateIntToPtr(
+                IRB.CreateAdd(
+                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                    ConstantInt::get(
+                        IntptrTy,
+                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                Int32PtrTy);
+
+            auto GuardPtr2 = IRB.CreateIntToPtr(
+                IRB.CreateAdd(
+                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                    ConstantInt::get(
+                        IntptrTy,
+                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                Int32PtrTy);
+
+            result = IRB.CreateSelect(falseVal, GuardPtr1, GuardPtr2);
+
+            // fprintf(stderr, "falseval2!\n"); }
+
+          }
 
         } else
 
