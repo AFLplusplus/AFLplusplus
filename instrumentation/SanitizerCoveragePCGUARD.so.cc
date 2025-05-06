@@ -819,6 +819,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       SelectInst *selectInst = nullptr;
 
+      // errs() << "IN: " << *(&IN) << "\n";
+
       if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
         Value *c = selectInst->getCondition();
@@ -834,13 +836,54 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           auto isFromICmpInSameBB = [bb](Value *v) -> bool {
 
-            if (Instruction *inst = dyn_cast<Instruction>(v)) {
+            std::function<bool(Value *)> traceBack = [&](Value *val) -> bool {
 
-              return isa<ICmpInst>(inst) && inst->getParent() == bb;
+              if (auto *inst = dyn_cast<Instruction>(val)) {
 
-            }
+                if (inst->getParent() != bb) return false;
 
-            return false;
+                if (isa<ICmpInst>(inst)) {
+
+                  // errs() << "FOUND: " << *inst << "\n";
+                  return true;
+
+                }
+
+                if (isa<SelectInst>(inst) || inst == &bb->front()) return false;
+
+                // If operands are all constants or loads, stop
+                bool allTerminating = true;
+                for (Use &U : inst->operands()) {
+
+                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
+
+                    allTerminating = false;
+                    break;
+
+                  }
+
+                }
+
+                if (allTerminating) return false;
+
+                // Recurse on variable operands
+                for (Use &U : inst->operands()) {
+
+                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
+
+                    if (traceBack(U.get())) return true;
+
+                  }
+
+                }
+
+              }
+
+              return false;
+
+            };
+
+            return traceBack(v);
 
           };
 
@@ -848,18 +891,24 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
             cnt_hidden_sel++;
             cnt_hidden_sel_inc += 2;
-            // fprintf(stderr, "trueval '%s'!\n",
-            // trueVal->getName().str().c_str());
+            // errs() << "TRUEVAL: " << *selectInst << " |>| " << *c << " | "
+            //        << *trueVal << " | " << *falseVal << "\n";
 
-          }
+          }  // else
+
+             // errs() << "truenot: " << *trueVal << "\n";
 
           if (isFromICmpInSameBB(falseVal)) {
 
             cnt_hidden_sel++;
             cnt_hidden_sel_inc += 2;
-            // fprintf(stderr, "falseval!\n");
 
-          }
+            // errs() << "FALSEVAL: " << *selectInst << " |>| " << *c << " | "
+            //        << *trueVal << " | " << *falseVal << "\n";
+
+          }  // else
+
+             // errs() << "falsenot: " << *falseVal << "\n";
 
         }
 
@@ -982,20 +1031,53 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           auto isFromICmpInSameBB = [bb](Value *v) -> bool {
 
-            if (Instruction *inst = dyn_cast<Instruction>(v)) {
+            std::function<bool(Value *)> traceBack = [&](Value *val) -> bool {
 
-              return isa<ICmpInst>(inst) && inst->getParent() == bb;
+              if (auto *inst = dyn_cast<Instruction>(val)) {
 
-            }
+                if (inst->getParent() != bb) return false;
 
-            return false;
+                if (isa<ICmpInst>(inst)) return true;
+
+                if (isa<SelectInst>(inst) || inst == &bb->front()) return false;
+
+                // If operands are all constants or loads, stop
+                bool allTerminating = true;
+                for (Use &U : inst->operands()) {
+
+                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
+
+                    allTerminating = false;
+                    break;
+
+                  }
+
+                }
+
+                if (allTerminating) return false;
+
+                // Recurse on variable operands
+                for (Use &U : inst->operands()) {
+
+                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
+
+                    if (traceBack(U.get())) return true;
+
+                  }
+
+                }
+
+              }
+
+              return false;
+
+            };
+
+            return traceBack(v);
 
           };
 
           if (isFromICmpInSameBB(trueVal)) {
-
-            // fprintf(stderr, "trueval2 '%s'!\n",
-            // trueVal->getName().str().c_str());
 
             auto GuardPtr1 = IRB.CreateIntToPtr(
                 IRB.CreateAdd(
@@ -1038,8 +1120,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
             result = IRB.CreateSelect(falseVal, GuardPtr1, GuardPtr2);
             skip_next++;
-
-            // fprintf(stderr, "falseval2!\n"); }
 
           }
 
