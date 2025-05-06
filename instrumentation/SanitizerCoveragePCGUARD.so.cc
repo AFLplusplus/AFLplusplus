@@ -935,7 +935,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       SelectInst *selectInst = nullptr;
 
-      if (!skip_next && (selectInst = dyn_cast<SelectInst>(&IN))) {
+      if (skip_next) {
+
+        skip_next--;
+
+      } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
         uint32_t    vector_cnt = 0;
         Value      *condition = selectInst->getCondition();
@@ -1010,6 +1014,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                 Int32PtrTy);
 
             result = IRB.CreateSelect(trueVal, GuardPtr1, GuardPtr2);
+            skip_next++;
 
           }
 
@@ -1032,6 +1037,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                 Int32PtrTy);
 
             result = IRB.CreateSelect(falseVal, GuardPtr1, GuardPtr2);
+            skip_next++;
 
             // fprintf(stderr, "falseval2!\n"); }
 
@@ -1195,7 +1201,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         }
 
-        skip_next = 1;
+        skip_next++;
         instr += vector_cnt;
 
       } else {
