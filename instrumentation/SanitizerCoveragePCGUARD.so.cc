@@ -782,10 +782,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   if (AllBlocks.empty()) return false;
 
   uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0, cnt_hidden_sel = 0,
-           cnt_hidden_sel_inc = 0;
+           cnt_hidden_sel_inc = 0, skip_blocks = 0;
   static uint32_t first = 1;
 
   for (auto &BB : F) {
+
+    bool block_is_instrumented = false;
 
     for (auto &IN : BB) {
 
@@ -800,11 +802,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         if (!FuncName.compare(StringRef("dlopen")) ||
             !FuncName.compare(StringRef("_dlopen"))) {
 
-          fprintf(stderr,
-                  "WARNING: dlopen() detected. To have coverage for a library "
-                  "that your target dlopen()'s this must either happen before "
-                  "__AFL_INIT() or you must use AFL_PRELOAD to preload all "
-                  "dlopen()'ed libraries!\n");
+          WARNF(
+              "dlopen() detected. To have coverage for a library that your "
+              "target dlopen()'s this must either happen before __AFL_INIT() "
+              "or you must use AFL_PRELOAD to preload all dlopen()'ed "
+              "libraries!\n");
           continue;
 
         }
@@ -812,115 +814,84 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
 
           cnt_cov++;
+          block_is_instrumented = true;
 
         }
 
       }
 
-      SelectInst *selectInst = nullptr;
+      bool instrumentInst = false;
 
-      // errs() << "IN: " << *(&IN) << "\n";
+      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN) ||
+          isa<PHINode>(&IN)) {
 
-      if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+        bool usedInBranch = false;
 
-        Value *c = selectInst->getCondition();
-        auto   t = c->getType();
-        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+        for (auto *U : IN.users()) {
 
-          cnt_sel++;
-          cnt_sel_inc += 2;
+          if (isa<BranchInst>(U)) {
 
-          Value      *trueVal = selectInst->getTrueValue();
-          Value      *falseVal = selectInst->getFalseValue();
-          BasicBlock *bb = selectInst->getParent();
+            usedInBranch = true;
+            break;
 
-          auto isFromICmpInSameBB = [bb](Value *v) -> bool {
-
-            std::function<bool(Value *)> traceBack = [&](Value *val) -> bool {
-
-              if (auto *inst = dyn_cast<Instruction>(val)) {
-
-                if (inst->getParent() != bb) return false;
-
-                if (isa<ICmpInst>(inst)) {
-
-                  // errs() << "FOUND: " << *inst << "\n";
-                  return true;
-
-                }
-
-                if (isa<SelectInst>(inst) || inst == &bb->front()) return false;
-
-                // If operands are all constants or loads, stop
-                bool allTerminating = true;
-                for (Use &U : inst->operands()) {
-
-                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
-
-                    allTerminating = false;
-                    break;
-
-                  }
-
-                }
-
-                if (allTerminating) return false;
-
-                // Recurse on variable operands
-                for (Use &U : inst->operands()) {
-
-                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
-
-                    if (traceBack(U.get())) return true;
-
-                  }
-
-                }
-
-              }
-
-              return false;
-
-            };
-
-            return traceBack(v);
-
-          };
-
-          if (isFromICmpInSameBB(trueVal)) {
-
-            cnt_hidden_sel++;
-            cnt_hidden_sel_inc += 2;
-            // errs() << "TRUEVAL: " << *selectInst << " |>| " << *c << " | "
-            //        << *trueVal << " | " << *falseVal << "\n";
-
-          }  // else
-
-             // errs() << "truenot: " << *trueVal << "\n";
-
-          if (isFromICmpInSameBB(falseVal)) {
-
-            cnt_hidden_sel++;
-            cnt_hidden_sel_inc += 2;
-
-            // errs() << "FALSEVAL: " << *selectInst << " |>| " << *c << " | "
-            //        << *trueVal << " | " << *falseVal << "\n";
-
-          }  // else
-
-             // errs() << "falsenot: " << *falseVal << "\n";
+          }
 
         }
 
-        else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+        if (!usedInBranch) {
 
-          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
-          if (tt) {
+          // errs() << "Instrument! " << *(&IN) << "\n";
+          instrumentInst = true;
+
+        }
+
+      }
+
+      if (instrumentInst) {
+
+        block_is_instrumented = true;
+        SelectInst *selectInst;
+        PHINode    *phiInst;
+        // errs() << "IN: " << *(&IN) << "\n";
+
+        if ((phiInst = dyn_cast<PHINode>(&IN))) {
+
+          cnt_hidden_sel++;
+          cnt_hidden_sel_inc += phiInst->getNumIncomingValues();
+
+        } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+
+          Value *c = selectInst->getCondition();
+          auto   t = c->getType();
+          if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
             cnt_sel++;
-            cnt_sel_inc += (tt->getElementCount().getKnownMinValue() * 2);
+            cnt_sel_inc += 2;
+
+          } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
+            FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
+            if (tt) {
+
+              cnt_sel++;
+              cnt_sel_inc += (tt->getElementCount().getKnownMinValue() * 2);
+
+            }
+
+          } else {
+
+            if (!be_quiet) {
+
+              WARNF("unknown select ID type: %u\n", t->getTypeID());
+
+            }
 
           }
+
+        } else {
+
+          cnt_hidden_sel++;
+          cnt_hidden_sel_inc += 2;
 
         }
 
@@ -928,21 +899,49 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
     }
 
+    if (block_is_instrumented && &BB != &BB.getParent()->getEntryBlock()) {
+
+      Instruction *instr = &*BB.begin();
+      LLVMContext &Ctx = BB.getContext();
+      MDNode      *md = MDNode::get(Ctx, MDString::get(Ctx, "skipinstrument"));
+      instr->setMetadata("tag", md);
+      skip_blocks++;
+
+    }
+
   }
 
-  CreateFunctionLocalArrays(F, AllBlocks,
-                            first + cnt_cov + cnt_sel_inc + cnt_hidden_sel_inc);
+  uint32_t xtra = 0;
+  if (skip_blocks < first + cnt_cov + cnt_sel_inc + cnt_hidden_sel_inc) {
+
+    xtra = first + cnt_cov + cnt_sel_inc + cnt_hidden_sel_inc - skip_blocks;
+
+  }
+
+  CreateFunctionLocalArrays(F, AllBlocks, xtra);
+
+  if (!FunctionGuardArray) {
+
+    WARNF(
+        "SANCOV: FunctionGuardArray is NULL, failed to emit instrumentation.");
+    return false;
+
+  }
 
   if (first) { first = 0; }
   selects += cnt_sel;
   hidden += cnt_hidden_sel;
 
-  uint32_t special = 0, local_selects = 0, skip_next = 0;
+  uint32_t special = 0, local_selects = 0, skip_select = 0, skip_icmp = 0,
+           skip_phi = 0;
 
   for (auto &BB : F) {
 
+    // errs() << *(&BB) << "\n";
+
     for (auto &IN : BB) {
 
+      // errs() << *(&IN) << "\n";
       CallInst *callInst = nullptr;
 
       if ((callInst = dyn_cast<CallInst>(&IN))) {
@@ -960,15 +959,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         IRBuilder<> IRB(callInst);
 #endif
 
-        if (!FunctionGuardArray) {
-
-          fprintf(stderr,
-                  "SANCOV: FunctionGuardArray is NULL, failed to emit "
-                  "instrumentation.");
-          continue;
-
-        }
-
         Value *GuardPtr = IRB.CreateIntToPtr(
             IRB.CreateAdd(
                 IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
@@ -982,31 +972,53 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       }
 
-      SelectInst *selectInst = nullptr;
+      bool instrumentInst = false;
 
-      if (skip_next) {
+      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN) ||
+          isa<PHINode>(&IN)) {
 
-        skip_next--;
+        bool usedInBranch = false;
 
-      } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+        for (auto *U : IN.users()) {
 
+          if (isa<BranchInst>(U)) {
+
+            usedInBranch = true;
+            break;
+
+          }
+
+        }
+
+        if (!usedInBranch) {
+
+          // errs() << "Instrument! " << *(&IN) << "\n";
+          instrumentInst = true;
+
+        }
+
+      }
+
+      if (instrumentInst) {
+
+        Value      *result = nullptr;
         uint32_t    vector_cnt = 0;
-        Value      *condition = selectInst->getCondition();
-        Value      *result;
-        auto        t = condition->getType();
-        IRBuilder<> IRB(selectInst->getNextNode());
+        SelectInst *selectInst;
+        ICmpInst   *icmp;
+        FCmpInst   *fcmp;
+        PHINode    *phi = nullptr, *newPhi = nullptr;
+        IRBuilder<> IRB(IN.getNextNode());
 
-        if (t->getTypeID() == llvm::Type::IntegerTyID) {
+        if ((icmp = dyn_cast<ICmpInst>(&IN))) {
 
-          if (!FunctionGuardArray) {
+          if (skip_icmp) {
 
-            fprintf(stderr,
-                    "SANCOV: FunctionGuardArray is NULL, failed to emit "
-                    "instrumentation.");
+            skip_icmp--;
             continue;
 
           }
 
+          auto res = icmp;
           auto GuardPtr1 = IRB.CreateIntToPtr(
               IRB.CreateAdd(
                   IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
@@ -1023,61 +1035,82 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                       (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
               Int32PtrTy);
 
-          result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
+          result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+          skip_select = 1;
+          // fprintf(stderr, "Icmp!\n");
 
-          Value      *trueVal = selectInst->getTrueValue();
-          Value      *falseVal = selectInst->getFalseValue();
-          BasicBlock *bb = selectInst->getParent();
+        } else if ((fcmp = dyn_cast<FCmpInst>(&IN))) {
 
-          auto isFromICmpInSameBB = [bb](Value *v) -> bool {
+          auto res = fcmp;
+          auto GuardPtr1 = IRB.CreateIntToPtr(
+              IRB.CreateAdd(
+                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                  ConstantInt::get(
+                      IntptrTy,
+                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+              Int32PtrTy);
 
-            std::function<bool(Value *)> traceBack = [&](Value *val) -> bool {
+          auto GuardPtr2 = IRB.CreateIntToPtr(
+              IRB.CreateAdd(
+                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                  ConstantInt::get(
+                      IntptrTy,
+                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+              Int32PtrTy);
 
-              if (auto *inst = dyn_cast<Instruction>(val)) {
+          result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+          skip_select = 1;
+          // fprintf(stderr, "Fcmp!\n");
 
-                if (inst->getParent() != bb) return false;
+        } else if ((phi = dyn_cast<PHINode>(&IN))) {
 
-                if (isa<ICmpInst>(inst)) return true;
+          if (skip_phi) {
 
-                if (isa<SelectInst>(inst) || inst == &bb->front()) return false;
+            skip_phi = 0;
+            // errs() << "SKIP: " << *(&IN) << "\n";
+            continue;
 
-                // If operands are all constants or loads, stop
-                bool allTerminating = true;
-                for (Use &U : inst->operands()) {
+          }
 
-                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
+          // errs() << "-->PHI: " << *(&IN) << "\n";
+          // continue;
+          Instruction *insertBefore = &*phi->getParent()->getFirstInsertionPt();
+          newPhi = PHINode::Create(Int32PtrTy, 0, "", insertBefore);
+          BasicBlock *phiBlock = phi->getParent();
 
-                    allTerminating = false;
-                    break;
+          for (BasicBlock *pred : predecessors(phiBlock)) {
 
-                  }
+            IRBuilder<> predBuilder(pred->getTerminator());
 
-                }
+            Value *ptr = predBuilder.CreateInBoundsGEP(
+                FunctionGuardArray->getValueType(), FunctionGuardArray,
+                ConstantInt::get(
+                    IntptrTy, (cnt_cov + local_selects++ + AllBlocks.size())));
+            newPhi->addIncoming(ptr, pred);
 
-                if (allTerminating) return false;
+          }
 
-                // Recurse on variable operands
-                for (Use &U : inst->operands()) {
+          result = newPhi;
+          skip_phi = 1;
+          // fprintf(stderr, "Phi!\n");
 
-                  if (!isa<Constant>(U) && !isa<LoadInst>(U)) {
+        } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
-                    if (traceBack(U.get())) return true;
+          if (skip_select) {
 
-                  }
+            skip_select = 0;
+            continue;
 
-                }
+          } else {
 
-              }
+            // fprintf(stderr, "Select!\n");
 
-              return false;
+          }
 
-            };
+          Value *condition = selectInst->getCondition();
+          auto   t = condition->getType();
 
-            return traceBack(v);
-
-          };
-
-          if (isFromICmpInSameBB(trueVal)) {
+          if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
             auto GuardPtr1 = IRB.CreateIntToPtr(
                 IRB.CreateAdd(
@@ -1095,121 +1128,113 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                         (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
                 Int32PtrTy);
 
-            result = IRB.CreateSelect(trueVal, GuardPtr1, GuardPtr2);
-            skip_next++;
+            result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
+            skip_select = 1;
 
-          }
-
-          if (isFromICmpInSameBB(falseVal)) {
-
-            auto GuardPtr1 = IRB.CreateIntToPtr(
-                IRB.CreateAdd(
-                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                    ConstantInt::get(
-                        IntptrTy,
-                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-                Int32PtrTy);
-
-            auto GuardPtr2 = IRB.CreateIntToPtr(
-                IRB.CreateAdd(
-                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                    ConstantInt::get(
-                        IntptrTy,
-                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-                Int32PtrTy);
-
-            result = IRB.CreateSelect(falseVal, GuardPtr1, GuardPtr2);
-            skip_next++;
-
-          }
-
-        } else
+          } else
 
 #if LLVM_VERSION_MAJOR >= 14
-            if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+              if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
-          FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
-          if (tt) {
+            FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
 
-            uint32_t elements = tt->getElementCount().getFixedValue();
-            vector_cnt = elements;
-            if (elements) {
+            if (tt) {
 
-              FixedVectorType *GuardPtr1 =
-                  FixedVectorType::get(Int32PtrTy, elements);
-              FixedVectorType *GuardPtr2 =
-                  FixedVectorType::get(Int32PtrTy, elements);
-              Value *x, *y;
+              uint32_t elements = tt->getElementCount().getFixedValue();
+              vector_cnt = elements;
+              if (elements) {
 
-              if (!FunctionGuardArray) {
+                FixedVectorType *GuardPtr1 =
+                    FixedVectorType::get(Int32PtrTy, elements);
+                FixedVectorType *GuardPtr2 =
+                    FixedVectorType::get(Int32PtrTy, elements);
+                Value *x, *y;
 
-                fprintf(stderr,
-                        "SANCOV: FunctionGuardArray is NULL, failed to emit "
-                        "instrumentation.");
-                continue;
-
-              }
-
-              Value *val1 = IRB.CreateIntToPtr(
-                  IRB.CreateAdd(
-                      IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                      ConstantInt::get(
-                          IntptrTy,
-                          (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-                  Int32PtrTy);
-              x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
-
-              Value *val2 = IRB.CreateIntToPtr(
-                  IRB.CreateAdd(
-                      IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                      ConstantInt::get(
-                          IntptrTy,
-                          (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-                  Int32PtrTy);
-              y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
-
-              for (uint64_t i = 1; i < elements; i++) {
-
-                val1 = IRB.CreateIntToPtr(
+                Value *val1 = IRB.CreateIntToPtr(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                         ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
                                                     AllBlocks.size()) *
                                                        4)),
                     Int32PtrTy);
-                x = IRB.CreateInsertElement(x, val1, i);
+                x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
 
-                val2 = IRB.CreateIntToPtr(
+                Value *val2 = IRB.CreateIntToPtr(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                         ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
                                                     AllBlocks.size()) *
                                                        4)),
                     Int32PtrTy);
-                y = IRB.CreateInsertElement(y, val2, i);
+                y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+                for (uint64_t i = 1; i < elements; i++) {
+
+                  val1 = IRB.CreateIntToPtr(
+                      IRB.CreateAdd(
+                          IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                          ConstantInt::get(
+                              IntptrTy,
+                              (cnt_cov + local_selects++ + AllBlocks.size()) *
+                                  4)),
+                      Int32PtrTy);
+                  x = IRB.CreateInsertElement(x, val1, i);
+
+                  val2 = IRB.CreateIntToPtr(
+                      IRB.CreateAdd(
+                          IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                          ConstantInt::get(
+                              IntptrTy,
+                              (cnt_cov + local_selects++ + AllBlocks.size()) *
+                                  4)),
+                      Int32PtrTy);
+                  y = IRB.CreateInsertElement(y, val2, i);
+
+                }
+
+                result = IRB.CreateSelect(condition, x, y);
+                skip_select = 1;
 
               }
-
-              result = IRB.CreateSelect(condition, x, y);
 
             }
 
-          }
-
-        } else
+          } else
 
 #endif
-        {
+          {
 
-          // fprintf(stderr, "UNHANDLED: %u\n", t->getTypeID());
-          unhandled++;
-          continue;
+            if (!be_quiet) {
+
+              WARNF("Warning: Unhandled ID type: %u\n", t->getTypeID());
+
+            }
+
+            unhandled++;
+            continue;
+
+          }
 
         }
 
         uint32_t vector_cur = 0;
 
         /* Load SHM pointer */
+        if (newPhi) {
+
+          auto    *inst = dyn_cast<Instruction>(result);
+          PHINode *nphi;
+
+          while ((nphi = dyn_cast<PHINode>(inst))) {
+
+            // fprintf(stderr, "NEXT!\n");
+            inst = inst->getNextNode();
+
+          }
+
+          IRB.SetInsertPoint(inst);
+
+        }
 
         LoadInst *MapPtr =
             IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
@@ -1260,6 +1285,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               auto cf = IRB.CreateICmpEQ(Incr, Zero);
               auto carry = IRB.CreateZExt(cf, Int8Ty);
               Incr = IRB.CreateAdd(Incr, carry);
+              skip_icmp++;
 
             }
 
@@ -1281,12 +1307,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         }
 
-        skip_next++;
         instr += vector_cnt;
-
-      } else {
-
-        skip_next = 0;
 
       }
 
@@ -1296,9 +1317,27 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   if (AllBlocks.empty() && !special && !local_selects) return false;
 
-  if (!AllBlocks.empty())
-    for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
-      InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
+  uint32_t skipped = 0;
+
+  if (!AllBlocks.empty()) {
+
+    for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
+
+      auto instr = AllBlocks[i]->begin();
+      if (instr->getMetadata("skipinstrument")) {
+
+        skipped++;
+        // fprintf(stderr, "Skipped!\n");
+
+      } else {
+
+        InjectCoverageAtBlock(F, *AllBlocks[i], i - skipped, IsLeafFunc);
+
+      }
+
+    }
+
+  }
 
   return true;
 
