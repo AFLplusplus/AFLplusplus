@@ -822,8 +822,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       bool instrumentInst = false;
 
-      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN) ||
-          isa<PHINode>(&IN)) {
+      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN)) {
+
+        // || isa<PHINode>(&IN)
 
         bool usedInBranch = false;
 
@@ -851,15 +852,17 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         block_is_instrumented = true;
         SelectInst *selectInst;
-        PHINode    *phiInst;
+        // PHINode    *phiInst;
         // errs() << "IN: " << *(&IN) << "\n";
 
-        if ((phiInst = dyn_cast<PHINode>(&IN))) {
+        /* if ((phiInst = dyn_cast<PHINode>(&IN))) {
 
           cnt_hidden_sel++;
           cnt_hidden_sel_inc += phiInst->getNumIncomingValues();
 
-        } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+        } else*/
+
+        if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
           Value *c = selectInst->getCondition();
           auto   t = c->getType();
@@ -932,8 +935,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   selects += cnt_sel;
   hidden += cnt_hidden_sel;
 
-  uint32_t special = 0, local_selects = 0, skip_select = 0, skip_icmp = 0,
-           skip_phi = 0;
+  uint32_t special = 0, local_selects = 0, skip_select = 0, skip_icmp = 0;
+  // uint32_t skip_phi = 0;
 
   for (auto &BB : F) {
 
@@ -974,8 +977,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       bool instrumentInst = false;
 
-      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN) ||
-          isa<PHINode>(&IN)) {
+      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN)) {
+
+        // || isa<PHINode>(&IN)
 
         bool usedInBranch = false;
 
@@ -1006,7 +1010,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         SelectInst *selectInst;
         ICmpInst   *icmp;
         FCmpInst   *fcmp;
-        PHINode    *phi = nullptr, *newPhi = nullptr;
+        // PHINode    *phi = nullptr, *newPhi = nullptr;
         IRBuilder<> IRB(IN.getNextNode());
 
         if ((icmp = dyn_cast<ICmpInst>(&IN))) {
@@ -1062,37 +1066,39 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           skip_select = 1;
           // fprintf(stderr, "Fcmp!\n");
 
-        } else if ((phi = dyn_cast<PHINode>(&IN))) {
+          /*} else if ((phi = dyn_cast<PHINode>(&IN))) {
 
-          if (skip_phi) {
+            if (skip_phi) {
 
-            skip_phi = 0;
-            // errs() << "SKIP: " << *(&IN) << "\n";
-            continue;
+              skip_phi = 0;
+              // errs() << "SKIP: " << *(&IN) << "\n";
+              continue;
 
-          }
+            }
 
-          // errs() << "-->PHI: " << *(&IN) << "\n";
-          // continue;
-          Instruction *insertBefore = &*phi->getParent()->getFirstInsertionPt();
-          newPhi = PHINode::Create(Int32PtrTy, 0, "", insertBefore);
-          BasicBlock *phiBlock = phi->getParent();
+            // errs() << "-->PHI: " << *(&IN) << "\n";
+            // continue;
+            Instruction *insertBefore =
+            &*phi->getParent()->getFirstInsertionPt(); newPhi =
+            PHINode::Create(Int32PtrTy, 0, "", insertBefore); BasicBlock
+            *phiBlock = phi->getParent();
 
-          for (BasicBlock *pred : predecessors(phiBlock)) {
+            for (BasicBlock *pred : predecessors(phiBlock)) {
 
-            IRBuilder<> predBuilder(pred->getTerminator());
+              IRBuilder<> predBuilder(pred->getTerminator());
 
-            Value *ptr = predBuilder.CreateInBoundsGEP(
-                FunctionGuardArray->getValueType(), FunctionGuardArray,
-                ConstantInt::get(
-                    IntptrTy, (cnt_cov + local_selects++ + AllBlocks.size())));
-            newPhi->addIncoming(ptr, pred);
+              Value *ptr = predBuilder.CreateInBoundsGEP(
+                  FunctionGuardArray->getValueType(), FunctionGuardArray,
+                  ConstantInt::get(
+                      IntptrTy, (cnt_cov + local_selects++ +
+            AllBlocks.size()))); newPhi->addIncoming(ptr, pred);
 
-          }
+            }
 
-          result = newPhi;
-          skip_phi = 1;
-          // fprintf(stderr, "Phi!\n");
+            result = newPhi;
+            skip_phi = 1;
+            // fprintf(stderr, "Phi!\n");
+          */
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
@@ -1220,6 +1226,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         uint32_t vector_cur = 0;
 
         /* Load SHM pointer */
+        /*
         if (newPhi) {
 
           auto    *inst = dyn_cast<Instruction>(result);
@@ -1235,6 +1242,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           IRB.SetInsertPoint(inst);
 
         }
+
+        */
 
         LoadInst *MapPtr =
             IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
