@@ -13,6 +13,7 @@
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
+// #include "llvm/IR/Verifier.h"
 #if LLVM_VERSION_MAJOR >= 15
   #if LLVM_VERSION_MAJOR < 17
     #include "llvm/ADT/Triple.h"
@@ -506,8 +507,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       OKF("Instrumented %u locations with no collisions (%s mode) of which are "
-          "%u handled, %u hidden and %u unhandled selects.",
-          instr, modeline, selects, hidden, unhandled);
+          "%u handled and %u unhandled special instructions.",
+          instr, modeline, selects + hidden, unhandled);
 
     }
 
@@ -852,6 +853,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         block_is_instrumented = true;
         SelectInst *selectInst;
+        ICmpInst   *icmp;
+        FCmpInst   *fcmp;
         // PHINode    *phiInst;
         // errs() << "IN: " << *(&IN) << "\n";
 
@@ -862,7 +865,33 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         } else*/
 
-        if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+        if ((icmp = dyn_cast<ICmpInst>(&IN))) {
+
+          if (icmp->getType()->isIntegerTy(1)) {
+
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else {
+
+            unhandled++;
+
+          }
+
+        } else if ((fcmp = dyn_cast<FCmpInst>(&IN))) {
+
+          if (fcmp->getType()->isIntegerTy(1)) {
+
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else {
+
+            unhandled++;
+
+          }
+
+        } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
           Value *c = selectInst->getCondition();
           auto   t = c->getType();
@@ -891,12 +920,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           }
 
-        } else {
+        } /*else {
 
           cnt_hidden_sel++;
           cnt_hidden_sel_inc += 2;
 
-        }
+        }*/
 
       }
 
@@ -1015,6 +1044,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         if ((icmp = dyn_cast<ICmpInst>(&IN))) {
 
+          if (!icmp->getType()->isIntegerTy(1)) { continue; }
+
           if (skip_icmp) {
 
             skip_icmp--;
@@ -1023,21 +1054,15 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           }
 
           auto res = icmp;
-          auto GuardPtr1 = IRB.CreateIntToPtr(
-              IRB.CreateAdd(
-                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                  ConstantInt::get(
-                      IntptrTy,
-                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-              Int32PtrTy);
+          auto GuardPtr1 = IRB.CreateInBoundsGEP(
+              FunctionGuardArray->getValueType(), FunctionGuardArray,
+              {IRB.getInt64(0),
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
 
-          auto GuardPtr2 = IRB.CreateIntToPtr(
-              IRB.CreateAdd(
-                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                  ConstantInt::get(
-                      IntptrTy,
-                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-              Int32PtrTy);
+          auto GuardPtr2 = IRB.CreateInBoundsGEP(
+              FunctionGuardArray->getValueType(), FunctionGuardArray,
+              {IRB.getInt64(0),
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
 
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
@@ -1045,22 +1070,18 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         } else if ((fcmp = dyn_cast<FCmpInst>(&IN))) {
 
-          auto res = fcmp;
-          auto GuardPtr1 = IRB.CreateIntToPtr(
-              IRB.CreateAdd(
-                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                  ConstantInt::get(
-                      IntptrTy,
-                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-              Int32PtrTy);
+          if (!icmp->getType()->isIntegerTy(1)) { continue; }
 
-          auto GuardPtr2 = IRB.CreateIntToPtr(
-              IRB.CreateAdd(
-                  IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                  ConstantInt::get(
-                      IntptrTy,
-                      (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
-              Int32PtrTy);
+          auto res = fcmp;
+          auto GuardPtr1 = IRB.CreateInBoundsGEP(
+              FunctionGuardArray->getValueType(), FunctionGuardArray,
+              {IRB.getInt64(0),
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+
+          auto GuardPtr2 = IRB.CreateInBoundsGEP(
+              FunctionGuardArray->getValueType(), FunctionGuardArray,
+              {IRB.getInt64(0),
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
 
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
@@ -1347,6 +1368,17 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
     }
 
   }
+
+  /*
+    if (verifyFunction(F, &errs())) {
+
+      errs() << "Broken function after instrumentation\n";
+      F.print(errs(), nullptr);
+      report_fatal_error("Invalid IR");
+
+    }
+
+  */
 
   return true;
 
