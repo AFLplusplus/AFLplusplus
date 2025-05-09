@@ -4,9 +4,15 @@ test "$SYS" = "Darwin" && {
   echo Error: afl-cmin does not work on Apple currently. please use afl-cmin.bash instead.
   exit 1
 }
+THISPATH=`dirname ${0}`
+
+# call afl-cmin.py if it can be executed successfully.
+if $THISPATH/afl-cmin.py --help > /dev/null 2>&1; then
+  exec $THISPATH/afl-cmin.py "$@"
+fi
+
 export AFL_QUIET=1
 export ASAN_OPTIONS=detect_leaks=0
-THISPATH=`dirname ${0}`
 export PATH="${THISPATH}:$PATH"
 awk -f - -- ${@+"$@"} <<'EOF'
 #!/usr/bin/awk -f
