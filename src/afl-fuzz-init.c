@@ -3116,7 +3116,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.nyx_mode &&
 #endif
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
-      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the target binary is not instrumented! The fuzzer depends "
@@ -3147,7 +3147,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
-      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with AFL++ compilers, but is "
@@ -3182,7 +3182,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   /* Detect persistent & deferred init signatures in the binary. */
 
-  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG))) {
 
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -3209,7 +3209,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (afl->fsrv.frida_mode ||
-      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG))) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);
