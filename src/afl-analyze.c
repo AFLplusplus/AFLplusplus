@@ -78,6 +78,7 @@ static u8 *target_path;
 static u8  frida_mode;
 static u8  qemu_mode;
 static u8  cs_mode;
+static u8  unicorn_mode;
 static u32 map_size = MAP_SIZE;
 
 static afl_forkserver_t fsrv = {0};   /* The forkserver                     */
@@ -813,7 +814,7 @@ static void usage(u8 *argv0) {
 int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
-  u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
+  u8     mem_limit_given = 0, timeout_given = 0, use_wine = 0;
   char **use_argv;
   char **argv = argv_cpy_dup(argc, argv_orig);
 
@@ -960,6 +961,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
+        fsrv.unicorn_mode = unicorn_mode;
         fsrv.mem_limit = mem_limit;
         break;
 
@@ -1102,7 +1104,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   configure_afl_kill_signals(
-      &fsrv, NULL, NULL, (fsrv.qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+      &fsrv, NULL, NULL, (fsrv.qemu_mode || fsrv.unicorn_mode) ? SIGKILL : SIGTERM);
 
   read_initial_file();
 #ifdef __linux__

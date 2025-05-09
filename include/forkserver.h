@@ -153,6 +153,8 @@ typedef struct afl_forkserver {
 
   bool cs_mode;                      /* if running in CoreSight mode or not */
 
+  bool unicorn_mode;                   /* if running in unicorn mode or not */
+
   bool use_stdin;                       /* use stdin for sending data       */
 
   bool no_unlink;                       /* do not unlink cur_input          */

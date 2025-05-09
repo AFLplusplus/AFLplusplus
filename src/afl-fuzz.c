@@ -1223,8 +1223,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'U':                                             /* Unicorn mode */
 
-        if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
-        afl->unicorn_mode = 1;
+        if (afl->fsrv.unicorn_mode) { FATAL("Multiple -U options not supported"); }
+        afl->fsrv.unicorn_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -1574,7 +1574,7 @@ int main(int argc, char **argv_orig, char **envp) {
   configure_afl_kill_signals(
       &afl->fsrv, afl->afl_env.afl_child_kill_signal,
       afl->afl_env.afl_fsrv_kill_signal,
-      (afl->fsrv.qemu_mode || afl->unicorn_mode || afl->fsrv.use_fauxsrv
+      (afl->fsrv.qemu_mode || afl->fsrv.unicorn_mode || afl->fsrv.use_fauxsrv
   #ifdef __linux__
        || afl->fsrv.nyx_mode
   #endif
@@ -1660,7 +1660,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (afl->fsrv.frida_mode) { FATAL("-O and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
     if (afl->fsrv.cs_mode) { FATAL("-A and -n are mutually exclusive"); }
-    if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
+    if (afl->fsrv.unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
 
   }
 
@@ -1688,7 +1688,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
+  if (strchr(argv[optind], '/') == NULL && !afl->fsrv.unicorn_mode) {
 
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
@@ -2433,14 +2433,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
-    if (afl->unicorn_mode) {
-
-      FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-
-    }
-
     if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
-        !afl->non_instrumented_mode) {
+        !afl->fsrv.unicorn_mode && !afl->non_instrumented_mode) {
 
       check_binary(afl, afl->cmplog_binary);
 
@@ -2496,7 +2490,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
-      afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
+      afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->fsrv.unicorn_mode) {
 
     u32 old_map_size = map_size;
     map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
@@ -2529,7 +2523,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-      !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
+      !afl->fsrv.unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
       !afl->afl_env.afl_skip_bin_check) {
 
     if (map_size <= DEFAULT_SHMEM_SIZE) {
@@ -2650,7 +2644,7 @@ int main(int argc, char **argv_orig, char **envp) {
       if ((map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < map_size) &&
           !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-          !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
+          !afl->fsrv.frida_mode && !afl->fsrv.unicorn_mode && !afl->fsrv.cs_mode &&
           !afl->afl_env.afl_skip_bin_check) {
 
         afl->san_fsrvs[i].map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
@@ -2728,7 +2722,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-        !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
+        !afl->fsrv.frida_mode && !afl->fsrv.unicorn_mode && !afl->fsrv.cs_mode &&
         !afl->afl_env.afl_skip_bin_check) {
 
       afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
@@ -2814,7 +2808,7 @@ int main(int argc, char **argv_orig, char **envp) {
     close(afl->fsrv.out_fd);
     afl->fsrv.out_fd = -1;
 
-    if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
+    if (!afl->fsrv.unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
 
       WARNF(
           "You specified -f or @@ on the command line but the target harness "

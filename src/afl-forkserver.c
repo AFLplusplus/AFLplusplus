@@ -1278,7 +1278,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
         report_error_and_exit(FS_OPT_GET_ERROR(status));
 
-      if (fsrv->cmplog_binary && !fsrv->qemu_mode) {
+      if (fsrv->cmplog_binary && !fsrv->qemu_mode && !fsrv->unicorn_mode) {
 
         FATAL("Target was compiled with outdated CMPLOG, recompile it!\n");
 
@@ -1293,7 +1293,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if ((status & FS_OPT_NEWCMPLOG) == 0 && fsrv->cmplog_binary) {
 
-          if (fsrv->qemu_mode || fsrv->frida_mode) {
+          if (fsrv->qemu_mode || fsrv->frida_mode || fsrv->unicorn_mode) {
 
             report_error_and_exit(FS_ERROR_OLD_CMPLOG_QEMU);
 

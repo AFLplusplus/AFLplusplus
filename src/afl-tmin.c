@@ -1094,7 +1094,7 @@ static void usage(u8 *argv0) {
 int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0,
+  u8  mem_limit_given = 0, timeout_given = 0, use_wine = 0,
      del_limit_given = 0;
   char **use_argv;
 
@@ -1253,10 +1253,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'U':
 
-        if (unicorn_mode) { FATAL("Multiple -Q options not supported"); }
+        if (fsrv->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         if (!mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
-        unicorn_mode = 1;
+        fsrv->unicorn_mode = 1;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
@@ -1458,7 +1458,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   configure_afl_kill_signals(
-      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
+      fsrv, NULL, NULL, (fsrv->qemu_mode || fsrv->unicorn_mode) ? SIGKILL : SIGTERM);
 
   if (getenv("AFL_CRASH_EXITCODE")) {
 
@@ -1526,7 +1526,7 @@ int main(int argc, char **argv_orig, char **envp) {
   (void)check_binary_signatures(fsrv->target_path);
 #endif
 
-  if (!fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->qemu_mode && !fsrv->unicorn_mode) {
 
     fsrv->map_size = 4194304;  // dummy temporary value
     u32 new_map_size =

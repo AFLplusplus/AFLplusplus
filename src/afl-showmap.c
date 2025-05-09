@@ -1084,7 +1084,7 @@ int main(int argc, char **argv_orig, char **envp) {
   // TODO: u64 mem_limit = MEM_LIMIT;                  /* Memory limit (MB) */
 
   s32  opt, i;
-  bool mem_limit_given = false, timeout_given = false, unicorn_mode = false,
+  bool mem_limit_given = false, timeout_given = false,
        use_wine = false;
   char **use_argv;
 
@@ -1281,9 +1281,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'U':
 
-        if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
+        if (fsrv->unicorn_mode) { FATAL("Multiple -U options not supported"); }
 
-        unicorn_mode = true;
+        fsrv->unicorn_mode = true;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
@@ -1358,7 +1358,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (fsrv->qemu_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
-  if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
+  if (fsrv->unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
   check_environment_vars(envp);
 
@@ -1555,7 +1555,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz = map + sizeof(u32);
 
   configure_afl_kill_signals(fsrv, NULL, NULL,
-                             (fsrv->qemu_mode || unicorn_mode
+                             (fsrv->qemu_mode || fsrv->unicorn_mode
 #ifdef __linux__
                               || fsrv->nyx_mode
 #endif
@@ -1563,7 +1563,7 @@ int main(int argc, char **argv_orig, char **envp) {
                                  ? SIGKILL
                                  : SIGTERM);
 
-  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->cs_mode && !fsrv->qemu_mode && !fsrv->unicorn_mode) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;

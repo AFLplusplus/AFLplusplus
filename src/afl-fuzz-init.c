@@ -3033,7 +3033,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode ||
+  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->fsrv.unicorn_mode ||
       (afl->fsrv.qemu_mode && getenv("AFL_QEMU_CUSTOM_BIN")) ||
       (afl->fsrv.cs_mode && getenv("AFL_CS_CUSTOM_BIN")) ||
       afl->non_instrumented_mode) {
@@ -3111,7 +3111,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.unicorn_mode &&
 #ifdef __linux__
       !afl->fsrv.nyx_mode &&
 #endif

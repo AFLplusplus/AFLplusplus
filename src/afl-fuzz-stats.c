@@ -450,7 +450,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           t_bytes, afl->fsrv.real_map_size, afl->var_byte_count,
           afl->expand_havoc, afl->a_extras_cnt, afl->q_testcase_cache_size,
           afl->q_testcase_cache_count, afl->q_testcase_evictions,
-          afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
+          afl->use_banner, afl->fsrv.unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",
           afl->fsrv.cs_mode ? "coresight" : "",
           afl->non_instrumented_mode ? " non_instrumented " : "",
@@ -458,7 +458,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           afl->persistent_mode ? "persistent " : "",
           afl->shmem_testcase_mode ? "shmem_testcase " : "",
           afl->deferred_mode ? "deferred " : "",
-          (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.cs_mode ||
+          (afl->fsrv.unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.cs_mode ||
            afl->non_instrumented_mode || afl->no_forkserver ||
            afl->crash_mode || afl->persistent_mode || afl->deferred_mode)
               ? ""
@@ -2380,7 +2380,7 @@ void show_init_stats(afl_state_t *afl) {
 
   // SAYF("\n");
 
-  if (avg_us > ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->unicorn_mode)
+  if (avg_us > ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.unicorn_mode)
                     ? 50000
                     : 10000)) {
 

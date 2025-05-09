@@ -587,7 +587,6 @@ typedef struct afl_state {
       no_arith,                         /* Skip most arithmetic ops         */
       shuffle_queue,                    /* Shuffle input queue?             */
       bitmap_changed,                   /* Time to update bitmap?           */
-      unicorn_mode,                     /* Running in Unicorn mode?         */
       use_wine,                         /* Use WINE with QEMU mode          */
       skip_requested,                   /* Skip request, via SIGUSR1        */
       run_over10m,                      /* Run time over 10 minutes?        */
