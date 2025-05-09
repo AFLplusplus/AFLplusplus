@@ -1070,7 +1070,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         } else if ((fcmp = dyn_cast<FCmpInst>(&IN))) {
 
-          if (!icmp->getType()->isIntegerTy(1)) { continue; }
+          if (!fcmp->getType()->isIntegerTy(1)) { continue; }
 
           auto res = fcmp;
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
@@ -1370,13 +1370,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   }
 
   /*
-    if (verifyFunction(F, &errs())) {
+      if (verifyFunction(F, &errs())) {
 
-      errs() << "Broken function after instrumentation\n";
-      F.print(errs(), nullptr);
-      report_fatal_error("Invalid IR");
+        errs() << "Broken function after instrumentation\n";
+        F.print(errs(), nullptr);
+        report_fatal_error("Invalid IR");
 
-    }
+      }
 
   */
 
