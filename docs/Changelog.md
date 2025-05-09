@@ -15,6 +15,9 @@
     - Fix to make AFL_SAN_NO_INST work with gcc_plugin
   - qemuafl:
     - better MIPS persistent mode support
+  - afl-cmin:
+    - new afl-cmin.py which is much faster, will be executed by default via
+      afl-cmin if it executes successfully (thanks to @kcwu!)
 
 
 ### Version ++4.32c (release)
