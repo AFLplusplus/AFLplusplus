@@ -77,9 +77,9 @@
 #else
   #include "llvm/Transforms/Utils/Instrumentation.h"
 #endif
-
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "config.h"
 #include "debug.h"
@@ -207,7 +207,8 @@ class ModuleSanitizerCoverageAFL
 
   SanitizerCoverageOptions Options;
 
-  uint32_t instr = 0, selects = 0, hidden = 0, unhandled = 0, dump_cc = 0;
+  uint32_t instr = 0, selects = 0, hidden = 0, unhandled = 0, skippedbb = 0,
+           dump_cc = 0;
   GlobalVariable *AFLMapPtr = NULL;
   ConstantInt    *One = NULL;
   ConstantInt    *Zero = NULL;
@@ -506,9 +507,16 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+      char buf[32] = "";
+      if (skippedbb) {
+
+        snprintf(buf, sizeof(buf), " %u instrumentations saved.", skippedbb);
+
+      }
+
       OKF("Instrumented %u locations with no collisions (%s mode) of which are "
-          "%u handled and %u unhandled special instructions.",
-          instr, modeline, selects + hidden, unhandled);
+          "%u handled and %u unhandled special instructions.%s",
+          instr, modeline, selects + hidden, unhandled, buf);
 
     }
 
@@ -948,7 +956,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
     }
 
-    if (block_is_instrumented && &BB != &BB.getParent()->getEntryBlock()) {
+    if (block_is_instrumented && &BB != &BB.getParent()->getEntryBlock() &&
+        llvm::is_contained(AllBlocks, &BB)) {
 
       Instruction *instr = &*BB.begin();
       LLVMContext &Ctx = BB.getContext();
@@ -1400,6 +1409,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
     }
 
   }
+
+  skippedbb += skipped;
 
   /*
       if (verifyFunction(F, &errs())) {
