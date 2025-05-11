@@ -821,13 +821,16 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       }
 
-      bool instrumentInst = false;
+      bool      instrumentInst = false;
+      ICmpInst *icmp;
+      FCmpInst *fcmp;
 
-      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN)) {
+      if ((icmp = dyn_cast<ICmpInst>(&IN)) ||
+          (fcmp = dyn_cast<FCmpInst>(&IN)) || isa<SelectInst>(&IN)) {
 
         // || isa<PHINode>(&IN)
 
-        bool usedInBranch = false;
+        bool usedInBranch = false, usedInSelectDecision = false;
 
         for (auto *U : IN.users()) {
 
@@ -838,9 +841,23 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           }
 
+          if (auto *sel = dyn_cast<SelectInst>(U)) {
+
+            if (icmp && sel->getCondition() == icmp) {
+
+              usedInSelectDecision = true;
+
+            } else if (fcmp && sel->getCondition() == fcmp) {
+
+              usedInSelectDecision = true;
+
+            }
+
+          }
+
         }
 
-        if (!usedInBranch) {
+        if (!usedInBranch && !usedInSelectDecision) {
 
           // errs() << "Instrument! " << *(&IN) << "\n";
           instrumentInst = true;
@@ -1004,13 +1021,16 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       }
 
-      bool instrumentInst = false;
+      bool      instrumentInst = false;
+      ICmpInst *icmp;
+      FCmpInst *fcmp;
 
-      if (isa<FCmpInst>(&IN) || isa<ICmpInst>(&IN) || isa<SelectInst>(&IN)) {
+      if ((icmp = dyn_cast<ICmpInst>(&IN)) ||
+          (fcmp = dyn_cast<FCmpInst>(&IN)) || isa<SelectInst>(&IN)) {
 
         // || isa<PHINode>(&IN)
 
-        bool usedInBranch = false;
+        bool usedInBranch = false, usedInSelectDecision = false;
 
         for (auto *U : IN.users()) {
 
@@ -1021,9 +1041,23 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           }
 
+          if (auto *sel = dyn_cast<SelectInst>(U)) {
+
+            if (icmp && sel->getCondition() == icmp) {
+
+              usedInSelectDecision = true;
+
+            } else if (fcmp && sel->getCondition() == fcmp) {
+
+              usedInSelectDecision = true;
+
+            }
+
+          }
+
         }
 
-        if (!usedInBranch) {
+        if (!usedInBranch && !usedInSelectDecision) {
 
           // errs() << "Instrument! " << *(&IN) << "\n";
           instrumentInst = true;
@@ -1037,8 +1071,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         Value      *result = nullptr;
         uint32_t    vector_cnt = 0;
         SelectInst *selectInst;
-        ICmpInst   *icmp;
-        FCmpInst   *fcmp;
         // PHINode    *phi = nullptr, *newPhi = nullptr;
         IRBuilder<> IRB(IN.getNextNode());
 
