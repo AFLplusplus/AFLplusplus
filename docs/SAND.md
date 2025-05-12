@@ -48,7 +48,7 @@ AFL_FSRV_ONLY=1 AFL_USE_UBSAN=1 AFL_USE_ASAN=1 afl-clang-fast test-instr.c -o ./
 AFL_FSRV_ONLY=1 AFL_USE_MSAN=1 afl-clang-fast test-instr.c -o ./msan
 ```
 
-Do note `AFL_SAN_NO_INST=1` is crucial, this enables forkservers but disables pc instrumentation. Do not reuse sanitizers-enabled binaries built _without_ `AFL_FSRV_ONLY=1`. This will mess up SAND execution pattern.
+Do note `AFL_FSRV_ONLY=1` is crucial, this enables forkservers but disables pc instrumentation. You are allowed to reuse sanitizers-enabled binaries, i.e. binaries built _without_ `AFL_FSRV_ONLY=1`, at a cost of reduced speed. 
 
 3. Start fuzzing
 
