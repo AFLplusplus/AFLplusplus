@@ -333,7 +333,7 @@ class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
     } else {
 
-      if (getenv("AFL_DEBUG")) { DEBUGF("Instrument disabled\n"); }
+      if (getenv("AFL_DEBUG")) { DEBUGF("Instrumentation disabled\n"); }
       return false;
 
     }
@@ -396,7 +396,7 @@ PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module                &M,
 
   } else {
 
-    if (debug) { DEBUGF("Instrument disabled\n"); }
+    if (debug) { DEBUGF("Instrumentation disabled\n"); }
 
   }
 

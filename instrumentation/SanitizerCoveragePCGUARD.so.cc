@@ -281,7 +281,7 @@ PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
 
   } else {
 
-    if (getenv("AFL_DEBUG")) { DEBUGF("Instrument disabled\n"); }
+    if (getenv("AFL_DEBUG")) { DEBUGF("Instrumentation disabled\n"); }
 
   }
 
