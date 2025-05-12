@@ -36,9 +36,11 @@ void sanfuzz_exec_child(afl_forkserver_t *fsrv, char **argv) {
       argv[0] != fsrv->asanfuzz_binary) {
 
     argv[0] = fsrv->asanfuzz_binary;
-
   }
 
+  // In case users provide the normally instrumented binaries, this servers as the last
+  // resort to avoid collecting incorrect coverage.
+  setenv("AFL_FSRV_ONLY", "1", 0);
   execv(fsrv->target_path, argv);
 
 }

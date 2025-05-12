@@ -327,7 +327,7 @@ class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
     };
 
-    if (!getenv("AFL_SAN_NO_INST")) {
+    if (!getenv("AFL_FSRV_ONLY")) {
 
       return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
 
@@ -389,7 +389,7 @@ PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module                &M,
 
   };
 
-  if (!getenv("AFL_SAN_NO_INST")) {
+  if (!getenv("AFL_FSRV_ONLY")) {
 
     if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
       return PreservedAnalyses::none();

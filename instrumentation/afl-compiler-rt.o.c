@@ -1241,6 +1241,11 @@ void __afl_manual_init(void) {
 
   }
 
+  if (getenv("AFL_FSRV_ONLY")) {
+    fprintf(stderr, "DEBUG: Overwrite area_ptr to dummy due to AFL_FSRV_ONLY\n");
+    __afl_area_ptr = __afl_area_ptr_dummy;
+  }
+
   if (!init_done) {
 
     __afl_start_forkserver();
