@@ -819,8 +819,15 @@ void check_environment_vars(char **envp) {
 
           WARNF("AFL environment variable %s is deprecated!",
                 afl_environment_deprecated[i]);
-          issue_detected = 1;
-
+          
+          if (strncmp(afl_environment_deprecated[i], 
+            "AFL_SAN_NO_INST", strlen(afl_environment_deprecated[i])) == 0) {
+              WARNF("AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FSRV is induced and set instead.");
+              setenv("AFL_GCC_ONLY_FSRV", "1", 0);
+              setenv("AFL_LLVM_ONLY_FSRV", "1", 0);
+          } else {
+            issue_detected = 1;
+          }
         } else {
 
           i++;

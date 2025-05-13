@@ -28,6 +28,38 @@ import shutil
 import subprocess
 import sys
 
+# https://more-itertools.readthedocs.io/en/stable/_modules/more_itertools/recipes.html#batched
+from sys import hexversion
+
+def _batched(iterable, n, *, strict=False):
+    """Batch data into tuples of length *n*. If the number of items in
+    *iterable* is not divisible by *n*:
+    * The last batch will be shorter if *strict* is ``False``.
+    * :exc:`ValueError` will be raised if *strict* is ``True``.
+
+    >>> list(batched('ABCDEFG', 3))
+    [('A', 'B', 'C'), ('D', 'E', 'F'), ('G',)]
+
+    On Python 3.13 and above, this is an alias for :func:`itertools.batched`.
+    """
+    if n < 1:
+        raise ValueError('n must be at least one')
+    iterator = iter(iterable)
+    while batch := tuple(itertools.islice(iterator, n)):
+        if strict and len(batch) != n:
+            raise ValueError('batched(): incomplete batch')
+        yield batch
+
+
+if hexversion >= 0x30D00A2:  # pragma: no cover
+    from itertools import batched as itertools_batched
+    def batched(iterable, n, *, strict=False):
+        return itertools_batched(iterable, n, strict=strict)
+else:
+    batched = _batched
+
+    batched.__doc__ = _batched.__doc__
+
 try:
     from tqdm import tqdm
 except ImportError:
@@ -574,7 +606,7 @@ def main():
         workers.append(p)
 
     chunk = max(1, min(128, len(files) // args.workers))
-    jobs = list(itertools.batched(enumerate(files), chunk))
+    jobs = list(batched(enumerate(files), chunk))
     jobs += [None] * args.workers  # sentinel
 
     dispatcher = JobDispatcher(job_queue, jobs)
