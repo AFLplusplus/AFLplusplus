@@ -40,7 +40,7 @@ void sanfuzz_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   // In case users provide the normally instrumented binaries, this servers as the last
   // resort to avoid collecting incorrect coverage.
-  setenv("AFL_FSRV_ONLY", "1", 0);
+  setenv("AFL_LLVM_ONLY_FSRV", "1", 0);
   execv(fsrv->target_path, argv);
 
 }
