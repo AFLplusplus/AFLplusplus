@@ -111,7 +111,7 @@ fairly broad use of environment variables instead:
 
     - Note: both `AFL_CFISAN_VERBOSE=1` and `AFL_UBSAN_VERBOSE=1` are disabled by default as verbose output can significantly slow down fuzzing performance. Use these options only during debugging or when additional crash diagnostics are required
 
-  - `AFL_LLVM_ONLY_FSRV` will inject forkserver but not pc instrumentation. Please note this is different compared to `AFL_LLVM_DISABLE_INSTRUMENTATION`, which will totally disable forkserver implementation. This env is pretty useful in two cases:
+  - `AFL_LLVM_ONLY_FSRV`/`AFL_GCC_ONLY_FSRV` will inject forkserver but not pc instrumentation. Please note this is different compared to `AFL_LLVM_DISABLE_INSTRUMENTATION`, which will totally disable forkserver implementation. This env is pretty useful in two cases:
     - [SAND](./SAND.md). In this case, the binaries built in this way will serve as extra oracles. Check the corresponding documents for details.
     - Compatible with LibAFL ForkserverExecutor implementation and thus faster to repeatedly run, compared to simple CommandExecutor.
 
