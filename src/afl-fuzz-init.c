@@ -659,12 +659,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_mtime > mtime_max) {
-
-          mtime_max = st.st_mtime;
-          show_stats(afl);
-
-        }
+        if (st.st_mtime > mtime_max) { mtime_max = st.st_mtime; }
+        show_stats(afl);
 
       }
 
