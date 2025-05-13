@@ -770,6 +770,7 @@ typedef struct afl_state {
 #define FOREIGN_SYNCS_MAX 32U
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
+  char               *foreign_file;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
