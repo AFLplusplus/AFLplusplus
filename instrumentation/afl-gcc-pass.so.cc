@@ -506,9 +506,7 @@ int plugin_init(struct plugin_name_args   *info,
   bool fsrv_only = !!getenv("AFL_GCC_ONLY_FRSV");
 
   const char *name = info->base_name;
-  if (!fsrv_only) {
-    register_callback(name, PLUGIN_INFO, NULL, &afl_plugin);
-  }
+  if (!fsrv_only) { register_callback(name, PLUGIN_INFO, NULL, &afl_plugin); }
 
   afl_pass                 *aflp = new afl_pass(quiet, inst_ratio);
   struct register_pass_info pass_info = {
@@ -521,9 +519,11 @@ int plugin_init(struct plugin_name_args   *info,
   };
 
   if (!fsrv_only) {
+
     register_callback(name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
     register_callback(name, PLUGIN_FINISH, afl_pass::plugin_finalize,
                       pass_info.pass);
+
   }
 
   if (!quiet)
