@@ -589,8 +589,6 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         u8 *fn2 =
             alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, nl[i]->d_name);
 
-        free(nl[i]);                                         /* not tracked */
-
         if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
 
           if (first) PFATAL("Unable to access '%s'", fn2);
@@ -667,6 +665,12 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
       if (mtime_max > afl->foreign_syncs[iter].mtime) {
 
         afl->foreign_syncs[iter].mtime = mtime_max;
+
+      }
+
+      for (i = 0; i < (u32)nl_cnt; ++i) {
+
+        free(nl[i]);                                         /* not tracked */
 
       }
 
