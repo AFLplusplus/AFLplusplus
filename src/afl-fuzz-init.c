@@ -589,8 +589,6 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         u8 *fn2 =
             alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, nl[i]->d_name);
 
-        free(nl[i]);                                         /* not tracked */
-
         if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
 
           if (first) PFATAL("Unable to access '%s'", fn2);
@@ -653,17 +651,14 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         u32 len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
+        afl->foreign_file = nl[i]->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, len, fault);
-        afl->syncing_party = 0;
+
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_mtime > mtime_max) {
-
-          mtime_max = st.st_mtime;
-          show_stats(afl);
-
-        }
+        if (st.st_mtime > mtime_max) { mtime_max = st.st_mtime; }
+        show_stats(afl);
 
       }
 
@@ -673,11 +668,20 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
+      for (i = 0; i < (u32)nl_cnt; ++i) {
+
+        free(nl[i]);                                         /* not tracked */
+
+      }
+
       free(nl);                                              /* not tracked */
 
     }
 
   }
+
+  afl->foreign_file = NULL;
+  afl->syncing_party = 0;
 
   if (first) {
 
@@ -3116,7 +3120,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.nyx_mode &&
 #endif
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
-      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the target binary is not instrumented! The fuzzer depends "
@@ -3147,7 +3151,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
-      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with AFL++ compilers, but is "
@@ -3182,7 +3186,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   /* Detect persistent & deferred init signatures in the binary. */
 
-  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG))) {
 
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -3209,7 +3213,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (afl->fsrv.frida_mode ||
-      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG))) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);

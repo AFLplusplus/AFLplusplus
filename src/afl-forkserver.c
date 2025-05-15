@@ -140,7 +140,7 @@ nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
   if (plugin->nyx_get_target_hash64 == NULL) { goto fail; }
 
   plugin->nyx_config_free = dlsym(handle, "nyx_config_free");
-  if (plugin->nyx_get_target_hash64 == NULL) { goto fail; }
+  if (plugin->nyx_config_free == NULL) { goto fail; }
 
   OKF("libnyx plugin is ready!");
   return plugin;
@@ -249,6 +249,16 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_file = NULL;
   fsrv->child_kill_signal = SIGKILL;
   fsrv->max_length = MAX_FILE;
+
+  if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
+
+    fsrv->setenv = 1;
+
+  } else {
+
+    fsrv->setenv = 0;
+
+  }
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -877,6 +887,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (!fsrv->fsrv_pid) {
 
     /* CHILD PROCESS */
+
+    if (unlikely(fsrv->setenv)) { setenv("AFL_FORKSERVER_PARENT", "1", 0); }
 
     // enable terminating on sigpipe in the children
     struct sigaction sa;

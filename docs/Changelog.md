@@ -3,6 +3,23 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+
+### Version ++4.33a (dev)
+  - afl-fuzz:
+    - Use `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT` if you use AFL_PRELOAD
+      to disable fork, see docs (thanks to @alexandredoyen29)
+    - Fix for FAST power schedules (introduced in 4.32c) (thanks to @kcwu)
+    - Colors for NO_UI output (thanks to @smoelius)
+    - more 64 bit archicture support by @maribu
+  - afl-cc:
+    - Fix to make AFL_SAN_NO_INST work with gcc_plugin
+  - qemuafl:
+    - better MIPS persistent mode support
+  - afl-cmin:
+    - new afl-cmin.py which is much faster, will be executed by default via
+      afl-cmin if it executes successfully (thanks to @kcwu!)
+
+
 ### Version ++4.32c (release)
   - Fixed a bug where after a fast restart of a full fuzzed corpus afl-fuzz
     terminates with "need at least one valid input seed that does not crash"
@@ -21,7 +38,6 @@
     - various minor fixes
   - frida_mode:
     - fixes for new MacOS + M4 hardware
-
 
 ### Version ++4.31c (release)
   - SAND mode added (docs/SAND.md) for more effecient fuzzing with sanitizers

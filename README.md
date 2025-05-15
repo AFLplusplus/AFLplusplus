@@ -4,7 +4,7 @@
 
 Release version: [4.32c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.32c
+GitHub version: 4.33a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -230,7 +230,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     fuzzah                                @intrigus-lgtm
     Yaakov Saxon                          Sergej Schumilo
     Ziqiao Kong                           Ryan Berger
-    Sangjun Park
+    Sangjun Park                          Scott Guest
   ```
 
 </details>

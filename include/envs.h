@@ -10,6 +10,7 @@ static char *afl_environment_deprecated[] = {
     "AFL_DEFER_FORKSRV",
     "AFL_POST_LIBRARY",
     "AFL_PERSISTENT",
+    "AFL_SAN_NO_INST",
     NULL
 
 };
@@ -118,7 +119,8 @@ static char *afl_environment_variables[] = {
     "AFL_CFISAN_VERBOSE", "AFL_USE_LSAN", "AFL_WINE_PATH", "AFL_NO_SNAPSHOT",
     "AFL_EXPAND_HAVOC_NOW", "AFL_USE_FASAN", "AFL_USE_QASAN",
     "AFL_PRINT_FILENAMES", "AFL_PIZZA_MODE", "AFL_NO_FASTRESUME",
-    "AFL_SAN_ABSTRACTION", "AFL_SAN_NO_INST", "AFL_SAN_RECOVER", NULL};
+    "AFL_SAN_ABSTRACTION", "AFL_LLVM_ONLY_FSRV", "AFL_GCC_ONLY_FRSV",
+    "AFL_SAN_RECOVER", "AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT", NULL};
 
 extern char *afl_environment_variables[];
 

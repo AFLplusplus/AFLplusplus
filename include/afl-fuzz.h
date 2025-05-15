@@ -770,6 +770,7 @@ typedef struct afl_state {
 #define FOREIGN_SYNCS_MAX 32U
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
+  char               *foreign_file;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
@@ -1180,7 +1181,7 @@ u8          havoc_mutation_probability_py(void *);
 u8          queue_get_py(void *, const u8 *);
 const char *introspection_py(void *);
 u8          queue_new_entry_py(void *, const u8 *, const u8 *);
-void        splice_optout(void *);
+void        splice_optout_py(void *);
 void        deinit_py(void *);
 
 #endif
@@ -1278,7 +1279,6 @@ u8   fuzz_one(afl_state_t *);
 #ifdef HAVE_AFFINITY
 void bind_to_free_cpu(afl_state_t *);
 #endif
-void   setup_post(afl_state_t *);
 void   read_testcases(afl_state_t *, u8 *);
 void   perform_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t *);

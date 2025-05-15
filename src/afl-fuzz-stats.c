@@ -28,8 +28,13 @@
 #include "envs.h"
 #include <limits.h>
 
-static char fuzzing_state[4][12] = {"started :-)", "in progress", "final phase",
-                                    "finished..."};
+//  7 is the number of characters in a color control code
+// 11 is the number of characters in the fuzzing state itself
+//  5 is the number of characters in `cRST`
+//  1 is for the null character
+static char fuzzing_state[4][7 + 11 + 5 + 1] = {
+
+    "started :-)", "in progress", "final phase", cRED "finished..." cRST};
 
 char *get_fuzzing_state(afl_state_t *afl) {
 
@@ -54,13 +59,13 @@ char *get_fuzzing_state(afl_state_t *afl) {
     u64 percent_cur = last_find_100 / cur_run_time;
     u64 percent_total = last_find_100 / cur_total_run_time;
 
-    if (unlikely(percent_cur >= 80 && percent_total >= 80)) {
+    if (unlikely(percent_cur >= 75 && percent_total >= 75)) {
 
       if (unlikely(afl->afl_env.afl_exit_when_done)) { afl->stop_soon = 2; }
 
       return fuzzing_state[3];
 
-    } else if (unlikely(percent_cur >= 55 && percent_total >= 55)) {
+    } else if (unlikely(percent_cur >= 50 && percent_total >= 50)) {
 
       return fuzzing_state[2];
 

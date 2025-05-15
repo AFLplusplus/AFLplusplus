@@ -317,7 +317,15 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (unlikely(afl->syncing_party)) {
 
-    sprintf(ret, "sync:%s,src:%06u", afl->syncing_party, afl->syncing_case);
+    if (unlikely(afl->foreign_file)) {
+
+      sprintf(ret, "sync:%s,src:%.20s", afl->syncing_party, afl->foreign_file);
+
+    } else {
+
+      sprintf(ret, "sync:%s,src:%06u", afl->syncing_party, afl->syncing_case);
+
+    }
 
   } else {
 
@@ -469,8 +477,6 @@ void write_crash_readme(afl_state_t *afl) {
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
 
-  u8 classified = 0;
-
   if (unlikely(len == 0)) { return 0; }
 
   if (unlikely(fault == FSRV_RUN_TMOUT && afl->afl_env.afl_ignore_timeouts)) {
@@ -479,7 +485,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       classify_counts(&afl->fsrv);
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      classified = 1;
 
       // Saturated increment
       if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
@@ -494,12 +499,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
   u8  new_bits = 0, keeping = 0, res, is_timeout = 0, need_hash = 1;
+  u8  classified = 0;
+  u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u64 cksum = 0;
   u32 cksum_simplified = 0, cksum_unique = 0;
-  u8  san_fault = 0;
-  u8  san_idx = 0;
-  u8  feed_san = 0;
 
   afl->san_case_status = 0;
 
@@ -510,6 +514,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
     classify_counts(&afl->fsrv);
+    classified = 1;
     need_hash = 0;
 
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -546,8 +551,17 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (unlikely(afl->san_binary_length) &&
         unlikely(afl->san_abstraction == COVERAGE_INCREASE)) {
 
-      /* Check if the input increase the coverage */
-      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+      if (classified) {
+
+        /* We could have classified the bits in SAND with COVERAGE_INCREASE */
+        new_bits = has_new_bits(afl, afl->virgin_bits);
+
+      } else {
+
+        new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+        classified = 1;
+
+      }
 
       if (unlikely(new_bits)) { feed_san = 1; }
 
@@ -636,6 +650,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       } else {
 
         new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+        classified = 1;
 
       }
 
@@ -859,7 +874,12 @@ may_save_fault:
         }
 
         new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
-        classify_counts(&afl->fsrv);
+        if (!classified) {
+
+          classify_counts(&afl->fsrv);
+          classified = 1;
+
+        }
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if

@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.32c"
+#define VERSION "++4.33a"
 
 /******************************************************
  *                                                    *
@@ -171,8 +171,9 @@
 #define EXEC_TM_ROUND 20U
 
 /* 64bit arch MACRO */
-#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) || \
-     (defined(__riscv) && __riscv_xlen == 64))
+#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) ||    \
+     (defined(__riscv) && __riscv_xlen == 64) || defined(__powerpc64le__) || \
+     defined(__s390x__) || defined(__loongarch64))
   #define WORD_SIZE_64 1
 #endif
 
