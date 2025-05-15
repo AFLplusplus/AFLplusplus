@@ -70,8 +70,6 @@ extern "C" {
   #define SECTION_RODATA __attribute__((used, retain)) __attribute__((section (".rodata")))
 #endif
 
-
-
 // AFL++ shared memory fuzz cases
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
