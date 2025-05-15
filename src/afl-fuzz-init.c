@@ -2915,7 +2915,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
-  size_t shm_fuzz_map_size = MAX_FILE + sizeof(u32);
+  size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
   u8 *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_map_size, 1);
   afl->shm_fuzz->shmemfuzz_mode = 1;
 

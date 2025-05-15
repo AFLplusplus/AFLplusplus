@@ -296,7 +296,7 @@ static void __afl_map_shm_fuzz() {
 #ifdef USEMMAP
 
     // Newer afl-fuzz versions will set a shm_fuzz page size env, else fall back
-    size_t shm_fuzz_map_size = MAX_FILE + sizeof(u32);
+    size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
     char *map_size_env = getenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
     if (map_size_env != NULL) {
       char* endptr;
