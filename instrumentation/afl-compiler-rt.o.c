@@ -303,7 +303,7 @@ static void __afl_map_shm_fuzz() {
       errno = 0;
       shm_fuzz_map_size = (size_t)strtoul(map_size_env, &endptr, 10);
       if (errno != 0 || shm_fuzz_map_size == 0) {
-        perror("shm_fuzz page size parsing");
+        perror("shm_fuzz mapping size parsing");
         send_forkserver_error(FS_ERROR_SHM_OPEN);
         _exit(1);
       }

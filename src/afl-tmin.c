@@ -1487,7 +1487,7 @@ int main(int argc, char **argv_orig, char **envp) {
   shm_fuzz->shmemfuzz_mode = 1;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 
-  u8 *shm_fuzz_map_size_str = alloc_printf("%d", shm_fuzz_map_size);
+  u8 *shm_fuzz_map_size_str = alloc_printf("%zu", shm_fuzz_map_size);
   setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
   ck_free(shm_fuzz_map_size_str);
 
