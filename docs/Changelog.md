@@ -10,6 +10,7 @@
       to disable fork, see docs (thanks to @alexandredoyen29)
     - Fix for FAST power schedules (introduced in 4.32c) (thanks to @kcwu)
     - Colors for NO_UI output (thanks to @smoelius)
+    - Fix potential sync issues when resuming sessions
     - more 64 bit archicture support by @maribu
   - afl-cc:
     - Fix to make AFL_SAN_NO_INST work with gcc_plugin
