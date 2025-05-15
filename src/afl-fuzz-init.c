@@ -760,20 +760,9 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   if (nl_cnt) {
 
     u32 done = 0;
-
-    if (unlikely(afl->in_place_resume)) {
-
-      i = nl_cnt;
-
-    } else {
-
-      i = 0;
-
-    }
+    i = 0;
 
     do {
-
-      if (unlikely(afl->in_place_resume)) { --i; }
 
       struct stat st;
       u8          dfn[PATH_MAX];
@@ -854,21 +843,11 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       }
 
     next_entry:
-      if (unlikely(afl->in_place_resume)) {
-
-        if (unlikely(i == 0)) { done = 1; }
-
-      } else {
-
-        if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
-
-      }
+      if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
 
     } while (!done);
 
   }
-
-  // if (getenv("MYTEST")) afl->in_place_resume = 0;
 
   free(nl);                                                  /* not tracked */
 
@@ -913,9 +892,21 @@ void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q;
   u32                 cal_failures = 0, idx;
-  u8                 *use_mem;
+  u8                 *use_mem, done = 0;
 
-  for (idx = 0; idx < afl->queued_items; idx++) {
+  if (afl->in_place_resume) {
+
+    idx = afl->queued_items;
+
+  } else {
+
+    idx = 0;
+
+  }
+
+  do {
+
+    if (afl->in_place_resume) { --idx; }
 
     q = afl->queue_buf[idx];
     if (unlikely(!q || q->disabled)) { continue; }
@@ -1382,7 +1373,17 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
-  }
+    if (!afl->in_place_resume) {
+
+      if (++idx >= afl->queued_items) { done = 1; }
+
+    } else {
+
+      if (idx == 0) { done = 1; }
+
+    }
+
+  } while (!done);
 
   if (cal_failures) {
 
