@@ -296,13 +296,13 @@ static void __afl_map_shm_fuzz() {
 #ifdef USEMMAP
 
     // Newer afl-fuzz versions will set a shm_fuzz page size env, else fall back
-    size_t shm_fuzz_page_size = MAX_FILE + sizeof(u32);
-    char *page_size_env = getenv(SHM_FUZZ_PAGE_SIZE_ENV_VAR);
-    if (page_size_env != NULL) {
+    size_t shm_fuzz_map_size = MAX_FILE + sizeof(u32);
+    char *map_size_env = getenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
+    if (map_size_env != NULL) {
       char* endptr;
       errno = 0;
-      shm_fuzz_page_size = (size_t)strtoul(page_size_env, &endptr, 10);
-      if (errno != 0 || shm_fuzz_page_size == 0) {
+      shm_fuzz_map_size = (size_t)strtoul(map_size_env, &endptr, 10);
+      if (errno != 0 || shm_fuzz_map_size == 0) {
         perror("shm_fuzz page size parsing");
         send_forkserver_error(FS_ERROR_SHM_OPEN);
         _exit(1);
@@ -323,7 +323,7 @@ static void __afl_map_shm_fuzz() {
     }
 
     map =
-        (u8 *)mmap(0, shm_fuzz_page_size, PROT_READ, MAP_SHARED, shm_fd, 0);
+        (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);

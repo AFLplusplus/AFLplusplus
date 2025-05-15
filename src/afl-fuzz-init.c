@@ -2915,15 +2915,15 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
-  size_t shm_fuzz_page_size = MAX_FILE + sizeof(u32);
-  u8 *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_page_size, 1);
+  size_t shm_fuzz_map_size = MAX_FILE + sizeof(u32);
+  u8 *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_map_size, 1);
   afl->shm_fuzz->shmemfuzz_mode = 1;
 
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 
-  u8 *shm_fuzz_page_size_str = alloc_printf("%d", shm_fuzz_page_size);
-  setenv(SHM_FUZZ_PAGE_SIZE_ENV_VAR, shm_fuzz_page_size_str, 1);
-  ck_free(shm_fuzz_page_size_str);
+  u8 *shm_fuzz_map_size_str = alloc_printf("%d", shm_fuzz_map_size);
+  setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+  ck_free(shm_fuzz_map_size_str);
 
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
