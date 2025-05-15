@@ -1561,8 +1561,9 @@ void pivot_inputs(afl_state_t *afl) {
        ID matches the one we'd assign, just use the original file name.
        This is valuable for resuming fuzzing runs. */
 
-    if (!strncmp(rsl, CASE_PREFIX, 3) &&
-        sscanf(rsl + 3, "%06u", &orig_id) == 1 && orig_id == id) {
+    if (afl->in_place_resume ||
+        (!strncmp(rsl, CASE_PREFIX, 3) &&
+         sscanf(rsl + 3, "%06u", &orig_id) == 1 && orig_id == id)) {
 
       u8 *src_str;
       u32 src_id;
