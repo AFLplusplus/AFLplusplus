@@ -1541,7 +1541,7 @@ int main(int argc, char **argv_orig, char **envp) {
   atexit(at_exit_handler);
 
   size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
-  u8 *map = afl_shm_init(shm_fuzz, shm_fuzz_map_size, 1);
+  u8    *map = afl_shm_init(shm_fuzz, shm_fuzz_map_size, 1);
   shm_fuzz->shmemfuzz_mode = true;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 

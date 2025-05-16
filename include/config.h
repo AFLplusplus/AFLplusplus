@@ -432,7 +432,7 @@ and the mapping size to the called program. */
 
 /* Default size of the shared memory fuzz map.
 We add 4 byte for one u32 length field. */
-#define SHM_FUZZ_MAP_SIZE_DEFAULT (MAX_FILE +  4)
+#define SHM_FUZZ_MAP_SIZE_DEFAULT (MAX_FILE + 4)
 
 /* Other less interesting, internal-only variables. */
 

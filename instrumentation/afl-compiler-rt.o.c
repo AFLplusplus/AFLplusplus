@@ -297,16 +297,20 @@ static void __afl_map_shm_fuzz() {
 
     // Newer afl-fuzz versions will set a shm_fuzz page size env, else fall back
     size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
-    char *map_size_env = getenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
+    char  *map_size_env = getenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
     if (map_size_env != NULL) {
-      char* endptr;
+
+      char *endptr;
       errno = 0;
       shm_fuzz_map_size = (size_t)strtoul(map_size_env, &endptr, 10);
       if (errno != 0 || shm_fuzz_map_size == 0) {
+
         perror("shm_fuzz mapping size parsing");
         send_forkserver_error(FS_ERROR_SHM_OPEN);
         _exit(1);
+
       }
+
     }
 
     const char *shm_file_path = id_str;
@@ -322,8 +326,7 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    map =
-        (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
+    map = (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);
