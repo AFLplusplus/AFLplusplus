@@ -699,6 +699,35 @@ abort_calibration:
 
 }
 
+bool is_known_case(afl_state_t *afl, u8 *name, void *mem, u32 len) {
+
+  int sync_id_pos;
+  u32 id, src_id;
+  if (sscanf(name, "id:%06u,sync:%n%*[^,],src:%06u", &id, &sync_id_pos,
+             &src_id) != 2)
+    return false;
+
+  if (strncmp(name + sync_id_pos, afl->sync_id, strlen(afl->sync_id)) != 0)
+    return false;
+  if (name[sync_id_pos + strlen(afl->sync_id)] != ',') return false;
+  if (src_id < 0 || src_id >= afl->queued_items) return false;
+
+  struct queue_entry *q = afl->queue_buf[src_id];
+  if (q->len != len) return false;
+
+  if (q->testcase_buf) return memcmp(q->testcase_buf, mem, len) == 0;
+
+  int fd = open((char *)q->fname, O_RDONLY);
+  if (fd < 0) return false;
+  u8 *buf = malloc(len);
+  ck_read(fd, buf, len, q->fname);
+  close(fd);
+  bool result = (memcmp(buf, mem, len) == 0);
+  free(buf);
+  return result;
+
+}
+
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(afl_state_t *afl) {
@@ -896,26 +925,30 @@ void sync_fuzzers(afl_state_t *afl) {
 
         if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
 
-        /* See what happens. We rely on save_if_interesting() to catch major
-           errors and save the test case. */
+        if (!is_known_case(afl, namelist[o]->d_name, mem, st.st_size)) {
 
-        u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
+          /* See what happens. We rely on save_if_interesting() to catch major
+             errors and save the test case. */
 
-        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+          u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
 
-        if (afl->stop_soon) {
+          fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
-          munmap(mem, st.st_size);
-          close(fd);
+          if (afl->stop_soon) {
 
-          goto close_sync;
+            munmap(mem, st.st_size);
+            close(fd);
+
+            goto close_sync;
+
+          }
+
+          afl->syncing_party = sd_ent->d_name;
+          afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
+          show_stats(afl);
+          afl->syncing_party = 0;
 
         }
-
-        afl->syncing_party = sd_ent->d_name;
-        afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
-        show_stats(afl);
-        afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
 
