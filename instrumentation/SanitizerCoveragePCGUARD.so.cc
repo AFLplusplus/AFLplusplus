@@ -1055,10 +1055,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             if (icmp && sel->getCondition() == icmp) {
 
               usedInSelectDecision = true;
+              break;
 
             } else if (fcmp && sel->getCondition() == fcmp) {
 
               usedInSelectDecision = true;
+              break;
 
             }
 
