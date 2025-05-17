@@ -4,6 +4,9 @@
 #include <glib.h>
 #include "common.h"
 #include "exports.h"
+#include <stdint.h>
+
+static uint64_t afl_qemu_exitpoint = 0;
 
 void        *handle;
 struct conf *config;
@@ -70,6 +73,11 @@ void patch_block_trans_cb(struct qemu_plugin_tb *tb) {
 
   unsigned long long addr;
   addr = qemu_plugin_tb_vaddr(tb);
+
+  if (afl_qemu_exitpoint && addr == afl_qemu_exitpoint) {
+    fprintf(stderr, "[AFL_QEMU] Exitpoint hit at 0x%llx — exiting now.\n", addr);
+    exit(0);
+  }
 
   if (addr == config->entry_addr) {
 
@@ -150,6 +158,14 @@ void patch_vpu_init_cb(unsigned int vcpu_index) {
 
 }
 
+void setup_afl_qemu_exitpoint() {
+  char *env = getenv("AFL_QEMU_EXITPOINT");
+  if (env) {
+    afl_qemu_exitpoint = strtoull(env, NULL, 16);
+    fprintf(stderr, "[AFL_QEMU] Exitpoint set to 0x%llx\n", afl_qemu_exitpoint);
+  }
+}
+
 void patch_init(char *hook_lib) {
 
   // TODO make OS agnostic, remove dlopen
@@ -169,5 +185,6 @@ void patch_init(char *hook_lib) {
   set_signal_callback(handle_signal_callback);
   out = g_byte_array_new();
 
+  setup_afl_qemu_exitpoint();
 }
 
