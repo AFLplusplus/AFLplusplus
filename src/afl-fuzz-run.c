@@ -803,9 +803,9 @@ void sync_fuzzers(afl_state_t *afl) {
     if (id_fd2 >= 0) close(id_fd2);
 
     // It could be that the target syncing instance was restarted, check!
-    time_t      last_mtime = {};
+    time_t      last_mtime = 0;
     char        id0[PATH_MAX];
-    glob_t      glob_result;
+    glob_t      glob_result = {};
     struct stat st;
 
     if (stat(qd_synced_path, &st) == 0) { last_mtime = st.st_mtime; }
@@ -816,6 +816,7 @@ void sync_fuzzers(afl_state_t *afl) {
         stat(glob_result.gl_pathv[0], &st) == 0) {
 
       // we found exactly one "id:000000,*" file and obtained its mtime
+      globfree(glob_result);
 
       if (last_mtime && last_mtime < st.st_mtime) {
 
@@ -824,8 +825,7 @@ void sync_fuzzers(afl_state_t *afl) {
         // this time
         min_accept = 0;
         ck_write(id_fd, &min_accept, sizeof(u32), qd_synced_path);
-        close(id_fd);
-        continue;
+        goto close_sync;
 
       }
 
@@ -833,8 +833,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
       // something went wrong - this cannot be right, mabye the instance is
       // restarting, skip
-      close(id_fd);
-      continue;
+      globfree(glob_result);
+      goto close_sync;
 
     }
 
