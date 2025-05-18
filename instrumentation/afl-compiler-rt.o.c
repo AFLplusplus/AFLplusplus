@@ -382,6 +382,7 @@ static void __afl_map_shm(void) {
     if (getenv("AFL_DUMP_MAP_SIZE")) {
 
       printf("%u\n", __afl_map_size);
+      fflush(stdout);
       exit(-1);
 
     }
