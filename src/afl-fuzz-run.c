@@ -816,7 +816,7 @@ void sync_fuzzers(afl_state_t *afl) {
         stat(glob_result.gl_pathv[0], &st) == 0) {
 
       // we found exactly one "id:000000,*" file and obtained its mtime
-      globfree(glob_result);
+      globfree(&glob_result);
 
       if (last_mtime && last_mtime < st.st_mtime) {
 
@@ -833,7 +833,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
       // something went wrong - this cannot be right, mabye the instance is
       // restarting, skip
-      globfree(glob_result);
+      globfree(&glob_result);
       goto close_sync;
 
     }
