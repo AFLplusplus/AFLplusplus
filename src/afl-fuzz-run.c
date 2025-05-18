@@ -26,8 +26,10 @@
 
 #include "afl-fuzz.h"
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <limits.h>
+#include <glob.h>
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
@@ -715,8 +717,7 @@ void sync_fuzzers(afl_state_t *afl) {
   afl->cur_depth = 0;
 
   u64 sync_start_us = get_cur_time_us();
-  /* Look at the entries created for every other fuzzer in the sync directory.
-   */
+  // Look at the entries created for every other fuzzer in the sync directory.
 
   while ((sd_ent = readdir(sd))) {
 
@@ -729,7 +730,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     s32 id_fd;
 
-    /* Skip dot files and our own output directory. */
+    // Skip dot files and our own output directory.
 
     if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
 
@@ -764,14 +765,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     synced++;
 
-    /* document the attempt to sync to this instance */
-
-    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
-    id_fd =
-        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
-    if (id_fd >= 0) close(id_fd);
-
-    /* Skip anything that doesn't have a queue/ subdirectory. */
+    // Skip anything that doesn't have a queue/ subdirectory.
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
@@ -787,7 +781,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    /* Retrieve the ID of the last seen test case. */
+    // Retrieve the ID of the last seen test case.
 
     sprintf(qd_synced_path, "%s/.synced/%s", afl->out_dir, sd_ent->d_name);
 
@@ -799,6 +793,48 @@ void sync_fuzzers(afl_state_t *afl) {
 
       next_min_accept = min_accept;
       lseek(id_fd, 0, SEEK_SET);
+
+    }
+
+    // now document the attempt to sync to this instance
+    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
+    int id_fd2 =
+        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+    if (id_fd2 >= 0) close(id_fd2);
+
+    // It could be that the target syncing instance was restarted, check!
+    time_t      last_mtime = {};
+    char        id0[PATH_MAX];
+    glob_t      glob_result;
+    struct stat st;
+
+    if (stat(qd_synced_path, &st) == 0) { last_mtime = st.st_mtime; }
+
+    snprintf(id0, sizeof(id0), "%s/id:000000,*", qd_path);
+
+    if (glob(id0, 0, NULL, &glob_result) == 0 && glob_result.gl_pathc == 1 &&
+        stat(glob_result.gl_pathv[0], &st) == 0) {
+
+      // we found exactly one "id:000000,*" file and obtained its mtime
+
+      if (last_mtime && last_mtime < st.st_mtime) {
+
+        // the first entry is newer than when we synced last - instance was
+        // restarted - we have to reset our counter and will skip this instance
+        // this time
+        min_accept = 0;
+        ck_write(id_fd, &min_accept, sizeof(u32), qd_synced_path);
+        close(id_fd);
+        continue;
+
+      }
+
+    } else {
+
+      // something went wrong - this cannot be right, mabye the instance is
+      // restarting, skip
+      close(id_fd);
+      continue;
 
     }
 
