@@ -424,9 +424,15 @@
 
 #define SHM_ENV_VAR "__AFL_SHM_ID"
 
-/* Environment variable used to pass SHM FUZZ ID to the called program. */
+/* Environment variable used to pass shared memory fuzz map id
+and the mapping size to the called program. */
 
 #define SHM_FUZZ_ENV_VAR "__AFL_SHM_FUZZ_ID"
+#define SHM_FUZZ_MAP_SIZE_ENV_VAR "__AFL_SHM_FUZZ_MAP_SIZE"
+
+/* Default size of the shared memory fuzz map.
+We add 4 byte for one u32 length field. */
+#define SHM_FUZZ_MAP_SIZE_DEFAULT (MAX_FILE + 4)
 
 /* Other less interesting, internal-only variables. */
 
