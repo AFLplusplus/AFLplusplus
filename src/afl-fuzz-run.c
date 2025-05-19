@@ -701,15 +701,25 @@ abort_calibration:
 
 bool is_known_case(afl_state_t *afl, u8 *name, void *mem, u32 len) {
 
-  int sync_id_pos;
-  u32 id, src_id;
-  if (sscanf(name, "id:%06u,sync:%n%*[^,],src:%06u", &id, &sync_id_pos,
-             &src_id) != 2)
-    return false;
+  static char coming_from_me_str[16 + SYNC_ID_MAX_LEN];
+  static int  coming_from_me_len = 0;
+  if (!coming_from_me_len) {
 
-  if (strncmp(name + sync_id_pos, afl->sync_id, strlen(afl->sync_id)) != 0)
-    return false;
-  if (name[sync_id_pos + strlen(afl->sync_id)] != ',') return false;
+    snprintf(coming_from_me_str, sizeof(coming_from_me_str),
+             ",sync:%s,src:", afl->sync_id);
+    coming_from_me_len = strlen(coming_from_me_str);
+
+  }
+
+  // 9 = strlen("id:000000"), 6 = strlen("000000")
+  if (strlen(name) < 9 + coming_from_me_len + 6) return false;
+  char *p = name + 9;
+  while ('0' <= *p && *p <= '9')
+    p++;
+
+  if (strncmp(p, coming_from_me_str, coming_from_me_len) != 0) return false;
+
+  int src_id = atoi(p + coming_from_me_len);
   if (src_id < 0 || src_id >= afl->queued_items) return false;
 
   struct queue_entry *q = afl->queue_buf[src_id];

@@ -339,6 +339,10 @@
 
 #define AVG_SMOOTHING 16
 
+/* Max length of sync id (the id after -M and -S) */
+
+#define SYNC_ID_MAX_LEN 50
+
 /* Sync interval (every n havoc cycles): */
 
 #define SYNC_INTERVAL 8
