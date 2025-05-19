@@ -1096,6 +1096,26 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           }
 
+          if (debug) {
+
+            if (DILocation *Loc = IN.getDebugLoc()) {
+
+              llvm::errs() << "DEBUG " << Loc->getFilename() << ":"
+                           << Loc->getLine() << ":";
+              std::string path =
+                  Loc->getDirectory().str() + "/" + Loc->getFilename().str();
+              std::ifstream sourceFile(path);
+              std::string   lineContent;
+              for (unsigned line = 1; line <= Loc->getLine(); ++line)
+                std::getline(sourceFile, lineContent);
+              llvm::errs() << lineContent << "\n";
+
+            }
+
+            errs() << *(&IN) << "\n";
+
+          }
+
           auto res = icmp;
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
@@ -1114,6 +1134,26 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         } else if ((fcmp = dyn_cast<FCmpInst>(&IN))) {
 
           if (!fcmp->getType()->isIntegerTy(1)) { continue; }
+
+          if (debug) {
+
+            if (DILocation *Loc = IN.getDebugLoc()) {
+
+              llvm::errs() << "DEBUG " << Loc->getFilename() << ":"
+                           << Loc->getLine() << ":";
+              std::string path =
+                  Loc->getDirectory().str() + "/" + Loc->getFilename().str();
+              std::ifstream sourceFile(path);
+              std::string   lineContent;
+              for (unsigned line = 1; line <= Loc->getLine(); ++line)
+                std::getline(sourceFile, lineContent);
+              llvm::errs() << lineContent << "\n";
+
+            }
+
+            errs() << *(&IN) << "\n";
+
+          }
 
           auto res = fcmp;
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
