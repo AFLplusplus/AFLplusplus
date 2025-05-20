@@ -738,6 +738,8 @@ static bool is_known_case(afl_state_t *afl, u8 *name) {
 
 }
 
+/* Write into .sync/INSTANCE.max how many queue files were there on startup */
+
 void check_sync_fuzzers(afl_state_t *afl) {
 
   if (unlikely(afl->afl_env.afl_no_sync)) { return; }
