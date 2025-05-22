@@ -916,7 +916,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     if (likely(stat(id0, &st) == 0)) {
 
-      if (unlikely(last_mtime && last_mtime < st.st_mtime)) {
+      if (unlikely(last_mtime && last_mtime <= st.st_mtime)) {
 
         // the first entry is newer than when we synced last - instance was
         // restarted - we have to reset our counter and will skip this instance
