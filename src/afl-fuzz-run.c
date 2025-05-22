@@ -699,6 +699,110 @@ abort_calibration:
 
 }
 
+/* Do not sync items that were synced from us */
+
+static bool is_known_case(afl_state_t *afl, u8 *name) {
+
+  static char coming_from_me_str[SYNC_ID_MAX_LEN + 2];
+  static u32  coming_from_me_len = 0;
+  static u32  min_len = 15 + 4 + 6;
+
+  if (!coming_from_me_len) {
+
+    snprintf(coming_from_me_str, sizeof(coming_from_me_str), "%s,",
+             afl->sync_id);
+    min_len += coming_from_me_len = strlen(coming_from_me_str);
+
+  }
+
+  // file name length long enough so it can be ours
+  if (unlikely(strlen(name) < min_len)) { return false; }
+  // is it based on a sync? allow optimizer to make an integer comparison
+  if (likely(memcmp(name + 10, "sync", 4) != 0)) { return false; }
+  // we jump over the ':' after 'sync' and compare to our sync name
+  if (unlikely(memcmp(name + 15, coming_from_me_str, coming_from_me_len) !=
+               0)) {
+
+    return false;
+
+  }
+
+  /* We do not need this as we now look on startup how many files are in sync
+     targets.
+  int src_id = atoi(name + 15 + coming_from_me_len + 4);
+  if (unlikely(src_id >= afl->queued_items)) return false;
+  */
+
+  // yes it is highly likely a current testcase we already know
+  return true;
+
+}
+
+/* Write into .sync/INSTANCE.max how many queue files were there on startup */
+
+void check_sync_fuzzers(afl_state_t *afl) {
+
+  if (unlikely(afl->afl_env.afl_no_sync)) { return; }
+
+  DIR           *sd, *dir;
+  struct dirent *sd_ent, *entry;
+  u8             qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX];
+
+  sd = opendir(afl->sync_dir);
+  if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
+
+  u64 sync_start_us = get_cur_time_us();
+  // Look at the entries created for every other fuzzer in the sync directory.
+
+  while ((sd_ent = readdir(sd))) {
+
+    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+
+      continue;
+
+    }
+
+    sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
+
+    dir = opendir(qd_path);
+    if (dir) {
+
+      u32 max_start_id = 0;
+      while ((entry = readdir(dir)) != NULL) {
+
+        max_start_id++;
+
+      }
+
+      if (max_start_id > 4) {
+
+        sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
+                sd_ent->d_name);
+        s32 max_fd = open(qd_synced_maxid, O_WRONLY | O_CREAT | O_TRUNC,
+                          DEFAULT_PERMISSION);
+
+        if (max_fd >= 0) {
+
+          max_start_id -= 4;  // without ".", "..", ".state" and counting from 0
+          write(max_fd, &max_start_id, sizeof(u32));
+          close(max_fd);
+
+        }
+
+      }
+
+    }
+
+    closedir(dir);
+
+  }
+
+  closedir(sd);
+
+  update_sync_time(afl, &sync_start_us);
+
+}
+
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(afl_state_t *afl) {
@@ -725,9 +829,8 @@ void sync_fuzzers(afl_state_t *afl) {
     // iteration
     update_sync_time(afl, &sync_start_us);
 
-    u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
-    u32 min_accept = 0, next_min_accept = 0;
-
+    u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX];
+    u32 min_accept = 0, next_min_accept = 0, max_start_id = 0;
     s32 id_fd;
 
     // Skip dot files and our own output directory.
@@ -805,24 +908,20 @@ void sync_fuzzers(afl_state_t *afl) {
     // It could be that the target syncing instance was restarted, check!
     time_t      last_mtime = 0;
     char        id0[PATH_MAX];
-    glob_t      glob_result = {};
     struct stat st;
 
     if (stat(qd_synced_path, &st) == 0) { last_mtime = st.st_mtime; }
 
-    snprintf(id0, sizeof(id0), "%s/id:000000,*", qd_path);
+    snprintf(id0, sizeof(id0), "%s/%s/cmdline", afl->sync_dir, sd_ent->d_name);
 
-    if (glob(id0, 0, NULL, &glob_result) == 0 && glob_result.gl_pathc == 1 &&
-        stat(glob_result.gl_pathv[0], &st) == 0) {
+    if (likely(stat(id0, &st) == 0)) {
 
-      // we found exactly one "id:000000,*" file and obtained its mtime
-      globfree(&glob_result);
-
-      if (last_mtime && last_mtime < st.st_mtime) {
+      if (unlikely(last_mtime && last_mtime <= st.st_mtime)) {
 
         // the first entry is newer than when we synced last - instance was
         // restarted - we have to reset our counter and will skip this instance
-        // this time
+        // this time. It could also be this was trimmed later, or restated with
+        // resume-in-place though but better be safe.
         min_accept = 0;
         ck_write(id_fd, &min_accept, sizeof(u32), qd_synced_path);
         goto close_sync;
@@ -833,8 +932,19 @@ void sync_fuzzers(afl_state_t *afl) {
 
       // something went wrong - this cannot be right, mabye the instance is
       // restarting, skip
-      globfree(&glob_result);
       goto close_sync;
+
+    }
+
+    // check if there is a file documented the maximum id seen on startup
+    sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
+    s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
+
+    if (max_fd >= 0) {
+
+      read(max_fd, &max_start_id, sizeof(u32));
+      close(max_fd);
+      if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
 
     }
 
@@ -891,33 +1001,36 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (st.st_size && st.st_size <= MAX_FILE) {
 
-        u8  fault;
-        u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (likely(next_min_accept < max_start_id ||
+                   !is_known_case(afl, namelist[o]->d_name))) {
 
-        if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
+          /* See what happens. We rely on save_if_interesting() to catch major
+             errors and save the test case. */
 
-        /* See what happens. We rely on save_if_interesting() to catch major
-           errors and save the test case. */
+          u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-        u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
+          if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
 
-        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+          u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
 
-        if (afl->stop_soon) {
+          u8 fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
+          if (afl->stop_soon) {
+
+            munmap(mem, st.st_size);
+            close(fd);
+
+            goto close_sync;
+
+          }
+
+          afl->syncing_party = sd_ent->d_name;
+          afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
+          show_stats(afl);
+          afl->syncing_party = 0;
           munmap(mem, st.st_size);
-          close(fd);
-
-          goto close_sync;
 
         }
-
-        afl->syncing_party = sd_ent->d_name;
-        afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
-        show_stats(afl);
-        afl->syncing_party = 0;
-
-        munmap(mem, st.st_size);
 
       }
 

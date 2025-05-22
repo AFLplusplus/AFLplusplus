@@ -2791,9 +2791,9 @@ void fix_up_sync(afl_state_t *afl) {
 
   }
 
-  if (strlen(afl->sync_id) > 50) {
+  if (strlen(afl->sync_id) > SYNC_ID_MAX_LEN) {
 
-    FATAL("sync_id max length is 50 characters");
+    FATAL("sync_id max length is %d characters", SYNC_ID_MAX_LEN);
 
   }
 
