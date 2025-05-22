@@ -71,6 +71,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
   if (shm->shmemfuzz_mode) {
 
     unsetenv(SHM_FUZZ_ENV_VAR);
+    unsetenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
 
   } else {
 

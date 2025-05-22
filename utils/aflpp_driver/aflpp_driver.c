@@ -65,9 +65,12 @@ extern "C" {
 #endif
 
 #if defined(__APPLE__) && defined(__MACH__)
- #define SECTION_RODATA __attribute__((used, retain)) __attribute__((section ("__RODATA,__rodata")))
+  #define SECTION_RODATA                                               \
+    __attribute__((used, retain)) __attribute__((section("__RODATA,__" \
+                                                         "rodata")))
 #else
-  #define SECTION_RODATA __attribute__((used, retain)) __attribute__((section (".rodata")))
+  #define SECTION_RODATA \
+    __attribute__((used, retain)) __attribute__((section(".rodata")))
 #endif
 
 // AFL++ shared memory fuzz cases
@@ -112,9 +115,8 @@ __attribute__((weak)) void __asan_unpoison_memory_region(
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 
 // Notify AFL about persistent mode.
-SECTION_RODATA static const char AFL_PERSISTENT[] =
-    "##SIG_AFL_PERSISTENT##";
-int __afl_persistent_loop(unsigned int);
+SECTION_RODATA static const char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
+int                              __afl_persistent_loop(unsigned int);
 
 // Notify AFL about deferred forkserver.
 SECTION_RODATA static const char AFL_DEFER_FORKSVR[] =

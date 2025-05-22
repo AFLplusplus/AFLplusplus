@@ -1412,66 +1412,50 @@ void perform_dry_run(afl_state_t *afl) {
 
     q = afl->queue_buf[idx];
     if (!q || q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
-    u32 done = 0;
 
-    for (i = idx + 1;
-         likely(i < afl->queued_items && afl->queue_buf[i] && !done); ++i) {
+    for (i = idx + 1; likely(i < afl->queued_items && afl->queue_buf[i]); ++i) {
 
       struct queue_entry *p = afl->queue_buf[i];
       if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
+      if (p->exec_cksum != q->exec_cksum) continue;
 
-      if (p->exec_cksum == q->exec_cksum) {
+      duplicates = 1;
 
-        duplicates = 1;
+      // we keep the shorter file
+      struct queue_entry *to_disable, *to_keep;
+      if (p->len >= q->len) {
 
-        // we keep the shorter file
-        if (p->len >= q->len) {
+        to_disable = p;
+        to_keep = q;
 
-          if (!p->was_fuzzed) {
+      } else {
 
-            p->was_fuzzed = 1;
-            afl->reinit_table = 1;
-            --afl->pending_not_fuzzed;
-            --afl->active_items;
-
-          }
-
-          p->disabled = 1;
-          p->perf_score = 0;
-
-          if (afl->debug) {
-
-            WARNF("Same coverage - %s is kept active, %s is disabled.",
-                  q->fname, p->fname);
-
-          }
-
-        } else {
-
-          if (!q->was_fuzzed) {
-
-            q->was_fuzzed = 1;
-            afl->reinit_table = 1;
-            --afl->pending_not_fuzzed;
-            --afl->active_items;
-
-          }
-
-          q->disabled = 1;
-          q->perf_score = 0;
-
-          if (afl->debug) {
-
-            WARNF("Same coverage - %s is kept active, %s is disabled.",
-                  p->fname, q->fname);
-
-          }
-
-          done = 1;  // end inner loop because outer loop entry is disabled now
-
-        }
+        to_disable = q;
+        to_keep = p;
 
       }
+
+      if (!to_disable->was_fuzzed) {
+
+        to_disable->was_fuzzed = 1;
+        afl->reinit_table = 1;
+        --afl->pending_not_fuzzed;
+        --afl->active_items;
+
+      }
+
+      to_disable->disabled = 1;
+      to_disable->perf_score = 0;
+
+      if (afl->debug) {
+
+        WARNF("Same coverage - %s is kept active, %s is disabled.",
+              to_keep->fname, to_disable->fname);
+
+      }
+
+      // end inner loop because outer loop entry is disabled now
+      if (to_disable == q) break;
 
     }
 
@@ -2807,9 +2791,9 @@ void fix_up_sync(afl_state_t *afl) {
 
   }
 
-  if (strlen(afl->sync_id) > 50) {
+  if (strlen(afl->sync_id) > SYNC_ID_MAX_LEN) {
 
-    FATAL("sync_id max length is 50 characters");
+    FATAL("sync_id max length is %d characters", SYNC_ID_MAX_LEN);
 
   }
 
@@ -2917,10 +2901,15 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
-  u8 *map = afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
+  u8    *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_map_size, 1);
   afl->shm_fuzz->shmemfuzz_mode = 1;
 
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+
+  u8 *shm_fuzz_map_size_str = alloc_printf("%zu", shm_fuzz_map_size);
+  setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+  ck_free(shm_fuzz_map_size_str);
 
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);

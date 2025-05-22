@@ -579,7 +579,7 @@ def main():
     afl_map_size = None
     if b"AFL_DUMP_MAP_SIZE" in open(args.exe, "rb").read():
         output = subprocess.run(
-            [args.exe], capture_output=True, env={"AFL_DUMP_MAP_SIZE": "1"}
+            [args.exe], capture_output=True, env={"AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": "detect_leaks=0"}
         ).stdout
         afl_map_size = int(output)
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
