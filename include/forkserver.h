@@ -242,6 +242,7 @@ typedef enum fsrv_run_result {
 
 void afl_fsrv_init(afl_forkserver_t *fsrv);
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
+void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
 u32  afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
