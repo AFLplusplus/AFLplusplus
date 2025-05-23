@@ -15,6 +15,8 @@
       (thanks to @kcwu for raising the issues and providing support!)
     - more 64 bit archicture support by @maribu
   - afl-cc:
+    - Added instrumenting hidden edges (approx 5% edges were not instrumented,
+      LLVM sancov overall misses 8% of edges compared to our implementation)
     - Fix to make AFL_SAN_NO_INST work with gcc_plugin
     - MacOS aflpp driver compilation fix (-fsanitize=fuzzer implementation)
     - Make AFL_DUMP_MAP_SIZE work even if the target has sanitizer issues
