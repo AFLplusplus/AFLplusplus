@@ -320,6 +320,63 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
 }
 
+void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
+
+  char *afl_preload;
+  char *frida_afl_preload = NULL;
+  if (get_afl_env("AFL_PRELOAD")) {
+
+    if (fsrv->qemu_mode) {
+
+      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
+
+    } else if (fsrv->frida_mode) {
+
+      afl_preload = getenv("AFL_PRELOAD");
+      u8 *frida_binary = find_afl_binary(argv0, "afl-frida-trace.so");
+      if (afl_preload) {
+
+        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+
+      } else {
+
+        frida_afl_preload = alloc_printf("%s", frida_binary);
+
+      }
+
+      ck_free(frida_binary);
+
+      setenv("LD_PRELOAD", frida_afl_preload, 1);
+#ifdef __APPLE__
+      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+#endif
+
+    } else {
+
+      /* CoreSight mode uses the default behavior. */
+
+      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+#ifdef __APPLE__
+      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+#endif
+
+    }
+
+  } else if (fsrv->frida_mode) {
+
+    u8 *frida_binary = find_afl_binary(argv0, "afl-frida-trace.so");
+    setenv("LD_PRELOAD", frida_binary, 1);
+#ifdef __APPLE__
+    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
+#endif
+    ck_free(frida_binary);
+
+  }
+
+  if (frida_afl_preload) { ck_free(frida_afl_preload); }
+
+}
+
 /* Wrapper for select() and read(), reading a 32 bit var.
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
