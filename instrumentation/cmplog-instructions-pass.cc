@@ -64,6 +64,8 @@ using namespace llvm;
 
 namespace {
 
+using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
+
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
 
@@ -92,6 +94,8 @@ class CmpLogInstructions : public ModulePass {
 #else
   bool runOnModule(Module &M) override;
 
+  bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT);
+
   #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
 
@@ -106,7 +110,7 @@ class CmpLogInstructions : public ModulePass {
 #endif
 
  private:
-  bool hookInstrs(Module &M);
+  bool hookInstrs(Module &M, DomTreeCallback DTCallback);
 
 };
 
@@ -158,7 +162,16 @@ Iterator Unique(Iterator first, Iterator last) {
 
 }
 
-bool CmpLogInstructions::hookInstrs(Module &M) {
+bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT) {
+
+  if (DT->dominates(To, From)) return true;
+  if (auto Next = To->getUniqueSuccessor())
+    if (DT->dominates(Next, From)) return true;
+  return false;
+
+}
+
+bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
 
   std::vector<Instruction *> icomps;
   LLVMContext               &C = M.getContext();
@@ -296,6 +309,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   for (auto &F : M) {
 
     if (!isInInstrumentList(&F, MNAME)) continue;
+    const DominatorTree *DT = DTCallback(F);
 
     for (auto &BB : F) {
 
@@ -303,6 +317,12 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
+
+          // skip loop comparisons
+          if (selectcmpInst->hasOneUse())
+            if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))
+              for (BasicBlock *B : BR->successors())
+                if (IsBackEdge(BR->getParent(), B, DT)) continue;
 
           icomps.push_back(selectcmpInst);
 
@@ -681,11 +701,19 @@ bool CmpLogInstructions::runOnModule(Module &M) {
 
 #endif
 
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
+
+    return &FAM.getResult<DominatorTreeAnalysis>(F);
+
+  };
+
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
   else
     be_quiet = 1;
-  bool ret = hookInstrs(M);
+
+  bool ret = hookInstrs(M, DTCallback);
   verifyModule(M);
 
 #if LLVM_MAJOR >= 11                                /* use new pass manager */

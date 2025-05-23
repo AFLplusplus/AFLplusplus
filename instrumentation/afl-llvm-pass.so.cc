@@ -227,7 +227,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   if (getenv("AFL_LLVM_ONLY_FSRV")) {
 
-    if (debug) { fprintf(stderr, "Instrument disabled\n"); }
+    if (debug) { fprintf(stderr, "Instrumentation disabled\n"); }
     return PreservedAnalyses::all();
 
   }
@@ -235,7 +235,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #else
   if (getenv("AFL_LLVM_ONLY_FSRV")) {
 
-    if (debug) { fprintf(stderr, "Instrument disabled\n"); }
+    if (debug) { fprintf(stderr, "Instrumentation disabled\n"); }
     return true;
 
   }
