@@ -322,58 +322,33 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
 void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
 
-  char *afl_preload;
-  char *frida_afl_preload = NULL;
-  if (get_afl_env("AFL_PRELOAD")) {
+  /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
+  if (fsrv->qemu_mode) return;
 
-    if (fsrv->qemu_mode) {
+  u8 *afl_preload = getenv("AFL_PRELOAD");
+  u8 *preload_path = NULL;
+  u8 *frida_binary = NULL;
+  if (fsrv->frida_mode)
+    frida_binary = find_afl_binary(argv0, "afl-frida-trace.so");
 
-      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
+  if (afl_preload && frida_binary)
+    preload_path = alloc_printf("%s:%s", afl_preload, frida_binary);
+  else if (afl_preload)
+    preload_path = ck_strdup(afl_preload);
+  else if (frida_binary)
+    preload_path = ck_strdup(frida_binary);
 
-    } else if (fsrv->frida_mode) {
+  ck_free(frida_binary);
 
-      afl_preload = getenv("AFL_PRELOAD");
-      u8 *frida_binary = find_afl_binary(argv0, "afl-frida-trace.so");
-      if (afl_preload) {
+  if (preload_path) {
 
-        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
-
-      } else {
-
-        frida_afl_preload = alloc_printf("%s", frida_binary);
-
-      }
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
+    setenv("LD_PRELOAD", preload_path, 1);
 #ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+    setenv("DYLD_INSERT_LIBRARIES", preload_path, 1);
 #endif
-
-    } else {
-
-      /* CoreSight mode uses the default behavior. */
-
-      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
-#endif
-
-    }
-
-  } else if (fsrv->frida_mode) {
-
-    u8 *frida_binary = find_afl_binary(argv0, "afl-frida-trace.so");
-    setenv("LD_PRELOAD", frida_binary, 1);
-#ifdef __APPLE__
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-#endif
-    ck_free(frida_binary);
+    ck_free(preload_path);
 
   }
-
-  if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
 }
 
