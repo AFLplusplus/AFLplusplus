@@ -472,6 +472,46 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
+static inline void classify_if_necessary(afl_state_t *afl, bool *classified) {
+
+  if (*classified) return;
+  classify_counts(&afl->fsrv);
+  *classified = true;
+
+}
+
+static inline void calculate_cksum_if_necessary(afl_state_t *afl, u64 *cksum,
+                                                bool *cksumed,
+                                                bool *classified) {
+
+  if (*cksumed) return;
+  classify_if_necessary(afl, classified);
+  *cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+  *cksumed = true;
+
+}
+
+static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
+                                                   u8          *new_bits,
+                                                   bool        *bits_counted,
+                                                   bool        *classified) {
+
+  if (*bits_counted) return;
+
+  if (*classified) {
+
+    *new_bits = has_new_bits(afl, afl->virgin_bits);
+
+  } else {
+
+    *new_bits = has_new_bits_unclassified(afl, afl->virgin_bits, classified);
+
+  }
+
+  *bits_counted = true;
+
+}
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
@@ -509,52 +549,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8   new_bits = 0;                       /* valid if bits_counted is true */
   u64  cksum = 0;                               /* valid if cksumed is true */
 
-#define classify_if_necessary()    \
-  do {                             \
-                                   \
-    if (!classified) {             \
-                                   \
-      classify_counts(&afl->fsrv); \
-      classified = true;           \
-                                   \
-    }                              \
-                                   \
-  } while (0)
-
-#define calculate_cksum_if_necessary()                                      \
-  do {                                                                      \
-                                                                            \
-    if (!cksumed) {                                                         \
-                                                                            \
-      classify_if_necessary();                                              \
-      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST); \
-      cksumed = true;                                                       \
-                                                                            \
-    }                                                                       \
-                                                                            \
-  } while (0)
-
-#define calculate_new_bits_if_necessary()                                  \
-  do {                                                                     \
-                                                                           \
-    if (!bits_counted) {                                                   \
-                                                                           \
-      if (classified) {                                                    \
-                                                                           \
-        new_bits = has_new_bits(afl, afl->virgin_bits);                    \
-                                                                           \
-      } else {                                                             \
-                                                                           \
-        new_bits =                                                         \
-            has_new_bits_unclassified(afl, afl->virgin_bits, &classified); \
-                                                                           \
-      }                                                                    \
-      bits_counted = true;                                                 \
-                                                                           \
-    }                                                                      \
-                                                                           \
-  } while (0)
-
   afl->san_case_status = 0;
 
   /* Update path frequency. */
@@ -563,7 +557,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
      only be used for special schedules */
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    calculate_cksum_if_necessary();
+    calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
 
     /* Saturated increment */
     if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
@@ -598,7 +592,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
         unlikely(afl->san_abstraction == COVERAGE_INCREASE)) {
 
       /* Check if the input increase the coverage */
-      calculate_new_bits_if_necessary();
+      calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted,
+                                      &classified);
 
       if (unlikely(new_bits)) { feed_san = 1; }
 
@@ -609,7 +604,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       // Note: SAND was evaluated under FAST schedule but should also work
       //       with other scedules.
-      classify_if_necessary();
+      classify_if_necessary(afl, &classified);
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -669,7 +664,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
-    calculate_new_bits_if_necessary();
+    calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
     if (likely(!new_bits)) {
 
@@ -694,8 +689,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     /* these calculations are necessary because some code flow may jump here via
        goto */
-    calculate_cksum_if_necessary();
-    calculate_new_bits_if_necessary();
+    calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
+    calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
 #ifndef SIMPLE_FILES
 
