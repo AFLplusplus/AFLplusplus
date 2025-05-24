@@ -2513,7 +2513,8 @@ int main(int argc, char **argv_orig, char **envp) {
     if (old_map_size < map_size) {
 
       memset(afl->var_bytes + old_map_size, 0, map_size - old_map_size);
-      memset(afl->top_rated + old_map_size, 0, map_size - old_map_size);
+      memset(afl->top_rated + old_map_size * sizeof(void *), 0,
+             (map_size - old_map_size) * sizeof(void *));
       memset(afl->clean_trace + old_map_size, 0, map_size - old_map_size);
       memset(afl->clean_trace_custom + old_map_size, 0,
              map_size - old_map_size);
@@ -2565,7 +2566,8 @@ int main(int argc, char **argv_orig, char **envp) {
       if (old_map_size < new_map_size) {
 
         memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->top_rated + old_map_size * sizeof(void *), 0,
+               (new_map_size - old_map_size) * sizeof(void *));
         memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->clean_trace_custom + old_map_size, 0,
                new_map_size - old_map_size);
@@ -2758,7 +2760,8 @@ int main(int argc, char **argv_orig, char **envp) {
       if (old_map_size < new_map_size) {
 
         memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->top_rated + old_map_size * sizeof(void *), 0,
+               (new_map_size - old_map_size) * sizeof(void *));
         memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->clean_trace_custom + old_map_size, 0,
                new_map_size - old_map_size);
