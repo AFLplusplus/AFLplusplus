@@ -495,36 +495,41 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   afl->afl_env.afl_post_process_keep_original = 1;
 
   /* we need a dummy run if this is LTO + cmplog */
-  if (unlikely(afl->shm.cmplog_mode)) {
+  /*
+    if (unlikely(afl->shm.cmplog_mode)) {
 
-    (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
+      (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
 
-    fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
+      fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
-    /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
-       we want to bail out quickly. */
+      // afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
+      // we want to bail out quickly.
 
-    if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration; }
+      if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration;
 
-    if (!afl->non_instrumented_mode && !afl->stage_cur &&
-        !count_bytes(afl, afl->fsrv.trace_bits)) {
+  }
 
-      fault = FSRV_RUN_NOINST;
-      goto abort_calibration;
+      if (!afl->non_instrumented_mode &&
+          !count_bytes(afl, afl->fsrv.trace_bits)) {
+
+        fault = FSRV_RUN_NOINST;
+        goto abort_calibration;
+
+      }
+
+  #ifdef INTROSPECTION
+      if (unlikely(!q->bitsmap_size)) { q->bitsmap_size = afl->bitsmap_size; }
+  #endif
 
     }
 
-#ifdef INTROSPECTION
-    if (unlikely(!q->bitsmap_size)) q->bitsmap_size = afl->bitsmap_size;
-#endif
-
-  }
+  */
 
   if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
     hnb = has_new_bits(afl, afl->virgin_bits);
-    if (hnb > new_bits) { new_bits = hnb; }
+    if (unlikely(hnb > new_bits)) { new_bits = hnb; }
 
   }
 
@@ -553,7 +558,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration; }
 
-    if (!afl->non_instrumented_mode && !afl->stage_cur &&
+    if (!afl->non_instrumented_mode &&
         !count_bytes(afl, afl->fsrv.trace_bits)) {
 
       fault = FSRV_RUN_NOINST;
@@ -562,17 +567,19 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     }
 
 #ifdef INTROSPECTION
-    if (unlikely(!q->bitsmap_size)) q->bitsmap_size = afl->bitsmap_size;
+    if (unlikely(!q->bitsmap_size)) { q->bitsmap_size = afl->bitsmap_size; }
 #endif
 
     classify_counts(&afl->fsrv);
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-    if (q->exec_cksum != cksum) {
+
+    if (unlikely(q->exec_cksum != cksum)) {
 
       hnb = has_new_bits(afl, afl->virgin_bits);
-      if (hnb > new_bits) { new_bits = hnb; }
 
-      if (q->exec_cksum) {
+      if (unlikely(hnb > new_bits)) { new_bits = hnb; }
+
+      if (likely(q->exec_cksum)) {
 
         u32 i;
 

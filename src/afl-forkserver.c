@@ -320,6 +320,38 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
 }
 
+void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
+
+  /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
+  if (fsrv->qemu_mode) return;
+
+  u8 *afl_preload = getenv("AFL_PRELOAD");
+  u8 *preload_path = NULL;
+  u8 *frida_binary = NULL;
+  if (fsrv->frida_mode)
+    frida_binary = find_afl_binary(argv0, "afl-frida-trace.so");
+
+  if (afl_preload && frida_binary)
+    preload_path = alloc_printf("%s:%s", afl_preload, frida_binary);
+  else if (afl_preload)
+    preload_path = ck_strdup(afl_preload);
+  else if (frida_binary)
+    preload_path = ck_strdup(frida_binary);
+
+  ck_free(frida_binary);
+
+  if (preload_path) {
+
+    setenv("LD_PRELOAD", preload_path, 1);
+#ifdef __APPLE__
+    setenv("DYLD_INSERT_LIBRARIES", preload_path, 1);
+#endif
+    ck_free(preload_path);
+
+  }
+
+}
+
 /* Wrapper for select() and read(), reading a 32 bit var.
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
