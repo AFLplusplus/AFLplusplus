@@ -2633,7 +2633,6 @@ int main(int argc, char **argv_orig, char **envp) {
        */
       afl->san_fsrvs[i].trace_bits = ck_alloc(
           afl->fsrv.map_size + 8); /* One more u64 according to afl_shm_init*/
-      afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
 
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
@@ -2642,10 +2641,6 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
       afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
-
-      afl->san_fsrvs[i].child_kill_signal =
-          afl->fsrv.child_kill_signal;  // I believe cmplog also needs this.
-      afl->san_fsrvs[i].fsrv_kill_signal = afl->fsrv.fsrv_kill_signal;
 
       if ((map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < map_size) &&
