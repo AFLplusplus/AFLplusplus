@@ -1140,6 +1140,7 @@ struct custom_mutator {
 
 void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
+void afl_resize_map_buffers(afl_state_t *, u32 old_size, u32 new_size);
 
 /* Set stop_soon flag on all children, kill all children */
 void afl_states_stop(void);
