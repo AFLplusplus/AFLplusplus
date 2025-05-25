@@ -2498,29 +2498,8 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
       afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
 
-    u32 old_map_size = map_size;
     map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
-    afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
-    afl->virgin_tmout = ck_realloc(afl->virgin_tmout, map_size);
-    afl->virgin_crash = ck_realloc(afl->virgin_crash, map_size);
-    afl->var_bytes = ck_realloc(afl->var_bytes, map_size);
-    afl->top_rated = ck_realloc(afl->top_rated, map_size * sizeof(void *));
-    afl->clean_trace = ck_realloc(afl->clean_trace, map_size);
-    afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, map_size);
-    afl->first_trace = ck_realloc(afl->first_trace, map_size);
-    afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, map_size);
-
-    if (old_map_size < map_size) {
-
-      memset(afl->var_bytes + old_map_size, 0, map_size - old_map_size);
-      memset(afl->top_rated + old_map_size, 0, map_size - old_map_size);
-      memset(afl->clean_trace + old_map_size, 0, map_size - old_map_size);
-      memset(afl->clean_trace_custom + old_map_size, 0,
-             map_size - old_map_size);
-      memset(afl->first_trace + old_map_size, 0, map_size - old_map_size);
-      memset(afl->map_tmp_buf + old_map_size, 0, map_size - old_map_size);
-
-    }
+    afl_resize_map_buffers(afl, map_size, MAP_SIZE);
 
   }
 
@@ -2548,31 +2527,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
-
-      u32 old_map_size = map_size;
-      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-      afl->top_rated =
-          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-      afl->clean_trace_custom =
-          ck_realloc(afl->clean_trace_custom, new_map_size);
-      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
-
-      if (old_map_size < new_map_size) {
-
-        memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace_custom + old_map_size, 0,
-               new_map_size - old_map_size);
-        memset(afl->first_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->map_tmp_buf + old_map_size, 0, new_map_size - old_map_size);
-
-      }
+      afl_resize_map_buffers(afl, map_size, new_map_size);
 
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
@@ -2633,7 +2588,6 @@ int main(int argc, char **argv_orig, char **envp) {
        */
       afl->san_fsrvs[i].trace_bits = ck_alloc(
           afl->fsrv.map_size + 8); /* One more u64 according to afl_shm_init*/
-      afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
 
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
@@ -2642,10 +2596,6 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
       afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
-
-      afl->san_fsrvs[i].child_kill_signal =
-          afl->fsrv.child_kill_signal;  // I believe cmplog also needs this.
-      afl->san_fsrvs[i].fsrv_kill_signal = afl->fsrv.fsrv_kill_signal;
 
       if ((map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < map_size) &&
@@ -2669,18 +2619,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         OKF("Re-initializing maps to %u bytes due to SAN instrumented binary",
             new_map_size);
-
-        afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-        afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-        afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-        afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-        afl->top_rated =
-            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-        afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-        afl->clean_trace_custom =
-            ck_realloc(afl->clean_trace_custom, new_map_size);
-        afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-        afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+        afl_resize_map_buffers(afl, map_size, new_map_size);
 
         afl_fsrv_kill(&afl->fsrv);
         afl_fsrv_kill(&afl->san_fsrvs[i]);
@@ -2746,31 +2685,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
-
-      u32 old_map_size = map_size;
-      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-      afl->top_rated =
-          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-      afl->clean_trace_custom =
-          ck_realloc(afl->clean_trace_custom, new_map_size);
-      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
-
-      if (old_map_size < new_map_size) {
-
-        memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace_custom + old_map_size, 0,
-               new_map_size - old_map_size);
-        memset(afl->first_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->map_tmp_buf + old_map_size, 0, new_map_size - old_map_size);
-
-      }
+      afl_resize_map_buffers(afl, map_size, new_map_size);
 
       afl_fsrv_kill(&afl->fsrv);
       afl_fsrv_kill(&afl->cmplog_fsrv);
