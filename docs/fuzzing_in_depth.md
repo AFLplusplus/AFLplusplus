@@ -874,6 +874,8 @@ Here are some of the most important caveats for AFL++:
   [https://github.com/zardus/preeny](https://github.com/zardus/preeny) or
   [https://github.com/fkie-cad/libdesock](https://github.com/fkie-cad/libdesock)
   [https://github.com/zyingp/desockmulti](https://github.com/zyingp/desockmulti)
+  If these fail then try our own which might be a bit slower but is more
+  reliable: [utils/libaflppdesock](../utils/libaflppdesock)
 
   Some useful tips for modifying network-based services can be also found at:
   [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)
