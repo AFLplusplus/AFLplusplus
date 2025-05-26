@@ -940,7 +940,12 @@ static void __afl_start_forkserver(void) {
 
     }
 
-    if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+    if (write(FORKSRV_FD + 1, msg, 4) != 4) {
+
+      errno = 0;
+      _exit(1);
+
+    }
 
     // Now send the parameters for the set options, increasing by option number
 

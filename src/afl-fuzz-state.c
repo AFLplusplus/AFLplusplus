@@ -148,6 +148,34 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
 }
 
+void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
+
+  afl->virgin_bits = ck_realloc(afl->virgin_bits, new_size);
+  afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_size);
+  afl->virgin_crash = ck_realloc(afl->virgin_crash, new_size);
+  afl->var_bytes = ck_realloc(afl->var_bytes, new_size);
+  afl->top_rated = ck_realloc(afl->top_rated, new_size * sizeof(void *));
+  afl->clean_trace = ck_realloc(afl->clean_trace, new_size);
+  afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, new_size);
+  afl->first_trace = ck_realloc(afl->first_trace, new_size);
+  afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_size);
+
+  if (old_size < new_size) {
+
+    u32 size_diff = new_size - old_size;
+
+    memset(afl->var_bytes + old_size, 0, size_diff);
+    memset(afl->top_rated + old_size * sizeof(void *), 0,
+           size_diff * sizeof(void *));
+    memset(afl->clean_trace + old_size, 0, size_diff);
+    memset(afl->clean_trace_custom + old_size, 0, size_diff);
+    memset(afl->first_trace + old_size, 0, size_diff);
+    memset(afl->map_tmp_buf + old_size, 0, size_diff);
+
+  }
+
+}
+
 /*This sets up the environment variables for afl-fuzz into the afl_state
  * struct*/
 

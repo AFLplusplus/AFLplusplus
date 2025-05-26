@@ -23,10 +23,12 @@
     - MacOS aflpp driver compilation fix (-fsanitize=fuzzer implementation)
     - Make AFL_DUMP_MAP_SIZE work even if the target has sanitizer issues
   - qemuafl:
-    - better MIPS persistent mode support
+    - Better MIPS persistent mode support
   - afl-cmin:
-    - new afl-cmin.py which is much faster, will be executed by default via
+    - New afl-cmin.py which is much faster, will be executed by default via
       afl-cmin if it executes successfully (thanks to @kcwu!)
+  - New desocketing library: utils/libaflppdesock
+    - Likely works when all other desocketing options fail
 
 
 ### Version ++4.32c (release)
