@@ -46,6 +46,7 @@ gboolean found_range(const GumRangeDetails *details, gpointer user_data) {
 static int on_dlclose(void *handle) {
 
   GArray          *ranges = NULL;
+  GumModule       *module = NULL;
   struct link_map *lm = NULL;
   gum_range_t     *range = NULL;
   GumAddress       base;
@@ -61,8 +62,12 @@ static int on_dlclose(void *handle) {
   FVERBOSE("on_dlclose: %s", lm->l_name);
 
   ranges = g_array_new(FALSE, TRUE, sizeof(gum_range_t));
-  gum_module_enumerate_ranges(lm->l_name, GUM_PAGE_EXECUTE, found_range,
-                              ranges);
+
+  module = gum_process_find_module_by_name(lm->l_name);
+
+  if (module == NULL) { FATAL("Failed to find module: %s", lm->l_name); }
+
+  gum_module_enumerate_ranges(module, GUM_PAGE_EXECUTE, found_range, ranges);
 
   int ret = dlclose(handle);
   if (ret != 0) {
