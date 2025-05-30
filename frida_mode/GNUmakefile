@@ -15,6 +15,7 @@ JS_OBJ:=$(BUILD_DIR)api.o
 SOURCES:=$(wildcard $(SRC_DIR)**/*.c) $(wildcard $(SRC_DIR)*.c)
 OBJS:=$(foreach src,$(SOURCES),$(OBJ_DIR)$(notdir $(patsubst %.c, %.o, $(src))))
 
+XTOOLS_HOST?=x86_64-linux-gnu
 TARGET_CC?=$(CC)
 TARGET_CXX?=$(CXX)
 HOST_CC?=$(CC)
@@ -186,39 +187,13 @@ ifndef OS
  $(error "Operating system unsupported")
 endif
 
-GUM_DEVKIT_VERSION=16.1.11
+GUM_DEVKIT_VERSION=17.0.7
 GUM_DEVKIT_FILENAME=frida-gumjs-devkit-$(GUM_DEVKIT_VERSION)-$(OS)-$(ARCH).tar.xz
 GUM_DEVKIT_URL="https://github.com/frida/frida/releases/download/$(GUM_DEVKIT_VERSION)/$(GUM_DEVKIT_FILENAME)"
 
-ifeq ($(OS),macos)
-	# Extract the major version
-	GUM_VERSION_MAJOR := $(shell echo "$(GUM_DEVKIT_VERSION)" | sed -E 's/\..*//')
-	# Extract the minor version (assumes format "MAJOR.MINOR[.PATCH...]")
-	GUM_VERSION_MINOR := $(shell echo "$(GUM_DEVKIT_VERSION)" | sed -E 's/^[^.]*\.//; s/\..*//')
-
-	# Evaluate the version condition in a separate shell call
-	IS_GUM_16_6_PLUS := $(shell \
-		if (( $(GUM_VERSION_MAJOR) > 16 || ( $(GUM_VERSION_MAJOR) == 16 && $(GUM_VERSION_MINOR) >= 6 ) )); then \
-			echo 1; \
-		fi)
-else
-	IS_GUM_16_6_PLUS := $(shell VERSION="$(GUM_DEVKIT_VERSION)"; \
-		MAJOR=$${VERSION%%.*}; \
-		MINOR=$${VERSION#*.}; MINOR=$${MINOR%%.*}; \
-		if [ $$MAJOR -gt 16 ] || { [ $$MAJOR -eq 16 ] && [ $$MINOR -ge 6 ]; }; then \
-			echo 1; \
-		fi)
-endif
-
-CFLAGS += $(if $(IS_GUM_16_6_PLUS),-DGUM_16_6_PLUS)
-
 GUM_DEVKIT_TARBALL:=$(FRIDA_BUILD_DIR)$(GUM_DEVKIT_FILENAME)
-ifdef FRIDA_SOURCE
-GUM_DEVIT_LIBRARY=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gumjs-1.0.a
-else
-GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gumjs.a
-endif
 GUM_DEVIT_HEADER=$(FRIDA_BUILD_DIR)frida-gumjs.h
+GUM_DEVIT_LIBRARY=$(FRIDA_BUILD_DIR)libfrida-gumjs.a
 
 FRIDA_DIR:=$(PWD)build/frida-source/
 FRIDA_MAKEFILE:=$(FRIDA_DIR)Makefile
@@ -252,13 +227,13 @@ BIN2C_SRC:=$(PWD)util/bin2c.c
 all: $(FRIDA_TRACE) $(FRIDA_TRACE_LIB) $(AFLPP_FRIDA_DRIVER_HOOK_OBJ) $(AFLPP_QEMU_DRIVER_HOOK_OBJ) $(ADDR_BIN)
 
 32:
-	CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
+	XTOOLS_HOST=i686-linux-gnu CFLAGS="-m32" LDFLAGS="-m32" ARCH="x86" make all
 
 arm:
-	CFLAGS="-marm" LDFLAGS="-marm" ARCH="armhf" TARGET_CC=arm-linux-gnueabihf-gcc TARGET_CXX=arm-linux-gnueabihf-g++ make all
+	XTOOLS_HOST=arm-linux-gnueabihf CFLAGS="-marm" LDFLAGS="-marm" ARCH="armhf" TARGET_CC=arm-linux-gnueabihf-gcc TARGET_CXX=arm-linux-gnueabihf-g++ make all
 
 arm64:
-	ARCH="arm64" TARGET_CC=aarch64-linux-gnu-gcc TARGET_CXX=aarch64-linux-gnu-g++ make all
+	XTOOLS_HOST=aarch64-linux-gnu ARCH="arm64" TARGET_CC=aarch64-linux-gnu-gcc TARGET_CXX=aarch64-linux-gnu-g++ make all
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -271,114 +246,29 @@ $(OBJ_DIR): | $(BUILD_DIR)
 $(FRIDA_BUILD_DIR): | $(BUILD_DIR)
 	mkdir -p $@
 
+#TODO Set architecture
 ifdef FRIDA_SOURCE
 $(FRIDA_MAKEFILE): | $(BUILD_DIR)
-	git clone --recursive https://github.com/frida/frida.git $(FRIDA_DIR)
+	git clone https://github.com/frida/frida-gum.git $(FRIDA_DIR)
+	cd $(FRIDA_DIR) && \
+	./configure \
+		--host=$(XTOOLS_HOST) \
+		--enable-tests \
+		--enable-gumpp \
+		--enable-gumjs \
+		--with-devkits=gum,gumjs
 
 .PHONY: $(GUM_DEVIT_LIBRARY)
 
-$(GUM_DEVIT_LIBRARY): $(FRIDA_MAKEFILE)
-	cd $(FRIDA_DIR) && make gum-$(OS)$(GUM_ARCH) FRIDA_V8=disabled
-
-$(GUM_DEVIT_HEADER): $(FRIDA_MAKEFILE) | $(FRIDA_BUILD_DIR)
-	echo "#include <stdio.h>" > $@
-	echo "#include <unistd.h>" >> $@
-	echo "#include <gum/gumreturnaddress.h>" >> $@
-	echo "#include <gum/gumbacktracer.h>" >> $@
-	echo "#include <gum/gumsymbolutil.h>" >> $@
-	echo "#include <gum/gumstalker.h>" >> $@
-	echo "#include <gum/gumlibc.h>" >> $@
-	echo "#include <gumjs/gumscriptbackend.h>" >> $@
-
-ifeq "$(OS)" "macos"
-
-CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
-
-TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsqlite3.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libtcc.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libffi.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgio-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgobject-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/liblzma.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libz.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libiconv.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libv8-8.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgmodule-2.0.a \
-
-else ifeq "$(ARCH)" "arm64"
-
-CFLAGS+=-I $(FRIDA_DIR)build/$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
+$(GUM_DEVIT_LIBRARY): $(FRIDA_MAKEFILE) | $(FRIDA_BUILD_DIR)
+	echo $(GUM_DEVIT_LIBRARY) $(FRIDA_MAKEFILE) $(FRIDA_BUILD_DIR)
+	cd $(FRIDA_DIR) && make FRIDA_V8=disabled
+	cp $(FRIDA_DIR)build/bindings/gumjs/devkit/frida-gumjs.h $(GUM_DEVIT_HEADER)
+	cp $(FRIDA_DIR)build/bindings/gumjs/devkit/libfrida-gumjs.a $(GUM_DEVIT_LIBRARY)
 
 ifeq "$(OS)" "android"
 CFLAGS += -static-libstdc++
 endif
-else
-CFLAGS+=-I $(FRIDA_DIR)build/$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/ \
-
-endif
-
-TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsqlite3.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libtcc.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libunwind.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libffi.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libdwarf.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libelf.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgio-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgobject-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/liblzma.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libz.a \
-
-CFLAGS+=-I $(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/include/frida-1.0 \
-	    -I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/glib-2.0/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/glib-2.0/include/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/capstone/ \
-		-I $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/include/json-glib-1.0/
-
-ifeq "$(OS)" "android"
- CFLAGS += -static-libstdc++
-endif
-
-TRACE_LDFLAGS+=$(FRIDA_DIR)build/frida-$(OS)-$(ARCH)/lib/libfrida-gum-1.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsoup-2.4.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libsqlite3.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libtcc.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libjson-glib-1.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libquickjs.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libcapstone.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libunwind.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libffi.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libdwarf.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libelf.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgio-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libgobject-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libglib-2.0.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/liblzma.a \
-			   $(FRIDA_DIR)build/sdk-$(OS)-$(ARCH)/lib/libz.a \
-
 
 else
 $(GUM_DEVKIT_TARBALL): | $(FRIDA_BUILD_DIR)

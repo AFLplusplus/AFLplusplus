@@ -382,5 +382,5 @@ Afl.jsApiSetTraceable = Afl.jsApiGetFunction("js_api_set_traceable", "void", [])
 Afl.jsApiSetVerbose = Afl.jsApiGetFunction("js_api_set_verbose", "void", []);
 Afl.jsApiWrite = new NativeFunction(
 /* tslint:disable-next-line:no-null-keyword */
-Module.getExportByName(null, "write"), "int", ["int", "pointer", "int"]);
+Module.getGlobalExportByName("write"), "int", ["int", "pointer", "int"]);
 Afl.jsApiIjonSet = Afl.jsApiGetFunction("js_api_ijon_set", "void", ["uint32"]);
