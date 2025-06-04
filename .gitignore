@@ -108,6 +108,8 @@ utils/persistent_mode/persistent_demo
 utils/persistent_mode/persistent_demo_new
 utils/persistent_mode/persistent_demo_new_compat
 utils/persistent_mode/test-instr
+utils/qemu_persistent_hook/mipsel_test
+utils/qemu_persistent_hook/test
 utils/replay_record/persistent_demo_replay
 utils/replay_record/persistent_demo_replay_compat
 utils/replay_record/persistent_demo_replay_argparse
