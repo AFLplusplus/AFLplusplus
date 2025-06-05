@@ -13,10 +13,16 @@ test -z "$AFL_CC" && {
   fi
 }
 
+if test -n "$CPU_TARGET_CC"; then
+    $ECHO "$GREY[*] Using $CPU_TARGET_CC as compiler for target"
+else
+    CPU_TARGET_CC=cc
+fi
+
 test -e ../afl-qemu-trace && {
-  cc -pie -fPIE -o test-instr ../test-instr.c
-  cc -o test-compcov test-compcov.c
-  cc -pie -fPIE -o test-instr-exit-at-end -DEXIT_AT_END ../test-instr.c
+  ${CPU_TARGET_CC} -pie -fPIE -o test-instr ../test-instr.c
+  ${CPU_TARGET_CC} -o test-compcov test-compcov.c
+  ${CPU_TARGET_CC} -pie -fPIE -o test-instr-exit-at-end -DEXIT_AT_END ../test-instr.c
   test -e test-instr -a -e test-compcov -a -e test-instr-exit-at-end && {
     {
       mkdir -p in
@@ -105,7 +111,7 @@ test -e ../afl-qemu-trace && {
        $ECHO "$YELLOW[-] not an intel or arm platform, cannot test qemu_mode cmplog"
       }
 
-      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" -o "$SYS" = "mipsel" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
           IS_STATIC=""
@@ -155,7 +161,7 @@ test -e ../afl-qemu-trace && {
        $ECHO "$YELLOW[-] not an intel or arm platform, cannot test persistent qemu_mode"
       }
 
-      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" -o "$SYS" = "mipsel" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode with AFL_QEMU_PERSISTENT_EXITS, this will take approx 10 seconds"
         {
           IS_STATIC=""
