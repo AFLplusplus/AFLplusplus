@@ -44,8 +44,7 @@ static const struct pass_data afl_cmptrs_pass_data = {
     .properties_provided = 0,
     .properties_destroyed = 0,
     .todo_flags_start = 0,
-    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg | TODO_verify_il |
-                          TODO_rebuild_cgraph_edges),
+    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg | TODO_rebuild_cgraph_edges),
 
 };
 
