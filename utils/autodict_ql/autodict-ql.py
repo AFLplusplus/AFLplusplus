@@ -33,7 +33,7 @@ def ensure_dir(dir):
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Helper - Specify input file analysis and output folder to save corpus for strings in the overall project ---------------------------------------------------------------------------  Example usage : python2 thisfile.py outdir str.txt"
+            "Helper - Specify input file analysis and output folder to save corpus for strings in the overall project ---------------------------------------------------------------------------  Example usage : python3 thisfile.py outdir str.txt"
         )
     )
 

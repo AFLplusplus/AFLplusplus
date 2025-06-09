@@ -3,8 +3,7 @@
 These are example and helper files for the custom mutator feature.
 See [docs/custom_mutators.md](../../docs/custom_mutators.md) for more information
 
-Note that if you compile with python3.7 you must use python3 scripts, and if
-you use python2.7 to compile python2 scripts!
+Note that if you compile with python3.7 you must use python3 scripts.
 
 simple_example.c - most simplest example. generates a random sized buffer
           filled with 'A'

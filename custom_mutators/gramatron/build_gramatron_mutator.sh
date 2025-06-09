@@ -56,7 +56,7 @@ if [ ! -f "../../src/afl-performance.o" ]; then
 
 fi
 
-PYTHONBIN=`command -v python3 || command -v python || command -v python2 || echo python3`
+PYTHONBIN=`command -v python3 || command -v python || echo python3`
 MAKECMD=make
 TARCMD=tar
 
