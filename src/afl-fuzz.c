@@ -602,6 +602,49 @@ int main(int argc, char **argv_orig, char **envp) {
   if (debug) { afl->fsrv.debug = true; }
   read_afl_environment(afl, envp);
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
+
+  if (afl->afl_env.afl_forksrv_uid_set) {
+
+    afl->fsrv.uid_set = 1;
+    afl->fsrv.uid = afl->afl_env.afl_forksrv_uid;
+
+  }
+
+  if (afl->afl_env.afl_forksrv_gid_set) {
+
+    afl->fsrv.gid_set = 1;
+    afl->fsrv.gid = afl->afl_env.afl_forksrv_gid;
+    afl->fsrv.nb_supl_gids = afl->afl_env.afl_forksrv_nb_supl_gids;
+    afl->fsrv.supl_gids = afl->afl_env.afl_forksrv_supl_gids;
+
+  }
+
+  if (afl->fsrv.uid_set) {
+
+    /* If the UID is modified, allow group to open files and dirs */
+    afl->perm = DEFAULT_PERMISSION | 0060;
+    afl->fsrv.perm = afl->perm;
+    afl->dir_perm = DEFAULT_DIRS_PERMISSION | 0070;
+
+    /* Ensure permissions will be really set*/
+    umask(~(afl->perm | afl->dir_perm));
+
+    /* If the GID is also modified, then change the group of files and dirs */
+    if (afl->fsrv.gid_set) {
+
+      afl->chown_needed = 1;
+      afl->fsrv.chown_needed = 1;
+
+    }
+
+  } else {
+
+    afl->perm = DEFAULT_PERMISSION;
+    afl->fsrv.perm = afl->perm;
+    afl->dir_perm = DEFAULT_DIRS_PERMISSION;
+
+  }
+
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -2505,7 +2548,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->argv = use_argv;
   afl->fsrv.trace_bits =
-      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
+                   afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
@@ -2533,7 +2577,8 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
       afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+                       afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -2630,7 +2675,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
         afl->fsrv.trace_bits =
-            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+                         afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
         ck_free(afl->san_fsrvs[i].trace_bits);
         afl->san_fsrvs[i].trace_bits = ck_alloc(afl->fsrv.map_size + 8);
         afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
@@ -2696,7 +2742,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+                       afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -3446,8 +3493,17 @@ stop_fuzzing:
     if ((fr_fd = ZLIBOPEN(fr, "wb9")) != NULL) {
 
   #else
-    if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
-        0) {
+    if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, afl->perm)) >= 0) {
+
+      if (afl->chown_needed) {
+
+        if (fchown(fr_fd, -1, afl->fsrv.gid) == -1) {
+
+          PFATAL("fchown() failed");
+
+        }
+
+      }
 
   #endif
 

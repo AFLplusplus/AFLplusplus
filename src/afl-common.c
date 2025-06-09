@@ -1397,12 +1397,12 @@ u32 get_map_size(void) {
 
 /* Create a stream file */
 
-FILE *create_ffile(u8 *fn) {
+FILE *create_ffile(u8 *fn, mode_t mode) {
 
   s32   fd;
   FILE *f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, mode);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
@@ -1416,11 +1416,11 @@ FILE *create_ffile(u8 *fn) {
 
 /* Create a file */
 
-s32 create_file(u8 *fn) {
+s32 create_file(u8 *fn, mode_t mode) {
 
   s32 fd;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, mode);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
