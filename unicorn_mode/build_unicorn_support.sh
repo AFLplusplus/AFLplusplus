@@ -65,7 +65,7 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PYTHONBIN=`command -v python3 || command -v python || command -v python2 || echo python3`
+PYTHONBIN=`command -v python3 || command -v python || echo python3`
 MAKECMD=make
 TARCMD=tar
 
@@ -116,7 +116,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 done
 
 # some python version should be available now
-PYTHONS="`command -v python3` `command -v python` `command -v python2`"
+PYTHONS="`command -v python3` `command -v python`"
 PIP_FOUND=0
 for PYTHON in $PYTHONS ; do
 
