@@ -227,7 +227,7 @@ def init():
         logger.error("dangerously low timeout")
         sys.exit(1)
 
-    if not os.path.isfile(args.exe):
+    if not args.nyx_mode and not os.path.isfile(args.exe):
         logger.error('binary "%s" not found or not regular file', args.exe)
         sys.exit(1)
 
@@ -545,8 +545,11 @@ def collect_files(input_paths):
                 for filename in filenames:
                     if filename.startswith("."):
                         continue
+                    full_path = os.path.join(root, filename)
+                    if not os.path.isfile(full_path):
+                        continue
                     pbar.update(1)
-                    files.append(os.path.join(root, filename))
+                    files.append(full_path)
     return files
 
 
@@ -577,9 +580,13 @@ def main():
     hash_list = [hash_list[idx] for idx in idxes]
 
     afl_map_size = None
-    if b"AFL_DUMP_MAP_SIZE" in open(args.exe, "rb").read():
+    if "AFL_MAP_SIZE" in os.environ:
+        afl_map_size = int(os.environ["AFL_MAP_SIZE"])
+    elif b"AFL_DUMP_MAP_SIZE" in open(args.exe, "rb").read():
         output = subprocess.run(
-            [args.exe], capture_output=True, env={"AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": "detect_leaks=0"}
+            [args.exe],
+            capture_output=True,
+            env={"AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": "detect_leaks=0"},
         ).stdout
         afl_map_size = int(output)
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
