@@ -235,6 +235,24 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
+  if (fsrv->chown_needed && fsrv->out_file != NULL) {
+
+    if (access(fsrv->out_file, R_OK) == -1) {
+
+      if (errno == EACCES) {
+
+        FATAL(
+            "Access to the file to fuzz denied. Most likely the requested\n"
+            "    UID and/or GID is denied search permission ('x') for one of "
+            "the directories\n    in the path prefix of \"%s\".",
+            fsrv->out_file);
+
+      }
+
+    }
+
+  }
+
   execv(fsrv->target_path, argv);
 
   WARNF("Execv failed in forkserver: %s.", strerror(errno));

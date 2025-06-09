@@ -179,7 +179,17 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
   unlink(out_file);
 
-  fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+  fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, fsrv->perm);
+
+  if (fsrv->chown_needed) {
+
+    if (fchown(fsrv->out_fd, -1, fsrv->gid) == -1) {
+
+      PFATAL("fchown() failed");
+
+    }
+
+  }
 
   if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
@@ -526,7 +536,8 @@ int main(int argc, char **argv_orig, char **envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0, fsrv->perm,
+                                  fsrv->chown_needed ? fsrv->gid : -1);
 
   in_data = afl_realloc((void **)&in_data, 65536);
   if (unlikely(!in_data)) { PFATAL("Alloc"); }

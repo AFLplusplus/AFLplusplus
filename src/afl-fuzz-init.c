@@ -2273,8 +2273,6 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   }
 
-  printf("out_dir = %s\n", afl->out_dir);
-
   if (mkdir(afl->out_dir, afl->dir_perm)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
