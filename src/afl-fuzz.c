@@ -1545,7 +1545,9 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->is_main_node == 1 && afl->schedule != FAST &&
       afl->schedule != EXPLORE) {
 
-    WARNF("When using -M, it is recommended to use only fast or explore -p power schedules");
+    WARNF(
+        "When using -M, it is recommended to use only fast or explore -p power "
+        "schedules");
 
   }
 
