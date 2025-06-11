@@ -507,6 +507,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
+        fsrv->unicorn_mode = 1;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */

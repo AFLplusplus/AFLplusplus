@@ -14,7 +14,7 @@ Note that afl-gcc and afl-clang have been removed because their instrumentation 
 | NeverZero           [B]       |    x(1)   |      x     |        x       |         x        |         x        |              |                    |
 | Persistent Mode     [C]       |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] |         x        |              |                    |
 | LAF-Intel / CompCov [D]       |     x     |            |                | x86[_64]/arm[64] | x86[_64]/arm[64] |   x86[_64]   |                    |
-| CmpLog              [E]       |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] |                  |              |                    |
+| CmpLog              [E]       |     x     |      x     | x86[_64]/arm64 | x86[_64]/arm[64] | x86[_64]/arm[64] |              |                    |
 | Selective Instrumentation [F] |     x     |      x     |        x       |         x        |                  |              |                    |
 | Non-Colliding Coverage    [G] |    x(4)   |            |                |       (x)(5)     |                  |              |                    |
 | Ngram prev_loc Coverage   [H] |    x(6)   |            |                |                  |                  |              |                    |
