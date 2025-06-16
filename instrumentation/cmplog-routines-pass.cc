@@ -486,7 +486,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
       !llvmStdStd.size() && !llvmStdC.size() && !Memcmp.size() &&
-      Strcmp.size() && Strncmp.size())
+      !Strcmp.size() && !Strncmp.size())
     return false;
 
   /*
