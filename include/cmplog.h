@@ -75,6 +75,7 @@ struct cmpfn_operands {
 } __attribute__((packed));
 
 typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
+// using cmp_map_list = struct cmp_operands[CMP_MAP_H=32]
 
 struct cmp_map {
 
@@ -87,6 +88,16 @@ struct cmp_map {
 
 struct afl_forkserver;
 void cmplog_exec_child(struct afl_forkserver *fsrv, char **argv);
+
+enum {
+
+  ADDR_ATTR_NOTFOUND = 0,
+  ADDR_ATTR_RO = 1,
+  ADDR_ATTR_RW = 2,
+
+};
+
+int get_prog_addr_attr(const void *addr);
 
 #endif
 
