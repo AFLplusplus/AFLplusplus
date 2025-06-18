@@ -24,6 +24,7 @@
     - Make AFL_DUMP_MAP_SIZE work even if the target has sanitizer issues
   - qemuafl:
     - Better MIPS persistent mode support
+    - `AFL_EXITPOINT` support added
   - afl-cmin:
     - New afl-cmin.py which is much faster, will be executed by default via
       afl-cmin if it executes successfully (thanks to @kcwu!)
