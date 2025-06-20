@@ -30,13 +30,18 @@ jobs:
         run: apt-cache search plugin-dev | grep gcc-; echo; apt-cache search clang-format- | grep clang-format-
       - name: install packages
         run: sudo apt-get install -y -m -f build-essential gcc-12 g++-12 git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
-      - name: install llvm-tools
+      - name: install llvm-tools (except for llvm 18)
+        if matrix.version != '18'
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
-      - name: install clang-rt
+      - name: install llvm-tools 
+        # because llvm 18.1.8 (installed by the script above) is broken for us
+        if matrix.version == '18'
+        run: sudo apt install -y llvm-18 clang-18 llvm-config-18 libclang-rt-18-dev
+      - name: install clang-rt (for llvm 15)
         # because ubuntu-22.04 already has this package
         if: matrix.version != '15'
         run: sudo apt install -y libclang-rt-${{ matrix.version }}-dev
