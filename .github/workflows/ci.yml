@@ -34,8 +34,8 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh ${{ env.version }} all
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ env.version }} 200
+          sudo ./llvm.sh ${{ matrix.version }} all
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
