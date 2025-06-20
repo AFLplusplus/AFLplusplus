@@ -39,7 +39,7 @@ jobs:
       - name: install clang-rust
         # because ubuntu-22.04 already has this package
         if: ${{ matrix.version}} != 15
-          run: sudo apt install -y libclang-rt-${{ matrix.version }}-dev
+        run: sudo apt install -y libclang-rt-${{ matrix.version }}-dev
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
