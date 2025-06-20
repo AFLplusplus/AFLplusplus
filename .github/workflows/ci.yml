@@ -34,7 +34,7 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh ${{ matrix.version }} all
+          sudo ./llvm.sh ${{ matrix.version }}
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
       - name: compiler installed
         run: gcc -v; echo; clang -v
