@@ -36,9 +36,9 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
-      - name: install clang-rust
+      - name: install clang-rt
         # because ubuntu-22.04 already has this package
-        if: ${{ matrix.version}} != 15
+        if: ${{ matrix.version}} != '15'
         run: sudo apt install -y libclang-rt-${{ matrix.version }}-dev
       - name: compiler installed
         run: gcc -v; echo; clang -v
@@ -68,7 +68,7 @@ jobs:
       - name: install gcc plugin
         run: sudo apt-get install -y -m -f --install-suggests $(readlink /usr/bin/gcc)-plugin-dev
       - name: build afl++
-        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-12; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-12 distrib
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-15; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-15 distrib
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
   macos:
