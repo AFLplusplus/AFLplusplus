@@ -35,8 +35,11 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
-          sudo apt install -y libclang-rt-${{ matrix.version }}-dev
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
+      - name: install clang-rust
+        # because ubuntu-22.04 already has this package
+        if: ${{ matrix.version}} != 15
+          run: sudo apt install -y libclang-rt-${{ matrix.version }}-dev
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
