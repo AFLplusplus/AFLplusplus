@@ -35,11 +35,12 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
+          sudo apt install libclang-rt-${{ matrix.version }}-dev
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
-        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} distrib
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
 
