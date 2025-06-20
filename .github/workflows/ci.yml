@@ -26,6 +26,8 @@ jobs:
         run: apt-cache search plugin-dev | grep gcc-; echo; apt-cache search clang-format- | grep clang-format-
       - name: install packages
         run: sudo apt-get install -y -m -f build-essential gcc-12 g++-12 git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: install llvm-tools
         run: clang-${{ matrix.version }} llvm-${{ matrix.version }}-dev  llvm-config-${{ matrix.version }}
       - name: compiler installed
