@@ -27,11 +27,11 @@ jobs:
       - name: install packages
         run: sudo apt-get install -y -m -f build-essential gcc-12 g++-12 git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
       - name: install llvm-tools
-        run: clang-${{ matrix.fuzzer }} llvm-${{ matrix.version }}-dev  llvm-config-${{ matrix.fuzzer }}
+        run: clang-${{ matrix.version }} llvm-${{ matrix.version }}-dev  llvm-config-${{ matrix.version }}
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
-        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.fuzzer }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.fuzzer }} distrib
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} distrib
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
 
