@@ -39,7 +39,7 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
       - name: install llvm-tools 
         # because llvm 18.1.8 (installed by the script above) is broken for us
-        if matrix.version == '18'
+        if: matrix.version == '18'
         run: sudo apt install -y llvm-18 clang-18 llvm-config-18 libclang-rt-18-dev
       - name: install clang-rt (for llvm 15)
         # because ubuntu-22.04 already has this package
