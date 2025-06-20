@@ -10,6 +10,31 @@ on:
       - dev # No need for stable-pull-request, as that equals dev-push
 
 jobs:
+  check-compiler-passes:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        version: [14, 15, 16, 17, 18, 19, 20]
+    env:
+      AFL_SKIP_CPUFREQ: 1
+      AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
+    steps:
+      - uses: actions/checkout@v4
+      - name: update
+        run: sudo apt-get update && sudo apt-get upgrade -y
+      - name: debug
+        run: apt-cache search plugin-dev | grep gcc-; echo; apt-cache search clang-format- | grep clang-format-
+      - name: install packages
+        run: sudo apt-get install -y -m -f build-essential gcc-12 g++-12 git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
+      - name: install llvm-tools
+        run: clang-${{ matrix.fuzzer }} llvm-${{ matrix.version }}-dev  llvm-config-${{ matrix.fuzzer }}
+      - name: compiler installed
+        run: gcc -v; echo; clang -v
+      - name: build afl++
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.fuzzer }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.fuzzer }} distrib
+      - name: run tests
+        run: sudo -E ./afl-system-config; make tests
+
   linux:
     runs-on: "${{ matrix.os }}"
     strategy:
