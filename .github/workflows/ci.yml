@@ -14,11 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-compiler-passes:
+  check-compiler-passes (14 - 16):
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        version: [14, 15, 16, 17, 18, 19, 20]
+        version: [14, 15, 16]
     env:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
@@ -31,20 +31,35 @@ jobs:
       - name: install packages
         run: sudo apt-get install -y -m -f build-essential gcc-12 g++-12 git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
       - name: install llvm-tools (except for llvm 18)
-        if: matrix.version != '18'
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{ matrix.version }}
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
-      - name: install llvm-tools 
-        # because llvm 18.1.8 (installed by the script above) is broken for us
-        if: matrix.version == '18'
-        run: sudo apt install -y llvm-18 clang-18 llvm-config-18 libclang-rt-18-dev
+        run: sudo apt install clang-${{ matrix.version }} llvm-${{ matrix.version }}
       - name: install clang-rt (for llvm 15)
         # because ubuntu-22.04 already has this package
         if: matrix.version != '15'
         run: sudo apt install -y libclang-rt-${{ matrix.version }}-dev
+      - name: compiler installed
+        run: gcc -v; echo; clang -v
+      - name: build afl++
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
+      - name: run tests
+        run: sudo -E ./afl-system-config; make tests
+  check-compiler-passes (17 - 20):
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        version: [17, 18, 19, 20]
+    env:
+      AFL_SKIP_CPUFREQ: 1
+      AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
+    steps:
+      - uses: actions/checkout@v4
+      - name: update
+        run: sudo apt-get update && sudo apt-get upgrade -y
+      - name: debug
+        run: apt-cache search plugin-dev | grep gcc-; echo; apt-cache search clang-format- | grep clang-format-
+      - name: install packages
+        run: sudo apt-get install -y -m -f build-essential gcc-12 g++-12 git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
+      - name: install llvm-tools (except for llvm 18)
+        run: sudo apt install clang-${{ matrix.version }} llvm-${{ matrix.version }}
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
