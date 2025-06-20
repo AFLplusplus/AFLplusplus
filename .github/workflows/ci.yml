@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-compiler-passes (14 - 16):
+  check-compiler-passes-1:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
         run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
-  check-compiler-passes (17 - 20):
+  check-compiler-passes-2:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
