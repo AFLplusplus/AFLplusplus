@@ -18,9 +18,6 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
-#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
-typedef long double max_align_t;
-#endif
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -32,27 +29,16 @@ typedef long double max_align_t;
   #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif
 
-#if LLVM_VERSION_MAJOR > 3 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-  #include "llvm/IR/DebugInfo.h"
-  #include "llvm/IR/CFG.h"
-#else
-  #include "llvm/DebugInfo.h"
-  #include "llvm/Support/CFG.h"
-#endif
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/CFG.h"
 
-#if LLVM_VERSION_MAJOR >= 11
-  #define MNAME M.getSourceFileName()
-  #define FMNAME F.getParent()->getSourceFileName()
-  #if LLVM_VERSION_MAJOR >= 16
-// None becomes deprecated
-// the standard std::nullopt_t is recommended instead
-// from C++17 and onwards.
-constexpr std::nullopt_t None = std::nullopt;
-  #endif
-#else
-  #define MNAME std::string("")
-  #define FMNAME std::string("")
+#define MNAME M.getSourceFileName()
+#define FMNAME F.getParent()->getSourceFileName()
+#if LLVM_VERSION_MAJOR >= 16
+  // None becomes deprecated
+  // the standard std::nullopt_t is recommended instead
+  // from C++17 and onwards.
+  constexpr std::nullopt_t None = std::nullopt;
 #endif
 
 char *getBBName(const llvm::BasicBlock *BB);
