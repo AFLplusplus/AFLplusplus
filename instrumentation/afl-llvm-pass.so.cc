@@ -88,7 +88,6 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if 1
     #if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
     #else
