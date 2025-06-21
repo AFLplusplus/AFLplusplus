@@ -76,15 +76,15 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if LLVM_VERSION_MAJOR <= 13
+#if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-  #endif
+#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                                                   ,
                                                   ThinOrFullLTOPhase Phase
-  #endif
+#endif
                                                ) {
 
               MPM.addPass(CmpLogRoutines());
@@ -107,51 +107,36 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
-  FunctionCallee
-      c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy
-      );
+  FunctionCallee c =
+      M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogHookFn = c;
 
-  FunctionCallee
-      c1 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_stdstring",
-                                 VoidTy, i8PtrTy, i8PtrTy
-      );
+  FunctionCallee c1 = M.getOrInsertFunction(
+      "__cmplog_rtn_llvm_stdstring_stdstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogLlvmStdStd = c1;
 
-  FunctionCallee
-      c2 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_cstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
-      );
+  FunctionCallee c2 = M.getOrInsertFunction(
+      "__cmplog_rtn_llvm_stdstring_cstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogLlvmStdC = c2;
 
-  FunctionCallee
-      c3 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_stdstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
-      );
+  FunctionCallee c3 = M.getOrInsertFunction(
+      "__cmplog_rtn_gcc_stdstring_stdstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogGccStdStd = c3;
 
-  FunctionCallee
-      c4 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_cstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
-      );
+  FunctionCallee c4 = M.getOrInsertFunction(
+      "__cmplog_rtn_gcc_stdstring_cstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogGccStdC = c4;
 
-  FunctionCallee
-      c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int64Ty
-      );
+  FunctionCallee c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy,
+                                            i8PtrTy, i8PtrTy, Int64Ty);
   FunctionCallee cmplogHookFnN = c5;
 
-  FunctionCallee
-      c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int64Ty
-      );
+  FunctionCallee c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy,
+                                            i8PtrTy, i8PtrTy, Int64Ty);
   FunctionCallee cmplogHookFnStrN = c6;
 
-  FunctionCallee
-      c7 = M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy,
-                                 i8PtrTy
-      );
+  FunctionCallee c7 =
+      M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogHookFnStr = c7;
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
@@ -363,9 +348,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -392,9 +376,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -425,9 +408,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -454,9 +436,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -487,9 +468,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -515,9 +495,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -543,9 +522,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -571,9 +549,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-        PointerType::get(Int8Ty, 0),
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -598,7 +575,6 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
 PreservedAnalyses CmpLogRoutines::run(Module &M, ModuleAnalysisManager &MAM) {
 
-
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-routines-pass by andreafioraldi@gmail.com\n");
   else
@@ -612,3 +588,4 @@ PreservedAnalyses CmpLogRoutines::run(Module &M, ModuleAnalysisManager &MAM) {
     return PreservedAnalyses();
 
 }
+

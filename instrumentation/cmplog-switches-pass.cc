@@ -77,15 +77,15 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if LLVM_VERSION_MAJOR <= 13
+#if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-  #endif
+#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                                                   ,
                                                   ThinOrFullLTOPhase Phase
-  #endif
+#endif
                                                ) {
 
               MPM.addPass(CmplogSwitches());
@@ -122,28 +122,20 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
-  FunctionCallee
-      c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
-                                 Int8Ty
-      );
+  FunctionCallee c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy,
+                                            Int8Ty, Int8Ty, Int8Ty);
   FunctionCallee cmplogHookIns1 = c1;
 
-  FunctionCallee
-      c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty,
-                                 Int8Ty
-      );
+  FunctionCallee c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy,
+                                            Int16Ty, Int16Ty, Int8Ty);
   FunctionCallee cmplogHookIns2 = c2;
 
-  FunctionCallee
-      c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty,
-                                 Int8Ty
-      );
+  FunctionCallee c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy,
+                                            Int32Ty, Int32Ty, Int8Ty);
   FunctionCallee cmplogHookIns4 = c4;
 
-  FunctionCallee
-      c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty,
-                                 Int8Ty
-      );
+  FunctionCallee c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy,
+                                            Int64Ty, Int64Ty, Int8Ty);
   FunctionCallee cmplogHookIns8 = c8;
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
@@ -208,9 +200,8 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       IRBuilder<> IRB2(SI->getParent());
       IRB2.SetInsertPoint(SI);
 
-      LoadInst *CmpPtr = IRB2.CreateLoad(
-          PointerType::get(Int8Ty, 0),
-          AFLCmplogPtr);
+      LoadInst *CmpPtr =
+          IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
       CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
       auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, SI, false);
@@ -341,7 +332,6 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
 PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
 
-
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
   else
@@ -355,3 +345,4 @@ PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
     return PreservedAnalyses();
 
 }
+
