@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-compiler-passes (old):
+  check-compiler-passes-old:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -39,10 +39,12 @@ jobs:
       - name: compiler installed
         run: gcc -v; echo; clang -v
       - name: build afl++
-        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} llvm-build-test || exit 1; 
+        run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
+      - name: Check llvm passes
+        run: make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} llvm-build-test || exit 1
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
-  check-compiler-passes (new):
+  check-compiler-passes-new:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -75,6 +77,8 @@ jobs:
         run: gcc -v; echo; clang -v
       - name: build afl++
         run: export NO_NYX=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
+      - name: Check llvm passes
+        run: make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} llvm-build-test || exit 1
       - name: run tests
         run: sudo -E ./afl-system-config; make tests
 
