@@ -345,6 +345,11 @@ llvm:
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
+llvm-build-test:
+	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
+	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
+
+
 .PHONY: gcc_plugin
 gcc_plugin:
 ifneq "$(SYS)" "Darwin"

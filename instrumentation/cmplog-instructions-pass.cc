@@ -175,7 +175,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
       c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy, Int128Ty,
                                   Int128Ty, Int8Ty
       );
-  Function *cmplogHookIns16 = cast<Function>(c16);
+  FunctionCallee *cmplogHookIns16 = c16;
 
   FunctionCallee
       cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy, Int128Ty,
