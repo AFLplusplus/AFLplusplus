@@ -132,6 +132,7 @@ PreservedAnalyses AFLcheckIfInstrument::run(Module                &M,
       AttributeList Attrs = F.getAttributes();
       AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");
       F.setAttributes(NewAttrs);
+
     }
 
   }

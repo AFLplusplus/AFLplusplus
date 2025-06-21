@@ -336,7 +336,6 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
   if (!M) return;
 
-
   for (GlobalIFunc &IF : M->ifuncs()) {
 
     StringRef ifunc_name = IF.getName();

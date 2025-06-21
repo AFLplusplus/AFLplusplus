@@ -92,22 +92,23 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-    #if LLVM_VERSION_MAJOR >= 16
+#if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
-    #else
+#else
             PB.registerOptimizerLastEPCallback(
-    #endif
+#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL
-    #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                    ,
                    ThinOrFullLTOPhase Phase
-    #endif
+#endif
 
                 ) {
 
                   MPM.addPass(SplitSwitchesTransform());
 
                 });
+
           }};
 
 }
@@ -320,7 +321,7 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
 
 bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
-  LLVMContext &C = M.getContext();
+  LLVMContext              &C = M.getContext();
   std::vector<SwitchInst *> switches;
 
   /* iterate over all functions, bbs and instruction and add
@@ -444,11 +445,11 @@ PreservedAnalyses SplitSwitchesTransform::run(Module                &M,
   bool ret = splitSwitches(M);
   verifyModule(M);
 
-                             /*  if (modified) {
-                           
-                                 PA.abandon<XX_Manager>();
-                           
-                               }*/
+  /*  if (modified) {
+
+      PA.abandon<XX_Manager>();
+
+    }*/
 
   if (ret == false)
     return PreservedAnalyses::all();
@@ -456,3 +457,4 @@ PreservedAnalyses SplitSwitchesTransform::run(Module                &M,
     return PreservedAnalyses();
 
 }
+

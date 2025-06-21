@@ -88,21 +88,22 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-    #if LLVM_VERSION_MAJOR >= 16
+#if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
-    #else
+#else
             PB.registerOptimizerLastEPCallback(
-    #endif
+#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL
-    #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                    ,
                    ThinOrFullLTOPhase Phase
-    #endif
+#endif
                 ) {
 
                   MPM.addPass(AFLCoverage());
 
                 });
+
           }};
 
 }
@@ -295,20 +296,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   int PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
-  if (ngram_size)
-    PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize
-                                ,
-                                false
-    );
+  if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize, false);
 #endif
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   int PrevCallerVecSize = PowerOf2Ceil(PrevCallerSize);
-  if (ctx_k)
-    PrevCallerTy = VectorType::get(IntLocTy, PrevCallerVecSize
-                                   ,
-                                   false
-    );
+  if (ctx_k) PrevCallerTy = VectorType::get(IntLocTy, PrevCallerVecSize, false);
 #endif
 
   /* Get globals for the SHM region and the previous location. Note that
@@ -446,9 +439,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
         if (ctx_k) {
 
-          PrevCaller = IRB.CreateLoad(
-              PrevCallerTy,
-              AFLPrevCaller);
+          PrevCaller = IRB.CreateLoad(PrevCallerTy, AFLPrevCaller);
           PrevCaller->setMetadata(M.getMDKindID("nosanitize"),
                                   MDNode::get(C, None));
           PrevCtx =
@@ -461,9 +452,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
           // load the context ID of the previous function and write to a
           // local variable on the stack
-          LoadInst *PrevCtxLoad = IRB.CreateLoad(
-              IRB.getInt32Ty(),
-              AFLContext);
+          LoadInst *PrevCtxLoad = IRB.CreateLoad(IRB.getInt32Ty(), AFLContext);
           PrevCtxLoad->setMetadata(M.getMDKindID("nosanitize"),
                                    MDNode::get(C, None));
           PrevCtx = PrevCtxLoad;
@@ -537,10 +526,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
       // cur_loc++;
       cur_loc = AFL_R(map_size);
 
-/* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
-   The inline function successors() is not inlined and also not found at runtime
-   :-( As I am unable to detect Ubuntu18.04 here, the next best thing is to
-   disable this optional optimization for LLVM 6.0.0 and Linux */
+      /* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
+         The inline function successors() is not inlined and also not found at
+         runtime
+         :-( As I am unable to detect Ubuntu18.04 here, the next best thing is
+         to disable this optional optimization for LLVM 6.0.0 and Linux */
       // only instrument if this basic block is the destination of a previous
       // basic block that has multiple successors
       // this gets rid of ~5-10% of instrumentations that are unnecessary
@@ -585,11 +575,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             IRBuilder<> Post_IRB(Inst);
 
             StoreInst *RestoreCtx;
-  #ifdef AFL_HAVE_VECTOR_INTRINSICS
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
             if (ctx_k)
               RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
             else
-  #endif
+#endif
               RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
             RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                                     MDNode::get(C, None));
@@ -617,15 +607,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
       if (ngram_size) {
 
-        PrevLoc = IRB.CreateLoad(
-            PrevLocTy,
-            AFLPrevLoc);
+        PrevLoc = IRB.CreateLoad(PrevLocTy, AFLPrevLoc);
 
       } else {
 
-        PrevLoc = IRB.CreateLoad(
-            IRB.getInt32Ty(),
-            AFLPrevLoc);
+        PrevLoc = IRB.CreateLoad(IRB.getInt32Ty(), AFLPrevLoc);
 
       }
 
@@ -652,9 +638,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
       /* Load SHM pointer */
 
-      LoadInst *MapPtr = IRB.CreateLoad(
-          PointerType::get(Int8Ty, 0),
-          AFLMapPtr);
+      LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       Value *MapPtrIdx;
@@ -667,9 +651,8 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
                 Int32Ty));
       else
 #endif
-        MapPtrIdx = IRB.CreateGEP(
-            Int8Ty,
-            MapPtr, IRB.CreateXor(PrevLocTrans, CurLoc));
+        MapPtrIdx =
+            IRB.CreateGEP(Int8Ty, MapPtr, IRB.CreateXor(PrevLocTrans, CurLoc));
 
       /* Update bitmap */
 
@@ -686,9 +669,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
       } else {
 
-        LoadInst *Counter = IRB.CreateLoad(
-            IRB.getInt8Ty(),
-            MapPtrIdx);
+        LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
         Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
         Value *Incr = IRB.CreateAdd(Counter, One);
@@ -772,6 +753,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
       inst_blocks++;
 
     }
+
   }
 
   /*
@@ -847,4 +829,5 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
   }
 
   return PreservedAnalyses();
+
 }

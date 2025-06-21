@@ -1626,8 +1626,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     if (use_threadsafe_counters) {
 
       IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-                          llvm::MaybeAlign(1),
-                          llvm::AtomicOrdering::Monotonic);
+                          llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
 
     } else {
 

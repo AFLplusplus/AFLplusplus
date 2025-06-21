@@ -156,25 +156,25 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-    #if LLVM_VERSION_MAJOR >= 16
+#if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
-    #else
+#else
             PB.registerOptimizerLastEPCallback(
-    #endif
+#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL
-    #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                    ,
                    ThinOrFullLTOPhase Phase
-    #endif
+#endif
                 ) {
 
                   MPM.addPass(SplitComparesTransform());
 
                 });
+
           }};
 
 }
-
 
 /// This function splits FCMP instructions with xGE or xLE predicates into two
 /// FCMP instructions with predicate xGT or xLT and EQ
@@ -1650,7 +1650,6 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 PreservedAnalyses SplitComparesTransform::run(Module                &M,
                                               ModuleAnalysisManager &MAM) {
 
-
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
       getenv("AFL_DEBUG") != NULL) {
 
@@ -1755,8 +1754,7 @@ PreservedAnalyses SplitComparesTransform::run(Module                &M,
   bool ret = count == 0 ? false : true;
 
   bool brokenDebug = false;
-  if (verifyModule(M, &errs()
-                          ,
+  if (verifyModule(M, &errs(),
                    &brokenDebug  // 9th May 2016
                    )) {
 

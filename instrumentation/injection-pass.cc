@@ -82,10 +82,10 @@ llvmGetPassPluginInfo() {
 
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                                                   ,
                                                   ThinOrFullLTOPhase Phase
-  #endif
+#endif
                                                ) {
 
               MPM.addPass(InjectionRoutines());
@@ -106,19 +106,16 @@ bool InjectionRoutines::hookRtns(Module &M) {
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
-  FunctionCallee
-      c1 = M.getOrInsertFunction("__afl_injection_sql", VoidTy, i8PtrTy
-      );
+  FunctionCallee c1 =
+      M.getOrInsertFunction("__afl_injection_sql", VoidTy, i8PtrTy);
   FunctionCallee sqlfunc = c1;
 
-  FunctionCallee
-      c2 = M.getOrInsertFunction("__afl_injection_ldap", VoidTy, i8PtrTy
-      );
+  FunctionCallee c2 =
+      M.getOrInsertFunction("__afl_injection_ldap", VoidTy, i8PtrTy);
   FunctionCallee ldapfunc = c2;
 
-  FunctionCallee
-      c3 = M.getOrInsertFunction("__afl_injection_xss", VoidTy, i8PtrTy
-      );
+  FunctionCallee c3 =
+      M.getOrInsertFunction("__afl_injection_xss", VoidTy, i8PtrTy);
   FunctionCallee xssfunc = c3;
 
   FunctionCallee FuncPtr;
@@ -251,4 +248,5 @@ PreservedAnalyses InjectionRoutines::run(Module                &M,
     return PreservedAnalyses::all();
   else
     return PreservedAnalyses();
+
 }

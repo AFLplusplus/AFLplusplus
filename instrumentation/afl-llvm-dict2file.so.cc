@@ -81,6 +81,7 @@ class AFLdict2filePass : public PassInfoMixin<AFLdict2filePass> {
   }
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+
 };
 
 }  // namespace
@@ -94,10 +95,10 @@ llvmGetPassPluginInfo() {
 
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                                                   ,
                                                   ThinOrFullLTOPhase Phase
-  #endif
+#endif
                                                ) {
 
               MPM.addPass(AFLdict2filePass());
