@@ -43,9 +43,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/CFG.h"
-#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
-  #include "llvm/Passes/OptimizationLevel.h"
-#endif
+#include "llvm/Passes/OptimizationLevel.h"
 
 #include "afl-llvm-common.h"
 
@@ -80,9 +78,6 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
 #if LLVM_VERSION_MAJOR >= 20
@@ -135,16 +130,8 @@ PreservedAnalyses AFLcheckIfInstrument::run(Module                &M,
 
       auto         &Ctx = F.getContext();
       AttributeList Attrs = F.getAttributes();
-#if LLVM_VERSION_MAJOR >= 14
       AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");
       F.setAttributes(NewAttrs);
-#else
-      AttrBuilder NewAttrs;
-      NewAttrs.addAttribute("skipinstrument");
-      F.setAttributes(
-          Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
-#endif
-
     }
 
   }
@@ -153,21 +140,4 @@ PreservedAnalyses AFLcheckIfInstrument::run(Module                &M,
   return PA;
 
 }
-
-#if 0
-static void registerAFLcheckIfInstrumentpass(const PassManagerBuilder &,
-                                             legacy::PassManagerBase &PM) {
-
-  PM.add(new AFLcheckIfInstrument());
-
-}
-
-static RegisterStandardPasses RegisterAFLcheckIfInstrumentpass(
-    PassManagerBuilder::EP_ModuleOptimizerEarly,
-    registerAFLcheckIfInstrumentpass);
-
-static RegisterStandardPasses RegisterAFLcheckIfInstrumentpass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0,
-    registerAFLcheckIfInstrumentpass);
-#endif
 

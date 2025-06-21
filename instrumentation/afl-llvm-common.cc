@@ -85,10 +85,7 @@ char *getBBName(const llvm::BasicBlock *BB) {
   std::string        Str;
   raw_string_ostream OS(Str);
 
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
   BB->printAsOperand(OS, false);
-#endif
   name = strdup(OS.str().c_str());
   return name;
 
@@ -339,8 +336,6 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
   if (!M) return;
 
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
 
   for (GlobalIFunc &IF : M->ifuncs()) {
 
@@ -408,8 +403,6 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
   }
 
-#endif
-
 }
 
 static std::string getSourceName(llvm::Function *F) {
@@ -420,8 +413,6 @@ static std::string getSourceName(llvm::Function *F) {
   IRBuilder<>          IRB(&(*IP));
   DebugLoc             Loc = IP->getDebugLoc();
 
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
   if (Loc) {
 
     StringRef   instFilename;
@@ -441,20 +432,6 @@ static std::string getSourceName(llvm::Function *F) {
     return instFilename.str();
 
   }
-
-#else
-  if (!Loc.isUnknown()) {
-
-    DILocation cDILoc(Loc.getAsMDNode(F->getContext()));
-
-    StringRef instFilename = cDILoc.getFilename();
-
-    /* Continue only if we know where we actually are */
-    return instFilename.str();
-
-  }
-
-#endif
 
   return std::string("");
 
