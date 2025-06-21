@@ -224,9 +224,6 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR == 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
 #if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
                                                    OptimizationLevel  OL
@@ -1243,7 +1240,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           } else
 
-#if LLVM_VERSION_MAJOR >= 14
               if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
             FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
@@ -1311,7 +1307,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           } else
 
-#endif
           {
 
             if (!be_quiet) {
@@ -1379,9 +1374,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (use_threadsafe_counters) {
 
             IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-#if LLVM_VERSION_MAJOR >= 13
                                 llvm::MaybeAlign(1),
-#endif
                                 llvm::AtomicOrdering::Monotonic);
 
           } else {
@@ -1633,9 +1626,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     if (use_threadsafe_counters) {
 
       IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-#if LLVM_VERSION_MAJOR >= 13
                           llvm::MaybeAlign(1),
-#endif
                           llvm::AtomicOrdering::Monotonic);
 
     } else {
@@ -1704,4 +1695,3 @@ std::string ModuleSanitizerCoverageAFL::getSectionEnd(
   return "__stop___" + Section;
 
 }
-
