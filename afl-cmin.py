@@ -31,6 +31,7 @@ import sys
 # https://more-itertools.readthedocs.io/en/stable/_modules/more_itertools/recipes.html#batched
 from sys import hexversion
 
+
 def _batched(iterable, n, *, strict=False):
     """Batch data into tuples of length *n*. If the number of items in
     *iterable* is not divisible by *n*:
@@ -43,18 +44,20 @@ def _batched(iterable, n, *, strict=False):
     On Python 3.13 and above, this is an alias for :func:`itertools.batched`.
     """
     if n < 1:
-        raise ValueError('n must be at least one')
+        raise ValueError("n must be at least one")
     iterator = iter(iterable)
     while batch := tuple(itertools.islice(iterator, n)):
         if strict and len(batch) != n:
-            raise ValueError('batched(): incomplete batch')
+            raise ValueError("batched(): incomplete batch")
         yield batch
 
 
 if hexversion >= 0x30D00A2:  # pragma: no cover
     from itertools import batched as itertools_batched
+
     def batched(iterable, n, *, strict=False):
         return itertools_batched(iterable, n, strict=strict)
+
 else:
     batched = _batched
 
