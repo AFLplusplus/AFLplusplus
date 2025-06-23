@@ -741,6 +741,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     of the basic blocks, which can be useful when dealing with very complex
     binaries.
 
+  - You can switch to block coverage that has less chances of colliding (but
+    on the other hand coverage is on blocks, not edges) with
+    `AFL_QEMU_BLOCK_COV`.
+
   - Setting `AFL_QEMU_COMPCOV` enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64. This is an alias of `AFL_COMPCOV_LEVEL=1` when
     `AFL_COMPCOV_LEVEL` is not specified.

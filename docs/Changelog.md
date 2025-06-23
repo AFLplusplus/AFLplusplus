@@ -25,6 +25,7 @@
   - qemuafl:
     - Better MIPS persistent mode support
     - `AFL_EXITPOINT` support added
+    - `AFL_QEMU_BLOCK_COV` block coverage support added
   - afl-cmin:
     - New afl-cmin.py which is much faster, will be executed by default via
       afl-cmin if it executes successfully (thanks to @kcwu!)
