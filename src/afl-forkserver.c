@@ -50,7 +50,6 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <grp.h>
 
@@ -401,7 +400,7 @@ void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
 
 }
 
-/* Wrapper for select() and read(), reading a 32 bit var.
+/* Wrapper for poll() and read(), reading a 32 bit var.
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
@@ -420,7 +419,7 @@ static u32 __attribute__((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
   fds[0].events = POLLIN;
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
-restart_select:
+restart_poll:
   pret = poll(fds, nfds, timeout_ms);
   if (likely(pret > 0)) {
 
@@ -458,7 +457,7 @@ restart_select:
 
   } else if (unlikely(pret < 0)) {
 
-    if (likely(errno == EINTR)) goto restart_select;
+    if (likely(errno == EINTR)) goto restart_poll;
 
     *buf = -1;
     return 0;
