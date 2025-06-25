@@ -2996,6 +2996,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
+  u8 very_first_run = 1;
 
   while (likely(!afl->stop_soon)) {
 
@@ -3009,9 +3010,10 @@ int main(int argc, char **argv_orig, char **envp) {
                     (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
                    afl->sync_id)) {
 
-        if (unlikely(!afl->queue_cycle && afl->afl_env.afl_import_first)) {
+        if (unlikely(very_first_run && afl->afl_env.afl_import_first)) {
 
           OKF("Syncing queues from other fuzzer instances first ...");
+          very_first_run = 0;
 
         }
 
