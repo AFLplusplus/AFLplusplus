@@ -955,13 +955,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
       }
 
-    } else {
-
-      // something went wrong - this cannot be right, mabye the instance is
-      // restarting, skip
-      goto close_sync;
-
     }
+
+    // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
 
     // check if there is a file documented the maximum id seen on startup
     sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
