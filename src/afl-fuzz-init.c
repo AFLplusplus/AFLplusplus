@@ -3216,16 +3216,16 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
       afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
-
-    SAYF("\n" cLRD "[-] " cRST
-         "This program appears to be instrumented with AFL++ compilers, but is "
-         "being run\n"
-         "    in QEMU mode (-Q). This is probably not what you "
-         "want -\n"
-         "    this setup will be slow and offer no practical benefits.\n");
-
-    FATAL("Instrumentation found in -Q mode");
-
+    if (!getenv("AFL_QEMU_SKIP_INSTRUMENTATION_CHECK")) {
+      SAYF("\n" cLRD "[-] " cRST
+        "This program appears to be instrumented with AFL++ compilers, but is "
+        "being run\n"
+        "    in QEMU mode (-Q). This is probably not what you "
+        "want -\n"
+        "    this setup will be slow and offer no practical benefits.\n"
+        "    To skip this check, set AFL_QEMU_SKIP_INSTRUMENTATION_CHECK=1\n");
+      FATAL("Instrumentation found in -Q mode");
+    }
   }
 
   afl->fsrv.uses_asan = 0;
