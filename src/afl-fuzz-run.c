@@ -767,7 +767,8 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
   DIR           *sd, *dir;
   struct dirent *sd_ent, *entry;
-  u8             qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX];
+  u8  qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX], qd_main_path[PATH_MAX];
+  int have_main = afl->is_main_node;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -791,11 +792,11 @@ void check_sync_fuzzers(afl_state_t *afl) {
       u32 max_start_id = 0;
       while ((entry = readdir(dir)) != NULL) {
 
-        max_start_id++;
+        if (likely(entry->d_name[0] != '.')) { max_start_id++; }
 
       }
 
-      if (max_start_id > 4) {
+      if (max_start_id) {
 
         sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
                 sd_ent->d_name);
@@ -804,7 +805,7 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
         if (max_fd >= 0) {
 
-          max_start_id -= 4;  // without ".", "..", ".state" and counting from 0
+          --max_start_id;  // counting from 0
           write(max_fd, &max_start_id, sizeof(u32));
           close(max_fd);
 
@@ -816,9 +817,26 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
     closedir(dir);
 
+    if (!have_main) {
+
+      sprintf(qd_main_path, "%s/%s/is_main_node", afl->sync_dir,
+              sd_ent->d_name);
+      if (access(qd_main_path, F_OK) == 0) { have_main = 1; }
+
+    }
+
   }
 
   closedir(sd);
+
+  if (!have_main) {
+
+    afl->is_main_node = 1;
+    sprintf(qd_path, "%s/is_main_node", afl->out_dir);
+    int id_fd = open(qd_main_path, O_RDWR | O_CREAT, afl->perm);
+    if (id_fd >= 0) { close(id_fd); }
+
+  }
 
   update_sync_time(afl, &sync_start_us);
 
@@ -856,7 +874,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     // Skip dot files and our own output directory.
 
-    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+    if (unlikely(sd_ent->d_name[0] == '.' ||
+                 !strcmp(afl->sync_id, sd_ent->d_name))) {
 
       continue;
 
@@ -955,9 +974,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
       }
 
-    }
-
-    // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
+    }  // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
 
     // check if there is a file documented the maximum id seen on startup
     sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
