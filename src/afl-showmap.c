@@ -1548,12 +1548,17 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!be_quiet)
           ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
-        afl_shm_deinit(&shm);
-        afl_fsrv_kill(fsrv);
-        fsrv->map_size = new_map_size;
-        fsrv->trace_bits =
-            afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
-
+#ifdef __linux__
+        /* no need to terminate the nyx runner */
+        if (!fsrv->nyx_mode) {
+#endif
+          afl_shm_deinit(&shm);
+          afl_fsrv_kill(fsrv);
+          fsrv->map_size = new_map_size;
+          fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+#ifdef __linux__
+        }
+#endif
       }
 
       map_size = new_map_size;
