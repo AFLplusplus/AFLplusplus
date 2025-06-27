@@ -13,6 +13,7 @@
     - Fix potential sync issues when resuming sessions and when instances in a
       campaign are restarted and skip entries that were synced from itself
       (thanks to @kcwu for raising the issues and providing support!)
+    - Fix for when fast resuming failed
     - more 64 bit archicture support by @maribu
   - afl-cc:
     - Added instrumenting hidden edges (approx 5% edges were not instrumented,
@@ -31,6 +32,8 @@
       afl-cmin if it executes successfully (thanks to @kcwu!)
   - New desocketing library: utils/libaflppdesock
     - Likely works when all other desocketing options fail
+  - nyx_mode:
+    - Properly determine map size
 
 
 ### Version ++4.32c (release)

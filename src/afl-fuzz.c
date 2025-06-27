@@ -2862,6 +2862,26 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->reinit_table = 1;
     update_calibration_time(afl, &resume_start);
 
+    if (afl->fsrv.cmplog_binary &&
+        afl->fsrv.init_child_func != cmplog_exec_child) {
+
+      FATAL("BUG in afl-fuzz detected. Cmplog mode not set correctly.");
+
+    }
+
+    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child);
+
+    if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
+
+      afl_shm_deinit(afl->shm_fuzz);
+      ck_free(afl->shm_fuzz);
+      afl->shm_fuzz = NULL;
+      afl->fsrv.support_shmem_fuzz = 0;
+      afl->fsrv.shmem_fuzz = NULL;
+
+    }
+
   } else {
 
     // after we have the correct bitmap size we can read the bitmap -B option
