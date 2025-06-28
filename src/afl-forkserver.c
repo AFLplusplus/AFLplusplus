@@ -825,6 +825,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
     fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_id);
+    fsrv->nyx_handlers->nyx_config_free(nyx_config);
 
     ck_free(workdir_path);
     ck_free(outdir_path_absolute);

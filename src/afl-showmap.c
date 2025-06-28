@@ -63,6 +63,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#ifdef __linux__
+#include <poll.h>
+#include <unistd.h>
+#endif 
 
 static afl_state_t *afl;
 
@@ -537,10 +541,58 @@ static u32 read_file(u8 *in_file) {
 }
 
 #ifdef __linux__
-/* Execute the target application with an empty input (in Nyx mode). */
+#define NYX_STDIN_TMP_BUFFER_SIZE 256
+
+size_t read_stdin_input(u8** out) {
+  size_t len = 0;
+  u8* input = NULL;
+
+  if (!isatty(STDIN_FILENO)) { /* only process input when passed via pipe */
+
+    struct pollfd pfd = { .fd = STDIN_FILENO, .events = POLLIN };
+    int ready = poll(&pfd, 1, 0);  
+
+    if (ready == -1) {
+        FATAL("%s: poll failed\n", __func__);
+    } 
+    else if (pfd.revents & POLLIN) { // check if there is any data on stdin 
+
+      u8 tmp[NYX_STDIN_TMP_BUFFER_SIZE];
+      size_t capacity = NYX_STDIN_TMP_BUFFER_SIZE;
+      size_t bytes_read;
+      input = malloc(capacity);
+
+      /* copy input from stdin into a buffer to pass it to Nyx */
+      while ((bytes_read = read(STDIN_FILENO, tmp, NYX_STDIN_TMP_BUFFER_SIZE)) > 0) {
+        /* resize buffer if needed */
+        if (len + bytes_read > capacity) {
+          while (len + bytes_read > capacity)
+              capacity *= 2;
+
+          u8* new_input = realloc(input, capacity);
+          if (!new_input) {
+              free(input);
+              FATAL("%s: realloc failed\n", __func__);
+          }
+          input = new_input;
+        }
+        
+        memcpy(input + len, tmp, bytes_read);
+        len += bytes_read;
+      }
+      *out = input;
+    }
+  }
+  return len;
+}
+
+/* Execute the target application in Nyx mode with piped input from stdin (passed as a buffer). */
 static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
 
-  afl_fsrv_write_to_testcase(fsrv, NULL, 0);
+  u8* input = NULL;
+  size_t len = read_stdin_input(&input);
+
+  afl_fsrv_write_to_testcase(fsrv, input, len);
 
   if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
       FSRV_RUN_ERROR) {
@@ -549,6 +601,9 @@ static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
 
   }
 
+  if (input != NULL) {
+    free(input);
+  }
 }
 
 #endif
@@ -1548,12 +1603,18 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!be_quiet)
           ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
+#ifdef __linux__
+        /* no need to terminate the nyx runner */
+        if (!fsrv->nyx_mode) {
+#endif
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);
         fsrv->map_size = new_map_size;
         fsrv->trace_bits =
             afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
-
+#ifdef __linux__
+        }
+#endif
       }
 
       map_size = new_map_size;
