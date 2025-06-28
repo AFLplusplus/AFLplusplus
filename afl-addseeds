@@ -1,6 +1,8 @@
 #!/bin/sh
 
-test -z "$1" -o "$1" = "-h" -o "$1" = "--help" && {
+test -z "$1" -o "$1" = "-h" -o "$1" = "-hh" -o "$1" = "--help" && {
+  echo afl-addseeds by Marc Heuse
+  echo
   echo Syntax: afl-addseeds -o afl-out-dir [-i seed_file_or_dir] seed_file_or_seed_dir seed_file_or_seed_dir ...
   echo
   echo Options:

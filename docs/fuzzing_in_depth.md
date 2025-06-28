@@ -132,11 +132,15 @@ options are available:
   locations. This technique is very fast and good - if the target does not
   transform input data before comparison. Therefore, this technique is called
   `input to state` or `redqueen`. If you want to use this technique, then you
-  have to compile the target twice, once specifically with/for this mode by
-  setting `AFL_LLVM_CMPLOG=1`, and pass this binary to afl-fuzz via the `-c`
-  parameter. Note that you can compile also just a cmplog binary and use that
-  for both, however, there will be a performance penalty. You can read more
-  about this in
+  have to compile the target with `AFL_LLVM_CMPLOG=1`.
+  You could use the resulting binary for both normal fuzzing and `-c` CMPLOG
+  mode (with `-c 0`), however this will result in a performance loss of about
+  20%.
+  It is therefore better to compile a specific CMPLOG target with
+  `AFL_LLVM_ONLY_FSRV=1 AFL_LLVM_CMPLOG=1` and pass this binary name via
+  `-c cmplog-fuzzing-target` and compile target again normally with `afl-cc`
+   and use this is the fuzzing target as usual.
+  You can read more about this in
   [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
 If you use LTO, LLVM, or GCC_PLUGIN mode
@@ -865,10 +869,13 @@ Here are some of the most important caveats for AFL++:
 
 - There is no direct support for fuzzing network services, background daemons,
   or interactive apps that require UI interaction to work. You may need to make
-  simple code changes to make them behave in a more traditional way. Preeny or
-  libdesock may offer a relatively simple option, too - see:
+  simple code changes to make them behave in a more traditional way. Preeny,
+  libdesock or desockmulti may offer a relatively simple option, too - see:
   [https://github.com/zardus/preeny](https://github.com/zardus/preeny) or
   [https://github.com/fkie-cad/libdesock](https://github.com/fkie-cad/libdesock)
+  [https://github.com/zyingp/desockmulti](https://github.com/zyingp/desockmulti)
+  If these fail then try our own which might be a bit slower but is more
+  reliable: [utils/libaflppdesock](../utils/libaflppdesock)
 
   Some useful tips for modifying network-based services can be also found at:
   [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)

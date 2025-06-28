@@ -65,7 +65,6 @@
    The new pass is to be a GIMPLE_PASS.  Given the sort of
    instrumentation it's supposed to do, its todo_flags_finish will
    certainly need TODO_update_ssa, and TODO_cleanup_cfg.
-   TODO_verify_il is probably desirable, at least during debugging.
    TODO_rebuild_cgraph_edges is required only in the out-of-line
    instrumentation mode.
 
@@ -148,7 +147,7 @@ static constexpr struct pass_data afl_pass_data = {
     .properties_provided = 0,
     .properties_destroyed = 0,
     .todo_flags_start = 0,
-    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg | TODO_verify_il),
+    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg),
 
 };
 
@@ -462,6 +461,7 @@ static struct plugin_info afl_plugin = {
     .help = G_("AFL gcc plugin\n\
 \n\
 Set AFL_QUIET in the environment to silence it.\n\
+Set AFL_GCC_ONLY_FRSV in the environment to disable instrumentation.\n\
 \n\
 Set AFL_INST_RATIO in the environment to a number from 0 to 100\n\
 to control how likely a block will be chosen for instrumentation.\n\
@@ -502,9 +502,10 @@ int plugin_init(struct plugin_name_args   *info,
      case it was specified in the command line's -frandom-seed for
      reproducible instrumentation.  */
   srandom(get_random_seed(false));
+  bool fsrv_only = !!getenv("AFL_GCC_ONLY_FRSV");
 
   const char *name = info->base_name;
-  register_callback(name, PLUGIN_INFO, NULL, &afl_plugin);
+  if (!fsrv_only) { register_callback(name, PLUGIN_INFO, NULL, &afl_plugin); }
 
   afl_pass                 *aflp = new afl_pass(quiet, inst_ratio);
   struct register_pass_info pass_info = {
@@ -516,14 +517,20 @@ int plugin_init(struct plugin_name_args   *info,
 
   };
 
-  register_callback(name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-  register_callback(name, PLUGIN_FINISH, afl_pass::plugin_finalize,
-                    pass_info.pass);
+  if (!fsrv_only) {
+
+    register_callback(name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(name, PLUGIN_FINISH, afl_pass::plugin_finalize,
+                      pass_info.pass);
+
+  }
 
   if (!quiet)
     ACTF(G_("%s instrumentation at ratio of %u%% in %s mode."),
          aflp->out_of_line ? G_("Call-based") : G_("Inline"), inst_ratio,
          getenv("AFL_HARDEN") ? G_("hardened") : G_("non-hardened"));
+  else if (fsrv_only)
+    ACTF("Instrumentation disabled due to AFL_GCC_ONLY_FRSV");
 
   return 0;
 

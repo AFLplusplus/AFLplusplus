@@ -17,9 +17,9 @@ test -z "" 2>/dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
 echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
-test -e ./test-all.sh || cd $(dirname $0) || exit 1
+test -e ./test-all.sh || cd $(dirname "$0") || exit 1
 test -e ./test-all.sh || { echo Error: you must be in the test/ directory ; exit 1 ; }
-export AFL_PATH=`pwd`/..
+export AFL_PATH="$(pwd)/.."
 export AFL_TRY_AFFINITY=1 # workaround for travis that fails for no avail cores
 
 echo 1 > test.1
@@ -59,7 +59,7 @@ $ECHO \\101 2>&1 | grep -qE '^A' || {
     $ECHO "\\101" 2>&1 | grep -qE '^A' || ECHO=
   }
 }
-test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
+test -z "$ECHO" && { echo Error: printf command does not support octal character codes ; exit 1 ; }
 
 export AFL_EXIT_WHEN_DONE=1
 export AFL_EXIT_ON_TIME=60
@@ -109,11 +109,9 @@ test -n "$TRAVIS_OS_NAME" && {
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
-  test `uname -s` = 'Darwin' || export PATH="/usr/local/bin:${PATH}"
+  test "$(uname -s)" = 'Darwin' || export PATH="/usr/local/bin:${PATH}"
 }
 AFL_COMPILER=afl-clang-fast
-
-SYS=`uname -m`
 
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
@@ -121,6 +119,13 @@ GREEN="\\033[0;32m"
 RED="\\033[0;31m"
 YELLOW="\\033[1;93m"
 RESET="\\033[0m"
+
+if test -n "$CPU_TARGET"; then
+    $ECHO "${RESET}${GREY}[*] Using environment variable CPU_TARGET=$CPU_TARGET for SYS"
+    SYS="$CPU_TARGET"
+else
+    SYS=$(uname -m)
+fi
 
 MEM_LIMIT=none
 

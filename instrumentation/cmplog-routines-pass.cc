@@ -27,14 +27,9 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-  #include "llvm/Passes/PassPlugin.h"
-  #include "llvm/Passes/PassBuilder.h"
-  #include "llvm/IR/PassManager.h"
-#else
-  #include "llvm/IR/LegacyPassManager.h"
-  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -46,15 +41,8 @@
 #include "llvm/Analysis/ValueTracking.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-  #include "llvm/IR/Verifier.h"
-  #include "llvm/IR/DebugInfo.h"
-#else
-  #include "llvm/Analysis/Verifier.h"
-  #include "llvm/DebugInfo.h"
-  #define nullptr 0
-#endif
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include <set>
 #include "afl-llvm-common.h"
@@ -63,42 +51,16 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class CmpLogRoutines : public PassInfoMixin<CmpLogRoutines> {
 
  public:
   CmpLogRoutines() {
 
-#else
-class CmpLogRoutines : public ModulePass {
-
- public:
-  static char ID;
-  CmpLogRoutines() : ModulePass(ID) {
-
-#endif
-
     initInstrumentList();
 
   }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-#else
-  bool runOnModule(Module &M) override;
-
-  #if LLVM_VERSION_MAJOR >= 4
-  StringRef getPassName() const override {
-
-  #else
-  const char *getPassName() const override {
-
-  #endif
-    return "cmplog routines";
-
-  }
-
-#endif
 
  private:
   bool hookRtns(Module &M);
@@ -107,7 +69,6 @@ class CmpLogRoutines : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR >= 11
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
@@ -115,15 +76,15 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if LLVM_VERSION_MAJOR <= 13
+#if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-  #endif
+#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                                                   ,
                                                   ThinOrFullLTOPhase Phase
-  #endif
+#endif
                                                ) {
 
               MPM.addPass(CmpLogRoutines());
@@ -133,10 +94,6 @@ llvmGetPassPluginInfo() {
           }};
 
 }
-
-#else
-char CmpLogRoutines::ID = 0;
-#endif
 
 bool CmpLogRoutines::hookRtns(Module &M) {
 
@@ -150,148 +107,37 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c =
+      M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogHookFn = c;
-#else
-  Function *cmplogHookFn = cast<Function>(c);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c1 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_stdstring",
-                                 VoidTy, i8PtrTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c1 = M.getOrInsertFunction(
+      "__cmplog_rtn_llvm_stdstring_stdstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogLlvmStdStd = c1;
-#else
-  Function *cmplogLlvmStdStd = cast<Function>(c1);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c2 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_cstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c2 = M.getOrInsertFunction(
+      "__cmplog_rtn_llvm_stdstring_cstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogLlvmStdC = c2;
-#else
-  Function *cmplogLlvmStdC = cast<Function>(c2);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c3 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_stdstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c3 = M.getOrInsertFunction(
+      "__cmplog_rtn_gcc_stdstring_stdstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogGccStdStd = c3;
-#else
-  Function *cmplogGccStdStd = cast<Function>(c3);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c4 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_cstring", VoidTy,
-                                 i8PtrTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c4 = M.getOrInsertFunction(
+      "__cmplog_rtn_gcc_stdstring_cstring", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogGccStdC = c4;
-#else
-  Function *cmplogGccStdC = cast<Function>(c4);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int64Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c5 = M.getOrInsertFunction("__cmplog_rtn_hook_n", VoidTy,
+                                            i8PtrTy, i8PtrTy, Int64Ty);
   FunctionCallee cmplogHookFnN = c5;
-#else
-  Function *cmplogHookFnN = cast<Function>(c5);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy, i8PtrTy,
-                                 i8PtrTy, Int64Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c6 = M.getOrInsertFunction("__cmplog_rtn_hook_strn", VoidTy,
+                                            i8PtrTy, i8PtrTy, Int64Ty);
   FunctionCallee cmplogHookFnStrN = c6;
-#else
-  Function *cmplogHookFnStrN = cast<Function>(c6);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c7 = M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy,
-                                 i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c7 =
+      M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy, i8PtrTy);
   FunctionCallee cmplogHookFnStr = c7;
-#else
-  Function *cmplogHookFnStr = cast<Function>(c7);
-#endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
 
@@ -486,7 +332,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
       !llvmStdStd.size() && !llvmStdC.size() && !Memcmp.size() &&
-      Strcmp.size() && Strncmp.size())
+      !Strcmp.size() && !Strncmp.size())
     return false;
 
   /*
@@ -502,11 +348,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -533,11 +376,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -568,11 +408,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -599,11 +436,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -634,11 +468,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -664,11 +495,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -694,11 +522,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -724,11 +549,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRBuilder<> IRB2(callInst->getParent());
     IRB2.SetInsertPoint(callInst);
 
-    LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-        PointerType::get(Int8Ty, 0),
-#endif
-        AFLCmplogPtr);
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
     CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
@@ -751,13 +573,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
 }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 PreservedAnalyses CmpLogRoutines::run(Module &M, ModuleAnalysisManager &MAM) {
-
-#else
-bool CmpLogRoutines::runOnModule(Module &M) {
-
-#endif
 
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-routines-pass by andreafioraldi@gmail.com\n");
@@ -766,36 +582,10 @@ bool CmpLogRoutines::runOnModule(Module &M) {
   bool ret = hookRtns(M);
   verifyModule(M);
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   if (ret == false)
     return PreservedAnalyses::all();
   else
     return PreservedAnalyses();
-#else
-  return ret;
-#endif
 
 }
-
-#if LLVM_VERSION_MAJOR < 11                         /* use old pass manager */
-static void registerCmpLogRoutinesPass(const PassManagerBuilder &,
-                                       legacy::PassManagerBase &PM) {
-
-  auto p = new CmpLogRoutines();
-  PM.add(p);
-
-}
-
-static RegisterStandardPasses RegisterCmpLogRoutinesPass(
-    PassManagerBuilder::EP_OptimizerLast, registerCmpLogRoutinesPass);
-
-static RegisterStandardPasses RegisterCmpLogRoutinesPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerCmpLogRoutinesPass);
-
-  #if LLVM_VERSION_MAJOR >= 11
-static RegisterStandardPasses RegisterCmpLogRoutinesPassLTO(
-    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
-    registerCmpLogRoutinesPass);
-  #endif
-#endif
 

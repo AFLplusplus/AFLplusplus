@@ -111,6 +111,10 @@ fairly broad use of environment variables instead:
 
     - Note: both `AFL_CFISAN_VERBOSE=1` and `AFL_UBSAN_VERBOSE=1` are disabled by default as verbose output can significantly slow down fuzzing performance. Use these options only during debugging or when additional crash diagnostics are required
 
+  - `AFL_LLVM_ONLY_FSRV`/`AFL_GCC_ONLY_FSRV` will inject forkserver but not pc instrumentation. Please note this is different compared to `AFL_LLVM_DISABLE_INSTRUMENTATION`, which will totally disable forkserver implementation. This env is pretty useful in two cases:
+    - [SAND](./SAND.md). In this case, the binaries built in this way will serve as extra oracles. Check the corresponding documents for details.
+    - Compatible with LibAFL ForkserverExecutor implementation and thus faster to repeatedly run, compared to simple CommandExecutor.
+
   - `TMPDIR` is used by afl-as for temporary files; if this variable is not set,
     the tool defaults to /tmp.
 
@@ -664,6 +668,41 @@ checks or alter some of the more exotic semantics of the tool:
     Note that will not be exact and with slow targets it can take seconds
     until there is a slice for the time test.
 
+  - When using `AFL_PRELOAD` with a preload that disable `fork()` calls in
+    the target, the forkserver becomes unable to fork.
+    To overcome this issue, the `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT`
+    permits to be able to check in the preloaded library if the environment
+    variable `AFL_FORKSERVER_PARENT` is set, to be able to use vanilla
+    `fork()` in the forkserver, and the placeholder in the target.
+    Here is a POC :
+    ```C
+    // AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT=1 afl-fuzz ...
+    pid_t fork(void)
+    {
+        if (getenv("AFL_FORKSERVER_PARENT") == NULL)
+            return 0; // We are in the target
+        else
+            return real_fork(); // We are in the forkserver
+    }
+    ```
+
+  - `AFL_FORKSRV_UID` allows you to specify the UID that should be used when
+    running the fork server. When setting this variable, user should ensure
+    afl-fuzz binary has enough privileges to modify the UID (e.g. CAP\_SETUID
+    capability in Linux system).
+
+  - `AFL_FORKSRV_GID` allows you to specify the GID and the supplementary group
+    IDs that should be used when running the fork server. When setting this
+    variable, user should ensure afl-fuzz binary has enough privileges to
+    modify the GIDs (e.g. CAP\_SETGID capability in Linux system).
+
+  - When both `AFL_FORKSRV_UID` and `AFL_FORKSRV_GID` are set, afl-fuzz binary
+    and the fork server no longer share any IDs. Thus, afl-fuzz binary changes
+    the group owner of the created files to ensure that the fork server can
+    still access them. In such case, user should ensure afl-fuzz binary has
+    enough privileges to modify the ownership of entities (e.g. CAP\_CHOWN
+    capability in Linux system).
+
 ## 6) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:
@@ -701,6 +740,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - It is possible to set `AFL_INST_RATIO` to skip the instrumentation on some
     of the basic blocks, which can be useful when dealing with very complex
     binaries.
+
+  - You can switch to block coverage that has less chances of colliding (but
+    on the other hand coverage is on blocks, not edges) with
+    `AFL_QEMU_BLOCK_COV`.
 
   - Setting `AFL_QEMU_COMPCOV` enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64. This is an alias of `AFL_COMPCOV_LEVEL=1` when

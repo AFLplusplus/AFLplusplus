@@ -17,7 +17,7 @@ from binascii import unhexlify
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Helper - Specify input file to analysis and output folder to save corpdirus for constants in the overall project -------  Example usage : python2 thisfile.py outdir o.txt"
+            "Helper - Specify input file to analysis and output folder to save corpdirus for constants in the overall project -------  Example usage : python3 thisfile.py outdir o.txt"
         )
     )
     parser.add_argument(
@@ -25,7 +25,7 @@ def parse_args():
     )
     parser.add_argument(
         "infile",
-        help="Specify file output of codeql analysis - ex. ooo-hex.txt, analysis take place on this file, example : python2 thisfile.py outdir out.txt",
+        help="Specify file output of codeql analysis - ex. ooo-hex.txt, analysis take place on this file, example : python3 thisfile.py outdir out.txt",
     )
     return parser.parse_args()
 

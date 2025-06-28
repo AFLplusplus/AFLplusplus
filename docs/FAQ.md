@@ -11,7 +11,7 @@ If you find an interesting or important question missing, submit it via
   AFL++ is a superior fork to Google's AFL - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
-  American Fuzzy Lop (AFL) was developed by Michał "lcamtuf" Zalewski starting
+  American Fuzzy Lop (AFL) was developed by Michal "lcamtuf" Zalewski starting
   in 2013/2014, and when he left Google end of 2017 he stopped developing it.
 
   At the end of 2019, the Google fuzzing team took over maintenance of AFL,
@@ -284,14 +284,14 @@ If you find an interesting or important question missing, submit it via
   afl-cc/afl-clang-fast/afl-clang-lto:
 
   ```
-  /prg/tmp/llvm-project/build/bin/clang-13: symbol lookup error: /usr/local/bin/../lib/afl//cmplog-instructions-pass.so: undefined symbol: _ZNK4llvm8TypeSizecvmEv
-  clang-13: error: unable to execute command: No such file or directory
-  clang-13: error: clang frontend command failed due to signal (use -v to see invocation)
-  clang version 13.0.0 (https://github.com/llvm/llvm-project 1d7cf550721c51030144f3cd295c5789d51c4aad)
+  /prg/tmp/llvm-project/build/bin/clang-18: symbol lookup error: /usr/local/bin/../lib/afl//cmplog-instructions-pass.so: undefined symbol: _ZNK4llvm8TypeSizecvmEv
+  clang-18: error: unable to execute command: No such file or directory
+  clang-18: error: clang frontend command failed due to signal (use -v to see invocation)
+  clang version 18.0.0 (https://github.com/llvm/llvm-project 1d7cf550721c51030144f3cd295c5789d51c4aad)
   Target: x86_64-unknown-linux-gnu
   Thread model: posix
   InstalledDir: /prg/tmp/llvm-project/build/bin
-  clang-13: note: diagnostic msg:
+  clang-18: note: diagnostic msg:
   ********************
   ```
 

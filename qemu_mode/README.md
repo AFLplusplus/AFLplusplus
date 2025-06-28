@@ -68,6 +68,11 @@ which can be a huge speed improvement.
 
 For an example, see [README.deferred_initialization_example.md](README.deferred_initialization_example.md).
 
+Note that there is also `AFL_EXITPOINT` which you can set to an address that
+will trigger a termination of the qemu forked instance when the block that
+contains this address is reached. Read again: when the block where the address
+is is reached!
+
 ## 4) Persistent mode
 
 AFL++'s QEMU mode now supports also persistent mode for x86, x86_64, arm, and

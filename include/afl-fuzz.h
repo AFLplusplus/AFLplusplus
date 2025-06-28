@@ -462,7 +462,10 @@ typedef struct afl_env_vars {
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames, afl_no_sync, afl_no_fastresume;
+      afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_forksrv_uid_set,
+      afl_forksrv_gid_set;
+
+  u16 afl_forksrv_nb_supl_gids;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -472,6 +475,12 @@ typedef struct afl_env_vars {
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
   s32 afl_pizza_mode;
+
+  uid_t afl_forksrv_uid;
+
+  gid_t afl_forksrv_gid;
+
+  gid_t *afl_forksrv_supl_gids;
 
 } afl_env_vars_t;
 
@@ -554,6 +563,10 @@ typedef struct afl_state {
       *file_extension,                  /* File extension                   */
       *orig_cmdline,                    /* Original command line            */
       *infoexec;                       /* Command to execute on a new crash */
+
+  mode_t perm,                       /* File permission when creating files */
+      dir_perm;                /* File permission when creating directories */
+  u8 chown_needed;             /* Group owner of files needs to be modified */
 
   u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
       stats_update_freq;                /* Stats update frequency (execs)   */
@@ -770,6 +783,7 @@ typedef struct afl_state {
 #define FOREIGN_SYNCS_MAX 32U
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
+  char               *foreign_file;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
@@ -1139,6 +1153,7 @@ struct custom_mutator {
 
 void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
+void afl_resize_map_buffers(afl_state_t *, u32 old_size, u32 new_size);
 
 /* Set stop_soon flag on all children, kill all children */
 void afl_states_stop(void);
@@ -1180,7 +1195,7 @@ u8          havoc_mutation_probability_py(void *);
 u8          queue_get_py(void *, const u8 *);
 const char *introspection_py(void *);
 u8          queue_new_entry_py(void *, const u8 *, const u8 *);
-void        splice_optout(void *);
+void        splice_optout_py(void *);
 void        deinit_py(void *);
 
 #endif
@@ -1215,7 +1230,6 @@ u8 *describe_op(afl_state_t *, u8, size_t);
 #endif
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
-u8 has_new_bits_unclassified(afl_state_t *, u8 *);
 #ifndef AFL_SHOWMAP
 void classify_counts(afl_forkserver_t *);
 #endif
@@ -1258,6 +1272,7 @@ int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 
 /* Run */
 
+void check_sync_fuzzers(afl_state_t *);
 void sync_fuzzers(afl_state_t *);
 u32  write_to_testcase(afl_state_t *, void **, u32, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
@@ -1278,7 +1293,6 @@ u8   fuzz_one(afl_state_t *);
 #ifdef HAVE_AFFINITY
 void bind_to_free_cpu(afl_state_t *);
 #endif
-void   setup_post(afl_state_t *);
 void   read_testcases(afl_state_t *, u8 *);
 void   perform_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t *);
@@ -1442,7 +1456,7 @@ char *sha1_hex_for_file(const char *fname, u32 len);
  * enabled. */
 static inline int permissive_create(afl_state_t *afl, const char *fn) {
 
-  int fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  int fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
   if (unlikely(fd < 0)) {
 
     if (!(afl->afl_env.afl_sha1_filenames && errno == EEXIST)) {
@@ -1450,6 +1464,12 @@ static inline int permissive_create(afl_state_t *afl, const char *fn) {
       PFATAL("Unable to create '%s'", fn);
 
     }
+
+  }
+
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
   }
 

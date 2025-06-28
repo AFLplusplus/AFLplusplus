@@ -84,9 +84,15 @@ void write_bitmap(afl_state_t *afl) {
   afl->bitmap_changed = 0;
 
   snprintf(fname, PATH_MAX, "%s/fuzz_bitmap", afl->out_dir);
-  fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
   if (fd < 0) { PFATAL("Unable to open '%s'", fname); }
+
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
 
   ck_write(fd, afl->virgin_bits, afl->fsrv.map_size, fname);
 
@@ -255,7 +261,8 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
  * on rare cases it fall backs to the slow path: classify_counts() first, then
  * return has_new_bits(). */
 
-inline u8 has_new_bits_unclassified(afl_state_t *afl, u8 *virgin_map) {
+static inline u8 has_new_bits_unclassified(afl_state_t *afl, u8 *virgin_map,
+                                           bool *classified) {
 
   /* Handle the hot path first: no new coverage */
   u8 *end = afl->fsrv.trace_bits + afl->fsrv.map_size;
@@ -272,6 +279,7 @@ inline u8 has_new_bits_unclassified(afl_state_t *afl, u8 *virgin_map) {
 
 #endif                                                     /* ^WORD_SIZE_64 */
   classify_counts(&afl->fsrv);
+  *classified = true;
   return has_new_bits(afl, virgin_map);
 
 }
@@ -317,7 +325,15 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (unlikely(afl->syncing_party)) {
 
-    sprintf(ret, "sync:%s,src:%06u", afl->syncing_party, afl->syncing_case);
+    if (unlikely(afl->foreign_file)) {
+
+      sprintf(ret, "sync:%s,src:%.20s", afl->syncing_party, afl->foreign_file);
+
+    } else {
+
+      sprintf(ret, "sync:%s,src:%06u", afl->syncing_party, afl->syncing_case);
+
+    }
 
   } else {
 
@@ -419,11 +435,17 @@ void write_crash_readme(afl_state_t *afl) {
 
   sprintf(fn, "%s/crashes/README.txt", afl->out_dir);
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
   /* Do not die on errors here - that would be impolite. */
 
   if (unlikely(fd < 0)) { return; }
+
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
 
   f = fdopen(fd, "w");
 
@@ -462,14 +484,52 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
+static inline void classify_if_necessary(afl_state_t *afl, bool *classified) {
+
+  if (*classified) return;
+  classify_counts(&afl->fsrv);
+  *classified = true;
+
+}
+
+static inline void calculate_cksum_if_necessary(afl_state_t *afl, u64 *cksum,
+                                                bool *cksumed,
+                                                bool *classified) {
+
+  if (*cksumed) return;
+  classify_if_necessary(afl, classified);
+  *cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+  *cksumed = true;
+
+}
+
+static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
+                                                   u8          *new_bits,
+                                                   bool        *bits_counted,
+                                                   bool        *classified) {
+
+  if (*bits_counted) return;
+
+  if (*classified) {
+
+    *new_bits = has_new_bits(afl, afl->virgin_bits);
+
+  } else {
+
+    *new_bits = has_new_bits_unclassified(afl, afl->virgin_bits, classified);
+
+  }
+
+  *bits_counted = true;
+
+}
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
-
-  u8 classified = 0;
 
   if (unlikely(len == 0)) { return 0; }
 
@@ -479,7 +539,6 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       classify_counts(&afl->fsrv);
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      classified = 1;
 
       // Saturated increment
       if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
@@ -493,13 +552,14 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  new_bits = 0, keeping = 0, res, is_timeout = 0, need_hash = 1;
+  u8  keeping = 0, res, is_timeout = 0;
+  u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
-  u64 cksum = 0;
   u32 cksum_simplified = 0, cksum_unique = 0;
-  u8  san_fault = 0;
-  u8  san_idx = 0;
-  u8  feed_san = 0;
+
+  bool classified = false, bits_counted = false, cksumed = false;
+  u8   new_bits = 0;                       /* valid if bits_counted is true */
+  u64  cksum = 0;                               /* valid if cksumed is true */
 
   afl->san_case_status = 0;
 
@@ -509,10 +569,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
      only be used for special schedules */
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    classify_counts(&afl->fsrv);
-    need_hash = 0;
-
-    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
 
     /* Saturated increment */
     if (likely(afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF))
@@ -547,7 +604,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
         unlikely(afl->san_abstraction == COVERAGE_INCREASE)) {
 
       /* Check if the input increase the coverage */
-      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+      calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted,
+                                      &classified);
 
       if (unlikely(new_bits)) { feed_san = 1; }
 
@@ -556,15 +614,9 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (unlikely(afl->san_binary_length) &&
         likely(afl->san_abstraction == UNIQUE_TRACE)) {
 
-      // If schedule is not FAST..RARE, we need to classify counts here
       // Note: SAND was evaluated under FAST schedule but should also work
       //       with other scedules.
-      if (!classified) {
-
-        classify_counts(&afl->fsrv);
-        classified = 1;
-
-      }
+      classify_if_necessary(afl, &classified);
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -624,22 +676,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
-    if (!unlikely(afl->san_abstraction == COVERAGE_INCREASE && feed_san)) {
-
-      /* If we are in coverage increasing abstraction and have fed input to
-         sanitizers, we are sure it has new bits.*/
-      if (classified) {
-
-        /* We could have classified the bits in SAND with UNIQUE_TRACE */
-        new_bits = has_new_bits(afl, afl->virgin_bits);
-
-      } else {
-
-        new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
-
-      }
-
-    }
+    calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
     if (likely(!new_bits)) {
 
@@ -661,6 +698,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     fault = san_fault;
 
   save_to_queue:
+
+    /* these calculations are necessary because some code flow may jump here via
+       goto */
+    calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
+    calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
 #ifndef SIMPLE_FILES
 
@@ -743,6 +785,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
 #endif
 
+    afl->queue_top->exec_cksum = cksum;
+
     if (new_bits == 2) {
 
       afl->queue_top->has_new_cov = 1;
@@ -750,17 +794,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
-    if (unlikely(need_hash && new_bits)) {
-
-      /* due to classify counts we have to recalculate the checksum */
-      afl->queue_top->exec_cksum =
-          hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      need_hash = 0;
-
-    }
-
     /* For AFLFast schedules we update the new queue entry */
-    if (likely(cksum)) {
+    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
       afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
       afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
@@ -859,7 +894,9 @@ may_save_fault:
         }
 
         new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
-        classify_counts(&afl->fsrv);
+        classified = false;
+        bits_counted = false;
+        cksumed = false;
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if
@@ -1051,8 +1088,14 @@ may_save_fault:
     u8 fn_log[PATH_MAX];
 
     (void)(snprintf(fn_log, PATH_MAX, "%s.log", fn) + 1);
-    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
     if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
         afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string,

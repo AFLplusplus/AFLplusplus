@@ -327,13 +327,13 @@ class ModuleSanitizerCoverageLTOLegacyPass : public ModulePass {
 
     };
 
-    if (!getenv("AFL_SAN_NO_INST")) {
+    if (!getenv("AFL_LLVM_ONLY_FSRV")) {
 
       return ModuleSancov.instrumentModule(M, DTCallback, PDTCallback);
 
     } else {
 
-      if (getenv("AFL_DEBUG")) { DEBUGF("Instrument disabled\n"); }
+      if (getenv("AFL_DEBUG")) { DEBUGF("Instrumentation disabled\n"); }
       return false;
 
     }
@@ -389,14 +389,14 @@ PreservedAnalyses ModuleSanitizerCoverageLTO::run(Module                &M,
 
   };
 
-  if (!getenv("AFL_SAN_NO_INST")) {
+  if (!getenv("AFL_LLVM_ONLY_FSRV")) {
 
     if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
       return PreservedAnalyses::none();
 
   } else {
 
-    if (debug) { DEBUGF("Instrument disabled\n"); }
+    if (debug) { DEBUGF("Instrumentation disabled\n"); }
 
   }
 

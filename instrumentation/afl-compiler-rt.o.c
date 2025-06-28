@@ -119,6 +119,8 @@ u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 u32 __afl_old_forkserver;
 
+u8 __afl_forkserver_setenv = 0;
+
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
 
@@ -292,6 +294,25 @@ static void __afl_map_shm_fuzz() {
     u8 *map = NULL;
 
 #ifdef USEMMAP
+
+    // Newer afl-fuzz versions will set a shm_fuzz page size env, else fall back
+    size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
+    char  *map_size_env = getenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
+    if (map_size_env != NULL) {
+
+      char *endptr;
+      errno = 0;
+      shm_fuzz_map_size = (size_t)strtoul(map_size_env, &endptr, 10);
+      if (errno != 0 || shm_fuzz_map_size == 0) {
+
+        perror("shm_fuzz mapping size parsing");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        _exit(1);
+
+      }
+
+    }
+
     const char *shm_file_path = id_str;
     int         shm_fd = -1;
 
@@ -305,8 +326,7 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    map =
-        (u8 *)mmap(0, MAX_FILE + sizeof(u32), PROT_READ, MAP_SHARED, shm_fd, 0);
+    map = (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);
@@ -362,6 +382,7 @@ static void __afl_map_shm(void) {
     if (getenv("AFL_DUMP_MAP_SIZE")) {
 
       printf("%u\n", __afl_map_size);
+      fflush(stdout);
       exit(-1);
 
     }
@@ -888,6 +909,12 @@ static void __afl_start_forkserver(void) {
 
   }
 
+  if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
+
+    __afl_forkserver_setenv = 1;
+
+  }
+
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
@@ -913,7 +940,12 @@ static void __afl_start_forkserver(void) {
 
     }
 
-    if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
+    if (write(FORKSRV_FD + 1, msg, 4) != 4) {
+
+      errno = 0;
+      _exit(1);
+
+    }
 
     // Now send the parameters for the set options, increasing by option number
 
@@ -1054,6 +1086,13 @@ static void __afl_start_forkserver(void) {
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
+
+        if (unlikely(__afl_forkserver_setenv)) {
+
+          unsetenv("AFL_FORKSERVER_PARENT");
+
+        }
+
         return;
 
       }
@@ -1223,6 +1262,15 @@ void __afl_manual_init(void) {
               "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
 
     }
+
+  }
+
+  if (getenv("AFL_LLVM_ONLY_FSRV") || getenv("AFL_GCC_ONLY_FRSV")) {
+
+    fprintf(stderr,
+            "DEBUG: Overwrite area_ptr to dummy due to "
+            "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FRSV\n");
+    __afl_area_ptr = __afl_area_ptr_dummy;
 
   }
 

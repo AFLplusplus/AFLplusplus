@@ -589,8 +589,6 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         u8 *fn2 =
             alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, nl[i]->d_name);
 
-        free(nl[i]);                                         /* not tracked */
-
         if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
 
           if (first) PFATAL("Unable to access '%s'", fn2);
@@ -653,17 +651,14 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         u32 len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
+        afl->foreign_file = nl[i]->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, len, fault);
-        afl->syncing_party = 0;
+
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_mtime > mtime_max) {
-
-          mtime_max = st.st_mtime;
-          show_stats(afl);
-
-        }
+        if (st.st_mtime > mtime_max) { mtime_max = st.st_mtime; }
+        show_stats(afl);
 
       }
 
@@ -673,11 +668,20 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
+      for (i = 0; i < (u32)nl_cnt; ++i) {
+
+        free(nl[i]);                                         /* not tracked */
+
+      }
+
       free(nl);                                              /* not tracked */
 
     }
 
   }
+
+  afl->foreign_file = NULL;
+  afl->syncing_party = 0;
 
   if (first) {
 
@@ -756,20 +760,9 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   if (nl_cnt) {
 
     u32 done = 0;
-
-    if (unlikely(afl->in_place_resume)) {
-
-      i = nl_cnt;
-
-    } else {
-
-      i = 0;
-
-    }
+    i = 0;
 
     do {
-
-      if (unlikely(afl->in_place_resume)) { --i; }
 
       struct stat st;
       u8          dfn[PATH_MAX];
@@ -850,21 +843,11 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       }
 
     next_entry:
-      if (unlikely(afl->in_place_resume)) {
-
-        if (unlikely(i == 0)) { done = 1; }
-
-      } else {
-
-        if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
-
-      }
+      if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
 
     } while (!done);
 
   }
-
-  // if (getenv("MYTEST")) afl->in_place_resume = 0;
 
   free(nl);                                                  /* not tracked */
 
@@ -909,9 +892,21 @@ void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q;
   u32                 cal_failures = 0, idx;
-  u8                 *use_mem;
+  u8                 *use_mem, done = 0;
 
-  for (idx = 0; idx < afl->queued_items; idx++) {
+  if (afl->in_place_resume) {
+
+    idx = afl->queued_items;
+
+  } else {
+
+    idx = 0;
+
+  }
+
+  do {
+
+    if (afl->in_place_resume) { --idx; }
 
     q = afl->queue_buf[idx];
     if (unlikely(!q || q->disabled)) { continue; }
@@ -1273,9 +1268,20 @@ void perform_dry_run(afl_state_t *afl) {
 
           ++afl->saved_crashes;
 
-          fd = open(crash_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+          fd = open(crash_fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
           if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", crash_fn); }
           ck_write(fd, use_mem, read_len, crash_fn);
+
+          if (afl->chown_needed) {
+
+            if (fchown(fd, -1, afl->fsrv.gid) == -1) {
+
+              PFATAL("fchown() failed");
+
+            }
+
+          }
+
           close(fd);
 
 #ifdef __linux__
@@ -1284,8 +1290,7 @@ void perform_dry_run(afl_state_t *afl) {
             u8 crash_log_fn[PATH_MAX];
 
             snprintf(crash_log_fn, PATH_MAX, "%s.log", crash_fn);
-            fd = open(crash_log_fn, O_WRONLY | O_CREAT | O_EXCL,
-                      DEFAULT_PERMISSION);
+            fd = open(crash_log_fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
             if (unlikely(fd < 0)) {
 
               PFATAL("Unable to create '%s'", crash_log_fn);
@@ -1298,6 +1303,17 @@ void perform_dry_run(afl_state_t *afl) {
 
             ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len,
                      crash_log_fn);
+
+            if (afl->chown_needed) {
+
+              if (fchown(fd, -1, afl->fsrv.gid) == -1) {
+
+                PFATAL("fchown() failed");
+
+              }
+
+            }
+
             close(fd);
 
           }
@@ -1378,7 +1394,17 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
-  }
+    if (!afl->in_place_resume) {
+
+      if (++idx >= afl->queued_items) { done = 1; }
+
+    } else {
+
+      if (idx == 0) { done = 1; }
+
+    }
+
+  } while (!done);
 
   if (cal_failures) {
 
@@ -1407,66 +1433,50 @@ void perform_dry_run(afl_state_t *afl) {
 
     q = afl->queue_buf[idx];
     if (!q || q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
-    u32 done = 0;
 
-    for (i = idx + 1;
-         likely(i < afl->queued_items && afl->queue_buf[i] && !done); ++i) {
+    for (i = idx + 1; likely(i < afl->queued_items && afl->queue_buf[i]); ++i) {
 
       struct queue_entry *p = afl->queue_buf[i];
       if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
+      if (p->exec_cksum != q->exec_cksum) continue;
 
-      if (p->exec_cksum == q->exec_cksum) {
+      duplicates = 1;
 
-        duplicates = 1;
+      // we keep the shorter file
+      struct queue_entry *to_disable, *to_keep;
+      if (p->len >= q->len) {
 
-        // we keep the shorter file
-        if (p->len >= q->len) {
+        to_disable = p;
+        to_keep = q;
 
-          if (!p->was_fuzzed) {
+      } else {
 
-            p->was_fuzzed = 1;
-            afl->reinit_table = 1;
-            --afl->pending_not_fuzzed;
-            --afl->active_items;
-
-          }
-
-          p->disabled = 1;
-          p->perf_score = 0;
-
-          if (afl->debug) {
-
-            WARNF("Same coverage - %s is kept active, %s is disabled.",
-                  q->fname, p->fname);
-
-          }
-
-        } else {
-
-          if (!q->was_fuzzed) {
-
-            q->was_fuzzed = 1;
-            afl->reinit_table = 1;
-            --afl->pending_not_fuzzed;
-            --afl->active_items;
-
-          }
-
-          q->disabled = 1;
-          q->perf_score = 0;
-
-          if (afl->debug) {
-
-            WARNF("Same coverage - %s is kept active, %s is disabled.",
-                  p->fname, q->fname);
-
-          }
-
-          done = 1;  // end inner loop because outer loop entry is disabled now
-
-        }
+        to_disable = q;
+        to_keep = p;
 
       }
+
+      if (!to_disable->was_fuzzed) {
+
+        to_disable->was_fuzzed = 1;
+        afl->reinit_table = 1;
+        --afl->pending_not_fuzzed;
+        --afl->active_items;
+
+      }
+
+      to_disable->disabled = 1;
+      to_disable->perf_score = 0;
+
+      if (afl->debug) {
+
+        WARNF("Same coverage - %s is kept active, %s is disabled.",
+              to_keep->fname, to_disable->fname);
+
+      }
+
+      // end inner loop because outer loop entry is disabled now
+      if (to_disable == q) break;
 
     }
 
@@ -1494,7 +1504,7 @@ void perform_dry_run(afl_state_t *afl) {
 
 /* Helper function: link() if possible, copy otherwise. */
 
-static void link_or_copy(u8 *old_path, u8 *new_path) {
+static void link_or_copy(u8 *old_path, u8 *new_path, mode_t perm) {
 
   s32 i = link(old_path, new_path);
   if (!i) { return; }
@@ -1505,7 +1515,7 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
   sfd = open(old_path, O_RDONLY);
   if (sfd < 0) { PFATAL("Unable to open '%s'", old_path); }
 
-  dfd = open(new_path, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  dfd = open(new_path, O_WRONLY | O_CREAT | O_EXCL, perm);
   if (dfd < 0) { PFATAL("Unable to create '%s'", new_path); }
 
   tmp = ck_alloc(64 * 1024);
@@ -1557,8 +1567,9 @@ void pivot_inputs(afl_state_t *afl) {
        ID matches the one we'd assign, just use the original file name.
        This is valuable for resuming fuzzing runs. */
 
-    if (!strncmp(rsl, CASE_PREFIX, 3) &&
-        sscanf(rsl + 3, "%06u", &orig_id) == 1 && orig_id == id) {
+    if (afl->in_place_resume ||
+        (!strncmp(rsl, CASE_PREFIX, 3) &&
+         sscanf(rsl + 3, "%06u", &orig_id) == 1 && orig_id == id)) {
 
       u8 *src_str;
       u32 src_id;
@@ -1640,9 +1651,15 @@ void pivot_inputs(afl_state_t *afl) {
 
     /* Pivot to the new queue entry. */
 
-    link_or_copy(q->fname, nfn);
+    link_or_copy(q->fname, nfn, afl->perm);
     ck_free(q->fname);
     q->fname = nfn;
+
+    if (afl->chown_needed) {
+
+      if (chown(nfn, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     /* Make sure that the passed_det value carries over, too. */
 
@@ -2250,19 +2267,29 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   ACTF("Setting up output directories...");
 
-  if (afl->sync_id && mkdir(afl->sync_dir, 0700) && errno != EEXIST) {
+  if (afl->sync_id && mkdir(afl->sync_dir, afl->dir_perm) && errno != EEXIST) {
 
     PFATAL("Unable to create '%s'", afl->sync_dir);
 
   }
 
-  if (mkdir(afl->out_dir, 0700)) {
+  if (mkdir(afl->out_dir, afl->dir_perm)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
 
     handle_existing_out_dir(afl);
 
   } else {
+
+    if (afl->chown_needed) {
+
+      if (chown(afl->out_dir, -1, afl->fsrv.gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
+
+    }
 
     if (afl->in_place_resume) {
 
@@ -2298,27 +2325,27 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Queue directory for any starting & discovered paths. */
 
   tmp = alloc_printf("%s/queue", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Top-level directory for queue metadata used for session
      resume and related tasks. */
 
   tmp = alloc_printf("%s/queue/.state/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Directory for flagging queue entries that went through
      deterministic fuzzing in the past. */
 
   tmp = alloc_printf("%s/queue/.state/deterministic_done/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Directory with the auto-selected dictionary entries. */
 
   tmp = alloc_printf("%s/queue/.state/auto_extras/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Sync directory for keeping track of cooperating fuzzers. */
@@ -2327,7 +2354,8 @@ void setup_dirs_fds(afl_state_t *afl) {
 
     tmp = alloc_printf("%s/.synced/", afl->out_dir);
 
-    if (mkdir(tmp, 0700) && (!afl->in_place_resume || errno != EEXIST)) {
+    if (mkdir(tmp, afl->dir_perm) &&
+        (!afl->in_place_resume || errno != EEXIST)) {
 
       PFATAL("Unable to create '%s'", tmp);
 
@@ -2340,13 +2368,13 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* All recorded crashes. */
 
   tmp = alloc_printf("%s/crashes", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* All recorded hangs. */
 
   tmp = alloc_printf("%s/hangs", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Generally useful file descriptors. */
@@ -2363,8 +2391,14 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   if (!afl->in_place_resume) {
 
-    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
     if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
+
     ck_free(tmp);
 
     afl->fsrv.plot_file = fdopen(fd, "w");
@@ -2390,8 +2424,14 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   } else {
 
-    int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+    int fd = open(tmp, O_WRONLY | O_CREAT, afl->perm);
     if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
+
     ck_free(tmp);
 
     afl->fsrv.plot_file = fdopen(fd, "w");
@@ -2407,8 +2447,14 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   tmp = alloc_printf("%s/plot_det_data", afl->out_dir);
 
-  int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+  int fd = open(tmp, O_WRONLY | O_CREAT, afl->perm);
   if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
+
   ck_free(tmp);
 
   afl->fsrv.det_plot_file = fdopen(fd, "w");
@@ -2432,8 +2478,14 @@ void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
   /* Store the command line to reproduce our findings */
   tmp = alloc_printf("%s/cmdline", afl->out_dir);
-  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
   if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
+
   ck_free(tmp);
 
   cmdline_file = fdopen(fd, "w");
@@ -2468,11 +2520,21 @@ void setup_stdio_file(afl_state_t *afl) {
   unlink(afl->fsrv.out_file);                              /* Ignore errors */
 
   afl->fsrv.out_fd =
-      open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, afl->perm);
 
   if (afl->fsrv.out_fd < 0) {
 
     PFATAL("Unable to create '%s'", afl->fsrv.out_file);
+
+  }
+
+  if (afl->chown_needed) {
+
+    if (fchown(afl->fsrv.out_fd, -1, afl->fsrv.gid) == -1) {
+
+      PFATAL("fchown() failed");
+
+    }
 
   }
 
@@ -2801,9 +2863,9 @@ void fix_up_sync(afl_state_t *afl) {
 
   }
 
-  if (strlen(afl->sync_id) > 50) {
+  if (strlen(afl->sync_id) > SYNC_ID_MAX_LEN) {
 
-    FATAL("sync_id max length is 50 characters");
+    FATAL("sync_id max length is %d characters", SYNC_ID_MAX_LEN);
 
   }
 
@@ -2911,10 +2973,16 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
-  u8 *map = afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
+  u8    *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_map_size, 1, afl->perm,
+                         afl->chown_needed ? afl->fsrv.gid : -1);
   afl->shm_fuzz->shmemfuzz_mode = 1;
 
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+
+  u8 *shm_fuzz_map_size_str = alloc_printf("%zu", shm_fuzz_map_size);
+  setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+  ck_free(shm_fuzz_map_size_str);
 
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
@@ -3116,7 +3184,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.nyx_mode &&
 #endif
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
-      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the target binary is not instrumented! The fuzzer depends "
@@ -3147,7 +3215,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if ((afl->fsrv.cs_mode || afl->fsrv.qemu_mode || afl->fsrv.frida_mode) &&
-      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with AFL++ compilers, but is "
@@ -3156,7 +3224,11 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "want -\n"
          "    this setup will be slow and offer no practical benefits.\n");
 
-    FATAL("Instrumentation found in -Q mode");
+    if (!afl->afl_env.afl_ignore_problems) {
+
+      FATAL("Instrumentation found in -Q mode");
+
+    }
 
   }
 
@@ -3182,7 +3254,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   /* Detect persistent & deferred init signatures in the binary. */
 
-  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG))) {
 
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -3209,7 +3281,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (afl->fsrv.frida_mode ||
-      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+      afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG))) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);

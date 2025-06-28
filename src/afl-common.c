@@ -179,7 +179,7 @@ u32 check_binary_signatures(u8 *fn) {
   if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
   close(fd);
 
-  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG))) {
 
     if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -204,7 +204,7 @@ u32 check_binary_signatures(u8 *fn) {
 
   }
 
-  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG))) {
 
     if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
     setenv(DEFER_ENV_VAR, "1", 1);
@@ -819,7 +819,21 @@ void check_environment_vars(char **envp) {
 
           WARNF("AFL environment variable %s is deprecated!",
                 afl_environment_deprecated[i]);
-          issue_detected = 1;
+
+          if (strncmp(afl_environment_deprecated[i], "AFL_SAN_NO_INST",
+                      strlen(afl_environment_deprecated[i])) == 0) {
+
+            WARNF(
+                "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FSRV is induced and set "
+                "instead.");
+            setenv("AFL_GCC_ONLY_FSRV", "1", 0);
+            setenv("AFL_LLVM_ONLY_FSRV", "1", 0);
+
+          } else {
+
+            issue_detected = 1;
+
+          }
 
         } else {
 
@@ -1383,12 +1397,12 @@ u32 get_map_size(void) {
 
 /* Create a stream file */
 
-FILE *create_ffile(u8 *fn) {
+FILE *create_ffile(u8 *fn, mode_t mode) {
 
   s32   fd;
   FILE *f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, mode);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
@@ -1402,11 +1416,11 @@ FILE *create_ffile(u8 *fn) {
 
 /* Create a file */
 
-s32 create_file(u8 *fn) {
+s32 create_file(u8 *fn, mode_t mode) {
 
   s32 fd;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, mode);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 

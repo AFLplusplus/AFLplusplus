@@ -571,9 +571,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (argc > 1 && strcmp(argv_orig[1], "--help") == 0) {
+  if (argc > 1 && (strcmp(argv_orig[1], "--help") == 0 ||
+                   strncmp(argv_orig[1], "-h", 2) == 0)) {
 
-    usage(argv_orig[0], 1);
+    if (argc == 2 && (strcmp(argv_orig[1], "--help") == 0 ||
+                      strcmp(argv_orig[1], "-h") == 0)) {
+
+      usage(argv_orig[0], 1);
+
+    } else {
+
+      usage(argv_orig[0], 2);
+
+    }
+
     exit(0);
 
   }
@@ -602,6 +613,49 @@ int main(int argc, char **argv_orig, char **envp) {
   if (debug) { afl->fsrv.debug = true; }
   read_afl_environment(afl, envp);
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
+
+  if (afl->afl_env.afl_forksrv_uid_set) {
+
+    afl->fsrv.uid_set = 1;
+    afl->fsrv.uid = afl->afl_env.afl_forksrv_uid;
+
+  }
+
+  if (afl->afl_env.afl_forksrv_gid_set) {
+
+    afl->fsrv.gid_set = 1;
+    afl->fsrv.gid = afl->afl_env.afl_forksrv_gid;
+    afl->fsrv.nb_supl_gids = afl->afl_env.afl_forksrv_nb_supl_gids;
+    afl->fsrv.supl_gids = afl->afl_env.afl_forksrv_supl_gids;
+
+  }
+
+  if (afl->fsrv.uid_set) {
+
+    /* If the UID is modified, allow group to open files and dirs */
+    afl->perm = DEFAULT_PERMISSION | 0060;
+    afl->fsrv.perm = afl->perm;
+    afl->dir_perm = DEFAULT_DIRS_PERMISSION | 0070;
+
+    /* Ensure permissions will be really set*/
+    umask(~(afl->perm | afl->dir_perm));
+
+    /* If the GID is also modified, then change the group of files and dirs */
+    if (afl->fsrv.gid_set) {
+
+      afl->chown_needed = 1;
+      afl->fsrv.chown_needed = 1;
+
+    }
+
+  } else {
+
+    afl->perm = DEFAULT_PERMISSION;
+    afl->fsrv.perm = afl->perm;
+    afl->dir_perm = DEFAULT_DIRS_PERMISSION;
+
+  }
+
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -1502,7 +1556,9 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->is_main_node == 1 && afl->schedule != FAST &&
       afl->schedule != EXPLORE) {
 
-    FATAL("-M is compatible only with fast and explore -p power schedules");
+    WARNF(
+        "When using -M, it is recommended to use only fast or explore -p power "
+        "schedules");
 
   }
 
@@ -1745,7 +1801,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cycle_schedules) {
 
-    afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32));
+    afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32 *));
 
   }
 
@@ -2307,11 +2363,7 @@ int main(int argc, char **argv_orig, char **envp) {
     u64 target_hash = get_binary_hash(afl->fsrv.target_path);
   #endif
 
-    if ((!target_hash || prev_target_hash != target_hash)
-  #ifdef __linux__
-        || (afl->fsrv.nyx_mode && target_hash == 0)
-  #endif
-    ) {
+    if (!target_hash || prev_target_hash != target_hash) {
 
       ACTF("Target binary is different, cannot perform FAST RESUME!");
 
@@ -2502,35 +2554,15 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
       afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
 
-    u32 old_map_size = map_size;
     map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
-    afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
-    afl->virgin_tmout = ck_realloc(afl->virgin_tmout, map_size);
-    afl->virgin_crash = ck_realloc(afl->virgin_crash, map_size);
-    afl->var_bytes = ck_realloc(afl->var_bytes, map_size);
-    afl->top_rated = ck_realloc(afl->top_rated, map_size * sizeof(void *));
-    afl->clean_trace = ck_realloc(afl->clean_trace, map_size);
-    afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, map_size);
-    afl->first_trace = ck_realloc(afl->first_trace, map_size);
-    afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, map_size);
-
-    if (old_map_size < map_size) {
-
-      memset(afl->var_bytes + old_map_size, 0, map_size - old_map_size);
-      memset(afl->top_rated + old_map_size, 0, map_size - old_map_size);
-      memset(afl->clean_trace + old_map_size, 0, map_size - old_map_size);
-      memset(afl->clean_trace_custom + old_map_size, 0,
-             map_size - old_map_size);
-      memset(afl->first_trace + old_map_size, 0, map_size - old_map_size);
-      memset(afl->map_tmp_buf + old_map_size, 0, map_size - old_map_size);
-
-    }
+    afl_resize_map_buffers(afl, map_size, MAP_SIZE);
 
   }
 
   afl->argv = use_argv;
   afl->fsrv.trace_bits =
-      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
+                   afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
@@ -2552,37 +2584,14 @@ int main(int argc, char **argv_orig, char **envp) {
     if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
-
-      u32 old_map_size = map_size;
-      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-      afl->top_rated =
-          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-      afl->clean_trace_custom =
-          ck_realloc(afl->clean_trace_custom, new_map_size);
-      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
-
-      if (old_map_size < new_map_size) {
-
-        memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace_custom + old_map_size, 0,
-               new_map_size - old_map_size);
-        memset(afl->first_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->map_tmp_buf + old_map_size, 0, new_map_size - old_map_size);
-
-      }
+      afl_resize_map_buffers(afl, map_size, new_map_size);
 
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
       afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+                       afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -2637,7 +2646,6 @@ int main(int argc, char **argv_orig, char **envp) {
        */
       afl->san_fsrvs[i].trace_bits = ck_alloc(
           afl->fsrv.map_size + 8); /* One more u64 according to afl_shm_init*/
-      afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
 
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
@@ -2646,10 +2654,6 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
       afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
-
-      afl->san_fsrvs[i].child_kill_signal =
-          afl->fsrv.child_kill_signal;  // I believe cmplog also needs this.
-      afl->san_fsrvs[i].fsrv_kill_signal = afl->fsrv.fsrv_kill_signal;
 
       if ((map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < map_size) &&
@@ -2673,18 +2677,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         OKF("Re-initializing maps to %u bytes due to SAN instrumented binary",
             new_map_size);
-
-        afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-        afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-        afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-        afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-        afl->top_rated =
-            ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-        afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-        afl->clean_trace_custom =
-            ck_realloc(afl->clean_trace_custom, new_map_size);
-        afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-        afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+        afl_resize_map_buffers(afl, map_size, new_map_size);
 
         afl_fsrv_kill(&afl->fsrv);
         afl_fsrv_kill(&afl->san_fsrvs[i]);
@@ -2695,7 +2688,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
         afl->fsrv.trace_bits =
-            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+            afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+                         afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
         ck_free(afl->san_fsrvs[i].trace_bits);
         afl->san_fsrvs[i].trace_bits = ck_alloc(afl->fsrv.map_size + 8);
         afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
@@ -2750,31 +2744,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
-
-      u32 old_map_size = map_size;
-      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
-      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
-      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
-      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
-      afl->top_rated =
-          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
-      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
-      afl->clean_trace_custom =
-          ck_realloc(afl->clean_trace_custom, new_map_size);
-      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
-      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
-
-      if (old_map_size < new_map_size) {
-
-        memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->clean_trace_custom + old_map_size, 0,
-               new_map_size - old_map_size);
-        memset(afl->first_trace + old_map_size, 0, new_map_size - old_map_size);
-        memset(afl->map_tmp_buf + old_map_size, 0, new_map_size - old_map_size);
-
-      }
+      afl_resize_map_buffers(afl, map_size, new_map_size);
 
       afl_fsrv_kill(&afl->fsrv);
       afl_fsrv_kill(&afl->cmplog_fsrv);
@@ -2785,7 +2755,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+                       afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
@@ -2902,6 +2873,26 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->reinit_table = 1;
     update_calibration_time(afl, &resume_start);
 
+    if (afl->fsrv.cmplog_binary &&
+        afl->fsrv.init_child_func != cmplog_exec_child) {
+
+      FATAL("BUG in afl-fuzz detected. Cmplog mode not set correctly.");
+
+    }
+
+    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child);
+
+    if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
+
+      afl_shm_deinit(afl->shm_fuzz);
+      ck_free(afl->shm_fuzz);
+      afl->shm_fuzz = NULL;
+      afl->fsrv.support_shmem_fuzz = 0;
+      afl->fsrv.shmem_fuzz = NULL;
+
+    }
+
   } else {
 
     // after we have the correct bitmap size we can read the bitmap -B option
@@ -3002,6 +2993,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->stop_soon) { goto stop_fuzzing; }
 
+  if (!afl->in_place_resume) { check_sync_fuzzers(afl); }
+
   /* Woop woop woop */
 
   if (!afl->not_on_tty) {
@@ -3034,6 +3027,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
+  u8 very_first_run = 1;
 
   while (likely(!afl->stop_soon)) {
 
@@ -3047,9 +3041,10 @@ int main(int argc, char **argv_orig, char **envp) {
                     (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
                    afl->sync_id)) {
 
-        if (unlikely(!afl->queue_cycle && afl->afl_env.afl_import_first)) {
+        if (unlikely(very_first_run && afl->afl_env.afl_import_first)) {
 
           OKF("Syncing queues from other fuzzer instances first ...");
+          very_first_run = 0;
 
         }
 
@@ -3533,8 +3528,17 @@ stop_fuzzing:
     if ((fr_fd = ZLIBOPEN(fr, "wb9")) != NULL) {
 
   #else
-    if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, DEFAULT_PERMISSION)) >=
-        0) {
+    if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, afl->perm)) >= 0) {
+
+      if (afl->chown_needed) {
+
+        if (fchown(fr_fd, -1, afl->fsrv.gid) == -1) {
+
+          PFATAL("fchown() failed");
+
+        }
+
+      }
 
   #endif
 

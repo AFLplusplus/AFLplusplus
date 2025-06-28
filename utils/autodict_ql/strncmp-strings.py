@@ -25,7 +25,7 @@ def ensure_dir(dir):
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Helper - Specify input file analysis and output folder to save corpus for strings in the overall project ---------------------------------------------------------------------------  Example usage : python2 thisfile.py outdir str.txt"
+            "Helper - Specify input file analysis and output folder to save corpus for strings in the overall project ---------------------------------------------------------------------------  Example usage : python3 thisfile.py outdir str.txt"
         )
     )
     parser.add_argument(
@@ -33,7 +33,7 @@ def parse_args():
     )
     parser.add_argument(
         "infile",
-        help="Specify file output of codeql analysis - ex. ooo-atr.txt, analysis take place on this file, example : python2 thisfile.py outdir strings.txt",
+        help="Specify file output of codeql analysis - ex. ooo-atr.txt, analysis take place on this file, example : python3 thisfile.py outdir strings.txt",
     )
 
     return parser.parse_args()

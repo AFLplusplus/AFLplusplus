@@ -16,7 +16,8 @@ FRIDA mode and QEMU mode in persistent mode are the fastest - if persistent mode
 is possible and the stability is high enough.
 
 Otherwise, try Zafl, RetroWrite, Dyninst, and if these fail, too, then try
-standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` to where you need it.
+standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` + `AFL_EXITPOINT` to where you
+need it.
 
 If your target is non-linux, then use unicorn_mode.
 

@@ -18,7 +18,8 @@ ifneq "" "$(LLVM_BINDIR)"
   endif
 endif
 
-CFLAGS := -O3 -funroll-loops -g -fPIC
+CFLAGS := -O3 -funroll-loops -g -fPIC -fno-lto
+AR ?= ar
 
 ifdef IOS_SDK_PATH
   CFLAGS += -isysroot $(IOS_SDK_PATH)
@@ -30,7 +31,7 @@ aflpp_driver.o:	aflpp_driver.c
 	-$(CC) -I. -I../../include $(CFLAGS) -c aflpp_driver.c
 
 libAFLDriver.a:	aflpp_driver.o
-	@ar rc libAFLDriver.a aflpp_driver.o
+	@$(AR) rc libAFLDriver.a aflpp_driver.o
 	@cp -vf libAFLDriver.a ../../
 
 debug:
@@ -38,13 +39,13 @@ debug:
 	$(CC) -I../../include -D_DEBUG=\"1\" -g -funroll-loops -c aflpp_driver.c
 	#$(CC) -S -emit-llvm -Wno-deprecated -I../../include $(CFLAGS) -D_DEBUG=\"1\" -c -o afl-performance.ll ../../src/afl-performance.c
 	#$(CC) -S -emit-llvm -I../../include -D_DEBUG=\"1\" -g -funroll-loops -c aflpp_driver.c
-	ar rc libAFLDriver.a afl-performance.o aflpp_driver.o
+	$(AR) rc libAFLDriver.a afl-performance.o aflpp_driver.o
 
 aflpp_qemu_driver.o:	aflpp_qemu_driver.c
 	-$(CC) $(CFLAGS) -O0 -funroll-loops -c aflpp_qemu_driver.c
 
 libAFLQemuDriver.a:	aflpp_qemu_driver.o
-	@-ar rc libAFLQemuDriver.a aflpp_qemu_driver.o
+	@-$(AR) rc libAFLQemuDriver.a aflpp_qemu_driver.o
 	@-cp -vf libAFLQemuDriver.a ../../
 
 aflpp_qemu_driver_hook.so:	aflpp_qemu_driver_hook.o

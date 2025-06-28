@@ -899,9 +899,7 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
-  u8   *x;
-  char *afl_preload;
-  char *frida_afl_preload = NULL;
+  u8 *x;
 
   fsrv->dev_null_fd = open("/dev/null", O_RDWR);
   if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
@@ -945,57 +943,7 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
   }
 
   set_sanitizer_defaults();
-
-  if (get_afl_env("AFL_PRELOAD")) {
-
-    if (fsrv->qemu_mode) {
-
-      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
-
-    } else if (fsrv->frida_mode) {
-
-      afl_preload = getenv("AFL_PRELOAD");
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-      if (afl_preload) {
-
-        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
-
-      } else {
-
-        frida_afl_preload = alloc_printf("%s", frida_binary);
-
-      }
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
-#endif
-
-    } else {
-
-      /* CoreSight mode uses the default behavior. */
-
-      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
-#endif
-
-    }
-
-  } else if (fsrv->frida_mode) {
-
-    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-    setenv("LD_PRELOAD", frida_binary, 1);
-#ifdef __APPLE__
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-#endif
-    ck_free(frida_binary);
-
-  }
-
-  if (frida_afl_preload) { ck_free(frida_afl_preload); }
+  afl_fsrv_setup_preload(fsrv, argv[0]);
 
 }
 
@@ -1384,7 +1332,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->target_path = find_binary(argv[optind]);
 #endif
 
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0, DEFAULT_PERMISSION, -1);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
   signal(SIGALRM, kill_child);
 
@@ -1481,9 +1429,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* initialize cmplog_mode */
   shm_fuzz->cmplog_mode = 0;
-  u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+
+  size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
+  u8    *map = afl_shm_init(shm_fuzz, SHM_FUZZ_MAP_SIZE_DEFAULT, 1,
+                            DEFAULT_PERMISSION, -1);
   shm_fuzz->shmemfuzz_mode = 1;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+
+  u8 *shm_fuzz_map_size_str = alloc_printf("%zu", shm_fuzz_map_size);
+  setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+  ck_free(shm_fuzz_map_size_str);
+
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
 #else
@@ -1547,7 +1503,8 @@ int main(int argc, char **argv_orig, char **envp) {
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);
         fsrv->map_size = new_map_size;
-        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+        fsrv->trace_bits =
+            afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
         afl_fsrv_start(fsrv, use_argv, &stop_soon,
                        (get_afl_env("AFL_DEBUG_CHILD") ||
                         get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
