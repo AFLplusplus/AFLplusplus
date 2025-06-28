@@ -442,7 +442,8 @@ def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
         return result
     else:
         values = []
-        for line in out.split():
+        # split by newline to avoid issues with Nyx mode
+        for line in out.split(b'\n'):
             if not line.isdigit():
                 continue
             values.append(int(line))
