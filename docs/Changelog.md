@@ -4,7 +4,7 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.33a (dev)
+### Version ++4.33c (release)
   - afl-fuzz:
     - Use `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT` if you use AFL_PRELOAD
       to disable fork, see docs (thanks to @alexandredoyen29)
@@ -30,6 +30,9 @@
   - afl-cmin:
     - New afl-cmin.py which is much faster, will be executed by default via
       afl-cmin if it executes successfully (thanks to @kcwu!)
+    - Nyx mode now fully works for minimizing (with afl-cmin.py which is
+      called by afl-cmin if python is available) - before the map size was
+      fixed and so large targets lost coverage.
   - New desocketing library: utils/libaflppdesock
     - Likely works when all other desocketing options fail
   - nyx_mode:
