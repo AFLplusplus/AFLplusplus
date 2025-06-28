@@ -1607,10 +1607,11 @@ int main(int argc, char **argv_orig, char **envp) {
         /* no need to terminate the nyx runner */
         if (!fsrv->nyx_mode) {
 #endif
-          afl_shm_deinit(&shm);
-          afl_fsrv_kill(fsrv);
-          fsrv->map_size = new_map_size;
-          fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits =
+            afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
 #ifdef __linux__
         }
 #endif
