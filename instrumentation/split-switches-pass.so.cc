@@ -321,7 +321,7 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
 
 bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
-  LLVMContext              &C = M.getContext();
+  //LLVMContext              &C = M.getContext();
   std::vector<SwitchInst *> switches;
 
   /* iterate over all functions, bbs and instruction and add

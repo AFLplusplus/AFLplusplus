@@ -571,9 +571,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (argc > 1 && strcmp(argv_orig[1], "--help") == 0) {
+  if (argc > 1 && (strcmp(argv_orig[1], "--help") == 0 ||
+                   strncmp(argv_orig[1], "-h", 2) == 0)) {
 
-    usage(argv_orig[0], 1);
+    if (argc == 2 && (strcmp(argv_orig[1], "--help") == 0 ||
+                      strcmp(argv_orig[1], "-h") == 0)) {
+
+      usage(argv_orig[0], 1);
+
+    } else {
+
+      usage(argv_orig[0], 2);
+
+    }
+
     exit(0);
 
   }
