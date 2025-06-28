@@ -1268,9 +1268,20 @@ void perform_dry_run(afl_state_t *afl) {
 
           ++afl->saved_crashes;
 
-          fd = open(crash_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+          fd = open(crash_fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
           if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", crash_fn); }
           ck_write(fd, use_mem, read_len, crash_fn);
+
+          if (afl->chown_needed) {
+
+            if (fchown(fd, -1, afl->fsrv.gid) == -1) {
+
+              PFATAL("fchown() failed");
+
+            }
+
+          }
+
           close(fd);
 
 #ifdef __linux__
@@ -1279,8 +1290,7 @@ void perform_dry_run(afl_state_t *afl) {
             u8 crash_log_fn[PATH_MAX];
 
             snprintf(crash_log_fn, PATH_MAX, "%s.log", crash_fn);
-            fd = open(crash_log_fn, O_WRONLY | O_CREAT | O_EXCL,
-                      DEFAULT_PERMISSION);
+            fd = open(crash_log_fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
             if (unlikely(fd < 0)) {
 
               PFATAL("Unable to create '%s'", crash_log_fn);
@@ -1293,6 +1303,17 @@ void perform_dry_run(afl_state_t *afl) {
 
             ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len,
                      crash_log_fn);
+
+            if (afl->chown_needed) {
+
+              if (fchown(fd, -1, afl->fsrv.gid) == -1) {
+
+                PFATAL("fchown() failed");
+
+              }
+
+            }
+
             close(fd);
 
           }
@@ -1483,7 +1504,7 @@ void perform_dry_run(afl_state_t *afl) {
 
 /* Helper function: link() if possible, copy otherwise. */
 
-static void link_or_copy(u8 *old_path, u8 *new_path) {
+static void link_or_copy(u8 *old_path, u8 *new_path, mode_t perm) {
 
   s32 i = link(old_path, new_path);
   if (!i) { return; }
@@ -1494,7 +1515,7 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
   sfd = open(old_path, O_RDONLY);
   if (sfd < 0) { PFATAL("Unable to open '%s'", old_path); }
 
-  dfd = open(new_path, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  dfd = open(new_path, O_WRONLY | O_CREAT | O_EXCL, perm);
   if (dfd < 0) { PFATAL("Unable to create '%s'", new_path); }
 
   tmp = ck_alloc(64 * 1024);
@@ -1630,9 +1651,15 @@ void pivot_inputs(afl_state_t *afl) {
 
     /* Pivot to the new queue entry. */
 
-    link_or_copy(q->fname, nfn);
+    link_or_copy(q->fname, nfn, afl->perm);
     ck_free(q->fname);
     q->fname = nfn;
+
+    if (afl->chown_needed) {
+
+      if (chown(nfn, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     /* Make sure that the passed_det value carries over, too. */
 
@@ -2240,19 +2267,29 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   ACTF("Setting up output directories...");
 
-  if (afl->sync_id && mkdir(afl->sync_dir, 0700) && errno != EEXIST) {
+  if (afl->sync_id && mkdir(afl->sync_dir, afl->dir_perm) && errno != EEXIST) {
 
     PFATAL("Unable to create '%s'", afl->sync_dir);
 
   }
 
-  if (mkdir(afl->out_dir, 0700)) {
+  if (mkdir(afl->out_dir, afl->dir_perm)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
 
     handle_existing_out_dir(afl);
 
   } else {
+
+    if (afl->chown_needed) {
+
+      if (chown(afl->out_dir, -1, afl->fsrv.gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
+
+    }
 
     if (afl->in_place_resume) {
 
@@ -2288,27 +2325,27 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Queue directory for any starting & discovered paths. */
 
   tmp = alloc_printf("%s/queue", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Top-level directory for queue metadata used for session
      resume and related tasks. */
 
   tmp = alloc_printf("%s/queue/.state/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Directory for flagging queue entries that went through
      deterministic fuzzing in the past. */
 
   tmp = alloc_printf("%s/queue/.state/deterministic_done/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Directory with the auto-selected dictionary entries. */
 
   tmp = alloc_printf("%s/queue/.state/auto_extras/", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Sync directory for keeping track of cooperating fuzzers. */
@@ -2317,7 +2354,8 @@ void setup_dirs_fds(afl_state_t *afl) {
 
     tmp = alloc_printf("%s/.synced/", afl->out_dir);
 
-    if (mkdir(tmp, 0700) && (!afl->in_place_resume || errno != EEXIST)) {
+    if (mkdir(tmp, afl->dir_perm) &&
+        (!afl->in_place_resume || errno != EEXIST)) {
 
       PFATAL("Unable to create '%s'", tmp);
 
@@ -2330,13 +2368,13 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* All recorded crashes. */
 
   tmp = alloc_printf("%s/crashes", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* All recorded hangs. */
 
   tmp = alloc_printf("%s/hangs", afl->out_dir);
-  if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
   /* Generally useful file descriptors. */
@@ -2353,8 +2391,14 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   if (!afl->in_place_resume) {
 
-    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
     if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
+
     ck_free(tmp);
 
     afl->fsrv.plot_file = fdopen(fd, "w");
@@ -2380,8 +2424,14 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   } else {
 
-    int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+    int fd = open(tmp, O_WRONLY | O_CREAT, afl->perm);
     if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
+
     ck_free(tmp);
 
     afl->fsrv.plot_file = fdopen(fd, "w");
@@ -2397,8 +2447,14 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   tmp = alloc_printf("%s/plot_det_data", afl->out_dir);
 
-  int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+  int fd = open(tmp, O_WRONLY | O_CREAT, afl->perm);
   if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
+
   ck_free(tmp);
 
   afl->fsrv.det_plot_file = fdopen(fd, "w");
@@ -2422,8 +2478,14 @@ void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
   /* Store the command line to reproduce our findings */
   tmp = alloc_printf("%s/cmdline", afl->out_dir);
-  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
   if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+  }
+
   ck_free(tmp);
 
   cmdline_file = fdopen(fd, "w");
@@ -2458,11 +2520,21 @@ void setup_stdio_file(afl_state_t *afl) {
   unlink(afl->fsrv.out_file);                              /* Ignore errors */
 
   afl->fsrv.out_fd =
-      open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, afl->perm);
 
   if (afl->fsrv.out_fd < 0) {
 
     PFATAL("Unable to create '%s'", afl->fsrv.out_file);
+
+  }
+
+  if (afl->chown_needed) {
+
+    if (fchown(afl->fsrv.out_fd, -1, afl->fsrv.gid) == -1) {
+
+      PFATAL("fchown() failed");
+
+    }
 
   }
 
@@ -2902,7 +2974,8 @@ void setup_testcase_shmem(afl_state_t *afl) {
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
   size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
-  u8    *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_map_size, 1);
+  u8    *map = afl_shm_init(afl->shm_fuzz, shm_fuzz_map_size, 1, afl->perm,
+                         afl->chown_needed ? afl->fsrv.gid : -1);
   afl->shm_fuzz->shmemfuzz_mode = 1;
 
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
@@ -3151,7 +3224,11 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "want -\n"
          "    this setup will be slow and offer no practical benefits.\n");
 
-    FATAL("Instrumentation found in -Q mode");
+    if (!afl->afl_env.afl_ignore_problems) {
+
+      FATAL("Instrumentation found in -Q mode");
+
+    }
 
   }
 

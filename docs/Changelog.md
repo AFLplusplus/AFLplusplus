@@ -4,7 +4,7 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.33a (dev)
+### Version ++4.33c (release)
   - afl-fuzz:
     - Use `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT` if you use AFL_PRELOAD
       to disable fork, see docs (thanks to @alexandredoyen29)
@@ -13,6 +13,7 @@
     - Fix potential sync issues when resuming sessions and when instances in a
       campaign are restarted and skip entries that were synced from itself
       (thanks to @kcwu for raising the issues and providing support!)
+    - Fix for when fast resuming failed
     - more 64 bit archicture support by @maribu
   - afl-cc:
     - Added instrumenting hidden edges (approx 5% edges were not instrumented,
@@ -24,11 +25,18 @@
     - Make AFL_DUMP_MAP_SIZE work even if the target has sanitizer issues
   - qemuafl:
     - Better MIPS persistent mode support
+    - `AFL_EXITPOINT` support added
+    - `AFL_QEMU_BLOCK_COV` block coverage support added
   - afl-cmin:
     - New afl-cmin.py which is much faster, will be executed by default via
       afl-cmin if it executes successfully (thanks to @kcwu!)
+    - Nyx mode now fully works for minimizing (with afl-cmin.py which is
+      called by afl-cmin if python is available) - before the map size was
+      fixed and so large targets lost coverage.
   - New desocketing library: utils/libaflppdesock
     - Likely works when all other desocketing options fail
+  - nyx_mode:
+    - Properly determine map size
 
 
 ### Version ++4.32c (release)

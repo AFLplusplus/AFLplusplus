@@ -258,11 +258,21 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
            afl->document_counter++,
            describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
 
-  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >=
-      0) {
+  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm)) >= 0) {
 
     if (write(doc_fd, *mem, len) != len)
       PFATAL("write to mutation file failed: %s", fn);
+
+    if (afl->chown_needed) {
+
+      if (fchown(doc_fd, -1, afl->fsrv.gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
+
+    }
+
     close(doc_fd);
 
   }
@@ -386,18 +396,22 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC,
-                DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
     } else {
 
       unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL,
-                DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
     }
 
     if (fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
   } else {
 
@@ -753,7 +767,8 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
   DIR           *sd, *dir;
   struct dirent *sd_ent, *entry;
-  u8             qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX];
+  u8  qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX], qd_main_path[PATH_MAX];
+  int have_main = afl->is_main_node;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -777,11 +792,11 @@ void check_sync_fuzzers(afl_state_t *afl) {
       u32 max_start_id = 0;
       while ((entry = readdir(dir)) != NULL) {
 
-        max_start_id++;
+        if (likely(entry->d_name[0] != '.')) { max_start_id++; }
 
       }
 
-      if (max_start_id > 4) {
+      if (max_start_id) {
 
         sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
                 sd_ent->d_name);
@@ -790,7 +805,7 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
         if (max_fd >= 0) {
 
-          max_start_id -= 4;  // without ".", "..", ".state" and counting from 0
+          --max_start_id;  // counting from 0
           write(max_fd, &max_start_id, sizeof(u32));
           close(max_fd);
 
@@ -802,9 +817,26 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
     closedir(dir);
 
+    if (!have_main) {
+
+      sprintf(qd_main_path, "%s/%s/is_main_node", afl->sync_dir,
+              sd_ent->d_name);
+      if (access(qd_main_path, F_OK) == 0) { have_main = 1; }
+
+    }
+
   }
 
   closedir(sd);
+
+  if (!have_main) {
+
+    afl->is_main_node = 1;
+    sprintf(qd_path, "%s/is_main_node", afl->out_dir);
+    int id_fd = open(qd_main_path, O_RDWR | O_CREAT, afl->perm);
+    if (id_fd >= 0) { close(id_fd); }
+
+  }
 
   update_sync_time(afl, &sync_start_us);
 
@@ -842,7 +874,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     // Skip dot files and our own output directory.
 
-    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+    if (unlikely(sd_ent->d_name[0] == '.' ||
+                 !strcmp(afl->sync_id, sd_ent->d_name))) {
 
       continue;
 
@@ -895,9 +928,15 @@ void sync_fuzzers(afl_state_t *afl) {
 
     sprintf(qd_synced_path, "%s/.synced/%s", afl->out_dir, sd_ent->d_name);
 
-    id_fd = open(qd_synced_path, O_RDWR | O_CREAT, DEFAULT_PERMISSION);
+    id_fd = open(qd_synced_path, O_RDWR | O_CREAT, afl->perm);
 
     if (id_fd < 0) { PFATAL("Unable to create '%s'", qd_synced_path); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(id_fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
 
@@ -935,13 +974,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
       }
 
-    } else {
-
-      // something went wrong - this cannot be right, mabye the instance is
-      // restarting, skip
-      goto close_sync;
-
-    }
+    }  // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
 
     // check if there is a file documented the maximum id seen on startup
     sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
@@ -1296,7 +1329,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
       if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
@@ -1311,11 +1344,17 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     } else {
 
       unlink(q->fname);                                    /* ignore errors */
-      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
       if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
       ck_write(fd, in_buf, q->len, q->fname);
+
+    }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
     }
 

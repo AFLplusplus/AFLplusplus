@@ -18,6 +18,7 @@ import argparse
 import array
 import base64
 import collections
+import ctypes
 import glob
 import hashlib
 import itertools
@@ -27,9 +28,11 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 
 # https://more-itertools.readthedocs.io/en/stable/_modules/more_itertools/recipes.html#batched
 from sys import hexversion
+
 
 def _batched(iterable, n, *, strict=False):
     """Batch data into tuples of length *n*. If the number of items in
@@ -43,18 +46,20 @@ def _batched(iterable, n, *, strict=False):
     On Python 3.13 and above, this is an alias for :func:`itertools.batched`.
     """
     if n < 1:
-        raise ValueError('n must be at least one')
+        raise ValueError("n must be at least one")
     iterator = iter(iterable)
     while batch := tuple(itertools.islice(iterator, n)):
         if strict and len(batch) != n:
-            raise ValueError('batched(): incomplete batch')
+            raise ValueError("batched(): incomplete batch")
         yield batch
 
 
 if hexversion >= 0x30D00A2:  # pragma: no cover
     from itertools import batched as itertools_batched
+
     def batched(iterable, n, *, strict=False):
         return itertools_batched(iterable, n, strict=strict)
+
 else:
     batched = _batched
 
@@ -207,6 +212,23 @@ tuple_index_type_code = "I"
 file_index_type_code = None
 
 
+def search_binary(name):
+    searches = [
+        None,
+        os.path.dirname(__file__),
+        os.getcwd(),
+    ]
+    if os.environ.get("AFL_PATH"):
+        searches.append(os.environ["AFL_PATH"])
+
+    for search in searches:
+        binary = shutil.which(name, path=search)
+        if binary:
+            return binary
+    logger.fatal(f"cannot find {name}, please set AFL_PATH")
+    sys.exit(1)
+
+
 def init():
     global logger
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -227,7 +249,7 @@ def init():
         logger.error("dangerously low timeout")
         sys.exit(1)
 
-    if not os.path.isfile(args.exe):
+    if not args.nyx_mode and not os.path.isfile(args.exe):
         logger.error('binary "%s" not found or not regular file', args.exe)
         sys.exit(1)
 
@@ -244,21 +266,7 @@ def init():
             sys.exit(1)
 
     global afl_showmap_bin
-    searches = [
-        None,
-        os.path.dirname(__file__),
-        os.getcwd(),
-    ]
-    if os.environ.get("AFL_PATH"):
-        searches.append(os.environ["AFL_PATH"])
-
-    for search in searches:
-        afl_showmap_bin = shutil.which("afl-showmap", path=search)
-        if afl_showmap_bin:
-            break
-    if not afl_showmap_bin:
-        logger.fatal("cannot find afl-showmap, please set AFL_PATH")
-        sys.exit(1)
+    afl_showmap_bin = search_binary("afl-showmap")
 
     trace_dir = os.path.join(args.output, ".traces")
     shutil.rmtree(trace_dir, ignore_errors=True)
@@ -282,6 +290,55 @@ def detect_type_code(size):
     for type_code in ["B", "H", "I", "L", "Q"]:
         if 256 ** array.array(type_code).itemsize > size:
             return type_code
+
+
+def get_nyx_map_size(target_dir):
+    libnyx_path = search_binary("libnyx.so")
+    libnyx = ctypes.CDLL(libnyx_path)
+
+    NYX_ROLE_StandAlone = 0
+
+    target_dir_c = target_dir.encode("utf-8")
+
+    dummy_workdir_path = "/tmp/_afl_cmin_nyx_work_dir_%s" % (str(uuid.uuid4()))
+    dummy_workdir_path_c = dummy_workdir_path.encode("utf-8")
+
+    # nyx_config_load
+    libnyx.nyx_config_load.argtypes = [ctypes.c_char_p]
+    libnyx.nyx_config_load.restype = ctypes.c_void_p
+    nyx_config = libnyx.nyx_config_load(target_dir_c)
+
+    # nyx_config_set_workdir_path
+    libnyx.nyx_config_set_workdir_path.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+    libnyx.nyx_config_set_workdir_path.restype = None
+    libnyx.nyx_config_set_workdir_path(nyx_config, dummy_workdir_path_c)
+
+    # nyx_config_set_process_role
+    libnyx.nyx_config_set_process_role.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    libnyx.nyx_config_set_process_role.restype = None
+    libnyx.nyx_config_set_process_role(nyx_config, NYX_ROLE_StandAlone)
+
+    # nyx_new
+    libnyx.nyx_new.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    libnyx.nyx_new.restype = ctypes.c_void_p
+    nyx_runner = libnyx.nyx_new(nyx_config, 0)
+
+    # nyx_get_bitmap_buffer_size
+    libnyx.nyx_get_bitmap_buffer_size.argtypes = [ctypes.c_void_p]
+    libnyx.nyx_new.restype = ctypes.c_int
+    map_size = libnyx.nyx_get_bitmap_buffer_size(nyx_runner)
+
+    # nyx_shutdown
+    libnyx.nyx_shutdown.argtypes = [ctypes.c_void_p]
+    libnyx.nyx_shutdown.restype = None
+    libnyx.nyx_shutdown(nyx_runner)
+
+    # nyx_remove_work_dir
+    libnyx.nyx_remove_work_dir.argtypes = [ctypes.c_char_p]
+    libnyx.nyx_remove_work_dir.restype = None
+    libnyx.nyx_remove_work_dir(dummy_workdir_path_c)
+
+    return map_size
 
 
 def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
@@ -385,7 +442,8 @@ def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
         return result
     else:
         values = []
-        for line in out.split():
+        # split by newline to avoid issues with Nyx mode
+        for line in out.split(b'\n'):
             if not line.isdigit():
                 continue
             values.append(int(line))
@@ -545,8 +603,11 @@ def collect_files(input_paths):
                 for filename in filenames:
                     if filename.startswith("."):
                         continue
+                    full_path = os.path.join(root, filename)
+                    if not os.path.isfile(full_path):
+                        continue
                     pbar.update(1)
-                    files.append(os.path.join(root, filename))
+                    files.append(full_path)
     return files
 
 
@@ -577,13 +638,21 @@ def main():
     hash_list = [hash_list[idx] for idx in idxes]
 
     afl_map_size = None
-    if b"AFL_DUMP_MAP_SIZE" in open(args.exe, "rb").read():
+    if "AFL_MAP_SIZE" in os.environ:
+        afl_map_size = int(os.environ["AFL_MAP_SIZE"])
+    elif args.nyx_mode:
+        afl_map_size = get_nyx_map_size(args.exe)
+        logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
+    elif b"AFL_DUMP_MAP_SIZE" in open(args.exe, "rb").read():
         output = subprocess.run(
-            [args.exe], capture_output=True, env={"AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": "detect_leaks=0"}
+            [args.exe],
+            capture_output=True,
+            env={"AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": "detect_leaks=0"},
         ).stdout
         afl_map_size = int(output)
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
 
+    if afl_map_size:
         global tuple_index_type_code
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 

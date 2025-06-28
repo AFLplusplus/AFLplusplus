@@ -187,6 +187,16 @@ typedef struct afl_forkserver {
   s32  persistent_record_pid;
 #endif
 
+  u8     uid_set;
+  uid_t  uid;
+  u8     gid_set;
+  pid_t  gid;
+  u16    nb_supl_gids;
+  pid_t *supl_gids;
+
+  mode_t perm;
+  u8     chown_needed;
+
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);
 

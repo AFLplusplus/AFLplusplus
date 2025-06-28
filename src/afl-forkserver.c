@@ -51,6 +51,7 @@
 #include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <grp.h>
 
 #ifdef __linux__
   #include <dlfcn.h>
@@ -208,9 +209,53 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
+  if (fsrv->gid_set) {
+
+    if (setregid(fsrv->gid, fsrv->gid) == -1) {
+
+      FATAL("setgid failed: %s\n", strerror(errno));
+
+    }
+
+    if (setgroups(fsrv->nb_supl_gids, fsrv->supl_gids) == -1) {
+
+      FATAL("setgroups failed: %s\n", strerror(errno));
+
+    }
+
+  }
+
+  if (fsrv->uid_set) {
+
+    if (setreuid(fsrv->uid, fsrv->uid) == -1) {
+
+      FATAL("setuid failed: %s\n", strerror(errno));
+
+    }
+
+  }
+
+  if (fsrv->chown_needed && fsrv->out_file != NULL) {
+
+    if (access(fsrv->out_file, R_OK) == -1) {
+
+      if (errno == EACCES) {
+
+        FATAL(
+            "Access to the file to fuzz denied. Most likely the requested\n"
+            "    UID and/or GID is denied search permission ('x') for one of "
+            "the directories\n    in the path prefix of \"%s\".",
+            fsrv->out_file);
+
+      }
+
+    }
+
+  }
+
   execv(fsrv->target_path, argv);
 
-  WARNF("Execv failed in forkserver.");
+  WARNF("Execv failed in forkserver: %s.", strerror(errno));
 
 }
 
@@ -273,6 +318,9 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 #ifdef __AFL_CODE_COVERAGE
   fsrv->persistent_trace_bits = NULL;
 #endif
+
+  fsrv->uid_set = 0;
+  fsrv->gid_set = 0;
 
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
@@ -492,6 +540,26 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
       // child
       close(FORKSRV_FD);
       close(FORKSRV_FD + 1);
+
+      if (fsrv->gid_set) {
+
+        if (setgid(fsrv->gid) == -1) {
+
+          FATAL("setgid failed: %s\n", strerror(errno));
+
+        }
+
+      }
+
+      if (fsrv->uid_set) {
+
+        if (setuid(fsrv->uid) == -1) {
+
+          FATAL("setuid failed: %s\n", strerror(errno));
+
+        }
+
+      }
 
       // finally: exec...
       execv(fsrv->target_path, argv);
@@ -757,6 +825,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     }
 
     fsrv->nyx_runner = fsrv->nyx_handlers->nyx_new(nyx_config, fsrv->nyx_id);
+    fsrv->nyx_handlers->nyx_config_free(nyx_config);
 
     ck_free(workdir_path);
     ck_free(outdir_path_absolute);
@@ -1839,14 +1908,18 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
 
       if (unlikely(fsrv->no_unlink)) {
 
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC,
-                  DEFAULT_PERMISSION);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, fsrv->perm);
 
       } else {
 
         unlink(fsrv->out_file);                           /* Ignore errors. */
-        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL,
-                  DEFAULT_PERMISSION);
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, fsrv->perm);
+
+      }
+
+      if (fsrv->chown_needed) {
+
+        if (fchown(fd, -1, fsrv->gid) == -1) { PFATAL("fchown() failed"); }
 
       }
 

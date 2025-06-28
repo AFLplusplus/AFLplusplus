@@ -26,7 +26,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.33a"
+#define VERSION "++4.33c"
 
 /******************************************************
  *                                                    *
@@ -48,6 +48,9 @@
    coverage is found.
    Default: 300 (seconds) */
 #define STRATEGY_SWITCH_TIME 1000
+
+/* Default file permission umode when creating directories */
+#define DEFAULT_DIRS_PERMISSION 0700
 
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600

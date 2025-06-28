@@ -623,9 +623,15 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     unlink(q->fname);                                      /* ignore errors */
 
-    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
     if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     ck_write(fd, out_buf, out_len, q->fname);
     close(fd);

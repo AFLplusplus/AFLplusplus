@@ -462,7 +462,10 @@ typedef struct afl_env_vars {
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames, afl_no_sync, afl_no_fastresume;
+      afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_forksrv_uid_set,
+      afl_forksrv_gid_set;
+
+  u16 afl_forksrv_nb_supl_gids;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -472,6 +475,12 @@ typedef struct afl_env_vars {
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
   s32 afl_pizza_mode;
+
+  uid_t afl_forksrv_uid;
+
+  gid_t afl_forksrv_gid;
+
+  gid_t *afl_forksrv_supl_gids;
 
 } afl_env_vars_t;
 
@@ -554,6 +563,10 @@ typedef struct afl_state {
       *file_extension,                  /* File extension                   */
       *orig_cmdline,                    /* Original command line            */
       *infoexec;                       /* Command to execute on a new crash */
+
+  mode_t perm,                       /* File permission when creating files */
+      dir_perm;                /* File permission when creating directories */
+  u8 chown_needed;             /* Group owner of files needs to be modified */
 
   u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
       stats_update_freq;                /* Stats update frequency (execs)   */
@@ -1443,7 +1456,7 @@ char *sha1_hex_for_file(const char *fname, u32 len);
  * enabled. */
 static inline int permissive_create(afl_state_t *afl, const char *fn) {
 
-  int fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  int fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
   if (unlikely(fd < 0)) {
 
     if (!(afl->afl_env.afl_sha1_filenames && errno == EEXIST)) {
@@ -1451,6 +1464,12 @@ static inline int permissive_create(afl_state_t *afl, const char *fn) {
       PFATAL("Unable to create '%s'", fn);
 
     }
+
+  }
+
+  if (afl->chown_needed) {
+
+    if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
   }
 

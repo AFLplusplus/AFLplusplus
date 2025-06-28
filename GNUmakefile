@@ -255,17 +255,6 @@ ifeq "$(PYTHON_INCLUDE)" ""
   endif
 endif
 
-# Old Ubuntu and others dont have python/python2-config so we hardcode 2.7
-ifeq "$(PYTHON_INCLUDE)" ""
-  ifneq "$(shell command -v python2.7 2>/dev/null)" ""
-    ifneq "$(shell command -v python2.7-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  := $(shell python2.7-config --includes)
-      PYTHON_LIB      := $(shell python2.7-config --ldflags)
-      PYTHON_VERSION  := $(strip $(shell python2.7 --version 2>&1))
-    endif
-  endif
-endif
-
 ifdef SOURCE_DATE_EPOCH
     BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u "+%Y-%m-%d")
 else
@@ -355,6 +344,11 @@ endif
 llvm:
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
+
+llvm-build-test:
+	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
+	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
+
 
 .PHONY: gcc_plugin
 gcc_plugin:

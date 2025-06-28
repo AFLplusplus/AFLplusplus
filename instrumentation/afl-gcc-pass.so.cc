@@ -65,7 +65,6 @@
    The new pass is to be a GIMPLE_PASS.  Given the sort of
    instrumentation it's supposed to do, its todo_flags_finish will
    certainly need TODO_update_ssa, and TODO_cleanup_cfg.
-   TODO_verify_il is probably desirable, at least during debugging.
    TODO_rebuild_cgraph_edges is required only in the out-of-line
    instrumentation mode.
 
@@ -148,7 +147,7 @@ static constexpr struct pass_data afl_pass_data = {
     .properties_provided = 0,
     .properties_destroyed = 0,
     .todo_flags_start = 0,
-    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg | TODO_verify_il),
+    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg),
 
 };
 

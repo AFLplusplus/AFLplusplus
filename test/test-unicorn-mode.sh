@@ -10,7 +10,7 @@ test -s ../unicorn_mode/unicornafl/build/libunicornafl.a && {
       export AFL_DEBUG_CHILD=1
 
       # some python version should be available now
-      PYTHONS="`command -v python3` `command -v python` `command -v python2`"
+      PYTHONS="`command -v python3` `command -v python`"
       EASY_INSTALL_FOUND=0
       for PYTHON in $PYTHONS ; do
 

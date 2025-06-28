@@ -6178,7 +6178,8 @@ u8 fuzz_one(afl_state_t *afl) {
   if (afl->do_document == 0) {
 
     snprintf(path_buf, PATH_MAX, "%s/mutations", afl->out_dir);
-    afl->do_document = mkdir(path_buf, 0700);  // if it exists we do not care
+    afl->do_document =
+        mkdir(path_buf, afl->dir_perm);  // if it exists we do not care
     afl->do_document = 1;
 
   } else {
