@@ -5,7 +5,8 @@
 
 
 ### Version ++4.34a (dev)
-  - ...
+  - qemu_mode:
+    - fix compilation for a few platforms
 
 
 ### Version ++4.33c (release)
