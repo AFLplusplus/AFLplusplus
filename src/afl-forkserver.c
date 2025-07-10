@@ -46,10 +46,10 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <grp.h>
 
@@ -400,31 +400,28 @@ void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
 
 }
 
-/* Wrapper for select() and read(), reading a 32 bit var.
+/* Wrapper for poll() and read(), reading a 32 bit var.
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
 static u32 __attribute__((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
                                                volatile u8 *stop_soon_p) {
 
-  fd_set readfds;
-  FD_ZERO(&readfds);
-  FD_SET(fd, &readfds);
-  struct timeval timeout;
-  int            sret;
-  ssize_t        len_read;
+  int           pret;
+  ssize_t       len_read;
+  struct pollfd fds[1];
+  int           nfds = 1;
 
-  timeout.tv_sec = (timeout_ms / 1000);
-  timeout.tv_usec = (timeout_ms % 1000) * 1000;
-#if !defined(__linux__)
   u32 read_start = get_cur_time_us();
-#endif
+
+  memset(&fds, 0, sizeof(fds));
+  fds[0].fd = fd;
+  fds[0].events = POLLIN;
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
-restart_select:
-  sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
-
-  if (likely(sret > 0)) {
+restart_poll:
+  pret = poll(fds, nfds, timeout_ms);
+  if (likely(pret > 0)) {
 
   restart_read:
     if (*stop_soon_p) {
@@ -438,13 +435,7 @@ restart_select:
 
     if (likely(len_read == 4)) {  // for speed we put this first
 
-#if defined(__linux__)
-      u32 exec_ms = MIN(
-          timeout_ms,
-          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-#else
       u32 exec_ms = MIN(timeout_ms, (get_cur_time_us() - read_start) / 1000);
-#endif
 
       // ensure to report 1 ms has passed (0 is an error)
       return exec_ms > 0 ? exec_ms : 1;
@@ -459,14 +450,14 @@ restart_select:
 
     }
 
-  } else if (unlikely(!sret)) {
+  } else if (unlikely(!pret)) {
 
     *buf = -1;
     return timeout_ms + 1;
 
-  } else if (unlikely(sret < 0)) {
+  } else if (unlikely(pret < 0)) {
 
-    if (likely(errno == EINTR)) goto restart_select;
+    if (likely(errno == EINTR)) goto restart_poll;
 
     *buf = -1;
     return 0;

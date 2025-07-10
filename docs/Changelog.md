@@ -4,6 +4,13 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++4.34a (dev)
+  - afl-showmap
+    - fix -C parameter breakage introduced in v4.33c
+  - qemu_mode:
+    - fix compilation for a few platforms
+
+
 ### Version ++4.33c (release)
   - afl-fuzz:
     - Use `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT` if you use AFL_PRELOAD
