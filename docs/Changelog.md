@@ -5,6 +5,8 @@
 
 
 ### Version ++4.34a (dev)
+  - afl-showmap
+    - fix -C parameter breakage introduced in v4.33c
   - qemu_mode:
     - fix compilation for a few platforms
 
