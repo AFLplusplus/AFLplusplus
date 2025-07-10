@@ -1025,6 +1025,8 @@ skip_bitflip:
 #ifdef INTROSPECTION
         snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH8--%u-%u",
                  afl->queue_cur->fname, i, j);
+        fprintf(afl->introspection_file, "LOGGING %s = %s\n", afl->mutation,
+                  afl->queue_top->fname);
 #endif
 
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
