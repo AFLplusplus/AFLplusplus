@@ -1,6 +1,7 @@
 
 
 #include "afl-fuzz.h"
+#include <stdio.h>
 
 void flip_range(u8 *input, u32 pos, u32 size) {
 
@@ -157,7 +158,13 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
         u64 cksum;
         for(int y = 0; y < 10; y++) {
           printf("Repetition %llu\n", y);
-          if (common_fuzz_stuff(afl, out_buf, len)) return 0;
+          char filename[64];
+          snprintf(filename, sizeof(filename), "file_%d_%d.bin", pos, y);
+
+          if (common_fuzz_stuff(afl, out_buf, len)) return 0;\
+          FILE* fp = fopen(filename, "wb"); // Open file in binary write mode
+          fwrite(afl->fsrv.trace_bits, 1, afl->fsrv.map_size, fp);
+          fclose(fp);
           cksum =
             hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
           printf("cksum %d\n", cksum);
