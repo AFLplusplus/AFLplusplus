@@ -161,7 +161,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
         u64 cksum =
             hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-        printf("Now trying range %d with %d %d==%d, %s.\n", pos, cur_block_size, cksum, prev_cksum
+        printf("Now trying range %d with %d %d==%d, %s.\n", pos, cur_block_size, cksum, prev_cksum, 
             (cksum == prev_cksum) ? (u8*)"Yes" : (u8*) "Not");
 
         /* continue until we fail or exceed length */
