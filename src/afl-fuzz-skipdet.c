@@ -154,12 +154,19 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
         flip_range(out_buf, pos, flip_block_size);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) return 0;
+        for(int y = 0; y < 10; y++) {
+          printf("Repetition %d\n", y);
+          if (common_fuzz_stuff(afl, out_buf, len)) return 0;
+          u64 cksum =
+            hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+          printf("cksum %d\n", cksum);
+        }
+
+
 
         flip_range(out_buf, pos, flip_block_size);
 
-        u64 cksum =
-            hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
 
         printf("Now trying range %d with %d %d==%d, %s.\n", pos, cur_block_size, cksum, prev_cksum, 
             (cksum == prev_cksum) ? (u8*)"Yes" : (u8*) "Not");
