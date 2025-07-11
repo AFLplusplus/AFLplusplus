@@ -225,6 +225,8 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 #endif                                                     /* ^WORD_SIZE_64 */
 
   u8 ret = 0;
+  u64 cksum = hash64(virgin_map, afl->fsrv.map_size, HASH_CONST);
+  fprintf(afl->introspection_file, "HNB HASH %d\n", cksum);
   while (i--) {
 
     if (unlikely(*current)) discover_word(&ret, current, virgin);
