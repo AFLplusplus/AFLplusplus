@@ -159,7 +159,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
         for(int y = 0; y < 10; y++) {
           printf("Repetition %llu\n", y);
           char filename[64];
-          snprintf(filename, sizeof(filename), "file_%d_%d.bin", pos, y);
+          snprintf(filename, sizeof(filename), "file_%d_%d_%d.bin", pos, cur_block_size, y);
 
           if (common_fuzz_stuff(afl, out_buf, len)) return 0;\
           FILE* fp = fopen(filename, "wb"); // Open file in binary write mode
