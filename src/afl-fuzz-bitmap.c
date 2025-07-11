@@ -226,7 +226,6 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   u8 ret = 0;
   u64 cksum = hash64(virgin_map, afl->fsrv.map_size, HASH_CONST);
-  fprintf(afl->introspection_file, "HNB HASH %d\n", cksum);
   while (i--) {
 
     if (unlikely(*current)) discover_word(&ret, current, virgin);
@@ -237,8 +236,11 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   }
 
   if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
+  {
     afl->bitmap_changed = 1;
-
+    fprintf(afl->introspection_file, "HNB HASH %d\n", cksum);
+  }
+      
   return ret;
 
 }
