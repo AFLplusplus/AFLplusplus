@@ -238,7 +238,9 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
   {
     afl->bitmap_changed = 1;
-    fprintf(stdout, "HNB HASH %d\n", cksum);
+    if(afl->introspection_file) {
+      fprintf(stdout, "HNB HASH %d\n", cksum);
+    }
   }
 
   return ret;
