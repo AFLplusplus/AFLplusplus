@@ -311,7 +311,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
       }
 
       out_buf[afl->stage_cur_byte] = replace;
-      println!("Replacing %d with %d\n", afl->stage_cur_byte, replace);
+      printf("Replacing %d with %d\n", afl->stage_cur_byte, replace);
 
       before_skip_inf = afl->queued_items;
 
