@@ -321,7 +321,14 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
         int new_cksum =
           hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
         if (cksum != 0 && cksum != new_cksum) {
+          char inputname[64];
+          snprintf(inputname, sizeof(inputname), "input_%d_%d.bin", afl->stage_cur_byte, y);
+          FILE* fp1 = fopen(inputname, "wb"); // Open file in binary write mode
+          fwrite(afl->fsrv.trace_bits, 1, afl->fsrv.map_size, fp1);
+          fclose(fp1);
           printf("============================================================================\n");
+          printf("new_cksum: %d\n", new_cksum);
+          exit(1);
         }
         printf("new_cksum: %d\n", new_cksum);
         cksum = new_cksum;
