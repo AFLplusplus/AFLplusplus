@@ -1573,7 +1573,7 @@ skip_interest:
   afl->stage_max = afl->extras_cnt * len;
 
   afl->stage_val_type = STAGE_VAL_NONE;
-
+  printf("EXT O");
   orig_hit_cnt = new_hit_cnt;
 
   for (i = 0; i < (u32)len; ++i) {
