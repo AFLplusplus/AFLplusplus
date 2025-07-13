@@ -616,7 +616,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_short = "flip1";
   afl->stage_max = len << 3;
   afl->stage_name = "bitflip 1/1";
-
+  printf("FLIP1\n");
   afl->stage_val_type = STAGE_VAL_NONE;
 
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
@@ -631,7 +631,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Now flip bits. */
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
-    printf("FLIP1 %d\n", afl->stage_cur);
+
     afl->stage_cur_byte = afl->stage_cur >> 3;
 
     if (!skip_eff_map[afl->stage_cur_byte]) continue;
@@ -735,7 +735,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
-  printf("New Hit! %d\n", new_hit_cnt);
+
   afl->stage_finds[STAGE_FLIP1] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP1] += afl->stage_max;
 #ifdef INTROSPECTION
@@ -747,6 +747,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_name = "bitflip 2/1";
   afl->stage_short = "flip2";
   afl->stage_max = (len << 3) - 1;
+  printf("FLIP2\n");
 
   orig_hit_cnt = new_hit_cnt;
 
@@ -786,6 +787,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_name = "bitflip 4/1";
   afl->stage_short = "flip4";
   afl->stage_max = (len << 3) - 3;
+  printf("FLIP4\n");
 
   orig_hit_cnt = new_hit_cnt;
 
@@ -829,6 +831,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_name = "bitflip 8/8";
   afl->stage_short = "flip8";
   afl->stage_max = len;
+  printf("FLIP8\n");
 
   orig_hit_cnt = new_hit_cnt;
   prev_cksum = _prev_cksum;
@@ -880,6 +883,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_short = "flip16";
   afl->stage_cur = 0;
   afl->stage_max = len - 1;
+  printf("FLIP16\n");
 
   orig_hit_cnt = new_hit_cnt;
 
@@ -923,6 +927,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_short = "flip32";
   afl->stage_cur = 0;
   afl->stage_max = len - 3;
+  printf("FLIP32\n");
 
   orig_hit_cnt = new_hit_cnt;
 
