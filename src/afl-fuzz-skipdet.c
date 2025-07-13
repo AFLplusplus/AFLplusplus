@@ -233,7 +233,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
   u32 before_skip_inf = afl->queued_items;
-  printf
+  printf("QUICK at %d\n", afl->fsrv.total_execs);
   /* clean all the eff bytes, since previous eff bytes are already fuzzed */
   u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map,
      *done_inf_map = afl->queue_cur->skipdet_e->done_inf_map;
