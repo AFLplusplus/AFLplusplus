@@ -631,7 +631,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Now flip bits. */
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
-
+    printf("FLIP1 %d\n", afl->stage_cur);
     afl->stage_cur_byte = afl->stage_cur >> 3;
 
     if (!skip_eff_map[afl->stage_cur_byte]) continue;
@@ -735,7 +735,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
-
+  printf("New Hit! %d\n", new_hit_cnt);
   afl->stage_finds[STAGE_FLIP1] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP1] += afl->stage_max;
 #ifdef INTROSPECTION
