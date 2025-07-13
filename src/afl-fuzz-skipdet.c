@@ -315,7 +315,17 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
       before_skip_inf = afl->queued_items;
 
-      if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+      int cksum = 0;
+      for(int y = 0; y < 20; y++) {
+        if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+        int new_cksum =
+          hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+        if (cksum != 0 && cksum != new_cksum) {
+          printf("============================================================================\n");
+        }
+        printf("new_cksum: %d\n", new_cksum);
+        cksum = new_cksum;
+      }
 
       out_buf[afl->stage_cur_byte] = orig;
 
