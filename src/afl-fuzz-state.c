@@ -142,6 +142,13 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->havoc_prof =
       (struct havoc_profile *)ck_alloc(sizeof(struct havoc_profile));
 
+  afl->frameshift_index_buffer = NULL;
+  afl->fs_curr_meta = NULL;
+  afl->fs_stats.found = 0;
+  afl->fs_stats.searched = 0;
+  afl->fs_stats.search_tests = 0;
+  afl->fs_stats.total_time_ms = 0;
+
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
@@ -765,6 +772,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
               }
 
             }
+
+          } else if (!strncmp(env, "AFL_FRAMESHIFT_ENABLED",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_frameshift_enabled =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           }
 
