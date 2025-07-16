@@ -292,7 +292,9 @@ fprintf(stderr, "x\n");
 
 fs_meta_t *fs_new_meta(u32 size) {
 
+  fprintf(stderr, "fs_new_meta\n");
   fs_meta_t *meta = malloc(sizeof(fs_meta_t));
+  fprintf(stderr, "%p", meta);
   meta->rel_count = 0;
   meta->rel_capacity = FRAMESHIFT_INITIAL_CAPACITY;
   meta->relations = malloc(sizeof(fs_relation_t) * meta->rel_capacity);
@@ -300,6 +302,7 @@ fs_meta_t *fs_new_meta(u32 size) {
   meta->blocked_points_map = malloc(size);
   memset(meta->blocked_points_map, 0, size);
 
+  fprintf(stderr, "done\n");
   return meta;
 
 }
@@ -466,6 +469,7 @@ void frameshift_stage(afl_state_t *afl) {
 
   }
 
+  fprintf(stderr, "b %p", afl->frameshift_index_buffer);
   u32 *index_buf = afl->frameshift_index_buffer;
   u32  index_count = 0;
 
@@ -473,6 +477,7 @@ void frameshift_stage(afl_state_t *afl) {
   u32 len = afl->queue_cur->len;
 
   u8 *scratch = malloc(len + 0x100);  // We will at most shift by 0xff
+fprintf(stderr, "s %p\n", scratch);
 
   // Print out
 #ifdef FRAMESHIFT_DEBUG
@@ -492,7 +497,9 @@ void frameshift_stage(afl_state_t *afl) {
   u32 map_size = afl->fsrv.map_size;
 
   // Compute coverage of this testcase.
+fprintf(stderr, "l0\n");
   lightweight_run(afl, buf, len);
+fprintf(stderr, "l1\n");
   for (u32 i = 0; i < map_size; i++) {
 
     if (trace_bits[i] > 0) { index_buf[index_count++] = i; }
@@ -502,6 +509,7 @@ void frameshift_stage(afl_state_t *afl) {
   // Compute base coverage for an invalid testcase.
   // Keep only indices that are found in the current testcase and not the base.
   lightweight_run(afl, "a", 1);
+fprintf(stderr, "l2\n");
   u32 write_idx = 0;
   for (u32 i = 0; i < index_count; i++) {
 
@@ -523,6 +531,7 @@ void frameshift_stage(afl_state_t *afl) {
   u32  inflection_points_capacity = 128;
   u32 *inflection_points = calloc(inflection_points_capacity, sizeof(u32));
 
+fprintf(stderr, "i %p\n", inflection_points);
   // Outer loop, run at most max_iterations times.
   for (u32 i = 0; i < FRAMESHIFT_MAX_ITERS; i++) {
 
@@ -719,6 +728,7 @@ void frameshift_stage(afl_state_t *afl) {
     }
 
   }
+  fprintf(stderr, "fooobar\n");
 
   u64 time_end = get_cur_time();
 
