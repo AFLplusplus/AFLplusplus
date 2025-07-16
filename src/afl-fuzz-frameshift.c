@@ -1,7 +1,7 @@
 
 #include "afl-fuzz.h"
 
-#define FRAMESHIFT_DEBUG 1
+// #define FRAMESHIFT_DEBUG 1
 
 #define FRAMESHIFT_INITIAL_CAPACITY 128
 
@@ -444,7 +444,7 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
 
 void frameshift_stage(afl_state_t *afl) {
 
-  printf("Frameshift stage\n");
+  // printf("Frameshift stage\n");
 
   u64 time_start = get_cur_time();
 
@@ -664,11 +664,13 @@ void frameshift_stage(afl_state_t *afl) {
 
         }
 
-        printf(
-            "[FS] Found relation: pos=%u size=%u le=%u shift=%u value=%u "
-            "anchor=%u insert=%u (loss: %d recover: %.2f%%)\n",
-            field_pos, size, le, shift_amount, curr_size, potential_rel.anchor,
-            potential_rel.insert, loss_count, curr_recover);
+        /*
+                printf(
+                    "[FS] Found relation: pos=%u size=%u le=%u shift=%u value=%u
+           " "anchor=%u insert=%u (loss: %d recover: %.2f%%)\n", field_pos,
+           size, le, shift_amount, curr_size, potential_rel.anchor,
+                    potential_rel.insert, loss_count, curr_recover);
+        */
 
         potential_rel.val = curr_size;
         fs_add_relation(meta, &potential_rel);
