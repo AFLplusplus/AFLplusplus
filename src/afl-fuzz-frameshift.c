@@ -153,25 +153,27 @@ void fs_add_relation(fs_meta_t *meta, fs_relation_t *rel) {
 
 void fs_save(fs_meta_t *meta) {
 
-  // printf("Saving metadata\n");
+  fprintf(stderr, "Saving metadata\n");
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     fs_relation_t *rel = &meta->relations[i];
     rel_save(rel);
 
   }
+  fprintf(stderr, "done\n");
 
 }
 
 void fs_restore(fs_meta_t *meta) {
 
-  // printf("Restoring metadata\n");
+  fprintf(stderr, "Restoring metadata\n");
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     fs_relation_t *rel = &meta->relations[i];
     rel_restore(rel);
 
   }
+  fprintf(stderr, "done\n");
 
 }
 
@@ -182,7 +184,7 @@ void fs_restore(fs_meta_t *meta) {
 int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size,
                     u8 ignore_invalid) {
 
-  // printf("Inserting %llu at %llu\n", data_size, idx);
+  fprintf(stderr, "Inserting %llu at %llu\n", data_size, idx);
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     if (meta->relations[i].enabled) {
@@ -208,13 +210,14 @@ int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size,
 
   }
 
+  fprintf(stderr, "done\n");
   return 0;
 
 }
 
 void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size) {
 
-  // printf("Deleting %llu at %llu\n", data_size, idx);
+  fprintf(stderr, "Deleting %llu at %llu\n", data_size, idx);
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     if (meta->relations[i].enabled) {
@@ -230,11 +233,13 @@ void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size) {
     }
 
   }
+  fprintf(stderr, "done\n");
 
 }
 
 void fs_sanitize(fs_meta_t *meta, u8 *buf) {
 
+  fprintf(stderr, "fs_sanitize\n");
   // Apply the relations in reverse order.
   for (u32 i = meta->rel_count - 1; i != (u32)-1; i--) {
 
@@ -243,12 +248,13 @@ void fs_sanitize(fs_meta_t *meta, u8 *buf) {
     rel_apply(buf, &meta->relations[i]);
 
   }
+  fprintf(stderr, "done\n");
 
 }
 
 void fs_clone_meta(afl_state_t *afl) {
 
-  // printf("Cloning metadata\n");
+  fprintf(stderr, "Cloning metadata\n");
   fs_meta_t *meta = afl->queue_cur->fs_meta;
   fs_meta_t *fs_curr_meta = afl->fs_curr_meta;
   if (unlikely(!fs_curr_meta)) {
@@ -264,6 +270,7 @@ void fs_clone_meta(afl_state_t *afl) {
   }
 
   // Copy relation data over.
+fprintf(stderr, "x\n");
   if (fs_curr_meta->rel_capacity < meta->rel_count) {
 
     // Increase capacity if needed.
@@ -279,6 +286,7 @@ void fs_clone_meta(afl_state_t *afl) {
 
   // Blocked points will be read only after this, so we can shallow copy.
   fs_curr_meta->blocked_points_map = meta->blocked_points_map;
+  fprintf(stderr, "done\n");
 
 }
 
@@ -388,6 +396,8 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
   u32 insertion = anchor + curr_size;
   if (insertion > len) { return; }
 
+  fprintf(stderr, "check_anchor\n");
+
   // Construct testcase with valid insertion.
   memcpy(scratch, buf, insertion);
   memset(scratch + insertion, 0x41, shift_amount);
@@ -428,8 +438,8 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
 
   double recover_pct = (double)recover_count / loss_count;
 
-  // printf("   -> Anchor: %u, Insertion: %u, Recovery: %.2f%%\n", anchor,
-  // insertion, recover_pct * 100);
+  fprintf(stderr, "   -> Anchor: %u, Insertion: %u, Recovery: %.2f%%\n", anchor,
+  insertion, recover_pct * 100);
 
   // Update the best relation if we have a better recovery.
   if (recover_pct > *curr_recover) {
@@ -439,12 +449,13 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
     *curr_recover = recover_pct;
 
   }
+  fprintf(stderr, "done\n");
 
 }
 
 void frameshift_stage(afl_state_t *afl) {
 
-  // printf("Frameshift stage\n");
+  fprintf(stderr, "Frameshift stage\n");
 
   u64 time_start = get_cur_time();
 
@@ -715,6 +726,8 @@ void frameshift_stage(afl_state_t *afl) {
 
   afl->fs_stats.searched += 1;
   if (meta->rel_count > 0) { afl->fs_stats.found += 1; }
+
+  fprintf(stderr, "done\n");
 
 }
 
