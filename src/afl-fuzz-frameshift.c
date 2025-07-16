@@ -473,7 +473,7 @@ void frameshift_stage(afl_state_t *afl) {
   u32 *index_buf = afl->frameshift_index_buffer;
   u32  index_count = 0;
 
-  u8 *buf = afl->queue_cur->testcase_buf;
+  u8 *buf = queue_testcase_get(afl, afl->queue_cur);
   u32 len = afl->queue_cur->len;
 
   u8 *scratch = malloc(len + 0x100);  // We will at most shift by 0xff
