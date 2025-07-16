@@ -1,7 +1,7 @@
 
 #include "afl-fuzz.h"
 
-// #define FRAMESHIFT_DEBUG 1
+#define FRAMESHIFT_DEBUG 1
 
 #define FRAMESHIFT_INITIAL_CAPACITY 128
 
@@ -294,7 +294,7 @@ fs_meta_t *fs_new_meta(u32 size) {
 
   fprintf(stderr, "fs_new_meta\n");
   fs_meta_t *meta = malloc(sizeof(fs_meta_t));
-  fprintf(stderr, "%p", meta);
+  fprintf(stderr, "%p\n", meta);
   meta->rel_count = 0;
   meta->rel_capacity = FRAMESHIFT_INITIAL_CAPACITY;
   meta->relations = malloc(sizeof(fs_relation_t) * meta->rel_capacity);
@@ -469,7 +469,7 @@ void frameshift_stage(afl_state_t *afl) {
 
   }
 
-  fprintf(stderr, "b %p", afl->frameshift_index_buffer);
+  fprintf(stderr, "b %p\n", afl->frameshift_index_buffer);
   u32 *index_buf = afl->frameshift_index_buffer;
   u32  index_count = 0;
 
@@ -481,7 +481,7 @@ fprintf(stderr, "s %p\n", scratch);
 
   // Print out
 #ifdef FRAMESHIFT_DEBUG
-  printf("[FS] Input buffer: ");
+  fprintf(stderr, "[FS] Input buffer: ");
   print_buffer(buf, len);
 #endif
 
@@ -497,7 +497,7 @@ fprintf(stderr, "s %p\n", scratch);
   u32 map_size = afl->fsrv.map_size;
 
   // Compute coverage of this testcase.
-fprintf(stderr, "l0\n");
+fprintf(stderr, "l0 %p %u\n", buf, len);
   lightweight_run(afl, buf, len);
 fprintf(stderr, "l1\n");
   for (u32 i = 0; i < map_size; i++) {
