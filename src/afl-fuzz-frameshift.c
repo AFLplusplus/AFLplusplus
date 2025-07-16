@@ -477,7 +477,7 @@ void frameshift_stage(afl_state_t *afl) {
   u32 len = afl->queue_cur->len;
 
   u8 *scratch = malloc(len + 0x100);  // We will at most shift by 0xff
-fprintf(stderr, "s %p\n", scratch);
+fprintf(stderr, "s %p - %p %u\n", scratch, buf, len);
 
   // Print out
 #ifdef FRAMESHIFT_DEBUG
